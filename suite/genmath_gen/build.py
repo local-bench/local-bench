@@ -12,86 +12,70 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import random
+import os
 import sys
-from collections import defaultdict
-from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeAlias
 
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from genmath_gen import TEMPLATES, Template, answer_to_string
+from genmath_gen.itemsets import (
+    DEFAULT_PRIVATE_SEED,
+    PRIVATE_DIR_NAME,
+    PRIVATE_FILE,
+    PRIVATE_LOCK_FILE,
+    PRIVATE_SEED_ENV,
+    JsonObject,
+    build_itemsets,
+    build_private_sentinel,
+    jsonl_bytes,
+)
 
 DEFAULT_SEED = 20260612
 ROOT = Path(__file__).resolve().parents[2]
 STANDARD_FILE = "genmath_standard.jsonl"
 QUICK_FILE = "genmath_quick.jsonl"
-CATEGORY_ORDER = (
-    "arithmetic",
-    "number_theory",
-    "algebra",
-    "combinatorics",
-    "probability",
-    "geometry",
-    "rates_word",
+DEFAULT_PRIVATE_SEED_SOURCE = (
+    f"{PRIVATE_SEED_ENV} was not set; used bundled default private seed constant. "
+    f"Production should provide {PRIVATE_SEED_ENV} instead of relying on the bundled default."
 )
-DIFFICULTY_ORDER = ("easy", "medium", "hard")
-JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
-JsonObject: TypeAlias = dict[str, JsonValue]
+ENV_PRIVATE_SEED_SOURCE = f"{PRIVATE_SEED_ENV} environment variable was set for this local build."
+EXPLICIT_PRIVATE_SEED_SOURCE = "private seed was supplied directly to build_files for this build."
 
 
 @dataclass(frozen=True, slots=True)
-class GeneratedItemsets:
-    """Generated standard and quick item rows."""
-
-    standard: list[JsonObject]
-    quick: list[JsonObject]
+class PrivateSeedConfig:
+    seed: int
+    source: str
 
 
-def build_itemsets(seed: int) -> GeneratedItemsets:
-    """Generate standard and quick genmath item sets."""
-    standard: list[JsonObject] = []
-    for template_index, template in enumerate(TEMPLATES):
-        for instance_index in range(1, 3):
-            standard.append(_make_item(template, seed, template_index, instance_index))
-    quick_names = _quick_template_names(TEMPLATES)
-    quick = [item for item in standard if str(item["template"]) in quick_names]
-    return GeneratedItemsets(standard=standard, quick=quick)
+@dataclass(frozen=True, slots=True)
+class PrivateSeedConfigError(ValueError):
+    env_var: str
+    raw_value: str
+    reason: str
+
+    def __str__(self) -> str:
+        return f"{self.env_var} {self.reason}: {self.raw_value!r}"
 
 
-def jsonl_bytes(rows: Iterable[Mapping[str, JsonValue]]) -> bytes:
-    """Serialize rows to canonical JSONL bytes."""
-    payload = "".join(
-        json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
-        for row in rows
-    )
-    return payload.encode("utf-8")
-
-
-def build_files(seed: int = DEFAULT_SEED, repo_root: Path | None = None) -> None:
-    """Write generated files, lock entries, suite entry, and review document."""
+def build_files(seed: int = DEFAULT_SEED, repo_root: Path | None = None, private_seed: int | None = None) -> None:
     root = repo_root or ROOT
     suite_dir = root / "suite" / "v0"
-    docs_dir = root / "docs"
-    template_dir = suite_dir / "templates"
     itemsets = build_itemsets(seed)
+    private_seed_config = _private_seed_config(public_seed=seed, private_seed=private_seed)
+    private_items = build_private_sentinel(itemsets.standard, private_seed_config.seed)
 
     suite_dir.mkdir(parents=True, exist_ok=True)
-    docs_dir.mkdir(parents=True, exist_ok=True)
-    template_dir.mkdir(parents=True, exist_ok=True)
 
     _write_bytes(suite_dir / STANDARD_FILE, jsonl_bytes(itemsets.standard))
     _write_bytes(suite_dir / QUICK_FILE, jsonl_bytes(itemsets.quick))
-    (template_dir / "genmath.txt").write_text("{statement}", encoding="utf-8", newline="\n")
 
     standard_entry = _lock_entry(suite_dir / STANDARD_FILE, len(itemsets.standard), seed)
     quick_entry = _lock_entry(suite_dir / QUICK_FILE, len(itemsets.quick), seed)
     _write_json(suite_dir / "itemsets.lock.json", _updated_lock(suite_dir, standard_entry, quick_entry))
-    _write_json(suite_dir / "suite.json", _updated_suite(suite_dir, standard_entry, quick_entry))
-    (docs_dir / "genmath-review.md").write_text(_review_doc(seed), encoding="utf-8", newline="\n")
+    _write_private_files(suite_dir, private_items, private_seed_config.source)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,60 +87,52 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _make_item(template: Template, seed: int, template_index: int, instance_index: int) -> JsonObject:
-    rng = random.Random(seed * 1_000_003 + template_index * 101 + instance_index)
-    params = template.sample(rng)
-    answer = template.answer(params)
-    return {
-        "id": f"genmath-v0-{template.name}-{instance_index}",
-        "template": template.name,
-        "category": template.category,
-        "difficulty": template.difficulty,
-        "statement": template.render(params),
-        "answer": answer_to_string(answer),
-        "params": dict(params),
-    }
-
-
-def _quick_template_names(templates: Iterable[Template]) -> set[str]:
-    grouped: dict[str, list[Template]] = defaultdict(list)
-    for template in templates:
-        grouped[template.category].append(template)
-
-    quotas = {
-        "arithmetic": 3,
-        "number_theory": 3,
-        "algebra": 3,
-        "combinatorics": 3,
-        "probability": 3,
-        "geometry": 3,
-        "rates_word": 2,
-    }
-    selected: set[str] = set()
-    for category in CATEGORY_ORDER:
-        selected.update(_balanced_category_pick(grouped[category], quotas[category]))
-    return selected
-
-
-def _balanced_category_pick(templates: list[Template], quota: int) -> list[str]:
-    by_difficulty = {
-        difficulty: sorted(
-            [template for template in templates if template.difficulty == difficulty],
-            key=lambda template: template.name,
-        )
-        for difficulty in DIFFICULTY_ORDER
-    }
-    selected: list[str] = []
-    while len(selected) < quota:
-        for difficulty in ("medium", "easy", "hard"):
-            candidates = by_difficulty[difficulty]
-            if candidates and len(selected) < quota:
-                selected.append(candidates.pop(0).name)
-    return selected
-
-
 def _write_bytes(path: Path, payload: bytes) -> None:
     path.write_bytes(payload)
+
+
+def _write_private_files(suite_dir: Path, private_items: list[JsonObject], seed_source: str) -> None:
+    private_dir = suite_dir / PRIVATE_DIR_NAME
+    private_dir.mkdir(parents=True, exist_ok=True)
+    sentinel_path = private_dir / PRIVATE_FILE
+    _write_bytes(sentinel_path, jsonl_bytes(private_items))
+    _write_json(
+        private_dir / PRIVATE_LOCK_FILE,
+        {
+            "item_count": len(private_items),
+            "seed_source": seed_source,
+            "sha256": hashlib.sha256(sentinel_path.read_bytes()).hexdigest(),
+        },
+    )
+
+
+def _private_seed_config(public_seed: int, private_seed: int | None) -> PrivateSeedConfig:
+    if private_seed is not None:
+        return _checked_private_seed(public_seed, private_seed, EXPLICIT_PRIVATE_SEED_SOURCE)
+
+    raw_seed = os.environ.get(PRIVATE_SEED_ENV)
+    if raw_seed is None:
+        return _checked_private_seed(public_seed, DEFAULT_PRIVATE_SEED, DEFAULT_PRIVATE_SEED_SOURCE)
+
+    try:
+        parsed_seed = int(raw_seed)
+    except ValueError as exc:
+        raise PrivateSeedConfigError(
+            env_var=PRIVATE_SEED_ENV,
+            raw_value=raw_seed,
+            reason="must be an integer",
+        ) from exc
+    return _checked_private_seed(public_seed, parsed_seed, ENV_PRIVATE_SEED_SOURCE)
+
+
+def _checked_private_seed(public_seed: int, private_seed: int, source: str) -> PrivateSeedConfig:
+    if private_seed == public_seed:
+        raise PrivateSeedConfigError(
+            env_var=PRIVATE_SEED_ENV,
+            raw_value="<redacted>",
+            reason="must differ from the public seed",
+        )
+    return PrivateSeedConfig(seed=private_seed, source=source)
 
 
 def _lock_entry(path: Path, count: int, seed: int) -> JsonObject:
@@ -176,31 +152,6 @@ def _updated_lock(suite_dir: Path, standard: JsonObject, quick: JsonObject) -> J
     return {"files": next_files}
 
 
-def _updated_suite(suite_dir: Path, standard: JsonObject, quick: JsonObject) -> JsonObject:
-    suite = _read_json(suite_dir / "suite.json")
-    benches = suite.get("benches")
-    next_benches = dict(benches) if isinstance(benches, dict) else {}
-    next_benches["genmath"] = {
-        "chance_correction_baseline": 0.0,
-        "decoding": {"max_tokens": 8192, "temperature": 0},
-        "itemsets": {
-            "quick": _itemset_spec(QUICK_FILE, quick),
-            "standard": _itemset_spec(STANDARD_FILE, standard),
-        },
-        "lane_caps": {},
-        "template": "templates/genmath.txt",
-    }
-    return {"benches": next_benches, "version": str(suite.get("version") or "suite-v0")}
-
-
-def _itemset_spec(filename: str, entry: Mapping[str, JsonValue]) -> JsonObject:
-    return {
-        "file": filename,
-        "item_count": int(entry["item_count"]),
-        "sha256": str(entry["sha256"]),
-    }
-
-
 def _read_json(path: Path) -> JsonObject:
     if not path.exists():
         return {}
@@ -214,46 +165,6 @@ def _write_json(path: Path, payload: JsonObject) -> None:
         encoding="utf-8",
         newline="\n",
     )
-
-
-def _review_doc(seed: int) -> str:
-    lines = [
-        "# Generated Math Review",
-        "",
-        f"Seed: {seed}",
-        f"Template count: {len(TEMPLATES)}",
-        "",
-    ]
-    for index, template in enumerate(TEMPLATES):
-        rng = random.Random(seed * 2_000_003 + index)
-        params = template.sample(rng)
-        answer = template.answer(params)
-        lines.extend(
-            [
-                f"## {template.name}",
-                "",
-                f"- category: {template.category}",
-                f"- difficulty: {template.difficulty}",
-                f"- sample: {template.render(params)}",
-                f"- answer: {answer_to_string(answer)}",
-            ]
-        )
-        brute_line = _bruteforce_review_line(template, seed, index)
-        if brute_line:
-            lines.append(f"- {brute_line}")
-        lines.append("")
-    return "\n".join(lines)
-
-
-def _bruteforce_review_line(template: Template, seed: int, template_index: int) -> str | None:
-    if template.brute_force is None:
-        return None
-    instances = 50
-    for offset in range(instances):
-        params = template.sample(random.Random(seed * 3_000_001 + template_index * 211 + offset))
-        if template.answer(params) != template.brute_force(params):
-            raise AssertionError(f"brute-force check failed for {template.name}")
-    return f"brute-force verified: yes/{instances}-instances"
 
 
 if __name__ == "__main__":
