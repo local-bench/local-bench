@@ -10,6 +10,7 @@ from localbench._types import ItemResult, JsonValue, Usage
 from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.mcq import score_mcq_detailed
+from localbench.scoring.signed_score import signed_score
 
 
 class ScoredItem(TypedDict):
@@ -75,8 +76,6 @@ def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggr
     """Aggregate item-level correctness into benchmark metrics."""
     n = len(items)
     raw_accuracy = sum(1 for item in items if item["correct"]) / n if n else 0.0
-    denominator = 1.0 - baseline
-    corrected = (raw_accuracy - baseline) / denominator if denominator > 0 else 0.0
     return {
         "n": n,
         "n_errors": sum(1 for item in items if item["error"] is not None),
@@ -88,7 +87,7 @@ def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggr
             and item["extracted"] is None
         ),
         "raw_accuracy": raw_accuracy,
-        "chance_corrected": max(0.0, corrected),
+        "chance_corrected": signed_score(raw_accuracy, chance=baseline),
     }
 
 

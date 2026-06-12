@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 from typing import TypeAlias
 
 import pytest
@@ -78,6 +79,70 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
     )
 
 
+def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
+    # Given a synthetic run whose stored chance-corrected values are stale and clamped.
+    builder = _build_data_module()
+    paths = _write_synthetic_pipeline_inputs(tmp_path, [_synthetic_item("genmath-v0-product_minus_offset-1", "genmath", True), _synthetic_item("genmath-v0-average_of_five-1", "genmath", False, error="ResponseParseError: missing content"), _synthetic_item("102", "ifeval", True), _synthetic_item("127", "ifeval", None), _synthetic_item("136", "mmlu_pro", True), _synthetic_item("221", "mmlu_pro", False)])
+
+    # When the web data pipeline builds static JSON from scored items.
+    builder.build_static_data(paths["sources"], paths["out"], iters=300)
+
+    # Then point estimates and CIs count errors/no-answers as incorrect.
+    detail = _only_run_detail(paths["out"])
+    axes = _object(detail["axes"])
+    genmath = _object(axes["genmath"])
+    ifeval = _object(axes["ifeval"])
+    composite = _object(detail["composite"])
+    assert genmath["point_raw"] == pytest.approx(0.5)
+    assert genmath["hi_raw"] < 1.0
+    assert ifeval["point_raw"] == pytest.approx(0.5)
+    assert ifeval["hi_raw"] < 1.0
+    assert ifeval["n_no_answer"] == 1
+    assert genmath["n_errors"] == 1
+    assert composite["point_raw"] == pytest.approx((0.5 + 0.5 + (0.5 - 0.1) / 0.9) / 3)
+    assert isinstance(detail["data_warnings"], list)
+    assert detail["data_warnings"]
+
+
+def test_build_data_when_items_have_suite_metadata_uses_real_strata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given genmath items whose suite metadata resolves to different difficulty strata.
+    builder = _build_data_module()
+    from localbench.scoring import bootstrap, metadata
+
+    original_ci = bootstrap.per_bench_ci
+    original_stratum = metadata.stratum_for_item
+    captured_strata: list[tuple[str, ...]] = []
+    stratum_calls: list[tuple[str, str, str]] = []
+
+    def recording_ci(correct: list[bool], strata: list[str], *, iters: int, seed: int) -> dict[str, float]:
+        captured_strata.append(tuple(strata))
+        return original_ci(correct, strata, iters=iters, seed=seed)
+
+    def recording_stratum(bench: str, item_id: str, item: JsonObject) -> str:
+        stratum = original_stratum(bench, item_id, item)
+        stratum_calls.append((bench, item_id, stratum))
+        return stratum
+
+    monkeypatch.setattr(bootstrap, "per_bench_ci", recording_ci)
+    monkeypatch.setattr(metadata, "stratum_for_item", recording_stratum)
+    paths = _write_synthetic_pipeline_inputs(tmp_path, [_synthetic_item("genmath-v0-product_minus_offset-1", "genmath", True), _synthetic_item("genmath-v0-average_of_five-1", "genmath", False), _synthetic_item("102", "ifeval", True), _synthetic_item("127", "ifeval", False), _synthetic_item("136", "mmlu_pro", True), _synthetic_item("221", "mmlu_pro", False)])
+
+    # When the web data pipeline computes per-bench intervals.
+    builder.build_static_data(paths["sources"], paths["out"], iters=50)
+
+    # Then genmath uses category|difficulty|template strata from scoring metadata.
+    genmath_strata = captured_strata[0]
+    assert genmath_strata == (
+        "category=arithmetic|difficulty=easy|template=product_minus_offset",
+        "category=arithmetic|difficulty=medium|template=average_of_five",
+    )
+    assert len(set(genmath_strata)) == 2
+    assert [call[0] for call in stratum_calls].count("genmath") == 2
+
+
 def _run_pipeline(*, iters: int) -> None:
     result = subprocess.run(
         [sys.executable, "web/build_data.py", "--iters", str(iters)],
@@ -87,6 +152,75 @@ def _run_pipeline(*, iters: int) -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def _build_data_module() -> ModuleType:
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from web import build_data
+
+    return build_data
+
+
+def _write_synthetic_pipeline_inputs(
+    tmp_path: Path,
+    items: list[JsonObject],
+) -> dict[str, Path]:
+    run_path = tmp_path / "synthetic-run.json"
+    sources_path = tmp_path / "sources.json"
+    out_dir = tmp_path / "out"
+    run_path.write_text(json.dumps(_synthetic_run(items)), encoding="utf-8")
+    sources_path.write_text(json.dumps([{"family": "Synthetic", "file": str(run_path), "kind": "community", "model_label": "Synthetic Model", "quant_label": None, "reasoning_lane": "test", "vram_footprint_gb": None}]), encoding="utf-8")
+    return {"sources": sources_path, "out": out_dir}
+
+
+def _synthetic_run(items: list[JsonObject]) -> JsonObject:
+    benches = {bench: _synthetic_aggregate(items, bench) for bench in BENCHES}
+    return {
+        "schema": "localbench-run-v0",
+        "manifest": {"suite": {"suite_version": "suite-v0", "tier": "quick"}},
+        "benches": benches,
+        "composite": 1.0,
+        "items": items,
+        "totals": {"n_items": len(items), "n_errors": sum(1 for item in items if item.get("error") is not None), "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "wall_time_seconds": 1.0, "completion_tokens_per_second": 0.0},
+        "warnings": [],
+        "output_path": "synthetic-run.json",
+    }
+
+
+def _synthetic_aggregate(items: list[JsonObject], bench: str) -> JsonObject:
+    bench_items = [item for item in items if item["bench"] == bench]
+    raw_accuracy = sum(1 for item in bench_items if item.get("correct") is True) / len(bench_items)
+    return {
+        "n": len(bench_items),
+        "n_errors": sum(1 for item in bench_items if item.get("error") is not None),
+        "n_extraction_failures": 0,
+        "raw_accuracy": raw_accuracy,
+        "chance_corrected": 1.0,
+    }
+
+
+def _synthetic_item(
+    item_id: str,
+    bench: str,
+    correct: bool | None,
+    *,
+    error: str | None = None,
+) -> JsonObject:
+    return {
+        "id": item_id,
+        "bench": bench,
+        "correct": correct,
+        "error": error,
+        "extracted": "answer" if correct is not None else None,
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
+def _only_run_detail(out_dir: Path) -> JsonObject:
+    run_paths = list((out_dir / "runs").glob("*.json"))
+    assert len(run_paths) == 1
+    return _object(_read_json(run_paths[0]))
 
 
 def _read_generated_outputs() -> dict[str, str]:

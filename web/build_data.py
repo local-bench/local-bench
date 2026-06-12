@@ -1,6 +1,3 @@
-# Defaults: equal genmath/ifeval/mmlu_pro weights, seed 20260612, 10000 bootstrap iterations,
-# single-stratum per-bench CIs because run JSONs lack per-item strata, and deterministic notes.
-
 from __future__ import annotations
 
 import importlib
@@ -8,6 +5,7 @@ import json
 import re
 import shutil
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import ModuleType
 from typing import Final, NoReturn, TypeAlias
@@ -15,6 +13,7 @@ from typing import Final, NoReturn, TypeAlias
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
+StratumForItem: TypeAlias = Callable[[str, str, Mapping[str, JsonValue]], str]
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 CLI_SRC: Final = ROOT / "cli" / "src"
@@ -46,7 +45,7 @@ def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT
 
 
 def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
-    bootstrap, signed = _scoring()
+    bootstrap, signed, stratum_for_item = _scoring()
     path = ROOT / _string(source["file"], "source.file")
     run = _object(_read_json(path), str(path))
     manifest = _object_or_empty(run.get("manifest"))
@@ -61,9 +60,9 @@ def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
     run_id = f"{slug}__{path.stem}"
     quant = _text(source.get("quant_label")) or _text(_object_or_empty(manifest.get("model")).get("quant_label"))
     lane = _text(source.get("reasoning_lane")) or _text(suite.get("lane"))
-    correct, no_answer = _correct_lists(items)
-    axes = _axes(benches, correct, no_answer, bootstrap, signed, iters)
-    composite = _composite(run, correct, bootstrap, iters)
+    correct, strata, no_answer = _scored_inputs(items, stratum_for_item)
+    axes = _axes(benches, correct, strata, no_answer, bootstrap, signed, iters)
+    composite = _composite(run, axes, correct, strata, bootstrap, signed, iters)
     tokens = _completion_token_stats(items)
     est_cost = _number_or_none(run.get("estimated_cost_usd"))
     summary = _manifest_summary(source, manifest, lane, quant)
@@ -73,31 +72,25 @@ def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
     return {"composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 
-def _axes(
-    benches: JsonObject,
-    correct: dict[str, list[bool]],
-    no_answer: dict[str, int],
-    bootstrap: ModuleType,
-    signed: ModuleType,
-    iters: int,
-) -> JsonObject:
+def _axes(benches: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], no_answer: dict[str, int], bootstrap: ModuleType, signed: ModuleType, iters: int) -> JsonObject:
     axes: JsonObject = {}
     for bench in BENCHES:
         aggregate = _object(benches.get(bench), f"benches.{bench}")
-        raw_ci = bootstrap.per_bench_ci(correct[bench], [bench] * len(correct[bench]), iters=iters, seed=SEED)
         chance = signed.chance_for_bench(bench)
-        point = _number(aggregate.get("chance_corrected"), f"{bench}.chance_corrected")
-        axes[bench] = _interval(point, signed.signed_score(raw_ci["lo"], chance=chance), signed.signed_score(raw_ci["hi"], chance=chance)) | {"n": _int(aggregate.get("n"), f"{bench}.n"), "n_errors": _int(aggregate.get("n_errors"), f"{bench}.n_errors"), "n_no_answer": _int(aggregate.get("n_extraction_failures"), f"{bench}.n_extraction_failures") + no_answer[bench], "raw_accuracy": _number(aggregate.get("raw_accuracy"), f"{bench}.raw_accuracy")}
+        raw_accuracy = _number(aggregate.get("raw_accuracy"), f"{bench}.raw_accuracy")
+        raw_ci = bootstrap.per_bench_ci(correct[bench], strata[bench], iters=iters, seed=SEED)
+        point = signed.signed_score(raw_accuracy, chance=chance)
+        axes[bench] = _interval(point, signed.signed_score(raw_ci["lo"], chance=chance), signed.signed_score(raw_ci["hi"], chance=chance)) | {"n": _int(aggregate.get("n"), f"{bench}.n"), "n_errors": _int(aggregate.get("n_errors"), f"{bench}.n_errors"), "n_no_answer": _int(aggregate.get("n_extraction_failures"), f"{bench}.n_extraction_failures") + no_answer[bench], "raw_accuracy": raw_accuracy}
     return axes
 
 
-def _composite(run: JsonObject, correct: dict[str, list[bool]], bootstrap: ModuleType, iters: int) -> JsonObject:
-    ci = bootstrap.composite_ci(correct, WEIGHTS, seed=SEED, iters=iters)
+def _composite(run: JsonObject, axes: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], bootstrap: ModuleType, signed: ModuleType, iters: int) -> JsonObject:
+    samples = {bench: {"correct": correct[bench], "strata": strata[bench], "chance": signed.chance_for_bench(bench)} for bench in BENCHES}
+    ci = bootstrap.composite_ci(samples, WEIGHTS, seed=SEED, iters=iters)
+    point = sum(_number(_object(axes[bench], bench).get("point_raw"), f"{bench}.point_raw") for bench in BENCHES) / len(BENCHES)
     stored = _number(run.get("composite"), "composite")
-    warnings: list[JsonValue] = []
-    if abs(ci["point"] - stored) > 1e-6:
-        warnings.append(f"composite_ci point {ci['point']:.12f} differs from stored composite {stored:.12f}")
-    return {"interval": _interval(stored, ci["lo"], ci["hi"]), "raw_point": stored, "warnings": warnings}
+    warnings: list[JsonValue] = [f"composite point {point:.12f} differs from stored composite {stored:.12f}"] if abs(point - stored) > 1e-6 else []
+    return {"interval": _interval(point, ci["lo"], ci["hi"]), "raw_point": point, "warnings": warnings}
 
 
 def _write_outputs(out_dir: Path, runs: list[JsonObject]) -> None:
@@ -123,21 +116,27 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject]) -> None:
     _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "models": models, "suite_version": _suite_version(runs)})
 
 
-def _correct_lists(items: list[JsonValue]) -> tuple[dict[str, list[bool]], dict[str, int]]:
+def _scored_inputs(items: list[JsonValue], stratum_for_item: StratumForItem) -> tuple[dict[str, list[bool]], dict[str, list[str]], dict[str, int]]:
     correct = {bench: [] for bench in BENCHES}
+    strata = {bench: [] for bench in BENCHES}
     no_answer = {bench: 0 for bench in BENCHES}
     for value in items:
         item = _object(value, "item")
         bench = _text(item.get("bench"))
         if bench not in correct:
             continue
+        item_id = _text(item.get("id"))
+        # Legacy/synthetic items without stable ids fall back to bench-level strata.
+        strata[bench].append(stratum_for_item(bench, item_id, item) if item_id else bench)
         if item.get("error") is not None:
+            correct[bench].append(False)
             continue
         if item.get("correct") is None:
             no_answer[bench] += 1
+            correct[bench].append(False)
             continue
         correct[bench].append(_bool(item.get("correct"), f"{bench}.correct"))
-    return correct, no_answer
+    return correct, strata, no_answer
 
 
 def _manifest_summary(source: JsonObject, manifest: JsonObject, lane: str | None, quant: str | None) -> JsonObject:
@@ -213,10 +212,12 @@ def _parse_args(argv: list[str]) -> tuple[Path, Path, int]:
     return sources, out_dir, iters
 
 
-def _scoring() -> tuple[ModuleType, ModuleType]:
+def _scoring() -> tuple[ModuleType, ModuleType, StratumForItem]:
     if str(CLI_SRC) not in sys.path:
         sys.path.insert(0, str(CLI_SRC))
-    return importlib.import_module("localbench.scoring.bootstrap"), importlib.import_module("localbench.scoring.signed_score")
+    from localbench.scoring.metadata import stratum_for_item
+
+    return importlib.import_module("localbench.scoring.bootstrap"), importlib.import_module("localbench.scoring.signed_score"), stratum_for_item
 
 
 def _write_json(path: Path, payload: JsonValue) -> None:
