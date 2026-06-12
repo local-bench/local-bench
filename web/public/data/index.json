@@ -76,6 +76,66 @@
           "raw_accuracy": 1.0
         },
         "ifeval": {
+          "hi": 96.0,
+          "hi_raw": 0.96,
+          "lo": 84.0,
+          "lo_raw": 0.84,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 90.0,
+          "point_raw": 0.9,
+          "raw_accuracy": 0.9
+        },
+        "mmlu_pro": {
+          "hi": 91.07142857142857,
+          "hi_raw": 0.9107142857142857,
+          "lo": 76.19047619047619,
+          "lo_raw": 0.7619047619047619,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 1,
+          "point": 84.12698412698411,
+          "point_raw": 0.8412698412698412,
+          "raw_accuracy": 0.8571428571428571
+        }
+      },
+      "best_run_id": "claude-sonnet-4-6__anchor-sonnet-quick",
+      "composite": {
+        "hi": 94.36507936507937,
+        "hi_raw": 0.9436507936507936,
+        "lo": 88.37830687830687,
+        "lo_raw": 0.8837830687830688,
+        "point": 91.37566137566138,
+        "point_raw": 0.9137566137566138
+      },
+      "est_cost_usd": 4.314849,
+      "family": "Claude Sonnet 4.6",
+      "kind": "anchor",
+      "lane": "api-uncapped",
+      "model_label": "Claude Sonnet 4.6",
+      "n_runs": 1,
+      "replicated": true,
+      "slug": "claude-sonnet-4-6",
+      "tier": "quick",
+      "tokens_to_answer_median": 516.5,
+      "tokens_to_answer_p95": 4420.799999999999
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 100.0,
+          "hi_raw": 1.0,
+          "lo": 100.0,
+          "lo_raw": 1.0,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 100.0,
+          "point_raw": 1.0,
+          "raw_accuracy": 1.0
+        },
+        "ifeval": {
           "hi": 100.0,
           "hi_raw": 1.0,
           "lo": 95.0,

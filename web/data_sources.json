@@ -30,6 +30,16 @@
     "vram_footprint_gb": null
   },
   {
+    "family": "Claude Sonnet 4.6",
+    "file": "runs/anchor-sonnet-quick.json",
+    "kind": "anchor",
+    "model_label": "Claude Sonnet 4.6",
+    "notes": "frontier anchor, native reasoning (high), api-uncapped lane",
+    "quant_label": null,
+    "reasoning_lane": null,
+    "vram_footprint_gb": null
+  },
+  {
     "family": "Qwen3.5",
     "file": "runs/quick-9b-var1.json",
     "kind": "community",
