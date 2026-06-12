@@ -1,5 +1,15 @@
 {
   "files": {
+    "genmath_quick.jsonl": {
+      "item_count": 40,
+      "seed": 20260612,
+      "sha256": "21425692e0604e0760816480dada2449ad9bd699844ef79ff4e3912903b5481a"
+    },
+    "genmath_standard.jsonl": {
+      "item_count": 120,
+      "seed": 20260612,
+      "sha256": "e896215edc44728f173d0a8c3f5b7144529e828cac9402c381da981a2a4101c9"
+    },
     "ifeval_quick.jsonl": {
       "build_timestamp": "2026-06-12T03:16:10Z",
       "item_count": 100,

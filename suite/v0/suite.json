@@ -1,5 +1,26 @@
 {
   "benches": {
+    "genmath": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 8192,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "genmath_quick.jsonl",
+          "item_count": 40,
+          "sha256": "21425692e0604e0760816480dada2449ad9bd699844ef79ff4e3912903b5481a"
+        },
+        "standard": {
+          "file": "genmath_standard.jsonl",
+          "item_count": 120,
+          "sha256": "e896215edc44728f173d0a8c3f5b7144529e828cac9402c381da981a2a4101c9"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/genmath.txt"
+    },
     "ifeval": {
       "chance_correction_baseline": 0.0,
       "decoding": {
