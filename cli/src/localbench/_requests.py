@@ -5,8 +5,10 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import re
 import time
 from datetime import UTC, datetime
+from typing import Final
 
 import httpx
 
@@ -21,6 +23,13 @@ from localbench.providers import (
     ProviderPayloadError,
     ReasoningEffort,
     provider_for_name,
+)
+
+_MAX_HTTP_ERROR_SNIPPET_CHARS: Final = 200
+_SECRET_PATTERNS: Final = (
+    re.compile(r"sk-[A-Za-z0-9_-]{8,}"),
+    re.compile(r"AIza[A-Za-z0-9_-]{10,}"),
+    re.compile(r"Bearer\s+[A-Za-z0-9._-]{8,}"),
 )
 
 
@@ -146,7 +155,14 @@ def http_error(response: httpx.Response) -> str:
     """Format an HTTP failure for storage in an item result."""
     body = response.text.strip()
     detail = body if body else response.reason_phrase
-    return f"HTTP {response.status_code}: {detail}"
+    return f"HTTP {response.status_code}: {_redacted_snippet(detail)}"
+
+
+def _redacted_snippet(value: str) -> str:
+    redacted = value
+    for pattern in _SECRET_PATTERNS:
+        redacted = pattern.sub("***REDACTED***", redacted)
+    return redacted[:_MAX_HTTP_ERROR_SNIPPET_CHARS]
 
 
 def backoff_seconds(attempt: int, base: float) -> float:

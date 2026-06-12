@@ -7,13 +7,13 @@ name = "localbench"
 version = "0.1.0"
 description = "Thin benchmark runner for OpenAI-compatible chat completion endpoints."
 requires-python = ">=3.11"
-dependencies = ["anyio>=4", "httpx>=0.27"]
+dependencies = ["anyio>=4", "httpx>=0.27", "langdetect>=1.0.9"]
 
 [project.scripts]
 localbench = "localbench.cli:main"
 
 [project.optional-dependencies]
-build = ["datasets>=2.20", "langdetect>=1.0.9"]
+build = ["datasets>=2.20"]
 dev = ["pytest>=8"]
 
 [tool.setuptools.package-dir]

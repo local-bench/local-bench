@@ -43,6 +43,10 @@ from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
         ("Answer: B\n\nD", 4, "B"),
         ("Reasoning...\nA\nB", 4, None),
         ("Maybe (A), but maybe (B)", 4, None),
+        ("Final answer: A or B", 4, None),
+        ("The answer is A or B", 4, None),
+        ("Final answer: C", 4, "C"),
+        ("The answer is (D).", 4, "D"),
     ],
 )
 def test_extract_choice_when_response_contains_choice_patterns(

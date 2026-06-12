@@ -44,7 +44,7 @@ def check_number_bullets(value: str, kwargs: InstructionKwargs, prompt: str) -> 
 def check_constrained_response(value: str, kwargs: InstructionKwargs, prompt: str) -> bool:
     del kwargs, prompt
     stripped = value.strip()
-    return any(option in stripped for option in _CONSTRAINED_RESPONSES)
+    return stripped in _CONSTRAINED_RESPONSES
 
 
 def check_number_highlights(value: str, kwargs: InstructionKwargs, prompt: str) -> bool:

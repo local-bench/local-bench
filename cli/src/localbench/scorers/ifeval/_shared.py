@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-import re
+import warnings
 from typing import Final
 
 from localbench.scorers.ifeval._types import InstructionKwargs, JsonValue
@@ -31,6 +31,9 @@ except ModuleNotFoundError:
 
 LESS_THAN: Final = "less than"
 AT_LEAST: Final = "at least"
+LANGDETECT_UNAVAILABLE_WARNING: Final = (
+    "langdetect is unavailable; IFEval language check is indeterminate"
+)
 
 
 def compare(actual: int, threshold: int, relation: str) -> bool:
@@ -69,9 +72,8 @@ def string_list(value: JsonValue) -> list[str]:
 
 def detect_language(value: str) -> str | None:
     if _langdetect is None:
-        if re.search(r"[A-Za-z]", value):
-            return "en"
-        return ""
+        warnings.warn(LANGDETECT_UNAVAILABLE_WARNING, RuntimeWarning, stacklevel=2)
+        return None
     try:
         return _langdetect.detect(value)
     except _LangDetectException:

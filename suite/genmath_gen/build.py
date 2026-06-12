@@ -21,7 +21,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from genmath_gen.itemsets import (
-    DEFAULT_PRIVATE_SEED,
+    DEFAULT_PRIVATE_SEED as ITEMSETS_DEFAULT_PRIVATE_SEED,
     PRIVATE_DIR_NAME,
     PRIVATE_FILE,
     PRIVATE_LOCK_FILE,
@@ -33,13 +33,10 @@ from genmath_gen.itemsets import (
 )
 
 DEFAULT_SEED = 20260612
+DEFAULT_PRIVATE_SEED = ITEMSETS_DEFAULT_PRIVATE_SEED
 ROOT = Path(__file__).resolve().parents[2]
 STANDARD_FILE = "genmath_standard.jsonl"
 QUICK_FILE = "genmath_quick.jsonl"
-DEFAULT_PRIVATE_SEED_SOURCE = (
-    f"{PRIVATE_SEED_ENV} was not set; used bundled default private seed constant. "
-    f"Production should provide {PRIVATE_SEED_ENV} instead of relying on the bundled default."
-)
 ENV_PRIVATE_SEED_SOURCE = f"{PRIVATE_SEED_ENV} environment variable was set for this local build."
 EXPLICIT_PRIVATE_SEED_SOURCE = "private seed was supplied directly to build_files for this build."
 
@@ -82,8 +79,9 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+    parser.add_argument("--private-seed", type=int, default=None)
     args = parser.parse_args(argv)
-    build_files(seed=args.seed)
+    build_files(seed=args.seed, private_seed=args.private_seed)
     return 0
 
 
@@ -112,7 +110,11 @@ def _private_seed_config(public_seed: int, private_seed: int | None) -> PrivateS
 
     raw_seed = os.environ.get(PRIVATE_SEED_ENV)
     if raw_seed is None:
-        return _checked_private_seed(public_seed, DEFAULT_PRIVATE_SEED, DEFAULT_PRIVATE_SEED_SOURCE)
+        raise PrivateSeedConfigError(
+            env_var=PRIVATE_SEED_ENV,
+            raw_value="<unset>",
+            reason="requires a private seed from the environment or an explicit private_seed argument",
+        )
 
     try:
         parsed_seed = int(raw_seed)

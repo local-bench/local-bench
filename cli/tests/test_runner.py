@@ -162,6 +162,48 @@ def test_run_benchmark_when_hard_failure_records_item_error() -> None:
     asyncio.run(scenario())
 
 
+def test_run_benchmark_when_http_error_contains_secrets_redacts_stored_error() -> None:
+    async def scenario() -> None:
+        # Given an endpoint returning a secret-bearing provider diagnostic.
+        body = (
+            "proxy echoed sk-ant-testsecret123 AIzaSyTestSecret123 "
+            "Bearer abcdefgh.12345.zyxwvut "
+            + ("x" * 300)
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, text=body)
+
+        # When running the benchmark.
+        record = await run_benchmark(
+            base_url="http://local/v1",
+            api_key=None,
+            model="demo-model",
+            items=[
+                {
+                    "id": "bad-item",
+                    "messages": [{"role": "user", "content": "run"}],
+                    "sampling_params": {},
+                    "max_tokens": 4,
+                },
+            ],
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then the stored error contains only a redacted bounded snippet.
+        error = record["results"][0]["error"]
+        assert isinstance(error, str)
+        assert error.startswith("HTTP 400: ")
+        assert len(error.removeprefix("HTTP 400: ")) <= 200
+        assert error.count("***REDACTED***") == 3
+        assert "sk-ant-testsecret123" not in error
+        assert "AIzaSyTestSecret123" not in error
+        assert "Bearer abcdefgh.12345.zyxwvut" not in error
+        assert body not in error
+
+    asyncio.run(scenario())
+
+
 def test_run_benchmark_when_many_items_respects_concurrency_limit() -> None:
     async def scenario() -> None:
         # Given an endpoint that tracks overlapping requests.

@@ -9,6 +9,8 @@ from collections import Counter
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 SUITE_DIR = ROOT / "suite"
 if str(SUITE_DIR) not in sys.path:
@@ -76,6 +78,36 @@ def test_build_files_when_private_enabled_writes_gitignored_private_outputs(tmp_
     assert lock_payload["item_count"] == 60
     assert lock_payload["sha256"] == hashlib.sha256(sentinel_path.read_bytes()).hexdigest()
     assert "seed" not in lock_payload
+    assert str(DEFAULT_PRIVATE_SEED) not in lock_text
+
+
+def test_build_files_when_private_seed_missing_raises(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    # Given a private sentinel build with no explicit or environment private seed.
+    monkeypatch.delenv(genmath_build.PRIVATE_SEED_ENV, raising=False)
+
+    # When building generated-math files.
+    with pytest.raises(genmath_build.PrivateSeedConfigError, match="requires a private seed"):
+        build_files(seed=DEFAULT_SEED, repo_root=tmp_path)
+
+
+def test_build_files_when_private_seed_env_set_writes_private_outputs(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    # Given a private sentinel seed from the environment.
+    monkeypatch.setenv(genmath_build.PRIVATE_SEED_ENV, str(DEFAULT_PRIVATE_SEED))
+
+    # When building generated-math files.
+    build_files(seed=DEFAULT_SEED, repo_root=tmp_path)
+
+    # Then the private lock records the environment seed source without the seed value.
+    lock_path = tmp_path / "suite" / "v0" / "private" / PRIVATE_LOCK_FILE
+    lock_payload = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock_text = json.dumps(lock_payload, sort_keys=True)
+    assert lock_payload["seed_source"] == genmath_build.ENV_PRIVATE_SEED_SOURCE
     assert str(DEFAULT_PRIVATE_SEED) not in lock_text
 
 

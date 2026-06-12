@@ -6,6 +6,7 @@ from typing import TypeAlias
 
 import pytest
 
+from localbench.scorers.ifeval import _checks_format, _shared
 from localbench.scorers.ifeval import score_ifeval
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
@@ -124,3 +125,61 @@ def test_score_ifeval_when_multiple_instructions_are_mixed() -> None:
         "per_instruction": [True, False],
         "strict": False,
     }
+
+
+def test_score_ifeval_when_response_language_uses_langdetect() -> None:
+    # Given a language-constrained IFEval item.
+    prompt_item = _item("language:response_language", {"language": "en"})
+
+    # When scoring clearly English and clearly French responses.
+    passing = score_ifeval(
+        prompt_item,
+        "This is a clear English response written with several ordinary English words.",
+    )
+    failing = score_ifeval(
+        prompt_item,
+        "Ceci est une reponse francaise ecrite avec plusieurs mots ordinaires.",
+    )
+
+    # Then the installed language detector decides the language check.
+    assert passing == {
+        "follow_all": True,
+        "per_instruction": [True],
+        "strict": True,
+    }
+    assert failing == {
+        "follow_all": False,
+        "per_instruction": [False],
+        "strict": False,
+    }
+
+
+def test_detect_language_when_langdetect_is_unavailable_warns_and_is_indeterminate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given the optional language detector is unavailable at runtime.
+    monkeypatch.setattr(_shared, "_langdetect", None)
+
+    # When detecting a response that the former ASCII heuristic classified as English.
+    with pytest.warns(RuntimeWarning, match="langdetect is unavailable"):
+        detected = _shared.detect_language("ASCII-only English text")
+
+    # Then the language is explicit indeterminate instead of silently guessed.
+    assert detected is None
+
+
+def test_constrained_response_when_allowed_phrase_has_extra_text_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a constrained-response check with two exact allowed phrases.
+    monkeypatch.setattr(_checks_format, "_CONSTRAINED_RESPONSES", ("Answer: yes", "Answer: no"))
+
+    # When checking exact and expanded responses.
+    exact = _checks_format.check_constrained_response("Answer: yes", {}, "")
+    combined = _checks_format.check_constrained_response("Answer: yes and no", {}, "")
+    trailing = _checks_format.check_constrained_response("...Answer: yes...", {}, "")
+
+    # Then only stripped exact membership satisfies the instruction.
+    assert exact is True
+    assert combined is False
+    assert trailing is False

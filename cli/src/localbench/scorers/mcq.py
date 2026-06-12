@@ -8,9 +8,11 @@ from typing import Final, TypedDict
 _LETTERS: Final = "ABCDEFGHIJ"
 _TAIL_CHARS: Final = 600
 
+_MARKER_SPAN_PATTERNS: Final = (
+    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*(.*?)(?=(?:\bfinal\s+answer\s*(?:is\s*)?(?::|=)?|\banswer\s*(?:is\s*)?(?::|=)?|\n|$))",
+    r"\banswer\s*(?:is\s*)?(?::|=)?\s*(.*?)(?=(?:\bfinal\s+answer\s*(?:is\s*)?(?::|=)?|\banswer\s*(?:is\s*)?(?::|=)?|\n|$))",
+)
 _PATTERN_GROUPS: Final = (
-    (r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])\s*[\)\]]?(?![A-Z])", None, False),
-    (r"\banswer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])\s*[\)\]]?(?![A-Z])", None, False),
     (r"\\boxed\s*\{\s*([A-J])\s*\}", None, False),
     (r"\*\*\s*([A-J])\s*\*\*", None, False),
     (r"(?m)^\s*[\(\[]?\s*([A-J])\s*[\)\]\.]?\s*$", None, True),
@@ -29,6 +31,13 @@ def extract_choice(text: str, n_options: int) -> str | None:
         return None
 
     allowed = set(_LETTERS[:n_options])
+    for pattern in _MARKER_SPAN_PATTERNS:
+        candidates = _matching_marker_letters(pattern, text, allowed)
+        if candidates is None:
+            return None
+        if candidates:
+            return candidates[-1]
+
     for pattern, tail_chars, conflict_on_distinct in _PATTERN_GROUPS:
         source = text if tail_chars is None else text[-tail_chars:]
         candidates = _matching_letters(pattern, source, allowed)
@@ -60,3 +69,17 @@ def _matching_letters(pattern: str, source: str, allowed: set[str]) -> list[str]
         for match in re.finditer(pattern, source, flags=re.IGNORECASE)
         if match.group(1).upper() in allowed
     ]
+
+
+def _matching_marker_letters(pattern: str, source: str, allowed: set[str]) -> list[str] | None:
+    candidates: list[str] = []
+    for match in re.finditer(pattern, source, flags=re.IGNORECASE):
+        span_letters = _matching_letters(
+            r"(?<![A-Z])[\(\[]?\s*([A-J])\s*[\)\]]?(?![A-Z])",
+            match.group(1),
+            allowed,
+        )
+        if len(set(span_letters)) > 1:
+            return None
+        candidates.extend(span_letters)
+    return candidates
