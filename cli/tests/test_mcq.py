@@ -56,6 +56,12 @@ from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
         # Adjacent alternation is genuinely ambiguous.
         ("Final answer: A and B", 10, None),
         ("answer: A/B", 10, None),
+        # A terminal comma-separated letter list = multiple answers = ambiguous;
+        # distinguished from an explanatory clause that continues past the letters.
+        ("Final answer: A, B", 10, None),
+        ("Final answer: A, B, C", 10, None),
+        ("answer: A, B.", 10, None),
+        ("(A), (B)", 4, None),
     ],
 )
 def test_extract_choice_when_response_contains_choice_patterns(

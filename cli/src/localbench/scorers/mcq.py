@@ -22,6 +22,14 @@ _PATTERN_GROUPS: Final = (
     (r"(?m)^\s*[\(\[]?\s*([A-J])\s*[\)\]\.]?\s*$", None, True),
     (r"\(([A-J])\)", _TAIL_CHARS, True),
 )
+# A terminal comma-separated letter list after the marker ("Final answer: A, B" / "answer: A, B, C")
+# is genuinely ambiguous — multiple answers for a single-choice MCQ. It is distinguished from an
+# explanatory clause ("A, B is wrong") by requiring the list to run to end-of-line (optional period).
+_TERMINAL_LIST_RE: Final = re.compile(
+    r"\b(?:final\s+answer|answer)\s*(?:is\s*)?(?::|=)?\s*"
+    r"([\(\[]?\s*[A-J]\s*[\)\]]?(?:\s*,\s*[\(\[]?\s*[A-J]\s*[\)\]]?)+)\s*\.?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
 
 
 class MCQScore(TypedDict):
@@ -35,6 +43,8 @@ def extract_choice(text: str, n_options: int) -> str | None:
         return None
 
     allowed = set(_LETTERS[:n_options])
+    if _terminal_letter_list_is_ambiguous(text, allowed):
+        return None
     for pattern in _MARKER_PATTERNS:
         marker_letter: str | None = None
         for match in re.finditer(pattern, text, flags=re.IGNORECASE):
@@ -79,3 +89,11 @@ def _matching_letters(pattern: str, source: str, allowed: set[str]) -> list[str]
         for match in re.finditer(pattern, source, flags=re.IGNORECASE)
         if match.group(1).upper() in allowed
     ]
+
+
+def _terminal_letter_list_is_ambiguous(text: str, allowed: set[str]) -> bool:
+    for match in _TERMINAL_LIST_RE.finditer(text):
+        letters = {letter.upper() for letter in re.findall(r"[A-Ja-j]", match.group(1))} & allowed
+        if len(letters) > 1:
+            return True
+    return False
