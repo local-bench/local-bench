@@ -8,9 +8,13 @@ from typing import Final, TypedDict
 _LETTERS: Final = "ABCDEFGHIJ"
 _TAIL_CHARS: Final = 600
 
-_MARKER_SPAN_PATTERNS: Final = (
-    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*(.*?)(?=(?:\bfinal\s+answer\s*(?:is\s*)?(?::|=)?|\banswer\s*(?:is\s*)?(?::|=)?|\n|$))",
-    r"\banswer\s*(?:is\s*)?(?::|=)?\s*(.*?)(?=(?:\bfinal\s+answer\s*(?:is\s*)?(?::|=)?|\banswer\s*(?:is\s*)?(?::|=)?|\n|$))",
+# Capture the answer letter immediately after the marker (group 1) plus an OPTIONAL adjacent
+# alternative letter (group 2) joined by or/and/comma/slash. Only an adjacent alternation ("A or B")
+# is treated as ambiguous; a letter mentioned later in trailing explanation ("A because B is wrong",
+# "G, not A") does NOT block extraction of the stated answer.
+_MARKER_PATTERNS: Final = (
+    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|,|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
+    r"\banswer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|,|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
 )
 _PATTERN_GROUPS: Final = (
     (r"\\boxed\s*\{\s*([A-J])\s*\}", None, False),
@@ -31,12 +35,18 @@ def extract_choice(text: str, n_options: int) -> str | None:
         return None
 
     allowed = set(_LETTERS[:n_options])
-    for pattern in _MARKER_SPAN_PATTERNS:
-        candidates = _matching_marker_letters(pattern, text, allowed)
-        if candidates is None:
-            return None
-        if candidates:
-            return candidates[-1]
+    for pattern in _MARKER_PATTERNS:
+        marker_letter: str | None = None
+        for match in re.finditer(pattern, text, flags=re.IGNORECASE):
+            first = match.group(1).upper()
+            if first not in allowed:
+                continue
+            alternative = match.group(2)
+            if alternative is not None and alternative.upper() in allowed and alternative.upper() != first:
+                return None  # adjacent alternation like "A or B" is genuinely ambiguous
+            marker_letter = first
+        if marker_letter is not None:
+            return marker_letter
 
     for pattern, tail_chars, conflict_on_distinct in _PATTERN_GROUPS:
         source = text if tail_chars is None else text[-tail_chars:]
@@ -69,17 +79,3 @@ def _matching_letters(pattern: str, source: str, allowed: set[str]) -> list[str]
         for match in re.finditer(pattern, source, flags=re.IGNORECASE)
         if match.group(1).upper() in allowed
     ]
-
-
-def _matching_marker_letters(pattern: str, source: str, allowed: set[str]) -> list[str] | None:
-    candidates: list[str] = []
-    for match in re.finditer(pattern, source, flags=re.IGNORECASE):
-        span_letters = _matching_letters(
-            r"(?<![A-Z])[\(\[]?\s*([A-J])\s*[\)\]]?(?![A-Z])",
-            match.group(1),
-            allowed,
-        )
-        if len(set(span_letters)) > 1:
-            return None
-        candidates.extend(span_letters)
-    return candidates

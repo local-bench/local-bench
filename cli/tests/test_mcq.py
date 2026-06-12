@@ -47,6 +47,13 @@ from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
         ("The answer is A or B", 4, None),
         ("Final answer: C", 4, "C"),
         ("The answer is (D).", 4, "D"),
+        # Answer stated first, another option only mentioned in trailing explanation -> extract the answer.
+        ("answer is A because B is wrong", 10, "A"),
+        ("The answer is D. Note option B is a distractor.", 10, "D"),
+        ("The correct answer is G, not A.", 10, "G"),
+        # Adjacent alternation is genuinely ambiguous.
+        ("Final answer: A and B", 10, None),
+        ("answer: A/B", 10, None),
     ],
 )
 def test_extract_choice_when_response_contains_choice_patterns(
