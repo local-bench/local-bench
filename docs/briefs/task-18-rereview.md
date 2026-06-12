@@ -1,3 +1,6 @@
+Start by running `git diff main...HEAD --stat` and then inspect the changed files (and their full diff
+via `git diff main...HEAD <file>`) — this is the surface to review.
+
 This is a RE-REVIEW of the `refactor/architecture` branch (diff vs `main`). The branch fixed the 10
 findings in docs/code-review-findings.md across 4 commits (scoring unification; honest leaderboard;
 hardening bundle; an mcq regression fix). Your job has TWO parts:
