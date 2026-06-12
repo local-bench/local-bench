@@ -1,0 +1,10 @@
+local-bench
+
+This repository includes frozen benchmark item sets derived from:
+
+- MMLU-Pro by TIGER-Lab, distributed under the MIT License.
+- IFEval by Google Research, distributed under the Apache License, Version 2.0.
+
+The IFEval checker registry and scoring behavior in
+cli/src/localbench/scorers/ifeval/ are adapted from the Google Research
+instruction_following_eval implementation.
