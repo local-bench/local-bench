@@ -1,0 +1,2 @@
+{"key":11,"prompt":"Return a JSON object with key ok.","instruction_id_list":["detectable_format:json_format"],"kwargs":[{}]}
+{"key":12,"prompt":"Return exactly two words.","instruction_id_list":["length_constraints:number_words"],"kwargs":[{"num_words":2,"relation":"equal to"}]}

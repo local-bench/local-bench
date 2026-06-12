@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from localbench.scorers.mcq import extract_choice, score_mcq
+from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
 
 
 @pytest.mark.parametrize(
@@ -25,8 +25,8 @@ from localbench.scorers.mcq import extract_choice, score_mcq
         ("The answer is catalyst.", 4, None),
         ("", 4, None),
         ("No option follows.", 4, None),
-        ("Answer: A. Later, answer: B.", 4, None),
-        (r"\boxed{A} then \boxed{B}", 4, None),
+        ("Answer: A. Later, answer: B.", 4, "B"),
+        (r"\boxed{A} then \boxed{B}", 4, "B"),
         ("Answer: C. Because of that, answer is c.", 4, "C"),
         ("Answer: D. Photosynthesis is the process.", 4, "D"),
         ("Final answer is (B).", 4, "B"),
@@ -35,10 +35,14 @@ from localbench.scorers.mcq import extract_choice, score_mcq
         ("Reasoning\n(f)", 6, "F"),
         ("Options were A, B, C. The final answer: A.", 4, "A"),
         ("The best choice is (H).", 8, "H"),
-        ("final answer: A. final answer: B.", 4, None),
+        ("final answer: A. final answer: B.", 4, "B"),
         ("Answer: B - evaporation.", 4, "B"),
         ("abc", 4, None),
         ("The answer is a.", 1, "A"),
+        ("The answer is C... wait, no, the answer is D.", 4, "D"),
+        ("Answer: B\n\nD", 4, "B"),
+        ("Reasoning...\nA\nB", 4, None),
+        ("Maybe (A), but maybe (B)", 4, None),
     ],
 )
 def test_extract_choice_when_response_contains_choice_patterns(
@@ -79,3 +83,21 @@ def test_score_mcq_when_choice_does_not_match_gold() -> None:
 
     # Then the score is wrong.
     assert result is False
+
+
+def test_score_mcq_detailed_when_answer_is_extracted() -> None:
+    # Given a response with a final answer marker.
+    # When requesting detailed MCQ scoring.
+    result = score_mcq_detailed("Final answer: c", "C", 4)
+
+    # Then both extraction and correctness are returned.
+    assert result == {"extracted": "C", "correct": True}
+
+
+def test_score_mcq_detailed_when_answer_is_missing() -> None:
+    # Given a response without a usable answer.
+    # When requesting detailed MCQ scoring.
+    result = score_mcq_detailed("No final choice.", "A", 4)
+
+    # Then missing extraction is visible and scored as wrong.
+    assert result == {"extracted": None, "correct": False}

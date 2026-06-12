@@ -23,7 +23,8 @@ missing required identity fields are flagged **non-canonical** (shown, never ran
 
   "model": {                                                   // REQUIRED for canonical (local runs)
     "family": "qwen3.6-27b",
-    "quant_label": "Q4_K_M | fp16 | awq-int4 | ...",
+    "lineage": "base | instruct | thinking | distill-of:<teacher> | merge | finetune-of:<base>",  // Michael 2026-06-12: distills etc. must be distinguishable
+    "quant_label": "Q4_K_M | fp16 | fp8 | awq-int4 | ...",
     "file_name": "qwen3.6-27b-Q4_K_M.gguf",
     "file_size_bytes": 0,
     "file_sha256": "… | UNHASHED",                             // UNHASHED allowed but → non-canonical

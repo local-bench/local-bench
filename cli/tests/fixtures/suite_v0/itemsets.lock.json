@@ -1,0 +1,16 @@
+{
+  "files": {
+    "mmlu_pro_quick.jsonl": {
+      "item_count": 3,
+      "sha256": "fixture-mmlu-quick"
+    },
+    "ifeval_quick.jsonl": {
+      "item_count": 2,
+      "sha256": "fixture-ifeval-quick"
+    },
+    "genmath_quick.jsonl": {
+      "item_count": 2,
+      "sha256": "fixture-genmath-quick"
+    }
+  }
+}

@@ -1,0 +1,3 @@
+{statement}
+
+Return only the final number.

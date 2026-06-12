@@ -1,0 +1,53 @@
+{
+  "version": "suite-fixture-v0",
+  "benches": {
+    "mmlu_pro": {
+      "chance_correction_baseline": 0.25,
+      "decoding": {
+        "max_tokens": 32,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "mmlu_pro_quick.jsonl",
+          "item_count": 3,
+          "sha256": "fixture-mmlu-quick"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/mcq_cot.txt"
+    },
+    "ifeval": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 64,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "ifeval_quick.jsonl",
+          "item_count": 2,
+          "sha256": "fixture-ifeval-quick"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/ifeval.txt"
+    },
+    "genmath": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 48,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "genmath_quick.jsonl",
+          "item_count": 2,
+          "sha256": "fixture-genmath-quick"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/genmath.txt"
+    }
+  }
+}
