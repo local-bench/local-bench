@@ -1,0 +1,199 @@
+import { z } from "zod";
+
+export const AXES = ["mmlu_pro", "ifeval", "genmath"] as const;
+
+export const AxisSchema = z.enum(AXES);
+export const ModelSlugSchema = z.string().min(1).brand<"ModelSlug">();
+export const RunIdSchema = z.string().min(1).brand<"RunId">();
+
+const JsonPrimitiveSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const PrimitiveRecordSchema = z.record(z.string(), JsonPrimitiveSchema);
+
+export const ScoreSchema = z
+  .object({
+    point: z.number(),
+    lo: z.number(),
+    hi: z.number(),
+    point_raw: z.number().optional(),
+    lo_raw: z.number().optional(),
+    hi_raw: z.number().optional(),
+  })
+  .passthrough();
+
+export const AxisScoreSchema = ScoreSchema.extend({
+  raw_accuracy: z.number(),
+  n: z.number(),
+  n_errors: z.number(),
+  n_no_answer: z.number(),
+});
+
+export const AxesSchema = z.object({
+  mmlu_pro: AxisScoreSchema,
+  ifeval: AxisScoreSchema,
+  genmath: AxisScoreSchema,
+});
+
+export const KindSchema = z.enum(["anchor", "community"]);
+
+export const GpuSchema = z.object({
+  name: z.string().nullable(),
+  vram_gb: z.number().nullable(),
+  vram_mb: z.number().nullable(),
+  driver: z.string().nullable(),
+});
+
+export const HardwareSchema = z.object({
+  gpu: GpuSchema.nullable(),
+  cpu: z.string().nullable(),
+  ram_gb: z.number().nullable(),
+  os: z.string().nullable(),
+});
+
+export const RuntimeSchema = z.object({
+  name: z.string().nullable(),
+  version: z.string().nullable(),
+  kv_cache_quant: z.string().nullable(),
+  ctx_len_configured: z.number().nullable(),
+  parallel_slots: z.number().nullable(),
+});
+
+const SamplingBenchSchema = z
+  .object({
+    max_tokens: z.number().nullable(),
+    temperature: z.number().nullable(),
+  })
+  .passthrough();
+
+export const SamplingSchema = z
+  .object({
+    by_bench: z
+      .object({
+        genmath: SamplingBenchSchema.optional(),
+        ifeval: SamplingBenchSchema.optional(),
+        mmlu_pro: SamplingBenchSchema.optional(),
+      })
+      .passthrough(),
+    min_p: z.number().nullable().optional(),
+    reasoning_effort: z.string().nullable().optional(),
+    seed: z.number().nullable().optional(),
+    temperature: z.number().nullable(),
+    thinking_mode: z.string().nullable(),
+    top_k: z.number().nullable().optional(),
+    top_p: z.number().nullable().optional(),
+  })
+  .passthrough();
+
+export const TotalsSchema = z.object({
+  n_items: z.number(),
+  n_errors: z.number(),
+  prompt_tokens: z.number(),
+  completion_tokens: z.number(),
+  total_tokens: z.number(),
+  wall_time_seconds: z.number(),
+  completion_tokens_per_second: z.number().nullable(),
+});
+
+export const IndexModelSchema = z.object({
+  slug: ModelSlugSchema,
+  model_label: z.string(),
+  family: z.string(),
+  kind: KindSchema,
+  best_run_id: RunIdSchema,
+  composite: ScoreSchema,
+  axes: AxesSchema,
+  tier: z.string(),
+  lane: z.string().nullable(),
+  n_runs: z.number(),
+  tokens_to_answer_median: z.number().nullable(),
+  tokens_to_answer_p95: z.number().nullable().optional(),
+  est_cost_usd: z.number().nullable(),
+  replicated: z.boolean(),
+});
+
+export const IndexDataSchema = z.object({
+  generated_note: z.string(),
+  suite_version: z.string(),
+  models: z.array(IndexModelSchema),
+});
+
+export const ModelRunSchema = z.object({
+  run_id: RunIdSchema,
+  quant_label: z.string().nullable(),
+  vram_footprint_gb: z.number().nullable(),
+  composite: ScoreSchema,
+  axes: AxesSchema,
+  tier: z.string(),
+  lane: z.string().nullable(),
+  tokens_to_answer_median: z.number().nullable(),
+  tokens_to_answer_p95: z.number().nullable().optional(),
+  tok_s: z.number().nullable(),
+  est_cost_usd: z.number().nullable(),
+  hardware: HardwareSchema,
+  runtime: RuntimeSchema,
+  n_items: z.number(),
+  n_errors: z.number(),
+  wall_time_seconds: z.number().nullable().optional(),
+});
+
+export const ModelDataSchema = z.object({
+  slug: ModelSlugSchema,
+  model_label: z.string(),
+  family: z.string(),
+  kind: KindSchema,
+  runs: z.array(ModelRunSchema),
+});
+
+export const ManifestSummarySchema = z.object({
+  model: z
+    .object({
+      family: z.string().nullable(),
+      file_name: z.string().nullable(),
+      file_sha256: z.string().nullable(),
+      file_size_bytes: z.number().nullable(),
+      format: z.string().nullable(),
+      runtime_reported_model: z.string().nullable(),
+    })
+    .passthrough(),
+  quant: z.string().nullable(),
+  runtime: RuntimeSchema,
+  hardware: HardwareSchema,
+  lane: z.string().nullable(),
+  thinking_mode: z.string().nullable(),
+  caps: PrimitiveRecordSchema,
+  sampling: SamplingSchema,
+});
+
+export const RunDetailSchema = z.object({
+  run_id: RunIdSchema,
+  model_label: z.string(),
+  kind: KindSchema,
+  tier: z.string(),
+  composite: ScoreSchema,
+  axes: AxesSchema,
+  worst_axis: z.object({
+    bench: AxisSchema,
+    point: z.number(),
+    point_raw: z.number(),
+  }),
+  manifest_summary: ManifestSummarySchema,
+  totals: TotalsSchema,
+  est_cost_usd: z.number().nullable(),
+  tokens_to_answer_median: z.number().nullable(),
+  tokens_to_answer_p95: z.number().nullable(),
+  item_set_hashes: z.record(z.string(), z.string()),
+  suite_version: z.string(),
+  data_warnings: z.array(z.string()).optional(),
+});
+
+export type Axis = z.infer<typeof AxisSchema>;
+export type Score = z.infer<typeof ScoreSchema>;
+export type AxisScore = z.infer<typeof AxisScoreSchema>;
+export type Kind = z.infer<typeof KindSchema>;
+export type IndexData = z.infer<typeof IndexDataSchema>;
+export type IndexModel = z.infer<typeof IndexModelSchema>;
+export type ModelData = z.infer<typeof ModelDataSchema>;
+export type ModelRun = z.infer<typeof ModelRunSchema>;
+export type RunDetail = z.infer<typeof RunDetailSchema>;
+export type RuntimeSummary = z.infer<typeof RuntimeSchema>;
+export type HardwareSummary = z.infer<typeof HardwareSchema>;
+export type PrimitiveRecord = z.infer<typeof PrimitiveRecordSchema>;

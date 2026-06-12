@@ -1,0 +1,49 @@
+import { kindLabel } from "@/lib/format";
+import type { Kind } from "@/lib/schemas";
+
+export function KindBadge({
+  kind,
+  runCount,
+}: {
+  readonly kind: Kind;
+  readonly runCount?: number;
+}) {
+  const isAnchor = kind === "anchor";
+  return (
+    <span
+      className={[
+        "inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold uppercase",
+        isAnchor
+          ? "border-amber-300/45 bg-amber-300/10 text-amber-200"
+          : "border-emerald-300/35 bg-emerald-300/10 text-emerald-200",
+      ].join(" ")}
+    >
+      {kindLabel(kind)}
+      {!isAnchor && runCount !== undefined ? <span className="text-bench-muted">N={runCount}</span> : null}
+    </span>
+  );
+}
+
+export function TierBadge({ tier }: { readonly tier: string }) {
+  const isQuick = tier.toLowerCase() === "quick";
+  return (
+    <span
+      className={[
+        "inline-flex rounded border px-2 py-1 text-[11px] font-semibold uppercase",
+        isQuick
+          ? "border-zinc-500/60 bg-zinc-500/10 text-zinc-200"
+          : "border-bench-accent/45 bg-bench-accent/10 text-bench-accent",
+      ].join(" ")}
+    >
+      {isQuick ? "Quick · unranked" : tier}
+    </span>
+  );
+}
+
+export function LaneBadge({ lane }: { readonly lane: string | null }) {
+  return (
+    <span className="inline-flex rounded border border-bench-line bg-white/[0.03] px-2 py-1 text-[11px] font-medium uppercase text-bench-muted">
+      {lane ?? "n/a"}
+    </span>
+  );
+}
