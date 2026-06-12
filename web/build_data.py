@@ -10,8 +10,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Final, NoReturn, TypeAlias
 
-JsonScalar: TypeAlias = str | int | float | bool | None
-JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
+JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
 StratumForItem: TypeAlias = Callable[[str, str, Mapping[str, JsonValue]], str]
 
@@ -61,27 +60,29 @@ def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
     quant = _text(source.get("quant_label")) or _text(_object_or_empty(manifest.get("model")).get("quant_label"))
     lane = _text(source.get("reasoning_lane")) or _text(suite.get("lane"))
     correct, strata, no_answer = _scored_inputs(items, stratum_for_item)
-    axes = _axes(benches, correct, strata, no_answer, bootstrap, signed, iters)
-    composite = _composite(run, axes, correct, strata, bootstrap, signed, iters)
     tokens = _completion_token_stats(items)
     est_cost = _number_or_none(run.get("estimated_cost_usd"))
     summary = _manifest_summary(source, manifest, lane, quant)
-    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": composite["warnings"], "est_cost_usd": est_cost, "item_set_hashes": _object_or_empty(suite.get("item_set_hashes")), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": _worst_axis(axes)}
+    axes, axis_warnings = _axes(benches, correct, strata, no_answer, bootstrap, signed, iters)
+    composite = _composite(run, axes, correct, strata, bootstrap, signed, iters)
+    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "item_set_hashes": _object_or_empty(suite.get("item_set_hashes")), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": _worst_axis(axes)}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": _number_or_none(totals.get("completion_tokens_per_second")), "vram_footprint_gb": source["vram_footprint_gb"], "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
     index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
     return {"composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 
-def _axes(benches: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], no_answer: dict[str, int], bootstrap: ModuleType, signed: ModuleType, iters: int) -> JsonObject:
+def _axes(benches: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], no_answer: dict[str, int], bootstrap: ModuleType, signed: ModuleType, iters: int) -> tuple[JsonObject, list[JsonValue]]:
     axes: JsonObject = {}
+    warnings: list[JsonValue] = []
     for bench in BENCHES:
         aggregate = _object(benches.get(bench), f"benches.{bench}")
         chance = signed.chance_for_bench(bench)
-        raw_accuracy = _number(aggregate.get("raw_accuracy"), f"{bench}.raw_accuracy")
+        raw_accuracy = sum(correct[bench]) / len(correct[bench])
+        if abs(raw_accuracy - (stored_raw_accuracy := _number(aggregate.get("raw_accuracy"), f"{bench}.raw_accuracy"))) > 1e-9:
+            warnings.append(f"{bench} raw_accuracy {raw_accuracy:.12f} differs from stored {stored_raw_accuracy:.12f}; stale/inconsistent run JSON")
         raw_ci = bootstrap.per_bench_ci(correct[bench], strata[bench], iters=iters, seed=SEED)
-        point = signed.signed_score(raw_accuracy, chance=chance)
-        axes[bench] = _interval(point, signed.signed_score(raw_ci["lo"], chance=chance), signed.signed_score(raw_ci["hi"], chance=chance)) | {"n": _int(aggregate.get("n"), f"{bench}.n"), "n_errors": _int(aggregate.get("n_errors"), f"{bench}.n_errors"), "n_no_answer": _int(aggregate.get("n_extraction_failures"), f"{bench}.n_extraction_failures") + no_answer[bench], "raw_accuracy": raw_accuracy}
-    return axes
+        axes[bench] = _interval(signed.signed_score(raw_accuracy, chance=chance), signed.signed_score(raw_ci["lo"], chance=chance), signed.signed_score(raw_ci["hi"], chance=chance)) | {"n": _int(aggregate.get("n"), f"{bench}.n"), "n_errors": _int(aggregate.get("n_errors"), f"{bench}.n_errors"), "n_no_answer": _int(aggregate.get("n_extraction_failures"), f"{bench}.n_extraction_failures") + no_answer[bench], "raw_accuracy": raw_accuracy}
+    return axes, warnings
 
 
 def _composite(run: JsonObject, axes: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], bootstrap: ModuleType, signed: ModuleType, iters: int) -> JsonObject:

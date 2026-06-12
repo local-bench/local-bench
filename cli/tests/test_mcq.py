@@ -29,6 +29,8 @@ from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
         (r"\boxed{A} then \boxed{B}", 4, "B"),
         ("Answer: C. Because of that, answer is c.", 4, "C"),
         ("Answer: D. Photosynthesis is the process.", 4, "D"),
+        ("Final answer: A, B is wrong", 10, "A"),
+        ("Answer: A, B is a distractor", 10, "A"),
         ("Final answer is (B).", 4, "B"),
         ("ANSWER IS [A]", 4, "A"),
         ("I will choose ** e **", 5, "E"),

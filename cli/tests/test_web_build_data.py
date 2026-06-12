@@ -9,6 +9,8 @@ from typing import TypeAlias
 
 import pytest
 
+from localbench.scoring.signed_score import chance_for_bench, signed_score
+
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -65,10 +67,18 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
         assert run_path.exists()
         detail = _object(_read_json(run_path))
         raw_run = _object(_read_json(ROOT / "runs" / f"{run_id.split('__', 1)[1]}.json"))
+        assert detail["data_warnings"] == []
         assert _object(detail["composite"])["point_raw"] == pytest.approx(
             _number(raw_run["composite"]),
             abs=1e-6,
         )
+        for bench in BENCHES:
+            raw_axis = _object(_object(raw_run["benches"])[bench])
+            axis = _object(_object(detail["axes"])[bench])
+            assert _number(axis["point_raw"]) == pytest.approx(
+                signed_score(_number(raw_axis["raw_accuracy"]), chance=chance_for_bench(bench)),
+                abs=1e-9,
+            )
         _assert_run_detail(detail)
 
     best_run = _string(qwen["best_run_id"])
@@ -80,9 +90,12 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
 
 
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
-    # Given a synthetic run whose stored chance-corrected values are stale and clamped.
+    # Given a synthetic run whose stored chance-corrected and raw-accuracy values are stale.
     builder = _build_data_module()
     paths = _write_synthetic_pipeline_inputs(tmp_path, [_synthetic_item("genmath-v0-product_minus_offset-1", "genmath", True), _synthetic_item("genmath-v0-average_of_five-1", "genmath", False, error="ResponseParseError: missing content"), _synthetic_item("102", "ifeval", True), _synthetic_item("127", "ifeval", None), _synthetic_item("136", "mmlu_pro", True), _synthetic_item("221", "mmlu_pro", False)])
+    run = _object(_read_json(paths["run"]))
+    _object(_object(run["benches"])["genmath"])["raw_accuracy"] = 1.0
+    paths["run"].write_text(json.dumps(run), encoding="utf-8")
 
     # When the web data pipeline builds static JSON from scored items.
     builder.build_static_data(paths["sources"], paths["out"], iters=300)
@@ -94,6 +107,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     ifeval = _object(axes["ifeval"])
     composite = _object(detail["composite"])
     assert genmath["point_raw"] == pytest.approx(0.5)
+    assert genmath["raw_accuracy"] == pytest.approx(0.5)
     assert genmath["hi_raw"] < 1.0
     assert ifeval["point_raw"] == pytest.approx(0.5)
     assert ifeval["hi_raw"] < 1.0
@@ -101,7 +115,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     assert genmath["n_errors"] == 1
     assert composite["point_raw"] == pytest.approx((0.5 + 0.5 + (0.5 - 0.1) / 0.9) / 3)
     assert isinstance(detail["data_warnings"], list)
-    assert detail["data_warnings"]
+    assert any("genmath raw_accuracy" in _string(warning) for warning in detail["data_warnings"])
 
 
 def test_build_data_when_items_have_suite_metadata_uses_real_strata(
@@ -171,7 +185,7 @@ def _write_synthetic_pipeline_inputs(
     out_dir = tmp_path / "out"
     run_path.write_text(json.dumps(_synthetic_run(items)), encoding="utf-8")
     sources_path.write_text(json.dumps([{"family": "Synthetic", "file": str(run_path), "kind": "community", "model_label": "Synthetic Model", "quant_label": None, "reasoning_lane": "test", "vram_footprint_gb": None}]), encoding="utf-8")
-    return {"sources": sources_path, "out": out_dir}
+    return {"run": run_path, "sources": sources_path, "out": out_dir}
 
 
 def _synthetic_run(items: list[JsonObject]) -> JsonObject:

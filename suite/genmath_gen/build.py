@@ -61,8 +61,6 @@ def build_files(seed: int = DEFAULT_SEED, repo_root: Path | None = None, private
     root = repo_root or ROOT
     suite_dir = root / "suite" / "v0"
     itemsets = build_itemsets(seed)
-    private_seed_config = _private_seed_config(public_seed=seed, private_seed=private_seed)
-    private_items = build_private_sentinel(itemsets.standard, private_seed_config.seed)
 
     suite_dir.mkdir(parents=True, exist_ok=True)
 
@@ -72,6 +70,12 @@ def build_files(seed: int = DEFAULT_SEED, repo_root: Path | None = None, private
     standard_entry = _lock_entry(suite_dir / STANDARD_FILE, len(itemsets.standard), seed)
     quick_entry = _lock_entry(suite_dir / QUICK_FILE, len(itemsets.quick), seed)
     _write_json(suite_dir / "itemsets.lock.json", _updated_lock(suite_dir, standard_entry, quick_entry))
+
+    private_seed_config = _private_seed_config(public_seed=seed, private_seed=private_seed)
+    if private_seed_config is None:
+        print(f"private sentinel skipped (no seed; set {PRIVATE_SEED_ENV} or pass --private-seed)")
+        return
+    private_items = build_private_sentinel(itemsets.standard, private_seed_config.seed)
     _write_private_files(suite_dir, private_items, private_seed_config.source)
 
 
@@ -104,17 +108,13 @@ def _write_private_files(suite_dir: Path, private_items: list[JsonObject], seed_
     )
 
 
-def _private_seed_config(public_seed: int, private_seed: int | None) -> PrivateSeedConfig:
+def _private_seed_config(public_seed: int, private_seed: int | None) -> PrivateSeedConfig | None:
     if private_seed is not None:
         return _checked_private_seed(public_seed, private_seed, EXPLICIT_PRIVATE_SEED_SOURCE)
 
     raw_seed = os.environ.get(PRIVATE_SEED_ENV)
     if raw_seed is None:
-        raise PrivateSeedConfigError(
-            env_var=PRIVATE_SEED_ENV,
-            raw_value="<unset>",
-            reason="requires a private seed from the environment or an explicit private_seed argument",
-        )
+        return None
 
     try:
         parsed_seed = int(raw_seed)

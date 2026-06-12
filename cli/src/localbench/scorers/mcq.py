@@ -9,12 +9,12 @@ _LETTERS: Final = "ABCDEFGHIJ"
 _TAIL_CHARS: Final = 600
 
 # Capture the answer letter immediately after the marker (group 1) plus an OPTIONAL adjacent
-# alternative letter (group 2) joined by or/and/comma/slash. Only an adjacent alternation ("A or B")
+# alternative letter (group 2) joined by or/and/slash. Only an adjacent alternation ("A or B")
 # is treated as ambiguous; a letter mentioned later in trailing explanation ("A because B is wrong",
 # "G, not A") does NOT block extraction of the stated answer.
 _MARKER_PATTERNS: Final = (
-    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|,|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
-    r"\banswer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|,|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
+    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
+    r"\banswer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
 )
 _PATTERN_GROUPS: Final = (
     (r"\\boxed\s*\{\s*([A-J])\s*\}", None, False),

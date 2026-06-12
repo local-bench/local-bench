@@ -21,6 +21,8 @@ DEFAULT_PRIVATE_SEED = genmath_build.DEFAULT_PRIVATE_SEED
 DEFAULT_SEED = genmath_build.DEFAULT_SEED
 PRIVATE_FILE = genmath_build.PRIVATE_FILE
 PRIVATE_LOCK_FILE = genmath_build.PRIVATE_LOCK_FILE
+QUICK_FILE = genmath_build.QUICK_FILE
+STANDARD_FILE = genmath_build.STANDARD_FILE
 build_files = genmath_build.build_files
 build_itemsets = genmath_build.build_itemsets
 build_private_sentinel = genmath_build.build_private_sentinel
@@ -65,7 +67,8 @@ def test_build_files_when_private_enabled_writes_gitignored_private_outputs(tmp_
     # When building public and private generated-math files.
     build_files(seed=DEFAULT_SEED, repo_root=repo_root, private_seed=DEFAULT_PRIVATE_SEED)
 
-    # Then private outputs land only under suite/v0/private with a seed-redacted lock.
+    # Then public hashes are unchanged and private outputs land under suite/v0/private.
+    _assert_public_outputs_match_committed(repo_root)
     private_dir = repo_root / "suite" / "v0" / "private"
     sentinel_path = private_dir / PRIVATE_FILE
     lock_path = private_dir / PRIVATE_LOCK_FILE
@@ -81,16 +84,24 @@ def test_build_files_when_private_enabled_writes_gitignored_private_outputs(tmp_
     assert str(DEFAULT_PRIVATE_SEED) not in lock_text
 
 
-def test_build_files_when_private_seed_missing_raises(
+def test_build_files_when_private_seed_missing_writes_public_outputs_only(
+    capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    # Given a private sentinel build with no explicit or environment private seed.
+    # Given a generated-math build with no explicit or environment private seed.
     monkeypatch.delenv(genmath_build.PRIVATE_SEED_ENV, raising=False)
 
     # When building generated-math files.
-    with pytest.raises(genmath_build.PrivateSeedConfigError, match="requires a private seed"):
-        build_files(seed=DEFAULT_SEED, repo_root=tmp_path)
+    build_files(seed=DEFAULT_SEED, repo_root=tmp_path)
+
+    # Then public files are written unchanged and the private sentinel is skipped.
+    notice = capsys.readouterr().out.strip()
+    _assert_public_outputs_match_committed(tmp_path)
+    assert not (tmp_path / "suite" / "v0" / "private").exists()
+    assert len(notice.splitlines()) == 1
+    assert "private sentinel skipped" in notice
+    assert "no seed" in notice
 
 
 def test_build_files_when_private_seed_env_set_writes_private_outputs(
@@ -104,6 +115,7 @@ def test_build_files_when_private_seed_env_set_writes_private_outputs(
     build_files(seed=DEFAULT_SEED, repo_root=tmp_path)
 
     # Then the private lock records the environment seed source without the seed value.
+    _assert_public_outputs_match_committed(tmp_path)
     lock_path = tmp_path / "suite" / "v0" / "private" / PRIVATE_LOCK_FILE
     lock_payload = json.loads(lock_path.read_text(encoding="utf-8"))
     lock_text = json.dumps(lock_payload, sort_keys=True)
@@ -149,3 +161,11 @@ def _statements(rows: list[Mapping[str, JsonValue]]) -> set[str]:
 
 def _category_difficulty_counts(rows: list[Mapping[str, JsonValue]]) -> Counter[tuple[str, str]]:
     return Counter((str(row["category"]), str(row["difficulty"])) for row in rows)
+
+
+def _assert_public_outputs_match_committed(repo_root: Path) -> None:
+    for filename in (STANDARD_FILE, QUICK_FILE):
+        built_path = repo_root / "suite" / "v0" / filename
+        committed_path = ROOT / "suite" / "v0" / filename
+        assert built_path.exists()
+        assert hashlib.sha256(built_path.read_bytes()).hexdigest() == hashlib.sha256(committed_path.read_bytes()).hexdigest()
