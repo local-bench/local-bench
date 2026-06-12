@@ -26,6 +26,7 @@ class Usage(TypedDict):
     prompt_tokens: int | None
     completion_tokens: int | None
     total_tokens: int | None
+    reasoning_tokens: NotRequired[int]
 
 
 class ItemResult(TypedDict):

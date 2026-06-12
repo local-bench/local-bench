@@ -39,6 +39,8 @@ class ManifestContext:
     wall_clock_s: float
     totals: Totals
     rendered_prompt_sample: BenchmarkItem | None
+    provider: str = "local"
+    provider_notes: tuple[str, ...] = ()
 
 
 async def collect_manifest(
@@ -61,9 +63,11 @@ async def collect_manifest(
             "caps": _caps(context.sampling_by_bench),
         },
         "endpoint": {
-            "kind": "local",
+            "kind": "local" if context.provider == "local" else "api",
             "runtime_reported_model": reported_model,
-            "api_provider": None,
+            "api_provider": None if context.provider == "local" else context.provider,
+            "provider": context.provider,
+            "divergence_notes": list(context.provider_notes),
         },
         "model": {
             "family": None,

@@ -31,6 +31,7 @@ from localbench._suite import (
 )
 from localbench._types import JsonObject
 from localbench.manifest import ManifestContext, collect_manifest
+from localbench.providers import provider_for_name
 from localbench.runner import run_benchmark, write_json
 
 BenchChoice = Literal["all", "mmlu_pro", "ifeval", "genmath"]
@@ -64,6 +65,7 @@ class OrchestrateConfig:
     price_in: float | None = None
     price_out: float | None = None
     lane: LaneChoice = "answer-only"
+    provider: str = "local"
 
 
 async def run_localbench(
@@ -77,6 +79,7 @@ async def run_localbench(
     started_at = utc_now()
     started_perf = time.perf_counter()
     warnings: list[str] = []
+    provider = provider_for_name(config.provider)
     rendered_benches = render_benches(
         config.bench,
         config.tier,
@@ -89,7 +92,7 @@ async def run_localbench(
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
 
-    if config.lane == "answer-only":
+    if config.provider == "local" and config.lane == "answer-only":
         # Local-runtime lane: disable Qwen3-family thinking via vLLM's
         # chat_template_kwargs passthrough (llama.cpp/Ollama ignore the field;
         # cloud lanes never send it because OpenAI-style APIs reject unknown params).
@@ -109,6 +112,8 @@ async def run_localbench(
             api_key=config.api_key,
             concurrency=config.concurrency,
             transport=transport,
+            provider=provider,
+            lane=config.lane,
         )
         items.extend(score_bench(bench, record["results"]))
 
@@ -147,6 +152,8 @@ async def run_localbench(
                 "completion_tokens_per_second": totals["completion_tokens_per_second"],
             },
             rendered_prompt_sample=first_prompt(rendered_benches),
+            provider=provider.name,
+            provider_notes=tuple(provider.notes()),
         ),
         transport=transport,
     )

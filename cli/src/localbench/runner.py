@@ -9,7 +9,7 @@ from pathlib import Path
 
 import httpx
 
-from localbench._requests import headers, run_item, utc_now
+from localbench._requests import run_item, utc_now
 from localbench._types import (
     BenchmarkItem,
     ChatMessage,
@@ -21,6 +21,7 @@ from localbench._types import (
     Totals,
     Usage,
 )
+from localbench.providers import Lane, Provider, provider_for_name
 
 __all__ = [
     "BenchmarkItem",
@@ -48,8 +49,11 @@ async def run_benchmark(
     max_attempts: int = 3,
     transport: httpx.AsyncBaseTransport | None = None,
     backoff_base: float = 0.5,
+    provider: Provider | None = None,
+    lane: Lane = "answer-only",
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
+    request_provider = provider or provider_for_name("local")
     effective_concurrency = max(1, concurrency)
     effective_attempts = max(1, max_attempts)
     endpoint = base_url.rstrip("/")
@@ -62,13 +66,15 @@ async def run_benchmark(
             *[
                 run_item(
                     client=client,
-                    url=f"{endpoint}/chat/completions",
-                    headers=headers(api_key),
+                    url=request_provider.endpoint_url(endpoint),
+                    headers=request_provider.headers(api_key),
                     model=model,
                     item=item,
                     semaphore=semaphore,
                     max_attempts=effective_attempts,
                     backoff_base=backoff_base,
+                    provider=request_provider,
+                    lane=lane,
                 )
                 for item in items
             ],

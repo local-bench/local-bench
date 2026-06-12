@@ -164,6 +164,7 @@ def test_cli_run_help_exits_zero() -> None:
     # Then argparse exits successfully and shows run options.
     assert result.returncode == 0
     assert "--endpoint" in result.stdout
+    assert "--provider" in result.stdout
 
 
 def test_cli_run_when_endpoint_is_missing_exits_two() -> None:

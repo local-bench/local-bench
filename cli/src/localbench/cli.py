@@ -16,6 +16,7 @@ from localbench.orchestrate import (
     default_output_path,
     run_localbench,
 )
+from localbench.providers import provider_choices
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -41,6 +42,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--tier", choices=("quick", "standard"), default="quick")
     run_parser.add_argument("--concurrency", type=int, default=4)
+    run_parser.add_argument("--provider", choices=provider_choices(), default="local")
     run_parser.add_argument("--out", type=Path)
     run_parser.add_argument("--api-key-env")
     run_parser.add_argument("--max-items", type=int)
@@ -73,6 +75,7 @@ def _run(args: argparse.Namespace) -> int:
             price_in=args.price_in,
             price_out=args.price_out,
             lane=_lane(args.lane),
+            provider=args.provider,
         ),
     )
     _print_summary(record)
