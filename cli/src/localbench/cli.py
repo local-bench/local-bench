@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -17,14 +19,22 @@ from localbench.orchestrate import (
     run_localbench,
 )
 from localbench.providers import provider_choices
+from localbench.scoring.paired_delta import (
+    CompareResult,
+    compare_run_files,
+    format_honest_delta,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the localbench CLI."""
+    _prefer_utf8_stdout()
     parser = _parser()
     args = parser.parse_args(argv)
     if args.command == "run":
         return _run(args)
+    if args.command == "compare":
+        return _compare(args)
     parser.print_help()
     return 2
 
@@ -54,6 +64,15 @@ def _parser() -> argparse.ArgumentParser:
         choices=("answer-only", "capped-thinking", "api-uncapped"),
         default="answer-only",
     )
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="compare two saved localbench run records",
+    )
+    compare_parser.add_argument("run_a", metavar="RUN_A.json", type=Path)
+    compare_parser.add_argument("run_b", metavar="RUN_B.json", type=Path)
+    compare_parser.add_argument("--out", type=Path)
+    compare_parser.add_argument("--iters", type=int, default=10_000)
+    compare_parser.add_argument("--seed", type=int, default=0)
     return parser
 
 
@@ -82,10 +101,35 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compare(args: argparse.Namespace) -> int:
+    try:
+        comparison = compare_run_files(
+            args.run_a,
+            args.run_b,
+            iters=max(1, args.iters),
+            seed=args.seed,
+        )
+    except ValueError as error:
+        print(f"error      {error}")
+        return 2
+    if args.out is not None:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        with args.out.open("w", encoding="utf-8") as handle:
+            json.dump(comparison, handle, indent=2)
+            handle.write("\n")
+    _print_compare(comparison)
+    return 0
+
+
 def _api_key(env_var: str | None) -> str | None:
     if env_var is None:
         return None
     return os.environ.get(env_var)
+
+
+def _prefer_utf8_stdout() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
 
 def _lane(value: str) -> LaneChoice:
@@ -124,3 +168,33 @@ def _print_summary(record: LocalbenchRun) -> None:
     print(f"output     {record['output_path']}")
     for warning in record["warnings"]:
         print(f"warning    {warning}")
+
+
+def _print_compare(comparison: CompareResult) -> None:
+    print(f"paired composite delta  {format_honest_delta(comparison['composite_delta'])}")
+    repeatability = comparison["repeatability_ci"]
+    generalization = comparison["generalization_ci"]
+    print(
+        "repeatability CI        "
+        f"{repeatability['lo'] * 100:.1f} .. {repeatability['hi'] * 100:.1f}",
+    )
+    print(
+        "generalization CI       "
+        f"{generalization['lo'] * 100:.1f} .. {generalization['hi'] * 100:.1f}",
+    )
+    print("domains")
+    for domain, result in comparison["domains"].items():
+        print(f"  {domain:<22} {format_honest_delta(result['delta'])}")
+    worst_axis = comparison["worst_axis"]
+    print(
+        "worst axis              "
+        f"{worst_axis['domain']} {format_honest_delta(worst_axis['delta'])}",
+    )
+    flags = comparison["severe_subgroup_regressions"]
+    if flags:
+        print("subgroup regressions")
+        for flag in flags:
+            print(
+                f"  {flag['domain']}: {flag['stratum']} "
+                f"{format_honest_delta(flag['ci'])}",
+            )
