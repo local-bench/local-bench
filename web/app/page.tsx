@@ -25,9 +25,11 @@ export default async function HomePage() {
               Composite is the equal-weighted mean of chance-corrected axis scores with a 95% bootstrap CI.
             </p>
           </div>
+          {/* Single table preserves sortable browsing; this caveat prevents cross-lane order being read as rank. */}
           <div className="rounded-lg border border-amber-300/35 bg-amber-300/[0.08] p-4 text-sm leading-6 text-amber-100">
             <strong className="text-amber-50">Quick tier = personal estimate, UNRANKED.</strong> Standard tier is
-            the ranked board. Quick rows are shown here for local prototype comparison only.
+            the only ranked board, and ranks are only within the same reasoning lane. Rows are sorted for browsing
+            only; reasoning lanes are not directly comparable.
           </div>
         </div>
       </header>

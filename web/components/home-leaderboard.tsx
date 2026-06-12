@@ -31,10 +31,14 @@ type SortState = {
 export function HomeLeaderboard({ models }: { readonly models: readonly IndexModel[] }) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const sortedModels = useMemo(() => sortRows(models, sort), [models, sort]);
+  const laneRanks = useMemo(() => buildLaneRanks(models), [models]);
 
   return (
     <div className="overflow-x-auto rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
       <table className="min-w-[1120px] border-collapse text-sm">
+        <caption className="sr-only">
+          Rank cells are populated only for ranked Standard rows within the same reasoning lane.
+        </caption>
         <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
           <tr>
             <th className="px-3 py-3 font-semibold">Rank</th>
@@ -51,7 +55,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
           </tr>
         </thead>
         <tbody>
-          {sortedModels.map((model, index) => (
+          {sortedModels.map((model) => (
             <tr
               key={model.slug}
               className={[
@@ -59,7 +63,9 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
                 model.kind === "anchor" ? "bg-amber-300/[0.025]" : "",
               ].join(" ")}
             >
-              <td className="px-3 py-3 font-mono text-bench-muted">{index + 1}</td>
+              <td className="px-3 py-3 font-mono text-bench-muted">
+                <RankMarker rank={laneRanks.get(model.slug)} />
+              </td>
               <td className="px-3 py-3">
                 <Link href={`/model/${model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
                   {model.model_label}
@@ -93,6 +99,13 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
       </table>
     </div>
   );
+}
+
+function RankMarker({ rank }: { readonly rank: number | undefined }) {
+  if (rank === undefined) {
+    return <span className="text-[11px] uppercase">Unranked</span>;
+  }
+  return formatInteger(rank);
 }
 
 function SortableHeader({
@@ -133,6 +146,27 @@ function nextSort(current: SortState, key: SortKey): SortState {
 function sortRows(models: readonly IndexModel[], sort: SortState): readonly IndexModel[] {
   const direction = sort.direction === "asc" ? 1 : -1;
   return [...models].sort((left, right) => compareRows(left, right, sort.key) * direction);
+}
+
+function buildLaneRanks(models: readonly IndexModel[]): ReadonlyMap<string, number> {
+  const groups = new Map<string, readonly IndexModel[]>();
+  for (const model of models) {
+    if (!model.ranked) {
+      continue;
+    }
+    const lane = model.lane ?? "n/a";
+    const group = groups.get(lane) ?? [];
+    groups.set(lane, [...group, model]);
+  }
+
+  const ranks = new Map<string, number>();
+  for (const group of groups.values()) {
+    const rankedGroup = sortRows(group, { key: "composite", direction: "desc" });
+    rankedGroup.forEach((model, index) => {
+      ranks.set(model.slug, index + 1);
+    });
+  }
+  return ranks;
 }
 
 function compareRows(left: IndexModel, right: IndexModel, key: SortKey): number {

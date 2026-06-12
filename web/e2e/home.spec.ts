@@ -15,6 +15,7 @@ test("renders the leaderboard and keeps composite sorting deterministic", async 
     .sort((left, right) => left.composite.point - right.composite.point)
     .map((model) => model.model_label);
   const expectedDescending = [...expectedAscending].reverse();
+  const expectedUnrankedMarkers = expectedDescending.map(() => "Unranked");
 
   await visitRoute(page, "/");
 
@@ -29,9 +30,13 @@ test("renders the leaderboard and keeps composite sorting deterministic", async 
   await expect(page.getByText("Anchor").first()).toBeVisible();
   await expect(page.getByText(/Community-reported/).first()).toBeVisible();
   await expect(page.getByText(/Replicated/i)).toHaveCount(0);
+  await expect(page.getByText(/sorted for browsing only/i)).toBeVisible();
+  await expect(page.getByText(/reasoning lanes are not directly comparable/i)).toBeVisible();
 
   const modelLinks = page.locator("tbody tr td:nth-child(2) a");
+  const rankCells = page.locator("tbody tr td:first-child");
   await expect(modelLinks).toHaveText(expectedDescending);
+  await expect(rankCells).toHaveText(expectedUnrankedMarkers);
 
   await page.getByRole("button", { name: /Composite/ }).click();
   await expect(modelLinks).toHaveText(expectedAscending);

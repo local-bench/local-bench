@@ -68,7 +68,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
     summary = _manifest_summary(source, manifest, lane, quant)
     detail = {"axes": axes, "composite": composite["interval"], "data_warnings": composite["warnings"], "est_cost_usd": est_cost, "item_set_hashes": _object_or_empty(suite.get("item_set_hashes")), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": _worst_axis(axes)}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": _number_or_none(totals.get("completion_tokens_per_second")), "vram_footprint_gb": source["vram_footprint_gb"], "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
-    index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "replicated": kind == "anchor", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
+    index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
     return {"composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 
@@ -109,7 +109,7 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject]) -> None:
         best = max(group, key=lambda run: (_number(run["composite_raw"], "composite_raw"), -_int(run["order"], "order")))
         row = _object(best["index_row"], "index_row") | {
             "n_runs": len(group),
-            "replicated": _string(best["kind"], "kind") == "anchor" or len(group) >= 3,
+            "replicated": any(_bool(_object(run["index_row"], "index_row").get("replicated"), "index_row.replicated") for run in group),
         }
         models.append(row)
         _write_json(models_dir / f"{slug}.json", {"family": best["family"], "kind": best["kind"], "model_label": best["model_label"], "runs": [run["model_row"] for run in sorted(group, key=lambda item: _int(item["order"], "order"))], "slug": slug})
@@ -187,7 +187,8 @@ def _source(value: JsonValue, index: int) -> JsonObject:
     kind = _string(item.get("kind"), f"data_sources[{index}].kind")
     if kind not in {"anchor", "community"}:
         raise DataBuildError(f"data_sources[{index}].kind must be anchor or community")
-    return {"family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _string(item.get("file"), f"data_sources[{index}].file"), "kind": kind, "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
+    independent_replication = item.get("independent_replication")
+    return {"family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _string(item.get("file"), f"data_sources[{index}].file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
 
 
 def _parse_args(argv: list[str]) -> tuple[Path, Path, int]:

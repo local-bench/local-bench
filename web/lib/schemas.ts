@@ -104,6 +104,7 @@ export const IndexModelSchema = z.object({
   tier: z.string(),
   lane: z.string().nullable(),
   n_runs: z.number(),
+  ranked: z.boolean(),
   tokens_to_answer_median: z.number().nullable(),
   tokens_to_answer_p95: z.number().nullable().optional(),
   est_cost_usd: z.number().nullable(),
