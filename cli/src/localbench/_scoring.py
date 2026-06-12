@@ -18,7 +18,11 @@ class ScoredItem(TypedDict):
     response_text: str | None
     extracted: str | None
     correct: bool
+    finish_reason: str | None
     latency_seconds: float
+    started_at: str
+    finished_at: str
+    attempts: int
     usage: Usage
     error: str | None
 
@@ -55,7 +59,11 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
                 "response_text": response_text,
                 "extracted": extracted,
                 "correct": correct,
+                "finish_reason": result["finish_reason"],
                 "latency_seconds": result["latency_seconds"],
+                "started_at": result["started_at"],
+                "finished_at": result["finished_at"],
+                "attempts": result["attempts"],
                 "usage": result["usage"],
                 "error": error,
             },

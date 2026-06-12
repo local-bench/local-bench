@@ -45,7 +45,7 @@
     "mmlu_pro": {
       "chance_correction_baseline": 0.1,
       "decoding": {
-        "max_tokens": 2048,
+        "max_tokens": 4096,
         "temperature": 0
       },
       "itemsets": {
