@@ -31,12 +31,13 @@ from localbench._suite import (
 )
 from localbench._types import JsonObject
 from localbench.manifest import ManifestContext, collect_manifest
-from localbench.providers import provider_for_name
+from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
 
 BenchChoice = Literal["all", "mmlu_pro", "ifeval", "genmath"]
 TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
+ReasoningEffortChoice = ReasoningEffort
 
 
 class LocalbenchRun(TypedDict):
@@ -66,6 +67,7 @@ class OrchestrateConfig:
     price_out: float | None = None
     lane: LaneChoice = "answer-only"
     provider: str = "local"
+    reasoning_effort: ReasoningEffortChoice | None = None
 
 
 async def run_localbench(
@@ -114,6 +116,7 @@ async def run_localbench(
             transport=transport,
             provider=provider,
             lane=config.lane,
+            effort=config.reasoning_effort,
         )
         items.extend(score_bench(bench, record["results"]))
 
@@ -153,7 +156,13 @@ async def run_localbench(
             },
             rendered_prompt_sample=first_prompt(rendered_benches),
             provider=provider.name,
-            provider_notes=tuple(provider.notes()),
+            provider_notes=tuple(
+                provider.notes(
+                    effort=config.reasoning_effort,
+                    decodings=tuple(sampling_by_bench.values()),
+                ),
+            ),
+            reasoning_effort=config.reasoning_effort,
         ),
         transport=transport,
     )

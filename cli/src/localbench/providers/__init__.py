@@ -4,14 +4,25 @@ from dataclasses import dataclass
 from typing import Final
 
 from localbench.providers._anthropic import AnthropicProvider
-from localbench.providers._base import Lane, Provider, ProviderName, ProviderPayloadError
-from localbench.providers._openai import OpenAIChatProvider, OpenAIReasoningProvider
+from localbench.providers._base import (
+    Lane,
+    Provider,
+    ProviderName,
+    ProviderPayloadError,
+    ReasoningEffort,
+)
+from localbench.providers._openai import (
+    GeminiProvider,
+    OpenAIChatProvider,
+    OpenAIReasoningProvider,
+)
 
 __all__ = [
     "Lane",
     "Provider",
     "ProviderName",
     "ProviderPayloadError",
+    "ReasoningEffort",
     "provider_choices",
     "provider_for_name",
 ]
@@ -30,7 +41,7 @@ _PROVIDERS: Final[dict[str, Provider]] = {
     "openai-chat": OpenAIChatProvider(),
     "openai-reasoning": OpenAIReasoningProvider(),
     "anthropic": AnthropicProvider(),
-    "gemini": OpenAIChatProvider(name="gemini"),
+    "gemini": GeminiProvider(),
 }
 
 

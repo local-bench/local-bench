@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Literal, Protocol, TypeAlias
 
 from localbench._types import ChatMessage, JsonObject, JsonValue, ParsedCompletion
 
 Lane: TypeAlias = Literal["answer-only", "capped-thinking", "api-uncapped"]
+ReasoningEffort: TypeAlias = Literal["minimal", "low", "medium", "high", "xhigh"]
 ProviderName: TypeAlias = Literal[
     "local",
     "openai-chat",
@@ -23,6 +25,7 @@ class Provider(Protocol):
         messages: list[ChatMessage],
         decoding: JsonObject,
         lane: Lane,
+        effort: ReasoningEffort | None = None,
     ) -> JsonObject: ...
 
     def endpoint_url(self, base: str) -> str: ...
@@ -31,7 +34,12 @@ class Provider(Protocol):
 
     def parse_response(self, data: JsonValue) -> ParsedCompletion: ...
 
-    def notes(self) -> list[str]: ...
+    def notes(
+        self,
+        *,
+        effort: ReasoningEffort | None = None,
+        decodings: Sequence[JsonObject] = (),
+    ) -> list[str]: ...
 
 
 class ProviderPayloadError(Exception):

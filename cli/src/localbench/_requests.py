@@ -15,7 +15,13 @@ from localbench._response import (
     empty_usage,
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, ParsedCompletion
-from localbench.providers import Lane, Provider, ProviderPayloadError, provider_for_name
+from localbench.providers import (
+    Lane,
+    Provider,
+    ProviderPayloadError,
+    ReasoningEffort,
+    provider_for_name,
+)
 
 
 async def run_item(
@@ -30,6 +36,7 @@ async def run_item(
     backoff_base: float,
     provider: Provider | None = None,
     lane: Lane = "answer-only",
+    effort: ReasoningEffort | None = None,
 ) -> ItemResult:
     """Run one item and return a result instead of raising on request failure."""
     request_provider = provider or provider_for_name("local")
@@ -47,6 +54,7 @@ async def run_item(
                         item["messages"],
                         decoding(item),
                         lane,
+                        effort=effort,
                     ),
                 )
                 if is_retryable_status(response.status_code):

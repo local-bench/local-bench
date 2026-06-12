@@ -8,6 +8,7 @@ import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Final
 
 import anyio
 
@@ -15,6 +16,7 @@ from localbench.orchestrate import (
     LaneChoice,
     LocalbenchRun,
     OrchestrateConfig,
+    ReasoningEffortChoice,
     default_output_path,
     run_localbench,
 )
@@ -23,6 +25,14 @@ from localbench.scoring.paired_delta import (
     CompareResult,
     compare_run_files,
     format_honest_delta,
+)
+
+_REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
 )
 
 
@@ -64,6 +74,11 @@ def _parser() -> argparse.ArgumentParser:
         choices=("answer-only", "capped-thinking", "api-uncapped"),
         default="answer-only",
     )
+    run_parser.add_argument(
+        "--reasoning-effort",
+        choices=_REASONING_EFFORT_CHOICES,
+        default=None,
+    )
     compare_parser = subparsers.add_parser(
         "compare",
         help="compare two saved localbench run records",
@@ -95,6 +110,7 @@ def _run(args: argparse.Namespace) -> int:
             price_out=args.price_out,
             lane=_lane(args.lane),
             provider=args.provider,
+            reasoning_effort=_reasoning_effort(args.reasoning_effort),
         ),
     )
     _print_summary(record)
@@ -138,6 +154,24 @@ def _lane(value: str) -> LaneChoice:
     if value == "api-uncapped":
         return "api-uncapped"
     return "answer-only"
+
+
+def _reasoning_effort(value: str | None) -> ReasoningEffortChoice | None:
+    match value:
+        case None:
+            return None
+        case "minimal":
+            return "minimal"
+        case "low":
+            return "low"
+        case "medium":
+            return "medium"
+        case "high":
+            return "high"
+        case "xhigh":
+            return "xhigh"
+        case _:
+            raise argparse.ArgumentTypeError(f"unsupported reasoning effort: {value}")
 
 
 def _print_summary(record: LocalbenchRun) -> None:

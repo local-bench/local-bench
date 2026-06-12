@@ -21,7 +21,7 @@ from localbench._types import (
     Totals,
     Usage,
 )
-from localbench.providers import Lane, Provider, provider_for_name
+from localbench.providers import Lane, Provider, ReasoningEffort, provider_for_name
 
 __all__ = [
     "BenchmarkItem",
@@ -51,6 +51,7 @@ async def run_benchmark(
     backoff_base: float = 0.5,
     provider: Provider | None = None,
     lane: Lane = "answer-only",
+    effort: ReasoningEffort | None = None,
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
     request_provider = provider or provider_for_name("local")
@@ -75,6 +76,7 @@ async def run_benchmark(
                     backoff_base=backoff_base,
                     provider=request_provider,
                     lane=lane,
+                    effort=effort,
                 )
                 for item in items
             ],

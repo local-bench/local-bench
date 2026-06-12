@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -7,6 +8,7 @@ from localbench._response import parse_chat_completion
 from localbench._types import ChatMessage, JsonObject, JsonValue, ParsedCompletion, Usage
 from localbench.providers._base import (
     Lane,
+    ReasoningEffort,
     bearer_headers,
     chat_completions_url,
     int_or_none,
@@ -35,6 +37,7 @@ class OpenAIChatProvider:
         messages: list[ChatMessage],
         decoding: JsonObject,
         lane: Lane,
+        effort: ReasoningEffort | None = None,
     ) -> JsonObject:
         return {"model": model, "messages": messages, **decoding}
 
@@ -47,8 +50,50 @@ class OpenAIChatProvider:
     def parse_response(self, data: JsonValue) -> ParsedCompletion:
         return parse_chat_completion(data)
 
-    def notes(self) -> list[str]:
+    def notes(
+        self,
+        *,
+        effort: ReasoningEffort | None = None,
+        decodings: Sequence[JsonObject] = (),
+    ) -> list[str]:
         return []
+
+
+@dataclass(frozen=True, slots=True)
+class GeminiProvider:
+    name: str = "gemini"
+
+    def build_payload(
+        self,
+        model: str,
+        messages: list[ChatMessage],
+        decoding: JsonObject,
+        lane: Lane,
+        effort: ReasoningEffort | None = None,
+    ) -> JsonObject:
+        payload: JsonObject = {"model": model, "messages": messages, **decoding}
+        if effort is not None:
+            payload["reasoning_effort"] = effort
+        return payload
+
+    def endpoint_url(self, base: str) -> str:
+        return chat_completions_url(base)
+
+    def headers(self, api_key: str | None) -> dict[str, str]:
+        return bearer_headers(api_key)
+
+    def parse_response(self, data: JsonValue) -> ParsedCompletion:
+        return parse_chat_completion(data)
+
+    def notes(
+        self,
+        *,
+        effort: ReasoningEffort | None = None,
+        decodings: Sequence[JsonObject] = (),
+    ) -> list[str]:
+        if effort is None:
+            return []
+        return [f"reasoning_effort={effort} passed through Gemini OpenAI-compatible body"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +106,7 @@ class OpenAIReasoningProvider:
         messages: list[ChatMessage],
         decoding: JsonObject,
         lane: Lane,
+        effort: ReasoningEffort | None = None,
     ) -> JsonObject:
         payload: JsonObject = {"model": model, "messages": messages}
         max_tokens = int_or_none(decoding.get("max_tokens"))
@@ -69,6 +115,8 @@ class OpenAIReasoningProvider:
         for key, value in decoding.items():
             if key not in _REASONING_OMIT_KEYS:
                 payload[key] = value
+        if effort is not None:
+            payload["reasoning_effort"] = effort
         return payload
 
     def endpoint_url(self, base: str) -> str:
@@ -94,8 +142,16 @@ class OpenAIReasoningProvider:
             usage=usage,
         )
 
-    def notes(self) -> list[str]:
-        return [_REASONING_NOTE]
+    def notes(
+        self,
+        *,
+        effort: ReasoningEffort | None = None,
+        decodings: Sequence[JsonObject] = (),
+    ) -> list[str]:
+        notes = [_REASONING_NOTE]
+        if effort is not None:
+            notes.append(f"reasoning_effort={effort} sent as OpenAI reasoning_effort")
+        return notes
 
 
 def _reasoning_tokens(data: JsonValue) -> int | None:

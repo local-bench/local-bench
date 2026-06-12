@@ -41,6 +41,7 @@ class ManifestContext:
     rendered_prompt_sample: BenchmarkItem | None
     provider: str = "local"
     provider_notes: tuple[str, ...] = ()
+    reasoning_effort: str | None = None
 
 
 async def collect_manifest(
@@ -53,6 +54,17 @@ async def collect_manifest(
     missing_fields = [*_MODEL_FIELDS, *_RUNTIME_FIELDS]
     if reported_model is None:
         missing_fields.append("endpoint.runtime_reported_model")
+    sampling: JsonObject = {
+        "temperature": _common_sampling(context.sampling_by_bench, "temperature"),
+        "top_p": _common_sampling(context.sampling_by_bench, "top_p"),
+        "top_k": _common_sampling(context.sampling_by_bench, "top_k"),
+        "min_p": _common_sampling(context.sampling_by_bench, "min_p"),
+        "seed": _common_sampling(context.sampling_by_bench, "seed"),
+        "thinking_mode": "n/a",
+        "by_bench": context.sampling_by_bench,
+    }
+    if context.reasoning_effort is not None:
+        sampling["reasoning_effort"] = context.reasoning_effort
     return {
         "schema_version": "0.1",
         "suite": {
@@ -88,15 +100,7 @@ async def collect_manifest(
             "build_flags": None,
         },
         "hardware": _hardware(),
-        "sampling": {
-            "temperature": _common_sampling(context.sampling_by_bench, "temperature"),
-            "top_p": _common_sampling(context.sampling_by_bench, "top_p"),
-            "top_k": _common_sampling(context.sampling_by_bench, "top_k"),
-            "min_p": _common_sampling(context.sampling_by_bench, "min_p"),
-            "seed": _common_sampling(context.sampling_by_bench, "seed"),
-            "thinking_mode": "n/a",
-            "by_bench": context.sampling_by_bench,
-        },
+        "sampling": sampling,
         "execution": {
             "client_version": "localbench 0.1.0",
             "concurrency": context.concurrency,
