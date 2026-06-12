@@ -1,0 +1,86 @@
+{
+  "family": "Claude Opus 4.8",
+  "kind": "anchor",
+  "model_label": "Claude Opus 4.8",
+  "runs": [
+    {
+      "axes": {
+        "genmath": {
+          "hi": 100.0,
+          "hi_raw": 1.0,
+          "lo": 87.5,
+          "lo_raw": 0.875,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 95.0,
+          "point_raw": 0.95,
+          "raw_accuracy": 0.95
+        },
+        "ifeval": {
+          "hi": 98.0,
+          "hi_raw": 0.98,
+          "lo": 89.0,
+          "lo_raw": 0.89,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 94.0,
+          "point_raw": 0.94,
+          "raw_accuracy": 0.94
+        },
+        "mmlu_pro": {
+          "hi": 93.08035714285701,
+          "hi_raw": 0.9308035714285701,
+          "lo": 80.15873015873015,
+          "lo_raw": 0.8015873015873015,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 87.10317460317461,
+          "point_raw": 0.871031746031746,
+          "raw_accuracy": 0.8839285714285714
+        }
+      },
+      "composite": {
+        "hi": 95.35185185185185,
+        "hi_raw": 0.9535185185185184,
+        "lo": 88.5396164021164,
+        "lo_raw": 0.885396164021164,
+        "point": 92.03439153439152,
+        "point_raw": 0.9203439153439152
+      },
+      "est_cost_usd": 10.38168,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "api-uncapped",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": null,
+      "run_id": "claude-opus-4-8__anchor-opus-quick",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "tier": "quick",
+      "tok_s": 230.25625638477572,
+      "tokens_to_answer_median": 381.5,
+      "tokens_to_answer_p95": 1414.2499999999995,
+      "vram_footprint_gb": null,
+      "wall_time_seconds": 563.823984800023
+    }
+  ],
+  "slug": "claude-opus-4-8"
+}

@@ -1,0 +1,242 @@
+{
+  "family": "Qwen3.5",
+  "kind": "community",
+  "model_label": "Qwen3.5 9B",
+  "runs": [
+    {
+      "axes": {
+        "genmath": {
+          "hi": 100.0,
+          "hi_raw": 1.0,
+          "lo": 92.5,
+          "lo_raw": 0.925,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 97.5,
+          "point_raw": 0.975,
+          "raw_accuracy": 0.975
+        },
+        "ifeval": {
+          "hi": 90.0,
+          "hi_raw": 0.9,
+          "lo": 75.0,
+          "lo_raw": 0.75,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 83.0,
+          "point_raw": 0.83,
+          "raw_accuracy": 0.83
+        },
+        "mmlu_pro": {
+          "hi": 83.13492063492063,
+          "hi_raw": 0.8313492063492063,
+          "lo": 66.26984126984127,
+          "lo_raw": 0.6626984126984127,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 4,
+          "point": 75.1984126984127,
+          "point_raw": 0.751984126984127,
+          "raw_accuracy": 0.7767857142857143
+        }
+      },
+      "composite": {
+        "hi": 89.21964285714286,
+        "hi_raw": 0.8921964285714286,
+        "lo": 81.23955026455026,
+        "lo_raw": 0.8123955026455026,
+        "point": 85.23280423280424,
+        "point_raw": 0.8523280423280424
+      },
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": null,
+      "run_id": "qwen3-5-9b__quick-9b-var1",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "tier": "quick",
+      "tok_s": 302.47999351462636,
+      "tokens_to_answer_median": 452.0,
+      "tokens_to_answer_p95": 2386.749999999999,
+      "vram_footprint_gb": null,
+      "wall_time_seconds": 561.395806799992
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 100.0,
+          "hi_raw": 1.0,
+          "lo": 92.5,
+          "lo_raw": 0.925,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 97.5,
+          "point_raw": 0.975,
+          "raw_accuracy": 0.975
+        },
+        "ifeval": {
+          "hi": 90.0,
+          "hi_raw": 0.9,
+          "lo": 75.0,
+          "lo_raw": 0.75,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 83.0,
+          "point_raw": 0.83,
+          "raw_accuracy": 0.83
+        },
+        "mmlu_pro": {
+          "hi": 82.14285714285714,
+          "hi_raw": 0.8214285714285714,
+          "lo": 65.27777777777779,
+          "lo_raw": 0.6527777777777778,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 4,
+          "point": 74.20634920634922,
+          "point_raw": 0.7420634920634921,
+          "raw_accuracy": 0.7678571428571429
+        }
+      },
+      "composite": {
+        "hi": 89.04239417989416,
+        "hi_raw": 0.8904239417989416,
+        "lo": 80.90416666666667,
+        "lo_raw": 0.8090416666666667,
+        "point": 84.90211640211639,
+        "point_raw": 0.8490211640211639
+      },
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": null,
+      "run_id": "qwen3-5-9b__quick-9b-var2",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "tier": "quick",
+      "tok_s": 301.73074935468225,
+      "tokens_to_answer_median": 469.0,
+      "tokens_to_answer_p95": 2358.949999999999,
+      "vram_footprint_gb": null,
+      "wall_time_seconds": 567.2209423999302
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 100.0,
+          "hi_raw": 1.0,
+          "lo": 100.0,
+          "lo_raw": 1.0,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 100.0,
+          "point_raw": 1.0,
+          "raw_accuracy": 1.0
+        },
+        "ifeval": {
+          "hi": 90.0,
+          "hi_raw": 0.9,
+          "lo": 75.0,
+          "lo_raw": 0.75,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 83.0,
+          "point_raw": 0.83,
+          "raw_accuracy": 0.83
+        },
+        "mmlu_pro": {
+          "hi": 83.13492063492063,
+          "hi_raw": 0.8313492063492063,
+          "lo": 66.26984126984127,
+          "lo_raw": 0.6626984126984127,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 6,
+          "point": 75.1984126984127,
+          "point_raw": 0.751984126984127,
+          "raw_accuracy": 0.7767857142857143
+        }
+      },
+      "composite": {
+        "hi": 89.72222222222221,
+        "hi_raw": 0.8972222222222221,
+        "lo": 82.41798941798942,
+        "lo_raw": 0.8241798941798941,
+        "point": 86.06613756613757,
+        "point_raw": 0.8606613756613757
+      },
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": null,
+      "run_id": "qwen3-5-9b__quick-9b-var3",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "tier": "quick",
+      "tok_s": 305.8798278944649,
+      "tokens_to_answer_median": 465.5,
+      "tokens_to_answer_p95": 2831.699999999998,
+      "vram_footprint_gb": null,
+      "wall_time_seconds": 567.928918999969
+    }
+  ],
+  "slug": "qwen3-5-9b"
+}
