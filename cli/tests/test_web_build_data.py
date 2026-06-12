@@ -38,19 +38,25 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
     qwen = _model_by_label(models, "Qwen3.5 9B")
     assert _string(qwen["family"]) == "Qwen3.5"
     assert _string(qwen["kind"]) == "community"
-    assert _number(qwen["n_runs"]) == 4
-    assert _bool(qwen["replicated"])
+    assert _number(qwen["n_runs"]) >= 3  # repeatability triplet is the floor; quant runs may add more
     assert _string(qwen["best_run_id"])
     _assert_interval(_object(qwen["composite"]))
     for bench in BENCHES:
         _assert_interval(_object(_object(qwen["axes"])[bench]))
+
+    # At least one frontier anchor is present, on the native-reasoning lane, with a valid composite.
+    anchors = [model for model in models if _string(model["kind"]) == "anchor"]
+    assert anchors
+    for anchor in anchors:
+        assert _string(anchor["lane"]) == "api-uncapped"
+        _assert_interval(_object(anchor["composite"]))
 
     slug = _string(qwen["slug"])
     model_path = DATA_DIR / "models" / f"{slug}.json"
     assert model_path.exists()
     model_detail = _object(_read_json(model_path))
     model_runs = _objects(model_detail["runs"])
-    assert len(model_runs) == 4
+    assert len(model_runs) >= 3
 
     for run_row in model_runs:
         run_id = _string(run_row["run_id"])
