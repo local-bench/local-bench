@@ -108,6 +108,7 @@ def item_result(
     return {
         "id": item["id"],
         "response_text": None if parsed is None else parsed.response_text,
+        "reasoning_text": None if parsed is None else parsed.reasoning_text,
         "finish_reason": None if parsed is None else parsed.finish_reason,
         "usage": empty_usage() if parsed is None else parsed.usage,
         "latency_seconds": time.perf_counter() - started_perf,

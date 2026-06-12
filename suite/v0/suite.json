@@ -3,7 +3,7 @@
     "genmath": {
       "chance_correction_baseline": 0.0,
       "decoding": {
-        "max_tokens": 8192,
+        "max_tokens": 12288,
         "temperature": 0
       },
       "itemsets": {
@@ -24,7 +24,7 @@
     "ifeval": {
       "chance_correction_baseline": 0.0,
       "decoding": {
-        "max_tokens": 1280,
+        "max_tokens": 8192,
         "temperature": 0
       },
       "itemsets": {
@@ -45,7 +45,7 @@
     "mmlu_pro": {
       "chance_correction_baseline": 0.1,
       "decoding": {
-        "max_tokens": 4096,
+        "max_tokens": 12288,
         "temperature": 0
       },
       "itemsets": {

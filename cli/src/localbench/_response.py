@@ -23,12 +23,27 @@ def parse_chat_completion(data: JsonValue) -> ParsedCompletion:
     if not isinstance(message, dict):
         raise ResponseParseError("choice message is missing")
     content = message.get("content")
-    if not isinstance(content, str):
-        raise ResponseParseError("choice message content is missing")
+    # vLLM reasoning parsers (e.g. --reasoning-parser qwen3) split a thinking model's output:
+    # the chain-of-thought lands in reasoning_content and only the FINAL answer in content.
+    # A response truncated mid-think has empty/null content — that is a real "no answer"
+    # (extraction fails → scored wrong), NOT a malformed response. Fall back to reasoning_content
+    # so we never lose the transcript, and only raise when the message is genuinely empty AND
+    # the model was not cut off.
+    content_str = content if isinstance(content, str) and content else None
+    reasoning = message.get("reasoning_content")
+    reasoning_str = reasoning if isinstance(reasoning, str) and reasoning else None
     finish_reason = choice.get("finish_reason")
+    finish_reason = finish_reason if isinstance(finish_reason, str) else None
+    if content_str is None and reasoning_str is None:
+        if finish_reason is None:
+            raise ResponseParseError("choice message content is missing")
+        response_text = ""
+    else:
+        response_text = content_str if content_str is not None else (reasoning_str or "")
     return ParsedCompletion(
-        response_text=content,
-        finish_reason=finish_reason if isinstance(finish_reason, str) else None,
+        response_text=response_text,
+        reasoning_text=reasoning_str,
+        finish_reason=finish_reason,
         usage=parse_usage(data.get("usage")),
     )
 

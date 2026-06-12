@@ -31,6 +31,7 @@ class Usage(TypedDict):
 class ItemResult(TypedDict):
     id: str
     response_text: str | None
+    reasoning_text: str | None
     finish_reason: str | None
     usage: Usage
     latency_seconds: float
@@ -73,5 +74,6 @@ class RunRecord(TypedDict):
 @dataclass(frozen=True, slots=True)
 class ParsedCompletion:
     response_text: str
+    reasoning_text: str | None
     finish_reason: str | None
     usage: Usage
