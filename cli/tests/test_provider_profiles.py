@@ -196,27 +196,33 @@ def test_openai_compatible_profiles_when_empty_truncation_parse_empty_text(
     assert parsed.finish_reason == "length"
 
 
-def test_anthropic_profile_when_building_payload_uses_messages_shape() -> None:
+def test_anthropic_profile_when_building_capped_thinking_payload_uses_adaptive_medium_effort() -> None:
     # Given the Anthropic native provider and a capped-thinking lane.
     provider = provider_for_name("anthropic")
+    decoding = {
+        **DECODING,
+        "top_k": 1,
+        "min_p": 0,
+        "seed": 123,
+        "thinking_budget": 8,
+    }
 
     # When building a request payload.
     payload = provider.build_payload(
         "claude-sonnet-anchor",
         MESSAGES,
-        {**DECODING, "thinking_budget": 8},
+        decoding,
         "capped-thinking",
     )
 
-    # Then system text is top-level, user/assistant turns stay in messages, and thinking is enabled.
+    # Then system text is top-level and capped-thinking uses the current adaptive API.
     assert payload == {
         "model": "claude-sonnet-anchor",
         "system": "Answer briefly.",
         "messages": [{"role": "user", "content": "Pick C."}],
         "max_tokens": 16,
-        "temperature": 0,
-        "top_p": 1,
-        "thinking": {"type": "enabled", "budget_tokens": 8},
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "medium"},
     }
     assert provider.endpoint_url("https://api.anthropic.com") == (
         "https://api.anthropic.com/v1/messages"
@@ -229,22 +235,22 @@ def test_anthropic_profile_when_building_payload_uses_messages_shape() -> None:
 
 
 @pytest.mark.parametrize(
-    ("effort", "expected_thinking"),
+    ("effort", "expected_effort"),
     [
         ("minimal", None),
-        ("low", {"type": "enabled", "budget_tokens": 4096}),
-        ("medium", {"type": "enabled", "budget_tokens": 8192}),
-        ("high", {"type": "enabled", "budget_tokens": 16384}),
-        ("xhigh", {"type": "enabled", "budget_tokens": 32768}),
+        ("low", "low"),
+        ("medium", "medium"),
+        ("high", "high"),
+        ("xhigh", "high"),
     ],
 )
-def test_anthropic_profile_when_effort_is_set_maps_to_thinking_budget(
+def test_anthropic_profile_when_effort_is_set_maps_to_output_config_effort(
     effort: str,
-    expected_thinking: dict[str, str | int] | None,
+    expected_effort: str | None,
 ) -> None:
-    # Given the Anthropic native provider and enough output budget for each effort.
+    # Given the Anthropic native provider and suite decoding with sampling controls.
     provider = provider_for_name("anthropic")
-    decoding = {**DECODING, "max_tokens": 40000}
+    decoding = {**DECODING, "top_k": 1, "min_p": 0, "seed": 123}
 
     # When building a request payload with a requested reasoning effort.
     payload = provider.build_payload(
@@ -255,43 +261,43 @@ def test_anthropic_profile_when_effort_is_set_maps_to_thinking_budget(
         effort=effort,
     )
 
-    # Then effort controls the Anthropic extended-thinking block.
-    if expected_thinking is None:
+    # Then effort controls Anthropic output_config and thinking drops sampling controls.
+    if expected_effort is None:
         assert "thinking" not in payload
-        assert provider.notes(effort=effort, decodings=[decoding]) == [
-            "reasoning_effort=minimal mapped to Anthropic thinking off",
-        ]
+        assert "output_config" not in payload
+        assert payload["temperature"] == 0
+        assert payload["top_p"] == 1
+        assert payload["top_k"] == 1
+        assert payload["min_p"] == 0
+        assert payload["seed"] == 123
     else:
-        assert payload["thinking"] == expected_thinking
-        assert provider.notes(effort=effort, decodings=[decoding]) == [
-            (
-                f"reasoning_effort={effort} mapped to Anthropic "
-                f"thinking budget_tokens={expected_thinking['budget_tokens']}"
-            ),
-        ]
+        assert payload["thinking"] == {"type": "adaptive"}
+        assert payload["output_config"] == {"effort": expected_effort}
+        for omitted_key in ("temperature", "top_p", "top_k", "min_p", "seed"):
+            assert omitted_key not in payload
 
 
-def test_anthropic_profile_when_effort_budget_exceeds_max_tokens_clamps_below_request_cap() -> None:
-    # Given the Anthropic native provider and a request cap below the requested effort budget.
+def test_anthropic_profile_when_notes_describe_effort_mapping_and_sampling_divergence() -> None:
+    # Given the Anthropic native provider.
     provider = provider_for_name("anthropic")
-    decoding = {**DECODING, "max_tokens": 10}
 
-    # When building a request payload with xhigh reasoning effort.
-    payload = provider.build_payload(
-        "claude-sonnet-anchor",
-        MESSAGES,
-        decoding,
-        "api-uncapped",
-        effort="xhigh",
-    )
+    # When requesting notes for off, high, and xhigh effort levels.
+    minimal_notes = provider.notes(effort="minimal", decodings=[DECODING])
+    high_notes = provider.notes(effort="high", decodings=[DECODING])
+    xhigh_notes = provider.notes(effort="xhigh", decodings=[DECODING])
 
-    # Then the thinking budget is clamped below max_tokens and the note records it.
-    assert payload["thinking"] == {"type": "enabled", "budget_tokens": 9}
-    assert provider.notes(effort="xhigh", decodings=[decoding]) == [
-        (
-            "reasoning_effort=xhigh mapped to Anthropic "
-            "thinking budget_tokens=9 (clamped below max_tokens=10)"
-        ),
+    # Then the notes describe the current Anthropic effort API and divergences.
+    assert minimal_notes == [
+        "reasoning_effort=minimal mapped to Anthropic thinking off",
+    ]
+    assert high_notes == [
+        "greedy not enforceable with Anthropic thinking; sampling controls omitted",
+        "reasoning_effort=high mapped to Anthropic output_config.effort=high",
+    ]
+    assert xhigh_notes == [
+        "greedy not enforceable with Anthropic thinking; sampling controls omitted",
+        "reasoning_effort=xhigh mapped to Anthropic output_config.effort=high",
+        "reasoning_effort=xhigh clamped to Anthropic high",
     ]
 
 
@@ -339,7 +345,11 @@ def test_anthropic_profile_when_parsing_response_maps_thinking_blocks() -> None:
                 {"type": "text", "text": "Answer: B"},
             ],
             "stop_reason": "end_turn",
-            "usage": {"input_tokens": 12, "output_tokens": 5},
+            "usage": {
+                "input_tokens": 12,
+                "output_tokens": 5,
+                "output_tokens_details": {"thinking_tokens": 3},
+            },
         },
     )
 
@@ -351,6 +361,32 @@ def test_anthropic_profile_when_parsing_response_maps_thinking_blocks() -> None:
         "prompt_tokens": 12,
         "completion_tokens": 5,
         "total_tokens": 17,
+        "reasoning_tokens": 3,
+    }
+
+
+def test_anthropic_profile_when_parsing_usage_keeps_thinking_tokens() -> None:
+    # Given an Anthropic Messages API response with hidden thinking-token usage.
+    provider = provider_for_name("anthropic")
+
+    # When parsing the response.
+    parsed = provider.parse_response(
+        {
+            "content": [{"type": "text", "text": "Answer: C"}],
+            "usage": {
+                "input_tokens": 9,
+                "output_tokens": 4,
+                "output_tokens_details": {"thinking_tokens": 2},
+            },
+        },
+    )
+
+    # Then thinking-token usage is retained under the shared reasoning_tokens key.
+    assert parsed.usage == {
+        "prompt_tokens": 9,
+        "completion_tokens": 4,
+        "total_tokens": 13,
+        "reasoning_tokens": 2,
     }
 
 

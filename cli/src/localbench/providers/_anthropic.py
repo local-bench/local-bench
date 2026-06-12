@@ -19,6 +19,16 @@ _PASSTHROUGH_OMIT_KEYS: Final = {
     "thinking_budget",
     "chat_template_kwargs",
 }
+_THINKING_OMIT_KEYS: Final = _PASSTHROUGH_OMIT_KEYS | {
+    "temperature",
+    "top_p",
+    "top_k",
+    "min_p",
+    "seed",
+}
+_THINKING_SAMPLING_NOTE: Final = (
+    "greedy not enforceable with Anthropic thinking; sampling controls omitted"
+)
 _STOP_REASON_MAP: Final = {
     "end_turn": "stop",
     "stop_sequence": "stop",
@@ -48,12 +58,14 @@ class AnthropicProvider:
         }
         if system_text:
             payload["system"] = system_text
+        output_effort = _output_effort(decoding, lane, effort)
+        omit_keys = _THINKING_OMIT_KEYS if output_effort is not None else _PASSTHROUGH_OMIT_KEYS
         for key, value in decoding.items():
-            if key not in _PASSTHROUGH_OMIT_KEYS:
+            if key not in omit_keys:
                 payload[key] = value
-        thinking = _thinking_config(decoding, lane, max_tokens, effort)
-        if thinking is not None:
-            payload["thinking"] = thinking
+        if output_effort is not None:
+            payload["thinking"] = {"type": "adaptive"}
+            payload["output_config"] = {"effort": output_effort}
         return payload
 
     def endpoint_url(self, base: str) -> str:
@@ -99,7 +111,7 @@ class AnthropicProvider:
     ) -> list[str]:
         if effort is None:
             return []
-        return _effort_notes(effort, decodings)
+        return _effort_notes(effort)
 
 
 def _required_max_tokens(decoding: JsonObject) -> int:
@@ -123,112 +135,68 @@ def _split_system_messages(messages: list[ChatMessage]) -> tuple[str | None, lis
     return (system_text if system_text else None), api_messages
 
 
-def _thinking_config(
+def _output_effort(
     decoding: JsonObject,
     lane: Lane,
-    max_tokens: int,
     effort: ReasoningEffort | None,
-) -> JsonObject | None:
+) -> str | None:
     if effort is not None:
-        return _thinking_from_effort(max_tokens, effort)
-    if lane != "capped-thinking":
-        return None
-    budget = int_or_none(decoding.get("thinking_budget"))
-    if budget is None or budget <= 0:
-        return None
-    return {"type": "enabled", "budget_tokens": budget}
+        return _output_effort_from_reasoning_effort(effort)
+    match lane:
+        case "capped-thinking":
+            thinking_budget = int_or_none(decoding.get("thinking_budget"))
+            if thinking_budget is None or thinking_budget <= 0:
+                return None
+            return "medium"
+        case "answer-only" | "api-uncapped":
+            return None
+        case unreachable:
+            assert_never(unreachable)
 
 
-def _thinking_from_effort(max_tokens: int, effort: ReasoningEffort) -> JsonObject | None:
-    budget = _effort_budget(max_tokens, effort)
-    if budget is None:
-        return None
-    return {"type": "enabled", "budget_tokens": budget}
-
-
-def _effort_budget(max_tokens: int, effort: ReasoningEffort) -> int | None:
-    requested_budget = _requested_effort_budget(effort)
-    if requested_budget is None:
-        return None
-    max_budget = max_tokens - 1
-    if max_budget <= 0:
-        return None
-    return min(requested_budget, max_budget)
-
-
-def _requested_effort_budget(effort: ReasoningEffort) -> int | None:
+def _output_effort_from_reasoning_effort(effort: ReasoningEffort) -> str | None:
     match effort:
         case "minimal":
             return None
         case "low":
-            return 4096
+            return "low"
         case "medium":
-            return 8192
+            return "medium"
         case "high":
-            return 16384
+            return "high"
         case "xhigh":
-            return 32768
+            return "high"
         case unreachable:
             assert_never(unreachable)
 
 
-def _effort_notes(effort: ReasoningEffort, decodings: Sequence[JsonObject]) -> list[str]:
+def _effort_notes(effort: ReasoningEffort) -> list[str]:
     match effort:
         case "minimal":
             return ["reasoning_effort=minimal mapped to Anthropic thinking off"]
-        case "low" | "medium" | "high" | "xhigh":
-            return _budget_notes(effort, decodings)
+        case "low":
+            return [
+                _THINKING_SAMPLING_NOTE,
+                "reasoning_effort=low mapped to Anthropic output_config.effort=low",
+            ]
+        case "medium":
+            return [
+                _THINKING_SAMPLING_NOTE,
+                "reasoning_effort=medium mapped to Anthropic output_config.effort=medium",
+            ]
+        case "high":
+            return [
+                _THINKING_SAMPLING_NOTE,
+                "reasoning_effort=high mapped to Anthropic output_config.effort=high",
+            ]
+        case "xhigh":
+            return [
+                _THINKING_SAMPLING_NOTE,
+                "reasoning_effort=xhigh mapped to Anthropic output_config.effort=high",
+                "reasoning_effort=xhigh clamped to Anthropic high",
+            ]
         case unreachable:
             assert_never(unreachable)
-
-
-def _budget_notes(effort: ReasoningEffort, decodings: Sequence[JsonObject]) -> list[str]:
-    requested_budget = _requested_effort_budget(effort)
-    if requested_budget is None:
-        return []
-    entries: set[tuple[int | None, int | None]] = set()
-    for decoding in decodings:
-        max_tokens = int_or_none(decoding.get("max_tokens"))
-        if max_tokens is None:
-            continue
-        entries.add((_effort_budget(max_tokens, effort), max_tokens))
-    if not entries:
-        return [_budget_note(effort, requested_budget, None, clamped=False)]
-    return [
-        _budget_note(
-            effort,
-            budget,
-            max_tokens,
-            clamped=budget != requested_budget,
-        )
-        for budget, max_tokens in sorted(
-            entries,
-            key=lambda entry: (-1 if entry[1] is None else entry[1]),
-        )
-    ]
-
-
-def _budget_note(
-    effort: ReasoningEffort,
-    budget: int | None,
-    max_tokens: int | None,
-    *,
-    clamped: bool,
-) -> str:
-    if budget is None:
-        if max_tokens is None:
-            return f"reasoning_effort={effort} mapped to Anthropic thinking off"
-        return (
-            f"reasoning_effort={effort} mapped to Anthropic thinking off "
-            f"(max_tokens={max_tokens} leaves no positive budget)"
-        )
-    note = (
-        f"reasoning_effort={effort} mapped to Anthropic "
-        f"thinking budget_tokens={budget}"
-    )
-    if clamped and max_tokens is not None:
-        return f"{note} (clamped below max_tokens={max_tokens})"
-    return note
 
 
 def _parse_blocks(blocks: list[JsonValue]) -> tuple[str, str | None]:
@@ -267,8 +235,21 @@ def _parse_usage(value: JsonValue | None) -> Usage:
         if prompt_tokens is not None and completion_tokens is not None
         else None
     )
-    return {
+    usage: Usage = {
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": total_tokens,
     }
+    thinking_tokens = _thinking_tokens(value)
+    if thinking_tokens is not None:
+        usage["reasoning_tokens"] = thinking_tokens
+    return usage
+
+
+def _thinking_tokens(usage: JsonValue) -> int | None:
+    if not isinstance(usage, dict):
+        return None
+    details = usage.get("output_tokens_details")
+    if not isinstance(details, dict):
+        return None
+    return int_or_none(details.get("thinking_tokens"))
