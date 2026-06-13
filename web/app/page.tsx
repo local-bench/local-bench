@@ -1,11 +1,11 @@
 import { HomeLeaderboard } from "@/components/home-leaderboard";
-import { QualityVramScatter } from "@/components/quality-vram-scatter";
+import { QualityBars } from "@/components/quality-bars";
 import { RigMatchFinder } from "@/components/rig-match-finder";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getHomePageData } from "@/lib/data";
 
 export default async function HomePage() {
-  const { anchorRuns, index, rigAnchors, rigCandidates, scatterRuns } = await getHomePageData();
+  const { anchorRuns, index, rigAnchors, rigCandidates } = await getHomePageData();
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
@@ -13,15 +13,7 @@ export default async function HomePage() {
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <RigMatchFinder anchors={rigAnchors} candidates={rigCandidates} />
-      <QualityVramScatter
-        anchorRuns={anchorRuns}
-        ariaLabel="All local model quant runs plotted by composite quality and VRAM footprint with anchor ceiling lines"
-        description="Every local run with a VRAM footprint, including the synthetic preview quant ladders."
-        omittedLabel="local run(s) omitted from scatter x: no footprint"
-        runs={scatterRuns}
-        showPointLabels={false}
-        title="Quality vs VRAM footprint"
-      />
+      <QualityBars anchorRuns={anchorRuns} runs={rigCandidates} />
       <section className="flex flex-col gap-4">
         <div className="grid gap-5 border-b border-bench-line pb-5 lg:grid-cols-[1fr_420px] lg:items-end">
           <div>
