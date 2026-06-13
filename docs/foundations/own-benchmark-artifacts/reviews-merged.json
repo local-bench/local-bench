@@ -1,0 +1,204 @@
+{
+  "gpt55_codex": {
+    "reviewer": "GPT-5.5 Codex",
+    "reviews": [
+      {
+        "design_name": "ConstraintForge — Procedural Compositional Instruction-Following",
+        "verdict": "REVISE",
+        "biggest_risk": "The loose best-of-cleaning and brittle verifier definitions can accept outputs that never simultaneously satisfy the stated constraints, turning the benchmark into a scorer-exploit test instead of instruction following.",
+        "discrimination": "Likely failure mode is mixed: easy and medium will be frontier-flat, while hard all-pass may local-floor. The example \"Use the word \\\"kettle\\\" at least 3 times\" is trivial for every current model and mostly measures whether the model repeats a word. The hard bookshelf item is not truly durable against frontier inference-time compute: the model can plan sentence word counts explicitly and satisfy seven surface rules with a short template. The claimed multiplicative independence is unsupported because constraints are not independent: wrapper tags, first-word, sentence count, word count, and keyword count are all jointly solved by one deliberate template. The per-constraint metric avoids a total floor but mostly rewards partial format compliance, not the intended high-level ability.",
+        "gameability": "The benchmark is extremely gameable because many items can be solved by canned low-semantic templates. For count/format/lexical constraints, a model does not need to write a coherent passage; it can emit repetitive filler tuned to the tokenizer. The hard example can be attacked by constructing sentence shells like \"Sorting shelf ...\" and counting tokens, with no topic understanding. The worst flaw is the scoring rule: applying eight loose transforms and taking the best result per constraint can make different transformed versions satisfy different constraints, so the headline conjunction may not correspond to any single valid answer. Public tokenizers and regexes also invite adversarial strings that satisfy verifiers while violating natural-language intent, such as punctuation tricks, empty-looking tags, or repeated keyword fragments if regex boundaries are wrong.",
+        "contamination": "Procedural generation helps, but the public family taxonomy and templated renderings are enough to train directly against the task. If the private OOD pool is only variants like \"sentence k has k+2 words\", \"every Nth word is a palindrome\", or \"last letters spell CALM\", it will leak by description, benchmark discussion, or model-provider tuning. Quarterly rotation is not a serious defense if the generator style is fixed and the constraint classes are few; models can learn a general checklist-and-count strategy. The decorative topic pool is irrelevant, so topic randomization contributes almost nothing to contamination resistance.",
+        "scoring": "False positives and false negatives are both serious. Sentence splitting on /[.!?]+/ misgrades abbreviations, decimals, ellipses, quoted punctuation, and final tags. Word counting with re.findall(\"[A-Za-z']+\") ignores numbers, bracket tokens, many Unicode letters, and symbols that humans would count as words. The hard example relies on exact word counts inside XML-like tags, but tag stripping order and tokenization can change counts. Loose preamble/outro stripping can delete content that constraints depend on. Requiring exact letter bans after NFKC normalization can falsely fail harmless punctuation or non-English characters, while accepting nonsensical ASCII-only hacks.",
+        "license": "The original generated items are license-clean if all templates and verifier code are written from scratch. The stated plan to port IFEval loose scoring is acceptable only if code is not copied without complying with its license and attribution. The larger provenance trap is not copyright but undisclosed private OOD constraints: if leaderboard scores depend on hidden rule families, outside auditors cannot reproduce or inspect the actual task distribution.",
+        "credibility": "The eval community would treat this as a useful diagnostic only after heavy calibration, not as a standalone flagship benchmark. It needs human solvability baselines, model-panel item response curves, a published generator distribution, and a public audit set of verifier edge cases. Claims like frontier <50% on IFBench and multiplicative decay are not enough because these exact generated constraints may be much easier than IFBench or may collapse into tokenizer tricks. A private OOD pool also weakens external trust unless sealed-version item manifests and post-hoc releases are provided.",
+        "must_fix": [
+          "Score all constraints on the same selected cleaned response, not independently best-of per constraint, and publish the exact cleaning precedence.",
+          "Add a reference satisfier or constructive feasibility check for every generated item, then fuzz each verifier for false positives and false negatives against adversarial strings.",
+          "Run a real pilot across 1B, 3B, 7B, 14B, 32B, and frontier models and tune tiers by measured IRT rather than assumed multiplicative difficulty."
+        ]
+      },
+      {
+        "design_name": "StateTrace: Procedural Code-Execution / Output-Prediction over a Bounded Deterministic DSL",
+        "verdict": "SHIP",
+        "biggest_risk": "If the sampler produces recognizable loop schemas or arithmetic shortcuts, frontier models will bypass simulation and the top rung will saturate.",
+        "discrimination": "This is the strongest design, but the example ladder is less hard than advertised. The easy accumulator is a toy. The medium item can be solved by a simple table trace and will be near-ceiling for decent coder models. The hard example with aliasing, dict accumulation, and pop(0) is plausible, but ~55 steps may still be too low for frontier models using chain-of-thought or scratchpad-style hidden reasoning. The likely failure is frontier-flat saturation unless the generator reliably creates non-patterned, mutation-dense traces at 80-150 steps. Local-floor risk exists on all-or-nothing scoring for small models, because a one-element error in a long tuple gives zero.",
+        "gameability": "A model can often exploit Python idiom recognition without exact execution: infer that dict keys are v % 3, aggregate xs by residue, then simulate only buf updates. The hard example has a closed-form component for g: {0: 18, 1: 6, 2: 7}; only buf requires sequential tracking. If generated programs repeatedly use small lists, modulo keys, and append/pop patterns, models can learn heuristic templates. The answer contract is also gameable by returning common literal shapes if output distributions are narrow, so the generator must vary return types, nesting, and value ranges.",
+        "contamination": "Procedural generation and metamorphic transforms are strong, but the DSL grammar itself can become the contaminant. If public examples and validation sets reveal the sampler's favorite motifs, fine-tuning can target those motifs directly. Alpha-renaming and constant unfolding are weak mutations against a model trained to interpret code; they mainly detect verbatim memorization, not distribution overfitting. Any frozen public item set will be rapidly absorbed unless held-out seeds are never released before evaluation.",
+        "scoring": "Exact literal_eval equality is mostly solid, but all-or-nothing scoring creates false floors and hides near-miss information. Type-strict rejection of 1.0 for 1 is defensible because floats are forbidden, but extractor repair that balances brackets or quotes can create false positives by changing the model's answer. Dict order is ignored by Python equality even though the prompt asks for exact repr; that is acceptable semantically, but the spec should say equality, not exact repr. The last-tag rule can mis-handle multiple attempted answers where the final one is a malformed self-correction.",
+        "license": "Original generated programs and CPython-derived gold are clean. The main trap is describing a \"restricted CPython subprocess\" as if sandboxing is part of model evaluation; it is generation-time only, but the benchmark must document that no generated untrusted model code is executed. Reimplementing DyCodeEval-style transforms is fine, but do not copy code or datasets from projects with unclear licenses.",
+        "credibility": "This would be accepted if the generator, DSL, oracle, and validation report are published. Code execution prediction is a recognized capability, deterministic scoring is clean, and procedural regeneration is credible. Missing pieces are a human baseline, near-miss diagnostics, shortcut-baseline results, and item analysis showing that step count, mutation density, and aliasing actually predict difficulty. Without those, the benchmark could be dismissed as another synthetic trace toy.",
+        "must_fix": [
+          "Add partial-credit diagnostics based on normalized substructure matches or trace checkpoints while keeping exact final output as the headline.",
+          "Require hard-tier items to fail greedy/static shortcut baselines and to exceed a measured conflict or dependency-depth threshold before inclusion.",
+          "Pilot with and without chain-of-thought-style prompting and tune the hard rung until the best frontier anchor is clearly below ceiling."
+        ]
+      },
+      {
+        "design_name": "ChromaLadder: Procedural Unique-Solution Graph k-Coloring",
+        "verdict": "KILL",
+        "biggest_risk": "The proposed unique-coloring generator creates propagation gadgets that are easy for heuristics and models, so the advertised k^n search space is fake difficulty.",
+        "discrimination": "Likely failure mode is frontier-flat saturation on the actual generated items, not because graph coloring is easy in general, but because these examples are not hard graph coloring. The easy and medium examples are direct pinned-anchor propagation. The hard example is also direct propagation: vertices 4 through 12 are each adjacent to three of the four pinned clique colors, so each free vertex is independently forced in one step. A simple rule, \"assign the missing color from its pinned neighbors,\" solves the entire hard item without search. The claimed raw 4^13 space is irrelevant; true difficulty is O(nk) local constraint propagation. If the generator uses the same \"adjacent to k-1 representatives\" uniqueness mechanism, it will systematically manufacture walkovers.",
+        "gameability": "The benchmark is trivially gameable by exploiting pins. A model can copy the pinned clique, then for every other vertex choose the one color absent among adjacent pinned vertices. That exactly solves all three examples, including the supposed frontier item. Even if deeper forcing is added, DSATUR, greedy coloring with backtracking, or learned graph-pattern heuristics may solve most unique instances. Raw cell-wise EM also gives high scores for copying pins, so a weak model can look less bad without solving the graph. The JSON format is easy to satisfy with canned maps if vertex counts and color patterns are repetitive.",
+        "contamination": "Procedural random graphs help, but graph coloring itself and DSATUR-style strategies are heavily represented in training data. The fixed prompt, pinned clique pattern, vertex ids 0..n-1, and color labels 0..k-1 make the distribution easy to target. Vertex permutation and edge-list reordering are weak contamination defenses because graph isomorphism does not change the underlying heuristic. If released seeds include generator parameters, future models can train against the exact family even without memorizing individual graphs.",
+        "scoring": "Exact JSON parsing plus edge checks is deterministic, but the scoring design confuses validity and uniqueness. If there is truly one pinned solution, any valid complete coloring equals gold; exact match is redundant. If uniqueness certification is wrong, the scorer falsely rejects alternative valid colorings. Raw cell-wise EM accepts invalid colorings and can reward nonsensical maps that copy pins and guess the rest; validity-gated cell score fixes that, but reporting both invites leaderboard cherry-picking. The fallback that accepts a bare sequence of n integers can silently misparse explanations containing exactly n numbers.",
+        "license": "Original graph instances are license-clean, and Z3/MiniSat-style solvers can be used under permissive licenses if bundled correctly. The design should stop leaning on unverified claims and secondary figures from ZebraLogic, AutoLogi, and future arXiv papers. Those citations are credibility risks, not license blockers, but they make the provenance story look careless.",
+        "credibility": "Independent evaluators would reject the current design after seeing the examples. The hard instance is solved by one-hop missing-color propagation, so the benchmark overclaims NP-hardness while testing local constraint reading. To be credible, it would need solver certificates, heuristic baselines, conflict-count thresholds, human baselines, and public evidence that generated hard items require branching. As written, it repeats the classic synthetic-CSP mistake: citing worst-case NP-completeness while sampling easy planted-solution instances.",
+        "must_fix": [
+          "Replace the forcing-gadget generator with a sampler that explicitly requires DSATUR, greedy propagation, and bounded backtracking baselines to fail or require substantial search.",
+          "Use solver-derived hardness metrics such as conflicts, backtracks, and minimal propagation depth as inclusion filters, not raw k^n.",
+          "Remove raw cell-wise headline reporting for invalid colorings and publish uniqueness certificates plus post-hoc item releases."
+        ]
+      },
+      {
+        "design_name": "AbstainBench: Procedurally-Seeded Calibration & Hallucination-Discipline via AURC-over-Self-Consistency",
+        "verdict": "REVISE",
+        "biggest_risk": "The deterministic regex detectors are too weak to distinguish rebuttal, hedging, correction, and fabrication reliably, so the benchmark risks measuring phrasing compliance rather than calibration.",
+        "discrimination": "The likely failure mode is neither clean saturation nor clean floor; it is noisy, detector-driven ranking instability. Easy items like \"What was the cause of death of Lionel Messi?\" and \"Einstein win the Nobel Prize in Chemistry\" will saturate for frontier and many locals. Hard items such as Stipe Pletikosa managing Hajduk Split may floor models on factual knowledge and then reward random inconsistency as \"humility.\" Self-consistency at temperature 0.7 is not a stable calibration signal across model families; small local models may be inconsistent because they are incoherent, not calibrated. Frontier models may be consistently correct or consistently cautious depending on safety tuning, compressing the spread.",
+        "gameability": "The metric is highly gameable once detectors are known. A model can prepend generic phrases like \"I cannot verify that\" or \"the premise may be incorrect\" to trigger REBUT or ABSTAIN markers while still giving an answer. Conversely, it can optimize AURC by being deliberately variable on hard-looking obscure names and deterministic on famous names, without actually knowing anything. Because confidence is majority-label frequency, a model provider can tune sampling diversity rather than calibration. The AC/FP/UA class mix helps against blanket abstention, but does not prevent a style policy keyed on question wording, entity obscurity, or words like \"according to\" and \"before retiring.\"",
+        "contamination": "Wikidata CC0 is clean but heavily present in pretraining, so AC answers and many false-premise corrections are contaminated by ordinary knowledge. Date-windowing by Wikidata last-modified is weak because edits can be metadata changes to old facts, and model cutoffs are uncertain. Procedural paraphrases do little if the underlying entities and triples are memorized. The hard UA example about Skrip risks being ill-posed: absence from Wikidata is not proof that a statistic does not exist elsewhere, so the benchmark can label real but unrecorded facts as unanswerable.",
+        "scoring": "The scorer is the core weakness. Regex markers like \"not\", \"actually\", \"in fact\", \"cannot\", and \"unknown\" will both over-accept and under-accept. A response saying \"I don't know the exact year, but Einstein won Chemistry in 1921\" may fire an uncertainty marker while endorsing the false premise. A response saying \"Einstein won the Physics prize in 1921\" without explicit negation might be correct but missed depending on the stored true-object check. AC extraction by \"last integer\" fails for answers with multiple dates. Majority over k samples can amplify detector bias. AURC tie-breaking by item id is deterministic but arbitrary, and k=6 gives a very coarse confidence grid.",
+        "license": "Wikidata CC0 is acceptable, and reimplementing paired false-premise generation is likely clean. The risk is provenance of aliases, templates, and human-labelled detector fixtures: if aliases are pulled from Wikipedia text or external KBs with incompatible licenses, redistribution becomes messy. Claims about FalseQA, KG-FPQ, and other datasets should be separated from the shipped artifact unless licenses and reuse boundaries are documented precisely.",
+        "credibility": "The community will be skeptical because calibration benchmarks are notoriously sensitive to prompting, sampling temperature, abstention policy, and detector definitions. AURC is less legible than accuracy and can reward noisy models. The benchmark needs a human-labelled response set, detector precision/recall by item class, stability across k and temperature, E-AURC reporting, and comparison against simpler baselines such as direct confidence prompts and logprob-based confidence where available. Without that, it looks like a complicated regex abstention test.",
+        "must_fix": [
+          "Build and publish a large human-labelled detector validation set with per-class precision and recall, including hedged, mixed, and correction-without-negation responses.",
+          "Define unanswerable items only where non-existence is entailed by type or closed-world constraints, not merely absent from Wikidata.",
+          "Report E-AURC, raw accuracy, class-wise FP/UA/AC rates, and stability across k, temperature, and paraphrase seeds before using it as a leaderboard axis."
+        ]
+      }
+    ],
+    "cross_cutting": "The shared failure is confusing nominal procedural difficulty with measured discriminative difficulty: every design needs adversarial baselines, item analysis, and pilot curves before launch. I would pilot StateTrace first and ConstraintForge second; ChromaLadder should be rebuilt before pilot, and AbstainBench should remain experimental until detector validity is proven."
+  },
+  "gemini_31_pro": {
+    "reviewer": "Adversarial-Red-Team-v1",
+    "reviews": [
+      {
+        "design_name": "ConstraintForge — Procedural Compositional Instruction-Following",
+        "verdict": "KILL",
+        "biggest_risk": "Inference-time compute (o1/R1) trivially defeats autoregressive constraint stacking by backtracking, causing frontier saturation, while strict regex tokenizer mismatches floor local models.",
+        "discrimination": "Frontier-flat saturation. The 'multiplicative decay' assumes a single autoregressive pass. Frontier models with reasoning tokens (o1) will simply verify their own constraints and backtrack until satisfied, completely neutralizing the N-stacking lever.",
+        "gameability": "Models can bypass the intended difficulty by generating degenerate, repetitive text (e.g., 'A a a a. B b b b.') to trivially satisfy word-count and positional constraints without demonstrating natural language instruction following.",
+        "contamination": "The 'OOD' constraints are drawn from a finite, mechanically generated pool. Once the generator's taxonomy or logic is exposed, models can be synthetic-finetuned on the exact constraint families, rendering them in-distribution.",
+        "scoring": "Massive false-negative trap. The harness uses a hardcoded regex `re.findall(r\"[A-Za-z']+\")` for word counts. If a model writes 'state-of-the-art' (4 words under regex) but its internal BPE treats it differently, it fails. Punctuation edge cases will dominate the error rate.",
+        "license": "Clean, as it relies on a clean-room reimplementation of Apache-2.0 mechanics.",
+        "credibility": "IFEval is already heavily criticized for measuring formatting rather than reasoning; doubling down on arbitrary constraints will be seen as a synthetic toy rather than a measure of quality.",
+        "must_fix": [
+          "Implement a natural-language coherence filter (e.g., perplexity threshold) to prevent degenerate repetitive text from passing.",
+          "Replace the rigid regex tokenizer with a standard LLM tokenizer (e.g., Llama-3's) or allow a +/- 5% tolerance on word/character counts."
+        ]
+      },
+      {
+        "design_name": "StateTrace: Procedural Code-Execution / Output-Prediction over a Bounded Deterministic DSL",
+        "verdict": "REVISE",
+        "biggest_risk": "The 55-step aliasing and mutation hard tier will absolutely floor all local models at 0%, creating a step-cliff rather than a continuous difficulty ladder.",
+        "discrimination": "Local-floor risk is extreme. 1B-8B models cannot maintain perfect state tracking over 20+ steps of in-place list mutations. The drop-off from the 6-step floor to the 20-step mid-tier is a cliff. Meanwhile, CoT-heavy frontier models will perfectly simulate the trace.",
+        "gameability": "The fallback extractor takes the 'last fenced  code span'. A model could output a Python script that *computes* the answer rather than the literal answer itself, and if the script ends with the literal, it might be incorrectly extracted or scored.",
+        "contamination": "AST mutations (alpha-rename, const-unfold) are superficial. The underlying control flow graph (CFG) and algorithmic structure remain identical. Models memorize CFGs, not variable names.",
+        "scoring": "`ast.literal_eval` is overly strict on types. If the gold is a tuple `(1, 2)` and the model outputs a list `[1, 2]`, it fails. If it outputs a dict with string keys `{'0': 18}` instead of int keys `{0: 18}`, it fails. This is a formatting trap.",
+        "license": "Clean, as it generates original ASTs and uses standard CPython.",
+        "credibility": "Code execution is a proven axis, but framing it as 'mental simulation' is just CRUXEval with a different generator. It is credible but derivative.",
+        "must_fix": [
+          "Smooth the difficulty ladder by adding intermediate rungs (e.g., 10 steps, 15 steps) and isolating aliasing from deep loops.",
+          "Loosen the scoring to accept type-equivalent collections (e.g., lists vs tuples) and handle trailing commas gracefully before literal_eval."
+        ]
+      },
+      {
+        "design_name": "ChromaLadder: Procedural Unique-Solution Graph k-Coloring",
+        "verdict": "KILL",
+        "biggest_risk": "NP-complete graph coloring in a single forward pass will floor all local models at 0% instance-level accuracy, and the cell-wise partial credit is trivially gameable.",
+        "discrimination": "Local-floor. A 13-vertex graph with 4 colors has a search space of ~6.7e7. 1B-8B models cannot perform backtracking search in their weights. They will score exactly 0% on the hard tier, providing zero signal.",
+        "gameability": "The 'cell-wise EM' floor is a gameable illusion. A model can simply parse the prompt for the pre-assigned pins, output those, and guess '0' for every other vertex. This yields ~30-40% partial credit without performing any graph reasoning.",
+        "contamination": "While exact graphs are random, the prompt format and the specific distribution of graphs (generated near the phase transition) can be easily simulated to create massive synthetic finetuning datasets, destroying the benchmark's validity.",
+        "scoring": "JSON parsing is notoriously fragile for small models. If a 1B model outputs valid Python `{0: 0, 1: 1}` instead of valid JSON `{\"0\": 0, \"1\": 1}`, `json.loads` crashes and the model gets a 0, conflating formatting failure with reasoning failure.",
+        "license": "Clean, as it uses original procedural generation and permissive solvers.",
+        "credibility": "Graph coloring is a classic academic toy problem that the community increasingly views as disconnected from real-world LLM utility. It tests a solver algorithm, not language comprehension.",
+        "must_fix": [
+          "Abandon cell-wise EM and replace it with a verifiable sub-graph completion metric that cannot be gamed by copying pins.",
+          "Implement a robust fallback parser that accepts Python dicts, markdown tables, or plain text lists instead of strict JSON."
+        ]
+      },
+      {
+        "design_name": "AbstainBench: Procedurally-Seeded Calibration & Hallucination-Discipline via AURC-over-Self-Consistency",
+        "verdict": "KILL",
+        "biggest_risk": "Regex-based scoring of complex epistemic states is fundamentally broken and will result in massive false negatives for local models that refuse in non-standard ways.",
+        "discrimination": "Frontier-flat. Frontier models are heavily RLHF'd to refuse false premises and will ace the FP/UA items. Local models, often base or lightly instruct-tuned, will hallucinate wildly, flooring them and providing no nuanced signal.",
+        "gameability": "A model can learn a trivial heuristic: answer simple lookups (AC) and output the exact abstain string 'I cannot answer this' for anything with low internal probability. This games the AURC metric without genuine calibration.",
+        "contamination": "Wikidata is fully memorized by frontier models. 'Obscure' entities are just the long tail of the pretraining distribution, not genuinely unseen data. Models with larger pretraining piles will win by default.",
+        "scoring": "The regex `\\b(no|not|isn'?t...)\\b` is a joke. A model stating 'The premise is flawed' or 'I apologize, but Einstein won in Physics' misses the regex entirely, resulting in a false ENDORSE label. Conversely, 'It is not true that he didn't win' triggers a false REBUT.",
+        "license": "Clean, utilizing CC0 Wikidata dumps.",
+        "credibility": "k=6 sampling requires 6x the inference compute, violating the spirit of a lightweight local benchmark. Furthermore, AURC is too complex and illegible for a standard leaderboard audience.",
+        "must_fix": [
+          "Replace the fragile regex detectors with a deterministic semantic parser or a highly constrained multiple-choice format to capture epistemic state.",
+          "Reduce k=6 to k=1 or k=2 and use logprobs for confidence instead of self-consistency to make it viable for local GPU evaluation."
+        ]
+      }
+    ],
+    "cross_cutting": "The single most important issue shared across all designs is the over-reliance on fragile, deterministic string/regex extractors (JSON parsing, exact regex tokenizers, literal_eval, keyword matching) that will penalize 1-8B models for formatting variations rather than reasoning deficits, creating a false 'local-floor'. I would pilot StateTrace, provided the step-cliff is smoothed and extraction loosened, as it relies on the most objective ground truth (CPython) and avoids the NP-complete cliff of ChromaLadder."
+  },
+  "qwen_37_max": {
+    "reviewer": "adversarial-methodologist",
+    "reviews": [
+      {
+        "design_name": "ConstraintForge — Procedural Compositional Instruction-Following",
+        "verdict": "REVISE",
+        "biggest_risk": "The 'decorative topic' allows models to pass all constraints by generating semantically irrelevant keyword-salad, completely bypassing the instruction-following intent.",
+        "discrimination": "Frontier models will saturate N=7-9 by using CoT to plan the text and then stripping it via the loose-cleaning powerset, while locals floor on hard tiers due to multiplicative decay.",
+        "gameability": "Since the topic is never verified, a model can pass all constraints by generating incoherent keyword-salad (e.g., 'kettle kettle kettle. walk walk walk.'), satisfying the lexical/count verifiers without writing a coherent passage.",
+        "contamination": "Procedural generation is solid, but the OOD pool is small and easily memorized by frontier models during training if leaked.",
+        "scoring": "Sentence splitting via regex `[.!?]` will inevitably miscount sentences with abbreviations (e.g., 'Dr.', 'U.S.', 'Inc.'), causing false negatives on count constraints.",
+        "license": "Clean; reimplementation of Apache-2.0 mechanics.",
+        "credibility": "The community will reject a benchmark where incoherent keyword-spam passes a prompt asking for a passage about a specific topic.",
+        "must_fix": [
+          "Make the topic structurally necessary (e.g., require specific semantic roles or use a lightweight keyword-check against the topic) to prevent keyword-salad gaming.",
+          "Replace regex sentence-splitting with a robust NLP tokenizer or restrict the prompt to forbid abbreviations."
+        ]
+      },
+      {
+        "design_name": "StateTrace: Procedural Code-Execution / Output-Prediction over a Bounded Deterministic DSL",
+        "verdict": "REVISE",
+        "biggest_risk": "Frontier models will achieve near-perfect accuracy on S=120 by simply unrolling the execution step-by-step in their Chain-of-Thought, saturating the top end and repeating the v0 frontier-flat failure.",
+        "discrimination": "The step-count lever is excellent for locals, but frontier models with 128k context and unrestricted CoT will just simulate the code mechanically in text, leading to frontier-flat saturation at S=120.",
+        "gameability": "Models might try to output the trace inside the `<output>` tag, but `ast.literal_eval` strictly prevents this; however, unrestricted CoT allows mechanical unrolling which defeats the 'mental simulation' intent.",
+        "contamination": "Metamorphic rotation and procedural generation are robust and effectively detect surface memorization.",
+        "scoring": "`ast.literal_eval` with Python `==` is bulletproof for this restricted AST and handles dict/list equality correctly.",
+        "license": "Clean; original grammar and oracle.",
+        "credibility": "Highly credible; code execution is a well-accepted, distinct axis with strong precedents.",
+        "must_fix": [
+          "Cap the CoT length or require direct output (no CoT) for the hardest tier to prevent mechanical text-based simulation.",
+          "Increase aliasing/mutation density so the text trace becomes too long for the context window to unroll mechanically."
+        ]
+      },
+      {
+        "design_name": "ChromaLadder: Procedural Unique-Solution Graph k-Coloring",
+        "verdict": "KILL",
+        "biggest_risk": "Autoregressive LLMs cannot natively perform backtracking search, meaning instance-level accuracy will floor near 0% for both locals and frontier models on n>10, destroying top-end discrimination.",
+        "discrimination": "Fails the primary constraint. Graph coloring without tools floors frontier models at near 0% for n>10 because autoregressive generation cannot natively backtrack, destroying top-end discrimination.",
+        "gameability": "Models will just copy the pre-assigned pins and guess the rest, farming cell-wise partial credit without doing any genuine search.",
+        "contamination": "Isomorphic transforms are good, but the problem is inherent capability limits, not memorization.",
+        "scoring": "JSON parsing and edge checking are deterministic and correct.",
+        "license": "Clean; original generator.",
+        "credibility": "The community knows LLMs are terrible at text-based graph coloring; it will be seen as a 'gotcha' benchmark rather than a useful reasoning measure.",
+        "must_fix": [
+          "Reduce n to max 8 to keep it in the realm of attention-based propagation rather than backtracking search.",
+          "Switch to a grid-based logic puzzle or provide an adjacency matrix to reduce parsing overhead."
+        ]
+      },
+      {
+        "design_name": "AbstainBench: Procedurally-Seeded Calibration & Hallucination-Discipline via AURC-over-Self-Consistency",
+        "verdict": "REVISE",
+        "biggest_risk": "The Open World Assumption of Wikidata means 'provably false' swapped properties are often actually true in reality (e.g., multi-valued properties like 'awards won'), creating fatal false negatives in the gold labels.",
+        "discrimination": "Conflates knowledge with calibration for local models; a 7B model that simply doesn't know the obscure AC entities will abstain, fail the AC, and be heavily penalized in AURC, flooring locals based on knowledge.",
+        "gameability": "Models RLHF'd to be overly cautious will abstain on everything obscure; the AC controls mitigate this, but only if the model actually knows the obscure AC facts.",
+        "contamination": "Date-windowing and procedural generation are strong.",
+        "scoring": "Regex markers for 'rebut' and 'abstain' are brittle and will misclassify nuanced hedging or partial corrections.",
+        "license": "Clean; Wikidata is CC0.",
+        "credibility": "AURC is a strong metric, but the Wikidata provenance flaw undermines trust in the gold labels.",
+        "must_fix": [
+          "Strictly filter the generator to only use functional (1:1) properties (e.g., 'date of birth') to guarantee the swapped object is truly false under the Open World Assumption.",
+          "Force the model to output a structured JSON response with a boolean `is_answerable` field to eliminate brittle regex hedging detection."
+        ]
+      }
+    ],
+    "cross_cutting": "The single most important issue shared across designs is the overestimation of frontier model limitations on mechanical/algorithmic tasks when Chain-of-Thought is unrestricted (StateTrace, ChromaLadder) and the conflation of knowledge retrieval with the target capability (AbstainBench). I would pilot StateTrace (with CoT restrictions to prevent mechanical unrolling) and ConstraintForge (with topic grounding to prevent keyword-salad), as they have the clearest deterministic scoring and procedural generation pipelines."
+  }
+}

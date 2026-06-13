@@ -1,0 +1,66 @@
+{
+  "reviewer": "adversarial-methodologist",
+  "reviews": [
+    {
+      "design_name": "ConstraintForge — Procedural Compositional Instruction-Following",
+      "verdict": "REVISE",
+      "biggest_risk": "The 'decorative topic' allows models to pass all constraints by generating semantically irrelevant keyword-salad, completely bypassing the instruction-following intent.",
+      "discrimination": "Frontier models will saturate N=7-9 by using CoT to plan the text and then stripping it via the loose-cleaning powerset, while locals floor on hard tiers due to multiplicative decay.",
+      "gameability": "Since the topic is never verified, a model can pass all constraints by generating incoherent keyword-salad (e.g., 'kettle kettle kettle. walk walk walk.'), satisfying the lexical/count verifiers without writing a coherent passage.",
+      "contamination": "Procedural generation is solid, but the OOD pool is small and easily memorized by frontier models during training if leaked.",
+      "scoring": "Sentence splitting via regex `[.!?]` will inevitably miscount sentences with abbreviations (e.g., 'Dr.', 'U.S.', 'Inc.'), causing false negatives on count constraints.",
+      "license": "Clean; reimplementation of Apache-2.0 mechanics.",
+      "credibility": "The community will reject a benchmark where incoherent keyword-spam passes a prompt asking for a passage about a specific topic.",
+      "must_fix": [
+        "Make the topic structurally necessary (e.g., require specific semantic roles or use a lightweight keyword-check against the topic) to prevent keyword-salad gaming.",
+        "Replace regex sentence-splitting with a robust NLP tokenizer or restrict the prompt to forbid abbreviations."
+      ]
+    },
+    {
+      "design_name": "StateTrace: Procedural Code-Execution / Output-Prediction over a Bounded Deterministic DSL",
+      "verdict": "REVISE",
+      "biggest_risk": "Frontier models will achieve near-perfect accuracy on S=120 by simply unrolling the execution step-by-step in their Chain-of-Thought, saturating the top end and repeating the v0 frontier-flat failure.",
+      "discrimination": "The step-count lever is excellent for locals, but frontier models with 128k context and unrestricted CoT will just simulate the code mechanically in text, leading to frontier-flat saturation at S=120.",
+      "gameability": "Models might try to output the trace inside the `<output>` tag, but `ast.literal_eval` strictly prevents this; however, unrestricted CoT allows mechanical unrolling which defeats the 'mental simulation' intent.",
+      "contamination": "Metamorphic rotation and procedural generation are robust and effectively detect surface memorization.",
+      "scoring": "`ast.literal_eval` with Python `==` is bulletproof for this restricted AST and handles dict/list equality correctly.",
+      "license": "Clean; original grammar and oracle.",
+      "credibility": "Highly credible; code execution is a well-accepted, distinct axis with strong precedents.",
+      "must_fix": [
+        "Cap the CoT length or require direct output (no CoT) for the hardest tier to prevent mechanical text-based simulation.",
+        "Increase aliasing/mutation density so the text trace becomes too long for the context window to unroll mechanically."
+      ]
+    },
+    {
+      "design_name": "ChromaLadder: Procedural Unique-Solution Graph k-Coloring",
+      "verdict": "KILL",
+      "biggest_risk": "Autoregressive LLMs cannot natively perform backtracking search, meaning instance-level accuracy will floor near 0% for both locals and frontier models on n>10, destroying top-end discrimination.",
+      "discrimination": "Fails the primary constraint. Graph coloring without tools floors frontier models at near 0% for n>10 because autoregressive generation cannot natively backtrack, destroying top-end discrimination.",
+      "gameability": "Models will just copy the pre-assigned pins and guess the rest, farming cell-wise partial credit without doing any genuine search.",
+      "contamination": "Isomorphic transforms are good, but the problem is inherent capability limits, not memorization.",
+      "scoring": "JSON parsing and edge checking are deterministic and correct.",
+      "license": "Clean; original generator.",
+      "credibility": "The community knows LLMs are terrible at text-based graph coloring; it will be seen as a 'gotcha' benchmark rather than a useful reasoning measure.",
+      "must_fix": [
+        "Reduce n to max 8 to keep it in the realm of attention-based propagation rather than backtracking search.",
+        "Switch to a grid-based logic puzzle or provide an adjacency matrix to reduce parsing overhead."
+      ]
+    },
+    {
+      "design_name": "AbstainBench: Procedurally-Seeded Calibration & Hallucination-Discipline via AURC-over-Self-Consistency",
+      "verdict": "REVISE",
+      "biggest_risk": "The Open World Assumption of Wikidata means 'provably false' swapped properties are often actually true in reality (e.g., multi-valued properties like 'awards won'), creating fatal false negatives in the gold labels.",
+      "discrimination": "Conflates knowledge with calibration for local models; a 7B model that simply doesn't know the obscure AC entities will abstain, fail the AC, and be heavily penalized in AURC, flooring locals based on knowledge.",
+      "gameability": "Models RLHF'd to be overly cautious will abstain on everything obscure; the AC controls mitigate this, but only if the model actually knows the obscure AC facts.",
+      "contamination": "Date-windowing and procedural generation are strong.",
+      "scoring": "Regex markers for 'rebut' and 'abstain' are brittle and will misclassify nuanced hedging or partial corrections.",
+      "license": "Clean; Wikidata is CC0.",
+      "credibility": "AURC is a strong metric, but the Wikidata provenance flaw undermines trust in the gold labels.",
+      "must_fix": [
+        "Strictly filter the generator to only use functional (1:1) properties (e.g., 'date of birth') to guarantee the swapped object is truly false under the Open World Assumption.",
+        "Force the model to output a structured JSON response with a boolean `is_answerable` field to eliminate brittle regex hedging detection."
+      ]
+    }
+  ],
+  "cross_cutting": "The single most important issue shared across designs is the overestimation of frontier model limitations on mechanical/algorithmic tasks when Chain-of-Thought is unrestricted (StateTrace, ChromaLadder) and the conflation of knowledge retrieval with the target capability (AbstainBench). I would pilot StateTrace (with CoT restrictions to prevent mechanical unrolling) and ConstraintForge (with topic grounding to prevent keyword-salad), as they have the clearest deterministic scoring and procedural generation pipelines."
+}

@@ -1,0 +1,25 @@
+{
+  "reviewer": "Adversarial Methodologist",
+  "verdict": "FATAL",
+  "biggest_risk": "The statistical power at Quick-tier N is mathematically incapable of resolving the 1-3% quant deltas the product claims to measure, resulting in a leaderboard of false negatives sold as 'quant is free'.",
+  "statistical_power": "To detect a 2% delta with 80% power using McNemar's test, assuming a high agreement rate (e.g., 10% discordant pairs), requires ~400-500 items minimum. At Quick-tier (~100 items), a 2-point drop is exactly 2 items. The bootstrap CI will easily swallow this. You are selling absence of evidence as evidence of absence.",
+  "degradation_profile_hypothesis": "False. K-quants explicitly preserve outlier weights, meaning degradation is often diffuse or manifests as catastrophic formatting failures on EASY items (e.g., missing a JSON bracket). Stratifying by difficulty assumes a monotonic capability decay that does not align with how quantization noise actually perturbs attention matrices.",
+  "repeatability_floor": "Three runs yield exactly 3 data points for systematic variance—this cannot form a valid 95% bootstrap CI. Furthermore, Q4 precision boundaries in attention kernels often cause HIGHER run-to-run variance than FP16. Comparing a Q4 delta against an FP16 noise floor is statistically invalid.",
+  "multiple_comparisons": "With ~15 cells (5 axes × 3 strata) and no Bonferroni/Holm correction, the family-wise error rate is massive. Even with a -10pt threshold, small strata have wild variance. You will trigger 'severe_subgroup_regression' purely on noise, destroying trust when users cannot replicate the 'severe' drop.",
+  "quant_runtime_confound": "The 'delivered tuple' framing is a blatant dodge. If a user compares FP16 on vLLM to Q4 on llama.cpp, the delta is dominated by KV-cache handling, kernel math, and prompt parsing, not the GGUF weights. You cannot market 'what Q4 costs' when the measurement is hopelessly confounded by the inference engine.",
+  "leg_b_generalization": "Validating on one 8B model proves nothing. A 1B model will show catastrophic collapse (massive signal), while a 70B model will absorb Q4 with ~0 measurable degradation on this suite. The threshold-item distribution is model-specific; Leg B only proves the suite works for that specific model size.",
+  "chance_correction_and_bootstrap": "Chance-correcting a {-1, 0, 1} delta directly distorts the variance and bounds. Worse, resampling by difficulty stratum instead of correlation cluster (e.g., items sharing a RAG context) violates the IID assumption. Correlated failures will artificially shrink the CI, producing false 'real' deltas.",
+  "product_claim_integrity": "Users will treat '+X ± Y' as a universal law for their workloads. Because the suite is frozen, the delta is highly overfit to the specific prompt formats and tasks of the benchmark. It does not transfer to arbitrary user tasks, making the core product wedge an over-promise.",
+  "gate_adequacy": "Passing on 1 of 7 axes means 85% of your benchmark is dead weight for the primary product wedge. The launch bar must be resolving the quant delta on at least 50% of axes at Standard-tier N, otherwise the suite is fundamentally mismatched to the wedge.",
+  "missed_flaws": [
+    "Hardware-level floating point non-determinism (e.g., RTX 3090 vs Mac M2 Metal) is ignored but will dominate the delta if the user changes rigs between runs.",
+    "The -10pt threshold for severe regression is absolute, but axes have different baseline variances and scales, making it arbitrary.",
+    "Assuming temp=0 is greedy and deterministic ignores batch-size dependent kernel non-determinism in continuous batching engines like vLLM."
+  ],
+  "must_fix": [
+    "Implement cluster-robust bootstrapping based on shared context/prompts, not just difficulty strata.",
+    "Increase the minimum N for quant-delta claims to >500 items (abandon Quick-tier for this specific feature).",
+    "Measure the repeatability floor on the specific quantized model being tested, using at least 10 runs, not 3 runs of FP16."
+  ],
+  "verdict_one_liner": "The methodology relies on underpowered item counts and invalid independence assumptions to measure a signal smaller than its own unacknowledged confounding noise."
+}
