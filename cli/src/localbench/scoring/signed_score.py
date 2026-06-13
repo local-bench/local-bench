@@ -32,6 +32,12 @@ def chance_for_bench(bench: str) -> float:
 
 
 def signed_delta(raw_delta: float, *, chance: float) -> float:
+    """Return the chance-corrected difference for a raw accuracy delta.
+
+    A signed score difference is ((a - c) / (1 - c)) - ((b - c) / (1 - c)),
+    so the chance terms cancel and leave (a - b) / (1 - c). Applying this
+    per item is therefore equivalent to differencing aggregate signed scores.
+    """
     if chance >= 1.0:
         raise ChanceBaselineError("chance baseline must be less than 1")
     return raw_delta / (1.0 - chance)

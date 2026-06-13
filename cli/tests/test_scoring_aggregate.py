@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from localbench._scoring import ScoredItem, aggregate, composite
-from localbench.scoring.signed_score import signed_score
+from localbench.scoring.signed_score import signed_delta, signed_score
 
 
 def test_aggregate_when_below_chance_stores_signed_score_and_lowers_composite() -> None:
@@ -21,6 +21,26 @@ def test_aggregate_when_below_chance_stores_signed_score_and_lowers_composite() 
     assert result < 0.5
 
 
+def test_signed_delta_when_chance_corrected_matches_aggregate_score_difference() -> None:
+    # Given paired item correctness on a chance-corrected multiple-choice bench.
+    chance = 0.10
+    run_a = [True, True, False, True, False]
+    run_b = [True, False, False, False, False]
+
+    # When averaging per-item signed deltas and differencing aggregate signed scores.
+    mean_delta = sum(
+        signed_delta(int(correct_a) - int(correct_b), chance=chance)
+        for correct_a, correct_b in zip(run_a, run_b, strict=True)
+    ) / len(run_a)
+    aggregate_delta = signed_score(_mean_bool(run_a), chance=chance) - signed_score(
+        _mean_bool(run_b),
+        chance=chance,
+    )
+
+    # Then linear chance correction makes the two paths exactly equivalent.
+    assert mean_delta == pytest.approx(aggregate_delta)
+
+
 def _scored_item(*, correct: bool) -> ScoredItem:
     return {
         "id": "item-1",
@@ -36,3 +56,7 @@ def _scored_item(*, correct: bool) -> ScoredItem:
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
         "error": None,
     }
+
+
+def _mean_bool(values: list[bool]) -> float:
+    return sum(1 for value in values if value) / len(values)
