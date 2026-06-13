@@ -28,8 +28,8 @@ class DataBuildError(ValueError): ...
 
 def main(argv: list[str] | None = None) -> int:
     try:
-        sources, out_dir, iters = _parse_args(sys.argv[1:] if argv is None else argv)
-        build_static_data(sources, out_dir, iters=iters)
+        sources, out_dir, iters, benches, weights = _parse_args(sys.argv[1:] if argv is None else argv)
+        build_static_data(sources, out_dir, iters=iters, benches=benches, weights=weights)
     except (DataBuildError, OSError, json.JSONDecodeError) as exc:
         print(f"build_data: {exc}", file=sys.stderr)
         return 2
@@ -37,19 +37,19 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT_ITERS) -> None:
+def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT_ITERS, benches: tuple[str, ...] = BENCHES, weights: dict[str, float] = WEIGHTS) -> None:
     sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
-    runs = [_build_run(source, order=index, iters=iters) for index, source in enumerate(sources)]
+    runs = [_build_run(source, order=index, iters=iters, benches=benches, weights=weights) for index, source in enumerate(sources)]
     _write_outputs(out_dir, runs)
 
 
-def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
+def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float]) -> JsonObject:
     bootstrap, signed, stratum_for_item = _scoring()
     path = ROOT / _string(source["file"], "source.file")
     run = _object(_read_json(path), str(path))
     manifest = _object_or_empty(run.get("manifest"))
     suite = _object_or_empty(manifest.get("suite"))
-    benches = _object(run.get("benches"), f"{path}:benches")
+    source_benches = _object(run.get("benches"), f"{path}:benches")
     items = _list(run.get("items"), f"{path}:items")
     totals = _object(run.get("totals"), f"{path}:totals")
     model_label = _model_label(source, manifest)
@@ -59,23 +59,23 @@ def _build_run(source: JsonObject, *, order: int, iters: int) -> JsonObject:
     run_id = f"{slug}__{path.stem}"
     quant = _text(source.get("quant_label")) or _text(_object_or_empty(manifest.get("model")).get("quant_label"))
     lane = _text(source.get("reasoning_lane")) or _text(suite.get("lane"))
-    correct, strata, no_answer = _scored_inputs(items, stratum_for_item)
+    correct, strata, no_answer = _scored_inputs(items, stratum_for_item, benches)
     tokens = _completion_token_stats(items)
     est_cost = _number_or_none(run.get("estimated_cost_usd"))
     summary = _manifest_summary(source, manifest, lane, quant)
-    axes, axis_warnings = _axes(benches, correct, strata, no_answer, bootstrap, signed, iters)
-    composite = _composite(run, axes, correct, strata, bootstrap, signed, iters)
-    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "item_set_hashes": _object_or_empty(suite.get("item_set_hashes")), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": _worst_axis(axes)}
+    axes, axis_warnings = _axes(source_benches, correct, strata, no_answer, bootstrap, signed, iters, benches)
+    composite = _composite(run, axes, correct, strata, bootstrap, signed, iters, benches, weights)
+    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "item_set_hashes": _object_or_empty(suite.get("item_set_hashes")), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": _worst_axis(axes, benches)}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": _number_or_none(totals.get("completion_tokens_per_second")), "vram_footprint_gb": source["vram_footprint_gb"], "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
     index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
     return {"composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 
-def _axes(benches: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], no_answer: dict[str, int], bootstrap: ModuleType, signed: ModuleType, iters: int) -> tuple[JsonObject, list[JsonValue]]:
+def _axes(source_benches: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], no_answer: dict[str, int], bootstrap: ModuleType, signed: ModuleType, iters: int, benches: tuple[str, ...]) -> tuple[JsonObject, list[JsonValue]]:
     axes: JsonObject = {}
     warnings: list[JsonValue] = []
-    for bench in BENCHES:
-        aggregate = _object(benches.get(bench), f"benches.{bench}")
+    for bench in benches:
+        aggregate = _object(source_benches.get(bench), f"benches.{bench}")
         chance = signed.chance_for_bench(bench)
         raw_accuracy = sum(correct[bench]) / len(correct[bench])
         if abs(raw_accuracy - (stored_raw_accuracy := _number(aggregate.get("raw_accuracy"), f"{bench}.raw_accuracy"))) > 1e-9:
@@ -85,10 +85,11 @@ def _axes(benches: JsonObject, correct: dict[str, list[bool]], strata: dict[str,
     return axes, warnings
 
 
-def _composite(run: JsonObject, axes: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], bootstrap: ModuleType, signed: ModuleType, iters: int) -> JsonObject:
-    samples = {bench: {"correct": correct[bench], "strata": strata[bench], "chance": signed.chance_for_bench(bench)} for bench in BENCHES}
-    ci = bootstrap.composite_ci(samples, WEIGHTS, seed=SEED, iters=iters)
-    point = sum(_number(_object(axes[bench], bench).get("point_raw"), f"{bench}.point_raw") for bench in BENCHES) / len(BENCHES)
+def _composite(run: JsonObject, axes: JsonObject, correct: dict[str, list[bool]], strata: dict[str, list[str]], bootstrap: ModuleType, signed: ModuleType, iters: int, benches: tuple[str, ...], weights: dict[str, float]) -> JsonObject:
+    samples = {bench: {"correct": correct[bench], "strata": strata[bench], "chance": signed.chance_for_bench(bench)} for bench in benches}
+    ci = bootstrap.composite_ci(samples, weights, seed=SEED, iters=iters)
+    weight_total = sum(weights[bench] for bench in benches)
+    point = sum(_number(_object(axes[bench], bench).get("point_raw"), f"{bench}.point_raw") * weights[bench] for bench in benches) / weight_total
     stored = _number(run.get("composite"), "composite")
     warnings: list[JsonValue] = [f"composite point {point:.12f} differs from stored composite {stored:.12f}"] if abs(point - stored) > 1e-6 else []
     return {"interval": _interval(point, ci["lo"], ci["hi"]), "raw_point": point, "warnings": warnings}
@@ -117,10 +118,10 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject]) -> None:
     _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "models": models, "suite_version": _suite_version(runs)})
 
 
-def _scored_inputs(items: list[JsonValue], stratum_for_item: StratumForItem) -> tuple[dict[str, list[bool]], dict[str, list[str]], dict[str, int]]:
-    correct = {bench: [] for bench in BENCHES}
-    strata = {bench: [] for bench in BENCHES}
-    no_answer = {bench: 0 for bench in BENCHES}
+def _scored_inputs(items: list[JsonValue], stratum_for_item: StratumForItem, benches: tuple[str, ...]) -> tuple[dict[str, list[bool]], dict[str, list[str]], dict[str, int]]:
+    correct = {bench: [] for bench in benches}
+    strata = {bench: [] for bench in benches}
+    no_answer = {bench: 0 for bench in benches}
     for value in items:
         item = _object(value, "item")
         bench = _text(item.get("bench"))
@@ -192,10 +193,12 @@ def _source(value: JsonValue, index: int) -> JsonObject:
     return {"family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _string(item.get("file"), f"data_sources[{index}].file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
 
 
-def _parse_args(argv: list[str]) -> tuple[Path, Path, int]:
+def _parse_args(argv: list[str]) -> tuple[Path, Path, int, tuple[str, ...], dict[str, float]]:
     sources = ROOT / "web" / "data_sources.json"
     out_dir = ROOT / "web" / "public" / "data"
     iters = DEFAULT_ITERS
+    benches = BENCHES
+    weights = WEIGHTS
     index = 0
     while index < len(argv):
         match argv[index]:
@@ -205,13 +208,16 @@ def _parse_args(argv: list[str]) -> tuple[Path, Path, int]:
                 out_dir = Path(_next_arg(argv, index)).resolve()
             case "--iters":
                 iters = _positive_int(_next_arg(argv, index), "--iters")
+            case "--benches":
+                benches = _bench_list(_next_arg(argv, index))
+                weights = {bench: 1.0 for bench in benches}
             case "--help" | "-h":
-                print("usage: python web/build_data.py [--sources PATH] [--out PATH] [--iters N]")
+                print("usage: python web/build_data.py [--sources PATH] [--out PATH] [--iters N] [--benches a,b,c]")
                 raise SystemExit(0)
             case other:
                 raise DataBuildError(f"unknown argument {other}")
         index += 2
-    return sources, out_dir, iters
+    return sources, out_dir, iters, benches, weights
 
 
 def _scoring() -> tuple[ModuleType, ModuleType, StratumForItem]:
@@ -237,8 +243,8 @@ def _interval(point: float, lo: float, hi: float) -> JsonObject:
     return {"hi": hi * 100.0, "hi_raw": hi, "lo": lo * 100.0, "lo_raw": lo, "point": point * 100.0, "point_raw": point}
 
 
-def _worst_axis(axes: JsonObject) -> JsonObject:
-    bench = min(BENCHES, key=lambda name: _number(_object(axes[name], name).get("point_raw"), f"{name}.point_raw"))
+def _worst_axis(axes: JsonObject, benches: tuple[str, ...]) -> JsonObject:
+    bench = min(benches, key=lambda name: _number(_object(axes[name], name).get("point_raw"), f"{name}.point_raw"))
     axis = _object(axes[bench], bench)
     return {"bench": bench, "point": axis["point"], "point_raw": axis["point_raw"]}
 
@@ -274,6 +280,15 @@ def _positive_int(value: str, context: str) -> int:
     if not value.isdecimal() or int(value) <= 0:
         _fail(f"{context} must be a positive integer")
     return int(value)
+
+
+def _bench_list(value: str) -> tuple[str, ...]:
+    benches = tuple(bench.strip() for bench in value.split(",") if bench.strip())
+    if not benches:
+        _fail("--benches must include at least one bench")
+    if len(set(benches)) != len(benches):
+        _fail("--benches must not contain duplicates")
+    return benches
 
 
 def _fail(message: str) -> NoReturn:

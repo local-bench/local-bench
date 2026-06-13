@@ -1,17 +1,17 @@
-import { AXES } from "@/lib/data";
+import { presentAxes } from "@/lib/axis-config";
 import { axisLabel, clampScore, formatCi, formatScore } from "@/lib/format";
-import type { Axis, RunDetail } from "@/lib/schemas";
+import type { Axis, AxisScore, RunDetail } from "@/lib/schemas";
 
 export function RunAxisBreakdown({ run }: { readonly run: RunDetail }) {
   return (
     <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
       <h2 className="text-lg font-semibold text-bench-text">Axis breakdown</h2>
       <div className="mt-4 space-y-4">
-        {AXES.map((axis) => (
+        {presentAxes(run.axes).map(([axis, score]) => (
           <AxisWhisker
             key={axis}
             axis={axis}
-            score={run.axes[axis]}
+            score={score}
             highlighted={axis === run.worst_axis.bench}
           />
         ))}
@@ -26,7 +26,7 @@ function AxisWhisker({
   highlighted,
 }: {
   readonly axis: Axis;
-  readonly score: RunDetail["axes"][Axis];
+  readonly score: AxisScore;
   readonly highlighted: boolean;
 }) {
   const lo = clampScore(score.lo);

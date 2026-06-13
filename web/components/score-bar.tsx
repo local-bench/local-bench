@@ -23,7 +23,10 @@ export function ScoreBar({
   );
 }
 
-export function AxisMiniBar({ score }: { readonly score: AxisScore }) {
+export function AxisMiniBar({ score }: { readonly score: AxisScore | undefined }) {
+  if (score === undefined) {
+    return <div className="min-w-[88px] font-mono text-xs text-bench-muted">n/a</div>;
+  }
   return (
     <div className="min-w-[88px]">
       <div className="flex items-center justify-between gap-2 font-mono text-xs">

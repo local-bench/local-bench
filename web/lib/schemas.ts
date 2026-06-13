@@ -1,8 +1,5 @@
 import { z } from "zod";
 
-export const AXES = ["mmlu_pro", "ifeval", "genmath"] as const;
-
-export const AxisSchema = z.enum(AXES);
 export const ModelSlugSchema = z.string().min(1).brand<"ModelSlug">();
 export const RunIdSchema = z.string().min(1).brand<"RunId">();
 
@@ -27,11 +24,7 @@ export const AxisScoreSchema = ScoreSchema.extend({
   n_no_answer: z.number(),
 });
 
-export const AxesSchema = z.object({
-  mmlu_pro: AxisScoreSchema,
-  ifeval: AxisScoreSchema,
-  genmath: AxisScoreSchema,
-});
+export const AxesSchema = z.record(z.string(), AxisScoreSchema);
 
 export const KindSchema = z.enum(["anchor", "community"]);
 
@@ -66,13 +59,7 @@ const SamplingBenchSchema = z
 
 export const SamplingSchema = z
   .object({
-    by_bench: z
-      .object({
-        genmath: SamplingBenchSchema.optional(),
-        ifeval: SamplingBenchSchema.optional(),
-        mmlu_pro: SamplingBenchSchema.optional(),
-      })
-      .passthrough(),
+    by_bench: z.record(z.string(), SamplingBenchSchema),
     min_p: z.number().nullable().optional(),
     reasoning_effort: z.string().nullable().optional(),
     seed: z.number().nullable().optional(),
@@ -172,7 +159,7 @@ export const RunDetailSchema = z.object({
   composite: ScoreSchema,
   axes: AxesSchema,
   worst_axis: z.object({
-    bench: AxisSchema,
+    bench: z.string(),
     point: z.number(),
     point_raw: z.number(),
   }),
@@ -186,7 +173,7 @@ export const RunDetailSchema = z.object({
   data_warnings: z.array(z.string()).optional(),
 });
 
-export type Axis = z.infer<typeof AxisSchema>;
+export type Axis = string;
 export type Score = z.infer<typeof ScoreSchema>;
 export type AxisScore = z.infer<typeof AxisScoreSchema>;
 export type Kind = z.infer<typeof KindSchema>;

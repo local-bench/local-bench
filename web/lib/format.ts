@@ -1,11 +1,12 @@
 import type {
-  Axis,
   HardwareSummary,
   Kind,
   PrimitiveRecord,
   RuntimeSummary,
   Score,
 } from "./schemas";
+
+export { axisLabel } from "./axis-config";
 
 const SCORE_FORMAT = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 1,
@@ -69,19 +70,6 @@ export function fallbackText(value: string | number | boolean | null | undefined
     return "n/a";
   }
   return String(value);
-}
-
-export function axisLabel(axis: Axis): string {
-  switch (axis) {
-    case "mmlu_pro":
-      return "MMLU-Pro";
-    case "ifeval":
-      return "IFEval";
-    case "genmath":
-      return "genmath";
-    default:
-      return assertNever(axis);
-  }
 }
 
 export function kindLabel(kind: Kind): string {

@@ -4,22 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { KindBadge, LaneBadge, TierBadge } from "@/components/badges";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
+import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatCost, formatInteger } from "@/lib/format";
-import type { Axis, IndexModel } from "@/lib/schemas";
+import type { IndexModel } from "@/lib/schemas";
 
-const TABLE_AXES = ["mmlu_pro", "ifeval", "genmath"] as const;
-
-type SortKey =
-  | "model"
-  | "kind"
-  | "composite"
-  | "mmlu_pro"
-  | "ifeval"
-  | "genmath"
-  | "tier"
-  | "lane"
-  | "tokens"
-  | "cost";
+type SortKey = string;
 
 type SortDirection = "asc" | "desc";
 
@@ -30,6 +19,7 @@ type SortState = {
 
 export function HomeLeaderboard({ models }: { readonly models: readonly IndexModel[] }) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
+  const axisKeys = useMemo(() => axisColumns(models), [models]);
   const sortedModels = useMemo(() => sortRows(models, sort), [models, sort]);
   const laneRanks = useMemo(() => buildLaneRanks(models), [models]);
 
@@ -45,7 +35,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
             <SortableHeader label="Kind" sortKey="kind" sort={sort} onSort={setSort} />
             <SortableHeader label="Composite" sortKey="composite" sort={sort} onSort={setSort} />
-            {TABLE_AXES.map((axis) => (
+            {axisKeys.map((axis) => (
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
             <SortableHeader label="Tier" sortKey="tier" sort={sort} onSort={setSort} />
@@ -78,9 +68,9 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
               <td className="px-3 py-3">
                 <ScoreBar score={model.composite} tone={model.kind === "anchor" ? "anchor" : "accent"} />
               </td>
-              {TABLE_AXES.map((axis) => (
-                <td key={axis} className="px-3 py-3">
-                  <AxisMiniBar score={model.axes[axis]} />
+              {axisKeys.map((axisKey) => (
+                <td key={axisKey} className="px-3 py-3">
+                  <AxisMiniBar score={model.axes[axisKey]} />
                 </td>
               ))}
               <td className="px-3 py-3">
@@ -177,10 +167,6 @@ function compareRows(left: IndexModel, right: IndexModel, key: SortKey): number 
       return left.kind.localeCompare(right.kind);
     case "composite":
       return left.composite.point - right.composite.point;
-    case "mmlu_pro":
-    case "ifeval":
-    case "genmath":
-      return compareAxis(left, right, key);
     case "tier":
       return left.tier.localeCompare(right.tier);
     case "lane":
@@ -190,18 +176,26 @@ function compareRows(left: IndexModel, right: IndexModel, key: SortKey): number 
     case "cost":
       return nullableNumber(left.est_cost_usd) - nullableNumber(right.est_cost_usd);
     default:
-      return assertNever(key);
+      return compareAxis(left, right, key);
   }
 }
 
-function compareAxis(left: IndexModel, right: IndexModel, axis: Axis): number {
-  return left.axes[axis].point - right.axes[axis].point;
+function compareAxis(left: IndexModel, right: IndexModel, axis: string): number {
+  return (left.axes[axis]?.point ?? Number.NEGATIVE_INFINITY) - (right.axes[axis]?.point ?? Number.NEGATIVE_INFINITY);
 }
 
 function nullableNumber(value: number | null): number {
   return value ?? Number.NEGATIVE_INFINITY;
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unhandled sort key: ${String(value)}`);
+function axisColumns(models: readonly IndexModel[]): readonly string[] {
+  const present = new Set<string>();
+  for (const model of models) {
+    for (const axis of Object.keys(model.axes)) {
+      present.add(axis);
+    }
+  }
+  const configured = AXIS_CONFIG.map((axis) => axis.key).filter((axis) => present.has(axis));
+  const extra = [...present].filter((axis) => !isAxisKey(axis)).sort();
+  return [...configured, ...extra];
 }

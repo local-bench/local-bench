@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ZodType } from "zod";
+import type { AxisKey } from "./axis-config";
 import {
   IndexDataSchema,
   ModelDataSchema,
   RunDetailSchema,
+  type AxisScore,
   type IndexData,
   type ModelData,
   type ModelRun,
@@ -20,8 +22,13 @@ export type AnchorReference = {
   readonly composite: Score;
 };
 
+type AxisScoresWithConfiguredAxes = Record<string, AxisScore> & Record<AxisKey, AxisScore>;
+type ModelRunWithConfiguredAxes = Omit<ModelRun, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
+type ModelDataWithConfiguredAxes = Omit<ModelData, "runs"> & { readonly runs: ModelRunWithConfiguredAxes[] };
+type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
+
 export type ModelPageData = {
-  readonly model: ModelData;
+  readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
 };
 
@@ -51,12 +58,14 @@ export async function getIndexData(): Promise<IndexData> {
   };
 }
 
-export async function getModelData(slug: string): Promise<ModelData> {
-  return readJson(["models", `${slug}.json`], ModelDataSchema);
+export async function getModelData(slug: string): Promise<ModelDataWithConfiguredAxes> {
+  const model = await readJson(["models", `${slug}.json`], ModelDataSchema);
+  return model as ModelDataWithConfiguredAxes;
 }
 
-export async function getRunData(runId: string): Promise<RunDetail> {
-  return readJson(["runs", `${runId}.json`], RunDetailSchema);
+export async function getRunData(runId: string): Promise<RunDetailWithConfiguredAxes> {
+  const run = await readJson(["runs", `${runId}.json`], RunDetailSchema);
+  return run as RunDetailWithConfiguredAxes;
 }
 
 function toAnchorReference(model: ModelData, run: ModelRun): AnchorReference {
@@ -92,7 +101,7 @@ export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
   return models.flatMap((model) => model.runs.map((run) => ({ runId: run.run_id })));
 }
 
-export { AXES } from "./schemas";
+export { AXIS_KEYS as AXES } from "./axis-config";
 export type {
   Axis,
   AxisScore,

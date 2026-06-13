@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { DetailGrid, DetailItem } from "@/components/detail-grid";
 import { RunAxisBreakdown } from "@/components/run-axis-breakdown";
-import { AXES, getRunData, getRunStaticParams } from "@/lib/data";
+import { presentAxes } from "@/lib/axis-config";
+import { getRunData, getRunStaticParams } from "@/lib/data";
 import {
   fallbackText,
   formatCi,
@@ -31,7 +32,7 @@ export async function generateStaticParams(): Promise<{ runId: string }[]> {
 export default async function RunPage({ params }: PageProps) {
   const { runId } = await params;
   const run = await getRunData(runId);
-  const noAnswerCount = AXES.reduce((sum, axis) => sum + run.axes[axis].n_no_answer, 0);
+  const noAnswerCount = Object.values(run.axes).reduce((sum, axis) => sum + axis.n_no_answer, 0);
   const hasQualityNote = run.totals.n_errors > 0 || noAnswerCount > 0;
 
   return (
@@ -130,9 +131,8 @@ function formatSampling(run: RunDetail): string {
     `seed ${fallbackText(sampling.seed)}`,
     `effort ${fallbackText(sampling.reasoning_effort)}`,
   ];
-  const byBench = AXES.map((axis) => {
-    const bench = sampling.by_bench[axis];
-    return bench === undefined ? `${axis}: n/a` : `${axis}: max ${fallbackText(bench.max_tokens)}`;
-  });
+  const byBench = presentAxes(sampling.by_bench).map(
+    ([axis, bench]) => `${axis}: max ${fallbackText(bench.max_tokens)}`,
+  );
   return [...base, ...byBench].join(" · ");
 }
