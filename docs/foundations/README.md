@@ -1,6 +1,9 @@
 # local-bench — benchmark-suite foundations (2026-06-13)
 
-**Status: research + red-team complete. Awaiting Michael's sign-off. NOTHING implemented yet.**
+**Status: research + red-team + paper-revision complete. Awaiting Michael's sign-off. NOTHING implemented yet.**
+
+> **→ Current canonical spec: [`suite-v1-REVISED.md`](suite-v1-REVISED.md)** (post-red-team, measure-first).
+> `suite-v1-methodology.md` is the original synthesis — kept for detail, but its axis/weight choices are superseded.
 
 This folder is the output of the foundations rework triggered when the v0 suite was found
 **non-discriminating** (a 9B scored within 6 composite pts of frontier SOTA; Gemini 3.1 Pro
