@@ -102,6 +102,7 @@ def compare_runs(
             "domain": item["domain"],
             "stratum": item["stratum"],
             "cluster": item["cluster"],
+            "raw_delta": item["delta"],
             "signed_delta": item["signed_delta"],
         }
         for item in deltas

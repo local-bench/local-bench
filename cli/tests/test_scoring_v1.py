@@ -142,6 +142,53 @@ def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() 
     assert subgroup_flags[0]["ci"]["hi"] < -0.90
 
 
+def test_compare_runs_when_noisy_subgroup_regressions_are_bh_suppressed() -> None:
+    # Given several tiny clustered cells whose CIs are severe, plus one genuine cell.
+    degraded_items: list[dict] = []
+    baseline_items: list[dict] = []
+    for cell_index in range(6):
+        degraded_cell, baseline_cell = _discordant_cell_items(
+            prefix=f"noise-{cell_index}",
+            template=f"noise-{cell_index}",
+            regressions=3,
+            improvements=2,
+            cluster=f"noise-cluster-{cell_index}",
+        )
+        degraded_items.extend(degraded_cell)
+        baseline_items.extend(baseline_cell)
+    genuine_degraded, genuine_baseline = _discordant_cell_items(
+        prefix="genuine",
+        template="genuine",
+        regressions=20,
+        improvements=0,
+        cluster="genuine-cluster",
+    )
+    degraded_items.extend(genuine_degraded)
+    baseline_items.extend(genuine_baseline)
+
+    # When comparing the degraded run against the baseline run.
+    comparison = compare_runs(
+        _run_record(degraded_items),
+        _run_record(baseline_items),
+        iters=800,
+        seed=17,
+    )
+    by_stratum = {subgroup["stratum"]: subgroup for subgroup in comparison["subgroups"]}
+
+    # Then BH suppresses the noisy CI-only flags but keeps the genuine regression.
+    for cell_index in range(6):
+        subgroup = by_stratum[f"template=noise-{cell_index}"]
+        assert subgroup["ci"]["hi"] < -0.10
+        assert subgroup["b_regressions"] == 3
+        assert subgroup["c_improvements"] == 2
+        assert subgroup["bh_adjusted_p"] >= 0.05
+        assert not subgroup["severe_subgroup_regression"]
+    genuine = by_stratum["template=genuine"]
+    assert genuine["mcnemar_p"] == pytest.approx(2**-20)
+    assert genuine["bh_adjusted_p"] < 0.05
+    assert genuine["severe_subgroup_regression"]
+
+
 def test_compare_runs_when_item_sets_differ_errors() -> None:
     # Given records over different item ids.
     record_a = _run_record([_item("a", "genmath", True)])
@@ -290,6 +337,27 @@ def _paired_items(
             ),
         )
     return pairs
+
+
+def _discordant_cell_items(
+    *,
+    prefix: str,
+    template: str,
+    regressions: int,
+    improvements: int,
+    cluster: str,
+) -> tuple[list[dict], list[dict]]:
+    degraded: list[dict] = []
+    baseline: list[dict] = []
+    for index in range(regressions):
+        item_id = f"{prefix}-regression-{index}"
+        degraded.append(_item(item_id, "ifeval", False, template=template, cluster=cluster))
+        baseline.append(_item(item_id, "ifeval", True, template=template, cluster=cluster))
+    for index in range(improvements):
+        item_id = f"{prefix}-improvement-{index}"
+        degraded.append(_item(item_id, "ifeval", True, template=template, cluster=cluster))
+        baseline.append(_item(item_id, "ifeval", False, template=template, cluster=cluster))
+    return degraded, baseline
 
 
 def _item(
