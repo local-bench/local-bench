@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from localbench.scoring.bootstrap import per_bench_ci
+from localbench.scoring.bootstrap import per_bench_ci, stratified_mean_ci
 from localbench.scoring.paired_delta import compare_runs, format_honest_delta
 from localbench.scoring.signed_score import display_clamp, signed_score
 from localbench.scoring.subgroups import severe_subgroup_regressions
@@ -86,6 +86,36 @@ def test_compare_runs_when_identical_returns_zero_tight_delta() -> None:
     assert comparison["repeatability_ci"] == {"point": 0.0, "lo": 0.0, "hi": 0.0}
     assert comparison["generalization_ci"] == {"point": 0.0, "lo": 0.0, "hi": 0.0}
     assert comparison["worst_axis"]["delta"]["point"] == 0.0
+
+
+def test_compare_runs_when_clusters_are_absent_matches_explicit_singletons() -> None:
+    # Given existing synthetic records and the same records with singleton clusters.
+    degraded = _balanced_regression_run(degraded=True)
+    baseline = _balanced_regression_run(degraded=False)
+    clustered_degraded = _with_singleton_clusters(degraded)
+    clustered_baseline = _with_singleton_clusters(baseline)
+
+    # When comparing both forms with the same bootstrap seed.
+    absent = compare_runs(degraded, baseline, iters=700, seed=23)
+    explicit = compare_runs(clustered_degraded, clustered_baseline, iters=700, seed=23)
+
+    # Then singleton fallback preserves every reported number exactly.
+    assert explicit == absent
+
+
+def test_stratified_mean_ci_when_items_share_cluster_uses_block_resampling() -> None:
+    # Given one passage cluster with many correlated regressions and neutral singleton clusters.
+    values = [-1.0] * 12 + [0.0] * 12
+    strata = ["long-context"] * len(values)
+    clusters = ["shared-passage"] * 12 + [f"neutral-{index}" for index in range(12)]
+
+    # When the same values are bootstrapped by item and by cluster block.
+    naive = stratified_mean_ci(values, strata, iters=2_000, seed=11)
+    clustered = stratified_mean_ci(values, strata, clusters=clusters, iters=2_000, seed=11)
+
+    # Then the correlated regressions count as one resampling unit, widening the CI.
+    assert _interval_width(clustered) > _interval_width(naive)
+    assert clustered["hi"] > naive["hi"]
 
 
 def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() -> None:
@@ -270,6 +300,7 @@ def _item(
     category: str | None = None,
     difficulty: str | None = None,
     template: str | None = None,
+    cluster: str | None = None,
 ) -> dict:
     item = {
         "id": item_id,
@@ -289,7 +320,26 @@ def _item(
         item["difficulty"] = difficulty
     if template is not None:
         item["template"] = template
+    if cluster is not None:
+        item["cluster"] = cluster
     return item
+
+
+def _with_singleton_clusters(record: dict) -> dict:
+    return {
+        **record,
+        "items": [
+            {
+                **item,
+                "cluster": str(item["id"]),
+            }
+            for item in record["items"]
+        ],
+    }
+
+
+def _interval_width(interval: dict[str, float]) -> float:
+    return interval["hi"] - interval["lo"]
 
 
 def _run_record(items: Sequence[dict]) -> dict:
