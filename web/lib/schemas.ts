@@ -101,6 +101,7 @@ export const IndexModelSchema = z.object({
 export const IndexDataSchema = z.object({
   generated_note: z.string(),
   suite_version: z.string(),
+  index_version: z.string(),
   models: z.array(IndexModelSchema),
 });
 
@@ -170,6 +171,7 @@ export const RunDetailSchema = z.object({
   tokens_to_answer_p95: z.number().nullable(),
   item_set_hashes: z.record(z.string(), z.string()),
   suite_version: z.string(),
+  index_version: z.string(),
   data_warnings: z.array(z.string()).optional(),
 });
 

@@ -1,13 +1,18 @@
 import Link from "next/link";
+import { getIndexData } from "@/lib/data";
 
-export default function MethodologyPage() {
+export default async function MethodologyPage() {
+  const index = await getIndexData();
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
       <Link href="/" className="text-sm text-bench-accent hover:underline">
         Back to leaderboard
       </Link>
       <header className="border-b border-bench-line pb-5">
-        <p className="font-mono text-xs uppercase text-bench-accent">suite-v0 methodology</p>
+        <p className="font-mono text-xs uppercase text-bench-accent">
+          {index.suite_version} · {index.index_version} methodology
+        </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
         <p className="mt-3 leading-7 text-bench-muted">
           The sortable number is a compact index. The three-axis profile remains the diagnostic view for

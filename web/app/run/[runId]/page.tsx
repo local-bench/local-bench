@@ -41,7 +41,9 @@ export default async function RunPage({ params }: PageProps) {
         Back to model
       </Link>
       <header className="rounded-lg border border-bench-line bg-bench-panel p-5">
-        <p className="font-mono text-xs uppercase text-bench-accent">{run.suite_version}</p>
+        <p className="font-mono text-xs uppercase text-bench-accent">
+          {run.suite_version} · {run.index_version}
+        </p>
         <h1 className="mt-2 text-3xl font-semibold text-bench-text">{run.model_label}</h1>
         <p className="mt-1 break-all font-mono text-sm text-bench-muted">{run.run_id}</p>
         <div className="mt-5 flex flex-wrap items-end gap-4">
@@ -62,6 +64,7 @@ export default async function RunPage({ params }: PageProps) {
       <footer className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <h2 className="text-lg font-semibold text-bench-text">Provenance</h2>
         <p className="mt-2 font-mono text-sm text-bench-muted">suite_version: {run.suite_version}</p>
+        <p className="mt-1 font-mono text-sm text-bench-muted">index_version: {run.index_version}</p>
         <div className="mt-4 grid gap-2">
           {Object.entries(run.item_set_hashes).map(([name, hash]) => (
             <div key={name} className="grid gap-1 rounded-md border border-bench-line bg-white/[0.025] p-3 md:grid-cols-[220px_1fr]">
