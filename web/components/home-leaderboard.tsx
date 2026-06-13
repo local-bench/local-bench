@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { KindBadge, LaneBadge, TierBadge } from "@/components/badges";
+import { DemoBadge, KindBadge, LaneBadge, TierBadge } from "@/components/badges";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatCost, formatInteger } from "@/lib/format";
@@ -24,7 +24,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
   const laneRanks = useMemo(() => buildLaneRanks(models), [models]);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
+    <div data-testid="full-leaderboard" className="overflow-x-auto rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
       <table className="min-w-[1120px] border-collapse text-sm">
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
@@ -60,6 +60,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
                 <Link href={`/model/${model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
                   {model.model_label}
                 </Link>
+                {model.demo ? <span className="ml-2"><DemoBadge /></span> : null}
                 <div className="text-xs text-bench-muted">{model.family}</div>
               </td>
               <td className="px-3 py-3">

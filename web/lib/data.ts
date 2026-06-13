@@ -13,6 +13,7 @@ import {
   type RunDetail,
   type Score,
 } from "./schemas";
+import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 
@@ -30,6 +31,14 @@ type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & { readonly axes: Ax
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+};
+
+export type HomePageData = {
+  readonly index: IndexData;
+  readonly anchorRuns: readonly AnchorReference[];
+  readonly rigAnchors: readonly RigMatchAnchor[];
+  readonly rigCandidates: readonly RigMatchCandidate[];
+  readonly scatterRuns: readonly (ModelRun & { readonly point_label: string })[];
 };
 
 export type ModelStaticParam = {
@@ -90,6 +99,27 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
   return { model, anchorRuns };
 }
 
+export async function getHomePageData(): Promise<HomePageData> {
+  const index = await getIndexData();
+  const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
+  const anchorRuns = models
+    .filter((model) => model.kind === "anchor")
+    .flatMap((model) => model.runs.map((run) => toAnchorReference(model, run)));
+  const rigAnchors = anchorRuns.map((anchor) => ({ modelLabel: anchor.model_label, score: anchor.composite }));
+  const rigCandidates = models.flatMap((model) =>
+    model.runs.map((run) => toRigMatchCandidate(model, run)),
+  );
+  const scatterRuns = models
+    .filter((model) => model.kind === "community")
+    .flatMap((model) =>
+      model.runs.map((run) => ({
+        ...run,
+        point_label: `${model.model_label} ${run.quant_label ?? ""}`.trim(),
+      })),
+    );
+  return { anchorRuns, index, rigAnchors, rigCandidates, scatterRuns };
+}
+
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {
   const index = await getIndexData();
   return index.models.map((model) => ({ slug: model.slug }));
@@ -99,6 +129,24 @@ export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
   const index = await getIndexData();
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
   return models.flatMap((model) => model.runs.map((run) => ({ runId: run.run_id })));
+}
+
+function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate {
+  return {
+    demo: model.demo || run.demo,
+    family: model.family,
+    kind: model.kind,
+    lane: run.lane,
+    modelLabel: model.model_label,
+    modelSlug: model.slug,
+    nItems: run.n_items,
+    nRuns: model.runs.length,
+    quantLabel: run.quant_label,
+    runId: run.run_id,
+    score: run.composite,
+    tokS: run.tok_s,
+    vramFootprintGb: run.vram_footprint_gb,
+  };
 }
 
 export { AXIS_KEYS as AXES } from "./axis-config";

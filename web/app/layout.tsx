@@ -18,11 +18,12 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const index = await getIndexData();
+  const usesDemoData = index.models.some((model) => model.demo);
 
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body className="font-sans antialiased">
-        <AppShell suiteVersion={index.suite_version} indexVersion={index.index_version}>
+        <AppShell suiteVersion={index.suite_version} indexVersion={index.index_version} usesDemoData={usesDemoData}>
           {children}
         </AppShell>
       </body>

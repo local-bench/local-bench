@@ -2,10 +2,12 @@ import Link from "next/link";
 
 export function AppShell({
   children,
+  usesDemoData,
   suiteVersion,
   indexVersion,
 }: {
   readonly children: React.ReactNode;
+  readonly usesDemoData: boolean;
   readonly suiteVersion: string;
   readonly indexVersion: string;
 }) {
@@ -36,6 +38,11 @@ export function AppShell({
             {suiteVersion} · {indexVersion}
           </span>
         </nav>
+        {usesDemoData ? (
+          <div className="border-t border-bench-warn/25 bg-bench-warn/10 px-5 py-2 text-center text-sm font-medium text-bench-warn">
+            Preview uses synthetic demo data — not real measurements (Track 2 will replace it).
+          </div>
+        ) : null}
       </header>
       <div className="flex-1">{children}</div>
     </div>
