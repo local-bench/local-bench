@@ -33,6 +33,20 @@
 
 ---
 
+## PROGRESS — 2026-06-14 05:28 (os-backstop run) — NO-OP, all safe scope already complete
+
+Woke, verified the lock (`os-backstop pid=75120`) was **my own** session's lock — traced it via the process tree: Task-Scheduler powershell 75120 → `claude.exe 23984` (the only Claude session started today; the lone "claude loop" from yesterday is a dead codex broker). Not a competing runner, so I proceeded.
+
+**Found everything in authorized safe scope already DONE** (Task 0 spec + Phase 1 + Phase 2, 4 commits, HEAD `d60bbf0`). Did **not** redo anything. Confirmed: branch `site-overhaul`, `main` untouched, working tree clean except the wrapper's appended launch-log lines + out-of-scope untracked `own-benchmark-*` / `overnight-claude-output.log` (left alone — not mine).
+
+**Re-verified the branch is green this morning:** `npm run typecheck` clean · `npm test` 4/4. (Skipped full build/e2e — code unchanged since the last run that verified them.)
+
+**Phase 3 heroes remain the gate** (need Michael's eyes). Released `.loop-lock` and stopped; did not re-arm.
+
+> **FYI Michael:** the hourly Task `LocalBench-Overnight-Resume` is still firing and will keep launching quick no-op runs until you disable it. Safe to turn off now that safe scope is complete.
+
+---
+
 ## PROGRESS — 2026-06-14 ~00:30–01:30 (os-backstop run) — PHASE 1 COMPLETE
 
 Branch **`site-overhaul`** (off `foundations/suite-v1-research`). codex GPT-5.5 xhigh implemented; Claude reviewed every diff. View: `cd web && npm run dev`.
@@ -73,3 +87,11 @@ Branch **`site-overhaul`** (off `foundations/suite-v1-research`). codex GPT-5.5 
 [2026-06-13T23:28:05] os-backstop launching headless claude
 [2026-06-13T23:29:12] claude exited code=0
 [2026-06-14T00:28:05] os-backstop launching headless claude
+[2026-06-14T01:52:04] claude exited code=0
+[2026-06-14T02:28:05] os-backstop launching headless claude
+[2026-06-14T02:29:56] claude exited code=0
+[2026-06-14T03:28:05] os-backstop launching headless claude
+[2026-06-14T03:29:22] claude exited code=0
+[2026-06-14T04:28:05] os-backstop launching headless claude
+[2026-06-14T04:29:09] claude exited code=0
+[2026-06-14T05:28:05] os-backstop launching headless claude
