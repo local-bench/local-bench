@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { AppShell } from "@/components/app-shell";
+import { getIndexData } from "@/lib/data";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
@@ -10,14 +12,20 @@ export const metadata: Metadata = {
   description: "Community quality benchmark leaderboard for local AI setups.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const index = await getIndexData();
+
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <AppShell suiteVersion={index.suite_version} indexVersion={index.index_version}>
+          {children}
+        </AppShell>
+      </body>
     </html>
   );
 }

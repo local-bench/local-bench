@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { KindBadge, LaneBadge, TierBadge } from "@/components/badges";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ModelScatter } from "@/components/model-scatter";
 import { AXES, getModelPageData, getModelStaticParams } from "@/lib/data";
 import {
@@ -32,9 +33,7 @@ export default async function ModelPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
-      <Link href="/" className="text-sm text-bench-accent hover:underline">
-        Back to leaderboard
-      </Link>
+      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
           <div className="flex flex-wrap gap-2">

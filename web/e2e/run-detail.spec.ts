@@ -21,8 +21,8 @@ for (const runCase of RUN_CASES) {
 
     await expect(page.getByRole("heading", { name: runCase.modelLabel })).toBeVisible();
     await expect(page.getByText(runCase.runId)).toBeVisible();
-    await expect(page.locator("header")).toContainText(runCase.expectedComposite);
-    await expect(page.locator("header")).toContainText(/±\d+\.\d 95% CI/);
+    await expect(page.locator("main header")).toContainText(runCase.expectedComposite);
+    await expect(page.locator("main header")).toContainText(/±\d+\.\d 95% CI/);
 
     const axisSection = page.locator("section").filter({ hasText: "Axis breakdown" });
     await expect(axisSection.getByText("genmath")).toBeVisible();

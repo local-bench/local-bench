@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DetailGrid, DetailItem } from "@/components/detail-grid";
 import { RunAxisBreakdown } from "@/components/run-axis-breakdown";
 import { presentAxes } from "@/lib/axis-config";
@@ -37,9 +37,13 @@ export default async function RunPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
-      <Link href={`/model/${runId.split("__")[0]}`} className="text-sm text-bench-accent hover:underline">
-        Back to model
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: "Leaderboard", href: "/" },
+          { label: run.model_label, href: `/model/${runId.split("__")[0]}` },
+          { label: "Run" },
+        ]}
+      />
       <header className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <p className="font-mono text-xs uppercase text-bench-accent">
           {run.suite_version} · {run.index_version}

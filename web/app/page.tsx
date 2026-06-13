@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getIndexData } from "@/lib/data";
@@ -12,14 +11,6 @@ export default async function HomePage() {
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <header className="flex flex-col gap-4 border-b border-bench-line pb-6">
-        <nav className="flex flex-wrap gap-4 text-sm text-bench-muted">
-          <Link className="text-bench-accent hover:underline" href="/methodology">
-            Methodology
-          </Link>
-          <Link className="text-bench-accent hover:underline" href="/trust">
-            Trust model
-          </Link>
-        </nav>
         <div className="grid gap-5 lg:grid-cols-[1fr_420px] lg:items-end">
           <div>
             <p className="font-mono text-xs uppercase text-bench-accent">
