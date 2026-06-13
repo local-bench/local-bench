@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  VRAM_TIERS,
   computeFrontierGapPercent,
   rankRigMatches,
   type RigMatchAnchor,
@@ -19,6 +20,18 @@ const CANDIDATES = [
 ] as const satisfies readonly RigMatchCandidate[];
 
 describe("rig-match finder logic", () => {
+  it("exposes expanded VRAM tiers through 512 GB while keeping 24 GB available", () => {
+    // Given the Phase-3 finder tier contract.
+    const expectedTiers = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
+
+    // When the finder imports its tier options.
+    const tiers = VRAM_TIERS;
+
+    // Then the dropdown can cover consumer GPUs through very large local rigs.
+    expect(tiers).toEqual(expectedTiers);
+    expect(tiers).toContain(24);
+  });
+
   it("ranks only local runs that fit by conservative lower-bound score", () => {
     // Given mixed local and anchor rows, including one local row above the VRAM budget.
     // When matches are ranked for a 24 GB answer-only selection.

@@ -127,6 +127,68 @@
     {
       "axes": {
         "genmath": {
+          "hi": 87.10000000000001,
+          "hi_raw": 0.8710000000000001,
+          "lo": 81.7,
+          "lo_raw": 0.8170000000000001,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 84.4,
+          "point_raw": 0.8440000000000001,
+          "raw_accuracy": 0.8440000000000001
+        },
+        "ifeval": {
+          "hi": 87.5,
+          "hi_raw": 0.875,
+          "lo": 82.1,
+          "lo_raw": 0.821,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 84.8,
+          "point_raw": 0.848,
+          "raw_accuracy": 0.848
+        },
+        "mmlu_pro": {
+          "hi": 85.5,
+          "hi_raw": 0.855,
+          "lo": 80.1,
+          "lo_raw": 0.8009999999999999,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 82.8,
+          "point_raw": 0.828,
+          "raw_accuracy": 0.8452
+        }
+      },
+      "best_run_id": "deepseek-v3-671b__demo-deepseek-v3-671b-fp16",
+      "composite": {
+        "hi": 86.3,
+        "hi_raw": 0.863,
+        "lo": 81.7,
+        "lo_raw": 0.8170000000000001,
+        "point": 84.0,
+        "point_raw": 0.84
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "DeepSeek",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "DeepSeek-V3-671B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "deepseek-v3-671b",
+      "tier": "quick",
+      "tokens_to_answer_median": 1040.0,
+      "tokens_to_answer_p95": 1760.0
+    },
+    {
+      "axes": {
+        "genmath": {
           "hi": 100.0,
           "hi_raw": 1.0,
           "lo": 100.0,
@@ -307,6 +369,68 @@
       "tier": "quick",
       "tokens_to_answer_median": 365.5,
       "tokens_to_answer_p95": 3874.0499999999975
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 85.2,
+          "hi_raw": 0.852,
+          "lo": 79.60000000000001,
+          "lo_raw": 0.796,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 82.4,
+          "point_raw": 0.8240000000000001,
+          "raw_accuracy": 0.8240000000000001
+        },
+        "ifeval": {
+          "hi": 85.6,
+          "hi_raw": 0.856,
+          "lo": 80.0,
+          "lo_raw": 0.8,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 82.8,
+          "point_raw": 0.828,
+          "raw_accuracy": 0.828
+        },
+        "mmlu_pro": {
+          "hi": 83.6,
+          "hi_raw": 0.836,
+          "lo": 78.0,
+          "lo_raw": 0.78,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 80.8,
+          "point_raw": 0.8079999999999999,
+          "raw_accuracy": 0.8271999999999999
+        }
+      },
+      "best_run_id": "llama-3-1-405b__demo-llama-3-1-405b-fp16",
+      "composite": {
+        "hi": 84.4,
+        "hi_raw": 0.8440000000000001,
+        "lo": 79.6,
+        "lo_raw": 0.7959999999999999,
+        "point": 82.0,
+        "point_raw": 0.82
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "Llama",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Llama-3.1-405B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "llama-3-1-405b",
+      "tier": "quick",
+      "tokens_to_answer_median": 980.0,
+      "tokens_to_answer_p95": 1680.0
     },
     {
       "axes": {

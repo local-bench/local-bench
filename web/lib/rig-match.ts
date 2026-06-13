@@ -1,6 +1,6 @@
 import type { Kind, Score } from "./schemas";
 
-export const VRAM_TIERS = [8, 12, 16, 24, 32, 48] as const;
+export const VRAM_TIERS = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
 export const QUANT_OPTIONS = ["FP16", "Q8_0", "Q5_K_M", "Q4_K_M", "Q3_K_M"] as const;
 export const LANE_FILTERS = ["any", "answer-only"] as const;
 

@@ -1,0 +1,132 @@
+{
+  "axes": {
+    "genmath": {
+      "hi": 85.2,
+      "hi_raw": 0.852,
+      "lo": 79.60000000000001,
+      "lo_raw": 0.796,
+      "n": 40,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 82.4,
+      "point_raw": 0.8240000000000001,
+      "raw_accuracy": 0.8240000000000001
+    },
+    "ifeval": {
+      "hi": 85.6,
+      "hi_raw": 0.856,
+      "lo": 80.0,
+      "lo_raw": 0.8,
+      "n": 100,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 82.8,
+      "point_raw": 0.828,
+      "raw_accuracy": 0.828
+    },
+    "mmlu_pro": {
+      "hi": 83.6,
+      "hi_raw": 0.836,
+      "lo": 78.0,
+      "lo_raw": 0.78,
+      "n": 112,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 80.8,
+      "point_raw": 0.8079999999999999,
+      "raw_accuracy": 0.8271999999999999
+    }
+  },
+  "composite": {
+    "hi": 84.4,
+    "hi_raw": 0.8440000000000001,
+    "lo": 79.6,
+    "lo_raw": 0.7959999999999999,
+    "point": 82.0,
+    "point_raw": 0.82
+  },
+  "data_warnings": [
+    "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
+  ],
+  "demo": true,
+  "est_cost_usd": null,
+  "index_version": "index-v0",
+  "item_set_hashes": {
+    "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 8192,
+      "max_tokens_mcq": 4096,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "SYNTHETIC DEMO",
+      "gpu": {
+        "driver": null,
+        "name": "SYNTHETIC DEMO footprint estimate",
+        "vram_gb": null,
+        "vram_mb": null
+      },
+      "os": "SYNTHETIC DEMO",
+      "ram_gb": null
+    },
+    "lane": "answer-only",
+    "model": {
+      "family": "Llama",
+      "file_name": "llama-3-1-405b.fp16.demo",
+      "file_sha256": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT",
+      "file_size_bytes": null,
+      "format": "synthetic-demo",
+      "runtime_reported_model": "Llama-3.1-405B"
+    },
+    "quant": "FP16",
+    "runtime": {
+      "ctx_len_configured": 8192,
+      "kv_cache_quant": null,
+      "name": "synthetic-demo-estimate",
+      "parallel_slots": null,
+      "version": "phase-3-preview"
+    },
+    "sampling": {
+      "by_bench": {
+        "genmath": {
+          "max_tokens": 8192,
+          "temperature": 0
+        },
+        "ifeval": {
+          "max_tokens": 1280,
+          "temperature": 0
+        },
+        "mmlu_pro": {
+          "max_tokens": 4096,
+          "temperature": 0
+        }
+      },
+      "temperature": 0,
+      "thinking_mode": "n/a"
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Llama-3.1-405B",
+  "run_id": "llama-3-1-405b__demo-llama-3-1-405b-fp16",
+  "suite_version": "suite-v0",
+  "tier": "quick",
+  "tokens_to_answer_median": 980.0,
+  "tokens_to_answer_p95": 1680.0,
+  "totals": {
+    "completion_tokens": 246960,
+    "completion_tokens_per_second": 5.0,
+    "n_errors": 0,
+    "n_items": 252,
+    "prompt_tokens": 20160,
+    "total_tokens": 267120,
+    "wall_time_seconds": 49392.0
+  },
+  "worst_axis": {
+    "bench": "mmlu_pro",
+    "point": 80.8,
+    "point_raw": 0.8079999999999999
+  }
+}

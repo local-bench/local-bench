@@ -56,6 +56,37 @@ describe("static data access", () => {
     expect(realModel.model.runs.every((run) => run.demo === false)).toBe(true);
   });
 
+  it("loads huge synthetic demo ladders without changing the real Qwen triplet", async () => {
+    // Given generated data that includes Phase-3 huge model demo ladders.
+    const index = await getIndexData();
+
+    // When the huge demo model pages and the real Qwen model page are loaded.
+    const llama405b = await getModelPageData("llama-3-1-405b");
+    const deepseekV3 = await getModelPageData("deepseek-v3-671b");
+    const realModel = await getModelPageData("qwen3-5-9b");
+
+    // Then the demo ladders are complete, large-tier compatible, and real run data stays unchanged.
+    expect(index.models.filter((model) => model.demo).map((model) => model.model_label)).toEqual(
+      expect.arrayContaining(["Llama-3.1-405B", "DeepSeek-V3-671B"]),
+    );
+    expect(llama405b.model.runs.map((run) => [run.quant_label, run.vram_footprint_gb, run.composite.point, run.tok_s])).toEqual([
+      ["FP16", 810, 82, 5],
+      ["Q8_0", 405, 81, 7],
+      ["Q5_K_M", 290, 79.5, 10],
+      ["Q4_K_M", 230, 78, 12],
+      ["Q3_K_M", 180, 75, 15],
+    ]);
+    expect(deepseekV3.model.runs.map((run) => [run.quant_label, run.vram_footprint_gb, run.composite.point, run.tok_s])).toEqual([
+      ["FP16", 1340, 84, 8],
+      ["Q8_0", 670, 83, 10],
+      ["Q5_K_M", 470, 81.5, 14],
+      ["Q4_K_M", 380, 80, 17],
+      ["Q3_K_M", 300, 77, 20],
+    ]);
+    expect(realModel.model.runs).toHaveLength(3);
+    expect(realModel.model.runs.every((run) => run.vram_footprint_gb === null && run.demo === false)).toBe(true);
+  });
+
   it("loads run detail axes in the published order", async () => {
     // Given a known run detail file.
     // When the detail data is loaded.

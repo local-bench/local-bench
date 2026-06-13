@@ -1,0 +1,132 @@
+{
+  "axes": {
+    "genmath": {
+      "hi": 86.2,
+      "hi_raw": 0.862,
+      "lo": 80.60000000000001,
+      "lo_raw": 0.806,
+      "n": 40,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 83.4,
+      "point_raw": 0.8340000000000001,
+      "raw_accuracy": 0.8340000000000001
+    },
+    "ifeval": {
+      "hi": 86.6,
+      "hi_raw": 0.866,
+      "lo": 81.0,
+      "lo_raw": 0.81,
+      "n": 100,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 83.8,
+      "point_raw": 0.838,
+      "raw_accuracy": 0.838
+    },
+    "mmlu_pro": {
+      "hi": 84.6,
+      "hi_raw": 0.846,
+      "lo": 79.0,
+      "lo_raw": 0.79,
+      "n": 112,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 81.8,
+      "point_raw": 0.818,
+      "raw_accuracy": 0.8361999999999999
+    }
+  },
+  "composite": {
+    "hi": 85.4,
+    "hi_raw": 0.8540000000000001,
+    "lo": 80.6,
+    "lo_raw": 0.8059999999999999,
+    "point": 83.0,
+    "point_raw": 0.83
+  },
+  "data_warnings": [
+    "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
+  ],
+  "demo": true,
+  "est_cost_usd": null,
+  "index_version": "index-v0",
+  "item_set_hashes": {
+    "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 8192,
+      "max_tokens_mcq": 4096,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "SYNTHETIC DEMO",
+      "gpu": {
+        "driver": null,
+        "name": "SYNTHETIC DEMO footprint estimate",
+        "vram_gb": null,
+        "vram_mb": null
+      },
+      "os": "SYNTHETIC DEMO",
+      "ram_gb": null
+    },
+    "lane": "answer-only",
+    "model": {
+      "family": "DeepSeek",
+      "file_name": "deepseek-v3-671b.q8_0.demo",
+      "file_sha256": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT",
+      "file_size_bytes": null,
+      "format": "synthetic-demo",
+      "runtime_reported_model": "DeepSeek-V3-671B"
+    },
+    "quant": "Q8_0",
+    "runtime": {
+      "ctx_len_configured": 8192,
+      "kv_cache_quant": null,
+      "name": "synthetic-demo-estimate",
+      "parallel_slots": null,
+      "version": "phase-3-preview"
+    },
+    "sampling": {
+      "by_bench": {
+        "genmath": {
+          "max_tokens": 8192,
+          "temperature": 0
+        },
+        "ifeval": {
+          "max_tokens": 1280,
+          "temperature": 0
+        },
+        "mmlu_pro": {
+          "max_tokens": 4096,
+          "temperature": 0
+        }
+      },
+      "temperature": 0,
+      "thinking_mode": "n/a"
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "DeepSeek-V3-671B",
+  "run_id": "deepseek-v3-671b__demo-deepseek-v3-671b-q8-0",
+  "suite_version": "suite-v0",
+  "tier": "quick",
+  "tokens_to_answer_median": 1010.0,
+  "tokens_to_answer_p95": 1700.0,
+  "totals": {
+    "completion_tokens": 254520,
+    "completion_tokens_per_second": 10.0,
+    "n_errors": 0,
+    "n_items": 252,
+    "prompt_tokens": 20160,
+    "total_tokens": 274680,
+    "wall_time_seconds": 25452.0
+  },
+  "worst_axis": {
+    "bench": "mmlu_pro",
+    "point": 81.8,
+    "point_raw": 0.818
+  }
+}
