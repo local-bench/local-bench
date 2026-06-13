@@ -56,6 +56,17 @@ def stratum_for_item(
             return f"bench={bench}|category={category}|difficulty={difficulty}|template={template}"
 
 
+def cluster_for_item(
+    bench: str,
+    item_id: str,
+    item: Mapping[str, JsonValue],
+) -> str:
+    """Return the resampling cluster for an item."""
+    if "cluster" in item:
+        return str(item["cluster"])
+    return item_id
+
+
 def _metadata_from_item(item: Mapping[str, JsonValue]) -> ItemMetadata:
     return ItemMetadata(
         category=_string(item.get("category")),
