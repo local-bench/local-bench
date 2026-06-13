@@ -44,13 +44,20 @@ export function ModelScatter({
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="min-w-[760px]"
         >
-          <rect width={WIDTH} height={HEIGHT} fill="#11161f" />
+          <rect width={WIDTH} height={HEIGHT} className="fill-bench-panel" />
           {Y_TICKS.map((tick) => {
             const y = scaleY(tick);
             return (
               <g key={tick}>
-                <line x1={PLOT.left} x2={WIDTH - PLOT.right} y1={y} y2={y} stroke="#273244" strokeWidth="1" />
-                <text x={PLOT.left - 12} y={y + 4} fill="#99a7b8" fontSize="12" textAnchor="end">
+                <line
+                  x1={PLOT.left}
+                  x2={WIDTH - PLOT.right}
+                  y1={y}
+                  y2={y}
+                  className="stroke-bench-line"
+                  strokeWidth="1"
+                />
+                <text x={PLOT.left - 12} y={y + 4} className="fill-bench-muted" fontSize="12" textAnchor="end">
                   {tick}
                 </text>
               </g>
@@ -61,9 +68,15 @@ export function ModelScatter({
             x2={WIDTH - PLOT.right}
             y1={HEIGHT - PLOT.bottom}
             y2={HEIGHT - PLOT.bottom}
-            stroke="#4a5568"
+            className="stroke-bench-line-strong"
           />
-          <line x1={PLOT.left} x2={PLOT.left} y1={PLOT.top} y2={HEIGHT - PLOT.bottom} stroke="#4a5568" />
+          <line
+            x1={PLOT.left}
+            x2={PLOT.left}
+            y1={PLOT.top}
+            y2={HEIGHT - PLOT.bottom}
+            className="stroke-bench-line-strong"
+          />
           {anchors.map(({ anchor, lineY, labelY }) => (
             <g key={anchor.run_id}>
               <line
@@ -71,11 +84,11 @@ export function ModelScatter({
                 x2={WIDTH - PLOT.right}
                 y1={lineY}
                 y2={lineY}
-                stroke="#f6b24b"
+                className="stroke-bench-anchor"
                 strokeDasharray="7 6"
                 strokeWidth="1.5"
               />
-              <text x={WIDTH - PLOT.right + 12} y={labelY} fill="#f6d08d" fontSize="12">
+              <text x={WIDTH - PLOT.right + 12} y={labelY} className="fill-bench-anchor-soft" fontSize="12">
                 {anchor.model_label} {formatScore(anchor.composite.point)}
               </text>
             </g>
@@ -87,31 +100,76 @@ export function ModelScatter({
             const hi = scaleY(point.run.composite.hi);
             return (
               <g key={point.run.run_id}>
-                <line x1={cx} x2={cx} y1={hi} y2={lo} stroke="#32d2b4" strokeWidth="2" />
-                <line x1={cx - 6} x2={cx + 6} y1={hi} y2={hi} stroke="#32d2b4" strokeWidth="2" />
-                <line x1={cx - 6} x2={cx + 6} y1={lo} y2={lo} stroke="#32d2b4" strokeWidth="2" />
-                <circle cx={cx} cy={cy} r="6" fill="#32d2b4" stroke="#081017" strokeWidth="2" />
-                <text x={cx + 10} y={cy - 10} fill="#eef4fb" fontSize="12">
+                <line x1={cx} x2={cx} y1={hi} y2={lo} className="stroke-bench-accent" strokeWidth="2" />
+                <line
+                  x1={cx - 6}
+                  x2={cx + 6}
+                  y1={hi}
+                  y2={hi}
+                  className="stroke-bench-accent"
+                  strokeWidth="2"
+                />
+                <line
+                  x1={cx - 6}
+                  x2={cx + 6}
+                  y1={lo}
+                  y2={lo}
+                  className="stroke-bench-accent"
+                  strokeWidth="2"
+                />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r="6"
+                  className="fill-bench-accent stroke-bench-bg"
+                  strokeWidth="2"
+                />
+                <text x={cx + 10} y={cy - 10} className="fill-bench-text" fontSize="12">
                   {point.run.quant_label ?? point.run.run_id.split("__")[1]}
                 </text>
               </g>
             );
           })}
           {points.length === 0 ? (
-            <text x={(WIDTH - PLOT.right + PLOT.left) / 2} y={210} fill="#99a7b8" fontSize="14" textAnchor="middle">
+            <text
+              x={(WIDTH - PLOT.right + PLOT.left) / 2}
+              y={210}
+              className="fill-bench-muted"
+              fontSize="14"
+              textAnchor="middle"
+            >
               No community runs include VRAM footprint yet.
             </text>
           ) : null}
-          <text x={(WIDTH - PLOT.right + PLOT.left) / 2} y={HEIGHT - 18} fill="#99a7b8" fontSize="12" textAnchor="middle">
+          <text
+            x={(WIDTH - PLOT.right + PLOT.left) / 2}
+            y={HEIGHT - 18}
+            className="fill-bench-muted"
+            fontSize="12"
+            textAnchor="middle"
+          >
             model memory footprint (GB)
           </text>
-          <text x="18" y="210" fill="#99a7b8" fontSize="12" textAnchor="middle" transform="rotate(-90 18 210)">
+          <text
+            x="18"
+            y="210"
+            className="fill-bench-muted"
+            fontSize="12"
+            textAnchor="middle"
+            transform="rotate(-90 18 210)"
+          >
             composite
           </text>
-          <text x={PLOT.left} y={HEIGHT - PLOT.bottom + 26} fill="#99a7b8" fontSize="12">
+          <text x={PLOT.left} y={HEIGHT - PLOT.bottom + 26} className="fill-bench-muted" fontSize="12">
             {formatGb(xDomain.min)}
           </text>
-          <text x={WIDTH - PLOT.right} y={HEIGHT - PLOT.bottom + 26} fill="#99a7b8" fontSize="12" textAnchor="end">
+          <text
+            x={WIDTH - PLOT.right}
+            y={HEIGHT - PLOT.bottom + 26}
+            className="fill-bench-muted"
+            fontSize="12"
+            textAnchor="end"
+          >
             {formatGb(xDomain.max)}
           </text>
         </svg>
