@@ -188,6 +188,68 @@
     {
       "axes": {
         "genmath": {
+          "hi": 75.4,
+          "hi_raw": 0.754,
+          "lo": 70.4,
+          "lo_raw": 0.7040000000000001,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 72.9,
+          "point_raw": 0.7290000000000001,
+          "raw_accuracy": 0.7290000000000001
+        },
+        "ifeval": {
+          "hi": 75.8,
+          "hi_raw": 0.758,
+          "lo": 70.8,
+          "lo_raw": 0.708,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.3,
+          "point_raw": 0.733,
+          "raw_accuracy": 0.733
+        },
+        "mmlu_pro": {
+          "hi": 73.8,
+          "hi_raw": 0.738,
+          "lo": 68.8,
+          "lo_raw": 0.688,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 71.3,
+          "point_raw": 0.713,
+          "raw_accuracy": 0.7416999999999999
+        }
+      },
+      "best_run_id": "gemma-3-27b__demo-gemma-3-27b-fp16",
+      "composite": {
+        "hi": 74.6,
+        "hi_raw": 0.746,
+        "lo": 70.4,
+        "lo_raw": 0.7040000000000001,
+        "point": 72.5,
+        "point_raw": 0.725
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "Gemma",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Gemma-3 27B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "gemma-3-27b",
+      "tier": "quick",
+      "tokens_to_answer_median": 725.0,
+      "tokens_to_answer_p95": 1240.0
+    },
+    {
+      "axes": {
+        "genmath": {
           "hi": 100.0,
           "hi_raw": 1.0,
           "lo": 95.0,
@@ -245,6 +307,254 @@
       "tier": "quick",
       "tokens_to_answer_median": 365.5,
       "tokens_to_answer_p95": 3874.0499999999975
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 81.0,
+          "hi_raw": 0.81,
+          "lo": 75.80000000000001,
+          "lo_raw": 0.7580000000000001,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 78.4,
+          "point_raw": 0.784,
+          "raw_accuracy": 0.784
+        },
+        "ifeval": {
+          "hi": 81.39999999999999,
+          "hi_raw": 0.814,
+          "lo": 76.2,
+          "lo_raw": 0.762,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 78.8,
+          "point_raw": 0.7879999999999999,
+          "raw_accuracy": 0.7879999999999999
+        },
+        "mmlu_pro": {
+          "hi": 79.39999999999999,
+          "hi_raw": 0.7939999999999999,
+          "lo": 74.2,
+          "lo_raw": 0.742,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 76.8,
+          "point_raw": 0.768,
+          "raw_accuracy": 0.7912
+        }
+      },
+      "best_run_id": "llama-3-3-70b__demo-llama-3-3-70b-fp16",
+      "composite": {
+        "hi": 80.2,
+        "hi_raw": 0.802,
+        "lo": 75.8,
+        "lo_raw": 0.758,
+        "point": 78.0,
+        "point_raw": 0.78
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "Llama",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Llama-3.3 70B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "llama-3-3-70b",
+      "tier": "quick",
+      "tokens_to_answer_median": 820.0,
+      "tokens_to_answer_p95": 1410.0
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 74.60000000000001,
+          "hi_raw": 0.7460000000000001,
+          "lo": 69.8,
+          "lo_raw": 0.698,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 72.2,
+          "point_raw": 0.722,
+          "raw_accuracy": 0.722
+        },
+        "ifeval": {
+          "hi": 75.0,
+          "hi_raw": 0.75,
+          "lo": 70.19999999999999,
+          "lo_raw": 0.7019999999999998,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 72.6,
+          "point_raw": 0.726,
+          "raw_accuracy": 0.726
+        },
+        "mmlu_pro": {
+          "hi": 73.0,
+          "hi_raw": 0.73,
+          "lo": 68.19999999999999,
+          "lo_raw": 0.6819999999999999,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 70.6,
+          "point_raw": 0.706,
+          "raw_accuracy": 0.7353999999999999
+        }
+      },
+      "best_run_id": "mistral-small-24b__demo-mistral-small-24b-fp16",
+      "composite": {
+        "hi": 73.8,
+        "hi_raw": 0.738,
+        "lo": 69.8,
+        "lo_raw": 0.698,
+        "point": 71.8,
+        "point_raw": 0.718
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "Mistral",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Mistral-Small-24B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "mistral-small-24b",
+      "tier": "quick",
+      "tokens_to_answer_median": 700.0,
+      "tokens_to_answer_p95": 1180.0
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 69.10000000000001,
+          "hi_raw": 0.6910000000000001,
+          "lo": 63.7,
+          "lo_raw": 0.637,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 66.4,
+          "point_raw": 0.664,
+          "raw_accuracy": 0.664
+        },
+        "ifeval": {
+          "hi": 69.5,
+          "hi_raw": 0.695,
+          "lo": 64.1,
+          "lo_raw": 0.6409999999999999,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 66.8,
+          "point_raw": 0.6679999999999999,
+          "raw_accuracy": 0.6679999999999999
+        },
+        "mmlu_pro": {
+          "hi": 67.5,
+          "hi_raw": 0.675,
+          "lo": 62.099999999999994,
+          "lo_raw": 0.621,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 64.8,
+          "point_raw": 0.648,
+          "raw_accuracy": 0.6832
+        }
+      },
+      "best_run_id": "phi-4-14b__demo-phi-4-14b-fp16",
+      "composite": {
+        "hi": 68.3,
+        "hi_raw": 0.6829999999999999,
+        "lo": 63.7,
+        "lo_raw": 0.637,
+        "point": 66.0,
+        "point_raw": 0.66
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "Phi",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Phi-4 14B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "phi-4-14b",
+      "tier": "quick",
+      "tokens_to_answer_median": 610.0,
+      "tokens_to_answer_p95": 1005.0
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 77.80000000000001,
+          "hi_raw": 0.7780000000000001,
+          "lo": 73.0,
+          "lo_raw": 0.73,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 75.4,
+          "point_raw": 0.754,
+          "raw_accuracy": 0.754
+        },
+        "ifeval": {
+          "hi": 78.2,
+          "hi_raw": 0.782,
+          "lo": 73.39999999999999,
+          "lo_raw": 0.7339999999999999,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 75.8,
+          "point_raw": 0.758,
+          "raw_accuracy": 0.758
+        },
+        "mmlu_pro": {
+          "hi": 76.2,
+          "hi_raw": 0.762,
+          "lo": 71.39999999999999,
+          "lo_raw": 0.714,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.8,
+          "point_raw": 0.738,
+          "raw_accuracy": 0.7642
+        }
+      },
+      "best_run_id": "qwen3-32b__demo-qwen3-32b-fp16",
+      "composite": {
+        "hi": 77.0,
+        "hi_raw": 0.77,
+        "lo": 73.0,
+        "lo_raw": 0.73,
+        "point": 75.0,
+        "point_raw": 0.75
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "family": "Qwen3",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Qwen3 32B",
+      "n_runs": 5,
+      "ranked": false,
+      "replicated": false,
+      "slug": "qwen3-32b",
+      "tier": "quick",
+      "tokens_to_answer_median": 760.0,
+      "tokens_to_answer_p95": 1320.0
     },
     {
       "axes": {

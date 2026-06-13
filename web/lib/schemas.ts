@@ -27,6 +27,7 @@ export const AxisScoreSchema = ScoreSchema.extend({
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
 
 export const KindSchema = z.enum(["anchor", "community"]);
+const DemoFlagSchema = z.boolean().optional().default(false);
 
 export const GpuSchema = z.object({
   name: z.string().nullable(),
@@ -96,6 +97,7 @@ export const IndexModelSchema = z.object({
   tokens_to_answer_p95: z.number().nullable().optional(),
   est_cost_usd: z.number().nullable(),
   replicated: z.boolean(),
+  demo: DemoFlagSchema,
 });
 
 export const IndexDataSchema = z.object({
@@ -122,6 +124,7 @@ export const ModelRunSchema = z.object({
   n_items: z.number(),
   n_errors: z.number(),
   wall_time_seconds: z.number().nullable().optional(),
+  demo: DemoFlagSchema,
 });
 
 export const ModelDataSchema = z.object({
@@ -129,6 +132,7 @@ export const ModelDataSchema = z.object({
   model_label: z.string(),
   family: z.string(),
   kind: KindSchema,
+  demo: DemoFlagSchema,
   runs: z.array(ModelRunSchema),
 });
 
@@ -173,6 +177,7 @@ export const RunDetailSchema = z.object({
   suite_version: z.string(),
   index_version: z.string(),
   data_warnings: z.array(z.string()).optional(),
+  demo: DemoFlagSchema,
 });
 
 export type Axis = string;

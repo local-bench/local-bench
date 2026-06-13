@@ -39,6 +39,23 @@ describe("static data access", () => {
     expect(pageData.model.runs.every((run) => run.vram_footprint_gb === null)).toBe(true);
   });
 
+  it("plumbs demo flags through generated model and run data", async () => {
+    // Given generated data that includes the Phase-3 synthetic preview set.
+    // When the demo model and an existing real local model are loaded.
+    const index = await getIndexData();
+    const demoModel = await getModelPageData("qwen3-32b");
+    const realModel = await getModelPageData("qwen3-5-9b");
+    const demoRun = await getRunData("qwen3-32b__demo-qwen3-32b-q4-k-m");
+    const realIndexRow = index.models.find((model) => model.model_label === "Qwen3.5 9B");
+
+    // Then only the synthetic preview records carry demo=true; real records default to demo=false.
+    expect(index.models.filter((model) => model.demo).map((model) => model.model_label)).toContain("Qwen3 32B");
+    expect(demoModel.model.runs.map((run) => run.demo)).toEqual([true, true, true, true, true]);
+    expect(demoRun.demo).toBe(true);
+    expect(realIndexRow?.demo).toBe(false);
+    expect(realModel.model.runs.every((run) => run.demo === false)).toBe(true);
+  });
+
   it("loads run detail axes in the published order", async () => {
     // Given a known run detail file.
     // When the detail data is loaded.

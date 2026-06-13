@@ -1,0 +1,404 @@
+{
+  "demo": true,
+  "family": "Llama",
+  "kind": "community",
+  "model_label": "Llama-3.3 70B",
+  "runs": [
+    {
+      "axes": {
+        "genmath": {
+          "hi": 81.0,
+          "hi_raw": 0.81,
+          "lo": 75.80000000000001,
+          "lo_raw": 0.7580000000000001,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 78.4,
+          "point_raw": 0.784,
+          "raw_accuracy": 0.784
+        },
+        "ifeval": {
+          "hi": 81.39999999999999,
+          "hi_raw": 0.814,
+          "lo": 76.2,
+          "lo_raw": 0.762,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 78.8,
+          "point_raw": 0.7879999999999999,
+          "raw_accuracy": 0.7879999999999999
+        },
+        "mmlu_pro": {
+          "hi": 79.39999999999999,
+          "hi_raw": 0.7939999999999999,
+          "lo": 74.2,
+          "lo_raw": 0.742,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 76.8,
+          "point_raw": 0.768,
+          "raw_accuracy": 0.7912
+        }
+      },
+      "composite": {
+        "hi": 80.2,
+        "hi_raw": 0.802,
+        "lo": 75.8,
+        "lo_raw": 0.758,
+        "point": 78.0,
+        "point_raw": 0.78
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "SYNTHETIC DEMO",
+        "gpu": {
+          "driver": null,
+          "name": "SYNTHETIC DEMO footprint estimate",
+          "vram_gb": null,
+          "vram_mb": null
+        },
+        "os": "SYNTHETIC DEMO",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": "FP16",
+      "run_id": "llama-3-3-70b__demo-llama-3-3-70b-fp16",
+      "runtime": {
+        "ctx_len_configured": 8192,
+        "kv_cache_quant": null,
+        "name": "synthetic-demo-estimate",
+        "parallel_slots": null,
+        "version": "phase-3-preview"
+      },
+      "tier": "quick",
+      "tok_s": 5.0,
+      "tokens_to_answer_median": 820.0,
+      "tokens_to_answer_p95": 1410.0,
+      "vram_footprint_gb": 141.0,
+      "wall_time_seconds": 41328.0
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 80.10000000000001,
+          "hi_raw": 0.801,
+          "lo": 74.7,
+          "lo_raw": 0.747,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 77.4,
+          "point_raw": 0.774,
+          "raw_accuracy": 0.774
+        },
+        "ifeval": {
+          "hi": 80.5,
+          "hi_raw": 0.805,
+          "lo": 75.1,
+          "lo_raw": 0.7509999999999999,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 77.8,
+          "point_raw": 0.778,
+          "raw_accuracy": 0.778
+        },
+        "mmlu_pro": {
+          "hi": 78.5,
+          "hi_raw": 0.785,
+          "lo": 73.1,
+          "lo_raw": 0.731,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 75.8,
+          "point_raw": 0.758,
+          "raw_accuracy": 0.7822
+        }
+      },
+      "composite": {
+        "hi": 79.3,
+        "hi_raw": 0.7929999999999999,
+        "lo": 74.7,
+        "lo_raw": 0.747,
+        "point": 77.0,
+        "point_raw": 0.77
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "SYNTHETIC DEMO",
+        "gpu": {
+          "driver": null,
+          "name": "SYNTHETIC DEMO footprint estimate",
+          "vram_gb": null,
+          "vram_mb": null
+        },
+        "os": "SYNTHETIC DEMO",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": "Q8_0",
+      "run_id": "llama-3-3-70b__demo-llama-3-3-70b-q8-0",
+      "runtime": {
+        "ctx_len_configured": 8192,
+        "kv_cache_quant": null,
+        "name": "synthetic-demo-estimate",
+        "parallel_slots": null,
+        "version": "phase-3-preview"
+      },
+      "tier": "quick",
+      "tok_s": 8.0,
+      "tokens_to_answer_median": 800.0,
+      "tokens_to_answer_p95": 1370.0,
+      "vram_footprint_gb": 73.0,
+      "wall_time_seconds": 25200.0
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 78.10000000000001,
+          "hi_raw": 0.7810000000000001,
+          "lo": 72.3,
+          "lo_raw": 0.723,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 75.2,
+          "point_raw": 0.752,
+          "raw_accuracy": 0.752
+        },
+        "ifeval": {
+          "hi": 78.5,
+          "hi_raw": 0.785,
+          "lo": 72.69999999999999,
+          "lo_raw": 0.7269999999999999,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 75.6,
+          "point_raw": 0.7559999999999999,
+          "raw_accuracy": 0.7559999999999999
+        },
+        "mmlu_pro": {
+          "hi": 76.5,
+          "hi_raw": 0.765,
+          "lo": 70.69999999999999,
+          "lo_raw": 0.7069999999999999,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.6,
+          "point_raw": 0.736,
+          "raw_accuracy": 0.7624
+        }
+      },
+      "composite": {
+        "hi": 77.3,
+        "hi_raw": 0.773,
+        "lo": 72.3,
+        "lo_raw": 0.723,
+        "point": 74.8,
+        "point_raw": 0.748
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "SYNTHETIC DEMO",
+        "gpu": {
+          "driver": null,
+          "name": "SYNTHETIC DEMO footprint estimate",
+          "vram_gb": null,
+          "vram_mb": null
+        },
+        "os": "SYNTHETIC DEMO",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": "Q5_K_M",
+      "run_id": "llama-3-3-70b__demo-llama-3-3-70b-q5-k-m",
+      "runtime": {
+        "ctx_len_configured": 8192,
+        "kv_cache_quant": null,
+        "name": "synthetic-demo-estimate",
+        "parallel_slots": null,
+        "version": "phase-3-preview"
+      },
+      "tier": "quick",
+      "tok_s": 13.0,
+      "tokens_to_answer_median": 770.0,
+      "tokens_to_answer_p95": 1325.0,
+      "vram_footprint_gb": 48.0,
+      "wall_time_seconds": 14926.153846153846
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 76.4,
+          "hi_raw": 0.764,
+          "lo": 70.4,
+          "lo_raw": 0.7040000000000001,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.4,
+          "point_raw": 0.7340000000000001,
+          "raw_accuracy": 0.7340000000000001
+        },
+        "ifeval": {
+          "hi": 76.8,
+          "hi_raw": 0.768,
+          "lo": 70.8,
+          "lo_raw": 0.708,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.8,
+          "point_raw": 0.738,
+          "raw_accuracy": 0.738
+        },
+        "mmlu_pro": {
+          "hi": 74.8,
+          "hi_raw": 0.748,
+          "lo": 68.8,
+          "lo_raw": 0.688,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 71.8,
+          "point_raw": 0.718,
+          "raw_accuracy": 0.7462
+        }
+      },
+      "composite": {
+        "hi": 75.6,
+        "hi_raw": 0.7559999999999999,
+        "lo": 70.4,
+        "lo_raw": 0.7040000000000001,
+        "point": 73.0,
+        "point_raw": 0.73
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "SYNTHETIC DEMO",
+        "gpu": {
+          "driver": null,
+          "name": "SYNTHETIC DEMO footprint estimate",
+          "vram_gb": null,
+          "vram_mb": null
+        },
+        "os": "SYNTHETIC DEMO",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": "Q4_K_M",
+      "run_id": "llama-3-3-70b__demo-llama-3-3-70b-q4-k-m",
+      "runtime": {
+        "ctx_len_configured": 8192,
+        "kv_cache_quant": null,
+        "name": "synthetic-demo-estimate",
+        "parallel_slots": null,
+        "version": "phase-3-preview"
+      },
+      "tier": "quick",
+      "tok_s": 18.0,
+      "tokens_to_answer_median": 745.0,
+      "tokens_to_answer_p95": 1280.0,
+      "vram_footprint_gb": 41.0,
+      "wall_time_seconds": 10430.0
+    },
+    {
+      "axes": {
+        "genmath": {
+          "hi": 72.80000000000001,
+          "hi_raw": 0.7280000000000001,
+          "lo": 66.0,
+          "lo_raw": 0.66,
+          "n": 40,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 69.4,
+          "point_raw": 0.6940000000000001,
+          "raw_accuracy": 0.6940000000000001
+        },
+        "ifeval": {
+          "hi": 73.2,
+          "hi_raw": 0.732,
+          "lo": 66.39999999999999,
+          "lo_raw": 0.6639999999999999,
+          "n": 100,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 69.8,
+          "point_raw": 0.698,
+          "raw_accuracy": 0.698
+        },
+        "mmlu_pro": {
+          "hi": 71.2,
+          "hi_raw": 0.7120000000000001,
+          "lo": 64.39999999999999,
+          "lo_raw": 0.6439999999999999,
+          "n": 112,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 67.8,
+          "point_raw": 0.6779999999999999,
+          "raw_accuracy": 0.7101999999999999
+        }
+      },
+      "composite": {
+        "hi": 72.0,
+        "hi_raw": 0.72,
+        "lo": 66.0,
+        "lo_raw": 0.66,
+        "point": 69.0,
+        "point_raw": 0.69
+      },
+      "demo": true,
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "SYNTHETIC DEMO",
+        "gpu": {
+          "driver": null,
+          "name": "SYNTHETIC DEMO footprint estimate",
+          "vram_gb": null,
+          "vram_mb": null
+        },
+        "os": "SYNTHETIC DEMO",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 252,
+      "quant_label": "Q3_K_M",
+      "run_id": "llama-3-3-70b__demo-llama-3-3-70b-q3-k-m",
+      "runtime": {
+        "ctx_len_configured": 8192,
+        "kv_cache_quant": null,
+        "name": "synthetic-demo-estimate",
+        "parallel_slots": null,
+        "version": "phase-3-preview"
+      },
+      "tier": "quick",
+      "tok_s": 25.0,
+      "tokens_to_answer_median": 720.0,
+      "tokens_to_answer_p95": 1230.0,
+      "vram_footprint_gb": 31.0,
+      "wall_time_seconds": 7257.6
+    }
+  ],
+  "slug": "llama-3-3-70b"
+}
