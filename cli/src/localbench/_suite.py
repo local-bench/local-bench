@@ -36,7 +36,11 @@ def render_benches(
     benches = suite.get("benches")
     if not isinstance(benches, dict):
         return []
-    names = list(benches) if bench_choice == "all" else [bench_choice]
+    names = (
+        list(benches)
+        if bench_choice == "all"
+        else [name.strip() for name in bench_choice.split(",") if name.strip()]
+    )
     rendered: list[RenderedBench] = []
     for name in names:
         bench_config = benches.get(name)

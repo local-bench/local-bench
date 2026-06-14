@@ -57,8 +57,8 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--model", required=True, help="model name to send in requests")
     run_parser.add_argument(
         "--bench",
-        choices=("all", "mmlu_pro", "ifeval", "genmath"),
         default="all",
+        help="'all', a single bench name, or a comma-separated list of bench names",
     )
     run_parser.add_argument("--tier", choices=("quick", "standard"), default="quick")
     run_parser.add_argument("--concurrency", type=int, default=4)
