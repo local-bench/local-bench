@@ -64,6 +64,22 @@
       },
       "lane_caps": {},
       "template": "templates/ifbench.txt"
+    },
+    "bfcl": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 8192,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bfcl.jsonl",
+          "item_count": 300,
+          "sha256": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bfcl.txt"
     }
   },
   "axes": {
@@ -77,6 +93,10 @@
     },
     "instruction_following": {
       "benches": ["ifbench"],
+      "weight": null
+    },
+    "agentic": {
+      "benches": ["bfcl"],
       "weight": null
     }
   }

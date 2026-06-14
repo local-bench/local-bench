@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import BenchmarkItem, JsonObject, JsonValue
+from localbench.scorers.bfcl import build_bfcl_prompt
 
 _LETTERS: Final = "ABCDEFGHIJ"
 
@@ -153,6 +154,8 @@ def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
             return _string(item.get("prompt")) or ""
         case "genmath" | "amo" | "olymmath_hard":
             return template.format(statement=_string(item.get("statement")) or "")
+        case "bfcl":
+            return build_bfcl_prompt(item)
         case _:
             return _string(item.get("prompt")) or _string(item.get("question")) or ""
 

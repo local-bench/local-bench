@@ -1,0 +1,12 @@
+Berkeley Function-Calling Leaderboard AST scoring
+
+This package vendors and adapts the Python AST-checkable scoring semantics from
+the Berkeley Function-Calling Leaderboard evaluator.
+
+Source:
+  Repository: https://github.com/ShishirPatil/gorilla
+  Path: berkeley-function-call-leaderboard/bfcl_eval/eval_checker/ast_eval/ast_checker.py
+  Revision: 6ea57973c7a6097fd7c5915698c54c17c5b1b6c8
+
+License:
+  Apache License, Version 2.0

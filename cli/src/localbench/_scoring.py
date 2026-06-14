@@ -7,6 +7,7 @@ from typing import TypedDict
 
 from localbench._suite import RenderedBench
 from localbench._types import ItemResult, JsonValue, Usage
+from localbench.scorers.bfcl import score_bfcl
 from localbench.scorers.ifbench import score_ifbench
 from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.math_numeric import extract_final_number, score_math
@@ -148,6 +149,9 @@ def _score_response(
         case "amo" | "olymmath_hard":
             extracted = extract_math_answer(response_text)
             return extracted, verify_math(response_text, _string(source_item.get("answer")) or "")
+        case "bfcl":
+            detailed = score_bfcl(source_item, response_text)
+            return detailed["extracted"], detailed["correct"]
         case _:
             return None, False
 
@@ -163,7 +167,7 @@ def _string(value: JsonValue | None) -> str | None:
 
 
 def _bench_has_extraction(bench: str) -> bool:
-    return bench in {"mmlu_pro", "genmath", "amo", "olymmath_hard", "supergpqa"}
+    return bench in {"mmlu_pro", "genmath", "amo", "olymmath_hard", "supergpqa", "bfcl"}
 
 
 def _sum_usage(items: list[ScoredItem], key: str) -> int:
