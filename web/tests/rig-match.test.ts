@@ -15,7 +15,7 @@ const ANCHORS = [
 const CANDIDATES = [
   candidate("oversized-q5", "Oversized 70B", "Q5_K_M", 38, 76, 73, 78, 18),
   candidate("qwen-q4", "Qwen3 32B", "Q4_K_M", 19, 72, 70, 74, 42),
-  candidate("llama-q3", "Llama-3.3 70B", "Q3_K_M", 22, 69, 66, 72, 18),
+  candidate("llama-q3", "Llama-3.3 70B", "Q3_K_M", 20.2, 69, 66, 72, 18),
   candidate("anchor", "GPT-5.5", null, null, 94, 93, 95, null, "anchor", "api-uncapped"),
 ] as const satisfies readonly RigMatchCandidate[];
 
@@ -47,6 +47,52 @@ describe("rig-match finder logic", () => {
     expect(matches.map((match) => match.runId)).toEqual(["qwen-q4", "llama-q3"]);
     expect(matches[0]?.verdict).toBe("best-under-budget");
     expect(matches[1]?.verdict).toBe("needs-replication");
+  });
+
+  it("excludes rows that only fit by weight before 8K context headroom is reserved", () => {
+    // Given a large demo quant whose weights alone sit below the selected card size.
+    const candidates = [
+      candidate("llama-405b-q3", "Llama-3.1-405B", "Q3_K_M", 180, 75, 72, 78, 15),
+      candidate("fits-with-headroom", "Smaller 405B", "Q4_K_M", 150, 70, 68, 72, 18),
+    ] as const satisfies readonly RigMatchCandidate[];
+
+    // When matches are ranked for a 192 GB rig.
+    const matches = rankRigMatches({
+      anchors: ANCHORS,
+      candidates,
+      lane: "answer-only",
+      quant: "any",
+      vramGb: 192,
+    });
+
+    // Then the 180 GB row is excluded because KV cache and runtime overhead push it over budget.
+    expect(matches.map((match) => match.runId)).toEqual(["fits-with-headroom"]);
+  });
+
+  it("recomputes fit when the selected context length grows", () => {
+    // Given a quant that fits 24 GB only at the default 8K context assumption.
+    const candidates = [candidate("qwen-q5", "Qwen3 32B", "Q5_K_M", 21.4, 72.6, 70.4, 74.8, 31)] as const;
+
+    // When matches are ranked at 8K and 32K context.
+    const matchesAt8k = rankRigMatches({
+      anchors: ANCHORS,
+      candidates,
+      lane: "answer-only",
+      quant: "any",
+      vramGb: 24,
+    });
+    const matchesAt32k = rankRigMatches({
+      anchors: ANCHORS,
+      candidates,
+      contextTokens: 32768,
+      lane: "answer-only",
+      quant: "any",
+      vramGb: 24,
+    });
+
+    // Then the same weights are treated differently once KV cache grows with context.
+    expect(matchesAt8k.map((match) => match.runId)).toEqual(["qwen-q5"]);
+    expect(matchesAt32k.map((match) => match.runId)).toEqual([]);
   });
 
   it("filters by selected quant before ranking fitted rows", () => {

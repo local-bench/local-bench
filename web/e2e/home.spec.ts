@@ -7,6 +7,8 @@ test("renders the rig-match finder as the home hero", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "What can I run?" })).toBeVisible();
   await expect(page.getByText("Preview uses synthetic demo data — not real measurements (Track 2 will replace it).")).toBeVisible();
   await expect(page.getByLabel("VRAM tier")).toHaveValue("24");
+  await expect(page.getByLabel("Context length")).toHaveValue("8192");
+  await expect(page.getByText(/VRAM includes KV cache/i)).toBeVisible();
   await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /Qwen3 32B.*Q5_K_M/ })).toBeVisible();
   await expect(page.getByText(/frontier ceiling:/i)).toBeVisible();
   await expect(page.getByTestId("rig-match-results").getByText("GPT-5.5")).toHaveCount(0);
@@ -29,10 +31,13 @@ test("supports large VRAM tiers in the finder", async ({ page }) => {
   await expect(vramSelect.getByRole("option", { name: "512 GB" })).toBeAttached();
 
   await vramSelect.selectOption("192");
+  await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /Llama-3\.1-405B.*Q3_K_M/ })).toHaveCount(0);
+
+  await vramSelect.selectOption("256");
   await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /Llama-3\.1-405B.*Q3_K_M/ })).toBeVisible();
 
   await vramSelect.selectOption("384");
-  await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /DeepSeek-V3-671B.*Q4_K_M/ })).toBeVisible();
+  await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /DeepSeek-V3-671B.*Q4_K_M/ })).toHaveCount(0);
 
   await vramSelect.selectOption("512");
   await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /DeepSeek-V3-671B.*Q5_K_M/ })).toBeVisible();

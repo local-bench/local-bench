@@ -238,7 +238,7 @@
       "tok_s": 31.0,
       "tokens_to_answer_median": 710.0,
       "tokens_to_answer_p95": 1210.0,
-      "vram_footprint_gb": 23.0,
+      "vram_footprint_gb": 21.4,
       "wall_time_seconds": 5771.612903225807
     },
     {

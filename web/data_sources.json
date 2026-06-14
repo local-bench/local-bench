@@ -103,7 +103,7 @@
     "notes": "SYNTHETIC DEMO - not real measurements; Track 2 will replace this preview.",
     "quant_label": "Q5_K_M",
     "reasoning_lane": "answer-only",
-    "vram_footprint_gb": 23
+    "vram_footprint_gb": 21.4
   },
   {
     "demo": true,

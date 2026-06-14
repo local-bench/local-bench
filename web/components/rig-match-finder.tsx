@@ -2,21 +2,24 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { DemoBadge } from "@/components/badges";
+import { FinderRow } from "@/components/rig-match-finder-row";
 import { RigMatchBounty } from "@/components/rig-match-bounty";
 import {
+  CONTEXT_LENGTH_OPTIONS,
+  DEFAULT_CONTEXT_TOKENS,
   LANE_FILTERS,
   QUANT_OPTIONS,
+  RUNTIME_OVERHEAD_GB,
   VRAM_TIERS,
+  formatContextLength,
   rankRigMatches,
+  type ContextLengthOption,
   type LaneFilter,
   type QuantFilter,
-  type RigMatch,
   type RigMatchAnchor,
   type RigMatchCandidate,
-  type RigMatchVerdict,
 } from "@/lib/rig-match";
-import { formatCi, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
+import { formatGb } from "@/lib/format";
 
 const DEFAULT_VRAM = 24;
 const DEFAULT_QUANT: QuantFilter = "any";
@@ -31,14 +34,15 @@ export function RigMatchFinder({
   readonly candidates: readonly RigMatchCandidate[];
 }) {
   const [vramGb, setVramGb] = useState<number>(DEFAULT_VRAM);
+  const [contextTokens, setContextTokens] = useState<ContextLengthOption>(DEFAULT_CONTEXT_TOKENS);
   const [quant, setQuant] = useState<QuantFilter>(DEFAULT_QUANT);
   const [lane, setLane] = useState<LaneFilter>(DEFAULT_LANE);
   const matches = useMemo(
-    () => rankRigMatches({ anchors, candidates, lane, quant, vramGb }),
-    [anchors, candidates, lane, quant, vramGb],
+    () => rankRigMatches({ anchors, candidates, contextTokens, lane, quant, vramGb }),
+    [anchors, candidates, contextTokens, lane, quant, vramGb],
   );
   const visibleMatches = matches.slice(0, MAX_VISIBLE_ROWS);
-  const coverageMessage = coverageFor(matches.length, vramGb, quant);
+  const coverageMessage = coverageFor(matches.length, vramGb, quant, contextTokens);
 
   return (
     <section data-testid="rig-match-finder" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
@@ -55,7 +59,7 @@ export function RigMatchFinder({
             </div>
             <FrontierCeiling anchors={anchors} />
           </div>
-          <div className="mt-5 grid gap-3 md:grid-cols-[170px_170px_1fr]">
+          <div className="mt-5 grid gap-3 md:grid-cols-[150px_150px_170px_1fr]">
             <label className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor="vram-tier">
               VRAM tier
               <select
@@ -68,6 +72,22 @@ export function RigMatchFinder({
                 {VRAM_TIERS.map((tier) => (
                   <option key={tier} value={tier}>
                     {tier} GB
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor="context-length">
+              Context
+              <select
+                id="context-length"
+                aria-label="Context length"
+                className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-sm text-bench-text outline-none focus:border-bench-accent"
+                value={contextTokens}
+                onChange={(event) => setContextTokens(toContextLengthOption(Number(event.currentTarget.value)))}
+              >
+                {CONTEXT_LENGTH_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {formatContextLength(option)}
                   </option>
                 ))}
               </select>
@@ -107,6 +127,10 @@ export function RigMatchFinder({
               </div>
             </div>
           </div>
+          <p className="mt-3 font-mono text-xs text-bench-muted">
+            Fits at ~{formatContextLength(contextTokens)} ctx; VRAM includes KV cache plus {formatGb(RUNTIME_OVERHEAD_GB)}{" "}
+            runtime overhead.
+          </p>
           <div className="mt-5 max-w-full overflow-x-auto rounded border border-bench-line bg-bench-panel-2/70">
             <table data-testid="rig-match-results" className="min-w-[920px] border-collapse text-sm">
               <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
@@ -116,7 +140,7 @@ export function RigMatchFinder({
                   <th className="px-3 py-3">Quant</th>
                   <th className="px-3 py-3">Quality</th>
                   <th className="px-3 py-3">Frontier gap</th>
-                  <th className="px-3 py-3">VRAM</th>
+                  <th className="px-3 py-3">VRAM required</th>
                   <th className="px-3 py-3">tok/s</th>
                   <th className="px-3 py-3">Verdict</th>
                 </tr>
@@ -127,7 +151,7 @@ export function RigMatchFinder({
                 ))}
               </tbody>
             </table>
-            {visibleMatches.length === 0 ? <EmptyState vramGb={vramGb} quant={quant} /> : null}
+            {visibleMatches.length === 0 ? <EmptyState contextTokens={contextTokens} vramGb={vramGb} quant={quant} /> : null}
           </div>
           {coverageMessage ? (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-warn/35 bg-bench-warn/10 p-3 text-sm text-bench-warn">
@@ -144,33 +168,6 @@ export function RigMatchFinder({
   );
 }
 
-function FinderRow({ match, rank }: { readonly match: RigMatch; readonly rank: number }) {
-  return (
-    <tr className="border-t border-bench-line/75 align-middle hover:bg-white/[0.035]">
-      <td className="px-3 py-3 font-mono text-bench-muted">{rank}</td>
-      <td className="px-3 py-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/model/${match.modelSlug}`} className="font-semibold text-bench-text hover:text-bench-accent">
-            {match.modelLabel}
-          </Link>
-          {match.demo ? <DemoBadge /> : null}
-        </div>
-        <div className="text-xs text-bench-muted">{match.family}</div>
-      </td>
-      <td className="px-3 py-3 font-mono text-bench-text">{match.quantLabel ?? "n/a"}</td>
-      <td className="px-3 py-3 font-mono text-bench-text">
-        {formatScore(match.score.point)} <span className="text-bench-muted">{formatCi(match.score)}</span>
-      </td>
-      <td className="px-3 py-3 font-mono text-bench-text">{Math.round(match.frontierGapPercent)}% of top anchor</td>
-      <td className="px-3 py-3 font-mono text-bench-text">{formatGb(match.vramFootprintGb)}</td>
-      <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(match.tokS)}</td>
-      <td className="px-3 py-3">
-        <VerdictChip verdict={match.verdict} />
-      </td>
-    </tr>
-  );
-}
-
 function FrontierCeiling({ anchors }: { readonly anchors: readonly RigMatchAnchor[] }) {
   const labels = [...anchors]
     .sort((left, right) => right.score.point - left.score.point)
@@ -182,31 +179,26 @@ function FrontierCeiling({ anchors }: { readonly anchors: readonly RigMatchAncho
   );
 }
 
-function EmptyState({ quant, vramGb }: { readonly quant: QuantFilter; readonly vramGb: number }) {
+function EmptyState({
+  contextTokens,
+  quant,
+  vramGb,
+}: {
+  readonly contextTokens: ContextLengthOption;
+  readonly quant: QuantFilter;
+  readonly vramGb: number;
+}) {
   return (
     <div className="border-t border-bench-line p-5 text-sm leading-6 text-bench-muted">
-      No local {quant === "any" ? "runs" : quant} rows fit {vramGb} GB yet. Empty cells are coverage gaps, not failures.
+      No local {quant === "any" ? "runs" : quant} rows fit {vramGb} GB at ~{formatContextLength(contextTokens)} context
+      yet. Empty cells are coverage gaps, not failures.
     </div>
   );
 }
 
-function VerdictChip({ verdict }: { readonly verdict: RigMatchVerdict }) {
-  const styles: Record<RigMatchVerdict, string> = {
-    "best-under-budget": "border-bench-better/45 bg-bench-better/10 text-bench-better",
-    "needs-replication": "border-bench-warn/45 bg-bench-warn/10 text-bench-warn",
-    "not-enough-data": "border-bench-muted/45 bg-white/[0.03] text-bench-muted",
-    "statistical-tie": "border-bench-tied/45 bg-white/[0.03] text-bench-tied",
-  };
-  return (
-    <span className={["inline-flex rounded border px-2 py-1 text-[11px] font-semibold uppercase", styles[verdict]].join(" ")}>
-      {verdict.replace(/-/g, " ")}
-    </span>
-  );
-}
-
-function coverageFor(count: number, vramGb: number, quant: QuantFilter): string | null {
+function coverageFor(count: number, vramGb: number, quant: QuantFilter, contextTokens: ContextLengthOption): string | null {
   if (count === 0) {
-    return `No ${quant === "any" ? "local" : quant} rows currently fit ${vramGb} GB.`;
+    return `No ${quant === "any" ? "local" : quant} rows currently fit ${vramGb} GB at ~${formatContextLength(contextTokens)} context.`;
   }
   if (count < 3) {
     return `Only ${count} local row${count === 1 ? "" : "s"} fit this selection; more runs will tighten the recommendation.`;
@@ -218,6 +210,19 @@ function toQuantFilter(value: string): QuantFilter {
   return value === "FP16" || value === "Q8_0" || value === "Q5_K_M" || value === "Q4_K_M" || value === "Q3_K_M"
     ? value
     : "any";
+}
+
+function toContextLengthOption(value: number): ContextLengthOption {
+  switch (value) {
+    case 8192:
+      return 8192;
+    case 32768:
+      return 32768;
+    case 131072:
+      return 131072;
+    default:
+      return DEFAULT_CONTEXT_TOKENS;
+  }
 }
 
 function shortAnchorLabel(label: string): string {
