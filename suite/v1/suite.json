@@ -32,11 +32,31 @@
       },
       "lane_caps": {},
       "template": "templates/math.txt"
+    },
+    "supergpqa": {
+      "chance_correction_baseline": 0.1,
+      "decoding": {
+        "max_tokens": 12288,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "supergpqa.jsonl",
+          "item_count": 400,
+          "sha256": "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/mcq_cot.txt"
     }
   },
   "axes": {
     "math": {
       "benches": ["amo", "olymmath_hard"],
+      "weight": null
+    },
+    "knowledge": {
+      "benches": ["supergpqa"],
       "weight": null
     }
   }

@@ -1,0 +1,5 @@
+{question}
+
+{options}
+
+Think step by step, then give your final answer as a single line: Answer: <letter>

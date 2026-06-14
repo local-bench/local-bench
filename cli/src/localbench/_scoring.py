@@ -130,7 +130,7 @@ def _score_response(
     if error is not None or response_text is None:
         return None, False
     match bench:
-        case "mmlu_pro":
+        case "mmlu_pro" | "supergpqa":
             detailed = score_mcq_detailed(
                 response_text,
                 _string(source_item.get("answer")) or "",
@@ -160,7 +160,7 @@ def _string(value: JsonValue | None) -> str | None:
 
 
 def _bench_has_extraction(bench: str) -> bool:
-    return bench in {"mmlu_pro", "genmath", "amo", "olymmath_hard"}
+    return bench in {"mmlu_pro", "genmath", "amo", "olymmath_hard", "supergpqa"}
 
 
 def _sum_usage(items: list[ScoredItem], key: str) -> int:

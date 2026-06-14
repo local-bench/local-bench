@@ -144,7 +144,7 @@ def _benchmark_item(
 
 def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
     match bench:
-        case "mmlu_pro":
+        case "mmlu_pro" | "supergpqa":
             return template.format(
                 question=_string(item.get("question")) or "",
                 options=_options(item.get("options")),
