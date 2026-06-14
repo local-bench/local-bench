@@ -156,6 +156,8 @@ def _output_effort(
 
 def _output_effort_from_reasoning_effort(effort: ReasoningEffort) -> str | None:
     match effort:
+        case "none":
+            return None
         case "minimal":
             return None
         case "low":
@@ -172,6 +174,8 @@ def _output_effort_from_reasoning_effort(effort: ReasoningEffort) -> str | None:
 
 def _effort_notes(effort: ReasoningEffort) -> list[str]:
     match effort:
+        case "none":
+            return ["reasoning_effort=none mapped to Anthropic thinking off"]
         case "minimal":
             return ["reasoning_effort=minimal mapped to Anthropic thinking off"]
         case "low":

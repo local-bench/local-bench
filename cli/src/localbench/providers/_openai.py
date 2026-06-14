@@ -39,7 +39,14 @@ class OpenAIChatProvider:
         lane: Lane,
         effort: ReasoningEffort | None = None,
     ) -> JsonObject:
-        return {"model": model, "messages": messages, **decoding}
+        payload: JsonObject = {"model": model, "messages": messages, **decoding}
+        # The generic "local" provider is a passthrough to arbitrary OpenAI-compatible
+        # servers (LM Studio / llama.cpp / vLLM) that may serve reasoning models, so it
+        # forwards reasoning_effort (e.g. "none" suppresses Qwen thinking). The strict
+        # "openai-chat" profile targets OpenAI's non-reasoning chat models and must not.
+        if effort is not None and self.name == "local":
+            payload["reasoning_effort"] = effort
+        return payload
 
     def endpoint_url(self, base: str) -> str:
         return chat_completions_url(base)
@@ -56,7 +63,9 @@ class OpenAIChatProvider:
         effort: ReasoningEffort | None = None,
         decodings: Sequence[JsonObject] = (),
     ) -> list[str]:
-        return []
+        if effort is None or self.name != "local":
+            return []
+        return [f"reasoning_effort={effort} passed through to local OpenAI-compatible server"]
 
 
 @dataclass(frozen=True, slots=True)

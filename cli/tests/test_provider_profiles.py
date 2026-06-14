@@ -40,12 +40,9 @@ def test_local_profile_when_building_payload_matches_openai_chat_shape() -> None
     assert provider.notes() == []
 
 
-@pytest.mark.parametrize("provider_name", ["local", "openai-chat"])
-def test_non_reasoning_profiles_when_effort_is_set_ignore_it(
-    provider_name: str,
-) -> None:
-    # Given a non-reasoning OpenAI-compatible provider.
-    provider = provider_for_name(provider_name)
+def test_strict_openai_chat_profile_when_effort_is_set_ignores_it() -> None:
+    # Given the strict openai-chat profile (OpenAI's non-reasoning chat models).
+    provider = provider_for_name("openai-chat")
 
     # When building a request payload with an explicit reasoning effort.
     payload = provider.build_payload(
@@ -56,7 +53,7 @@ def test_non_reasoning_profiles_when_effort_is_set_ignore_it(
         effort="high",
     )
 
-    # Then the current request shape is unchanged and no effort note is recorded.
+    # Then effort is NOT forwarded (OpenAI chat rejects reasoning_effort) and no note is recorded.
     assert payload == {
         "model": "demo-model",
         "messages": MESSAGES,
@@ -65,6 +62,34 @@ def test_non_reasoning_profiles_when_effort_is_set_ignore_it(
         "max_tokens": 16,
     }
     assert provider.notes(effort="high", decodings=[DECODING]) == []
+
+
+def test_local_profile_when_effort_is_set_forwards_it() -> None:
+    # Given the generic local passthrough provider (LM Studio / llama.cpp / vLLM).
+    provider = provider_for_name("local")
+
+    # When building a payload with an explicit effort ("none" suppresses a local
+    # reasoning model's thinking, e.g. Qwen3 enable_thinking=false).
+    payload = provider.build_payload(
+        "demo-model",
+        MESSAGES,
+        DECODING,
+        "answer-only",
+        effort="none",
+    )
+
+    # Then reasoning_effort is forwarded to the local OpenAI-compatible server and noted.
+    assert payload == {
+        "model": "demo-model",
+        "messages": MESSAGES,
+        "temperature": 0,
+        "top_p": 1,
+        "max_tokens": 16,
+        "reasoning_effort": "none",
+    }
+    assert provider.notes(effort="none", decodings=[DECODING]) == [
+        "reasoning_effort=none passed through to local OpenAI-compatible server",
+    ]
 
 
 def test_openai_reasoning_profile_when_building_payload_uses_reasoning_params() -> None:

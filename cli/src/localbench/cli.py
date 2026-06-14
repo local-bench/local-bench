@@ -28,6 +28,7 @@ from localbench.scoring.paired_delta import (
 )
 
 _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
+    "none",
     "minimal",
     "low",
     "medium",
@@ -160,6 +161,8 @@ def _reasoning_effort(value: str | None) -> ReasoningEffortChoice | None:
     match value:
         case None:
             return None
+        case "none":
+            return "none"
         case "minimal":
             return "minimal"
         case "low":
