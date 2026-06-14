@@ -48,6 +48,22 @@
       },
       "lane_caps": {},
       "template": "templates/mcq_cot.txt"
+    },
+    "ifbench": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 8192,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "ifbench.jsonl",
+          "item_count": 294,
+          "sha256": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/ifbench.txt"
     }
   },
   "axes": {
@@ -57,6 +73,10 @@
     },
     "knowledge": {
       "benches": ["supergpqa"],
+      "weight": null
+    },
+    "instruction_following": {
+      "benches": ["ifbench"],
       "weight": null
     }
   }

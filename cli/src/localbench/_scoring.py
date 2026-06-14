@@ -7,6 +7,7 @@ from typing import TypedDict
 
 from localbench._suite import RenderedBench
 from localbench._types import ItemResult, JsonValue, Usage
+from localbench.scorers.ifbench import score_ifbench
 from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
@@ -139,6 +140,8 @@ def _score_response(
             return detailed["extracted"], detailed["correct"]
         case "ifeval":
             return None, bool(score_ifeval(source_item, response_text)["strict"])
+        case "ifbench":
+            return None, bool(score_ifbench(source_item, response_text)["strict"])
         case "genmath":
             extracted = extract_final_number(response_text)
             return extracted, score_math(response_text, _string(source_item.get("answer")) or "")

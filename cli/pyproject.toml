@@ -14,7 +14,7 @@ localbench = "localbench.cli:main"
 
 [project.optional-dependencies]
 build = ["datasets>=2.20"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "nltk>=3.9"]
 
 [tool.setuptools.package-dir]
 "" = "src"

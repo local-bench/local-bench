@@ -17,6 +17,12 @@
       "sha256": "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a",
       "source_dataset": "m-a-p/SuperGPQA",
       "source_revision": "4430d4458112c7d4497fdcf94d7cc223313d6acf"
+    },
+    "ifbench.jsonl": {
+      "item_count": 294,
+      "sha256": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+      "source_dataset": "allenai/IFBench_test",
+      "source_revision": "2e8a48de45ff3bf41242f927254ca81b59ca3ae2"
     }
   }
 }
