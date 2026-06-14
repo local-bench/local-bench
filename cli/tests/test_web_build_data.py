@@ -24,13 +24,18 @@ BENCHES = ("genmath", "ifeval", "mmlu_pro")
 def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -> None:
     # Given the committed web data-source curation.
     assert DATA_SOURCES.exists()
-    missing = [
+    non_demo_inputs = [
         _string(source["file"])
         for source in _objects(_read_json(DATA_SOURCES))
-        if source.get("demo") is not True and not (ROOT / _string(source["file"])).exists()
+        if source.get("demo") is not True
     ]
-    if missing:
-        pytest.skip(f"missing curated run inputs: {', '.join(sorted(missing))}")
+    missing = sorted(path for path in non_demo_inputs if not (ROOT / path).exists())
+    present = [path for path in non_demo_inputs if (ROOT / path).exists()]
+    if missing and not present:
+        # Fresh checkout: the gitignored runs/ inputs are entirely absent -> nothing to integration-test.
+        pytest.skip(f"no curated run inputs present (gitignored runs/ absent): {len(missing)} expected")
+    # Partial absence is a real regression (a deleted/mistyped data_sources.json entry) -> fail loudly.
+    assert not missing, f"data_sources.json references missing run inputs (typo/deletion?): {missing}"
 
     # When the pipeline is run twice with a fixed bootstrap seed.
     _run_pipeline(iters=2_000)
