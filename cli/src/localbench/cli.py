@@ -80,6 +80,12 @@ def _parser() -> argparse.ArgumentParser:
         choices=_REASONING_EFFORT_CHOICES,
         default=None,
     )
+    run_parser.add_argument(
+        "--max-tokens",
+        type=int,
+        default=None,
+        help="cap per-item max_tokens (min'd with the bench value); use for bounded local context windows",
+    )
     compare_parser = subparsers.add_parser(
         "compare",
         help="compare two saved localbench run records",
@@ -112,6 +118,7 @@ def _run(args: argparse.Namespace) -> int:
             lane=_lane(args.lane),
             provider=args.provider,
             reasoning_effort=_reasoning_effort(args.reasoning_effort),
+            max_tokens=args.max_tokens,
         ),
     )
     _print_summary(record)

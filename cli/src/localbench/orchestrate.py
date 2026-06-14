@@ -68,6 +68,7 @@ class OrchestrateConfig:
     lane: LaneChoice = "answer-only"
     provider: str = "local"
     reasoning_effort: ReasoningEffortChoice | None = None
+    max_tokens: int | None = None
 
 
 async def run_localbench(
@@ -90,6 +91,15 @@ async def run_localbench(
         suite,
         warnings,
     )
+    if config.max_tokens is not None:
+        for rendered in rendered_benches:
+            for benchmark_item in rendered.benchmark_items:
+                existing = benchmark_item.get("max_tokens")
+                benchmark_item["max_tokens"] = (
+                    config.max_tokens
+                    if not isinstance(existing, int)
+                    else min(existing, config.max_tokens)
+                )
     items: list[ScoredItem] = []
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
