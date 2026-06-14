@@ -5,11 +5,23 @@ import random
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import TypedDict
 
 from localbench._types import JsonValue
-from localbench.scoring.bootstrap import Interval
-from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench, stratum_for_item
+from localbench.scoring.bootstrap import (
+    Interval,
+    _draw_stratified_mean,
+    _percentile,
+    _stratified_cluster_groups,
+    _stratified_groups,
+    stratified_mean_ci,
+)
+from localbench.scoring.metadata import (
+    DOMAIN_WEIGHTS,
+    cluster_for_item,
+    domain_for_bench,
+    stratum_for_item,
+)
 from localbench.scoring.signed_score import chance_for_bench, signed_delta
 from localbench.scoring.subgroups import (
     DeltaObservation,
@@ -24,6 +36,7 @@ class PerItemDelta(TypedDict):
     bench: str
     domain: str
     stratum: str
+    cluster: str
     delta: int
     signed_delta: float
 
@@ -88,6 +101,8 @@ def compare_runs(
         {
             "domain": item["domain"],
             "stratum": item["stratum"],
+            "cluster": item["cluster"],
+            "raw_delta": item["delta"],
             "signed_delta": item["signed_delta"],
         }
         for item in deltas
@@ -130,8 +145,21 @@ def _domain_deltas(
     for index, domain in enumerate(sorted(grouped)):
         values = [item["signed_delta"] for item in grouped[domain]]
         strata = [item["stratum"] for item in grouped[domain]]
-        repeatability = _mean_ci(values, [domain] * len(values), iters=iters, seed=seed + index)
-        generalization = _mean_ci(values, strata, iters=iters, seed=seed + 1_000 + index)
+        clusters = [item["cluster"] for item in grouped[domain]]
+        repeatability = stratified_mean_ci(
+            values,
+            [domain] * len(values),
+            clusters=clusters,
+            iters=iters,
+            seed=seed + index,
+        )
+        generalization = stratified_mean_ci(
+            values,
+            strata,
+            clusters=clusters,
+            iters=iters,
+            seed=seed + 1_000 + index,
+        )
         domains[domain] = {
             "n": len(values),
             "delta": generalization,
@@ -163,7 +191,8 @@ def _weighted_domain_ci(
         for domain in sorted(grouped):
             values = [item["signed_delta"] for item in grouped[domain]]
             strata = [item["stratum"] if stratified else domain for item in grouped[domain]]
-            total += weights[domain] * _draw_mean(values, strata, rng)
+            clusters = [item["cluster"] for item in grouped[domain]]
+            total += weights[domain] * _draw_mean(values, strata, rng, clusters=clusters)
         draws.append(total)
     draws.sort()
     return {"point": point, "lo": _percentile(draws, 0.025), "hi": _percentile(draws, 0.975)}
@@ -193,11 +222,13 @@ def _delta_item(item_a: _RunItem, item_b: _RunItem) -> PerItemDelta:
     raw_delta = int(item_a.correct) - int(item_b.correct)
     domain = domain_for_bench(item_a.bench)
     stratum = stratum_for_item(item_a.bench, item_a.id, item_a.source)
+    cluster = cluster_for_item(item_a.bench, item_a.id, item_a.source)
     return {
         "id": item_a.id,
         "bench": item_a.bench,
         "domain": domain,
         "stratum": stratum,
+        "cluster": cluster,
         "delta": raw_delta,
         "signed_delta": signed_delta(raw_delta, chance=chance_for_bench(item_a.bench)),
     }
@@ -219,41 +250,24 @@ def _by_domain(
     return grouped
 
 
-def _mean_ci(
+def _draw_mean(
     values: Sequence[float],
     strata: Sequence[str],
+    rng: random.Random,
     *,
-    iters: int,
-    seed: int,
-) -> Interval:
-    from localbench.scoring.bootstrap import stratified_mean_ci
-
-    return stratified_mean_ci(values, strata, iters=iters, seed=seed)
-
-
-def _draw_mean(values: Sequence[float], strata: Sequence[str], rng: random.Random) -> float:
-    grouped: dict[str, list[float]] = {}
-    for value, stratum in zip(values, strata, strict=True):
-        grouped.setdefault(stratum, []).append(value)
-    total = 0.0
-    count = 0
-    for stratum in sorted(grouped):
-        group = grouped[stratum]
-        count += len(group)
-        total += sum(group[rng.randrange(len(group))] for _index in range(len(group)))
-    return total / count if count else 0.0
+    clusters: Sequence[str] | None = None,
+) -> float:
+    groups = _stratified_groups(values, strata)
+    block_groups = (
+        None if clusters is None else _stratified_cluster_groups(values, strata, clusters)
+    )
+    return _draw_stratified_mean(groups, rng, block_groups)
 
 
 def _normalized_domain_weights(domains: Iterable[str]) -> dict[str, float]:
     present = list(domains)
     total = sum(DOMAIN_WEIGHTS.get(domain, 1.0) for domain in present)
     return {domain: DOMAIN_WEIGHTS.get(domain, 1.0) / total for domain in present}
-
-
-def _percentile(values: Sequence[float], quantile: float) -> float:
-    from localbench.scoring.bootstrap import _percentile as percentile
-
-    return percentile(values, quantile)
 
 
 def _mean(values: Sequence[float]) -> float:

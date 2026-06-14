@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from localbench.scoring.bootstrap import per_bench_ci
+from localbench.scoring.bootstrap import per_bench_ci, stratified_mean_ci
 from localbench.scoring.paired_delta import compare_runs, format_honest_delta
 from localbench.scoring.signed_score import display_clamp, signed_score
 from localbench.scoring.subgroups import severe_subgroup_regressions
@@ -88,6 +88,36 @@ def test_compare_runs_when_identical_returns_zero_tight_delta() -> None:
     assert comparison["worst_axis"]["delta"]["point"] == 0.0
 
 
+def test_compare_runs_when_clusters_are_absent_matches_explicit_singletons() -> None:
+    # Given existing synthetic records and the same records with singleton clusters.
+    degraded = _balanced_regression_run(degraded=True)
+    baseline = _balanced_regression_run(degraded=False)
+    clustered_degraded = _with_singleton_clusters(degraded)
+    clustered_baseline = _with_singleton_clusters(baseline)
+
+    # When comparing both forms with the same bootstrap seed.
+    absent = compare_runs(degraded, baseline, iters=700, seed=23)
+    explicit = compare_runs(clustered_degraded, clustered_baseline, iters=700, seed=23)
+
+    # Then singleton fallback preserves every reported number exactly.
+    assert explicit == absent
+
+
+def test_stratified_mean_ci_when_items_share_cluster_uses_block_resampling() -> None:
+    # Given one passage cluster with many correlated regressions and neutral singleton clusters.
+    values = [-1.0] * 12 + [0.0] * 12
+    strata = ["long-context"] * len(values)
+    clusters = ["shared-passage"] * 12 + [f"neutral-{index}" for index in range(12)]
+
+    # When the same values are bootstrapped by item and by cluster block.
+    naive = stratified_mean_ci(values, strata, iters=2_000, seed=11)
+    clustered = stratified_mean_ci(values, strata, clusters=clusters, iters=2_000, seed=11)
+
+    # Then the correlated regressions count as one resampling unit, widening the CI.
+    assert _interval_width(clustered) > _interval_width(naive)
+    assert clustered["hi"] > naive["hi"]
+
+
 def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() -> None:
     # Given a planted regression where instruction-following loses every item,
     # while knowledge and math improve enough for the composite to round to zero.
@@ -110,6 +140,53 @@ def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() 
     assert subgroup_flags
     assert subgroup_flags[0]["domain"] == "Instruction-Following"
     assert subgroup_flags[0]["ci"]["hi"] < -0.90
+
+
+def test_compare_runs_when_noisy_subgroup_regressions_are_bh_suppressed() -> None:
+    # Given several tiny clustered cells whose CIs are severe, plus one genuine cell.
+    degraded_items: list[dict] = []
+    baseline_items: list[dict] = []
+    for cell_index in range(6):
+        degraded_cell, baseline_cell = _discordant_cell_items(
+            prefix=f"noise-{cell_index}",
+            template=f"noise-{cell_index}",
+            regressions=3,
+            improvements=2,
+            cluster=f"noise-cluster-{cell_index}",
+        )
+        degraded_items.extend(degraded_cell)
+        baseline_items.extend(baseline_cell)
+    genuine_degraded, genuine_baseline = _discordant_cell_items(
+        prefix="genuine",
+        template="genuine",
+        regressions=20,
+        improvements=0,
+        cluster="genuine-cluster",
+    )
+    degraded_items.extend(genuine_degraded)
+    baseline_items.extend(genuine_baseline)
+
+    # When comparing the degraded run against the baseline run.
+    comparison = compare_runs(
+        _run_record(degraded_items),
+        _run_record(baseline_items),
+        iters=800,
+        seed=17,
+    )
+    by_stratum = {subgroup["stratum"]: subgroup for subgroup in comparison["subgroups"]}
+
+    # Then BH suppresses the noisy CI-only flags but keeps the genuine regression.
+    for cell_index in range(6):
+        subgroup = by_stratum[f"template=noise-{cell_index}"]
+        assert subgroup["ci"]["hi"] < -0.10
+        assert subgroup["b_regressions"] == 3
+        assert subgroup["c_improvements"] == 2
+        assert subgroup["bh_adjusted_p"] >= 0.05
+        assert not subgroup["severe_subgroup_regression"]
+    genuine = by_stratum["template=genuine"]
+    assert genuine["mcnemar_p"] == pytest.approx(2**-20)
+    assert genuine["bh_adjusted_p"] < 0.05
+    assert genuine["severe_subgroup_regression"]
 
 
 def test_compare_runs_when_item_sets_differ_errors() -> None:
@@ -262,6 +339,27 @@ def _paired_items(
     return pairs
 
 
+def _discordant_cell_items(
+    *,
+    prefix: str,
+    template: str,
+    regressions: int,
+    improvements: int,
+    cluster: str,
+) -> tuple[list[dict], list[dict]]:
+    degraded: list[dict] = []
+    baseline: list[dict] = []
+    for index in range(regressions):
+        item_id = f"{prefix}-regression-{index}"
+        degraded.append(_item(item_id, "ifeval", False, template=template, cluster=cluster))
+        baseline.append(_item(item_id, "ifeval", True, template=template, cluster=cluster))
+    for index in range(improvements):
+        item_id = f"{prefix}-improvement-{index}"
+        degraded.append(_item(item_id, "ifeval", True, template=template, cluster=cluster))
+        baseline.append(_item(item_id, "ifeval", False, template=template, cluster=cluster))
+    return degraded, baseline
+
+
 def _item(
     item_id: str,
     bench: str,
@@ -270,6 +368,7 @@ def _item(
     category: str | None = None,
     difficulty: str | None = None,
     template: str | None = None,
+    cluster: str | None = None,
 ) -> dict:
     item = {
         "id": item_id,
@@ -289,7 +388,26 @@ def _item(
         item["difficulty"] = difficulty
     if template is not None:
         item["template"] = template
+    if cluster is not None:
+        item["cluster"] = cluster
     return item
+
+
+def _with_singleton_clusters(record: dict) -> dict:
+    return {
+        **record,
+        "items": [
+            {
+                **item,
+                "cluster": str(item["id"]),
+            }
+            for item in record["items"]
+        ],
+    }
+
+
+def _interval_width(interval: dict[str, float]) -> float:
+    return interval["hi"] - interval["lo"]
 
 
 def _run_record(items: Sequence[dict]) -> dict:
