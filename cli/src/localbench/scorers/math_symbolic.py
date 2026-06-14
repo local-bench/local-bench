@@ -30,27 +30,33 @@ _ParsedMath = Basic | Interval | _Ratio | tuple[Basic, ...] | frozenset[Basic]
 
 
 def extract_math_answer(text: str) -> str | None:
-    if not text:
+    try:
+        if not text:
+            return None
+
+        boxed = _last_boxed_content(text)
+        if boxed is not None:
+            return boxed
+
+        for marker in reversed(list(_MARKER_RE.finditer(text))):
+            candidate = _clean_candidate(text[marker.end() :])
+            if _is_answer_candidate(candidate):
+                return candidate
+
+        numbers = [_clean_candidate(match.group(0)) for match in _NUMBER_RE.finditer(text)]
+        return numbers[-1] if numbers else None
+    except Exception:  # noqa: BLE001 - extraction runs on every response and must never crash a run
         return None
-
-    boxed = _last_boxed_content(text)
-    if boxed is not None:
-        return boxed
-
-    for marker in reversed(list(_MARKER_RE.finditer(text))):
-        candidate = _clean_candidate(text[marker.end() :])
-        if _is_answer_candidate(candidate):
-            return candidate
-
-    numbers = [_clean_candidate(match.group(0)) for match in _NUMBER_RE.finditer(text)]
-    return numbers[-1] if numbers else None
 
 
 def verify_math(response_text: str, gold: str) -> bool:
-    answer = extract_math_answer(response_text)
-    if answer is None:
+    try:
+        answer = extract_math_answer(response_text)
+        if answer is None:
+            return False
+        return _equivalent(answer, gold)
+    except Exception:  # noqa: BLE001 - a scorer must never crash a run; any failure means "not equivalent"
         return False
-    return _equivalent(answer, gold)
 
 
 def _equivalent(answer: str, gold: str) -> bool:
