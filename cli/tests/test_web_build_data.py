@@ -24,6 +24,13 @@ BENCHES = ("genmath", "ifeval", "mmlu_pro")
 def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -> None:
     # Given the committed web data-source curation.
     assert DATA_SOURCES.exists()
+    missing = [
+        _string(source["file"])
+        for source in _objects(_read_json(DATA_SOURCES))
+        if source.get("demo") is not True and not (ROOT / _string(source["file"])).exists()
+    ]
+    if missing:
+        pytest.skip(f"missing curated run inputs: {', '.join(sorted(missing))}")
 
     # When the pipeline is run twice with a fixed bootstrap seed.
     _run_pipeline(iters=2_000)
@@ -34,7 +41,7 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
     # Then the static JSON surface is complete and deterministic.
     assert first_outputs == second_outputs
     index = _object(_read_json(DATA_DIR / "index.json"))
-    assert set(index) == {"generated_note", "models", "suite_version"}
+    assert set(index) == {"generated_note", "index_version", "models", "suite_version"}
     models = _objects(index["models"])
     assert models
 
@@ -310,8 +317,3 @@ def _string(value: JsonValue) -> str:
 def _number(value: JsonValue) -> float:
     assert isinstance(value, int | float)
     return float(value)
-
-
-def _bool(value: JsonValue) -> bool:
-    assert isinstance(value, bool)
-    return value
