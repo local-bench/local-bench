@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { KindBadge, LaneBadge, TierBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ModelAxisProfile } from "@/components/model-axis-profile";
 import { ModelScatter } from "@/components/model-scatter";
+import { QuantDecisionMatrix } from "@/components/quant-decision-matrix";
 import { AXES, getModelPageData, getModelStaticParams } from "@/lib/data";
 import {
   axisLabel,
@@ -41,18 +43,20 @@ export default async function ModelPage({ params }: PageProps) {
           </div>
           <h1 className="mt-3 text-4xl font-semibold text-bench-text">{model.model_label}</h1>
           <p className="mt-2 max-w-3xl text-bench-muted">
-            All runs and quants for this model, framed against frontier anchor reference lines.
+            Pick the quant that preserves quality without pretending weights alone are the VRAM requirement.
           </p>
         </div>
         <p className="font-mono text-sm text-bench-muted">{omitted} run(s) listed below but omitted from scatter x.</p>
       </header>
+      <QuantDecisionMatrix model={model} />
       <ModelScatter model={model} anchorRuns={anchorRuns} />
+      <ModelAxisProfile model={model} />
       <section className="rounded-lg border border-bench-line bg-bench-panel">
         <div className="border-b border-bench-line px-4 py-3">
           <h2 className="text-lg font-semibold text-bench-text">Runs</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[1180px] border-collapse text-sm">
+          <table data-testid="model-runs-table" className="min-w-[1180px] border-collapse text-sm">
             <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
               <tr>
                 <th className="px-3 py-3">Run</th>
