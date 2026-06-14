@@ -1,0 +1,43 @@
+{
+  "version": "suite-v1",
+  "benches": {
+    "amo": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "amo.jsonl",
+          "item_count": 39,
+          "sha256": "4654703c70829704f39ec38cb91dab1a06eba7fc9846a53ec93e1b3b73786980"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/math.txt"
+    },
+    "olymmath_hard": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "olymmath_hard.jsonl",
+          "item_count": 100,
+          "sha256": "60e172588066dd6f0af14f7ce01b9d87390f6e7803673f42051a830a4a6d2f70"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/math.txt"
+    }
+  },
+  "axes": {
+    "math": {
+      "benches": ["amo", "olymmath_hard"],
+      "weight": null
+    }
+  }
+}

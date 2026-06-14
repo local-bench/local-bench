@@ -9,6 +9,7 @@ from localbench._suite import RenderedBench
 from localbench._types import ItemResult, JsonValue, Usage
 from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.math_numeric import extract_final_number, score_math
+from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
 from localbench.scoring.signed_score import signed_score
 
@@ -141,6 +142,9 @@ def _score_response(
         case "genmath":
             extracted = extract_final_number(response_text)
             return extracted, score_math(response_text, _string(source_item.get("answer")) or "")
+        case "amo" | "olymmath_hard":
+            extracted = extract_math_answer(response_text)
+            return extracted, verify_math(response_text, _string(source_item.get("answer")) or "")
         case _:
             return None, False
 
@@ -156,7 +160,7 @@ def _string(value: JsonValue | None) -> str | None:
 
 
 def _bench_has_extraction(bench: str) -> bool:
-    return bench in {"mmlu_pro", "genmath"}
+    return bench in {"mmlu_pro", "genmath", "amo", "olymmath_hard"}
 
 
 def _sum_usage(items: list[ScoredItem], key: str) -> int:

@@ -151,7 +151,7 @@ def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
             )
         case "ifeval":
             return _string(item.get("prompt")) or ""
-        case "genmath":
+        case "genmath" | "amo" | "olymmath_hard":
             return template.format(statement=_string(item.get("statement")) or "")
         case _:
             return _string(item.get("prompt")) or _string(item.get("question")) or ""

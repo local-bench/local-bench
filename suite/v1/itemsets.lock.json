@@ -1,0 +1,16 @@
+{
+  "files": {
+    "amo.jsonl": {
+      "item_count": 39,
+      "sha256": "4654703c70829704f39ec38cb91dab1a06eba7fc9846a53ec93e1b3b73786980",
+      "source_dataset": "meituan-longcat/AMO-Bench",
+      "source_revision": "2f422616c25d862984408fbbfaed63a961e8e025"
+    },
+    "olymmath_hard.jsonl": {
+      "item_count": 100,
+      "sha256": "60e172588066dd6f0af14f7ce01b9d87390f6e7803673f42051a830a4a6d2f70",
+      "source_dataset": "RUC-AIBOX/OlymMATH",
+      "source_revision": "2c6532ea2cf929ac1c421532af5951553eaee727"
+    }
+  }
+}
