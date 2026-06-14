@@ -1,17 +1,17 @@
 import type { Kind, Score } from "./schemas";
+import { quantBytesPerParam } from "./quant";
+import type { QuantFilter } from "./quant";
 
 export const VRAM_TIERS = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
-export const QUANT_OPTIONS = ["FP16", "Q8_0", "Q5_K_M", "Q4_K_M", "Q3_K_M"] as const;
 export const LANE_FILTERS = ["any", "answer-only"] as const;
 export const CONTEXT_LENGTH_OPTIONS = [8192, 32768, 131072] as const;
 export const DEFAULT_CONTEXT_TOKENS: ContextLengthOption = 8192;
 export const RUNTIME_OVERHEAD_GB = 1.5;
+export { QUANT_OPTIONS, isQuantOption, quantBytesPerParam, quantOrder, quantRank, toQuantFilter } from "./quant";
+export type { QuantFilter, QuantOption } from "./quant";
 
 const KV_CACHE_GB_PER_BILLION_PARAMS_AT_8K = 0.03;
-const DEFAULT_QUANT_BYTES_PER_PARAM = 1;
 
-export type QuantOption = (typeof QUANT_OPTIONS)[number];
-export type QuantFilter = "any" | QuantOption;
 export type LaneFilter = (typeof LANE_FILTERS)[number];
 export type ContextLengthOption = (typeof CONTEXT_LENGTH_OPTIONS)[number];
 export type RigMatchVerdict = "best-under-budget" | "statistical-tie" | "needs-replication" | "not-enough-data";
@@ -129,20 +129,6 @@ export function formatContextLength(value: ContextLengthOption): string {
   }
 }
 
-export function isQuantOption(value: string | null): value is QuantOption {
-  switch (value) {
-    case "FP16":
-    case "Q8_0":
-    case "Q5_K_M":
-    case "Q4_K_M":
-    case "Q3_K_M":
-      return true;
-    case null:
-    default:
-      return false;
-  }
-}
-
 function toFittedCandidate(
   candidate: RigMatchCandidate,
   selection: {
@@ -206,22 +192,4 @@ function ciHalfWidth(score: Score): number {
 
 function nullableNumber(value: number | null, fallback: number): number {
   return value ?? fallback;
-}
-
-function quantBytesPerParam(quantLabel: string | null): number {
-  switch (quantLabel) {
-    case "FP16":
-      return 2;
-    case "Q8_0":
-      return 1;
-    case "Q5_K_M":
-      return 0.625;
-    case "Q4_K_M":
-      return 0.5;
-    case "Q3_K_M":
-      return 0.375;
-    case null:
-    default:
-      return DEFAULT_QUANT_BYTES_PER_PARAM;
-  }
 }

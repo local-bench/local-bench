@@ -1,4 +1,5 @@
 import { clampScore } from "./format";
+import { quantRank } from "./quant";
 import type { AnchorReference } from "./data";
 import type { RigMatchCandidate } from "./rig-match";
 
@@ -82,23 +83,4 @@ function isBetterRepresentative(candidate: RigMatchCandidate, current: RigMatchC
     return candidateVram < currentVram;
   }
   return quantRank(candidate.quantLabel) < quantRank(current.quantLabel);
-}
-
-function quantRank(quantLabel: string | null): number {
-  switch (quantLabel) {
-    case "FP16":
-      return 0;
-    case "Q8_0":
-      return 1;
-    case "Q5_K_M":
-      return 2;
-    case "Q4_K_M":
-      return 3;
-    case "Q3_K_M":
-      return 4;
-    case null:
-      return 6;
-    default:
-      return 5;
-  }
 }

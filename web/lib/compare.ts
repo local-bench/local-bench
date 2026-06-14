@@ -3,10 +3,10 @@ import {
   DEFAULT_CONTEXT_TOKENS,
   estimateVramRequirement,
   findMinimumVramTier,
-  isQuantOption,
   type ContextLengthOption,
   type VramEstimate,
 } from "./rig-match";
+import { isQuantOption } from "./quant";
 import type { AxisScore, ModelData, Score } from "./schemas";
 
 export type CompareConfig = {

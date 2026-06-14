@@ -8,18 +8,17 @@ import {
   CONTEXT_LENGTH_OPTIONS,
   DEFAULT_CONTEXT_TOKENS,
   LANE_FILTERS,
-  QUANT_OPTIONS,
   RUNTIME_OVERHEAD_GB,
   VRAM_TIERS,
   formatContextLength,
   rankRigMatches,
   type ContextLengthOption,
   type LaneFilter,
-  type QuantFilter,
   type RigMatchAnchor,
   type RigMatchCandidate,
 } from "@/lib/rig-match";
 import { formatGb } from "@/lib/format";
+import { QUANT_OPTIONS, toQuantFilter, type QuantFilter } from "@/lib/quant";
 
 const DEFAULT_VRAM = 24;
 const DEFAULT_QUANT: QuantFilter = "any";
@@ -204,12 +203,6 @@ function coverageFor(count: number, vramGb: number, quant: QuantFilter, contextT
     return `Only ${count} local row${count === 1 ? "" : "s"} fit this selection; more runs will tighten the recommendation.`;
   }
   return null;
-}
-
-function toQuantFilter(value: string): QuantFilter {
-  return value === "FP16" || value === "Q8_0" || value === "Q5_K_M" || value === "Q4_K_M" || value === "Q3_K_M"
-    ? value
-    : "any";
 }
 
 function toContextLengthOption(value: number): ContextLengthOption {

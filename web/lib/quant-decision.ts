@@ -1,13 +1,12 @@
 import {
   DEFAULT_CONTEXT_TOKENS,
-  QUANT_OPTIONS,
   estimateVramRequirement,
   findMinimumVramTier,
-  isQuantOption,
   type ContextLengthOption,
-  type QuantOption,
   type VramEstimate,
 } from "./rig-match";
+import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
+import type { QuantOption } from "./quant";
 import type { Kind, Score } from "./schemas";
 
 const SWEET_SPOT_MIN_FP16_RETENTION = 0.95;
@@ -137,10 +136,6 @@ function deltaScore(runScore: Score, baselineScore: Score): Score {
     lo: runScore.lo - baselineScore.hi,
     point: runScore.point - baselineScore.point,
   };
-}
-
-function quantOrder(quantLabel: QuantOption): number {
-  return QUANT_OPTIONS.indexOf(quantLabel);
 }
 
 function nullableNumber(value: number | null | undefined, fallback: number): number {
