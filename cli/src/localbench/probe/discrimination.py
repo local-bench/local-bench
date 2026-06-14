@@ -69,6 +69,7 @@ def analyze_discrimination(
             benches=benches,
             scores=scores,
             point_biserial=axis_point_biserial(models, benches, notes),
+            reference_score=_number(spec.get("reference_score")),
             notes=notes,
         )
         results.append(result)
@@ -181,6 +182,7 @@ def _axis_result(
     benches: list[str],
     scores: Sequence[_AxisScore],
     point_biserial: float | None,
+    reference_score: float | None = None,
     notes: list[str],
 ) -> AxisResult:
     anchor_values = [score.score for score in scores if score.label == "anchor"]
@@ -188,9 +190,24 @@ def _axis_result(
     all_values = [score.score for score in scores]
     anchor_spread = _spread(anchor_values)
     overall_spread = _spread(all_values)
-    if anchor_spread is None:
+    local_max = max(local_values) if local_values else None
+    anchor_min = min(anchor_values) if anchor_values else None
+    anchor_max = max(anchor_values) if anchor_values else None
+    if anchor_spread is None and reference_score is not None:
+        # No measured anchors, but a published frontier ceiling exists for this axis
+        # (e.g. math: frontier scores are cited from the source, not re-measured here).
+        # Judge discrimination by the gap between the published ceiling and the best local.
+        gap = reference_score - (local_max if local_max is not None else 0.0)
+        notes.append(
+            f"axis {axis}: reference-anchored to published ceiling "
+            f"{reference_score:.2f} (REPORTED, unmeasured); gap-to-best-local {gap:.2f}",
+        )
+        verdict: Verdict = "keep" if gap > FRONTIER_FLAT_THRESHOLD else "drop:locals-floor"
+        anchor_min = anchor_max = reference_score
+        overall_spread = reference_score - (min(local_values) if local_values else 0.0)
+    elif anchor_spread is None:
         notes.append(f"axis {axis}: no usable anchor scores")
-        verdict: Verdict = "drop:frontier-flat"
+        verdict = "drop:frontier-flat"
     elif anchor_spread <= FRONTIER_FLAT_THRESHOLD:
         verdict = "drop:frontier-flat"
     elif local_values and all(value <= LOCALS_FLOOR_THRESHOLD for value in local_values):
@@ -202,11 +219,11 @@ def _axis_result(
     result: AxisResult = {
         "axis": axis,
         "benches": benches,
-        "anchor_min": min(anchor_values) if anchor_values else None,
-        "anchor_max": max(anchor_values) if anchor_values else None,
+        "anchor_min": anchor_min,
+        "anchor_max": anchor_max,
         "anchor_spread": anchor_spread,
         "local_min": min(local_values) if local_values else None,
-        "local_max": max(local_values) if local_values else None,
+        "local_max": local_max,
         "overall_spread": overall_spread,
         "mean_point_biserial": point_biserial,
         "verdict": verdict,

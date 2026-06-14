@@ -5,12 +5,12 @@ Probe inputs: 4 frontier anchors on the cheap-3 axes + 2 local models (gemma-4-e
 ## VERDICT: all 4 core axes discriminate — suite-v1 fixes v0's saturation failure
 | axis | bench | verdict | anchor range | local range | floor→frontier spread | pt-biserial | weight |
 |---|---|---|---|---|---|---|---|
-| knowledge | supergpqa | **KEEP** | 0.60–0.71 | 0.20–0.38 | 0.51 | +0.54 | 0.33 |
-| instruction-following | ifbench | **KEEP** | 0.72–0.92 | 0.36–0.52 | 0.56 | +0.59 | 0.36 |
-| agentic | bfcl | **KEEP** | 0.84–0.96 | 0.48–0.98 | 0.50 | +0.50 | 0.32 |
-| math | amo+olymmath | **KEEP\*** | published ~0.55–0.63 | 0.00–0.02 | huge (x-harness) | n/a | TBD |
+| knowledge | supergpqa | **KEEP** | 0.60–0.71 | 0.20–0.38 | 0.51 | +0.54 | 0.24 |
+| instruction-following | ifbench | **KEEP** | 0.72–0.92 | 0.36–0.52 | 0.56 | +0.59 | 0.26 |
+| agentic | bfcl | **KEEP** | 0.84–0.96 | 0.48–0.98 | 0.50 | +0.50 | 0.23 |
+| math | amo+olymmath | **KEEP** | ref ceiling 0.58 (published) | 0.00–0.02 | 0.58 (ref-anchored) | n/a | 0.27 |
 
-\* The harness auto-flagged math `drop:frontier-flat`, but that is an **ARTIFACT**: anchors ran cheap-3 only (no measured math runs — math frontier is the published reference), so the harness saw only the locals (~0 = olympiad floor) + no anchor → defaulted to drop. The real signal: locals floor ~0 vs published frontier ~55–63% → a huge spread → **math is a real KEEP** (reference-ceiling axis). **HARNESS TODO:** teach the probe to read the published math reference (`docs/foundations/math-anchor-reference.md`) so math isn't mis-dropped.
+**Math is reference-anchored (RESOLVED).** The suite-v1 math axis now carries a published frontier ceiling (`reference_score: 0.58`, from `docs/foundations/math-anchor-reference.md` — AMO ~0.63 / OlymMATH ~0.58, REPORTED, not re-measured). The probe treats an axis that has no measured anchors but a reference ceiling as a **keep** when `ceiling − best-local > 0.03` (here 0.58 − 0.02 = 0.56 → KEEP). Previously this axis mis-dropped as `drop:frontier-flat` because the cheap-3 anchor runs carried no math benches — that artifact is fixed and the weights above are re-balanced across all 4 kept axes.
 
 ## Reads
 - None of the 3 measured axes are saturated at frontier (knowledge tops out 60–71%, not ~100) → genuine discrimination, positive point-biserial. **The rebuild works** (v0 had a 9B ≈ SOTA; here weak gemma sits far below frontier on every axis).

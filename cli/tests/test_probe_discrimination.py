@@ -162,6 +162,41 @@ def test_analyze_discrimination_when_inputs_are_incomplete_records_notes() -> No
     assert any("missing items list" in note for note in notes)
 
 
+def test_analyze_discrimination_reference_anchored_axis_judges_via_published_ceiling() -> None:
+    # Given an axis with NO measured anchors but a published reference ceiling (the math
+    # case: frontier scores are cited from the source, not re-measured by local-bench).
+    labels = {
+        "local-a.json": {"label": "local", "model_name": "local-a"},
+        "local-b.json": {"label": "local", "model_name": "local-b"},
+    }
+    axis_map = {"refmath": {"benches": ["m"], "weight": None, "reference_score": 0.58}}
+
+    # When locals floor far below the published ceiling, the axis is KEPT and anchored to it.
+    floored = analyze_discrimination(
+        {
+            "local-a.json": {"benches": {"m": _bench(0.02)}, "composite": 0.30, "items": [_item("m", "m-1", False)]},
+            "local-b.json": {"benches": {"m": _bench(0.05)}, "composite": 0.20, "items": [_item("m", "m-1", False)]},
+        },
+        axis_map,
+        labels,
+    )[0]
+    assert floored["verdict"] == "keep"
+    assert floored["anchor_max"] == pytest.approx(0.58)
+    assert floored["overall_spread"] == pytest.approx(0.56)
+    assert any("reference-anchored" in note for note in floored["notes"])
+
+    # When locals already sit near the published ceiling, the axis does not discriminate.
+    saturated = analyze_discrimination(
+        {
+            "local-a.json": {"benches": {"m": _bench(0.56)}, "composite": 0.55, "items": [_item("m", "m-1", True)]},
+            "local-b.json": {"benches": {"m": _bench(0.57)}, "composite": 0.55, "items": [_item("m", "m-1", True)]},
+        },
+        axis_map,
+        labels,
+    )[0]
+    assert saturated["verdict"] == "drop:locals-floor"
+
+
 def _axis_map() -> dict[str, dict[str, list[str] | None]]:
     return {
         "saturated": {"benches": ["sat"], "weight": None},

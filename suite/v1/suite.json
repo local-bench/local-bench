@@ -85,7 +85,9 @@
   "axes": {
     "math": {
       "benches": ["amo", "olymmath_hard"],
-      "weight": null
+      "weight": null,
+      "reference_score": 0.58,
+      "reference_note": "Published frontier ceiling (REPORTED, not measured by local-bench): AMO-Bench ~0.63 AVG@32 and OlymMATH EN-HARD ~0.58 P@1; conservative axis value. Probe-only (reference-anchored discrimination). See docs/foundations/math-anchor-reference.md."
     },
     "knowledge": {
       "benches": ["supergpqa"],
