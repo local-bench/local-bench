@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 from typing import Final
 
 from build_data_support import (
     JsonObject,
-    JsonValue,
     bool_value as _bool,
-    int_or_none as _int_or_none,
-    int_value as _int,
     number_or_none as _number_or_none,
     number_value as _number,
     object_value as _object,
@@ -17,12 +15,22 @@ from build_data_support import (
     text_value as _text,
 )
 
+ROOT: Final = Path(__file__).resolve().parents[1]
+CLI_SRC: Final = ROOT / "cli" / "src"
+if str(CLI_SRC) not in sys.path:
+    sys.path.insert(0, str(CLI_SRC))
+
+from localbench.scoring import (  # noqa: E402
+    raw_accuracy_from_signed_percent,
+    score_interval_from_percent_ci,
+    worst_axis,
+)
+
 INDEX_VERSION: Final = "index-v0"
 DEMO_WARNING: Final = "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
 DEMO_HASH: Final = "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
 DEFAULT_AXIS_N: Final = {"genmath": 40, "ifeval": 100, "mmlu_pro": 112}
 AXIS_OFFSETS: Final = {"genmath": 0.4, "ifeval": 0.8, "mmlu_pro": -1.2}
-CHANCE_BASELINES: Final = {"mmlu_pro": 0.10, "ifeval": 0.0, "genmath": 0.0}
 
 
 def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) -> JsonObject:
@@ -43,7 +51,7 @@ def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) 
     slug = _slugify(model_label)
     run_id = f"{slug}__demo-{Path(_string(source['file'], 'source.file')).stem}"
     axes = _demo_axes(point, ci, benches)
-    composite = _score_interval(point, ci)
+    composite = score_interval_from_percent_ci(point, ci)
     totals = {
         "completion_tokens": completion_tokens,
         "completion_tokens_per_second": tok_s,
@@ -71,7 +79,7 @@ def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) 
         "tokens_to_answer_median": tokens_median,
         "tokens_to_answer_p95": tokens_p95,
         "totals": totals,
-        "worst_axis": _worst_axis(axes, benches),
+        "worst_axis": worst_axis(axes, benches),
     }
     model_row = {
         "axes": axes,
@@ -129,31 +137,13 @@ def _demo_axes(point: float, ci: float, benches: tuple[str, ...]) -> JsonObject:
     axes: JsonObject = {}
     for bench in benches:
         axis_point = _clamp(point + AXIS_OFFSETS.get(bench, 0.0))
-        axes[bench] = _score_interval(axis_point, ci + 0.4) | {
+        axes[bench] = score_interval_from_percent_ci(axis_point, ci + 0.4) | {
             "n": DEFAULT_AXIS_N.get(bench, 80),
             "n_errors": 0,
             "n_no_answer": 0,
-            "raw_accuracy": _raw_accuracy(bench, axis_point),
+            "raw_accuracy": raw_accuracy_from_signed_percent(bench, axis_point),
         }
     return axes
-
-
-def _score_interval(point: float, ci: float) -> JsonObject:
-    lo = _clamp(point - ci)
-    hi = _clamp(point + ci)
-    return {
-        "hi": hi,
-        "hi_raw": hi / 100.0,
-        "lo": lo,
-        "lo_raw": lo / 100.0,
-        "point": point,
-        "point_raw": point / 100.0,
-    }
-
-
-def _raw_accuracy(bench: str, signed_point: float) -> float:
-    chance = CHANCE_BASELINES.get(bench, 0.0)
-    return chance + (signed_point / 100.0) * (1.0 - chance)
 
 
 def _demo_manifest_summary(family: str, model_label: str, quant: str | None, lane: str) -> JsonObject:
@@ -193,12 +183,6 @@ def _demo_manifest_summary(family: str, model_label: str, quant: str | None, lan
         },
         "thinking_mode": "n/a",
     }
-
-
-def _worst_axis(axes: JsonObject, benches: tuple[str, ...]) -> JsonObject:
-    bench = min(benches, key=lambda name: _number(_object(axes[name], name).get("point_raw"), f"{name}.point_raw"))
-    axis = _object(axes[bench], bench)
-    return {"bench": bench, "point": axis["point"], "point_raw": axis["point_raw"]}
 
 
 def _slugify(value: str) -> str:
