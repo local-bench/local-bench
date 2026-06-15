@@ -36,11 +36,14 @@ leakage, empty `reasoning_text`) · `-c 8192 --parallel 2` (4096 tok/slot) · qu
 RTX 5090. **0 infra errors across all 1077 items in all three runs.**
 
 ## Per-rung scorecard (chance-corrected accuracy)
-| rung | knowledge | instruction | agentic | math (oly/amo) | **composite** | malformed¹ | tok/s | wall |
-|---|---|---|---|---|---|---|---|---|
-| Q4_K_M | 48.6% | 53.8% | 91.2% | 6.2% / 5.1% | **41.0%** | 13/80 | 107 | 56.5 min |
-| Q6_K | 48.6% | 56.2% | 97.5% | 10.0% / 5.1% | **43.5%** | 15/80 | 104 | 58.2 min |
-| Q8_0 | 44.4% | 53.8% | 97.5% | 6.2% / 2.6% | **40.9%** | 11/80 | 89 | 68.6 min |
+| rung | knowledge | instruction | agentic | math (oly/amo) | **composite** | malformed¹ | tok/s | med lat | VRAM |
+|---|---|---|---|---|---|---|---|---|---|
+| Q4_K_M | 48.6% | 53.8% | 91.2% | 6.2% / 5.1% | **41.0%** | 13/80 | **107** | **13.6 s** | **16 GB** |
+| Q6_K | 48.6% | 56.2% | 97.5% | 10.0% / 5.1% | **43.5%** | 15/80 | 104 | 15.4 s | 21 GB |
+| Q8_0 | 44.4% | 53.8% | 97.5% | 6.2% / 2.6% | **40.9%** | 11/80 | 89 | 17.2 s | 27 GB |
+
+Quality columns are statistically tied (within noise); the **tok/s / latency / VRAM** columns are the
+real, monotonic differentiators. Wall-clock: 56.5 / 58.2 / 68.6 min (Q8 ~22% slower). All RTX-5090-specific.
 
 ¹ malformed = `n_extraction_failures` on knowledge (the only axis with any) — the reliability signal.
 All other axes had 0 malformed and 0 errors. tok/s is RTX-5090-specific (manifest-qualified). Q8_0 is
@@ -58,6 +61,14 @@ Per-axis deltas tell the same story (all CIs span zero): e.g. Q8−Q6 agentic = 
 that these differences are noise, not signal.
 
 ## Interpretation
+- **Quality is tied, but the quants are NOT identical — the real signal is COST, not accuracy.** Speed
+  and VRAM rise monotonically with bit-width while measured quality does not: throughput 107 → 104 → 89
+  tok/s (Q8 ~17% slower than Q4), median per-item latency 13.6 → 15.4 → 17.2 s (Q8 ~26% slower), p95
+  37.7 → 38.2 → 44.7 s, VRAM 16 → 21 → 27 GB. So **Q4_K_M strictly dominates Q8_0 for this model** —
+  identical measured quality, faster, and 11 GB smaller. There is no reason to run Q8_0 of Qwen3.6-27B:
+  you pay more VRAM and latency for zero quality gain. This is the actionable wedge result, and it's why
+  "Q8 ≤ Q6 on accuracy" is a non-issue — the accuracy axis is tied (within noise); the **cost axis** is
+  where the real, monotonic differentiation lives.
 - **No resolvable quant-degradation signal among Q4/Q6/Q8 at N=80.** This matches what's known about
   K-quants: Q4_K_M and above are near-lossless; quality falls off at Q3/Q2. The wedge measured the
   flat top of that curve.
