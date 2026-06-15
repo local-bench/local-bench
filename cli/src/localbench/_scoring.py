@@ -13,6 +13,7 @@ from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
+from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
 
 
@@ -109,10 +110,29 @@ def run_totals(items: list[ScoredItem], wall_time: float) -> RunTotals:
 
 
 def composite(benches: Mapping[str, BenchAggregate]) -> float:
-    """Return equal-weight mean chance-corrected score for benches that ran."""
+    """Return the per-axis composite: benches pool into capability domains
+    (item-weighted within a domain), then domains combine by DOMAIN_WEIGHTS
+    normalized over those present. Math = olymmath_hard + amo as ONE axis, not
+    two benches. Matches the web pipeline's composite and paired_delta's domains.
+    """
     if not benches:
         return 0.0
-    return sum(bench["chance_corrected"] for bench in benches.values()) / len(benches)
+    num: dict[str, float] = {}
+    den: dict[str, float] = {}
+    for name, bench in benches.items():
+        domain = domain_for_bench(name)
+        num[domain] = num.get(domain, 0.0) + bench["chance_corrected"] * bench["n"]
+        den[domain] = den.get(domain, 0.0) + bench["n"]
+    domain_scores = {d: num[d] / den[d] for d in num if den[d] > 0}
+    if not domain_scores:
+        return 0.0
+    total_weight = sum(DOMAIN_WEIGHTS.get(d, 1.0) for d in domain_scores)
+    if total_weight <= 0:
+        return 0.0
+    return (
+        sum(score * DOMAIN_WEIGHTS.get(d, 1.0) for d, score in domain_scores.items())
+        / total_weight
+    )
 
 
 def estimated_cost(totals: RunTotals, price_in: float | None, price_out: float | None) -> float:

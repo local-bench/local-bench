@@ -44,10 +44,10 @@ def test_v1_knowledge_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the knowledge axis groups SuperGPQA with a probe-determined (unset) weight.
+    # Then the knowledge axis groups SuperGPQA with the probe-determined equal weight (0.25).
     axes = suite["axes"]
     assert axes["knowledge"]["benches"] == ["supergpqa"]
-    assert axes["knowledge"]["weight"] is None
+    assert axes["knowledge"]["weight"] == 0.25
 
 
 def test_v1_supergpqa_prompt_renders_question_and_answer_instruction() -> None:

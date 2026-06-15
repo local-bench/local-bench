@@ -44,10 +44,10 @@ def test_v1_math_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the math axis groups the two olympiad benches with a probe-determined (unset) weight.
+    # Then the math axis groups the two olympiad benches with the probe-determined equal weight (0.25).
     axes = suite["axes"]
     assert axes["math"]["benches"] == ["amo", "olymmath_hard"]
-    assert axes["math"]["weight"] is None
+    assert axes["math"]["weight"] == 0.25
 
 
 def test_v1_math_prompt_renders_statement_and_boxed_instruction() -> None:

@@ -44,10 +44,10 @@ def test_v1_agentic_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the agentic axis groups BFCL with a probe-determined (unset) weight.
+    # Then the agentic axis groups BFCL with the probe-determined equal weight (0.25).
     axes = suite["axes"]
     assert axes["agentic"]["benches"] == ["bfcl"]
-    assert axes["agentic"]["weight"] is None
+    assert axes["agentic"]["weight"] == 0.25
 
 
 def test_v1_bfcl_prompt_is_built_programmatically() -> None:

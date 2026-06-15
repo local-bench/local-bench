@@ -9,16 +9,29 @@ from typing import Final
 
 from localbench._types import JsonValue
 
+# Capability axes. Benches in the same domain pool at the item level, so the
+# axis (not the bench count) is the unit of weight: suite-v1 Math = olymmath_hard
+# + amo pooled, which keeps Math at one axis-share instead of two bench-shares.
 BENCH_DOMAINS: Final[dict[str, str]] = {
+    # suite-v0 (retained for back-compat)
     "mmlu_pro": "Knowledge",
     "ifeval": "Instruction-Following",
     "genmath": "Math",
+    # suite-v1 (4 capability axes)
+    "supergpqa": "Knowledge",
+    "ifbench": "Instruction-Following",
+    "bfcl": "Agentic",
+    "olymmath_hard": "Math",
+    "amo": "Math",
 }
 
+# Equal per-axis. Weights are normalized over the domains actually present, so a
+# suite-v0 run (3 axes) gets 1/3 each and a suite-v1 run (4 axes) gets 1/4 each.
 DOMAIN_WEIGHTS: Final[dict[str, float]] = {
-    "Knowledge": 1.0 / 3.0,
-    "Instruction-Following": 1.0 / 3.0,
-    "Math": 1.0 / 3.0,
+    "Knowledge": 0.25,
+    "Instruction-Following": 0.25,
+    "Agentic": 0.25,
+    "Math": 0.25,
 }
 
 
