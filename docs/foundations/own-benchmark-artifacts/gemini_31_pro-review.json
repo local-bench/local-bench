@@ -1,0 +1,66 @@
+{
+  "reviewer": "Adversarial-Red-Team-v1",
+  "reviews": [
+    {
+      "design_name": "ConstraintForge — Procedural Compositional Instruction-Following",
+      "verdict": "KILL",
+      "biggest_risk": "Inference-time compute (o1/R1) trivially defeats autoregressive constraint stacking by backtracking, causing frontier saturation, while strict regex tokenizer mismatches floor local models.",
+      "discrimination": "Frontier-flat saturation. The 'multiplicative decay' assumes a single autoregressive pass. Frontier models with reasoning tokens (o1) will simply verify their own constraints and backtrack until satisfied, completely neutralizing the N-stacking lever.",
+      "gameability": "Models can bypass the intended difficulty by generating degenerate, repetitive text (e.g., 'A a a a. B b b b.') to trivially satisfy word-count and positional constraints without demonstrating natural language instruction following.",
+      "contamination": "The 'OOD' constraints are drawn from a finite, mechanically generated pool. Once the generator's taxonomy or logic is exposed, models can be synthetic-finetuned on the exact constraint families, rendering them in-distribution.",
+      "scoring": "Massive false-negative trap. The harness uses a hardcoded regex `re.findall(r\"[A-Za-z']+\")` for word counts. If a model writes 'state-of-the-art' (4 words under regex) but its internal BPE treats it differently, it fails. Punctuation edge cases will dominate the error rate.",
+      "license": "Clean, as it relies on a clean-room reimplementation of Apache-2.0 mechanics.",
+      "credibility": "IFEval is already heavily criticized for measuring formatting rather than reasoning; doubling down on arbitrary constraints will be seen as a synthetic toy rather than a measure of quality.",
+      "must_fix": [
+        "Implement a natural-language coherence filter (e.g., perplexity threshold) to prevent degenerate repetitive text from passing.",
+        "Replace the rigid regex tokenizer with a standard LLM tokenizer (e.g., Llama-3's) or allow a +/- 5% tolerance on word/character counts."
+      ]
+    },
+    {
+      "design_name": "StateTrace: Procedural Code-Execution / Output-Prediction over a Bounded Deterministic DSL",
+      "verdict": "REVISE",
+      "biggest_risk": "The 55-step aliasing and mutation hard tier will absolutely floor all local models at 0%, creating a step-cliff rather than a continuous difficulty ladder.",
+      "discrimination": "Local-floor risk is extreme. 1B-8B models cannot maintain perfect state tracking over 20+ steps of in-place list mutations. The drop-off from the 6-step floor to the 20-step mid-tier is a cliff. Meanwhile, CoT-heavy frontier models will perfectly simulate the trace.",
+      "gameability": "The fallback extractor takes the 'last fenced  code span'. A model could output a Python script that *computes* the answer rather than the literal answer itself, and if the script ends with the literal, it might be incorrectly extracted or scored.",
+      "contamination": "AST mutations (alpha-rename, const-unfold) are superficial. The underlying control flow graph (CFG) and algorithmic structure remain identical. Models memorize CFGs, not variable names.",
+      "scoring": "`ast.literal_eval` is overly strict on types. If the gold is a tuple `(1, 2)` and the model outputs a list `[1, 2]`, it fails. If it outputs a dict with string keys `{'0': 18}` instead of int keys `{0: 18}`, it fails. This is a formatting trap.",
+      "license": "Clean, as it generates original ASTs and uses standard CPython.",
+      "credibility": "Code execution is a proven axis, but framing it as 'mental simulation' is just CRUXEval with a different generator. It is credible but derivative.",
+      "must_fix": [
+        "Smooth the difficulty ladder by adding intermediate rungs (e.g., 10 steps, 15 steps) and isolating aliasing from deep loops.",
+        "Loosen the scoring to accept type-equivalent collections (e.g., lists vs tuples) and handle trailing commas gracefully before literal_eval."
+      ]
+    },
+    {
+      "design_name": "ChromaLadder: Procedural Unique-Solution Graph k-Coloring",
+      "verdict": "KILL",
+      "biggest_risk": "NP-complete graph coloring in a single forward pass will floor all local models at 0% instance-level accuracy, and the cell-wise partial credit is trivially gameable.",
+      "discrimination": "Local-floor. A 13-vertex graph with 4 colors has a search space of ~6.7e7. 1B-8B models cannot perform backtracking search in their weights. They will score exactly 0% on the hard tier, providing zero signal.",
+      "gameability": "The 'cell-wise EM' floor is a gameable illusion. A model can simply parse the prompt for the pre-assigned pins, output those, and guess '0' for every other vertex. This yields ~30-40% partial credit without performing any graph reasoning.",
+      "contamination": "While exact graphs are random, the prompt format and the specific distribution of graphs (generated near the phase transition) can be easily simulated to create massive synthetic finetuning datasets, destroying the benchmark's validity.",
+      "scoring": "JSON parsing is notoriously fragile for small models. If a 1B model outputs valid Python `{0: 0, 1: 1}` instead of valid JSON `{\"0\": 0, \"1\": 1}`, `json.loads` crashes and the model gets a 0, conflating formatting failure with reasoning failure.",
+      "license": "Clean, as it uses original procedural generation and permissive solvers.",
+      "credibility": "Graph coloring is a classic academic toy problem that the community increasingly views as disconnected from real-world LLM utility. It tests a solver algorithm, not language comprehension.",
+      "must_fix": [
+        "Abandon cell-wise EM and replace it with a verifiable sub-graph completion metric that cannot be gamed by copying pins.",
+        "Implement a robust fallback parser that accepts Python dicts, markdown tables, or plain text lists instead of strict JSON."
+      ]
+    },
+    {
+      "design_name": "AbstainBench: Procedurally-Seeded Calibration & Hallucination-Discipline via AURC-over-Self-Consistency",
+      "verdict": "KILL",
+      "biggest_risk": "Regex-based scoring of complex epistemic states is fundamentally broken and will result in massive false negatives for local models that refuse in non-standard ways.",
+      "discrimination": "Frontier-flat. Frontier models are heavily RLHF'd to refuse false premises and will ace the FP/UA items. Local models, often base or lightly instruct-tuned, will hallucinate wildly, flooring them and providing no nuanced signal.",
+      "gameability": "A model can learn a trivial heuristic: answer simple lookups (AC) and output the exact abstain string 'I cannot answer this' for anything with low internal probability. This games the AURC metric without genuine calibration.",
+      "contamination": "Wikidata is fully memorized by frontier models. 'Obscure' entities are just the long tail of the pretraining distribution, not genuinely unseen data. Models with larger pretraining piles will win by default.",
+      "scoring": "The regex `\\b(no|not|isn'?t...)\\b` is a joke. A model stating 'The premise is flawed' or 'I apologize, but Einstein won in Physics' misses the regex entirely, resulting in a false ENDORSE label. Conversely, 'It is not true that he didn't win' triggers a false REBUT.",
+      "license": "Clean, utilizing CC0 Wikidata dumps.",
+      "credibility": "k=6 sampling requires 6x the inference compute, violating the spirit of a lightweight local benchmark. Furthermore, AURC is too complex and illegible for a standard leaderboard audience.",
+      "must_fix": [
+        "Replace the fragile regex detectors with a deterministic semantic parser or a highly constrained multiple-choice format to capture epistemic state.",
+        "Reduce k=6 to k=1 or k=2 and use logprobs for confidence instead of self-consistency to make it viable for local GPU evaluation."
+      ]
+    }
+  ],
+  "cross_cutting": "The single most important issue shared across all designs is the over-reliance on fragile, deterministic string/regex extractors (JSON parsing, exact regex tokenizers, literal_eval, keyword matching) that will penalize 1-8B models for formatting variations rather than reasoning deficits, creating a false 'local-floor'. I would pilot StateTrace, provided the step-cliff is smoothed and extraction loosened, as it relies on the most objective ground truth (CPython) and avoids the NP-complete cliff of ChromaLadder."
+}
