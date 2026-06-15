@@ -90,3 +90,23 @@ Quant wedge (5 rungs, cliff at Q2) · discrimination probe (zero-spend, public d
 Playwright e2e on site-overhaul: **12/12 passed** (55s) — all routes incl. real `qwen3-6-27b` model page + matrix/scatter, run detail `qwen3-6-27b__lcpp-q8_0`, compare, leaderboard (deterministic sort). Full QA matrix now green: cli 468 · web vitest 17 · e2e 12 · `npm run build` · scoring core verified.
 
 **Loop ended here — genuine idle.** All launch-critical work done, refactored, QA-verified, handed off; nothing pushed. Resume points for you, in priority order: (1) **#45 reconcile branches** (the unblocker), (2) **#51 composite weighting** (your call), (3) build **#39 LCB / #40 RULER** on the unified base, (4) rotate API keys. Re-engage me anytime.
+
+---
+## "Do all" execution (2026-06-16) — #45, #51 DONE; #39 building; #40 next
+- **#45 RECONCILE — DONE.** All six branches now merge into `suite/v1-quant-wedge` (the unified branch):
+  main, suite/v1-scorers, quant-scoring-fixes (hardened scoring was already in-content), refactor/architecture,
+  site-overhaul, foundations/suite-v1-research. The "fragmentation" was disjoint parallel branches (wedge =
+  cli/suite/docs, site = web/) → conflict-free merges. The hardened-scoring (cluster-robust/FDR/McNemar) content
+  was already present. 468 tests green; site data byte-identical; site e2e 12/12. **The old feature branches can
+  now be deleted** (all `--merged`). NOT pushed.
+- **#51 PER-AXIS COMPOSITE — DONE** (commits 6419a9c + a4e87ae). composite() + paired_delta both group benches
+  into the 4 axes via BENCH_DOMAINS (Math = olymmath_hard+amo pooled). CLI now == site exactly (Q4 0.499 …).
+  suite.json weights 0.25. legB + discrimination docs re-stated (cliff now −6.0..−6.7, conclusion identical).
+  v0 preserved via weight-normalization. 468 green.
+- **#39 LCB CODING AXIS — building** (codex bj1uobbcf, branch feat/coding-axis off the unified base): exec-free
+  Test-Output-Prediction, CC-BY-4.0, mirrors the bfcl bench. New axes are additive — DOMAIN_WEIGHTS normalizes
+  over axes present, so existing 4-axis wedge runs are unaffected. ON DONE: review + merge to unified base.
+- **#40 RULER long-context — NEXT (bigger).** Synthetic generator @32k + a serving-truncation assertion +
+  LongBench-v2. More infra than #39; ties to the context-tier wedge (#47) you had interest in steering.
+- Pre-existing working-tree cruft remains (modified OVERNIGHT-LOG/PROJECT-HANDOFF/README + web/public/data
+  line-ending churn) — not mine to discard; flagged for your triage.
