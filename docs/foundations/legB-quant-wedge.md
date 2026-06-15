@@ -1,24 +1,30 @@
-# Leg B — the quant-degradation wedge: DELIVERED (Qwen3.6-27B, 2026-06-15)
+# Leg B — the quant-degradation wedge: DELIVERED (Qwen3.6-27B, 5-rung ladder, 2026-06-15)
 
-**Result in one line:** on suite-v1 (answer-only, N=80), **Q4_K_M, Q6_K and Q8_0 of Qwen3.6-27B are
-statistically indistinguishable** — every paired composite delta's CI spans or touches zero and the
-ordering isn't even monotonic. The practical takeaway for a local user: **going from Q8_0 to Q4_K_M
-costs ~nothing measurable here and saves ~12 GB of VRAM**; the real quantization cliff is *below* Q4
-(Q3/Q2), not among these K-quants. This is the launch wedge, measured with paired CIs — the thing no
-public board publishes.
+**Result in one line:** on suite-v1 (answer-only, N=80), Qwen3.6-27B holds quality **flat from Q8_0
+all the way down to Q3_K_M** — every paired composite delta among Q8/Q6/Q4/Q3 spans or touches zero —
+and then **falls off a measurable cliff at Q2_K** (composite −5 ± ~3 vs every higher rung, CI excludes
+zero; agentic/instruction drop 10–15 pts). Meanwhile throughput rises monotonically as bits fall
+(89 → 137 tok/s). The practical takeaway for a local user: **run Q4_K_M or Q3_K_M — quality is identical
+to Q8_0, it's faster, and it saves 11–15 GB of VRAM. Do NOT drop to Q2_K — that's where it breaks.**
+This is the launch wedge, measured with paired CIs — the thing no public board publishes.
 
-## What was measured
-One base model, three quantizations from the **same GGUF repo** (`lmstudio-community/Qwen3.6-27B-GGUF`
-— same base weights AND same quantizer, so the only variable is bit-width), run through the **identical**
-suite-v1 item set on the same hardware:
+## The ladder
+One base model, five quantizations through the **identical** suite-v1 item set on the same hardware
+(RTX 5090). **Quantizer provenance (a real caveat, see below):** Q4/Q6/Q8 are
+`lmstudio-community/Qwen3.6-27B-GGUF`; Q3/Q2 are `bartowski/Qwen3.6-27B-GGUF` (lmstudio-community
+does not publish below Q4). So the **clean within-quantizer comparisons are Q8↔Q6↔Q4 (lmstudio) and
+Q3↔Q2 (bartowski)**; cross-quantizer deltas (e.g. Q3 vs Q4) mix quantizers and are read with that in mind.
 
-| rung | file | VRAM (weights) | fits 32 GB? |
-|---|---|---|---|
-| Q4_K_M | Qwen3.6-27B-Q4_K_M.gguf | ~16 GB | yes, comfortably |
-| Q6_K | Qwen3.6-27B-Q6_K.gguf | ~21 GB | yes |
-| Q8_0 | Qwen3.6-27B-Q8_0.gguf | ~27 GB | **only with minimal desktop overhead** (loaded at ~30 GB used; the binding rung) |
+| rung | file | repo | VRAM (weights) | runtime VRAM¹ | fits 32 GB? |
+|---|---|---|---|---|---|
+| Q2_K | Qwen3.6-27B-Q2_K.gguf | bartowski | ~12 GB | ~16 GB | yes, easily |
+| Q3_K_M | Qwen3.6-27B-Q3_K_M.gguf | bartowski | ~14 GB | ~18 GB | yes, easily |
+| Q4_K_M | Qwen3.6-27B-Q4_K_M.gguf | lmstudio | ~16 GB | ~20 GB | yes, comfortably |
+| Q6_K | Qwen3.6-27B-Q6_K.gguf | lmstudio | ~21 GB | ~25 GB | yes |
+| Q8_0 | Qwen3.6-27B-Q8_0.gguf | lmstudio | ~27 GB | ~30 GB | **only with a near-idle desktop** (binding rung) |
 
-fp16 (54 GB) does not fit a 32 GB card → Q8_0 is the on-box reference ceiling.
+¹ runtime = weights + quantized KV cache (`q8_0`, `-c 8192 --parallel 2`). fp16 (54 GB) does not fit a
+32 GB card → Q8_0 is the on-box reference ceiling.
 
 ## Serving stack (the hard part — for reproducibility)
 vLLM and SGLang **cannot** serve this model's GGUF: it carries the arch tag `qwen35`, which both reject
@@ -29,71 +35,91 @@ non-default quant variant, and its bundled llama-server won't run detached. So t
 (sudo-free: micromamba + conda `cuda-toolkit=12.8`; `cmake -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120`).
 GGUF runs at its true K-quant footprint (dequant happens per-tile in-kernel, never pre-expanded to fp16).
 
-**Operating point (constant across all three rungs):** answer-only with thinking **suppressed**
+**Operating point (constant across all five rungs):** answer-only with thinking **suppressed**
 (`enable_thinking=false`, injected per request via `--jinja`; **probe-gated on every rung** — 0 `<think>`
-leakage, empty `reasoning_text`) · `-c 8192 --parallel 2` (4096 tok/slot) · quantized KV (`q8_0`) ·
+leakage, 0 empty completions) · `-c 8192 --parallel 2` (4096 tok/slot) · quantized KV (`q8_0`) ·
 `--max-tokens 2048` · temperature 0 · N=80/bench (amo=39), identical item ids → genuine paired deltas ·
-RTX 5090. **0 infra errors across all 1077 items in all three runs.**
+RTX 5090. **0 infra errors across all 359 items in every run.**
 
 ## Per-rung scorecard (chance-corrected accuracy)
-| rung | knowledge | instruction | agentic | math (oly/amo) | **composite** | malformed¹ | tok/s | med lat | VRAM |
+| rung | knowledge | instruction | agentic | math (oly/amo) | **composite** | malformed² | tok/s | med lat | VRAM(wts) |
 |---|---|---|---|---|---|---|---|---|---|
-| Q4_K_M | 48.6% | 53.8% | 91.2% | 6.2% / 5.1% | **41.0%** | 13/80 | **107** | **13.6 s** | **16 GB** |
-| Q6_K | 48.6% | 56.2% | 97.5% | 10.0% / 5.1% | **43.5%** | 15/80 | 104 | 15.4 s | 21 GB |
-| Q8_0 | 44.4% | 53.8% | 97.5% | 6.2% / 2.6% | **40.9%** | 11/80 | 89 | 17.2 s | 27 GB |
+| Q2_K | 40.3% | 47.5% | **82.5%** | 3.8% / 5.1% | **35.8%** | 18 + 1 | **137** | **12.4 s** | **~12 GB** |
+| Q3_K_M | 43.1% | **57.5%** | 95.0% | 7.5% / 2.6% | **41.1%** | 14 | 115 | 12.6 s | ~14 GB |
+| Q4_K_M | 48.6% | 53.8% | 91.2% | 6.2% / 5.1% | **41.0%** | 13 | 107 | 13.6 s | ~16 GB |
+| Q6_K | 48.6% | 56.2% | 97.5% | 10.0% / 5.1% | **43.5%** | 15 | 104 | 15.4 s | ~21 GB |
+| Q8_0 | 44.4% | 53.8% | 97.5% | 6.2% / 2.6% | **40.9%** | 11 | 89 | 17.0 s | ~27 GB |
 
-Quality columns are statistically tied (within noise); the **tok/s / latency / VRAM** columns are the
-real, monotonic differentiators. Wall-clock: 56.5 / 58.2 / 68.6 min (Q8 ~22% slower). All RTX-5090-specific.
+The **Q8→Q3 band (composite 40.9–43.5) is one flat noisy plateau**; **Q2_K sits ~5 pts below the bottom
+of it** and shows the only across-the-board axis drops (agentic 82.5 vs 91–98; instruction 47.5 vs 54–58).
+tok/s / latency / VRAM move monotonically with bit-width and are the *cost* differentiators on the plateau.
+Wall-clock: Q2 45.2 / Q3 52.9 / Q4 56.5 / Q6 58.2 / Q8 68.6 min. All RTX-5090-specific.
 
-¹ malformed = `n_extraction_failures` on knowledge (the only axis with any) — the reliability signal.
-All other axes had 0 malformed and 0 errors. tok/s is RTX-5090-specific (manifest-qualified). Q8_0 is
-slower (89 vs ~105) — heavier compute per token at the same near-full GPU residency.
+² malformed = `n_extraction_failures` (responses the scorer couldn't parse). Almost all on knowledge
+(supergpqa); the count creeps up as bits fall (Q8 11 → Q4 13 → Q3 14 → **Q2 18**), and **Q2_K is the only
+rung that also fails an *agentic* extraction** (1 malformed tool-call) — a small but real reliability
+signal that tracks the accuracy cliff. All other axes: 0 malformed, 0 errors, every rung.
 
-## Paired deltas (composite, "on these items" ± bootstrap CI)
-| pair | composite Δ | 95% CI | significant? |
-|---|---|---|---|
-| Q6_K − Q4_K_M | **+2.5** | −0.5 .. +5.8 | no (crosses 0) |
-| Q8_0 − Q4_K_M | **≈ 0** | −2.8 .. +2.8 | no (centered on 0) |
-| Q8_0 − Q6_K | **−2.6** | −5.1 .. 0.0 | no (touches 0) |
+## Paired composite deltas ("on these items" ± bootstrap CI)
+| pair | quantizer | composite Δ | 95% CI | significant? |
+|---|---|---|---|---|
+| Q6_K − Q4_K_M | lmstudio↔lmstudio | +2.5 | −0.5 .. +5.8 | no |
+| Q8_0 − Q4_K_M | lmstudio↔lmstudio | ≈ 0 | −2.8 .. +2.8 | no |
+| Q8_0 − Q6_K | lmstudio↔lmstudio | −2.6 | −5.1 .. 0.0 | no (touches 0) |
+| Q3_K_M − Q4_K_M | bartowski↔lmstudio | +0.2 | −2.8 .. +3.2 | no |
+| Q3_K_M − Q8_0 | bartowski↔lmstudio | +0.2 | −2.3 .. +2.8 | no |
+| **Q2_K − Q3_K_M** | **bartowski↔bartowski** | **−5.2** | **−8.3 .. −2.2** | **YES** |
+| **Q2_K − Q4_K_M** | bartowski↔lmstudio | **−5.0** | **−8.8 .. −1.2** | **YES** |
+| **Q2_K − Q8_0** | bartowski↔lmstudio | **−5.0** | **−8.3 .. −1.7** | **YES** |
 
-Per-axis deltas tell the same story (all CIs span zero): e.g. Q8−Q6 agentic = 0.0 ± 0.0, knowledge
-= −3.8 ± 8.8, math = −3.8 ± 6.2. The non-monotonic ordering (Q6 highest, Q8 ≈ Q4) is itself the proof
-that these differences are noise, not signal.
+**Every Q8/Q6/Q4/Q3 pair is tied** (CI spans/touches 0; ordering non-monotonic = noise). **Every Q2_K
+pair is significant** (CI excludes 0). The single cleanest result — the **within-bartowski Q2−Q3 cliff,
+−5.2 ± 3.2** — needs no cross-quantizer caveat: it isolates one bit-width step and it's the first
+significant composite delta in the entire ladder.
 
 ## Interpretation
-- **Quality is tied, but the quants are NOT identical — the real signal is COST, not accuracy.** Speed
-  and VRAM rise monotonically with bit-width while measured quality does not: throughput 107 → 104 → 89
-  tok/s (Q8 ~17% slower than Q4), median per-item latency 13.6 → 15.4 → 17.2 s (Q8 ~26% slower), p95
-  37.7 → 38.2 → 44.7 s, VRAM 16 → 21 → 27 GB. So **Q4_K_M strictly dominates Q8_0 for this model** —
-  identical measured quality, faster, and 11 GB smaller. There is no reason to run Q8_0 of Qwen3.6-27B:
-  you pay more VRAM and latency for zero quality gain. This is the actionable wedge result, and it's why
-  "Q8 ≤ Q6 on accuracy" is a non-issue — the accuracy axis is tied (within noise); the **cost axis** is
-  where the real, monotonic differentiation lives.
-- **No resolvable quant-degradation signal among Q4/Q6/Q8 at N=80.** This matches what's known about
-  K-quants: Q4_K_M and above are near-lossless; quality falls off at Q3/Q2. The wedge measured the
-  flat top of that curve.
-- **Repeatability proves it's noise — and localizes the noise.** Re-running Q8_0 (temp 0, same config):
-  instruction, agentic, and both math benches were **bit-identical** across runs (0.0 ± 0.0), while
-  **knowledge/supergpqa swung +3.8** — the chain-of-thought MCQ axis, where llama.cpp's *batched* greedy
-  decoding isn't bit-exact (long CoT paths jitter). Composite run-to-run noise ≈ ±1.5 — the **same size
-  as the quant "gaps"** (Q6−Q4 +2.5, Q8−Q6 −2.6), so the apparent ordering is noise. After the re-run Q8
-  ties Q6 on knowledge (48.6 = 48.6); the residual ~2-pt Q6 edge is ~6 borderline items (ifbench/olymmath/
-  amo) flipping Q6's way by quantization chance — not a real Q8 deficit. (Runs `runs/lcpp-q8_0-rerun.json`,
-  `runs/delta-q8rerun.json`.) Practical note: for reproducible knowledge-axis scores, run `--parallel 1`
-  or report a small-N repeatability band.
-- **The product message is strong and honest:** *"Measured on Qwen3.6-27B: Q4_K_M is within noise of
-  Q8_0 on a 7-axis suite — run the smaller quant, keep the 12 GB."* With CIs, not vibes.
-- **Where the real wedge lives:** the next runs that would *show* degradation are **Q3_K_M / Q2_K**
-  (download + run, same harness) and/or a **larger N** (Standard tier) to tighten these ±3 composite CIs.
+- **The cliff is real and it is between Q3 and Q2 — and it CANNOT be run-to-run noise.** The Q2 damage
+  lands hardest on the **deterministic axes**: vs Q3, **bfcl (agentic) −12.5** and **ifbench
+  (instruction) −10.0**. Our repeatability finding (below) showed those two axes are **bit-identical
+  run-to-run (0.0 ± 0.0)** — llama.cpp greedy decoding on short structured outputs is deterministic.
+  So a −10 to −12.5 pt move on axes with *zero* jitter is signal, full stop. (Knowledge/supergpqa,
+  which *does* jitter ±~4, moved only −2.5 — consistent with it being the noisy axis, not the
+  degrading one.)
+- **The plateau is genuinely flat: Q4_K_M (and Q3_K_M) strictly dominate Q8_0.** Across Q8→Q3, measured
+  quality is tied while speed and VRAM improve every step down: throughput 89 → 104 → 107 → 115 tok/s,
+  median latency 17.0 → 15.4 → 13.6 → 12.6 s, VRAM 27 → 21 → 16 → 14 GB. There is **no reason to run
+  Q8_0 or Q6_K of this model** — you pay VRAM and latency for zero measurable quality. The actionable
+  pick is **Q4_K_M** (clean lmstudio quant, ~16 GB, tied with Q8) or **Q3_K_M** (~14 GB, fastest safe
+  rung) — and **stop above Q2_K**.
+- **This matches what's known about K-quants** (Q4_K_M and up ≈ near-lossless; degradation appears at
+  Q3/Q2) — but here it's *measured on this model with CIs*, and the surprise is that **even Q3_K_M is
+  still on the plateau**; the knee is one step lower than the folklore "stay at Q4" rule implies.
+- **Repeatability localizes the noise (basis for the "can't be noise" argument above).** Re-running Q8_0
+  (temp 0, same config): instruction, agentic, and both math benches were **bit-identical** across runs
+  (0.0 ± 0.0); only **knowledge/supergpqa swung +3.8** (the long-CoT MCQ axis, where batched greedy
+  decoding isn't bit-exact). Composite run-to-run noise ≈ ±1.5 — the same size as the Q8/Q6/Q4/Q3
+  gaps (so those are noise) and **far smaller than the Q2 gap** (so that's signal). (Runs
+  `runs/lcpp-q8_0-rerun.json`, `runs/delta-q8rerun.json`.) For reproducible knowledge scores, run
+  `--parallel 1` or report a small repeatability band.
+- **The product message is strong, honest, and now complete:** *"Measured on Qwen3.6-27B across a 5-quant
+  ladder: quality is flat from Q8 down to Q3 — run the small quant and keep 13 GB — but Q2_K costs you a
+  real, significant 5 composite points (and 10–15 on tool-use and instruction-following). With CIs, not vibes."*
 
 ## Caveats
-- **CIs are wide at N=80** (±~3 composite). Differences this small need Standard-tier N (or pooling) to
-  resolve; that's the honesty rule — reported "on these items ± paired CI", never as a universal %.
+- **Quantizer confound (Q3/Q2 are bartowski; Q4/Q6/Q8 are lmstudio).** Mitigated three ways: the
+  load-bearing cliff result is the **within-bartowski Q2−Q3** delta; Q2 is *also* significantly below
+  both lmstudio rungs (Q4, Q8); and bartowski-Q3 *ties* lmstudio-Q4/Q8, evidence the quantizer choice
+  adds no large offset at these levels. A same-quantizer 5-rung ladder (all bartowski, or all lmstudio
+  if they extend below Q4) would remove the asterisk — backlog.
+- **CIs are wide at N=80** (±~3 composite). The Q8→Q3 ties are "indistinguishable at N=80", not "proven
+  equal"; the Q2 cliff clears N=80 comfortably. Standard-tier N would tighten both. Reported "on these
+  items ± paired CI", never as a universal %.
 - **Math floors** under answer-only (suppressed reasoning); it's a format/robustness probe here, not a
   capability axis. A capped-thinking math lane is a later addition.
-- **Timing is 5090-specific.** Q8_0 needing ~30 GB (fits only with a near-idle desktop) is a real
-  practical finding: an 8-bit 27B is impractical on 32 GB; Q6_K (21 GB) is the comfortable ceiling.
+- **Timing is 5090-specific.** Q8_0 needing ~30 GB (fits only with a near-idle desktop) is itself a real
+  finding: an 8-bit 27B is impractical on 32 GB; Q4_K_M (~20 GB runtime) is the comfortable headline rung.
 - Scoring uses the pre-hardening bootstrap (the red-team's cluster-robust/equivalence fixes are on a
-  separate branch pending the merge-scope decision; the within-noise conclusion is robust to either).
+  separate branch pending the merge-scope decision; both the within-noise plateau and the Q2 cliff are
+  robust to either).
 
-Runs: `runs/lcpp-{q4_k_m,q6_k,q8_0}.json`; deltas `runs/delta-{q6-q4,q8-q4,q8-q6}.json` (gitignored).
+Runs: `runs/lcpp-{q2_k,q3_k_m,q4_k_m,q6_k,q8_0}.json` (+ `q8_0-rerun`); deltas `runs/delta-*.json` (gitignored).
