@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, NotRequired, TypedDict
+from typing import Final, Literal, NotRequired, TypedDict
 
 import httpx
 
@@ -23,21 +23,38 @@ from localbench._scoring import (
     score_bench,
 )
 from localbench._suite import (
+    RenderedBench,
     first_prompt,
     item_hashes,
     read_json_object,
     render_benches,
     suite_version,
 )
-from localbench._types import JsonObject
+from localbench._types import BenchmarkItem, ItemResult, JsonObject
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
+from localbench.scorers.ruler import estimate_prompt_tokens
 
-BenchChoice = Literal["all", "mmlu_pro", "ifeval", "genmath"]
+BenchChoice = Literal[
+    "all",
+    "mmlu_pro",
+    "ifeval",
+    "genmath",
+    "supergpqa",
+    "ifbench",
+    "bfcl",
+    "lcb",
+    "amo",
+    "olymmath_hard",
+    "ruler_32k",
+]
 TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
 ReasoningEffortChoice = ReasoningEffort
+
+_RULER_TRUNCATION_RATIO: Final = 0.80
+_RULER_TRUNCATION_MIN_GAP: Final = 2_048
 
 
 class LocalbenchRun(TypedDict):
@@ -128,7 +145,9 @@ async def run_localbench(
             lane=config.lane,
             effort=config.reasoning_effort,
         )
-        items.extend(score_bench(bench, record["results"]))
+        scored_items = score_bench(bench, record["results"])
+        warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
+        items.extend(scored_items)
 
     wall_time = time.perf_counter() - started_perf
     finished_at = utc_now()
@@ -206,3 +225,49 @@ def default_output_path(model: str, tier: str) -> Path:
     safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("_") or "model"
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return Path("runs") / f"{safe_model}_{tier}_{timestamp}.json"
+
+
+def _annotate_ruler_truncation(
+    bench: RenderedBench,
+    results: list[ItemResult],
+    scored_items: list[ScoredItem],
+) -> list[str]:
+    if bench.name != "ruler_32k":
+        return []
+    warnings: list[str] = []
+    for benchmark_item, result, scored_item in zip(
+        bench.benchmark_items,
+        results,
+        scored_items,
+        strict=True,
+    ):
+        warning = _ruler_truncation_warning(benchmark_item, result)
+        if warning is None:
+            continue
+        scored_item.setdefault("warnings", []).append(warning)
+        warnings.append(warning)
+    return warnings
+
+
+def _ruler_truncation_warning(
+    benchmark_item: BenchmarkItem,
+    result: ItemResult,
+) -> str | None:
+    expected = estimate_prompt_tokens(
+        "\n\n".join(message["content"] for message in benchmark_item["messages"]),
+    )
+    reported = result["usage"]["prompt_tokens"]
+    item_id = benchmark_item["id"]
+    if reported is None:
+        return (
+            f"ruler_32k item {item_id}: usage.prompt_tokens missing; "
+            "full-context serving could not be verified"
+        )
+    threshold = int(expected * _RULER_TRUNCATION_RATIO)
+    if reported < threshold and expected - reported >= _RULER_TRUNCATION_MIN_GAP:
+        return (
+            f"ruler_32k item {item_id}: serving-truncation suspected; "
+            f"reported prompt_tokens={reported}, rendered_prompt_estimate={expected}, "
+            f"threshold={threshold}"
+        )
+    return None

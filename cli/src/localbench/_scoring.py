@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from localbench._suite import RenderedBench
 from localbench._types import ItemResult, JsonValue, Usage
@@ -14,6 +14,7 @@ from localbench.scorers.lcb import score_lcb
 from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
+from localbench.scorers.ruler import score_ruler
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
 
@@ -31,6 +32,7 @@ class ScoredItem(TypedDict):
     attempts: int
     usage: Usage
     error: str | None
+    warnings: NotRequired[list[str]]
 
 
 class BenchAggregate(TypedDict):
@@ -176,6 +178,9 @@ def _score_response(
         case "lcb":
             detailed = score_lcb(source_item, response_text)
             return detailed["extracted"], detailed["correct"]
+        case "ruler_32k":
+            detailed = score_ruler(source_item, response_text)
+            return detailed["extracted"], detailed["correct"]
         case _:
             return None, False
 
@@ -199,6 +204,7 @@ def _bench_has_extraction(bench: str) -> bool:
         "supergpqa",
         "bfcl",
         "lcb",
+        "ruler_32k",
     }
 
 

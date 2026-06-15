@@ -22,6 +22,7 @@ BENCH_DOMAINS: Final[dict[str, str]] = {
     "ifbench": "Instruction-Following",
     "bfcl": "Agentic",
     "lcb": "Coding",
+    "ruler_32k": "Long-Context",
     "olymmath_hard": "Math",
     "amo": "Math",
 }
@@ -34,6 +35,7 @@ DOMAIN_WEIGHTS: Final[dict[str, float]] = {
     "Instruction-Following": 0.25,
     "Agentic": 0.25,
     "Coding": 0.25,
+    "Long-Context": 0.25,
     "Math": 0.25,
 }
 

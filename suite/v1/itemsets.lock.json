@@ -43,6 +43,22 @@
       "date_window": "2023-12-01..2024-03-02",
       "date_window_rationale": "Latest available contiguous LiveCodeBench Test Output Prediction contest-date window with at least 100 items; keeps suite-v1 coding modest and rotatable.",
       "source_tos_note": "Problem statements originate from LeetCode; retain source-site ToS awareness."
+    },
+    "ruler_32k.jsonl": {
+      "item_count": 60,
+      "sha256": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540",
+      "source_dataset": "NVIDIA/RULER",
+      "source_revision": "algorithmic-reimplementation",
+      "source_url": "https://github.com/NVIDIA/RULER",
+      "source_paper": "https://arxiv.org/abs/2404.06654",
+      "license": "Apache-2.0",
+      "target_context": "32k",
+      "tasks": ["niah_single", "niah_multikey"],
+      "depths": [0, 25, 50, 75, 100],
+      "items_per_task_depth": 6,
+      "filler_corpus_id": "synthetic-ruler-local-v1",
+      "generator_attribution": "Reimplemented from NVIDIA/RULER NIAH task pattern",
+      "license_note": "Stores compact seed parameters only; no upstream RULER code, prompts, or haystack data are vendored."
     }
   }
 }

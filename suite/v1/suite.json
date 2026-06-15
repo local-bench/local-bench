@@ -96,6 +96,22 @@
       },
       "lane_caps": {},
       "template": "templates/lcb.txt"
+    },
+    "ruler_32k": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 4096,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "ruler_32k.jsonl",
+          "item_count": 60,
+          "sha256": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/ruler.txt"
     }
   },
   "axes": {
@@ -119,6 +135,10 @@
     },
     "coding": {
       "benches": ["lcb"],
+      "weight": 0.25
+    },
+    "long_context": {
+      "benches": ["ruler_32k"],
       "weight": 0.25
     }
   }

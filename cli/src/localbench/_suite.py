@@ -11,6 +11,7 @@ from typing import Final
 from localbench._types import BenchmarkItem, JsonObject, JsonValue
 from localbench.scorers.bfcl import build_bfcl_prompt
 from localbench.scorers.lcb import build_lcb_prompt
+from localbench.scorers.ruler import build_ruler_prompt
 
 _LETTERS: Final = "ABCDEFGHIJ"
 
@@ -163,6 +164,8 @@ def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
             return build_bfcl_prompt(item)
         case "lcb":
             return build_lcb_prompt(item, template)
+        case "ruler_32k":
+            return build_ruler_prompt(item, template)
         case _:
             return _string(item.get("prompt")) or _string(item.get("question")) or ""
 
