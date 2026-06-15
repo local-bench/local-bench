@@ -72,6 +72,15 @@ that these differences are noise, not signal.
 - **No resolvable quant-degradation signal among Q4/Q6/Q8 at N=80.** This matches what's known about
   K-quants: Q4_K_M and above are near-lossless; quality falls off at Q3/Q2. The wedge measured the
   flat top of that curve.
+- **Repeatability proves it's noise — and localizes the noise.** Re-running Q8_0 (temp 0, same config):
+  instruction, agentic, and both math benches were **bit-identical** across runs (0.0 ± 0.0), while
+  **knowledge/supergpqa swung +3.8** — the chain-of-thought MCQ axis, where llama.cpp's *batched* greedy
+  decoding isn't bit-exact (long CoT paths jitter). Composite run-to-run noise ≈ ±1.5 — the **same size
+  as the quant "gaps"** (Q6−Q4 +2.5, Q8−Q6 −2.6), so the apparent ordering is noise. After the re-run Q8
+  ties Q6 on knowledge (48.6 = 48.6); the residual ~2-pt Q6 edge is ~6 borderline items (ifbench/olymmath/
+  amo) flipping Q6's way by quantization chance — not a real Q8 deficit. (Runs `runs/lcpp-q8_0-rerun.json`,
+  `runs/delta-q8rerun.json`.) Practical note: for reproducible knowledge-axis scores, run `--parallel 1`
+  or report a small-N repeatability band.
 - **The product message is strong and honest:** *"Measured on Qwen3.6-27B: Q4_K_M is within noise of
   Q8_0 on a 7-axis suite — run the smaller quant, keep the 12 GB."* With CIs, not vibes.
 - **Where the real wedge lives:** the next runs that would *show* degradation are **Q3_K_M / Q2_K**
