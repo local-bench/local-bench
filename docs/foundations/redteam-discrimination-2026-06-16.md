@@ -21,8 +21,14 @@ independently agrees against the key, the key is wrong. Verified by hand:
 **Effect:** bad keys are unwinnable, so they cap EVERY model at ~52–65% no matter how capable, swamping the
 capability signal with key-noise → the frontier's real lead is erased. All three models scored exactly 13/25.
 
-Source unknown yet: either SuperGPQA's own keys are noisy (it's a large auto-constructed benchmark) and/or our
-subset-builder (#37) mis-mapped letters. **Action: re-grade the subset with a strong judge; audit the builder.**
+**SOURCE CONFIRMED: SuperGPQA's own keys, NOT our builder.** build_v1_supergpqa.py (L150-158) rejects items
+unless the gold letter's option text equals the gold answer-text — so it faithfully imports the source
+(letter,text) pair and only validates internal consistency, never correctness. Item 002 passed because
+SuperGPQA itself pairs B with "33.3 Hz". So SuperGPQA's source answer keys are wrong (~36% here); a known
+risk of large auto-constructed benchmarks. Builder gap: dedup catches only EXACT duplicate options, so
+near-identical-option garbage (e.g. the Deleuze item) slips through.
+**Action: re-grade/validate keys with a strong-model judge + drop near-duplicate-option items, OR replace
+SuperGPQA with a cleaner knowledge bench.**
 
 ## Finding 2 (MAJOR, by design): we excluded the math axis from the frontier runs.
 Math (OlymMATH/AMO) is where frontier reasoning dominates and a local *answer-only* model floors (~6%). We

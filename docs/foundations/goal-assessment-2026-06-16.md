@@ -125,3 +125,10 @@ The sub-10B floor run produced pure `????…` to the token cap (template/arch mi
 lmstudio Qwen3-4B-Instruct-2507 GGUF on our llama.cpp build) — garbage, not a weak score. Excluded.
 **Gemma-4-12B (54.7) is the valid floor** and already shows the weak end (33 pts below Gemini). Getting a
 genuine sub-10B floor + the "serves any GGUF" claim both want a follow-up (verify chat-template/arch coverage).
+
+---
+## CORRECTION (same day): the "measured discrimination" verdict above was WRONG.
+It was measured through a BROKEN knowledge axis (~36% wrong SuperGPQA keys), a missing math axis, a saturated
+agentic axis, and a scorer bug. Frontier ≈ local was a measurement artifact. See `redteam-discrimination-2026-06-16.md`.
+The suite is NOT yet a trustworthy capability measure; do not present a frontier-vs-local composite until the
+knowledge keys are cleaned/replaced, math is included, the agentic set is hardened, and N is raised.
