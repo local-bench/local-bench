@@ -45,3 +45,11 @@ no spend; no branch merges (that's #45, needs you); verify (tests/build green) b
 - After site lands: review diff + verify → **refactor pass** (per your standing instruction) → then #51.
 - Next suite axes toward the 7-axis adopt set: **#40 RULER long-context**, **#39 LCB output-prediction** (codex builds, serialized after site). Refactor after each.
 - Fallback if list runs dry: QA testing (full suite + site e2e + a code-review pass).
+
+---
+## Progress update (~19:55)
+- **#48 site migration DONE + verified** (codex e942eb6) and **#50 Gemma DONE + added to site** (0c19d0f) — both on `site-overhaul`, build green, NOT pushed.
+- **Refactor pass running** (codex, behavior-preserving cleanup of the migration) per the "refactor after every milestone" rule.
+- **#51 (per-axis composite) — DEFERRED to you, deliberately.** The CLI composite is per-*bench* equal (math axis = 40%, 2 benches) → legB composites ~41. The site now uses per-*axis* equal (math = 25%) → ~50. The wedge conclusion (flat Q8→Q3, cliff Q2) is identical under both; only absolute composite numbers shift. Reconciling means re-stating the legB launch doc's numbers + touching composite() AND paired_delta — an editorial methodology call I'd rather you make than do unsupervised. Flagged, not actioned.
+- **#13 (IFEval parity) looks superseded by #38 (IFBench parity)** — IFEval is v0-only, not in suite-v1. Recommend closing.
+- Tests green (468). Next autonomous steps: review codex refactor when it lands → then a suite axis (#40 RULER or #39 LCB) via codex, or a QA pass.
