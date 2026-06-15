@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable, Mapping
-from pathlib import Path
 from typing import Final, TypeAlias
 
 from build_data_support import (
     JsonObject,
     JsonValue,
+    ensure_cli_src_path,
     bool_value as _bool,
     int_value as _int,
     number_value as _number,
@@ -15,23 +14,19 @@ from build_data_support import (
     text_value as _text,
 )
 
-ROOT: Final = Path(__file__).resolve().parents[1]
-CLI_SRC: Final = ROOT / "cli" / "src"
-if str(CLI_SRC) not in sys.path:
-    sys.path.insert(0, str(CLI_SRC))
+ensure_cli_src_path()
 
-from localbench.scoring import bootstrap, score_interval
+from localbench.scoring import bootstrap, score_interval  # noqa: E402
 
 StratumForItem: TypeAlias = Callable[[str, str | None, Mapping[str, JsonValue]], str]
 
 BENCHES: Final = ("knowledge", "instruction", "agentic", "math")
-AXIS_BENCH_GROUPS: Final = {
+SOURCE_BENCH_GROUPS_BY_AXIS: Final = {
     "knowledge": (("supergpqa",), ("mmlu_pro",)),
     "instruction": (("ifbench",), ("ifeval",)),
     "agentic": (("bfcl",),),
     "math": (("olymmath_hard", "amo"), ("genmath",)),
 }
-# PROVISIONAL equal weights — pending the suite-v1 discrimination probe which will set measured per-axis weights.
 COMPOSITE_WEIGHTS: Final = {"knowledge": 0.25, "instruction": 0.25, "agentic": 0.25, "math": 0.25}
 SEED: Final = 20260612
 
@@ -134,7 +129,7 @@ def _axis_from_benches(
 
 
 def _source_benches_for_axis(axis: str, source_benches: JsonObject) -> tuple[str, ...]:
-    for group in AXIS_BENCH_GROUPS.get(axis, ((axis,),)):
+    for group in SOURCE_BENCH_GROUPS_BY_AXIS.get(axis, ((axis,),)):
         if all(bench in source_benches for bench in group):
             return group
     return ()
@@ -186,7 +181,7 @@ def _display_source_name(raw_name: str, rendered: JsonObject) -> str:
 
 
 def _axis_for_source(source_name: str) -> str | None:
-    for axis, groups in AXIS_BENCH_GROUPS.items():
+    for axis, groups in SOURCE_BENCH_GROUPS_BY_AXIS.items():
         if any(source_name in group for group in groups):
             return axis
     return None

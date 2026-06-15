@@ -38,7 +38,7 @@ describe("quant decision matrix logic", () => {
     // Then Q8_0 is the baseline row and measured deltas stay available.
     const q8 = rows.rows.find((row) => row.quantLabel === "Q8_0");
     const q2 = rows.rows.find((row) => row.quantLabel === "Q2_K");
-    expect(rows.hasBaseline).toBe(false);
+    expect(rows.hasFp16Baseline).toBe(false);
     expect(rows.baselineQuantLabel).toBe("Q8_0");
     expect(q8?.isBaseline).toBe(true);
     expect(q8?.deltaVsBaseline?.point).toBe(0);
@@ -53,7 +53,7 @@ describe("quant decision matrix logic", () => {
     const rows = getQuantDecisionRows(model, 8192);
 
     // Then the caller can render coverage cards instead of a broken hero.
-    expect(rows.hasBaseline).toBe(false);
+    expect(rows.hasFp16Baseline).toBe(false);
     expect(rows.missingQuantLabels).toEqual(["FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q3_K_M", "Q2_K"]);
     expect(rows.rows.find((row) => row.quantLabel === "FP16")?.run).toBeNull();
   });
@@ -61,9 +61,6 @@ describe("quant decision matrix logic", () => {
 
 function modelWithRuns(runs: readonly QuantDecisionInputRun[]): QuantDecisionInputModel {
   return {
-    demo: true,
-    family: "Qwen3",
-    kind: "community",
     model_label: "Qwen3 32B",
     runs,
     slug: "qwen3-32b",

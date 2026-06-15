@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
-import sys
 from pathlib import Path
 from typing import Final
 
 from build_data_support import (
     JsonObject,
+    ensure_cli_src_path,
+    slugify,
     bool_value as _bool,
     number_or_none as _number_or_none,
     number_value as _number,
@@ -15,10 +15,7 @@ from build_data_support import (
     text_value as _text,
 )
 
-ROOT: Final = Path(__file__).resolve().parents[1]
-CLI_SRC: Final = ROOT / "cli" / "src"
-if str(CLI_SRC) not in sys.path:
-    sys.path.insert(0, str(CLI_SRC))
+ensure_cli_src_path()
 
 from localbench.scoring import (  # noqa: E402
     raw_accuracy_from_signed_percent,
@@ -26,14 +23,13 @@ from localbench.scoring import (  # noqa: E402
     worst_axis,
 )
 
-INDEX_VERSION: Final = "index-v1"
 DEMO_WARNING: Final = "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
 DEMO_HASH: Final = "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
 DEFAULT_AXIS_N: Final = {"knowledge": 80, "instruction": 80, "agentic": 80, "math": 119}
 AXIS_OFFSETS: Final = {"knowledge": -1.2, "instruction": 0.8, "agentic": 0.0, "math": 0.4}
 
 
-def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) -> JsonObject:
+def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...], index_version: str) -> JsonObject:
     score = _object(source.get("demo_score"), "source.demo_score")
     point = _number(score.get("quality"), "demo_score.quality")
     ci = _number(score.get("ci"), "demo_score.ci")
@@ -48,7 +44,7 @@ def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) 
     kind = _string(source["kind"], "source.kind")
     quant = _text(source.get("quant_label"))
     lane = _text(source.get("reasoning_lane")) or "answer-only"
-    slug = _slugify(model_label)
+    slug = slugify(model_label)
     run_id = f"{slug}__demo-{Path(_string(source['file'], 'source.file')).stem}"
     axes = _demo_axes(point, ci, benches)
     composite = score_interval_from_percent_ci(point, ci)
@@ -68,7 +64,7 @@ def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) 
         "data_warnings": [DEMO_WARNING],
         "demo": True,
         "est_cost_usd": None,
-        "index_version": INDEX_VERSION,
+        "index_version": index_version,
         "item_set_hashes": {"synthetic-demo": DEMO_HASH},
         "kind": kind,
         "manifest_summary": summary,
@@ -158,7 +154,7 @@ def _demo_manifest_summary(family: str, model_label: str, quant: str | None, lan
         "lane": lane,
         "model": {
             "family": family,
-            "file_name": f"{_slugify(model_label)}.{(quant or 'unknown').lower()}.demo",
+            "file_name": f"{slugify(model_label)}.{(quant or 'unknown').lower()}.demo",
             "file_sha256": DEMO_HASH,
             "file_size_bytes": None,
             "format": "synthetic-demo",
@@ -184,10 +180,6 @@ def _demo_manifest_summary(family: str, model_label: str, quant: str | None, lan
         },
         "thinking_mode": "n/a",
     }
-
-
-def _slugify(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "model"
 
 
 def _clamp(value: float) -> float:

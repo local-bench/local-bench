@@ -32,7 +32,7 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
 
       <CoverageCards
         baselineQuantLabel={decision.baselineQuantLabel}
-        hasBaseline={decision.hasBaseline}
+        hasFp16Baseline={decision.hasFp16Baseline}
         missingQuantLabels={decision.missingQuantLabels}
         modelLabel={model.model_label}
       />
@@ -63,22 +63,22 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
 
 function CoverageCards({
   baselineQuantLabel,
-  hasBaseline,
+  hasFp16Baseline,
   missingQuantLabels,
   modelLabel,
 }: {
   readonly baselineQuantLabel: string | null;
-  readonly hasBaseline: boolean;
+  readonly hasFp16Baseline: boolean;
   readonly missingQuantLabels: readonly string[];
   readonly modelLabel: string;
 }) {
-  if (hasBaseline && missingQuantLabels.length === 0) {
+  if (hasFp16Baseline && missingQuantLabels.length === 0) {
     return null;
   }
 
   return (
     <div className="mt-4 grid gap-3 md:grid-cols-2">
-      {!hasBaseline ? (
+      {!hasFp16Baseline ? (
         <div className="rounded border border-bench-warn/35 bg-bench-warn/10 p-3 text-sm leading-6 text-bench-warn">
           FP16 baseline missing for {modelLabel}; using {baselineQuantLabel ?? "the highest measured quant"} as the delta
           baseline until an FP16 run lands.

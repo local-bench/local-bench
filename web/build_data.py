@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -22,6 +21,9 @@ from build_data_support import (
     DataBuildError,
     JsonObject,
     JsonValue,
+    ROOT,
+    ensure_cli_src_path,
+    slugify,
     bool_value as _bool,
     int_or_none as _int_or_none,
     int_value as _int,
@@ -36,10 +38,7 @@ from build_data_support import (
     text_value as _text,
 )
 
-ROOT: Final = Path(__file__).resolve().parents[1]
-CLI_SRC: Final = ROOT / "cli" / "src"
-if str(CLI_SRC) not in sys.path:
-    sys.path.insert(0, str(CLI_SRC))
+ensure_cli_src_path()
 
 from localbench.scoring import (  # noqa: E402
     metadata,
@@ -70,7 +69,7 @@ def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT
 
 def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float]) -> JsonObject:
     if _bool(source["demo"], "source.demo"):
-        return build_demo_run(source, order=order, benches=benches)
+        return build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
 
     path = ROOT / _string(source["file"], "source.file")
     run = _object(_read_json(path), str(path))
@@ -82,7 +81,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     model_label = _model_label(source, manifest)
     family = _string(source["family"], "source.family")
     kind = _string(source["kind"], "source.kind")
-    slug = _slugify(model_label)
+    slug = slugify(model_label)
     run_id = f"{slug}__{path.stem}"
     quant = _text(source.get("quant_label")) or _text(_object_or_empty(manifest.get("model")).get("quant_label"))
     lane = _text(source.get("reasoning_lane")) or _text(suite.get("lane"))
@@ -198,10 +197,6 @@ def _group_runs(runs: list[JsonObject]) -> dict[str, list[JsonObject]]:
 def _suite_version(runs: list[JsonObject]) -> str | None:
     versions = sorted({_text(run.get("suite_version")) for run in runs if _text(run.get("suite_version"))})
     return versions[0] if len(versions) == 1 else "mixed" if versions else None
-
-
-def _slugify(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "model"
 
 
 def _percentile(values: list[int], quantile: float) -> float:

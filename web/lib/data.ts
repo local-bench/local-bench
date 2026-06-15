@@ -38,7 +38,6 @@ export type HomePageData = {
   readonly anchorRuns: readonly AnchorReference[];
   readonly rigAnchors: readonly RigMatchAnchor[];
   readonly rigCandidates: readonly RigMatchCandidate[];
-  readonly scatterRuns: readonly (ModelRun & { readonly point_label: string })[];
 };
 
 export type ModelStaticParam = {
@@ -109,15 +108,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const rigCandidates = models.flatMap((model) =>
     model.runs.map((run) => toRigMatchCandidate(model, run)),
   );
-  const scatterRuns = models
-    .filter((model) => model.kind === "community")
-    .flatMap((model) =>
-      model.runs.map((run) => ({
-        ...run,
-        point_label: `${model.model_label} ${run.quant_label ?? ""}`.trim(),
-      })),
-    );
-  return { anchorRuns, index, rigAnchors, rigCandidates, scatterRuns };
+  return { anchorRuns, index, rigAnchors, rigCandidates };
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {

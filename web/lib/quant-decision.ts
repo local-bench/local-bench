@@ -7,9 +7,9 @@ import {
 } from "./rig-match";
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
 import type { QuantOption } from "./quant";
-import type { Kind, Score } from "./schemas";
+import type { Score } from "./schemas";
 
-const SWEET_SPOT_MIN_FP16_RETENTION = 0.95;
+const SWEET_SPOT_MIN_BASELINE_RETENTION = 0.95;
 
 export type QuantDecisionInputRun = {
   readonly composite: Score;
@@ -21,9 +21,6 @@ export type QuantDecisionInputRun = {
 };
 
 export type QuantDecisionInputModel = {
-  readonly demo: boolean;
-  readonly family: string;
-  readonly kind: Kind;
   readonly model_label: string;
   readonly runs: readonly QuantDecisionInputRun[];
   readonly slug: string;
@@ -41,7 +38,7 @@ export type QuantDecisionRow = {
 
 export type QuantDecisionRows = {
   readonly baselineQuantLabel: QuantOption | null;
-  readonly hasBaseline: boolean;
+  readonly hasFp16Baseline: boolean;
   readonly missingQuantLabels: readonly QuantOption[];
   readonly rows: readonly QuantDecisionRow[];
 };
@@ -61,7 +58,7 @@ export function getQuantDecisionRows(
 
   return {
     baselineQuantLabel,
-    hasBaseline: fp16Baseline !== null,
+    hasFp16Baseline: fp16Baseline !== null,
     missingQuantLabels: rows.filter((row) => row.run === null).map((row) => row.quantLabel),
     rows: rows.map((row) => ({ ...row, isSweetSpot: row.quantLabel === sweetSpotQuant })),
   };
@@ -111,7 +108,7 @@ function chooseSweetSpot(rows: readonly QuantDecisionRow[], baseline: QuantDecis
 
   const candidates = rows
     .filter((row) => row.run !== null && !row.isBaseline && row.vramEstimate !== null)
-    .filter((row) => qualityRetention(row, baseline) >= SWEET_SPOT_MIN_FP16_RETENTION);
+    .filter((row) => qualityRetention(row, baseline) >= SWEET_SPOT_MIN_BASELINE_RETENTION);
   const best = [...candidates].sort(compareSweetSpotRows)[0];
   return best?.quantLabel ?? null;
 }
