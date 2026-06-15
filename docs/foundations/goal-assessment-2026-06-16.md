@@ -119,3 +119,9 @@ local→frontier on our own harness. That moves the project from "impressive mac
 "measurement demonstrated, on a small N, with two axes needing hardening." The remaining honest work is
 *scale + axis quality* (bigger N, harder agentic, knowledge-subset review), not a fundamental validity question.
 Runs: runs/anchor-{gpt55,gemini,opus}-v1.json + runs/qwen3-4b-instruct-q4.json.
+
+### Floor-anchor note (Qwen3-4B): EXCLUDED — broken serving, not a measurement.
+The sub-10B floor run produced pure `????…` to the token cap (template/arch mismatch for that specific
+lmstudio Qwen3-4B-Instruct-2507 GGUF on our llama.cpp build) — garbage, not a weak score. Excluded.
+**Gemma-4-12B (54.7) is the valid floor** and already shows the weak end (33 pts below Gemini). Getting a
+genuine sub-10B floor + the "serves any GGUF" claim both want a follow-up (verify chat-template/arch coverage).
