@@ -4,6 +4,31 @@
 
 ---
 
+# 2026-06-16 — SCORER FIT-FOR-PURPOSE FIX (the "27B ≈ frontier" mystery, solved)
+
+**Michael's instinct was right — it was a scoring artifact.** Adversarial scorer red-team + grounding
+in the actual run data found the local models' math "signal" was entirely false positives:
+truncated non-answers (`finish_reason=length`) credited by the last-number fallback, plus
+`math_verify` over-accepting numerically-different boxed answers. **Fixed + committed `29fb89e`**
+(branch `suite/v1-quant-wedge`, cli/ scorers only; full suite **496 passed**).
+
+**Measured impact (re-scoring stored runs):** math axis went from a fake tie to **~40% frontier vs
+~0% local** — the discrimination it was hiding. Frontier essentially unchanged (GPT-5.5 40→40,
+Gemini 50→40); locals' fake math collapsed to ~0. MCQ: only local truncation bold-FPs removed,
+frontier untouched. **Full write-up: `docs/foundations/scorer-validation-2026-06-16.md`.**
+
+**Branch state caution for whoever picks this up:** 9 branches; `suite/v1-scorers` +
+`refactor/architecture` are already merged into `suite/v1-quant-wedge`. The working tree carries
+UNCOMMITTED `web/public/data` + `docs/briefs` changes from the parallel `site-overhaul` refactor —
+**left untouched**; the `29fb89e` commit staged only its 5 cli files. IFBench #2/#3 are NOT bugs
+(faithful AI2 ports). Chance-correction #5 deferred (collides with site-overhaul's byte-identity gate).
+
+**Still open before any re-run (bigger, need Michael):** (1) knowledge-axis content swap
+SuperGPQA→MMLU-Pro (#53, ~36% bad keys); (2) reasoning-for-all lane re-run (GPU + per-lane cap
+calibration). The scorer half of #54 is done; these two are not.
+
+---
+
 # ☀️ MORNING SUMMARY — 2026-06-14 (read me first)
 
 **All authorized safe-scope work is DONE. Phase 1 + Phase 2 shipped. Stopped at the Phase-3 GATE as instructed (heroes need your eyes first).**
@@ -95,3 +120,4 @@ Branch **`site-overhaul`** (off `foundations/suite-v1-research`). codex GPT-5.5 
 [2026-06-14T04:28:05] os-backstop launching headless claude
 [2026-06-14T04:29:09] claude exited code=0
 [2026-06-14T05:28:05] os-backstop launching headless claude
+[2026-06-14T05:35:31] claude exited code=0
