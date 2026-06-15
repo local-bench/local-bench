@@ -1,0 +1,156 @@
+{
+  "axes": {
+    "agentic": {
+      "hi": 96.25,
+      "hi_raw": 0.9625,
+      "lo": 85.0,
+      "lo_raw": 0.85,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 91.25,
+      "point_raw": 0.9125,
+      "raw_accuracy": 0.9125
+    },
+    "instruction": {
+      "hi": 65.0,
+      "hi_raw": 0.65,
+      "lo": 42.5,
+      "lo_raw": 0.425,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 53.75,
+      "point_raw": 0.5375,
+      "raw_accuracy": 0.5375
+    },
+    "knowledge": {
+      "hi": 61.111111111111114,
+      "hi_raw": 0.6111111111111112,
+      "lo": 36.11111111111111,
+      "lo_raw": 0.3611111111111111,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 13,
+      "point": 48.61111111111111,
+      "point_raw": 0.48611111111111105,
+      "raw_accuracy": 0.5375
+    },
+    "math": {
+      "hi": 10.084033613445378,
+      "hi_raw": 0.10084033613445378,
+      "lo": 1.680672268907563,
+      "lo_raw": 0.01680672268907563,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 5.88235294117647,
+      "point_raw": 0.058823529411764705,
+      "raw_accuracy": 0.058823529411764705
+    }
+  },
+  "composite": {
+    "hi": 58.11128618113912,
+    "hi_raw": 0.5811128618113912,
+    "lo": 41.32294584500467,
+    "lo_raw": 0.41322945845004666,
+    "point": 49.87336601307189,
+    "point_raw": 0.4987336601307189
+  },
+  "data_warnings": [
+    "composite point 0.498733660131 differs from stored composite 0.409978632479"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v1",
+  "item_set_hashes": {
+    "agentic.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a",
+    "math-part4.jsonl": "60e172588066dd6f0af14f7ce01b9d87390f6e7803673f42051a830a4a6d2f70",
+    "math.jsonl": "4654703c70829704f39ec38cb91dab1a06eba7fc9846a53ec93e1b3b73786980"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 0,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "answer-only",
+    "model": {
+      "family": "Qwen3.6-27B",
+      "file_name": null,
+      "file_sha256": "UNHASHED",
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "Qwen3.6-27B-Q4_K_M.gguf"
+    },
+    "quant": "Q4_K_M",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "agentic": {
+          "max_tokens": 8192,
+          "temperature": 0
+        },
+        "instruction": {
+          "max_tokens": 8192,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 12288,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "reasoning_effort": "none",
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Qwen3.6-27B",
+  "run_id": "qwen3-6-27b__lcpp-q4_k_m",
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 699.0,
+  "tokens_to_answer_p95": 2048.0,
+  "totals": {
+    "completion_tokens": 362629,
+    "completion_tokens_per_second": 106.97385639032359,
+    "n_errors": 0,
+    "n_items": 359,
+    "prompt_tokens": 82830,
+    "total_tokens": 445459,
+    "wall_time_seconds": 3389.8843346999492
+  },
+  "worst_axis": {
+    "bench": "math",
+    "point": 5.88235294117647,
+    "point_raw": 0.058823529411764705
+  }
+}

@@ -6,41 +6,53 @@
   "runs": [
     {
       "axes": {
-        "genmath": {
-          "hi": 77.80000000000001,
-          "hi_raw": 0.7780000000000001,
-          "lo": 73.0,
-          "lo_raw": 0.73,
-          "n": 40,
+        "agentic": {
+          "hi": 77.4,
+          "hi_raw": 0.774,
+          "lo": 72.6,
+          "lo_raw": 0.726,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 75.4,
-          "point_raw": 0.754,
-          "raw_accuracy": 0.754
+          "point": 75.0,
+          "point_raw": 0.75,
+          "raw_accuracy": 0.75
         },
-        "ifeval": {
+        "instruction": {
           "hi": 78.2,
           "hi_raw": 0.782,
           "lo": 73.39999999999999,
           "lo_raw": 0.7339999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 75.8,
           "point_raw": 0.758,
           "raw_accuracy": 0.758
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 76.2,
           "hi_raw": 0.762,
           "lo": 71.39999999999999,
           "lo_raw": 0.714,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 73.8,
           "point_raw": 0.738,
-          "raw_accuracy": 0.7642
+          "raw_accuracy": 0.738
+        },
+        "math": {
+          "hi": 77.80000000000001,
+          "hi_raw": 0.7780000000000001,
+          "lo": 73.0,
+          "lo_raw": 0.73,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 75.4,
+          "point_raw": 0.754,
+          "raw_accuracy": 0.754
         }
       },
       "composite": {
@@ -66,7 +78,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "FP16",
       "run_id": "qwen3-32b__demo-qwen3-32b-fp16",
       "runtime": {
@@ -81,45 +93,57 @@
       "tokens_to_answer_median": 760.0,
       "tokens_to_answer_p95": 1320.0,
       "vram_footprint_gb": 64.0,
-      "wall_time_seconds": 15960.0
+      "wall_time_seconds": 22736.666666666668
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 76.9,
-          "hi_raw": 0.769,
-          "lo": 71.9,
-          "lo_raw": 0.7190000000000001,
-          "n": 40,
+        "agentic": {
+          "hi": 76.5,
+          "hi_raw": 0.765,
+          "lo": 71.5,
+          "lo_raw": 0.715,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 74.4,
-          "point_raw": 0.7440000000000001,
-          "raw_accuracy": 0.7440000000000001
+          "point": 74.0,
+          "point_raw": 0.74,
+          "raw_accuracy": 0.74
         },
-        "ifeval": {
+        "instruction": {
           "hi": 77.3,
           "hi_raw": 0.773,
           "lo": 72.3,
           "lo_raw": 0.723,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 74.8,
           "point_raw": 0.748,
           "raw_accuracy": 0.748
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 75.3,
           "hi_raw": 0.753,
           "lo": 70.3,
           "lo_raw": 0.703,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 72.8,
           "point_raw": 0.728,
-          "raw_accuracy": 0.7552
+          "raw_accuracy": 0.728
+        },
+        "math": {
+          "hi": 76.9,
+          "hi_raw": 0.769,
+          "lo": 71.9,
+          "lo_raw": 0.7190000000000001,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 74.4,
+          "point_raw": 0.7440000000000001,
+          "raw_accuracy": 0.7440000000000001
         }
       },
       "composite": {
@@ -145,7 +169,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q8_0",
       "run_id": "qwen3-32b__demo-qwen3-32b-q8-0",
       "runtime": {
@@ -160,45 +184,57 @@
       "tokens_to_answer_median": 735.0,
       "tokens_to_answer_p95": 1260.0,
       "vram_footprint_gb": 34.0,
-      "wall_time_seconds": 9261.0
+      "wall_time_seconds": 13193.25
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 75.6,
-          "hi_raw": 0.7559999999999999,
-          "lo": 70.4,
-          "lo_raw": 0.7040000000000001,
-          "n": 40,
+        "agentic": {
+          "hi": 75.19999999999999,
+          "hi_raw": 0.7519999999999999,
+          "lo": 70.0,
+          "lo_raw": 0.7,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 73.0,
-          "point_raw": 0.73,
-          "raw_accuracy": 0.73
+          "point": 72.6,
+          "point_raw": 0.726,
+          "raw_accuracy": 0.726
         },
-        "ifeval": {
+        "instruction": {
           "hi": 75.99999999999999,
           "hi_raw": 0.7599999999999999,
           "lo": 70.8,
           "lo_raw": 0.708,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 73.39999999999999,
           "point_raw": 0.7339999999999999,
           "raw_accuracy": 0.7339999999999999
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 73.99999999999999,
           "hi_raw": 0.7399999999999999,
           "lo": 68.8,
           "lo_raw": 0.688,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 71.39999999999999,
           "point_raw": 0.714,
-          "raw_accuracy": 0.7425999999999999
+          "raw_accuracy": 0.714
+        },
+        "math": {
+          "hi": 75.6,
+          "hi_raw": 0.7559999999999999,
+          "lo": 70.4,
+          "lo_raw": 0.7040000000000001,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.0,
+          "point_raw": 0.73,
+          "raw_accuracy": 0.73
         }
       },
       "composite": {
@@ -224,7 +260,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q5_K_M",
       "run_id": "qwen3-32b__demo-qwen3-32b-q5-k-m",
       "runtime": {
@@ -239,45 +275,57 @@
       "tokens_to_answer_median": 710.0,
       "tokens_to_answer_p95": 1210.0,
       "vram_footprint_gb": 21.4,
-      "wall_time_seconds": 5771.612903225807
+      "wall_time_seconds": 8222.258064516129
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 74.30000000000001,
-          "hi_raw": 0.7430000000000001,
-          "lo": 68.9,
-          "lo_raw": 0.6890000000000001,
-          "n": 40,
+        "agentic": {
+          "hi": 73.9,
+          "hi_raw": 0.7390000000000001,
+          "lo": 68.5,
+          "lo_raw": 0.685,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 71.60000000000001,
-          "point_raw": 0.7160000000000001,
-          "raw_accuracy": 0.7160000000000001
+          "point": 71.2,
+          "point_raw": 0.7120000000000001,
+          "raw_accuracy": 0.7120000000000001
         },
-        "ifeval": {
+        "instruction": {
           "hi": 74.7,
           "hi_raw": 0.747,
           "lo": 69.3,
           "lo_raw": 0.693,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 72.0,
           "point_raw": 0.72,
           "raw_accuracy": 0.72
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 72.7,
           "hi_raw": 0.727,
           "lo": 67.3,
           "lo_raw": 0.6729999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 70.0,
           "point_raw": 0.7,
-          "raw_accuracy": 0.73
+          "raw_accuracy": 0.7
+        },
+        "math": {
+          "hi": 74.30000000000001,
+          "hi_raw": 0.7430000000000001,
+          "lo": 68.9,
+          "lo_raw": 0.6890000000000001,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 71.60000000000001,
+          "point_raw": 0.7160000000000001,
+          "raw_accuracy": 0.7160000000000001
         }
       },
       "composite": {
@@ -303,7 +351,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q4_K_M",
       "run_id": "qwen3-32b__demo-qwen3-32b-q4-k-m",
       "runtime": {
@@ -318,45 +366,57 @@
       "tokens_to_answer_median": 690.0,
       "tokens_to_answer_p95": 1160.0,
       "vram_footprint_gb": 19.0,
-      "wall_time_seconds": 4140.0
+      "wall_time_seconds": 5897.857142857143
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 71.9,
-          "hi_raw": 0.7190000000000001,
-          "lo": 65.9,
-          "lo_raw": 0.659,
-          "n": 40,
+        "agentic": {
+          "hi": 71.5,
+          "hi_raw": 0.715,
+          "lo": 65.5,
+          "lo_raw": 0.655,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 68.9,
-          "point_raw": 0.6890000000000001,
-          "raw_accuracy": 0.6890000000000001
+          "point": 68.5,
+          "point_raw": 0.685,
+          "raw_accuracy": 0.685
         },
-        "ifeval": {
+        "instruction": {
           "hi": 72.3,
           "hi_raw": 0.723,
           "lo": 66.3,
           "lo_raw": 0.6629999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 69.3,
           "point_raw": 0.693,
           "raw_accuracy": 0.693
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 70.3,
           "hi_raw": 0.703,
           "lo": 64.3,
           "lo_raw": 0.643,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 67.3,
           "point_raw": 0.6729999999999999,
-          "raw_accuracy": 0.7056999999999999
+          "raw_accuracy": 0.6729999999999999
+        },
+        "math": {
+          "hi": 71.9,
+          "hi_raw": 0.7190000000000001,
+          "lo": 65.9,
+          "lo_raw": 0.659,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 68.9,
+          "point_raw": 0.6890000000000001,
+          "raw_accuracy": 0.6890000000000001
         }
       },
       "composite": {
@@ -382,7 +442,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q3_K_M",
       "run_id": "qwen3-32b__demo-qwen3-32b-q3-k-m",
       "runtime": {
@@ -397,7 +457,7 @@
       "tokens_to_answer_median": 670.0,
       "tokens_to_answer_p95": 1120.0,
       "vram_footprint_gb": 15.0,
-      "wall_time_seconds": 3069.818181818182
+      "wall_time_seconds": 4373.272727272727
     }
   ],
   "slug": "qwen3-32b"

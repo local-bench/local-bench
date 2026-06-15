@@ -26,11 +26,11 @@ from localbench.scoring import (  # noqa: E402
     worst_axis,
 )
 
-INDEX_VERSION: Final = "index-v0"
+INDEX_VERSION: Final = "index-v1"
 DEMO_WARNING: Final = "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
 DEMO_HASH: Final = "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
-DEFAULT_AXIS_N: Final = {"genmath": 40, "ifeval": 100, "mmlu_pro": 112}
-AXIS_OFFSETS: Final = {"genmath": 0.4, "ifeval": 0.8, "mmlu_pro": -1.2}
+DEFAULT_AXIS_N: Final = {"knowledge": 80, "instruction": 80, "agentic": 80, "math": 119}
+AXIS_OFFSETS: Final = {"knowledge": -1.2, "instruction": 0.8, "agentic": 0.0, "math": 0.4}
 
 
 def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) -> JsonObject:
@@ -74,7 +74,7 @@ def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) 
         "manifest_summary": summary,
         "model_label": model_label,
         "run_id": run_id,
-        "suite_version": "suite-v0",
+        "suite_version": "suite-v1",
         "tier": "quick",
         "tokens_to_answer_median": tokens_median,
         "tokens_to_answer_p95": tokens_p95,
@@ -129,7 +129,7 @@ def build_demo_run(source: JsonObject, *, order: int, benches: tuple[str, ...]) 
         "order": order,
         "run_id": run_id,
         "slug": slug,
-        "suite_version": "suite-v0",
+        "suite_version": "suite-v1",
     }
 
 
@@ -174,9 +174,10 @@ def _demo_manifest_summary(family: str, model_label: str, quant: str | None, lan
         },
         "sampling": {
             "by_bench": {
-                "genmath": {"max_tokens": 8192, "temperature": 0},
-                "ifeval": {"max_tokens": 1280, "temperature": 0},
-                "mmlu_pro": {"max_tokens": 4096, "temperature": 0},
+                "agentic": {"max_tokens": 4096, "temperature": 0},
+                "instruction": {"max_tokens": 1280, "temperature": 0},
+                "knowledge": {"max_tokens": 4096, "temperature": 0},
+                "math": {"max_tokens": 8192, "temperature": 0},
             },
             "temperature": 0,
             "thinking_mode": "n/a",

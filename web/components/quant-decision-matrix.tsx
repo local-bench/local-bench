@@ -31,6 +31,7 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
       </div>
 
       <CoverageCards
+        baselineQuantLabel={decision.baselineQuantLabel}
         hasBaseline={decision.hasBaseline}
         missingQuantLabels={decision.missingQuantLabels}
         modelLabel={model.model_label}
@@ -42,7 +43,7 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
             <tr>
               <th className="px-3 py-3">Quant</th>
               <th className="px-3 py-3">Quality</th>
-              <th className="px-3 py-3">Δ vs FP16</th>
+              <th className="px-3 py-3">Δ vs {decision.baselineQuantLabel ?? "baseline"}</th>
               <th className="px-3 py-3">Effective VRAM</th>
               <th className="px-3 py-3">Fits</th>
               <th className="px-3 py-3">tok/s</th>
@@ -61,10 +62,12 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
 }
 
 function CoverageCards({
+  baselineQuantLabel,
   hasBaseline,
   missingQuantLabels,
   modelLabel,
 }: {
+  readonly baselineQuantLabel: string | null;
   readonly hasBaseline: boolean;
   readonly missingQuantLabels: readonly string[];
   readonly modelLabel: string;
@@ -77,7 +80,8 @@ function CoverageCards({
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {!hasBaseline ? (
         <div className="rounded border border-bench-warn/35 bg-bench-warn/10 p-3 text-sm leading-6 text-bench-warn">
-          FP16 baseline missing for {modelLabel}; deltas stay in coverage mode until a baseline run lands.
+          FP16 baseline missing for {modelLabel}; using {baselineQuantLabel ?? "the highest measured quant"} as the delta
+          baseline until an FP16 run lands.
         </div>
       ) : null}
       {missingQuantLabels.length > 0 ? (
@@ -106,7 +110,7 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
         )}
       </td>
       <td className="px-3 py-3 font-mono text-bench-text">{row.run ? scoreWithCi(row.run.composite) : "coverage needed"}</td>
-      <td className="px-3 py-3 font-mono text-bench-text">{formatDelta(row.deltaVsFp16)}</td>
+      <td className="px-3 py-3 font-mono text-bench-text">{formatDelta(row.deltaVsBaseline)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">
         {row.vramEstimate ? (
           <>
@@ -148,7 +152,7 @@ function scoreWithCi(score: Score): string {
 
 function formatDelta(score: Score | null): string {
   if (score === null) {
-    return "needs FP16";
+    return "needs baseline";
   }
   if (score.point === 0) {
     return "baseline";

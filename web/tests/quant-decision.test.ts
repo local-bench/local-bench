@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getQuantDecisionRows, type QuantDecisionInputModel, type QuantDecisionInputRun } from "../lib/quant-decision";
 
 describe("quant decision matrix logic", () => {
-  it("marks the lowest-VRAM quant retaining at least 95 percent of FP16 quality as the sweet spot", () => {
+  it("marks the lowest-VRAM quant retaining at least 95 percent of the baseline quality as the sweet spot", () => {
     // Given a quant ladder with an FP16 baseline and nearby Q5/Q4 tradeoffs.
     const model = modelWithRuns([
       run("FP16", 64, 75, 12),
@@ -22,7 +22,30 @@ describe("quant decision matrix logic", () => {
     expect(q4?.isSweetSpot).toBe(false);
   });
 
-  it("reports coverage gaps when a quant or the FP16 baseline is missing", () => {
+  it("uses the highest available quant as the baseline when FP16 is missing", () => {
+    // Given a real GGUF ladder with no FP16 run.
+    const model = modelWithRuns([
+      run("Q8_0", 30, 40.9, 89),
+      run("Q6_K", 25, 43.5, 104),
+      run("Q4_K_M", 20, 41.0, 107),
+      run("Q3_K_M", 18, 41.1, 115),
+      run("Q2_K", 16, 35.8, 137),
+    ]);
+
+    // When decision rows are built.
+    const rows = getQuantDecisionRows(model, 8192);
+
+    // Then Q8_0 is the baseline row and measured deltas stay available.
+    const q8 = rows.rows.find((row) => row.quantLabel === "Q8_0");
+    const q2 = rows.rows.find((row) => row.quantLabel === "Q2_K");
+    expect(rows.hasBaseline).toBe(false);
+    expect(rows.baselineQuantLabel).toBe("Q8_0");
+    expect(q8?.isBaseline).toBe(true);
+    expect(q8?.deltaVsBaseline?.point).toBe(0);
+    expect(q2?.deltaVsBaseline?.point).toBeCloseTo(-5.1, 1);
+  });
+
+  it("reports coverage gaps when a quant is missing", () => {
     // Given a model page with only one measured quant and no FP16 baseline.
     const model = modelWithRuns([run("Q4_K_M", 19, 71.2, 42)]);
 
@@ -31,7 +54,7 @@ describe("quant decision matrix logic", () => {
 
     // Then the caller can render coverage cards instead of a broken hero.
     expect(rows.hasBaseline).toBe(false);
-    expect(rows.missingQuantLabels).toEqual(["FP16", "Q8_0", "Q5_K_M", "Q3_K_M"]);
+    expect(rows.missingQuantLabels).toEqual(["FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q3_K_M", "Q2_K"]);
     expect(rows.rows.find((row) => row.quantLabel === "FP16")?.run).toBeNull();
   });
 });

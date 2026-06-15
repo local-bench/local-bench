@@ -10,12 +10,12 @@ import {
 
 describe("static data access", () => {
   it("loads ranked home rows when generated index JSON exists", async () => {
-    // Given the generated suite-v0 index file.
+    // Given the generated suite-v1 index file.
     // When the home data is loaded.
     const index = await getIndexData();
 
     // Then every model row has a best run and the default order is composite descending.
-    expect(index.suite_version).toBe("suite-v0");
+    expect(index.suite_version).toBe("suite-v1");
     expect(index.models.length).toBeGreaterThan(0);
     expect(index.models.every((model) => model.best_run_id.length > 0)).toBe(true);
     expect(index.models.map((model) => model.composite.point)).toEqual(
@@ -29,14 +29,39 @@ describe("static data access", () => {
     // Given a community model page.
     // When the model page data is assembled.
     const index = await getIndexData();
-    const pageData = await getModelPageData("qwen3-5-9b");
+    const pageData = await getModelPageData("qwen3-6-27b");
     const anchorCount = index.models.filter((model) => model.kind === "anchor").length;
 
-    // Then local runs stay with the model and frontier anchors are available as reference lines.
-    expect(pageData.model.model_label).toBe("Qwen3.5 9B");
-    expect(pageData.model.runs.length).toBe(3);
+    // Then local runs stay with the model and frontier anchors match the source set.
+    expect(pageData.model.model_label).toBe("Qwen3.6-27B");
+    expect(pageData.model.runs.length).toBe(5);
     expect(pageData.anchorRuns.length).toBe(anchorCount);
-    expect(pageData.model.runs.every((run) => run.vram_footprint_gb === null)).toBe(true);
+    expect(pageData.model.runs.every((run) => run.vram_footprint_gb !== null)).toBe(true);
+  });
+
+  it("plumbs real Qwen quant runs through generated model and run data", async () => {
+    // Given the suite-v1 real Qwen GGUF ladder.
+    // When the generated model data is loaded.
+    const pageData = await getModelPageData("qwen3-6-27b");
+    const q4 = await getRunData("qwen3-6-27b__lcpp-q4_k_m");
+
+    // Then the five measured quants render as real standard runs on the four display axes.
+    expect(pageData.model.model_label).toBe("Qwen3.6-27B");
+    expect(pageData.model.demo).toBe(false);
+    expect(pageData.model.runs.map((run) => [run.quant_label, run.vram_footprint_gb, run.demo])).toEqual([
+      ["Q8_0", 30, false],
+      ["Q6_K", 25, false],
+      ["Q4_K_M", 20, false],
+      ["Q3_K_M", 18, false],
+      ["Q2_K", 16, false],
+    ]);
+    expect(AXES).toEqual(["knowledge", "instruction", "agentic", "math"]);
+    expect(pageData.model.runs.every((run) => AXES.every((axis) => run.axes[axis] !== undefined))).toBe(true);
+    expect(q4.axes.knowledge.point).toBeCloseTo(48.611, 3);
+    expect(q4.axes.instruction.point).toBeCloseTo(53.75, 3);
+    expect(q4.axes.agentic.point).toBeCloseTo(91.25, 3);
+    expect(q4.axes.math.point).toBeCloseTo(700 / 119, 3);
+    expect(q4.composite.point).toBeCloseTo(49.873, 3);
   });
 
   it("plumbs demo flags through generated model and run data", async () => {
@@ -44,9 +69,9 @@ describe("static data access", () => {
     // When the demo model and an existing real local model are loaded.
     const index = await getIndexData();
     const demoModel = await getModelPageData("qwen3-32b");
-    const realModel = await getModelPageData("qwen3-5-9b");
+    const realModel = await getModelPageData("qwen3-6-27b");
     const demoRun = await getRunData("qwen3-32b__demo-qwen3-32b-q4-k-m");
-    const realIndexRow = index.models.find((model) => model.model_label === "Qwen3.5 9B");
+    const realIndexRow = index.models.find((model) => model.model_label === "Qwen3.6-27B");
 
     // Then only the synthetic preview records carry demo=true; real records default to demo=false.
     expect(index.models.filter((model) => model.demo).map((model) => model.model_label)).toContain("Qwen3 32B");
@@ -56,14 +81,14 @@ describe("static data access", () => {
     expect(realModel.model.runs.every((run) => run.demo === false)).toBe(true);
   });
 
-  it("loads huge synthetic demo ladders without changing the real Qwen triplet", async () => {
+  it("loads huge synthetic demo ladders without changing the real Qwen ladder", async () => {
     // Given generated data that includes Phase-3 huge model demo ladders.
     const index = await getIndexData();
 
     // When the huge demo model pages and the real Qwen model page are loaded.
     const llama405b = await getModelPageData("llama-3-1-405b");
     const deepseekV3 = await getModelPageData("deepseek-v3-671b");
-    const realModel = await getModelPageData("qwen3-5-9b");
+    const realModel = await getModelPageData("qwen3-6-27b");
 
     // Then the demo ladders are complete, large-tier compatible, and real run data stays unchanged.
     expect(index.models.filter((model) => model.demo).map((model) => model.model_label)).toEqual(
@@ -83,17 +108,17 @@ describe("static data access", () => {
       ["Q4_K_M", 380, 80, 17],
       ["Q3_K_M", 300, 77, 20],
     ]);
-    expect(realModel.model.runs).toHaveLength(3);
-    expect(realModel.model.runs.every((run) => run.vram_footprint_gb === null && run.demo === false)).toBe(true);
+    expect(realModel.model.runs).toHaveLength(5);
+    expect(realModel.model.runs.every((run) => run.vram_footprint_gb !== null && run.demo === false)).toBe(true);
   });
 
   it("loads run detail axes in the published order", async () => {
     // Given a known run detail file.
     // When the detail data is loaded.
-    const run = await getRunData("qwen3-5-9b__quick-9b-var1");
+    const run = await getRunData("qwen3-6-27b__lcpp-q8_0");
 
-    // Then all three axes are present and the worst-axis field points to one of them.
-    expect(AXES.map((axis) => run.axes[axis].point)).toHaveLength(3);
+    // Then all four axes are present and the worst-axis field points to one of them.
+    expect(AXES.map((axis) => run.axes[axis].point)).toHaveLength(4);
     expect(AXES).toContain(run.worst_axis.bench);
     expect(run.composite.point).toBeGreaterThan(0);
   });
@@ -104,9 +129,9 @@ describe("static data access", () => {
     const modelParams = await getModelStaticParams();
     const runParams = await getRunStaticParams();
 
-    // Then both dynamic route sets include the published community and anchor data.
-    expect(modelParams).toContainEqual({ slug: "qwen3-5-9b" });
-    expect(runParams).toContainEqual({ runId: "qwen3-5-9b__quick-9b-var1" });
-    expect(runParams).toContainEqual({ runId: "gpt-5-5__anchor-gpt55-quick" });
+    // Then both dynamic route sets include the published real and demo data.
+    expect(modelParams).toContainEqual({ slug: "qwen3-6-27b" });
+    expect(runParams).toContainEqual({ runId: "qwen3-6-27b__lcpp-q8_0" });
+    expect(runParams).toContainEqual({ runId: "qwen3-32b__demo-qwen3-32b-q4-k-m" });
   });
 });

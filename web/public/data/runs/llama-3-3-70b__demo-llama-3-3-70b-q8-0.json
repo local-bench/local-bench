@@ -1,0 +1,148 @@
+{
+  "axes": {
+    "agentic": {
+      "hi": 79.7,
+      "hi_raw": 0.797,
+      "lo": 74.3,
+      "lo_raw": 0.743,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 77.0,
+      "point_raw": 0.77,
+      "raw_accuracy": 0.77
+    },
+    "instruction": {
+      "hi": 80.5,
+      "hi_raw": 0.805,
+      "lo": 75.1,
+      "lo_raw": 0.7509999999999999,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 77.8,
+      "point_raw": 0.778,
+      "raw_accuracy": 0.778
+    },
+    "knowledge": {
+      "hi": 78.5,
+      "hi_raw": 0.785,
+      "lo": 73.1,
+      "lo_raw": 0.731,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 75.8,
+      "point_raw": 0.758,
+      "raw_accuracy": 0.758
+    },
+    "math": {
+      "hi": 80.10000000000001,
+      "hi_raw": 0.801,
+      "lo": 74.7,
+      "lo_raw": 0.747,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 77.4,
+      "point_raw": 0.774,
+      "raw_accuracy": 0.774
+    }
+  },
+  "composite": {
+    "hi": 79.3,
+    "hi_raw": 0.7929999999999999,
+    "lo": 74.7,
+    "lo_raw": 0.747,
+    "point": 77.0,
+    "point_raw": 0.77
+  },
+  "data_warnings": [
+    "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
+  ],
+  "demo": true,
+  "est_cost_usd": null,
+  "index_version": "index-v1",
+  "item_set_hashes": {
+    "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 8192,
+      "max_tokens_mcq": 4096,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "SYNTHETIC DEMO",
+      "gpu": {
+        "driver": null,
+        "name": "SYNTHETIC DEMO footprint estimate",
+        "vram_gb": null,
+        "vram_mb": null
+      },
+      "os": "SYNTHETIC DEMO",
+      "ram_gb": null
+    },
+    "lane": "answer-only",
+    "model": {
+      "family": "Llama",
+      "file_name": "llama-3-3-70b.q8_0.demo",
+      "file_sha256": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT",
+      "file_size_bytes": null,
+      "format": "synthetic-demo",
+      "runtime_reported_model": "Llama-3.3 70B"
+    },
+    "quant": "Q8_0",
+    "runtime": {
+      "ctx_len_configured": 8192,
+      "kv_cache_quant": null,
+      "name": "synthetic-demo-estimate",
+      "parallel_slots": null,
+      "version": "phase-3-preview"
+    },
+    "sampling": {
+      "by_bench": {
+        "agentic": {
+          "max_tokens": 4096,
+          "temperature": 0
+        },
+        "instruction": {
+          "max_tokens": 1280,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 4096,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 8192,
+          "temperature": 0
+        }
+      },
+      "temperature": 0,
+      "thinking_mode": "n/a"
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Llama-3.3 70B",
+  "run_id": "llama-3-3-70b__demo-llama-3-3-70b-q8-0",
+  "suite_version": "suite-v1",
+  "tier": "quick",
+  "tokens_to_answer_median": 800.0,
+  "tokens_to_answer_p95": 1370.0,
+  "totals": {
+    "completion_tokens": 287200,
+    "completion_tokens_per_second": 8.0,
+    "n_errors": 0,
+    "n_items": 359,
+    "prompt_tokens": 28720,
+    "total_tokens": 315920,
+    "wall_time_seconds": 35900.0
+  },
+  "worst_axis": {
+    "bench": "knowledge",
+    "point": 75.8,
+    "point_raw": 0.758
+  }
+}

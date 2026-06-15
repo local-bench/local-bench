@@ -6,41 +6,53 @@
   "runs": [
     {
       "axes": {
-        "genmath": {
-          "hi": 75.4,
-          "hi_raw": 0.754,
-          "lo": 70.4,
-          "lo_raw": 0.7040000000000001,
-          "n": 40,
+        "agentic": {
+          "hi": 75.0,
+          "hi_raw": 0.75,
+          "lo": 70.0,
+          "lo_raw": 0.7,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 72.9,
-          "point_raw": 0.7290000000000001,
-          "raw_accuracy": 0.7290000000000001
+          "point": 72.5,
+          "point_raw": 0.725,
+          "raw_accuracy": 0.725
         },
-        "ifeval": {
+        "instruction": {
           "hi": 75.8,
           "hi_raw": 0.758,
           "lo": 70.8,
           "lo_raw": 0.708,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 73.3,
           "point_raw": 0.733,
           "raw_accuracy": 0.733
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 73.8,
           "hi_raw": 0.738,
           "lo": 68.8,
           "lo_raw": 0.688,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 71.3,
           "point_raw": 0.713,
-          "raw_accuracy": 0.7416999999999999
+          "raw_accuracy": 0.713
+        },
+        "math": {
+          "hi": 75.4,
+          "hi_raw": 0.754,
+          "lo": 70.4,
+          "lo_raw": 0.7040000000000001,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 72.9,
+          "point_raw": 0.7290000000000001,
+          "raw_accuracy": 0.7290000000000001
         }
       },
       "composite": {
@@ -66,7 +78,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "FP16",
       "run_id": "gemma-3-27b__demo-gemma-3-27b-fp16",
       "runtime": {
@@ -81,45 +93,57 @@
       "tokens_to_answer_median": 725.0,
       "tokens_to_answer_p95": 1240.0,
       "vram_footprint_gb": 54.0,
-      "wall_time_seconds": 13050.0
+      "wall_time_seconds": 18591.071428571428
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 74.4,
-          "hi_raw": 0.7440000000000001,
-          "lo": 69.20000000000002,
-          "lo_raw": 0.6920000000000002,
-          "n": 40,
+        "agentic": {
+          "hi": 74.0,
+          "hi_raw": 0.74,
+          "lo": 68.80000000000001,
+          "lo_raw": 0.6880000000000002,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 71.80000000000001,
-          "point_raw": 0.7180000000000001,
-          "raw_accuracy": 0.7180000000000001
+          "point": 71.4,
+          "point_raw": 0.7140000000000001,
+          "raw_accuracy": 0.7140000000000001
         },
-        "ifeval": {
+        "instruction": {
           "hi": 74.8,
           "hi_raw": 0.748,
           "lo": 69.60000000000001,
           "lo_raw": 0.6960000000000001,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 72.2,
           "point_raw": 0.722,
           "raw_accuracy": 0.722
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 72.8,
           "hi_raw": 0.728,
           "lo": 67.60000000000001,
           "lo_raw": 0.676,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 70.2,
           "point_raw": 0.7020000000000001,
-          "raw_accuracy": 0.7318
+          "raw_accuracy": 0.7020000000000001
+        },
+        "math": {
+          "hi": 74.4,
+          "hi_raw": 0.7440000000000001,
+          "lo": 69.20000000000002,
+          "lo_raw": 0.6920000000000002,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 71.80000000000001,
+          "point_raw": 0.7180000000000001,
+          "raw_accuracy": 0.7180000000000001
         }
       },
       "composite": {
@@ -145,7 +169,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q8_0",
       "run_id": "gemma-3-27b__demo-gemma-3-27b-q8-0",
       "runtime": {
@@ -160,45 +184,57 @@
       "tokens_to_answer_median": 705.0,
       "tokens_to_answer_p95": 1195.0,
       "vram_footprint_gb": 29.0,
-      "wall_time_seconds": 7402.5
+      "wall_time_seconds": 10545.625
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 73.0,
-          "hi_raw": 0.73,
-          "lo": 68.0,
-          "lo_raw": 0.68,
-          "n": 40,
+        "agentic": {
+          "hi": 72.6,
+          "hi_raw": 0.726,
+          "lo": 67.6,
+          "lo_raw": 0.6759999999999999,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 70.5,
-          "point_raw": 0.705,
-          "raw_accuracy": 0.705
+          "point": 70.1,
+          "point_raw": 0.701,
+          "raw_accuracy": 0.701
         },
-        "ifeval": {
+        "instruction": {
           "hi": 73.39999999999999,
           "hi_raw": 0.7339999999999999,
           "lo": 68.39999999999999,
           "lo_raw": 0.6839999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 70.89999999999999,
           "point_raw": 0.709,
           "raw_accuracy": 0.709
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 71.39999999999999,
           "hi_raw": 0.714,
           "lo": 66.39999999999999,
           "lo_raw": 0.6639999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 68.89999999999999,
           "point_raw": 0.689,
-          "raw_accuracy": 0.7201
+          "raw_accuracy": 0.689
+        },
+        "math": {
+          "hi": 73.0,
+          "hi_raw": 0.73,
+          "lo": 68.0,
+          "lo_raw": 0.68,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 70.5,
+          "point_raw": 0.705,
+          "raw_accuracy": 0.705
         }
       },
       "composite": {
@@ -224,7 +260,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q5_K_M",
       "run_id": "gemma-3-27b__demo-gemma-3-27b-q5-k-m",
       "runtime": {
@@ -239,45 +275,57 @@
       "tokens_to_answer_median": 680.0,
       "tokens_to_answer_p95": 1140.0,
       "vram_footprint_gb": 20.0,
-      "wall_time_seconds": 4760.0
+      "wall_time_seconds": 6781.111111111111
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 71.9,
-          "hi_raw": 0.7190000000000001,
-          "lo": 66.5,
-          "lo_raw": 0.665,
-          "n": 40,
+        "agentic": {
+          "hi": 71.5,
+          "hi_raw": 0.715,
+          "lo": 66.1,
+          "lo_raw": 0.6609999999999999,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 69.2,
-          "point_raw": 0.6920000000000001,
-          "raw_accuracy": 0.6920000000000001
+          "point": 68.8,
+          "point_raw": 0.688,
+          "raw_accuracy": 0.688
         },
-        "ifeval": {
+        "instruction": {
           "hi": 72.3,
           "hi_raw": 0.723,
           "lo": 66.89999999999999,
           "lo_raw": 0.6689999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 69.6,
           "point_raw": 0.696,
           "raw_accuracy": 0.696
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 70.3,
           "hi_raw": 0.703,
           "lo": 64.89999999999999,
           "lo_raw": 0.6489999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 67.6,
           "point_raw": 0.6759999999999999,
-          "raw_accuracy": 0.7083999999999999
+          "raw_accuracy": 0.6759999999999999
+        },
+        "math": {
+          "hi": 71.9,
+          "hi_raw": 0.7190000000000001,
+          "lo": 66.5,
+          "lo_raw": 0.665,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 69.2,
+          "point_raw": 0.6920000000000001,
+          "raw_accuracy": 0.6920000000000001
         }
       },
       "composite": {
@@ -303,7 +351,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q4_K_M",
       "run_id": "gemma-3-27b__demo-gemma-3-27b-q4-k-m",
       "runtime": {
@@ -318,45 +366,57 @@
       "tokens_to_answer_median": 660.0,
       "tokens_to_answer_p95": 1100.0,
       "vram_footprint_gb": 16.0,
-      "wall_time_seconds": 3394.285714285714
+      "wall_time_seconds": 4835.510204081633
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 69.3,
-          "hi_raw": 0.693,
-          "lo": 63.1,
-          "lo_raw": 0.631,
-          "n": 40,
+        "agentic": {
+          "hi": 68.89999999999999,
+          "hi_raw": 0.689,
+          "lo": 62.699999999999996,
+          "lo_raw": 0.627,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 66.2,
-          "point_raw": 0.662,
-          "raw_accuracy": 0.662
+          "point": 65.8,
+          "point_raw": 0.6579999999999999,
+          "raw_accuracy": 0.6579999999999999
         },
-        "ifeval": {
+        "instruction": {
           "hi": 69.69999999999999,
           "hi_raw": 0.6969999999999998,
           "lo": 63.49999999999999,
           "lo_raw": 0.6349999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 66.6,
           "point_raw": 0.6659999999999999,
           "raw_accuracy": 0.6659999999999999
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 67.69999999999999,
           "hi_raw": 0.6769999999999999,
           "lo": 61.49999999999999,
           "lo_raw": 0.6149999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 64.6,
           "point_raw": 0.6459999999999999,
-          "raw_accuracy": 0.6813999999999999
+          "raw_accuracy": 0.6459999999999999
+        },
+        "math": {
+          "hi": 69.3,
+          "hi_raw": 0.693,
+          "lo": 63.1,
+          "lo_raw": 0.631,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 66.2,
+          "point_raw": 0.662,
+          "raw_accuracy": 0.662
         }
       },
       "composite": {
@@ -382,7 +442,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q3_K_M",
       "run_id": "gemma-3-27b__demo-gemma-3-27b-q3-k-m",
       "runtime": {
@@ -397,7 +457,7 @@
       "tokens_to_answer_median": 640.0,
       "tokens_to_answer_p95": 1060.0,
       "vram_footprint_gb": 13.0,
-      "wall_time_seconds": 2520.0
+      "wall_time_seconds": 3590.0
     }
   ],
   "slug": "gemma-3-27b"

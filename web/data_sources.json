@@ -1,73 +1,53 @@
 [
   {
-    "family": "GPT-5.5",
-    "file": "runs/anchor-gpt55-quick.json",
-    "kind": "anchor",
-    "model_label": "GPT-5.5",
-    "notes": "frontier anchor, native reasoning (xhigh), api-uncapped lane",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
-  },
-  {
-    "family": "Claude Opus 4.8",
-    "file": "runs/anchor-opus-quick.json",
-    "kind": "anchor",
-    "model_label": "Claude Opus 4.8",
-    "notes": "frontier anchor, native reasoning (high), api-uncapped lane",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
-  },
-  {
-    "family": "Gemini 3.1 Pro",
-    "file": "runs/anchor-gemini-quick.json",
-    "kind": "anchor",
-    "model_label": "Gemini 3.1 Pro",
-    "notes": "frontier anchor, native reasoning (high), api-uncapped lane",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
-  },
-  {
-    "family": "Claude Sonnet 4.6",
-    "file": "runs/anchor-sonnet-quick.json",
-    "kind": "anchor",
-    "model_label": "Claude Sonnet 4.6",
-    "notes": "frontier anchor, native reasoning (high), api-uncapped lane",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
-  },
-  {
-    "family": "Qwen3.5",
-    "file": "runs/quick-9b-var1.json",
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q8_0.json",
     "kind": "community",
-    "model_label": "Qwen3.5 9B",
-    "notes": "repeatability triplet (identical config: answer-only lane, mcq cap 4096, temp 0)",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q8_0",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 30
   },
   {
-    "family": "Qwen3.5",
-    "file": "runs/quick-9b-var2.json",
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q6_k.json",
     "kind": "community",
-    "model_label": "Qwen3.5 9B",
-    "notes": "repeatability triplet (identical config: answer-only lane, mcq cap 4096, temp 0)",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q6_K",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 25
   },
   {
-    "family": "Qwen3.5",
-    "file": "runs/quick-9b-var3.json",
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q4_k_m.json",
     "kind": "community",
-    "model_label": "Qwen3.5 9B",
-    "notes": "repeatability triplet (identical config: answer-only lane, mcq cap 4096, temp 0)",
-    "quant_label": null,
-    "reasoning_lane": null,
-    "vram_footprint_gb": null
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q4_K_M",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 20
+  },
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q3_k_m.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q3_K_M",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 18
+  },
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q2_k.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q2_K",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 16
   },
   {
     "demo": true,

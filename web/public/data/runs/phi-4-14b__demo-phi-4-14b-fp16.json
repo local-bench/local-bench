@@ -1,0 +1,148 @@
+{
+  "axes": {
+    "agentic": {
+      "hi": 68.7,
+      "hi_raw": 0.687,
+      "lo": 63.3,
+      "lo_raw": 0.633,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 66.0,
+      "point_raw": 0.66,
+      "raw_accuracy": 0.66
+    },
+    "instruction": {
+      "hi": 69.5,
+      "hi_raw": 0.695,
+      "lo": 64.1,
+      "lo_raw": 0.6409999999999999,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 66.8,
+      "point_raw": 0.6679999999999999,
+      "raw_accuracy": 0.6679999999999999
+    },
+    "knowledge": {
+      "hi": 67.5,
+      "hi_raw": 0.675,
+      "lo": 62.099999999999994,
+      "lo_raw": 0.621,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 64.8,
+      "point_raw": 0.648,
+      "raw_accuracy": 0.648
+    },
+    "math": {
+      "hi": 69.10000000000001,
+      "hi_raw": 0.6910000000000001,
+      "lo": 63.7,
+      "lo_raw": 0.637,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 66.4,
+      "point_raw": 0.664,
+      "raw_accuracy": 0.664
+    }
+  },
+  "composite": {
+    "hi": 68.3,
+    "hi_raw": 0.6829999999999999,
+    "lo": 63.7,
+    "lo_raw": 0.637,
+    "point": 66.0,
+    "point_raw": 0.66
+  },
+  "data_warnings": [
+    "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
+  ],
+  "demo": true,
+  "est_cost_usd": null,
+  "index_version": "index-v1",
+  "item_set_hashes": {
+    "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 8192,
+      "max_tokens_mcq": 4096,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "SYNTHETIC DEMO",
+      "gpu": {
+        "driver": null,
+        "name": "SYNTHETIC DEMO footprint estimate",
+        "vram_gb": null,
+        "vram_mb": null
+      },
+      "os": "SYNTHETIC DEMO",
+      "ram_gb": null
+    },
+    "lane": "answer-only",
+    "model": {
+      "family": "Phi",
+      "file_name": "phi-4-14b.fp16.demo",
+      "file_sha256": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT",
+      "file_size_bytes": null,
+      "format": "synthetic-demo",
+      "runtime_reported_model": "Phi-4 14B"
+    },
+    "quant": "FP16",
+    "runtime": {
+      "ctx_len_configured": 8192,
+      "kv_cache_quant": null,
+      "name": "synthetic-demo-estimate",
+      "parallel_slots": null,
+      "version": "phase-3-preview"
+    },
+    "sampling": {
+      "by_bench": {
+        "agentic": {
+          "max_tokens": 4096,
+          "temperature": 0
+        },
+        "instruction": {
+          "max_tokens": 1280,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 4096,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 8192,
+          "temperature": 0
+        }
+      },
+      "temperature": 0,
+      "thinking_mode": "n/a"
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Phi-4 14B",
+  "run_id": "phi-4-14b__demo-phi-4-14b-fp16",
+  "suite_version": "suite-v1",
+  "tier": "quick",
+  "tokens_to_answer_median": 610.0,
+  "tokens_to_answer_p95": 1005.0,
+  "totals": {
+    "completion_tokens": 218990,
+    "completion_tokens_per_second": 30.0,
+    "n_errors": 0,
+    "n_items": 359,
+    "prompt_tokens": 28720,
+    "total_tokens": 247710,
+    "wall_time_seconds": 7299.666666666667
+  },
+  "worst_axis": {
+    "bench": "knowledge",
+    "point": 64.8,
+    "point_raw": 0.648
+  }
+}

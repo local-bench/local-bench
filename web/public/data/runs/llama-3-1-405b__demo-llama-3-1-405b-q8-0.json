@@ -1,40 +1,52 @@
 {
   "axes": {
-    "genmath": {
-      "hi": 84.30000000000001,
-      "hi_raw": 0.8430000000000001,
-      "lo": 78.5,
-      "lo_raw": 0.785,
-      "n": 40,
+    "agentic": {
+      "hi": 83.9,
+      "hi_raw": 0.8390000000000001,
+      "lo": 78.1,
+      "lo_raw": 0.7809999999999999,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
-      "point": 81.4,
-      "point_raw": 0.8140000000000001,
-      "raw_accuracy": 0.8140000000000001
+      "point": 81.0,
+      "point_raw": 0.81,
+      "raw_accuracy": 0.81
     },
-    "ifeval": {
+    "instruction": {
       "hi": 84.7,
       "hi_raw": 0.847,
       "lo": 78.89999999999999,
       "lo_raw": 0.7889999999999999,
-      "n": 100,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
       "point": 81.8,
       "point_raw": 0.818,
       "raw_accuracy": 0.818
     },
-    "mmlu_pro": {
+    "knowledge": {
       "hi": 82.7,
       "hi_raw": 0.8270000000000001,
       "lo": 76.89999999999999,
       "lo_raw": 0.7689999999999999,
-      "n": 112,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
       "point": 79.8,
       "point_raw": 0.7979999999999999,
-      "raw_accuracy": 0.8181999999999999
+      "raw_accuracy": 0.7979999999999999
+    },
+    "math": {
+      "hi": 84.30000000000001,
+      "hi_raw": 0.8430000000000001,
+      "lo": 78.5,
+      "lo_raw": 0.785,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 81.4,
+      "point_raw": 0.8140000000000001,
+      "raw_accuracy": 0.8140000000000001
     }
   },
   "composite": {
@@ -50,7 +62,7 @@
   ],
   "demo": true,
   "est_cost_usd": null,
-  "index_version": "index-v0",
+  "index_version": "index-v1",
   "item_set_hashes": {
     "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
   },
@@ -91,16 +103,20 @@
     },
     "sampling": {
       "by_bench": {
-        "genmath": {
-          "max_tokens": 8192,
+        "agentic": {
+          "max_tokens": 4096,
           "temperature": 0
         },
-        "ifeval": {
+        "instruction": {
           "max_tokens": 1280,
           "temperature": 0
         },
-        "mmlu_pro": {
+        "knowledge": {
           "max_tokens": 4096,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 8192,
           "temperature": 0
         }
       },
@@ -111,21 +127,21 @@
   },
   "model_label": "Llama-3.1-405B",
   "run_id": "llama-3-1-405b__demo-llama-3-1-405b-q8-0",
-  "suite_version": "suite-v0",
+  "suite_version": "suite-v1",
   "tier": "quick",
   "tokens_to_answer_median": 955.0,
   "tokens_to_answer_p95": 1620.0,
   "totals": {
-    "completion_tokens": 240660,
+    "completion_tokens": 342845,
     "completion_tokens_per_second": 7.0,
     "n_errors": 0,
-    "n_items": 252,
-    "prompt_tokens": 20160,
-    "total_tokens": 260820,
-    "wall_time_seconds": 34380.0
+    "n_items": 359,
+    "prompt_tokens": 28720,
+    "total_tokens": 371565,
+    "wall_time_seconds": 48977.857142857145
   },
   "worst_axis": {
-    "bench": "mmlu_pro",
+    "bench": "knowledge",
     "point": 79.8,
     "point_raw": 0.7979999999999999
   }

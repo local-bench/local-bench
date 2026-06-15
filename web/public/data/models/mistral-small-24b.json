@@ -6,41 +6,53 @@
   "runs": [
     {
       "axes": {
-        "genmath": {
-          "hi": 74.60000000000001,
-          "hi_raw": 0.7460000000000001,
-          "lo": 69.8,
-          "lo_raw": 0.698,
-          "n": 40,
+        "agentic": {
+          "hi": 74.2,
+          "hi_raw": 0.742,
+          "lo": 69.39999999999999,
+          "lo_raw": 0.694,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 72.2,
-          "point_raw": 0.722,
-          "raw_accuracy": 0.722
+          "point": 71.8,
+          "point_raw": 0.718,
+          "raw_accuracy": 0.718
         },
-        "ifeval": {
+        "instruction": {
           "hi": 75.0,
           "hi_raw": 0.75,
           "lo": 70.19999999999999,
           "lo_raw": 0.7019999999999998,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 72.6,
           "point_raw": 0.726,
           "raw_accuracy": 0.726
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 73.0,
           "hi_raw": 0.73,
           "lo": 68.19999999999999,
           "lo_raw": 0.6819999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 70.6,
           "point_raw": 0.706,
-          "raw_accuracy": 0.7353999999999999
+          "raw_accuracy": 0.706
+        },
+        "math": {
+          "hi": 74.60000000000001,
+          "hi_raw": 0.7460000000000001,
+          "lo": 69.8,
+          "lo_raw": 0.698,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 72.2,
+          "point_raw": 0.722,
+          "raw_accuracy": 0.722
         }
       },
       "composite": {
@@ -66,7 +78,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "FP16",
       "run_id": "mistral-small-24b__demo-mistral-small-24b-fp16",
       "runtime": {
@@ -81,45 +93,57 @@
       "tokens_to_answer_median": 700.0,
       "tokens_to_answer_p95": 1180.0,
       "vram_footprint_gb": 48.0,
-      "wall_time_seconds": 11025.0
+      "wall_time_seconds": 15706.25
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 73.80000000000001,
-          "hi_raw": 0.7380000000000001,
-          "lo": 68.80000000000001,
-          "lo_raw": 0.6880000000000002,
-          "n": 40,
+        "agentic": {
+          "hi": 73.4,
+          "hi_raw": 0.7340000000000001,
+          "lo": 68.4,
+          "lo_raw": 0.684,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 71.30000000000001,
-          "point_raw": 0.7130000000000001,
-          "raw_accuracy": 0.7130000000000001
+          "point": 70.9,
+          "point_raw": 0.7090000000000001,
+          "raw_accuracy": 0.7090000000000001
         },
-        "ifeval": {
+        "instruction": {
           "hi": 74.2,
           "hi_raw": 0.742,
           "lo": 69.2,
           "lo_raw": 0.6920000000000001,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 71.7,
           "point_raw": 0.7170000000000001,
           "raw_accuracy": 0.7170000000000001
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 72.2,
           "hi_raw": 0.722,
           "lo": 67.2,
           "lo_raw": 0.672,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 69.7,
           "point_raw": 0.6970000000000001,
-          "raw_accuracy": 0.7273000000000001
+          "raw_accuracy": 0.6970000000000001
+        },
+        "math": {
+          "hi": 73.80000000000001,
+          "hi_raw": 0.7380000000000001,
+          "lo": 68.80000000000001,
+          "lo_raw": 0.6880000000000002,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 71.30000000000001,
+          "point_raw": 0.7130000000000001,
+          "raw_accuracy": 0.7130000000000001
         }
       },
       "composite": {
@@ -145,7 +169,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q8_0",
       "run_id": "mistral-small-24b__demo-mistral-small-24b-q8-0",
       "runtime": {
@@ -160,45 +184,57 @@
       "tokens_to_answer_median": 680.0,
       "tokens_to_answer_p95": 1145.0,
       "vram_footprint_gb": 26.0,
-      "wall_time_seconds": 6346.666666666667
+      "wall_time_seconds": 9041.481481481482
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 72.4,
-          "hi_raw": 0.7240000000000001,
-          "lo": 67.4,
-          "lo_raw": 0.674,
-          "n": 40,
+        "agentic": {
+          "hi": 72.0,
+          "hi_raw": 0.72,
+          "lo": 67.0,
+          "lo_raw": 0.67,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 69.9,
-          "point_raw": 0.6990000000000001,
-          "raw_accuracy": 0.6990000000000001
+          "point": 69.5,
+          "point_raw": 0.695,
+          "raw_accuracy": 0.695
         },
-        "ifeval": {
+        "instruction": {
           "hi": 72.8,
           "hi_raw": 0.728,
           "lo": 67.8,
           "lo_raw": 0.6779999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 70.3,
           "point_raw": 0.703,
           "raw_accuracy": 0.703
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 70.8,
           "hi_raw": 0.708,
           "lo": 65.8,
           "lo_raw": 0.6579999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 68.3,
           "point_raw": 0.6829999999999999,
-          "raw_accuracy": 0.7146999999999999
+          "raw_accuracy": 0.6829999999999999
+        },
+        "math": {
+          "hi": 72.4,
+          "hi_raw": 0.7240000000000001,
+          "lo": 67.4,
+          "lo_raw": 0.674,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 69.9,
+          "point_raw": 0.6990000000000001,
+          "raw_accuracy": 0.6990000000000001
         }
       },
       "composite": {
@@ -224,7 +260,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q5_K_M",
       "run_id": "mistral-small-24b__demo-mistral-small-24b-q5-k-m",
       "runtime": {
@@ -239,45 +275,57 @@
       "tokens_to_answer_median": 660.0,
       "tokens_to_answer_p95": 1105.0,
       "vram_footprint_gb": 18.0,
-      "wall_time_seconds": 4158.0
+      "wall_time_seconds": 5923.5
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 71.2,
-          "hi_raw": 0.7120000000000001,
-          "lo": 65.8,
-          "lo_raw": 0.6579999999999999,
-          "n": 40,
+        "agentic": {
+          "hi": 70.8,
+          "hi_raw": 0.708,
+          "lo": 65.39999999999999,
+          "lo_raw": 0.6539999999999999,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 68.5,
-          "point_raw": 0.685,
-          "raw_accuracy": 0.685
+          "point": 68.1,
+          "point_raw": 0.6809999999999999,
+          "raw_accuracy": 0.6809999999999999
         },
-        "ifeval": {
+        "instruction": {
           "hi": 71.6,
           "hi_raw": 0.716,
           "lo": 66.19999999999999,
           "lo_raw": 0.6619999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 68.89999999999999,
           "point_raw": 0.689,
           "raw_accuracy": 0.689
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 69.6,
           "hi_raw": 0.696,
           "lo": 64.19999999999999,
           "lo_raw": 0.6419999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 66.89999999999999,
           "point_raw": 0.6689999999999999,
-          "raw_accuracy": 0.7021
+          "raw_accuracy": 0.6689999999999999
+        },
+        "math": {
+          "hi": 71.2,
+          "hi_raw": 0.7120000000000001,
+          "lo": 65.8,
+          "lo_raw": 0.6579999999999999,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 68.5,
+          "point_raw": 0.685,
+          "raw_accuracy": 0.685
         }
       },
       "composite": {
@@ -303,7 +351,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q4_K_M",
       "run_id": "mistral-small-24b__demo-mistral-small-24b-q4-k-m",
       "runtime": {
@@ -318,45 +366,57 @@
       "tokens_to_answer_median": 640.0,
       "tokens_to_answer_p95": 1075.0,
       "vram_footprint_gb": 15.0,
-      "wall_time_seconds": 2986.6666666666665
+      "wall_time_seconds": 4254.814814814815
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 68.60000000000001,
-          "hi_raw": 0.686,
-          "lo": 62.60000000000001,
-          "lo_raw": 0.6260000000000001,
-          "n": 40,
+        "agentic": {
+          "hi": 68.2,
+          "hi_raw": 0.682,
+          "lo": 62.2,
+          "lo_raw": 0.622,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 65.60000000000001,
-          "point_raw": 0.6560000000000001,
-          "raw_accuracy": 0.6560000000000001
+          "point": 65.2,
+          "point_raw": 0.652,
+          "raw_accuracy": 0.652
         },
-        "ifeval": {
+        "instruction": {
           "hi": 69.0,
           "hi_raw": 0.69,
           "lo": 63.0,
           "lo_raw": 0.63,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 66.0,
           "point_raw": 0.66,
           "raw_accuracy": 0.66
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 67.0,
           "hi_raw": 0.67,
           "lo": 61.0,
           "lo_raw": 0.61,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 64.0,
           "point_raw": 0.64,
-          "raw_accuracy": 0.676
+          "raw_accuracy": 0.64
+        },
+        "math": {
+          "hi": 68.60000000000001,
+          "hi_raw": 0.686,
+          "lo": 62.60000000000001,
+          "lo_raw": 0.6260000000000001,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 65.60000000000001,
+          "point_raw": 0.6560000000000001,
+          "raw_accuracy": 0.6560000000000001
         }
       },
       "composite": {
@@ -382,7 +442,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q3_K_M",
       "run_id": "mistral-small-24b__demo-mistral-small-24b-q3-k-m",
       "runtime": {
@@ -397,7 +457,7 @@
       "tokens_to_answer_median": 620.0,
       "tokens_to_answer_p95": 1030.0,
       "vram_footprint_gb": 12.0,
-      "wall_time_seconds": 2232.0
+      "wall_time_seconds": 3179.714285714286
     }
   ],
   "slug": "mistral-small-24b"

@@ -1,0 +1,148 @@
+{
+  "axes": {
+    "agentic": {
+      "hi": 72.0,
+      "hi_raw": 0.72,
+      "lo": 67.0,
+      "lo_raw": 0.67,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 69.5,
+      "point_raw": 0.695,
+      "raw_accuracy": 0.695
+    },
+    "instruction": {
+      "hi": 72.8,
+      "hi_raw": 0.728,
+      "lo": 67.8,
+      "lo_raw": 0.6779999999999999,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 70.3,
+      "point_raw": 0.703,
+      "raw_accuracy": 0.703
+    },
+    "knowledge": {
+      "hi": 70.8,
+      "hi_raw": 0.708,
+      "lo": 65.8,
+      "lo_raw": 0.6579999999999999,
+      "n": 80,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 68.3,
+      "point_raw": 0.6829999999999999,
+      "raw_accuracy": 0.6829999999999999
+    },
+    "math": {
+      "hi": 72.4,
+      "hi_raw": 0.7240000000000001,
+      "lo": 67.4,
+      "lo_raw": 0.674,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 69.9,
+      "point_raw": 0.6990000000000001,
+      "raw_accuracy": 0.6990000000000001
+    }
+  },
+  "composite": {
+    "hi": 71.6,
+    "hi_raw": 0.716,
+    "lo": 67.4,
+    "lo_raw": 0.674,
+    "point": 69.5,
+    "point_raw": 0.695
+  },
+  "data_warnings": [
+    "Synthetic demo data - not real measurements. Track 2 will replace this preview run."
+  ],
+  "demo": true,
+  "est_cost_usd": null,
+  "index_version": "index-v1",
+  "item_set_hashes": {
+    "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 8192,
+      "max_tokens_mcq": 4096,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "SYNTHETIC DEMO",
+      "gpu": {
+        "driver": null,
+        "name": "SYNTHETIC DEMO footprint estimate",
+        "vram_gb": null,
+        "vram_mb": null
+      },
+      "os": "SYNTHETIC DEMO",
+      "ram_gb": null
+    },
+    "lane": "answer-only",
+    "model": {
+      "family": "Mistral",
+      "file_name": "mistral-small-24b.q5_k_m.demo",
+      "file_sha256": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT",
+      "file_size_bytes": null,
+      "format": "synthetic-demo",
+      "runtime_reported_model": "Mistral-Small-24B"
+    },
+    "quant": "Q5_K_M",
+    "runtime": {
+      "ctx_len_configured": 8192,
+      "kv_cache_quant": null,
+      "name": "synthetic-demo-estimate",
+      "parallel_slots": null,
+      "version": "phase-3-preview"
+    },
+    "sampling": {
+      "by_bench": {
+        "agentic": {
+          "max_tokens": 4096,
+          "temperature": 0
+        },
+        "instruction": {
+          "max_tokens": 1280,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 4096,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 8192,
+          "temperature": 0
+        }
+      },
+      "temperature": 0,
+      "thinking_mode": "n/a"
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Mistral-Small-24B",
+  "run_id": "mistral-small-24b__demo-mistral-small-24b-q5-k-m",
+  "suite_version": "suite-v1",
+  "tier": "quick",
+  "tokens_to_answer_median": 660.0,
+  "tokens_to_answer_p95": 1105.0,
+  "totals": {
+    "completion_tokens": 236940,
+    "completion_tokens_per_second": 40.0,
+    "n_errors": 0,
+    "n_items": 359,
+    "prompt_tokens": 28720,
+    "total_tokens": 265660,
+    "wall_time_seconds": 5923.5
+  },
+  "worst_axis": {
+    "bench": "knowledge",
+    "point": 68.3,
+    "point_raw": 0.6829999999999999
+  }
+}

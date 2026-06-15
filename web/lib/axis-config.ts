@@ -2,9 +2,10 @@ export type AxisConfigEntry = { readonly key: string; readonly label: string };
 
 // Order here is the canonical DISPLAY order across the site.
 export const AXIS_CONFIG = [
-  { key: "mmlu_pro", label: "MMLU-Pro" },
-  { key: "ifeval", label: "IFEval" },
-  { key: "genmath", label: "genmath" },
+  { key: "knowledge", label: "Knowledge" },
+  { key: "instruction", label: "Instruction" },
+  { key: "agentic", label: "Agentic" },
+  { key: "math", label: "Math" },
 ] as const satisfies readonly AxisConfigEntry[];
 
 export type AxisKey = (typeof AXIS_CONFIG)[number]["key"];

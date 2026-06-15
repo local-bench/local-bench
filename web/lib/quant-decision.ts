@@ -30,7 +30,7 @@ export type QuantDecisionInputModel = {
 };
 
 export type QuantDecisionRow = {
-  readonly deltaVsFp16: Score | null;
+  readonly deltaVsBaseline: Score | null;
   readonly fitTierGb: number | null;
   readonly isBaseline: boolean;
   readonly isSweetSpot: boolean;
@@ -40,6 +40,7 @@ export type QuantDecisionRow = {
 };
 
 export type QuantDecisionRows = {
+  readonly baselineQuantLabel: QuantOption | null;
   readonly hasBaseline: boolean;
   readonly missingQuantLabels: readonly QuantOption[];
   readonly rows: readonly QuantDecisionRow[];
@@ -50,12 +51,17 @@ export function getQuantDecisionRows(
   contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
 ): QuantDecisionRows {
   const runsByQuant = bestRunsByQuant(model.runs);
-  const baseline = runsByQuant.get("FP16") ?? null;
-  const rows = QUANT_OPTIONS.map((quantLabel) => toDecisionRow(quantLabel, runsByQuant.get(quantLabel) ?? null, baseline, contextTokens));
+  const fp16Baseline = runsByQuant.get("FP16") ?? null;
+  const baselineQuantLabel = fp16Baseline === null ? firstMeasuredQuant(runsByQuant) : "FP16";
+  const baseline = baselineQuantLabel === null ? null : runsByQuant.get(baselineQuantLabel) ?? null;
+  const rows = QUANT_OPTIONS.map((quantLabel) =>
+    toDecisionRow(quantLabel, runsByQuant.get(quantLabel) ?? null, baselineQuantLabel, baseline, contextTokens),
+  );
   const sweetSpotQuant = chooseSweetSpot(rows, baseline);
 
   return {
-    hasBaseline: baseline !== null,
+    baselineQuantLabel,
+    hasBaseline: fp16Baseline !== null,
     missingQuantLabels: rows.filter((row) => row.run === null).map((row) => row.quantLabel),
     rows: rows.map((row) => ({ ...row, isSweetSpot: row.quantLabel === sweetSpotQuant })),
   };
@@ -78,19 +84,24 @@ function bestRunsByQuant(runs: readonly QuantDecisionInputRun[]): ReadonlyMap<Qu
 function toDecisionRow(
   quantLabel: QuantOption,
   run: QuantDecisionInputRun | null,
+  baselineQuantLabel: QuantOption | null,
   baseline: QuantDecisionInputRun | null,
   contextTokens: ContextLengthOption,
 ): QuantDecisionRow {
   const vramEstimate = run === null ? null : estimateVramRequirement({ quantLabel, vramFootprintGb: run.vram_footprint_gb }, contextTokens);
   return {
-    deltaVsFp16: run === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
+    deltaVsBaseline: run === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
     fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
-    isBaseline: quantLabel === "FP16" && run !== null,
+    isBaseline: quantLabel === baselineQuantLabel && run !== null,
     isSweetSpot: false,
     quantLabel,
     run,
     vramEstimate,
   };
+}
+
+function firstMeasuredQuant(runsByQuant: ReadonlyMap<QuantOption, QuantDecisionInputRun>): QuantOption | null {
+  return QUANT_OPTIONS.find((quantLabel) => runsByQuant.has(quantLabel)) ?? null;
 }
 
 function chooseSweetSpot(rows: readonly QuantDecisionRow[], baseline: QuantDecisionInputRun | null): QuantOption | null {

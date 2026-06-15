@@ -43,7 +43,7 @@ export function AppShell({
         </nav>
         {usesDemoData ? (
           <div className="border-t border-bench-warn/25 bg-bench-warn/10 px-5 py-2 text-center text-sm font-medium text-bench-warn">
-            Preview uses synthetic demo data — not real measurements (Track 2 will replace it).
+            Synthetic demo rows remain marked; Qwen3.6-27B quant rows are real measurements.
           </div>
         ) : null}
       </header>

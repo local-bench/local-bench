@@ -6,41 +6,53 @@
   "runs": [
     {
       "axes": {
-        "genmath": {
-          "hi": 69.10000000000001,
-          "hi_raw": 0.6910000000000001,
-          "lo": 63.7,
-          "lo_raw": 0.637,
-          "n": 40,
+        "agentic": {
+          "hi": 68.7,
+          "hi_raw": 0.687,
+          "lo": 63.3,
+          "lo_raw": 0.633,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 66.4,
-          "point_raw": 0.664,
-          "raw_accuracy": 0.664
+          "point": 66.0,
+          "point_raw": 0.66,
+          "raw_accuracy": 0.66
         },
-        "ifeval": {
+        "instruction": {
           "hi": 69.5,
           "hi_raw": 0.695,
           "lo": 64.1,
           "lo_raw": 0.6409999999999999,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 66.8,
           "point_raw": 0.6679999999999999,
           "raw_accuracy": 0.6679999999999999
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 67.5,
           "hi_raw": 0.675,
           "lo": 62.099999999999994,
           "lo_raw": 0.621,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 64.8,
           "point_raw": 0.648,
-          "raw_accuracy": 0.6832
+          "raw_accuracy": 0.648
+        },
+        "math": {
+          "hi": 69.10000000000001,
+          "hi_raw": 0.6910000000000001,
+          "lo": 63.7,
+          "lo_raw": 0.637,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 66.4,
+          "point_raw": 0.664,
+          "raw_accuracy": 0.664
         }
       },
       "composite": {
@@ -66,7 +78,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "FP16",
       "run_id": "phi-4-14b__demo-phi-4-14b-fp16",
       "runtime": {
@@ -81,45 +93,57 @@
       "tokens_to_answer_median": 610.0,
       "tokens_to_answer_p95": 1005.0,
       "vram_footprint_gb": 28.0,
-      "wall_time_seconds": 5124.0
+      "wall_time_seconds": 7299.666666666667
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 68.50000000000001,
-          "hi_raw": 0.6850000000000002,
-          "lo": 62.70000000000001,
-          "lo_raw": 0.6270000000000001,
-          "n": 40,
+        "agentic": {
+          "hi": 68.10000000000001,
+          "hi_raw": 0.681,
+          "lo": 62.300000000000004,
+          "lo_raw": 0.623,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 65.60000000000001,
-          "point_raw": 0.6560000000000001,
-          "raw_accuracy": 0.6560000000000001
+          "point": 65.2,
+          "point_raw": 0.652,
+          "raw_accuracy": 0.652
         },
-        "ifeval": {
+        "instruction": {
           "hi": 68.9,
           "hi_raw": 0.6890000000000001,
           "lo": 63.1,
           "lo_raw": 0.631,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 66.0,
           "point_raw": 0.66,
           "raw_accuracy": 0.66
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 66.9,
           "hi_raw": 0.669,
           "lo": 61.1,
           "lo_raw": 0.611,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 64.0,
           "point_raw": 0.64,
-          "raw_accuracy": 0.676
+          "raw_accuracy": 0.64
+        },
+        "math": {
+          "hi": 68.50000000000001,
+          "hi_raw": 0.6850000000000002,
+          "lo": 62.70000000000001,
+          "lo_raw": 0.6270000000000001,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 65.60000000000001,
+          "point_raw": 0.6560000000000001,
+          "raw_accuracy": 0.6560000000000001
         }
       },
       "composite": {
@@ -145,7 +169,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q8_0",
       "run_id": "phi-4-14b__demo-phi-4-14b-q8-0",
       "runtime": {
@@ -160,45 +184,57 @@
       "tokens_to_answer_median": 590.0,
       "tokens_to_answer_p95": 970.0,
       "vram_footprint_gb": 15.0,
-      "wall_time_seconds": 2973.6
+      "wall_time_seconds": 4236.2
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 67.2,
-          "hi_raw": 0.672,
-          "lo": 61.2,
-          "lo_raw": 0.612,
-          "n": 40,
+        "agentic": {
+          "hi": 66.8,
+          "hi_raw": 0.6679999999999999,
+          "lo": 60.8,
+          "lo_raw": 0.608,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 64.2,
-          "point_raw": 0.642,
-          "raw_accuracy": 0.642
+          "point": 63.8,
+          "point_raw": 0.638,
+          "raw_accuracy": 0.638
         },
-        "ifeval": {
+        "instruction": {
           "hi": 67.6,
           "hi_raw": 0.6759999999999999,
           "lo": 61.599999999999994,
           "lo_raw": 0.616,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 64.6,
           "point_raw": 0.6459999999999999,
           "raw_accuracy": 0.6459999999999999
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 65.6,
           "hi_raw": 0.6559999999999999,
           "lo": 59.599999999999994,
           "lo_raw": 0.596,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 62.599999999999994,
           "point_raw": 0.6259999999999999,
-          "raw_accuracy": 0.6633999999999999
+          "raw_accuracy": 0.6259999999999999
+        },
+        "math": {
+          "hi": 67.2,
+          "hi_raw": 0.672,
+          "lo": 61.2,
+          "lo_raw": 0.612,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 64.2,
+          "point_raw": 0.642,
+          "raw_accuracy": 0.642
         }
       },
       "composite": {
@@ -224,7 +260,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q5_K_M",
       "run_id": "phi-4-14b__demo-phi-4-14b-q5-k-m",
       "runtime": {
@@ -239,45 +275,57 @@
       "tokens_to_answer_median": 570.0,
       "tokens_to_answer_p95": 940.0,
       "vram_footprint_gb": 10.0,
-      "wall_time_seconds": 1941.081081081081
+      "wall_time_seconds": 2765.2702702702704
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 65.89999999999999,
-          "hi_raw": 0.6589999999999999,
-          "lo": 59.699999999999996,
-          "lo_raw": 0.597,
-          "n": 40,
+        "agentic": {
+          "hi": 65.5,
+          "hi_raw": 0.655,
+          "lo": 59.3,
+          "lo_raw": 0.593,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 62.8,
-          "point_raw": 0.628,
-          "raw_accuracy": 0.628
+          "point": 62.4,
+          "point_raw": 0.624,
+          "raw_accuracy": 0.624
         },
-        "ifeval": {
+        "instruction": {
           "hi": 66.3,
           "hi_raw": 0.6629999999999999,
           "lo": 60.099999999999994,
           "lo_raw": 0.601,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 63.199999999999996,
           "point_raw": 0.632,
           "raw_accuracy": 0.632
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 64.3,
           "hi_raw": 0.643,
           "lo": 58.099999999999994,
           "lo_raw": 0.581,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 61.199999999999996,
           "point_raw": 0.612,
-          "raw_accuracy": 0.6507999999999999
+          "raw_accuracy": 0.612
+        },
+        "math": {
+          "hi": 65.89999999999999,
+          "hi_raw": 0.6589999999999999,
+          "lo": 59.699999999999996,
+          "lo_raw": 0.597,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 62.8,
+          "point_raw": 0.628,
+          "raw_accuracy": 0.628
         }
       },
       "composite": {
@@ -303,7 +351,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q4_K_M",
       "run_id": "phi-4-14b__demo-phi-4-14b-q4-k-m",
       "runtime": {
@@ -318,45 +366,57 @@
       "tokens_to_answer_median": 550.0,
       "tokens_to_answer_p95": 900.0,
       "vram_footprint_gb": 8.5,
-      "wall_time_seconds": 1443.75
+      "wall_time_seconds": 2056.7708333333335
     },
     {
       "axes": {
-        "genmath": {
-          "hi": 63.599999999999994,
-          "hi_raw": 0.6359999999999999,
-          "lo": 56.8,
-          "lo_raw": 0.568,
-          "n": 40,
+        "agentic": {
+          "hi": 63.199999999999996,
+          "hi_raw": 0.632,
+          "lo": 56.4,
+          "lo_raw": 0.564,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 60.199999999999996,
-          "point_raw": 0.602,
-          "raw_accuracy": 0.602
+          "point": 59.8,
+          "point_raw": 0.598,
+          "raw_accuracy": 0.598
         },
-        "ifeval": {
+        "instruction": {
           "hi": 63.99999999999999,
           "hi_raw": 0.6399999999999999,
           "lo": 57.199999999999996,
           "lo_raw": 0.572,
-          "n": 100,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 60.599999999999994,
           "point_raw": 0.606,
           "raw_accuracy": 0.606
         },
-        "mmlu_pro": {
+        "knowledge": {
           "hi": 61.99999999999999,
           "hi_raw": 0.6199999999999999,
           "lo": 55.199999999999996,
           "lo_raw": 0.5519999999999999,
-          "n": 112,
+          "n": 80,
           "n_errors": 0,
           "n_no_answer": 0,
           "point": 58.599999999999994,
           "point_raw": 0.586,
-          "raw_accuracy": 0.6274
+          "raw_accuracy": 0.586
+        },
+        "math": {
+          "hi": 63.599999999999994,
+          "hi_raw": 0.6359999999999999,
+          "lo": 56.8,
+          "lo_raw": 0.568,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 60.199999999999996,
+          "point_raw": 0.602,
+          "raw_accuracy": 0.602
         }
       },
       "composite": {
@@ -382,7 +442,7 @@
       },
       "lane": "answer-only",
       "n_errors": 0,
-      "n_items": 252,
+      "n_items": 359,
       "quant_label": "Q3_K_M",
       "run_id": "phi-4-14b__demo-phi-4-14b-q3-k-m",
       "runtime": {
@@ -397,7 +457,7 @@
       "tokens_to_answer_median": 530.0,
       "tokens_to_answer_p95": 865.0,
       "vram_footprint_gb": 7.0,
-      "wall_time_seconds": 1077.0967741935483
+      "wall_time_seconds": 1534.4354838709678
     }
   ],
   "slug": "phi-4-14b"
