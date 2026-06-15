@@ -1,40 +1,52 @@
 {
   "axes": {
-    "genmath": {
-      "hi": 82.9,
-      "hi_raw": 0.8290000000000001,
-      "lo": 76.9,
-      "lo_raw": 0.769,
-      "n": 40,
+    "agentic": {
+      "hi": 82.5,
+      "hi_raw": 0.825,
+      "lo": 76.5,
+      "lo_raw": 0.765,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
-      "point": 79.9,
-      "point_raw": 0.799,
-      "raw_accuracy": 0.799
+      "point": 79.5,
+      "point_raw": 0.795,
+      "raw_accuracy": 0.795
     },
-    "ifeval": {
+    "instruction": {
       "hi": 83.3,
       "hi_raw": 0.833,
       "lo": 77.3,
       "lo_raw": 0.773,
-      "n": 100,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
       "point": 80.3,
       "point_raw": 0.8029999999999999,
       "raw_accuracy": 0.8029999999999999
     },
-    "mmlu_pro": {
+    "knowledge": {
       "hi": 81.3,
       "hi_raw": 0.813,
       "lo": 75.3,
       "lo_raw": 0.753,
-      "n": 112,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
       "point": 78.3,
       "point_raw": 0.7829999999999999,
-      "raw_accuracy": 0.8047
+      "raw_accuracy": 0.7829999999999999
+    },
+    "math": {
+      "hi": 82.9,
+      "hi_raw": 0.8290000000000001,
+      "lo": 76.9,
+      "lo_raw": 0.769,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 79.9,
+      "point_raw": 0.799,
+      "raw_accuracy": 0.799
     }
   },
   "composite": {
@@ -50,7 +62,7 @@
   ],
   "demo": true,
   "est_cost_usd": null,
-  "index_version": "index-v0",
+  "index_version": "index-v1",
   "item_set_hashes": {
     "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
   },
@@ -91,16 +103,20 @@
     },
     "sampling": {
       "by_bench": {
-        "genmath": {
-          "max_tokens": 8192,
+        "agentic": {
+          "max_tokens": 4096,
           "temperature": 0
         },
-        "ifeval": {
+        "instruction": {
           "max_tokens": 1280,
           "temperature": 0
         },
-        "mmlu_pro": {
+        "knowledge": {
           "max_tokens": 4096,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 8192,
           "temperature": 0
         }
       },
@@ -111,21 +127,21 @@
   },
   "model_label": "Llama-3.1-405B",
   "run_id": "llama-3-1-405b__demo-llama-3-1-405b-q5-k-m",
-  "suite_version": "suite-v0",
+  "suite_version": "suite-v1",
   "tier": "quick",
   "tokens_to_answer_median": 930.0,
   "tokens_to_answer_p95": 1570.0,
   "totals": {
-    "completion_tokens": 234360,
+    "completion_tokens": 333870,
     "completion_tokens_per_second": 10.0,
     "n_errors": 0,
-    "n_items": 252,
-    "prompt_tokens": 20160,
-    "total_tokens": 254520,
-    "wall_time_seconds": 23436.0
+    "n_items": 359,
+    "prompt_tokens": 28720,
+    "total_tokens": 362590,
+    "wall_time_seconds": 33387.0
   },
   "worst_axis": {
-    "bench": "mmlu_pro",
+    "bench": "knowledge",
     "point": 78.3,
     "point_raw": 0.7829999999999999
   }

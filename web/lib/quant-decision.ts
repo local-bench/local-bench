@@ -7,9 +7,9 @@ import {
 } from "./rig-match";
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
 import type { QuantOption } from "./quant";
-import type { Kind, Score } from "./schemas";
+import type { Score } from "./schemas";
 
-const SWEET_SPOT_MIN_FP16_RETENTION = 0.95;
+const SWEET_SPOT_MIN_BASELINE_RETENTION = 0.95;
 
 export type QuantDecisionInputRun = {
   readonly composite: Score;
@@ -21,16 +21,13 @@ export type QuantDecisionInputRun = {
 };
 
 export type QuantDecisionInputModel = {
-  readonly demo: boolean;
-  readonly family: string;
-  readonly kind: Kind;
   readonly model_label: string;
   readonly runs: readonly QuantDecisionInputRun[];
   readonly slug: string;
 };
 
 export type QuantDecisionRow = {
-  readonly deltaVsFp16: Score | null;
+  readonly deltaVsBaseline: Score | null;
   readonly fitTierGb: number | null;
   readonly isBaseline: boolean;
   readonly isSweetSpot: boolean;
@@ -40,7 +37,8 @@ export type QuantDecisionRow = {
 };
 
 export type QuantDecisionRows = {
-  readonly hasBaseline: boolean;
+  readonly baselineQuantLabel: QuantOption | null;
+  readonly hasFp16Baseline: boolean;
   readonly missingQuantLabels: readonly QuantOption[];
   readonly rows: readonly QuantDecisionRow[];
 };
@@ -50,12 +48,17 @@ export function getQuantDecisionRows(
   contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
 ): QuantDecisionRows {
   const runsByQuant = bestRunsByQuant(model.runs);
-  const baseline = runsByQuant.get("FP16") ?? null;
-  const rows = QUANT_OPTIONS.map((quantLabel) => toDecisionRow(quantLabel, runsByQuant.get(quantLabel) ?? null, baseline, contextTokens));
+  const fp16Baseline = runsByQuant.get("FP16") ?? null;
+  const baselineQuantLabel = fp16Baseline === null ? firstMeasuredQuant(runsByQuant) : "FP16";
+  const baseline = baselineQuantLabel === null ? null : runsByQuant.get(baselineQuantLabel) ?? null;
+  const rows = QUANT_OPTIONS.map((quantLabel) =>
+    toDecisionRow(quantLabel, runsByQuant.get(quantLabel) ?? null, baselineQuantLabel, baseline, contextTokens),
+  );
   const sweetSpotQuant = chooseSweetSpot(rows, baseline);
 
   return {
-    hasBaseline: baseline !== null,
+    baselineQuantLabel,
+    hasFp16Baseline: fp16Baseline !== null,
     missingQuantLabels: rows.filter((row) => row.run === null).map((row) => row.quantLabel),
     rows: rows.map((row) => ({ ...row, isSweetSpot: row.quantLabel === sweetSpotQuant })),
   };
@@ -78,19 +81,24 @@ function bestRunsByQuant(runs: readonly QuantDecisionInputRun[]): ReadonlyMap<Qu
 function toDecisionRow(
   quantLabel: QuantOption,
   run: QuantDecisionInputRun | null,
+  baselineQuantLabel: QuantOption | null,
   baseline: QuantDecisionInputRun | null,
   contextTokens: ContextLengthOption,
 ): QuantDecisionRow {
   const vramEstimate = run === null ? null : estimateVramRequirement({ quantLabel, vramFootprintGb: run.vram_footprint_gb }, contextTokens);
   return {
-    deltaVsFp16: run === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
+    deltaVsBaseline: run === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
     fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
-    isBaseline: quantLabel === "FP16" && run !== null,
+    isBaseline: quantLabel === baselineQuantLabel && run !== null,
     isSweetSpot: false,
     quantLabel,
     run,
     vramEstimate,
   };
+}
+
+function firstMeasuredQuant(runsByQuant: ReadonlyMap<QuantOption, QuantDecisionInputRun>): QuantOption | null {
+  return QUANT_OPTIONS.find((quantLabel) => runsByQuant.has(quantLabel)) ?? null;
 }
 
 function chooseSweetSpot(rows: readonly QuantDecisionRow[], baseline: QuantDecisionInputRun | null): QuantOption | null {
@@ -100,7 +108,7 @@ function chooseSweetSpot(rows: readonly QuantDecisionRow[], baseline: QuantDecis
 
   const candidates = rows
     .filter((row) => row.run !== null && !row.isBaseline && row.vramEstimate !== null)
-    .filter((row) => qualityRetention(row, baseline) >= SWEET_SPOT_MIN_FP16_RETENTION);
+    .filter((row) => qualityRetention(row, baseline) >= SWEET_SPOT_MIN_BASELINE_RETENTION);
   const best = [...candidates].sort(compareSweetSpotRows)[0];
   return best?.quantLabel ?? null;
 }

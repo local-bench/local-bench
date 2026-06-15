@@ -1,17 +1,33 @@
 from __future__ import annotations
 
-from typing import NoReturn, TypeAlias
+import re
+import sys
+from pathlib import Path
+from typing import Final, NoReturn, TypeAlias
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
+
+ROOT: Final = Path(__file__).resolve().parents[1]
+CLI_SRC: Final = ROOT / "cli" / "src"
 
 
 class DataBuildError(ValueError):
     pass
 
 
+def ensure_cli_src_path() -> None:
+    cli_src = str(CLI_SRC)
+    if cli_src not in sys.path:
+        sys.path.insert(0, cli_src)
+
+
 def fail(message: str) -> NoReturn:
     raise DataBuildError(message)
+
+
+def slugify(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "model"
 
 
 def object_value(value: JsonValue | None, context: str) -> JsonObject:

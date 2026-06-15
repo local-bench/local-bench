@@ -5,7 +5,7 @@ test("renders the rig-match finder as the home hero", async ({ page }) => {
   await visitRoute(page, "/");
 
   await expect(page.getByRole("heading", { name: "What can I run?" })).toBeVisible();
-  await expect(page.getByText("Preview uses synthetic demo data — not real measurements (Track 2 will replace it).")).toBeVisible();
+  await expect(page.getByText("Synthetic demo rows remain marked; Qwen3.6-27B quant rows are real measurements.")).toBeVisible();
   await expect(page.getByLabel("VRAM tier")).toHaveValue("24");
   await expect(page.getByLabel("Context length")).toHaveValue("8192");
   await expect(page.getByText(/VRAM includes KV cache/i)).toBeVisible();
@@ -49,7 +49,6 @@ test("renders the leaderboard and keeps composite sorting deterministic", async 
     .sort((left, right) => left.composite.point - right.composite.point)
     .map((model) => model.model_label);
   const expectedDescending = [...expectedAscending].reverse();
-  const expectedUnrankedMarkers = expectedDescending.map(() => "Unranked");
 
   await visitRoute(page, "/");
 
@@ -59,10 +58,9 @@ test("renders the leaderboard and keeps composite sorting deterministic", async 
     await expect(leaderboard.getByRole("link", { name: label })).toBeVisible();
   }
 
-  const geminiRow = leaderboard.getByRole("row", { name: /Gemini 3\.1 Pro/ });
-  await expect(geminiRow).toContainText("94.4");
-  await expect(geminiRow).toContainText(/±\d+\.\d/);
-  await expect(leaderboard.getByText("Anchor").first()).toBeVisible();
+  const qwenRow = leaderboard.getByRole("row", { name: /Qwen3\.6-27B/ });
+  await expect(qwenRow).toContainText("52.7");
+  await expect(qwenRow).toContainText(/±\d+\.\d/);
   await expect(leaderboard.getByText(/Community-reported/).first()).toBeVisible();
   await expect(page.getByText(/sorted for browsing only/i)).toBeVisible();
   await expect(page.getByText(/reasoning lanes are not directly comparable/i)).toBeVisible();
@@ -70,7 +68,7 @@ test("renders the leaderboard and keeps composite sorting deterministic", async 
   const modelLinks = leaderboard.locator("tbody tr td:nth-child(2) a");
   const rankCells = leaderboard.locator("tbody tr td:first-child");
   await expect(modelLinks).toHaveText(expectedDescending);
-  await expect(rankCells).toHaveText(expectedUnrankedMarkers);
+  await expect(rankCells).toHaveCount(expectedDescending.length);
 
   await leaderboard.getByRole("button", { name: /Composite/ }).click();
   await expect(modelLinks).toHaveText(expectedAscending);

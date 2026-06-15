@@ -2,9 +2,9 @@ import { readModelData } from "./data";
 import { capturePage, expect, test, visitRoute } from "./fixtures";
 
 const MODEL_CASES = [
-  { slug: "gemini-3-1-pro", screenshotName: "model-gemini-3-1-pro" },
+  { slug: "gemma-3-27b", screenshotName: "model-gemma-3-27b" },
+  { slug: "qwen3-6-27b", screenshotName: "model-qwen3-6-27b" },
   { slug: "qwen3-32b", screenshotName: "model-qwen3-32b" },
-  { slug: "qwen3-5-9b", screenshotName: "model-qwen3-5-9b" },
 ] as const;
 
 for (const modelCase of MODEL_CASES) {
@@ -20,8 +20,6 @@ for (const modelCase of MODEL_CASES) {
       page.getByRole("img", { name: new RegExp(`${escapeRegExp(model.model_label)} composite scatter`) }),
     ).toBeVisible();
     await expect(page.getByTestId("model-axis-profile")).toBeVisible();
-    expect(await page.locator("svg line[stroke-dasharray]").count()).toBeGreaterThanOrEqual(1);
-    expect(await page.locator("svg text").filter({ hasText: /Claude|Gemini|GPT/ }).count()).toBeGreaterThanOrEqual(1);
 
     const runLinks = page.getByTestId("model-runs-table").locator('tbody a[href^="/run/"]');
     await expect(runLinks).toHaveCount(model.runs.length);
@@ -32,10 +30,11 @@ for (const modelCase of MODEL_CASES) {
       );
     }
 
-    if (modelCase.slug === "qwen3-5-9b") {
+    if (modelCase.slug === "qwen3-6-27b") {
       await expect(page.getByText(/FP16 baseline missing/i)).toBeVisible();
-      await expect(page.getByText(/listed below but omitted from scatter x/i).first()).toBeVisible();
-      await expect(page.getByTestId("quality-vram-scatter").getByText(/no footprint/i)).toBeVisible();
+      await expect(page.getByTestId("quant-decision-matrix").getByRole("row", { name: /Q8_0.*Baseline/ })).toBeVisible();
+      await expect(page.getByTestId("quant-decision-matrix").getByRole("row", { name: /Q3_K_M.*Sweet spot/ })).toBeVisible();
+      await expect(page.getByTestId("quant-decision-matrix").getByRole("row", { name: /Q2_K.*-6\.6/ })).toBeVisible();
     }
     if (modelCase.slug === "qwen3-32b") {
       await expect(page.getByTestId("quant-decision-matrix").getByText("Sweet spot")).toBeVisible();

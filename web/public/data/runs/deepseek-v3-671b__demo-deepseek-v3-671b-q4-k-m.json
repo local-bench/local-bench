@@ -1,40 +1,52 @@
 {
   "axes": {
-    "genmath": {
-      "hi": 83.5,
-      "hi_raw": 0.835,
-      "lo": 77.30000000000001,
-      "lo_raw": 0.7730000000000001,
-      "n": 40,
+    "agentic": {
+      "hi": 83.1,
+      "hi_raw": 0.831,
+      "lo": 76.9,
+      "lo_raw": 0.769,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
-      "point": 80.4,
-      "point_raw": 0.804,
-      "raw_accuracy": 0.804
+      "point": 80.0,
+      "point_raw": 0.8,
+      "raw_accuracy": 0.8
     },
-    "ifeval": {
+    "instruction": {
       "hi": 83.89999999999999,
       "hi_raw": 0.839,
       "lo": 77.7,
       "lo_raw": 0.777,
-      "n": 100,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
       "point": 80.8,
       "point_raw": 0.8079999999999999,
       "raw_accuracy": 0.8079999999999999
     },
-    "mmlu_pro": {
+    "knowledge": {
       "hi": 81.89999999999999,
       "hi_raw": 0.819,
       "lo": 75.7,
       "lo_raw": 0.757,
-      "n": 112,
+      "n": 80,
       "n_errors": 0,
       "n_no_answer": 0,
       "point": 78.8,
       "point_raw": 0.7879999999999999,
-      "raw_accuracy": 0.8091999999999999
+      "raw_accuracy": 0.7879999999999999
+    },
+    "math": {
+      "hi": 83.5,
+      "hi_raw": 0.835,
+      "lo": 77.30000000000001,
+      "lo_raw": 0.7730000000000001,
+      "n": 119,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 80.4,
+      "point_raw": 0.804,
+      "raw_accuracy": 0.804
     }
   },
   "composite": {
@@ -50,7 +62,7 @@
   ],
   "demo": true,
   "est_cost_usd": null,
-  "index_version": "index-v0",
+  "index_version": "index-v1",
   "item_set_hashes": {
     "synthetic-demo": "SYNTHETIC-DEMO-NOT-A-MEASUREMENT"
   },
@@ -91,16 +103,20 @@
     },
     "sampling": {
       "by_bench": {
-        "genmath": {
-          "max_tokens": 8192,
+        "agentic": {
+          "max_tokens": 4096,
           "temperature": 0
         },
-        "ifeval": {
+        "instruction": {
           "max_tokens": 1280,
           "temperature": 0
         },
-        "mmlu_pro": {
+        "knowledge": {
           "max_tokens": 4096,
+          "temperature": 0
+        },
+        "math": {
+          "max_tokens": 8192,
           "temperature": 0
         }
       },
@@ -111,21 +127,21 @@
   },
   "model_label": "DeepSeek-V3-671B",
   "run_id": "deepseek-v3-671b__demo-deepseek-v3-671b-q4-k-m",
-  "suite_version": "suite-v0",
+  "suite_version": "suite-v1",
   "tier": "quick",
   "tokens_to_answer_median": 950.0,
   "tokens_to_answer_p95": 1580.0,
   "totals": {
-    "completion_tokens": 239400,
+    "completion_tokens": 341050,
     "completion_tokens_per_second": 17.0,
     "n_errors": 0,
-    "n_items": 252,
-    "prompt_tokens": 20160,
-    "total_tokens": 259560,
-    "wall_time_seconds": 14082.35294117647
+    "n_items": 359,
+    "prompt_tokens": 28720,
+    "total_tokens": 369770,
+    "wall_time_seconds": 20061.764705882353
   },
   "worst_axis": {
-    "bench": "mmlu_pro",
+    "bench": "knowledge",
     "point": 78.8,
     "point_raw": 0.7879999999999999
   }

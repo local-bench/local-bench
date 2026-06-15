@@ -144,7 +144,7 @@ export function QualityVramScatter({
       </div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs text-bench-muted">
         <span>Local points include vertical 95% CI whiskers.</span>
-        <span>Dashed lines are API frontier ceilings, not ranked local rows.</span>
+        <span>{anchors.length > 0 ? "Dashed horizontal lines are API frontier ceilings." : "Dashed vertical lines mark common VRAM tiers."}</span>
         <span className="text-bench-warn">Amber points are synthetic demo preview data.</span>
       </div>
     </section>

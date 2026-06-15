@@ -1,0 +1,98 @@
+{
+  "family": "Gemma-4-12B",
+  "kind": "community",
+  "model_label": "Gemma-4-12B-it",
+  "runs": [
+    {
+      "axes": {
+        "agentic": {
+          "hi": 96.25,
+          "hi_raw": 0.9625,
+          "lo": 82.5,
+          "lo_raw": 0.825,
+          "n": 80,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 90.0,
+          "point_raw": 0.9,
+          "raw_accuracy": 0.9
+        },
+        "instruction": {
+          "hi": 53.75,
+          "hi_raw": 0.5375,
+          "lo": 31.25,
+          "lo_raw": 0.3125,
+          "n": 80,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 42.5,
+          "point_raw": 0.425,
+          "raw_accuracy": 0.425
+        },
+        "knowledge": {
+          "hi": 50.0,
+          "hi_raw": 0.5,
+          "lo": 25.0,
+          "lo_raw": 0.25,
+          "n": 80,
+          "n_errors": 0,
+          "n_no_answer": 8,
+          "point": 37.5,
+          "point_raw": 0.375,
+          "raw_accuracy": 0.4375
+        },
+        "math": {
+          "hi": 9.243697478991598,
+          "hi_raw": 0.09243697478991597,
+          "lo": 1.680672268907563,
+          "lo_raw": 0.01680672268907563,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 5.042016806722689,
+          "point_raw": 0.05042016806722689,
+          "raw_accuracy": 0.05042016806722689
+        }
+      },
+      "composite": {
+        "hi": 52.3109243697479,
+        "hi_raw": 0.523109243697479,
+        "lo": 35.10766806722689,
+        "lo_raw": 0.3510766806722689,
+        "point": 43.760504201680675,
+        "point_raw": 0.4376050420168067
+      },
+      "est_cost_usd": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 359,
+      "quant_label": "Q4_K_M",
+      "run_id": "gemma-4-12b-it__gemma-4-12b-it-q4_k_m",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "tier": "standard",
+      "tok_s": 188.03756882242755,
+      "tokens_to_answer_median": 544.0,
+      "tokens_to_answer_p95": 2048.0,
+      "vram_footprint_gb": 11.0,
+      "wall_time_seconds": 1786.642967700027
+    }
+  ],
+  "slug": "gemma-4-12b-it"
+}

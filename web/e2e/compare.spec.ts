@@ -9,9 +9,16 @@ test("compares two model quant configs with deltas and axis winners", async ({ p
   await expect(page.getByRole("heading", { name: "Compare model configs" })).toBeVisible();
   await expect(page.getByLabel("Left config")).toBeVisible();
   await expect(page.getByLabel("Right config")).toBeVisible();
+
+  await page.getByLabel("Left config").selectOption("qwen3-6-27b__lcpp-q8_0");
+  await page.getByLabel("Right config").selectOption("qwen3-6-27b__lcpp-q2_k");
+
   await expect(page.getByText("Composite delta")).toBeVisible();
   await expect(page.getByText("VRAM delta")).toBeVisible();
   await expect(page.getByText("tok/s delta")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Qwen3.6-27B" })).toHaveCount(2);
+  await expect(page.getByTestId("compare-axis-deltas")).toContainText("Knowledge");
+  await expect(page.getByTestId("compare-axis-deltas")).toContainText("Agentic");
   await expect(page.getByTestId("compare-axis-deltas")).toContainText("wins");
   await expect(page.getByRole("link", { name: /Open left model/i })).toBeVisible();
 });
