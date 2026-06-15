@@ -69,3 +69,53 @@ launch differentiator, not the full seeded study. The work done is substantial a
 items **are the core of the original promise** — so "appropriately met our original goals" is, honestly,
 **not yet**: we built the differentiator and the machine, but not the proof that the machine measures what we
 claim, nor the frontier reference it's meant to measure against.
+
+---
+## MEASURED UPDATE (2026-06-16, later same day)
+Michael had me close the gap. First confirmed (research agent) that **public data cannot supply a frontier
+composite** — no model has published scores across all 5 of our benchmarks; coverage is sparse, cross-version,
+cross-harness (only IFBench carries current frontier). So we measured our own, cost-disciplined.
+
+**Measured matched ladder** — same 25 items, 3 comparable axes (knowledge/instruction/agentic), api-uncapped
+frontier vs answer-only locals, BFCL re-scored with the bug fix below:
+
+| model | knowledge | instruct | agentic | 3-axis |
+|---|---|---|---|---|
+| Gemini 3.1 Pro | 68 | 96 | 100 | **88.0** |
+| GPT-5.5 xhigh | 52 | 96 | 100 | **82.7** |
+| Opus 4.8 max | 52 | 56 | 96 | 68.0 |
+| Qwen3.6-27B Q4 | 52 | 48 | 100 | 66.7 |
+| Gemma-4-12B Q4 | 40 | 28 | 96 | 54.7 |
+| Qwen3-4B Q4 | (floor, running) | | | |
+
+### Verdict update: the v0 discrimination failure is SUBSTANTIALLY CLOSED — measured, not inferred.
+Frontier (82–88) separates cleanly from locals (55–67): a ~20–30 pt gap and a ~33 pt weak→frontier range.
+Nothing like v0's "everyone within 6 points." The comparison spine now exists as real measured data.
+
+### But honestly, the win is uneven and these are real follow-ups (not yet done):
+- **Instruction (IFBench) carries the discrimination.** It spreads cleanly across the full range (96/96/56/48/28).
+- **Knowledge (SuperGPQA) under-discriminates at the top:** GPT-5.5 = Opus = Qwen-27B all at 52 on this
+  25-item subset; only Gemini breaks away. Either N=25 noise or the subset doesn't separate strong models.
+  → review/expand the knowledge subset; raise N.
+- **Agentic (BFCL) saturates** at the top (96–100 for every capable model). → swap in a harder agentic set
+  (ToolHop / multi-turn), per the original adopt plan.
+- **N=25 is too small** for confident per-axis claims (each item = 4%). The aggregate spread is robust; the
+  per-axis numbers are noisy. → Standard-tier N before any of this is published as ranked.
+- **Opus ≈ Qwen-27B** is a *real* result (Claude's known IFBench weakness, published Opus ~58–62), amplified
+  by small N — not a suite failure.
+- **Lane caveat:** locals are answer-only (think-on impractical), frontier is native-reasoning. Different lanes;
+  documented, not merged. The cross-lane gap is the honest "your practical local config vs frontier as it runs."
+
+### Bonus: a real scorer bug found + fixed in the process.
+BFCL's AST arg parser coerced JSON-style booleans (`avoid_tolls=true`) to the string `"true"`, **false-flooring
+frontier models** that emit lowercase booleans (Opus agentic 84→96 once fixed). Committed (0e67ede). Exactly the
+"brittle scorer" failure mode — worth a sweep of the other scorers for similar format assumptions.
+
+### Cost: ≈ $9 total (Opus N=25 ~$4, Gemini N=40 ~$3, GPT-5.5 N=40 ~$1.5, probes ~$0.5). Within budget.
+
+### Where this leaves the original goals (revised)
+The differentiator (wedge) was always there; now the **core validity claim is measured**: the suite discriminates
+local→frontier on our own harness. That moves the project from "impressive machine, unproven measurement" to
+"measurement demonstrated, on a small N, with two axes needing hardening." The remaining honest work is
+*scale + axis quality* (bigger N, harder agentic, knowledge-subset review), not a fundamental validity question.
+Runs: runs/anchor-{gpt55,gemini,opus}-v1.json + runs/qwen3-4b-instruct-q4.json.
