@@ -51,7 +51,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.0, "quality": 75.0, "tok_s": 12, "tokens_to_answer_median": 760, "tokens_to_answer_p95": 1320 },
+    "demo_score": {
+      "ci": 2.0,
+      "quality": 75.0,
+      "tok_s": 12,
+      "tokens_to_answer_median": 760,
+      "tokens_to_answer_p95": 1320
+    },
     "family": "Qwen3",
     "file": "demo/qwen3-32b-fp16.json",
     "kind": "community",
@@ -63,7 +69,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.1, "quality": 74.0, "tok_s": 20, "tokens_to_answer_median": 735, "tokens_to_answer_p95": 1260 },
+    "demo_score": {
+      "ci": 2.1,
+      "quality": 74.0,
+      "tok_s": 20,
+      "tokens_to_answer_median": 735,
+      "tokens_to_answer_p95": 1260
+    },
     "family": "Qwen3",
     "file": "demo/qwen3-32b-q8-0.json",
     "kind": "community",
@@ -75,7 +87,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.2, "quality": 72.6, "tok_s": 31, "tokens_to_answer_median": 710, "tokens_to_answer_p95": 1210 },
+    "demo_score": {
+      "ci": 2.2,
+      "quality": 72.6,
+      "tok_s": 31,
+      "tokens_to_answer_median": 710,
+      "tokens_to_answer_p95": 1210
+    },
     "family": "Qwen3",
     "file": "demo/qwen3-32b-q5-k-m.json",
     "kind": "community",
@@ -87,7 +105,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.3, "quality": 71.2, "tok_s": 42, "tokens_to_answer_median": 690, "tokens_to_answer_p95": 1160 },
+    "demo_score": {
+      "ci": 2.3,
+      "quality": 71.2,
+      "tok_s": 42,
+      "tokens_to_answer_median": 690,
+      "tokens_to_answer_p95": 1160
+    },
     "family": "Qwen3",
     "file": "demo/qwen3-32b-q4-k-m.json",
     "kind": "community",
@@ -99,7 +123,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.6, "quality": 68.5, "tok_s": 55, "tokens_to_answer_median": 670, "tokens_to_answer_p95": 1120 },
+    "demo_score": {
+      "ci": 2.6,
+      "quality": 68.5,
+      "tok_s": 55,
+      "tokens_to_answer_median": 670,
+      "tokens_to_answer_p95": 1120
+    },
     "family": "Qwen3",
     "file": "demo/qwen3-32b-q3-k-m.json",
     "kind": "community",
@@ -111,7 +141,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.2, "quality": 78.0, "tok_s": 5, "tokens_to_answer_median": 820, "tokens_to_answer_p95": 1410 },
+    "demo_score": {
+      "ci": 2.2,
+      "quality": 78.0,
+      "tok_s": 5,
+      "tokens_to_answer_median": 820,
+      "tokens_to_answer_p95": 1410
+    },
     "family": "Llama",
     "file": "demo/llama-3-3-70b-fp16.json",
     "kind": "community",
@@ -123,7 +159,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.3, "quality": 77.0, "tok_s": 8, "tokens_to_answer_median": 800, "tokens_to_answer_p95": 1370 },
+    "demo_score": {
+      "ci": 2.3,
+      "quality": 77.0,
+      "tok_s": 8,
+      "tokens_to_answer_median": 800,
+      "tokens_to_answer_p95": 1370
+    },
     "family": "Llama",
     "file": "demo/llama-3-3-70b-q8-0.json",
     "kind": "community",
@@ -135,7 +177,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.5, "quality": 74.8, "tok_s": 13, "tokens_to_answer_median": 770, "tokens_to_answer_p95": 1325 },
+    "demo_score": {
+      "ci": 2.5,
+      "quality": 74.8,
+      "tok_s": 13,
+      "tokens_to_answer_median": 770,
+      "tokens_to_answer_p95": 1325
+    },
     "family": "Llama",
     "file": "demo/llama-3-3-70b-q5-k-m.json",
     "kind": "community",
@@ -147,7 +195,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.6, "quality": 73.0, "tok_s": 18, "tokens_to_answer_median": 745, "tokens_to_answer_p95": 1280 },
+    "demo_score": {
+      "ci": 2.6,
+      "quality": 73.0,
+      "tok_s": 18,
+      "tokens_to_answer_median": 745,
+      "tokens_to_answer_p95": 1280
+    },
     "family": "Llama",
     "file": "demo/llama-3-3-70b-q4-k-m.json",
     "kind": "community",
@@ -159,7 +213,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 3.0, "quality": 69.0, "tok_s": 25, "tokens_to_answer_median": 720, "tokens_to_answer_p95": 1230 },
+    "demo_score": {
+      "ci": 3.0,
+      "quality": 69.0,
+      "tok_s": 25,
+      "tokens_to_answer_median": 720,
+      "tokens_to_answer_p95": 1230
+    },
     "family": "Llama",
     "file": "demo/llama-3-3-70b-q3-k-m.json",
     "kind": "community",
@@ -171,7 +231,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.1, "quality": 72.5, "tok_s": 14, "tokens_to_answer_median": 725, "tokens_to_answer_p95": 1240 },
+    "demo_score": {
+      "ci": 2.1,
+      "quality": 72.5,
+      "tok_s": 14,
+      "tokens_to_answer_median": 725,
+      "tokens_to_answer_p95": 1240
+    },
     "family": "Gemma",
     "file": "demo/gemma-3-27b-fp16.json",
     "kind": "community",
@@ -183,7 +249,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.2, "quality": 71.4, "tok_s": 24, "tokens_to_answer_median": 705, "tokens_to_answer_p95": 1195 },
+    "demo_score": {
+      "ci": 2.2,
+      "quality": 71.4,
+      "tok_s": 24,
+      "tokens_to_answer_median": 705,
+      "tokens_to_answer_p95": 1195
+    },
     "family": "Gemma",
     "file": "demo/gemma-3-27b-q8-0.json",
     "kind": "community",
@@ -195,7 +267,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.1, "quality": 70.1, "tok_s": 36, "tokens_to_answer_median": 680, "tokens_to_answer_p95": 1140 },
+    "demo_score": {
+      "ci": 2.1,
+      "quality": 70.1,
+      "tok_s": 36,
+      "tokens_to_answer_median": 680,
+      "tokens_to_answer_p95": 1140
+    },
     "family": "Gemma",
     "file": "demo/gemma-3-27b-q5-k-m.json",
     "kind": "community",
@@ -207,7 +285,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.3, "quality": 68.8, "tok_s": 49, "tokens_to_answer_median": 660, "tokens_to_answer_p95": 1100 },
+    "demo_score": {
+      "ci": 2.3,
+      "quality": 68.8,
+      "tok_s": 49,
+      "tokens_to_answer_median": 660,
+      "tokens_to_answer_p95": 1100
+    },
     "family": "Gemma",
     "file": "demo/gemma-3-27b-q4-k-m.json",
     "kind": "community",
@@ -219,7 +303,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.7, "quality": 65.8, "tok_s": 64, "tokens_to_answer_median": 640, "tokens_to_answer_p95": 1060 },
+    "demo_score": {
+      "ci": 2.7,
+      "quality": 65.8,
+      "tok_s": 64,
+      "tokens_to_answer_median": 640,
+      "tokens_to_answer_p95": 1060
+    },
     "family": "Gemma",
     "file": "demo/gemma-3-27b-q3-k-m.json",
     "kind": "community",
@@ -231,7 +321,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.0, "quality": 71.8, "tok_s": 16, "tokens_to_answer_median": 700, "tokens_to_answer_p95": 1180 },
+    "demo_score": {
+      "ci": 2.0,
+      "quality": 71.8,
+      "tok_s": 16,
+      "tokens_to_answer_median": 700,
+      "tokens_to_answer_p95": 1180
+    },
     "family": "Mistral",
     "file": "demo/mistral-small-24b-fp16.json",
     "kind": "community",
@@ -243,7 +339,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.1, "quality": 70.9, "tok_s": 27, "tokens_to_answer_median": 680, "tokens_to_answer_p95": 1145 },
+    "demo_score": {
+      "ci": 2.1,
+      "quality": 70.9,
+      "tok_s": 27,
+      "tokens_to_answer_median": 680,
+      "tokens_to_answer_p95": 1145
+    },
     "family": "Mistral",
     "file": "demo/mistral-small-24b-q8-0.json",
     "kind": "community",
@@ -255,7 +357,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.1, "quality": 69.5, "tok_s": 40, "tokens_to_answer_median": 660, "tokens_to_answer_p95": 1105 },
+    "demo_score": {
+      "ci": 2.1,
+      "quality": 69.5,
+      "tok_s": 40,
+      "tokens_to_answer_median": 660,
+      "tokens_to_answer_p95": 1105
+    },
     "family": "Mistral",
     "file": "demo/mistral-small-24b-q5-k-m.json",
     "kind": "community",
@@ -267,7 +375,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.3, "quality": 68.1, "tok_s": 54, "tokens_to_answer_median": 640, "tokens_to_answer_p95": 1075 },
+    "demo_score": {
+      "ci": 2.3,
+      "quality": 68.1,
+      "tok_s": 54,
+      "tokens_to_answer_median": 640,
+      "tokens_to_answer_p95": 1075
+    },
     "family": "Mistral",
     "file": "demo/mistral-small-24b-q4-k-m.json",
     "kind": "community",
@@ -279,7 +393,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.6, "quality": 65.2, "tok_s": 70, "tokens_to_answer_median": 620, "tokens_to_answer_p95": 1030 },
+    "demo_score": {
+      "ci": 2.6,
+      "quality": 65.2,
+      "tok_s": 70,
+      "tokens_to_answer_median": 620,
+      "tokens_to_answer_p95": 1030
+    },
     "family": "Mistral",
     "file": "demo/mistral-small-24b-q3-k-m.json",
     "kind": "community",
@@ -291,7 +411,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.3, "quality": 66.0, "tok_s": 30, "tokens_to_answer_median": 610, "tokens_to_answer_p95": 1005 },
+    "demo_score": {
+      "ci": 2.3,
+      "quality": 66.0,
+      "tok_s": 30,
+      "tokens_to_answer_median": 610,
+      "tokens_to_answer_p95": 1005
+    },
     "family": "Phi",
     "file": "demo/phi-4-14b-fp16.json",
     "kind": "community",
@@ -303,7 +429,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.5, "quality": 65.2, "tok_s": 50, "tokens_to_answer_median": 590, "tokens_to_answer_p95": 970 },
+    "demo_score": {
+      "ci": 2.5,
+      "quality": 65.2,
+      "tok_s": 50,
+      "tokens_to_answer_median": 590,
+      "tokens_to_answer_p95": 970
+    },
     "family": "Phi",
     "file": "demo/phi-4-14b-q8-0.json",
     "kind": "community",
@@ -315,7 +447,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.6, "quality": 63.8, "tok_s": 74, "tokens_to_answer_median": 570, "tokens_to_answer_p95": 940 },
+    "demo_score": {
+      "ci": 2.6,
+      "quality": 63.8,
+      "tok_s": 74,
+      "tokens_to_answer_median": 570,
+      "tokens_to_answer_p95": 940
+    },
     "family": "Phi",
     "file": "demo/phi-4-14b-q5-k-m.json",
     "kind": "community",
@@ -327,7 +465,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.7, "quality": 62.4, "tok_s": 96, "tokens_to_answer_median": 550, "tokens_to_answer_p95": 900 },
+    "demo_score": {
+      "ci": 2.7,
+      "quality": 62.4,
+      "tok_s": 96,
+      "tokens_to_answer_median": 550,
+      "tokens_to_answer_p95": 900
+    },
     "family": "Phi",
     "file": "demo/phi-4-14b-q4-k-m.json",
     "kind": "community",
@@ -339,7 +483,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 3.0, "quality": 59.8, "tok_s": 124, "tokens_to_answer_median": 530, "tokens_to_answer_p95": 865 },
+    "demo_score": {
+      "ci": 3.0,
+      "quality": 59.8,
+      "tok_s": 124,
+      "tokens_to_answer_median": 530,
+      "tokens_to_answer_p95": 865
+    },
     "family": "Phi",
     "file": "demo/phi-4-14b-q3-k-m.json",
     "kind": "community",
@@ -351,7 +501,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.4, "quality": 82.0, "tok_s": 5, "tokens_to_answer_median": 980, "tokens_to_answer_p95": 1680 },
+    "demo_score": {
+      "ci": 2.4,
+      "quality": 82.0,
+      "tok_s": 5,
+      "tokens_to_answer_median": 980,
+      "tokens_to_answer_p95": 1680
+    },
     "family": "Llama",
     "file": "demo/llama-3-1-405b-fp16.json",
     "kind": "community",
@@ -363,7 +519,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.5, "quality": 81.0, "tok_s": 7, "tokens_to_answer_median": 955, "tokens_to_answer_p95": 1620 },
+    "demo_score": {
+      "ci": 2.5,
+      "quality": 81.0,
+      "tok_s": 7,
+      "tokens_to_answer_median": 955,
+      "tokens_to_answer_p95": 1620
+    },
     "family": "Llama",
     "file": "demo/llama-3-1-405b-q8-0.json",
     "kind": "community",
@@ -375,7 +537,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.6, "quality": 79.5, "tok_s": 10, "tokens_to_answer_median": 930, "tokens_to_answer_p95": 1570 },
+    "demo_score": {
+      "ci": 2.6,
+      "quality": 79.5,
+      "tok_s": 10,
+      "tokens_to_answer_median": 930,
+      "tokens_to_answer_p95": 1570
+    },
     "family": "Llama",
     "file": "demo/llama-3-1-405b-q5-k-m.json",
     "kind": "community",
@@ -387,7 +555,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.8, "quality": 78.0, "tok_s": 12, "tokens_to_answer_median": 900, "tokens_to_answer_p95": 1510 },
+    "demo_score": {
+      "ci": 2.8,
+      "quality": 78.0,
+      "tok_s": 12,
+      "tokens_to_answer_median": 900,
+      "tokens_to_answer_p95": 1510
+    },
     "family": "Llama",
     "file": "demo/llama-3-1-405b-q4-k-m.json",
     "kind": "community",
@@ -399,7 +573,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 3.0, "quality": 75.0, "tok_s": 15, "tokens_to_answer_median": 875, "tokens_to_answer_p95": 1460 },
+    "demo_score": {
+      "ci": 3.0,
+      "quality": 75.0,
+      "tok_s": 15,
+      "tokens_to_answer_median": 875,
+      "tokens_to_answer_p95": 1460
+    },
     "family": "Llama",
     "file": "demo/llama-3-1-405b-q3-k-m.json",
     "kind": "community",
@@ -411,7 +591,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.3, "quality": 84.0, "tok_s": 8, "tokens_to_answer_median": 1040, "tokens_to_answer_p95": 1760 },
+    "demo_score": {
+      "ci": 2.3,
+      "quality": 84.0,
+      "tok_s": 8,
+      "tokens_to_answer_median": 1040,
+      "tokens_to_answer_p95": 1760
+    },
     "family": "DeepSeek",
     "file": "demo/deepseek-v3-671b-fp16.json",
     "kind": "community",
@@ -423,7 +609,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.4, "quality": 83.0, "tok_s": 10, "tokens_to_answer_median": 1010, "tokens_to_answer_p95": 1700 },
+    "demo_score": {
+      "ci": 2.4,
+      "quality": 83.0,
+      "tok_s": 10,
+      "tokens_to_answer_median": 1010,
+      "tokens_to_answer_p95": 1700
+    },
     "family": "DeepSeek",
     "file": "demo/deepseek-v3-671b-q8-0.json",
     "kind": "community",
@@ -435,7 +627,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.5, "quality": 81.5, "tok_s": 14, "tokens_to_answer_median": 980, "tokens_to_answer_p95": 1640 },
+    "demo_score": {
+      "ci": 2.5,
+      "quality": 81.5,
+      "tok_s": 14,
+      "tokens_to_answer_median": 980,
+      "tokens_to_answer_p95": 1640
+    },
     "family": "DeepSeek",
     "file": "demo/deepseek-v3-671b-q5-k-m.json",
     "kind": "community",
@@ -447,7 +645,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 2.7, "quality": 80.0, "tok_s": 17, "tokens_to_answer_median": 950, "tokens_to_answer_p95": 1580 },
+    "demo_score": {
+      "ci": 2.7,
+      "quality": 80.0,
+      "tok_s": 17,
+      "tokens_to_answer_median": 950,
+      "tokens_to_answer_p95": 1580
+    },
     "family": "DeepSeek",
     "file": "demo/deepseek-v3-671b-q4-k-m.json",
     "kind": "community",
@@ -459,7 +663,13 @@
   },
   {
     "demo": true,
-    "demo_score": { "ci": 3.0, "quality": 77.0, "tok_s": 20, "tokens_to_answer_median": 920, "tokens_to_answer_p95": 1520 },
+    "demo_score": {
+      "ci": 3.0,
+      "quality": 77.0,
+      "tok_s": 20,
+      "tokens_to_answer_median": 920,
+      "tokens_to_answer_p95": 1520
+    },
     "family": "DeepSeek",
     "file": "demo/deepseek-v3-671b-q3-k-m.json",
     "kind": "community",
@@ -468,5 +678,15 @@
     "quant_label": "Q3_K_M",
     "reasoning_lane": "answer-only",
     "vram_footprint_gb": 300
+  },
+  {
+    "family": "Gemma-4-12B",
+    "file": "runs/gemma-4-12b-it-q4_k_m.json",
+    "kind": "community",
+    "model_label": "Gemma-4-12B-it",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q4_K_M",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 11
   }
 ]

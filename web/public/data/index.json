@@ -153,6 +153,79 @@
     {
       "axes": {
         "agentic": {
+          "hi": 96.25,
+          "hi_raw": 0.9625,
+          "lo": 82.5,
+          "lo_raw": 0.825,
+          "n": 80,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 90.0,
+          "point_raw": 0.9,
+          "raw_accuracy": 0.9
+        },
+        "instruction": {
+          "hi": 53.75,
+          "hi_raw": 0.5375,
+          "lo": 31.25,
+          "lo_raw": 0.3125,
+          "n": 80,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 42.5,
+          "point_raw": 0.425,
+          "raw_accuracy": 0.425
+        },
+        "knowledge": {
+          "hi": 50.0,
+          "hi_raw": 0.5,
+          "lo": 25.0,
+          "lo_raw": 0.25,
+          "n": 80,
+          "n_errors": 0,
+          "n_no_answer": 8,
+          "point": 37.5,
+          "point_raw": 0.375,
+          "raw_accuracy": 0.4375
+        },
+        "math": {
+          "hi": 9.243697478991598,
+          "hi_raw": 0.09243697478991597,
+          "lo": 1.680672268907563,
+          "lo_raw": 0.01680672268907563,
+          "n": 119,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 5.042016806722689,
+          "point_raw": 0.05042016806722689,
+          "raw_accuracy": 0.05042016806722689
+        }
+      },
+      "best_run_id": "gemma-4-12b-it__gemma-4-12b-it-q4_k_m",
+      "composite": {
+        "hi": 52.3109243697479,
+        "hi_raw": 0.523109243697479,
+        "lo": 35.10766806722689,
+        "lo_raw": 0.3510766806722689,
+        "point": 43.760504201680675,
+        "point_raw": 0.4376050420168067
+      },
+      "est_cost_usd": null,
+      "family": "Gemma-4-12B",
+      "kind": "community",
+      "lane": "answer-only",
+      "model_label": "Gemma-4-12B-it",
+      "n_runs": 1,
+      "ranked": true,
+      "replicated": false,
+      "slug": "gemma-4-12b-it",
+      "tier": "standard",
+      "tokens_to_answer_median": 544.0,
+      "tokens_to_answer_p95": 2048.0
+    },
+    {
+      "axes": {
+        "agentic": {
           "hi": 84.8,
           "hi_raw": 0.848,
           "lo": 79.2,
