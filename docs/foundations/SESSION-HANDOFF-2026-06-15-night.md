@@ -110,3 +110,12 @@ Playwright e2e on site-overhaul: **12/12 passed** (55s) — all routes incl. rea
   LongBench-v2. More infra than #39; ties to the context-tier wedge (#47) you had interest in steering.
 - Pre-existing working-tree cruft remains (modified OVERNIGHT-LOG/PROJECT-HANDOFF/README + web/public/data
   line-ending churn) — not mine to discard; flagged for your triage.
+
+---
+## ACTION ITEM (Michael, 2026-06-16): hardware recording
+- **Already captured** in the run manifest: `manifest.hardware` records GPU name + VRAM + driver + CPU + OS
+  (e.g. "NVIDIA GeForce RTX 5090", 32607 MB, driver 596.36, Windows-11). So basic recording is DONE.
+- **TODO (action later):** (a) verify cross-platform detection — Mac M-series (Metal/MPS, "Apple M5", unified
+  memory), AMD GPUs, and CPU-only rigs (the current probe is NVIDIA/`nvidia-smi`-centric); (b) **surface
+  hardware on the site** (run + model pages should show "ran on RTX 5090 / Mac M5 / …") — it's in the manifest
+  but not yet displayed; (c) include it in the manifest identity/canonicality + a hardware facet/filter.
