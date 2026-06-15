@@ -84,3 +84,9 @@ Quant wedge (5 rungs, cliff at Q2) · discrimination probe (zero-spend, public d
 - Minor observation (not a bug; moot at 0 errors): infra-errored items count as incorrect in raw_accuracy. Fine as policy; revisit only if error rates rise.
 - `suite/v1-quant-wedge`: **468 tests pass.**
 - **Loop status:** launch-critical work done + refactored + QA-checked; everything green, nothing pushed. Remaining tasks need your call (#45 reconcile, #51 composite) or are best built post-reconcile (#39 LCB, #40 RULER). Holding off on more divergent branch work — winding to a quiet idle, will resume on your word.
+
+---
+## Final QA: site e2e GREEN (~21:02)
+Playwright e2e on site-overhaul: **12/12 passed** (55s) — all routes incl. real `qwen3-6-27b` model page + matrix/scatter, run detail `qwen3-6-27b__lcpp-q8_0`, compare, leaderboard (deterministic sort). Full QA matrix now green: cli 468 · web vitest 17 · e2e 12 · `npm run build` · scoring core verified.
+
+**Loop ended here — genuine idle.** All launch-critical work done, refactored, QA-verified, handed off; nothing pushed. Resume points for you, in priority order: (1) **#45 reconcile branches** (the unblocker), (2) **#51 composite weighting** (your call), (3) build **#39 LCB / #40 RULER** on the unified base, (4) rotate API keys. Re-engage me anytime.
