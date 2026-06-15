@@ -92,7 +92,13 @@ def _resolve_value(value: ast.expr) -> AstValue | None:
     if isinstance(value, ast.Dict):
         return _resolve_dict(value)
     if isinstance(value, ast.Name):
-        return value.id
+        # JSON/JS-style literals (true/false/null) parse as bare names under Python's
+        # grammar; map them to Python values so a model that emits lowercase booleans
+        # isn't mis-scored (the name would otherwise coerce to a string that can never
+        # match the expected bool/None). Genuine identifiers fall through unchanged.
+        return {"true": True, "false": False, "null": None, "none": None}.get(
+            value.id.lower(), value.id
+        )
     if isinstance(value, ast.Call):
         if not value.keywords:
             return ast.unparse(value)
