@@ -77,3 +77,10 @@ The branches have diverged and it's now the bottleneck:
 
 ### Done tonight
 Quant wedge (5 rungs, cliff at Q2) · discrimination probe (zero-spend, public data) · site→suite-v1 + Gemma + refactor + test-port · mining retired. Locally committed, nothing pushed.
+
+---
+## QA spot-check (scoring core) + loop status
+- Chance-correction `signed_score=(raw−chance)/(1−chance)` is CORRECT (no inference clamping; display clamp is cosmetic). Verified: supergpqa raw 0.50 @ chance 0.10 → 0.444 = reported. Scoring methodology was already GPT-5.5 red-teamed (per plan).
+- Minor observation (not a bug; moot at 0 errors): infra-errored items count as incorrect in raw_accuracy. Fine as policy; revisit only if error rates rise.
+- `suite/v1-quant-wedge`: **468 tests pass.**
+- **Loop status:** launch-critical work done + refactored + QA-checked; everything green, nothing pushed. Remaining tasks need your call (#45 reconcile, #51 composite) or are best built post-reconcile (#39 LCB, #40 RULER). Holding off on more divergent branch work — winding to a quiet idle, will resume on your word.
