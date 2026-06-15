@@ -77,6 +77,16 @@ def test_extract_choice_when_response_contains_choice_patterns(
     assert result == expected
 
 
+def test_extract_choice_rejects_bold_letter_embedded_in_prose() -> None:
+    # Given a bold letter mid-reasoning with trailing prose after it (a false positive the
+    # old match-anywhere bold fallback credited on hedged/truncated output).
+    # When extracting.
+    # Then no answer is extracted...
+    assert extract_choice("Let me reconsider option **G** before deciding", 10) is None
+    # ...but a bold letter that ENDS the response is still the stated answer.
+    assert extract_choice("After weighing it, **C**", 4) == "C"
+
+
 def test_score_mcq_when_extracted_choice_matches_gold() -> None:
     # Given a response with a lower-case answer marker.
     # When scoring against the matching gold letter.

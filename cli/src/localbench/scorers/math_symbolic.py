@@ -29,7 +29,7 @@ class _Ratio:
 _ParsedMath = Basic | Interval | _Ratio | tuple[Basic, ...] | frozenset[Basic]
 
 
-def extract_math_answer(text: str) -> str | None:
+def extract_math_answer(text: str, *, allow_bare_number_fallback: bool = True) -> str | None:
     try:
         if not text:
             return None
@@ -43,15 +43,28 @@ def extract_math_answer(text: str) -> str | None:
             if _is_answer_candidate(candidate):
                 return candidate
 
+        # The bare "last number anywhere in the text" heuristic is a WEAK fallback. On a
+        # truncated output (finish_reason == "length") the trailing number is mid-reasoning
+        # scratch work, not a final answer — crediting it produces false positives (e.g. a
+        # local model that hits the token cap mid-derivation gets scored "correct" because
+        # its last scratch number coincides with the gold). Callers pass
+        # allow_bare_number_fallback=False for truncated outputs so those non-answers are
+        # not credited. A genuine boxed/marked answer above still counts even when truncated.
+        if not allow_bare_number_fallback:
+            return None
+
         numbers = [_clean_candidate(match.group(0)) for match in _NUMBER_RE.finditer(text)]
         return numbers[-1] if numbers else None
     except Exception:  # noqa: BLE001 - extraction runs on every response and must never crash a run
         return None
 
 
-def verify_math(response_text: str, gold: str) -> bool:
+def verify_math(response_text: str, gold: str, *, finish_reason: str | None = None) -> bool:
     try:
-        answer = extract_math_answer(response_text)
+        answer = extract_math_answer(
+            response_text,
+            allow_bare_number_fallback=finish_reason != "length",
+        )
         if answer is None:
             return False
         return _equivalent(answer, gold)
@@ -60,14 +73,16 @@ def verify_math(response_text: str, gold: str) -> bool:
 
 
 def _equivalent(answer: str, gold: str) -> bool:
-    if _verify_with_math_verify(answer, gold):
-        return True
-
+    # Strict local parse/equivalence FIRST. When BOTH sides parse with the local parser, its
+    # verdict is authoritative. math_verify runs with loose settings (strict=False,
+    # float_rounding=4, allow_set_relation_comp) and otherwise credits numerically-DIFFERENT
+    # answers — observed false positives: boxed{2} vs gold 2*sqrt(2)-1, and [-1,1] vs (-1,1).
+    # math_verify is used only as a fallback when the local parser cannot represent a side.
     parsed_answer = _parse_candidate(answer)
     parsed_gold = _parse_candidate(gold)
-    if parsed_answer is None or parsed_gold is None:
-        return False
-    return _parsed_equivalent(parsed_answer, parsed_gold)
+    if parsed_answer is not None and parsed_gold is not None:
+        return _parsed_equivalent(parsed_answer, parsed_gold)
+    return _verify_with_math_verify(answer, gold)
 
 
 def _verify_with_math_verify(answer: str, gold: str) -> bool:

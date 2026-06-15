@@ -18,7 +18,11 @@ _MARKER_PATTERNS: Final = (
 )
 _PATTERN_GROUPS: Final = (
     (r"\\boxed\s*\{\s*([A-J])\s*\}", None, False),
-    (r"\*\*\s*([A-J])\s*\*\*", None, False),
+    # A bold letter counts as the answer only when it ENDS the response ("...the answer is
+    # **C**"), optionally with trailing punctuation. A bold letter embedded in prose with
+    # text after it ("still weighing **G** here") is mid-reasoning, not an answer — the old
+    # match-anywhere bold fallback credited those, a false positive on hedged/truncated output.
+    (r"\*\*\s*([A-J])\s*\*\*[\s.):\]]*\Z", None, True),
     (r"(?m)^\s*[\(\[]?\s*([A-J])\s*[\)\]\.]?\s*$", None, True),
     (r"\(([A-J])\)", _TAIL_CHARS, True),
 )

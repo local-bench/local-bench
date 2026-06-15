@@ -59,7 +59,9 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
     for source_item, result in zip(bench.source_items, results, strict=True):
         response_text = result["response_text"]
         error = result["error"]
-        extracted, correct = _score_response(bench.name, source_item, response_text, error)
+        extracted, correct = _score_response(
+            bench.name, source_item, response_text, error, result["finish_reason"]
+        )
         scored.append(
             {
                 "id": result["id"],
@@ -151,6 +153,7 @@ def _score_response(
     source_item: Mapping[str, JsonValue],
     response_text: str | None,
     error: str | None,
+    finish_reason: str | None = None,
 ) -> tuple[str | None, bool]:
     if error is not None or response_text is None:
         return None, False
@@ -170,8 +173,15 @@ def _score_response(
             extracted = extract_final_number(response_text)
             return extracted, score_math(response_text, _string(source_item.get("answer")) or "")
         case "amo" | "olymmath_hard":
-            extracted = extract_math_answer(response_text)
-            return extracted, verify_math(response_text, _string(source_item.get("answer")) or "")
+            allow_fallback = finish_reason != "length"
+            extracted = extract_math_answer(
+                response_text, allow_bare_number_fallback=allow_fallback
+            )
+            return extracted, verify_math(
+                response_text,
+                _string(source_item.get("answer")) or "",
+                finish_reason=finish_reason,
+            )
         case "bfcl":
             detailed = score_bfcl(source_item, response_text)
             return detailed["extracted"], detailed["correct"]
