@@ -29,6 +29,20 @@
       "sha256": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
       "source_dataset": "gorilla-llm/Berkeley-Function-Calling-Leaderboard",
       "source_revision": "61fc0608cfd831fcfbbaa676ebdfef0ed963eeda"
+    },
+    "lcb.jsonl": {
+      "item_count": 129,
+      "sha256": "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",
+      "source_dataset": "livecodebench/test_generation",
+      "source_revision": "6f3ac40bbecf81eba15899139d279b077f2816fd",
+      "source_url": "https://huggingface.co/datasets/livecodebench/test_generation",
+      "license": "CC-BY-4.0",
+      "harness_repo": "https://github.com/LiveCodeBench/LiveCodeBench",
+      "harness_revision": "28fef95ea8c9f7a547c8329f2cd3d32b92c1fa24",
+      "harness_license": "MIT",
+      "date_window": "2023-12-01..2024-03-02",
+      "date_window_rationale": "Latest available contiguous LiveCodeBench Test Output Prediction contest-date window with at least 100 items; keeps suite-v1 coding modest and rotatable.",
+      "source_tos_note": "Problem statements originate from LeetCode; retain source-site ToS awareness."
     }
   }
 }

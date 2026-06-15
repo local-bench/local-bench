@@ -17,20 +17,23 @@ BENCH_DOMAINS: Final[dict[str, str]] = {
     "mmlu_pro": "Knowledge",
     "ifeval": "Instruction-Following",
     "genmath": "Math",
-    # suite-v1 (4 capability axes)
+    # suite-v1 (5 capability axes)
     "supergpqa": "Knowledge",
     "ifbench": "Instruction-Following",
     "bfcl": "Agentic",
+    "lcb": "Coding",
     "olymmath_hard": "Math",
     "amo": "Math",
 }
 
 # Equal per-axis. Weights are normalized over the domains actually present, so a
-# suite-v0 run (3 axes) gets 1/3 each and a suite-v1 run (4 axes) gets 1/4 each.
+# suite-v0 run (3 axes) gets 1/3 each and suite-v1 runs normalize over the axes
+# selected for that run.
 DOMAIN_WEIGHTS: Final[dict[str, float]] = {
     "Knowledge": 0.25,
     "Instruction-Following": 0.25,
     "Agentic": 0.25,
+    "Coding": 0.25,
     "Math": 0.25,
 }
 

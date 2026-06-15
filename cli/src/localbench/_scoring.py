@@ -10,6 +10,7 @@ from localbench._types import ItemResult, JsonValue, Usage
 from localbench.scorers.bfcl import score_bfcl
 from localbench.scorers.ifbench import score_ifbench
 from localbench.scorers.ifeval import score_ifeval
+from localbench.scorers.lcb import score_lcb
 from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
@@ -172,6 +173,9 @@ def _score_response(
         case "bfcl":
             detailed = score_bfcl(source_item, response_text)
             return detailed["extracted"], detailed["correct"]
+        case "lcb":
+            detailed = score_lcb(source_item, response_text)
+            return detailed["extracted"], detailed["correct"]
         case _:
             return None, False
 
@@ -187,7 +191,15 @@ def _string(value: JsonValue | None) -> str | None:
 
 
 def _bench_has_extraction(bench: str) -> bool:
-    return bench in {"mmlu_pro", "genmath", "amo", "olymmath_hard", "supergpqa", "bfcl"}
+    return bench in {
+        "mmlu_pro",
+        "genmath",
+        "amo",
+        "olymmath_hard",
+        "supergpqa",
+        "bfcl",
+        "lcb",
+    }
 
 
 def _sum_usage(items: list[ScoredItem], key: str) -> int:
