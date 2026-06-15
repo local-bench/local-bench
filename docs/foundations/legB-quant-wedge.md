@@ -2,7 +2,7 @@
 
 **Result in one line:** on suite-v1 (answer-only, N=80), Qwen3.6-27B holds quality **flat from Q8_0
 all the way down to Q3_K_M** — every paired composite delta among Q8/Q6/Q4/Q3 spans or touches zero —
-and then **falls off a measurable cliff at Q2_K** (composite −5 ± ~3 vs every higher rung, CI excludes
+and then **falls off a measurable cliff at Q2_K** (composite −6 ± ~3.5 vs every higher rung, CI excludes
 zero; agentic/instruction drop 10–15 pts). Meanwhile throughput rises monotonically as bits fall
 (89 → 137 tok/s). The practical takeaway for a local user: **run Q4_K_M or Q3_K_M — quality is identical
 to Q8_0, it's faster, and it saves 11–15 GB of VRAM. Do NOT drop to Q2_K — that's where it breaks.**
@@ -41,16 +41,16 @@ leakage, 0 empty completions) · `-c 8192 --parallel 2` (4096 tok/slot) · quant
 `--max-tokens 2048` · temperature 0 · N=80/bench (amo=39), identical item ids → genuine paired deltas ·
 RTX 5090. **0 infra errors across all 359 items in every run.**
 
-## Per-rung scorecard (chance-corrected accuracy)
+## Per-rung scorecard (chance-corrected accuracy; **composite is per-axis** — Math = olymmath_hard+amo pooled as ONE axis, 4 axes × 0.25)
 | rung | knowledge | instruction | agentic | math (oly/amo) | **composite** | malformed² | tok/s | med lat | VRAM(wts) |
 |---|---|---|---|---|---|---|---|---|---|
-| Q2_K | 40.3% | 47.5% | **82.5%** | 3.8% / 5.1% | **35.8%** | 18 + 1 | **137** | **12.4 s** | **~12 GB** |
-| Q3_K_M | 43.1% | **57.5%** | 95.0% | 7.5% / 2.6% | **41.1%** | 14 | 115 | 12.6 s | ~14 GB |
-| Q4_K_M | 48.6% | 53.8% | 91.2% | 6.2% / 5.1% | **41.0%** | 13 | 107 | 13.6 s | ~16 GB |
-| Q6_K | 48.6% | 56.2% | 97.5% | 10.0% / 5.1% | **43.5%** | 15 | 104 | 15.4 s | ~21 GB |
-| Q8_0 | 44.4% | 53.8% | 97.5% | 6.2% / 2.6% | **40.9%** | 11 | 89 | 17.0 s | ~27 GB |
+| Q2_K | 40.3% | 47.5% | **82.5%** | 3.8% / 5.1% | **43.6%** | 18 + 1 | **137** | **12.4 s** | **~12 GB** |
+| Q3_K_M | 43.1% | **57.5%** | 95.0% | 7.5% / 2.6% | **50.4%** | 14 | 115 | 12.6 s | ~14 GB |
+| Q4_K_M | 48.6% | 53.8% | 91.2% | 6.2% / 5.1% | **49.9%** | 13 | 107 | 13.6 s | ~16 GB |
+| Q6_K | 48.6% | 56.2% | 97.5% | 10.0% / 5.1% | **52.7%** | 15 | 104 | 15.4 s | ~21 GB |
+| Q8_0 | 44.4% | 53.8% | 97.5% | 6.2% / 2.6% | **50.2%** | 11 | 89 | 17.0 s | ~27 GB |
 
-The **Q8→Q3 band (composite 40.9–43.5) is one flat noisy plateau**; **Q2_K sits ~5 pts below the bottom
+The **Q8→Q3 band (composite 49.9–52.7) is one flat noisy plateau**; **Q2_K sits ~6–7 pts below the bottom
 of it** and shows the only across-the-board axis drops (agentic 82.5 vs 91–98; instruction 47.5 vs 54–58).
 tok/s / latency / VRAM move monotonically with bit-width and are the *cost* differentiators on the plateau.
 Wall-clock: Q2 45.2 / Q3 52.9 / Q4 56.5 / Q6 58.2 / Q8 68.6 min. All RTX-5090-specific.
@@ -63,18 +63,18 @@ signal that tracks the accuracy cliff. All other axes: 0 malformed, 0 errors, ev
 ## Paired composite deltas ("on these items" ± bootstrap CI)
 | pair | quantizer | composite Δ | 95% CI | significant? |
 |---|---|---|---|---|
-| Q6_K − Q4_K_M | lmstudio↔lmstudio | +2.5 | −0.5 .. +5.8 | no |
-| Q8_0 − Q4_K_M | lmstudio↔lmstudio | ≈ 0 | −2.8 .. +2.8 | no |
-| Q8_0 − Q6_K | lmstudio↔lmstudio | −2.6 | −5.1 .. 0.0 | no (touches 0) |
-| Q3_K_M − Q4_K_M | bartowski↔lmstudio | +0.2 | −2.8 .. +3.2 | no |
-| Q3_K_M − Q8_0 | bartowski↔lmstudio | +0.2 | −2.3 .. +2.8 | no |
-| **Q2_K − Q3_K_M** | **bartowski↔bartowski** | **−5.2** | **−8.3 .. −2.2** | **YES** |
-| **Q2_K − Q4_K_M** | bartowski↔lmstudio | **−5.0** | **−8.8 .. −1.2** | **YES** |
-| **Q2_K − Q8_0** | bartowski↔lmstudio | **−5.0** | **−8.3 .. −1.7** | **YES** |
+| Q6_K − Q4_K_M | lmstudio↔lmstudio | +2.8 | −0.4 .. +6.2 | no |
+| Q8_0 − Q4_K_M | lmstudio↔lmstudio | +0.4 | −2.7 .. +3.5 | no |
+| Q8_0 − Q6_K | lmstudio↔lmstudio | −2.4 | −5.2 .. +0.4 | no (crosses 0) |
+| Q3_K_M − Q4_K_M | bartowski↔lmstudio | +0.6 | −2.5 .. +3.9 | no |
+| Q3_K_M − Q8_0 | bartowski↔lmstudio | +0.2 | −2.9 .. +3.3 | no |
+| **Q2_K − Q3_K_M** | **bartowski↔bartowski** | **−6.7** | **−10.4 .. −3.1** | **YES** |
+| **Q2_K − Q4_K_M** | bartowski↔lmstudio | **−6.0** | **−10.2 .. −1.9** | **YES** |
+| **Q2_K − Q8_0** | bartowski↔lmstudio | **−6.5** | **−10.4 .. −2.6** | **YES** |
 
 **Every Q8/Q6/Q4/Q3 pair is tied** (CI spans/touches 0; ordering non-monotonic = noise). **Every Q2_K
 pair is significant** (CI excludes 0). The single cleanest result — the **within-bartowski Q2−Q3 cliff,
-−5.2 ± 3.2** — needs no cross-quantizer caveat: it isolates one bit-width step and it's the first
+−6.7 ± 3.6** — needs no cross-quantizer caveat: it isolates one bit-width step and it's the first
 significant composite delta in the entire ladder.
 
 ## Interpretation
@@ -103,7 +103,7 @@ significant composite delta in the entire ladder.
   `--parallel 1` or report a small repeatability band.
 - **The product message is strong, honest, and now complete:** *"Measured on Qwen3.6-27B across a 5-quant
   ladder: quality is flat from Q8 down to Q3 — run the small quant and keep 13 GB — but Q2_K costs you a
-  real, significant 5 composite points (and 10–15 on tool-use and instruction-following). With CIs, not vibes."*
+  real, significant ~6.5 composite points (and 10–15 on tool-use and instruction-following). With CIs, not vibes."*
 
 ## Caveats
 - **Quantizer confound (Q3/Q2 are bartowski; Q4/Q6/Q8 are lmstudio).** Mitigated three ways: the
@@ -118,8 +118,12 @@ significant composite delta in the entire ladder.
   capability axis. A capped-thinking math lane is a later addition.
 - **Timing is 5090-specific.** Q8_0 needing ~30 GB (fits only with a near-idle desktop) is itself a real
   finding: an 8-bit 27B is impractical on 32 GB; Q4_K_M (~20 GB runtime) is the comfortable headline rung.
-- Scoring uses the pre-hardening bootstrap (the red-team's cluster-robust/equivalence fixes are on a
-  separate branch pending the merge-scope decision; both the within-noise plateau and the Q2 cliff are
-  robust to either).
+- **Composite is per-axis** (4 capability axes × 0.25; Math = olymmath_hard+amo pooled), matching the
+  leaderboard/site exactly. Earlier drafts used per-bench equal weighting (Math counted twice, 40%) —
+  the conclusion is identical and slightly sharper under per-axis (Q2 cliff −6.0..−6.7 vs −5.0..−5.2).
+- The red-team's cluster-robust block bootstrap / equivalence fixes are now **merged into the lineage**
+  (#45 reconciled); these paired deltas use the standard block bootstrap (per-item clustering not yet
+  passed in the wedge `compare`). Activating per-item clusters is a later refinement; both the plateau
+  and the Q2 cliff are robust to either.
 
 Runs: `runs/lcpp-{q2_k,q3_k_m,q4_k_m,q6_k,q8_0}.json` (+ `q8_0-rerun`); deltas `runs/delta-*.json` (gitignored).

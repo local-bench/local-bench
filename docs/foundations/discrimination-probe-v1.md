@@ -39,12 +39,11 @@ mid-rows AA-reported); OlymMATH [arXiv 2503.21380](https://arxiv.org/abs/2503.21
   none floors capable local-tier models (math locals sit 19–37%, not ~0). No axis is dropped at v1.
 - **Provisional weights: knowledge 0.25 / instruction 0.25 / agentic 0.25 / math 0.25.** Editorial equal-weight
   per AXIS for v1 (cross-axis spreads aren't on a common measured scale yet). Versioned; revisit with a same-harness pass.
-- **Wiring note (deliberate follow-up, NOT done here):** the runtime composite (`_scoring.py::composite`) is
-  currently equal-weight per *bench* — with 5 benches that gives the math AXIS 2/5 = 40% (olymmath_hard + amo)
-  and the other three axes 1/5 = 20% each. Moving to per-axis-equal (math = 25%, combining its two benches first)
-  is the intended v1 behavior but **shifts every existing composite** (incl. the legB wedge numbers), so it must be
-  done as one deliberate change with a re-statement of affected docs — left as a tracked follow-up. `suite.json`
-  axis weights stay `null` until that wiring lands (setting them now would be cosmetic — `composite()` ignores them).
+- **Wiring: DONE (#51).** `_scoring.py::composite` and `paired_delta` now both group benches into the 4 axes via
+  `BENCH_DOMAINS` (Math = olymmath_hard + amo pooled at one axis-share), weighted equally per axis (`DOMAIN_WEIGHTS`,
+  normalized over axes present so suite-v0's 3 axes stay 1/3 each). `suite.json` axis weights set to 0.25. The CLI
+  composite now equals the web pipeline's exactly (Qwen3.6-27B Q4 0.499, Q6 0.527, Q8 0.502, Q3 0.504, Q2 0.436);
+  the legB wedge doc is re-stated to these per-axis numbers (conclusion unchanged, cliff slightly sharper). 468 tests green.
 - **Agentic is the watch-item.** Frontier may saturate BFCL at the top; our quant ladder still shows it
   discriminating (Q2_K −12.5 vs Q3 on bfcl), so it earns its keep at the *local* range we serve. If frontier
   anchors later cluster within 3 pts on BFCL, swap in a harder agentic set (ToolHop / multi-turn).
