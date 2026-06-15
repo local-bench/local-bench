@@ -5,11 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import TypeAlias
+from typing import Final, TypeAlias
 
 import pytest
-
-from localbench.scoring.signed_score import chance_for_bench, signed_score
 
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -18,7 +16,22 @@ JsonObject: TypeAlias = dict[str, JsonValue]
 ROOT = Path(__file__).resolve().parents[2]
 DATA_SOURCES = ROOT / "web" / "data_sources.json"
 DATA_DIR = ROOT / "web" / "public" / "data"
-BENCHES = ("genmath", "ifeval", "mmlu_pro")
+AXES: Final = ("knowledge", "instruction", "agentic", "math")
+SOURCE_BENCHES: Final = ("supergpqa", "ifbench", "bfcl", "olymmath_hard", "amo")
+SOURCE_BENCHES_BY_AXIS: Final = {
+    "knowledge": ("supergpqa",),
+    "instruction": ("ifbench",),
+    "agentic": ("bfcl",),
+    "math": ("olymmath_hard", "amo"),
+}
+SOURCE_CHANCE_BASELINES: Final = {"supergpqa": 0.1}
+QWEN_RUN_STEMS: Final = (
+    "lcpp-q8_0",
+    "lcpp-q6_k",
+    "lcpp-q4_k_m",
+    "lcpp-q3_k_m",
+    "lcpp-q2_k",
+)
 
 
 def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -> None:
@@ -47,31 +60,47 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
     assert first_outputs == second_outputs
     index = _object(_read_json(DATA_DIR / "index.json"))
     assert set(index) == {"generated_note", "index_version", "models", "suite_version"}
+    assert _string(index["suite_version"]) == "suite-v1"
     models = _objects(index["models"])
     assert models
 
-    qwen = _model_by_label(models, "Qwen3.5 9B")
-    assert _string(qwen["family"]) == "Qwen3.5"
+    qwen = _model_by_label(models, "Qwen3.6-27B")
+    assert _string(qwen["family"]) == "Qwen3.6-27B"
     assert _string(qwen["kind"]) == "community"
-    assert _number(qwen["n_runs"]) >= 3  # repeatability triplet is the floor; quant runs may add more
-    assert _string(qwen["best_run_id"])
+    assert _string(qwen["lane"]) == "answer-only"
+    assert _number(qwen["n_runs"]) == len(QWEN_RUN_STEMS)
+    assert _string(qwen["slug"]) == "qwen3-6-27b"
+    assert _string(qwen["best_run_id"]) in {
+        f"qwen3-6-27b__{stem}" for stem in QWEN_RUN_STEMS
+    }
     _assert_interval(_object(qwen["composite"]))
-    for bench in BENCHES:
-        _assert_interval(_object(_object(qwen["axes"])[bench]))
+    for axis in AXES:
+        _assert_interval(_object(_object(qwen["axes"])[axis]))
 
-    # At least one frontier anchor is present, on the native-reasoning lane, with a valid composite.
-    anchors = [model for model in models if _string(model["kind"]) == "anchor"]
-    assert anchors
-    for anchor in anchors:
-        assert _string(anchor["lane"]) == "api-uncapped"
-        _assert_interval(_object(anchor["composite"]))
+    gemma = _model_by_label(models, "Gemma-4-12B-it")
+    assert _string(gemma["family"]) == "Gemma-4-12B"
+    assert _string(gemma["kind"]) == "community"
+    assert _string(gemma["lane"]) == "answer-only"
+    assert _number(gemma["n_runs"]) == 1
+    assert _bool(gemma["ranked"]) is True
+    _assert_interval(_object(gemma["composite"]))
+    for axis in AXES:
+        _assert_interval(_object(_object(gemma["axes"])[axis]))
+
+    demo_models = [model for model in models if model.get("demo") is True]
+    assert demo_models
+    for demo_model in demo_models:
+        assert set(_object(demo_model["axes"])) == set(AXES)
 
     slug = _string(qwen["slug"])
     model_path = DATA_DIR / "models" / f"{slug}.json"
     assert model_path.exists()
     model_detail = _object(_read_json(model_path))
     model_runs = _objects(model_detail["runs"])
-    assert len(model_runs) >= 3
+    assert len(model_runs) == len(QWEN_RUN_STEMS)
+    assert {_string(run["run_id"]) for run in model_runs} == {
+        f"qwen3-6-27b__{stem}" for stem in QWEN_RUN_STEMS
+    }
 
     for run_row in model_runs:
         run_id = _string(run_row["run_id"])
@@ -79,18 +108,15 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
         assert run_path.exists()
         detail = _object(_read_json(run_path))
         raw_run = _object(_read_json(ROOT / "runs" / f"{run_id.split('__', 1)[1]}.json"))
-        assert detail["data_warnings"] == []
+        assert _string(detail["suite_version"]) == "suite-v1"
+        warnings = _strings(detail["data_warnings"])
+        assert all("differs from stored composite" in warning for warning in warnings)
         assert _object(detail["composite"])["point_raw"] == pytest.approx(
-            _number(raw_run["composite"]),
+            _expected_composite(raw_run),
             abs=1e-6,
         )
-        for bench in BENCHES:
-            raw_axis = _object(_object(raw_run["benches"])[bench])
-            axis = _object(_object(detail["axes"])[bench])
-            assert _number(axis["point_raw"]) == pytest.approx(
-                signed_score(_number(raw_axis["raw_accuracy"]), chance=chance_for_bench(bench)),
-                abs=1e-9,
-            )
+        for axis in AXES:
+            _assert_axis_matches_raw_sources(axis, raw_run, detail)
         _assert_run_detail(detail)
 
     best_run = _string(qwen["best_run_id"])
@@ -104,9 +130,30 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
     # Given a synthetic run whose stored chance-corrected and raw-accuracy values are stale.
     builder = _build_data_module()
-    paths = _write_synthetic_pipeline_inputs(tmp_path, [_synthetic_item("genmath-v0-product_minus_offset-1", "genmath", True), _synthetic_item("genmath-v0-average_of_five-1", "genmath", False, error="ResponseParseError: missing content"), _synthetic_item("102", "ifeval", True), _synthetic_item("127", "ifeval", None), _synthetic_item("136", "mmlu_pro", True), _synthetic_item("221", "mmlu_pro", False)])
+    paths = _write_synthetic_pipeline_inputs(
+        tmp_path,
+        [
+            _synthetic_item("supergpqa-001", "supergpqa", True, category="physics", template="mcq-a"),
+            _synthetic_item("supergpqa-002", "supergpqa", False, category="biology", template="mcq-b"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+            _synthetic_item("ifbench-002", "ifbench", None, template="format-list"),
+            _synthetic_item("bfcl-001", "bfcl", True, category="tool-use", template="single-call"),
+            _synthetic_item("bfcl-002", "bfcl", False, category="tool-use", template="multi-call"),
+            _synthetic_item("olymmath-hard-001", "olymmath_hard", True, category="geometry", template="proof"),
+            _synthetic_item(
+                "olymmath-hard-002",
+                "olymmath_hard",
+                False,
+                category="algebra",
+                template="construction",
+                error="ResponseParseError: missing content",
+            ),
+            _synthetic_item("amo-001", "amo", True, category="number-theory", template="short-answer"),
+            _synthetic_item("amo-002", "amo", False, category="combinatorics", template="counting"),
+        ],
+    )
     run = _object(_read_json(paths["run"]))
-    _object(_object(run["benches"])["genmath"])["raw_accuracy"] = 1.0
+    _object(_object(run["benches"])["supergpqa"])["raw_accuracy"] = 0.55
     paths["run"].write_text(json.dumps(run), encoding="utf-8")
 
     # When the web data pipeline builds static JSON from scored items.
@@ -115,64 +162,111 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     # Then point estimates and CIs count errors/no-answers as incorrect.
     detail = _only_run_detail(paths["out"])
     axes = _object(detail["axes"])
-    genmath = _object(axes["genmath"])
-    ifeval = _object(axes["ifeval"])
+    knowledge = _object(axes["knowledge"])
+    instruction = _object(axes["instruction"])
+    math = _object(axes["math"])
     composite = _object(detail["composite"])
-    assert genmath["point_raw"] == pytest.approx(0.5)
-    assert genmath["raw_accuracy"] == pytest.approx(0.5)
-    assert genmath["hi_raw"] < 1.0
-    assert ifeval["point_raw"] == pytest.approx(0.5)
-    assert ifeval["hi_raw"] < 1.0
-    assert ifeval["n_no_answer"] == 1
-    assert genmath["n_errors"] == 1
-    assert composite["point_raw"] == pytest.approx((0.5 + 0.5 + (0.5 - 0.1) / 0.9) / 3)
+    assert knowledge["point_raw"] == pytest.approx((0.5 - 0.1) / 0.9)
+    assert instruction["point_raw"] == pytest.approx(0.5)
+    assert instruction["raw_accuracy"] == pytest.approx(0.5)
+    assert instruction["hi_raw"] < 1.0
+    assert instruction["n_no_answer"] == 1
+    assert math["point_raw"] == pytest.approx(0.5)
+    assert math["hi_raw"] < 1.0
+    assert math["n_errors"] == 1
+    assert composite["point_raw"] == pytest.approx(
+        (((0.5 - 0.1) / 0.9) + 0.5 + 0.5 + 0.5) / 4,
+    )
     assert isinstance(detail["data_warnings"], list)
-    assert any("genmath raw_accuracy" in _string(warning) for warning in detail["data_warnings"])
+    assert any(
+        "knowledge chance_corrected differs" in warning
+        for warning in _strings(detail["data_warnings"])
+    )
 
 
 def test_build_data_when_items_have_suite_metadata_uses_real_strata(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Given genmath items whose suite metadata resolves to different difficulty strata.
+    # Given suite-v1 math items whose metadata resolves to different source strata.
     builder = _build_data_module()
     from localbench.scoring import bootstrap, metadata
 
-    original_ci = bootstrap.per_bench_ci
+    original_ci = bootstrap.stratified_mean_ci
     original_stratum = metadata.stratum_for_item
     captured_strata: list[tuple[str, ...]] = []
     stratum_calls: list[tuple[str, str, str]] = []
 
-    def recording_ci(correct: list[bool], strata: list[str], *, iters: int, seed: int) -> dict[str, float]:
+    def recording_ci(values: list[float], strata: list[str], *, iters: int, seed: int) -> dict[str, float]:
         captured_strata.append(tuple(strata))
-        return original_ci(correct, strata, iters=iters, seed=seed)
+        return original_ci(values, strata, iters=iters, seed=seed)
 
     def recording_stratum(bench: str, item_id: str, item: JsonObject) -> str:
         stratum = original_stratum(bench, item_id, item)
         stratum_calls.append((bench, item_id, stratum))
         return stratum
 
-    monkeypatch.setattr(bootstrap, "per_bench_ci", recording_ci)
+    monkeypatch.setattr(bootstrap, "stratified_mean_ci", recording_ci)
     monkeypatch.setattr(metadata, "stratum_for_item", recording_stratum)
-    paths = _write_synthetic_pipeline_inputs(tmp_path, [_synthetic_item("genmath-v0-product_minus_offset-1", "genmath", True), _synthetic_item("genmath-v0-average_of_five-1", "genmath", False), _synthetic_item("102", "ifeval", True), _synthetic_item("127", "ifeval", False), _synthetic_item("136", "mmlu_pro", True), _synthetic_item("221", "mmlu_pro", False)])
+    paths = _write_synthetic_pipeline_inputs(
+        tmp_path,
+        [
+            _synthetic_item("supergpqa-001", "supergpqa", True, category="physics", template="mcq-a"),
+            _synthetic_item("supergpqa-002", "supergpqa", False, category="biology", template="mcq-b"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+            _synthetic_item("ifbench-002", "ifbench", False, template="format-list"),
+            _synthetic_item("bfcl-001", "bfcl", True, category="tool-use", template="single-call"),
+            _synthetic_item("bfcl-002", "bfcl", False, category="tool-use", template="multi-call"),
+            _synthetic_item(
+                "olymmath-hard-001",
+                "olymmath_hard",
+                True,
+                category="geometry",
+                difficulty="hard",
+                template="proof",
+            ),
+            _synthetic_item(
+                "amo-001",
+                "amo",
+                False,
+                category="number-theory",
+                difficulty="hard",
+                template="short-answer",
+            ),
+        ],
+    )
 
-    # When the web data pipeline computes per-bench intervals.
+    # When the web data pipeline computes per-axis intervals.
     builder.build_static_data(paths["sources"], paths["out"], iters=50)
 
-    # Then genmath uses category|difficulty|template strata from scoring metadata.
-    genmath_strata = captured_strata[0]
-    assert genmath_strata == (
-        "category=arithmetic|difficulty=easy|template=product_minus_offset",
-        "category=arithmetic|difficulty=medium|template=average_of_five",
+    # Then math uses category|difficulty|template strata from its two suite-v1 source benches.
+    math_strata = next(
+        strata
+        for strata in captured_strata
+        if any(stratum.startswith("bench=olymmath_hard|") for stratum in strata)
     )
-    assert len(set(genmath_strata)) == 2
-    assert [call[0] for call in stratum_calls].count("genmath") == 2
+    assert math_strata == (
+        "bench=olymmath_hard|category=geometry|difficulty=hard|template=proof",
+        "bench=amo|category=number-theory|difficulty=hard|template=short-answer",
+    )
+    assert len(set(math_strata)) == 2
+    assert [call[0] for call in stratum_calls].count("olymmath_hard") == 1
+    assert [call[0] for call in stratum_calls].count("amo") == 1
 
 
 def _run_pipeline(*, iters: int) -> None:
     result = subprocess.run(
-        [sys.executable, "web/build_data.py", "--iters", str(iters)],
-        cwd=ROOT,
+        [
+            sys.executable,
+            "build_data.py",
+            "--sources",
+            "data_sources.json",
+            "--out",
+            "public/data",
+            "--iters",
+            str(iters),
+        ],
+        cwd=ROOT / "web",
         capture_output=True,
         text=True,
         check=False,
@@ -196,19 +290,48 @@ def _write_synthetic_pipeline_inputs(
     sources_path = tmp_path / "sources.json"
     out_dir = tmp_path / "out"
     run_path.write_text(json.dumps(_synthetic_run(items)), encoding="utf-8")
-    sources_path.write_text(json.dumps([{"family": "Synthetic", "file": str(run_path), "kind": "community", "model_label": "Synthetic Model", "quant_label": None, "reasoning_lane": "test", "vram_footprint_gb": None}]), encoding="utf-8")
+    sources_path.write_text(
+        json.dumps(
+            [
+                {
+                    "family": "Synthetic",
+                    "file": str(run_path),
+                    "kind": "community",
+                    "model_label": "Synthetic Model",
+                    "quant_label": None,
+                    "reasoning_lane": "test",
+                    "vram_footprint_gb": None,
+                },
+            ],
+        ),
+        encoding="utf-8",
+    )
     return {"run": run_path, "sources": sources_path, "out": out_dir}
 
 
 def _synthetic_run(items: list[JsonObject]) -> JsonObject:
-    benches = {bench: _synthetic_aggregate(items, bench) for bench in BENCHES}
+    benches = {bench: _synthetic_aggregate(items, bench) for bench in SOURCE_BENCHES}
     return {
         "schema": "localbench-run-v0",
-        "manifest": {"suite": {"suite_version": "suite-v0", "tier": "quick"}},
+        "manifest": {
+            "suite": {
+                "suite_version": "suite-v1",
+                "tier": "standard",
+                "item_set_hashes": {f"{bench}.jsonl": f"synthetic-{bench}" for bench in SOURCE_BENCHES},
+            },
+        },
         "benches": benches,
-        "composite": 1.0,
+        "composite": _synthetic_composite(benches),
         "items": items,
-        "totals": {"n_items": len(items), "n_errors": sum(1 for item in items if item.get("error") is not None), "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "wall_time_seconds": 1.0, "completion_tokens_per_second": 0.0},
+        "totals": {
+            "n_items": len(items),
+            "n_errors": sum(1 for item in items if item.get("error") is not None),
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+            "wall_time_seconds": 1.0,
+            "completion_tokens_per_second": 0.0,
+        },
         "warnings": [],
         "output_path": "synthetic-run.json",
     }
@@ -216,13 +339,17 @@ def _synthetic_run(items: list[JsonObject]) -> JsonObject:
 
 def _synthetic_aggregate(items: list[JsonObject], bench: str) -> JsonObject:
     bench_items = [item for item in items if item["bench"] == bench]
+    assert bench_items
     raw_accuracy = sum(1 for item in bench_items if item.get("correct") is True) / len(bench_items)
     return {
         "n": len(bench_items),
         "n_errors": sum(1 for item in bench_items if item.get("error") is not None),
         "n_extraction_failures": 0,
         "raw_accuracy": raw_accuracy,
-        "chance_corrected": 1.0,
+        "chance_corrected": _signed_score(
+            raw_accuracy,
+            chance=SOURCE_CHANCE_BASELINES.get(bench, 0.0),
+        ),
     }
 
 
@@ -231,9 +358,12 @@ def _synthetic_item(
     bench: str,
     correct: bool | None,
     *,
+    category: str | None = None,
+    difficulty: str | None = None,
     error: str | None = None,
+    template: str | None = None,
 ) -> JsonObject:
-    return {
+    item: JsonObject = {
         "id": item_id,
         "bench": bench,
         "correct": correct,
@@ -241,6 +371,56 @@ def _synthetic_item(
         "extracted": "answer" if correct is not None else None,
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
     }
+    if category is not None:
+        item["category"] = category
+    if difficulty is not None:
+        item["difficulty"] = difficulty
+    if template is not None:
+        item["template"] = template
+    return item
+
+
+def _synthetic_composite(benches: JsonObject) -> float:
+    return sum(
+        _weighted_source_value(benches, SOURCE_BENCHES_BY_AXIS[axis], "chance_corrected")
+        for axis in AXES
+    ) / len(AXES)
+
+
+def _signed_score(raw: float, *, chance: float) -> float:
+    return (raw - chance) / (1.0 - chance)
+
+
+def _expected_composite(raw_run: JsonObject) -> float:
+    raw_benches = _object(raw_run["benches"])
+    return sum(
+        _weighted_source_value(raw_benches, SOURCE_BENCHES_BY_AXIS[axis], "chance_corrected")
+        for axis in AXES
+    ) / len(AXES)
+
+
+def _assert_axis_matches_raw_sources(axis: str, raw_run: JsonObject, detail: JsonObject) -> None:
+    raw_benches = _object(raw_run["benches"])
+    source_names = SOURCE_BENCHES_BY_AXIS[axis]
+    axis_detail = _object(_object(detail["axes"])[axis])
+    assert _number(axis_detail["point_raw"]) == pytest.approx(
+        _weighted_source_value(raw_benches, source_names, "chance_corrected"),
+        abs=1e-9,
+    )
+    assert _number(axis_detail["raw_accuracy"]) == pytest.approx(
+        _weighted_source_value(raw_benches, source_names, "raw_accuracy"),
+        abs=1e-9,
+    )
+    assert _number(axis_detail["n"]) == pytest.approx(
+        sum(_number(_object(raw_benches[bench])["n"]) for bench in source_names),
+        abs=1e-9,
+    )
+
+
+def _weighted_source_value(raw_benches: JsonObject, source_names: tuple[str, ...], key: str) -> float:
+    aggregates = [_object(raw_benches[bench]) for bench in source_names]
+    n_total = sum(_number(aggregate["n"]) for aggregate in aggregates)
+    return sum(_number(aggregate[key]) * _number(aggregate["n"]) for aggregate in aggregates) / n_total
 
 
 def _only_run_detail(out_dir: Path) -> JsonObject:
@@ -277,8 +457,9 @@ def _assert_run_detail(detail: JsonObject) -> None:
     } <= set(detail)
     _assert_interval(_object(detail["composite"]))
     axes = _object(detail["axes"])
-    for bench in BENCHES:
-        axis = _object(axes[bench])
+    assert set(axes) == set(AXES)
+    for axis_name in AXES:
+        axis = _object(axes[axis_name])
         _assert_interval(axis)
         assert {"n", "n_errors", "n_no_answer", "raw_accuracy"} <= set(axis)
 
@@ -316,6 +497,19 @@ def _objects(value: JsonValue) -> list[JsonObject]:
 
 def _string(value: JsonValue) -> str:
     assert isinstance(value, str)
+    return value
+
+
+def _strings(value: JsonValue) -> list[str]:
+    assert isinstance(value, list)
+    strings: list[str] = []
+    for item in value:
+        strings.append(_string(item))
+    return strings
+
+
+def _bool(value: JsonValue) -> bool:
+    assert isinstance(value, bool)
     return value
 
 
