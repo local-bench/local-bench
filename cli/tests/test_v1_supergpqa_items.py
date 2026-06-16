@@ -11,14 +11,16 @@ JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dic
 JsonObject: TypeAlias = dict[str, JsonValue]
 
 _REPO_ROOT: Final = Path(__file__).resolve().parents[2]
-_ITEM_FILE: Final = _REPO_ROOT / "suite" / "v1" / "supergpqa.jsonl"
+_SUITE_DIR: Final = _REPO_ROOT / "suite" / "v1"
+_ITEM_FILE: Final = _SUITE_DIR / "mmlu_pro.jsonl"
 _EXPECTED_COUNT: Final = 400
-_SCHEMA_KEYS: Final = {"id", "question", "options", "answer"}
+_EXPECTED_SHA256: Final = "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
+_SCHEMA_KEYS: Final = {"id", "question", "options", "answer", "category"}
 _LETTERS: Final = "ABCDEFGHIJ"
 
 
-def test_v1_supergpqa_items_are_valid_mcq_rows_when_loaded() -> None:
-    # Given the frozen suite-v1 SuperGPQA item file.
+def test_v1_mmlu_pro_items_are_valid_mcq_rows_when_loaded() -> None:
+    # Given the frozen suite-v1 MMLU-Pro item file.
     # When loading each JSONL row.
     items = _load_jsonl(_ITEM_FILE)
 
@@ -31,6 +33,7 @@ def test_v1_supergpqa_items_are_valid_mcq_rows_when_loaded() -> None:
         _question(item, item_id, offenders)
         options = _options(item, item_id, offenders)
         answer = _answer(item, item_id, len(options), offenders)
+        _category(item, item_id, offenders)
 
         if item_id in ids:
             offenders.append(f"{item_id}: duplicate id")
@@ -41,6 +44,25 @@ def test_v1_supergpqa_items_are_valid_mcq_rows_when_loaded() -> None:
                 offenders.append(f"{item_id}: mcq.py cannot self-score answer {answer!r}")
 
     assert offenders == []
+
+
+def test_v1_mmlu_pro_itemset_hash_matches_suite_and_lock() -> None:
+    # Given the suite manifest and lockfile.
+    suite = _read_json_object(_SUITE_DIR / "suite.json")
+    lock = _read_json_object(_SUITE_DIR / "itemsets.lock.json")
+
+    # When reading the MMLU-Pro itemset references.
+    suite_entry = _object(_object(_object(suite["benches"])["mmlu_pro"])["itemsets"])["standard"]
+    lock_entry = _object(_object(lock["files"])["mmlu_pro.jsonl"])
+
+    # Then suite.json and itemsets.lock.json agree on count, hash, and provenance.
+    assert _object(suite_entry)["item_count"] == _EXPECTED_COUNT
+    assert _object(suite_entry)["sha256"] == _EXPECTED_SHA256
+    assert lock_entry["sha256"] == _EXPECTED_SHA256
+    assert lock_entry["item_count"] == _EXPECTED_COUNT
+    assert lock_entry["source_dataset"] == "TIGER-Lab/MMLU-Pro"
+    assert lock_entry["source_revision"] == "b189ec765aa7ed75c8acfea42df31fdae71f97be"
+    assert lock_entry["license"] == "MIT"
 
 
 def _load_jsonl(path: Path) -> list[JsonObject]:
@@ -58,7 +80,7 @@ def _item_id(row: Mapping[str, JsonValue], index: int, offenders: list[str]) -> 
     if set(row) != _SCHEMA_KEYS:
         offenders.append(f"row {index}: keys {sorted(row)} != {sorted(_SCHEMA_KEYS)}")
     value = row.get("id")
-    expected = f"supergpqa-{index:03d}"
+    expected = f"mmlu-pro-{index:03d}"
     if not isinstance(value, str):
         offenders.append(f"row {index}: id must be a string")
         return f"row-{index}"
@@ -80,6 +102,10 @@ def _options(row: Mapping[str, JsonValue], item_id: str, offenders: list[str]) -
         return ()
     if len(value) < 2 or len(value) > 10:
         offenders.append(f"{item_id}: options count {len(value)} is outside 2..10")
+    if "N/A" in value:
+        offenders.append(f"{item_id}: N/A filler option was emitted")
+    if len(value) != len(set(value)):
+        offenders.append(f"{item_id}: duplicate options")
     bad_options = [
         option_index
         for option_index, option in enumerate(value, start=1)
@@ -101,3 +127,21 @@ def _answer(row: Mapping[str, JsonValue], item_id: str, n_options: int, offender
     if len(answer) != 1 or answer not in _LETTERS[:n_options]:
         offenders.append(f"{item_id}: answer {value!r} is not in range A..{_LETTERS[n_options - 1]}")
     return answer
+
+
+def _category(row: Mapping[str, JsonValue], item_id: str, offenders: list[str]) -> None:
+    value = row.get("category")
+    if not isinstance(value, str) or not value.strip():
+        offenders.append(f"{item_id}: category must be a non-empty string")
+
+
+def _read_json_object(path: Path) -> JsonObject:
+    with path.open(encoding="utf-8") as handle:
+        data = json.load(handle)
+    return _object(data)
+
+
+def _object(value: JsonValue) -> JsonObject:
+    if not isinstance(value, dict):
+        raise AssertionError(f"expected object, got {type(value).__name__}")
+    return value

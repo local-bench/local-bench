@@ -17,14 +17,17 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA_SOURCES = ROOT / "web" / "data_sources.json"
 DATA_DIR = ROOT / "web" / "public" / "data"
 AXES: Final = ("knowledge", "instruction", "agentic", "math")
-SOURCE_BENCHES: Final = ("supergpqa", "ifbench", "bfcl", "olymmath_hard", "amo")
-SOURCE_BENCHES_BY_AXIS: Final = {
-    "knowledge": ("supergpqa",),
-    "instruction": ("ifbench",),
-    "agentic": ("bfcl",),
-    "math": ("olymmath_hard", "amo"),
+SOURCE_BENCHES: Final = ("mmlu_pro", "ifbench", "bfcl", "olymmath_hard", "amo")
+SOURCE_BENCH_GROUPS_BY_AXIS: Final = {
+    "knowledge": (("mmlu_pro",), ("supergpqa",)),
+    "instruction": (("ifbench",),),
+    "agentic": (("bfcl",),),
+    "math": (("olymmath_hard", "amo"),),
 }
-SOURCE_CHANCE_BASELINES: Final = {"supergpqa": 0.1}
+SOURCE_CHANCE_BASELINES: Final = {
+    "mmlu_pro": 0.10918253968253969,
+    "supergpqa": 0.1,
+}
 QWEN_RUN_STEMS: Final = (
     "lcpp-q8_0",
     "lcpp-q6_k",
@@ -133,8 +136,8 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     paths = _write_synthetic_pipeline_inputs(
         tmp_path,
         [
-            _synthetic_item("supergpqa-001", "supergpqa", True, category="physics", template="mcq-a"),
-            _synthetic_item("supergpqa-002", "supergpqa", False, category="biology", template="mcq-b"),
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("mmlu-pro-002", "mmlu_pro", False, category="biology", template="mcq-b"),
             _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
             _synthetic_item("ifbench-002", "ifbench", None, template="format-list"),
             _synthetic_item("bfcl-001", "bfcl", True, category="tool-use", template="single-call"),
@@ -153,7 +156,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
         ],
     )
     run = _object(_read_json(paths["run"]))
-    _object(_object(run["benches"])["supergpqa"])["raw_accuracy"] = 0.55
+    _object(_object(run["benches"])["mmlu_pro"])["raw_accuracy"] = 0.55
     paths["run"].write_text(json.dumps(run), encoding="utf-8")
 
     # When the web data pipeline builds static JSON from scored items.
@@ -166,7 +169,8 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     instruction = _object(axes["instruction"])
     math = _object(axes["math"])
     composite = _object(detail["composite"])
-    assert knowledge["point_raw"] == pytest.approx((0.5 - 0.1) / 0.9)
+    chance = SOURCE_CHANCE_BASELINES["mmlu_pro"]
+    assert knowledge["point_raw"] == pytest.approx((0.5 - chance) / (1.0 - chance))
     assert instruction["point_raw"] == pytest.approx(0.5)
     assert instruction["raw_accuracy"] == pytest.approx(0.5)
     assert instruction["hi_raw"] < 1.0
@@ -175,7 +179,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     assert math["hi_raw"] < 1.0
     assert math["n_errors"] == 1
     assert composite["point_raw"] == pytest.approx(
-        (((0.5 - 0.1) / 0.9) + 0.5 + 0.5 + 0.5) / 4,
+        (((0.5 - chance) / (1.0 - chance)) + 0.5 + 0.5 + 0.5) / 4,
     )
     assert isinstance(detail["data_warnings"], list)
     assert any(
@@ -211,8 +215,8 @@ def test_build_data_when_items_have_suite_metadata_uses_real_strata(
     paths = _write_synthetic_pipeline_inputs(
         tmp_path,
         [
-            _synthetic_item("supergpqa-001", "supergpqa", True, category="physics", template="mcq-a"),
-            _synthetic_item("supergpqa-002", "supergpqa", False, category="biology", template="mcq-b"),
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("mmlu-pro-002", "mmlu_pro", False, category="biology", template="mcq-b"),
             _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
             _synthetic_item("ifbench-002", "ifbench", False, template="format-list"),
             _synthetic_item("bfcl-001", "bfcl", True, category="tool-use", template="single-call"),
@@ -382,7 +386,7 @@ def _synthetic_item(
 
 def _synthetic_composite(benches: JsonObject) -> float:
     return sum(
-        _weighted_source_value(benches, SOURCE_BENCHES_BY_AXIS[axis], "chance_corrected")
+        _weighted_source_value(benches, _source_names_for_axis(axis, benches), "chance_corrected")
         for axis in AXES
     ) / len(AXES)
 
@@ -394,14 +398,14 @@ def _signed_score(raw: float, *, chance: float) -> float:
 def _expected_composite(raw_run: JsonObject) -> float:
     raw_benches = _object(raw_run["benches"])
     return sum(
-        _weighted_source_value(raw_benches, SOURCE_BENCHES_BY_AXIS[axis], "chance_corrected")
+        _weighted_source_value(raw_benches, _source_names_for_axis(axis, raw_benches), "chance_corrected")
         for axis in AXES
     ) / len(AXES)
 
 
 def _assert_axis_matches_raw_sources(axis: str, raw_run: JsonObject, detail: JsonObject) -> None:
     raw_benches = _object(raw_run["benches"])
-    source_names = SOURCE_BENCHES_BY_AXIS[axis]
+    source_names = _source_names_for_axis(axis, raw_benches)
     axis_detail = _object(_object(detail["axes"])[axis])
     assert _number(axis_detail["point_raw"]) == pytest.approx(
         _weighted_source_value(raw_benches, source_names, "chance_corrected"),
@@ -421,6 +425,13 @@ def _weighted_source_value(raw_benches: JsonObject, source_names: tuple[str, ...
     aggregates = [_object(raw_benches[bench]) for bench in source_names]
     n_total = sum(_number(aggregate["n"]) for aggregate in aggregates)
     return sum(_number(aggregate[key]) * _number(aggregate["n"]) for aggregate in aggregates) / n_total
+
+
+def _source_names_for_axis(axis: str, raw_benches: JsonObject) -> tuple[str, ...]:
+    for source_names in SOURCE_BENCH_GROUPS_BY_AXIS[axis]:
+        if all(bench in raw_benches for bench in source_names):
+            return source_names
+    raise AssertionError(f"missing source benches for axis {axis}: {sorted(raw_benches)}")
 
 
 def _only_run_detail(out_dir: Path) -> JsonObject:

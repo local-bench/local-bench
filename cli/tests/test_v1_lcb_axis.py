@@ -88,7 +88,7 @@ def test_existing_four_axis_composite_is_unchanged_when_coding_domain_is_absent(
     from localbench._scoring import BenchAggregate, composite
 
     benches: dict[str, BenchAggregate] = {
-        "supergpqa": _aggregate(0.50),
+        "mmlu_pro": _aggregate(0.50),
         "ifbench": _aggregate(0.60),
         "bfcl": _aggregate(0.70),
         "amo": _aggregate(0.80),

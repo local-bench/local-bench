@@ -33,17 +33,17 @@
       "lane_caps": {},
       "template": "templates/math.txt"
     },
-    "supergpqa": {
-      "chance_correction_baseline": 0.1,
+    "mmlu_pro": {
+      "chance_correction_baseline": 0.10918253968253969,
       "decoding": {
         "max_tokens": 12288,
         "temperature": 0
       },
       "itemsets": {
         "standard": {
-          "file": "supergpqa.jsonl",
+          "file": "mmlu_pro.jsonl",
           "item_count": 400,
-          "sha256": "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a"
+          "sha256": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
         }
       },
       "lane_caps": {},
@@ -122,7 +122,7 @@
       "reference_note": "Published frontier ceiling (REPORTED, not measured by local-bench): AMO-Bench ~0.63 AVG@32 and OlymMATH EN-HARD ~0.58 P@1; conservative axis value. Probe-only (reference-anchored discrimination). See docs/foundations/math-anchor-reference.md."
     },
     "knowledge": {
-      "benches": ["supergpqa"],
+      "benches": ["mmlu_pro"],
       "weight": 0.25
     },
     "instruction_following": {

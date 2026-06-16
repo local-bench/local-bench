@@ -12,11 +12,12 @@
       "source_dataset": "RUC-AIBOX/OlymMATH",
       "source_revision": "2c6532ea2cf929ac1c421532af5951553eaee727"
     },
-    "supergpqa.jsonl": {
+    "mmlu_pro.jsonl": {
       "item_count": 400,
-      "sha256": "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a",
-      "source_dataset": "m-a-p/SuperGPQA",
-      "source_revision": "4430d4458112c7d4497fdcf94d7cc223313d6acf"
+      "sha256": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+      "source_dataset": "TIGER-Lab/MMLU-Pro",
+      "source_revision": "b189ec765aa7ed75c8acfea42df31fdae71f97be",
+      "license": "MIT"
     },
     "ifbench.jsonl": {
       "item_count": 294,
