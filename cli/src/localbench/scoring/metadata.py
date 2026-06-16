@@ -22,7 +22,6 @@ BENCH_DOMAINS: Final[dict[str, str]] = {
     "ifbench": "Instruction-Following",
     "bfcl": "Agentic",
     "bfcl_multi_turn": "Agentic",
-    "toolhop": "Agentic",
     "lcb": "Coding",
     "ruler_32k": "Long-Context",
     "olymmath_hard": "Math",

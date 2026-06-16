@@ -20,7 +20,7 @@ def test_v1_bfcl_multi_turn_bench_is_separate_agentic_line() -> None:
 
     # Then BFCL multi-turn is a separate bench in the Agentic axis, not pooled into bfcl.
     assert "bfcl_multi_turn" in suite["benches"]
-    assert suite["axes"]["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn", "toolhop"]
+    assert suite["axes"]["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn"]
     assert domain_for_bench("bfcl") == "Agentic"
     assert domain_for_bench("bfcl_multi_turn") == "Agentic"
 

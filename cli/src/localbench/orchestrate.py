@@ -48,7 +48,6 @@ BenchChoice = Literal[
     "amo",
     "olymmath_hard",
     "ruler_32k",
-    "toolhop",
 ]
 TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]

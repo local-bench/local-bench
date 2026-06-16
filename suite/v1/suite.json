@@ -101,28 +101,6 @@
       "lane_caps": {},
       "template": "templates/bfcl_multi_turn.txt"
     },
-    "toolhop": {
-      "chance_correction_baseline": 0.0,
-      "decoding": {
-        "max_tokens": 8192,
-        "temperature": 0
-      },
-      "itemsets": {
-        "standard": {
-          "file": "toolhop.jsonl",
-          "item_count": 100,
-          "sha256": "bfa191882f589dac3d115d579f38ddf25756b34132137d4870c931d43f994e17",
-          "source_dataset": "bytedance-research/ToolHop",
-          "source_revision": "b439d7279af359fda46e8117ae4f0245b75f5c6b",
-          "source_repo": "https://huggingface.co/datasets/bytedance-research/ToolHop",
-          "license": "CC-BY-4.0",
-          "code_license": "Apache-2.0",
-          "skipped_for_confinement": 316
-        }
-      },
-      "lane_caps": {},
-      "template": "templates/toolhop.txt"
-    },
     "lcb": {
       "chance_correction_baseline": 0.0,
       "decoding": {
@@ -172,7 +150,7 @@
       "weight": 0.25
     },
     "agentic": {
-      "benches": ["bfcl", "bfcl_multi_turn", "toolhop"],
+      "benches": ["bfcl", "bfcl_multi_turn"],
       "weight": 0.25
     },
     "coding": {

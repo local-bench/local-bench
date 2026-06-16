@@ -13,7 +13,6 @@ from localbench.scorers.bfcl import build_bfcl_prompt
 from localbench.scorers.bfcl_multi_turn import build_bfcl_multi_turn_prompt
 from localbench.scorers.lcb import build_lcb_prompt
 from localbench.scorers.ruler import build_ruler_prompt
-from localbench.scorers.toolhop import build_toolhop_prompt
 
 _LETTERS: Final = "ABCDEFGHIJ"
 
@@ -166,8 +165,6 @@ def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
             return build_bfcl_prompt(item)
         case "bfcl_multi_turn":
             return build_bfcl_multi_turn_prompt(item)
-        case "toolhop":
-            return build_toolhop_prompt(item)
         case "lcb":
             return build_lcb_prompt(item, template)
         case "ruler_32k":
