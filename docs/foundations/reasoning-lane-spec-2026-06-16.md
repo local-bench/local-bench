@@ -40,6 +40,24 @@ don't guess it.
 (mmlu_pro) 12288 · ifbench/bfcl/lcb 8192 · ruler_32k 4096. Math is the reasoning-heaviest; ruler the lightest.
 Calibration confirms or nudges these for the reasoning lane.
 
+## 3b. MEASURED — Qwen-Q4 calibration sample (2026-06-16, capped-thinking, n=6/axis)
+Pipeline validated END-TO-END on suite-v1 (serving + reasoning + MMLU-Pro + fixed scorers), 0 errors.
+Composite 62.5%; per-axis: knowledge(mmlu_pro) 66.7%, instruction(ifbench) 100%, agentic(bfcl) 66.7%,
+coding(lcb) 83.3%, math 0%.
+
+| axis | cap | ct_median | ct_p95 | trunc(len) | verdict |
+|---|---|---|---|---|---|
+| mmlu_pro | 12288 | 2568 | 12288 | 2/6 | minor truncation — consider 16384 for the full run |
+| ifbench | 8192 | 4497 | 6464 | 0/6 | well-calibrated (generous) |
+| bfcl | 8192 | 231 | 245 | 0/6 | hugely generous (tool calls are short) |
+| lcb | 8192 | 2876 | 8192 | 1/6 | minor truncation — consider 12288 |
+| olymmath_hard/amo | 16384 | ~16250 | ~16290 | 6/6 | **genuine non-termination** — Qwen-Q4 reasons to the ceiling, never converges; cap is a correct runaway bound. **Validates the math scorer fix: all 12 truncated items correctly scored 0, no FPs.** |
+
+**TIME REALITY (load-bearing for scope):** 36 reasoning items = 2555s (~43 min) at concurrency 2, dominated by
+the math axis (~16k tok/item). Extrapolated to the full standard suite (~1262 items): **~15 hrs/model** → the
+full 6-quant ladder ≈ **~4 days of 5090 time**. Levers: reduce item counts (ranked-lite), raise concurrency
+(2→4 with box-freeze caution), or fewer quants. The math axis dominates wall-clock for little signal (always 0).
+
 ## 4. Serving (local, 5090, WSL2 — no spend, GPU time only)
 Native llama.cpp built for sm_120 (Blackwell). Reasoning-ON = **omit** `--reasoning-effort none`:
 ```
