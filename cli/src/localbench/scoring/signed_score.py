@@ -9,6 +9,7 @@ CHANCE_BASELINES: Final[dict[str, float]] = {
     "mmlu_pro": 0.10918253968253969,
     "ifeval": 0.0,
     "genmath": 0.0,
+    "bfcl_multi_turn": 0.0,
 }
 
 

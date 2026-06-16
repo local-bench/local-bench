@@ -81,6 +81,26 @@
       "lane_caps": {},
       "template": "templates/bfcl.txt"
     },
+    "bfcl_multi_turn": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 8192,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bfcl_multi_turn.jsonl",
+          "item_count": 100,
+          "sha256": "c7f030d64098c4573c0c49b4d837f43b5f18047a941118bb77c8e2857e55f0f9",
+          "source_dataset": "vendored bfcl-eval BFCL_v4_multi_turn_base+long_context",
+          "source_revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+          "source_repo": "https://github.com/ShishirPatil/gorilla",
+          "license": "Apache-2.0"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bfcl_multi_turn.txt"
+    },
     "lcb": {
       "chance_correction_baseline": 0.0,
       "decoding": {
@@ -130,7 +150,7 @@
       "weight": 0.25
     },
     "agentic": {
-      "benches": ["bfcl"],
+      "benches": ["bfcl", "bfcl_multi_turn"],
       "weight": 0.25
     },
     "coding": {

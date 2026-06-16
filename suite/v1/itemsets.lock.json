@@ -31,6 +31,22 @@
       "source_dataset": "gorilla-llm/Berkeley-Function-Calling-Leaderboard",
       "source_revision": "61fc0608cfd831fcfbbaa676ebdfef0ed963eeda"
     },
+    "bfcl_multi_turn.jsonl": {
+      "item_count": 100,
+      "sha256": "c7f030d64098c4573c0c49b4d837f43b5f18047a941118bb77c8e2857e55f0f9",
+      "source_dataset": "vendored bfcl-eval BFCL_v4_multi_turn_base+long_context",
+      "source_revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+      "source_repo": "https://github.com/ShishirPatil/gorilla",
+      "license": "Apache-2.0",
+      "source_files": [
+        "bfcl_eval/data/BFCL_v4_multi_turn_base.json",
+        "bfcl_eval/data/BFCL_v4_multi_turn_long_context.json",
+        "bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_base.json",
+        "bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_long_context.json"
+      ],
+      "selection": "50 deterministic hash-stratified rows per multi-turn sub-category",
+      "constrained_exec_contract": "fixed vendored backend class allowlist; AST/literal call parser; no eval; no model-named imports; blocks network, subprocess, and filesystem writes during tool calls"
+    },
     "lcb.jsonl": {
       "item_count": 129,
       "sha256": "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",

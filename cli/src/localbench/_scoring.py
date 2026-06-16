@@ -8,6 +8,7 @@ from typing import NotRequired, TypedDict
 from localbench._suite import RenderedBench
 from localbench._types import ItemResult, JsonValue, Usage
 from localbench.scorers.bfcl import score_bfcl
+from localbench.scorers.bfcl_multi_turn import score_bfcl_multi_turn
 from localbench.scorers.ifbench import score_ifbench
 from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.lcb import score_lcb
@@ -33,6 +34,7 @@ class ScoredItem(TypedDict):
     usage: Usage
     error: str | None
     warnings: NotRequired[list[str]]
+    failure_kind: NotRequired[str | None]
 
 
 class BenchAggregate(TypedDict):
@@ -59,25 +61,26 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
     for source_item, result in zip(bench.source_items, results, strict=True):
         response_text = result["response_text"]
         error = result["error"]
-        extracted, correct = _score_response(
+        detailed = _score_response_detail(
             bench.name, source_item, response_text, error, result["finish_reason"]
         )
-        scored.append(
-            {
-                "id": result["id"],
-                "bench": bench.name,
-                "response_text": response_text,
-                "extracted": extracted,
-                "correct": correct,
-                "finish_reason": result["finish_reason"],
-                "latency_seconds": result["latency_seconds"],
-                "started_at": result["started_at"],
-                "finished_at": result["finished_at"],
-                "attempts": result["attempts"],
-                "usage": result["usage"],
-                "error": error,
-            },
-        )
+        scored_item: ScoredItem = {
+            "id": result["id"],
+            "bench": bench.name,
+            "response_text": response_text,
+            "extracted": detailed["extracted"],
+            "correct": detailed["correct"],
+            "finish_reason": result["finish_reason"],
+            "latency_seconds": result["latency_seconds"],
+            "started_at": result["started_at"],
+            "finished_at": result["finished_at"],
+            "attempts": result["attempts"],
+            "usage": result["usage"],
+            "error": error,
+        }
+        if "failure_kind" in detailed:
+            scored_item["failure_kind"] = detailed["failure_kind"]
+        scored.append(scored_item)
     return scored
 
 
@@ -155,8 +158,25 @@ def _score_response(
     error: str | None,
     finish_reason: str | None = None,
 ) -> tuple[str | None, bool]:
+    detailed = _score_response_detail(bench, source_item, response_text, error, finish_reason)
+    return detailed["extracted"], detailed["correct"]
+
+
+class ResponseScore(TypedDict):
+    extracted: str | None
+    correct: bool
+    failure_kind: NotRequired[str | None]
+
+
+def _score_response_detail(
+    bench: str,
+    source_item: Mapping[str, JsonValue],
+    response_text: str | None,
+    error: str | None,
+    finish_reason: str | None = None,
+) -> ResponseScore:
     if error is not None or response_text is None:
-        return None, False
+        return {"extracted": None, "correct": False}
     match bench:
         case "mmlu_pro" | "supergpqa":
             detailed = score_mcq_detailed(
@@ -164,35 +184,56 @@ def _score_response(
                 _string(source_item.get("answer")) or "",
                 len(_list(source_item.get("options"))),
             )
-            return detailed["extracted"], detailed["correct"]
+            return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case "ifeval":
-            return None, bool(score_ifeval(source_item, response_text)["strict"])
+            return {
+                "extracted": None,
+                "correct": bool(score_ifeval(source_item, response_text)["strict"]),
+            }
         case "ifbench":
-            return None, bool(score_ifbench(source_item, response_text)["strict"])
+            return {
+                "extracted": None,
+                "correct": bool(score_ifbench(source_item, response_text)["strict"]),
+            }
         case "genmath":
             extracted = extract_final_number(response_text)
-            return extracted, score_math(response_text, _string(source_item.get("answer")) or "")
+            return {
+                "extracted": extracted,
+                "correct": score_math(
+                    response_text, _string(source_item.get("answer")) or ""
+                ),
+            }
         case "amo" | "olymmath_hard":
             allow_fallback = finish_reason != "length"
             extracted = extract_math_answer(
                 response_text, allow_bare_number_fallback=allow_fallback
             )
-            return extracted, verify_math(
-                response_text,
-                _string(source_item.get("answer")) or "",
-                finish_reason=finish_reason,
-            )
+            return {
+                "extracted": extracted,
+                "correct": verify_math(
+                    response_text,
+                    _string(source_item.get("answer")) or "",
+                    finish_reason=finish_reason,
+                ),
+            }
         case "bfcl":
             detailed = score_bfcl(source_item, response_text)
-            return detailed["extracted"], detailed["correct"]
+            return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
+        case "bfcl_multi_turn":
+            detailed = score_bfcl_multi_turn(source_item, response_text)
+            return {
+                "extracted": detailed["extracted"],
+                "correct": detailed["correct"],
+                "failure_kind": detailed["failure_kind"],
+            }
         case "lcb":
             detailed = score_lcb(source_item, response_text)
-            return detailed["extracted"], detailed["correct"]
+            return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case "ruler_32k":
             detailed = score_ruler(source_item, response_text)
-            return detailed["extracted"], detailed["correct"]
+            return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case _:
-            return None, False
+            return {"extracted": None, "correct": False}
 
 
 def _list(value: JsonValue | None) -> list[str]:
@@ -213,6 +254,7 @@ def _bench_has_extraction(bench: str) -> bool:
         "olymmath_hard",
         "supergpqa",
         "bfcl",
+        "bfcl_multi_turn",
         "lcb",
         "ruler_32k",
     }

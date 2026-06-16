@@ -21,6 +21,7 @@ BENCH_DOMAINS: Final[dict[str, str]] = {
     "supergpqa": "Knowledge",
     "ifbench": "Instruction-Following",
     "bfcl": "Agentic",
+    "bfcl_multi_turn": "Agentic",
     "lcb": "Coding",
     "ruler_32k": "Long-Context",
     "olymmath_hard": "Math",

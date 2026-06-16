@@ -44,9 +44,9 @@ def test_v1_agentic_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the agentic axis groups BFCL with the probe-determined equal weight (0.25).
+    # Then the agentic axis keeps single-turn and multi-turn BFCL as distinct benches.
     axes = suite["axes"]
-    assert axes["agentic"]["benches"] == ["bfcl"]
+    assert axes["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn"]
     assert axes["agentic"]["weight"] == 0.25
 
 
