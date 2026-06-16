@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import ast
 import operator
+import re
 from collections.abc import Callable
 from typing import Final
 
 from localbench.scorers.bfcl._types import AstCall, AstValue
+
+# A model may wrap the tool-call list in a fenced code block with a language label
+# (```python\n[foo(x=1)]\n```). Extract the fence body before parsing so the label
+# does not corrupt the source. Matching stays exact-AST, so this cannot credit a wrong call.
+_FENCE_RE: Final = re.compile(r"```[a-zA-Z0-9_+-]*\s*\n?(?P<body>.*?)```", re.DOTALL)
 
 _BIN_OPS: Final[dict[type[ast.operator], Callable[[int | float, int | float], int | float]]] = {
     ast.Add: operator.add,
@@ -21,7 +27,8 @@ _BIN_OPS: Final[dict[type[ast.operator], Callable[[int | float, int | float], in
 def decode_bfcl_response(response_text: str) -> list[AstCall] | None:
     if not isinstance(response_text, str) or not response_text.strip():
         return None
-    source = response_text.strip("`\n ")
+    fence = _FENCE_RE.search(response_text)
+    source = (fence.group("body") if fence else response_text).strip("`\n ")
     if not source.startswith("["):
         source = "[" + source
     if not source.endswith("]"):

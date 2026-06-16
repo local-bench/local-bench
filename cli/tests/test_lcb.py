@@ -64,6 +64,19 @@ def test_score_lcb_when_response_is_wrong_or_malformed_returns_false() -> None:
     assert missing_gold == {"correct": False, "extracted": None}
 
 
+def test_score_lcb_when_unquoted_string_equals_string_gold() -> None:
+    # Given an item whose expected output is a JSON string.
+    item: JsonObject = {"id": "s", "answer": '"hello world"'}
+
+    # When the model returns the string WITHOUT quotes (fails literal/JSON parsing).
+    matched = score_lcb(item, "hello world")
+    wrong = score_lcb(item, "goodbye")
+
+    # Then exact string equality accepts the bare-string answer and still rejects a different one.
+    assert matched == {"correct": True, "extracted": '"hello world"'}
+    assert wrong == {"correct": False, "extracted": None}
+
+
 def _fixture_item(*, output: str) -> JsonObject:
     return {
         "id": "lcb-test-001",

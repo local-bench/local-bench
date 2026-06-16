@@ -104,6 +104,14 @@ def test_score_bfcl_when_output_is_malformed_never_raises() -> None:
     assert bad_item == {"correct": False, "extracted": None}
 
 
+def test_decode_bfcl_response_when_wrapped_in_language_labelled_fence() -> None:
+    # Given a tool-call list wrapped in a ```python fenced code block.
+    decoded = decode_bfcl_response("```python\n[add(x=1, y=2)]\n```")
+
+    # Then the language label is stripped and the call parses (exact-AST match still gates).
+    assert decoded == [{"add": {"x": 1, "y": 2}}]
+
+
 def test_score_bfcl_has_live_reference_parity_when_using_pinned_bfcl_eval_ast_checker() -> None:
     # Given the pinned official BFCL evaluator checkout and a stratified sample.
     reference_score = _load_reference_score()
