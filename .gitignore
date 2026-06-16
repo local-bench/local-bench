@@ -24,6 +24,7 @@ runs/
 *.run.json
 data/cache/
 suite/v0/private/
+*.log
 
 # OS / editor
 .DS_Store
