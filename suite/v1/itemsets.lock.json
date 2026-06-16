@@ -47,6 +47,59 @@
       "selection": "50 deterministic hash-stratified rows per multi-turn sub-category",
       "constrained_exec_contract": "fixed vendored backend class allowlist; AST/literal call parser; no eval; no model-named imports; blocks network, subprocess, and filesystem writes during tool calls"
     },
+    "toolhop.jsonl": {
+      "item_count": 100,
+      "sha256": "bfa191882f589dac3d115d579f38ddf25756b34132137d4870c931d43f994e17",
+      "source_dataset": "bytedance-research/ToolHop",
+      "source_revision": "b439d7279af359fda46e8117ae4f0245b75f5c6b",
+      "source_repo": "https://huggingface.co/datasets/bytedance-research/ToolHop",
+      "source_file": "data/ToolHop.json",
+      "license": "CC-BY-4.0",
+      "code_license": "Apache-2.0",
+      "source_rows": 995,
+      "accepted_confined_pool": 679,
+      "skipped_for_confinement": 316,
+      "skip_reason_counts": {
+        "forbidden_attr:now": 4,
+        "forbidden_attr:today": 3,
+        "forbidden_call:eval": 1,
+        "forbidden_call:exec": 1,
+        "forbidden_node:ClassDef": 1,
+        "forbidden_node:Delete": 1,
+        "forbidden_node:Nonlocal": 2,
+        "forbidden_node:With": 2,
+        "forbidden_node:YieldFrom": 1,
+        "missing_module:babel": 15,
+        "missing_module:dicttoxml": 23,
+        "missing_module:holidays": 1,
+        "missing_module:pytz": 232,
+        "missing_module:roman": 1,
+        "unsafe_module:time": 5,
+        "unsafe_module:urllib": 1,
+        "unsupported_module:dateutil": 154,
+        "unsupported_module:locale": 8,
+        "unsupported_module:numpy": 1,
+        "unsupported_module:sympy": 1
+      },
+      "selection": "100 deterministic hash-stratified rows by normalized domain category and hop_count from the confined stdlib-only pool; first seeds include up to 20 rows with literal extracted gold traces",
+      "distribution": {
+        "answer_type": {
+          "date": 1,
+          "letter": 2,
+          "number": 76,
+          "string": 21
+        },
+        "hop_count": {
+          "3": 29,
+          "4": 32,
+          "5": 18,
+          "6": 2,
+          "7": 19
+        },
+        "gold_trace_items": 22
+      },
+      "constrained_exec_contract": "vendored ToolHop function definitions only; AST/structured model call parser; no eval of model text; stdlib-only import allowlist; restricted builtins; top-level examples dropped before compile; blocked network, subprocess, filesystem, os.system/os.popen, nonallowlisted imports; deterministic row filter blocks wall-clock time calls; per-item timeout plus max tool-call and line-event caps"
+    },
     "lcb.jsonl": {
       "item_count": 129,
       "sha256": "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",

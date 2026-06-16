@@ -16,6 +16,7 @@ from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
 from localbench.scorers.ruler import score_ruler
+from localbench.scorers.toolhop import score_toolhop
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
 
@@ -226,6 +227,13 @@ def _score_response_detail(
                 "correct": detailed["correct"],
                 "failure_kind": detailed["failure_kind"],
             }
+        case "toolhop":
+            detailed = score_toolhop(source_item, response_text)
+            return {
+                "extracted": detailed["extracted"],
+                "correct": detailed["correct"],
+                "failure_kind": detailed["failure_kind"],
+            }
         case "lcb":
             detailed = score_lcb(source_item, response_text)
             return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
@@ -255,6 +263,7 @@ def _bench_has_extraction(bench: str) -> bool:
         "supergpqa",
         "bfcl",
         "bfcl_multi_turn",
+        "toolhop",
         "lcb",
         "ruler_32k",
     }
