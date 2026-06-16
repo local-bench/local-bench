@@ -77,6 +77,14 @@ def test_extract_choice_when_response_contains_choice_patterns(
     assert result == expected
 
 
+def test_extract_choice_accepts_bold_letter_in_answer_marker_context() -> None:
+    # A bold letter in answer-marker context IS the stated answer, even with trailing explanation.
+    assert extract_choice("Final answer: **C** because the rest are wrong.", 4) == "C"
+    assert extract_choice("The answer is **G** here.", 10) == "G"
+    # But a bold letter mid-reasoning with NO marker is still rejected.
+    assert extract_choice("Let me reconsider option **G** before deciding", 10) is None
+
+
 def test_extract_choice_rejects_bold_letter_embedded_in_prose() -> None:
     # Given a bold letter mid-reasoning with trailing prose after it (a false positive the
     # old match-anywhere bold fallback credited on hedged/truncated output).

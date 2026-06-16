@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from typing import Final
 
+# Per-bench chance baselines for the paired-comparison/bootstrap default path. These MUST match the
+# corresponding suite.json `chance_correction_baseline` (run scoring uses the suite value directly; only
+# paired_delta defaults read here). mmlu_pro = selected-set mean 1/n_options over the emitted suite-v1 set.
 CHANCE_BASELINES: Final[dict[str, float]] = {
-    "mmlu_pro": 0.10,
+    "mmlu_pro": 0.10918253968253969,
     "ifeval": 0.0,
     "genmath": 0.0,
 }

@@ -12,9 +12,12 @@ _TAIL_CHARS: Final = 600
 # alternative letter (group 2) joined by or/and/slash. Only an adjacent alternation ("A or B")
 # is treated as ambiguous; a letter mentioned later in trailing explanation ("A because B is wrong",
 # "G, not A") does NOT block extraction of the stated answer.
+# An optional `**...**` may wrap the marker's letter ("Final answer: **C** because ...") — the
+# letter is a stated answer in marker context, so accept the bold delimiters here (distinct from a
+# bold letter mid-reasoning with no marker, which the end-anchored fallback still rejects).
 _MARKER_PATTERNS: Final = (
-    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
-    r"\banswer\s*(?:is\s*)?(?::|=)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?(?:\s*(?:or|and|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
+    r"\bfinal\s+answer\s*(?:is\s*)?(?::|=)?\s*(?:\*\*)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?\s*(?:\*\*)?(?:\s*(?:or|and|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
+    r"\banswer\s*(?:is\s*)?(?::|=)?\s*(?:\*\*)?\s*[\(\[]?\s*([A-J])(?![A-Za-z])\s*[\)\]]?\s*(?:\*\*)?(?:\s*(?:or|and|/)\s*[\(\[]?\s*([A-J])(?![A-Za-z]))?",
 )
 _PATTERN_GROUPS: Final = (
     (r"\\boxed\s*\{\s*([A-J])\s*\}", None, False),

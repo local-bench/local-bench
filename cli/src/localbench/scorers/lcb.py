@@ -50,8 +50,10 @@ def score_lcb(prompt_item: Mapping[str, JsonValue], response_text: str) -> LCBSc
     predicted = _parse_response_value(response_text)
     if predicted is None and isinstance(expected, str):
         # An unquoted string output ("hello") fails literal/JSON parsing but is a valid answer
-        # when it exactly equals the string gold. Exact equality still gates correctness.
-        bare = _candidate_text(response_text).strip().strip("\"'`").strip()
+        # when it exactly equals the string gold. Compare the candidate verbatim — a genuinely
+        # quoted string already parses via literal_eval, so this only catches the bare case and
+        # cannot credit quote/backtick-wrapped text that differs from the gold.
+        bare = _candidate_text(response_text).strip()
         if bare == expected:
             return {"correct": True, "extracted": _canonical(expected)}
     if expected is None or predicted is None:

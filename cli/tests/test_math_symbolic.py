@@ -96,6 +96,16 @@ def test_verify_math_rejects_math_verify_over_acceptance(response_text: str, gol
     assert verify_math(response_text, gold) is False
 
 
+def test_verify_math_interval_equivalence_compares_endpoints_not_identity() -> None:
+    # Equivalent-but-not-identical interval endpoints must be accepted: strict-local-first means
+    # math_verify never gets a second chance once both sides parse, so exact `==` would false-negative.
+    assert verify_math(r"\boxed{[0, 1/2]}", "[0, 0.5]") is True
+    assert verify_math(r"\boxed{[0, \sqrt{4}]}", "[0, 2]") is True
+    # Different endpoints or different openness are still rejected.
+    assert verify_math(r"\boxed{[0, 1]}", "[0, 2]") is False
+    assert verify_math(r"\boxed{[0, 1)}", "[0, 1]") is False
+
+
 def test_verify_math_rejects_truncated_bare_number_non_answer() -> None:
     # Given a TRUNCATED output (finish_reason="length") with no boxed/marked final answer,
     # whose trailing scratch number happens to coincide with gold (the olymmath/amo local

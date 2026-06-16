@@ -120,7 +120,8 @@ def test_stratified_mean_ci_when_items_share_cluster_uses_block_resampling() -> 
 
 def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() -> None:
     # Given a planted regression where instruction-following loses every item,
-    # while knowledge and math improve enough for the composite to round to zero.
+    # while math improves by an exactly offsetting amount (knowledge unchanged), so the
+    # composite nets zero independently of any per-bench chance baseline.
     degraded = _balanced_regression_run(degraded=True)
     baseline = _balanced_regression_run(degraded=False)
 
@@ -274,7 +275,7 @@ def _balanced_regression_run(*, degraded: bool) -> dict:
             prefix="mmlu",
             category="business",
             baseline_correct=11,
-            degraded_correct=20,
+            degraded_correct=11,
             count=20,
         ),
         *_paired_items(
@@ -282,7 +283,7 @@ def _balanced_regression_run(*, degraded: bool) -> dict:
             prefix="math",
             category="algebra",
             difficulty="medium",
-            baseline_correct=10,
+            baseline_correct=0,
             degraded_correct=20,
             count=20,
         ),

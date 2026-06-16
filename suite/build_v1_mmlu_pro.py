@@ -15,15 +15,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, TypeAlias
 
-try:
-    from datasets import Dataset, load_dataset
-    from huggingface_hub import HfApi
-except ModuleNotFoundError as error:
-    message = (
-        "Missing build dependency. Run "
-        "`cli/.venv/Scripts/python -m pip install -e cli[build]` from the repo root."
-    )
-    raise SystemExit(message) from error
+_BUILD_DEP_MESSAGE: Final = (
+    "Missing build dependency. Run "
+    "`cli/.venv/Scripts/python -m pip install -e cli[build]` from the repo root."
+)
+
+
+def _require_build_deps() -> None:
+    # Lazy: HF deps are build-only (not in cli[dev]); importing this module — e.g. for the pure
+    # helper tests — must not require them. Only the actual build path calls this.
+    try:
+        import datasets  # noqa: F401
+        import huggingface_hub  # noqa: F401
+    except ModuleNotFoundError as error:
+        raise SystemExit(_BUILD_DEP_MESSAGE) from error
+
 
 ROOT: Final = Path(__file__).resolve().parents[1]
 OUT_PATH: Final = ROOT / "suite" / "v1" / "mmlu_pro.jsonl"
@@ -70,6 +76,9 @@ def main() -> int:
 
 
 def _require_license() -> None:
+    _require_build_deps()
+    from huggingface_hub import HfApi
+
     info = HfApi().dataset_info(DATASET_ID, revision=DATASET_REVISION)
     card_data = info.cardData
     license_value = getattr(card_data, "license", None)
@@ -83,6 +92,9 @@ def _require_license() -> None:
 
 
 def _load_rows() -> list[Mapping[str, JsonValue]]:
+    _require_build_deps()
+    from datasets import Dataset, load_dataset
+
     dataset = load_dataset(DATASET_ID, split=DATASET_SPLIT, revision=DATASET_REVISION)
     if not isinstance(dataset, Dataset):
         raise BuildError(f"Expected Dataset for {DATASET_ID}/{DATASET_SPLIT}.")

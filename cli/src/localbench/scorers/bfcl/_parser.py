@@ -27,8 +27,11 @@ _BIN_OPS: Final[dict[type[ast.operator], Callable[[int | float, int | float], in
 def decode_bfcl_response(response_text: str) -> list[AstCall] | None:
     if not isinstance(response_text, str) or not response_text.strip():
         return None
-    fence = _FENCE_RE.search(response_text)
-    source = (fence.group("body") if fence else response_text).strip("`\n ")
+    stripped = response_text.strip()
+    # Only unwrap a fenced block when it IS the whole response — a fenced example embedded in
+    # contradicting prose ("do not call X" + a fenced sample) must not be extracted as the call.
+    fence = _FENCE_RE.fullmatch(stripped)
+    source = (fence.group("body") if fence else stripped).strip("`\n ")
     if not source.startswith("["):
         source = "[" + source
     if not source.endswith("]"):

@@ -105,7 +105,15 @@ def _parsed_equivalent(left: _ParsedMath, right: _ParsedMath) -> bool:
     if isinstance(left, frozenset) and isinstance(right, frozenset):
         return _sets_equivalent(left, right)
     if isinstance(left, Interval) and isinstance(right, Interval):
-        return left == right
+        # Openness must match exactly, but endpoints compare by equivalence (1/2 == 0.5,
+        # sqrt(4) == 2) — exact `==` would false-negative algebraically-equal endpoints, and
+        # strict-local-first means math_verify never gets a second chance once both sides parse.
+        return (
+            left.left_open == right.left_open
+            and left.right_open == right.right_open
+            and _sympy_equivalent(left.start, right.start)
+            and _sympy_equivalent(left.end, right.end)
+        )
     if isinstance(left, Basic) and isinstance(right, Basic):
         return _sympy_equivalent(left, right)
     return False
