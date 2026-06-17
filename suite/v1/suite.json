@@ -36,7 +36,7 @@
     "mmlu_pro": {
       "chance_correction_baseline": 0.10918253968253969,
       "decoding": {
-        "max_tokens": 12288,
+        "max_tokens": 16384,
         "temperature": 0
       },
       "itemsets": {
@@ -52,7 +52,7 @@
     "ifbench": {
       "chance_correction_baseline": 0.0,
       "decoding": {
-        "max_tokens": 8192,
+        "max_tokens": 16384,
         "temperature": 0
       },
       "itemsets": {
@@ -68,7 +68,7 @@
     "bfcl": {
       "chance_correction_baseline": 0.0,
       "decoding": {
-        "max_tokens": 8192,
+        "max_tokens": 16384,
         "temperature": 0
       },
       "itemsets": {
@@ -84,7 +84,7 @@
     "bfcl_multi_turn": {
       "chance_correction_baseline": 0.0,
       "decoding": {
-        "max_tokens": 8192,
+        "max_tokens": 16384,
         "temperature": 0
       },
       "itemsets": {
@@ -104,7 +104,7 @@
     "lcb": {
       "chance_correction_baseline": 0.0,
       "decoding": {
-        "max_tokens": 8192,
+        "max_tokens": 16384,
         "temperature": 0
       },
       "itemsets": {
