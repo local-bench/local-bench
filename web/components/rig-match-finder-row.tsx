@@ -18,9 +18,17 @@ export function FinderRow({ match, rank }: { readonly match: RigMatch; readonly 
       </td>
       <td className="px-3 py-3 font-mono text-bench-text">{match.quantLabel ?? "n/a"}</td>
       <td className="px-3 py-3 font-mono text-bench-text">
-        {formatScore(match.score.point)} <span className="text-bench-muted">{formatCi(match.score)}</span>
+        {match.score === null ? (
+          <span className="text-bench-muted">no data yet</span>
+        ) : (
+          <>
+            {formatScore(match.score.point)} <span className="text-bench-muted">{formatCi(match.score)}</span>
+          </>
+        )}
       </td>
-      <td className="px-3 py-3 font-mono text-bench-text">{Math.round(match.frontierGapPercent)}% of top anchor</td>
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {match.score === null ? <span className="text-bench-warn">benchmark bounty</span> : `${Math.round(match.frontierGapPercent)}% of top anchor`}
+      </td>
       <td className="px-3 py-3 font-mono text-bench-text">
         <div>{formatGb(match.vramEstimate.effectiveRequiredGb)}</div>
         <div className="text-xs text-bench-muted">

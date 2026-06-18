@@ -8,10 +8,29 @@ export function ModelScatter({
   readonly model: ModelData;
   readonly anchorRuns: readonly AnchorReference[];
 }) {
-  const runs = model.runs.map((run) => ({
-    ...run,
-    point_label: run.quant_label ?? run.run_id.split("__").at(1) ?? run.run_id,
-  }));
+  const runs = model.runs.flatMap((run) =>
+    run.composite === null
+      ? []
+      : [
+          {
+            ...run,
+            composite: run.composite,
+            point_label: run.quant_label ?? run.run_id?.split("__").at(1) ?? run.run_id ?? "catalog shell",
+          },
+      ],
+  );
+
+  if (runs.length === 0) {
+    return (
+      <section data-testid="model-scatter" className="rounded-lg border border-bench-line bg-bench-panel p-5">
+        <h2 className="text-lg font-semibold text-bench-text">VRAM footprint vs composite</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
+          Quality scatter appears after the first measured run attaches to this catalog model. Use the quant ladder above
+          for current file size and VRAM requirements.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <QualityVramScatter

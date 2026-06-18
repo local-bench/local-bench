@@ -7,17 +7,21 @@ import {
 } from "./rig-match";
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
 import type { QuantOption } from "./quant";
-import type { Score } from "./schemas";
+import type { Score, ScoreStatus } from "./schemas";
 
 const SWEET_SPOT_MIN_BASELINE_RETENTION = 0.95;
 
 export type QuantDecisionInputRun = {
-  readonly composite: Score;
+  readonly bpw?: number | null | undefined;
+  readonly composite: Score | null;
   readonly demo: boolean;
+  readonly file_gb?: number | null | undefined;
   readonly quant_label: string | null;
-  readonly run_id: string;
+  readonly run_id: string | null;
+  readonly score_status: ScoreStatus;
   readonly tok_s: number | null;
   readonly vram_footprint_gb: number | null;
+  readonly vram_required_gb_8k?: number | null | undefined;
 };
 
 export type QuantDecisionInputModel = {
@@ -59,7 +63,7 @@ export function getQuantDecisionRows(
   return {
     baselineQuantLabel,
     hasFp16Baseline: fp16Baseline !== null,
-    missingQuantLabels: rows.filter((row) => row.run === null).map((row) => row.quantLabel),
+    missingQuantLabels: rows.filter((row) => row.run?.composite === null || row.run === null).map((row) => row.quantLabel),
     rows: rows.map((row) => ({ ...row, isSweetSpot: row.quantLabel === sweetSpotQuant })),
   };
 }
@@ -85,9 +89,18 @@ function toDecisionRow(
   baseline: QuantDecisionInputRun | null,
   contextTokens: ContextLengthOption,
 ): QuantDecisionRow {
-  const vramEstimate = run === null ? null : estimateVramRequirement({ quantLabel, vramFootprintGb: run.vram_footprint_gb }, contextTokens);
+  const vramEstimate = run === null
+    ? null
+    : estimateVramRequirement(
+        {
+          quantLabel,
+          vramFootprintGb: run.vram_footprint_gb,
+          vramRequiredGb8k: run.vram_required_gb_8k ?? null,
+        },
+        contextTokens,
+      );
   return {
-    deltaVsBaseline: run === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
+    deltaVsBaseline: run?.composite === null || run === null || baseline?.composite === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
     fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
     isBaseline: quantLabel === baselineQuantLabel && run !== null,
     isSweetSpot: false,
@@ -98,37 +111,50 @@ function toDecisionRow(
 }
 
 function firstMeasuredQuant(runsByQuant: ReadonlyMap<QuantOption, QuantDecisionInputRun>): QuantOption | null {
-  return QUANT_OPTIONS.find((quantLabel) => runsByQuant.has(quantLabel)) ?? null;
+  return QUANT_OPTIONS.find((quantLabel) => {
+    const run = runsByQuant.get(quantLabel);
+    return run !== undefined && run.composite !== null;
+  }) ?? null;
 }
 
 function chooseSweetSpot(rows: readonly QuantDecisionRow[], baseline: QuantDecisionInputRun | null): QuantOption | null {
-  if (baseline === null || baseline.composite.point <= 0) {
+  if (!hasComposite(baseline) || baseline.composite.point <= 0) {
     return null;
   }
 
   const candidates = rows
-    .filter((row) => row.run !== null && !row.isBaseline && row.vramEstimate !== null)
+    .filter((row) => hasComposite(row.run) && !row.isBaseline && row.vramEstimate !== null)
     .filter((row) => qualityRetention(row, baseline) >= SWEET_SPOT_MIN_BASELINE_RETENTION);
   const best = [...candidates].sort(compareSweetSpotRows)[0];
   return best?.quantLabel ?? null;
 }
 
 function qualityRetention(row: QuantDecisionRow, baseline: QuantDecisionInputRun): number {
-  return row.run === null ? 0 : row.run.composite.point / baseline.composite.point;
+  return hasComposite(row.run) && hasComposite(baseline) ? row.run.composite.point / baseline.composite.point : 0;
 }
 
 function compareSweetSpotRows(left: QuantDecisionRow, right: QuantDecisionRow): number {
   return (
     nullableNumber(left.vramEstimate?.effectiveRequiredGb, Number.POSITIVE_INFINITY) -
       nullableNumber(right.vramEstimate?.effectiveRequiredGb, Number.POSITIVE_INFINITY) ||
-    nullableNumber(right.run?.composite.point, Number.NEGATIVE_INFINITY) -
-      nullableNumber(left.run?.composite.point, Number.NEGATIVE_INFINITY) ||
+    nullableNumber(right.run?.composite?.point ?? null, Number.NEGATIVE_INFINITY) -
+      nullableNumber(left.run?.composite?.point ?? null, Number.NEGATIVE_INFINITY) ||
     quantOrder(left.quantLabel) - quantOrder(right.quantLabel)
   );
 }
 
+function hasComposite(run: QuantDecisionInputRun | null): run is QuantDecisionInputRun & { readonly composite: Score } {
+  return run !== null && run.composite !== null;
+}
+
 function isBetterRun(candidate: QuantDecisionInputRun, current: QuantDecisionInputRun): boolean {
-  const scoreDelta = candidate.composite.point - current.composite.point;
+  if (candidate.composite === null && current.composite !== null) {
+    return false;
+  }
+  if (candidate.composite !== null && current.composite === null) {
+    return true;
+  }
+  const scoreDelta = nullableNumber(candidate.composite?.point, Number.NEGATIVE_INFINITY) - nullableNumber(current.composite?.point, Number.NEGATIVE_INFINITY);
   if (scoreDelta !== 0) {
     return scoreDelta > 0;
   }

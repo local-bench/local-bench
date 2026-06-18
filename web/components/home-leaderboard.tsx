@@ -67,7 +67,11 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
                 <KindBadge kind={model.kind} runCount={model.n_runs} />
               </td>
               <td className="px-3 py-3">
-                <ScoreBar score={model.composite} tone={model.kind === "anchor" ? "anchor" : "accent"} />
+                {model.composite === null ? (
+                  <NoScoreCell />
+                ) : (
+                  <ScoreBar score={model.composite} tone={model.kind === "anchor" ? "anchor" : "accent"} />
+                )}
               </td>
               {axisKeys.map((axisKey) => (
                 <td key={axisKey} className="px-3 py-3">
@@ -75,7 +79,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
                 </td>
               ))}
               <td className="px-3 py-3">
-                <TierBadge tier={model.tier} />
+                {model.tier === null ? <span className="font-mono text-xs text-bench-muted">not measured</span> : <TierBadge tier={model.tier} />}
               </td>
               <td className="px-3 py-3">
                 <LaneBadge lane={model.lane} />
@@ -97,6 +101,15 @@ function RankMarker({ rank }: { readonly rank: number | undefined }) {
     return <span className="text-[11px] uppercase">Unranked</span>;
   }
   return formatInteger(rank);
+}
+
+function NoScoreCell() {
+  return (
+    <div className="min-w-[132px]">
+      <div className="font-mono text-sm font-semibold text-bench-muted">no data yet</div>
+      <div className="mt-1 text-xs text-bench-warn">be the first to benchmark</div>
+    </div>
+  );
 }
 
 function SortableHeader({
@@ -167,9 +180,9 @@ function compareRows(left: IndexModel, right: IndexModel, key: SortKey): number 
     case "kind":
       return left.kind.localeCompare(right.kind);
     case "composite":
-      return left.composite.point - right.composite.point;
+      return nullableNumber(left.composite?.point ?? null) - nullableNumber(right.composite?.point ?? null);
     case "tier":
-      return left.tier.localeCompare(right.tier);
+      return (left.tier ?? "").localeCompare(right.tier ?? "");
     case "lane":
       return (left.lane ?? "").localeCompare(right.lane ?? "");
     case "tokens":

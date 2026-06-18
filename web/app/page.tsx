@@ -9,6 +9,10 @@ export default async function HomePage() {
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
+  const suiteLabel = index.suite_version ?? "scoreless catalog";
+  const axisCopy = axisNames.length > 0
+    ? `Every measured model is scored on the same frozen suite across ${axisNames.join(", ")}.`
+    : "Catalog models are listed as score-less shells until benchmark runs land.";
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -18,12 +22,11 @@ export default async function HomePage() {
         <div className="grid gap-5 border-b border-bench-line pb-5 lg:grid-cols-[1fr_420px] lg:items-end">
           <div>
             <p className="font-mono text-xs uppercase text-bench-accent">
-              {index.suite_version} · {index.index_version}
+              {suiteLabel} / {index.index_version}
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-bench-text">Full leaderboard</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-              Every model is scored on the same frozen suite across {axisNames.join(", ")}. Composite is the
-              equal-weighted mean of chance-corrected axis scores with a 95% bootstrap CI.
+              {axisCopy} Composite scores appear only after a measured run attaches to a catalog model and quant.
             </p>
           </div>
           {/* Single table preserves sortable browsing; this caveat prevents cross-lane order being read as rank. */}

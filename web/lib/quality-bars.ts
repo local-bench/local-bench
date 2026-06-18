@@ -43,7 +43,7 @@ export function getRankedQualityRows({
   }));
   const localsByModel = new Map<string, RigMatchCandidate>();
   for (const run of runs) {
-    if (run.kind !== "community") {
+    if (run.kind !== "community" || run.score === null) {
       continue;
     }
     const current = localsByModel.get(run.modelSlug);
@@ -52,13 +52,13 @@ export function getRankedQualityRows({
     }
   }
   const locals = [...localsByModel.values()].sort(compareLocalRuns).map((run) => ({
-    barWidthPercent: clampScore(run.score.point),
+    barWidthPercent: clampScore(run.score?.point ?? 0),
     demo: run.demo,
-    id: run.runId,
+    id: run.runId ?? `${run.modelSlug}:${run.quantLabel ?? "unknown"}`,
     kind: "local" as const,
     modelLabel: run.modelLabel,
     quantLabel: run.quantLabel,
-    score: run.score.point,
+    score: run.score?.point ?? 0,
     vramFootprintGb: run.vramFootprintGb,
   }));
   return { anchors, locals };
@@ -69,11 +69,11 @@ function compareAnchors(left: AnchorReference, right: AnchorReference): number {
 }
 
 function compareLocalRuns(left: RigMatchCandidate, right: RigMatchCandidate): number {
-  return right.score.point - left.score.point || left.modelLabel.localeCompare(right.modelLabel);
+  return (right.score?.point ?? 0) - (left.score?.point ?? 0) || left.modelLabel.localeCompare(right.modelLabel);
 }
 
 function isBetterRepresentative(candidate: RigMatchCandidate, current: RigMatchCandidate): boolean {
-  const scoreDelta = candidate.score.point - current.score.point;
+  const scoreDelta = (candidate.score?.point ?? 0) - (current.score?.point ?? 0);
   if (scoreDelta !== 0) {
     return scoreDelta > 0;
   }

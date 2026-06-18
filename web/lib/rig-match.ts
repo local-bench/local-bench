@@ -1,4 +1,4 @@
-import type { Kind, Score } from "./schemas";
+import type { Kind, Score, ScoreStatus } from "./schemas";
 import { quantBytesPerParam } from "./quant";
 import type { QuantFilter } from "./quant";
 
@@ -31,10 +31,12 @@ export type RigMatchCandidate = {
   readonly nItems: number;
   readonly nRuns: number;
   readonly quantLabel: string | null;
-  readonly runId: string;
-  readonly score: Score;
+  readonly runId: string | null;
+  readonly score: Score | null;
+  readonly scoreStatus: ScoreStatus;
   readonly tokS: number | null;
   readonly vramFootprintGb: number | null;
+  readonly vramRequiredGb8k: number | null;
 };
 
 export type RigMatch = RigMatchCandidate & {
@@ -76,11 +78,11 @@ export function rankRigMatches({
   const fitted = candidates
     .flatMap((candidate) => toFittedCandidate(candidate, { contextTokens, lane, quant, vramGb }))
     .sort(compareFittedCandidates);
-  const bestLowerBound = fitted[0]?.candidate.score.lo ?? Number.NEGATIVE_INFINITY;
+  const bestLowerBound = fitted.find(({ candidate }) => candidate.score !== null)?.candidate.score?.lo ?? Number.NEGATIVE_INFINITY;
   return fitted.map(({ candidate, vramEstimate }, index) => ({
     ...candidate,
-    conservativeScore: candidate.score.lo,
-    frontierGapPercent: computeFrontierGapPercent(candidate.score, anchors),
+    conservativeScore: candidate.score?.lo ?? Number.NEGATIVE_INFINITY,
+    frontierGapPercent: candidate.score === null ? 0 : computeFrontierGapPercent(candidate.score, anchors),
     verdict: verdictFor(candidate, index, bestLowerBound),
     vramEstimate,
   }));
@@ -92,9 +94,21 @@ export function computeFrontierGapPercent(score: Score, anchors: readonly RigMat
 }
 
 export function estimateVramRequirement(
-  candidate: Pick<RigMatchCandidate, "quantLabel" | "vramFootprintGb">,
+  candidate: Pick<RigMatchCandidate, "quantLabel" | "vramFootprintGb" | "vramRequiredGb8k">,
   contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
 ): VramEstimate | null {
+  if (candidate.vramRequiredGb8k !== null) {
+    const weightsGb = candidate.vramFootprintGb ?? candidate.vramRequiredGb8k;
+    const contextMultiplier = contextTokens / DEFAULT_CONTEXT_TOKENS;
+    return {
+      contextTokens,
+      effectiveRequiredGb: candidate.vramRequiredGb8k * contextMultiplier,
+      kvCacheGb: Math.max(0, candidate.vramRequiredGb8k - weightsGb) * contextMultiplier,
+      overheadGb: 0,
+      parameterBillionEstimate: weightsGb / quantBytesPerParam(candidate.quantLabel),
+      weightsGb,
+    };
+  }
   if (candidate.vramFootprintGb === null) {
     return null;
   }
@@ -164,8 +178,11 @@ function fitsSelection(
 
 function compareFittedCandidates(left: FittedCandidate, right: FittedCandidate): number {
   return (
-    right.candidate.score.lo - left.candidate.score.lo ||
-    right.candidate.score.point - left.candidate.score.point ||
+    scoreStatusRank(left.candidate) - scoreStatusRank(right.candidate) ||
+    nullableNumber(right.candidate.score?.lo, Number.NEGATIVE_INFINITY) -
+      nullableNumber(left.candidate.score?.lo, Number.NEGATIVE_INFINITY) ||
+    nullableNumber(right.candidate.score?.point, Number.NEGATIVE_INFINITY) -
+      nullableNumber(left.candidate.score?.point, Number.NEGATIVE_INFINITY) ||
     left.vramEstimate.effectiveRequiredGb - right.vramEstimate.effectiveRequiredGb ||
     nullableNumber(right.candidate.tokS, Number.NEGATIVE_INFINITY) -
       nullableNumber(left.candidate.tokS, Number.NEGATIVE_INFINITY) ||
@@ -174,6 +191,9 @@ function compareFittedCandidates(left: FittedCandidate, right: FittedCandidate):
 }
 
 function verdictFor(candidate: RigMatchCandidate, index: number, bestLowerBound: number): RigMatchVerdict {
+  if (candidate.score === null || candidate.scoreStatus === "missing") {
+    return "not-enough-data";
+  }
   if (index === 0) {
     return "best-under-budget";
   }
@@ -190,6 +210,10 @@ function ciHalfWidth(score: Score): number {
   return Math.max(Math.abs(score.point - score.lo), Math.abs(score.hi - score.point));
 }
 
-function nullableNumber(value: number | null, fallback: number): number {
+function scoreStatusRank(candidate: RigMatchCandidate): number {
+  return candidate.score === null || candidate.scoreStatus === "missing" ? 1 : 0;
+}
+
+function nullableNumber(value: number | null | undefined, fallback: number): number {
   return value ?? fallback;
 }

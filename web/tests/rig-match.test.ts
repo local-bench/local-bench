@@ -146,7 +146,9 @@ function candidate(
     quantLabel,
     runId,
     score: { point, lo, hi },
+    scoreStatus: "measured",
     tokS,
     vramFootprintGb,
+    vramRequiredGb8k: null,
   };
 }

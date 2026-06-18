@@ -8,7 +8,7 @@ export function AppShell({
 }: {
   readonly children: React.ReactNode;
   readonly usesDemoData: boolean;
-  readonly suiteVersion: string;
+  readonly suiteVersion: string | null;
   readonly indexVersion: string;
 }) {
   return (
@@ -38,7 +38,7 @@ export function AppShell({
             </div>
           </div>
           <span className="font-mono text-xs uppercase text-bench-accent">
-            {suiteVersion} · {indexVersion}
+            {suiteVersion ?? "scoreless catalog"} / {indexVersion}
           </span>
         </nav>
         {usesDemoData ? (

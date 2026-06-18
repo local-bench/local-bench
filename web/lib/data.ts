@@ -55,7 +55,12 @@ async function readJson<T>(segments: readonly string[], schema: ZodType<T>): Pro
 }
 
 function sortByCompositeDesc(models: readonly IndexData["models"][number][]): IndexData["models"] {
-  return [...models].sort((left, right) => right.composite.point - left.composite.point);
+  return [...models].sort(
+    (left, right) =>
+      nullableNumber(right.composite?.point, Number.NEGATIVE_INFINITY) -
+        nullableNumber(left.composite?.point, Number.NEGATIVE_INFINITY) ||
+      left.model_label.localeCompare(right.model_label),
+  );
 }
 
 export async function getIndexData(): Promise<IndexData> {
@@ -76,7 +81,16 @@ export async function getRunData(runId: string): Promise<RunDetailWithConfigured
   return run as RunDetailWithConfiguredAxes;
 }
 
-function toAnchorReference(model: ModelData, run: ModelRun): AnchorReference {
+type MeasuredModelRunWithConfiguredAxes = ModelRunWithConfiguredAxes & {
+  readonly composite: Score;
+  readonly run_id: string;
+};
+
+function isMeasuredConfiguredRun(run: ModelRunWithConfiguredAxes): run is MeasuredModelRunWithConfiguredAxes {
+  return run.composite !== null && run.run_id !== null;
+}
+
+function toAnchorReference(model: ModelData, run: MeasuredModelRunWithConfiguredAxes): AnchorReference {
   return {
     model_label: model.model_label,
     run_id: run.run_id,
@@ -86,10 +100,10 @@ function toAnchorReference(model: ModelData, run: ModelRun): AnchorReference {
 
 async function getAnchorReferences(): Promise<readonly AnchorReference[]> {
   const index = await getIndexData();
-  const anchorRows = index.models.filter((model) => model.kind === "anchor");
+  const anchorRows = index.models.filter((model) => model.kind === "anchor" && model.score_status === "measured");
   const anchorModels = await Promise.all(anchorRows.map((model) => getModelData(model.slug)));
   return anchorModels.flatMap((model) =>
-    model.runs.map((run) => toAnchorReference(model, run)),
+    model.runs.filter(isMeasuredConfiguredRun).map((run) => toAnchorReference(model, run)),
   );
 }
 
@@ -103,7 +117,9 @@ export async function getHomePageData(): Promise<HomePageData> {
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
   const anchorRuns = models
     .filter((model) => model.kind === "anchor")
-    .flatMap((model) => model.runs.map((run) => toAnchorReference(model, run)));
+    .flatMap((model) =>
+      model.runs.filter(isMeasuredConfiguredRun).map((run) => toAnchorReference(model, run)),
+    );
   const rigAnchors = anchorRuns.map((anchor) => ({ modelLabel: anchor.model_label, score: anchor.composite }));
   const rigCandidates = models.flatMap((model) =>
     model.runs.map((run) => toRigMatchCandidate(model, run)),
@@ -119,7 +135,9 @@ export async function getModelStaticParams(): Promise<readonly ModelStaticParam[
 export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
   const index = await getIndexData();
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
-  return models.flatMap((model) => model.runs.map((run) => ({ runId: run.run_id })));
+  return models.flatMap((model) =>
+    model.runs.flatMap((run) => (run.run_id === null ? [] : [{ runId: run.run_id }])),
+  );
 }
 
 function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate {
@@ -135,9 +153,15 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
     quantLabel: run.quant_label,
     runId: run.run_id,
     score: run.composite,
+    scoreStatus: run.score_status,
     tokS: run.tok_s,
     vramFootprintGb: run.vram_footprint_gb,
+    vramRequiredGb8k: run.vram_required_gb_8k ?? null,
   };
+}
+
+function nullableNumber(value: number | null | undefined, fallback: number): number {
+  return value ?? fallback;
 }
 
 export { AXIS_KEYS as AXES } from "./axis-config";

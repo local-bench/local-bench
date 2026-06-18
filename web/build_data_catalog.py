@@ -1,0 +1,142 @@
+from __future__ import annotations
+
+from typing import Final
+
+from build_data_support import (
+    JsonObject,
+    JsonValue,
+    bool_value,
+    list_value,
+    number_or_none,
+    object_or_empty,
+    object_value,
+    string_value,
+    text_value,
+)
+
+CATALOG_FILENAME: Final = "model_catalog.json"
+SHELL_KIND: Final = "community"
+SHELL_LANE: Final = "answer-only"
+SHELL_SCORE_STATUS: Final = "missing"
+
+
+def catalog_entries(raw: JsonValue) -> list[JsonObject]:
+    return [_catalog_entry(entry, index) for index, entry in enumerate(list_value(raw, "model_catalog"))]
+
+
+def catalog_index_row(entry: JsonObject) -> JsonObject:
+    return {
+        "axes": {},
+        "best_run_id": None,
+        "catalog_id": entry["id"],
+        "composite": None,
+        "demo": False,
+        "est_cost_usd": None,
+        "family": entry["family"],
+        "kind": SHELL_KIND,
+        "lane": SHELL_LANE,
+        "model_label": entry["display_name"],
+        "n_runs": 0,
+        "ranked": False,
+        "replicated": False,
+        "score_status": SHELL_SCORE_STATUS,
+        "slug": entry["slug"],
+        "tier": None,
+        "tokens_to_answer_median": None,
+        "tokens_to_answer_p95": None,
+    }
+
+
+def catalog_model_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObject:
+    return {
+        "catalog_id": entry["id"],
+        "demo": False,
+        "family": entry["family"],
+        "gguf_repo": entry["gguf_repo"],
+        "kind": SHELL_KIND,
+        "license": entry["license"],
+        "model_label": entry["display_name"],
+        "org": entry["org"],
+        "runs": [catalog_quant_row(entry, quant, runs) for quant in list_value(entry["quants"], "catalog.quants")],
+        "slug": entry["slug"],
+    }
+
+
+def catalog_quant_row(entry: JsonObject, quant: JsonValue, runs: list[JsonObject]) -> JsonObject:
+    quant_entry = object_value(quant, "catalog.quant")
+    label = string_value(quant_entry.get("label"), "catalog.quant.label")
+    attached = _run_for_quant(runs, label)
+    if attached is not None:
+        row = object_value(attached["model_row"], "run.model_row").copy()
+        row["bpw"] = number_or_none(quant_entry.get("bpw"))
+        row["file_gb"] = number_or_none(quant_entry.get("file_gb"))
+        row["vram_required_gb_8k"] = number_or_none(quant_entry.get("vram_gb_8k"))
+        row["score_status"] = "measured"
+        return row
+    return {
+        "axes": {},
+        "bpw": number_or_none(quant_entry.get("bpw")),
+        "composite": None,
+        "demo": False,
+        "est_cost_usd": None,
+        "file_gb": number_or_none(quant_entry.get("file_gb")),
+        "hardware": {"cpu": None, "gpu": None, "os": None, "ram_gb": None},
+        "lane": SHELL_LANE,
+        "n_errors": 0,
+        "n_items": 0,
+        "quant_label": label,
+        "run_id": None,
+        "runtime": {
+            "ctx_len_configured": None,
+            "kv_cache_quant": None,
+            "name": None,
+            "parallel_slots": None,
+            "version": None,
+        },
+        "score_status": SHELL_SCORE_STATUS,
+        "tier": None,
+        "tok_s": None,
+        "tokens_to_answer_median": None,
+        "tokens_to_answer_p95": None,
+        "vram_footprint_gb": number_or_none(quant_entry.get("file_gb")),
+        "vram_required_gb_8k": number_or_none(quant_entry.get("vram_gb_8k")),
+        "wall_time_seconds": None,
+    }
+
+
+def catalog_key(entry: JsonObject) -> str:
+    return string_value(entry.get("id"), "catalog.id").lower()
+
+
+def catalog_slug(entry: JsonObject) -> str:
+    return string_value(entry.get("slug"), "catalog.slug")
+
+
+def run_catalog_key(run: JsonObject) -> str | None:
+    value = text_value(run.get("catalog_id"))
+    return value.lower() if value is not None else None
+
+
+def _catalog_entry(value: JsonValue, index: int) -> JsonObject:
+    item = object_value(value, f"model_catalog[{index}]")
+    return {
+        "display_name": string_value(item.get("display_name"), f"model_catalog[{index}].display_name"),
+        "family": string_value(item.get("family"), f"model_catalog[{index}].family"),
+        "gguf_repo": text_value(item.get("gguf_repo")),
+        "id": string_value(item.get("id"), f"model_catalog[{index}].id"),
+        "is_moe": bool_value(item.get("is_moe"), f"model_catalog[{index}].is_moe"),
+        "license": text_value(item.get("license")),
+        "org": text_value(item.get("org")),
+        "popularity": object_or_empty(item.get("popularity")),
+        "quants": list_value(item.get("quants"), f"model_catalog[{index}].quants"),
+        "reasoning_capable": bool_value(item.get("reasoning_capable"), f"model_catalog[{index}].reasoning_capable"),
+        "slug": string_value(item.get("slug"), f"model_catalog[{index}].slug"),
+    }
+
+
+def _run_for_quant(runs: list[JsonObject], quant_label: str) -> JsonObject | None:
+    for run in runs:
+        row = object_value(run["model_row"], "run.model_row")
+        if text_value(row.get("quant_label")) == quant_label:
+            return run
+    return None

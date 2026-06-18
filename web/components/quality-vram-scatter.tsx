@@ -1,7 +1,7 @@
 import { VRAM_TIERS } from "@/lib/rig-match";
 import { formatGb, formatScore } from "@/lib/format";
 import type { AnchorReference } from "@/lib/data";
-import type { ModelRun } from "@/lib/schemas";
+import type { ModelRun, Score } from "@/lib/schemas";
 
 const WIDTH = 900;
 const HEIGHT = 420;
@@ -13,7 +13,8 @@ const PLOT = {
 } as const;
 const Y_TICKS = [100, 75, 50, 25, 0] as const;
 
-export type QualityVramRun = ModelRun & {
+export type QualityVramRun = Omit<ModelRun, "composite"> & {
+  readonly composite: Score;
   readonly point_label?: string;
 };
 

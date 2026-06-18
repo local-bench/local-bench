@@ -73,6 +73,7 @@ function run(quantLabel: string, vramFootprintGb: number, point: number, tokS: n
     demo: true,
     quant_label: quantLabel,
     run_id: `run-${quantLabel.toLowerCase()}`,
+    score_status: "measured",
     tok_s: tokS,
     vram_footprint_gb: vramFootprintGb,
   };

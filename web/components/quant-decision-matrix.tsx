@@ -80,13 +80,12 @@ function CoverageCards({
     <div className="mt-4 grid gap-3 md:grid-cols-2">
       {!hasFp16Baseline ? (
         <div className="rounded border border-bench-warn/35 bg-bench-warn/10 p-3 text-sm leading-6 text-bench-warn">
-          FP16 baseline missing for {modelLabel}; using {baselineQuantLabel ?? "the highest measured quant"} as the delta
-          baseline until an FP16 run lands.
+          FP16 baseline missing for {modelLabel}; {baselineQuantLabel === null ? "quality deltas will appear after the first measured run lands." : `using ${baselineQuantLabel} as the delta baseline until an FP16 run lands.`}
         </div>
       ) : null}
       {missingQuantLabels.length > 0 ? (
         <div className="rounded border border-bench-line bg-bench-panel-2 p-3 text-sm leading-6 text-bench-muted">
-          Coverage gaps: <span className="font-mono text-bench-text">{missingQuantLabels.join(", ")}</span>
+          Benchmark gaps: <span className="font-mono text-bench-text">{missingQuantLabels.join(", ")}</span>
         </div>
       ) : null}
     </div>
@@ -101,21 +100,21 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
           <span className="font-mono font-semibold text-bench-text">{row.quantLabel}</span>
           {row.run?.demo ? <DemoBadge /> : null}
         </div>
-        {row.run ? (
+        {row.run?.run_id ? (
           <Link href={`/run/${row.run.run_id}`} className="mt-1 block font-mono text-xs text-bench-accent hover:underline">
             {row.run.run_id}
           </Link>
         ) : (
-          <span className="mt-1 block text-xs text-bench-muted">not measured</span>
+          <span className="mt-1 block text-xs text-bench-warn">benchmark bounty</span>
         )}
       </td>
-      <td className="px-3 py-3 font-mono text-bench-text">{row.run ? scoreWithCi(row.run.composite) : "coverage needed"}</td>
+      <td className="px-3 py-3 font-mono text-bench-text">{row.run?.composite ? scoreWithCi(row.run.composite) : "no data yet"}</td>
       <td className="px-3 py-3 font-mono text-bench-text">{formatDelta(row.deltaVsBaseline)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">
         {row.vramEstimate ? (
           <>
             <div>{formatGb(row.vramEstimate.effectiveRequiredGb)}</div>
-            <div className="text-xs text-bench-muted">weights {formatGb(row.vramEstimate.weightsGb)}</div>
+            <div className="text-xs text-bench-muted">file {formatGb(row.run?.file_gb ?? row.vramEstimate.weightsGb)}</div>
           </>
         ) : (
           "n/a"
@@ -132,7 +131,7 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
           <span className="inline-flex rounded border border-bench-line bg-white/[0.03] px-2 py-1 text-[11px] font-semibold uppercase text-bench-muted">
             Baseline
           </span>
-        ) : row.run ? (
+        ) : row.run?.run_id ? (
           <Link href={`/compare?left=${encodeURIComponent(row.run.run_id)}`} className="text-sm font-semibold text-bench-accent hover:underline">
             Compare
           </Link>

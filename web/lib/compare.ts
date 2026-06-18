@@ -39,11 +39,15 @@ export function getCompareConfigs(
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
-        if (!isQuantOption(run.quant_label)) {
+        if (!isQuantOption(run.quant_label) || run.composite === null || run.run_id === null) {
           return [];
         }
         const vramEstimate = estimateVramRequirement(
-          { quantLabel: run.quant_label, vramFootprintGb: run.vram_footprint_gb },
+          {
+            quantLabel: run.quant_label,
+            vramFootprintGb: run.vram_footprint_gb,
+            vramRequiredGb8k: run.vram_required_gb_8k ?? null,
+          },
           contextTokens,
         );
         return [

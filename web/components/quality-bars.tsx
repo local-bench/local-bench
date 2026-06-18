@@ -13,6 +13,7 @@ export function QualityBars({
 }) {
   const rows = getRankedQualityRows({ anchorRuns, runs });
   const ariaLabel = `Ranked Quality Bars showing ${rows.anchors.length} frontier anchors followed by ${rows.locals.length} local model representatives, with bar length on a fixed 0 to 100 composite quality scale.`;
+  const isEmpty = rows.anchors.length === 0 && rows.locals.length === 0;
 
   return (
     <section data-testid="quality-bars" className="rounded-lg border border-bench-line bg-bench-panel p-5">
@@ -21,7 +22,9 @@ export function QualityBars({
           <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">Ranked Quality Bars</p>
           <h2 className="mt-2 text-2xl font-semibold text-bench-text">Quality index</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
-            Frontier anchors are reference ceilings. Local rows show each model once at its best measured headline quant.
+            {isEmpty
+              ? "Quality bars appear after measured benchmark runs land; catalog shells stay scoreless here."
+              : "Frontier anchors are reference ceilings. Local rows show each model once at its best measured headline quant."}
           </p>
         </div>
         <div className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-xs text-bench-muted">
@@ -30,17 +33,24 @@ export function QualityBars({
       </div>
 
       <div role="img" aria-label={ariaLabel} className="space-y-2">
+        {isEmpty ? (
+          <div className="rounded border border-bench-line bg-bench-panel-2/55 p-4 text-sm text-bench-muted">
+            No measured benchmark rows yet. Use the rig-match finder and quant ladders to pick catalog targets for a first run.
+          </div>
+        ) : null}
         <div className="space-y-2">
           {rows.anchors.map((row) => (
             <QualityBarRow key={row.id} row={row} />
           ))}
         </div>
 
-        <div className="flex items-center gap-3 py-2" aria-hidden="true">
-          <div className="h-px flex-1 bg-bench-anchor/55" />
-          <span className="font-mono text-[11px] uppercase text-bench-anchor-soft">frontier line</span>
-          <div className="h-px flex-1 bg-bench-anchor/55" />
-        </div>
+        {isEmpty ? null : (
+          <div className="flex items-center gap-3 py-2" aria-hidden="true">
+            <div className="h-px flex-1 bg-bench-anchor/55" />
+            <span className="font-mono text-[11px] uppercase text-bench-anchor-soft">frontier line</span>
+            <div className="h-px flex-1 bg-bench-anchor/55" />
+          </div>
+        )}
 
         <div className="space-y-2">
           {rows.locals.map((row) => (

@@ -4,7 +4,9 @@ import { clampScore, formatCi, formatScore } from "@/lib/format";
 import type { ModelData } from "@/lib/data";
 
 export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
-  const bestRun = [...model.runs].sort((left, right) => right.composite.point - left.composite.point)[0] ?? null;
+  const bestRun = [...model.runs]
+    .filter((run) => run.composite !== null)
+    .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0))[0] ?? null;
   if (bestRun === null) {
     return null;
   }
@@ -20,7 +22,7 @@ export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
         <div>
           <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">Per-axis profile</p>
           <h2 className="mt-2 text-2xl font-semibold text-bench-text">Best measured run by axis</h2>
-          <p className="mt-2 text-sm text-bench-muted">{bestRun.quant_label ?? bestRun.run_id}</p>
+          <p className="mt-2 text-sm text-bench-muted">{bestRun.quant_label ?? bestRun.run_id ?? "measured run"}</p>
         </div>
         {bestRun.demo ? <DemoBadge /> : null}
       </div>

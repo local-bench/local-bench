@@ -18,6 +18,7 @@ import {
 import type { RunDetail } from "@/lib/schemas";
 
 export const dynamicParams = false;
+const NO_RUNS_STATIC_EXPORT_SENTINEL = "__no-run-receipts-yet";
 
 type PageProps = {
   readonly params: Promise<{
@@ -26,11 +27,26 @@ type PageProps = {
 };
 
 export async function generateStaticParams(): Promise<{ runId: string }[]> {
-  return [...(await getRunStaticParams())];
+  const params = [...(await getRunStaticParams())];
+  return params.length > 0 ? params : [{ runId: NO_RUNS_STATIC_EXPORT_SENTINEL }];
 }
 
 export default async function RunPage({ params }: PageProps) {
   const { runId } = await params;
+  if (runId === NO_RUNS_STATIC_EXPORT_SENTINEL) {
+    return (
+      <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
+        <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Run receipts" }]} />
+        <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
+          <p className="font-mono text-xs uppercase text-bench-accent">scoreless catalog</p>
+          <h1 className="mt-2 text-3xl font-semibold text-bench-text">No run receipts yet</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-bench-muted">
+            Catalog model pages are available now. Run receipts appear here only after a benchmark run is published.
+          </p>
+        </section>
+      </main>
+    );
+  }
   const run = await getRunData(runId);
   const noAnswerCount = Object.values(run.axes).reduce((sum, axis) => sum + axis.n_no_answer, 0);
   const hasQualityNote = run.totals.n_errors > 0 || noAnswerCount > 0;

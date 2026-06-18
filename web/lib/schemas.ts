@@ -27,6 +27,7 @@ export const AxisScoreSchema = ScoreSchema.extend({
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
 
 export const KindSchema = z.enum(["anchor", "community"]);
+export const ScoreStatusSchema = z.enum(["measured", "missing"]);
 const DemoFlagSchema = z.boolean().optional().default(false);
 
 export const GpuSchema = z.object({
@@ -83,13 +84,14 @@ export const TotalsSchema = z.object({
 
 export const IndexModelSchema = z.object({
   slug: ModelSlugSchema,
+  catalog_id: z.string().nullable().optional(),
   model_label: z.string(),
   family: z.string(),
   kind: KindSchema,
-  best_run_id: RunIdSchema,
-  composite: ScoreSchema,
+  best_run_id: RunIdSchema.nullable(),
+  composite: ScoreSchema.nullable(),
   axes: AxesSchema,
-  tier: z.string(),
+  tier: z.string().nullable(),
   lane: z.string().nullable(),
   n_runs: z.number(),
   ranked: z.boolean(),
@@ -97,23 +99,27 @@ export const IndexModelSchema = z.object({
   tokens_to_answer_p95: z.number().nullable().optional(),
   est_cost_usd: z.number().nullable(),
   replicated: z.boolean(),
+  score_status: ScoreStatusSchema.optional().default("measured"),
   demo: DemoFlagSchema,
 });
 
 export const IndexDataSchema = z.object({
   generated_note: z.string(),
-  suite_version: z.string(),
+  suite_version: z.string().nullable(),
   index_version: z.string(),
   models: z.array(IndexModelSchema),
 });
 
 export const ModelRunSchema = z.object({
-  run_id: RunIdSchema,
+  run_id: RunIdSchema.nullable(),
   quant_label: z.string().nullable(),
   vram_footprint_gb: z.number().nullable(),
-  composite: ScoreSchema,
+  vram_required_gb_8k: z.number().nullable().optional(),
+  file_gb: z.number().nullable().optional(),
+  bpw: z.number().nullable().optional(),
+  composite: ScoreSchema.nullable(),
   axes: AxesSchema,
-  tier: z.string(),
+  tier: z.string().nullable(),
   lane: z.string().nullable(),
   tokens_to_answer_median: z.number().nullable(),
   tokens_to_answer_p95: z.number().nullable().optional(),
@@ -124,14 +130,19 @@ export const ModelRunSchema = z.object({
   n_items: z.number(),
   n_errors: z.number(),
   wall_time_seconds: z.number().nullable().optional(),
+  score_status: ScoreStatusSchema.optional().default("measured"),
   demo: DemoFlagSchema,
 });
 
 export const ModelDataSchema = z.object({
   slug: ModelSlugSchema,
+  catalog_id: z.string().nullable().optional(),
   model_label: z.string(),
   family: z.string(),
   kind: KindSchema,
+  gguf_repo: z.string().nullable().optional(),
+  license: z.string().nullable().optional(),
+  org: z.string().nullable().optional(),
   demo: DemoFlagSchema,
   runs: z.array(ModelRunSchema),
 });
@@ -184,6 +195,7 @@ export type Axis = string;
 export type Score = z.infer<typeof ScoreSchema>;
 export type AxisScore = z.infer<typeof AxisScoreSchema>;
 export type Kind = z.infer<typeof KindSchema>;
+export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
 export type IndexData = z.infer<typeof IndexDataSchema>;
 export type IndexModel = z.infer<typeof IndexModelSchema>;
 export type ModelData = z.infer<typeof ModelDataSchema>;

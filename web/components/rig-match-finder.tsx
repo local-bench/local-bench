@@ -146,7 +146,7 @@ export function RigMatchFinder({
               </thead>
               <tbody>
                 {visibleMatches.map((match, index) => (
-                  <FinderRow key={match.runId} match={match} rank={index + 1} />
+                  <FinderRow key={`${match.modelSlug}:${match.quantLabel ?? "unknown"}:${match.runId ?? "shell"}`} match={match} rank={index + 1} />
                 ))}
               </tbody>
             </table>
@@ -173,7 +173,7 @@ function FrontierCeiling({ anchors }: { readonly anchors: readonly RigMatchAncho
     .map((anchor) => `${shortAnchorLabel(anchor.modelLabel)} ${Math.round(anchor.score.point)}`);
   return (
     <div className="rounded border border-bench-anchor/40 bg-bench-anchor/10 px-3 py-2 font-mono text-xs uppercase text-bench-anchor-soft">
-      frontier ceiling: {labels.join(" · ")}
+      frontier ceiling: {labels.length > 0 ? labels.join(" / ") : "benchmark anchors pending"}
     </div>
   );
 }
