@@ -78,3 +78,18 @@ since the community can't run FP16). All current v0 data must be labelled "previ
 **P2 Structure** (AppShell/TopNav + breadcrumbs + `/submit` stub) → **[GATE: Michael reviews]** →
 **P3 Heroes** (finder + quant matrix + compare) → **P4 Credibility+polish** (DiagnosticsPanel + responsive).
 P1–P2 are design-layout-agnostic (safe to build now). Track 2 (probe + seed data) runs in parallel.
+
+## 2026-06-18 update — model-page emphasis shift (post wedge-gate NO-GO)
+Stage-1 wedge gate (Gemma-4-12B Q8 vs Q4, reasoning-on; see `methodology-lock/WEDGE-RESULT.md`) found the
+accuracy quant-wedge is ~nil (pooled +0.5pp truncation-clean, 95% CI spans 0). Q4's cost is COMPUTE
+(+35–40% tokens/latency), not accuracy. Implications for the "which quant should I run?" matrix — direction
+unchanged, emphasis shifts:
+- The "Δ vs FP16" quality column will mostly read ~flat. Do NOT sell the page on quality loss.
+- Lead the decision on **VRAM** (fits-my-card) + **speed** (tok/s); quality is the *reassurance* line
+  ("you keep ~all the smarts; you trade memory + speed"). Sweet-spot = smallest quant that fits at
+  acceptable tok/s.
+- Still SHOW where quality finally breaks if it does (e.g. Q2) — that cliff is the useful bit.
+- Distillations/finetunes = sibling entries under the base model, same columns (base-Q4 vs distill head-to-head).
+- Needs a quant LADDER per featured model (FP16→Q3 + distills), capturing quality + VRAM + tok/s. First real
+  rungs exist: Gemma-12B Q8 + Q4 (2026-06-18); Qwen-27B Q2–Q8 (older, needs clean re-run on the locked suite).
+Headline product framing unchanged: "verified local quality vs frontier" leads; the quant tradeoff is model-page detail.
