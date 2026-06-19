@@ -132,8 +132,9 @@ A frozen suite + a one-command run are documented in `docs/REPRODUCE.md`. Summar
 - **Task suite:** `localbench run --endpoint <url> --model <name> --lane capped-thinking --tier standard`
   → deterministic first-N item slice per bench (paired runs use identical items), server-scored, manifest
   emitted, run JSON written. Build the site data with `web/build_data.py`.
-- **Quant drift (KLD):** `localbench kld --model <f16.gguf> --quants <q8,q6,...> --calib <hashed.txt>`
-  → two-pass llama-perplexity, parsed KLD/churn panels → drift JSON for the model page.
+- **Quant drift (KLD):** `localbench kld --reference <f16.gguf> --quant Q8_0=<…> --quant Q4_K_M=<…>
+  --calib <hashed.txt> --llama-perplexity <bin> --model-label <name> --out drift.json`
+  → two-pass llama-perplexity, parsed KLD/churn panels → drift JSON for the model page (full flags in `docs/REPRODUCE.md`).
 Every number gates through `reconcile`/manifest provenance; suite identity is the sha256-hashed `suite.json`.
 
 ## 11. Evidence index (dated, in this folder)
