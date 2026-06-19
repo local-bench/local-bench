@@ -20,6 +20,7 @@ from localbench.orchestrate import (
     default_output_path,
     run_localbench,
 )
+from localbench.kld import run_kld_ladder
 from localbench.providers import provider_choices
 from localbench.scoring.paired_delta import (
     CompareResult,
@@ -46,6 +47,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run(args)
     if args.command == "compare":
         return _compare(args)
+    if args.command == "kld":
+        return _kld(args)
     parser.print_help()
     return 2
 
@@ -95,6 +98,29 @@ def _parser() -> argparse.ArgumentParser:
     compare_parser.add_argument("--out", type=Path)
     compare_parser.add_argument("--iters", type=int, default=10_000)
     compare_parser.add_argument("--seed", type=int, default=0)
+    kld_parser = subparsers.add_parser(
+        "kld",
+        help="measure quant distribution-drift (KLD) vs a full-precision reference",
+    )
+    kld_parser.add_argument("--reference", required=True, type=Path,
+                            help="full-precision (or Q8-proxy) reference GGUF")
+    kld_parser.add_argument("--quant", required=True, action="append", type=_label_path,
+                            metavar="LABEL=PATH", help="quant GGUF, repeatable")
+    kld_parser.add_argument("--calib", required=True, type=Path,
+                            help="calibration corpus (hashed into the drift record for provenance)")
+    kld_parser.add_argument("--llama-perplexity", required=True, type=Path,
+                            help="path to the llama.cpp llama-perplexity binary")
+    kld_parser.add_argument("--out", required=True, type=Path, help="drift JSON output path")
+    kld_parser.add_argument("--model-label", required=True, help="model name for the drift record")
+    kld_parser.add_argument("--reference-label", default="BF16",
+                            help="reference type label shown on the model page (e.g. BF16, 'Q8 (proxy)')")
+    kld_parser.add_argument("--work-dir", type=Path,
+                            help="scratch dir for the baseline .kld + per-quant logs (default: alongside --out)")
+    kld_parser.add_argument("--ngl", type=int, default=99)
+    kld_parser.add_argument("--churn-reference", type=Path,
+                            help="reference task-run JSON; pair with --churn-quant to attach churn")
+    kld_parser.add_argument("--churn-quant", action="append", type=_label_path,
+                            metavar="LABEL=PATH", help="quant task-run JSON for churn, repeatable")
     return parser
 
 
@@ -143,6 +169,54 @@ def _compare(args: argparse.Namespace) -> int:
             handle.write("\n")
     _print_compare(comparison)
     return 0
+
+
+def _kld(args: argparse.Namespace) -> int:
+    quants = dict(args.quant)
+    churn_quants = dict(args.churn_quant) if args.churn_quant else None
+    work_dir = args.work_dir or args.out.parent / f"{args.out.stem}-kld"
+    drift = run_kld_ladder(
+        llama_perplexity=args.llama_perplexity,
+        reference=args.reference,
+        quants=quants,
+        calib=args.calib,
+        model_label=args.model_label,
+        reference_label=args.reference_label,
+        work_dir=work_dir,
+        ngl=args.ngl,
+        churn_reference=args.churn_reference,
+        churn_quants=churn_quants,
+    )
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    with args.out.open("w", encoding="utf-8") as handle:
+        json.dump(drift, handle, indent=2)
+        handle.write("\n")
+    _print_kld_summary(drift)
+    print(f"output     {args.out}")
+    return 0
+
+
+def _label_path(value: str) -> tuple[str, Path]:
+    label, sep, path = value.partition("=")
+    if not sep or not label or not path:
+        raise argparse.ArgumentTypeError(f"expected LABEL=PATH, got {value!r}")
+    return label, Path(path)
+
+
+def _print_kld_summary(drift: dict) -> None:
+    print(f"model      {drift['model']}  (drift vs reference={drift['reference']}; NOT a task score)")
+    print("quant       medKLD   q99KLD  sameTop%  churn%")
+    for label, entry in drift["quants"].items():
+        kld = entry["kld"]
+        churn = entry["churn"]
+        churn_pct = f"{churn['churn'] * 100:>5.1f}" if churn is not None else "    -"
+        print(
+            f"{label:<10} "
+            f"{kld['median_kld']:>7.3f} "
+            f"{kld['q99_kld']:>8.3f} "
+            f"{kld['same_top_p']:>8.1f} "
+            f"{churn_pct}",
+        )
 
 
 def _api_key(env_var: str | None) -> str | None:
