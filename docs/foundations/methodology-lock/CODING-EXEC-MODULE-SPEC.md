@@ -2,8 +2,10 @@
 
 > **STATUS: BENCHMARK-READY (built + unit-tested, no run yet).** Commits on suite/v1-quant-wedge:
 > 24ee12c (hardened sandbox) · 5566234 (vendor BigCodeBench-Hard, 148) · f605c65 (exec harness) ·
-> 94f9782 (`localbench code` orchestration + CLI). Security design red-teamed (Gemini PASS-with-fixes,
-> all folded in). The discrimination run is GPU + Docker gated: needs a digest-pinned image + Michael's go.
+> 94f9782 (`localbench code` orchestration + CLI). Security design red-teamed by BOTH frontier models
+> (Gemini PASS-with-fixes + GPT-5.5 deep threat-model, 2026-06-19); every MANDATORY finding from both is
+> folded into `coding_exec/sandbox.py` + the new fail-closed `preflight_checks` gate (see §Security, the
+> "folded in" list). The discrimination run is GPU + Docker gated: needs a digest-pinned image + Michael's go.
 
 
 *Michael chose (2026-06-19, after the dual red-team) to BUILD the opt-in code-EXECUTION axis — the path both
@@ -58,11 +60,42 @@ MANDATORY host-OS hardening (every `docker run`, default-on — encoded in `codi
   past a cap (~5 MB) — else endless output OOMs our OWN host process despite the container memory cap.
 - **No writable host bind-mount, ever.** Results leave via bounded stdout, not a mounted file; the only mount is a
   READ-ONLY mount of the generated-code/task file.
-- Linux: offer `--runtime=runsc` (gVisor) and recommend it (shared host kernel → an N-day LPE in io_uring/eBPF
-  escapes to host); Mac/Windows get a Docker-Desktop VM boundary already — document the difference.
+- Linux: a SECOND isolation boundary is REQUIRED, not optional (GPT-5.5's single biggest finding — rootful
+  Docker shares the host kernel, so an N-day LPE in io_uring/eBPF escapes to host and no cap-drop compensates).
+  `preflight_checks` auto-selects `--runtime=runsc` (gVisor) when present and FAILS CLOSED on rootful bare-Linux
+  Docker with neither gVisor nor rootless, unless the user passes `--allow-unsafe-sandbox`. Mac/Windows get a
+  Docker-Desktop VM boundary already — preflight passes them and documents the difference.
 - Execution is OFF unless the user passes explicit `--coding-exec`, which prints the "runs model-generated code in
   a sandboxed container" warning.
 - The frozen task set + image digest + hardening flags go in the manifest (provenance).
+
+### Folded in from the GPT-5.5 deep threat-model (2026-06-19)
+GPT-5.5 confirmed the existing flags as a strong base "for accidental bad code" and named the gaps. All MANDATORY
+items it raised are now in code (`coding_exec/sandbox.py`, asserted by `test_coding_exec_sandbox.py`):
+- **`--log-driver none`** — dockerd's own log file is NOT bounded by our host stdout reader (a "scream"
+  generation could still fill disk via the daemon log). Added to `MANDATORY_SECURITY_FLAGS`.
+- **ulimits the cgroup caps miss:** `--ulimit nofile` (FD-exhaustion DoS), `--ulimit fsize` pinned to the tmpfs
+  scratch size (no oversized single-file write), `--ulimit core=0` (no core dumps — large + leak in-memory data).
+  (No `--ulimit nproc`: process count is the cgroup's job via `--pids-limit`; RLIMIT_NPROC is per-host-uid and
+  would false-fail legit code.)
+- **No TTY/console** — we never allocate `-t` (reduces exposure to /dev/console runtime bugs, e.g. CVE-2025-52565).
+- **Fail-closed preflight (`preflight_checks` + `probe_docker_env`):** the second-boundary requirement above,
+  PLUS a **runc CVE floor** (refuse runc < 1.1.12, the CVE-2024-21626 host-fd-leak escape, when runc is the
+  executing runtime — skipped under gVisor since runsc replaces runc). Decision logic is injectable → unit-tested
+  without Docker; the real probe shells out at run time (gated).
+
+**Deferred to the gated run (documented, not yet built — they need a live Docker/image to validate safely):**
+- **Custom seccomp profile** beyond Docker's default (deny io_uring + the residual dangerous syscalls). Held back
+  because an over-tight syscall denylist can silently false-fail BigCodeBench solutions; it gets validated against
+  real task execution during the Stage-1 throughput probe, not blind.
+- **Per-task container isolation option.** v1 runs all tasks in ONE container (each task already in its own fresh
+  subprocess; the score is computed by the trusted runner from exit codes, never self-reported — so a malicious
+  generation can't false-PASS). GPT-5.5 wants one container per task for stronger cross-task isolation; we'll add
+  `--isolation per-task` (recreate the container per task) as the paranoid/ranked path, defaulting to per-run for
+  speed, and measure the wall-clock cost of per-task at Stage 1 before choosing the ranked-run default.
+- **Image supply chain:** SBOM + signature/provenance + a vulnerability scan of the pinned bigcode image, and
+  `--pull=never` after install. Done at the `docker pull` + digest-pin step (itself a no-GPU prep gate).
+- **microVM (Firecracker/Kata)** as an even-stronger boundary for non-expert users — future, post-v1.
 
 **SCORE-INTEGRITY isolation (Gemini's "biggest thing you're not seeing"):** the benchmark's own unit tests must
 NOT run in the same Python process as the untrusted generated code — a malicious generation can monkeypatch

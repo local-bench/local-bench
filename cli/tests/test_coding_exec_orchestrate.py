@@ -10,12 +10,21 @@ import httpx
 import pytest
 
 from localbench._suite import read_json_object, render_benches
-from localbench.coding_exec.orchestrate import CodingExecConfig, run_coding_exec
-from localbench.coding_exec.sandbox import RawRunResult
+from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, run_coding_exec
+from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
 from localbench.orchestrate import _exclude_exec_lane
 
 _REPO = Path(__file__).resolve().parents[2]
 _SUITE_V1 = _REPO / "suite" / "v1"
+
+# A host with gVisor — passes preflight and exercises runtime auto-selection. Injected so
+# the orchestrator never shells out to a real Docker during unit tests.
+_GVISOR_HOST = DockerEnv(
+    platform="linux", desktop=False, rootless=False, runsc_available=True, runc_version=(1, 2, 0)
+)
+_UNSAFE_HOST = DockerEnv(
+    platform="linux", desktop=False, rootless=False, runsc_available=False, runc_version=(1, 2, 0)
+)
 
 
 def _generation_handler(_request: httpx.Request) -> httpx.Response:
@@ -57,7 +66,10 @@ def test_run_coding_exec_generate_assemble_sandbox_score(tmp_path: Path) -> None
 
     async def scenario() -> dict:
         return await run_coding_exec(
-            config, transport=httpx.MockTransport(_generation_handler), sandbox_runner=_fake_sandbox
+            config,
+            transport=httpx.MockTransport(_generation_handler),
+            sandbox_runner=_fake_sandbox,
+            docker_env=_GVISOR_HOST,
         )
 
     run = asyncio.run(scenario())
@@ -69,9 +81,47 @@ def test_run_coding_exec_generate_assemble_sandbox_score(tmp_path: Path) -> None
     assert run["score"]["raw_accuracy"] == pytest.approx(0.5)
     assert run["manifest"]["lane"] == "exec"
     assert run["manifest"]["image_digest_pinned"] is False  # default tag, not a digest
+    assert run["manifest"]["runtime"] == "runsc"  # preflight auto-selected gVisor
     assert run["manifest"]["item_set_hashes"]["bigcodebench_hard.jsonl"]
     assert any("--init" in flag for flag in run["manifest"]["sandbox_hardening"])
     assert (tmp_path / "coding.json").exists()
+
+
+def test_run_coding_exec_refuses_unsafe_host(tmp_path: Path) -> None:
+    # The fail-closed gate: a rootful bare-Linux host with no second boundary must abort
+    # BEFORE any generation, not silently run untrusted code.
+    config = CodingExecConfig(
+        endpoint="http://local/v1", model="demo-model", suite_dir=_SUITE_V1, max_items=2, out=tmp_path / "c.json"
+    )
+
+    async def scenario() -> dict:
+        return await run_coding_exec(
+            config, transport=httpx.MockTransport(_generation_handler), sandbox_runner=_fake_sandbox, docker_env=_UNSAFE_HOST
+        )
+
+    with pytest.raises(CodingExecError, match="preflight failed"):
+        asyncio.run(scenario())
+    assert not (tmp_path / "c.json").exists()
+
+
+def test_run_coding_exec_override_runs_on_unsafe_host(tmp_path: Path) -> None:
+    config = CodingExecConfig(
+        endpoint="http://local/v1",
+        model="demo-model",
+        suite_dir=_SUITE_V1,
+        max_items=2,
+        out=tmp_path / "c.json",
+        allow_unsafe_sandbox=True,
+    )
+
+    async def scenario() -> dict:
+        return await run_coding_exec(
+            config, transport=httpx.MockTransport(_generation_handler), sandbox_runner=_fake_sandbox, docker_env=_UNSAFE_HOST
+        )
+
+    run = asyncio.run(scenario())
+    assert run["manifest"]["allow_unsafe_sandbox"] is True
+    assert any("OVERRIDE" in warning for warning in run["warnings"])
 
 
 def test_localbench_run_excludes_the_exec_lane_bench() -> None:

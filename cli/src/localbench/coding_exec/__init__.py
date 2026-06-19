@@ -17,20 +17,28 @@ from localbench.coding_exec.program import assemble_program
 from localbench.coding_exec.runner import run_program
 from localbench.coding_exec.sandbox import (
     MANDATORY_SECURITY_FLAGS,
+    MIN_SAFE_RUNC,
     OPT_IN_WARNING,
+    DockerEnv,
+    PreflightResult,
     RawRunResult,
     SandboxLimits,
     SandboxResult,
     default_runner,
     docker_run_argv,
+    preflight_checks,
+    probe_docker_env,
     run_sandboxed,
 )
 from localbench.coding_exec.score import CodingExecScore, score_coding_exec
 
 __all__ = [
     "MANDATORY_SECURITY_FLAGS",
+    "MIN_SAFE_RUNC",
     "OPT_IN_WARNING",
     "CodingExecScore",
+    "DockerEnv",
+    "PreflightResult",
     "RawRunResult",
     "SandboxLimits",
     "SandboxResult",
@@ -38,6 +46,8 @@ __all__ = [
     "default_runner",
     "docker_run_argv",
     "extract_code",
+    "preflight_checks",
+    "probe_docker_env",
     "run_program",
     "run_sandboxed",
     "score_coding_exec",

@@ -77,12 +77,15 @@ localbench code \
   --tier    standard \
   --out     runs/my-coding-exec.json
 ```
-Prereqs: Docker installed (Docker Desktop on Mac/Windows gives a VM boundary; on Linux add `--runtime runsc`
-for gVisor). The container is locked down by default (`--network none`, `--read-only`, `--cap-drop ALL`,
-`--security-opt no-new-privileges`, swap off, bounded tmpfs, `--init`, non-root, bounded output) — see
-`docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md`. Each task runs in its own subprocess; the
-trusted runner computes pass/fail from exit codes (never self-reported). Coding-exec is a **separate exec
-lane** with its own score; it is a *candidate* until a discrimination run earns it a headline slot.
+Prereqs: Docker installed. A **fail-closed preflight** runs first: Mac/Windows pass on the Docker-Desktop VM
+boundary; on Linux it auto-selects `--runtime runsc` (gVisor) when present, and **refuses to run** on rootful
+bare-Linux Docker with neither gVisor nor rootless (install gVisor or use rootless Docker, or pass
+`--allow-unsafe-sandbox` to override — not recommended). It also rejects runc below the CVE-2024-21626 floor.
+The container is locked down by default (`--network none`, `--read-only`, `--cap-drop ALL`, `--security-opt
+no-new-privileges`, swap off, bounded tmpfs, `--init`, `--log-driver none`, nofile/fsize/core ulimits, non-root,
+bounded output) — see `docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md`. Each task runs in its own
+subprocess; the trusted runner computes pass/fail from exit codes (never self-reported). Coding-exec is a
+**separate exec lane** with its own score; it is a *candidate* until a discrimination run earns it a headline slot.
 
 ## 5. Build the site data
 ```

@@ -4,13 +4,32 @@ from collections.abc import Sequence
 
 from localbench.coding_exec import (
     MANDATORY_SECURITY_FLAGS,
+    DockerEnv,
     RawRunResult,
     SandboxLimits,
     docker_run_argv,
+    preflight_checks,
     run_sandboxed,
 )
 
 _IMAGE = "ghcr.io/bigcode-project/evaluation-harness@sha256:" + "a" * 64
+
+
+def _env(
+    *,
+    platform: str = "linux",
+    desktop: bool = False,
+    rootless: bool = False,
+    runsc_available: bool = False,
+    runc_version: tuple[int, int, int] | None = (1, 2, 0),
+) -> DockerEnv:
+    return DockerEnv(
+        platform=platform,
+        desktop=desktop,
+        rootless=rootless,
+        runsc_available=runsc_available,
+        runc_version=runc_version,
+    )
 
 
 def _contains(argv: Sequence[str], seq: Sequence[str]) -> bool:
@@ -40,6 +59,73 @@ def test_docker_run_argv_caps_resources_and_runs_nonroot() -> None:
     assert _contains(argv, ["--cpus", "0.5"])
     assert _contains(argv, ["--pids-limit", "128"])
     assert _contains(argv, ["--user", "65534:65534"])
+
+
+def test_docker_run_argv_sets_ulimits_and_disables_logging() -> None:
+    # GPT-5.5 review additions: cgroup caps don't cover FD-exhaustion, core dumps, or
+    # dockerd's own log growth — these ulimits + log-driver close those gaps.
+    argv = docker_run_argv(_IMAGE, ["true"], limits=SandboxLimits(nofile=512, tmpfs_size_mb=32))
+    assert _contains(argv, ["--log-driver", "none"])
+    assert _contains(argv, ["--ulimit", "nofile=512:512"])
+    assert _contains(argv, ["--ulimit", "core=0:0"])
+    # fsize ulimit (bytes) is pinned to the tmpfs scratch size (32 MiB here).
+    assert _contains(argv, ["--ulimit", f"fsize={32 * 1024 * 1024}:{32 * 1024 * 1024}"])
+
+
+def test_docker_run_argv_never_allocates_a_tty() -> None:
+    # A TTY/console widens runtime attack surface (e.g. CVE-2025-52565 /dev/console handling).
+    argv = docker_run_argv(_IMAGE, ["true"])
+    assert "-t" not in argv
+    assert "--tty" not in argv
+
+
+def test_preflight_blocks_rootful_bare_linux_without_a_second_boundary() -> None:
+    # The single biggest red-team finding: rootful Docker shares the host kernel, so with
+    # neither gVisor nor rootless we must FAIL CLOSED rather than run untrusted code.
+    result = preflight_checks(_env(runsc_available=False, rootless=False))
+    assert result.ok is False
+    assert result.runtime is None
+    assert any("rootful" in b for b in result.blockers)
+
+
+def test_preflight_selects_gvisor_runtime_when_available() -> None:
+    result = preflight_checks(_env(runsc_available=True))
+    assert result.ok is True
+    assert result.runtime == "runsc"
+
+
+def test_preflight_allows_rootless_linux_without_gvisor() -> None:
+    result = preflight_checks(_env(rootless=True))
+    assert result.ok is True
+    assert result.runtime is None
+    assert result.blockers == ()
+
+
+def test_preflight_passes_on_docker_desktop_vm_boundary() -> None:
+    for env in (_env(platform="darwin"), _env(platform="windows"), _env(desktop=True)):
+        result = preflight_checks(env)
+        assert result.ok is True
+        assert result.runtime is None
+
+
+def test_preflight_override_downgrades_blocker_to_warning() -> None:
+    result = preflight_checks(_env(runsc_available=False, rootless=False), allow_unsafe=True)
+    assert result.ok is True
+    assert any("OVERRIDE" in w for w in result.warnings)
+
+
+def test_preflight_blocks_vulnerable_runc_on_native_linux() -> None:
+    # runc below the CVE-2024-21626 floor is a host escape when runc is the executing runtime.
+    result = preflight_checks(_env(rootless=True, runc_version=(1, 1, 0)))
+    assert result.ok is False
+    assert any("runc" in b for b in result.blockers)
+
+
+def test_preflight_does_not_block_vulnerable_runc_under_gvisor() -> None:
+    # gVisor replaces runc, so a stale runc is not the executing runtime → not a blocker.
+    result = preflight_checks(_env(runsc_available=True, runc_version=(1, 1, 0)))
+    assert result.ok is True
+    assert result.runtime == "runsc"
 
 
 def test_docker_run_argv_adds_gvisor_runtime_when_requested() -> None:

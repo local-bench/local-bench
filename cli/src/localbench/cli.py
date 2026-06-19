@@ -21,7 +21,7 @@ from localbench.orchestrate import (
     run_localbench,
 )
 from localbench.coding_exec import OPT_IN_WARNING
-from localbench.coding_exec.orchestrate import CodingExecConfig, DEFAULT_IMAGE, run_coding_exec
+from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, DEFAULT_IMAGE, run_coding_exec
 from localbench.kld import run_kld_ladder
 from localbench.providers import provider_choices
 from localbench.scoring.paired_delta import (
@@ -144,6 +144,12 @@ def _parser() -> argparse.ArgumentParser:
     code_parser.add_argument("--per-task-timeout", type=int, default=30,
                              help="per-task wall-clock seconds inside the sandbox")
     code_parser.add_argument("--runtime", help="extra-isolation container runtime, e.g. runsc (gVisor) on Linux")
+    code_parser.add_argument(
+        "--allow-unsafe-sandbox",
+        action="store_true",
+        help="override the fail-closed gate and run on rootful bare-Linux Docker with no second "
+        "isolation boundary (NOT recommended — install gVisor or use rootless Docker instead)",
+    )
     return parser
 
 
@@ -237,8 +243,15 @@ def _code(args: argparse.Namespace) -> int:
         reasoning_effort=_reasoning_effort(args.reasoning_effort),
         per_task_timeout=args.per_task_timeout,
         runtime=args.runtime,
+        allow_unsafe_sandbox=args.allow_unsafe_sandbox,
     )
-    run = anyio.run(run_coding_exec, config)
+    try:
+        run = anyio.run(run_coding_exec, config)
+    except CodingExecError as error:
+        print(f"error      {error}")
+        return 2
+    for warning in run["warnings"]:
+        print(f"warning    {warning}")
     _print_coding_summary(run)
     return 0
 

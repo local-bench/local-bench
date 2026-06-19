@@ -30,8 +30,11 @@ from localbench.coding_exec.program import assemble_program
 from localbench.coding_exec.sandbox import (
     MANDATORY_SECURITY_FLAGS,
     OPT_IN_WARNING,
+    DockerEnv,
     SandboxLimits,
     docker_run_argv,
+    preflight_checks,
+    probe_docker_env,
     run_sandboxed,
 )
 from localbench.coding_exec.sandbox import Runner as SandboxRunner
@@ -66,6 +69,7 @@ class CodingExecConfig:
     per_task_timeout: int = 30
     limits: SandboxLimits = SandboxLimits()
     runtime: str | None = None
+    allow_unsafe_sandbox: bool = False  # explicit override for the rootful-bare-Linux fail-closed gate
 
 
 class CodingExecRun(TypedDict):
@@ -82,9 +86,25 @@ async def run_coding_exec(
     *,
     transport: httpx.AsyncBaseTransport | None = None,
     sandbox_runner: SandboxRunner | None = None,
+    docker_env: DockerEnv | None = None,
 ) -> CodingExecRun:
     suite = read_json_object(config.suite_dir / "suite.json")
     warnings: list[str] = []
+
+    # SECURITY GATE (fail fast, before the generation pass): refuse to execute untrusted
+    # model code unless the host has a sufficient sandbox boundary. `docker_env` is injected
+    # in tests; a real run probes the host. preflight may auto-select gVisor as the runtime.
+    env = docker_env if docker_env is not None else probe_docker_env()
+    preflight = preflight_checks(env, allow_unsafe=config.allow_unsafe_sandbox)
+    warnings.extend(f"sandbox: {note}" for note in preflight.warnings)
+    if not preflight.ok:
+        raise CodingExecError(
+            "sandbox preflight failed — refusing to run model-generated code: "
+            + "; ".join(preflight.blockers)
+            + " (override with allow_unsafe_sandbox if you accept the risk)"
+        )
+    config = replace(config, runtime=config.runtime or preflight.runtime)
+
     rendered = render_benches(BENCH, config.tier, config.max_items, config.suite_dir, suite, warnings)
     if not rendered:
         raise CodingExecError(f"{BENCH} not renderable from {config.suite_dir} (warnings: {warnings})")
@@ -192,6 +212,7 @@ def _manifest(
         "image": config.image,
         "image_digest_pinned": "@sha256:" in config.image,
         "runtime": config.runtime,
+        "allow_unsafe_sandbox": config.allow_unsafe_sandbox,
         "model": config.model,
         "suite_version": suite_version(suite),
         "item_set_hashes": item_hashes(config.suite_dir, [f"{BENCH}.jsonl"]),
