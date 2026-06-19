@@ -7,7 +7,8 @@ with confidence-bound decisions:
 
 - KEEP only if the LOWER 95% bound on the floor->frontier spread clears the keep threshold.
 - DROP only if the UPPER 95% bound is below the drop threshold AND the axis has enough items.
-- never PROMOTE on a single anchor (one lab's idiosyncrasies); single anchor = triage only.
+- never PROMOTE unless at least three local models are present, so the axis separates the
+  local range rather than a single local-vs-frontier gap.
 - gate parse/extraction-failure on its UPPER confidence bound, not the observed rate, and
   require it to be similar ACROSS families (a differential failure is a formatting artifact).
 - require a candidate axis to add information BEYOND the headline (not merely correlate).
@@ -27,7 +28,7 @@ Z95: Final = 1.959963984540054  # two-sided 95% normal quantile
 # Promotion thresholds on the 0..1 axis-score scale (floor->frontier spread).
 KEEP_SPREAD: Final = 0.15  # promote only if the LOWER 95% bound clears this
 DROP_SPREAD: Final = 0.05  # drop only if the UPPER 95% bound is below this
-MIN_ANCHORS_FOR_PROMOTION: Final = 2  # a single anchor can triage, never promote
+MIN_LOCALS_FOR_PROMOTION: Final = 3
 MIN_ITEMS_FOR_DROP: Final = 300  # don't make a fine drop decision on a tiny axis
 PARSE_FAIL_CEILING: Final = 0.05  # max acceptable parse/extraction-failure (upper bound)
 DIFFERENTIAL_PARSE_FAIL_MAX: Final = 0.10  # max acceptable gap in parse-fail rate across families
@@ -94,6 +95,7 @@ class SpreadGateResult:
     ci_high: float
     n_items: int
     n_anchors: int
+    n_locals: int
     reasons: tuple[str, ...]
 
 
@@ -104,10 +106,11 @@ def spread_gate(
     floor: float,
     n_floor: int,
     n_anchors: int,
+    n_locals: int,
     n_items: int,
     keep: float = KEEP_SPREAD,
     drop: float = DROP_SPREAD,
-    min_anchors: int = MIN_ANCHORS_FOR_PROMOTION,
+    min_locals: int = MIN_LOCALS_FOR_PROMOTION,
     min_items_for_drop: int = MIN_ITEMS_FOR_DROP,
 ) -> SpreadGateResult:
     """Decide keep / drop / triage / inconclusive on the floor->frontier spread by CI."""
@@ -115,23 +118,32 @@ def spread_gate(
     ci_low, ci_high = spread_ci(frontier, n_frontier, floor, n_floor)
     reasons: list[str] = []
 
-    if n_anchors < min_anchors:
-        reasons.append(f"only {n_anchors} anchor(s); >= {min_anchors} required to promote (triage only)")
-        return SpreadGateResult("triage", point, ci_low, ci_high, n_items, n_anchors, tuple(reasons))
+    if n_locals < min_locals:
+        reasons.append(f"only {n_locals} local model(s); >= {min_locals} required to promote")
+        return SpreadGateResult("triage", point, ci_low, ci_high, n_items, n_anchors, n_locals, tuple(reasons))
 
     if ci_low >= keep:
         reasons.append(f"lower 95% bound on spread {ci_low:.2f} >= keep {keep:.2f}")
-        return SpreadGateResult("keep", point, ci_low, ci_high, n_items, n_anchors, tuple(reasons))
+        return SpreadGateResult("keep", point, ci_low, ci_high, n_items, n_anchors, n_locals, tuple(reasons))
 
     if ci_high < drop:
         if n_items < min_items_for_drop:
             reasons.append(f"would drop (upper {ci_high:.2f} < {drop:.2f}) but only {n_items} items (< {min_items_for_drop})")
-            return SpreadGateResult("inconclusive:small-n", point, ci_low, ci_high, n_items, n_anchors, tuple(reasons))
+            return SpreadGateResult(
+                "inconclusive:small-n",
+                point,
+                ci_low,
+                ci_high,
+                n_items,
+                n_anchors,
+                n_locals,
+                tuple(reasons),
+            )
         reasons.append(f"upper 95% bound on spread {ci_high:.2f} < drop {drop:.2f}")
-        return SpreadGateResult("drop", point, ci_low, ci_high, n_items, n_anchors, tuple(reasons))
+        return SpreadGateResult("drop", point, ci_low, ci_high, n_items, n_anchors, n_locals, tuple(reasons))
 
-    reasons.append(f"CI [{ci_low:.2f}, {ci_high:.2f}] straddles keep/drop; need more items or anchors")
-    return SpreadGateResult("inconclusive:wide-ci", point, ci_low, ci_high, n_items, n_anchors, tuple(reasons))
+    reasons.append(f"CI [{ci_low:.2f}, {ci_high:.2f}] straddles keep/drop; need more items")
+    return SpreadGateResult("inconclusive:wide-ci", point, ci_low, ci_high, n_items, n_anchors, n_locals, tuple(reasons))
 
 
 def parse_fail_gate(failures: int, n: int, *, ceiling: float = PARSE_FAIL_CEILING) -> tuple[bool, float]:

@@ -16,9 +16,6 @@ from localbench.probe.gates import (
 )
 
 LabelKind = Literal["anchor", "local"]
-# "keep"/"drop"/"triage"/"inconclusive:*" are the CI-bound spread-gate verdicts (gates.py);
-# "drop:frontier-flat"/"drop:locals-floor" are the prior absolute-level drops kept as
-# decisive pre-checks (saturation / all-locals-floored) before the CI gate runs.
 Verdict = Literal[
     "keep",
     "triage",
@@ -54,7 +51,8 @@ class AxisResult(TypedDict):
     spread_ci_low: float | None
     spread_ci_high: float | None
     n_items: int | None
-    n_anchors: int | None
+    n_anchors: int
+    n_locals: int
     parse_fail_upper: float | None
     parse_fail_ok: bool
     differential_parse_fail_ok: bool
@@ -89,10 +87,10 @@ def analyze_discrimination(
     """Measure per-axis between-model discrimination and normalize kept weights.
 
     Promotion decisions are CONFIDENCE-BOUND (gates.py): an axis is kept only if the lower
-    95% bound on the floor->frontier spread clears the keep threshold with >= 2 anchors;
-    dropped only if the upper bound is below the drop threshold with enough items; flagged
-    (and excluded from weighting) if its parse/extraction-failure upper bound breaches the
-    ceiling or it is redundant with the headline. Single-anchor axes are triage-only.
+    95% bound on the measured floor->frontier spread clears the keep threshold with at
+    least three local models; dropped only if the upper bound is below the drop threshold
+    with enough items; flagged (and excluded from weighting) if its parse/extraction-failure
+    upper bound breaches the ceiling or it is redundant with the headline.
     """
     global_notes: list[str] = []
     models = _labeled_runs(run_records, labels, global_notes)
@@ -236,12 +234,13 @@ def _axis_result(
     local_max = max(local_values) if local_values else None
     anchor_min = min(anchor_values) if anchor_values else None
     anchor_max = max(anchor_values) if anchor_values else None
+    n_anchors = len({score.model_name for score in scores if score.label == "anchor"})
+    n_locals = len({score.model_name for score in scores if score.label == "local"})
 
     # Defaults for the CI-gate fields (only branch 5 populates the CI bounds).
     spread_ci_low: float | None = None
     spread_ci_high: float | None = None
     n_items: int | None = None
-    n_anchors: int | None = len(anchor_values) or None
     parse_fail_upper, parse_fail_ok = _axis_parse_fail(scores)
     differential_parse_fail_ok, differential_gap = _axis_differential_parse_fail(scores)
     redundant = _axis_redundant(scores)
@@ -257,47 +256,44 @@ def _axis_result(
             "verify it adds incremental information on the full panel before weighting",
         )
 
-    if anchor_spread is None and reference_score is not None:
-        # No measured anchors, but a published frontier ceiling exists (e.g. math: frontier
-        # scores are cited from the source, not re-measured). Judge by the gap to best local.
-        # This is REPORTED, not measured -> "triage" (never weighted): a published number
-        # cannot promote an axis into the headline; it needs >= 2 MEASURED anchors.
-        gap = reference_score - (local_max if local_max is not None else 0.0)
-        notes.append(
-            f"axis {axis}: reference-anchored to published ceiling "
-            f"{reference_score:.2f} (REPORTED, unmeasured); gap-to-best-local {gap:.2f}",
-        )
-        verdict: Verdict = "triage" if gap > FRONTIER_FLAT_THRESHOLD else "drop:locals-floor"
-        anchor_min = anchor_max = reference_score
-        overall_spread = reference_score - (min(local_values) if local_values else 0.0)
-    elif anchor_spread is None:
-        notes.append(f"axis {axis}: no usable anchor scores")
-        verdict = "drop:frontier-flat"
-    elif len(anchor_values) >= 2 and anchor_spread <= FRONTIER_FLAT_THRESHOLD:
-        # Saturation is only meaningful with >= 2 anchors; a single anchor has spread 0 but
-        # isn't "flat" — it falls through to the CI gate, which returns triage (oracle: a
-        # single anchor can never promote).
-        verdict = "drop:frontier-flat"
-    elif local_values and all(value <= LOCALS_FLOOR_THRESHOLD for value in local_values):
-        verdict = "drop:locals-floor"
+    if local_values and all(value <= LOCALS_FLOOR_THRESHOLD for value in local_values):
+        verdict: Verdict = "drop:locals-floor"
     elif not local_values:
-        # No locals -> we cannot assess the local->frontier reach that DEFINES discrimination
-        # (an anchor-vs-anchor spread is not it). Triage, never weighted.
         verdict = "triage"
+    elif n_anchors >= 2 and anchor_spread is not None and anchor_spread <= FRONTIER_FLAT_THRESHOLD:
+        verdict = "drop:frontier-flat"
+    elif (
+        n_anchors == 0
+        and reference_score is not None
+        and reference_score - max(all_values) <= FRONTIER_FLAT_THRESHOLD
+    ):
+        # No anchors, but the strongest model sits within FRONTIER_FLAT of the published
+        # ceiling -> no headroom -> saturated. A NON-saturated published ceiling does NOT
+        # block promotion; it falls through to the local-range CI gate below.
+        notes.append(
+            f"axis {axis}: strongest model within {FRONTIER_FLAT_THRESHOLD:.2f} of published "
+            f"ceiling {reference_score:.2f} (REPORTED) -> saturated",
+        )
+        verdict = "drop:frontier-flat"
     else:
-        # Confidence-bound spread gate (the oracle's core fix). Pick the frontier (best
-        # anchor) and floor (weakest local) MODELS directly so their N attaches correctly
-        # even under score ties; the small-N drop guard uses the EFFECTIVE comparison N
-        # (the smaller of the two), not an unrelated large-N model's count.
-        frontier_obj = _extreme(scores, "anchor", highest=True)
-        floor_obj = _extreme(scores, "local", highest=False)
+        # CI spread gate on the MEASURED range (anchor-free): promotes on >= 3 local models +
+        # a lower-bound spread clearing keep. A published ceiling here is non-saturating, so
+        # promotion is decided by the local spread.
+        if reference_score is not None:
+            notes.append(
+                f"axis {axis}: published ceiling {reference_score:.2f} (REPORTED, non-saturating); "
+                "promotion judged on the local spread",
+            )
+        frontier_obj = _extreme(scores, None, highest=True)
+        floor_obj = _extreme(scores, None, highest=False)
         n_items = min(frontier_obj.n, floor_obj.n)
         gate = spread_gate(
             frontier=frontier_obj.score,
             n_frontier=frontier_obj.n,
             floor=floor_obj.score,
             n_floor=floor_obj.n,
-            n_anchors=len(anchor_values),
+            n_anchors=n_anchors,
+            n_locals=n_locals,
             n_items=n_items,
         )
         verdict = gate.verdict
@@ -328,6 +324,7 @@ def _axis_result(
         "spread_ci_high": spread_ci_high,
         "n_items": n_items,
         "n_anchors": n_anchors,
+        "n_locals": n_locals,
         "parse_fail_upper": parse_fail_upper,
         "parse_fail_ok": parse_fail_ok,
         "differential_parse_fail_ok": differential_parse_fail_ok,
@@ -400,10 +397,10 @@ def _pooled_failure_rate(scores: Sequence[_AxisScore]) -> float | None:
     return sum(score.extraction_failures for score in scores) / n_total
 
 
-def _extreme(scores: Sequence[_AxisScore], label: LabelKind, *, highest: bool) -> _AxisScore:
+def _extreme(scores: Sequence[_AxisScore], label: LabelKind | None, *, highest: bool) -> _AxisScore:
     """The highest- or lowest-scoring model of a label. Ties broken by the SMALLEST N (the
     most conservative comparison), so the spread CI attaches to a real model's item count."""
-    candidates = [score for score in scores if score.label == label]
+    candidates = [score for score in scores if label is None or score.label == label]
     target = (max if highest else min)(score.score for score in candidates)
     return min((score for score in candidates if score.score == target), key=lambda score: score.n)
 

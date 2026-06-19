@@ -46,28 +46,69 @@ def test_spread_ci_is_a_difference_of_independent_scores() -> None:
 
 
 def test_spread_gate_keeps_only_when_the_lower_bound_clears_keep() -> None:
-    result = spread_gate(frontier=0.60, n_frontier=400, floor=0.20, n_floor=400, n_anchors=2, n_items=400)
+    result = spread_gate(
+        frontier=0.60,
+        n_frontier=400,
+        floor=0.20,
+        n_floor=400,
+        n_anchors=0,
+        n_locals=3,
+        n_items=400,
+    )
     assert result.verdict == "keep"
     assert result.ci_low >= 0.15
+    assert result.n_locals == 3
 
 
-def test_spread_gate_single_anchor_is_triage_not_promotion() -> None:
-    # Even a huge spread cannot promote on one anchor (one lab's idiosyncrasies).
-    result = spread_gate(frontier=0.90, n_frontier=400, floor=0.10, n_floor=400, n_anchors=1, n_items=400)
+def test_spread_gate_fewer_than_three_locals_is_triage_not_promotion() -> None:
+    result = spread_gate(
+        frontier=0.90,
+        n_frontier=400,
+        floor=0.10,
+        n_floor=400,
+        n_anchors=2,
+        n_locals=2,
+        n_items=400,
+    )
     assert result.verdict == "triage"
+    assert result.n_locals == 2
 
 
 def test_spread_gate_drops_only_with_a_low_upper_bound_and_enough_items() -> None:
-    dropped = spread_gate(frontier=0.30, n_frontier=2000, floor=0.28, n_floor=2000, n_anchors=2, n_items=2000)
+    dropped = spread_gate(
+        frontier=0.30,
+        n_frontier=2000,
+        floor=0.28,
+        n_floor=2000,
+        n_anchors=0,
+        n_locals=3,
+        n_items=2000,
+    )
     assert dropped.verdict == "drop"
     assert dropped.ci_high < 0.05
     # Same tight CI but a tiny axis -> we refuse the fine drop decision.
-    small = spread_gate(frontier=0.30, n_frontier=2000, floor=0.28, n_floor=2000, n_anchors=2, n_items=100)
+    small = spread_gate(
+        frontier=0.30,
+        n_frontier=2000,
+        floor=0.28,
+        n_floor=2000,
+        n_anchors=0,
+        n_locals=3,
+        n_items=100,
+    )
     assert small.verdict == "inconclusive:small-n"
 
 
 def test_spread_gate_wide_ci_is_inconclusive() -> None:
-    result = spread_gate(frontier=0.40, n_frontier=60, floor=0.20, n_floor=60, n_anchors=2, n_items=60)
+    result = spread_gate(
+        frontier=0.40,
+        n_frontier=60,
+        floor=0.20,
+        n_floor=60,
+        n_anchors=0,
+        n_locals=3,
+        n_items=60,
+    )
     assert result.verdict == "inconclusive:wide-ci"
 
 

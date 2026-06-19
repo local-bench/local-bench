@@ -36,6 +36,11 @@ def test_analyze_discrimination_when_axes_vary_applies_keep_and_drop_rules() -> 
                 "discriminating": 0.22,
                 "locals_floor": 0.01,
             },
+            "local-c.json": {
+                "saturated": 0.78,
+                "discriminating": 0.55,
+                "locals_floor": 0.03,
+            },
         },
     )
     labels = _labels()
@@ -53,6 +58,7 @@ def test_analyze_discrimination_when_axes_vary_applies_keep_and_drop_rules() -> 
     assert results["discriminating"]["verdict"] == "keep"
     assert results["discriminating"]["anchor_spread"] == pytest.approx(0.12)
     assert results["discriminating"]["overall_spread"] == pytest.approx(0.68)
+    assert results["discriminating"]["n_locals"] == 3
     assert results["discriminating"]["suggested_weight"] == pytest.approx(1.0)
     kept_weight = sum(
         result["suggested_weight"]
@@ -95,6 +101,11 @@ def test_probe_cli_when_synthetic_runs_writes_json_and_prints_table(
                 "saturated": 0.82,
                 "discriminating": 0.22,
                 "locals_floor": 0.01,
+            },
+            "local-c.json": {
+                "saturated": 0.78,
+                "discriminating": 0.55,
+                "locals_floor": 0.03,
             },
         },
     ).items():
@@ -156,47 +167,93 @@ def test_analyze_discrimination_when_inputs_are_incomplete_records_notes() -> No
 
     # Then it records notes and returns a drop verdict instead of crashing.
     notes = result["notes"]
-    assert result["verdict"] == "drop:frontier-flat"
+    assert result["verdict"] == "triage"
     assert any("missing label" in note for note in notes)
     assert any("skipped missing bench missing" in note for note in notes)
     assert any("missing items list" in note for note in notes)
 
 
-def test_analyze_discrimination_reference_anchored_axis_judges_via_published_ceiling() -> None:
-    # Given an axis with NO measured anchors but a published reference ceiling (the math
-    # case: frontier scores are cited from the source, not re-measured by local-bench).
+def test_analyze_discrimination_promotes_three_clean_locals_without_anchors() -> None:
+    labels = {
+        "local-a.json": {"label": "local", "model_name": "local-a"},
+        "local-b.json": {"label": "local", "model_name": "local-b"},
+        "local-c.json": {"label": "local", "model_name": "local-c"},
+    }
+
+    result = analyze_discrimination(
+        {
+            "local-a.json": {"benches": {"disc": _bench(0.72)}, "composite": 0.72, "items": []},
+            "local-b.json": {"benches": {"disc": _bench(0.45)}, "composite": 0.45, "items": []},
+            "local-c.json": {"benches": {"disc": _bench(0.18)}, "composite": 0.18, "items": []},
+        },
+        {"disc": {"benches": ["disc"], "weight": None}},
+        labels,
+    )[0]
+
+    assert result["verdict"] == "keep"
+    assert result["n_anchors"] == 0
+    assert result["n_locals"] == 3
+    assert result["overall_spread"] == pytest.approx(0.54)
+    assert result["suggested_weight"] == pytest.approx(1.0)
+
+
+def test_analyze_discrimination_triages_fewer_than_three_local_models() -> None:
     labels = {
         "local-a.json": {"label": "local", "model_name": "local-a"},
         "local-b.json": {"label": "local", "model_name": "local-b"},
     }
+
+    result = analyze_discrimination(
+        {
+            "local-a.json": {"benches": {"disc": _bench(0.90)}, "composite": 0.90, "items": []},
+            "local-b.json": {"benches": {"disc": _bench(0.10)}, "composite": 0.10, "items": []},
+        },
+        {"disc": {"benches": ["disc"], "weight": None}},
+        labels,
+    )[0]
+
+    assert result["verdict"] == "triage"
+    assert result["n_anchors"] == 0
+    assert result["n_locals"] == 2
+    assert result["suggested_weight"] == 0.0
+
+
+def test_analyze_discrimination_reference_anchored_axis_judges_via_published_ceiling() -> None:
+    labels = {
+        "local-a.json": {"label": "local", "model_name": "local-a"},
+        "local-b.json": {"label": "local", "model_name": "local-b"},
+        "local-c.json": {"label": "local", "model_name": "local-c"},
+    }
     axis_map = {"refmath": {"benches": ["m"], "weight": None, "reference_score": 0.58}}
 
-    # When locals floor far below the published ceiling, the axis is KEPT and anchored to it.
-    floored = analyze_discrimination(
+    referenced = analyze_discrimination(
         {
-            "local-a.json": {"benches": {"m": _bench(0.02)}, "composite": 0.30, "items": [_item("m", "m-1", False)]},
-            "local-b.json": {"benches": {"m": _bench(0.05)}, "composite": 0.20, "items": [_item("m", "m-1", False)]},
+            "local-a.json": {"benches": {"m": _bench(0.42)}, "composite": 0.42, "items": [_item("m", "m-1", False)]},
+            "local-b.json": {"benches": {"m": _bench(0.30)}, "composite": 0.30, "items": [_item("m", "m-1", False)]},
+            "local-c.json": {"benches": {"m": _bench(0.12)}, "composite": 0.12, "items": [_item("m", "m-1", False)]},
         },
         axis_map,
         labels,
     )[0]
-    # REPORTED ceiling -> triage (never weighted): a published number can't promote an axis.
-    assert floored["verdict"] == "triage"
-    assert floored["suggested_weight"] == 0.0
-    assert floored["anchor_max"] == pytest.approx(0.58)
-    assert floored["overall_spread"] == pytest.approx(0.56)
-    assert any("reference-anchored" in note for note in floored["notes"])
+    # Anchor-free: 3 locals spread 0.30 with headroom below the 0.58 ceiling -> PROMOTE on the
+    # local spread (the ceiling is non-saturating, only a guard). It is NOT triaged just for
+    # having a published ceiling.
+    assert referenced["verdict"] == "keep"
+    assert referenced["suggested_weight"] == pytest.approx(1.0)
+    assert referenced["anchor_max"] is None
+    assert referenced["overall_spread"] == pytest.approx(0.30)
+    assert any("published ceiling" in note for note in referenced["notes"])
 
-    # When locals already sit near the published ceiling, the axis does not discriminate.
     saturated = analyze_discrimination(
         {
             "local-a.json": {"benches": {"m": _bench(0.56)}, "composite": 0.55, "items": [_item("m", "m-1", True)]},
             "local-b.json": {"benches": {"m": _bench(0.57)}, "composite": 0.55, "items": [_item("m", "m-1", True)]},
+            "local-c.json": {"benches": {"m": _bench(0.55)}, "composite": 0.55, "items": [_item("m", "m-1", True)]},
         },
         axis_map,
         labels,
     )[0]
-    assert saturated["verdict"] == "drop:locals-floor"
+    assert saturated["verdict"] == "drop:frontier-flat"
 
 
 def test_ci_gate_refuses_to_promote_on_thin_evidence() -> None:
@@ -210,6 +267,7 @@ def test_ci_gate_refuses_to_promote_on_thin_evidence() -> None:
             "anchor-b.json": {"benches": {"disc": _bench(0.40, n=12)}, "composite": 0.40, "items": []},
             "local-a.json": {"benches": {"disc": _bench(0.32, n=12)}, "composite": 0.32, "items": []},
             "local-b.json": {"benches": {"disc": _bench(0.30, n=12)}, "composite": 0.30, "items": []},
+            "local-c.json": {"benches": {"disc": _bench(0.31, n=12)}, "composite": 0.31, "items": []},
         },
         axis_map,
         _labels(),
@@ -217,29 +275,31 @@ def test_ci_gate_refuses_to_promote_on_thin_evidence() -> None:
     assert thin["verdict"] == "inconclusive:wide-ci"
     assert thin["suggested_weight"] == 0.0
     assert thin["n_anchors"] == 2
+    assert thin["n_locals"] == 3
 
 
-def test_single_anchor_axis_is_triage_only() -> None:
-    # A single anchor can never promote (one lab's idiosyncrasies) -> triage, even with a
-    # huge apparent spread. (Spread 0 on one anchor must NOT read as frontier-flat.)
+def test_single_anchor_axis_can_promote_when_local_range_is_measured() -> None:
     axis_map = {"disc": {"benches": ["disc"], "weight": None}}
     labels = {
         "anchor-a.json": {"label": "anchor", "model_name": "anchor-a"},
         "local-a.json": {"label": "local", "model_name": "local-a"},
         "local-b.json": {"label": "local", "model_name": "local-b"},
+        "local-c.json": {"label": "local", "model_name": "local-c"},
     }
     one_anchor = analyze_discrimination(
         {
             "anchor-a.json": {"benches": {"disc": _bench(0.90)}, "composite": 0.90, "items": []},
             "local-a.json": {"benches": {"disc": _bench(0.30)}, "composite": 0.30, "items": []},
             "local-b.json": {"benches": {"disc": _bench(0.20)}, "composite": 0.20, "items": []},
+            "local-c.json": {"benches": {"disc": _bench(0.45)}, "composite": 0.45, "items": []},
         },
         axis_map,
         labels,
     )[0]
-    assert one_anchor["verdict"] == "triage"
+    assert one_anchor["verdict"] == "keep"
     assert one_anchor["n_anchors"] == 1
-    assert one_anchor["suggested_weight"] == 0.0
+    assert one_anchor["n_locals"] == 3
+    assert one_anchor["suggested_weight"] == pytest.approx(1.0)
 
 
 def test_high_extraction_failure_axis_is_not_weighted() -> None:
@@ -254,6 +314,7 @@ def test_high_extraction_failure_axis_is_not_weighted() -> None:
             "anchor-b.json": {"benches": {"disc": _bench(0.80)}, "composite": 0.80, "items": []},
             "local-a.json": {"benches": {"disc": _bench(0.30)}, "composite": 0.30, "items": []},
             "local-b.json": {"benches": {"disc": _bench(0.20)}, "composite": 0.20, "items": []},
+            "local-c.json": {"benches": {"disc": _bench(0.45)}, "composite": 0.45, "items": []},
         },
         axis_map,
         _labels(),
@@ -296,6 +357,7 @@ def _labels() -> dict[str, dict[str, str]]:
         "anchor-b.json": {"label": "anchor", "model_name": "anchor-b"},
         "local-a.json": {"label": "local", "model_name": "local-a"},
         "local-b.json": {"label": "local", "model_name": "local-b"},
+        "local-c.json": {"label": "local", "model_name": "local-c"},
     }
 
 
@@ -307,6 +369,7 @@ def _records(
         "anchor-b.json": 0.84,
         "local-a.json": 0.36,
         "local-b.json": 0.18,
+        "local-c.json": 0.55,
     }
     records: dict[str, dict[str, object]] = {}
     for filename, scores in scores_by_file.items():
