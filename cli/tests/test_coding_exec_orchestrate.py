@@ -10,7 +10,12 @@ import httpx
 import pytest
 
 from localbench._suite import read_json_object, render_benches
-from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, run_coding_exec
+from localbench.coding_exec.orchestrate import (
+    CodingExecConfig,
+    CodingExecError,
+    ranked_eligibility,
+    run_coding_exec,
+)
 from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
 from localbench.orchestrate import _exclude_exec_lane
 
@@ -81,6 +86,9 @@ def test_run_coding_exec_generate_assemble_sandbox_score(tmp_path: Path) -> None
     assert run["score"]["raw_accuracy"] == pytest.approx(0.5)
     assert run["manifest"]["lane"] == "exec"
     assert run["manifest"]["image_digest_pinned"] is False  # default tag, not a digest
+    assert run["manifest"]["ranked_eligible"] is False  # ...so the run is not ranked-eligible
+    assert any("digest" in reason for reason in run["manifest"]["ranked_ineligible_reasons"])
+    assert len(run["manifest"]["runner_sha256"]) == 64  # harness provenance recorded
     assert run["manifest"]["runtime"] == "runsc"  # preflight auto-selected gVisor
     assert run["manifest"]["item_set_hashes"]["bigcodebench_hard.jsonl"]
     assert any("--init" in flag for flag in run["manifest"]["sandbox_hardening"])
@@ -122,6 +130,26 @@ def test_run_coding_exec_override_runs_on_unsafe_host(tmp_path: Path) -> None:
     run = asyncio.run(scenario())
     assert run["manifest"]["allow_unsafe_sandbox"] is True
     assert any("OVERRIDE" in warning for warning in run["warnings"])
+
+
+def test_ranked_eligibility_requires_digest_pin_and_no_unsafe_override() -> None:
+    # A default tag image is not digest-pinned -> not ranked-eligible.
+    tagged = CodingExecConfig(endpoint="x", model="m", suite_dir=_SUITE_V1)
+    eligible, reasons = ranked_eligibility(tagged)
+    assert eligible is False
+    assert any("digest" in reason for reason in reasons)
+
+    # Digest-pinned + sandbox not overridden -> ranked-eligible.
+    pinned = CodingExecConfig(endpoint="x", model="m", suite_dir=_SUITE_V1, image="repo@sha256:" + "a" * 64)
+    assert ranked_eligibility(pinned) == (True, [])
+
+    # Digest-pinned but the unsafe-sandbox override was used -> ineligible.
+    unsafe = CodingExecConfig(
+        endpoint="x", model="m", suite_dir=_SUITE_V1, image="repo@sha256:" + "a" * 64, allow_unsafe_sandbox=True
+    )
+    ok, unsafe_reasons = ranked_eligibility(unsafe)
+    assert ok is False
+    assert any("unsafe" in reason for reason in unsafe_reasons)
 
 
 def test_localbench_run_excludes_the_exec_lane_bench() -> None:

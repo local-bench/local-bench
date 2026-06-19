@@ -11,6 +11,7 @@ unit-tested without a model endpoint or Docker. The real run is GPU + Docker gat
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import tempfile
@@ -200,6 +201,25 @@ def _execute(
     return [dict(entry) for entry in parsed]
 
 
+def _runner_sha256() -> str:
+    """Hash of the in-container harness (runner.py) — provenance so a verifier can confirm
+    the trusted runner wasn't tampered with on a ranked submission."""
+    return hashlib.sha256(Path(runner_module.__file__).resolve().read_bytes()).hexdigest()
+
+
+def ranked_eligibility(config: CodingExecConfig) -> tuple[bool, list[str]]:
+    """A coding-exec run is RANKABLE only if its execution environment is fully pinned and
+    the sandbox boundary was not overridden (oracle #13). The digest-pinned image IS the
+    dependency lock for the container; the runner hash (recorded in the manifest) pins our
+    harness. Returns (eligible, reasons-if-not)."""
+    reasons: list[str] = []
+    if "@sha256:" not in config.image:
+        reasons.append("image not digest-pinned (repo@sha256:...) — container runtime + deps not locked")
+    if config.allow_unsafe_sandbox:
+        reasons.append("allow_unsafe_sandbox override used — sandbox isolation not guaranteed")
+    return (not reasons, reasons)
+
+
 def _manifest(
     config: CodingExecConfig,
     suite: JsonObject,
@@ -207,12 +227,16 @@ def _manifest(
     wall: float,
     score: CodingExecScore,
 ) -> JsonObject:
+    ranked_eligible, ranked_reasons = ranked_eligibility(config)
     return {
         "lane": "exec",
         "schema_note": "coding-exec axis: model-generated code run in a hardened opt-in Docker sandbox",
         "scorecard": scorecard_identity(),
         "image": config.image,
         "image_digest_pinned": "@sha256:" in config.image,
+        "runner_sha256": _runner_sha256(),
+        "ranked_eligible": ranked_eligible,
+        "ranked_ineligible_reasons": ranked_reasons,
         "runtime": config.runtime,
         "allow_unsafe_sandbox": config.allow_unsafe_sandbox,
         "model": config.model,

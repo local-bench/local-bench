@@ -269,6 +269,11 @@ def _print_coding_summary(run: dict) -> None:
     )
     manifest = run["manifest"]
     print(f"image      {manifest['image']} (digest-pinned={manifest['image_digest_pinned']})")
+    if manifest.get("ranked_eligible"):
+        print("ranked     eligible (digest-pinned + sandbox not overridden)")
+    else:
+        reasons = "; ".join(manifest.get("ranked_ineligible_reasons", [])) or "see manifest"
+        print(f"ranked     NOT eligible — {reasons}")
     print(f"output     {run['output_path']}")
     for warning in run["warnings"]:
         print(f"warning    {warning}")

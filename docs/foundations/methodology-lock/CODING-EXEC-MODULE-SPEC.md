@@ -111,6 +111,12 @@ host-safety-independent and ties to our trust model (replication, never "verifie
   BigCodeBench-Hard items → drive the user's endpoint to generate → run the hardened Docker harness → parse the
   pass/fail result JSON → emit a coding-exec axis score with bootstrap CI.
 - Scoring is deterministic (tests pass/fail), server-re-scored from the uploaded transcript + results.
+- **Ranked eligibility (oracle #13, ENFORCED — `coding_exec/orchestrate.ranked_eligibility`):** a coding-exec run
+  counts as RANKED only if its execution environment is fully pinned — the image is digest-pinned (`@sha256:`,
+  which IS the container dependency lock), the in-container `runner.py` is hashed into the manifest
+  (`runner_sha256`, harness provenance), and the `--allow-unsafe-sandbox` override was NOT used. The manifest
+  records `ranked_eligible` + `ranked_ineligible_reasons`; `localbench code` prints the verdict. A non-pinned or
+  unsafe-override run is community/diagnostic, never ranked.
 
 ## The measurement-before-lock gate (non-negotiable, GPU+exec-gated)
 Building the harness does NOT make coding a headline axis. Before it's weighted in:
