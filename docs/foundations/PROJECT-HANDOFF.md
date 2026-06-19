@@ -93,16 +93,26 @@ as the contamination-proof spine, ALONGSIDE the license-clean assembled discrimi
 prompt (`own-benchmark-research-prompt.md`, with a required 3-model red-team).
 
 ## 9. Key docs (all in `docs/foundations/`)
-- `README.md` — entry point + reconciliation. | `suite-v1-REVISED.md` — **current canonical spec** (measure-first).
-- `suite-v1-methodology.md` — original synthesis (superseded on axis/weights). | `red-team-findings.md` — the critique that drove the revision.
-- `replacement-research-notes.md` — running notes from the gap-fill research (coding/agentic/math/calibration/missing axes).
-- `website-design.md` — AA-inspired dark site design (3-level IA, quant-degradation hero). | `research-dossiers.json` — raw 9-track research.
+- **`methodology-lock/METHODOLOGY-v1.2-LOCKED.md` — CURRENT canonical methodology** (2026-06-19): the single
+  consolidated spec (lane, headline axes, composite, KLD/churn, stats, open-item status). Read this first.
+  Reproduce a run: [`../REPRODUCE.md`](../REPRODUCE.md).
+- `methodology-lock/` also holds: `DECISION.md` (dual red-team + Michael sign-off), `SUITE-LOCK.md`,
+  `WEDGE-RESULT.md` (accuracy-wedge NO-GO), `LADDER-RESULT.md`, `KLD-RESEARCH.md` + `KLD-VALIDATION.md`,
+  and the deferred-run specs `MATH-REBUILD-SPEC.md` + `RULER-CHECK-SPEC.md`.
+- Historical lineage: `suite-v1-DECISION.md` (2026-06-14 adopt-only) ← `suite-v1-REVISED.md` ←
+  `suite-v1-methodology.md` (superseded on axis/weights). | `README.md` — folder entry. | `red-team-findings.md`.
+- `replacement-research-notes.md` · `website-design.md` · `research-dossiers.json` — research/design backing.
 
 ## 10. What's decided vs open
-**Decided:** the wedge; the 5 constraints; distance-to-frontier reframe; keep the scoring stack; measure-first
-weighting; SuperGPQA + IFBench as core; coding → Docker opt-in; dark AA-inspired site.
-**Open (need Michael):** final axis list; run the discrimination probe (only remaining bench step, ~$5-15 +
-GPU time); the build-our-own decision; exec-sandbox stance (lean: no exec of model output); refresh cadence.
+**LOCKED (METHODOLOGY-v1.2, 2026-06-19):** the reasoning-on lane; headline composite = Knowledge + Instruction
+(0.5 each); Math + Long-Context = candidates and Agentic + Coding = experimental (all weight 0, shown not
+scored); the accuracy-wedge **NO-GO** → product claim "verified local quality vs frontier"; KLD + churn as the
+honest quant-drift story. The four consolidation open-items are CLOSED: weight reconcile (one code registry +
+drift-gate test) ✓; KLD-in-CLI (`localbench kld`) ✓; math rebuild SPEC'd (validation deferred); RULER
+discrimination SPEC'd (run deferred).
+**Open (need Michael — all sign-off-gated, $ or GPU):** (1) the deferred validation runs that can PROMOTE Math
++ Long-Context candidate → headline (`MATH-REBUILD-SPEC` / `RULER-CHECK-SPEC`); (2) frontier anchors on the
+locked suite (the "vs frontier" spine); (3) exec stance (lean: exec-free coding only at launch); (4) refresh cadence.
 
 ## 11. Execution model & guardrails
 Claude manages/reviews/synthesizes; research fans out to subagents; **codex GPT-5.5 xhigh** implements heavy

@@ -1,9 +1,11 @@
-# local-bench — benchmark-suite foundations (2026-06-13)
+# local-bench — benchmark-suite foundations
 
-**Status: research + red-team + paper-revision complete. Awaiting Michael's sign-off. NOTHING implemented yet.**
+**Status (2026-06-19): METHODOLOGY LOCKED + CONSOLIDATED.** suite-v1.2 is locked, the three
+weight sources are reconciled into one code registry, and KLD quant-drift is folded into the CLI.
+The accuracy-wedge was a NO-GO; the product claim is "verified local quality vs frontier".
 
-> **→ Current canonical spec: [`suite-v1-REVISED.md`](suite-v1-REVISED.md)** (post-red-team, measure-first).
-> `suite-v1-methodology.md` is the original synthesis — kept for detail, but its axis/weight choices are superseded.
+> **→ Current canonical methodology: [`methodology-lock/METHODOLOGY-v1.2-LOCKED.md`](methodology-lock/METHODOLOGY-v1.2-LOCKED.md)** — the single source folding the wedge NO-GO, the Gemma quant ladder, and KLD adoption. It SUPERSEDES the docs below for day-to-day reference. Reproduce a run: [`../REPRODUCE.md`](../REPRODUCE.md).
+> Historical lineage: [`suite-v1-DECISION.md`](suite-v1-DECISION.md) (2026-06-14 adopt-only decision) ← [`suite-v1-REVISED.md`](suite-v1-REVISED.md) (measure-first spec) ← [`suite-v1-methodology.md`](suite-v1-methodology.md) (original synthesis, superseded on axis/weights). The `methodology-lock/` folder holds the dual red-teams, Michael's sign-off, and the wedge/ladder/KLD result docs. The "Open questions for Michael" at the bottom are largely resolved by the lock.
 
 This folder is the output of the foundations rework triggered when the v0 suite was found
 **non-discriminating** (a 9B scored within 6 composite pts of frontier SOTA; Gemini 3.1 Pro
