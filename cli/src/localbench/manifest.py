@@ -12,6 +12,7 @@ from typing import Final
 import httpx
 
 from localbench._types import BenchmarkItem, JsonObject, JsonValue, Totals
+from localbench.scoring.scorecard import scorecard_identity
 
 _MODEL_FIELDS: Final = (
     "model.family", "model.quant_label", "model.file_name", "model.file_size_bytes",
@@ -74,6 +75,7 @@ async def collect_manifest(
             "lane": context.lane if context.lane in _LANES else "answer-only",
             "caps": _caps(context.sampling_by_bench),
         },
+        "scorecard": scorecard_identity(),
         "endpoint": {
             "kind": "local" if context.provider == "local" else "api",
             "runtime_reported_model": reported_model,

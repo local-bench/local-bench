@@ -41,6 +41,7 @@ from localbench.coding_exec.sandbox import Runner as SandboxRunner
 from localbench.coding_exec.score import BENCH, CodingExecScore, score_coding_exec
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
+from localbench.scoring.scorecard import scorecard_identity
 
 SCHEMA: Final = "localbench-coding-exec-v1"
 # bigcode's evaluation image; SHOULD be digest-pinned (repo@sha256:...) before a real run.
@@ -209,6 +210,7 @@ def _manifest(
     return {
         "lane": "exec",
         "schema_note": "coding-exec axis: model-generated code run in a hardened opt-in Docker sandbox",
+        "scorecard": scorecard_identity(),
         "image": config.image,
         "image_digest_pinned": "@sha256:" in config.image,
         "runtime": config.runtime,
