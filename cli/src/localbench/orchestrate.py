@@ -31,6 +31,7 @@ from localbench._suite import (
     suite_version,
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject
+from localbench.lane_conformance import assess_run_conformance
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
@@ -62,6 +63,7 @@ class LocalbenchRun(TypedDict):
     manifest: JsonObject
     benches: dict[str, BenchAggregate]
     composite: float
+    conformance: JsonObject
     items: list[ScoredItem]
     totals: RunTotals
     warnings: list[str]
@@ -132,6 +134,7 @@ async def run_localbench(
                     "enable_thinking": False,
                 }
 
+    results_by_bench: dict[str, list[ItemResult]] = {}
     for bench in rendered_benches:
         sampling_by_bench[bench.name] = bench.decoding
         item_files.append(bench.item_file)
@@ -149,6 +152,7 @@ async def run_localbench(
         scored_items = score_bench(bench, record["results"])
         warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
         items.extend(scored_items)
+        results_by_bench[bench.name] = record["results"]
 
     wall_time = time.perf_counter() - started_perf
     finished_at = utc_now()
@@ -201,6 +205,7 @@ async def run_localbench(
         "manifest": manifest,
         "benches": benches,
         "composite": composite(benches),
+        "conformance": assess_run_conformance(results_by_bench),
         "items": items,
         "totals": totals,
         "warnings": warnings,
