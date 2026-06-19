@@ -76,6 +76,19 @@
       "filler_corpus_id": "synthetic-ruler-local-v1",
       "generator_attribution": "Reimplemented from NVIDIA/RULER NIAH task pattern",
       "license_note": "Stores compact seed parameters only; no upstream RULER code, prompts, or haystack data are vendored."
+    },
+    "bigcodebench_hard.jsonl": {
+      "item_count": 148,
+      "sha256": "ecde72cfbe02c6cbdce63b8f2b3f2c6b11d09ddd34cf8c2e454f8d896d1eb8ca",
+      "source_dataset": "bigcode/bigcodebench-hard",
+      "source_split": "v0.1.4",
+      "source_revision": "298d2cc7b96612e15e47313c3603ee124cee0c1f",
+      "source_url": "https://huggingface.co/datasets/bigcode/bigcodebench-hard",
+      "license": "Apache-2.0",
+      "harness_repo": "https://github.com/bigcode-project/bigcodebench",
+      "harness_license": "Apache-2.0",
+      "lane": "exec",
+      "exec_note": "Opt-in code-EXECUTION axis. Model-generated code runs in a hardened, network-isolated Docker sandbox (localbench.coding_exec.sandbox) with the task's own unit tests in an isolated subprocess. See docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md."
     }
   }
 }

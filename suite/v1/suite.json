@@ -132,6 +132,23 @@
       },
       "lane_caps": {},
       "template": "templates/ruler.txt"
+    },
+    "bigcodebench_hard": {
+      "chance_correction_baseline": 0.0,
+      "lane": "exec",
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bigcodebench_hard.jsonl",
+          "item_count": 148,
+          "sha256": "ecde72cfbe02c6cbdce63b8f2b3f2c6b11d09ddd34cf8c2e454f8d896d1eb8ca"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bigcodebench.txt"
     }
   },
   "axis_weight_source": "localbench.scoring.axes.AXES — code is the single source of composite weights + roles; suite.json carries axis MEMBERSHIP only (METHODOLOGY-v1.2 §8). A test asserts this membership matches the registry.",
