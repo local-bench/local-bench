@@ -12,6 +12,9 @@ sandbox can't silently weaken.
 
 from __future__ import annotations
 
+from localbench.coding_exec.extract import extract_code
+from localbench.coding_exec.program import assemble_program
+from localbench.coding_exec.runner import run_program
 from localbench.coding_exec.sandbox import (
     MANDATORY_SECURITY_FLAGS,
     OPT_IN_WARNING,
@@ -22,14 +25,20 @@ from localbench.coding_exec.sandbox import (
     docker_run_argv,
     run_sandboxed,
 )
+from localbench.coding_exec.score import CodingExecScore, score_coding_exec
 
 __all__ = [
     "MANDATORY_SECURITY_FLAGS",
     "OPT_IN_WARNING",
+    "CodingExecScore",
     "RawRunResult",
     "SandboxLimits",
     "SandboxResult",
+    "assemble_program",
     "default_runner",
     "docker_run_argv",
+    "extract_code",
+    "run_program",
     "run_sandboxed",
+    "score_coding_exec",
 ]
