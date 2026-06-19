@@ -1,4 +1,10 @@
-# CODING-EXEC MODULE — DESIGN SPEC (2026-06-19, pre-build, pre-security-red-team)
+# CODING-EXEC MODULE — DESIGN SPEC + BUILD (2026-06-19)
+
+> **STATUS: BENCHMARK-READY (built + unit-tested, no run yet).** Commits on suite/v1-quant-wedge:
+> 24ee12c (hardened sandbox) · 5566234 (vendor BigCodeBench-Hard, 148) · f605c65 (exec harness) ·
+> 94f9782 (`localbench code` orchestration + CLI). Security design red-teamed (Gemini PASS-with-fixes,
+> all folded in). The discrimination run is GPU + Docker gated: needs a digest-pinned image + Michael's go.
+
 
 *Michael chose (2026-06-19, after the dual red-team) to BUILD the opt-in code-EXECUTION axis — the path both
 GPT-5.5 and Gemini said real coding coverage requires. This widens the locked judge-free core (METHODOLOGY-v1.2

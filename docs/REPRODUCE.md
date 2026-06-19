@@ -65,7 +65,26 @@ into the record. For big models where FP16 won't fit, use the **Q8 proxy** as th
 `--reference-label "Q8 (proxy)"` (validated near-lossless). KLD is **drift from full precision — lower is
 more faithful, NOT a task score** (METHODOLOGY §6); always show it beside accuracy + churn + VRAM + speed.
 
-## 4. Build the site data
+## 4. Coding-exec axis (opt-in, sandboxed code EXECUTION)
+The credible coding axis (red-team verdict: judge-free proxies measure code *reasoning*, not *generation*).
+The user's model generates code; it runs against BigCodeBench-Hard's unit tests inside a hardened, network-
+isolated Docker container **on the user's machine** (we never execute it on our infra). Opt-in.
+```
+localbench code \
+  --endpoint http://localhost:8080/v1 \
+  --model   <model-name> \
+  --image   bigcodebench/bigcodebench-evaluate@sha256:<digest> \   # digest-pin before a ranked run
+  --tier    standard \
+  --out     runs/my-coding-exec.json
+```
+Prereqs: Docker installed (Docker Desktop on Mac/Windows gives a VM boundary; on Linux add `--runtime runsc`
+for gVisor). The container is locked down by default (`--network none`, `--read-only`, `--cap-drop ALL`,
+`--security-opt no-new-privileges`, swap off, bounded tmpfs, `--init`, non-root, bounded output) — see
+`docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md`. Each task runs in its own subprocess; the
+trusted runner computes pass/fail from exit codes (never self-reported). Coding-exec is a **separate exec
+lane** with its own score; it is a *candidate* until a discrimination run earns it a headline slot.
+
+## 5. Build the site data
 ```
 <cli-venv>/python web/build_data.py
 ```
