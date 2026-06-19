@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Final
 
@@ -89,6 +90,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     scorecard = _scorecard_detail(_object_or_empty(manifest.get("scorecard")))
     conformance = _object_or_empty(run.get("conformance"))
     conformance_status = _text(conformance.get("status"))
+    contamination_label = _contamination_label(_text(source.get("release_date")))
     source_benches = _object(run.get("benches"), f"{path}:benches")
     items = _list(run.get("items"), f"{path}:items")
     totals = _object(run.get("totals"), f"{path}:totals")
@@ -105,9 +107,9 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     summary = _manifest_summary(source, manifest, lane, quant)
     axes, axis_warnings = build_axes(source_benches, values, strata, no_answer, iters, benches)
     composite = build_composite(run, axes, benches, weights)
-    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(benches, weights))}
+    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(benches, weights))}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": _number_or_none(totals.get("completion_tokens_per_second")), "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
-    index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "conformance_status": conformance_status, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard" and conformance_status == "headline-comparable", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "score_status": "measured", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
+    index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard" and conformance_status == "headline-comparable", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "score_status": "measured", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
     return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 
@@ -118,6 +120,26 @@ def _headline_benches(benches: tuple[str, ...], weights: dict[str, float]) -> tu
     to all benches if none carry weight (avoids an empty worst-axis)."""
     headline = tuple(bench for bench in benches if weights.get(bench, 0.0) > 0.0)
     return headline or benches
+
+
+# When suite-v1's frozen item subset was published/locked (suite-v1.2). A documented
+# constant — NOT a suite.json field, which is hashed for suite identity (adding one would
+# move the hash). Update when a new suite version freezes.
+SUITE_V1_PUBLISHED: Final = date(2026, 6, 19)
+
+
+def _contamination_label(release_date: str | None) -> str:
+    """Clean/pre-release contamination signal (oracle #3). A model released BEFORE the
+    suite's frozen subset was published could not have been tuned to game THIS leaderboard.
+    (It could still be contaminated on the underlying PUBLIC benchmarks — this badge is about
+    OUR frozen subset, not general benchmark hygiene.) Unknown/unparseable date -> unverified."""
+    if not release_date:
+        return "unverified"
+    try:
+        released = date.fromisoformat(release_date)
+    except ValueError:
+        return "unverified"
+    return "pre-suite-publication" if released < SUITE_V1_PUBLISHED else "post-suite-publication"
 
 
 def _scorecard_detail(scorecard: JsonObject) -> JsonObject:
@@ -237,7 +259,7 @@ def _source(value: JsonValue, index: int) -> JsonObject:
         raise DataBuildError(f"data_sources[{index}].kind must be anchor or community")
     independent_replication = item.get("independent_replication")
     demo = _bool(item.get("demo"), f"data_sources[{index}].demo") if item.get("demo") is not None else False
-    return {"demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _string(item.get("file"), f"data_sources[{index}].file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
+    return {"demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _string(item.get("file"), f"data_sources[{index}].file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "release_date": _nullable_text(item.get("release_date"), index, "release_date"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
 
 
 def _write_json(path: Path, payload: JsonValue) -> None:

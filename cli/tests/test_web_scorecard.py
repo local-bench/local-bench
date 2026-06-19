@@ -43,3 +43,15 @@ def test_scorecard_detail_separates_full_drift_from_registry_drift() -> None:
     assert unknown["drift"] is False
     assert unknown["registry_drift"] is False
     assert unknown["id"] is None
+
+
+def test_contamination_label_keys_on_release_vs_suite_publication_date() -> None:
+    # Released before the suite froze -> could not have been tuned to game THIS suite.
+    assert build_data._contamination_label("2025-01-01") == "pre-suite-publication"
+    # Released after -> possible contamination of our frozen subset (a flag, not proof).
+    assert build_data._contamination_label("2027-01-01") == "post-suite-publication"
+    # Unknown or unparseable date -> unverified (the default).
+    assert build_data._contamination_label(None) == "unverified"
+    assert build_data._contamination_label("not-a-date") == "unverified"
+    # Boundary: exactly the publication date is NOT strictly before -> post.
+    assert build_data._contamination_label(build_data.SUITE_V1_PUBLISHED.isoformat()) == "post-suite-publication"
