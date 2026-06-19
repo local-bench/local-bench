@@ -5,7 +5,7 @@ import random
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import Final, TypedDict
 
 from localbench._types import JsonValue
 from localbench.scoring.bootstrap import (
@@ -53,11 +53,33 @@ class WorstAxis(TypedDict):
     delta: Interval
 
 
+# Honest labels for the estimands a paired compare reports — so a within-suite item CI is
+# never read as a universal/generalization claim (oracle #10). Run-to-run repeatability and
+# cross-account replication are SEPARATE estimands not computed by a single compare.
+CI_ESTIMANDS: Final[dict[str, str]] = {
+    "composite_delta": "paired composite delta, reported WITH the generalization CI (the conservative interval).",
+    "repeatability_ci": (
+        "within-suite item-sampling CI: iid bootstrap over the FIXED suite items. Narrow — sensitivity to which "
+        "items were drawn from THIS suite, NOT run-to-run decoding variance or universal capability."
+    ),
+    "generalization_ci": (
+        "generalization CI: clustered/stratified bootstrap by subject/source cluster. Wider — the interval for "
+        "'does this hold beyond these items'."
+    ),
+    "not_computed_here": (
+        "run-to-run REPEATABILITY needs repeated RUNS (temp-0 decoding is deterministic, so a single suite's "
+        "item-bootstrap is NOT it); cross-account REPLICATION needs >=3 independent accounts/hardware (the "
+        "'replicated' badge). Neither is a single-compare bootstrap."
+    ),
+}
+
+
 class CompareResult(TypedDict):
     schema: str
     composite_delta: Interval
     repeatability_ci: Interval
     generalization_ci: Interval
+    ci_legend: dict[str, str]
     domains: dict[str, DomainDelta]
     worst_axis: WorstAxis
     subgroups: list[SubgroupDelta]
@@ -116,6 +138,7 @@ def compare_runs(
         "composite_delta": generalization,
         "repeatability_ci": repeatability,
         "generalization_ci": generalization,
+        "ci_legend": CI_ESTIMANDS,
         "domains": domains,
         "worst_axis": _worst_axis(domains),
         "subgroups": subgroups,

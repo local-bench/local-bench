@@ -377,12 +377,13 @@ def _print_compare(comparison: CompareResult) -> None:
     generalization = comparison["generalization_ci"]
     print(
         "repeatability CI        "
-        f"{repeatability['lo'] * 100:.1f} .. {repeatability['hi'] * 100:.1f}",
+        f"{repeatability['lo'] * 100:.1f} .. {repeatability['hi'] * 100:.1f}  (within-suite item bootstrap)",
     )
     print(
         "generalization CI       "
-        f"{generalization['lo'] * 100:.1f} .. {generalization['hi'] * 100:.1f}",
+        f"{generalization['lo'] * 100:.1f} .. {generalization['hi'] * 100:.1f}  (clustered by subject/source)",
     )
+    print("note     run-to-run repeatability needs repeat RUNS; replication needs >=3 accounts — not computed here")
     print("domains")
     for domain, result in comparison["domains"].items():
         print(f"  {domain:<22} {format_honest_delta(result['delta'])}")

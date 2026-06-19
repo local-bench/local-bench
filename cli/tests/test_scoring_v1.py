@@ -88,6 +88,22 @@ def test_compare_runs_when_identical_returns_zero_tight_delta() -> None:
     assert comparison["worst_axis"]["delta"]["point"] == 0.0
 
 
+def test_compare_runs_labels_each_ci_estimand_distinctly() -> None:
+    # Oracle #10: each interval must say what it estimates, so a within-suite item CI is
+    # never read as a universal / run-to-run / cross-account claim.
+    record = _run_record(
+        [
+            _item("mmlu-0", "mmlu_pro", True, category="business"),
+            _item("mmlu-1", "mmlu_pro", False, category="business"),
+        ],
+    )
+    legend = compare_runs(record, record, iters=100, seed=1)["ci_legend"]
+    assert "within-suite item-sampling" in legend["repeatability_ci"]
+    assert "generalization" in legend["generalization_ci"].lower()
+    assert "REPLICATION" in legend["not_computed_here"]
+    assert "repeated RUNS" in legend["not_computed_here"]
+
+
 def test_compare_runs_when_clusters_are_absent_matches_explicit_singletons() -> None:
     # Given existing synthetic records and the same records with singleton clusters.
     degraded = _balanced_regression_run(degraded=True)
