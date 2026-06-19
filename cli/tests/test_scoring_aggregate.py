@@ -7,12 +7,13 @@ from localbench.scoring.signed_score import signed_delta, signed_score
 
 
 def test_aggregate_when_below_chance_stores_signed_score_and_lowers_composite() -> None:
-    # Given a below-chance multiple-choice bench and a perfect math bench.
+    # Given a below-chance knowledge bench and a perfect instruction bench (both
+    # HEADLINE axes, so both enter the composite under METHODOLOGY-v1.2 §3).
     below_chance = aggregate("mmlu_pro", [_scored_item(correct=False)], baseline=0.10)
-    perfect = aggregate("genmath", [_scored_item(correct=True)], baseline=0.0)
+    perfect = aggregate("ifbench", [_scored_item(correct=True)], baseline=0.0)
 
     # When the run composite is computed from stored per-bench aggregates.
-    result = composite({"mmlu_pro": below_chance, "genmath": perfect})
+    result = composite({"mmlu_pro": below_chance, "ifbench": perfect})
 
     # Then the stored score stays signed, so the composite is lower than a clamped mean.
     expected_below = signed_score(0.0, chance=0.10)

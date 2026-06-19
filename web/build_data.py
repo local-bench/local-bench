@@ -101,10 +101,19 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     summary = _manifest_summary(source, manifest, lane, quant)
     axes, axis_warnings = build_axes(source_benches, values, strata, no_answer, iters, benches)
     composite = build_composite(run, axes, benches, weights)
-    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, benches)}
+    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(benches, weights))}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": _number_or_none(totals.get("completion_tokens_per_second")), "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
     index_row = {"axes": axes, "best_run_id": run_id, "composite": composite["interval"], "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "score_status": "measured", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
     return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
+
+
+def _headline_benches(benches: tuple[str, ...], weights: dict[str, float]) -> tuple[str, ...]:
+    """The composite-weighted (headline) axes among `benches`. The worst-axis
+    companion to the composite is the weakest HEADLINE axis (METHODOLOGY-v1.2 §3),
+    not the weakest of the displayed-but-unweighted experimental axes. Falls back
+    to all benches if none carry weight (avoids an empty worst-axis)."""
+    headline = tuple(bench for bench in benches if weights.get(bench, 0.0) > 0.0)
+    return headline or benches
 
 
 def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObject]) -> None:

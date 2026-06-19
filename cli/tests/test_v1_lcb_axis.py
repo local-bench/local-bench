@@ -46,10 +46,10 @@ def test_v1_coding_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the coding axis groups LCB with the probe-determined equal weight (0.25).
+    # Then the coding axis groups LCB; axis weights live in the code registry, not suite.json (METHODOLOGY-v1.2 §8).
     axes = suite["axes"]
     assert axes["coding"]["benches"] == ["lcb"]
-    assert axes["coding"]["weight"] == 0.25
+    assert "weight" not in axes["coding"]
 
 
 def test_v1_lcb_prompt_renders_prediction_task() -> None:
@@ -97,8 +97,10 @@ def test_existing_four_axis_composite_is_unchanged_when_coding_domain_is_absent(
     # When computing the composite with Coding declared but absent from the run.
     result = composite(benches)
 
-    # Then DOMAIN_WEIGHTS normalization still averages only the present axes.
-    assert result == pytest.approx((0.50 + 0.60 + 0.70 + 0.80) / 4)
+    # Then only the HEADLINE axes (knowledge=mmlu_pro + instruction=ifbench) enter
+    # the composite; agentic (bfcl) + math (amo) are present but weight 0.0
+    # (METHODOLOGY-v1.2 §3), so adding/removing them never moves the headline.
+    assert result == pytest.approx((0.50 + 0.60) / 2)
 
 
 def _aggregate(score: float) -> "BenchAggregate":

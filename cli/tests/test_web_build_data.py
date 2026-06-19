@@ -9,6 +9,8 @@ from typing import Final, TypeAlias
 
 import pytest
 
+from localbench.scoring.axes import web_composite_weights
+
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -45,6 +47,10 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -
         for source in _objects(_read_json(DATA_SOURCES))
         if source.get("demo") is not True
     ]
+    if not non_demo_inputs:
+        # Curation intentionally empty (stale runs unpublished; none republished yet)
+        # -> there is no curated run surface to integration-test.
+        pytest.skip("data_sources.json has no curated (non-demo) runs to integration-test")
     missing = sorted(path for path in non_demo_inputs if not (ROOT / path).exists())
     present = [path for path in non_demo_inputs if (ROOT / path).exists()]
     if missing and not present:
@@ -178,8 +184,10 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     assert math["point_raw"] == pytest.approx(0.5)
     assert math["hi_raw"] < 1.0
     assert math["n_errors"] == 1
+    # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifbench).
+    # The present agentic (bfcl) + math axes carry weight 0.0 (METHODOLOGY-v1.2 §3).
     assert composite["point_raw"] == pytest.approx(
-        (((0.5 - chance) / (1.0 - chance)) + 0.5 + 0.5 + 0.5) / 4,
+        (((0.5 - chance) / (1.0 - chance)) + 0.5) / 2,
     )
     assert isinstance(detail["data_warnings"], list)
     assert any(
@@ -384,11 +392,25 @@ def _synthetic_item(
     return item
 
 
-def _synthetic_composite(benches: JsonObject) -> float:
-    return sum(
-        _weighted_source_value(benches, _source_names_for_axis(axis, benches), "chance_corrected")
+def _registry_weighted_composite(benches: JsonObject) -> float:
+    # Mirror production: weight axes by the registry's web composite weights
+    # (headline knowledge + instruction at 0.5 each; agentic + math 0.0),
+    # normalized over the present headline axes (METHODOLOGY-v1.2 §3). Uses the
+    # single weight source so the oracle tracks the registry, not a parallel copy.
+    weights = web_composite_weights()
+    present = {
+        axis: _weighted_source_value(benches, names, "chance_corrected")
         for axis in AXES
-    ) / len(AXES)
+        if (names := _source_names_for_axis(axis, benches))
+    }
+    total = sum(weights[axis] for axis in present)
+    if total <= 0:
+        return 0.0
+    return sum(weights[axis] * value for axis, value in present.items()) / total
+
+
+def _synthetic_composite(benches: JsonObject) -> float:
+    return _registry_weighted_composite(benches)
 
 
 def _signed_score(raw: float, *, chance: float) -> float:
@@ -396,11 +418,7 @@ def _signed_score(raw: float, *, chance: float) -> float:
 
 
 def _expected_composite(raw_run: JsonObject) -> float:
-    raw_benches = _object(raw_run["benches"])
-    return sum(
-        _weighted_source_value(raw_benches, _source_names_for_axis(axis, raw_benches), "chance_corrected")
-        for axis in AXES
-    ) / len(AXES)
+    return _registry_weighted_composite(_object(raw_run["benches"]))
 
 
 def _assert_axis_matches_raw_sources(axis: str, raw_run: JsonObject, detail: JsonObject) -> None:

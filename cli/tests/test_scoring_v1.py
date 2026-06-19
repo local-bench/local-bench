@@ -118,10 +118,10 @@ def test_stratified_mean_ci_when_items_share_cluster_uses_block_resampling() -> 
     assert clustered["hi"] > naive["hi"]
 
 
-def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() -> None:
-    # Given a planted regression where instruction-following loses every item,
-    # while math improves by an exactly offsetting amount (knowledge unchanged), so the
-    # composite nets zero independently of any per-bench chance baseline.
+def test_compare_runs_when_experimental_axis_cannot_mask_headline_regression() -> None:
+    # Given a planted regression where instruction-following (HEADLINE) loses every
+    # item, while math (experimental, composite weight 0.0) improves by an offsetting
+    # amount and knowledge (HEADLINE) is unchanged.
     degraded = _balanced_regression_run(degraded=True)
     baseline = _balanced_regression_run(degraded=False)
 
@@ -132,9 +132,10 @@ def test_compare_runs_when_regression_is_hidden_by_composite_flags_worst_axis() 
         threshold=0.10,
     )
 
-    # Then the composite hides the damage, but worst-axis and subgroup checks catch it.
-    assert comparison["composite_delta"]["point"] == pytest.approx(0.0)
-    assert abs(comparison["composite_delta"]["point"]) < 0.01
+    # Then the math gain CANNOT mask the collapse (math is weight 0): the headline
+    # composite reflects it (knowledge 0 + instruction -1, weighted 0.5/0.5 = -0.5),
+    # and worst-axis + subgroup checks pinpoint instruction (METHODOLOGY-v1.2 §3).
+    assert comparison["composite_delta"]["point"] == pytest.approx(-0.5)
     assert comparison["worst_axis"]["domain"] == "Instruction-Following"
     assert comparison["worst_axis"]["delta"]["point"] == pytest.approx(-1.0)
     assert comparison["worst_axis"]["delta"]["hi"] < -0.90
@@ -260,11 +261,13 @@ def test_cli_compare_when_out_is_supplied_writes_json(tmp_path: Path) -> None:
         check=False,
     )
 
-    # Then the CLI reports and writes the same planted worst-axis regression.
+    # Then the CLI reports and writes the same planted worst-axis regression. The
+    # headline composite delta is -0.5 (math is weight 0 and cannot offset the
+    # instruction collapse); worst-axis pinpoints instruction (METHODOLOGY-v1.2 §3).
     assert result.returncode == 0
     assert "paired composite delta" in result.stdout
     written = json.loads(out.read_text(encoding="utf-8"))
-    assert written["composite_delta"]["point"] == pytest.approx(0.0)
+    assert written["composite_delta"]["point"] == pytest.approx(-0.5)
     assert written["worst_axis"]["domain"] == "Instruction-Following"
 
 

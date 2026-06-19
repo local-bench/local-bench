@@ -118,10 +118,14 @@ def run_totals(items: list[ScoredItem], wall_time: float) -> RunTotals:
 
 
 def composite(benches: Mapping[str, BenchAggregate]) -> float:
-    """Return the per-axis composite: benches pool into capability domains
-    (item-weighted within a domain), then domains combine by DOMAIN_WEIGHTS
-    normalized over those present. Math = olymmath_hard + amo as ONE axis, not
-    two benches. Matches the web pipeline's composite and paired_delta's domains.
+    """Return the HEADLINE composite: benches pool into capability domains
+    (item-weighted within a domain), then the HEADLINE domains combine by
+    DOMAIN_WEIGHTS, normalized over the headline domains present. Candidate +
+    experimental axes carry weight 0.0, so a present-but-unvalidated axis (Math,
+    Long-Context, Agentic, Coding) is excluded from the scalar (see METHODOLOGY-v1.2
+    §3). Math = olymmath_hard + amo as ONE axis. Matches the web pipeline's
+    composite and paired_delta's domains. An unknown domain defaults to weight 0.0
+    (never 1.0) so it can't silently dominate; a run with no headline axis -> 0.0.
     """
     if not benches:
         return 0.0
@@ -134,11 +138,11 @@ def composite(benches: Mapping[str, BenchAggregate]) -> float:
     domain_scores = {d: num[d] / den[d] for d in num if den[d] > 0}
     if not domain_scores:
         return 0.0
-    total_weight = sum(DOMAIN_WEIGHTS.get(d, 1.0) for d in domain_scores)
+    total_weight = sum(DOMAIN_WEIGHTS.get(d, 0.0) for d in domain_scores)
     if total_weight <= 0:
         return 0.0
     return (
-        sum(score * DOMAIN_WEIGHTS.get(d, 1.0) for d, score in domain_scores.items())
+        sum(score * DOMAIN_WEIGHTS.get(d, 0.0) for d, score in domain_scores.items())
         / total_weight
     )
 

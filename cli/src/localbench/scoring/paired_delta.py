@@ -265,9 +265,17 @@ def _draw_mean(
 
 
 def _normalized_domain_weights(domains: Iterable[str]) -> dict[str, float]:
+    """Composite-delta weights over the present domains, tracking the headline
+    composite: headline axes carry their weight, candidate/experimental axes 0.0
+    (default 0.0, never 1.0). If no headline axis is present (no weight), fall back
+    to equal weights over the present domains so the delta is still defined."""
     present = list(domains)
-    total = sum(DOMAIN_WEIGHTS.get(domain, 1.0) for domain in present)
-    return {domain: DOMAIN_WEIGHTS.get(domain, 1.0) / total for domain in present}
+    if not present:
+        return {}
+    total = sum(DOMAIN_WEIGHTS.get(domain, 0.0) for domain in present)
+    if total <= 0:
+        return {domain: 1.0 / len(present) for domain in present}
+    return {domain: DOMAIN_WEIGHTS.get(domain, 0.0) / total for domain in present}
 
 
 def _mean(values: Sequence[float]) -> float:

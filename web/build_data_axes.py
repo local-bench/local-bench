@@ -17,17 +17,21 @@ from build_data_support import (
 ensure_cli_src_path()
 
 from localbench.scoring import bootstrap, score_interval  # noqa: E402
+from localbench.scoring.axes import (  # noqa: E402
+    web_composite_weights,
+    web_display_axes,
+    web_source_bench_groups,
+)
 
 StratumForItem: TypeAlias = Callable[[str, str | None, Mapping[str, JsonValue]], str]
 
-BENCHES: Final = ("knowledge", "instruction", "agentic", "math")
-SOURCE_BENCH_GROUPS_BY_AXIS: Final = {
-    "knowledge": (("supergpqa",), ("mmlu_pro",)),
-    "instruction": (("ifbench",), ("ifeval",)),
-    "agentic": (("bfcl",),),
-    "math": (("olymmath_hard", "amo"), ("genmath",)),
-}
-COMPOSITE_WEIGHTS: Final = {"knowledge": 0.25, "instruction": 0.25, "agentic": 0.25, "math": 0.25}
+# Web display axes, source-bench groups, and composite weights are DERIVED from the
+# single source of truth (localbench.scoring.axes.AXES) — no hardcoded copy here
+# (METHODOLOGY-v1.2 §8). Headline axes (knowledge + instruction) weight 0.5 each;
+# agentic + math are displayed but weight 0.0, so they never enter the composite.
+BENCHES: Final = web_display_axes()
+SOURCE_BENCH_GROUPS_BY_AXIS: Final = web_source_bench_groups()
+COMPOSITE_WEIGHTS: Final = web_composite_weights()
 SEED: Final = 20260612
 
 

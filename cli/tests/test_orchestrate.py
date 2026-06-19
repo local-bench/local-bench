@@ -61,7 +61,9 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "raw_accuracy": 0.5,
             "chance_corrected": 0.5,
         }
-        assert record["composite"] == pytest.approx((1 / 9 + 0.5 + 0.5) / 3)
+        # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifeval).
+        # genmath -> Math carries weight 0.0, so it is excluded (METHODOLOGY-v1.2 §3).
+        assert record["composite"] == pytest.approx((1 / 9 + 0.5) / 2)
         assert record["totals"]["prompt_tokens"] == 50
         assert record["totals"]["completion_tokens"] == 14
         assert record["totals"]["total_tokens"] == 64

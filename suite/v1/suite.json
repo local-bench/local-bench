@@ -134,32 +134,27 @@
       "template": "templates/ruler.txt"
     }
   },
+  "axis_weight_source": "localbench.scoring.axes.AXES — code is the single source of composite weights + roles; suite.json carries axis MEMBERSHIP only (METHODOLOGY-v1.2 §8). A test asserts this membership matches the registry.",
   "axes": {
     "math": {
       "benches": ["amo", "olymmath_hard"],
-      "weight": 0.25,
       "reference_score": 0.58,
       "reference_note": "Published frontier ceiling (REPORTED, not measured by local-bench): AMO-Bench ~0.63 AVG@32 and OlymMATH EN-HARD ~0.58 P@1; conservative axis value. Probe-only (reference-anchored discrimination). See docs/foundations/math-anchor-reference.md."
     },
     "knowledge": {
-      "benches": ["mmlu_pro"],
-      "weight": 0.25
+      "benches": ["mmlu_pro"]
     },
     "instruction_following": {
-      "benches": ["ifbench"],
-      "weight": 0.25
+      "benches": ["ifbench"]
     },
     "agentic": {
-      "benches": ["bfcl", "bfcl_multi_turn"],
-      "weight": 0.25
+      "benches": ["bfcl", "bfcl_multi_turn"]
     },
     "coding": {
-      "benches": ["lcb"],
-      "weight": 0.25
+      "benches": ["lcb"]
     },
     "long_context": {
-      "benches": ["ruler_32k"],
-      "weight": 0.25
+      "benches": ["ruler_32k"]
     }
   }
 }

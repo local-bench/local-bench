@@ -46,11 +46,12 @@ def test_v1_knowledge_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the knowledge axis groups MMLU-Pro with the probe-determined equal weight (0.25).
+    # Then the knowledge axis groups MMLU-Pro; axis weights live in the code
+    # registry (localbench.scoring.axes), not suite.json (METHODOLOGY-v1.2 §8).
     axes = suite["axes"]
     benches = suite["benches"]
     assert axes["knowledge"]["benches"] == ["mmlu_pro"]
-    assert axes["knowledge"]["weight"] == 0.25
+    assert "weight" not in axes["knowledge"]
     assert "mmlu_pro" in benches
     assert "supergpqa" not in benches
     assert benches["mmlu_pro"]["chance_correction_baseline"] == pytest.approx(0.10918253968253969)

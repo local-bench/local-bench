@@ -8,37 +8,20 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonValue
+from localbench.scoring.axes import bench_domains, domain_weights
 
 # Capability axes. Benches in the same domain pool at the item level, so the
 # axis (not the bench count) is the unit of weight: suite-v1 Math = olymmath_hard
 # + amo pooled, which keeps Math at one axis-share instead of two bench-shares.
-BENCH_DOMAINS: Final[dict[str, str]] = {
-    # suite-v0 (retained for back-compat)
-    "mmlu_pro": "Knowledge",
-    "ifeval": "Instruction-Following",
-    "genmath": "Math",
-    # suite-v1 (5 capability axes)
-    "supergpqa": "Knowledge",
-    "ifbench": "Instruction-Following",
-    "bfcl": "Agentic",
-    "bfcl_multi_turn": "Agentic",
-    "lcb": "Coding",
-    "ruler_32k": "Long-Context",
-    "olymmath_hard": "Math",
-    "amo": "Math",
-}
+# DERIVED from the single source of truth `localbench.scoring.axes.AXES` — do not
+# hardcode a parallel copy here (see METHODOLOGY-v1.2 §8).
+BENCH_DOMAINS: Final[dict[str, str]] = bench_domains()
 
-# Equal per-axis. Weights are normalized over the domains actually present, so a
-# suite-v0 run (3 axes) gets 1/3 each and suite-v1 runs normalize over the axes
-# selected for that run.
-DOMAIN_WEIGHTS: Final[dict[str, float]] = {
-    "Knowledge": 0.25,
-    "Instruction-Following": 0.25,
-    "Agentic": 0.25,
-    "Coding": 0.25,
-    "Long-Context": 0.25,
-    "Math": 0.25,
-}
+# Composite weights per domain. Headline axes (Knowledge + Instruction-Following)
+# carry weight; candidate (Math, Long-Context) and experimental (Agentic, Coding)
+# axes carry 0.0 so a present-but-unvalidated axis never enters the headline
+# composite. The composite normalizes over the HEADLINE domains present in a run.
+DOMAIN_WEIGHTS: Final[dict[str, float]] = domain_weights()
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,10 +15,11 @@ def test_v1_instruction_following_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the instruction-following axis groups IFBench with the probe-determined equal weight (0.25).
+    # Then the instruction-following axis groups IFBench; axis weights live in the
+    # code registry (localbench.scoring.axes), not suite.json (METHODOLOGY-v1.2 §8).
     axes = suite["axes"]
     assert axes["instruction_following"]["benches"] == ["ifbench"]
-    assert axes["instruction_following"]["weight"] == 0.25
+    assert "weight" not in axes["instruction_following"]
 
 
 def test_v1_ifbench_prompt_renders_verbatim_prompt() -> None:

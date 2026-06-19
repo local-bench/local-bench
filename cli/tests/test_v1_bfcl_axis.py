@@ -47,7 +47,7 @@ def test_v1_agentic_axis_is_declared_in_suite() -> None:
     # Then the agentic axis keeps single-turn and multi-turn BFCL as distinct benches.
     axes = suite["axes"]
     assert axes["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn"]
-    assert axes["agentic"]["weight"] == 0.25
+    assert "weight" not in axes["agentic"]
 
 
 def test_v1_bfcl_prompt_is_built_programmatically() -> None:
