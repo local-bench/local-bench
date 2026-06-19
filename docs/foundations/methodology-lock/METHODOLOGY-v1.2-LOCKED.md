@@ -201,7 +201,14 @@ ranked coding-exec eligibility (`ac24ada`); CI-estimand labels so a within-suite
 (`b071db0`); clean/pre-release contamination badge (`578e340`).
 
 **Resolved public headline name:** **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`),
-with the Knowledge / Instruction profile visible beside the composite. **Deferred (specced, need GPU / content /
-your steer):** the discrimination campaign itself (GPU + ~$15–40 anchor, the gate that promotes a candidate to headline);
-first-N → **stratified frozen slices** for ranked runs (oracle #9 — touches core deterministic slicing); the
-canonical **`localbench-kld-calib-v1`** multi-slice calib pack (oracle #7).
+with the Knowledge / Instruction profile visible beside the composite (`f108e72`).
+
+**Post-oracle build (2026-06-20, GPT-5.5 xhigh implements, Claude reviews/tests):** the discrimination campaign
+is now **ANCHOR-FREE** — an axis is promoted by how well it separates LOCAL models (≥3 distinct local models +
+CI-bound local spread), with frontier anchors OPTIONAL (a later frontier line / saturation reference). So the
+campaign is a **pure-GPU local-only run, zero API/anchor spend** (`c5ff7e8`; `probe/gates.py` +
+`probe/discrimination.py` + campaign doc).
+
+**Deferred (specced, need GPU / content / your steer):** the discrimination campaign RUN itself (GPU only — your
+go on the 5090, no spend); first-N → **stratified frozen slices** for ranked runs (oracle #9 — touches core
+deterministic slicing); the canonical **`localbench-kld-calib-v1`** multi-slice calib pack (oracle #7).
