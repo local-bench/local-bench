@@ -1,17 +1,27 @@
-"""Canonical capability-axis registry — the SINGLE source of truth for axis
-membership, composite weights, and roles.
+"""Canonical capability-axis registry — the SINGLE source of truth for the JUDGE-FREE,
+normal-run axes' membership, composite weights, and roles.
 
 Per METHODOLOGY-v1.2 (`docs/foundations/methodology-lock/METHODOLOGY-v1.2-LOCKED.md`):
-the headline composite is the equal-weight mean of the VALIDATED discriminating
-axes (Knowledge + Instruction). Math + Long-Context are *candidates* (measured and
-displayed, not yet in the composite). Agentic + Coding are *experimental* (saturated/
-gameable — displayed, never in the composite).
+the headline composite is the equal-weight mean of the VALIDATED discriminating axes
+(Knowledge + Instruction). Math + Long-Context are *candidates* (measured + displayed, not
+yet weighted; promotable once they pass the discrimination gate). Agentic (BFCL) and the
+STATIC Coding proxy (LiveCodeBench output-prediction, `lcb`) are *experimental*: judge-free
+proxies for tool/code REASONING that are saturated/gameable — displayed, not promotable.
+
+NOTE — the static `coding` axis here is NOT the credible code-GENERATION axis. That one
+runs by EXECUTION (BigCodeBench-Hard via `localbench code`), is a *candidate* for the
+headline once it passes discrimination, and lives in a SEPARATE opt-in exec LANE with its
+own run schema — deliberately NOT in this judge-free registry (different command + schema).
+See CODING-EXEC-MODULE-SPEC. So "experimental / not in the composite" describes the static
+proxy; coding-exec's "candidate" status is its own lane's — the two are different axes, not
+a contradiction.
 
 Everything downstream DERIVES from `AXES`:
 - `localbench.scoring.metadata` builds `BENCH_DOMAINS` + `DOMAIN_WEIGHTS` from it,
 - `web/build_data_axes.py` imports its composite weights + bench groups,
-- `suite/*/suite.json` carries NO independent weight numbers (a test asserts the
-  manifest's axis membership matches this registry — the drift gate).
+- `localbench.scoring.scorecard` hashes it into the run `scorecard_id` (reweighting moves it),
+- `suite/*/suite.json` carries NO independent weight numbers (a test asserts the manifest's
+  axis membership matches this registry — the drift gate).
 
 To re-weight or promote a candidate, edit THIS file; nothing else hardcodes weights.
 """
@@ -58,6 +68,9 @@ AXES: Final[tuple[Axis, ...]] = (
          ("ruler_32k",), (), "candidate", 0.0, False),
     Axis("agentic", "Agentic", "agentic",
          ("bfcl", "bfcl_multi_turn"), (), "experimental", 0.0, True),
+    # STATIC judge-free coding proxy (LCB output-prediction) — experimental/gameable. The
+    # credible code-GENERATION axis is exec-based (bigcodebench_hard, a SEPARATE opt-in lane
+    # via `localbench code`; a candidate), NOT this axis. See the module docstring.
     Axis("coding", "Coding", "coding",
          ("lcb",), (), "experimental", 0.0, False),
 )

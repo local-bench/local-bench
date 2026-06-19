@@ -62,8 +62,9 @@ localbench kld \
 Emits a `localbench-kld-v1` drift record: per-quant median + q99 KLD + Same-top-p (+ optional **churn** if
 you pass `--churn-reference run-bf16.json --churn-quant Q4_K_M=run-q4.json`). The calib corpus is hashed
 into the record. For big models where FP16 won't fit, use the **Q8 proxy** as the reference and set
-`--reference-label "Q8 (proxy)"` (validated near-lossless). KLD is **drift from full precision — lower is
-more faithful, NOT a task score** (METHODOLOGY §6); always show it beside accuracy + churn + VRAM + speed.
+`--reference-label "Q8 (proxy)"` — the Q8≈BF16 proxy was validated on Gemma-12B only, so report the number as
+"drift vs Q8 proxy," NOT as a global "near-lossless" claim. KLD is **drift from full precision — lower is more
+faithful, NOT a task score** (METHODOLOGY §6); always show it beside accuracy + churn + VRAM + speed.
 
 ## 4. Coding-exec axis (opt-in, sandboxed code EXECUTION)
 The credible coding axis (red-team verdict: judge-free proxies measure code *reasoning*, not *generation*).

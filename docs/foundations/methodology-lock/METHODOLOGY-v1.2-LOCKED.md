@@ -21,8 +21,22 @@ EXECUTION. So:
   Nothing widens the headline until that GPU+$-gated campaign runs. Everything below remains the validated floor.
 
 ## 0. What local-bench measures (the product claim)
-"**Verified local quality vs frontier**" — distance-to-frontier on a frozen, reproducible suite a local-LLM
-user can actually run on their own rig, anchored against frontier models measured on the identical suite.
+"**Local quality vs frontier, on the tasks you can actually run**" — distance-to-frontier on a frozen,
+reproducible suite a local-LLM user runs on their own rig, anchored against frontier models on the identical
+suite. We do NOT claim "**verified**" (a proxy-to-frontier-API client defeats transcript verification; trust =
+replication, §5) and we do NOT claim a broad "**AI intelligence**" score: the headline is a **Core Text** score
+— Knowledge (MMLU-Pro) + Instruction-Following (IFBench), the judge-free axes that reproduce anywhere.
+
+**Score architecture (honest scope — resolves the "2 axes ≠ intelligence" attack, oracle #4):**
+- **Core Text Score** = the reproducible judge-free headline (Knowledge + Instruction). *Provisional public name
+  — PENDING MICHAEL's final wording; the oracle red-team recommends "Core Text Score (MMLU-Pro + IFBench)" with
+  the axis profile shown beside it, and dropping the bare "Geekbench for local AI intelligence" tagline unless
+  qualified as core-text.*
+- **Extended Exec Score** = the opt-in, sandboxed code-EXECUTION axis (BigCodeBench-Hard via `localbench code`),
+  shown separately with its own CI; a candidate, never pooled into Core.
+- **Overall Score** = only EXISTS once at least one execution/generative axis passes the discrimination gate and
+  is promoted; until then there is no single "overall quality" number, by design.
+
 The quant story is a **secondary, honest** finding, NOT the headline: quantization costs you **VRAM and
 speed/compute**, and shifts the output **distribution** (KLD drift), but — with reasoning ON — does **not**
 cost task accuracy until a low-bit cliff. See §6.
@@ -86,10 +100,14 @@ flags. Every displayed score carries a CI; deltas labeled "on suite-v1.2 items �
 
 ## 6. Quant / degradation reporting (LOCKED) — accuracy is NOT the story; the metric hierarchy is
 **The accuracy quant-wedge is a NO-GO** (`WEDGE-RESULT.md`): Gemma-12B Q8→Q4 pooled +2.4pp, CI spans 0;
-truncation-clean +0.5pp (nil). Reasoning recovers precision loss by spending **+35–40% more compute/tokens** —
-Q4 isn't dumber, it's slower. The Gemma ladder (`LADDER-RESULT.md`) confirms it across the curve: **flat
-Q8→Q4, cliff at Q3** (−5.7pp, heavy truncation). So the model page reports quant tradeoff as **VRAM + speed
-(tok/s)**, with quality as a ~flat reassurance line that shows the low-bit cliff where one exists.
+truncation-clean +0.5pp (nil). We MEASURED two facts: accuracy stays flat Q8→Q4 AND the model spends **+35–40%
+more tokens** to get there (`LADDER-RESULT.md`: flat Q8→Q4, cliff at Q3 −5.7pp with heavy truncation). The
+leading hypothesis is that **reasoning compensates** for precision loss (Q4 isn't dumber, it's slower) — but
+that causal claim is **NOT yet proven** (oracle #6): confirming it needs paired right→wrong / wrong→right flip
+analysis (does the extra compute actually rescue the items quant would otherwise flip), not flat net accuracy
+alone. Until shown, the published claim is "**accuracy can MASK drift**," not "reasoning recovered it." So the
+model page reports quant tradeoff as **VRAM + speed (tok/s)**, with quality as a ~flat reassurance line that
+shows the low-bit cliff where one exists.
 
 Underneath the flat accuracy, three metrics of increasing sensitivity (`KLD-VALIDATION.md`, validated on Gemma-12B):
 - **Accuracy** — coarsest; flat-then-cliff; MASKS drift. The "does it still get the answer" check.
@@ -102,9 +120,10 @@ Underneath the flat accuracy, three metrics of increasing sensitivity (`KLD-VALI
 **How it ships (guardrails, LOCKED):**
 - Model-page **"drift" column**: KLD (median + q99) + Same-top-p, framed *"drift from the full-precision
   reference — lower = more faithful; **NOT a task score**,"* beside accuracy + churn + VRAM + speed.
-- **Reference type is first-class:** BF16/FP16 where it fits; **"reference = Q8"** labeled visibly for big
-  models where FP16 is infeasible on a 5090 (the Q8-proxy ≈ BF16 was validated). Never mix FP16-relative and
-  Q8-relative on one scale.
+- **Reference type is first-class:** BF16/FP16 where it fits; **"reference = Q8 (proxy)"** labeled visibly for
+  big models where FP16 is infeasible on a 5090. The Q8≈BF16 proxy was validated **on Gemma-12B only** — we do
+  NOT claim Q8 is "near-lossless" globally; for any other model the number is reported as **"drift vs Q8 proxy,"**
+  not an absolute lossless claim (oracle #6). Never mix FP16-relative and Q8-relative on one scale.
 - KLD never colors a quant "worse" alone — only paired with task-delta / churn / subgroup movement.
 - The product is the **DECISION LAYER**: accuracy + churn + KLD + VRAM + speed → "run Q4 unless you need
   low-drift; Q3 is the cliff."
