@@ -169,6 +169,11 @@ def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
             return build_lcb_prompt(item, template)
         case "ruler_32k":
             return build_ruler_prompt(item, template)
+        case "bigcodebench_hard":
+            return template.format(
+                instruct_prompt=_string(item.get("instruct_prompt")) or "",
+                entry_point=_string(item.get("entry_point")) or "task_func",
+            )
         case _:
             return _string(item.get("prompt")) or _string(item.get("question")) or ""
 

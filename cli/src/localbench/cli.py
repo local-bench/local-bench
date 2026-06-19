@@ -20,6 +20,8 @@ from localbench.orchestrate import (
     default_output_path,
     run_localbench,
 )
+from localbench.coding_exec import OPT_IN_WARNING
+from localbench.coding_exec.orchestrate import CodingExecConfig, DEFAULT_IMAGE, run_coding_exec
 from localbench.kld import run_kld_ladder
 from localbench.providers import provider_choices
 from localbench.scoring.paired_delta import (
@@ -49,6 +51,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _compare(args)
     if args.command == "kld":
         return _kld(args)
+    if args.command == "code":
+        return _code(args)
     parser.print_help()
     return 2
 
@@ -121,6 +125,25 @@ def _parser() -> argparse.ArgumentParser:
                             help="reference task-run JSON; pair with --churn-quant to attach churn")
     kld_parser.add_argument("--churn-quant", action="append", type=_label_path,
                             metavar="LABEL=PATH", help="quant task-run JSON for churn, repeatable")
+    code_parser = subparsers.add_parser(
+        "code",
+        help="opt-in code-EXECUTION axis (BigCodeBench-Hard) in a hardened Docker sandbox",
+    )
+    code_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
+    code_parser.add_argument("--model", required=True, help="model name to send in requests")
+    code_parser.add_argument("--suite-dir", type=Path, help="suite dir (defaults to suite/v1)")
+    code_parser.add_argument("--image", default=DEFAULT_IMAGE,
+                             help="bigcode evaluate Docker image; SHOULD be digest-pinned (repo@sha256:...)")
+    code_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
+    code_parser.add_argument("--concurrency", type=int, default=4)
+    code_parser.add_argument("--provider", choices=provider_choices(), default="local")
+    code_parser.add_argument("--api-key-env")
+    code_parser.add_argument("--max-items", type=int)
+    code_parser.add_argument("--out", type=Path)
+    code_parser.add_argument("--reasoning-effort", choices=_REASONING_EFFORT_CHOICES, default=None)
+    code_parser.add_argument("--per-task-timeout", type=int, default=30,
+                             help="per-task wall-clock seconds inside the sandbox")
+    code_parser.add_argument("--runtime", help="extra-isolation container runtime, e.g. runsc (gVisor) on Linux")
     return parser
 
 
@@ -194,6 +217,48 @@ def _kld(args: argparse.Namespace) -> int:
     _print_kld_summary(drift)
     print(f"output     {args.out}")
     return 0
+
+
+def _code(args: argparse.Namespace) -> int:
+    print(OPT_IN_WARNING)
+    if "@sha256:" not in args.image:
+        print(f"warning    image '{args.image}' is not digest-pinned; pin repo@sha256:... before a ranked run")
+    config = CodingExecConfig(
+        endpoint=args.endpoint,
+        model=args.model,
+        suite_dir=args.suite_dir or _default_v1_suite_dir(),
+        image=args.image,
+        tier=args.tier,
+        concurrency=args.concurrency,
+        out=args.out,
+        api_key=_api_key(args.api_key_env),
+        max_items=args.max_items,
+        provider=args.provider,
+        reasoning_effort=_reasoning_effort(args.reasoning_effort),
+        per_task_timeout=args.per_task_timeout,
+        runtime=args.runtime,
+    )
+    run = anyio.run(run_coding_exec, config)
+    _print_coding_summary(run)
+    return 0
+
+
+def _default_v1_suite_dir() -> Path:
+    return Path(__file__).resolve().parents[3] / "suite" / "v1"
+
+
+def _print_coding_summary(run: dict) -> None:
+    score = run["score"]
+    print(
+        f"coding-exec {score['n_passed']}/{score['n']} passed "
+        f"(raw {score['raw_accuracy'] * 100:.1f}%, no-code {score['n_no_code']}, "
+        f"timed-out {score['n_timed_out']})",
+    )
+    manifest = run["manifest"]
+    print(f"image      {manifest['image']} (digest-pinned={manifest['image_digest_pinned']})")
+    print(f"output     {run['output_path']}")
+    for warning in run["warnings"]:
+        print(f"warning    {warning}")
 
 
 def _label_path(value: str) -> tuple[str, Path]:

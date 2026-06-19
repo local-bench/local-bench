@@ -108,6 +108,7 @@ async def run_localbench(
         suite,
         warnings,
     )
+    rendered_benches = _exclude_exec_lane(rendered_benches, suite, warnings)
     if config.max_tokens is not None:
         for rendered in rendered_benches:
             for benchmark_item in rendered.benchmark_items:
@@ -225,6 +226,28 @@ def default_output_path(model: str, tier: str) -> Path:
     safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("_") or "model"
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return Path("runs") / f"{safe_model}_{tier}_{timestamp}.json"
+
+
+def _exclude_exec_lane(
+    rendered_benches: list[RenderedBench],
+    suite: JsonObject,
+    warnings: list[str],
+) -> list[RenderedBench]:
+    """Drop exec-lane benches from the standard run path; they need `localbench code`."""
+    benches = suite.get("benches")
+    benches = benches if isinstance(benches, dict) else {}
+    kept: list[RenderedBench] = []
+    for bench in rendered_benches:
+        bench_config = benches.get(bench.name)
+        lane = bench_config.get("lane") if isinstance(bench_config, dict) else None
+        if lane == "exec":
+            warnings.append(
+                f"Skipping {bench.name}: exec-lane bench is run with `localbench code`, "
+                "not `localbench run`",
+            )
+            continue
+        kept.append(bench)
+    return kept
 
 
 def _annotate_ruler_truncation(
