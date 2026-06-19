@@ -28,16 +28,27 @@ Local (5090, via `localbench run` / `localbench code`, reasoning-on, capped-thin
 That's 3 families spanning ~1.5B→27B. *No-GPU prep:* download the 2 missing GGUFs (network/disk, not GPU).
 Frontier anchor (API, $-gated): **1 to start** (GPT-5.5 or Gemini), add a 2nd only if the first bunches.
 
-## Pre-registered decision rules (set BEFORE the run, per axis)
-- **Spread:** keep + weight ∝ measured floor→frontier spread if ≥15pp; drop / down-weight if <5pp (the
-  existing probe thresholds). Floored (all locals ~0) or saturated (all ~ceiling incl. frontier) → not headline.
-- **Local-range slope:** the axis must separate the LOCAL sizes (not just local-vs-frontier) — directly tests
-  GPT-5.5's IFBench-might-be-flat concern.
-- **Cross-family parse/extraction-failure < 5%** on any family (Gemini's systemic risk: reasoning-on CoT can
-  make answer-extraction fail at different rates across families → a formatting test, not a capability test).
-  Measured as no-answer/extraction-failure rate per family.
-- **Headline weighting:** spread-proportional over the axes that pass; weakest-axis shown; one signed manifest
-  (the registry). Promote candidate→headline = a one-line registry weight edit + the drift test flows.
+## Pre-registered decision rules (set BEFORE the run, per axis) — CONFIDENCE-BOUND
+*Encoded + tested in `cli/src/localbench/probe/gates.py` (the oracle red-team, 2026-06-19, finding #4:
+point estimates mislead at small N — a 2-model +/-5pp decision needs ~770 items, so a 148-item axis can
+detect a big spread but cannot make a fine drop decision). The probe (`probe/discrimination.py`) applies these.*
+- **Spread (CI-bound, not point):** KEEP + weight only if the **lower 95% bound** on the floor->frontier
+  spread clears the keep threshold (0.15); DROP only if the **upper 95% bound** is below the drop threshold
+  (0.05) AND the axis has >= 300 scored items (no fine drop on a tiny axis); otherwise **inconclusive** (need
+  more items/anchors). Saturated (anchors don't separate, >= 2 anchors) or all-locals-floored -> not headline.
+- **>= 2 anchors to promote:** a single anchor is **triage only** (one lab's idiosyncrasies can't define the
+  frontier); promotion needs >= 2 (prefer 3). Ranked decisions use FULL item sets, never `--max-items`.
+- **Local-range slope:** the axis must separate the LOCAL sizes, not just local-vs-frontier (GPT-5.5's
+  IFBench-might-be-flat concern) — read off the per-model local scores in the probe output.
+- **Parse/extraction-failure on the UPPER bound:** gate on the upper 95% confidence bound of the failure
+  rate, not the observed rate (0 failures in 58 items still leaves a ~6% upper bound). PLUS a **differential**
+  gate: rates must be similar ACROSS families (a big gap = a formatting test, not a capability test). A breach
+  excludes the axis from weighting.
+- **Incremental information:** a candidate must add signal BEYOND Knowledge + Instruction, not merely
+  correlate with overall ability. The probe surfaces a near-duplicate flag (|r| with the headline >= 0.98);
+  the proper test is a partial-correlation / does-it-add-R^2 check on the campaign panel before weighting.
+- **Headline weighting:** spread-proportional over the axes that PASS all gates; weakest-axis shown; promotion
+  candidate->headline = a one-line registry weight edit (which moves the scorecard_id) + the drift test flows.
 
 ## Cost + sequencing (cheapest-first; STOP early on a kill)
 - **Stage 0 — no GPU (in progress):** build the hardened knowledge slice (§A) + the math rebuild (§B); coding-exec

@@ -180,7 +180,9 @@ def test_analyze_discrimination_reference_anchored_axis_judges_via_published_cei
         axis_map,
         labels,
     )[0]
-    assert floored["verdict"] == "keep"
+    # REPORTED ceiling -> triage (never weighted): a published number can't promote an axis.
+    assert floored["verdict"] == "triage"
+    assert floored["suggested_weight"] == 0.0
     assert floored["anchor_max"] == pytest.approx(0.58)
     assert floored["overall_spread"] == pytest.approx(0.56)
     assert any("reference-anchored" in note for note in floored["notes"])
@@ -195,6 +197,89 @@ def test_analyze_discrimination_reference_anchored_axis_judges_via_published_cei
         labels,
     )[0]
     assert saturated["verdict"] == "drop:locals-floor"
+
+
+def test_ci_gate_refuses_to_promote_on_thin_evidence() -> None:
+    # A MODERATE floor->frontier spread (0.45 vs 0.30) on only ~12 items: the CI straddles
+    # the keep bound, so the axis is inconclusive rather than a confident keep or drop.
+    # (A huge spread would still keep even at small N — it's the marginal case that needs N.)
+    axis_map = {"disc": {"benches": ["disc"], "weight": None}}
+    thin = analyze_discrimination(
+        {
+            "anchor-a.json": {"benches": {"disc": _bench(0.45, n=12)}, "composite": 0.45, "items": []},
+            "anchor-b.json": {"benches": {"disc": _bench(0.40, n=12)}, "composite": 0.40, "items": []},
+            "local-a.json": {"benches": {"disc": _bench(0.32, n=12)}, "composite": 0.32, "items": []},
+            "local-b.json": {"benches": {"disc": _bench(0.30, n=12)}, "composite": 0.30, "items": []},
+        },
+        axis_map,
+        _labels(),
+    )[0]
+    assert thin["verdict"] == "inconclusive:wide-ci"
+    assert thin["suggested_weight"] == 0.0
+    assert thin["n_anchors"] == 2
+
+
+def test_single_anchor_axis_is_triage_only() -> None:
+    # A single anchor can never promote (one lab's idiosyncrasies) -> triage, even with a
+    # huge apparent spread. (Spread 0 on one anchor must NOT read as frontier-flat.)
+    axis_map = {"disc": {"benches": ["disc"], "weight": None}}
+    labels = {
+        "anchor-a.json": {"label": "anchor", "model_name": "anchor-a"},
+        "local-a.json": {"label": "local", "model_name": "local-a"},
+        "local-b.json": {"label": "local", "model_name": "local-b"},
+    }
+    one_anchor = analyze_discrimination(
+        {
+            "anchor-a.json": {"benches": {"disc": _bench(0.90)}, "composite": 0.90, "items": []},
+            "local-a.json": {"benches": {"disc": _bench(0.30)}, "composite": 0.30, "items": []},
+            "local-b.json": {"benches": {"disc": _bench(0.20)}, "composite": 0.20, "items": []},
+        },
+        axis_map,
+        labels,
+    )[0]
+    assert one_anchor["verdict"] == "triage"
+    assert one_anchor["n_anchors"] == 1
+    assert one_anchor["suggested_weight"] == 0.0
+
+
+def test_high_extraction_failure_axis_is_not_weighted() -> None:
+    # Even a clean keep is excluded from weighting if its parse/extraction-failure upper
+    # bound breaches the ceiling (the scores are unreliable).
+    axis_map = {"disc": {"benches": ["disc"], "weight": None}}
+    bad = _bench(0.90)
+    bad["n_extraction_failures"] = 80  # 80/400 = 20% on the frontier
+    failing = analyze_discrimination(
+        {
+            "anchor-a.json": {"benches": {"disc": bad}, "composite": 0.90, "items": []},
+            "anchor-b.json": {"benches": {"disc": _bench(0.80)}, "composite": 0.80, "items": []},
+            "local-a.json": {"benches": {"disc": _bench(0.30)}, "composite": 0.30, "items": []},
+            "local-b.json": {"benches": {"disc": _bench(0.20)}, "composite": 0.20, "items": []},
+        },
+        axis_map,
+        _labels(),
+    )[0]
+    assert failing["verdict"] == "keep"  # it discriminates...
+    assert failing["parse_fail_ok"] is False  # ...but extraction is failing...
+    assert failing["suggested_weight"] == 0.0  # ...so it is not weighted.
+
+
+def test_anchor_only_axis_is_triage_not_promoted_on_anchor_vs_anchor_spread() -> None:
+    # No local scores -> an anchor-vs-anchor spread is NOT local->frontier discrimination.
+    # Even a huge 0.50 anchor spread must triage, never keep/weight (autoreview blocker).
+    axis_map = {"disc": {"benches": ["disc"], "weight": None}}
+    anchors_only = analyze_discrimination(
+        {
+            "anchor-a.json": {"benches": {"disc": _bench(0.90)}, "composite": 0.90, "items": []},
+            "anchor-b.json": {"benches": {"disc": _bench(0.40)}, "composite": 0.40, "items": []},
+        },
+        axis_map,
+        {
+            "anchor-a.json": {"label": "anchor", "model_name": "anchor-a"},
+            "anchor-b.json": {"label": "anchor", "model_name": "anchor-b"},
+        },
+    )[0]
+    assert anchors_only["verdict"] == "triage"
+    assert anchors_only["suggested_weight"] == 0.0
 
 
 def _axis_map() -> dict[str, dict[str, list[str] | None]]:
@@ -241,11 +326,13 @@ def _records(
     return records
 
 
-def _bench(chance_corrected: float) -> dict[str, float | int]:
+def _bench(chance_corrected: float, *, n: int = 400) -> dict[str, float | int]:
+    # n defaults to a realistic ranked-run size; the CI-bound spread gate needs real sample
+    # sizes (a 2-model +/-5pp decision needs ~770 items), so tiny n -> inconclusive by design.
     return {
         "raw_accuracy": chance_corrected,
         "chance_corrected": chance_corrected,
-        "n": 10,
+        "n": n,
         "n_errors": 0,
         "n_extraction_failures": 0,
     }
