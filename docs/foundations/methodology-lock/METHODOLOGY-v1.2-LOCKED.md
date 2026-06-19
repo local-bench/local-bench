@@ -170,4 +170,36 @@ Every number gates through `reconcile`/manifest provenance; suite identity is th
 
 ## 11. Evidence index (dated, in this folder)
 `DECISION.md` · `SUITE-LOCK.md` · `WEDGE-RESULT.md` · `LADDER-RESULT.md` · `KLD-RESEARCH.md` ·
-`KLD-VALIDATION.md` · `gpt55-review.md` · `gemini-review.md` · `00-redteam-brief.md`. Raw KLD logs: `~/kld/`.
+`KLD-VALIDATION.md` · `gpt55-review.md` · `gemini-review.md` · `00-redteam-brief.md` ·
+`FOUNDATION-WIDENING-RESEARCH-2026-06-19.md` · `DISCRIMINATION-CAMPAIGN-2026-06-19.md` ·
+`CODING-EXEC-MODULE-SPEC.md`. Raw KLD logs: `~/kld/`.
+
+## 12. Foundation-hardening pass (2026-06-19, oracle red-team)
+A third frontier red-team — **GPT-5.5 Pro (the `oracle`, session `localbench-foundations-redteam`)** — reviewed
+the whole methodology/approach/plan. Verdict: **GO-WITH-FIXES** (don't spend frontier-anchor budget until the
+blockers are fixed; all were no-GPU). The fixes, all committed on `suite/v1-quant-wedge` (local, unpushed):
+
+**Blockers (gate the campaign / anchor spend):**
+1. **Scorecard identity** (`1684616`): the item set was frozen but the SCORE was not (weights live in `axes.py`,
+   outside the suite hash; the web build reads live weights). `scoring/scorecard.py` now hashes the registry
+   (every axis field) + scorer versions + CI method into a `scorecard_id` recorded in every run manifest; the
+   web build flags `drift` / `registry_drift`, so a reweight can't silently re-score history.
+2. **Lane-conformance gate** (`f878aa3`): "OpenAI-compatible" ≠ identical semantics. `lane_conformance.py`
+   classifies each run (PER BENCH, worst-status, no dilution) headline-comparable / nonconformant /
+   diagnostic-only from leaked-`<think>` + truncation + no-final-answer (incl. the reasoning-fallback case); the
+   web `ranked` flag now requires headline-comparable.
+3. **Confidence-bound campaign gates** (`ede9d0a`): `probe/gates.py` replaces the point-estimate keep/drop gates
+   with CI-bound ones — keep only if the LOWER 95% bound on floor→frontier spread clears keep with ≥2 anchors;
+   drop only if the UPPER bound is below drop with ≥300 effective items; single-anchor / no-locals = triage;
+   parse-fail UPPER-bound + differential gates exclude from weighting.
+
+**High-value + second wave:** coding static/exec registry clarity + the **Core Text / Extended Exec / Overall**
+score architecture + dropped the "verified" overclaim + softened the KLD causal claim to a hypothesis (`2afae13`);
+ranked coding-exec eligibility (`ac24ada`); CI-estimand labels so a within-suite CI isn't read as universal
+(`b071db0`); clean/pre-release contamination badge (`578e340`).
+
+**Pending Michael's call:** the public headline NAME — implemented as provisional **"Core Text Score
+(MMLU-Pro + IFBench)"**, flagged throughout. **Deferred (specced, need GPU / content / your steer):** the
+discrimination campaign itself (GPU + ~$15–40 anchor, the gate that promotes a candidate to headline);
+first-N → **stratified frozen slices** for ranked runs (oracle #9 — touches core deterministic slicing); the
+canonical **`localbench-kld-calib-v1`** multi-slice calib pack (oracle #7).
