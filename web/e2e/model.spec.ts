@@ -17,7 +17,7 @@ for (const modelCase of MODEL_CASES) {
     await expect(page.getByTestId("quant-decision-matrix")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Decision matrix" })).toBeVisible();
     await expect(
-      page.getByRole("img", { name: new RegExp(`${escapeRegExp(model.model_label)} composite scatter`) }),
+      page.getByRole("img", { name: new RegExp(`${escapeRegExp(model.model_label)} Local Intelligence Index`) }),
     ).toBeVisible();
     await expect(page.getByTestId("model-axis-profile")).toBeVisible();
 

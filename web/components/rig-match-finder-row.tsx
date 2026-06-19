@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DemoBadge } from "@/components/badges";
+import { CoreTextAxisProfile } from "@/components/local-intelligence-index";
 import { formatCi, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
 import { formatContextLength, type RigMatch, type RigMatchVerdict } from "@/lib/rig-match";
 
@@ -22,7 +23,10 @@ export function FinderRow({ match, rank }: { readonly match: RigMatch; readonly 
           <span className="text-bench-muted">no data yet</span>
         ) : (
           <>
-            {formatScore(match.score.point)} <span className="text-bench-muted">{formatCi(match.score)}</span>
+            <div>
+              {formatScore(match.score.point)} <span className="text-bench-muted">{formatCi(match.score)}</span>
+            </div>
+            <CoreTextAxisProfile axes={match.axes} className="mt-1 block text-[11px] text-bench-muted" />
           </>
         )}
       </td>

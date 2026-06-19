@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { KindBadge, LaneBadge, TierBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import {
+  CoreTextAxisProfile,
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { ModelAxisProfile } from "@/components/model-axis-profile";
 import { ModelScatter } from "@/components/model-scatter";
 import { QuantDecisionMatrix } from "@/components/quant-decision-matrix";
@@ -63,7 +68,12 @@ export default async function ModelPage({ params }: PageProps) {
                 <th className="px-3 py-3">Run</th>
                 <th className="px-3 py-3">Quant</th>
                 <th className="px-3 py-3">Footprint</th>
-                <th className="px-3 py-3">Composite</th>
+                <th className="px-3 py-3">
+                  <span className="flex flex-col gap-0.5 leading-tight">
+                    <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+                    <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+                  </span>
+                </th>
                 {AXES.map((axis) => (
                   <th key={axis} className="px-3 py-3">
                     {axisLabel(axis)}
@@ -101,7 +111,10 @@ export default async function ModelPage({ params }: PageProps) {
                       <span className="text-bench-muted">no data yet</span>
                     ) : (
                       <>
-                        {formatScore(run.composite.point)} <span className="text-bench-muted">{formatCi(run.composite)}</span>
+                        <div>
+                          {formatScore(run.composite.point)} <span className="text-bench-muted">{formatCi(run.composite)}</span>
+                        </div>
+                        <CoreTextAxisProfile axes={run.axes} className="mt-1 block text-[11px] text-bench-muted" />
                       </>
                     )}
                   </td>

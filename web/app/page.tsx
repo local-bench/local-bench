@@ -1,4 +1,9 @@
 import { HomeLeaderboard } from "@/components/home-leaderboard";
+import {
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_PROFILE,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { QualityBars } from "@/components/quality-bars";
 import { RigMatchFinder } from "@/components/rig-match-finder";
 import { AXIS_CONFIG } from "@/lib/axis-config";
@@ -26,7 +31,8 @@ export default async function HomePage() {
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-bench-text">Full leaderboard</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-              {axisCopy} Composite scores appear only after a measured run attaches to a catalog model and quant.
+              {axisCopy} The {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) appears only
+              after a measured run attaches to a catalog model and quant. {LOCAL_INTELLIGENCE_INDEX_PROFILE}.
             </p>
           </div>
           {/* Single table preserves sortable browsing; this caveat prevents cross-lane order being read as rank. */}

@@ -69,6 +69,10 @@ function modelWithRuns(runs: readonly QuantDecisionInputRun[]): QuantDecisionInp
 
 function run(quantLabel: string, vramFootprintGb: number, point: number, tokS: number): QuantDecisionInputRun {
   return {
+    axes: {
+      instruction: { point: point + 1, lo: point - 1, hi: point + 3, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
+      knowledge: { point: point - 1, lo: point - 3, hi: point + 1, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
+    },
     composite: { hi: point + 2, lo: point - 2, point },
     demo: true,
     quant_label: quantLabel,

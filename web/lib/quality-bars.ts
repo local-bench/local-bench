@@ -2,8 +2,10 @@ import { clampScore } from "./format";
 import { quantRank } from "./quant";
 import type { AnchorReference } from "./data";
 import type { RigMatchCandidate } from "./rig-match";
+import type { AxisScore } from "./schemas";
 
 export type AnchorQualityRow = {
+  readonly axes: Readonly<Record<string, AxisScore>>;
   readonly barWidthPercent: number;
   readonly id: string;
   readonly kind: "anchor";
@@ -12,6 +14,7 @@ export type AnchorQualityRow = {
 };
 
 export type LocalQualityRow = {
+  readonly axes: Readonly<Record<string, AxisScore>>;
   readonly barWidthPercent: number;
   readonly demo: boolean;
   readonly id: string;
@@ -35,6 +38,7 @@ export function getRankedQualityRows({
   readonly runs: readonly RigMatchCandidate[];
 }): QualityRows {
   const anchors = [...anchorRuns].sort(compareAnchors).map((anchor) => ({
+    axes: anchor.axes,
     barWidthPercent: clampScore(anchor.composite.point),
     id: anchor.run_id,
     kind: "anchor" as const,
@@ -52,6 +56,7 @@ export function getRankedQualityRows({
     }
   }
   const locals = [...localsByModel.values()].sort(compareLocalRuns).map((run) => ({
+    axes: run.axes,
     barWidthPercent: clampScore(run.score?.point ?? 0),
     demo: run.demo,
     id: run.runId ?? `${run.modelSlug}:${run.quantLabel ?? "unknown"}`,

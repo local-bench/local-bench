@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { DemoBadge } from "@/components/badges";
+import {
+  CoreTextAxisProfile,
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { formatCi, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import {
@@ -42,7 +47,12 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
           <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
             <tr>
               <th className="px-3 py-3">Quant</th>
-              <th className="px-3 py-3">Quality</th>
+              <th className="px-3 py-3">
+                <span className="flex flex-col gap-0.5 leading-tight">
+                  <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+                  <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+                </span>
+              </th>
               <th className="px-3 py-3">Δ vs {decision.baselineQuantLabel ?? "baseline"}</th>
               <th className="px-3 py-3">Effective VRAM</th>
               <th className="px-3 py-3">Fits</th>
@@ -108,7 +118,16 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
           <span className="mt-1 block text-xs text-bench-warn">benchmark bounty</span>
         )}
       </td>
-      <td className="px-3 py-3 font-mono text-bench-text">{row.run?.composite ? scoreWithCi(row.run.composite) : "no data yet"}</td>
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {row.run?.composite ? (
+          <>
+            <div>{scoreWithCi(row.run.composite)}</div>
+            <CoreTextAxisProfile axes={row.run.axes} className="mt-1 block text-[11px] text-bench-muted" />
+          </>
+        ) : (
+          "no data yet"
+        )}
+      </td>
       <td className="px-3 py-3 font-mono text-bench-text">{formatDelta(row.deltaVsBaseline)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">
         {row.vramEstimate ? (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 
 export default function TrustPage() {
   return (
@@ -35,7 +36,8 @@ export default function TrustPage() {
         <p>
           Independent replication should converge on the real model distribution. Generated-math private sentinel
           items act as a contamination canary because static answer lookup no longer works when answers are withheld.
-          Composite scores and CIs are useful ranking signals, but they do not prove model or hardware identity.
+          The {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) and CIs are useful ranking
+          signals, but they do not prove model or hardware identity.
         </p>
       </section>
     </main>

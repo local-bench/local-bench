@@ -9,7 +9,7 @@ test("methodology explains scoring uncertainty and links back home", async ({ pa
   await capturePage(page, "content-methodology");
 
   await page.getByRole("link", { name: "Back to leaderboard" }).click();
-  await expect(page.getByRole("heading", { name: "What can I run?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Local Intelligence Index" })).toBeVisible();
 });
 
 test("trust page explains replication and community reporting and links back home", async ({ page }) => {
@@ -21,5 +21,5 @@ test("trust page explains replication and community reporting and links back hom
   await capturePage(page, "content-trust");
 
   await page.getByRole("link", { name: "Back to leaderboard" }).click();
-  await expect(page.getByRole("heading", { name: "What can I run?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Local Intelligence Index" })).toBeVisible();
 });

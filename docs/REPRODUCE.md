@@ -26,8 +26,7 @@ and saves the run JSON. `--bench` defaults to `all`; pass e.g. `--bench mmlu_pro
 - **Fixed item sets**, pinned by sha256 in `suite/v1/suite.json` (+ `itemsets.lock.json`). Same suite
   version → same questions. `--max-items N` takes a **deterministic first-N slice** per bench, so two
   runs (e.g. a quant pair) see identical items.
-- **Decoding is deterministic**: temperature 0. The composite is HEADLINE-only (Knowledge + Instruction;
-  see METHODOLOGY §3) and every score carries a bootstrap CI.
+- **Decoding is deterministic**: temperature 0. The **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`) is HEADLINE-only, shows the Knowledge / Instruction profile beside the composite, and every score carries a bootstrap CI.
 - **The manifest records provenance**: model file hash, runtime + version, KV-cache quant, context length,
   sampling, lane, and the item-set hashes — so a run is self-describing.
 
@@ -87,14 +86,16 @@ no-new-privileges`, swap off, bounded tmpfs, `--init`, `--log-driver none`, nofi
 bounded output) — see `docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md`. Each task runs in its own
 subprocess; the trusted runner computes pass/fail from exit codes (never self-reported). Coding-exec is a
 **separate exec lane** with its own score; it is a *candidate* until a discrimination run earns it a headline slot.
+Math and Agentic follow the same candidate-axis rule. A full Overall intelligence tier is earned only after
+candidate axes are validated and promoted.
 
 ## 5. Build the site data
 ```
 <cli-venv>/python web/build_data.py
 ```
 Reads `web/data_sources.json` (+ `web/model_catalog.json`) → `web/public/data/{index,models,runs}.json`.
-Composite weights come from the single registry (`localbench.scoring.axes`); no weights are hardcoded in
-the web build.
+Local Intelligence Index (`v1 · Core Text (Knowledge + Instruction)`) weights come from the single registry
+(`localbench.scoring.axes`); no weights are hardcoded in the web build.
 
 ## Notes
 - **Anchors** (frontier "vs GPT-5.5/Opus/Gemini" runs) are $-gated and run separately; they are not part

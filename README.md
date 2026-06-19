@@ -1,6 +1,6 @@
 # local-bench
 
-Community quality leaderboard for local AI setups — "Geekbench for local AI intelligence."
+Community quality leaderboard for local AI setups. The headline score is the **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`): a reproducible Core Text tier with the Knowledge / Instruction profile shown beside the composite. Math, Coding-exec, and Agentic are candidate axes; a full Overall intelligence claim is earned only after those axes are validated and promoted.
 
 Run a frozen benchmark suite against your own rig (model × quant × runtime × settings) with
 one command; results are server-scored and placed alongside frontier models measured on the

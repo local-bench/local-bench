@@ -1,10 +1,13 @@
+import { CoreTextAxisProfile } from "@/components/local-intelligence-index";
 import { clampScore, formatCi, formatScore } from "@/lib/format";
 import type { AxisScore, Score } from "@/lib/schemas";
 
 export function ScoreBar({
+  axes,
   score,
   tone = "accent",
 }: {
+  readonly axes?: Readonly<Record<string, AxisScore>>;
   readonly score: Score;
   readonly tone?: "accent" | "anchor" | "muted";
 }) {
@@ -19,6 +22,9 @@ export function ScoreBar({
       <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
         <div className={`h-full rounded-full ${barColor}`} style={{ width: `${clampScore(score.point)}%` }} />
       </div>
+      {axes === undefined ? null : (
+        <CoreTextAxisProfile axes={axes} className="mt-1 block font-mono text-[11px] text-bench-muted" />
+      )}
     </div>
   );
 }

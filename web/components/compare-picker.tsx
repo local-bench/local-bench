@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DemoBadge } from "@/components/badges";
+import {
+  CoreTextAxisProfile,
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_PROFILE,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { axisLabel, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
 import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
 
@@ -58,7 +64,11 @@ export function ComparePicker({
       </div>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <DeltaCard label="Composite delta" value={formatSigned(left.composite.point - right.composite.point)} />
+        <DeltaCard
+          label={`${LOCAL_INTELLIGENCE_INDEX_NAME} delta`}
+          note={`${LOCAL_INTELLIGENCE_INDEX_QUALIFIER}. ${LOCAL_INTELLIGENCE_INDEX_PROFILE} deltas appear below.`}
+          value={formatSigned(left.composite.point - right.composite.point)}
+        />
         <DeltaCard label="VRAM delta" value={formatVramDelta(left, right)} />
         <DeltaCard label="tok/s delta" value={formatNullableDelta(left.tokS, right.tokS)} />
       </section>
@@ -130,7 +140,16 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
         {config.demo ? <DemoBadge /> : null}
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <Metric label="Composite" value={formatScore(config.composite.point)} />
+        <Metric
+          detail={<CoreTextAxisProfile axes={config.axes} className="block font-mono text-[11px] text-bench-muted" />}
+          label={
+            <span className="flex flex-col gap-0.5 leading-tight">
+              <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+              <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+            </span>
+          }
+          value={formatScore(config.composite.point)}
+        />
         <Metric label="Effective VRAM" value={formatGb(config.vramEstimate?.effectiveRequiredGb)} />
         <Metric label="Fits" value={config.fitTierGb === null ? ">512 GB" : `${config.fitTierGb} GB`} />
         <Metric label="tok/s" value={formatCompactNumber(config.tokS)} />
@@ -142,19 +161,29 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
   );
 }
 
-function Metric({ label, value }: { readonly label: string; readonly value: string }) {
+function Metric({
+  detail,
+  label,
+  value,
+}: {
+  readonly detail?: ReactNode;
+  readonly label: ReactNode;
+  readonly value: string;
+}) {
   return (
     <div className="rounded border border-bench-line bg-bench-panel-2/70 p-3">
       <dt className="text-xs uppercase text-bench-muted">{label}</dt>
       <dd className="mt-1 font-mono text-bench-text">{value}</dd>
+      {detail === undefined ? null : <dd className="mt-1">{detail}</dd>}
     </div>
   );
 }
 
-function DeltaCard({ label, value }: { readonly label: string; readonly value: string }) {
+function DeltaCard({ label, note, value }: { readonly label: string; readonly note?: string; readonly value: string }) {
   return (
     <div className="rounded border border-bench-line bg-bench-panel p-4">
       <p className="text-xs uppercase text-bench-muted">{label}</p>
+      {note === undefined ? null : <p className="mt-1 text-xs leading-5 text-bench-muted">{note}</p>}
       <p className="mt-2 font-mono text-xl font-semibold text-bench-text">{value}</p>
     </div>
   );

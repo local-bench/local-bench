@@ -135,6 +135,10 @@ function candidate(
   lane: string | null = "answer-only",
 ): RigMatchCandidate {
   return {
+    axes: {
+      instruction: { point: point + 1, lo, hi, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
+      knowledge: { point: point - 1, lo, hi, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
+    },
     demo: kind === "community",
     family: modelLabel,
     kind,

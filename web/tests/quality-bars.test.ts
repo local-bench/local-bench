@@ -4,8 +4,13 @@ import type { AnchorReference } from "../lib/data";
 import type { RigMatchCandidate } from "../lib/rig-match";
 
 const ANCHORS = [
-  { model_label: "GPT-5.5", run_id: "gpt-5-5__anchor", composite: { point: 92, lo: 91, hi: 93 } },
-  { model_label: "Gemini 3.1 Pro", run_id: "gemini-3-1-pro__anchor", composite: { point: 94, lo: 93, hi: 95 } },
+  { axes: axes(91, 93), model_label: "GPT-5.5", run_id: "gpt-5-5__anchor", composite: { point: 92, lo: 91, hi: 93 } },
+  {
+    axes: axes(93, 95),
+    model_label: "Gemini 3.1 Pro",
+    run_id: "gemini-3-1-pro__anchor",
+    composite: { point: 94, lo: 93, hi: 95 },
+  },
 ] as const satisfies readonly AnchorReference[];
 
 const LOCAL_RUNS = [
@@ -33,8 +38,19 @@ describe("quality bar chart rows", () => {
       ["Model B", "Q5_K_M", 81, 48],
       ["Model A", "Q4_K_M", 72, 19],
     ]);
+    expect(rows.locals.map((row) => [row.axes["knowledge"]?.point, row.axes["instruction"]?.point])).toEqual([
+      [80, 82],
+      [71, 73],
+    ]);
   });
 });
+
+function axes(knowledge: number, instruction: number) {
+  return {
+    instruction: { point: instruction, lo: instruction - 1, hi: instruction + 1, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
+    knowledge: { point: knowledge, lo: knowledge - 1, hi: knowledge + 1, raw_accuracy: 0.8, n: 126, n_errors: 0, n_no_answer: 0 },
+  };
+}
 
 function candidate(
   runId: string,
@@ -47,6 +63,7 @@ function candidate(
   kind: "community" | "anchor" = "community",
 ): RigMatchCandidate {
   return {
+    axes: axes(point - 1, point + 1),
     demo: kind === "community",
     family: modelLabel,
     kind,

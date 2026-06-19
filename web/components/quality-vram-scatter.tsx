@@ -1,3 +1,4 @@
+import { formatCoreTextAxisProfile } from "@/components/local-intelligence-index";
 import { VRAM_TIERS } from "@/lib/rig-match";
 import { formatGb, formatScore } from "@/lib/format";
 import type { AnchorReference } from "@/lib/data";
@@ -99,7 +100,8 @@ export function QualityVramScatter({
             <g key={anchor.run_id}>
               <line x1={PLOT.left} x2={WIDTH - PLOT.right} y1={lineY} y2={lineY} className="stroke-bench-anchor" strokeDasharray="7 6" strokeWidth="1.5" />
               <text x={WIDTH - PLOT.right + 12} y={labelY} className="fill-bench-anchor-soft" fontSize="12">
-                {anchor.model_label} {formatScore(anchor.composite.point)}
+                <tspan x={WIDTH - PLOT.right + 12}>{anchor.model_label} {formatScore(anchor.composite.point)}</tspan>
+                <tspan x={WIDTH - PLOT.right + 12} dy="13">{formatCoreTextAxisProfile(anchor.axes)}</tspan>
               </text>
             </g>
           ))}
@@ -111,7 +113,7 @@ export function QualityVramScatter({
             const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id;
             return (
               <g key={point.run.run_id}>
-                <title>{`${label}: ${formatScore(point.run.composite.point)} at ${formatGb(point.run.vram_footprint_gb)}`}</title>
+                <title>{`${label}: ${formatScore(point.run.composite.point)} (${formatCoreTextAxisProfile(point.run.axes)}) at ${formatGb(point.run.vram_footprint_gb)}`}</title>
                 <line x1={cx} x2={cx} y1={hi} y2={lo} className={point.run.demo ? "stroke-bench-warn" : "stroke-bench-accent"} strokeWidth="2" />
                 <line x1={cx - 6} x2={cx + 6} y1={hi} y2={hi} className={point.run.demo ? "stroke-bench-warn" : "stroke-bench-accent"} strokeWidth="2" />
                 <line x1={cx - 6} x2={cx + 6} y1={lo} y2={lo} className={point.run.demo ? "stroke-bench-warn" : "stroke-bench-accent"} strokeWidth="2" />
@@ -133,7 +135,7 @@ export function QualityVramScatter({
             model memory footprint (GB)
           </text>
           <text x="18" y="210" className="fill-bench-muted" fontSize="12" textAnchor="middle" transform="rotate(-90 18 210)">
-            composite
+            index score
           </text>
           <text x={PLOT.left} y={HEIGHT - PLOT.bottom + 26} className="fill-bench-muted" fontSize="12">
             {formatGb(xDomain.min)}
@@ -187,6 +189,6 @@ function layoutAnchors(anchorRuns: readonly AnchorReference[]) {
     .sort((left, right) => right.composite.point - left.composite.point)
     .map((anchor, index) => {
       const lineY = scaleY(anchor.composite.point);
-      return { anchor, lineY, labelY: Math.min(HEIGHT - PLOT.bottom - 8, lineY + index * 13 + 4) };
+      return { anchor, lineY, labelY: Math.min(HEIGHT - PLOT.bottom - 22, lineY + index * 26 + 4) };
     });
 }

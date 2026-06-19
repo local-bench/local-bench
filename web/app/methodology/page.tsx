@@ -1,4 +1,9 @@
 import Link from "next/link";
+import {
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_PROFILE,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { getIndexData } from "@/lib/data";
 
 export default async function MethodologyPage() {
@@ -15,8 +20,9 @@ export default async function MethodologyPage() {
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
         <p className="mt-3 leading-7 text-bench-muted">
-          The sortable number is a compact index. The four-axis profile remains the diagnostic view for
-          understanding what changed and where a setup is strong or weak.
+          The sortable number is the {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}).
+          {` ${LOCAL_INTELLIGENCE_INDEX_PROFILE}`} stays visible beside it, while candidate axes wait for
+          validation before any Overall tier exists.
         </p>
       </header>
       <section className="space-y-4 text-bench-muted">
@@ -31,9 +37,13 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Absolute chance-corrected normalization</h2>
         <p>
-          Knowledge uses SuperGPQA, instruction uses IFBench, agentic uses BFCL, and math combines OlympMath Hard
-          with AMO by item count. The composite is the provisional equal-weighted arithmetic mean of those
-          chance-corrected axis scores, shown on a 0..100 scale for readability.
+          Knowledge uses MMLU-Pro and instruction uses IFBench. The {LOCAL_INTELLIGENCE_INDEX_NAME} (
+          {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) is the equal-weighted arithmetic mean of those chance-corrected
+          Core Text axis scores, shown on a 0..100 scale for readability.
+        </p>
+        <p>
+          Math, Coding-exec, and Agentic are candidate axes. They remain outside the Core Text tier until measured
+          discrimination earns promotion; a full intelligence claim is reserved for an evidence-backed Overall tier.
         </p>
       </section>
       <section className="space-y-4 text-bench-muted">

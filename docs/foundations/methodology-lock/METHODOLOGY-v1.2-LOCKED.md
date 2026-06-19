@@ -24,14 +24,16 @@ EXECUTION. So:
 "**Local quality vs frontier, on the tasks you can actually run**" — distance-to-frontier on a frozen,
 reproducible suite a local-LLM user runs on their own rig, anchored against frontier models on the identical
 suite. We do NOT claim "**verified**" (a proxy-to-frontier-API client defeats transcript verification; trust =
-replication, §5) and we do NOT claim a broad "**AI intelligence**" score: the headline is a **Core Text** score
-— Knowledge (MMLU-Pro) + Instruction-Following (IFBench), the judge-free axes that reproduce anywhere.
+replication, §5) and we do NOT claim a broad "**AI intelligence**" score: the public headline is the
+**Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`) — Knowledge (MMLU-Pro) +
+Instruction-Following (IFBench), the judge-free axes that reproduce anywhere.
 
 **Score architecture (honest scope — resolves the "2 axes ≠ intelligence" attack, oracle #4):**
-- **Core Text Score** = the reproducible judge-free headline (Knowledge + Instruction). *Provisional public name
-  — PENDING MICHAEL's final wording; the oracle red-team recommends "Core Text Score (MMLU-Pro + IFBench)" with
-  the axis profile shown beside it, and dropping the bare "Geekbench for local AI intelligence" tagline unless
-  qualified as core-text.*
+- **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`) = the reproducible judge-free
+  headline (Knowledge + Instruction). The Knowledge / Instruction profile is shown beside the composite
+  wherever the composite appears.
+- **Candidate axes** = Math, Coding-exec, and Agentic; measured and displayed separately until validation
+  earns promotion into a broader tier.
 - **Extended Exec Score** = the opt-in, sandboxed code-EXECUTION axis (BigCodeBench-Hard via `localbench code`),
   shown separately with its own CI; a candidate, never pooled into Core.
 - **Overall Score** = only EXISTS once at least one execution/generative axis passes the discrimination gate and
@@ -198,8 +200,8 @@ score architecture + dropped the "verified" overclaim + softened the KLD causal 
 ranked coding-exec eligibility (`ac24ada`); CI-estimand labels so a within-suite CI isn't read as universal
 (`b071db0`); clean/pre-release contamination badge (`578e340`).
 
-**Pending Michael's call:** the public headline NAME — implemented as provisional **"Core Text Score
-(MMLU-Pro + IFBench)"**, flagged throughout. **Deferred (specced, need GPU / content / your steer):** the
-discrimination campaign itself (GPU + ~$15–40 anchor, the gate that promotes a candidate to headline);
+**Resolved public headline name:** **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`),
+with the Knowledge / Instruction profile visible beside the composite. **Deferred (specced, need GPU / content /
+your steer):** the discrimination campaign itself (GPU + ~$15–40 anchor, the gate that promotes a candidate to headline);
 first-N → **stratified frozen slices** for ranked runs (oracle #9 — touches core deterministic slicing); the
 canonical **`localbench-kld-calib-v1`** multi-slice calib pack (oracle #7).

@@ -18,6 +18,7 @@ import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 const DATA_DIR = join(process.cwd(), "public", "data");
 
 export type AnchorReference = {
+  readonly axes: Record<string, AxisScore>;
   readonly model_label: string;
   readonly run_id: string;
   readonly composite: Score;
@@ -92,6 +93,7 @@ function isMeasuredConfiguredRun(run: ModelRunWithConfiguredAxes): run is Measur
 
 function toAnchorReference(model: ModelData, run: MeasuredModelRunWithConfiguredAxes): AnchorReference {
   return {
+    axes: run.axes,
     model_label: model.model_label,
     run_id: run.run_id,
     composite: run.composite,
@@ -142,6 +144,7 @@ export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
 
 function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate {
   return {
+    axes: run.axes,
     demo: model.demo || run.demo,
     family: model.family,
     kind: model.kind,

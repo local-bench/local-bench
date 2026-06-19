@@ -4,7 +4,9 @@ import { capturePage, expect, test, visitRoute } from "./fixtures";
 test("renders the rig-match finder as the home hero", async ({ page }) => {
   await visitRoute(page, "/");
 
-  await expect(page.getByRole("heading", { name: "What can I run?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Local Intelligence Index" })).toBeVisible();
+  await expect(page.getByText("v1 · Core Text (Knowledge + Instruction)").first()).toBeVisible();
+  await expect(page.getByText("Profile: Knowledge / Instruction").first()).toBeVisible();
   await expect(page.getByText("Synthetic demo rows remain marked; Qwen3.6-27B quant rows are real measurements.")).toBeVisible();
   await expect(page.getByLabel("VRAM tier")).toHaveValue("24");
   await expect(page.getByLabel("Context length")).toHaveValue("8192");
@@ -43,7 +45,7 @@ test("supports large VRAM tiers in the finder", async ({ page }) => {
   await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /DeepSeek-V3-671B.*Q5_K_M/ })).toBeVisible();
 });
 
-test("renders the leaderboard and keeps composite sorting deterministic", async ({ page }) => {
+test("renders the leaderboard and keeps index sorting deterministic", async ({ page }) => {
   const index = await readIndexData();
   const expectedAscending = [...index.models]
     .sort((left, right) => left.composite.point - right.composite.point)
@@ -70,10 +72,10 @@ test("renders the leaderboard and keeps composite sorting deterministic", async 
   await expect(modelLinks).toHaveText(expectedDescending);
   await expect(rankCells).toHaveCount(expectedDescending.length);
 
-  await leaderboard.getByRole("button", { name: /Composite/ }).click();
+  await leaderboard.getByRole("button", { name: /Local Intelligence Index/ }).click();
   await expect(modelLinks).toHaveText(expectedAscending);
 
-  await leaderboard.getByRole("button", { name: /Composite/ }).click();
+  await leaderboard.getByRole("button", { name: /Local Intelligence Index/ }).click();
   await expect(modelLinks).toHaveText(expectedDescending);
 
   await capturePage(page, "home-leaderboard");

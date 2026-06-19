@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { DemoBadge, KindBadge, LaneBadge, TierBadge } from "@/components/badges";
+import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatCost, formatInteger } from "@/lib/format";
@@ -34,7 +35,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
             <th className="px-3 py-3 font-semibold">Rank</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
             <SortableHeader label="Kind" sortKey="kind" sort={sort} onSort={setSort} />
-            <SortableHeader label="Composite" sortKey="composite" sort={sort} onSort={setSort} />
+            <SortableHeader label={<LocalIntelligenceHeaderLabel />} sortKey="composite" sort={sort} onSort={setSort} />
             {axisKeys.map((axis) => (
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
@@ -70,7 +71,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
                 {model.composite === null ? (
                   <NoScoreCell />
                 ) : (
-                  <ScoreBar score={model.composite} tone={model.kind === "anchor" ? "anchor" : "accent"} />
+                  <ScoreBar axes={model.axes} score={model.composite} tone={model.kind === "anchor" ? "anchor" : "accent"} />
                 )}
               </td>
               {axisKeys.map((axisKey) => (
@@ -118,7 +119,7 @@ function SortableHeader({
   sort,
   onSort,
 }: {
-  readonly label: string;
+  readonly label: ReactNode;
   readonly sortKey: SortKey;
   readonly sort: SortState;
   readonly onSort: (sort: SortState) => void;
@@ -192,6 +193,15 @@ function compareRows(left: IndexModel, right: IndexModel, key: SortKey): number 
     default:
       return compareAxis(left, right, key);
   }
+}
+
+function LocalIntelligenceHeaderLabel() {
+  return (
+    <span className="flex flex-col gap-0.5 leading-tight">
+      <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+      <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+    </span>
+  );
 }
 
 function compareAxis(left: IndexModel, right: IndexModel, axis: string): number {

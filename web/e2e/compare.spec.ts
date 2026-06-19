@@ -13,7 +13,7 @@ test("compares two model quant configs with deltas and axis winners", async ({ p
   await page.getByLabel("Left config").selectOption("qwen3-6-27b__lcpp-q8_0");
   await page.getByLabel("Right config").selectOption("qwen3-6-27b__lcpp-q2_k");
 
-  await expect(page.getByText("Composite delta")).toBeVisible();
+  await expect(page.getByText("Local Intelligence Index delta")).toBeVisible();
   await expect(page.getByText("VRAM delta")).toBeVisible();
   await expect(page.getByText("tok/s delta")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Qwen3.6-27B" })).toHaveCount(2);

@@ -7,11 +7,12 @@ import {
 } from "./rig-match";
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
 import type { QuantOption } from "./quant";
-import type { Score, ScoreStatus } from "./schemas";
+import type { AxisScore, Score, ScoreStatus } from "./schemas";
 
 const SWEET_SPOT_MIN_BASELINE_RETENTION = 0.95;
 
 export type QuantDecisionInputRun = {
+  readonly axes: Readonly<Record<string, AxisScore>>;
   readonly bpw?: number | null | undefined;
   readonly composite: Score | null;
   readonly demo: boolean;

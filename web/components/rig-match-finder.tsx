@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_PROFILE,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { FinderRow } from "@/components/rig-match-finder-row";
 import { RigMatchBounty } from "@/components/rig-match-bounty";
 import {
@@ -50,10 +55,13 @@ export function RigMatchFinder({
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">Rig-Match Finder</p>
-              <h1 className="mt-2 text-4xl font-semibold text-bench-text">What can I run?</h1>
+              <h1 className="mt-2 text-4xl font-semibold text-bench-text">{LOCAL_INTELLIGENCE_INDEX_NAME}</h1>
+              <p className="mt-1 font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</p>
+              <p className="mt-1 font-mono text-xs text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</p>
               <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
                 Pick a VRAM budget and quant target. Results show local model x quant runs that fit, ranked by the lower
-                bound of their quality interval.
+                bound of their Core Text index interval. Math / Coding-exec / Agentic are candidate axes until
+                validation earns an Overall tier.
               </p>
             </div>
             <FrontierCeiling anchors={anchors} />
@@ -137,7 +145,12 @@ export function RigMatchFinder({
                   <th className="px-3 py-3">#</th>
                   <th className="px-3 py-3">Model</th>
                   <th className="px-3 py-3">Quant</th>
-                  <th className="px-3 py-3">Quality</th>
+                  <th className="px-3 py-3">
+                    <span className="flex flex-col gap-0.5 leading-tight">
+                      <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+                      <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+                    </span>
+                  </th>
                   <th className="px-3 py-3">Frontier gap</th>
                   <th className="px-3 py-3">VRAM required</th>
                   <th className="px-3 py-3">tok/s</th>

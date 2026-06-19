@@ -1,5 +1,11 @@
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DetailGrid, DetailItem } from "@/components/detail-grid";
+import {
+  CoreTextAxisProfile,
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_PROFILE,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { RunAxisBreakdown } from "@/components/run-axis-breakdown";
 import { presentAxes } from "@/lib/axis-config";
 import { getRunData, getRunStaticParams } from "@/lib/data";
@@ -68,10 +74,16 @@ export default async function RunPage({ params }: PageProps) {
         <p className="mt-1 break-all font-mono text-sm text-bench-muted">{run.run_id}</p>
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div>
+            <div className="text-sm font-semibold text-bench-text">{LOCAL_INTELLIGENCE_INDEX_NAME}</div>
+            <div className="font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
             <div className="font-mono text-6xl font-semibold text-bench-text">{formatScore(run.composite.point)}</div>
             <div className="mt-1 font-mono text-lg text-bench-muted">{formatCi(run.composite)} 95% CI</div>
           </div>
-          <div className="pb-2 text-sm text-bench-muted">composite, equal-weighted chance-corrected axes</div>
+          <div className="pb-2 text-sm text-bench-muted">
+            <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
+            <CoreTextAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
+            <div className="mt-1">Equal-weighted chance-corrected Core Text axes.</div>
+          </div>
         </div>
         {hasQualityNote ? (
           <div className="mt-5 rounded-md border border-amber-300/35 bg-amber-300/[0.08] p-3 text-sm text-amber-100">
