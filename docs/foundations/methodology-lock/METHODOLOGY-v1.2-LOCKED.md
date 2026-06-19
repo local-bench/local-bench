@@ -8,6 +8,18 @@ spec everything implements. Reversible ONLY if new discrimination data contradic
 
 ---
 
+## 0.5 FOUNDATION WIDENING IN PROGRESS (2026-06-19) — the 2-axis lock is the FLOOR, not the ceiling
+After Michael's "don't launch on weak foundations", the 2-axis headline below was judged too narrow. A
+5-track research sweep + dual frontier red-team (`FOUNDATION-WIDENING-RESEARCH-2026-06-19.md`) found that
+judge-free coding/agentic PROXIES are too weak to headline and a credible CODING axis needs sandboxed code
+EXECUTION. So:
+- **Coding-exec axis BUILT + benchmark-ready** (opt-in Docker, security-red-teamed) — `localbench code`,
+  `CODING-EXEC-MODULE-SPEC.md`. A CANDIDATE until measured.
+- Knowledge-hardening, math-rebuild, long-context = candidates pending validation (specs in this folder).
+- **`DISCRIMINATION-CAMPAIGN-2026-06-19.md` is the GATE:** it measures each candidate on OUR harness
+  (≥3 families × 3 sizes + anchor, pre-registered pass/fail) and promotes candidate→headline on EVIDENCE.
+  Nothing widens the headline until that GPU+$-gated campaign runs. Everything below remains the validated floor.
+
 ## 0. What local-bench measures (the product claim)
 "**Verified local quality vs frontier**" — distance-to-frontier on a frozen, reproducible suite a local-LLM
 user can actually run on their own rig, anchored against frontier models measured on the identical suite.
