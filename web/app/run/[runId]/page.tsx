@@ -7,6 +7,7 @@ import {
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { RunAxisBreakdown } from "@/components/run-axis-breakdown";
+import { IfbenchDecomposition } from "@/components/ifbench-decomposition";
 import { presentAxes } from "@/lib/axis-config";
 import { getRunData, getRunStaticParams } from "@/lib/data";
 import {
@@ -92,6 +93,7 @@ export default async function RunPage({ params }: PageProps) {
         ) : null}
       </header>
       <RunAxisBreakdown run={run} />
+      <IfbenchDecomposition axis={run.axes.instruction} />
       <ManifestCard run={run} noAnswerCount={noAnswerCount} />
       <footer className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <h2 className="text-lg font-semibold text-bench-text">Provenance</h2>

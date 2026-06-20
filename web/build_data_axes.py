@@ -124,12 +124,19 @@ def _axis_from_benches(
     if axis_values and abs((sum(axis_values) / len(axis_values)) - point) > 1e-9:
         warnings.append(f"{axis} chance_corrected differs from item-derived mean; stale/inconsistent run JSON")
     ci = bootstrap.stratified_mean_ci(axis_values, [value for bench in source_names for value in strata.get(bench, [])], iters=iters, seed=SEED)
-    return score_interval(point, ci["lo"], ci["hi"]) | {
+    axis_score: JsonObject = score_interval(point, ci["lo"], ci["hi"]) | {
         "n": sum(n_by_bench),
         "n_errors": sum(_int(aggregate.get("n_errors"), f"{bench}.n_errors") for bench, aggregate in zip(source_names, aggregates, strict=True)),
         "n_no_answer": sum(_int(aggregate.get("n_extraction_failures"), f"{bench}.n_extraction_failures") + no_answer.get(bench, 0) for bench, aggregate in zip(source_names, aggregates, strict=True)),
         "raw_accuracy": _weighted_bench_value(source_names, aggregates, n_by_bench, "raw_accuracy"),
     }
+    # Pass the IFBench strict decomposition (raw_accuracy is already strict) through ONLY when every
+    # source bench carries it, so legacy run JSONs (pre strict re-score) still build. The site reads
+    # these flat off the axis. See docs/SITE-DATA-CONTRACT.md.
+    for key in ("termination_rate", "conditional_accuracy"):
+        if all(key in aggregate for aggregate in aggregates):
+            axis_score[key] = _weighted_bench_value(source_names, aggregates, n_by_bench, key)
+    return axis_score
 
 
 def _source_benches_for_axis(axis: str, source_benches: JsonObject) -> tuple[str, ...]:

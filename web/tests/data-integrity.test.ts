@@ -47,4 +47,18 @@ describe("public/data integrity — ranked measured rows", () => {
       expect(typeof model.axes === "object" && model.axes !== null, `${model.slug} axes`).toBe(true);
     }
   });
+
+  it("IFBench decomposition (where present) satisfies strict ≈ termination × conditional", () => {
+    for (const model of index.models) {
+      const axis = (model.axes as Record<string, { raw_accuracy?: number; termination_rate?: number; conditional_accuracy?: number }>)[
+        "instruction"
+      ];
+      if (axis?.termination_rate !== undefined && axis.conditional_accuracy !== undefined && axis.raw_accuracy !== undefined) {
+        expect(
+          Math.abs(axis.raw_accuracy - axis.termination_rate * axis.conditional_accuracy),
+          `${model.slug} strict=termination×conditional`,
+        ).toBeLessThan(0.01);
+      }
+    }
+  });
 });

@@ -22,6 +22,10 @@ export const AxisScoreSchema = ScoreSchema.extend({
   n: z.number(),
   n_errors: z.number(),
   n_no_answer: z.number(),
+  // IFBench strict decomposition (present once strict-scored run JSONs are wired; flat per the
+  // producer's shape — see docs/SITE-DATA-CONTRACT.md). raw_accuracy above IS the strict accuracy.
+  termination_rate: z.number().optional(),
+  conditional_accuracy: z.number().optional(),
 });
 
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
