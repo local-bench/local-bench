@@ -342,12 +342,14 @@ def _reasoning_effort(value: str | None) -> ReasoningEffortChoice | None:
 
 
 def _print_summary(record: LocalbenchRun) -> None:
-    print("bench       raw      corrected  n    fail  err")
+    print("bench             raw  corrected     term     cond    n   fail  err")
     for name, aggregate in record["benches"].items():
         print(
-            f"{name:<10} "
+            f"{name:<14} "
             f"{aggregate['raw_accuracy'] * 100:>6.1f}% "
             f"{aggregate['chance_corrected'] * 100:>9.1f}% "
+            f"{aggregate['termination_rate'] * 100:>7.1f}% "
+            f"{aggregate['conditional_accuracy'] * 100:>7.1f}% "
             f"{aggregate['n']:>4} "
             f"{aggregate['n_extraction_failures']:>5} "
             f"{aggregate['n_errors']:>4}",

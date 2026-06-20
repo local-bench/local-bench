@@ -101,7 +101,7 @@ def test_audit_flags_a_cap_hit_that_scored_correct() -> None:
     ]
     warnings = _audit_forced_cap_hits(items, forcing_active=True)  # type: ignore[arg-type]
     assert len(warnings) == 1
-    assert "AUDIT" in warnings[0] and "a" in warnings[0]
+    assert "SCORER-GATE BUG" in warnings[0] and "a" in warnings[0]
     # no audit when forcing is off, or when no cap hit scored correct
     assert _audit_forced_cap_hits(items, forcing_active=False) == []  # type: ignore[arg-type]
     clean = [{"id": "b", "finish_reason": "length", "correct": False}]

@@ -43,6 +43,8 @@ class BenchAggregate(TypedDict):
     n_extraction_failures: int
     raw_accuracy: float
     chance_corrected: float
+    termination_rate: float
+    conditional_accuracy: float
 
 
 class RunTotals(TypedDict):
@@ -64,12 +66,13 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
         detailed = _score_response_detail(
             bench.name, source_item, response_text, error, result["finish_reason"]
         )
+        correct = detailed["correct"] and result["finish_reason"] != "length"
         scored_item: ScoredItem = {
             "id": result["id"],
             "bench": bench.name,
             "response_text": response_text,
             "extracted": detailed["extracted"],
-            "correct": detailed["correct"],
+            "correct": correct,
             "finish_reason": result["finish_reason"],
             "latency_seconds": result["latency_seconds"],
             "started_at": result["started_at"],
@@ -87,7 +90,13 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
 def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggregate:
     """Aggregate item-level correctness into benchmark metrics."""
     n = len(items)
-    raw_accuracy = sum(1 for item in items if item["correct"]) / n if n else 0.0
+    n_correct = sum(1 for item in items if item["correct"])
+    n_terminated = sum(
+        1
+        for item in items
+        if item["error"] is None and item["finish_reason"] != "length"
+    )
+    raw_accuracy = n_correct / n if n else 0.0
     return {
         "n": n,
         "n_errors": sum(1 for item in items if item["error"] is not None),
@@ -100,6 +109,8 @@ def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggr
         ),
         "raw_accuracy": raw_accuracy,
         "chance_corrected": signed_score(raw_accuracy, chance=baseline),
+        "termination_rate": n_terminated / n if n else 0.0,
+        "conditional_accuracy": n_correct / n_terminated if n_terminated else 0.0,
     }
 
 

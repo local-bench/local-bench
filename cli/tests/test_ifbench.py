@@ -9,6 +9,9 @@ from typing import Final, TypeAlias
 
 import pytest
 
+from localbench._scoring import score_bench
+from localbench._suite import RenderedBench
+from localbench._types import ItemResult
 from localbench.scorers.ifbench import INSTRUCTION_DICT, score_ifbench
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
@@ -219,6 +222,29 @@ def test_score_ifbench_when_item_or_response_is_malformed_returns_false() -> Non
     # Then the public scorer never raises and reports strict failure.
     assert unknown_result == {"follow_all": False, "per_instruction": [False], "strict": False}
     assert malformed_result == {"follow_all": False, "per_instruction": [], "strict": False}
+
+
+def test_score_bench_marks_ifbench_cap_hit_incorrect_even_when_instruction_matches() -> None:
+    # Given a cap-hit IFBench answer whose text satisfies the requested instruction.
+    bench = RenderedBench(
+        name="ifbench",
+        source_items=[_item("format:no_whitespace", {})],
+        benchmark_items=[],
+        baseline=0.0, decoding={},
+        item_file="fixture.jsonl",
+    )
+    result: ItemResult = {
+        "id": "ifbench-test-001", "response_text": "NoSpaces", "reasoning_text": None,
+        "finish_reason": "length", "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "latency_seconds": 0.0, "started_at": "2026-06-21T00:00:00+00:00",
+        "finished_at": "2026-06-21T00:00:00+00:00", "attempts": 1, "error": None,
+    }
+
+    # When scoring through the production bench scorer.
+    scored = score_bench(bench, [result])
+
+    # Then the non-terminating answer is incorrect.
+    assert scored[0]["correct"] is False
 
 
 def test_score_ifbench_has_reference_parity_when_reference_runtime_is_available() -> None:

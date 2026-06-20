@@ -42,20 +42,49 @@ def test_signed_delta_when_chance_corrected_matches_aggregate_score_difference()
     assert mean_delta == pytest.approx(aggregate_delta)
 
 
-def _scored_item(*, correct: bool) -> ScoredItem:
+def test_aggregate_reports_termination_and_conditional_accuracy() -> None:
+    # Given post-gate scored items with successes, a non-terminating failure, and an error.
+    items = [
+        _scored_item(id="correct-1", correct=True, finish_reason="stop"),
+        _scored_item(id="correct-2", correct=True, finish_reason="stop"),
+        _scored_item(id="wrong-terminated", correct=False, finish_reason="stop"),
+        _scored_item(id="wrong-length", correct=False, finish_reason="length"),
+        _scored_item(id="errored", correct=False, finish_reason=None, error="timeout"),
+    ]
+
+    # When aggregating the bench.
+    result = aggregate("mmlu_pro", items, baseline=0.10)
+
+    # Then termination and conditional accuracy decompose raw accuracy.
+    assert result["raw_accuracy"] == pytest.approx(2 / 5)
+    assert result["termination_rate"] == pytest.approx(3 / 5)
+    assert result["conditional_accuracy"] == pytest.approx(2 / 3)
+    assert all(item["finish_reason"] != "length" for item in items if item["correct"])
+    assert result["raw_accuracy"] == pytest.approx(
+        result["termination_rate"] * result["conditional_accuracy"],
+    )
+
+
+def _scored_item(
+    *,
+    correct: bool,
+    id: str = "item-1",
+    finish_reason: str | None = "stop",
+    error: str | None = None,
+) -> ScoredItem:
     return {
-        "id": "item-1",
+        "id": id,
         "bench": "mmlu_pro",
-        "response_text": "A",
-        "extracted": "A",
+        "response_text": None if error is not None else "A",
+        "extracted": None if error is not None else "A",
         "correct": correct,
-        "finish_reason": "stop",
+        "finish_reason": finish_reason,
         "latency_seconds": 0.0,
         "started_at": "2026-06-12T00:00:00+00:00",
         "finished_at": "2026-06-12T00:00:00+00:00",
         "attempts": 1,
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-        "error": None,
+        "error": error,
     }
 
 

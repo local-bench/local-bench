@@ -46,6 +46,8 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "n_extraction_failures": 1,
             "raw_accuracy": pytest.approx(1 / 3),
             "chance_corrected": pytest.approx(1 / 9),
+            "termination_rate": 1.0,
+            "conditional_accuracy": pytest.approx(1 / 3),
         }
         assert record["benches"]["ifeval"] == {
             "n": 2,
@@ -53,6 +55,8 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "n_extraction_failures": 0,
             "raw_accuracy": 0.5,
             "chance_corrected": 0.5,
+            "termination_rate": 0.5,
+            "conditional_accuracy": 1.0,
         }
         assert record["benches"]["genmath"] == {
             "n": 2,
@@ -60,6 +64,8 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "n_extraction_failures": 0,
             "raw_accuracy": 0.5,
             "chance_corrected": 0.5,
+            "termination_rate": 1.0,
+            "conditional_accuracy": 0.5,
         }
         # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifeval).
         # genmath -> Math carries weight 0.0, so it is excluded (METHODOLOGY-v1.2 §3).

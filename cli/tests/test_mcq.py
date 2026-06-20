@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from localbench._scoring import score_bench
+from localbench._suite import RenderedBench
+from localbench._types import ItemResult
 from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
 
 
@@ -138,3 +141,54 @@ def test_score_mcq_detailed_when_answer_is_missing() -> None:
 
     # Then missing extraction is visible and scored as wrong.
     assert result == {"extracted": None, "correct": False}
+
+
+def test_score_bench_marks_mmlu_pro_cap_hit_incorrect_even_when_answer_matches() -> None:
+    # Given a cap-hit mmlu_pro answer whose extracted choice matches the gold answer.
+    bench = RenderedBench(
+        name="mmlu_pro",
+        source_items=[
+            {
+                "id": "mmlu-cap-hit",
+                "question": "Fixture question?",
+                "options": ["alpha", "beta", "gamma", "delta"],
+                "answer": "C",
+            },
+        ],
+        benchmark_items=[],
+        baseline=0.25,
+        decoding={},
+        item_file="fixture.jsonl",
+    )
+    result = _item_result(
+        item_id="mmlu-cap-hit",
+        response_text="Reasoning that keeps going. Final answer: C",
+        finish_reason="length",
+    )
+
+    # When scoring through the production bench scorer.
+    scored = score_bench(bench, [result])
+
+    # Then extraction is preserved but the non-terminating answer is incorrect.
+    assert scored[0]["extracted"] == "C"
+    assert scored[0]["correct"] is False
+
+
+def _item_result(
+    *,
+    item_id: str,
+    response_text: str,
+    finish_reason: str,
+) -> ItemResult:
+    return {
+        "id": item_id,
+        "response_text": response_text,
+        "reasoning_text": None,
+        "finish_reason": finish_reason,
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "latency_seconds": 0.0,
+        "started_at": "2026-06-21T00:00:00+00:00",
+        "finished_at": "2026-06-21T00:00:00+00:00",
+        "attempts": 1,
+        "error": None,
+    }

@@ -257,10 +257,10 @@ def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject
 
 
 def _audit_forced_cap_hits(items: list[ScoredItem], forcing_active: bool) -> list[str]:
-    """Oracle safeguard (2026-06-20): the budget-forcing truncation exception assumes a
-    cap hit means the model failed. If a cap-hit item nonetheless scored CORRECT, a valid
-    answer may have been cut off (or the extractor missed it) — surface it so the exception
-    can be revisited rather than silently converting a measurement artifact into a model error.
+    """Defensive invariant check: strict completion gating should make this empty.
+
+    A cap-hit item is non-terminating and cannot score correct. If one appears here,
+    the production scorer failed to apply the strict completion gate uniformly.
     """
     if not forcing_active:
         return []
@@ -273,8 +273,8 @@ def _audit_forced_cap_hits(items: list[ScoredItem], forcing_active: bool) -> lis
         return []
     sample = ", ".join(flagged[:3])
     return [
-        f"AUDIT: {len(flagged)} answer-cap-hit item(s) scored CORRECT (e.g. {sample}); a valid "
-        "answer may have been truncated — revisit the budget-forcing truncation exception",
+        f"SCORER-GATE BUG: {len(flagged)} answer-cap-hit item(s) scored CORRECT "
+        f"(e.g. {sample}); strict completion gating failed",
     ]
 
 
