@@ -64,11 +64,17 @@ Orchestration gotchas (cost 2 failed smoke tests): WSL `nohup &` inside a one-sh
 gets reaped; PowerShell `Start-Process wsl -ArgumentList` mangles the spaced bash `-c` arg;
 `pkill -f 'vllm serve'` self-kills (use `vllm[ ]serve`). The `campaign-run.ps1` is retired.
 
-## Website (Next.js dark site, `web/`) — see status note below
-Local dev only (no deploy yet; Vercel/Supabase deferred). Reads static data from
-`web/public/data/*.json` built by `web/build_data.py` from `web/data_sources.json`.
-Run: `cd web && npm run dev` → http://localhost:3000. (A stale dev server from June 14 was
-returning 500 — restarted this session.)
+## Website (Next.js dark site, `web/`) — FIXED, LIVE at http://localhost:3000
+Local dev only (no deploy yet; Vercel/Supabase deferred). Next 16 + Turbopack, Tailwind v3,
+`output: "export"`. Reads static data from `web/public/data/*.json` built by `web/build_data.py`.
+Run: `cd web && npm run dev` → http://localhost:3000 (dev task this session: `bztmvsjzm`).
+All routes verified 200: `/`, `/methodology/`, `/trust/`, `/compare/` (+ `/model/[slug]`, `/run/[runId]`, `/submit/`).
+- **Why Michael couldn't access it (2026-06-20):** a stale dev server from **June 14** held :3000 and
+  returned 500; a fresh `npm run dev` ALSO 500'd with Tailwind v3 `resolveChangedFiles` ENOENT on
+  `app/page.tsx` (which exists fine — Node stats it). Root cause = a **527 MB stale `.next` cache**
+  vs source files edited today 07:49 (site-overhaul task #32). 
+- **FIX (if it 500s with that Tailwind ENOENT again):** stop dev server, `rm -rf web/.next
+  web/node_modules/.cache`, free :3000, `npm run dev`. Clean recompile resolves it.
 
 ## Trackers (volatile — in %TEMP%, may be lost; this doc is the durable copy)
 - `%TEMP%\campaign-local-bench.md` — campaign detail + orchestration learnings.
