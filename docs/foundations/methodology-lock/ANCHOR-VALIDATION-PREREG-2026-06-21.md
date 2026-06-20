@@ -71,6 +71,26 @@ Qwen-ladder avg accuracy on anchor-terminated vs non-terminated items) to catch 
   parser-template failure prevents a capability interpretation.
 - **INCONCLUSIVE:** anything else (one bad miss, adjacent-rung noise, marginal termination).
 
+### 6.1 Locked per-anchor brackets (pre-run, 2026-06-21)
+Set from published model-card benchmarks as BROAD ordinal bands (most cards lack MMLU-Pro → Knowledge
+extrapolated from MMLU; reasoning-model cards use SAMPLING + full reasoning, so our greedy-temp-0
+8192-budget lane will likely score LOWER, esp. R1/Nemotron). Qwen rung refs (our STRICT scores):
+Knowledge MMLU-Pro 0.8B 24.8 / 2B 51.5 / 4B 73.0 / 9B 78.5; Instruction IFBench 0.8B 12.9 / 2B 19.0 /
+4B 43.2 / 9B 57.1.
+
+| Anchor | card evidence | Knowledge bracket | Instruction bracket |
+|---|---|---|---|
+| Granite-3.3-2B | MMLU 55.9, IFEval 65.8 | Qwen 0.8B–2B (~25–52%) | Qwen 0.8B–4B (~13–43%) |
+| Granite-3.3-8B | MMLU 65.5, IFEval 74.8 | Qwen 0.8B–4B, exp ~2B (~35–55%) | Qwen 2B–9B (~19–57%) |
+| Nemotron-Nano-4B | GPQA-D 55.1, MATH500 96.2, IFEval 82.6 (reasoning-on, sampled) | Qwen 2B–4B (~51–73%) | Qwen 4B–9B (~43–57%) |
+| R1-Distill-Llama-8B | **MMLU-Pro 73.0 reported**, IFEval 80.0 | Qwen 4B–9B (~65–78%) | Qwen 4B–9B (~43–57%) |
+
+Ordinal prediction (R1-Distill most reliable = only reported MMLU-Pro):
+**R1-Distill-Llama-8B ≳ Nemotron-4B ≈ Granite-8B > Granite-2B.** Dominant risk = lane-stress
+(greedy temp-0 + 8192 think budget vs the anchors' sampled/longer-CoT recipes) → elevated cap-hit for
+R1/Nemotron expected; that triggers the conditional-metric + health-gate path or LANE-INCOMPATIBLE,
+NOT a Qwen-bias conclusion.
+
 ## 7. Confound handling (pre-registered)
 - **Chat-template:** pre-register exact rendered prompt bytes per family; official reasoning activation only.
 - **Delimiter:** only literal-`</think>` families are primary (smoke-test enforced).
