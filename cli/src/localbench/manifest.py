@@ -43,6 +43,7 @@ class ManifestContext:
     provider: str = "local"
     provider_notes: tuple[str, ...] = ()
     reasoning_effort: str | None = None
+    thinking_budget: int = 0
 
 
 async def collect_manifest(
@@ -73,7 +74,7 @@ async def collect_manifest(
             "tier": context.tier,
             "item_set_hashes": context.item_set_hashes,
             "lane": context.lane if context.lane in _LANES else "answer-only",
-            "caps": _caps(context.sampling_by_bench),
+            "caps": _caps(context.sampling_by_bench, context.thinking_budget),
         },
         "scorecard": scorecard_identity(),
         "endpoint": {
@@ -203,11 +204,11 @@ def _memory_mb(value: str) -> int | None:
     return int(digits) if digits else None
 
 
-def _caps(sampling_by_bench: Mapping[str, JsonObject]) -> JsonObject:
+def _caps(sampling_by_bench: Mapping[str, JsonObject], thinking_budget: int = 0) -> JsonObject:
     return {
         "max_tokens_mcq": _max_tokens(sampling_by_bench, ("mmlu_pro",)),
         "max_tokens_math": _max_tokens(sampling_by_bench, ("genmath",)),
-        "thinking_budget": 0,
+        "thinking_budget": thinking_budget,
     }
 
 

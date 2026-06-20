@@ -30,7 +30,8 @@ from localbench._suite import (
     render_benches,
     suite_version,
 )
-from localbench._types import BenchmarkItem, ItemResult, JsonObject
+from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue
+from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
 from localbench.lane_conformance import assess_run_conformance
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.providers import ReasoningEffort, provider_for_name
@@ -134,6 +135,12 @@ async def run_localbench(
                     "enable_thinking": False,
                 }
 
+    thinking_budget = 0
+    if config.provider == "local" and config.lane == "capped-thinking":
+        # Local capped-thinking enforces the locked thinking budget with two-pass forcing
+        # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
+        thinking_budget = _plumb_think_budget(rendered_benches, suite)
+
     results_by_bench: dict[str, list[ItemResult]] = {}
     for bench in rendered_benches:
         sampling_by_bench[bench.name] = bench.decoding
@@ -197,6 +204,7 @@ async def run_localbench(
                 ),
             ),
             reasoning_effort=config.reasoning_effort,
+            thinking_budget=thinking_budget,
         ),
         transport=transport,
     )
@@ -231,6 +239,32 @@ def default_output_path(model: str, tier: str) -> Path:
     safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("_") or "model"
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return Path("runs") / f"{safe_model}_{tier}_{timestamp}.json"
+
+
+def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject) -> int:
+    """Stamp each item's think_budget for local capped-thinking; return the budget used."""
+    benches_cfg = suite.get("benches")
+    benches_cfg = benches_cfg if isinstance(benches_cfg, dict) else {}
+    budget_used = 0
+    for bench in rendered_benches:
+        think_budget = _bench_think_budget(benches_cfg.get(bench.name))
+        for benchmark_item in bench.benchmark_items:
+            benchmark_item["think_budget"] = think_budget
+        budget_used = max(budget_used, think_budget)
+    return budget_used
+
+
+def _bench_think_budget(bench_cfg: JsonValue) -> int:
+    """Read a per-bench capped-thinking budget from suite lane_caps, else the locked default."""
+    if isinstance(bench_cfg, dict):
+        lane_caps = bench_cfg.get("lane_caps")
+        if isinstance(lane_caps, dict):
+            capped = lane_caps.get("capped-thinking")
+            if isinstance(capped, dict):
+                value = capped.get("think_budget")
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    return value
+    return CAPPED_THINKING_THINK_BUDGET
 
 
 def _exclude_exec_lane(

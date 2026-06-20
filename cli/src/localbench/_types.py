@@ -20,6 +20,7 @@ class BenchmarkItem(TypedDict):
     messages: list[ChatMessage]
     sampling_params: JsonObject
     max_tokens: NotRequired[int]
+    think_budget: NotRequired[int]
 
 
 class Usage(TypedDict):
@@ -40,6 +41,7 @@ class ItemResult(TypedDict):
     finished_at: str
     attempts: int
     error: str | None
+    thinking_forced: NotRequired[bool]
 
 
 class RunParams(TypedDict):
@@ -78,3 +80,4 @@ class ParsedCompletion:
     reasoning_text: str | None
     finish_reason: str | None
     usage: Usage
+    thinking_forced: bool = False

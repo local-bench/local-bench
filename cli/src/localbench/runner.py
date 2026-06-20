@@ -77,6 +77,7 @@ async def run_benchmark(
                     provider=request_provider,
                     lane=lane,
                     effort=effort,
+                    base_url=endpoint,
                 )
                 for item in items
             ],

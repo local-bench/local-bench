@@ -46,9 +46,30 @@ async def run_item(
     provider: Provider | None = None,
     lane: Lane = "answer-only",
     effort: ReasoningEffort | None = None,
+    base_url: str | None = None,
 ) -> ItemResult:
     """Run one item and return a result instead of raising on request failure."""
     request_provider = provider or provider_for_name("local")
+    if (
+        request_provider.name == "local"
+        and lane == "capped-thinking"
+        and isinstance(item.get("think_budget"), int)
+        and base_url is not None
+    ):
+        # Local capped-thinking enforces the locked thinking budget with two-pass forcing on
+        # the raw /completions endpoint (see budget_forcing). Lazy import avoids a cycle.
+        from localbench.budget_forcing import run_forced_item
+
+        return await run_forced_item(
+            client=client,
+            base_url=base_url,
+            headers=headers,
+            model=model,
+            item=item,
+            semaphore=semaphore,
+            max_attempts=max_attempts,
+            backoff_base=backoff_base,
+        )
     async with semaphore:
         started_at = utc_now()
         started_perf = time.perf_counter()
@@ -143,6 +164,7 @@ def item_result(
         "finished_at": finished_at,
         "attempts": attempts,
         "error": error,
+        "thinking_forced": False if parsed is None else parsed.thinking_forced,
     }
 
 
