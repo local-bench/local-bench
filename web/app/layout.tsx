@@ -9,7 +9,8 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", displ
 
 export const metadata: Metadata = {
   title: "local-bench",
-  description: "Community quality benchmark leaderboard for local AI setups.",
+  description:
+    "A community quality leaderboard for local and open LLMs — Local Intelligence Index (Knowledge + Instruction), measured on a frozen, reproducible suite and anchored against frontier models.",
 };
 
 export default async function RootLayout({
