@@ -17,9 +17,14 @@ export default function SubmitPage() {
         {`localbench run \\
   --endpoint http://localhost:11434/v1 \\
   --model your-model-name \\
+  --lane capped-thinking \\
   --tier standard \\
   --out my-run.json`}
       </pre>
+      <p className="-mt-3 text-sm leading-6 text-bench-muted">
+        <code className="font-mono text-bench-text">--lane capped-thinking</code> is the headline reasoning-on
+        lane; ranks only compare within a lane, so keep it to land on the ranked board.
+      </p>
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-bench-line bg-bench-panel p-5">
