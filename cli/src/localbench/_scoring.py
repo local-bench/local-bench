@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict
 
 from localbench._suite import RenderedBench
 from localbench._types import ItemResult, JsonValue, Usage
@@ -18,6 +18,9 @@ from localbench.scorers.mcq import score_mcq_detailed
 from localbench.scorers.ruler import score_ruler
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
+
+_RESPONSE_OPEN: Final = "<response>"
+_RESPONSE_CLOSE: Final = "</response>"
 
 
 class ScoredItem(TypedDict):
@@ -192,10 +195,11 @@ def _score_response_detail(
 ) -> ResponseScore:
     if error is not None or response_text is None:
         return {"extracted": None, "correct": False}
+    scorer_text = _strip_response_wrapper(response_text)
     match bench:
         case "mmlu_pro" | "supergpqa":
             detailed = score_mcq_detailed(
-                response_text,
+                scorer_text,
                 _string(source_item.get("answer")) or "",
                 len(_list(source_item.get("options"))),
             )
@@ -203,52 +207,60 @@ def _score_response_detail(
         case "ifeval":
             return {
                 "extracted": None,
-                "correct": bool(score_ifeval(source_item, response_text)["strict"]),
+                "correct": bool(score_ifeval(source_item, scorer_text)["strict"]),
             }
         case "ifbench":
             return {
                 "extracted": None,
-                "correct": bool(score_ifbench(source_item, response_text)["strict"]),
+                "correct": bool(score_ifbench(source_item, scorer_text)["strict"]),
             }
         case "genmath":
-            extracted = extract_final_number(response_text)
+            extracted = extract_final_number(scorer_text)
             return {
                 "extracted": extracted,
                 "correct": score_math(
-                    response_text, _string(source_item.get("answer")) or ""
+                    scorer_text, _string(source_item.get("answer")) or ""
                 ),
             }
         case "amo" | "olymmath_hard":
             allow_fallback = finish_reason != "length"
             extracted = extract_math_answer(
-                response_text, allow_bare_number_fallback=allow_fallback
+                scorer_text, allow_bare_number_fallback=allow_fallback
             )
             return {
                 "extracted": extracted,
                 "correct": verify_math(
-                    response_text,
+                    scorer_text,
                     _string(source_item.get("answer")) or "",
                     finish_reason=finish_reason,
                 ),
             }
         case "bfcl":
-            detailed = score_bfcl(source_item, response_text)
+            detailed = score_bfcl(source_item, scorer_text)
             return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case "bfcl_multi_turn":
-            detailed = score_bfcl_multi_turn(source_item, response_text)
+            detailed = score_bfcl_multi_turn(source_item, scorer_text)
             return {
                 "extracted": detailed["extracted"],
                 "correct": detailed["correct"],
                 "failure_kind": detailed["failure_kind"],
             }
         case "lcb":
-            detailed = score_lcb(source_item, response_text)
+            detailed = score_lcb(source_item, scorer_text)
             return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case "ruler_32k":
-            detailed = score_ruler(source_item, response_text)
+            detailed = score_ruler(source_item, scorer_text)
             return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case _:
             return {"extracted": None, "correct": False}
+
+
+def _strip_response_wrapper(response_text: str) -> str:
+    stripped = response_text.strip()
+    if not stripped.startswith(_RESPONSE_OPEN) or not stripped.endswith(_RESPONSE_CLOSE):
+        return response_text
+    inner = stripped[len(_RESPONSE_OPEN) : -len(_RESPONSE_CLOSE)]
+    return inner.strip()
 
 
 def _list(value: JsonValue | None) -> list[str]:

@@ -17,6 +17,7 @@ from localbench._response import (
     empty_usage,
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, ParsedCompletion
+from localbench.prompt_rendering import PromptRenderer
 from localbench.providers import (
     Lane,
     Provider,
@@ -47,6 +48,7 @@ async def run_item(
     lane: Lane = "answer-only",
     effort: ReasoningEffort | None = None,
     base_url: str | None = None,
+    prompt_renderer: PromptRenderer | None = None,
 ) -> ItemResult:
     """Run one item and return a result instead of raising on request failure."""
     request_provider = provider or provider_for_name("local")
@@ -69,6 +71,7 @@ async def run_item(
             semaphore=semaphore,
             max_attempts=max_attempts,
             backoff_base=backoff_base,
+            prompt_renderer=prompt_renderer,
         )
     async with semaphore:
         started_at = utc_now()

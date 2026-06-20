@@ -21,6 +21,11 @@ from localbench._types import (
     Totals,
     Usage,
 )
+from localbench.prompt_rendering import (
+    PromptRenderer,
+    ReasoningActivation,
+    build_forced_prompt_renderer,
+)
 from localbench.providers import Lane, Provider, ReasoningEffort, provider_for_name
 
 __all__ = [
@@ -52,6 +57,9 @@ async def run_benchmark(
     provider: Provider | None = None,
     lane: Lane = "answer-only",
     effort: ReasoningEffort | None = None,
+    hf_model_id: str | None = None,
+    reasoning_activation: ReasoningActivation = "qwen3",
+    prompt_renderer: PromptRenderer | None = None,
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
     request_provider = provider or provider_for_name("local")
@@ -61,6 +69,11 @@ async def run_benchmark(
     semaphore = asyncio.Semaphore(effective_concurrency)
     started_at = utc_now()
     started_perf = time.perf_counter()
+    forced_prompt_renderer = prompt_renderer or (
+        build_forced_prompt_renderer(hf_model_id, reasoning_activation)
+        if request_provider.name == "local" and lane == "capped-thinking"
+        else None
+    )
 
     async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
         results = await asyncio.gather(
@@ -78,6 +91,7 @@ async def run_benchmark(
                     lane=lane,
                     effort=effort,
                     base_url=endpoint,
+                    prompt_renderer=forced_prompt_renderer,
                 )
                 for item in items
             ],

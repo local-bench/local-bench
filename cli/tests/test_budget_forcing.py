@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import Mapping, Sequence
 
 import httpx
+import pytest
 
+from localbench._types import JsonValue
 from localbench.budget_forcing import (
     CAPPED_THINKING_THINK_BUDGET,
     answer_budget_for,
@@ -15,6 +18,7 @@ from localbench.budget_forcing import (
 )
 from localbench.lane_conformance import assess_conformance
 from localbench.manifest import _caps
+from localbench.prompt_rendering import HfChatPromptRenderer
 from localbench.runner import run_benchmark
 
 
@@ -75,9 +79,99 @@ def _forcing_client(handler) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://local")
 
 
+class _FakeTokenizer:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, JsonValue]] = []
+
+    def apply_chat_template(
+        self,
+        conversation: Sequence[Mapping[str, str]],
+        *,
+        tokenize: bool,
+        add_generation_prompt: bool,
+        **kwargs: bool,
+    ) -> str:
+        self.calls.append(
+            {
+                "messages": [dict(message) for message in conversation],
+                "tokenize": tokenize,
+                "add_generation_prompt": add_generation_prompt,
+                "kwargs": kwargs,
+            },
+        )
+        return f"rendered-{len(self.calls)}"
+
+
+@pytest.mark.parametrize("activation", ["qwen3", "r1"])
+def test_hf_renderer_leaves_qwen3_and_r1_activation_to_template(activation: str) -> None:
+    tokenizer = _FakeTokenizer()
+    renderer = HfChatPromptRenderer(tokenizer=tokenizer, activation=activation)
+
+    rendered = renderer.render([{"role": "user", "content": "hi"}])
+
+    assert rendered == "rendered-1"
+    assert tokenizer.calls == [
+        {
+            "messages": [{"role": "user", "content": "hi"}],
+            "tokenize": False,
+            "add_generation_prompt": True,
+            "kwargs": {},
+        },
+    ]
+
+
+def test_hf_renderer_passes_granite_thinking_activation_kwarg() -> None:
+    tokenizer = _FakeTokenizer()
+    renderer = HfChatPromptRenderer(tokenizer=tokenizer, activation="granite")
+
+    renderer.render([{"role": "user", "content": "hi"}])
+
+    assert tokenizer.calls[0]["kwargs"] == {"thinking": True}
+
+
+def test_hf_renderer_prepends_nemotron_system_message_when_absent() -> None:
+    tokenizer = _FakeTokenizer()
+    renderer = HfChatPromptRenderer(tokenizer=tokenizer, activation="nemotron")
+
+    renderer.render([{"role": "user", "content": "hi"}])
+
+    assert tokenizer.calls[0]["messages"] == [
+        {"role": "system", "content": "detailed thinking on"},
+        {"role": "user", "content": "hi"},
+    ]
+    assert tokenizer.calls[0]["kwargs"] == {}
+
+
+def test_hf_renderer_does_not_duplicate_existing_nemotron_system_message() -> None:
+    tokenizer = _FakeTokenizer()
+    renderer = HfChatPromptRenderer(tokenizer=tokenizer, activation="nemotron")
+
+    renderer.render(
+        [{"role": "system", "content": "custom"}, {"role": "user", "content": "hi"}],
+    )
+
+    assert tokenizer.calls[0]["messages"] == [
+        {"role": "system", "content": "custom"},
+        {"role": "user", "content": "hi"},
+    ]
+
+
+def test_hf_renderer_caches_repeated_message_rendering() -> None:
+    tokenizer = _FakeTokenizer()
+    renderer = HfChatPromptRenderer(tokenizer=tokenizer, activation="granite")
+    messages = [{"role": "user", "content": "hi"}]
+
+    first = renderer.render(messages)
+    second = renderer.render([{"role": "user", "content": "hi"}])
+
+    assert first == second == "rendered-1"
+    assert len(tokenizer.calls) == 1
+
+
 def test_forced_when_thinking_exceeds_budget() -> None:
     async def scenario() -> None:
         seen: list[dict] = []
+        expected_prompt = render_qwen3_chat_prompt(_item()["messages"])
 
         def handler(request: httpx.Request) -> httpx.Response:
             body = json.loads(request.content)
@@ -86,7 +180,7 @@ def test_forced_when_thinking_exceeds_budget() -> None:
             if body["stop"] == ["</think>"]:
                 # Pass 1: model thinks past the budget, never closes </think>.
                 assert body["max_tokens"] == 8192
-                assert body["prompt"].startswith("<|im_start|>user\n")
+                assert body["prompt"] == expected_prompt
                 return httpx.Response(200, json=_completion(
                     "<think>\nlong reasoning", "length", prompt_tokens=10, completion_tokens=8192))
             # Pass 2: forced close, generate the answer.
@@ -116,6 +210,42 @@ def test_forced_when_thinking_exceeds_budget() -> None:
         assert result["error"] is None
         # usage is summed across both passes
         assert result["usage"] == {"prompt_tokens": 30, "completion_tokens": 8197, "total_tokens": 8227}
+
+    asyncio.run(scenario())
+
+
+def test_forced_item_uses_configured_hf_renderer() -> None:
+    async def scenario() -> None:
+        tokenizer = _FakeTokenizer()
+        renderer = HfChatPromptRenderer(tokenizer=tokenizer, activation="granite")
+        seen_prompts: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            seen_prompts.append(body["prompt"])
+            if body["stop"] == ["</think>"]:
+                return httpx.Response(200, json=_completion(
+                    "<think>\ncustom reasoning", "length", prompt_tokens=10, completion_tokens=8192))
+            return httpx.Response(200, json=_completion(
+                "Answer: B", "stop", prompt_tokens=20, completion_tokens=5))
+
+        async with _forcing_client(handler) as client:
+            result = await run_forced_item(
+                client=client,
+                base_url="http://local/v1",
+                headers={},
+                model="granite",
+                item=_item(),
+                semaphore=asyncio.Semaphore(1),
+                max_attempts=3,
+                backoff_base=0.0,
+                prompt_renderer=renderer,
+            )
+
+        assert seen_prompts[0] == "rendered-1"
+        assert seen_prompts[1].startswith("rendered-1<think>\ncustom reasoning\n</think>")
+        assert len(tokenizer.calls) == 1
+        assert result["response_text"] == "Answer: B"
 
     asyncio.run(scenario())
 

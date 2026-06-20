@@ -174,6 +174,8 @@ def test_cli_run_help_exits_zero() -> None:
     assert "--endpoint" in result.stdout
     assert "--provider" in result.stdout
     assert "--reasoning-effort" in result.stdout
+    assert "--hf-model-id" in result.stdout
+    assert "--reasoning-activation" in result.stdout
 
 
 def test_cli_run_when_endpoint_is_missing_exits_two() -> None:
@@ -240,6 +242,60 @@ def test_run_localbench_lane_controls_thinking_toggle(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_run_localbench_builds_hf_renderer_once_for_capped_thinking_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class CountingRenderer:
+        def __init__(self) -> None:
+            self.render_count = 0
+
+        def render(self, messages: list[dict[str, str]]) -> str:
+            self.render_count += 1
+            return "<custom-assistant>\n"
+
+    async def scenario() -> None:
+        # Given a local capped-thinking run over multiple benches with an HF model id.
+        renderer = CountingRenderer()
+        build_calls: list[tuple[str | None, str]] = []
+
+        def build_renderer(hf_model_id: str | None, activation: str) -> CountingRenderer:
+            build_calls.append((hf_model_id, activation))
+            return renderer
+
+        monkeypatch.setattr("localbench.orchestrate.build_forced_prompt_renderer", build_renderer)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            payload = json.loads(request.content)
+            if payload["stop"] == ["</think>"]:
+                return _raw_completion("<think>\nreasoning", "length", 1, 8)
+            return _raw_completion("Answer: A", "stop", 1, 1)
+
+        # When the orchestrator executes the per-bench runner calls.
+        await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                out=tmp_path / "capped.json",
+                bench="mmlu_pro,ifeval",
+                max_items=1,
+                lane="capped-thinking",
+                hf_model_id="ibm-granite/granite-3.3-8b-instruct",
+                reasoning_activation="granite",
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then tokenizer/renderer construction is once per run config, not once per bench.
+        assert build_calls == [("ibm-granite/granite-3.3-8b-instruct", "granite")]
+        assert renderer.render_count == 2
+
+    asyncio.run(scenario())
+
+
 def _mixed_handler(request: httpx.Request) -> httpx.Response:
     if request.url.path.endswith("/models"):
         return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
@@ -286,6 +342,25 @@ def _completion(text: str, prompt_tokens: int, completion_tokens: int) -> httpx.
                     "finish_reason": "stop",
                 },
             ],
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            },
+        },
+    )
+
+
+def _raw_completion(
+    text: str,
+    finish_reason: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "choices": [{"text": text, "finish_reason": finish_reason}],
             "usage": {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,

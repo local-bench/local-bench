@@ -11,15 +11,16 @@ This module enforces it with two-pass budget forcing on the RAW ``/v1/completion
 (the chat endpoint loses the text on truncation; raw completions does not, because no
 reasoning parser is in the path):
 
-* Pass 1 (think): render the chat messages to raw Qwen3 ChatML ending at the assistant turn;
-  ``max_tokens=think_budget``, ``stop=["</think>"]``. ``finish_reason == "stop"`` means the
-  model closed thinking within budget; ``"length"`` means the budget was exceeded (forced).
+* Pass 1 (think): render the chat messages to a raw chat prompt ending at the assistant
+  turn; ``max_tokens=think_budget``, ``stop=["</think>"]``. ``finish_reason == "stop"``
+  means the model closed thinking within budget; ``"length"`` means the budget was
+  exceeded (forced).
 * Pass 2 (answer): ``prompt + thinking + "\\n</think>\\n\\n"``; ``max_tokens=answer_budget``,
   ``stop=["<|im_end|>"]`` -> the answer.
 
 Pass 2 always runs (with ``stop=["</think>"]`` pass 1 halts before the answer is generated).
-Only the Qwen3 ChatML family is supported today; other families fall back to the normal
-single-pass chat path in ``run_item``.
+The historical Qwen3 ChatML renderer remains the default; off-family runs can supply an
+HF-tokenizer chat-template renderer.
 """
 
 from __future__ import annotations
@@ -47,6 +48,7 @@ from localbench._types import (
     ParsedCompletion,
     Usage,
 )
+from localbench.prompt_rendering import PromptRenderer
 
 # The locked methodology thinking budget for the capped-thinking lane.
 CAPPED_THINKING_THINK_BUDGET: Final = 8192
@@ -97,12 +99,17 @@ async def run_forced_item(
     semaphore: asyncio.Semaphore,
     max_attempts: int,
     backoff_base: float,
+    prompt_renderer: PromptRenderer | None = None,
 ) -> ItemResult:
     """Run one item with two-pass thinking-budget forcing; never raises on request failure."""
     think_budget = int(item["think_budget"])  # type: ignore[typeddict-item]
     answer_budget = answer_budget_for(item, think_budget)
     decoding = _forcing_decoding(item["sampling_params"])
-    prompt = render_qwen3_chat_prompt(item["messages"])
+    prompt = (
+        render_qwen3_chat_prompt(item["messages"])
+        if prompt_renderer is None
+        else prompt_renderer.render(item["messages"])
+    )
     url = f"{base_url.rstrip('/')}/completions"
 
     async with semaphore:

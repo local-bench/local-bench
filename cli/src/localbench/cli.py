@@ -16,6 +16,7 @@ from localbench.orchestrate import (
     LaneChoice,
     LocalbenchRun,
     OrchestrateConfig,
+    ReasoningActivationChoice,
     ReasoningEffortChoice,
     default_output_path,
     run_localbench,
@@ -37,6 +38,12 @@ _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
     "medium",
     "high",
     "xhigh",
+)
+_REASONING_ACTIVATION_CHOICES: Final[tuple[ReasoningActivationChoice, ...]] = (
+    "qwen3",
+    "granite",
+    "nemotron",
+    "r1",
 )
 
 
@@ -86,6 +93,17 @@ def _parser() -> argparse.ArgumentParser:
         "--reasoning-effort",
         choices=_REASONING_EFFORT_CHOICES,
         default=None,
+    )
+    run_parser.add_argument(
+        "--hf-model-id",
+        default=None,
+        help="served model HF repo for local capped-thinking chat-template rendering",
+    )
+    run_parser.add_argument(
+        "--reasoning-activation",
+        choices=_REASONING_ACTIVATION_CHOICES,
+        default="qwen3",
+        help="model-family activation used with --hf-model-id in local capped-thinking",
     )
     run_parser.add_argument(
         "--max-tokens",
@@ -173,6 +191,8 @@ def _run(args: argparse.Namespace) -> int:
             lane=_lane(args.lane),
             provider=args.provider,
             reasoning_effort=_reasoning_effort(args.reasoning_effort),
+            hf_model_id=args.hf_model_id,
+            reasoning_activation=_reasoning_activation(args.reasoning_activation),
             max_tokens=args.max_tokens,
         ),
     )
@@ -339,6 +359,20 @@ def _reasoning_effort(value: str | None) -> ReasoningEffortChoice | None:
             return "xhigh"
         case _:
             raise argparse.ArgumentTypeError(f"unsupported reasoning effort: {value}")
+
+
+def _reasoning_activation(value: str) -> ReasoningActivationChoice:
+    match value:
+        case "qwen3":
+            return "qwen3"
+        case "granite":
+            return "granite"
+        case "nemotron":
+            return "nemotron"
+        case "r1":
+            return "r1"
+        case _:
+            raise argparse.ArgumentTypeError(f"unsupported reasoning activation: {value}")
 
 
 def _print_summary(record: LocalbenchRun) -> None:

@@ -34,6 +34,11 @@ from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue
 from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
 from localbench.lane_conformance import assess_run_conformance
 from localbench.manifest import ManifestContext, collect_manifest
+from localbench.prompt_rendering import (
+    PromptRenderer,
+    ReasoningActivation,
+    build_forced_prompt_renderer,
+)
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
 from localbench.scorers.ruler import estimate_prompt_tokens
@@ -54,6 +59,7 @@ BenchChoice = Literal[
 TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
 ReasoningEffortChoice = ReasoningEffort
+ReasoningActivationChoice = ReasoningActivation
 
 _RULER_TRUNCATION_RATIO: Final = 0.80
 _RULER_TRUNCATION_MIN_GAP: Final = 2_048
@@ -88,6 +94,8 @@ class OrchestrateConfig:
     lane: LaneChoice = "answer-only"
     provider: str = "local"
     reasoning_effort: ReasoningEffortChoice | None = None
+    hf_model_id: str | None = None
+    reasoning_activation: ReasoningActivationChoice = "qwen3"
     max_tokens: int | None = None
 
 
@@ -136,10 +144,13 @@ async def run_localbench(
                 }
 
     thinking_budget = 0
+    prompt_renderer: PromptRenderer | None = None
     if config.provider == "local" and config.lane == "capped-thinking":
         # Local capped-thinking enforces the locked thinking budget with two-pass forcing
         # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
         thinking_budget = _plumb_think_budget(rendered_benches, suite)
+        if thinking_budget > 0:
+            prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
     results_by_bench: dict[str, list[ItemResult]] = {}
     for bench in rendered_benches:
@@ -155,6 +166,9 @@ async def run_localbench(
             provider=provider,
             lane=config.lane,
             effort=config.reasoning_effort,
+            hf_model_id=config.hf_model_id,
+            reasoning_activation=config.reasoning_activation,
+            prompt_renderer=prompt_renderer,
         )
         scored_items = score_bench(bench, record["results"])
         warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
@@ -254,6 +268,12 @@ def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject
             benchmark_item["think_budget"] = think_budget
         budget_used = max(budget_used, think_budget)
     return budget_used
+
+
+def _forced_prompt_renderer(config: OrchestrateConfig, provider_name: str) -> PromptRenderer | None:
+    if provider_name != "local" or config.lane != "capped-thinking":
+        return None
+    return build_forced_prompt_renderer(config.hf_model_id, config.reasoning_activation)
 
 
 def _audit_forced_cap_hits(items: list[ScoredItem], forcing_active: bool) -> list[str]:
