@@ -13,6 +13,42 @@ local vLLM, **zero spend**. Metric = raw accuracy, answer-pass truncation counte
 **Local Intelligence Index (composite = chance-corrected mean of the two axes):**
 `0.8B 17.8 → 2B 37.8 → 4B 59.9 → 9B 69.1` — monotonic, ~17-point steps.
 
+## STRICT RE-SCORE — official numbers (2026-06-21, oracle-endorsed)
+
+Inspection of all 62 of 9B's IFBench cap-hits found they are **non-termination / degenerate loops** at
+the full 8192-token answer budget (median 25.9k chars), NOT truncated valid answers; 13 still scored
+correct by matching required tokens mid-ramble. Per GPT-5.5 Pro oracle (session `ifbench-cap-methodolog`)
++ my analysis: **do NOT raise the cap, do NOT change decoding**; instead **strict-score** any answer-pass
+`finish_reason=length` as INCORRECT and report a 3-way decomposition. CPU re-score of existing
+transcripts (no GPU). **GO HOLDS — STRONG GO on both axes.** Identity: `strict = termination × conditional`
+(conditional = instruction-following *when the model completes*). Script: `%TEMP%/analyze_campaign_strict.py`.
+
+**Knowledge — MMLU-Pro (n=400), STRICT** (barely changed — few false positives):
+| model | legacy | **strict** | termination | conditional | strict 95% CI |
+|---|---|---|---|---|---|
+| 0.8B | 24.8% | 24.8% | 48.2% | 51.3% | [20.8, 29.0] |
+| 2B | 52.2% | 51.5% | 70.2% | 73.3% | [46.8, 56.5] |
+| 4B | 73.8% | 73.0% | 93.0% | 78.5% | [68.8, 77.2] |
+| 9B | 79.2% | 78.5% | 94.2% | 83.3% | [74.2, 82.5] |
+
+Strict spread 9B−0.8B **+53.7pp [+48.8, +59.0]** → STRONG GO.
+
+**Instruction — IFBench (n=294), STRICT** (where the false positives were):
+| model | legacy | **strict** | termination | conditional | strict 95% CI |
+|---|---|---|---|---|---|
+| 0.8B | 20.1% | 12.9% | 48.3% | 26.8% | [9.2, 17.0] |
+| 2B | 29.3% | 19.0% | 57.1% | 33.3% | [14.6, 23.5] |
+| 4B | 49.3% | 43.2% | 66.0% | 65.5% | [37.4, 49.0] |
+| 9B | 61.6% | 57.1% | 78.9% | 72.4% | [51.7, 62.6] |
+
+Strict spread 9B−0.8B **+44.2pp [+37.8, +50.7]** (WIDER than legacy +41.5pp) → STRONG GO. Decomposition:
+0.8B can't follow *or* terminate (cond 26.8%); 9B follows well when it completes (cond 72.4%) but runs
+away on 21% of items (termination 78.9%).
+
+**Site method note:** *Outputs that hit the answer-token cap are counted incorrect — this prevents
+non-terminating generations from getting credit for matching required tokens inside a runaway response.*
+Display per model×axis: strict accuracy (headline), termination rate, conditional accuracy.
+
 ### Knowledge — MMLU-Pro (n=400) — STRONG GO
 | model | acc | 95% CI | cap-hit |
 |---|---|---|---|
@@ -38,15 +74,12 @@ Adjacent deltas: 2B−0.8B **+9.2** [+3.7,+14.6] · 4B−2B **+20.1** [+14.3,+26
 Both axes meet the STRONG-GO bar (spread ≥12pp AND CI lower bound ≥5pp), monotonic, 9B top / 0.8B
 bottom, all adjacent deltas positive. Per the pre-reg decision tree: **Launchable.**
 
-## Caveats / open items (do NOT publish absolute numbers until resolved)
-1. **IFBench cap-hit is high across the whole ladder** (0.8B 51.7% → 9B still 21.1%). IFBench answers
-   are longer-form, and the `max_tokens=16384` ceiling truncates valid answers → the *absolute* IFBench
-   numbers are depressed (true scores are likely higher). The **separation is robust** (monotonic, CIs
-   clear), so the GO stands, but the operating point understates the models. **ACTION: raise the
-   answer-pass token budget for IFBench and re-score** before the absolutes go on the site.
-2. **Budget-forcing truncation audit:** per model, 16–33 cap-hit items scored CORRECT (0.8B 21 / 2B 33 /
-   4B 21 / 9B 16; ~3–5%, consistent → doesn't bias the comparison). Contradicts option A (truncation =
-   incorrect). Resolve the truncation exception before publishing.
+## Caveats / open items
+1–2. **RESOLVED by the STRICT RE-SCORE above (2026-06-21).** The cap-hits were NON-TERMINATION
+   (degenerate loops at the full answer budget), not truncated valid answers — raising the budget would
+   not have helped. Strict scoring (non-terminating → incorrect) removes the ~13–33 false-positives per
+   run, the decomposition reports termination explicitly, and the strict absolutes above are official.
+   GO unchanged (STRONG GO both axes).
 3. **`localbench.probe` is unusable on these runs** ("label must be anchor or local"): `campaign-labels.json`
    lacks the anchor/local `kind` field the probe expects. The pre-registered `analyze_campaign.py` is the
    actual decision tool and worked. Fix the probe's label schema separately (secondary artifact).
