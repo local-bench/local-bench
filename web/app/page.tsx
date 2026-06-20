@@ -4,9 +4,9 @@ import {
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
-import { QualityBars } from "@/components/quality-bars";
 import { RigMatchFinder } from "@/components/rig-match-finder";
 import { BestVariantVramScatter } from "@/components/best-variant-scatter";
+import { BestVariantTable } from "@/components/best-variant-table";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getHomePageData } from "@/lib/data";
 import { selectBestVariantPoints } from "@/lib/best-variant";
@@ -26,7 +26,7 @@ export default async function HomePage() {
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <RigMatchFinder anchors={rigAnchors} candidates={rigCandidates} />
       <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
-      <QualityBars anchorRuns={anchorRuns} runs={rigCandidates} />
+      <BestVariantTable points={bestVariantPoints} />
       <section className="flex flex-col gap-4">
         <div className="grid gap-5 border-b border-bench-line pb-5 lg:grid-cols-[1fr_420px] lg:items-end">
           <div>

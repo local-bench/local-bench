@@ -14,16 +14,14 @@ test("renders the rig-match finder as the home hero", async ({ page }) => {
   await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /Qwen3 32B.*Q5_K_M/ })).toBeVisible();
   await expect(page.getByText(/frontier ceiling:/i)).toBeVisible();
   await expect(page.getByTestId("rig-match-results").getByText("GPT-5.5")).toHaveCount(0);
-  await expect(page.getByTestId("quality-bars")).toBeVisible();
-  await expect(page.getByRole("img", { name: /Ranked Quality Bars showing/i })).toBeVisible();
-  await expect(page.getByText("frontier line")).toBeVisible();
+  await expect(page.getByTestId("best-variant-scatter")).toBeVisible();
   await expect(page.getByTestId("quality-vram-scatter")).toHaveCount(0);
 
   const finderBox = await page.getByTestId("rig-match-finder").boundingBox();
-  const barsBox = await page.getByTestId("quality-bars").boundingBox();
+  const scatterBox = await page.getByTestId("best-variant-scatter").boundingBox();
   expect(finderBox).not.toBeNull();
-  expect(barsBox).not.toBeNull();
-  expect(barsBox?.y).toBeGreaterThan(finderBox?.y ?? 0);
+  expect(scatterBox).not.toBeNull();
+  expect(scatterBox?.y).toBeGreaterThan(finderBox?.y ?? 0);
 });
 
 test("supports large VRAM tiers in the finder", async ({ page }) => {
