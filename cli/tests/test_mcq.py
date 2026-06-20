@@ -98,6 +98,37 @@ def test_extract_choice_rejects_bold_letter_embedded_in_prose() -> None:
     assert extract_choice("After weighing it, **C**", 4) == "C"
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (r"Answer: \(\boxed{\text{H}}\)", "H"),
+        (r"\boxed{C}", "C"),
+        (r"\boxed{C. 67.8 kJ/mol}", "C"),
+        (r"\( \boxed{J} \)", "J"),
+    ],
+)
+def test_extract_choice_accepts_latex_boxed_answer_formats(text: str, expected: str) -> None:
+    # Given a response whose final answer is wrapped in LaTeX boxed notation.
+    # When extracting the final choice.
+    result = extract_choice(text, 10)
+
+    # Then the single valid option letter inside the box is extracted.
+    assert result == expected
+
+
+def test_extract_choice_preserves_existing_normal_answer_extractions() -> None:
+    # Given normal answer formats already handled before boxed extraction.
+    # When extracting the final choice.
+    parenthesized = extract_choice("The answer is (A)", 4)
+    marker = extract_choice("Answer: B", 4)
+    marker_before_boxed = extract_choice(r"Answer: B. Scratch: \boxed{C. 67.8 kJ/mol}", 4)
+
+    # Then existing extractions are unchanged.
+    assert parenthesized == "A"
+    assert marker == "B"
+    assert marker_before_boxed == "B"
+
+
 def test_score_mcq_when_extracted_choice_matches_gold() -> None:
     # Given a response with a lower-case answer marker.
     # When scoring against the matching gold letter.

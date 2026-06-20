@@ -37,6 +37,15 @@ _TERMINAL_LIST_RE: Final = re.compile(
     r"([\(\[]?\s*[A-J]\s*[\)\]]?(?:\s*,\s*[\(\[]?\s*[A-J]\s*[\)\]]?)+)\s*\.?\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
+_BOXED_CONTENT_RE: Final = re.compile(
+    r"\\boxed\s*\{((?:[^{}]|\{[^{}]*\})*)\}",
+    re.IGNORECASE | re.DOTALL,
+)
+_BOXED_PREFIX_RE: Final = re.compile(
+    r"^\s*(?:\\text\s*\{\s*)?([A-J])(?=\s*(?:\}|[.)]|\s*$))",
+    re.IGNORECASE,
+)
+_BOXED_LETTER_TOKEN_RE: Final = re.compile(r"(?<![A-Za-z])([A-J])(?![A-Za-z])", re.IGNORECASE)
 
 
 class MCQScore(TypedDict):
@@ -73,7 +82,7 @@ def extract_choice(text: str, n_options: int) -> str | None:
         if conflict_on_distinct and len(set(candidates)) > 1:
             return None
         return candidates[-1]
-    return None
+    return _extract_latex_boxed_choice(text, allowed)
 
 
 def score_mcq_detailed(text: str, gold_letter: str, n_options: int) -> MCQScore:
@@ -104,3 +113,20 @@ def _terminal_letter_list_is_ambiguous(text: str, allowed: set[str]) -> bool:
         if len(letters) > 1:
             return True
     return False
+
+
+def _extract_latex_boxed_choice(text: str, allowed: set[str]) -> str | None:
+    boxed_letter: str | None = None
+    for match in _BOXED_CONTENT_RE.finditer(text):
+        content = match.group(1)
+        prefix = _BOXED_PREFIX_RE.match(content)
+        if prefix is None:
+            continue
+        first = prefix.group(1).upper()
+        if first not in allowed:
+            continue
+        letters = {letter.upper() for letter in _BOXED_LETTER_TOKEN_RE.findall(content)} & allowed
+        if letters != {first}:
+            continue
+        boxed_letter = first
+    return boxed_letter
