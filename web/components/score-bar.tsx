@@ -12,7 +12,7 @@ export function ScoreBar({
   readonly tone?: "accent" | "anchor" | "muted";
 }) {
   const barColor =
-    tone === "anchor" ? "bg-bench-anchor" : tone === "muted" ? "bg-zinc-400" : "bg-bench-accent";
+    tone === "anchor" ? "bg-bench-anchor" : tone === "muted" ? "bg-bench-muted" : "bg-bench-accent";
   return (
     <div className="min-w-[132px]">
       <div className="flex items-baseline gap-2">

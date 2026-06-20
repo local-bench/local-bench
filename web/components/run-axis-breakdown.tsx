@@ -33,12 +33,12 @@ function AxisWhisker({
   const hi = clampScore(score.hi);
   const point = clampScore(score.point);
   return (
-    <div className={highlighted ? "rounded-md border border-amber-300/35 bg-amber-300/[0.08] p-3" : "p-3"}>
+    <div className={highlighted ? "rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3" : "p-3"}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <div className="font-semibold text-bench-text">
             {axisLabel(axis)}
-            {highlighted ? <span className="ml-2 text-xs uppercase text-amber-200">worst axis</span> : null}
+            {highlighted ? <span className="ml-2 text-xs uppercase text-bench-warn-soft">worst axis</span> : null}
           </div>
           <div className="text-xs text-bench-muted">
             n={score.n} · errors={score.n_errors} · no answer={score.n_no_answer}

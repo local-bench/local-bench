@@ -86,7 +86,7 @@ export default async function RunPage({ params }: PageProps) {
           </div>
         </div>
         {hasQualityNote ? (
-          <div className="mt-5 rounded-md border border-amber-300/35 bg-amber-300/[0.08] p-3 text-sm text-amber-100">
+          <div className="mt-5 rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm text-bench-warn-soft">
             Data quality note: this run has {run.totals.n_errors} error(s) and {noAnswerCount} no-answer item(s).
           </div>
         ) : null}

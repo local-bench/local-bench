@@ -51,7 +51,7 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
               key={model.slug}
               className={[
                 "border-t border-bench-line/75 align-middle transition-colors hover:bg-white/[0.035]",
-                model.kind === "anchor" ? "bg-amber-300/[0.025]" : "",
+                model.kind === "anchor" ? "bg-bench-anchor/[0.025]" : "",
               ].join(" ")}
             >
               <td className="px-3 py-3 font-mono text-bench-muted">

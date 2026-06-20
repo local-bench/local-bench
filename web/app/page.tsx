@@ -36,8 +36,8 @@ export default async function HomePage() {
             </p>
           </div>
           {/* Single table preserves sortable browsing; this caveat prevents cross-lane order being read as rank. */}
-          <div className="rounded-lg border border-amber-300/35 bg-amber-300/[0.08] p-4 text-sm leading-6 text-amber-100">
-            <strong className="text-amber-50">Quick tier = personal estimate, UNRANKED.</strong> Standard tier is
+          <div className="rounded-lg border border-bench-warn/35 bg-bench-warn/[0.08] p-4 text-sm leading-6 text-bench-warn-soft">
+            <strong className="text-bench-warn">Quick tier = personal estimate, UNRANKED.</strong> Standard tier is
             the only ranked board, and ranks are only within the same reasoning lane. Rows are sorted for browsing
             only; reasoning lanes are not directly comparable.
           </div>

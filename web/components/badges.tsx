@@ -14,8 +14,8 @@ export function KindBadge({
       className={[
         "inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold uppercase",
         isAnchor
-          ? "border-amber-300/45 bg-amber-300/10 text-amber-200"
-          : "border-emerald-300/35 bg-emerald-300/10 text-emerald-200",
+          ? "border-bench-anchor/45 bg-bench-anchor/10 text-bench-anchor"
+          : "border-bench-community/35 bg-bench-community/10 text-bench-community",
       ].join(" ")}
     >
       {kindLabel(kind)}
@@ -31,7 +31,7 @@ export function TierBadge({ tier }: { readonly tier: string }) {
       className={[
         "inline-flex rounded border px-2 py-1 text-[11px] font-semibold uppercase",
         isQuick
-          ? "border-zinc-500/60 bg-zinc-500/10 text-zinc-200"
+          ? "border-bench-muted/40 bg-bench-muted/10 text-bench-muted"
           : "border-bench-accent/45 bg-bench-accent/10 text-bench-accent",
       ].join(" ")}
     >

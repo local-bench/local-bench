@@ -15,7 +15,7 @@ const config = {
           anchor: "#f6b24b",
           "panel-2": "#0e131c",
           "line-strong": "#4a5568",
-          "muted-2": "#6b7a8d",
+          "muted-2": "#7d8fa3",
           "accent-dim": "#1f8a76",
           "anchor-soft": "#f6d08d",
           better: "#46d39a",
@@ -24,6 +24,8 @@ const config = {
           mixed: "#c792ea",
           "lane-reasoning-edge": "#7c83ff",
           warn: "#fbbf24",
+          "warn-soft": "#fde68a",
+          community: "#6ee7b7",
         },
       },
       fontFamily: {
