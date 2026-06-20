@@ -17,9 +17,12 @@ export default async function HomePage() {
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
+  const hasMeasuredRankedData = index.models.some(
+    (model) => model.score_status === "measured" && model.ranked && !model.demo && model.composite !== null,
+  );
   const suiteLabel = index.suite_version ?? "scoreless catalog";
-  const axisCopy = axisNames.length > 0
-    ? `Every measured model is scored on the same frozen suite across ${axisNames.join(", ")}.`
+  const axisCopy = hasMeasuredRankedData
+    ? `Every ranked model is scored on the same frozen suite${axisNames.length > 0 ? ` across ${axisNames.join(", ")}` : ""}. This is the initial measured ladder — more models land as runs are submitted.`
     : "Catalog models are listed as score-less shells until benchmark runs land.";
 
   return (
