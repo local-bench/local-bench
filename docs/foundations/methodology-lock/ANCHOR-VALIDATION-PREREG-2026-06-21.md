@@ -111,3 +111,35 @@ isolation in scoring; the 6 health metrics in the run record; the bracket/audit 
 ## 9. Constraints
 No LLM judge; reproducibility/determinism (locked greedy lane); local-only; GPU available. The GO/launch
 verdict already holds and is independent of this check.
+
+## Execution log + run recipe (2026-06-21)
+Harness: scorer hardening `5048f49` (strict gate + T/C/S decomposition) + off-family prompt-rendering
+generalization `b7ee79d` (renders each model's OWN chat template via HF `apply_chat_template`;
+`--hf-model-id` + `--reasoning-activation {qwen3,granite,nemotron,r1}`; Granite `<response>`-strip). 639
+cli tests green; Qwen3 path byte-identical.
+
+**Prereqs (Windows client ↔ WSL vLLM server):**
+- Serve via `~/serve_anchor.sh <hf-id> <served-name>` (= serve_localbench.sh MINUS `--reasoning-parser
+  qwen3` — that parser needs `</think>` as SPECIAL tokens, which the anchors lack; budget-forcing stops on
+  the literal `</think>` string regardless). Prefix `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1`.
+- cli venv needs `transformers` + `jinja2` (installed; jinja2 isn't auto-pulled — should be added to
+  cli/pyproject.toml).
+- Tokenizers must be in the WINDOWS HF cache (the weights live in WSL's cache for vLLM, but the Windows
+  client loads the tokenizer to render the prompt). Download copy-mode:
+  `HF_HUB_DISABLE_SYMLINKS=1 python -c "from huggingface_hub import snapshot_download; snapshot_download(
+  repo, allow_patterns=['*.json','*.txt','*.model','*.jinja','tokenizer*','special_tokens*'])"` (Windows
+  lacks symlink privilege without Developer Mode).
+- SMOKE VERIFIED end-to-end on Granite-8B: err=0, term=100%, `<response>`-strip extracts + scores.
+
+**Per-model runs** (serve → run full sets MMLU-Pro 400 + IFBench 294, `--lane capped-thinking --provider
+local --concurrency 8` → `runs/anchor-<model>.json`; kill; next):
+| model | --hf-model-id | --reasoning-activation | served-name | status |
+|---|---|---|---|---|
+| Granite-8B | ibm-granite/granite-3.3-8b-instruct | granite | granite-3.3-8b | RUNNING |
+| Granite-2B | ibm-granite/granite-3.3-2b-instruct | granite | granite-3.3-2b | queued |
+| R1-Distill-8B | deepseek-ai/DeepSeek-R1-Distill-Llama-8B | r1 | r1-distill-llama-8b | queued |
+| Nemotron-4B | nvidia/Llama-3.1-Nemotron-Nano-4B-v1.1 | nemotron | nemotron-nano-4b | queued |
+
+**Eval:** custom 4-status script (§6) — anchors (native strict T/C/S from the new scorer) vs the Qwen
+ladder (strict via gate-at-read = `correct AND finish_reason != "length"`); conditional accuracy primary
+(health-gated), brackets §6.1.
