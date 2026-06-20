@@ -47,7 +47,64 @@ identity** (no rebrand, no new palette direction).
 - **No GPU required**; the progress feature is verified with a mock endpoint (`--max-items`) +
   a hand-authored progress-JSON fixture. A real long run is Michael's to trigger later.
 
-## Tasks (priority order — foundation first)
+## Re-sequence + new scope (2026-06-21, post-oracle consult)
+After T1, the Core Text campaign hit **STRONG GO** (real Qwen3.5 ladder: composite 0.8B 17.8 → 2B
+37.8 → 4B 59.9 → 9B 69.1). That flips the site from scoreless shell to a **live** Local Intelligence
+Index, so we PIVOT: make the data real before the visual redesign. (GPT-5.5 Pro oracle consult, slug
+`site-proceed-scatter`; brief at `%TEMP%\oracle-site-consult-brief-2026-06-21.md`; answer synthesised
+in chat.) Decisions:
+- **Data path = build-time aggregation; NO runtime DB/API** (would break static export). `best_run_id`
+  is already a build-time argmax. A DB only LATER, as a back-office ingestion source that STILL exports
+  static JSON; the published artifact stays static.
+- **Distills / fine-tunes / merges = SEPARATE models (their own scatter points).** Quants / runtime /
+  config = variant-runs competing for ONE point per model. (Add optional model-level lineage metadata
+  — `base_model_slug`, `lineage_kind` — later.)
+- **IFBench 3-column decomposition** (Strict = Termination × Conditional) wired as OPTIONAL,
+  PROVISIONAL-aware structure; never hardcode numbers; render "pending" until status=final. Field names
+  are a **CROSS-LANE CONTRACT** — reconcile with the campaign agent's `cli/` output, do NOT invent.
+- **Never derive the composite in the web layer** — trust the pipeline's `composite`/`axes`.
+
+### Revised order
+T0 ✅ · T1 ✅ · **T1.5 (NEXT)** · T1.6 scatter · T2 · T3 · T4 · T5 · T6. (T-KLD folds into T1.5 + T3.)
+
+### T1.5 — Live LII data contract ("make it real")
+Data-INDEPENDENT parts (do NOW, my lane):
+- IFBench 3-col display component with provisional / "pending" + a "provisional — strict re-score
+  pending" badge until `status: "final"`.
+- Demote / relabel the `quant-decision-matrix` "Δ vs baseline" QUALITY column (methodology §6: the quant
+  story is VRAM + speed + drift, not an accuracy wedge) — even before KLD data exists.
+- Optional `diagnostics.ifbench_termination` schema on `AxisScore` (provisional-aware), pending
+  field-name reconciliation with `cli/`.
+- Data-integrity build assertion (vitest/build): every measured `best_run_id` resolves to a run; the
+  selected run's composite is non-null; measured rows are not `demo`.
+- Home/leaderboard copy seam: when measured data is present, drop the "scoreless catalog" framing; keep
+  "Local Intelligence Index v1 · Core Text" (no "overall intelligence" overclaim).
+Data-DEPENDENT parts (on campaign handoff of the strict-re-scored run JSONs): wire the ladder via
+`data_sources.json` + `build_data.py`, rebuild `public/data`, flip IFBench status → final.
+
+### T1.6 — Best-variant scatter (landing page)
+New `BestVariantVramScatter` (hand-rolled SVG, reuse the existing `quality-vram-scatter` patterns —
+proven, low-risk). One point per model = its best MEASURED run (argmax composite; tie-break VRAM →
+tok/s → run_id; exclude demo/missing; within the rankable lane; anchors = dashed reference LINES, not
+points; distills = own points). Axes: LII composite (y, 0–100) vs effective VRAM required
+`vram_required_gb_8k` (x, log2); GPU-tier lines 24/48/80 GB; CI whiskers; label the Pareto frontier +
+top-N, the rest hover dots; subtle frontier line; mobile = horizontal scroll + a "best fits
+24/48/80 GB" list. Derive `bestVariantPoints` in `getHomePageData()`. MVP first; big-graph (d3-scale +
+filters + collision labels + click-through + synced table) later.
+
+### Minimum honestly-launchable set (gate for "live")
+1. Real ladder in static data; no "scoreless" claim. 2. CI framing on every score; no "overall
+intelligence". 3. IFBench structure with provisional rendering; no hardcoded numbers. 4. demo/missing
+visually distinct or excluded from ranking. 5. quant copy no longer centers accuracy-delta. 6. static
+export intact. 7. the data-integrity build assertion passes.
+
+### Lane discipline (shared tree)
+`web/public/data` is produced from campaign outputs → treat it as a **scheduled handoff**, not a shared
+scratchpad; one agent edits it at a time. I don't touch `cli/` or `docs/foundations/`; they don't touch
+`web/`. Avoid `web/build_data.py` unless the optional IFBench fields can't pass through (then enforce
+byte-identical output). `git status` + inspect generated diffs before every commit.
+
+## Tasks (foundation-first detail — order now superseded by the re-sequence above)
 
 ### T0 — Plan doc (this file)
 Write + commit. **← committing now.**
