@@ -86,3 +86,30 @@ All routes verified 200: `/`, `/methodology/`, `/trust/`, `/compare/` (+ `/model
 2. When to run the overnight campaign (full sets vs ~200/bench fallback).
 3. Deferred-with-specs: S2 (canonical KLD calib pack) + S3 (stratified frozen slices, RISKY —
    touches deterministic item-slicing). See METHODOLOGY-v1.2 §12.
+
+## Campaign launch — ops notes (2026-06-20, this session; decision #2 actioned, full sets)
+**CAMPAIGN COMPLETE 2026-06-21 → STRONG GO on BOTH axes → LAUNCHABLE Local Intelligence Index.**
+Full result + paired-bootstrap CIs: `docs/foundations/methodology-lock/CORE-TEXT-CAMPAIGN-RESULT-2026-06-21.md`.
+Index (composite = chance-corrected mean): 0.8B 17.8 → 2B 37.8 → 4B 59.9 → 9B 69.1. Knowledge spread
+9B−0.8B +54.5pp [+49.5,+59.5]; Instruction +41.5pp [+34.7,+48.0] (both CIs clear of zero). Ladder driven
+smallest-first, each serve→run→kill→next; run JSONs in `cli/runs/campaign-qwen3.5-<size>.json` (durable).
+OPEN before publishing absolutes: IFBench cap-hit high even at 9B (21%) → raise answer-token budget +
+re-score; truncation audit (16–33 items/model scored correct); probe label-schema fix; off-family anchors.
+- **2B was NOT actually cached** (28K stub) despite the "all cached" note → pulled with
+  `hf download Qwen/Qwen3.5-2B`. NOTE `huggingface-cli` is now a DEAD no-op (deprecated) — use `hf`.
+- **Serve MUST force offline:** `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 ~/serve_localbench.sh <id> <name>`.
+  First 0.8B serve crashed because vLLM did an ONLINE metadata fetch for the omni image-processor and
+  HF dropped the connection (`Server disconnected`). All 4 panel models are Qwen3.5 OMNI
+  (`Qwen3_5ForConditionalGeneration`, fully cached incl. `preprocessor_config.json`) → offline-safe and
+  removes the network dependency for the unattended run.
+- **WSL-via-Bash-tool quoting gotcha:** `$var` / `$(...)` inside `wsl bash -lc '...'` get expanded to
+  EMPTY by a wrapper BEFORE WSL sees them (literal `~` and plain strings pass fine). Escape every `$`
+  as `\$`, or use literal paths / git-bash-level loops. Cost several turns of false-empty readings.
+- **Smoke (0.8B, 4 items/bench):** pipeline OK (ifbench answered, 0 errors, budget-forcing engaging
+  ~15k tok/item). 0.8B ~0% (expected, bottom rung). WATCH: mmlu_pro had no-extractable-answer on the
+  smoke → confirm 0.8B mmlu_pro CONFORMANCE at full N (could flag diagnostic-only on the Knowledge axis
+  for the bottom rung; pre-reg GO#5 already accounts for a melting-down small model).
+- **Front-end agent** ran (audit+fix): 3 copy commits `8bdf4f1`/`686b927`/`3ebc14a` on this branch,
+  site healthy/all-routes-200. KEY: site is an INTENTIONAL scoreless catalog (`data_sources.json=[]`)
+  awaiting THIS campaign's capped-thinking data; biggest real gap = NO KLD/drift column (UI still frames
+  quant as an accuracy tradeoff, contra METHODOLOGY §6).
