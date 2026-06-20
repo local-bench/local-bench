@@ -26,6 +26,10 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
           <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
             Effective VRAM uses {formatContextLength(DEFAULT_CONTEXT_TOKENS)} context with KV cache and runtime headroom.
           </p>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-bench-muted-2">
+            A quant&apos;s real cost is VRAM + speed; task quality stays ~flat, then falls off a cliff. The score Δ is a
+            sanity check, not the quant story — output <em>drift</em> (KLD) is the sensitive metric and lands later.
+          </p>
         </div>
         <Link
           href="/compare"
@@ -53,11 +57,16 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
                   <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
                 </span>
               </th>
-              <th className="px-3 py-3">Δ vs {decision.baselineQuantLabel ?? "baseline"}</th>
               <th className="px-3 py-3">Effective VRAM</th>
               <th className="px-3 py-3">Fits</th>
               <th className="px-3 py-3">tok/s</th>
               <th className="px-3 py-3">Call</th>
+              <th className="px-3 py-3 font-normal text-bench-muted-2">
+                <span className="flex flex-col gap-0.5 leading-tight">
+                  <span>Score Δ vs {decision.baselineQuantLabel ?? "baseline"}</span>
+                  <span className="text-[10px] normal-case text-bench-muted-2">≈flat sanity check · not drift</span>
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -128,7 +137,6 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
           "no data yet"
         )}
       </td>
-      <td className="px-3 py-3 font-mono text-bench-text">{formatDelta(row.deltaVsBaseline)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">
         {row.vramEstimate ? (
           <>
@@ -160,6 +168,7 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
           </Link>
         )}
       </td>
+      <td className="px-3 py-3 font-mono text-bench-muted">{formatDelta(row.deltaVsBaseline)}</td>
     </tr>
   );
 }
