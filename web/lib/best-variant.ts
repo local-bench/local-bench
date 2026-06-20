@@ -28,6 +28,7 @@ function isEligible(candidate: RigMatchCandidate): boolean {
     candidate.kind === "community" &&
     !candidate.demo &&
     candidate.scoreStatus === "measured" &&
+    candidate.tier?.toLowerCase() === "standard" &&
     candidate.score !== null &&
     candidate.runId !== null
   );

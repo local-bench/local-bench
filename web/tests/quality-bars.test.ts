@@ -68,6 +68,7 @@ function candidate(
     family: modelLabel,
     kind,
     lane: kind === "community" ? "answer-only" : "api-uncapped",
+    tier: "standard",
     modelLabel,
     modelSlug,
     nItems: 252,

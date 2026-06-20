@@ -157,6 +157,7 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
     runId: run.run_id,
     score: run.composite,
     scoreStatus: run.score_status,
+    tier: run.tier,
     tokS: run.tok_s,
     vramFootprintGb: run.vram_footprint_gb,
     vramRequiredGb8k: run.vram_required_gb_8k ?? null,

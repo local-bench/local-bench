@@ -17,6 +17,7 @@ function candidate(overrides: Partial<RigMatchCandidate>): RigMatchCandidate {
     runId: "r",
     score: { point: 50, lo: 45, hi: 55 },
     scoreStatus: "measured",
+    tier: "standard",
     tokS: 30,
     vramFootprintGb: 8,
     vramRequiredGb8k: 10,
@@ -34,11 +35,12 @@ describe("selectBestVariantPoints", () => {
     expect(points[0]?.runId).toBe("a-q4");
   });
 
-  it("excludes demo, anchor, and unmeasured candidates", () => {
+  it("excludes demo, anchor, unmeasured, and unranked (quick-tier) candidates", () => {
     const points = selectBestVariantPoints([
       candidate({ modelSlug: "demo", demo: true }),
       candidate({ modelSlug: "anchor", kind: "anchor" }),
       candidate({ modelSlug: "missing", scoreStatus: "missing", score: null }),
+      candidate({ modelSlug: "quick", tier: "quick" }),
       candidate({ modelSlug: "ok", runId: "ok-r" }),
     ]);
     expect(points.map((point) => point.modelSlug)).toEqual(["ok"]);

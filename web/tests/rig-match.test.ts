@@ -143,6 +143,7 @@ function candidate(
     family: modelLabel,
     kind,
     lane,
+    tier: "standard",
     modelLabel,
     modelSlug: modelLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     nItems: 252,

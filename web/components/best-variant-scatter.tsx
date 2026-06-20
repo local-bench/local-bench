@@ -70,8 +70,9 @@ export function BestVariantVramScatter({
           <p className="font-mono text-xs uppercase text-bench-accent">Best variant per model</p>
           <h2 className="mt-1 text-lg font-semibold text-bench-text">Quality vs the VRAM to run it</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-bench-muted">
-            Each point is a model at its best-scoring quant. Up = smarter; left = fits a smaller card. The dotted
-            line is the efficiency frontier — nothing beats those models at their size. Hover any point for details.
+            Each point is a model at its best-scoring quant. Up = smarter; left = fits a smaller card. The dotted line
+            is the point-estimate efficiency frontier — no measured model is both higher-scoring and smaller on current
+            point estimates. Hover any point for details.
           </p>
         </div>
         <div className="font-mono text-xs text-bench-muted">{points.length} models</div>
@@ -226,7 +227,11 @@ function getLogDomain(points: readonly BestVariantPoint[]): Domain {
   if (values.length === 0) {
     return { min: 8, max: 96 };
   }
-  return { min: Math.max(0.5, Math.min(...values) / 1.3), max: Math.max(...values) * 1.3 };
+  // Snap the max out to at least the next GPU tier (never below 24 GB) so the rig-tier markers stay
+  // on the chart even when the first measured ladder is all small models.
+  const padded = Math.max(...values) * 1.3;
+  const snapped = X_TIERS.find((tier) => tier >= padded) ?? padded;
+  return { min: Math.max(0.5, Math.min(...values) / 1.3), max: Math.max(24, snapped) };
 }
 
 function scaleX(value: number, domain: Domain): number {
