@@ -43,7 +43,7 @@ export function AppShell({
         </nav>
         {usesDemoData ? (
           <div className="border-t border-bench-warn/25 bg-bench-warn/10 px-5 py-2 text-center text-sm font-medium text-bench-warn">
-            Synthetic demo rows remain marked; Qwen3.6-27B quant rows are real measurements.
+            Synthetic demo rows are marked with a DEMO badge; only measured runs carry a real Local Intelligence Index.
           </div>
         ) : null}
       </header>
