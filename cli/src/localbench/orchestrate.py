@@ -208,12 +208,14 @@ async def run_localbench(
         ),
         transport=transport,
     )
+    forcing_active = thinking_budget > 0
+    warnings.extend(_audit_forced_cap_hits(items, forcing_active))
     run_record: LocalbenchRun = {
         "schema": "localbench-run-v0",
         "manifest": manifest,
         "benches": benches,
         "composite": composite(benches),
-        "conformance": assess_run_conformance(results_by_bench),
+        "conformance": assess_run_conformance(results_by_bench, forced=forcing_active),
         "items": items,
         "totals": totals,
         "warnings": warnings,
@@ -252,6 +254,28 @@ def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject
             benchmark_item["think_budget"] = think_budget
         budget_used = max(budget_used, think_budget)
     return budget_used
+
+
+def _audit_forced_cap_hits(items: list[ScoredItem], forcing_active: bool) -> list[str]:
+    """Oracle safeguard (2026-06-20): the budget-forcing truncation exception assumes a
+    cap hit means the model failed. If a cap-hit item nonetheless scored CORRECT, a valid
+    answer may have been cut off (or the extractor missed it) — surface it so the exception
+    can be revisited rather than silently converting a measurement artifact into a model error.
+    """
+    if not forcing_active:
+        return []
+    flagged = [
+        item["id"]
+        for item in items
+        if item.get("finish_reason") == "length" and item.get("correct")
+    ]
+    if not flagged:
+        return []
+    sample = ", ".join(flagged[:3])
+    return [
+        f"AUDIT: {len(flagged)} answer-cap-hit item(s) scored CORRECT (e.g. {sample}); a valid "
+        "answer may have been truncated — revisit the budget-forcing truncation exception",
+    ]
 
 
 def _bench_think_budget(bench_cfg: JsonValue) -> int:

@@ -69,6 +69,7 @@ class ConformanceReport:
     leaked_reasoning_rate: float
     no_final_answer_rate: float
     reasons: tuple[str, ...]
+    forced: bool = False
 
     def as_dict(self) -> JsonObject:
         data: JsonObject = asdict(self)
@@ -99,16 +100,24 @@ def assess_conformance(
     results: Sequence[ItemResult],
     *,
     thresholds: ConformanceThresholds = DEFAULT_THRESHOLDS,
+    forced: bool = False,
 ) -> ConformanceReport:
     """Classify ONE bench's lane-conformance from its item results.
 
     Errored items are excluded (they're an availability problem, not a conformance one);
     rates are over the scored remainder. Zero scored items is diagnostic-only.
+
+    `forced` marks a budget-forcing run (local capped-thinking with two-pass forcing): the
+    model got the locked think budget plus a forced answer pass, so an answer-pass cap hit
+    (finish_reason=length) is the MODEL failing to terminate (degenerate loop / non-
+    termination), scored wrong, NOT a measurement breach. It is surfaced as a visible
+    diagnostic but does not exclude the run from the headline (oracle red-team 2026-06-20,
+    option A). Leaked-reasoning and no-final-answer remain hard gates either way.
     """
     scored = [result for result in results if not result.get("error")]
     n = len(scored)
     if n == 0:
-        return ConformanceReport("diagnostic-only", 0, 0.0, 0.0, 0.0, ("no scored items",))
+        return ConformanceReport("diagnostic-only", 0, 0.0, 0.0, 0.0, ("no scored items",), forced)
 
     truncation_rate = _rate(sum(1 for r in scored if r.get("finish_reason") == "length"), n)
     leaked_rate = _rate(sum(1 for r in scored if has_leaked_reasoning(r.get("response_text"))), n)
@@ -130,12 +139,19 @@ def assess_conformance(
                 f"chain-of-thought leaked into scored content in {leaked_rate:.0%} of items "
                 "(IFBench/MCQ corrupting)"
             )
-        if truncation_rate >= thresholds.truncation_nonconformant:
+        if not forced and truncation_rate >= thresholds.truncation_nonconformant:
             status = "nonconformant"
             reasons.append(f"{truncation_rate:.0%} of items hit the token cap (answers truncated)")
         if no_answer_rate >= thresholds.no_final_answer_nonconformant:
             status = "nonconformant"
             reasons.append(f"no distinct final answer in {no_answer_rate:.0%} of items")
+
+    if forced and truncation_rate > 0:
+        # Soft diagnostic (oracle option A + D): visible, but not a headline exclusion.
+        reasons.append(
+            f"answer_cap_hit_rate={truncation_rate:.0%} - scored as model failures under "
+            "budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        )
 
     return ConformanceReport(
         status=status,
@@ -144,6 +160,7 @@ def assess_conformance(
         leaked_reasoning_rate=leaked_rate,
         no_final_answer_rate=no_answer_rate,
         reasons=tuple(reasons),
+        forced=forced,
     )
 
 
@@ -151,12 +168,16 @@ def assess_run_conformance(
     results_by_bench: Mapping[str, Sequence[ItemResult]],
     *,
     thresholds: ConformanceThresholds = DEFAULT_THRESHOLDS,
+    forced: bool = False,
 ) -> JsonObject:
     """Run-level conformance = the WORST bench status (no dilution of a bench-local
     failure), plus the per-bench breakdown. This is the run_record["conformance"] block.
+
+    `forced` is threaded to every bench: under budget-forcing, answer-pass cap hits are
+    scored model failures, not headline-excluding truncation (see assess_conformance).
     """
     per_bench = {
-        bench: assess_conformance(results, thresholds=thresholds)
+        bench: assess_conformance(results, thresholds=thresholds, forced=forced)
         for bench, results in results_by_bench.items()
     }
     if not per_bench:

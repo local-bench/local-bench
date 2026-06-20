@@ -45,9 +45,14 @@ cost task accuracy until a low-bit cliff. See §6.
 
 ## 1. Lane (LOCKED)
 - **Reasoning-ON only** ("capped-thinking"). This is the single headline lane; users run reasoning-on.
-- Graceful **reasoning-budget 8192** (server-side; truncates reasoning gracefully, not mid-token). `max_tokens`
+- Graceful **reasoning-budget 8192** (truncates reasoning gracefully, not mid-token). `max_tokens`
   ceiling **16384** (runaway bound, not a fairness lever). Serve **f16 KV** (no KV quant), **64k** standard
   context, **≥12k tokens/slot**. Tokens-to-answer captured as a first-class dimension (accuracy AND compute).
+- **Enforced for local via two-pass budget forcing** (`budget_forcing.py`, 2026-06-20). vLLM has no native
+  reasoning-budget, and small Qwen3 models thought past the cap without closing `</think>` (the parser then
+  returns empty content+reasoning — no answer). Forcing thinks to the budget on the raw `/completions` endpoint,
+  force-closes `</think>`, then generates the answer; re-reasoning in the answer pass is scrubbed from the scored
+  text. Anthropic enforces the budget natively. This makes the 8192 budget a real operating point, not an aspiration.
 - Composite is computed **within a lane only**; answer-only / api-uncapped are secondary views, never merged
   into the headline.
 - *Open calibration (deferred, sign-off-gated):* a 4k/8k/12k/16k budget sweep on ~300 mixed items to confirm
@@ -208,6 +213,19 @@ is now **ANCHOR-FREE** — an axis is promoted by how well it separates LOCAL mo
 CI-bound local spread), with frontier anchors OPTIONAL (a later frontier line / saturation reference). So the
 campaign is a **pure-GPU local-only run, zero API/anchor spend** (`c5ff7e8`; `probe/gates.py` +
 `probe/discrimination.py` + campaign doc).
+
+**Budget-forcing + conformance refinement (2026-06-20, Claude built — codex was sandbox-blocked read-only):**
+the locked 8192 reasoning-budget was never enforced for local vLLM, so small Qwen3 models thought past 16384
+without closing `</think>` → ~65% no-answer → `diagnostic-only` (the gate caught it before a botched ~10 GPU-hr
+run). Fixed with s1-style two-pass budget forcing on the raw `/completions` endpoint (`9397a84`): composite
+**25.7% → 94.4%** on the 4B; leaked-reasoning + no-final-answer both **0%** at 30 items. The residual answer-pass
+truncation on the weakest models is degenerate looping / genuine non-termination — inspected every case, **zero**
+legit long-answer cutoffs, all scored correctly wrong. A fresh oracle red-team (session
+`localbench-conformance-fork`) endorsed **option A**: `lane_conformance.assess_conformance(forced=True)` now treats
+budget-forced answer-pass truncation as a **scored model failure surfaced as a visible `answer_cap_hit_rate`
+diagnostic, NOT a headline exclusion**. Leaked-reasoning, no-final-answer, and **single-pass** truncation remain
+hard gates; an orchestrate audit warning flags any cap-hit item that scored correct (the oracle's biggest-risk
+mitigation). Verified live: the 30-item 4B run flips nonconformant → headline-comparable.
 
 **Deferred (specced, need GPU / content / your steer):** the discrimination campaign RUN itself (GPU only — your
 go on the 5090, no spend); first-N → **stratified frozen slices** for ranked runs (oracle #9 — touches core
