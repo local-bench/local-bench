@@ -143,3 +143,19 @@ local --concurrency 8` → `runs/anchor-<model>.json`; kill; next):
 **Eval:** custom 4-status script (§6) — anchors (native strict T/C/S from the new scorer) vs the Qwen
 ladder (strict via gate-at-read = `correct AND finish_reason != "length"`); conditional accuracy primary
 (health-gated), brackets §6.1.
+
+## OUTCOME (2026-06-21) — full results in ANCHOR-VALIDATION-RESULTS-2026-06-21.md
+**Verdict: INCONCLUSIVE / partial external validation** (not PASS, not clean FALSIFY). Granite (the
+one independent non-Qwen lineage) supports general-capability measurement; the Llama-3.1 reasoning-
+distilled anchors (R1-Distill, Nemotron) expose an Instruction-axis lane/bracket limitation under
+capped-thinking. Knowledge = supportive / no-falsify (not formal PASS: Granite-8B + Nemotron
+in-bracket, Granite-2B −7pp <10pp, R1 −35pp lane-attributable). Instruction = INCONCLUSIVE: the
+numeric FALSIFY trigger fires (Nemotron −25.5, R1 −33.7, CI-surviving) BUT R1+Nemotron are one
+Llama-reasoning-distill cluster, not two independent lineages (pre-registration-consistent per §1),
+and the IFEval-derived brackets are weak priors for strict IFBench. **Metric deviation:** strict-S
+reported as primary (the cross-family termination asymmetry — Qwen 48–79% T vs anchors ~100% —
+confounds the §4 health-gated-C placement); both metrics agree on every anchor's verdict. Adjudicated
+by oracle (GPT-5.5 Pro) + codex (GPT-5.5 xhigh) red-teams. R1 recovered losslessly from byte-BPE
+transcripts (decoder audited == tokenizers ByteLevel on all items); no GPU re-runs. Open follow-ups
+(esp. ≥2 more independent non-Qwen families, local-lane IFEval, no-think ablation) listed in §7 of
+the results doc — GPU expansion is a user decision, not auto-run.

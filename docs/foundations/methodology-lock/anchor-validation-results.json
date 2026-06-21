@@ -1,6 +1,7 @@
 {
   "generated_for": "ANCHOR-VALIDATION-PREREG-2026-06-21.md",
   "lane": "capped-thinking (greedy temp-0, s1 two-pass, think<=8192)",
+  "primary_metric": "strict-S (oracle-endorsed; pre-reg literal was health-gated-C, see module docstring)",
   "metrics": {
     "granite-2b": {
       "mmlu_pro": {
@@ -97,6 +98,40 @@
         "T": 78.9,
         "C": 72.4
       }
+    }
+  },
+  "coverage": {
+    "granite-2b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "granite-8b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "nemotron-4b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "r1-8b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-0.8b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-2b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-4b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-9b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
     }
   },
   "placement": [
@@ -329,5 +364,23 @@
       "n_nonterminated": 36
     }
   ],
-  "notes": "S=strict (leaderboard). T=termination. C=conditional. Anchors recovered on CPU (Granite \\boxed extractor; R1 byte-BPE decode). Self-verified vs known-good."
+  "decode_audit_r1": {
+    "r1_items": 693,
+    "bytelevel_mismatches": 0,
+    "chars_dropped": 0,
+    "u_fffd_replacements": 2,
+    "replacement_contexts": [
+      {
+        "id": "mmlu-pro-139",
+        "bench": "mmlu_pro",
+        "context": " logical expression: MN~M\ufffdO/NA. I'm assuming that "
+      },
+      {
+        "id": "ifbench-116",
+        "bench": "ifbench",
+        "context": "ilidadespecialhaciacausas\ufffdprogresistas\u017c\" - This te"
+      }
+    ]
+  },
+  "notes": "S=strict (leaderboard). T=termination. C=conditional. Anchors recovered on CPU (Granite \\boxed extractor; R1 byte-BPE decode, audited vs tokenizers ByteLevel). Self-verified."
 }
