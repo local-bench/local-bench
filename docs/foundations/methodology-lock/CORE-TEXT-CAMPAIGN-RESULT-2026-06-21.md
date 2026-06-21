@@ -12,6 +12,10 @@ local vLLM, **zero spend**. Metric = raw accuracy, answer-pass truncation counte
 
 **Local Intelligence Index (composite = chance-corrected mean of the two axes):**
 `0.8B 17.8 → 2B 37.8 → 4B 59.9 → 9B 69.1` — monotonic, ~17-point steps.
+> ⚠️ **SUPERSEDED (2026-06-21):** this headline used the **legacy (pre-strict-gate) IFBench**. The
+> official **STRICT** composite (the only scorer now; re-emitted into the campaign run JSONs) is
+> `0.8B 14.2 → 2B 32.3 → 4B 56.4 → 9B 66.5` — still monotonic, STRONG GO holds. The site shows the
+> strict composite. See §STRICT RE-SCORE.
 
 ## STRICT RE-SCORE — official numbers (2026-06-21, oracle-endorsed)
 
@@ -44,6 +48,12 @@ Strict spread 9B−0.8B **+53.7pp [+48.8, +59.0]** → STRONG GO.
 Strict spread 9B−0.8B **+44.2pp [+37.8, +50.7]** (WIDER than legacy +41.5pp) → STRONG GO. Decomposition:
 0.8B can't follow *or* terminate (cond 26.8%); 9B follows well when it completes (cond 72.4%) but runs
 away on 21% of items (termination 78.9%).
+
+**STRICT Local Intelligence Index (composite, OFFICIAL):** `0.8B 14.2 → 2B 32.3 → 4B 56.4 → 9B 66.5`
+— chance-corrected mean of the two strict axes (knowledge 0.5 / instruction 0.5). Supersedes the
+legacy `17.8 → 69.1` headline (which used the pre-strict-gate IFBench). Monotonic, ~14–24-pt steps,
+STRONG GO unchanged. Re-emitted into `cli/runs/campaign-qwen3.5-*.json` by `reemit_campaign_strict.py`
+(strict_handoff_manifest.json carries the per-model expected numbers for the site integrity gate).
 
 **Site method note:** *Outputs that hit the answer-token cap are counted incorrect — this prevents
 non-terminating generations from getting credit for matching required tokens inside a runaway response.*
