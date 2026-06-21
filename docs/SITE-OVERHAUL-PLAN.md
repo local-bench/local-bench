@@ -65,7 +65,18 @@ in chat.) Decisions:
 - **Never derive the composite in the web layer** — trust the pipeline's `composite`/`axes`.
 
 ### Revised order
-T0 ✅ · T1 ✅ · **T1.5 (NEXT)** · T1.6 scatter · T2 · T3 · T4 · T5 · T6. (T-KLD folds into T1.5 + T3.)
+T0 ✅ · T1 ✅ · T1.6 scatter ✅ · T1.6b table ✅ · oracle hardening ①②④⑤⑥ ✅ · IFBench display ③ ✅ ·
+**NEXT (gated on the campaign handoff): wire strict ladder → public/data → methodology/trust copy →
+full gate → T2.**
+
+#### Session 2 status (2026-06-21, post-oracle) — all data-independent steps DONE + committed
+Commits: `d10b004` (scatter eligibility/frontier/x-domain) · `df36483`→`5e0c4ac` (data contract,
+reconciled to cli) · `566a442` (quant Δ demote) · `dce064b` (copy seam) · `b0ab728` (integrity test) ·
+`614ee83` (IFBench 3-col display). The scatter / table / leaderboard / IFBench decomposition render
+gracefully EMPTY today and go LIVE the moment the campaign agent re-emits strict-scored run JSONs
+(bench aggregates carrying `termination_rate` + `conditional_accuracy`; `raw_accuracy` = strict) +
+wires `data_sources.json` + rebuilds `public/data`. Field names already reconciled to
+`cli/_scoring.py` (see `SITE-DATA-CONTRACT.md`). T2 visual redesign waits for the real ladder.
 
 ### T1.5 — Live LII data contract ("make it real")
 Data-INDEPENDENT parts (do NOW, my lane):
