@@ -13,7 +13,7 @@ export default async function HomePage() {
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
       <BestVariantTable points={bestVariantPoints} />
-      <RigMatchFinder anchors={rigAnchors} candidates={rigCandidates} />
+      <RigMatchFinder anchors={rigAnchors} candidates={rigCandidates.filter((candidate) => candidate.lane !== "answer-only")} />
       <Link
         href="/leaderboard"
         className="rounded-lg border border-bench-line bg-bench-panel/82 px-5 py-4 text-center font-semibold text-bench-text transition-colors hover:border-bench-accent hover:text-bench-accent"

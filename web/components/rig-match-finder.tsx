@@ -27,7 +27,9 @@ import { QUANT_OPTIONS, toQuantFilter, type QuantFilter } from "@/lib/quant";
 
 const DEFAULT_VRAM = 24;
 const DEFAULT_QUANT: QuantFilter = "any";
-const DEFAULT_LANE: LaneFilter = "answer-only";
+// Answer-only is a diagnostic lane (off the front page per the board-display contract); the
+// finder shows only the headline-comparable lanes. (Whole finder is replaced by the v2 on-ramp.)
+const DEFAULT_LANE: LaneFilter = "any";
 const MAX_VISIBLE_ROWS = 8;
 
 export function RigMatchFinder({
@@ -118,7 +120,7 @@ export function RigMatchFinder({
             <div className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted">
               <span>Lane</span>
               <div className="inline-flex w-fit rounded border border-bench-line bg-bench-panel-2 p-1" role="group" aria-label="Lane">
-                {LANE_FILTERS.map((option) => (
+                {LANE_FILTERS.filter((option) => option !== "answer-only").map((option) => (
                   <button
                     key={option}
                     type="button"
@@ -128,7 +130,7 @@ export function RigMatchFinder({
                     ].join(" ")}
                     onClick={() => setLane(option)}
                   >
-                    {option === "any" ? "Any local" : "Answer-only"}
+                    Any local
                   </button>
                 ))}
               </div>
