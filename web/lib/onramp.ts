@@ -23,7 +23,7 @@ export type OnrampCatalogModel = {
 };
 
 export type ReasoningActivation = "qwen3" | "granite" | "nemotron" | "r1" | "gemma4";
-export type RuntimeId = "ollama" | "lmstudio" | "llamacpp" | "vllm";
+export type RuntimeId = "llamacpp" | "lmstudio" | "vllm";
 
 export type RuntimeProfile = {
   readonly id: RuntimeId;
@@ -113,18 +113,19 @@ export function modelsForOrg(catalog: readonly OnrampCatalogModel[], org: string
   return catalog.filter((model) => model.org === org).sort((left, right) => right.downloads - left.downloads);
 }
 
-function ggufTag(model: OnrampCatalogModel, quant: OnrampCatalogQuant): string {
-  return `hf.co/${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label}`;
-}
-
+// Ollama is intentionally excluded: its defaults (num_ctx 2048, its own chat template, its own
+// sampler defaults) silently change the inputs a comparable benchmark must pin, so runs produced
+// through it are not comparable. The on-ramp recommends llama.cpp (serves GGUF directly, full
+// control over sampling/context/template).
 export const RUNTIME_PROFILES: readonly RuntimeProfile[] = [
   {
-    id: "ollama",
-    label: "Ollama",
-    endpoint: "http://localhost:11434/v1",
+    id: "llamacpp",
+    label: "llama.cpp",
+    endpoint: "http://localhost:8080/v1",
     recommended: true,
-    servedModelName: (model, quant) => ggufTag(model, quant),
-    serveCommand: (model, quant) => `ollama run ${ggufTag(model, quant)}`,
+    servedModelName: (model, quant) => `${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label}`,
+    serveCommand: (model, quant) =>
+      `llama-server -hf ${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label} --port 8080`,
     serveNote: () => null,
   },
   {
@@ -136,16 +137,6 @@ export const RUNTIME_PROFILES: readonly RuntimeProfile[] = [
     serveCommand: () => "",
     serveNote: (model, quant) =>
       `In LM Studio: search ${model.ggufRepo ?? model.id}, download the ${quant.label} file, then open the Developer tab and Start Server (port 1234). Use the model name shown in the server log if it differs.`,
-  },
-  {
-    id: "llamacpp",
-    label: "llama.cpp",
-    endpoint: "http://localhost:8080/v1",
-    recommended: false,
-    servedModelName: (model, quant) => `${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label}`,
-    serveCommand: (model, quant) =>
-      `llama-server -hf ${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label} --port 8080`,
-    serveNote: () => null,
   },
   {
     id: "vllm",

@@ -96,27 +96,28 @@ describe("listOrgs / modelsForOrg", () => {
 });
 
 describe("RUNTIME_PROFILES", () => {
-  it("exposes four profiles with Ollama recommended", () => {
-    expect(RUNTIME_PROFILES.map((p) => p.id)).toEqual(["ollama", "lmstudio", "llamacpp", "vllm"]);
-    expect(RUNTIME_PROFILES.find((p) => p.id === "ollama")?.recommended).toBe(true);
-    expect(RUNTIME_PROFILES.find((p) => p.id === "ollama")?.endpoint).toBe("http://localhost:11434/v1");
+  it("exposes three profiles with llama.cpp recommended and no Ollama", () => {
+    expect(RUNTIME_PROFILES.map((p) => p.id)).toEqual(["llamacpp", "lmstudio", "vllm"]);
+    expect(RUNTIME_PROFILES.map((p) => String(p.id))).not.toContain("ollama");
+    expect(RUNTIME_PROFILES.find((p) => p.id === "llamacpp")?.recommended).toBe(true);
+    expect(RUNTIME_PROFILES.find((p) => p.id === "llamacpp")?.endpoint).toBe("http://localhost:8080/v1");
     expect(RUNTIME_PROFILES.find((p) => p.id === "vllm")?.endpoint).toBe("http://localhost:8000/v1");
   });
 });
 
 describe("buildRecipe", () => {
-  const ollama = RUNTIME_PROFILES.find((p) => p.id === "ollama")!;
+  const llamacpp = RUNTIME_PROFILES.find((p) => p.id === "llamacpp")!;
   const vllm = RUNTIME_PROFILES.find((p) => p.id === "vllm")!;
   const lmstudio = RUNTIME_PROFILES.find((p) => p.id === "lmstudio")!;
 
-  it("emits a board-comparable capped-thinking recipe for a reasoning model on Ollama", () => {
-    const recipe = buildRecipe({ model: model(), quant: model().quants[2]!, runtime: ollama });
+  it("emits a board-comparable capped-thinking recipe for a reasoning model on llama.cpp", () => {
+    const recipe = buildRecipe({ model: model(), quant: model().quants[2]!, runtime: llamacpp });
     expect(recipe.lane).toBe("capped-thinking");
-    expect(recipe.servedModelName).toBe("hf.co/MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
-    expect(recipe.serveCommand).toBe("ollama run hf.co/MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
+    expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
+    expect(recipe.serveCommand).toBe("llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080");
     expect(recipe.serveNote).toBeNull();
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:11434/v1");
-    expect(recipe.benchCommand).toContain("--model hf.co/MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
+    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
+    expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
     expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
     expect(recipe.benchCommand).toContain("--lane capped-thinking");
     expect(recipe.benchCommand).toContain("--reasoning-activation qwen3");
@@ -139,7 +140,7 @@ describe("buildRecipe", () => {
   });
 
   it("emits answer-only with no reasoning flags for a non-reasoning model", () => {
-    const recipe = buildRecipe({ model: model({ reasoningCapable: false }), quant: model().quants[2]!, runtime: ollama });
+    const recipe = buildRecipe({ model: model({ reasoningCapable: false }), quant: model().quants[2]!, runtime: llamacpp });
     expect(recipe.lane).toBe("answer-only");
     expect(recipe.benchCommand).not.toContain("--hf-model-id");
     expect(recipe.benchCommand).not.toContain("--reasoning-activation");
@@ -147,7 +148,7 @@ describe("buildRecipe", () => {
   });
 
   it("flags low confidence when the family is unknown", () => {
-    const recipe = buildRecipe({ model: model({ family: "Mystery", org: "Acme" }), quant: model().quants[2]!, runtime: ollama });
+    const recipe = buildRecipe({ model: model({ family: "Mystery", org: "Acme" }), quant: model().quants[2]!, runtime: llamacpp });
     expect(recipe.activationConfident).toBe(false);
     expect(recipe.activation).toBe("qwen3");
   });

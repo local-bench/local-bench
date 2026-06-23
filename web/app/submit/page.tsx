@@ -8,14 +8,14 @@ export default function SubmitPage() {
         <p className="font-mono text-xs uppercase text-bench-accent">community submissions</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submit a run</h1>
         <p className="mt-3 leading-7 text-bench-muted">
-          One command points the frozen suite at any OpenAI-compatible endpoint (Ollama / vLLM / LM Studio /
-          llama.cpp); results are server-scored and placed on the boards.
+          One command points the frozen suite at any OpenAI-compatible endpoint (llama.cpp / vLLM /
+          LM Studio); results are server-scored and placed on the boards.
         </p>
       </header>
 
       <pre className="overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-sm text-bench-text">
         {`localbench run \\
-  --endpoint http://localhost:11434/v1 \\
+  --endpoint http://localhost:8080/v1 \\
   --model your-model-name \\
   --lane capped-thinking \\
   --tier standard \\

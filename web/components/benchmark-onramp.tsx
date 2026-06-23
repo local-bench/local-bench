@@ -46,7 +46,7 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
 export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly OnrampCatalogModel[] }) {
   const [vramGb, setVramGb] = useState<number>(DEFAULT_VRAM);
   const [mode, setMode] = useState<PickMode>("recommended");
-  const [runtimeId, setRuntimeId] = useState<RuntimeId>("ollama");
+  const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
   const [recommendedSlug, setRecommendedSlug] = useState<string | null>(null);
   const [browseOrg, setBrowseOrg] = useState<string>("");
   const [browseSlug, setBrowseSlug] = useState<string>("");
