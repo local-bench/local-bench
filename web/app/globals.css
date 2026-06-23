@@ -22,23 +22,24 @@ body {
   background: linear-gradient(180deg, #14062e 0%, #0d0322 44%, #07010f 100%);
 }
 
-/* Outrun retro sun: a striped sunset disc glowing behind the top of the page. Fixed + low-opacity +
-   behind everything, so it only suffuses the header/margins and never touches the data panels. */
+/* Outrun retro sun: a striped sunset disc glowing behind the top of the page. Sits at z-index 0
+   (above the canvas, below the content which is lifted to z-index 10), so it reads in the header
+   and the page margins without ever touching the opaque data panels. */
 body::before {
   content: "";
   position: fixed;
-  top: -7%;
+  top: -6%;
   left: 50%;
-  width: min(560px, 82vw);
-  height: min(560px, 82vw);
+  width: min(620px, 86vw);
+  height: min(620px, 86vw);
   transform: translateX(-50%);
   border-radius: 50%;
   background:
     repeating-linear-gradient(to bottom, transparent 0 15px, rgba(10, 4, 24, 0.92) 15px 23px),
     linear-gradient(180deg, #ffd23f 0%, #ff8a3d 30%, #ff2e97 64%, #a64dff 100%);
-  filter: blur(1px) saturate(1.15);
-  opacity: 0.4;
-  z-index: -2;
+  filter: blur(1px) saturate(1.2);
+  opacity: 0.52;
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -49,16 +50,16 @@ body::after {
   bottom: 0;
   left: -25%;
   right: -25%;
-  height: 46vh;
+  height: 50vh;
   background-image:
-    repeating-linear-gradient(to right, rgba(255, 122, 51, 0.55) 0 1px, transparent 1px 62px),
-    repeating-linear-gradient(to bottom, rgba(34, 224, 232, 0.5) 0 1px, transparent 1px 62px);
-  transform: perspective(300px) rotateX(60deg);
+    repeating-linear-gradient(to right, rgba(255, 122, 51, 0.6) 0 1px, transparent 1px 60px),
+    repeating-linear-gradient(to bottom, rgba(34, 224, 232, 0.55) 0 1px, transparent 1px 60px);
+  transform: perspective(280px) rotateX(60deg);
   transform-origin: bottom center;
-  opacity: 0.17;
-  -webkit-mask: linear-gradient(to top, #000 6%, transparent 80%);
-  mask: linear-gradient(to top, #000 6%, transparent 80%);
-  z-index: -2;
+  opacity: 0.26;
+  -webkit-mask: linear-gradient(to top, #000 8%, transparent 82%);
+  mask: linear-gradient(to top, #000 8%, transparent 82%);
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -66,10 +67,15 @@ a {
   text-underline-offset: 3px;
 }
 
+/* Two-layer focus ring: a bright warm-yellow outline plus a dark separator, so focus stays visible
+   on dark panels AND on orange / magenta / purple / cyan neon controls. */
 :where(a, button, select, input, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
-  outline: 2px solid #ff7a33; /* bench-accent (neon orange) */
+  outline: 2px solid #ffd98a;
   outline-offset: 2px;
-  border-radius: 0.125rem;
+  box-shadow:
+    0 0 0 4px #0a0418,
+    0 0 0 6px #ffd98a;
+  border-radius: 0.25rem;
 }
 
 ::selection {
@@ -79,9 +85,9 @@ a {
 
 /* --- Synthwave utilities --- */
 
-/* Gradient neon heading: orange -> magenta -> purple, clipped to the text, with a soft glow. */
+/* Gradient neon heading: orange -> magenta -> bright purple, clipped to the text, with a soft glow. */
 .neon-heading {
-  background: linear-gradient(90deg, #ff7a33 0%, #ff2e97 50%, #a64dff 100%);
+  background: linear-gradient(90deg, #ff7a33 0%, #ff2e97 50%, #b388ff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -99,4 +105,29 @@ a {
   box-shadow:
     0 0 0 1px rgba(255, 46, 151, 0.22),
     0 0 24px -6px rgba(255, 46, 151, 0.45);
+}
+
+/* --- Accessibility fallbacks --- */
+
+@media (prefers-contrast: more) {
+  body::before,
+  body::after {
+    opacity: 0.06;
+  }
+}
+
+@media (forced-colors: active) {
+  body::before,
+  body::after {
+    display: none;
+  }
+  .neon-heading {
+    background: none;
+    color: LinkText;
+    filter: none;
+  }
+  :where(a, button, select, input, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid Highlight;
+    box-shadow: none;
+  }
 }

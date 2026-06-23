@@ -7,7 +7,7 @@ export function CopyButton({ value, label = "Copy" }: { readonly value: string; 
   return (
     <button
       type="button"
-      className="rounded border border-bench-line px-2 py-1 font-mono text-[11px] uppercase text-bench-muted transition-colors hover:border-bench-accent hover:text-bench-accent"
+      className="rounded border border-bench-line px-3 py-1.5 font-mono text-xs uppercase text-bench-muted transition-colors hover:border-bench-accent hover:text-bench-accent"
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => {
           setCopied(true);

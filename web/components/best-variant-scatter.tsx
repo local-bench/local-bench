@@ -210,7 +210,7 @@ export function BestVariantVramScatter({
         <span>labelled = efficiency frontier</span>
         <span>faded = beaten at its size</span>
         <span>vertical bars = 95% CI</span>
-        <span>dashed gold = frontier (API) ceilings</span>
+        <span>dashed cyan = frontier (API) ceilings</span>
       </div>
     </section>
   );
