@@ -1,4 +1,3 @@
-import { RUNTIME_OVERHEAD_GB } from "./rig-match";
 import { QUANT_OPTIONS } from "./quant";
 
 export type OnrampCatalogQuant = {
@@ -22,8 +21,16 @@ export type OnrampCatalogModel = {
   readonly quants: readonly OnrampCatalogQuant[];
 };
 
-export type ReasoningActivation = "qwen3" | "granite" | "nemotron" | "r1" | "gemma4";
+// The CLI reasoning registry (cli/src/localbench/reasoning_registry.py) currently RANKS only these two
+// native reasoning modes; granite/nemotron/r1 exist as flag values but resolve to None (not ranked).
+// So the on-ramp only ever emits these activations, and only Qwen3- and Gemma-family models are
+// treated as board-rankable. Broaden this when the registry adds ranked entries.
+export type ReasoningActivation = "qwen3" | "gemma4";
 export type RuntimeId = "llamacpp" | "lmstudio" | "vllm";
+
+// The headline board runs the v1 suite. `localbench run` with no --suite-dir falls back to suite/v0
+// (discover_suite_dir), so every recipe pins this explicitly.
+export const BOARD_SUITE_DIR = "suite/v1";
 
 export type RuntimeProfile = {
   readonly id: RuntimeId;
@@ -45,8 +52,9 @@ export type BenchmarkRecipe = {
   readonly serveNote: string | null;
   readonly benchCommand: string;
   readonly lane: "capped-thinking" | "answer-only";
-  readonly activation: ReasoningActivation;
-  readonly activationConfident: boolean;
+  readonly boardComparable: boolean;
+  readonly notRankableReason: string | null;
+  readonly activation: ReasoningActivation | null;
   readonly servedModelName: string;
 };
 
@@ -57,27 +65,17 @@ function quantRank(label: string): number {
   return QUANT_RANK.get(label) ?? Number.MAX_SAFE_INTEGER;
 }
 
-export function reasoningActivationFor(model: { family: string; org: string }): {
-  activation: ReasoningActivation;
-  confident: boolean;
-} {
+// Returns the ranked CLI activation for a model's family, or null when the model is not in the
+// ranked registry (so the on-ramp can flag it as not-board-comparable rather than guess).
+export function rankedActivationFor(model: { family: string; org: string }): ReasoningActivation | null {
   const haystack = `${model.family} ${model.org}`.toLowerCase();
   if (haystack.includes("qwen")) {
-    return { activation: "qwen3", confident: true };
-  }
-  if (haystack.includes("granite")) {
-    return { activation: "granite", confident: true };
-  }
-  if (haystack.includes("nemotron")) {
-    return { activation: "nemotron", confident: true };
-  }
-  if (haystack.includes("deepseek") || /\br1\b/.test(haystack)) {
-    return { activation: "r1", confident: true };
+    return "qwen3";
   }
   if (haystack.includes("gemma")) {
-    return { activation: "gemma4", confident: true };
+    return "gemma4";
   }
-  return { activation: "qwen3", confident: false };
+  return null;
 }
 
 export function recommendedQuantForVram(model: OnrampCatalogModel, vramGb: number): OnrampCatalogQuant | null {
@@ -90,13 +88,16 @@ export function recommendedQuantForVram(model: OnrampCatalogModel, vramGb: numbe
   return fitting.reduce((best, quant) => (quantRank(quant.label) < quantRank(best.label) ? quant : best));
 }
 
-export function recommendModels(
+// "Popular" models for the picker: only board-rankable families (Qwen3/Gemma) with a GGUF repo and a
+// quant that fits, ranked by the catalog's HF download snapshot. Popularity is a convenience ordering,
+// not an endorsement, and the catalog is a static snapshot until the live HF refresh lands.
+export function popularModels(
   catalog: readonly OnrampCatalogModel[],
   vramGb: number,
   limit = 5,
 ): readonly RecommendedEntry[] {
   return catalog
-    .filter((model) => model.reasoningCapable && model.ggufRepo !== null)
+    .filter((model) => model.reasoningCapable && model.ggufRepo !== null && rankedActivationFor(model) !== null)
     .map((model) => ({ model, quant: recommendedQuantForVram(model, vramGb) }))
     .filter((entry): entry is RecommendedEntry => entry.quant !== null)
     .sort((left, right) => right.model.downloads - left.model.downloads)
@@ -145,7 +146,8 @@ export const RUNTIME_PROFILES: readonly RuntimeProfile[] = [
     recommended: false,
     servedModelName: (model) => model.id,
     serveCommand: (model) => `vllm serve ${model.id} --port 8000`,
-    serveNote: () => "vLLM may apply the repo generation_config; pass --generation-config vllm to disable it.",
+    serveNote: () =>
+      "vLLM serves the full-precision weights — the GGUF quant you picked does not apply, so VRAM use is much higher. It may also apply the repo generation_config; pass --generation-config vllm to pin sampling.",
   },
 ];
 
@@ -156,14 +158,26 @@ export function buildRecipe(input: {
 }): BenchmarkRecipe {
   const { model, quant, runtime } = input;
   const servedModelName = runtime.servedModelName(model, quant);
-  const lane: BenchmarkRecipe["lane"] = model.reasoningCapable ? "capped-thinking" : "answer-only";
-  const { activation, confident } = reasoningActivationFor(model);
+  const activation = model.reasoningCapable ? rankedActivationFor(model) : null;
+  const boardComparable = activation !== null;
+  const lane: BenchmarkRecipe["lane"] = boardComparable ? "capped-thinking" : "answer-only";
+
+  const notRankableReason = boardComparable
+    ? null
+    : model.reasoningCapable
+      ? "Only Qwen3 and Gemma reasoning modes are board-ranked today."
+      : "Not a reasoning model, so it runs answer-only.";
 
   const parts = ["localbench run", `--endpoint ${runtime.endpoint}`, `--model ${servedModelName}`];
-  if (lane === "capped-thinking") {
-    parts.push(`--hf-model-id ${model.id}`, "--lane capped-thinking", `--reasoning-activation ${activation}`);
+  if (boardComparable && activation !== null) {
+    parts.push(
+      `--hf-model-id ${model.id}`,
+      `--suite-dir ${BOARD_SUITE_DIR}`,
+      "--lane capped-thinking",
+      `--reasoning-activation ${activation}`,
+    );
   } else {
-    parts.push("--lane answer-only");
+    parts.push(`--suite-dir ${BOARD_SUITE_DIR}`, "--lane answer-only");
   }
   parts.push("--tier standard", "--out my-run.json");
 
@@ -172,14 +186,9 @@ export function buildRecipe(input: {
     serveNote: runtime.serveNote(model, quant),
     benchCommand: parts.join(" "),
     lane,
+    boardComparable,
+    notRankableReason,
     activation,
-    activationConfident: confident,
     servedModelName,
   };
 }
-
-// Imported to keep the VRAM-fit convention aligned with rig-match.ts. The catalog's vram_gb_8k is
-// already an at-8k requirement, so recommendedQuantForVram compares against it directly (matching
-// how estimateVramRequirement uses vramRequiredGb8k). Referenced here so the shared constant stays
-// a single source of truth even though the on-ramp does not add overhead on top of the catalog figure.
-export const ONRAMP_RUNTIME_OVERHEAD_GB = RUNTIME_OVERHEAD_GB;

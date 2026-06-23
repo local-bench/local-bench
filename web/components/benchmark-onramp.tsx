@@ -12,7 +12,7 @@ import {
   buildRecipe,
   listOrgs,
   modelsForOrg,
-  recommendModels,
+  popularModels,
   recommendedQuantForVram,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
@@ -21,7 +21,7 @@ import {
 import { VRAM_TIERS } from "@/lib/rig-match";
 import { QUANT_OPTIONS } from "@/lib/quant";
 
-type PickMode = "recommended" | "browse" | "paste";
+type PickMode = "popular" | "browse" | "paste";
 
 const DEFAULT_VRAM = 24;
 const PASTE_QUANT_DEFAULT = "Q4_K_M";
@@ -45,9 +45,9 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
 
 export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly OnrampCatalogModel[] }) {
   const [vramGb, setVramGb] = useState<number>(DEFAULT_VRAM);
-  const [mode, setMode] = useState<PickMode>("recommended");
+  const [mode, setMode] = useState<PickMode>("popular");
   const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
-  const [recommendedSlug, setRecommendedSlug] = useState<string | null>(null);
+  const [popularSlug, setPopularSlug] = useState<string | null>(null);
   const [browseOrg, setBrowseOrg] = useState<string>("");
   const [browseSlug, setBrowseSlug] = useState<string>("");
   const [browseQuant, setBrowseQuant] = useState<string>("");
@@ -55,13 +55,13 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
   const orgs = useMemo(() => listOrgs(catalog), [catalog]);
-  const recommended = useMemo(() => recommendModels(catalog, vramGb, 5), [catalog, vramGb]);
+  const popular = useMemo(() => popularModels(catalog, vramGb, 5), [catalog, vramGb]);
   const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg) : []), [catalog, browseOrg]);
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0]!;
 
   const selection = useMemo<{ model: OnrampCatalogModel; quant: OnrampCatalogQuant } | null>(() => {
-    if (mode === "recommended") {
-      const entry = recommended.find((candidate) => candidate.model.slug === recommendedSlug) ?? recommended[0];
+    if (mode === "popular") {
+      const entry = popular.find((candidate) => candidate.model.slug === popularSlug) ?? popular[0];
       return entry ? { model: entry.model, quant: entry.quant } : null;
     }
     if (mode === "browse") {
@@ -80,19 +80,20 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
     }
     const synthetic = syntheticPasteModel(pasteRepo, pasteQuant);
     return { model: synthetic, quant: synthetic.quants[0]! };
-  }, [mode, recommended, recommendedSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
+  }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
 
   const recipe = selection ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
-      <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">Benchmark a model</p>
-      <h2 className="mt-2 text-3xl font-semibold text-bench-text">Start a benchmark in about a minute</h2>
+      <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">Benchmark a model · preview</p>
+      <h2 className="mt-2 text-3xl font-semibold text-bench-text">Get the recipe to benchmark a model</h2>
       <p className="mt-1 font-mono text-xs text-bench-muted">
         {LOCAL_INTELLIGENCE_INDEX_NAME} · {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
       </p>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-        Pick your VRAM, choose a model, and copy the recipe. It produces a board-comparable run on your own hardware.
+        Pick your VRAM and a model to get the exact benchmark command. The board ranks Qwen3 and Gemma families today; the
+        v1 suite the recipe needs, and one-step submission, ship with v2.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[170px_1fr_170px]">
@@ -114,7 +115,7 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
 
         <div className="flex flex-col gap-2">
           <div className="inline-flex w-fit rounded border border-bench-line bg-bench-panel-2 p-1" role="group" aria-label="How to choose a model">
-            {(["recommended", "browse", "paste"] as const).map((value) => (
+            {(["popular", "browse", "paste"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
@@ -124,15 +125,15 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
                 ].join(" ")}
                 onClick={() => setMode(value)}
               >
-                {value === "recommended" ? "Recommended" : value === "browse" ? "Browse catalog" : "Paste HF repo"}
+                {value === "popular" ? "Popular" : value === "browse" ? "Browse catalog" : "Paste HF repo"}
               </button>
             ))}
           </div>
           <ModelPicker
             mode={mode}
-            recommended={recommended}
-            recommendedSlug={recommendedSlug}
-            onRecommended={setRecommendedSlug}
+            popular={popular}
+            popularSlug={popularSlug}
+            onPopular={setPopularSlug}
             orgs={orgs}
             browseOrg={browseOrg}
             onOrg={(org) => {
@@ -173,8 +174,8 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
-          v1 produces a local <span className="font-mono text-bench-text">my-run.json</span>. Automated upload and server
-          re-score land in v2.
+          Preview of the contribution flow · the recipe is the real command, pinned to the v1 board. Obtaining the suite
+          and one-step submission land with v2 · for now it produces a local <span className="font-mono text-bench-text">my-run.json</span>.
         </span>
         <Link href="/leaderboard" className="font-semibold text-bench-accent hover:underline">
           Just exploring? See the board →
@@ -194,9 +195,9 @@ function EmptyRecipe({ mode }: { readonly mode: PickMode }) {
 
 function ModelPicker(props: {
   readonly mode: PickMode;
-  readonly recommended: readonly { model: OnrampCatalogModel; quant: OnrampCatalogQuant }[];
-  readonly recommendedSlug: string | null;
-  readonly onRecommended: (slug: string) => void;
+  readonly popular: readonly { model: OnrampCatalogModel; quant: OnrampCatalogQuant }[];
+  readonly popularSlug: string | null;
+  readonly onPopular: (slug: string) => void;
   readonly orgs: readonly string[];
   readonly browseOrg: string;
   readonly onOrg: (org: string) => void;
@@ -213,18 +214,18 @@ function ModelPicker(props: {
   const selectClass =
     "rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-sm text-bench-text outline-none focus:border-bench-accent";
 
-  if (props.mode === "recommended") {
-    if (props.recommended.length === 0) {
-      return <p className="font-mono text-xs text-bench-muted">No known-good reasoning model fits this VRAM yet · try Browse or a larger tier.</p>;
+  if (props.mode === "popular") {
+    if (props.popular.length === 0) {
+      return <p className="font-mono text-xs text-bench-muted">No board-rankable model (Qwen3 / Gemma) fits this VRAM yet · try Browse or a larger tier.</p>;
     }
-    const activeSlug = props.recommendedSlug ?? props.recommended[0]!.model.slug;
+    const activeSlug = props.popularSlug ?? props.popular[0]!.model.slug;
     return (
       <div className="flex flex-col gap-2">
-        {props.recommended.map((entry) => (
+        {props.popular.map((entry) => (
           <button
             key={entry.model.slug}
             type="button"
-            onClick={() => props.onRecommended(entry.model.slug)}
+            onClick={() => props.onPopular(entry.model.slug)}
             className={[
               "flex items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors",
               entry.model.slug === activeSlug
@@ -236,6 +237,7 @@ function ModelPicker(props: {
             <span className="font-mono text-[11px] text-bench-muted">{entry.quant.label}</span>
           </button>
         ))}
+        <p className="font-mono text-[10px] text-bench-muted">Most-downloaded board-rankable models that fit · catalog snapshot, not an endorsement.</p>
       </div>
     );
   }
@@ -289,8 +291,8 @@ function ModelPicker(props: {
         ))}
       </select>
       <p className="font-mono text-[11px] text-bench-muted sm:col-span-2">
-        Experimental · we have not validated this repo has a compatible GGUF, template, or license · results may not be
-        comparable.
+        Experimental · we have not validated this repo has a compatible GGUF, template, or license · only Qwen3/Gemma
+        families are board-rankable today.
       </p>
     </div>
   );

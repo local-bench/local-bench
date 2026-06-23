@@ -20,6 +20,15 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
         localbench does not download or run the model. First start a local server, then localbench sends the benchmark to
         that endpoint.
       </p>
+      {recipe.boardComparable ? (
+        <p className="font-mono text-[11px] uppercase text-bench-accent">
+          Board-comparable · capped-thinking · {recipe.activation} · suite/v1
+        </p>
+      ) : (
+        <p className="rounded border border-bench-warn/35 bg-bench-warn/10 p-2 font-mono text-[11px] text-bench-warn">
+          Not board-rankable yet · {recipe.notRankableReason} This is a personal answer-only run, not a board entry.
+        </p>
+      )}
       {recipe.serveCommand ? (
         <CommandBlock title="Step 1 · start the model (leave running)" command={recipe.serveCommand} />
       ) : (
@@ -32,12 +41,6 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
         <p className="font-mono text-[11px] text-bench-muted">{recipe.serveNote}</p>
       ) : null}
       <CommandBlock title="Step 2 · benchmark it (second terminal)" command={recipe.benchCommand} />
-      {recipe.lane === "capped-thinking" && !recipe.activationConfident ? (
-        <p className="rounded border border-bench-warn/35 bg-bench-warn/10 p-2 font-mono text-[11px] text-bench-warn">
-          Reasoning activation defaulted to qwen3 · confirm the right --reasoning-activation for this model family before
-          you rely on the result.
-        </p>
-      ) : null}
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         Do not change sampling, context, or prompt-template settings unless the recipe says so. VRAM tiers are
         recommendations, not guaranteed fits · close other GPU workloads.
