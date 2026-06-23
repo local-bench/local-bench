@@ -63,18 +63,5 @@
     "release_date": null,
     "vram_footprint_gb": 12.05,
     "notes": "Strict Local / capped-thinking lane. Floor of the ladder. Footprint = on-disk GGUF weight size (decimal GB)."
-  },
-  {
-    "kind": "community",
-    "family": "Qwen3.6",
-    "model_id": null,
-    "model_label": "Qwopus3.6-27B-v2-MTP",
-    "quant_label": "Q4_K_M",
-    "file": "cli/runs/ladder-qwen36-27b-qwopus.json",
-    "reasoning_lane": "capped-thinking",
-    "independent_replication": false,
-    "release_date": null,
-    "vram_footprint_gb": 16.81,
-    "notes": "Standalone distill entry (model_id intentionally null so it gets its own leaderboard model, not folded into the Qwen3.6-27B quant ladder). Multi-token-prediction distill of Qwen3.6-27B, Q4_K_M-class. Strict Local / capped-thinking lane. Footprint = on-disk GGUF weight size (decimal GB). Below base Qwen3.6-27B Q4 on composite; loss concentrated in instruction-following plus degraded termination."
   }
 ]
