@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { DemoBadge, KindBadge, LaneBadge, TierBadge } from "@/components/badges";
+import { DemoBadge, KindBadge, TierBadge } from "@/components/badges";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
-import { axisLabel, formatCost, formatInteger } from "@/lib/format";
+import { axisLabel, formatCost, formatDuration, formatInteger, formatLatencySeconds } from "@/lib/format";
 import type { IndexModel } from "@/lib/schemas";
 
 type SortKey = string;
@@ -40,8 +40,9 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
             <SortableHeader label="Tier" sortKey="tier" sort={sort} onSort={setSort} />
-            <SortableHeader label="Lane" sortKey="lane" sort={sort} onSort={setSort} />
             <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
+            <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
+            <SortableHeader label="Full bench time" sortKey="benchtime" sort={sort} onSort={setSort} />
             <SortableHeader label="Cost" sortKey="cost" sort={sort} onSort={setSort} />
           </tr>
         </thead>
@@ -82,12 +83,11 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
               <td className="px-3 py-3">
                 {model.tier === null ? <span className="font-mono text-xs text-bench-muted">not measured</span> : <TierBadge tier={model.tier} />}
               </td>
-              <td className="px-3 py-3">
-                <LaneBadge lane={model.lane} />
-              </td>
               <td className="px-3 py-3 font-mono text-bench-text">
                 {formatInteger(model.tokens_to_answer_median)}
               </td>
+              <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(model.latency_s_median ?? null)}</td>
+              <td className="px-3 py-3 font-mono text-bench-text">{formatDuration(model.wall_time_seconds ?? null)}</td>
               <td className="px-3 py-3 font-mono text-bench-text">{formatCost(model.est_cost_usd)}</td>
             </tr>
           ))}
@@ -184,12 +184,14 @@ function compareRows(left: IndexModel, right: IndexModel, key: SortKey): number 
       return nullableNumber(left.composite?.point ?? null) - nullableNumber(right.composite?.point ?? null);
     case "tier":
       return (left.tier ?? "").localeCompare(right.tier ?? "");
-    case "lane":
-      return (left.lane ?? "").localeCompare(right.lane ?? "");
     case "tokens":
       return nullableNumber(left.tokens_to_answer_median) - nullableNumber(right.tokens_to_answer_median);
     case "cost":
       return nullableNumber(left.est_cost_usd) - nullableNumber(right.est_cost_usd);
+    case "latency":
+      return nullableNumber(left.latency_s_median ?? null) - nullableNumber(right.latency_s_median ?? null);
+    case "benchtime":
+      return nullableNumber(left.wall_time_seconds ?? null) - nullableNumber(right.wall_time_seconds ?? null);
     default:
       return compareAxis(left, right, key);
   }

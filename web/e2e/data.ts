@@ -54,6 +54,7 @@ export async function getAllStaticRoutes(): Promise<readonly StaticRoute[]> {
   const models = await Promise.all(index.models.map((model) => readModelData(model.slug)));
   const contentRoutes: readonly StaticRoute[] = [
     { path: "/", screenshotName: "route-home" },
+    { path: "/leaderboard", screenshotName: "route-leaderboard" },
     { path: "/compare", screenshotName: "route-compare" },
     { path: "/methodology", screenshotName: "route-methodology" },
     { path: "/trust", screenshotName: "route-trust" },

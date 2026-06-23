@@ -60,7 +60,7 @@ export function RigMatchFinder({
               <p className="mt-1 font-mono text-xs text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</p>
               <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
                 Pick a VRAM budget and quant target. Results show local model x quant runs that fit, ranked by the lower
-                bound of their Core Text index interval. Math / Coding-exec / Agentic are candidate axes until
+                bound of their Intelligence Index interval. Math / Coding-exec / Agentic are candidate axes until
                 validation earns an Overall tier.
               </p>
             </div>

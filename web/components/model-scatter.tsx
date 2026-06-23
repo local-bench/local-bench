@@ -27,7 +27,7 @@ export function ModelScatter({
         <h2 className="text-lg font-semibold text-bench-text">VRAM footprint vs {LOCAL_INTELLIGENCE_INDEX_NAME}</h2>
         <p className="mt-1 font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</p>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
-          Core Text scatter appears after the first measured run attaches to this catalog model. Use the quant ladder
+          Intelligence Index scatter appears after the first measured run attaches to this catalog model. Use the quant ladder
           above for current file size and VRAM requirements.
         </p>
       </section>

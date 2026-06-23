@@ -15,6 +15,7 @@ export type BestVariantPoint = {
   readonly score: Score;
   readonly axes: Readonly<Record<string, AxisScore>>;
   readonly tokS: number | null;
+  readonly latencySMedian: number | null;
   readonly effectiveVramGb: number;
   readonly nRuns: number;
   readonly isFrontier: boolean;
@@ -85,6 +86,7 @@ export function selectBestVariantPoints(
       score: candidate.score as Score,
       axes: candidate.axes,
       tokS: candidate.tokS,
+      latencySMedian: candidate.latencySMedian,
       effectiveVramGb: vram.effectiveRequiredGb,
       nRuns: candidate.nRuns,
       isFrontier: false,

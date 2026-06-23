@@ -37,6 +37,7 @@ export type RigMatchCandidate = {
   readonly scoreStatus: ScoreStatus;
   readonly tier: string | null;
   readonly tokS: number | null;
+  readonly latencySMedian: number | null;
   readonly vramFootprintGb: number | null;
   readonly vramRequiredGb8k: number | null;
 };

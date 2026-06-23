@@ -30,7 +30,7 @@ export function ScoreBar({
 }
 
 export function AxisMiniBar({ score }: { readonly score: AxisScore | undefined }) {
-  if (score === undefined) {
+  if (score === undefined || score.n === 0) {
     return <div className="min-w-[88px] font-mono text-xs text-bench-muted">n/a</div>;
   }
   return (

@@ -34,7 +34,7 @@ export function QualityBars({
           <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
             {isEmpty
               ? "Quality bars appear after measured benchmark runs land; catalog shells stay scoreless here."
-              : "Frontier anchors are reference ceilings. Local rows show each model once at its best measured Core Text quant. Math / Coding-exec / Agentic are candidate axes until validation earns an Overall tier."}
+              : "Frontier anchors are reference ceilings. Local rows show each model once at its best measured quant. Math / Coding-exec / Agentic are candidate axes until validation earns an Overall tier."}
           </p>
         </div>
         <div className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-xs text-bench-muted">

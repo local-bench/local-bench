@@ -2,6 +2,7 @@ import { DemoBadge } from "@/components/badges";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { clampScore, formatCi, formatScore } from "@/lib/format";
 import type { ModelData } from "@/lib/data";
+import type { AxisScore } from "@/lib/schemas";
 
 export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
   const bestRun = [...model.runs]
@@ -10,11 +11,6 @@ export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
   if (bestRun === null) {
     return null;
   }
-
-  const rows = AXIS_CONFIG.flatMap((axis) => {
-    const score = bestRun.axes[axis.key];
-    return score === undefined ? [] : [{ axis, score }];
-  });
 
   return (
     <section data-testid="model-axis-profile" className="rounded-lg border border-bench-line bg-bench-panel p-5">
@@ -27,20 +23,39 @@ export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
         {bestRun.demo ? <DemoBadge /> : null}
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
-        {rows.map(({ axis, score }) => (
-          <div key={axis.key} className="rounded border border-bench-line bg-bench-panel-2/70 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-bench-text">{axis.label}</span>
-              <span className="font-mono text-sm text-bench-text">
-                {formatScore(score.point)} <span className="text-bench-muted">{formatCi(score)}</span>
-              </span>
-            </div>
-            <div className="mt-3 h-2 overflow-hidden rounded bg-bench-bg">
-              <div className="h-full bg-bench-accent" style={{ width: `${clampScore(score.point)}%` }} />
-            </div>
-          </div>
+        {AXIS_CONFIG.map((axis) => (
+          <AxisProfileCard key={axis.key} label={axis.label} score={bestRun.axes[axis.key]} />
         ))}
       </div>
     </section>
+  );
+}
+
+// An axis is "measured" only when it is present AND has a non-zero item count. Absent or
+// n=0 axes (e.g. Math/Agentic on a Knowledge+Instruction-only run) render "— not measured",
+// never a fabricated number+bar.
+function AxisProfileCard({ label, score }: { readonly label: string; readonly score: AxisScore | undefined }) {
+  if (score === undefined || score.n === 0) {
+    return (
+      <div className="rounded border border-bench-line bg-bench-panel-2/70 p-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-bench-text">{label}</span>
+          <span className="font-mono text-xs text-bench-muted">— not measured</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-bench-line bg-bench-panel-2/70 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-bench-text">{label}</span>
+        <span className="font-mono text-sm text-bench-text">
+          {formatScore(score.point)} <span className="text-bench-muted">{formatCi(score)}</span>
+        </span>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded bg-bench-bg">
+        <div className="h-full bg-bench-accent" style={{ width: `${clampScore(score.point)}%` }} />
+      </div>
+    </div>
   );
 }

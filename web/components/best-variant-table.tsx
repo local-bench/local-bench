@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { familyStyle } from "@/lib/family-color";
-import { formatCi, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
+import { formatCi, formatCompactNumber, formatGb, formatLatencySeconds, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
@@ -25,6 +25,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
             <th className="px-3 py-3">Local Intelligence Index</th>
             <th className="px-3 py-3">VRAM to run</th>
             <th className="px-3 py-3">tok/s</th>
+            <th className="px-3 py-3">Time/answer</th>
           </tr>
         </thead>
         <tbody>
@@ -60,6 +61,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                   <span className="text-xs text-bench-muted">{tier === null ? ">512 GB" : `fits ${tier} GB`}</span>
                 </td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(point.tokS)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(point.latencySMedian)}</td>
               </tr>
             );
           })}

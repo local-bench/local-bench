@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { selectBestVariantPoints } from "../lib/best-variant";
 import type { RigMatchCandidate } from "../lib/rig-match";
 
-function candidate(overrides: Partial<RigMatchCandidate>): RigMatchCandidate {
+function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidate {
   return {
     axes: {},
     demo: false,
@@ -21,6 +21,7 @@ function candidate(overrides: Partial<RigMatchCandidate>): RigMatchCandidate {
     tokS: 30,
     vramFootprintGb: 8,
     vramRequiredGb8k: 10,
+    latencySMedian: 13.2,
     ...overrides,
   };
 }
@@ -57,5 +58,11 @@ describe("selectBestVariantPoints", () => {
       .map((point) => point.modelSlug)
       .sort();
     expect(frontier).toEqual(["big", "small"]);
+  });
+
+  it("carries per-answer latency onto the best-variant point", () => {
+    const points = selectBestVariantPoints([candidate()]);
+    expect(points).toHaveLength(1);
+    expect(points[0]!.latencySMedian).toBe(13.2);
   });
 });

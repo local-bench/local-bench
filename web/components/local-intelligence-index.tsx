@@ -2,7 +2,7 @@ import { formatScore } from "@/lib/format";
 import type { AxisScore } from "@/lib/schemas";
 
 export const LOCAL_INTELLIGENCE_INDEX_NAME = "Local Intelligence Index";
-export const LOCAL_INTELLIGENCE_INDEX_QUALIFIER = "v1 · Core Text (Knowledge + Instruction)";
+export const LOCAL_INTELLIGENCE_INDEX_QUALIFIER = "v1 · Knowledge + Instruction";
 export const LOCAL_INTELLIGENCE_INDEX_PROFILE = "Profile: Knowledge / Instruction";
 
 const CORE_TEXT_AXES = [

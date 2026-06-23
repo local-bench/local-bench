@@ -64,6 +64,30 @@ export function formatSeconds(value: number | null | undefined): string {
   return value === null || value === undefined ? "n/a" : `${COMPACT_FORMAT.format(value)}s`;
 }
 
+export function formatDuration(value: number | null | undefined): string {
+  // Total wall-time to run a whole suite spans seconds to hours; show the largest sensible unit.
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  if (value < 60) {
+    return `${INTEGER_FORMAT.format(value)}s`;
+  }
+  if (value < 3600) {
+    return `${INTEGER_FORMAT.format(value / 60)} min`;
+  }
+  return `${COMPACT_FORMAT.format(value / 3600)} h`;
+}
+
+export function formatLatencySeconds(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  if (value >= 90) {
+    return `~${COMPACT_FORMAT.format(value / 60)} min`;
+  }
+  return `~${INTEGER_FORMAT.format(value)} s`;
+}
+
 export function fallbackText(value: string | number | boolean | null | undefined): string {
   // Generated JSON uses null for unreported local/API metadata; show a placeholder, not zero.
   if (value === null || value === undefined || value === "") {

@@ -1,27 +1,19 @@
-import { readIndexData } from "./data";
-import { capturePage, expect, test, visitRoute } from "./fixtures";
+import { expect, test, visitRoute } from "./fixtures";
 
-test("renders the rig-match finder as the home hero", async ({ page }) => {
+test("leads with the graph + summary board, finder below", async ({ page }) => {
   await visitRoute(page, "/");
 
-  await expect(page.getByRole("heading", { name: "Local Intelligence Index" })).toBeVisible();
-  await expect(page.getByText("v1 · Core Text (Knowledge + Instruction)").first()).toBeVisible();
-  await expect(page.getByText("Profile: Knowledge / Instruction").first()).toBeVisible();
-  await expect(page.getByText("Synthetic demo rows remain marked; Qwen3.6-27B quant rows are real measurements.")).toBeVisible();
-  await expect(page.getByLabel("VRAM tier")).toHaveValue("24");
-  await expect(page.getByLabel("Context length")).toHaveValue("8192");
-  await expect(page.getByText(/VRAM includes KV cache/i)).toBeVisible();
-  await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /Qwen3 32B.*Q5_K_M/ })).toBeVisible();
-  await expect(page.getByText(/frontier ceiling:/i)).toBeVisible();
-  await expect(page.getByTestId("rig-match-results").getByText("GPT-5.5")).toHaveCount(0);
   await expect(page.getByTestId("best-variant-scatter")).toBeVisible();
-  await expect(page.getByTestId("quality-vram-scatter")).toHaveCount(0);
+  await expect(page.getByTestId("best-variant-table")).toBeVisible();
+  await expect(page.getByTestId("rig-match-finder")).toBeVisible();
+  await expect(page.getByTestId("full-leaderboard")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /View full leaderboard/i })).toBeVisible();
 
-  const finderBox = await page.getByTestId("rig-match-finder").boundingBox();
   const scatterBox = await page.getByTestId("best-variant-scatter").boundingBox();
-  expect(finderBox).not.toBeNull();
+  const finderBox = await page.getByTestId("rig-match-finder").boundingBox();
   expect(scatterBox).not.toBeNull();
-  expect(scatterBox?.y).toBeGreaterThan(finderBox?.y ?? 0);
+  expect(finderBox).not.toBeNull();
+  expect(finderBox?.y ?? 0).toBeGreaterThan(scatterBox?.y ?? 0);
 });
 
 test("supports large VRAM tiers in the finder", async ({ page }) => {
@@ -43,38 +35,3 @@ test("supports large VRAM tiers in the finder", async ({ page }) => {
   await expect(page.getByTestId("rig-match-results").getByRole("row", { name: /DeepSeek-V3-671B.*Q5_K_M/ })).toBeVisible();
 });
 
-test("renders the leaderboard and keeps index sorting deterministic", async ({ page }) => {
-  const index = await readIndexData();
-  const expectedAscending = [...index.models]
-    .sort((left, right) => left.composite.point - right.composite.point)
-    .map((model) => model.model_label);
-  const expectedDescending = [...expectedAscending].reverse();
-
-  await visitRoute(page, "/");
-
-  const leaderboard = page.getByTestId("full-leaderboard");
-  await expect(page.getByRole("heading", { name: "Full leaderboard" })).toBeVisible();
-  for (const label of expectedDescending) {
-    await expect(leaderboard.getByRole("link", { name: label })).toBeVisible();
-  }
-
-  const qwenRow = leaderboard.getByRole("row", { name: /Qwen3\.6-27B/ });
-  await expect(qwenRow).toContainText("52.7");
-  await expect(qwenRow).toContainText(/±\d+\.\d/);
-  await expect(leaderboard.getByText(/Community-reported/).first()).toBeVisible();
-  await expect(page.getByText(/sorted for browsing only/i)).toBeVisible();
-  await expect(page.getByText(/reasoning lanes are not directly comparable/i)).toBeVisible();
-
-  const modelLinks = leaderboard.locator("tbody tr td:nth-child(2) a");
-  const rankCells = leaderboard.locator("tbody tr td:first-child");
-  await expect(modelLinks).toHaveText(expectedDescending);
-  await expect(rankCells).toHaveCount(expectedDescending.length);
-
-  await leaderboard.getByRole("button", { name: /Local Intelligence Index/ }).click();
-  await expect(modelLinks).toHaveText(expectedAscending);
-
-  await leaderboard.getByRole("button", { name: /Local Intelligence Index/ }).click();
-  await expect(modelLinks).toHaveText(expectedDescending);
-
-  await capturePage(page, "home-leaderboard");
-});

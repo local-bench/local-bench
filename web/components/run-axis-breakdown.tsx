@@ -1,22 +1,40 @@
-import { presentAxes } from "@/lib/axis-config";
+import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, clampScore, formatCi, formatScore } from "@/lib/format";
 import type { Axis, AxisScore, RunDetail } from "@/lib/schemas";
 
 export function RunAxisBreakdown({ run }: { readonly run: RunDetail }) {
+  // Canonical axis order first, then any extra measured axes outside the config. An axis
+  // that wasn't measured (absent, or present with n=0) renders "— not measured" rather than
+  // a fabricated number+bar.
+  const extraAxes = Object.keys(run.axes)
+    .filter((axis) => !isAxisKey(axis))
+    .sort();
+  const axisKeys = [...AXIS_CONFIG.map((axis) => axis.key), ...extraAxes];
   return (
     <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
       <h2 className="text-lg font-semibold text-bench-text">Axis breakdown</h2>
       <div className="mt-4 space-y-4">
-        {presentAxes(run.axes).map(([axis, score]) => (
-          <AxisWhisker
-            key={axis}
-            axis={axis}
-            score={score}
-            highlighted={axis === run.worst_axis.bench}
-          />
-        ))}
+        {axisKeys.map((axis) => {
+          const score = run.axes[axis];
+          return score === undefined || score.n === 0 ? (
+            <NotMeasuredAxis key={axis} axis={axis} />
+          ) : (
+            <AxisWhisker key={axis} axis={axis} score={score} highlighted={axis === run.worst_axis.bench} />
+          );
+        })}
       </div>
     </section>
+  );
+}
+
+function NotMeasuredAxis({ axis }: { readonly axis: Axis }) {
+  return (
+    <div className="p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="font-semibold text-bench-text">{axisLabel(axis)}</div>
+        <div className="font-mono text-xs text-bench-muted">— not measured</div>
+      </div>
+    </div>
   );
 }
 

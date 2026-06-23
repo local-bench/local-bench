@@ -78,6 +78,7 @@ function candidate(
     score: { point, lo: point - 2, hi: point + 2 },
     scoreStatus: "measured",
     tokS,
+    latencySMedian: null,
     vramFootprintGb,
     vramRequiredGb8k: null,
   };

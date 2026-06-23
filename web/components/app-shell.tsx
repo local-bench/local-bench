@@ -23,6 +23,9 @@ export function AppShell({
               <Link href="/" className="hover:text-bench-text">
                 Leaderboard
               </Link>
+              <Link href="/leaderboard" className="hover:text-bench-text">
+                Full board
+              </Link>
               <Link href="/compare" className="hover:text-bench-text">
                 Compare
               </Link>

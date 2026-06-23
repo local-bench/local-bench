@@ -1,0 +1,82 @@
+{
+  "family": "Qwen3.6",
+  "kind": "community",
+  "model_label": "Qwopus3.6-27B-v2-MTP",
+  "runs": [
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.6485507246376812,
+          "hi": 66.3265306122449,
+          "hi_raw": 0.6632653061224489,
+          "lo": 55.10204081632652,
+          "lo_raw": 0.5510204081632653,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 60.8843537414966,
+          "point_raw": 0.608843537414966,
+          "raw_accuracy": 0.608843537414966,
+          "termination_rate": 0.9387755102040817
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8586118251928021,
+          "hi": 85.40666233083579,
+          "hi_raw": 0.8540666233083578,
+          "lo": 77.2680701691865,
+          "lo_raw": 0.772680701691865,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 12,
+          "point": 81.47768680452234,
+          "point_raw": 0.8147768680452233,
+          "raw_accuracy": 0.835,
+          "termination_rate": 0.9725
+        }
+      },
+      "composite": {
+        "hi": 75.86659647154033,
+        "hi_raw": 0.7586659647154034,
+        "lo": 66.1850554927565,
+        "lo_raw": 0.6618505549275651,
+        "point": 71.18102027300947,
+        "point_raw": 0.7118102027300947
+      },
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 12.994,
+      "n_errors": 0,
+      "n_items": 694,
+      "quant_label": "Q4_K_M",
+      "run_id": "qwopus3-6-27b-v2-mtp__ladder-qwen36-27b-qwopus",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 139.0604608636294,
+      "tokens_to_answer_median": 1807.0,
+      "tokens_to_answer_p95": 9586.0,
+      "vram_footprint_gb": 16.81,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 18030.6032673
+    }
+  ],
+  "slug": "qwopus3-6-27b-v2-mtp"
+}

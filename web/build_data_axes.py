@@ -76,10 +76,12 @@ def build_axes(
         source_names = _source_benches_for_axis(axis, source_benches)
         if source_names:
             axes[axis] = _axis_from_benches(axis, source_names, source_benches, values, strata, no_answer, iters, warnings)
-    for axis in benches:
-        if axis not in axes:
-            axes[axis] = _synthesized_axis(axis, axes)
-            warnings.append(f"{axis} synthesized from legacy axes; no suite-v1 bench was present")
+        else:
+            # No source bench measured this axis in this run -> emit NO axis (never a
+            # fabricated/synthesized score). The site hides absent axes and renders
+            # "not measured" (METHODOLOGY-v1.2: only measured axes are displayed; Math/
+            # Agentic stay candidate axes until a run actually scores them).
+            warnings.append(f"{axis} not measured in this run; axis omitted")
     return axes, warnings
 
 
@@ -152,16 +154,14 @@ def _weighted_bench_value(source_names: tuple[str, ...], aggregates: list[JsonOb
 
 
 def _weighted_axis_value(axes: JsonObject, benches: tuple[str, ...], weights: dict[str, float], key: str) -> float:
-    total = sum(weights[bench] for bench in benches)
-    return sum(_number(_object(axes[bench], f"axes.{bench}").get(key), f"axes.{bench}.{key}") * weights[bench] for bench in benches) / total
-
-
-def _synthesized_axis(axis: str, axes: JsonObject) -> JsonObject:
-    present = [_object(value, f"axes.{name}") for name, value in axes.items()]
-    point = sum(_number(value.get("point_raw"), f"{axis}.point_raw") for value in present) / len(present) if present else 0.0
-    lo = sum(_number(value.get("lo_raw"), f"{axis}.lo_raw") for value in present) / len(present) if present else 0.0
-    hi = sum(_number(value.get("hi_raw"), f"{axis}.hi_raw") for value in present) / len(present) if present else 0.0
-    return score_interval(point, lo, hi) | {"n": 0, "n_errors": 0, "n_no_answer": 0, "raw_accuracy": point}
+    # Only axes actually present contribute. Unmeasured display axes (e.g. math/agentic
+    # with no source bench) are now absent and carry weight 0.0, so skipping them leaves
+    # the headline composite identical while avoiding a KeyError on the omitted axis.
+    present = [bench for bench in benches if bench in axes]
+    total = sum(weights[bench] for bench in present)
+    if total == 0.0:
+        return 0.0
+    return sum(_number(_object(axes[bench], f"axes.{bench}").get(key), f"axes.{bench}.{key}") * weights[bench] for bench in present) / total
 
 
 def _chance_baseline(aggregate: JsonObject, bench: str) -> float:

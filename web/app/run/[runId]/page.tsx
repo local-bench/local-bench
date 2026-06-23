@@ -15,12 +15,12 @@ import {
   formatCi,
   formatCompactNumber,
   formatCost,
+  formatDuration,
   formatHardware,
   formatInteger,
   formatPrimitiveRecord,
   formatRuntime,
   formatScore,
-  formatSeconds,
 } from "@/lib/format";
 import type { RunDetail } from "@/lib/schemas";
 
@@ -83,7 +83,11 @@ export default async function RunPage({ params }: PageProps) {
           <div className="pb-2 text-sm text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
             <CoreTextAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
-            <div className="mt-1">Equal-weighted chance-corrected Core Text axes.</div>
+            <div className="mt-1">Equal-weighted chance-corrected Knowledge and Instruction axes.</div>
+          </div>
+          <div className="pb-2 text-sm text-bench-muted">
+            <div className="font-mono text-xs uppercase text-bench-muted">Total run time</div>
+            <div className="mt-1 font-mono text-lg text-bench-text">{formatDuration(run.totals.wall_time_seconds)}</div>
           </div>
         </div>
         {hasQualityNote ? (
@@ -147,7 +151,7 @@ function ManifestCard({
             )} p95`}
           />
           <DetailItem label="tok/s" value={formatCompactNumber(run.totals.completion_tokens_per_second)} />
-          <DetailItem label="wall-time" value={formatSeconds(run.totals.wall_time_seconds)} />
+          <DetailItem label="total run time" value={formatDuration(run.totals.wall_time_seconds)} />
           <DetailItem label="est cost" value={formatCost(run.est_cost_usd)} />
           <DetailItem label="n_items" value={formatInteger(run.totals.n_items)} />
           <DetailItem label="n_errors" value={formatInteger(run.totals.n_errors)} />

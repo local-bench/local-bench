@@ -39,10 +39,10 @@ export default async function MethodologyPage() {
         <p>
           Knowledge uses MMLU-Pro and instruction uses IFBench. The {LOCAL_INTELLIGENCE_INDEX_NAME} (
           {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) is the equal-weighted arithmetic mean of those chance-corrected
-          Core Text axis scores, shown on a 0..100 scale for readability.
+          Knowledge and Instruction axis scores, shown on a 0..100 scale for readability.
         </p>
         <p>
-          Math, Coding-exec, and Agentic are candidate axes. They remain outside the Core Text tier until measured
+          Math, Coding-exec, and Agentic are candidate axes. They remain outside the Intelligence Index until measured
           discrimination earns promotion; a full intelligence claim is reserved for an evidence-backed Overall tier.
         </p>
       </section>

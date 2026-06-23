@@ -1823,24 +1823,63 @@
       "tokens_to_answer_p95": null
     },
     {
-      "axes": {},
-      "best_run_id": null,
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.6947368421052632,
+          "hi": 72.78911564625851,
+          "hi_raw": 0.7278911564625851,
+          "lo": 61.904761904761905,
+          "lo_raw": 0.6190476190476191,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 67.3469387755102,
+          "point_raw": 0.673469387755102,
+          "raw_accuracy": 0.673469387755102,
+          "termination_rate": 0.9693877551020408
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8542713567839196,
+          "hi": 86.80986787594773,
+          "hi_raw": 0.8680986787594773,
+          "lo": 79.23255793234323,
+          "lo_raw": 0.7923255793234323,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 83.16153345865666,
+          "point_raw": 0.8316153345865667,
+          "raw_accuracy": 0.85,
+          "termination_rate": 0.995
+        }
+      },
+      "best_run_id": "qwen3-6-27b__ladder-qwen36-27b-Q6_K",
       "catalog_id": "Qwen/Qwen3.6-27B",
-      "composite": null,
-      "demo": false,
+      "composite": {
+        "hi": 79.79949176110313,
+        "hi_raw": 0.7979949176110313,
+        "lo": 70.56865991855257,
+        "lo_raw": 0.7056865991855257,
+        "point": 75.25423611708344,
+        "point_raw": 0.7525423611708344
+      },
+      "conformance_status": "headline-comparable",
+      "contamination_label": "unverified",
       "est_cost_usd": null,
       "family": "Qwen3.6",
       "kind": "community",
-      "lane": "answer-only",
+      "lane": "capped-thinking",
+      "latency_s_median": 24.258,
       "model_label": "Qwen3.6 27B",
-      "n_runs": 0,
-      "ranked": false,
+      "n_runs": 5,
+      "ranked": true,
       "replicated": false,
-      "score_status": "missing",
+      "score_status": "measured",
       "slug": "qwen3-6-27b",
-      "tier": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null
+      "tier": "standard",
+      "tokens_to_answer_median": 4017.0,
+      "tokens_to_answer_p95": 9077.35,
+      "wall_time_seconds": 20113.836787600012
     },
     {
       "axes": {},
@@ -2041,7 +2080,65 @@
       "tier": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.6485507246376812,
+          "hi": 66.3265306122449,
+          "hi_raw": 0.6632653061224489,
+          "lo": 55.10204081632652,
+          "lo_raw": 0.5510204081632653,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 60.8843537414966,
+          "point_raw": 0.608843537414966,
+          "raw_accuracy": 0.608843537414966,
+          "termination_rate": 0.9387755102040817
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8586118251928021,
+          "hi": 85.40666233083579,
+          "hi_raw": 0.8540666233083578,
+          "lo": 77.2680701691865,
+          "lo_raw": 0.772680701691865,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 12,
+          "point": 81.47768680452234,
+          "point_raw": 0.8147768680452233,
+          "raw_accuracy": 0.835,
+          "termination_rate": 0.9725
+        }
+      },
+      "best_run_id": "qwopus3-6-27b-v2-mtp__ladder-qwen36-27b-qwopus",
+      "composite": {
+        "hi": 75.86659647154033,
+        "hi_raw": 0.7586659647154034,
+        "lo": 66.1850554927565,
+        "lo_raw": 0.6618505549275651,
+        "point": 71.18102027300947,
+        "point_raw": 0.7118102027300947
+      },
+      "conformance_status": "headline-comparable",
+      "contamination_label": "unverified",
+      "est_cost_usd": null,
+      "family": "Qwen3.6",
+      "kind": "community",
+      "lane": "capped-thinking",
+      "latency_s_median": 12.994,
+      "model_label": "Qwopus3.6-27B-v2-MTP",
+      "n_runs": 1,
+      "ranked": true,
+      "replicated": false,
+      "score_status": "measured",
+      "slug": "qwopus3-6-27b-v2-mtp",
+      "tier": "standard",
+      "tokens_to_answer_median": 1807.0,
+      "tokens_to_answer_p95": 9586.0,
+      "wall_time_seconds": 18030.6032673
     }
   ],
-  "suite_version": null
+  "suite_version": "suite-v1"
 }
