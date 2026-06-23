@@ -22,15 +22,18 @@ export type BestVariantPoint = {
   readonly isFrontier: boolean;
 };
 
-// A point is eligible only if it is a real, measured LOCAL model run. Anchors (frontier/API
-// references) are drawn as horizontal ceilings, not scatter points; demo/missing rows are excluded
-// so the chart never implies precision the data does not have.
+// A point is eligible only if it is a real, measured LOCAL model run in the headline scope.
+// Anchors (frontier/API references) are drawn as horizontal ceilings, not scatter points;
+// demo/missing rows are excluded so the chart never implies precision the data does not have.
+// The headline is the capped-thinking scoped view, so other lanes (answer-only diagnostics)
+// are excluded here too.
 function isEligible(candidate: RigMatchCandidate): boolean {
   return (
     candidate.kind === "community" &&
     !candidate.demo &&
     candidate.scoreStatus === "measured" &&
     candidate.tier?.toLowerCase() === "standard" &&
+    candidate.lane === "capped-thinking" &&
     candidate.score !== null &&
     candidate.runId !== null
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
+import { BoardScopeHeader } from "@/components/board-scope-header";
 import { DemoBadge, KindBadge, TierBadge } from "@/components/badges";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
@@ -25,8 +26,10 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
   const laneRanks = useMemo(() => buildLaneRanks(models), [models]);
 
   return (
-    <div data-testid="full-leaderboard" className="overflow-x-auto rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
-      <table className="min-w-[1120px] border-collapse text-sm">
+    <div data-testid="full-leaderboard" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
+      <BoardScopeHeader />
+      <div className="overflow-x-auto">
+        <table className="min-w-[1120px] border-collapse text-sm">
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
         </caption>
@@ -92,7 +95,8 @@ export function HomeLeaderboard({ models }: { readonly models: readonly IndexMod
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

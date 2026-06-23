@@ -48,6 +48,14 @@ describe("selectBestVariantPoints", () => {
     expect(points.map((point) => point.modelSlug)).toEqual(["ok"]);
   });
 
+  it("excludes non-capped-thinking lanes (headline is the capped-thinking scoped view)", () => {
+    const points = selectBestVariantPoints([
+      candidate({ modelSlug: "answeronly", lane: "answer-only" }),
+      candidate({ modelSlug: "capped", lane: "capped-thinking" }),
+    ]);
+    expect(points.map((point) => point.modelSlug)).toEqual(["capped"]);
+  });
+
   it("marks the efficiency frontier (non-dominated points)", () => {
     const points = selectBestVariantPoints([
       candidate({ modelSlug: "small", runId: "s", score: { point: 40, lo: 35, hi: 45 }, vramRequiredGb8k: 6 }),

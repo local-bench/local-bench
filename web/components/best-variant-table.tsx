@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BoardScopeHeader } from "@/components/board-scope-header";
 import { familyStyle } from "@/lib/family-color";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatLatencySeconds, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
@@ -14,9 +15,11 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
   return (
     <section
       data-testid="best-variant-table"
-      className="overflow-x-auto rounded-lg border border-bench-line bg-bench-panel/82"
+      className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82"
     >
-      <table className="w-full min-w-[640px] border-collapse text-sm">
+      <BoardScopeHeader />
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px] border-collapse text-sm">
         <caption className="sr-only">Best variant per model, ranked by Local Intelligence Index</caption>
         <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
           <tr>
@@ -68,7 +71,8 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
             );
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
     </section>
   );
 }
