@@ -5,33 +5,33 @@ const config = {
   theme: {
     extend: {
       colors: {
-        // Synthwave / Outrun palette: neon orange primary + magenta + purple, with cyan as the cool
-        // counterpoint (frontier ceilings), on deep indigo. Panels stay opaque and dark so the data
-        // (numbers, charts) keeps full contrast — the neon lives on the chrome.
+        // Calm synthwave: a soft aqua-cyan accent with pink + purple secondaries, on a clean
+        // near-neutral dark canvas (no violet haze). Panels stay opaque and dark so the numbers and
+        // charts keep full contrast — the neon lives on the chrome.
         bench: {
-          bg: "#0a0418",
-          panel: "#150a2b",
-          line: "#2c1a52",
-          text: "#f2ecff",
-          muted: "#c4b8e6",
-          accent: "#ff7a33",
-          anchor: "#22e0e8",
-          "panel-2": "#0f0622",
-          "line-strong": "#463070",
-          "muted-2": "#a99cc9",
-          "accent-dim": "#d9621f",
-          "anchor-soft": "#8ee9ee",
+          bg: "#0a0d14",
+          panel: "#11151f",
+          line: "#222a38",
+          text: "#eef2fa",
+          muted: "#aab4c6",
+          accent: "#3fd0d4",
+          anchor: "#ff5fa8",
+          "panel-2": "#0c0f17",
+          "line-strong": "#38455a",
+          "muted-2": "#98a4ba",
+          "accent-dim": "#2a9ba0",
+          "anchor-soft": "#ffa9cf",
           better: "#36e0b0",
-          worse: "#ff3d81",
-          tied: "#a99cc9",
+          worse: "#ff5c6e",
+          tied: "#98a4ba",
           mixed: "#b388ff",
-          "lane-reasoning-edge": "#9d6bff",
+          "lane-reasoning-edge": "#7c9fff",
           warn: "#ffb627",
           "warn-soft": "#ffd98a",
-          community: "#4ff0c4",
-          magenta: "#ff2e97",
-          purple: "#a64dff",
-          grid: "#3a1f6e",
+          community: "#4fe0c4",
+          magenta: "#ff5fa8",
+          purple: "#b388ff",
+          grid: "#243044",
         },
       },
       fontFamily: {

@@ -11,20 +11,20 @@
 }
 
 html {
-  background: #0a0418;
-  color: #f2ecff;
+  background: #0a0d14;
+  color: #eef2fa;
   letter-spacing: 0;
 }
 
 body {
   min-height: 100vh;
   margin: 0;
-  background: linear-gradient(180deg, #14062e 0%, #0d0322 44%, #07010f 100%);
+  background: linear-gradient(180deg, #0c0f17 0%, #0a0d14 52%, #06080d 100%);
 }
 
-/* Outrun retro sun: a striped sunset disc glowing behind the top of the page. Sits at z-index 0
-   (above the canvas, below the content which is lifted to z-index 10), so it reads in the header
-   and the page margins without ever touching the opaque data panels. */
+/* Outrun retro sun: a striped cool-sunset disc (cyan -> pink -> purple) glowing behind the top of the
+   page. Sits at z-index 0 (above the canvas, below the content which is lifted to z-index 10), so it
+   reads in the header and the page margins without ever touching the opaque data panels. */
 body::before {
   content: "";
   position: fixed;
@@ -35,15 +35,15 @@ body::before {
   transform: translateX(-50%);
   border-radius: 50%;
   background:
-    repeating-linear-gradient(to bottom, transparent 0 15px, rgba(10, 4, 24, 0.92) 15px 23px),
-    linear-gradient(180deg, #ffd23f 0%, #ff8a3d 30%, #ff2e97 64%, #a64dff 100%);
-  filter: blur(1px) saturate(1.2);
-  opacity: 0.52;
+    repeating-linear-gradient(to bottom, transparent 0 15px, rgba(10, 13, 20, 0.92) 15px 23px),
+    linear-gradient(180deg, #7fe6e6 0%, #3fd0d4 26%, #ff5fa8 64%, #b388ff 100%);
+  filter: blur(1px) saturate(1.1);
+  opacity: 0.42;
   z-index: 0;
   pointer-events: none;
 }
 
-/* Outrun floor: a neon grid in perspective, receding to a horizon at the bottom of the viewport. */
+/* Outrun floor: a neon cyan/pink grid in perspective, receding to a horizon at the viewport bottom. */
 body::after {
   content: "";
   position: fixed;
@@ -52,11 +52,11 @@ body::after {
   right: -25%;
   height: 50vh;
   background-image:
-    repeating-linear-gradient(to right, rgba(255, 122, 51, 0.6) 0 1px, transparent 1px 60px),
-    repeating-linear-gradient(to bottom, rgba(34, 224, 232, 0.55) 0 1px, transparent 1px 60px);
+    repeating-linear-gradient(to right, rgba(63, 208, 212, 0.55) 0 1px, transparent 1px 60px),
+    repeating-linear-gradient(to bottom, rgba(255, 95, 168, 0.5) 0 1px, transparent 1px 60px);
   transform: perspective(280px) rotateX(60deg);
   transform-origin: bottom center;
-  opacity: 0.26;
+  opacity: 0.2;
   -webkit-mask: linear-gradient(to top, #000 8%, transparent 82%);
   mask: linear-gradient(to top, #000 8%, transparent 82%);
   z-index: 0;
@@ -67,44 +67,44 @@ a {
   text-underline-offset: 3px;
 }
 
-/* Two-layer focus ring: a bright warm-yellow outline plus a dark separator, so focus stays visible
-   on dark panels AND on orange / magenta / purple / cyan neon controls. */
+/* Two-layer focus ring: a bright warm outline plus a dark separator, so focus stays visible on dark
+   panels AND on cyan / pink / purple neon controls. */
 :where(a, button, select, input, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid #ffd98a;
   outline-offset: 2px;
   box-shadow:
-    0 0 0 4px #0a0418,
+    0 0 0 4px #0a0d14,
     0 0 0 6px #ffd98a;
   border-radius: 0.25rem;
 }
 
 ::selection {
-  background: rgba(255, 122, 51, 0.3);
+  background: rgba(63, 208, 212, 0.3);
   color: #ffffff;
 }
 
 /* --- Synthwave utilities --- */
 
-/* Gradient neon heading: orange -> magenta -> bright purple, clipped to the text, with a soft glow. */
+/* Gradient neon heading: cyan -> pink -> purple, clipped to the text, with a soft glow. */
 .neon-heading {
-  background: linear-gradient(90deg, #ff7a33 0%, #ff2e97 50%, #b388ff 100%);
+  background: linear-gradient(90deg, #3fd0d4 0%, #ff5fa8 50%, #b388ff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 12px rgba(255, 46, 151, 0.3));
+  filter: drop-shadow(0 0 12px rgba(255, 95, 168, 0.28));
 }
 
 /* Soft neon edge glows for cards / interactive surfaces. */
 .neon-glow {
   box-shadow:
-    0 0 0 1px rgba(255, 122, 51, 0.22),
-    0 0 24px -6px rgba(255, 122, 51, 0.45);
+    0 0 0 1px rgba(63, 208, 212, 0.22),
+    0 0 24px -6px rgba(63, 208, 212, 0.45);
 }
 
 .neon-glow-magenta {
   box-shadow:
-    0 0 0 1px rgba(255, 46, 151, 0.22),
-    0 0 24px -6px rgba(255, 46, 151, 0.45);
+    0 0 0 1px rgba(255, 95, 168, 0.22),
+    0 0 24px -6px rgba(255, 95, 168, 0.45);
 }
 
 /* --- Accessibility fallbacks --- */
