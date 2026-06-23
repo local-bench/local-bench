@@ -11,15 +11,23 @@
 }
 
 html {
-  background: #0b0e14;
-  color: #eef4fb;
+  background: #0a0418;
+  color: #f2ecff;
   letter-spacing: 0;
 }
 
+/* Synthwave canvas: deep-indigo gradient + a faint perspective grid (cyan/purple) + a magenta sunset
+   glow on the horizon. The grid sits behind everything but only reads in the gaps, since panels are
+   opaque — so charts and numbers stay fully legible. */
 body {
   min-height: 100vh;
   margin: 0;
-  background: linear-gradient(180deg, #0b0e14 0%, #0d1118 52%, #090c11 100%);
+  background:
+    repeating-linear-gradient(to right, rgba(166, 77, 255, 0.05) 0 1px, transparent 1px 84px),
+    repeating-linear-gradient(to bottom, rgba(45, 226, 230, 0.04) 0 1px, transparent 1px 84px),
+    radial-gradient(125% 70% at 50% -15%, rgba(255, 46, 151, 0.12), transparent 60%),
+    linear-gradient(180deg, #0d0322 0%, #160a2e 46%, #0a0118 100%);
+  background-attachment: fixed;
 }
 
 a {
@@ -27,12 +35,35 @@ a {
 }
 
 :where(a, button, select, input, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
-  outline: 2px solid #32d2b4; /* bench-accent */
+  outline: 2px solid #22e0e8; /* bench-accent (neon cyan) */
   outline-offset: 2px;
   border-radius: 0.125rem;
 }
 
 ::selection {
-  background: rgba(50, 210, 180, 0.28);
+  background: rgba(34, 224, 232, 0.3);
   color: #ffffff;
+}
+
+/* --- Synthwave utilities --- */
+
+/* Gradient neon heading: cyan -> purple -> magenta clipped to the text. */
+.neon-heading {
+  background: linear-gradient(90deg, #22e0e8 0%, #b388ff 52%, #ff2e97 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft neon edge glows for cards / interactive surfaces. */
+.neon-glow {
+  box-shadow:
+    0 0 0 1px rgba(34, 224, 232, 0.22),
+    0 0 24px -6px rgba(34, 224, 232, 0.45);
+}
+
+.neon-glow-magenta {
+  box-shadow:
+    0 0 0 1px rgba(255, 46, 151, 0.22),
+    0 0 24px -6px rgba(255, 46, 151, 0.45);
 }

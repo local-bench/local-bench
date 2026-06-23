@@ -73,7 +73,7 @@ function AxisWhisker({
           style={{ left: `${lo}%`, width: `${Math.max(1, hi - lo)}%` }}
         />
         <div
-          className="absolute top-0 h-7 w-1 rounded-full bg-bench-accent shadow-[0_0_14px_rgba(50,210,180,0.65)]"
+          className="absolute top-0 h-7 w-1 rounded-full bg-bench-accent shadow-[0_0_14px_rgba(34,224,232,0.65)]"
           style={{ left: `${point}%` }}
         />
       </div>
