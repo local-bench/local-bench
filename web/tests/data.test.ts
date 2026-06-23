@@ -6,6 +6,7 @@ import {
   getModelStaticParams,
   getRunStaticParams,
 } from "../lib/data";
+import { splitLeaderboard } from "../lib/leaderboard";
 
 describe("static data access", () => {
   it("loads every catalog model as a score-less shell in the index", async () => {
@@ -44,6 +45,18 @@ describe("static data access", () => {
     expect(measured?.wall_time_seconds ?? 0).toBeGreaterThan(0);
     // Catalog shells omit the field -> undefined (the board renders "—" via formatDuration).
     expect(index.models.find((model) => model.slug === "qwen3-0-6b")?.wall_time_seconds).toBeUndefined();
+  });
+
+  it("splits the leaderboard so score-less shells never enter the ranked board", async () => {
+    const index = await getIndexData();
+    const { ranked, catalog } = splitLeaderboard(index.models);
+    // The ranked board is the measured, conformance-passing, capped-thinking headline scope.
+    expect(ranked.length).toBeGreaterThan(0);
+    expect(ranked.every((m) => m.composite !== null && m.ranked && m.lane === "capped-thinking")).toBe(true);
+    expect(ranked.some((m) => m.score_status === "missing")).toBe(false);
+    // The catalog view is only score-less shells; no measured row leaks in.
+    expect(catalog.length).toBeGreaterThan(0);
+    expect(catalog.every((m) => m.composite === null)).toBe(true);
   });
 
   it("keeps a catalog-only model as quant shells while measured runs add run-detail params", async () => {

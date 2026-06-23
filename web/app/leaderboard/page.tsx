@@ -1,3 +1,4 @@
+import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -6,9 +7,11 @@ import {
 } from "@/components/local-intelligence-index";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getIndexData } from "@/lib/data";
+import { splitLeaderboard } from "@/lib/leaderboard";
 
 export default async function LeaderboardPage() {
   const index = await getIndexData();
+  const { ranked, catalog } = splitLeaderboard(index.models);
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
@@ -28,20 +31,21 @@ export default async function LeaderboardPage() {
             <p className="font-mono text-xs uppercase text-bench-accent">
               {suiteLabel} / {index.index_version}
             </p>
-            <h2 className="mt-2 text-2xl font-semibold text-bench-text">Full leaderboard</h2>
+            <h2 className="mt-2 text-2xl font-semibold text-bench-text">Ranked board</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
               {axisCopy} The {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) appears only
               after a measured run attaches to a catalog model and quant. {LOCAL_INTELLIGENCE_INDEX_PROFILE}.
             </p>
           </div>
-          {/* Single table preserves sortable browsing; this caveat prevents sorted order being read as rank. */}
+          {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-warn/35 bg-bench-warn/[0.08] p-4 text-sm leading-6 text-bench-warn-soft">
-            <strong className="text-bench-warn">Quick tier = personal estimate, UNRANKED.</strong> Standard tier is
-            the only ranked board. Rows are sorted for browsing only, so a higher row is not a higher rank unless its
-            Rank cell is filled.
+            <strong className="text-bench-warn">Standard tier, capped-thinking lane only.</strong> Only measured,
+            conformance-passing local runs in this lane are ranked. Score-less catalog models are listed below,
+            never mixed into the rank.
           </div>
         </div>
-        <HomeLeaderboard models={index.models} />
+        <HomeLeaderboard models={ranked} />
+        <CatalogShells models={catalog} />
       </section>
     </main>
   );
