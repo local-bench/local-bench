@@ -1,5 +1,4 @@
 import { formatCoreTextAxisProfile } from "@/components/local-intelligence-index";
-import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { formatGb, formatScore } from "@/lib/format";
 import { familyStyle } from "@/lib/family-color";
 import type { AnchorReference } from "@/lib/data";
@@ -183,7 +182,7 @@ export function BestVariantVramScatter({
             fontSize="12"
             textAnchor="middle"
           >
-            effective VRAM to run · {formatContextLength(DEFAULT_CONTEXT_TOKENS)} context (GB, log scale)
+            effective VRAM to run (GB, log scale)
           </text>
           <text
             x="18"
