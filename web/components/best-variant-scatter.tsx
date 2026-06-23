@@ -224,13 +224,13 @@ function scaleY(value: number): number {
 function getLogDomain(points: readonly BestVariantPoint[]): Domain {
   const values = points.map((point) => point.effectiveVramGb).filter((value) => value > 0);
   if (values.length === 0) {
-    return { min: 8, max: 96 };
+    return { min: 8, max: 256 };
   }
-  // Snap the max out to at least the next GPU tier (never below 24 GB) so the rig-tier markers stay
-  // on the chart even when the first measured ladder is all small models.
+  // Always extend the axis out to at least 256 GB so big-VRAM rigs and large models have visible
+  // headroom (e.g. a 192 GB workstation), and let it grow past 256 if a measured model needs more.
   const padded = Math.max(...values) * 1.3;
   const snapped = X_TIERS.find((tier) => tier >= padded) ?? padded;
-  return { min: Math.max(0.5, Math.min(...values) / 1.3), max: Math.max(24, snapped) };
+  return { min: Math.max(0.5, Math.min(...values) / 1.3), max: Math.max(256, snapped) };
 }
 
 function scaleX(value: number, domain: Domain): number {
