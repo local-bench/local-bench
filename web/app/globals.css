@@ -24,7 +24,7 @@ body {
   margin: 0;
   background:
     repeating-linear-gradient(to right, rgba(166, 77, 255, 0.05) 0 1px, transparent 1px 84px),
-    repeating-linear-gradient(to bottom, rgba(45, 226, 230, 0.04) 0 1px, transparent 1px 84px),
+    repeating-linear-gradient(to bottom, rgba(255, 122, 51, 0.05) 0 1px, transparent 1px 84px),
     radial-gradient(125% 70% at 50% -15%, rgba(255, 46, 151, 0.12), transparent 60%),
     linear-gradient(180deg, #0d0322 0%, #160a2e 46%, #0a0118 100%);
   background-attachment: fixed;
@@ -35,13 +35,13 @@ a {
 }
 
 :where(a, button, select, input, textarea, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
-  outline: 2px solid #22e0e8; /* bench-accent (neon cyan) */
+  outline: 2px solid #ff7a33; /* bench-accent (neon orange) */
   outline-offset: 2px;
   border-radius: 0.125rem;
 }
 
 ::selection {
-  background: rgba(34, 224, 232, 0.3);
+  background: rgba(255, 122, 51, 0.3);
   color: #ffffff;
 }
 
@@ -49,7 +49,7 @@ a {
 
 /* Gradient neon heading: cyan -> purple -> magenta clipped to the text. */
 .neon-heading {
-  background: linear-gradient(90deg, #22e0e8 0%, #b388ff 52%, #ff2e97 100%);
+  background: linear-gradient(90deg, #ff7a33 0%, #ff2e97 50%, #a64dff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -58,8 +58,8 @@ a {
 /* Soft neon edge glows for cards / interactive surfaces. */
 .neon-glow {
   box-shadow:
-    0 0 0 1px rgba(34, 224, 232, 0.22),
-    0 0 24px -6px rgba(34, 224, 232, 0.45);
+    0 0 0 1px rgba(255, 122, 51, 0.22),
+    0 0 24px -6px rgba(255, 122, 51, 0.45);
 }
 
 .neon-glow-magenta {
