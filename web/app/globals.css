@@ -16,18 +16,50 @@ html {
   letter-spacing: 0;
 }
 
-/* Synthwave canvas: deep-indigo gradient + a faint perspective grid (cyan/purple) + a magenta sunset
-   glow on the horizon. The grid sits behind everything but only reads in the gaps, since panels are
-   opaque — so charts and numbers stay fully legible. */
 body {
   min-height: 100vh;
   margin: 0;
+  background: linear-gradient(180deg, #14062e 0%, #0d0322 44%, #07010f 100%);
+}
+
+/* Outrun retro sun: a striped sunset disc glowing behind the top of the page. Fixed + low-opacity +
+   behind everything, so it only suffuses the header/margins and never touches the data panels. */
+body::before {
+  content: "";
+  position: fixed;
+  top: -7%;
+  left: 50%;
+  width: min(560px, 82vw);
+  height: min(560px, 82vw);
+  transform: translateX(-50%);
+  border-radius: 50%;
   background:
-    repeating-linear-gradient(to right, rgba(166, 77, 255, 0.05) 0 1px, transparent 1px 84px),
-    repeating-linear-gradient(to bottom, rgba(255, 122, 51, 0.05) 0 1px, transparent 1px 84px),
-    radial-gradient(125% 70% at 50% -15%, rgba(255, 46, 151, 0.12), transparent 60%),
-    linear-gradient(180deg, #0d0322 0%, #160a2e 46%, #0a0118 100%);
-  background-attachment: fixed;
+    repeating-linear-gradient(to bottom, transparent 0 15px, rgba(10, 4, 24, 0.92) 15px 23px),
+    linear-gradient(180deg, #ffd23f 0%, #ff8a3d 30%, #ff2e97 64%, #a64dff 100%);
+  filter: blur(1px) saturate(1.15);
+  opacity: 0.4;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Outrun floor: a neon grid in perspective, receding to a horizon at the bottom of the viewport. */
+body::after {
+  content: "";
+  position: fixed;
+  bottom: 0;
+  left: -25%;
+  right: -25%;
+  height: 46vh;
+  background-image:
+    repeating-linear-gradient(to right, rgba(255, 122, 51, 0.55) 0 1px, transparent 1px 62px),
+    repeating-linear-gradient(to bottom, rgba(34, 224, 232, 0.5) 0 1px, transparent 1px 62px);
+  transform: perspective(300px) rotateX(60deg);
+  transform-origin: bottom center;
+  opacity: 0.17;
+  -webkit-mask: linear-gradient(to top, #000 6%, transparent 80%);
+  mask: linear-gradient(to top, #000 6%, transparent 80%);
+  z-index: -2;
+  pointer-events: none;
 }
 
 a {
@@ -47,12 +79,13 @@ a {
 
 /* --- Synthwave utilities --- */
 
-/* Gradient neon heading: cyan -> purple -> magenta clipped to the text. */
+/* Gradient neon heading: orange -> magenta -> purple, clipped to the text, with a soft glow. */
 .neon-heading {
   background: linear-gradient(90deg, #ff7a33 0%, #ff2e97 50%, #a64dff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  filter: drop-shadow(0 0 12px rgba(255, 46, 151, 0.3));
 }
 
 /* Soft neon edge glows for cards / interactive surfaces. */

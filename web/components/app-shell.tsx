@@ -16,7 +16,7 @@ export function AppShell({
       <header className="sticky top-0 z-20 border-b border-bench-line bg-bench-bg/85 backdrop-blur">
         <nav className="mx-auto flex w-full max-w-[1480px] items-center justify-between gap-4 px-5 py-3 lg:px-8">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-            <Link href="/" className="font-semibold text-bench-text hover:text-bench-accent">
+            <Link href="/" className="neon-heading text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
               local-bench
             </Link>
             <div className="flex flex-wrap gap-4 text-sm text-bench-muted">
