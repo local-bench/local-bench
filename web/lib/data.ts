@@ -160,6 +160,7 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
     tier: run.tier,
     tokS: run.tok_s,
     latencySMedian: run.latency_s_median ?? null,
+    wallTimeSeconds: run.wall_time_seconds ?? null,
     vramFootprintGb: run.vram_footprint_gb,
     vramRequiredGb8k: run.vram_required_gb_8k ?? null,
   };

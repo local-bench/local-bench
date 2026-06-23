@@ -154,6 +154,7 @@ function candidate(
     scoreStatus: "measured",
     tokS,
     latencySMedian: null,
+    wallTimeSeconds: null,
     vramFootprintGb,
     vramRequiredGb8k: null,
   };

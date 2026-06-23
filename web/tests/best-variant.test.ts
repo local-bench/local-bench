@@ -22,6 +22,7 @@ function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidat
     vramFootprintGb: 8,
     vramRequiredGb8k: 10,
     latencySMedian: 13.2,
+    wallTimeSeconds: 4200,
     ...overrides,
   };
 }
@@ -64,5 +65,11 @@ describe("selectBestVariantPoints", () => {
     const points = selectBestVariantPoints([candidate()]);
     expect(points).toHaveLength(1);
     expect(points[0]!.latencySMedian).toBe(13.2);
+  });
+
+  it("carries total bench time onto the best-variant point", () => {
+    const points = selectBestVariantPoints([candidate()]);
+    expect(points).toHaveLength(1);
+    expect(points[0]!.wallTimeSeconds).toBe(4200);
   });
 });

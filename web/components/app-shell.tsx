@@ -20,9 +20,6 @@ export function AppShell({
               local-bench
             </Link>
             <div className="flex flex-wrap gap-4 text-sm text-bench-muted">
-              <Link href="/" className="hover:text-bench-text">
-                Leaderboard
-              </Link>
               <Link href="/leaderboard" className="hover:text-bench-text">
                 Full board
               </Link>
