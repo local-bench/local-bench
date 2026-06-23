@@ -3,10 +3,12 @@ import { join } from "node:path";
 import type { ZodType } from "zod";
 import type { AxisKey } from "./axis-config";
 import {
+  CatalogSchema,
   IndexDataSchema,
   ModelDataSchema,
   RunDetailSchema,
   type AxisScore,
+  type CatalogModel,
   type IndexData,
   type ModelData,
   type ModelRun,
@@ -14,6 +16,7 @@ import {
   type Score,
 } from "./schemas";
 import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
+import type { OnrampCatalogModel } from "./onramp";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 
@@ -80,6 +83,38 @@ export async function getModelData(slug: string): Promise<ModelDataWithConfigure
 export async function getRunData(runId: string): Promise<RunDetailWithConfiguredAxes> {
   const run = await readJson(["runs", `${runId}.json`], RunDetailSchema);
   return run as RunDetailWithConfiguredAxes;
+}
+
+function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
+  const paramsB =
+    typeof raw.params_b === "number" ? raw.params_b : raw.params_b ? raw.params_b.total_b ?? null : null;
+  return {
+    id: raw.id,
+    slug: raw.slug,
+    displayName: raw.display_name,
+    family: raw.family ?? "",
+    org: raw.org ?? "",
+    paramsB,
+    reasoningCapable: raw.reasoning_capable ?? false,
+    license: raw.license ?? "",
+    ggufRepo: raw.gguf_repo ?? null,
+    downloads: raw.popularity?.downloads ?? 0,
+    quants: raw.quants.map((quant) => ({
+      label: quant.label,
+      vramGb8k: quant.vram_gb_8k ?? null,
+      fileGb: quant.file_gb ?? null,
+      bpw: quant.bpw ?? null,
+    })),
+  };
+}
+
+// Reads model_catalog.json (one level above public/data) at build time and trims it to the fields the
+// on-ramp picker needs. No build_data.py change required — the catalog already ships in the repo.
+export async function getOnrampCatalog(): Promise<readonly OnrampCatalogModel[]> {
+  const file = await readFile(join(process.cwd(), "model_catalog.json"), "utf8");
+  const parsed: unknown = JSON.parse(file);
+  const catalog = CatalogSchema.parse(parsed);
+  return catalog.filter((raw) => raw.quants.length > 0).map(toOnrampModel);
 }
 
 type MeasuredModelRunWithConfiguredAxes = ModelRunWithConfiguredAxes & {

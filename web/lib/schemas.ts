@@ -211,3 +211,39 @@ export type RunDetail = z.infer<typeof RunDetailSchema>;
 export type RuntimeSummary = z.infer<typeof RuntimeSchema>;
 export type HardwareSummary = z.infer<typeof HardwareSchema>;
 export type PrimitiveRecord = z.infer<typeof PrimitiveRecordSchema>;
+
+// Raw shape of model_catalog.json (the on-ramp picker source). Tolerant by design — the catalog is
+// large and varied, so unknown keys pass through and most fields are optional/nullable.
+const CatalogQuantSchema = z
+  .object({
+    label: z.string(),
+    bpw: z.number().nullable().optional(),
+    file_gb: z.number().nullable().optional(),
+    vram_gb_8k: z.number().nullable().optional(),
+  })
+  .passthrough();
+
+const CatalogModelSchema = z
+  .object({
+    id: z.string(),
+    slug: z.string(),
+    display_name: z.string(),
+    family: z.string().nullable().optional(),
+    org: z.string().nullable().optional(),
+    params_b: z
+      .union([
+        z.number(),
+        z.object({ total_b: z.number().nullable().optional(), active_b: z.number().nullable().optional() }).passthrough(),
+      ])
+      .nullable()
+      .optional(),
+    reasoning_capable: z.boolean().nullable().optional(),
+    license: z.string().nullable().optional(),
+    popularity: z.object({ downloads: z.number().nullable().optional() }).passthrough().nullable().optional(),
+    gguf_repo: z.string().nullable().optional(),
+    quants: z.array(CatalogQuantSchema),
+  })
+  .passthrough();
+
+export const CatalogSchema = z.array(CatalogModelSchema);
+export type CatalogModel = z.infer<typeof CatalogModelSchema>;

@@ -9,6 +9,7 @@ import {
   reasoningActivationFor,
   type OnrampCatalogModel,
 } from "../lib/onramp";
+import { getOnrampCatalog } from "../lib/data";
 
 function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel {
   return {
@@ -149,5 +150,21 @@ describe("buildRecipe", () => {
     const recipe = buildRecipe({ model: model({ family: "Mystery", org: "Acme" }), quant: model().quants[2]!, runtime: ollama });
     expect(recipe.activationConfident).toBe(false);
     expect(recipe.activation).toBe("qwen3");
+  });
+});
+
+describe("getOnrampCatalog", () => {
+  it("loads the real catalog and trims it to on-ramp models", async () => {
+    const catalog = await getOnrampCatalog();
+    expect(catalog.length).toBeGreaterThan(50);
+    for (const entry of catalog) {
+      expect(entry.id).toBeTruthy();
+      expect(entry.slug).toBeTruthy();
+      expect(entry.quants.length).toBeGreaterThan(0);
+    }
+    const qwen = catalog.find((entry) => entry.slug === "qwen3-8b");
+    expect(qwen).toBeDefined();
+    expect(qwen?.ggufRepo).toBeTruthy();
+    expect(qwen?.quants.some((quant) => quant.label === "Q4_K_M")).toBe(true);
   });
 });
