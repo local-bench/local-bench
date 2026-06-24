@@ -16,10 +16,11 @@
       "asr": 0.145833,
       "asr_pct": 14.58,
       "asr_series": [
+        0.145833,
         0.145833
       ],
-      "label": "qwen36-27b-Q4_K_M",
-      "n_runs": 1,
+      "label": "qwen36-27b-Q6_K",
+      "n_runs": 2,
       "n_tasks": 96
     }
   },

@@ -647,6 +647,12 @@
       "contamination_label": "unverified",
       "est_cost_usd": null,
       "family": "Gemma 4",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
       "kind": "community",
       "lane": "capped-thinking",
       "latency_s_median": 43.744,
@@ -1906,6 +1912,12 @@
       "contamination_label": "unverified",
       "est_cost_usd": null,
       "family": "Qwen3.6",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
       "kind": "community",
       "lane": "capped-thinking",
       "latency_s_median": 24.258,

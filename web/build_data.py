@@ -123,15 +123,16 @@ def _board_ranked_by_slug() -> dict[str, JsonObject]:
     return {slug: model for model in _list(board.get("models"), f"{BOARD_PATH}:models") for model in [_object(model, f"{BOARD_PATH}:model")] if _bool(model.get("ranked"), "board.model.ranked") and (slug := _text(model.get("slug")))}
 
 
-def _apply_board_intervals(slug: str, axes: JsonObject, composite_interval: JsonObject, board: dict[str, JsonObject]) -> None:
-    """For a ranked board row, replace the web build's RE-DERIVED composite and headline-axis
-    intervals with the board's verbatim values (the six interval fields). Mutates `axes` and
-    `composite_interval` in place; both are the shared objects that flow into detail/model_row/
-    index_row, so the override propagates to all three. Every other field (n, raw_accuracy,
-    termination_rate, ...) and all non-ranked/demo handling are left untouched. A reader who
-    recomputes from board_v1.json must get exactly the error bars the site shows."""
+def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_interval: JsonObject, board: dict[str, JsonObject]) -> None:
+    """For the BEST-VARIANT run of a ranked board row, replace the web build's RE-DERIVED
+    composite and headline-axis intervals with the board's verbatim values (the six interval
+    fields). Scoped to the board's `best_run_id`: the leaderboard headline (= the best variant)
+    stays board-exact for recompute parity, while every OTHER quant of the model keeps its own
+    re-derived per-quant score, so the model-page quant ladder differentiates quants instead of
+    stamping the best variant's number on every row. Mutates `axes` and `composite_interval` in
+    place. No-op for non-ranked rows and for the non-best-variant runs of a ranked model."""
     board_model = board.get(slug)
-    if board_model is None:
+    if board_model is None or run_id != _text(board_model.get("best_run_id")):
         return
     composite_interval.update(_board_interval(_object(board_model.get("composite"), f"board.{slug}.composite")))
     board_axes = _object(board_model.get("axes"), f"board.{slug}.axes")
@@ -176,11 +177,13 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     summary = _manifest_summary(source, manifest, lane, quant)
     axes, axis_warnings = build_axes(source_benches, values, strata, no_answer, iters, benches)
     composite = build_composite(run, axes, benches, weights)
-    # Pure-renderer override: for rows the board ranks, swap the re-bootstrapped composite and
-    # headline-axis intervals for the board's verbatim values (mutates the shared axes/composite
-    # objects in place, so detail/model_row/index_row all carry the board's bounds). No-op for
-    # unranked rows, which keep the web build's intervals. See _apply_board_intervals.
-    _apply_board_intervals(slug, axes, _object(composite["interval"], "composite.interval"), board)
+    # Pure-renderer override: for the BEST-VARIANT run of a board-ranked model, swap the
+    # re-bootstrapped composite and headline-axis intervals for the board's verbatim values
+    # (mutates the shared axes/composite objects in place). Scoped to best_run_id so the
+    # leaderboard headline is board-exact while the model-page quant ladder keeps each quant's
+    # own re-derived score. No-op for unranked rows and non-best-variant quants. See
+    # _apply_board_intervals.
+    _apply_board_intervals(slug, run_id, axes, _object(composite["interval"], "composite.interval"), board)
     detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(benches, weights))}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard" and conformance_status == "headline-comparable", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "score_status": "measured", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
