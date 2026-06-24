@@ -106,6 +106,10 @@ Reads `web/data_sources.json` (+ `web/model_catalog.json`) → `web/public/data/
 Local Intelligence Index (`v1 · Core Text (Knowledge + Instruction)`) weights come from the single registry
 (`localbench.scoring.axes`); no weights are hardcoded in the web build.
 
+**One-command wrapper.** `scripts\build-site.ps1` regenerates the data and then runs the gates +
+static build in one step (`-DataOnly` to just refresh data for the dev server). The immutable board
+re-cut (`localbench board`) and the deploy (`scripts\deploy-site.ps1`) stay separate, deliberate steps.
+
 **Experimental Agentic column (separate, 0% Index weight).** `web/build_data.py` also runs the
 agentic aggregation as a final, additive step that writes only `web/public/data/agentic.json` — it
 reads the AppWorld-C funnel runs in `cli/runs/agentic/*.scored.run*.json`, averages each model's
