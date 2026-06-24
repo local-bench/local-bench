@@ -2,7 +2,7 @@ import { readModelData } from "./data";
 import { capturePage, expect, test, visitRoute } from "./fixtures";
 
 const MODEL_CASES = [
-  { slug: "gemma-3-27b", screenshotName: "model-gemma-3-27b" },
+  { slug: "gemma-3-27b-it", screenshotName: "model-gemma-3-27b-it" },
   { slug: "qwen3-6-27b", screenshotName: "model-qwen3-6-27b" },
   { slug: "qwen3-32b", screenshotName: "model-qwen3-32b" },
 ] as const;
