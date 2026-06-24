@@ -1,0 +1,19 @@
+{
+  "files": {
+    "ifbench.jsonl": {
+      "item_count": 294,
+      "license": "ODC-BY-1.0",
+      "license_note": "Dataset terms per v1 distribution plan: ODC-BY-1.0, Ai2 Responsible Use Guidelines, and third-party generated-output caveat.",
+      "sha256": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+      "source_dataset": "allenai/IFBench_test",
+      "source_revision": "2e8a48de45ff3bf41242f927254ca81b59ca3ae2"
+    },
+    "mmlu_pro.jsonl": {
+      "item_count": 400,
+      "license": "MIT",
+      "sha256": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+      "source_dataset": "TIGER-Lab/MMLU-Pro",
+      "source_revision": "b189ec765aa7ed75c8acfea42df31fdae71f97be"
+    }
+  }
+}

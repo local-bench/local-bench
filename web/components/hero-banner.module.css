@@ -1,0 +1,335 @@
+/* Animated hero banner — CSS-first, server-rendered.
+ *
+ * Non-negotiables baked into this file:
+ *   - The STATIC final state (logo + tagline) is the DEFAULT. All intro motion lives behind
+ *     @media (prefers-reduced-motion: no-preference), so reduced-motion users get no streaming /
+ *     pulsing / reveal — they see the settled logo immediately.
+ *   - Only opacity / transform / clip-path are animated (no layout-affecting properties, no blur
+ *     intensity), and `min-height` reserves the box so the chart below never shifts (zero CLS).
+ *   - The animation plays once per mount and settles — there is no loop.
+ *
+ * Bench tokens (mirrors tailwind.config.ts): bg #0a0d14, panel #11151f, line #222a38, text #eef2fa,
+ * muted #aab4c6, accent cyan #3fd0d4, pink #ff5fa8, purple #b388ff; mono = var(--font-mono).
+ */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: clamp(18rem, 31vw, 28rem);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(34, 42, 56, 0.96);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(63, 208, 212, 0.13), transparent 34%),
+    radial-gradient(circle at 80% 30%, rgba(255, 95, 168, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(17, 21, 31, 0.92), rgba(10, 13, 20, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(63, 208, 212, 0.14),
+    0 24px 90px -50px rgba(63, 208, 212, 0.6);
+}
+
+.panelGrid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(63, 208, 212, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 95, 168, 0.1) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 0 38%, transparent 74%);
+  mask-image: radial-gradient(circle at 50% 42%, #000 0 38%, transparent 74%);
+}
+
+.finalMark {
+  position: relative;
+  z-index: 3;
+  max-width: 56rem;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.logo {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(3.4rem, 9vw, 8.5rem);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.08em;
+}
+
+.tagline {
+  margin: 1.15rem auto 0;
+  max-width: 40rem;
+  color: #aab4c6;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+.thinking {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-mono);
+  color: #aab4c6;
+  /* DEFAULT (static / reduced-motion): the intro indicator is not shown — only the settled mark. */
+  opacity: 0;
+}
+
+.core {
+  position: relative;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid rgba(63, 208, 212, 0.86);
+  border-radius: 0.35rem;
+  box-shadow: 0 0 18px rgba(63, 208, 212, 0.28);
+}
+
+.core::before,
+.core::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.45rem;
+  height: 1px;
+  background: rgba(255, 95, 168, 0.78);
+  transform: translateY(-50%);
+}
+
+.core::before {
+  right: 100%;
+}
+
+.core::after {
+  left: 100%;
+}
+
+.thinkingText {
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.caret {
+  color: #ff5fa8;
+}
+
+.stream {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: clamp(1.5rem, 4vw, 4rem);
+  font-family: var(--font-mono);
+  font-size: clamp(0.72rem, 1.35vw, 0.98rem);
+  color: rgba(238, 242, 250, 0.74);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+  /* DEFAULT (static / reduced-motion): no trace shown — the rows are hidden until motion opts in. */
+  opacity: 0;
+}
+
+.streamRow {
+  margin: 0;
+  opacity: 0;
+  transform: translateY(-0.75rem);
+  text-shadow: 0 0 16px rgba(63, 208, 212, 0.18);
+}
+
+.streamRow:nth-child(3n) {
+  color: rgba(63, 208, 212, 0.78);
+}
+
+.streamRow:nth-child(3n + 1) {
+  color: rgba(255, 95, 168, 0.68);
+}
+
+.streamRow:nth-child(3n + 2) {
+  color: rgba(179, 136, 255, 0.72);
+}
+
+/* ---- Motion (opt-in only) ---------------------------------------------------------------------
+ * Everything below runs ONLY when the user has not asked to reduce motion. The final mark animates
+ * from hidden to visible via clip-path + opacity, so even mid-animation the DOM logo is the same
+ * real <h1>. After the single pass it rests at the settled (default-visible) state.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .thinking {
+    animation: hero-thinking 4.7s ease both;
+  }
+  .core {
+    animation: hero-core-pulse 0.72s ease-in-out 2 both;
+  }
+  .core::before,
+  .core::after {
+    animation: hero-core-gesture 0.36s steps(2, end) 3 both;
+  }
+  .caret {
+    animation: hero-caret-blink 0.28s steps(1, end) 5 both;
+  }
+  .stream {
+    animation: hero-stream-plane 4.7s ease both;
+  }
+  .streamRow {
+    animation: hero-stream-row 2.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(1.28s + (var(--row) * 95ms));
+  }
+  .finalMark {
+    animation: hero-final-mark 4.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .logo {
+    animation: hero-logo-resolve 4.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes hero-thinking {
+  0%,
+  5% {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+  10%,
+  31% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  39%,
+  100% {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+@keyframes hero-core-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 16px rgba(63, 208, 212, 0.22);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 26px rgba(63, 208, 212, 0.42);
+  }
+}
+
+@keyframes hero-core-gesture {
+  0%,
+  100% {
+    transform: translateY(-50%) scaleX(0.8);
+    opacity: 0.55;
+  }
+  50% {
+    transform: translateY(-50%) scaleX(1.35);
+    opacity: 1;
+  }
+}
+
+@keyframes hero-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes hero-stream-plane {
+  0%,
+  25% {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+  32%,
+  68% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@keyframes hero-stream-row {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.8rem);
+  }
+  18%,
+  70% {
+    opacity: 0.86;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(1.1rem);
+  }
+}
+
+@keyframes hero-final-mark {
+  0%,
+  70% {
+    opacity: 0;
+    transform: translateY(0.45rem) scale(0.985);
+  }
+  84%,
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hero-logo-resolve {
+  0%,
+  72% {
+    clip-path: inset(0 50% 0 50%);
+  }
+  90%,
+  100% {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ---- Accessibility fallbacks ------------------------------------------------------------------ */
+
+/* Reduced motion: the decorative intro layers are removed entirely; the default-visible mark stays. */
+@media (prefers-reduced-motion: reduce) {
+  .thinking,
+  .stream {
+    display: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .hero {
+    box-shadow: none;
+  }
+  .panelGrid {
+    opacity: 0.1;
+  }
+}
+
+@media (forced-colors: active) {
+  .hero {
+    border-color: CanvasText;
+    background: Canvas;
+    box-shadow: none;
+  }
+  .panelGrid,
+  .thinking,
+  .stream {
+    display: none;
+  }
+  .tagline {
+    color: CanvasText;
+  }
+}

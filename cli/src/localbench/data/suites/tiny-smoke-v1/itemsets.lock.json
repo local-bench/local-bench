@@ -1,0 +1,12 @@
+{
+  "files": {
+    "mmlu_pro.jsonl": {
+      "item_count": 1,
+      "sha256": "3876e0f965e43ef25d228958ac3dce028574b6f23366dc65a072146110c4e58e"
+    },
+    "ifbench.jsonl": {
+      "item_count": 1,
+      "sha256": "879199a6a9c5dc36c7c23adb58c092dc2c97717e62a82b6966e9a2e2e735cde0"
+    }
+  }
+}

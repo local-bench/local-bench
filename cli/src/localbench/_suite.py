@@ -206,6 +206,9 @@ def _template(
     bench: str,
     warnings: list[str],
 ) -> str | None:
+    inline_template = _string(bench_config.get("template_text"))
+    if inline_template is not None:
+        return inline_template
     template_name = _string(bench_config.get("template"))
     if template_name is None:
         warnings.append(f"Skipping {bench}: template is not configured")

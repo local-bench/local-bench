@@ -104,6 +104,12 @@ export const IndexModelSchema = z.object({
   est_cost_usd: z.number().nullable(),
   latency_s_median: z.number().nullable().optional(),
   wall_time_seconds: z.number().nullable().optional(),
+  // GPU that produced the best run (lifted onto the board row from the run hardware). null for
+  // catalog shells / API anchors. Only the compact name + VRAM are shown in the Hardware column.
+  gpu: GpuSchema.nullable().optional(),
+  // V2 stub: who submitted the top run (community submissions). Absent in v1 (maintainer-only,
+  // anonymous), so the User column renders a neutral placeholder.
+  submitted_by: z.string().nullable().optional(),
   replicated: z.boolean(),
   score_status: ScoreStatusSchema.optional().default("measured"),
   demo: DemoFlagSchema,
@@ -114,6 +120,26 @@ export const IndexDataSchema = z.object({
   suite_version: z.string().nullable(),
   index_version: z.string(),
   models: z.array(IndexModelSchema),
+});
+
+// EXPERIMENTAL "Agentic" column data — a SEPARATE read from web/public/data/agentic.json
+// (built by web/build_agentic.py). It is NOT folded into the Index/composite and never flows
+// through the board/scorecard pipeline; the leaderboard joins it to each row by slug and shows
+// the AppWorld-C interactive API-coding ASR as a 0%-Index-weight preview column.
+export const AgenticModelSchema = z.object({
+  asr: z.number(),
+  asr_pct: z.number(),
+  n_tasks: z.number(),
+  n_runs: z.number(),
+  asr_series: z.array(z.number()),
+  label: z.string(),
+});
+
+export const AgenticDataSchema = z.object({
+  schema: z.string(),
+  generated_note: z.string(),
+  as_of: z.string().nullable(),
+  models: z.record(z.string(), AgenticModelSchema),
 });
 
 export const ModelRunSchema = z.object({
@@ -205,6 +231,8 @@ export type Kind = z.infer<typeof KindSchema>;
 export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
 export type IndexData = z.infer<typeof IndexDataSchema>;
 export type IndexModel = z.infer<typeof IndexModelSchema>;
+export type AgenticModel = z.infer<typeof AgenticModelSchema>;
+export type AgenticData = z.infer<typeof AgenticDataSchema>;
 export type ModelData = z.infer<typeof ModelDataSchema>;
 export type ModelRun = z.infer<typeof ModelRunSchema>;
 export type RunDetail = z.infer<typeof RunDetailSchema>;

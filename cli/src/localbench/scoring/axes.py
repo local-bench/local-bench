@@ -66,6 +66,10 @@ AXES: Final[tuple[Axis, ...]] = (
          ("olymmath_hard", "amo"), ("genmath",), "candidate", 0.0, True),
     Axis("long_context", "Long-Context", "long_context",
          ("ruler_32k",), (), "candidate", 0.0, False),
+    # agentic_exec_appworld_lite_v0 harness is BUILT (scoring/agentic_exec/) but deliberately
+    # NOT registered here until its AppWorld bench is wired into suite-v1 with a frozen
+    # scorer_version + real items (register-only-what-we-measure; keeps the registry<->suite
+    # drift gate green). Re-add this Axis when the agentic data lands.
     Axis("agentic", "Agentic", "agentic",
          ("bfcl", "bfcl_multi_turn"), (), "experimental", 0.0, True),
     # STATIC judge-free coding proxy (LCB output-prediction) — experimental/gameable. The

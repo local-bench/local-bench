@@ -6,11 +6,11 @@ import {
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AXIS_CONFIG } from "@/lib/axis-config";
-import { getIndexData } from "@/lib/data";
+import { getAgenticBySlug, getIndexData } from "@/lib/data";
 import { splitLeaderboard } from "@/lib/leaderboard";
 
 export default async function LeaderboardPage() {
-  const index = await getIndexData();
+  const [index, agenticBySlug] = await Promise.all([getIndexData(), getAgenticBySlug()]);
   const { ranked, catalog } = splitLeaderboard(index.models);
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
@@ -44,7 +44,7 @@ export default async function LeaderboardPage() {
             never mixed into the rank.
           </div>
         </div>
-        <HomeLeaderboard models={ranked} />
+        <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
         <CatalogShells models={catalog} />
       </section>
     </main>

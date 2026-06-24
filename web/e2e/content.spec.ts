@@ -4,8 +4,9 @@ test("methodology explains scoring uncertainty and links back home", async ({ pa
   await visitRoute(page, "/methodology");
 
   await expect(page.getByRole("heading", { name: "How local-bench scores runs" })).toBeVisible();
-  await expect(page.getByText(/bootstrap CIs make uncertainty visible/i)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Absolute chance-corrected normalization" })).toBeVisible();
+  await expect(page.getByText(/every displayed score carries a bootstrap confidence interval/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What the headline Index is — and is not" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Frozen as of/i })).toBeVisible();
   await capturePage(page, "content-methodology");
 
   await page.getByRole("link", { name: "Back to leaderboard" }).click();

@@ -27,8 +27,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
-from typing import Final
+from dataclasses import dataclass
+from typing import Final, assert_never
 
 import httpx
 
@@ -48,17 +50,40 @@ from localbench._types import (
     ParsedCompletion,
     Usage,
 )
-from localbench.prompt_rendering import PromptRenderer
+from localbench.prompt_rendering import PromptRenderer, ReasoningActivation
 
 # The locked methodology thinking budget for the capped-thinking lane.
 CAPPED_THINKING_THINK_BUDGET: Final = 8192
 _MIN_ANSWER_BUDGET: Final = 1024
-_DEFAULT_ANSWER_BUDGET: Final = 4096
 _IM_END: Final = "<|im_end|>"
 # Sampling keys that must never be forwarded into a /completions body verbatim.
-_FORCING_OMIT_KEYS: Final = frozenset(
-    {"max_tokens", "chat_template_kwargs", "thinking_budget", "reasoning_effort", "stop"},
+_FORCING_OMIT_KEYS: Final = frozenset({"max_tokens", "chat_template_kwargs", "thinking_budget", "reasoning_effort", "stop"})
+
+
+@dataclass(frozen=True, slots=True)
+class ForcingFormat:
+    close: str
+    forced_close: str
+    answer_stop: tuple[str, ...]
+    reasoning_open: str | None = None
+    reparse: str | None = None
+
+
+QWEN_FORCING: Final = ForcingFormat("</think>", "\n</think>\n\n", ("<|im_end|>",))
+GEMMA4_FORCING: Final = ForcingFormat(
+    "<channel|>", "\n<channel|>", ("<turn|>",), "<|channel>thought\n",
+    r"(?s)<\|channel>thought\n(.*?)<channel\|>",
 )
+
+
+def forcing_format_for_activation(activation: ReasoningActivation) -> ForcingFormat:
+    match activation:
+        case "gemma4":
+            return GEMMA4_FORCING
+        case "qwen3" | "granite" | "nemotron" | "r1":
+            return QWEN_FORCING
+        case unreachable:
+            assert_never(unreachable)
 
 
 class _ForcedStatus(Exception):
@@ -84,8 +109,8 @@ def render_qwen3_chat_prompt(messages: list[ChatMessage]) -> str:
 def answer_budget_for(item: BenchmarkItem, think_budget: int) -> int:
     """Tokens left for the forced answer after the thinking budget, with a floor."""
     total_cap = item.get("max_tokens")
-    if not isinstance(total_cap, int):
-        total_cap = think_budget + _DEFAULT_ANSWER_BUDGET
+    if not isinstance(total_cap, int) or isinstance(total_cap, bool):
+        raise ValueError("ranked capped-thinking forcing requires integer max_tokens")
     return max(total_cap - think_budget, _MIN_ANSWER_BUDGET)
 
 
@@ -100,6 +125,7 @@ async def run_forced_item(
     max_attempts: int,
     backoff_base: float,
     prompt_renderer: PromptRenderer | None = None,
+    forcing_format: ForcingFormat = QWEN_FORCING,
 ) -> ItemResult:
     """Run one item with two-pass thinking-budget forcing; never raises on request failure."""
     think_budget = int(item["think_budget"])  # type: ignore[typeddict-item]
@@ -127,6 +153,7 @@ async def run_forced_item(
                     decoding=decoding,
                     think_budget=think_budget,
                     answer_budget=answer_budget,
+                    forcing_format=forcing_format,
                 )
                 return item_result(item, started_at, started_perf, attempt, parsed=parsed)
             except _ForcedStatus as exc:
@@ -162,27 +189,27 @@ async def _forced_two_pass(
     decoding: JsonObject,
     think_budget: int,
     answer_budget: int,
+    forcing_format: ForcingFormat,
 ) -> ParsedCompletion:
     """Execute the think pass and the forced-answer pass; return a merged completion."""
     think_data = await _post_completion(
-        client, url, headers, model, prompt, think_budget, decoding, ["</think>"],
+        client, url, headers, model, prompt, think_budget, decoding, [forcing_format.close],
     )
     think_text, think_finish, think_usage = _extract_completion(think_data)
     forced = think_finish != "stop"
 
-    answer_prompt = f"{prompt}{think_text}\n</think>\n\n"
+    answer_prompt = f"{prompt}{think_text}{forcing_format.forced_close}"
     answer_data = await _post_completion(
-        client, url, headers, model, answer_prompt, answer_budget, decoding, [_IM_END],
+        client, url, headers, model, answer_prompt, answer_budget, decoding, list(forcing_format.answer_stop),
     )
     answer_text, answer_finish, answer_usage = _extract_completion(answer_data)
-    if answer_text.endswith(_IM_END):
-        answer_text = answer_text[: -len(_IM_END)]
+    for stop in forcing_format.answer_stop:
+        if answer_text.endswith(stop):
+            answer_text = answer_text[: -len(stop)]
+            break
     # The forced close does not always stop a small model from reasoning more in the answer
-    # pass; when it re-opens and re-closes thinking, keep only the text after its OWN final
-    # </think> as the scored answer and fold the leading re-reasoning back into the transcript.
-    extra_reasoning = ""
-    if "</think>" in answer_text:
-        extra_reasoning, answer_text = answer_text.rsplit("</think>", 1)
+    # pass; keep only the text after its own final reasoning close as the scored answer.
+    extra_reasoning, answer_text = _split_reopened_reasoning(answer_text, forcing_format)
     answer = answer_text.strip()
     reasoning = (think_text + extra_reasoning).strip() or None
 
@@ -193,6 +220,18 @@ async def _forced_two_pass(
         usage=_sum_usage(think_usage, answer_usage),
         thinking_forced=forced,
     )
+
+
+def _split_reopened_reasoning(answer_text: str, forcing_format: ForcingFormat) -> tuple[str, str]:
+    if forcing_format.reparse is not None:
+        matches = list(re.finditer(forcing_format.reparse, answer_text))
+        if not matches:
+            return "", answer_text
+        last = matches[-1]
+        return answer_text[: last.end()], answer_text[last.end():]
+    if forcing_format.close not in answer_text:
+        return "", answer_text
+    return answer_text.rsplit(forcing_format.close, 1)
 
 
 async def _post_completion(

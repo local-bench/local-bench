@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "localbench.submission-verification.v1",
+  "type": "object",
+  "required": ["schema_version", "status", "bundle_sha256", "trust_label", "publishable", "recomputed"],
+  "properties": {
+    "schema_version": { "const": "localbench.submission-verification.v1" },
+    "status": { "const": "accepted" },
+    "bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "trust_label": { "const": "community_re_scored" },
+    "publishable": { "const": false },
+    "recomputed": { "type": "object" }
+  }
+}

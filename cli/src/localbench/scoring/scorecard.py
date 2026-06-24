@@ -22,11 +22,12 @@ from dataclasses import fields
 from typing import Final
 
 from localbench._types import JsonObject
+from localbench.reasoning_registry import reasoning_registry_payload
 from localbench.scoring.axes import AXES, Axis
 
 # Human-facing scorecard label. BUMP whenever the scoring object changes deliberately
 # (a weight edit, a scorer-version bump, a CI-method change).
-SCORECARD_VERSION: Final = "scorecard-v1.2"
+SCORECARD_VERSION: Final = "scorecard-v1.3"
 
 # How interval estimates are produced (part of scoring identity; the iteration count is
 # a per-call parameter, not part of identity).
@@ -92,16 +93,21 @@ def registry_digest() -> str:
     return _digest(_registry_payload())
 
 
-def scorecard_identity() -> JsonObject:
+def scorecard_identity(reasoning_registry_entry_id: str | None = None) -> JsonObject:
     """The frozen scoring-object identity recorded in every run manifest.
 
     `scorecard_id` hashes the version + registry digest + scorer versions + CI method;
     the full `registry` payload is embedded so an OLD run stays self-describing even
     after the live registry is reweighted.
     """
+    reasoning_payload = reasoning_registry_payload()
     components: JsonObject = {
         "scorecard_version": SCORECARD_VERSION,
         "registry_digest": registry_digest(),
+        "reasoning_registry_digest": _digest(reasoning_payload),
+        # Deliberate scorecard bump: reasoning operating-mode identity now affects
+        # comparability, so this intentionally breaks prior scorecard reproducibility.
+        "reasoning_registry_entry_id": reasoning_registry_entry_id,
         "scorer_versions": dict(SCORER_VERSIONS),
         "ci_method": CI_METHOD,
     }
@@ -109,4 +115,5 @@ def scorecard_identity() -> JsonObject:
         **components,
         "scorecard_id": _digest(components),
         "registry": _registry_payload(),
+        "reasoning_registry": reasoning_payload,
     }

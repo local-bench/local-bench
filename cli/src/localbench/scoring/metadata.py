@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cache
@@ -80,6 +81,13 @@ def _metadata_from_item(item: Mapping[str, JsonValue]) -> ItemMetadata:
 @cache
 def _suite_metadata() -> dict[tuple[str, str], ItemMetadata]:
     suite_dir = Path(__file__).resolve().parents[4] / "suite" / "v0"
+    if not (suite_dir / "suite.json").exists():
+        warnings.warn(
+            f"strata metadata unavailable at {suite_dir}; using item-level fallbacks",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return {}
     metadata: dict[tuple[str, str], ItemMetadata] = {}
     for bench, file_names in _suite_files(suite_dir).items():
         for file_name in file_names:

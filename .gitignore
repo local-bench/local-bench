@@ -31,3 +31,7 @@ suite/v0/private/
 Thumbs.db
 .idea/
 .vscode/
+
+# Tooling / scratch (not product artifacts)
+.superpowers/
+.pytest-review/

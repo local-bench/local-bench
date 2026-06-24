@@ -111,38 +111,79 @@
       "wall_time_seconds": null
     },
     {
-      "axes": {},
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.7671232876712328,
+          "hi": 80.95238095238095,
+          "hi_raw": 0.8095238095238095,
+          "lo": 71.08843537414967,
+          "lo_raw": 0.7108843537414966,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 76.19047619047619,
+          "point_raw": 0.7619047619047619,
+          "raw_accuracy": 0.7619047619047619,
+          "termination_rate": 0.9931972789115646
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8825,
+          "hi": 90.17756118421639,
+          "hi_raw": 0.9017756118421638,
+          "lo": 83.16153345865666,
+          "lo_raw": 0.8316153345865667,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 86.80986787594772,
+          "point_raw": 0.8680986787594772,
+          "raw_accuracy": 0.8825,
+          "termination_rate": 1.0
+        }
+      },
       "bpw": 4.85,
-      "composite": null,
-      "demo": false,
+      "composite": {
+        "hi": 84.42118839464013,
+        "hi_raw": 0.8442118839464012,
+        "lo": 78.4473643524033,
+        "lo_raw": 0.7844736435240329,
+        "point": 81.50017203321195,
+        "point_raw": 0.8150017203321195
+      },
       "est_cost_usd": null,
       "file_gb": 18.8,
       "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
         "ram_gb": null
       },
-      "lane": "answer-only",
+      "lane": "capped-thinking",
+      "latency_s_median": 43.744,
       "n_errors": 0,
-      "n_items": 0,
+      "n_items": 694,
       "quant_label": "Q4_K_M",
-      "run_id": null,
+      "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
       "runtime": {
         "ctx_len_configured": null,
-        "kv_cache_quant": null,
+        "kv_cache_quant": "unknown",
         "name": null,
         "parallel_slots": null,
         "version": null
       },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 18.8,
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 60.522512976153834,
+      "tokens_to_answer_median": 2647.5,
+      "tokens_to_answer_p95": 8759.85,
+      "vram_footprint_gb": 18.32,
       "vram_required_gb_8k": 21.3,
-      "wall_time_seconds": null
+      "wall_time_seconds": 44835.84482139998
     },
     {
       "axes": {},

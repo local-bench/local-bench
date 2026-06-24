@@ -1,16 +1,27 @@
 import Link from "next/link";
+import { AGENTIC_COLUMN_TOOLTIP, AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { familyStyle } from "@/lib/family-color";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatLatencySeconds, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
 import type { BestVariantPoint } from "@/lib/best-variant";
+import type { AgenticModel } from "@/lib/schemas";
+
+const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 
 // The scatter's companion: the same best-variant-per-model points as a precise, scannable list.
 // Colour swatches tie each row back to its dot, so the crowded top of the chart stays legible here.
-export function BestVariantTable({ points }: { readonly points: readonly BestVariantPoint[] }) {
+export function BestVariantTable({
+  points,
+  agenticBySlug = EMPTY_AGENTIC,
+}: {
+  readonly points: readonly BestVariantPoint[];
+  readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
+}) {
   if (points.length === 0) {
     return null;
   }
+  const hasAgentic = points.some((point) => agenticBySlug.has(point.modelSlug));
   const rows = [...points].sort((left, right) => right.score.point - left.score.point);
   return (
     <section
@@ -30,6 +41,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
             <th className="px-3 py-3">tok/s</th>
             <th className="px-3 py-3">Time/answer</th>
             <th className="px-3 py-3">Full bench time</th>
+            <th className="px-3 py-3"><AgenticHeaderLabel /></th>
           </tr>
         </thead>
         <tbody>
@@ -67,12 +79,20 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(point.tokS)}</td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(point.latencySMedian)}</td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatDuration(point.wallTimeSeconds)}</td>
+                <td className="px-3 py-3">
+                  <AgenticCell model={agenticBySlug.get(point.modelSlug)} />
+                </td>
               </tr>
             );
           })}
         </tbody>
         </table>
       </div>
+      {hasAgentic ? (
+        <p className="border-t border-bench-line/75 px-3 py-2 font-mono text-[10px] leading-4 text-bench-muted">
+          {AGENTIC_COLUMN_TOOLTIP}
+        </p>
+      ) : null}
     </section>
   );
 }

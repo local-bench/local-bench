@@ -63,5 +63,18 @@
     "release_date": null,
     "vram_footprint_gb": 12.05,
     "notes": "Strict Local / capped-thinking lane. Floor of the ladder. Footprint = on-disk GGUF weight size (decimal GB)."
+  },
+  {
+    "kind": "community",
+    "family": "Gemma 4",
+    "model_id": "google/gemma-4-31B-it",
+    "model_label": "Gemma 4 31B IT",
+    "quant_label": "Q4_K_M",
+    "file": "cli/runs/ladder-gemma4-31b-Q4_K_M.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 18.32,
+    "notes": "Strict Local / capped-thinking lane (greedy, temp 0; native thinking via reasoning registry gemma4_thinking_native_v1). MMLU-Pro 400 + IFBench 294, suite-v1 tier standard. Footprint = on-disk GGUF weight size (decimal GB). Current board leader (Index 81.5)."
   }
 ]

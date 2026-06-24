@@ -40,8 +40,11 @@ from localbench.prompt_rendering import (
     build_forced_prompt_renderer,
 )
 from localbench.providers import ReasoningEffort, provider_for_name
+from localbench.reasoning_registry import reasoning_entry_for_activation
+from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
 from localbench.scorers.ruler import estimate_prompt_tokens
+from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
 BenchChoice = Literal[
     "all",
@@ -67,6 +70,16 @@ _RULER_TRUNCATION_MIN_GAP: Final = 2_048
 
 class LocalbenchRun(TypedDict):
     schema: str
+    schema_version: str
+    submission_ticket_id: str | None
+    server_nonce: str | None
+    issued_at: str | None
+    run_started_at: str
+    run_finished_at: str
+    source: str
+    tier: str
+    account: str | None
+    model: JsonObject
     manifest: JsonObject
     benches: dict[str, BenchAggregate]
     composite: float
@@ -82,6 +95,7 @@ class LocalbenchRun(TypedDict):
 class OrchestrateConfig:
     endpoint: str
     model: str
+    suite: str = DEFAULT_SUITE_ID
     bench: BenchChoice = "all"
     tier: TierChoice = "quick"
     concurrency: int = 4
@@ -89,6 +103,9 @@ class OrchestrateConfig:
     api_key: str | None = None
     max_items: int | None = None
     suite_dir: Path | None = None
+    suite_source: Path | None = None
+    accept_suite_terms: bool = False
+    cache_root: Path | None = None
     price_in: float | None = None
     price_out: float | None = None
     lane: LaneChoice = "answer-only"
@@ -105,7 +122,14 @@ async def run_localbench(
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> LocalbenchRun:
     """Run selected suite benches, score responses, write JSON, and return the record."""
-    suite_dir = config.suite_dir or discover_suite_dir()
+    suite_ref = resolve_suite_dir(
+        suite_id=config.suite,
+        suite_dir=config.suite_dir,
+        accept_suite_terms=config.accept_suite_terms,
+        source=config.suite_source,
+        cache_root=config.cache_root,
+    )
+    suite_dir = suite_ref.path
     suite = read_json_object(suite_dir / "suite.json")
     started_at = utc_now()
     started_perf = time.perf_counter()
@@ -145,11 +169,17 @@ async def run_localbench(
 
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
+    reasoning_registry_entry_id: str | None = None
+    forcing_format = None
     if config.provider == "local" and config.lane == "capped-thinking":
         # Local capped-thinking enforces the locked thinking budget with two-pass forcing
         # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
         thinking_budget = _plumb_think_budget(rendered_benches, suite)
         if thinking_budget > 0:
+            reasoning_entry = reasoning_entry_for_activation(config.reasoning_activation)
+            if reasoning_entry is not None:
+                reasoning_registry_entry_id = reasoning_entry.id
+                forcing_format = reasoning_entry.forcing
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
     results_by_bench: dict[str, list[ItemResult]] = {}
@@ -169,8 +199,10 @@ async def run_localbench(
             hf_model_id=config.hf_model_id,
             reasoning_activation=config.reasoning_activation,
             prompt_renderer=prompt_renderer,
+            forcing_format=forcing_format,
         )
         scored_items = score_bench(bench, record["results"])
+        _attach_reasoning_text(scored_items, record["results"])
         warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
         items.extend(scored_items)
         results_by_bench[bench.name] = record["results"]
@@ -210,6 +242,11 @@ async def run_localbench(
                 "completion_tokens_per_second": totals["completion_tokens_per_second"],
             },
             rendered_prompt_sample=first_prompt(rendered_benches),
+            suite_id=suite_ref.suite_id,
+            suite_hash=suite_ref.suite_hash,
+            suite_source=suite_ref.source,
+            accepted_suite_terms=config.accept_suite_terms,
+            suite_license_manifest=suite_ref.license_manifest,
             provider=provider.name,
             provider_notes=tuple(
                 provider.notes(
@@ -219,6 +256,7 @@ async def run_localbench(
             ),
             reasoning_effort=config.reasoning_effort,
             thinking_budget=thinking_budget,
+            reasoning_registry_entry_id=reasoning_registry_entry_id,
         ),
         transport=transport,
     )
@@ -226,6 +264,16 @@ async def run_localbench(
     warnings.extend(_audit_forced_cap_hits(items, forcing_active))
     run_record: LocalbenchRun = {
         "schema": "localbench-run-v0",
+        "schema_version": RUN_SCHEMA_VERSION,
+        "submission_ticket_id": None,
+        "server_nonce": None,
+        "issued_at": None,
+        "run_started_at": started_at,
+        "run_finished_at": finished_at,
+        "source": "localbench-cli",
+        "tier": config.tier,
+        "account": None,
+        "model": _run_record_model(config.model, manifest),
         "manifest": manifest,
         "benches": benches,
         "composite": composite(benches),
@@ -246,8 +294,8 @@ async def run_localbench(
 
 
 def discover_suite_dir() -> Path:
-    """Return the repo-local suite/v0 directory for source-tree execution."""
-    return Path(__file__).resolve().parents[3] / "suite" / "v0"
+    """Return the resolved default suite directory without source-tree fallback."""
+    return resolve_suite_dir(suite_id=DEFAULT_SUITE_ID).path
 
 
 def default_output_path(model: str, tier: str) -> Path:
@@ -255,6 +303,28 @@ def default_output_path(model: str, tier: str) -> Path:
     safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("_") or "model"
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return Path("runs") / f"{safe_model}_{tier}_{timestamp}.json"
+
+
+def _run_record_model(model_name: str, manifest: JsonObject) -> JsonObject:
+    manifest_model = manifest.get("model")
+    manifest_model = manifest_model if isinstance(manifest_model, dict) else {}
+    return {
+        "name": model_name,
+        "file_sha256": _nullable_digest(manifest_model.get("file_sha256")),
+        "tokenizer_digest": _nullable_digest(manifest_model.get("tokenizer_digest")),
+        "chat_template_digest": _nullable_digest(manifest_model.get("chat_template_digest")),
+    }
+
+
+def _nullable_digest(value: JsonValue | None) -> str | None:
+    if isinstance(value, str) and value not in {"", "UNHASHED", "unknown", "endpoint-applied-unknown"}:
+        return value
+    return None
+
+
+def _attach_reasoning_text(scored_items: list[ScoredItem], results: list[ItemResult]) -> None:
+    for scored_item, result in zip(scored_items, results, strict=True):
+        scored_item["reasoning_text"] = result["reasoning_text"]
 
 
 def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject) -> int:

@@ -1,0 +1,68 @@
+[
+  {
+    "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Q8_0",
+    "file": "cli/runs/ladder-qwen36-27b-Q8_0.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 28.60,
+    "notes": "Strict Local / capped-thinking lane (greedy, temp 0; s1 think-cap 8192 -> force-close). MMLU-Pro 400 + IFBench 294, suite-v1 tier standard. Footprint = on-disk GGUF weight size (decimal GB). Near-lossless reference; no higher than Q4 within CI."
+  },
+  {
+    "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Q6_K",
+    "file": "cli/runs/ladder-qwen36-27b-Q6_K.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 22.08,
+    "notes": "Strict Local / capped-thinking lane. Footprint = on-disk GGUF weight size (decimal GB). Tied with Q4 within CI."
+  },
+  {
+    "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Q4_K_M",
+    "recommended": true,
+    "file": "cli/runs/ladder-qwen36-27b-Q4_K_M.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 16.55,
+    "notes": "Strict Local / capped-thinking lane. Footprint = on-disk GGUF weight size (decimal GB). Ship rung: quality ceiling at minimum VRAM; instruction-following saturates here."
+  },
+  {
+    "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Q3_K_M",
+    "file": "cli/runs/ladder-qwen36-27b-Q3_K_M.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 14.82,
+    "notes": "Strict Local / capped-thinking lane. Footprint = on-disk GGUF weight size (decimal GB)."
+  },
+  {
+    "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Q2_K",
+    "file": "cli/runs/ladder-qwen36-27b-Q2_K.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 12.05,
+    "notes": "Strict Local / capped-thinking lane. Floor of the ladder. Footprint = on-disk GGUF weight size (decimal GB)."
+  }
+]

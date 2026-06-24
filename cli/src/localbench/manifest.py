@@ -40,10 +40,16 @@ class ManifestContext:
     wall_clock_s: float
     totals: Totals
     rendered_prompt_sample: BenchmarkItem | None
+    suite_id: str | None = None
+    suite_hash: str | None = None
+    suite_source: str | None = None
+    accepted_suite_terms: bool = False
+    suite_license_manifest: JsonObject | None = None
     provider: str = "local"
     provider_notes: tuple[str, ...] = ()
     reasoning_effort: str | None = None
     thinking_budget: int = 0
+    reasoning_registry_entry_id: str | None = None
 
 
 async def collect_manifest(
@@ -67,16 +73,25 @@ async def collect_manifest(
     }
     if context.reasoning_effort is not None:
         sampling["reasoning_effort"] = context.reasoning_effort
+    if context.reasoning_registry_entry_id is not None:
+        sampling["reasoning_registry_entry_id"] = context.reasoning_registry_entry_id
     return {
         "schema_version": "0.1",
         "suite": {
+            "suite_id": context.suite_id,
             "suite_version": context.suite_version,
+            "suite_hash": context.suite_hash,
+            "source": context.suite_source,
             "tier": context.tier,
             "item_set_hashes": context.item_set_hashes,
             "lane": context.lane if context.lane in _LANES else "answer-only",
             "caps": _caps(context.sampling_by_bench, context.thinking_budget),
+            "accepted_suite_terms": context.accepted_suite_terms,
+            "license_manifest": context.suite_license_manifest or {"files": {}},
         },
-        "scorecard": scorecard_identity(),
+        "scorecard": scorecard_identity(
+            reasoning_registry_entry_id=context.reasoning_registry_entry_id,
+        ),
         "endpoint": {
             "kind": "local" if context.provider == "local" else "api",
             "runtime_reported_model": reported_model,
@@ -89,10 +104,10 @@ async def collect_manifest(
             "quant_label": None,
             "file_name": None,
             "file_size_bytes": None,
-            "file_sha256": "UNHASHED",
+            "file_sha256": None,
             "format": None,
-            "tokenizer_digest": "unknown",
-            "chat_template_digest": "endpoint-applied-unknown",
+            "tokenizer_digest": None,
+            "chat_template_digest": None,
         },
         "runtime": {
             "name": None,

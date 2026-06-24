@@ -70,6 +70,20 @@ def load_backend_instances(
     return instances
 
 
+def backend_readiness_error(involved_classes: list[str]) -> str | None:
+    try:
+        _ensure_vendor_path()
+        _freeze_travel_datetime()
+        for class_name in sorted(set(involved_classes)):
+            spec = _ALLOWED_BACKENDS.get(class_name)
+            if spec is None:
+                raise BackendLoadError(f"Backend class is not allowlisted: {class_name}")
+            _load_class(spec)
+    except BackendLoadError as error:
+        return str(error)
+    return None
+
+
 def public_method_map(instances: Mapping[str, object]) -> dict[str, tuple[str, Callable[..., object]]]:
     methods: dict[str, tuple[str, Callable[..., object]]] = {}
     for class_name, instance in instances.items():
@@ -91,8 +105,14 @@ def _ensure_vendor_path() -> None:
 
 
 def _load_class(spec: BackendSpec) -> type:
-    module = importlib.import_module(spec.module_name)
-    class_type = getattr(module, spec.class_name)
+    try:
+        module = importlib.import_module(spec.module_name)
+    except ImportError as error:
+        raise BackendLoadError(f"Could not import BFCL backend module {spec.module_name}") from error
+    try:
+        class_type = getattr(module, spec.class_name)
+    except AttributeError as error:
+        raise BackendLoadError(f"{spec.module_name}.{spec.class_name} is missing") from error
     if not isinstance(class_type, type):
         raise BackendLoadError(f"{spec.module_name}.{spec.class_name} is not a class")
     return class_type

@@ -115,6 +115,21 @@ export function formatRuntime(runtime: RuntimeSummary, kind: Kind): string {
   return `${name} ${version} · KV ${kv} · ctx ${ctx}`;
 }
 
+export function formatGpuShort(
+  gpu: { readonly name: string | null; readonly vram_gb: number | null } | null | undefined,
+): string {
+  // Compact GPU label for the board Hardware column: drop the "NVIDIA GeForce" noise and append
+  // VRAM, e.g. "NVIDIA GeForce RTX 5090" + 32 -> "RTX 5090 · 32 GB". "—" when there is no local GPU
+  // (catalog shells / API anchors).
+  if (!gpu || gpu.name === null || gpu.name === "") {
+    return "—";
+  }
+  // "NVIDIA GeForce RTX 5090" -> "RTX 5090"; "NVIDIA RTX PRO 6000" -> "RTX PRO 6000".
+  const name = gpu.name.replace(/^NVIDIA\s+GeForce\s+/i, "").replace(/^NVIDIA\s+/i, "").trim();
+  const vram = gpu.vram_gb === null ? "" : ` · ${INTEGER_FORMAT.format(gpu.vram_gb)} GB`;
+  return `${name}${vram}`;
+}
+
 export function formatHardware(hardware: HardwareSummary): string {
   const gpu = hardware.gpu;
   const gpuName = gpu?.name ?? "n/a";

@@ -3,8 +3,24 @@ local-bench
 This repository includes frozen benchmark item sets derived from:
 
 - MMLU-Pro by TIGER-Lab, distributed under the MIT License.
+- IFBench_test by AllenAI/Ai2, dataset license ODC-BY-1.0.
 - IFEval by Google Research, distributed under the Apache License, Version 2.0.
+
+The following source is used by a candidate axis (Math, Coding-exec, and Agentic
+axes carry 0% weight in the headline Index and are under validation):
+
+- Berkeley Function-Calling Leaderboard (BFCL) by Gorilla LLM / UC Berkeley,
+  distributed under the Apache License, Version 2.0. Berkeley-derived items and
+  evaluation patterns inform the Agentic candidate axis.
 
 The IFEval checker registry and scoring behavior in
 cli/src/localbench/scorers/ifeval/ are adapted from the Google Research
-instruction_following_eval implementation.
+instruction_following_eval implementation (Apache-2.0). Note the distinction for
+IFBench: the IFBench_test dataset is redistributed under ODC-BY-1.0, while the
+Ai2 IFBench verifier *code* (and the IFEval-style verifier patterns reused here)
+are Apache-2.0.
+
+Full third-party license texts are in the LICENSES/ directory. A per-dataset
+redistribution analysis is in docs/foundations/license-inventory-v1.md. The
+license for local-bench's own source code is not yet finalized; see the top-level
+LICENSE file.

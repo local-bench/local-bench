@@ -1,0 +1,51 @@
+{
+  "id": "tiny-smoke-v1",
+  "version": "tiny-smoke-v1",
+  "description": "Tiny package-data smoke suite for installed CLI sanity checks.",
+  "benches": {
+    "mmlu_pro": {
+      "chance_correction_baseline": 0.5,
+      "decoding": {
+        "max_tokens": 16,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "mmlu_pro.jsonl",
+          "item_count": 1,
+          "sha256": "3876e0f965e43ef25d228958ac3dce028574b6f23366dc65a072146110c4e58e"
+        },
+        "quick": {
+          "file": "mmlu_pro.jsonl",
+          "item_count": 1,
+          "sha256": "3876e0f965e43ef25d228958ac3dce028574b6f23366dc65a072146110c4e58e"
+        }
+      },
+      "template_text": "{question}\n{options}"
+    },
+    "ifbench": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "ifbench.jsonl",
+          "item_count": 1,
+          "sha256": "879199a6a9c5dc36c7c23adb58c092dc2c97717e62a82b6966e9a2e2e735cde0"
+        },
+        "quick": {
+          "file": "ifbench.jsonl",
+          "item_count": 1,
+          "sha256": "879199a6a9c5dc36c7c23adb58c092dc2c97717e62a82b6966e9a2e2e735cde0"
+        }
+      },
+      "template_text": "{prompt}"
+    }
+  },
+  "license_manifest": {
+    "accepted_terms_required": false,
+    "files": {}
+  }
+}

@@ -1,0 +1,369 @@
+{
+  "schema": "localbench-run-v0",
+  "schema_version": "localbench.run.v1",
+  "submission_ticket_id": null,
+  "server_nonce": null,
+  "issued_at": null,
+  "run_started_at": "2026-06-24T05:05:13.681499+00:00",
+  "run_finished_at": "2026-06-24T05:05:13.681536+00:00",
+  "source": "localbench-cli",
+  "tier": "quick",
+  "account": null,
+  "model": {
+    "name": "demo-model",
+    "file_sha256": null,
+    "tokenizer_digest": null,
+    "chat_template_digest": null
+  },
+  "manifest": {
+    "schema_version": "0.1",
+    "suite": {
+      "suite_id": "core-text-v1",
+      "suite_version": "suite-v1",
+      "suite_hash": "73d054131718981ff034c085e06fc209950d440e281e0409cee9f05843475f69",
+      "source": "suite-dir",
+      "tier": "quick",
+      "item_set_hashes": {},
+      "lane": "answer-only",
+      "caps": {
+        "max_tokens_mcq": 0,
+        "max_tokens_math": 0,
+        "thinking_budget": 0
+      },
+      "accepted_suite_terms": false,
+      "license_manifest": {
+        "files": {
+          "mmlu_pro.jsonl": {
+            "license": "MIT"
+          },
+          "bfcl_multi_turn.jsonl": {
+            "license": "Apache-2.0"
+          },
+          "lcb.jsonl": {
+            "license": "CC-BY-4.0"
+          },
+          "ruler_32k.jsonl": {
+            "license": "Apache-2.0"
+          },
+          "bigcodebench_hard.jsonl": {
+            "license": "Apache-2.0"
+          }
+        }
+      }
+    },
+    "scorecard": {
+      "scorecard_version": "scorecard-v1.3",
+      "registry_digest": "d40e0ccec4d2d144dae386c3a7cc1fef7c638865accbcda4ded93d592528efed",
+      "reasoning_registry_digest": "5b5f952c2237e3dbc9be7650c3c30defd46961e9d4298861dc1aeb4cf607c91f",
+      "reasoning_registry_entry_id": null,
+      "scorer_versions": {
+        "mmlu_pro": "1",
+        "ifbench": "1",
+        "olymmath_hard": "1",
+        "amo": "1",
+        "ruler_32k": "1",
+        "bfcl": "1",
+        "bfcl_multi_turn": "1",
+        "lcb": "1",
+        "bigcodebench_hard": "1",
+        "supergpqa": "1",
+        "ifeval": "1",
+        "genmath": "1"
+      },
+      "ci_method": "stratified-nonparametric-bootstrap-percentile",
+      "scorecard_id": "a33742c63ade14b69f068075f98a7bc28d6ed069bddea914a90cfd01eebd7384",
+      "registry": [
+        {
+          "key": "knowledge",
+          "display": "Knowledge",
+          "web_key": "knowledge",
+          "benches": [
+            "mmlu_pro"
+          ],
+          "legacy_benches": [
+            "supergpqa"
+          ],
+          "role": "headline",
+          "weight": 0.5,
+          "web_display": true
+        },
+        {
+          "key": "instruction_following",
+          "display": "Instruction-Following",
+          "web_key": "instruction",
+          "benches": [
+            "ifbench"
+          ],
+          "legacy_benches": [
+            "ifeval"
+          ],
+          "role": "headline",
+          "weight": 0.5,
+          "web_display": true
+        },
+        {
+          "key": "math",
+          "display": "Math",
+          "web_key": "math",
+          "benches": [
+            "olymmath_hard",
+            "amo"
+          ],
+          "legacy_benches": [
+            "genmath"
+          ],
+          "role": "candidate",
+          "weight": 0.0,
+          "web_display": true
+        },
+        {
+          "key": "long_context",
+          "display": "Long-Context",
+          "web_key": "long_context",
+          "benches": [
+            "ruler_32k"
+          ],
+          "legacy_benches": [],
+          "role": "candidate",
+          "weight": 0.0,
+          "web_display": false
+        },
+        {
+          "key": "agentic",
+          "display": "Agentic",
+          "web_key": "agentic",
+          "benches": [
+            "bfcl",
+            "bfcl_multi_turn"
+          ],
+          "legacy_benches": [],
+          "role": "experimental",
+          "weight": 0.0,
+          "web_display": true
+        },
+        {
+          "key": "coding",
+          "display": "Coding",
+          "web_key": "coding",
+          "benches": [
+            "lcb"
+          ],
+          "legacy_benches": [],
+          "role": "experimental",
+          "weight": 0.0,
+          "web_display": false
+        }
+      ],
+      "reasoning_registry": [
+        {
+          "id": "qwen_thinking_native_v1",
+          "version": "1",
+          "status": "ranked",
+          "model_match": [
+            "qwen3",
+            "qwen",
+            "qwen3-*"
+          ],
+          "activation": {
+            "method": "native_chatml_default",
+            "reasoning_activation": "qwen3",
+            "chat_template_kwargs": {},
+            "system_prompt_injection": false
+          },
+          "forcing": {
+            "reasoning_open": null,
+            "close": "</think>",
+            "forced_close": "\n</think>\n\n",
+            "answer_stop": [
+              "<|im_end|>"
+            ],
+            "reparse": null
+          },
+          "parser": {
+            "reasoning_close": "</think>",
+            "answer_reparse": "split_on_final_reasoning_close",
+            "reasoning_parser": "qwen3"
+          },
+          "conformance": {
+            "lane": "capped-thinking",
+            "think_budget": 8192,
+            "answer_budget": "max(max_tokens - think_budget, 1024)",
+            "qwen_byte_equivalent_required": true
+          },
+          "provenance": {
+            "source": "existing localbench Qwen3 capped-thinking two-pass forcing behavior",
+            "renderer": "render_qwen3_chat_prompt",
+            "answer_stop": [
+              "<|im_end|>"
+            ]
+          }
+        },
+        {
+          "id": "gemma4_thinking_native_v1",
+          "version": "1",
+          "status": "ranked",
+          "model_match": [
+            "unsloth/gemma-4-31B-it",
+            "gemma-4",
+            "gemma4"
+          ],
+          "activation": {
+            "method": "chat_template_kwargs",
+            "reasoning_activation": "gemma4",
+            "chat_template_kwargs": {
+              "enable_thinking": true
+            },
+            "system_prompt_injection": false
+          },
+          "forcing": {
+            "reasoning_open": "<|channel>thought\n",
+            "close": "<channel|>",
+            "forced_close": "\n<channel|>",
+            "answer_stop": [
+              "<turn|>"
+            ],
+            "reparse": "(?s)<\\|channel>thought\\n(.*?)<channel\\|>"
+          },
+          "parser": {
+            "reasoning_open": "<|channel>thought\n",
+            "reasoning_close": "<channel|>",
+            "answer_reparse_regex": "(?s)<\\|channel>thought\\n(.*?)<channel\\|>"
+          },
+          "conformance": {
+            "lane": "capped-thinking",
+            "leak_regexes": [
+              "<\\|channel>",
+              "<channel\\|>",
+              "<\\|think\\|>",
+              "<turn\\|>"
+            ],
+            "static_render_requires": [
+              "enable_thinking",
+              "<|turn>",
+              "<turn|>",
+              "single_bos",
+              "no_empty_preclosed_thought_channel"
+            ]
+          },
+          "provenance": {
+            "hf_model_id": "unsloth/gemma-4-31B-it",
+            "revision": "a1c85d1c2db7dcd15c41ad4082955240a9465743",
+            "chat_template_sha256": "94899c0f917d93f6fe81c95744d1e8ddab2d21d39228d2e4aec1fb2a25bff413",
+            "eot_token": "<turn|>",
+            "eos_token": "<turn|>",
+            "answer_stop": [
+              "<turn|>"
+            ],
+            "template_confirmed": "contains enable_thinking + channel/think tags"
+          }
+        }
+      ]
+    },
+    "endpoint": {
+      "kind": "local",
+      "runtime_reported_model": null,
+      "api_provider": null,
+      "provider": "local",
+      "divergence_notes": []
+    },
+    "model": {
+      "family": null,
+      "quant_label": null,
+      "file_name": null,
+      "file_size_bytes": null,
+      "file_sha256": null,
+      "format": null,
+      "tokenizer_digest": null,
+      "chat_template_digest": null
+    },
+    "runtime": {
+      "name": null,
+      "version": null,
+      "kv_cache_quant": "unknown",
+      "ctx_len_configured": null,
+      "parallel_slots": null,
+      "build_flags": null
+    },
+    "hardware": {
+      "gpus": [
+        {
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_mb": 32607,
+          "driver": "596.36"
+        }
+      ],
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "ram_gb": null,
+      "os": "Windows-11-10.0.26200-SP0"
+    },
+    "sampling": {
+      "temperature": null,
+      "top_p": null,
+      "top_k": null,
+      "min_p": null,
+      "seed": null,
+      "thinking_mode": "n/a",
+      "by_bench": {}
+    },
+    "execution": {
+      "client_version": "localbench 0.1.0",
+      "concurrency": 4,
+      "started_at": "2026-06-24T05:05:13.681499+00:00",
+      "finished_at": "2026-06-24T05:05:13.681536+00:00",
+      "wall_clock_s": 1.629994949325919e-05,
+      "measured_tok_s": {
+        "prompt": 0.0,
+        "completion": 0.0
+      },
+      "per_item_timing": "included in run record"
+    },
+    "rendered_prompt_sample": {
+      "item_id": null,
+      "messages": []
+    },
+    "integrity": {
+      "canonical": false,
+      "missing_fields": [
+        "model.family",
+        "model.quant_label",
+        "model.file_name",
+        "model.file_size_bytes",
+        "model.file_sha256",
+        "model.format",
+        "model.tokenizer_digest",
+        "model.chat_template_digest",
+        "runtime.name",
+        "runtime.version",
+        "runtime.kv_cache_quant",
+        "runtime.ctx_len_configured",
+        "runtime.parallel_slots",
+        "endpoint.runtime_reported_model"
+      ]
+    }
+  },
+  "benches": {},
+  "composite": 0.0,
+  "conformance": {
+    "status": "diagnostic-only",
+    "n_scored": 0,
+    "worst_bench": null,
+    "reasons": [
+      "no benches"
+    ],
+    "per_bench": {}
+  },
+  "items": [],
+  "totals": {
+    "n_items": 0,
+    "n_errors": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "wall_time_seconds": 1.629994949325919e-05,
+    "completion_tokens_per_second": 0.0
+  },
+  "warnings": [
+    "Skipping bfcl_multi_turn: tier is not listed: quick"
+  ],
+  "output_path": "$tmpdir\\run.json"
+}

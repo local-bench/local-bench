@@ -13,6 +13,22 @@ identical suite. Launch wedge: the quant-degradation dataset nobody publishes.
 - `web/` — leaderboard site (Next.js, P1)
 - `docs/` — manifest schema, licensing audit, threat model, methodology
 
+## Quickstart
+
+```bash
+pipx install localbench
+localbench fetch-suite --suite core-text-v1 --accept-suite-terms
+localbench run \
+  --endpoint http://localhost:8080/v1 \
+  --model <model-name> \
+  --lane capped-thinking \
+  --tier standard \
+  --out runs/my-run.json
+```
+
+`fetch-suite` verifies the bundled Core Text v1 suite and caches it locally; no git clone or
+`--source` path is required for a normal installed CLI.
+
 ## Status
 
 P0 validation spike (2026-06). Working name "local-bench" — naming TBD before launch.

@@ -12,6 +12,7 @@ import httpx
 import pytest
 
 from localbench.orchestrate import OrchestrateConfig, run_localbench
+from localbench.suite_resolver import SuiteResolutionError
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
@@ -76,9 +77,9 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
         assert record["estimated_cost_usd"] == pytest.approx(0.000078)
         assert record["manifest"]["endpoint"]["runtime_reported_model"] == "runtime-demo"
         assert record["manifest"]["suite"]["item_set_hashes"] == {
-            "genmath_quick.jsonl": "fixture-genmath-quick",
-            "ifeval_quick.jsonl": "fixture-ifeval-quick",
-            "mmlu_pro_quick.jsonl": "fixture-mmlu-quick",
+            "genmath_quick.jsonl": "2550942dd15a44f48e574d83d9c2bec559a56b128e51fa9197c44146f93fa976",
+            "ifeval_quick.jsonl": "759ea4ebb17ff571ae98e3fdd0b612d382021e062aa945e6d001faae2985e707",
+            "mmlu_pro_quick.jsonl": "685cfe3985469d26eecff4fc4a0aaa6c31e1f1a0f070a86074c9b388119ac0ac",
         }
         assert record["manifest"]["integrity"]["canonical"] is False
 
@@ -111,7 +112,7 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
     asyncio.run(scenario())
 
 
-def test_run_localbench_when_item_file_is_missing_skips_bench(tmp_path: Path) -> None:
+def test_run_localbench_when_item_file_is_missing_fails_closed(tmp_path: Path) -> None:
     async def scenario() -> None:
         # Given a suite entry whose item file does not exist.
         suite_dir = tmp_path / "suite"
@@ -136,24 +137,17 @@ def test_run_localbench_when_item_file_is_missing_skips_bench(tmp_path: Path) ->
         (suite_dir / "templates").mkdir()
         (suite_dir / "templates" / "genmath.txt").write_text("{statement}", encoding="utf-8")
 
-        # When running the suite.
-        record = await run_localbench(
-            OrchestrateConfig(
-                endpoint="http://local/v1",
-                model="demo-model",
-                suite_dir=suite_dir,
-                out=tmp_path / "run.json",
-            ),
-            transport=httpx.MockTransport(_all_correct_handler),
-        )
-
-        # Then the missing bench is skipped with a warning in the run record.
-        assert record["benches"] == {}
-        assert record["items"] == []
-        assert record["composite"] == 0.0
-        assert record["warnings"] == [
-            "Skipping genmath: item file is missing: missing.jsonl",
-        ]
+        # When / Then: the suite verifier stops before a run can begin.
+        with pytest.raises(SuiteResolutionError, match="itemsets.lock.json"):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=suite_dir,
+                    out=tmp_path / "run.json",
+                ),
+                transport=httpx.MockTransport(_all_correct_handler),
+            )
 
     asyncio.run(scenario())
 

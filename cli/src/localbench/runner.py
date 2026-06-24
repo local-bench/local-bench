@@ -6,10 +6,12 @@ import asyncio
 import json
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 
 from localbench._requests import run_item, utc_now
+from localbench.budget_forcing import forcing_format_for_activation
 from localbench._types import (
     BenchmarkItem,
     ChatMessage,
@@ -27,6 +29,9 @@ from localbench.prompt_rendering import (
     build_forced_prompt_renderer,
 )
 from localbench.providers import Lane, Provider, ReasoningEffort, provider_for_name
+
+if TYPE_CHECKING:
+    from localbench.budget_forcing import ForcingFormat
 
 __all__ = [
     "BenchmarkItem",
@@ -60,6 +65,7 @@ async def run_benchmark(
     hf_model_id: str | None = None,
     reasoning_activation: ReasoningActivation = "qwen3",
     prompt_renderer: PromptRenderer | None = None,
+    forcing_format: ForcingFormat | None = None,
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
     request_provider = provider or provider_for_name("local")
@@ -74,6 +80,7 @@ async def run_benchmark(
         if request_provider.name == "local" and lane == "capped-thinking"
         else None
     )
+    forced_format = forcing_format or forcing_format_for_activation(reasoning_activation)
 
     async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
         results = await asyncio.gather(
@@ -92,6 +99,7 @@ async def run_benchmark(
                     effort=effort,
                     base_url=endpoint,
                     prompt_renderer=forced_prompt_renderer,
+                    forcing_format=forced_format,
                 )
                 for item in items
             ],

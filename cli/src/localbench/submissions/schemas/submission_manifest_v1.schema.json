@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "localbench.submission-manifest.v1",
+  "type": "object",
+  "required": ["schema_version", "payload", "payload_sha256", "signature"],
+  "properties": {
+    "schema_version": { "const": "localbench.submission-manifest.v1" },
+    "payload_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "payload": {
+      "type": "object",
+      "required": ["submission_format", "created_at", "run_nonce", "ticket", "suite", "scorecard", "files", "counts"],
+      "properties": {
+        "submission_format": { "const": "localbench.submission-bundle.v1" },
+        "created_at": { "type": "string" },
+        "run_nonce": { "type": "string" },
+        "ticket": { "type": "object" },
+        "suite": { "type": "object" },
+        "scorecard": { "type": "object" },
+        "files": { "type": "array" },
+        "counts": { "type": "object" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": ["algorithm", "public_key", "signature"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+      }
+    }
+  }
+}

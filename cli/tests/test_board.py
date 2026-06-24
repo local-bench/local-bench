@@ -1,0 +1,272 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from board_fixtures import (
+    FROZEN_AT,
+    assert_axis,
+    assert_score,
+    bool_value,
+    float_value,
+    object_value,
+    objects_value,
+    run_record,
+    source,
+    string_value,
+    write_inputs,
+    write_run,
+)
+from localbench.scoring.axes import web_composite_weights
+
+
+def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
+    # Given: a curated capped-thinking run with headline axis measurements.
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json")])
+    write_run(paths["runs"] / "fixture.json", run_record())
+
+    # When: the scorer-side board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the output mirrors the IndexData/IndexModel contract plus v1 metadata.
+    assert {"generated_note", "schema_version", "index_version", "suite_version"} <= set(board)
+    assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
+    assert board["schema_version"] == "board-v1"
+    assert board["lane_scope"] == "capped-thinking"
+    manifest = object_value(board["manifest"])
+    assert object_value(manifest["item_set_hashes"]) == {
+        "ifbench.jsonl": "ifbench-items",
+        "mmlu_pro.jsonl": "mmlu-items",
+    }
+    models = objects_value(board["models"])
+    assert len(models) == 1
+    model = models[0]
+    assert {
+        "slug",
+        "model_label",
+        "family",
+        "kind",
+        "best_run_id",
+        "composite",
+        "axes",
+        "tier",
+        "lane",
+        "n_runs",
+        "ranked",
+        "tokens_to_answer_median",
+        "est_cost_usd",
+        "replicated",
+        "score_status",
+    } <= set(model)
+    assert_score(object_value(model["composite"]))
+    for axis in object_value(model["axes"]).values():
+        assert_axis(object_value(axis))
+
+
+def test_only_headline_lane_conformance_pass_measured_rows_are_ranked(tmp_path: Path) -> None:
+    # Given: measured capped, measured anchor, answer-only, and conformance-fail rows.
+    from localbench.scoring.board import build_board
+
+    sources = [
+        source("Ranked Model", "ranked.json"),
+        source("Anchor Model", "anchor.json", kind="anchor"),
+        source("Answer Only Model", "answer-only.json", lane="answer-only"),
+        source("Failed Model", "failed.json"),
+    ]
+    paths = write_inputs(tmp_path, sources)
+    write_run(paths["runs"] / "ranked.json", run_record())
+    write_run(paths["runs"] / "anchor.json", run_record())
+    write_run(paths["runs"] / "answer-only.json", run_record(lane="answer-only"))
+    write_run(paths["runs"] / "failed.json", run_record(conformance_status="failed"))
+
+    # When: the board is built from all rows.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: only the community capped-thinking conformance-pass row is ranked.
+    ranked_by_label = {
+        string_value(model["model_label"]): bool_value(model["ranked"])
+        for model in objects_value(board["models"])
+    }
+    assert ranked_by_label == {
+        "Ranked Model": True,
+        "Anchor Model": False,
+        "Answer Only Model": False,
+        "Failed Model": False,
+    }
+
+
+def test_composite_uses_registry_weighted_axis_combination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: registry weights are changed at the board boundary for this test.
+    import localbench.scoring.board as board_module
+
+    custom_weights = {"knowledge": 0.25, "instruction": 0.75, "math": 0.0, "agentic": 0.0}
+    monkeypatch.setattr(board_module, "web_composite_weights", lambda: custom_weights)
+    paths = write_inputs(tmp_path, [source("Weighted Model", "weighted.json")])
+    write_run(paths["runs"] / "weighted.json", run_record(mmlu_correct=(True, True), if_correct=(False, False)))
+
+    # When: the board computes the composite.
+    board = board_module.build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the point follows the registry weights, not a literal equal average.
+    model = objects_value(board["models"])[0]
+    composite = object_value(model["composite"])
+    assert composite["point_raw"] == pytest.approx(custom_weights["knowledge"])
+    assert composite["point_raw"] != pytest.approx(0.5)
+    assert set(web_composite_weights()) >= {"knowledge", "instruction"}
+
+
+def test_missing_gemma_run_is_skipped_gracefully(tmp_path: Path) -> None:
+    # Given: the curation asks for a missing Gemma file plus one valid Qwen file.
+    from localbench.scoring.board import build_board
+
+    sources = [
+        source("Qwen Model", "qwen.json"),
+        source("Gemma 4 31B IT", "ladder-gemma4-31b-Q4_K_M.json", model_id="google/gemma-4-31B-it"),
+    ]
+    paths = write_inputs(tmp_path, sources)
+    write_run(paths["runs"] / "qwen.json", run_record())
+
+    # When: the board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the valid row remains and the absent Gemma row is omitted.
+    labels = {string_value(model["model_label"]) for model in objects_value(board["models"])}
+    assert labels == {"Qwen Model"}
+
+
+def test_parity_check_accepts_matching_web_index_points(tmp_path: Path) -> None:
+    # Given: a generated board and a minimal web index with matching measured points.
+    from localbench.scoring.board import build_board, check_board_parity
+
+    paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json")])
+    write_run(paths["runs"] / "fixture.json", run_record())
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+    model = objects_value(board["models"])[0]
+    index_path = tmp_path / "index.json"
+    index_path.write_text(
+        json.dumps({"generated_note": "fixture", "index_version": "index-v1", "suite_version": "suite-v1", "models": [model]}),
+        encoding="utf-8",
+    )
+
+    # When: parity compares score objects against score objects.
+    result = check_board_parity(board, index_path=index_path)
+
+    # Then: no false divergence is reported.
+    assert result.checked is True
+    assert result.divergences == ()
+
+
+def test_family_row_emits_best_first_systems_with_curated_recommended_quant(tmp_path: Path) -> None:
+    # Given: one family has a Q6/Q4 plateau and Q4 is the curated value pick.
+    from localbench.scoring.board import build_board, check_board_parity
+
+    sources = [
+        source("Plateau Model", "q6.json", family="Plateau", model_id="plateau/model", quant_label="Q6_K"),
+        source(
+            "Plateau Model",
+            "q4.json",
+            family="Plateau",
+            model_id="plateau/model",
+            quant_label="Q4_K_M",
+            recommended=True,
+        ),
+        source("Plateau Model", "q3.json", family="Plateau", model_id="plateau/model", quant_label="Q3_K_M"),
+    ]
+    paths = write_inputs(tmp_path, sources)
+    plateau_correct = (True, True, True, True, False)
+    lower_correct = (True, True, False, False, False)
+    write_run(paths["runs"] / "q6.json", run_record(mmlu_correct=plateau_correct, if_correct=plateau_correct))
+    write_run(paths["runs"] / "q4.json", run_record(mmlu_correct=plateau_correct, if_correct=plateau_correct))
+    write_run(paths["runs"] / "q3.json", run_record(mmlu_correct=lower_correct, if_correct=lower_correct))
+
+    # When: the scorer-side board is built and compared to a family-level web index row.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+    model = objects_value(board["models"])[0]
+    index_model = dict(model)
+    index_model.pop("systems")
+    index_model.pop("best_system_run_id")
+    index_model.pop("recommended_system_run_id")
+    index_path = tmp_path / "index.json"
+    index_path.write_text(json.dumps({"models": [index_model]}), encoding="utf-8")
+    result = check_board_parity(board, index_path=index_path)
+
+    # Then: the family row is still singular, ranked by best, with quant systems attached.
+    systems = objects_value(model["systems"])
+    assert len(objects_value(board["models"])) == 1
+    assert len(systems) == 3
+    assert model["n_runs"] == 3
+    assert model["best_run_id"] == "plateau-model__q6"
+    assert model["best_system_run_id"] == "plateau-model__q6"
+    assert model["recommended_system_run_id"] == "plateau-model__q4"
+    assert [system["quant_label"] for system in systems] == ["Q6_K", "Q4_K_M", "Q3_K_M"]
+    assert [system["run_id"] for system in systems] == ["plateau-model__q6", "plateau-model__q4", "plateau-model__q3"]
+    assert [bool_value(system["is_best"]) for system in systems] == [True, False, False]
+    assert [bool_value(system["is_recommended"]) for system in systems] == [False, True, False]
+    assert all(system["n_runs"] == 1 for system in systems)
+    assert float_value(object_value(systems[0]["composite"])["point_raw"]) == pytest.approx(
+        float_value(object_value(systems[1]["composite"])["point_raw"]),
+    )
+    assert float_value(object_value(systems[2]["composite"])["point_raw"]) < float_value(
+        object_value(systems[1]["composite"])["point_raw"],
+    )
+    assert result.checked is True
+    assert result.divergences == ()
+
+
+def test_board_rejects_multiple_recommended_quants_in_one_family(tmp_path: Path) -> None:
+    # Given: two quants in the same family are curated as recommended.
+    from localbench.scoring.board import BoardBuildError, build_board
+
+    sources = [
+        source("Duplicate Model", "q6.json", family="Duplicate", model_id="duplicate/model", quant_label="Q6_K", recommended=True),
+        source("Duplicate Model", "q4.json", family="Duplicate", model_id="duplicate/model", quant_label="Q4_K_M", recommended=True),
+    ]
+    paths = write_inputs(tmp_path, sources)
+    write_run(paths["runs"] / "q6.json", run_record())
+    write_run(paths["runs"] / "q4.json", run_record())
+
+    # When/Then: board generation rejects the ambiguous recommendation.
+    with pytest.raises(BoardBuildError, match="at most one recommended"):
+        build_board(
+            runs_dir=paths["runs"],
+            curation_path=paths["curation"],
+            generated_at=FROZEN_AT,
+            bootstrap_iters=50,
+        )

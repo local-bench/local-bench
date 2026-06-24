@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LAUNCH_FREEZE, shortHash } from "@/components/launch-freeze";
 
 export function AppShell({
   children,
@@ -48,6 +49,45 @@ export function AppShell({
         ) : null}
       </header>
       <div className="flex-1">{children}</div>
+      <footer className="mt-10 border-t border-bench-line bg-bench-bg/60">
+        <div className="mx-auto w-full max-w-[1480px] px-5 py-6 lg:px-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-2xl space-y-1.5">
+              <p className="font-mono text-[11px] uppercase tracking-wide text-bench-accent">
+                Board frozen {LAUNCH_FREEZE.asOfDate} · {LAUNCH_FREEZE.scorecardVersion} · {suiteVersion ?? "suite"}/{indexVersion}
+              </p>
+              <p className="text-sm leading-6 text-bench-muted">{LAUNCH_FREEZE.headlineDefinition}</p>
+              <p className="text-xs leading-5 text-bench-muted/80">{LAUNCH_FREEZE.candidateDefinition}</p>
+            </div>
+            <dl className="space-y-1 font-mono text-[11px] text-bench-muted">
+              <div className="flex items-center justify-between gap-3 lg:justify-end">
+                <dt className="uppercase tracking-wide text-bench-muted/70">board</dt>
+                <dd title={LAUNCH_FREEZE.boardSha256}>{shortHash(LAUNCH_FREEZE.boardSha256)}</dd>
+              </div>
+              {LAUNCH_FREEZE.itemSetHashes.map((set) => (
+                <div key={set.file} className="flex items-center justify-between gap-3 lg:justify-end">
+                  <dt className="uppercase tracking-wide text-bench-muted/70">{set.file}</dt>
+                  <dd title={set.sha256}>{shortHash(set.sha256)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          <div className="mt-5 flex flex-col gap-2 border-t border-bench-line/60 pt-4 text-xs text-bench-muted/80 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              local-bench is an independent, judge-free leaderboard for local and open-weight LLMs. Model and
+              benchmark names belong to their respective owners; listing a model is evaluation, not endorsement.
+            </p>
+            <div className="flex shrink-0 gap-4">
+              <Link href="/methodology" className="hover:text-bench-text">
+                Methodology
+              </Link>
+              <Link href="/trust" className="hover:text-bench-text">
+                Trust &amp; licenses
+              </Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

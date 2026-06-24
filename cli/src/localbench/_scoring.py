@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import Final, NotRequired, TypedDict
 
+from localbench._response import empty_usage
 from localbench._suite import RenderedBench
-from localbench._types import ItemResult, JsonValue, Usage
+from localbench._types import BenchmarkItem, ItemResult, JsonValue, Usage
 from localbench.scorers.bfcl import score_bfcl
 from localbench.scorers.bfcl_multi_turn import score_bfcl_multi_turn
+from localbench.scorers.bfcl_multi_turn._backend import (
+    BackendLoadError,
+    backend_readiness_error,
+)
 from localbench.scorers.ifbench import score_ifbench
 from localbench.scorers.ifeval import score_ifeval
 from localbench.scorers.lcb import score_lcb
@@ -38,6 +44,7 @@ class ScoredItem(TypedDict):
     error: str | None
     warnings: NotRequired[list[str]]
     failure_kind: NotRequired[str | None]
+    reasoning_text: NotRequired[str | None]
 
 
 class BenchAggregate(TypedDict):
@@ -62,32 +69,57 @@ class RunTotals(TypedDict):
 
 def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredItem]:
     """Score runner results for one rendered bench."""
+    readiness_warning = scorer_unavailable_warning(bench)
+    if readiness_warning is not None:
+        return _scorer_unavailable_items(bench, results, readiness_warning)
     scored: list[ScoredItem] = []
-    for source_item, result in zip(bench.source_items, results, strict=True):
-        response_text = result["response_text"]
-        error = result["error"]
-        detailed = _score_response_detail(
-            bench.name, source_item, response_text, error, result["finish_reason"]
+    try:
+        for source_item, result in zip(bench.source_items, results, strict=True):
+            response_text = result["response_text"]
+            error = result["error"]
+            detailed = _score_response_detail(
+                bench.name, source_item, response_text, error, result["finish_reason"]
+            )
+            correct = detailed["correct"] and result["finish_reason"] != "length"
+            scored_item: ScoredItem = {
+                "id": result["id"],
+                "bench": bench.name,
+                "response_text": response_text,
+                "extracted": detailed["extracted"],
+                "correct": correct,
+                "finish_reason": result["finish_reason"],
+                "latency_seconds": result["latency_seconds"],
+                "started_at": result["started_at"],
+                "finished_at": result["finished_at"],
+                "attempts": result["attempts"],
+                "usage": result["usage"],
+                "error": error,
+            }
+            if "failure_kind" in detailed:
+                scored_item["failure_kind"] = detailed["failure_kind"]
+            scored.append(scored_item)
+    except BackendLoadError as error:
+        return _scorer_unavailable_items(
+            bench,
+            results,
+            _scorer_unavailable_message(bench.name, str(error)),
         )
-        correct = detailed["correct"] and result["finish_reason"] != "length"
-        scored_item: ScoredItem = {
-            "id": result["id"],
-            "bench": bench.name,
-            "response_text": response_text,
-            "extracted": detailed["extracted"],
-            "correct": correct,
-            "finish_reason": result["finish_reason"],
-            "latency_seconds": result["latency_seconds"],
-            "started_at": result["started_at"],
-            "finished_at": result["finished_at"],
-            "attempts": result["attempts"],
-            "usage": result["usage"],
-            "error": error,
-        }
-        if "failure_kind" in detailed:
-            scored_item["failure_kind"] = detailed["failure_kind"]
-        scored.append(scored_item)
     return scored
+
+
+def scorer_unavailable_warning(bench: RenderedBench) -> str | None:
+    match bench.name:
+        case "bfcl_multi_turn":
+            error = backend_readiness_error(_bfcl_multi_turn_classes(bench.source_items))
+            if error is None:
+                return None
+            return _scorer_unavailable_message(bench.name, error)
+        case _:
+            return None
+
+
+def scorer_unavailable_results(bench: RenderedBench, error: str) -> list[ItemResult]:
+    return [_unavailable_result(item, error) for item in bench.benchmark_items]
 
 
 def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggregate:
@@ -253,6 +285,65 @@ def _score_response_detail(
             return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
         case _:
             return {"extracted": None, "correct": False}
+
+
+def _scorer_unavailable_items(
+    bench: RenderedBench,
+    results: list[ItemResult],
+    warning: str,
+) -> list[ScoredItem]:
+    return [
+        {
+            "id": result["id"],
+            "bench": bench.name,
+            "response_text": result["response_text"],
+            "extracted": None,
+            "correct": False,
+            "finish_reason": result["finish_reason"],
+            "latency_seconds": result["latency_seconds"],
+            "started_at": result["started_at"],
+            "finished_at": result["finished_at"],
+            "attempts": result["attempts"],
+            "usage": result["usage"],
+            "error": warning,
+            "warnings": [warning],
+        }
+        for result in results
+    ]
+
+
+def _unavailable_result(item: BenchmarkItem, error: str) -> ItemResult:
+    timestamp = _utc_now()
+    return {
+        "id": item["id"],
+        "response_text": None,
+        "reasoning_text": None,
+        "finish_reason": None,
+        "usage": empty_usage(),
+        "latency_seconds": 0.0,
+        "started_at": timestamp,
+        "finished_at": timestamp,
+        "attempts": 0,
+        "error": error,
+    }
+
+
+def _bfcl_multi_turn_classes(items: list[Mapping[str, JsonValue]]) -> list[str]:
+    classes: list[str] = []
+    for item in items:
+        involved = item.get("involved_classes")
+        if not isinstance(involved, list):
+            continue
+        classes.extend(value for value in involved if isinstance(value, str))
+    return classes
+
+
+def _scorer_unavailable_message(bench: str, reason: str) -> str:
+    return f"Scorer unavailable for {bench}: {reason}"
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 def _strip_response_wrapper(response_text: str) -> str:

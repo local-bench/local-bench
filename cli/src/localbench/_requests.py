@@ -8,7 +8,7 @@ import random
 import re
 import time
 from datetime import UTC, datetime
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
 import httpx
 
@@ -18,6 +18,9 @@ from localbench._response import (
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, ParsedCompletion
 from localbench.prompt_rendering import PromptRenderer
+
+if TYPE_CHECKING:
+    from localbench.budget_forcing import ForcingFormat
 from localbench.providers import (
     Lane,
     Provider,
@@ -49,6 +52,7 @@ async def run_item(
     effort: ReasoningEffort | None = None,
     base_url: str | None = None,
     prompt_renderer: PromptRenderer | None = None,
+    forcing_format: ForcingFormat | None = None,
 ) -> ItemResult:
     """Run one item and return a result instead of raising on request failure."""
     request_provider = provider or provider_for_name("local")
@@ -62,6 +66,18 @@ async def run_item(
         # the raw /completions endpoint (see budget_forcing). Lazy import avoids a cycle.
         from localbench.budget_forcing import run_forced_item
 
+        if forcing_format is None:
+            return await run_forced_item(
+                client=client,
+                base_url=base_url,
+                headers=headers,
+                model=model,
+                item=item,
+                semaphore=semaphore,
+                max_attempts=max_attempts,
+                backoff_base=backoff_base,
+                prompt_renderer=prompt_renderer,
+            )
         return await run_forced_item(
             client=client,
             base_url=base_url,
@@ -72,6 +88,7 @@ async def run_item(
             max_attempts=max_attempts,
             backoff_base=backoff_base,
             prompt_renderer=prompt_renderer,
+            forcing_format=forcing_format,
         )
     async with semaphore:
         started_at = utc_now()

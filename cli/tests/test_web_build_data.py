@@ -39,101 +39,113 @@ QWEN_RUN_STEMS: Final = (
 )
 
 
-def test_build_data_when_sources_are_curated_emits_deterministic_static_json() -> None:
-    # Given the committed web data-source curation.
-    assert DATA_SOURCES.exists()
-    non_demo_inputs = [
-        _string(source["file"])
-        for source in _objects(_read_json(DATA_SOURCES))
-        if source.get("demo") is not True
-    ]
-    if not non_demo_inputs:
-        # Curation intentionally empty (stale runs unpublished; none republished yet)
-        # -> there is no curated run surface to integration-test.
-        pytest.skip("data_sources.json has no curated (non-demo) runs to integration-test")
-    missing = sorted(path for path in non_demo_inputs if not (ROOT / path).exists())
-    present = [path for path in non_demo_inputs if (ROOT / path).exists()]
-    if missing and not present:
-        # Fresh checkout: the gitignored runs/ inputs are entirely absent -> nothing to integration-test.
-        pytest.skip(f"no curated run inputs present (gitignored runs/ absent): {len(missing)} expected")
-    # Partial absence is a real regression (a deleted/mistyped data_sources.json entry) -> fail loudly.
-    assert not missing, f"data_sources.json references missing run inputs (typo/deletion?): {missing}"
+def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
+    tmp_path: Path,
+) -> None:
+    # Decoupled from the live web/data_sources.json (which legitimately evolves as the
+    # board grows) so this stays a stable determinism + contract test. The fixture
+    # mirrors the post-drop-synthesis reality: a Knowledge+Instruction-only run (no
+    # math/agentic measured) alongside a run that also measures math.
+    builder = _build_data_module()
+    ki_run = tmp_path / "ki-run.json"
+    math_run = tmp_path / "math-run.json"
+    ki_run.write_text(
+        json.dumps(
+            _synthetic_run(
+                [
+                    _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+                    _synthetic_item("mmlu-pro-002", "mmlu_pro", False, category="biology", template="mcq-b"),
+                    _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+                    _synthetic_item("ifbench-002", "ifbench", None, template="format-list"),
+                ],
+            ),
+        ),
+        encoding="utf-8",
+    )
+    math_run.write_text(
+        json.dumps(
+            _synthetic_run(
+                [
+                    _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+                    _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+                    _synthetic_item("olymmath-hard-001", "olymmath_hard", True, category="geometry", template="proof"),
+                    _synthetic_item("amo-001", "amo", False, category="number-theory", template="short-answer"),
+                ],
+            ),
+        ),
+        encoding="utf-8",
+    )
+    sources = tmp_path / "sources.json"
+    sources.write_text(
+        json.dumps(
+            [
+                {
+                    "family": "Fixture-KI",
+                    "file": str(ki_run),
+                    "kind": "community",
+                    "model_label": "Fixture KI",
+                    "quant_label": "Q4_K_M",
+                    "reasoning_lane": "answer-only",
+                    "vram_footprint_gb": 16.55,
+                },
+                {
+                    "family": "Fixture-Math",
+                    "file": str(math_run),
+                    "kind": "community",
+                    "model_label": "Fixture Math",
+                    "quant_label": "Q8_0",
+                    "reasoning_lane": "capped-thinking",
+                    "vram_footprint_gb": 28.6,
+                },
+            ],
+        ),
+        encoding="utf-8",
+    )
 
-    # When the pipeline is run twice with a fixed bootstrap seed.
-    _run_pipeline(iters=2_000)
-    first_outputs = _read_generated_outputs()
-    _run_pipeline(iters=2_000)
-    second_outputs = _read_generated_outputs()
+    # When the pipeline builds the static surface twice with the fixed bootstrap seed.
+    out_first = tmp_path / "out-first"
+    out_second = tmp_path / "out-second"
+    builder.build_static_data(sources, out_first, iters=300)
+    builder.build_static_data(sources, out_second, iters=300)
 
-    # Then the static JSON surface is complete and deterministic.
-    assert first_outputs == second_outputs
-    index = _object(_read_json(DATA_DIR / "index.json"))
+    # Then the emitted JSON surface is complete and byte-for-byte deterministic.
+    assert _read_outputs(out_first) == _read_outputs(out_second)
+    index = _object(_read_json(out_first / "index.json"))
     assert set(index) == {"generated_note", "index_version", "models", "suite_version"}
     assert _string(index["suite_version"]) == "suite-v1"
     models = _objects(index["models"])
-    assert models
+    # The full model catalog is always emitted (unmeasured entries are shells with empty
+    # axes / null composite); our two fixture runs attach as standalone measured entries.
+    measured = [model for model in models if model.get("composite") is not None]
+    assert {_string(model["model_label"]) for model in measured} >= {"Fixture KI", "Fixture Math"}
 
-    qwen = _model_by_label(models, "Qwen3.6-27B")
-    assert _string(qwen["family"]) == "Qwen3.6-27B"
-    assert _string(qwen["kind"]) == "community"
-    assert _string(qwen["lane"]) == "answer-only"
-    assert _number(qwen["n_runs"]) == len(QWEN_RUN_STEMS)
-    assert _string(qwen["slug"]) == "qwen3-6-27b"
-    assert _string(qwen["best_run_id"]) in {
-        f"qwen3-6-27b__{stem}" for stem in QWEN_RUN_STEMS
-    }
-    _assert_interval(_object(qwen["composite"]))
-    for axis in AXES:
-        _assert_interval(_object(_object(qwen["axes"])[axis]))
+    # Contract: every MEASURED model's axes ⊆ AXES with the headline always present;
+    # candidate axes (math/agentic) appear only when actually measured (no synthesis).
+    for model in measured:
+        model_axes = _object(model["axes"])
+        assert set(model_axes) <= set(AXES)
+        assert {"knowledge", "instruction"} <= set(model_axes)
+        _assert_interval(_object(model["composite"]))
+        assert (out_first / "models" / f"{_string(model['slug'])}.json").exists()
 
-    gemma = _model_by_label(models, "Gemma-4-12B-it")
-    assert _string(gemma["family"]) == "Gemma-4-12B"
-    assert _string(gemma["kind"]) == "community"
-    assert _string(gemma["lane"]) == "answer-only"
-    assert _number(gemma["n_runs"]) == 1
-    assert _bool(gemma["ranked"]) is True
-    _assert_interval(_object(gemma["composite"]))
-    for axis in AXES:
-        _assert_interval(_object(_object(gemma["axes"])[axis]))
+    # The K+I-only run carries NO fabricated math/agentic axes...
+    ki_model = _model_by_label(models, "Fixture KI")
+    assert set(_object(ki_model["axes"])) == {"knowledge", "instruction"}
+    # ...while the run that measured math legitimately surfaces a measured math axis only.
+    math_model = _model_by_label(models, "Fixture Math")
+    assert "math" in set(_object(math_model["axes"]))
+    assert "agentic" not in set(_object(math_model["axes"]))
 
-    demo_models = [model for model in models if model.get("demo") is True]
-    assert demo_models
-    for demo_model in demo_models:
-        assert set(_object(demo_model["axes"])) == set(AXES)
-
-    slug = _string(qwen["slug"])
-    model_path = DATA_DIR / "models" / f"{slug}.json"
-    assert model_path.exists()
-    model_detail = _object(_read_json(model_path))
-    model_runs = _objects(model_detail["runs"])
-    assert len(model_runs) == len(QWEN_RUN_STEMS)
-    assert {_string(run["run_id"]) for run in model_runs} == {
-        f"qwen3-6-27b__{stem}" for stem in QWEN_RUN_STEMS
-    }
-
-    for run_row in model_runs:
-        run_id = _string(run_row["run_id"])
-        run_path = DATA_DIR / "runs" / f"{run_id}.json"
-        assert run_path.exists()
-        detail = _object(_read_json(run_path))
-        raw_run = _object(_read_json(ROOT / "runs" / f"{run_id.split('__', 1)[1]}.json"))
-        assert _string(detail["suite_version"]) == "suite-v1"
-        warnings = _strings(detail["data_warnings"])
-        assert all("differs from stored composite" in warning for warning in warnings)
-        assert _object(detail["composite"])["point_raw"] == pytest.approx(
-            _expected_composite(raw_run),
-            abs=1e-6,
-        )
-        for axis in AXES:
-            _assert_axis_matches_raw_sources(axis, raw_run, detail)
-        _assert_run_detail(detail)
-
-    best_run = _string(qwen["best_run_id"])
-    best_detail = _object(_read_json(DATA_DIR / "runs" / f"{best_run}.json"))
-    assert _object(qwen["composite"])["point_raw"] == pytest.approx(
-        _number(_object(best_detail["composite"])["point_raw"]),
-        abs=1e-6,
-    )
+    # Every measured run detail honors the same contract (well-formed intervals, no n=0 axes).
+    for model in (ki_model, math_model):
+        detail = _object(_read_json(out_first / "models" / f"{_string(model['slug'])}.json"))
+        runs = _objects(detail["runs"])
+        assert runs
+        for run_row in runs:
+            run_id = _string(run_row["run_id"])
+            run_detail = _object(_read_json(out_first / "runs" / f"{run_id}.json"))
+            assert _string(run_detail["suite_version"]) == "suite-v1"
+            _assert_run_detail(run_detail)
 
 
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
@@ -322,14 +334,20 @@ def _write_synthetic_pipeline_inputs(
 
 
 def _synthetic_run(items: list[JsonObject]) -> JsonObject:
-    benches = {bench: _synthetic_aggregate(items, bench) for bench in SOURCE_BENCHES}
+    # Only build aggregates for benches that actually have items, so a fixture can model
+    # a Knowledge+Instruction-only run (the post-drop-synthesis reality) as well as a
+    # full multi-axis run. Order preserved from SOURCE_BENCHES for determinism.
+    present_benches = tuple(
+        bench for bench in SOURCE_BENCHES if any(item["bench"] == bench for item in items)
+    )
+    benches = {bench: _synthetic_aggregate(items, bench) for bench in present_benches}
     return {
         "schema": "localbench-run-v0",
         "manifest": {
             "suite": {
                 "suite_version": "suite-v1",
                 "tier": "standard",
-                "item_set_hashes": {f"{bench}.jsonl": f"synthetic-{bench}" for bench in SOURCE_BENCHES},
+                "item_set_hashes": {f"{bench}.jsonl": f"synthetic-{bench}" for bench in present_benches},
             },
         },
         "benches": benches,
@@ -449,13 +467,26 @@ def _source_names_for_axis(axis: str, raw_benches: JsonObject) -> tuple[str, ...
     for source_names in SOURCE_BENCH_GROUPS_BY_AXIS[axis]:
         if all(bench in raw_benches for bench in source_names):
             return source_names
-    raise AssertionError(f"missing source benches for axis {axis}: {sorted(raw_benches)}")
+    # Post-drop-synthesis contract: a run measures only some axes. An axis whose source
+    # benches are absent is simply "not measured" (axes ⊆ AXES) — not an error.
+    return ()
 
 
 def _only_run_detail(out_dir: Path) -> JsonObject:
     run_paths = list((out_dir / "runs").glob("*.json"))
     assert len(run_paths) == 1
     return _object(_read_json(run_paths[0]))
+
+
+def _read_outputs(out_dir: Path) -> dict[str, str]:
+    paths = sorted(out_dir.rglob("*.json"))
+    assert out_dir / "index.json" in paths
+    assert any(path.parts[-2] == "models" for path in paths)
+    assert any(path.parts[-2] == "runs" for path in paths)
+    return {
+        str(path.relative_to(out_dir)): path.read_text(encoding="utf-8")
+        for path in paths
+    }
 
 
 def _read_generated_outputs() -> dict[str, str]:
@@ -486,11 +517,15 @@ def _assert_run_detail(detail: JsonObject) -> None:
     } <= set(detail)
     _assert_interval(_object(detail["composite"]))
     axes = _object(detail["axes"])
-    assert set(axes) == set(AXES)
-    for axis_name in AXES:
-        axis = _object(axes[axis_name])
+    # Contract: axes ⊆ AXES, headline always present, candidates only when measured.
+    # Every emitted axis must be a real measurement (n > 0) — no synthesized n=0 axes.
+    assert set(axes) <= set(AXES)
+    assert {"knowledge", "instruction"} <= set(axes)
+    for axis_value in axes.values():
+        axis = _object(axis_value)
         _assert_interval(axis)
         assert {"n", "n_errors", "n_no_answer", "raw_accuracy"} <= set(axis)
+        assert _number(axis["n"]) > 0
 
 
 def _assert_interval(interval: JsonObject) -> None:

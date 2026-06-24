@@ -51,15 +51,28 @@ def test_scorecard_id_binds_registry_scorers_and_ci_method() -> None:
         {"scorer_versions": {**base["scorer_versions"], "mmlu_pro": "2"}},
         {"ci_method": "something-else"},
         {"scorecard_version": "scorecard-v9.9"},
+        {"reasoning_registry_digest": "1" * 64},
+        {"reasoning_registry_entry_id": "gemma4_thinking_native_v1"},
     ):
         components = {
             "scorecard_version": base["scorecard_version"],
             "registry_digest": base["registry_digest"],
+            "reasoning_registry_digest": base["reasoning_registry_digest"],
+            "reasoning_registry_entry_id": base["reasoning_registry_entry_id"],
             "scorer_versions": base["scorer_versions"],
             "ci_method": base["ci_method"],
             **perturbation,
         }
         assert _digest(components) != base["scorecard_id"]
+
+
+def test_scorecard_id_binds_resolved_reasoning_registry_entry_id() -> None:
+    qwen = scorecard_identity(reasoning_registry_entry_id="qwen_thinking_native_v1")
+    gemma = scorecard_identity(reasoning_registry_entry_id="gemma4_thinking_native_v1")
+
+    assert qwen["reasoning_registry_entry_id"] == "qwen_thinking_native_v1"
+    assert gemma["reasoning_registry_entry_id"] == "gemma4_thinking_native_v1"
+    assert qwen["scorecard_id"] != gemma["scorecard_id"]
 
 
 def test_every_registry_and_exec_bench_has_a_frozen_scorer_version() -> None:

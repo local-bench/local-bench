@@ -1,0 +1,25 @@
+LICENSE — NOT YET CHOSEN (PLACEHOLDER)
+=======================================
+
+The license for the local-bench project's own source code (the `cli/` runner and
+the `web/` site) has not been finalized. No open-source grant is made by this file.
+
+Until a license is selected and this file is replaced with its full text, all rights
+in the original local-bench source are reserved by the project maintainers. Do not
+assume permission to copy, modify, redistribute, or create derivative works of the
+local-bench source code.
+
+This placeholder covers the project's OWN code only. It does NOT change the terms of
+any third-party material the project references or redistributes. Datasets, model
+names, and vendored/adapted scorer code each carry their own upstream licenses, which
+continue to apply in full. Those are inventoried, with attribution, in:
+
+  - NOTICE                 (top-level attribution summary)
+  - LICENSES/              (full third-party license texts:
+                            Apache-2.0, MMLU-Pro MIT, IFBench ODC-BY-1.0)
+  - docs/foundations/license-inventory-v1.md   (per-dataset redistribution analysis)
+
+ACTION REQUIRED (maintainer): choose a license for the local-bench source before any
+public source release and replace this placeholder with the chosen license text.
+Note that for the v1 launch the public surface is the statically exported site
+(`web/out/`); the source repository itself is not published.

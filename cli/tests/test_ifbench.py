@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -282,7 +283,7 @@ def test_score_ifbench_registry_covers_every_tested_constraint() -> None:
 
 
 def _load_reference_checker() -> Callable[[Mapping[str, JsonValue], str], bool] | None:
-    reference_root = Path("C:/Users/Michael/AppData/Local/Temp/local-bench-ifbench-ref")
+    reference_root = Path(tempfile.gettempdir()) / "local-bench-ifbench-ref"
     if not reference_root.exists():
         return None
     spec = importlib.util.spec_from_file_location("ifbench_reference_evaluation_lib", reference_root / "evaluation_lib.py")

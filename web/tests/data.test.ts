@@ -15,9 +15,10 @@ describe("static data access", () => {
     const index = await getIndexData();
     const qwen = index.models.find((model) => model.slug === "qwen3-0-6b");
 
-    // Then the catalog is browsable without invented benchmark scores. 103 = 102 catalog
-    // shells + the standalone Qwopus3.6-27B-v2-MTP distill entry wired from the 27B campaign.
-    expect(index.models).toHaveLength(103);
+    // Then the catalog is browsable without invented benchmark scores: 102 catalog shells.
+    // (The standalone Qwopus3.6-27B-MTP distill *board row* was removed in eabc121 as an
+    // inferior self-distill of Qwen3.6-27B; its catalog browse-shells remain in the 102.)
+    expect(index.models).toHaveLength(102);
     expect(qwen).toMatchObject({
       best_run_id: null,
       composite: null,

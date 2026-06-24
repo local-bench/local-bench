@@ -4,23 +4,27 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Final, Literal, Protocol, assert_never
 
 from localbench._types import ChatMessage
 
-ReasoningActivation = Literal["qwen3", "granite", "nemotron", "r1"]
+ReasoningActivation = Literal["qwen3", "granite", "nemotron", "r1", "gemma4"]
 REASONING_ACTIVATIONS: Final[tuple[ReasoningActivation, ...]] = (
     "qwen3",
     "granite",
     "nemotron",
     "r1",
+    "gemma4",
 )
 _NEMOTRON_SYSTEM_MESSAGE: Final[ChatMessage] = {
     "role": "system",
     "content": "detailed thinking on",
 }
+_GEMMA4_HF_MODEL_ID: Final = "unsloth/gemma-4-31B-it"
+_GEMMA4_REVISION: Final = "a1c85d1c2db7dcd15c41ad4082955240a9465743"
 
 
 class PromptRenderingError(RuntimeError):
@@ -82,10 +86,11 @@ def load_hf_chat_prompt_renderer(
     try:
         from transformers import AutoTokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(hf_model_id, local_files_only=True)
+        tokenizer = _load_offline_tokenizer(AutoTokenizer, hf_model_id, activation)
     except ImportError as exc:
         raise PromptRenderingError(
-            "transformers is required when --hf-model-id is set"
+            "transformers is required when --hf-model-id is set; "
+            "install localbench[hf] to enable Hugging Face chat-template rendering"
         ) from exc
     except (OSError, ValueError) as exc:
         raise PromptRenderingError(
@@ -97,6 +102,32 @@ def load_hf_chat_prompt_renderer(
         else:
             os.environ["HF_HUB_OFFLINE"] = previous_offline
     return HfChatPromptRenderer(tokenizer=tokenizer, activation=activation)
+
+
+def _load_offline_tokenizer(
+    auto_tokenizer,
+    hf_model_id: str,
+    activation: ReasoningActivation,
+):
+    if activation != "gemma4" or hf_model_id != _GEMMA4_HF_MODEL_ID:
+        return auto_tokenizer.from_pretrained(hf_model_id, local_files_only=True)
+    try:
+        return auto_tokenizer.from_pretrained(
+            hf_model_id,
+            local_files_only=True,
+            revision=_GEMMA4_REVISION,
+        )
+    except OSError:
+        snapshot = (
+            Path.home()
+            / ".cache"
+            / "huggingface"
+            / "hub"
+            / "models--unsloth--gemma-4-31B-it"
+            / "snapshots"
+            / _GEMMA4_REVISION
+        )
+        return auto_tokenizer.from_pretrained(snapshot, local_files_only=True)
 
 
 def render_hf_chat_prompt(
@@ -133,7 +164,7 @@ def _messages_for_activation(
                 "content": _NEMOTRON_SYSTEM_MESSAGE["content"],
             }
             return [system_message, *copied]
-        case "qwen3" | "granite" | "r1":
+        case "qwen3" | "granite" | "r1" | "gemma4":
             return copied
         case unreachable:
             assert_never(unreachable)
@@ -143,6 +174,8 @@ def _chat_template_kwargs(activation: ReasoningActivation) -> dict[str, bool]:
     match activation:
         case "granite":
             return {"thinking": True}
+        case "gemma4":
+            return {"enable_thinking": True}
         case "qwen3" | "nemotron" | "r1":
             return {}
         case unreachable:
