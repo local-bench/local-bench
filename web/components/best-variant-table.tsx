@@ -1,27 +1,23 @@
 import Link from "next/link";
-import { AGENTIC_COLUMN_TOOLTIP, AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
+import { AxisMiniBar } from "@/components/score-bar";
 import { familyStyle } from "@/lib/family-color";
-import { formatCi, formatCompactNumber, formatDuration, formatGb, formatLatencySeconds, formatScore } from "@/lib/format";
+import { formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
 import type { BestVariantPoint } from "@/lib/best-variant";
-import type { AgenticModel } from "@/lib/schemas";
-
-const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
+import type { AxisScore } from "@/lib/schemas";
 
 // The scatter's companion: the same best-variant-per-model points as a precise, scannable list.
-// Colour swatches tie each row back to its dot, so the crowded top of the chart stays legible here.
-export function BestVariantTable({
-  points,
-  agenticBySlug = EMPTY_AGENTIC,
-}: {
-  readonly points: readonly BestVariantPoint[];
-  readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
-}) {
+// Landing layout (per the GPT-5.5 design consult): the Index (with its weighted-contribution rail)
+// -> VRAM -> the three component axes in FORMULA order (Agentic 0.70, Knowledge 0.15, Instruction
+// 0.15) on the raw 0-100 scale -> speed. The full /leaderboard carries everything diagnostic.
+export function BestVariantTable({ points }: { readonly points: readonly BestVariantPoint[] }) {
   if (points.length === 0) {
     return null;
   }
-  const hasAgentic = points.some((point) => agenticBySlug.has(point.modelSlug));
   const rows = [...points].sort((left, right) => right.score.point - left.score.point);
+  const top = rows[0];
+  const second = rows[1];
+  const tied = top !== undefined && second !== undefined && top.score.lo <= second.score.hi;
   return (
     <section
       data-testid="best-variant-table"
@@ -30,23 +26,29 @@ export function BestVariantTable({
       <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
         <p className="mt-1 text-xs leading-5 text-bench-muted">
-          Top local models by Local Intelligence Index — best variant per model. See the full leaderboard for every
-          quant and the scoring scope.
+          Best local model variants ranked so far, by the Local Intelligence Index
+          (<span className="font-mono">0.70·Agentic + 0.15·Knowledge + 0.15·Instruction</span>). See the full
+          leaderboard for every quant, hardware, and run provenance.
+        </p>
+        <p className="mt-1 font-mono text-[11px] text-bench-muted-2">
+          {rows.length} ranked model{rows.length === 1 ? "" : "s"} so far — ranks are point estimates
+          {tied ? "; the top two are statistically tied within uncertainty" : ""}.
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
-        <caption className="sr-only">Best variant per model, ranked by Local Intelligence Index</caption>
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+        <caption className="sr-only">Best variant per model, ranked by the Local Intelligence Index</caption>
         <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
           <tr>
             <th className="w-10 px-3 py-3">#</th>
             <th className="px-3 py-3">Model</th>
-            <th className="px-3 py-3">Local Intelligence Index</th>
-            <th className="px-3 py-3">VRAM to run</th>
+            <th className="px-3 py-3">Local Intelligence Index v2.0</th>
+            <th className="px-3 py-3">VRAM / fits</th>
+            <th className="px-3 py-3">Agentic · 70%</th>
+            <th className="px-3 py-3">Knowledge · 15%</th>
+            <th className="px-3 py-3">Instruction · 15%</th>
             <th className="px-3 py-3">tok/s</th>
-            <th className="px-3 py-3">Time/answer</th>
-            <th className="px-3 py-3">Full bench time</th>
-            <th className="px-3 py-3"><AgenticHeaderLabel /></th>
+            <th className="px-3 py-3">Bench time</th>
           </tr>
         </thead>
         <tbody>
@@ -74,30 +76,48 @@ export function BestVariantTable({
                     ) : null}
                   </span>
                 </td>
-                <td className="px-3 py-3 font-mono text-bench-text">
-                  {formatScore(point.score.point)} <span className="text-bench-muted">{formatCi(point.score)}</span>
+                <td className="px-3 py-3">
+                  <div className="min-w-[150px]">
+                    <div className="font-mono text-bench-text">
+                      {formatScore(point.score.point)} <span className="text-bench-muted">{formatCi(point.score)}</span>
+                    </div>
+                    <ContributionRail axes={point.axes} />
+                  </div>
                 </td>
                 <td className="px-3 py-3 font-mono text-bench-text">
                   ~{formatGb(point.effectiveVramGb)}{" "}
                   <span className="text-xs text-bench-muted">{tier === null ? ">512 GB" : `fits ${tier} GB`}</span>
                 </td>
+                <td className="px-3 py-3"><AxisMiniBar score={point.axes["agentic"]} /></td>
+                <td className="px-3 py-3"><AxisMiniBar score={point.axes["knowledge"]} /></td>
+                <td className="px-3 py-3"><AxisMiniBar score={point.axes["instruction"]} /></td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(point.tokS)}</td>
-                <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(point.latencySMedian)}</td>
-                <td className="px-3 py-3 font-mono text-bench-text">{formatDuration(point.wallTimeSeconds)}</td>
-                <td className="px-3 py-3">
-                  <AgenticCell model={agenticBySlug.get(point.modelSlug)} />
-                </td>
+                <td className="px-3 py-3 font-mono text-xs text-bench-muted">{formatDuration(point.wallTimeSeconds)}</td>
               </tr>
             );
           })}
         </tbody>
         </table>
       </div>
-      {hasAgentic ? (
-        <p className="border-t border-bench-line/75 px-3 py-2 font-mono text-[10px] leading-4 text-bench-muted">
-          {AGENTIC_COLUMN_TOOLTIP}
-        </p>
-      ) : null}
     </section>
+  );
+}
+
+// The Index's weighted-contribution rail: three segments sized by each axis's CONTRIBUTION to the
+// Index (axis point x weight), so the filled length equals the Index and Agentic (0.70) visibly
+// leads. The component columns stay on the raw 0-100 scale; this rail is the only weighted view.
+function ContributionRail({ axes }: { readonly axes: Readonly<Record<string, AxisScore>> }) {
+  const a = (axes["agentic"]?.point ?? 0) * 0.7;
+  const k = (axes["knowledge"]?.point ?? 0) * 0.15;
+  const i = (axes["instruction"]?.point ?? 0) * 0.15;
+  return (
+    <div
+      className="mt-1.5 flex h-1.5 w-full max-w-[170px] overflow-hidden rounded-full bg-white/10"
+      title={`Agentic ${a.toFixed(1)} + Knowledge ${k.toFixed(1)} + Instruction ${i.toFixed(1)} = ${(a + k + i).toFixed(1)}`}
+    >
+      <div className="h-full bg-bench-accent" style={{ width: `${a}%` }} />
+      <div className="h-full bg-bench-accent/60" style={{ width: `${k}%` }} />
+      <div className="h-full bg-bench-accent/35" style={{ width: `${i}%` }} />
+    </div>
   );
 }
