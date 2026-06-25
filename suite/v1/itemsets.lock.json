@@ -70,8 +70,17 @@
       "source_paper": "https://arxiv.org/abs/2404.06654",
       "license": "Apache-2.0",
       "target_context": "32k",
-      "tasks": ["niah_single", "niah_multikey"],
-      "depths": [0, 25, 50, 75, 100],
+      "tasks": [
+        "niah_single",
+        "niah_multikey"
+      ],
+      "depths": [
+        0,
+        25,
+        50,
+        75,
+        100
+      ],
       "items_per_task_depth": 6,
       "filler_corpus_id": "synthetic-ruler-local-v1",
       "generator_attribution": "Reimplemented from NVIDIA/RULER NIAH task pattern",
@@ -89,6 +98,12 @@
       "harness_license": "Apache-2.0",
       "lane": "exec",
       "exec_note": "Opt-in code-EXECUTION axis. Model-generated code runs in a hardened, network-isolated Docker sandbox (localbench.coding_exec.sandbox) with the task's own unit tests in an isolated subprocess. See docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md."
+    },
+    "tc_json_v1.jsonl": {
+      "item_count": 330,
+      "sha256": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74",
+      "source_dataset": "BFCL single-turn backbone plus hand-authored common-tool conformance items",
+      "source_revision": "local suite/v1 tc_json_v1"
     }
   }
 }

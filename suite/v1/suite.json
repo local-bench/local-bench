@@ -149,29 +149,59 @@
       },
       "lane_caps": {},
       "template": "templates/bigcodebench.txt"
+    },
+    "tc_json_v1": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "tc_json_v1.jsonl",
+          "item_count": 330,
+          "sha256": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/tc_json_v1.txt"
     }
   },
   "axis_weight_source": "localbench.scoring.axes.AXES — code is the single source of composite weights + roles; suite.json carries axis MEMBERSHIP only (METHODOLOGY-v1.2 §8). A test asserts this membership matches the registry.",
   "axes": {
     "math": {
-      "benches": ["amo", "olymmath_hard"],
+      "benches": [
+        "amo",
+        "olymmath_hard"
+      ],
       "reference_score": 0.58,
       "reference_note": "Published frontier ceiling (REPORTED, not measured by local-bench): AMO-Bench ~0.63 AVG@32 and OlymMATH EN-HARD ~0.58 P@1; conservative axis value. Probe-only (reference-anchored discrimination). See docs/foundations/math-anchor-reference.md."
     },
     "knowledge": {
-      "benches": ["mmlu_pro"]
+      "benches": [
+        "mmlu_pro"
+      ]
     },
     "instruction_following": {
-      "benches": ["ifbench"]
+      "benches": [
+        "ifbench"
+      ]
     },
     "agentic": {
-      "benches": ["bfcl", "bfcl_multi_turn"]
+      "benches": [
+        "bfcl",
+        "bfcl_multi_turn"
+      ]
     },
     "coding": {
-      "benches": ["lcb"]
+      "benches": [
+        "lcb"
+      ]
     },
     "long_context": {
-      "benches": ["ruler_32k"]
+      "benches": [
+        "ruler_32k"
+      ]
     }
   }
 }

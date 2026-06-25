@@ -22,6 +22,7 @@ from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
 from localbench.scorers.ruler import score_ruler
+from localbench.scorers.tc_json_v1 import score_tc_json_v1
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
 
@@ -270,6 +271,13 @@ def _score_response_detail(
         case "bfcl":
             detailed = score_bfcl(source_item, scorer_text)
             return {"extracted": detailed["extracted"], "correct": detailed["correct"]}
+        case "tc_json_v1":
+            detailed = score_tc_json_v1(source_item, scorer_text)
+            return {
+                "extracted": detailed["extracted"],
+                "correct": detailed["correct"],
+                "failure_kind": detailed["failure_reason"],
+            }
         case "bfcl_multi_turn":
             detailed = score_bfcl_multi_turn(source_item, scorer_text)
             return {
@@ -372,6 +380,7 @@ def _bench_has_extraction(bench: str) -> bool:
         "olymmath_hard",
         "supergpqa",
         "bfcl",
+        "tc_json_v1",
         "bfcl_multi_turn",
         "lcb",
         "ruler_32k",

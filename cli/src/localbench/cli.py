@@ -48,6 +48,7 @@ from localbench.scoring.board_support import DEFAULT_OUT, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
 from localbench.submissions.validate import SubmissionValidationError
 from localbench.submissions.verify import verify_bundle_offline
+from localbench.tc_json_v1_runner import run_tc_json_v1
 from localbench.suite_resolver import (
     DEFAULT_SUITE_ID,
     SuiteResolutionError,
@@ -102,6 +103,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _code(args)
     if args.command == "board":
         return _board(args)
+    if args.command == "tc-json":
+        return _tc_json(args)
     parser.print_help()
     return 2
 
@@ -260,6 +263,14 @@ def _parser() -> argparse.ArgumentParser:
     board_parser.add_argument("--frozen-timestamp")
     board_parser.add_argument("--check-parity", dest="check_parity", action="store_true", default=True)
     board_parser.add_argument("--no-check-parity", dest="check_parity", action="store_false")
+    tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 plaintext tool-calling gate")
+    tc_json_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
+    tc_json_parser.add_argument("--model", required=True, help="model name to send in requests")
+    tc_json_parser.add_argument("--suite-dir", type=Path, default=Path("..") / "suite" / "v1")
+    tc_json_parser.add_argument("--out", type=Path, required=True)
+    tc_json_parser.add_argument("--api-key-env")
+    tc_json_parser.add_argument("--max-items", type=int)
+    tc_json_parser.add_argument("--concurrency", type=int, default=4)
     return parser
 
 
@@ -306,6 +317,35 @@ def _run(args: argparse.Namespace) -> int:
         _rewrite_run_record(record)
     _print_summary(record)
     return 0
+
+
+def _tc_json(args: argparse.Namespace) -> int:
+    api_key = _api_key(args.api_key_env)
+    record = anyio.run(
+        _run_tc_json_async,
+        args,
+        api_key,
+    )
+    aggregate_record = record["aggregate"]
+    interval = aggregate_record["wilson_95_ci"]
+    print(f"items     {aggregate_record['n']}")
+    print(f"raw_asr   {aggregate_record['raw_asr']:.4f}")
+    print(f"wilson95  [{interval['lo']:.4f}, {interval['hi']:.4f}]")
+    print(f"band      {aggregate_record['band']}")
+    print(f"wrote     {args.out}")
+    return 0
+
+
+async def _run_tc_json_async(args: argparse.Namespace, api_key: str | None):
+    return await run_tc_json_v1(
+        base_url=args.endpoint,
+        model=args.model,
+        suite_dir=args.suite_dir,
+        out=args.out,
+        api_key=api_key,
+        max_items=args.max_items,
+        concurrency=args.concurrency,
+    )
 
 
 async def _preflight_endpoint(endpoint: str) -> None:
