@@ -29,6 +29,25 @@ export const AxisScoreSchema = ScoreSchema.extend({
 });
 
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
+export const ConformanceGateSchema = z.object({
+  id: z.literal("tc_json_v1"),
+  label: z.literal("JSON tool-call gate"),
+  band: z.enum(["green", "amber", "red"]),
+  pass_rate: z.object({
+    point: z.number(),
+    lo: z.number(),
+    hi: z.number(),
+  }),
+  invalid_json_rate: z.number(),
+  n_items: z.number(),
+  threshold_version: z.literal("tc_json_v1"),
+  band_reasons: z.array(z.string()),
+});
+export const ConformanceGatesSchema = z
+  .object({
+    tc_json_v1: ConformanceGateSchema.optional(),
+  })
+  .passthrough();
 
 export const KindSchema = z.enum(["anchor", "community"]);
 export const ScoreStatusSchema = z.enum(["measured", "missing"]);
@@ -112,6 +131,7 @@ export const IndexModelSchema = z.object({
   submitted_by: z.string().nullable().optional(),
   replicated: z.boolean(),
   score_status: ScoreStatusSchema.optional().default("measured"),
+  conformance_gates: ConformanceGatesSchema.optional(),
   demo: DemoFlagSchema,
 });
 
@@ -164,6 +184,7 @@ export const ModelRunSchema = z.object({
   n_errors: z.number(),
   wall_time_seconds: z.number().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
+  conformance_gates: ConformanceGatesSchema.optional(),
   demo: DemoFlagSchema,
 });
 
@@ -227,6 +248,8 @@ export const RunDetailSchema = z.object({
 export type Axis = string;
 export type Score = z.infer<typeof ScoreSchema>;
 export type AxisScore = z.infer<typeof AxisScoreSchema>;
+export type ConformanceGate = z.infer<typeof ConformanceGateSchema>;
+export type ConformanceGates = z.infer<typeof ConformanceGatesSchema>;
 export type Kind = z.infer<typeof KindSchema>;
 export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
 export type IndexData = z.infer<typeof IndexDataSchema>;

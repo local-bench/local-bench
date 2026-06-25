@@ -4,7 +4,7 @@ import {
   type ContextLengthOption,
   type RigMatchCandidate,
 } from "./rig-match";
-import type { AxisScore, Score } from "./schemas";
+import type { AxisScore, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
   readonly modelSlug: string;
@@ -14,6 +14,7 @@ export type BestVariantPoint = {
   readonly quantLabel: string | null;
   readonly score: Score;
   readonly axes: Readonly<Record<string, AxisScore>>;
+  readonly conformanceGates?: ConformanceGates;
   readonly tokS: number | null;
   readonly latencySMedian: number | null;
   readonly wallTimeSeconds: number | null;
@@ -81,7 +82,7 @@ export function selectBestVariantPoints(
     if (vram === null) {
       continue;
     }
-    const point: BestVariantPoint = {
+    const pointBase = {
       modelSlug: candidate.modelSlug,
       modelLabel: candidate.modelLabel,
       family: candidate.family,
@@ -96,6 +97,10 @@ export function selectBestVariantPoints(
       nRuns: candidate.nRuns,
       isFrontier: false,
     };
+    const point: BestVariantPoint =
+      candidate.conformanceGates === undefined
+        ? pointBase
+        : { ...pointBase, conformanceGates: candidate.conformanceGates };
     const incumbent = bestByModel.get(candidate.modelSlug);
     if (incumbent === undefined || isBetterWithinModel(point, incumbent)) {
       bestByModel.set(candidate.modelSlug, point);

@@ -35,7 +35,7 @@ def _recommended_system(group: Sequence[ScoredRun], best: ScoredRun) -> ScoredRu
 
 
 def _system_row(run: ScoredRun, *, best: ScoredRun, recommended: ScoredRun) -> JsonObject:
-    return {
+    row: JsonObject = {
         "quant_label": run["quant_label"],
         "run_id": run["run_id"],
         "composite": run["composite"],
@@ -54,3 +54,6 @@ def _system_row(run: ScoredRun, *, best: ScoredRun, recommended: ScoredRun) -> J
         "is_best": run["run_id"] == best["run_id"],
         "is_recommended": run["run_id"] == recommended["run_id"],
     }
+    if "conformance_gates" in run:
+        row["conformance_gates"] = run["conformance_gates"]
+    return row

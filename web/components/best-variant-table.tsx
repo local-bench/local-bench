@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConformancePill } from "./conformance-pill";
 import { AxisMiniBar } from "@/components/score-bar";
 import { familyStyle } from "@/lib/family-color";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
@@ -36,13 +37,19 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
         <caption className="sr-only">Best variant per model, ranked by the Local Intelligence Index</caption>
         <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
           <tr>
             <th className="w-10 px-3 py-3">#</th>
             <th className="px-3 py-3">Model</th>
             <th className="px-3 py-3">Local Intelligence Index v2.0</th>
+            <th className="px-3 py-3">
+              <span className="flex flex-col gap-0.5 leading-tight">
+                <span>JSON gate</span>
+                <span className="font-mono text-[10px] normal-case text-bench-muted">0% weight · protocol</span>
+              </span>
+            </th>
             <th className="px-3 py-3">VRAM / fits</th>
             <th className="px-3 py-3">Agentic · 70%</th>
             <th className="px-3 py-3">Knowledge · 15%</th>
@@ -84,6 +91,9 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                     <ContributionRail axes={point.axes} />
                   </div>
                 </td>
+                <td className="px-3 py-3">
+                  <ConformancePill gate={point.conformanceGates?.tc_json_v1} compact />
+                </td>
                 <td className="px-3 py-3 font-mono text-bench-text">
                   ~{formatGb(point.effectiveVramGb)}{" "}
                   <span className="text-xs text-bench-muted">{tier === null ? ">512 GB" : `fits ${tier} GB`}</span>
@@ -99,6 +109,9 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
         </tbody>
         </table>
       </div>
+      <p className="border-t border-bench-line px-3 py-2 text-xs leading-5 text-bench-muted">
+        JSON gate is plaintext tool-call conformance, not part of the Local Intelligence Index. It may correlate with Agentic; treat it as deployment-readiness, not independent confirmation of tool skill.
+      </p>
     </section>
   );
 }

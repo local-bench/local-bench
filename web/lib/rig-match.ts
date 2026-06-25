@@ -1,4 +1,4 @@
-import type { AxisScore, Kind, Score, ScoreStatus } from "./schemas";
+import type { AxisScore, ConformanceGates, Kind, Score, ScoreStatus } from "./schemas";
 import { quantBytesPerParam } from "./quant";
 import type { QuantFilter } from "./quant";
 
@@ -23,6 +23,7 @@ export type RigMatchAnchor = {
 
 export type RigMatchCandidate = {
   readonly axes: Readonly<Record<string, AxisScore>>;
+  readonly conformanceGates?: ConformanceGates;
   readonly demo: boolean;
   readonly family: string;
   readonly kind: Kind;

@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { DemoBadge, KindBadge } from "@/components/badges";
+import { ConformancePill } from "./conformance-pill";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
@@ -39,7 +40,7 @@ export function HomeLeaderboard({
     <div data-testid="full-leaderboard" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
       <BoardScopeHeader />
       <div className="overflow-x-auto">
-        <table className="min-w-[1240px] border-collapse text-sm">
+        <table className="min-w-[1380px] border-collapse text-sm">
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
         </caption>
@@ -53,6 +54,12 @@ export function HomeLeaderboard({
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
             <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
+            <th className="border-l border-bench-line px-3 py-3 font-semibold">
+              <span className="flex flex-col gap-0.5 leading-tight">
+                <span>Conformance</span>
+                <span className="font-mono text-[10px] normal-case text-bench-muted">JSON tool-call gate · not ranked</span>
+              </span>
+            </th>
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
             <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
             <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
@@ -96,6 +103,9 @@ export function HomeLeaderboard({
               ))}
               <td className="px-3 py-3">
                 <AgenticCell model={agenticBySlug.get(model.slug)} />
+              </td>
+              <td className="border-l border-bench-line px-3 py-3">
+                <ConformancePill gate={model.conformance_gates?.tc_json_v1} showReason compact />
               </td>
               <td className="px-3 py-3 font-mono text-xs text-bench-text">{formatGpuShort(model.gpu)}</td>
               <td className="px-3 py-3 font-mono text-bench-text">

@@ -198,7 +198,7 @@ export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
 }
 
 function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate {
-  return {
+  const candidate = {
     axes: run.axes,
     demo: model.demo || run.demo,
     family: model.family,
@@ -219,6 +219,7 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
     vramFootprintGb: run.vram_footprint_gb,
     vramRequiredGb8k: run.vram_required_gb_8k ?? null,
   };
+  return run.conformance_gates === undefined ? candidate : { ...candidate, conformanceGates: run.conformance_gates };
 }
 
 function nullableNumber(value: number | null | undefined, fallback: number): number {

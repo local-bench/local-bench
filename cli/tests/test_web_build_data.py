@@ -208,6 +208,56 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     )
 
 
+def test_build_data_carries_board_conformance_gate_to_index_and_model_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: the board artifact supplies a tc_json sidecar for the generated run id.
+    builder = _build_data_module()
+    paths = _write_synthetic_pipeline_inputs(
+        tmp_path,
+        [
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("mmlu-pro-002", "mmlu_pro", False, category="biology", template="mcq-b"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+            _synthetic_item("ifbench-002", "ifbench", False, template="format-list"),
+        ],
+    )
+    gate = _tc_json_gate("red")
+    interval = {"hi": 90.0, "hi_raw": 0.9, "lo": 70.0, "lo_raw": 0.7, "point": 80.0, "point_raw": 0.8}
+    monkeypatch.setattr(
+        builder,
+        "_board_ranked_by_slug",
+        lambda: {
+            "synthetic-model": {
+                "ranked": True,
+                "systems": [
+                    {
+                        "run_id": "synthetic-model__synthetic-run",
+                        "composite": interval,
+                        "axes": {"knowledge": interval, "instruction": interval},
+                        "conformance_gates": {"tc_json_v1": gate},
+                    },
+                ],
+            },
+        },
+    )
+
+    # When: the static web JSON is built through the normal pipeline.
+    builder.build_static_data(paths["sources"], paths["out"], iters=50)
+
+    # Then: index, model, and run-detail rows render the board-provided gate verbatim.
+    index = _object(_read_json(paths["out"] / "index.json"))
+    model = _model_by_label(_objects(index["models"]), "Synthetic Model")
+    model_gate = _object(_object(model["conformance_gates"])["tc_json_v1"])
+    assert model_gate == gate
+    model_payload = _object(_read_json(paths["out"] / "models" / "synthetic-model.json"))
+    run_row = _objects(model_payload["runs"])[0]
+    assert _object(_object(run_row["conformance_gates"])["tc_json_v1"]) == gate
+    run_detail = _only_run_detail(paths["out"])
+    assert _object(_object(run_detail["conformance_gates"])["tc_json_v1"]) == gate
+
+
 def test_build_data_when_items_have_suite_metadata_uses_real_strata(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -408,6 +458,19 @@ def _synthetic_item(
     if template is not None:
         item["template"] = template
     return item
+
+
+def _tc_json_gate(band: str) -> JsonObject:
+    return {
+        "id": "tc_json_v1",
+        "label": "JSON tool-call gate",
+        "band": band,
+        "pass_rate": {"point": 82.0, "lo": 78.0, "hi": 86.0},
+        "invalid_json_rate": 18.0,
+        "n_items": 330,
+        "threshold_version": "tc_json_v1",
+        "band_reasons": ["invalid_json>15"],
+    }
 
 
 def _registry_weighted_composite(benches: JsonObject) -> float:

@@ -3,6 +3,7 @@ import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
+import { ConformancePill } from "./conformance-pill";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { axisLabel, formatCompactNumber, formatGb } from "@/lib/format";
@@ -43,7 +44,7 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table data-testid="model-variant-table" className="min-w-[1140px] border-collapse text-sm">
+        <table data-testid="model-variant-table" className="min-w-[1260px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
             <tr>
               <th className="px-3 py-3 font-semibold">Rank</th>
@@ -54,6 +55,7 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
                 </span>
               </th>
+              <th className="px-3 py-3 font-semibold">JSON gate</th>
               {axisKeys.map((axis) => (
                 <th key={axis} className="px-3 py-3 font-semibold">
                   {axisLabel(axis)}
@@ -90,6 +92,9 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                       <ScoreBar axes={run.axes} score={run.composite} />
                     )}
                   </td>
+                  <td className="px-3 py-3">
+                    <ConformancePill gate={run.conformance_gates?.tc_json_v1} compact />
+                  </td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
                       <AxisMiniBar score={run.axes[axis]} />
@@ -123,6 +128,9 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 <td className="px-3 py-3">
                   <span className="font-mono text-xs text-bench-muted">not measured</span>
                 </td>
+                <td className="px-3 py-3">
+                  <ConformancePill gate={run.conformance_gates?.tc_json_v1} compact />
+                </td>
                 {axisKeys.map((axis) => (
                   <td key={axis} className="px-3 py-3">
                     <AxisMiniBar score={run.axes[axis]} />
@@ -144,6 +152,9 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   <td className="px-3 py-3 font-mono">—</td>
                   <td className="px-3 py-3 font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</td>
                   <td className="px-3 py-3">no run yet</td>
+                  <td className="px-3 py-3">
+                    <ConformancePill gate={undefined} compact />
+                  </td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
                       —

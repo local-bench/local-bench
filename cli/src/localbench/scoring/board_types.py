@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 from localbench._types import JsonObject
 
@@ -54,6 +54,7 @@ class ScoredRun(TypedDict):
     catalog_id: str | None
     composite: JsonObject
     composite_raw: float
+    conformance_gates: NotRequired[JsonObject]
     est_cost_usd: float | None
     family: str
     kind: str

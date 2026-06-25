@@ -155,6 +155,17 @@ def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_i
             axes[axis] = dict(board_axis)
 
 
+def _board_conformance_gates(slug: str, run_id: str, board: dict[str, JsonObject]) -> JsonObject | None:
+    board_model = board.get(slug)
+    if board_model is None:
+        return None
+    system = _board_system_for_run(board_model, run_id)
+    if system is None:
+        return None
+    gates = _object_or_empty(system.get("conformance_gates"))
+    return dict(gates) if gates else None
+
+
 def _board_system_for_run(board_model: JsonObject, run_id: str) -> JsonObject | None:
     """The board model's per-quant SYSTEM row whose run_id matches this web run (else None)."""
     for system in _list(board_model.get("systems"), "board.model.systems"):
@@ -208,9 +219,14 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     # render the board's single agentic-led Index scale. No-op for unranked rows / unmatched
     # runs. See _apply_board_intervals.
     _apply_board_intervals(slug, run_id, axes, _object(composite["interval"], "composite.interval"), board)
+    conformance_gates = _board_conformance_gates(slug, run_id, board)
     detail = {"axes": axes, "composite": composite["interval"], "data_warnings": axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": _text(suite.get("tier")), "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))}
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard" and conformance_status == "headline-comparable", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "score_status": "measured", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
+    if conformance_gates is not None:
+        detail["conformance_gates"] = conformance_gates
+        model_row["conformance_gates"] = conformance_gates
+        index_row["conformance_gates"] = conformance_gates
     return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 

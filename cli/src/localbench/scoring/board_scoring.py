@@ -30,6 +30,7 @@ from localbench.scoring.board_support import (
 from localbench.scoring.board_systems import best_system, system_fields
 from localbench.scoring.board_types import BoardBuildError, CuratedSource, ScoredRun
 from localbench.scoring.signed_score import chance_for_bench, signed_score
+from localbench.scoring.tc_json_conformance import GATE_ID, tc_json_conformance_gate
 
 APPWORLD_C_BENCH = "appworld_c"
 
@@ -60,7 +61,7 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
     rows: list[JsonObject] = []
     for group in _groups(scored).values():
         best = best_system(group)
-        rows.append({
+        row = {
             "slug": best["slug"],
             "catalog_id": best["catalog_id"],
             "model_label": best["model_label"],
@@ -81,7 +82,10 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
             "replicated": any(run["replicated"] for run in group),
             "score_status": best["score_status"],
             "demo": False,
-        } | system_fields(group, best))
+        } | system_fields(group, best)
+        if "conformance_gates" in best:
+            row["conformance_gates"] = best["conformance_gates"]
+        rows.append(row)
     return sorted(rows, key=lambda row: (not bool_value(row["ranked"], "ranked"), -(_model_point(row) or 0.0), text_value(row.get("model_label")) or ""))
 
 
@@ -125,7 +129,7 @@ def _scored_run(
     tokens = _completion_token_stats(items)
     tok_s = number_or_none(totals.get("completion_tokens_per_second"))
     run_id = f"{slug}__{path.stem}"
-    return {
+    scored: ScoredRun = {
         "axes": axes,
         "best_run_id": run_id,
         "catalog_id": source["model_id"],
@@ -153,6 +157,10 @@ def _scored_run(
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
     }
+    conformance_gate = _tc_json_gate(path, runs_dir, slug)
+    if conformance_gate is not None:
+        scored["conformance_gates"] = {GATE_ID: conformance_gate}
+    return scored
 
 
 def _inject_appworld_c(source: CuratedSource, benches: JsonObject, items: list[JsonObject], runs_dir: Path) -> None:
@@ -181,6 +189,17 @@ def _inject_appworld_c(source: CuratedSource, benches: JsonObject, items: list[J
         "termination_rate": 1.0,
     }
     items.extend({"id": task_id, "bench": APPWORLD_C_BENCH, "correct": success, "error": None} for task_id, success in successes)
+
+
+def _tc_json_gate(path: Path, runs_dir: Path, slug: str) -> JsonObject | None:
+    tc_json_dir = runs_dir / "tc-json"
+    for key in (path.stem, slug):
+        tc_json_path = tc_json_dir / f"{key}.json"
+        if tc_json_path.exists():
+            record = object_value(read_json(tc_json_path), str(tc_json_path))
+            aggregate = object_value(record.get("aggregate"), f"{tc_json_path}.aggregate")
+            return tc_json_conformance_gate(aggregate)
+    return None
 
 
 def _axes_and_samples(

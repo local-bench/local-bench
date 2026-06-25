@@ -1,5 +1,6 @@
 import { KindBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { ConformancePill } from "@/components/conformance-pill";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
@@ -20,6 +21,8 @@ export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
   const { model, anchorRuns } = await getModelPageData(slug);
   const measuredRuns = model.runs.filter((run) => run.score_status === "measured");
+  const protocolGate = model.runs.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
+    ?.tc_json_v1;
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -36,6 +39,19 @@ export default async function ModelPage({ params }: PageProps) {
           </p>
         </div>
       </header>
+      <section className="rounded-lg border border-bench-line bg-bench-panel/82 px-4 py-3">
+        <h2 className="text-sm font-semibold uppercase text-bench-muted">Protocol gates</h2>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-bench-muted">
+          <span className="font-mono text-bench-text">tc_json_v1</span>
+          <span>plaintext JSON tool calls</span>
+          <ConformancePill gate={protocolGate} showReason compact />
+          <span className="font-mono">n={protocolGate?.n_items ?? "n/a"}</span>
+          <span>Not included in Local Intelligence Index.</span>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-bench-muted">
+          Agentic tests multi-turn Python code-as-action task completion. JSON gate tests single-turn plaintext tool-call format conformance. They may correlate; they are not independent votes.
+        </p>
+      </section>
       <ModelVariantBoard model={model} />
       <ModelScatter model={model} anchorRuns={anchorRuns} />
     </main>
