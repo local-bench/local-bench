@@ -23,6 +23,7 @@ def load_sources(path: Path) -> list[CuratedSource]:
     sources = [_source(item, index) for index, item in enumerate(list_value(raw, str(path)))]
     if not any(source["file"].replace("\\", "/").endswith(GEMMA_FALLBACK_FILE) for source in sources):
         sources.append({
+            "agentic_file": "cli/runs/agentic/gemma4-31b-Q4_K_M.scored.run1.json",
             "kind": "community",
             "family": "Gemma 4",
             "model_id": "google/gemma-4-31B-it",
@@ -43,6 +44,7 @@ def _source(value: JsonValue, index: int) -> CuratedSource:
     if kind not in {"anchor", "community"}:
         raise BoardBuildError(f"curation[{index}].kind must be anchor or community")
     return {
+        "agentic_file": text_value(item.get("agentic_file")),
         "family": string_value(item.get("family"), f"curation[{index}].family"),
         "file": string_value(item.get("file"), f"curation[{index}].file"),
         "independent_replication": bool_or_false(item.get("independent_replication")),

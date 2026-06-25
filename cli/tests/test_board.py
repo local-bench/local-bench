@@ -9,6 +9,7 @@ from board_fixtures import (
     FROZEN_AT,
     assert_axis,
     assert_score,
+    appworld_report,
     bool_value,
     float_value,
     object_value,
@@ -16,6 +17,7 @@ from board_fixtures import (
     run_record,
     source,
     string_value,
+    write_agentic,
     write_inputs,
     write_run,
 )
@@ -37,10 +39,11 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
         bootstrap_iters=50,
     )
 
-    # Then: the output mirrors the IndexData/IndexModel contract plus v1 metadata.
+    # Then: the output mirrors the IndexData/IndexModel contract plus v2 metadata.
     assert {"generated_note", "schema_version", "index_version", "suite_version"} <= set(board)
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
-    assert board["schema_version"] == "board-v1"
+    assert board["schema_version"] == "board-v2"
+    assert board["scoring_version"] == "scorecard-v2.0"
     assert board["lane_scope"] == "capped-thinking"
     manifest = object_value(board["manifest"])
     assert object_value(manifest["item_set_hashes"]) == {
@@ -135,6 +138,50 @@ def test_composite_uses_registry_weighted_axis_combination(
     assert composite["point_raw"] == pytest.approx(custom_weights["knowledge"])
     assert composite["point_raw"] != pytest.approx(0.5)
     assert set(web_composite_weights()) >= {"knowledge", "instruction"}
+
+
+def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Path) -> None:
+    # Given: a curated model with K/I run data and a separate AppWorld-C scored run1 file.
+    from localbench.scoring.board import build_board
+    from localbench.scoring.metadata import cluster_for_item, stratum_for_item
+
+    paths = write_inputs(
+        tmp_path,
+        [source("Agentic Model", "agentic.json", agentic_file="appworld.scored.run1.json")],
+    )
+    write_run(
+        paths["runs"] / "agentic.json",
+        run_record(mmlu_correct=(True, True), if_correct=(False, False)),
+    )
+    write_agentic(paths["runs"] / "appworld.scored.run1.json", appworld_report((True, False, True, False)))
+
+    # When: the scorer-side board is built through the public surface.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: AppWorld-C is a real agentic axis and the composite follows 70/15/15 weighting.
+    model = objects_value(board["models"])[0]
+    axes = object_value(model["axes"])
+    agentic = object_value(axes["agentic"])
+    knowledge = object_value(axes["knowledge"])
+    instruction = object_value(axes["instruction"])
+    composite = object_value(model["composite"])
+    expected = (
+        (0.70 * float_value(agentic["point_raw"]))
+        + (0.15 * float_value(knowledge["point_raw"]))
+        + (0.15 * float_value(instruction["point_raw"]))
+    )
+    assert agentic["n"] == 4
+    assert agentic["raw_accuracy"] == pytest.approx(0.5)
+    assert composite["point_raw"] == pytest.approx(expected)
+    # AppWorld-C uses a SINGLE stratum + scenario cluster so the bootstrap resamples
+    # scenarios (honest CI). Per-scenario strata (1-3 items each) collapse the variance.
+    assert stratum_for_item("appworld_c", "calendar_17", {}) == "appworld_c"
+    assert cluster_for_item("appworld_c", "calendar_17", {"cluster": "ignored"}) == "calendar"
 
 
 def test_missing_gemma_run_is_skipped_gracefully(tmp_path: Path) -> None:

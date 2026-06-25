@@ -6,6 +6,7 @@ from typing import Final
 # corresponding suite.json `chance_correction_baseline` (run scoring uses the suite value directly; only
 # paired_delta defaults read here). mmlu_pro = selected-set mean 1/n_options over the emitted suite-v1 set.
 CHANCE_BASELINES: Final[dict[str, float]] = {
+    "appworld_c": 0.0,
     "mmlu_pro": 0.10918253968253969,
     "ifeval": 0.0,
     "genmath": 0.0,

@@ -27,7 +27,7 @@ from localbench.scoring.axes import AXES, Axis
 
 # Human-facing scorecard label. BUMP whenever the scoring object changes deliberately
 # (a weight edit, a scorer-version bump, a CI-method change).
-SCORECARD_VERSION: Final = "scorecard-v1.3"
+SCORECARD_VERSION: Final = "scorecard-v2.0"
 
 # How interval estimates are produced (part of scoring identity; the iteration count is
 # a per-call parameter, not part of identity).
@@ -39,6 +39,7 @@ CI_METHOD: Final = "stratified-nonparametric-bootstrap-percentile"
 # a deliberate v1 tradeoff: hashing scorer SOURCE would trip the digest on cosmetic edits
 # (false drift), so we accept a manual bump + the registry digest (which IS auto-derived).
 SCORER_VERSIONS: Final[dict[str, str]] = {
+    "appworld_c": "1",
     "mmlu_pro": "1",
     "ifbench": "1",
     "olymmath_hard": "1",

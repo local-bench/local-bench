@@ -27,6 +27,7 @@ def source(
     label: str,
     file_name: str,
     *,
+    agentic_file: str | None = None,
     family: str = "Fixture",
     kind: str = "community",
     lane: str = "capped-thinking",
@@ -48,6 +49,8 @@ def source(
     }
     if recommended:
         item["recommended"] = True
+    if agentic_file is not None:
+        item["agentic_file"] = agentic_file
     return item
 
 
@@ -141,6 +144,27 @@ def composite(benches: JsonObject) -> float:
 
 def write_run(path: Path, run: JsonObject) -> None:
     path.write_text(json.dumps(run), encoding="utf-8")
+
+
+def appworld_report(successes: tuple[bool, ...]) -> JsonObject:
+    results: list[JsonObject] = [
+        {
+            "task_id": f"scenario{index}_{index}",
+            "success": success,
+            "outcome": "success" if success else "failure",
+        }
+        for index, success in enumerate(successes, start=1)
+    ]
+    return {
+        "report": {
+            "results": results,
+            "agentic_success_rate": sum(1 for success in successes if success) / len(successes),
+        },
+    }
+
+
+def write_agentic(path: Path, record: JsonObject) -> None:
+    path.write_text(json.dumps(record), encoding="utf-8")
 
 
 def assert_score(value: JsonObject) -> None:

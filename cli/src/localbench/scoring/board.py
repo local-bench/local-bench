@@ -17,7 +17,7 @@ from localbench.scoring.board_support import (
     DATASET_VERSION,
     DEFAULT_BOOTSTRAP_ITERS,
     DEFAULT_CURATION,
-    DEFAULT_OUT,
+    DEFAULT_OUT_V2,
     DEFAULT_PARITY_INDEX,
     DEFAULT_RUNS_DIR,
     LANE_SCOPE,
@@ -34,10 +34,8 @@ from localbench.scoring.board_support import (
 from localbench.scoring.board_types import BoardBuildError, BoardWriteResult, ParityDivergence, ParityResult
 from localbench.scoring.scorecard import SCORECARD_VERSION
 
-GENERATED_NOTE: Final = (
-    "Produced by localbench board from scorer-side scores; board-v1 is an immutable "
-    "release artifact for pure rendering."
-)
+BOARD_SCHEMA_VERSION: Final = "board-v2"
+GENERATED_NOTE: Final = "Produced by localbench board from scorer-side scores; board-v2 folds AppWorld-C into the headline composite."
 
 
 def build_board(
@@ -60,7 +58,7 @@ def build_board(
     board_index_version = index_version(DEFAULT_PARITY_INDEX)
     return {
         "generated_note": GENERATED_NOTE,
-        "schema_version": "board-v1",
+        "schema_version": BOARD_SCHEMA_VERSION,
         "index_version": board_index_version,
         "suite_version": board_suite_version,
         "scoring_version": SCORECARD_VERSION,
@@ -81,14 +79,15 @@ def build_board(
 def write_board(
     *,
     runs_dir: Path = DEFAULT_RUNS_DIR,
-    out: Path = DEFAULT_OUT,
+    out: Path = DEFAULT_OUT_V2,
     curation_path: Path | None = None,
     frozen_timestamp: str | None = None,
     check_parity: bool = True,
     parity_index: Path = DEFAULT_PARITY_INDEX,
     bootstrap_iters: int = DEFAULT_BOOTSTRAP_ITERS,
+    write_manifest: bool = True,
 ) -> BoardWriteResult:
-    """Write board_v1.json and its sidecar release manifest."""
+    """Write board_v2.json and its sidecar release manifest."""
     board = build_board(
         runs_dir=runs_dir,
         curation_path=curation_path,
@@ -99,7 +98,8 @@ def write_board(
     board_sha = hashlib.sha256(out.read_bytes()).hexdigest()
     manifest = object_value(board["manifest"], "board.manifest") | {"board_sha256": board_sha}
     manifest_path = out.with_name(f"{out.stem}.manifest.json")
-    write_json(manifest_path, manifest)
+    if write_manifest:
+        write_json(manifest_path, manifest)
     parity = check_board_parity(board, index_path=parity_index) if check_parity else ParityResult(False)
     return BoardWriteResult(out, manifest_path, board_sha, parity)
 

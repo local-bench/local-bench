@@ -31,6 +31,8 @@ from localbench.scoring.board_systems import best_system, system_fields
 from localbench.scoring.board_types import BoardBuildError, CuratedSource, ScoredRun
 from localbench.scoring.signed_score import chance_for_bench, signed_score
 
+APPWORLD_C_BENCH = "appworld_c"
+
 
 def scored_runs(
     sources: Sequence[CuratedSource],
@@ -48,7 +50,7 @@ def scored_runs(
             continue
         try:
             run = object_value(read_json(path), path.name)
-            scored.append(_scored_run(source, run, path, order=order, bootstrap_iters=bootstrap_iters, weights=weights))
+            scored.append(_scored_run(source, run, path, runs_dir=runs_dir, order=order, bootstrap_iters=bootstrap_iters, weights=weights))
         except (BoardBuildError, json.JSONDecodeError, OSError) as error:
             skipped.append({"file": path.name, "reason": f"incomplete: {error}"})
     return scored, skipped
@@ -104,12 +106,14 @@ def _scored_run(
     run: JsonObject,
     path: Path,
     *,
+    runs_dir: Path,
     order: int,
     bootstrap_iters: int,
     weights: Mapping[str, float],
 ) -> ScoredRun:
-    benches = object_value(run.get("benches"), f"{path.name}.benches")
-    items = objects_value(run.get("items"), f"{path.name}.items")
+    benches = dict(object_value(run.get("benches"), f"{path.name}.benches"))
+    items = list(objects_value(run.get("items"), f"{path.name}.items"))
+    _inject_appworld_c(source, benches, items, runs_dir)
     totals = object_value(run.get("totals"), f"{path.name}.totals")
     manifest = object_or_empty(run.get("manifest"))
     suite = object_or_empty(manifest.get("suite"))
@@ -149,6 +153,34 @@ def _scored_run(
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
     }
+
+
+def _inject_appworld_c(source: CuratedSource, benches: JsonObject, items: list[JsonObject], runs_dir: Path) -> None:
+    agentic_file = source["agentic_file"]
+    if agentic_file is None:
+        return
+    path = run_path(agentic_file, runs_dir)
+    if not path.exists():
+        return
+    report = object_value(object_value(read_json(path), path.name).get("report"), f"{path.name}.report")
+    successes = [
+        (
+            string_value(result.get("task_id"), f"{path.name}.report.results.task_id"),
+            bool_value(result.get("success"), f"{path.name}.report.results.success"),
+        )
+        for result in objects_value(report.get("results"), f"{path.name}.report.results")
+    ]
+    asr = sum(1 for _task_id, success in successes if success) / len(successes) if successes else 0.0
+    benches[APPWORLD_C_BENCH] = {
+        "n": len(successes),
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "raw_accuracy": asr,
+        "chance_corrected": asr,
+        "conditional_accuracy": asr,
+        "termination_rate": 1.0,
+    }
+    items.extend({"id": task_id, "bench": APPWORLD_C_BENCH, "correct": success, "error": None} for task_id, success in successes)
 
 
 def _axes_and_samples(

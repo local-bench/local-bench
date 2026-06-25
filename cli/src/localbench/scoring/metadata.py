@@ -49,6 +49,11 @@ def stratum_for_item(
     difficulty = fallback.difficulty or metadata.difficulty or "unspecified"
     template = fallback.template or metadata.template or "unspecified"
     match bench:
+        case "appworld_c":
+            # Single stratum: the 96 AppWorld-C tasks are not a stratified sample, so
+            # per-scenario strata (1-3 items each) collapse the bootstrap variance to ~0.
+            # Scenario correlation is handled by cluster_for_item instead.
+            return "appworld_c"
         case "mmlu_pro":
             return f"subject={category}"
         case "genmath":
@@ -65,6 +70,10 @@ def cluster_for_item(
     item: Mapping[str, JsonValue],
 ) -> str:
     """Return the resampling cluster for an item."""
+    if bench == "appworld_c":
+        # Cluster by scenario (task_id prefix): difficulty variants of one scenario are
+        # correlated, so the composite cluster-bootstrap resamples scenarios, not items.
+        return item_id.split("_", maxsplit=1)[0]
     if "cluster" in item:
         return str(item["cluster"])
     return item_id

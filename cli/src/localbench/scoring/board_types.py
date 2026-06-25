@@ -36,6 +36,7 @@ class BoardWriteResult:
 
 
 class CuratedSource(TypedDict):
+    agentic_file: str | None
     family: str
     file: str
     independent_replication: bool

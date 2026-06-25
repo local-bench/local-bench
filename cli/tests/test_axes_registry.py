@@ -23,7 +23,7 @@ def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
     # Given the locked registry (METHODOLOGY-v1.2 §2-3).
     headline = [axis for axis in AXES if axis.role == "headline"]
     # Then only Knowledge + Instruction are headline, summing to 1.0.
-    assert headline_displays() == ("Knowledge", "Instruction-Following")
+    assert headline_displays() == ("Knowledge", "Instruction-Following", "Agentic")
     assert sum(axis.weight for axis in headline) == pytest.approx(1.0)
     assert all(axis.weight == 0.0 for axis in AXES if axis.role != "headline")
 
@@ -31,11 +31,11 @@ def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
 def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> None:
     # The runtime constants are derived, not a parallel hardcode.
     assert DOMAIN_WEIGHTS == domain_weights()
-    assert DOMAIN_WEIGHTS["Knowledge"] == 0.5
-    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.5
+    assert DOMAIN_WEIGHTS["Knowledge"] == 0.15
+    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.15
     assert DOMAIN_WEIGHTS["Math"] == 0.0
     assert DOMAIN_WEIGHTS["Long-Context"] == 0.0
-    assert DOMAIN_WEIGHTS["Agentic"] == 0.0
+    assert DOMAIN_WEIGHTS["Agentic"] == 0.70
     assert DOMAIN_WEIGHTS["Coding"] == 0.0
     # Every suite-v1 + legacy bench maps to its axis display label.
     assert BENCH_DOMAINS["mmlu_pro"] == "Knowledge"
@@ -46,17 +46,16 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert BENCH_DOMAINS["amo"] == "Math"
     assert BENCH_DOMAINS["genmath"] == "Math"
     assert BENCH_DOMAINS["ruler_32k"] == "Long-Context"
-    assert BENCH_DOMAINS["bfcl"] == "Agentic"
-    assert BENCH_DOMAINS["bfcl_multi_turn"] == "Agentic"
+    assert BENCH_DOMAINS["appworld_c"] == "Agentic"
     assert BENCH_DOMAINS["lcb"] == "Coding"
 
 
 def test_web_derivations_track_the_registry() -> None:
     assert web_display_axes() == ("knowledge", "instruction", "math", "agentic")
     assert web_composite_weights() == {
-        "knowledge": 0.5,
-        "instruction": 0.5,
-        "agentic": 0.0,
+        "knowledge": 0.15,
+        "instruction": 0.15,
+        "agentic": 0.70,
         "math": 0.0,
     }
     groups = web_source_bench_groups()
@@ -64,6 +63,7 @@ def test_web_derivations_track_the_registry() -> None:
     assert groups["knowledge"] == (("mmlu_pro",), ("supergpqa",))
     assert groups["instruction"] == (("ifbench",), ("ifeval",))
     assert groups["math"] == (("olymmath_hard", "amo"), ("genmath",))
+    assert groups["agentic"] == (("appworld_c",),)
 
 
 def test_suite_v1_manifest_membership_matches_registry_drift_gate() -> None:
@@ -71,7 +71,14 @@ def test_suite_v1_manifest_membership_matches_registry_drift_gate() -> None:
     # single source of truth (compared order-independently, since axes pool items).
     manifest = json.loads(_SUITE_V1.read_text(encoding="utf-8"))
     manifest_axes = manifest["axes"]
-    registry = axis_membership()
+    # Agentic is EXCLUDED from this gate BY DESIGN: its board source is the opt-in
+    # AppWorld-C lane (cli/runs/agentic/*.scored.json, produced by the agentic_exec
+    # funnel), NOT a suite-v1 bench. The registry has agentic = (appworld_c,) while the
+    # suite manifest carries no appworld_c bench, so a membership comparison does not
+    # apply. Reproducibility caveat: the headline agentic axis is reproduced via the
+    # agentic lane + AppWorld install, not `localbench run suite-v1` (see METHODOLOGY v2.0).
+    registry = {axis: members for axis, members in axis_membership().items() if axis != "agentic"}
+    manifest_axes = {axis: spec for axis, spec in manifest_axes.items() if axis != "agentic"}
     assert set(manifest_axes) == set(registry)
     for axis, members in registry.items():
         assert set(manifest_axes[axis]["benches"]) == set(members), axis

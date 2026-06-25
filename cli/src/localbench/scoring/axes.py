@@ -1,12 +1,11 @@
 """Canonical capability-axis registry — the SINGLE source of truth for the JUDGE-FREE,
 normal-run axes' membership, composite weights, and roles.
 
-Per METHODOLOGY-v1.2 (`docs/foundations/methodology-lock/METHODOLOGY-v1.2-LOCKED.md`):
-the headline composite is the equal-weight mean of the VALIDATED discriminating axes
-(Knowledge + Instruction). Math + Long-Context are *candidates* (measured + displayed, not
-yet weighted; promotable once they pass the discrimination gate). Agentic (BFCL) and the
-STATIC Coding proxy (LiveCodeBench output-prediction, `lcb`) are *experimental*: judge-free
-proxies for tool/code REASONING that are saturated/gameable — displayed, not promotable.
+Per METHODOLOGY-v2.0:
+the headline composite weights validated axes as Agentic 0.70, Knowledge 0.15,
+and Instruction 0.15. Math + Long-Context remain *candidates* (measured + displayed,
+not yet weighted; promotable once they pass the discrimination gate). The STATIC Coding
+proxy (LiveCodeBench output-prediction, `lcb`) remains *experimental*.
 
 NOTE — the static `coding` axis here is NOT the credible code-GENERATION axis. That one
 runs by EXECUTION (BigCodeBench-Hard via `localbench code`), is a *candidate* for the
@@ -59,19 +58,15 @@ class Axis:
 # the headline axes (validated by `_validate()` at import).
 AXES: Final[tuple[Axis, ...]] = (
     Axis("knowledge", "Knowledge", "knowledge",
-         ("mmlu_pro",), ("supergpqa",), "headline", 0.5, True),
+         ("mmlu_pro",), ("supergpqa",), "headline", 0.15, True),
     Axis("instruction_following", "Instruction-Following", "instruction",
-         ("ifbench",), ("ifeval",), "headline", 0.5, True),
+         ("ifbench",), ("ifeval",), "headline", 0.15, True),
     Axis("math", "Math", "math",
          ("olymmath_hard", "amo"), ("genmath",), "candidate", 0.0, True),
     Axis("long_context", "Long-Context", "long_context",
          ("ruler_32k",), (), "candidate", 0.0, False),
-    # agentic_exec_appworld_lite_v0 harness is BUILT (scoring/agentic_exec/) but deliberately
-    # NOT registered here until its AppWorld bench is wired into suite-v1 with a frozen
-    # scorer_version + real items (register-only-what-we-measure; keeps the registry<->suite
-    # drift gate green). Re-add this Axis when the agentic data lands.
     Axis("agentic", "Agentic", "agentic",
-         ("bfcl", "bfcl_multi_turn"), (), "experimental", 0.0, True),
+         ("appworld_c",), (), "headline", 0.70, True),
     # STATIC judge-free coding proxy (LCB output-prediction) — experimental/gameable. The
     # credible code-GENERATION axis is exec-based (bigcodebench_hard, a SEPARATE opt-in lane
     # via `localbench code`; a candidate), NOT this axis. See the module docstring.

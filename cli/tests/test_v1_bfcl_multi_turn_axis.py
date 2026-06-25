@@ -8,7 +8,6 @@ from pathlib import Path
 from localbench._scoring import score_bench
 from localbench._suite import RenderedBench, read_json_object, render_benches
 from localbench._types import ItemResult, Usage
-from localbench.scoring.metadata import domain_for_bench
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SUITE_DIR = _REPO_ROOT / "suite" / "v1"
@@ -21,8 +20,6 @@ def test_v1_bfcl_multi_turn_bench_is_separate_agentic_line() -> None:
     # Then BFCL multi-turn is a separate bench in the Agentic axis, not pooled into bfcl.
     assert "bfcl_multi_turn" in suite["benches"]
     assert suite["axes"]["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn"]
-    assert domain_for_bench("bfcl") == "Agentic"
-    assert domain_for_bench("bfcl_multi_turn") == "Agentic"
 
 
 def test_v1_bfcl_multi_turn_prompt_is_built_programmatically() -> None:

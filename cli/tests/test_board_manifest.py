@@ -15,8 +15,8 @@ def test_manifest_hash_matches_written_board_and_frozen_timestamp_is_reproducibl
 
     paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json")])
     write_run(paths["runs"] / "fixture.json", run_record())
-    first = tmp_path / "first" / "board_v1.json"
-    second = tmp_path / "second" / "board_v1.json"
+    first = tmp_path / "first" / "board_v2.json"
+    second = tmp_path / "second" / "board_v2.json"
 
     # When: the board is written twice.
     first_result = write_board(
@@ -54,7 +54,7 @@ def test_board_artifact_contains_no_operator_identity(tmp_path: Path) -> None:
     run["output_path"] = r"C:\Users\operator\local-bench\cli\runs\fixture.json"
     object_value(object_value(run["manifest"])["endpoint"])["runtime_reported_model"] = "github.com/private/model"
     write_run(paths["runs"] / "fixture.json", run)
-    out = tmp_path / "board" / "board_v1.json"
+    out = tmp_path / "board" / "board_v2.json"
 
     # When: the board is written.
     write_board(

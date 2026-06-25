@@ -15,7 +15,8 @@ from localbench.scoring.board_types import BoardBuildError
 REPO_ROOT: Final = Path(__file__).resolve().parents[4]
 DEFAULT_RUNS_DIR: Final = REPO_ROOT / "cli" / "runs"
 DEFAULT_OUT: Final = DEFAULT_RUNS_DIR / "board" / "board_v1.json"
-DEFAULT_CURATION: Final = REPO_ROOT / "cli" / "src" / "localbench" / "data" / "board_sources.json"
+DEFAULT_OUT_V2: Final = DEFAULT_RUNS_DIR / "board" / "board_v2.json"
+DEFAULT_CURATION: Final = REPO_ROOT / "web" / "data_sources.json"
 DEFAULT_PARITY_INDEX: Final = REPO_ROOT / "web" / "public" / "data" / "index.json"
 DEFAULT_BOOTSTRAP_ITERS: Final = 10_000
 DEFAULT_BOOTSTRAP_SEED: Final = 0
