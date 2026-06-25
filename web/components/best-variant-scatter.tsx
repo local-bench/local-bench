@@ -40,22 +40,27 @@ export function BestVariantVramScatter({
       }),
     ),
   ];
-  // Declutter: label frontier points greedily by score, skipping any that would collide with an
-  // already-placed label. Colour + legend + hover identify the rest, so the plot stays readable as
-  // the model count grows.
+  // Declutter: label frontier points greedily by score. Try ABOVE-right first, then BELOW-right,
+  // so neighbouring points (e.g. a sparse 2-model board where the dots sit close together) BOTH get
+  // labelled instead of one being dropped on collision. Colour + legend + hover identify any that
+  // still cannot be placed once the board grows crowded.
   const placedBoxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  const labelledIds = new Set<string>();
+  const labelOffsets = new Map<string, number>();
   for (const candidate of [...points].filter((entry) => entry.isFrontier).sort((a, b) => b.score.point - a.score.point)) {
     const cx = scaleX(candidate.effectiveVramGb, domain);
     const cy = scaleY(candidate.score.point);
     const width = candidate.modelLabel.length * 6.6 + 6;
-    const box = { x1: cx + 9, y1: cy - 25, x2: cx + 9 + width, y2: cy - 3 };
-    const overlaps = placedBoxes.some(
-      (placed) => box.x1 < placed.x2 && box.x2 > placed.x1 && box.y1 < placed.y2 && box.y2 > placed.y1,
-    );
-    if (!overlaps && box.x2 < WIDTH - 6) {
-      placedBoxes.push(box);
-      labelledIds.add(candidate.runId);
+    for (const dy of [-9, 18] as const) {
+      const top = cy + dy - 13;
+      const box = { x1: cx + 9, y1: top, x2: cx + 9 + width, y2: top + 18 };
+      const overlaps = placedBoxes.some(
+        (placed) => box.x1 < placed.x2 && box.x2 > placed.x1 && box.y1 < placed.y2 && box.y2 > placed.y1,
+      );
+      if (!overlaps && box.x2 < WIDTH - 6) {
+        placedBoxes.push(box);
+        labelOffsets.set(candidate.runId, dy);
+        break;
+      }
     }
   }
 
@@ -156,8 +161,8 @@ export function BestVariantVramScatter({
                 </title>
                 <line x1={cx} x2={cx} y1={hi} y2={lo} stroke={color} strokeWidth="1.5" />
                 <circle cx={cx} cy={cy} r={point.isFrontier ? 6 : 4} fill={color} className="stroke-bench-bg" strokeWidth="2" />
-                {labelledIds.has(point.runId) ? (
-                  <text x={cx + 9} y={cy - 9} className="fill-bench-text" fontSize="12">
+                {labelOffsets.has(point.runId) ? (
+                  <text x={cx + 9} y={cy + (labelOffsets.get(point.runId) ?? -9)} className="fill-bench-text" fontSize="12">
                     {point.modelLabel}
                   </text>
                 ) : null}

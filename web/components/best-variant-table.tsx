@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AGENTIC_COLUMN_TOOLTIP, AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
-import { BoardScopeHeader } from "@/components/board-scope-header";
 import { familyStyle } from "@/lib/family-color";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatLatencySeconds, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
@@ -28,7 +27,13 @@ export function BestVariantTable({
       data-testid="best-variant-table"
       className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82"
     >
-      <BoardScopeHeader />
+      <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
+        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
+        <p className="mt-1 text-xs leading-5 text-bench-muted">
+          Top local models by Local Intelligence Index — best variant per model. See the full leaderboard for every
+          quant and the scoring scope.
+        </p>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse text-sm">
         <caption className="sr-only">Best variant per model, ranked by Local Intelligence Index</caption>
