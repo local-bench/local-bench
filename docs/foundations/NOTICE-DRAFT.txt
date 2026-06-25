@@ -1,0 +1,147 @@
+==============================================================================
+local-bench — NOTICE (DRAFT)
+==============================================================================
+
+  STATUS: DRAFT — PENDING OWNER + LEGAL REVIEW. NOT THE LIVE NOTICE.
+
+  This is a PROPOSED repo-root NOTICE for review. It does not replace the
+  existing top-level `NOTICE` until the owner approves it. Attribution lines in
+  the first block are backed by evidence already in this repo (a committed full
+  license text, and/or a build script that fails the build unless the upstream
+  Hugging Face card matches the stated license). Lines in the "TO CONFIRM"
+  block are author-asserted only (a hardcoded license constant, no build-time
+  card check) and MUST be verified against the current upstream source before
+  this NOTICE is adopted.
+
+  Companion analysis: docs/foundations/license-inventory-DRAFT.md
+  Full third-party license texts: LICENSES/ (repo root) and, for the public
+  CLI suite bundle, cli/src/localbench/data/suites/core-text-v1/LICENSES/.
+
+  Drafted: 2026-06-25.
+==============================================================================
+
+
+local-bench
+===========
+
+This project includes frozen benchmark item sets derived from third-party
+datasets, and adapts third-party verifier code. Each upstream carries its own
+license, which continues to apply in full. The local-bench project's OWN source
+license is not yet finalized (see the top-level LICENSE file).
+
+
+------------------------------------------------------------------------------
+A. REDISTRIBUTED IN THE PUBLIC CLI SUITE
+   (cli/src/localbench/data/suites/core-text-v1/ — shipped via `pipx install`)
+------------------------------------------------------------------------------
+
+- MMLU-Pro by TIGER-Lab, distributed under the MIT License.
+  Source: https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro
+  Revision: b189ec765aa7ed75c8acfea42df31fdae71f97be
+  (License verified: build-gated against the upstream card; full MIT text in
+  LICENSES/MMLU-Pro-MIT.txt.)
+
+- IFBench (IFBench_test) by the Allen Institute for AI (Ai2 / AllenAI),
+  dataset distributed under the Open Data Commons Attribution License
+  (ODC-BY-1.0).
+  Source: https://huggingface.co/datasets/allenai/IFBench_test
+  Revision: 2e8a48de45ff3bf41242f927254ca81b59ca3ae2
+  License: ODC-BY-1.0 (full text in LICENSES/IFBench-ODC-BY-1.0.txt).
+  Upstream caveats that travel with this dataset:
+    * Use should follow Ai2's Responsible Use Guidelines.
+    * The dataset includes output data generated from third-party models that
+      are subject to separate terms governing their use.
+  Note: this attributes the DATASET (ODC-BY-1.0). The IFBench/IFEval-derived
+  verifier CODE is separately Apache-2.0 (see block C).
+
+
+------------------------------------------------------------------------------
+B. REDISTRIBUTED IN THE SOURCE REPOSITORY ONLY
+   (suite/v1/ — git-tracked; not in the public CLI wheel or the published site)
+------------------------------------------------------------------------------
+
+- AMO-Bench by Meituan (meituan-longcat), distributed under the MIT License.
+  Source: https://huggingface.co/datasets/meituan-longcat/AMO-Bench
+  Revision: 2f422616c25d862984408fbbfaed63a961e8e025
+  (License verified: build-gated against the upstream card.)
+
+- OlymMATH (en-hard) by RUC-AIBOX, distributed under the MIT License.
+  Source: https://huggingface.co/datasets/RUC-AIBOX/OlymMATH
+  Revision: 2c6532ea2cf929ac1c421532af5951553eaee727
+  (License verified: build-gated against the upstream card.)
+
+- SuperGPQA by m-a-p, distributed under the Open Data Commons Attribution
+  License (ODC-BY-1.0).
+  Source: https://huggingface.co/datasets/m-a-p/SuperGPQA
+  Revision: 4430d4458112c7d4497fdcf94d7cc223313d6acf
+  (License verified: build-gated against the upstream card. Full ODC-BY-1.0
+  text: LICENSES/IFBench-ODC-BY-1.0.txt — the same license text applies.)
+
+
+------------------------------------------------------------------------------
+C. ADAPTED VERIFIER CODE (compiled into the CLI; not dataset items)
+------------------------------------------------------------------------------
+
+- IFEval verifier semantics, adapted from Google Research's
+  instruction_following_eval, distributed under the Apache License, Version 2.0.
+  Full text: cli/src/localbench/data/suites/core-text-v1/LICENSES/IFEval-Apache-2.0
+  Lives in: cli/src/localbench/scorers/ifeval/
+
+- IFBench verifier semantics, adapted from AllenAI's IFBench codebase, which
+  upstream states is distributed under the Apache License, Version 2.0.
+  Source: https://github.com/allenai/IFBench
+  Lives in: cli/src/localbench/scorers/ifbench/ (see that directory's NOTICE).
+  (Code license is Apache-2.0 and is author-asserted from the upstream repo;
+  distinct from the IFBench DATASET, which is ODC-BY-1.0 — see block A.)
+
+
+==============================================================================
+TO CONFIRM — DO NOT PUBLISH THESE LINES UNTIL VERIFIED
+==============================================================================
+
+  The following are AUTHOR-ASSERTED in the repo (hardcoded license constants in
+  the suite build scripts / lock files, with NO build-time check against the
+  upstream source card). They match each project's well-known public licensing,
+  but were NOT independently re-verified by this draft. Confirm each against the
+  current upstream card/repo before moving it into the blocks above. These items
+  live in suite/v1/ only (source repo), not in the public wheel or the site.
+
+  - Berkeley Function-Calling Leaderboard (BFCL) by Gorilla LLM / UC Berkeley.
+    Asserted license: Apache-2.0 (dataset AND eval/verifier code).
+    Dataset:  https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard
+              (revision 61fc0608cfd831fcfbbaa676ebdfef0ed963eeda)
+    Eval repo: https://github.com/ShishirPatil/gorilla
+              (revision 6ea57973c7a6097fd7c5915698c54c17c5b1b6c8)
+    Note: 100 multi-turn rows are VENDORED from the eval repo and embedded in
+    the item set; if confirmed, this needs a NOTICE-level credit.
+    (Verifier code under cli/src/localbench/scorers/bfcl/ and
+    .../bfcl_multi_turn/ — each already carries a NOTICE citing Apache-2.0.)
+
+  - LiveCodeBench (test_generation subset, contest window 2023-12-01..2024-03-02).
+    Asserted license: dataset CC-BY-4.0; harness MIT.
+    Dataset: https://huggingface.co/datasets/livecodebench/test_generation
+             (revision 6f3ac40bbecf81eba15899139d279b077f2816fd)
+    Harness: https://github.com/LiveCodeBench/LiveCodeBench
+    If confirmed and ever redistributed/served, CC-BY-4.0 requires: credit to
+    LiveCodeBench, a link to https://creativecommons.org/licenses/by/4.0/, and a
+    statement that changes were made (the suite sub-samples and reformats).
+    ADDITIONAL CAVEAT: problem statements originate from LeetCode; LeetCode
+    Terms of Service may apply to the underlying problem text. Needs a human read.
+
+  - RULER NIAH task pattern by NVIDIA.
+    Asserted license: Apache-2.0 (algorithm only).
+    Source: https://github.com/NVIDIA/RULER  (paper: https://arxiv.org/abs/2404.06654)
+    Note: the shipped ruler_32k.jsonl items are LOCALLY GENERATED synthetic data
+    (no upstream RULER code, prompts, or haystack data are vendored), so this is
+    an attribution of the algorithmic pattern, not redistribution of upstream items.
+
+  - BigCodeBench-Hard by BigCode (opt-in code-execution axis; 0% weight / inert
+    in the v1 headline; not scored and not on the public site).
+    Asserted license: Apache-2.0 (dataset and harness).
+    Dataset: https://huggingface.co/datasets/bigcode/bigcodebench-hard
+             (revision 298d2cc7b96612e15e47313c3603ee124cee0c1f)
+    Harness: https://github.com/bigcode-project/bigcodebench
+
+==============================================================================
+END OF DRAFT NOTICE
+==============================================================================
