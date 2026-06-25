@@ -92,3 +92,14 @@ async def test_tampered_raw_output_changes_recomputed_score(tmp_path: Path) -> N
     # Then: recomputed scoring reflects the raw output, not client scoring.
     assert result["recomputed"]["items"][0]["correct"] is False
     assert result["recomputed"]["benches"]["mmlu_pro"]["raw_accuracy"] == 0.0
+    assert result["divergence"]["score_changing_count"] >= 1
+    assert result["divergence"]["rank_improving_tamper"] is True
+    assert result["divergence"]["per_item"] == [
+        {
+            "id": "mmlu-1",
+            "bench": "mmlu_pro",
+            "claimed": {"correct": True, "extracted": "A", "failure_kind": None},
+            "recomputed": {"correct": False, "extracted": "B", "failure_kind": None},
+            "class": "score_changing",
+        },
+    ]

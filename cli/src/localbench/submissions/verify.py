@@ -8,6 +8,7 @@ from localbench.submissions.canon import write_json_file
 from localbench.submissions.contracts import VERIFICATION_SCHEMA_VERSION
 from localbench.submissions.crypto import verify_manifest_signature
 from localbench.submissions.dedup import dedup_keys
+from localbench.submissions.divergence import compare_client_divergence
 from localbench.submissions.rescore import recompute_public_scores
 from localbench.submissions.trust import offline_trust_state
 from localbench.submissions.validate import (
@@ -37,6 +38,7 @@ def verify_bundle_offline(
     expected = suite_item_index(payload, suite_dir)
     validate_items_match_suite(bundle.items, expected)
     recomputed = recompute_public_scores(bundle.items, expected)
+    divergence = compare_client_divergence(bundle.items, recomputed)
     trust = offline_trust_state()
     result: JsonObject = {
         "schema_version": VERIFICATION_SCHEMA_VERSION,
@@ -47,6 +49,7 @@ def verify_bundle_offline(
         "publishable": trust["publishable"],
         "publishable_reasons": trust["publishable_reasons"],
         "recomputed": recomputed,
+        "divergence": divergence,
         "dedup": dedup_keys(bundle.bundle_sha256, bundle.manifest, bundle.items),
         "audit": {
             "client_aggregates_ignored": True,

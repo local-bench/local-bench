@@ -9,6 +9,49 @@
     "bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "trust_label": { "const": "community_re_scored" },
     "publishable": { "const": false },
-    "recomputed": { "type": "object" }
+    "recomputed": { "type": "object" },
+    "divergence": {
+      "type": "object",
+      "required": [
+        "items_compared",
+        "items_changed",
+        "score_changing_count",
+        "classification",
+        "rank_improving_tamper",
+        "per_item"
+      ],
+      "properties": {
+        "items_compared": { "type": "integer", "minimum": 0 },
+        "items_changed": { "type": "integer", "minimum": 0 },
+        "score_changing_count": { "type": "integer", "minimum": 0 },
+        "classification": { "enum": ["exact", "benign", "score_changing"] },
+        "rank_improving_tamper": { "type": "boolean" },
+        "per_item": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "bench", "claimed", "recomputed", "class"],
+            "properties": {
+              "id": { "type": "string" },
+              "bench": { "type": "string" },
+              "claimed": { "$ref": "#/$defs/item_score" },
+              "recomputed": { "$ref": "#/$defs/item_score" },
+              "class": { "enum": ["exact", "benign", "score_changing"] }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "item_score": {
+      "type": "object",
+      "required": ["correct", "extracted", "failure_kind"],
+      "properties": {
+        "correct": { "type": ["boolean", "null"] },
+        "extracted": { "type": ["string", "null"] },
+        "failure_kind": { "type": ["string", "null"] }
+      }
+    }
   }
 }

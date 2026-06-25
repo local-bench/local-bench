@@ -39,6 +39,22 @@ async def test_verify_offline_recomputes_and_marks_community_re_scored(tmp_path:
     assert result["publishable_reasons"] == ["offline_ticket_not_account_bound"]
     assert result["recomputed"]["benches"]["mmlu_pro"]["raw_accuracy"] == 1.0
     assert result["recomputed"]["composite"] == 1.0
+    assert result["divergence"] == {
+        "items_compared": 1,
+        "items_changed": 0,
+        "score_changing_count": 0,
+        "classification": "exact",
+        "rank_improving_tamper": False,
+        "per_item": [
+            {
+                "id": "mmlu-1",
+                "bench": "mmlu_pro",
+                "claimed": {"correct": True, "extracted": "A", "failure_kind": None},
+                "recomputed": {"correct": True, "extracted": "A", "failure_kind": None},
+                "class": "exact",
+            },
+        ],
+    }
 
 
 @pytest.mark.anyio
