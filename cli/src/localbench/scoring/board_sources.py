@@ -20,7 +20,11 @@ from localbench.scoring.board_types import BoardBuildError, CuratedSource
 
 def load_sources(path: Path) -> list[CuratedSource]:
     raw = read_json(path)
-    sources = [_source(item, index) for index, item in enumerate(list_value(raw, str(path)))]
+    sources: list[CuratedSource] = []
+    for index, item in enumerate(list_value(raw, str(path))):
+        source = _source(item, index)
+        if source is not None:
+            sources.append(source)
     if not any(source["file"].replace("\\", "/").endswith(GEMMA_FALLBACK_FILE) for source in sources):
         sources.append({
             "agentic_file": "cli/runs/agentic/gemma4-31b-Q4_K_M.scored.run1.json",
@@ -38,15 +42,18 @@ def load_sources(path: Path) -> list[CuratedSource]:
     return sources
 
 
-def _source(value: JsonValue, index: int) -> CuratedSource:
+def _source(value: JsonValue, index: int) -> CuratedSource | None:
     item = object_value(value, f"curation[{index}]")
+    file_name = text_value(item.get("file"))
+    if file_name is None:
+        return None
     kind = string_value(item.get("kind"), f"curation[{index}].kind")
     if kind not in {"anchor", "community"}:
         raise BoardBuildError(f"curation[{index}].kind must be anchor or community")
     return {
         "agentic_file": text_value(item.get("agentic_file")),
         "family": string_value(item.get("family"), f"curation[{index}].family"),
-        "file": string_value(item.get("file"), f"curation[{index}].file"),
+        "file": file_name,
         "independent_replication": bool_or_false(item.get("independent_replication")),
         "kind": kind,
         "model_id": text_value(item.get("model_id")),

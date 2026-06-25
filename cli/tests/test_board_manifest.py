@@ -10,10 +10,12 @@ from board_fixtures import FROZEN_AT, object_value, read_json, run_record, sha25
 def test_manifest_hash_matches_written_board_and_frozen_timestamp_is_reproducible(
     tmp_path: Path,
 ) -> None:
-    # Given: stable inputs and a frozen timestamp.
+    # Given: stable inputs, fileless agentic curation entries, and a frozen timestamp.
     from localbench.scoring.board import write_board
 
-    paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json")])
+    agentic_null_file = source("Agentic Only", "agentic-only.json", agentic_file="agentic-only.scored.json")
+    agentic_null_file["file"] = None
+    paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json"), agentic_null_file])
     write_run(paths["runs"] / "fixture.json", run_record())
     first = tmp_path / "first" / "board_v2.json"
     second = tmp_path / "second" / "board_v2.json"

@@ -208,6 +208,37 @@ def test_missing_gemma_run_is_skipped_gracefully(tmp_path: Path) -> None:
     assert labels == {"Qwen Model"}
 
 
+def test_agentic_only_curation_sources_without_core_text_file_are_skipped(tmp_path: Path) -> None:
+    # Given: a valid Core Text source plus agentic-only distill sources with no boardable run.
+    from localbench.scoring.board import build_board
+
+    agentic_null_file = source("Qwopus Distill", "placeholder.json", agentic_file="agentic/qwopus.json")
+    agentic_null_file["file"] = None
+    agentic_missing_file = source("Qwable Distill", "placeholder.json")
+    del agentic_missing_file["file"]
+    paths = write_inputs(
+        tmp_path,
+        [
+            source("Qwen Model", "qwen.json"),
+            agentic_null_file,
+            agentic_missing_file,
+        ],
+    )
+    write_run(paths["runs"] / "qwen.json", run_record())
+
+    # When: the board is built from mixed Core Text and agentic-only curation.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: only rows with a Core Text run are eligible for the board.
+    labels = {string_value(model["model_label"]) for model in objects_value(board["models"])}
+    assert labels == {"Qwen Model"}
+
+
 def test_parity_check_accepts_matching_web_index_points(tmp_path: Path) -> None:
     # Given: a generated board and a minimal web index with matching measured points.
     from localbench.scoring.board import build_board, check_board_parity

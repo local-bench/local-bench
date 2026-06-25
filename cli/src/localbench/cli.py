@@ -44,7 +44,7 @@ from localbench.scoring.paired_delta import (
     format_honest_delta,
 )
 from localbench.scoring.board import BoardBuildError, write_board
-from localbench.scoring.board_support import DEFAULT_OUT, DEFAULT_RUNS_DIR
+from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
 from localbench.submissions.validate import SubmissionValidationError
 from localbench.submissions.verify import verify_bundle_offline
@@ -255,10 +255,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     board_parser = subparsers.add_parser(
         "board",
-        help="build scorer-side board_v1.json and release manifest",
+        help="build scorer-side board_v2.json and release manifest",
     )
     board_parser.add_argument("--runs-dir", type=Path, default=DEFAULT_RUNS_DIR)
-    board_parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    board_parser.add_argument("--out", type=Path, default=DEFAULT_OUT_V2)
     board_parser.add_argument("--curation", type=Path)
     board_parser.add_argument("--frozen-timestamp")
     board_parser.add_argument("--check-parity", dest="check_parity", action="store_true", default=True)
@@ -798,16 +798,16 @@ def _reasoning_activation(value: str) -> ReasoningActivationChoice:
 
 def _print_summary(record: LocalbenchRun) -> None:
     print("bench             raw  corrected     term     cond    n   fail  err")
-    for name, aggregate in record["benches"].items():
+    for name, bench_aggregate in record["benches"].items():
         print(
             f"{name:<14} "
-            f"{aggregate['raw_accuracy'] * 100:>6.1f}% "
-            f"{aggregate['chance_corrected'] * 100:>9.1f}% "
-            f"{aggregate['termination_rate'] * 100:>7.1f}% "
-            f"{aggregate['conditional_accuracy'] * 100:>7.1f}% "
-            f"{aggregate['n']:>4} "
-            f"{aggregate['n_extraction_failures']:>5} "
-            f"{aggregate['n_errors']:>4}",
+            f"{bench_aggregate['raw_accuracy'] * 100:>6.1f}% "
+            f"{bench_aggregate['chance_corrected'] * 100:>9.1f}% "
+            f"{bench_aggregate['termination_rate'] * 100:>7.1f}% "
+            f"{bench_aggregate['conditional_accuracy'] * 100:>7.1f}% "
+            f"{bench_aggregate['n']:>4} "
+            f"{bench_aggregate['n_extraction_failures']:>5} "
+            f"{bench_aggregate['n_errors']:>4}",
         )
     totals = record["totals"]
     print(f"composite  {record['composite'] * 100:.1f}%")
