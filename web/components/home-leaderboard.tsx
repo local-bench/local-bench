@@ -254,7 +254,9 @@ function axisColumns(models: readonly IndexModel[]): readonly string[] {
       present.add(axis);
     }
   }
-  const configured = AXIS_CONFIG.map((axis) => axis.key).filter((axis) => present.has(axis));
+  // Agentic is rendered by the dedicated AgenticCell column on the full board, so exclude it
+  // from the generic axis columns to avoid a duplicate Agentic column (it IS now in model.axes).
+  const configured = AXIS_CONFIG.map((axis) => axis.key).filter((axis) => axis !== "agentic" && present.has(axis));
   const extra = [...present].filter((axis) => !isAxisKey(axis)).sort();
   return [...configured, ...extra];
 }

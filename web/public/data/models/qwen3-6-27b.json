@@ -10,6 +10,23 @@
   "runs": [
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.125,
+          "hi": 19.791666666666664,
+          "hi_raw": 0.19791666666666666,
+          "leaked_reasoning_rate": null,
+          "lo": 6.25,
+          "lo_raw": 0.0625,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 12.5,
+          "point_raw": 0.125,
+          "raw_accuracy": 0.125,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.6903914590747331,
           "hi": 71.42857142857143,
@@ -85,6 +102,23 @@
     },
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.14583333333333334,
+          "hi": 21.875,
+          "hi_raw": 0.21875,
+          "leaked_reasoning_rate": null,
+          "lo": 7.291666666666667,
+          "lo_raw": 0.07291666666666667,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 14.583333333333334,
+          "point_raw": 0.14583333333333334,
+          "raw_accuracy": 0.14583333333333334,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.6947368421052632,
           "hi": 72.78911564625851,
@@ -194,6 +228,23 @@
     },
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.14583333333333334,
+          "hi": 21.875,
+          "hi_raw": 0.21875,
+          "leaked_reasoning_rate": null,
+          "lo": 8.333333333333332,
+          "lo_raw": 0.08333333333333333,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 14.583333333333334,
+          "point_raw": 0.14583333333333334,
+          "raw_accuracy": 0.14583333333333334,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.7107142857142857,
           "hi": 73.12925170068027,
@@ -269,6 +320,23 @@
     },
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.13541666666666666,
+          "hi": 20.833333333333336,
+          "hi_raw": 0.20833333333333334,
+          "leaked_reasoning_rate": null,
+          "lo": 7.291666666666667,
+          "lo_raw": 0.07291666666666667,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 13.541666666666666,
+          "point_raw": 0.13541666666666666,
+          "raw_accuracy": 0.13541666666666666,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.6787003610108303,
           "hi": 69.38775510204081,
@@ -344,6 +412,23 @@
     },
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.13541666666666666,
+          "hi": 20.833333333333336,
+          "hi_raw": 0.20833333333333334,
+          "leaked_reasoning_rate": null,
+          "lo": 7.291666666666667,
+          "lo_raw": 0.07291666666666667,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 13.541666666666666,
+          "point_raw": 0.13541666666666666,
+          "raw_accuracy": 0.13541666666666666,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.6072727272727273,
           "hi": 62.585034013605444,

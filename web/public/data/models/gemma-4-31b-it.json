@@ -112,6 +112,23 @@
     },
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.11458333333333333,
+          "hi": 18.75,
+          "hi_raw": 0.1875,
+          "leaked_reasoning_rate": null,
+          "lo": 5.208333333333334,
+          "lo_raw": 0.052083333333333336,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 11.458333333333332,
+          "point_raw": 0.11458333333333333,
+          "raw_accuracy": 0.11458333333333333,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.7671232876712328,
           "hi": 80.95238095238095,

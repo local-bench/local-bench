@@ -143,8 +143,16 @@ def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_i
     composite_interval.update(_board_interval(_object(system.get("composite"), f"board.{slug}.system.composite")))
     board_axes = _object(system.get("axes"), f"board.{slug}.system.axes")
     for axis in _BOARD_AXES:
-        if axis in axes and axis in board_axes:
-            _object(axes[axis], f"axes.{axis}").update(_board_interval(_object(board_axes[axis], f"board.{slug}.system.axes.{axis}")))
+        if axis not in board_axes:
+            continue
+        board_axis = _object(board_axes[axis], f"board.{slug}.system.axes.{axis}")
+        if axis in axes:
+            _object(axes[axis], f"axes.{axis}").update(_board_interval(board_axis))
+        else:
+            # The web suite run does not compute this axis (agentic comes from the opt-in
+            # AppWorld lane, NOT suite-v1), so inject the board's axis object wholesale -> it
+            # renders as a first-class axis on the leaderboard, model page, and run receipt.
+            axes[axis] = dict(board_axis)
 
 
 def _board_system_for_run(board_model: JsonObject, run_id: str) -> JsonObject | None:
