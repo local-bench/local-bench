@@ -81,4 +81,34 @@ describe("static data access", () => {
       ["Q2_K", 0.2, 1.3, null, null],
     ]);
   });
+
+  it("surfaces Qwen3.6 distills as agentic-only model variants", async () => {
+    // Given the Qwen3.6-27B model page data generated from curated sources.
+    const model = await getModelData("qwen3-6-27b");
+
+    // When the two distill rows are selected.
+    const opus = model.runs.find((run) => run.quant_label === "Opus distill (Q4_K_M)");
+    const coder = model.runs.find((run) => run.quant_label === "Coder distill (NVFP4)");
+
+    // Then they carry agentic ASR only: no Core Text axes, no Index, and no run receipt.
+    expect(opus).toMatchObject({
+      composite: null,
+      lane: "agentic-only",
+      run_id: null,
+      score_status: "measured",
+    });
+    expect(opus?.axes.agentic.point).toBeCloseTo(12.5, 4);
+    expect(opus?.axes.knowledge).toBeUndefined();
+    expect(opus?.axes.instruction).toBeUndefined();
+
+    expect(coder).toMatchObject({
+      composite: null,
+      lane: "agentic-only",
+      run_id: null,
+      score_status: "measured",
+    });
+    expect(coder?.axes.agentic.point).toBeCloseTo(11.9792, 4);
+    expect(coder?.axes.knowledge).toBeUndefined();
+    expect(coder?.axes.instruction).toBeUndefined();
+  });
 });

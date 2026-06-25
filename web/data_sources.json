@@ -71,6 +71,37 @@
   },
   {
     "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Opus distill (Q4_K_M)",
+    "file": null,
+    "agentic_file": "cli/runs/agentic/qwopus36-27b-Q4_K_M.scored.run1.json",
+    "reasoning_lane": "agentic-only",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 16.55,
+    "notes": "Agentic-only distill measurement; no Core Text Knowledge/Instruction/Index run."
+  },
+  {
+    "kind": "community",
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-27B",
+    "model_label": "Qwen3.6-27B",
+    "quant_label": "Coder distill (NVFP4)",
+    "file": null,
+    "agentic_file": [
+      "cli/runs/agentic/qwable-5-27b-coder.scored.run1.json",
+      "cli/runs/agentic/qwable-5-27b-coder.scored.run2.json"
+    ],
+    "reasoning_lane": "agentic-only",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 16.00,
+    "notes": "Agentic-only coder distill measurement averaged across two AppWorld-C runs; no Core Text Knowledge/Instruction/Index run."
+  },
+  {
+    "kind": "community",
     "family": "Gemma 4",
     "model_id": "google/gemma-4-31B-it",
     "model_label": "Gemma 4 31B IT",

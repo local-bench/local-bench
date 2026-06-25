@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
 import { BoardScopeHeader } from "@/components/board-scope-header";
-import { DemoBadge, KindBadge, TierBadge } from "@/components/badges";
+import { DemoBadge, KindBadge } from "@/components/badges";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
@@ -53,7 +53,6 @@ export function HomeLeaderboard({
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
             <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
-            <SortableHeader label="Tier" sortKey="tier" sort={sort} onSort={setSort} />
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
             <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
             <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
@@ -97,9 +96,6 @@ export function HomeLeaderboard({
               ))}
               <td className="px-3 py-3">
                 <AgenticCell model={agenticBySlug.get(model.slug)} />
-              </td>
-              <td className="px-3 py-3">
-                {model.tier === null ? <span className="font-mono text-xs text-bench-muted">not measured</span> : <TierBadge tier={model.tier} />}
               </td>
               <td className="px-3 py-3 font-mono text-xs text-bench-text">{formatGpuShort(model.gpu)}</td>
               <td className="px-3 py-3 font-mono text-bench-text">
@@ -213,8 +209,6 @@ function compareRows(
       return nullableNumber(left.composite?.point ?? null) - nullableNumber(right.composite?.point ?? null);
     case AGENTIC_SORT_KEY:
       return nullableNumber(agenticBySlug.get(left.slug)?.asr_pct ?? null) - nullableNumber(agenticBySlug.get(right.slug)?.asr_pct ?? null);
-    case "tier":
-      return (left.tier ?? "").localeCompare(right.tier ?? "");
     case "tokens":
       return nullableNumber(left.tokens_to_answer_median) - nullableNumber(right.tokens_to_answer_median);
     case "hardware":

@@ -27,7 +27,8 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
   const ranked = [...model.runs]
     .filter((run) => run.composite !== null)
     .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0));
-  const pending = model.runs.filter((run) => run.composite === null);
+  const partial = model.runs.filter((run) => run.composite === null && run.score_status === "measured");
+  const pending = model.runs.filter((run) => run.composite === null && run.score_status !== "measured");
 
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
@@ -110,6 +111,32 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 </tr>
               );
             })}
+            {partial.map((run, index) => (
+              <tr key={`partial-${run.quant_label ?? index}`} className="border-t border-bench-line/75 align-middle hover:bg-white/[0.035]">
+                <td className="px-3 py-3 font-mono text-bench-muted">—</td>
+                <td className="px-3 py-3">
+                  <span className="font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</span>
+                  <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
+                    <Badge tone="muted" title="Agentic-only measurement; no Core Text Knowledge/Instruction run">agentic-only (no Core Text)</Badge>
+                  </span>
+                </td>
+                <td className="px-3 py-3">
+                  <span className="font-mono text-xs text-bench-muted">not measured</span>
+                </td>
+                {axisKeys.map((axis) => (
+                  <td key={axis} className="px-3 py-3">
+                    <AxisMiniBar score={run.axes[axis]} />
+                  </td>
+                ))}
+                <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text">n/a</td>
+                <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                <td className="px-3 py-3">
+                  <span className="font-mono text-xs text-bench-muted">—</span>
+                </td>
+              </tr>
+            ))}
             {pending.map((run, index) => {
               const decision = run.quant_label === null ? undefined : decisionByQuant.get(run.quant_label);
               return (
@@ -141,11 +168,13 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
   );
 }
 
-function Badge({ tone, title, children }: { readonly tone: "accent" | "better"; readonly title: string; readonly children: string }) {
+function Badge({ tone, title, children }: { readonly tone: "accent" | "better" | "muted"; readonly title: string; readonly children: string }) {
   const cls =
     tone === "better"
       ? "border-bench-better/45 bg-bench-better/10 text-bench-better"
-      : "border-bench-accent/45 bg-bench-accent/10 text-bench-accent";
+      : tone === "muted"
+        ? "border-bench-muted/40 bg-bench-muted/10 text-bench-muted"
+        : "border-bench-accent/45 bg-bench-accent/10 text-bench-accent";
   return (
     <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${cls}`} title={title}>
       {children}

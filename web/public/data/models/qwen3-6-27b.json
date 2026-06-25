@@ -501,6 +501,108 @@
       "vram_footprint_gb": 12.05,
       "vram_required_gb_8k": 12.5,
       "wall_time_seconds": 13031.371899200007
+    },
+    {
+      "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.125,
+          "hi": 12.5,
+          "hi_raw": 0.125,
+          "leaked_reasoning_rate": null,
+          "lo": 12.5,
+          "lo_raw": 0.125,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 12.5,
+          "point_raw": 0.125,
+          "raw_accuracy": 0.125,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        }
+      },
+      "composite": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "agentic-only",
+      "latency_s_median": null,
+      "n_errors": 0,
+      "n_items": 96,
+      "quant_label": "Opus distill (Q4_K_M)",
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 16.55,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.11979166666666666,
+          "hi": 12.5,
+          "hi_raw": 0.125,
+          "leaked_reasoning_rate": null,
+          "lo": 11.458333333333332,
+          "lo_raw": 0.11458333333333333,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 11.979166666666666,
+          "point_raw": 0.11979166666666666,
+          "raw_accuracy": 0.11979166666666666,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        }
+      },
+      "composite": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "agentic-only",
+      "latency_s_median": null,
+      "n_errors": 0,
+      "n_items": 96,
+      "quant_label": "Coder distill (NVFP4)",
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 16.0,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": null
     }
   ],
   "slug": "qwen3-6-27b"

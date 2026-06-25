@@ -1956,7 +1956,7 @@
       "lane": "capped-thinking",
       "latency_s_median": 24.258,
       "model_label": "Qwen3.6 27B",
-      "n_runs": 5,
+      "n_runs": 7,
       "ranked": true,
       "replicated": false,
       "score_status": "measured",

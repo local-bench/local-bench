@@ -48,6 +48,13 @@ def catalog_index_row(entry: JsonObject) -> JsonObject:
 
 
 def catalog_model_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObject:
+    quant_rows = [catalog_quant_row(entry, quant, runs) for quant in list_value(entry["quants"], "catalog.quants")]
+    catalog_labels = {text_value(row.get("quant_label")) for row in quant_rows}
+    extra_rows = [
+        object_value(run["model_row"], "run.model_row").copy()
+        for run in runs
+        if text_value(object_value(run["model_row"], "run.model_row").get("quant_label")) not in catalog_labels
+    ]
     return {
         "catalog_id": entry["id"],
         "demo": False,
@@ -57,7 +64,7 @@ def catalog_model_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObje
         "license": entry["license"],
         "model_label": entry["display_name"],
         "org": entry["org"],
-        "runs": [catalog_quant_row(entry, quant, runs) for quant in list_value(entry["quants"], "catalog.quants")],
+        "runs": quant_rows + extra_rows,
         "slug": entry["slug"],
     }
 

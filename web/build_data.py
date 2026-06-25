@@ -173,6 +173,8 @@ def _board_interval(interval: JsonObject) -> JsonObject:
 def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: dict[str, JsonObject]) -> JsonObject:
     if _bool(source["demo"], "source.demo"):
         return build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
+    if source.get("file") is None:
+        return _build_agentic_only_run(source, order=order)
 
     path = ROOT / _string(source["file"], "source.file")
     run = _object(_read_json(path), str(path))
@@ -210,6 +212,112 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": _text(detail["tier"]) == "standard" and conformance_status == "headline-comparable", "replicated": _bool(source["independent_replication"], "source.independent_replication"), "score_status": "measured", "slug": slug, "tier": detail["tier"], "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
     return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
+
+
+def _build_agentic_only_run(source: JsonObject, *, order: int) -> JsonObject:
+    model_label = _string(source["model_label"], "source.model_label")
+    family = _string(source["family"], "source.family")
+    kind = _string(source["kind"], "source.kind")
+    quant = _text(source.get("quant_label"))
+    lane = _text(source.get("reasoning_lane")) or "agentic-only"
+    slug = slugify(model_label)
+    axis = _agentic_axis(_agentic_reports(source))
+    model_row = {
+        "axes": {"agentic": axis},
+        "composite": None,
+        "est_cost_usd": None,
+        "file_gb": None,
+        "hardware": {"cpu": None, "gpu": None, "os": None, "ram_gb": None},
+        "lane": lane,
+        "n_errors": _int(axis["n_errors"], "agentic.n_errors"),
+        "n_items": _int(axis["n"], "agentic.n"),
+        "quant_label": quant,
+        "run_id": None,
+        "runtime": {"ctx_len_configured": None, "kv_cache_quant": None, "name": None, "parallel_slots": None, "version": None},
+        "score_status": "measured",
+        "tier": None,
+        "tokens_to_answer_median": None,
+        "tokens_to_answer_p95": None,
+        "tok_s": None,
+        "latency_s_median": None,
+        "vram_footprint_gb": source["vram_footprint_gb"],
+        "vram_required_gb_8k": None,
+        "wall_time_seconds": None,
+    }
+    index_row = {
+        "axes": {"agentic": axis},
+        "best_run_id": None,
+        "gpu": None,
+        "composite": None,
+        "conformance_status": None,
+        "contamination_label": _contamination_label(_text(source.get("release_date"))),
+        "est_cost_usd": None,
+        "family": family,
+        "kind": kind,
+        "lane": lane,
+        "latency_s_median": None,
+        "wall_time_seconds": None,
+        "model_label": model_label,
+        "n_runs": 1,
+        "ranked": False,
+        "replicated": _bool(source["independent_replication"], "source.independent_replication"),
+        "score_status": "measured",
+        "slug": slug,
+        "tier": None,
+        "tokens_to_answer_median": None,
+        "tokens_to_answer_p95": None,
+    }
+    return {
+        "catalog_id": _text(source.get("model_id")),
+        "composite_raw": -1.0,
+        "detail": None,
+        "family": family,
+        "index_row": index_row,
+        "kind": kind,
+        "model_label": model_label,
+        "model_row": model_row,
+        "order": order,
+        "run_id": None,
+        "slug": slug,
+        "suite_version": None,
+    }
+
+
+def _agentic_reports(source: JsonObject) -> list[JsonObject]:
+    files = source.get("agentic_file")
+    paths = [files] if isinstance(files, str) else files if isinstance(files, list) else None
+    if paths is None or not paths:
+        raise DataBuildError("agentic-only data source requires agentic_file")
+    reports: list[JsonObject] = []
+    for value in paths:
+        path = ROOT / _string(value, "source.agentic_file")
+        run = _object(_read_json(path), str(path))
+        reports.append(_object(run.get("report"), f"{path}:report"))
+    return reports
+
+
+def _agentic_axis(reports: list[JsonObject]) -> JsonObject:
+    asrs = [_number(report.get("agentic_success_rate"), "agentic.report.agentic_success_rate") for report in reports]
+    tasks = [_int(report.get("tasks_total"), "agentic.report.tasks_total") for report in reports]
+    point_raw = sum(asrs) / len(asrs)
+    n = max(tasks)
+    return {
+        "conditional_accuracy": point_raw,
+        "hi": max(asrs) * 100.0,
+        "hi_raw": max(asrs),
+        "leaked_reasoning_rate": None,
+        "lo": min(asrs) * 100.0,
+        "lo_raw": min(asrs),
+        "n": n,
+        "n_errors": 0,
+        "n_no_answer": 0,
+        "no_final_answer_rate": None,
+        "point": point_raw * 100.0,
+        "point_raw": point_raw,
+        "raw_accuracy": point_raw,
+        "termination_rate": 1.0,
+        "truncation_rate": None,
+    }
 
 
 def _headline_benches(axes: JsonObject, benches: tuple[str, ...], weights: dict[str, float]) -> tuple[str, ...]:
@@ -271,7 +379,8 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
             shutil.rmtree(generated_dir)
         generated_dir.mkdir(parents=True, exist_ok=True)
     for run in runs:
-        _write_json(runs_dir / f"{_string(run['run_id'], 'run_id')}.json", run["detail"])
+        if run["detail"] is not None:
+            _write_json(runs_dir / f"{_string(run['run_id'], 'run_id')}.json", run["detail"])
     groups = _group_runs(runs)
     catalog_run_groups = _catalog_run_groups(runs)
     catalog_slugs = {catalog_slug(entry) for entry in catalog}
@@ -359,7 +468,7 @@ def _source(value: JsonValue, index: int) -> JsonObject:
         raise DataBuildError(f"data_sources[{index}].kind must be anchor or community")
     independent_replication = item.get("independent_replication")
     demo = _bool(item.get("demo"), f"data_sources[{index}].demo") if item.get("demo") is not None else False
-    return {"demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _string(item.get("file"), f"data_sources[{index}].file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "release_date": _nullable_text(item.get("release_date"), index, "release_date"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
+    return {"agentic_file": item.get("agentic_file"), "demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _nullable_text(item.get("file"), index, "file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "release_date": _nullable_text(item.get("release_date"), index, "release_date"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
 
 
 def _write_json(path: Path, payload: JsonValue) -> None:

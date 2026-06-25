@@ -58,12 +58,14 @@ _RUN_INDEX_RE: Final = re.compile(r"\.scored\.run(\d+)\.json$")
 # hardcoded. Extend when a new model family gets an agentic funnel.
 _LABEL_FAMILY_PREFIXES: Final = {
     "qwen36": "qwen3.6",
+    "qwopus36": "qwen3.6",
+    "qwable": "qwen3.6",
     "gemma4": "gemma-4",
 }
 
 # Quant tokens that may trail the label; everything from the first of these onward is the
 # quant, not part of the size. Order longest-first so e.g. "Q4_K_M" beats a bare "Q4".
-_QUANT_TOKENS: Final = ("Q8_0", "Q6_K", "Q5_K_M", "Q5_K_S", "Q4_K_M", "Q4_K_S", "Q4_0", "Q3_K_M", "Q3_K_S", "Q2_K", "BF16", "F16", "FP8")
+_QUANT_TOKENS: Final = ("Q8_0", "Q6_K", "Q5_K_M", "Q5_K_S", "Q4_K_M", "Q4_K_S", "Q4_0", "Q3_K_M", "Q3_K_S", "Q2_K", "NVFP4", "BF16", "F16", "FP8")
 # Instruct/chat suffixes on an index catalog_id stem that are NOT part of the size token
 # (the funnel label omits them), e.g. "gemma-4-31b-it" -> size key "31b".
 _INDEX_STEM_SUFFIXES: Final = ("it", "instruct", "chat")
@@ -238,6 +240,8 @@ def _label_join_key(label: str) -> str:
         if segment in _QUANT_TOKENS or segment.lower() in _INDEX_STEM_SUFFIXES:
             break
         size_parts.append(segment.lower())
+    if head == "qwable" and len(size_parts) >= 2 and size_parts[0] == "5":
+        size_parts = [size_parts[1]]
     if not size_parts:
         raise AgenticBuildError(f"funnel label '{label}' has no size token after the family word")
     return f"{family}|{'-'.join(size_parts)}"
