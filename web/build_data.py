@@ -63,14 +63,15 @@ INDEX_VERSION: Final = "index-v1"
 # The immutable scorer artifact whose Index/axis intervals the site RENDERS verbatim
 # for ranked rows (see _apply_board_intervals). Path relative to the repo ROOT, like
 # the other reads in this module.
-BOARD_PATH: Final = ROOT / "cli" / "runs" / "board" / "board_v1.json"
+BOARD_PATH: Final = ROOT / "cli" / "runs" / "board" / "board_v2.json"
 
 # The six interval fields the site renders straight from the board for ranked rows.
 _INTERVAL_FIELDS: Final = ("point", "lo", "hi", "point_raw", "lo_raw", "hi_raw")
 
-# Headline axes whose intervals are board-sourced for ranked rows. Candidate/0-weight
-# axes (math, agentic) are not on the board, so they keep their re-bootstrapped intervals.
-_BOARD_AXES: Final = ("knowledge", "instruction")
+# Headline axes whose intervals are board-sourced for ranked rows. Agentic is a headline
+# axis on board_v2 (0.70), stamped from the board when present on the web run; math /
+# long-context remain 0-weight candidates that keep their re-bootstrapped intervals.
+_BOARD_AXES: Final = ("knowledge", "instruction", "agentic")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -115,7 +116,7 @@ def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT
 
 def _board_ranked_by_slug() -> dict[str, JsonObject]:
     """{slug: board_model} for the RANKED rows of the immutable board artifact. The site
-    is a pure renderer of board_v1.json (METHODOLOGY-v1.2 §8 — no re-derived Index math in
+    is a pure renderer of board_v2.json (METHODOLOGY v2.0 — no re-derived Index math in
     the web layer), so ranked rows render the board's exact composite/headline-axis intervals
     rather than the web build's independent re-bootstrap (different seed; per-axis quantile
     weighting instead of the board's joint item-level composite CI)."""

@@ -115,7 +115,15 @@ def build_agentic(*, runs_dir: Path, index_path: Path) -> dict[str, object]:
     best_quant = _best_quant_by_slug(index_path)
     slug_to_labels: dict[str, list[str]] = {}
     for label in sorted(grouped):
-        slug_to_labels.setdefault(slug_for_label(label), []).append(label)
+        try:
+            slug = slug_for_label(label)
+        except AgenticBuildError as exc:
+            # Experimental funnel runs (e.g. distills not in the catalog/index, like the
+            # qwopus/qwable Qwen3.6 distills) cannot map to a board row. Skip them rather
+            # than hard-failing the whole agentic preview column.
+            print(f"build_agentic: skipping unmapped funnel label '{label}' ({exc})", file=sys.stderr)
+            continue
+        slug_to_labels.setdefault(slug, []).append(label)
 
     models: dict[str, object] = {}
     for slug in sorted(slug_to_labels):
