@@ -5,7 +5,7 @@ export default function SubmitPage() {
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Submit a run" }]} />
       <header className="border-b border-bench-line pb-5">
-        <p className="font-mono text-xs uppercase text-bench-accent">community submissions</p>
+        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">community submissions</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submit a run</h1>
         <p className="mt-3 leading-7 text-bench-muted">
           One command points the frozen suite at any OpenAI-compatible endpoint (llama.cpp / vLLM /
@@ -13,7 +13,7 @@ export default function SubmitPage() {
         </p>
       </header>
 
-      <pre className="overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-sm text-bench-text">
+      <pre aria-label="localbench run command" className="overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-sm text-bench-text">
         {`localbench run \\
   --endpoint http://localhost:8080/v1 \\
   --model your-model-name \\
@@ -48,7 +48,6 @@ export default function SubmitPage() {
           Quick tier is an unranked personal estimate; Standard tier is the ranked board. Independent re-runs of the
           same setup earn a Replicated badge.
         </p>
-        <p className="text-sm text-bench-muted/80">This page is a stub; the hosted upload endpoint lands with Track 2.</p>
       </section>
     </main>
   );

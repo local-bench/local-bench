@@ -78,6 +78,12 @@ export function BestVariantVramScatter({
             is the point-estimate efficiency frontier — no measured model is both higher-scoring and smaller on current
             point estimates. Hover any point for details.
           </p>
+          {points.length < 4 ? (
+            <p className="mt-1.5 font-mono text-[11px] text-bench-muted-2">
+              Only {points.length} model{points.length === 1 ? "" : "s"} measured so far — the efficiency frontier is
+              preliminary and firms up as more variants land.
+            </p>
+          ) : null}
         </div>
         <div className="font-mono text-xs text-bench-muted">{points.length} models</div>
       </div>
@@ -145,7 +151,7 @@ export function BestVariantVramScatter({
               </text>
             </g>
           ))}
-          {frontier.length > 1 ? (
+          {frontier.length >= 3 ? (
             <path d={frontierPath} className="fill-none stroke-bench-accent-dim" strokeWidth="1.5" strokeDasharray="2 5" />
           ) : null}
           {points.map((point) => {

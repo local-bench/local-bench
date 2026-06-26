@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 
 type Attribution = {
@@ -41,7 +42,7 @@ const CANDIDATE_SOURCES: readonly Attribution[] = [
 function AttributionRow({ source }: { readonly source: Attribution }) {
   return (
     <div className="flex flex-col gap-1 border-b border-bench-line/60 py-3 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
-      <div className="sm:max-w-md">
+      <div className="min-w-0 sm:max-w-md">
         <p className="text-sm font-semibold text-bench-text">{source.name}</p>
         <p className="text-xs text-bench-muted">{source.role}</p>
       </div>
@@ -56,11 +57,9 @@ function AttributionRow({ source }: { readonly source: Attribution }) {
 export default function TrustPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Link href="/" className="text-sm text-bench-accent hover:underline">
-        Back to leaderboard
-      </Link>
+      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Trust & licenses" }]} />
       <header className="border-b border-bench-line pb-5">
-        <p className="font-mono text-xs uppercase text-bench-accent">trust, threat model and licenses</p>
+        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">trust, threat model and licenses</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Honesty is the credibility signal</h1>
         <p className="mt-3 leading-7 text-bench-muted">
           local-bench never treats a transcript as proof of model identity. The trust unit is replication, not a
@@ -119,9 +118,9 @@ export default function TrustPage() {
           their respective owners; listing a model is benchmark evaluation, not an endorsement by — or of — its
           maker. The suite and scorecard hashes that pin this board appear on the{" "}
           <Link href="/methodology" className="text-bench-accent hover:underline">
-            methodology
+            scoring methodology page
           </Link>{" "}
-          page and in the footer.
+          and in the footer.
         </p>
       </section>
     </main>

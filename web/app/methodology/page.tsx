@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
@@ -12,11 +13,9 @@ export default async function MethodologyPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Link href="/" className="text-sm text-bench-accent hover:underline">
-        Back to leaderboard
-      </Link>
+      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
-        <p className="font-mono text-xs uppercase text-bench-accent">
+        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
           {index.suite_version} · {index.index_version} methodology
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
@@ -141,9 +140,9 @@ export default async function MethodologyPage() {
         <p className="text-sm">
           Benchmark item licenses and scorer attribution are listed on the{" "}
           <Link href="/trust" className="text-bench-accent hover:underline">
-            trust &amp; licenses
-          </Link>{" "}
-          page.
+            trust &amp; licenses page
+          </Link>
+          .
         </p>
       </section>
 
