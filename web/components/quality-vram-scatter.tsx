@@ -108,15 +108,10 @@ export function QualityVramScatter({
           {points.map((point) => {
             const cx = scaleX(point.x, xDomain);
             const cy = scaleY(point.run.composite.point);
-            const lo = scaleY(point.run.composite.lo);
-            const hi = scaleY(point.run.composite.hi);
             const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id;
             return (
               <g key={point.run.run_id}>
                 <title>{`${label}: ${formatScore(point.run.composite.point)} (${formatCoreTextAxisProfile(point.run.axes)}) at ${formatGb(point.run.vram_footprint_gb)}`}</title>
-                <line x1={cx} x2={cx} y1={hi} y2={lo} className={point.run.demo ? "stroke-bench-warn" : "stroke-bench-accent"} strokeWidth="2" />
-                <line x1={cx - 6} x2={cx + 6} y1={hi} y2={hi} className={point.run.demo ? "stroke-bench-warn" : "stroke-bench-accent"} strokeWidth="2" />
-                <line x1={cx - 6} x2={cx + 6} y1={lo} y2={lo} className={point.run.demo ? "stroke-bench-warn" : "stroke-bench-accent"} strokeWidth="2" />
                 <circle cx={cx} cy={cy} r="6" className={point.run.demo ? "fill-bench-warn stroke-bench-bg" : "fill-bench-accent stroke-bench-bg"} strokeWidth="2" />
                 {showPointLabels ? (
                   <text x={cx + 10} y={cy - 10} className="fill-bench-text" fontSize="12">
@@ -146,7 +141,6 @@ export function QualityVramScatter({
         </svg>
       </div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs text-bench-muted">
-        <span>Local points include vertical 95% CI whiskers.</span>
         <span>{anchors.length > 0 ? "Dashed horizontal lines are API frontier ceilings." : "Dashed vertical lines mark common VRAM tiers."}</span>
         <span className="text-bench-warn">Amber points are synthetic demo preview data.</span>
       </div>

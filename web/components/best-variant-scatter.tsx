@@ -157,15 +157,12 @@ export function BestVariantVramScatter({
           {points.map((point) => {
             const cx = scaleX(point.effectiveVramGb, domain);
             const cy = scaleY(point.score.point);
-            const lo = scaleY(point.score.lo);
-            const hi = scaleY(point.score.hi);
             const color = familyStyle(point.family).color;
             return (
               <g key={point.runId} opacity={point.isFrontier ? 1 : 0.5}>
                 <title>
                   {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatCoreTextAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
-                <line x1={cx} x2={cx} y1={hi} y2={lo} stroke={color} strokeWidth="1.5" />
                 <circle cx={cx} cy={cy} r={point.isFrontier ? 6 : 4} fill={color} className="stroke-bench-bg" strokeWidth="2" />
                 {labelOffsets.has(point.runId) ? (
                   <text x={cx + 9} y={cy + (labelOffsets.get(point.runId) ?? -9)} className="fill-bench-text" fontSize="12">
@@ -220,7 +217,6 @@ export function BestVariantVramScatter({
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-bench-muted-2">
         <span>labelled = efficiency frontier</span>
         <span>faded = beaten at its size</span>
-        <span>vertical bars = 95% CI</span>
         <span>dashed cyan = frontier (API) ceilings</span>
       </div>
     </section>
