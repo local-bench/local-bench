@@ -180,21 +180,13 @@ export function BestVariantVramScatter({
                 <title>
                   {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatCoreTextAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={point.isFrontier ? 6 : 4}
-                  fill={color}
-                  className="stroke-bench-bg"
-                  strokeWidth="2"
-                  opacity={point.isFrontier ? 1 : 0.5}
-                />
+                <circle cx={cx} cy={cy} r="6" fill={color} className="stroke-bench-bg" strokeWidth="2" />
                 {slot ? (
                   <text
                     x={cx + slot.dx}
                     y={cy + slot.dy}
                     textAnchor={slot.anchor}
-                    className={point.isFrontier ? "fill-bench-text" : "fill-bench-muted"}
+                    className="fill-bench-text"
                     fontSize="12"
                   >
                     {point.modelLabel}
@@ -246,9 +238,7 @@ export function BestVariantVramScatter({
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-bench-muted-2">
-        <span>solid dot = efficiency frontier</span>
-        <span>faded = beaten at its size</span>
-        <span>dashed cyan = frontier (API) ceilings</span>
+        <span>dashed lines = API model ceilings</span>
       </div>
     </section>
   );
