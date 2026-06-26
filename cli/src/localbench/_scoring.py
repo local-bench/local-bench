@@ -21,6 +21,7 @@ from localbench.scorers.lcb import score_lcb
 from localbench.scorers.math_numeric import extract_final_number, score_math
 from localbench.scorers.math_symbolic import extract_math_answer, verify_math
 from localbench.scorers.mcq import score_mcq_detailed
+from localbench.scorers._reasoning import strip_reasoning
 from localbench.scorers.ruler import score_ruler
 from localbench.scorers.tc_json_v1 import score_tc_json_v1
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
@@ -228,7 +229,8 @@ def _score_response_detail(
 ) -> ResponseScore:
     if error is not None or response_text is None:
         return {"extracted": None, "correct": False}
-    scorer_text = _strip_response_wrapper(response_text)
+    # Scorers see answer text stripped of reasoning; lane conformance still scans raw text.
+    scorer_text = strip_reasoning(_strip_response_wrapper(response_text))
     match bench:
         case "mmlu_pro" | "supergpqa":
             detailed = score_mcq_detailed(
