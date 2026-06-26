@@ -231,13 +231,15 @@ function scaleY(value: number): number {
 function getLogDomain(points: readonly BestVariantPoint[]): Domain {
   const values = points.map((point) => point.effectiveVramGb).filter((value) => value > 0);
   if (values.length === 0) {
-    return { min: 8, max: 256 };
+    return { min: 6, max: 48 };
   }
-  // Always extend the axis out to at least 256 GB so big-VRAM rigs and large models have visible
-  // headroom (e.g. a 192 GB workstation), and let it grow past 256 if a measured model needs more.
+  // Focus the axis on the consumer / local-rig range. Keep the popular low-VRAM tiers visible on the
+  // left — 8 GB and 16 GB are the two most common gaming-GPU sizes, 12 GB close behind (Steam HW
+  // survey 2026) — and extend the RIGHT only as far as the measured models actually need, instead of
+  // forcing 256 GB of headroom that buried the real points in the left third of the plot.
   const padded = Math.max(...values) * 1.3;
   const snapped = X_TIERS.find((tier) => tier >= padded) ?? padded;
-  return { min: Math.max(0.5, Math.min(...values) / 1.3), max: Math.max(256, snapped) };
+  return { min: Math.max(0.5, Math.min(6, Math.min(...values) / 1.3)), max: snapped };
 }
 
 function scaleX(value: number, domain: Domain): number {
