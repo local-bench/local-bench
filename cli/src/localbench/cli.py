@@ -6,9 +6,9 @@ import argparse
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Final
+from typing import Final, TypeAlias
 
 import anyio
 import httpx
@@ -24,11 +24,7 @@ from localbench.orchestrate import (
 )
 from localbench._scoring import (
     ScoredItem,
-    aggregate,
     composite,
-    run_totals,
-    score_bench,
-    scorer_unavailable_results,
     scorer_unavailable_warning,
 )
 from localbench._suite import RenderedBench, read_json_object, render_benches
@@ -43,6 +39,7 @@ from localbench.scoring.paired_delta import (
     compare_run_files,
     format_honest_delta,
 )
+from localbench.scoring.axis_status import axis_key_for_bench, mark_axis_not_measured
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
@@ -74,6 +71,7 @@ _REASONING_ACTIVATION_CHOICES: Final[tuple[ReasoningActivationChoice, ...]] = (
     "gemma4",
 )
 _NO_SCORABLE_BENCH: Final = "__localbench_no_scorable_bench__"
+ScorerGate: TypeAlias = tuple[RenderedBench, str, str]
 
 
 class EndpointPreflightError(RuntimeError):
@@ -281,7 +279,7 @@ def _run(args: argparse.Namespace) -> int:
         return _run_dry(args, tier)
     out = args.out or default_output_path(args.model, tier)
     try:
-        bench_choice, scorer_gates = _scorer_gates(args, tier)
+        bench_choice, scorer_gates, suite_axis_map = _scorer_gates(args, tier)
         anyio.run(_preflight_endpoint, args.endpoint)
         record = anyio.run(
             run_localbench,
@@ -313,7 +311,7 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error      {error}")
         return 2
     if scorer_gates:
-        _append_scorer_gated_benches(record, scorer_gates)
+        _append_scorer_gated_benches(record, scorer_gates, suite_axis_map)
         _rewrite_run_record(record)
     _print_summary(record)
     return 0
@@ -363,7 +361,7 @@ async def _preflight_endpoint(endpoint: str) -> None:
 def _scorer_gates(
     args: argparse.Namespace,
     tier: str,
-) -> tuple[str, dict[str, tuple[RenderedBench, str]]]:
+) -> tuple[str, dict[str, ScorerGate], Mapping[str, JsonValue] | None]:
     ref = resolve_suite_dir(
         suite_id=args.suite,
         suite_dir=args.suite_dir,
@@ -372,39 +370,45 @@ def _scorer_gates(
         cache_root=args.cache_dir,
     )
     suite = read_json_object(ref.path / "suite.json")
+    suite_axes = suite.get("axes")
+    suite_axis_map = suite_axes if isinstance(suite_axes, dict) else None
     warnings: list[str] = []
     rendered = render_benches(args.bench, tier, args.max_items, ref.path, suite, warnings)
-    gates: dict[str, tuple[RenderedBench, str]] = {}
+    gates: dict[str, ScorerGate] = {}
     available: list[str] = []
     for bench in rendered:
         warning = scorer_unavailable_warning(bench)
         if warning is None:
             available.append(bench.name)
             continue
-        gates[bench.name] = (bench, warning)
+        gates[bench.name] = (
+            bench,
+            warning,
+            axis_key_for_bench(bench.name, suite_axis_map),
+        )
     if not gates:
-        return args.bench, {}
-    return ",".join(available) if available else _NO_SCORABLE_BENCH, gates
+        return args.bench, {}, suite_axis_map
+    return ",".join(available) if available else _NO_SCORABLE_BENCH, gates, suite_axis_map
 
 
 def _append_scorer_gated_benches(
     record: LocalbenchRun,
-    gates: dict[str, tuple[RenderedBench, str]],
+    gates: dict[str, ScorerGate],
+    suite_axes: Mapping[str, JsonValue] | None = None,
 ) -> None:
-    added: list[ScoredItem] = []
     record["warnings"] = [
         warning for warning in record["warnings"] if _NO_SCORABLE_BENCH not in warning
     ]
-    for bench, warning in gates.values():
-        results = scorer_unavailable_results(bench, warning)
-        scored = score_bench(bench, results)
-        added.extend(scored)
-        record["benches"][bench.name] = aggregate(bench.name, scored, bench.baseline)
+    for _bench, warning, axis in gates.values():
+        mark_axis_not_measured(
+            record["axis_status"],
+            axis,
+            reason="scorer_unavailable",
+            detail=warning,
+        )
         if warning not in record["warnings"]:
             record["warnings"].append(warning)
-    record["items"].extend(added)
-    record["totals"] = run_totals(record["items"], record["totals"]["wall_time_seconds"])
-    record["composite"] = composite(record["benches"])
+    record["composite"] = composite(record["benches"], record["axis_status"], suite_axes)
     record["conformance"] = assess_run_conformance(
         _results_by_bench_from_scored(record["items"]),
         forced=_record_forced(record),

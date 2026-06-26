@@ -21,6 +21,7 @@ from localbench._scoring import (
     estimated_cost,
     run_totals,
     score_bench,
+    scorer_unavailable_warning,
 )
 from localbench._suite import (
     RenderedBench,
@@ -43,6 +44,12 @@ from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.reasoning_registry import reasoning_entry_for_activation
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
+from localbench.scoring.axis_status import (
+    AxisStatusBlock,
+    axis_key_for_bench,
+    axis_status_for_benches,
+    mark_axis_not_measured,
+)
 from localbench.scorers.ruler import estimate_prompt_tokens
 from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
@@ -81,6 +88,7 @@ class LocalbenchRun(TypedDict):
     account: str | None
     model: JsonObject
     manifest: JsonObject
+    axis_status: AxisStatusBlock
     benches: dict[str, BenchAggregate]
     composite: float
     conformance: JsonObject
@@ -144,6 +152,8 @@ async def run_localbench(
         warnings,
     )
     rendered_benches = _exclude_exec_lane(rendered_benches, suite, warnings)
+    suite_axes = suite.get("axes")
+    suite_axis_map = suite_axes if isinstance(suite_axes, dict) else None
     if config.max_tokens is not None:
         for rendered in rendered_benches:
             for benchmark_item in rendered.benchmark_items:
@@ -167,6 +177,18 @@ async def run_localbench(
                     "enable_thinking": False,
                 }
 
+    scorer_unavailable_axes: dict[str, str] = {}
+    scorable_benches: list[RenderedBench] = []
+    for bench in rendered_benches:
+        readiness_warning = scorer_unavailable_warning(bench)
+        if readiness_warning is not None:
+            warnings.append(readiness_warning)
+            scorer_unavailable_axes[
+                axis_key_for_bench(bench.name, suite_axis_map)
+            ] = readiness_warning
+            continue
+        scorable_benches.append(bench)
+
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
     reasoning_registry_entry_id: str | None = None
@@ -174,7 +196,7 @@ async def run_localbench(
     if config.provider == "local" and config.lane == "capped-thinking":
         # Local capped-thinking enforces the locked thinking budget with two-pass forcing
         # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
-        thinking_budget = _plumb_think_budget(rendered_benches, suite)
+        thinking_budget = _plumb_think_budget(scorable_benches, suite)
         if thinking_budget > 0:
             reasoning_entry = reasoning_entry_for_activation(config.reasoning_activation)
             if reasoning_entry is not None:
@@ -183,7 +205,7 @@ async def run_localbench(
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
     results_by_bench: dict[str, list[ItemResult]] = {}
-    for bench in rendered_benches:
+    for bench in scorable_benches:
         sampling_by_bench[bench.name] = bench.decoding
         item_files.append(bench.item_file)
         record = await run_benchmark(
@@ -216,8 +238,19 @@ async def run_localbench(
             [item for item in items if item["bench"] == bench.name],
             bench.baseline,
         )
-        for bench in rendered_benches
+        for bench in scorable_benches
     }
+    axis_status = axis_status_for_benches(
+        benches,
+        suite_axis_map,
+    )
+    for axis, warning in scorer_unavailable_axes.items():
+        mark_axis_not_measured(
+            axis_status,
+            axis,
+            reason="scorer_unavailable",
+            detail=warning,
+        )
     output_path = config.out or default_output_path(config.model, config.tier)
     manifest = await collect_manifest(
         ManifestContext(
@@ -241,7 +274,7 @@ async def run_localbench(
                 "active_wall_seconds": wall_time,
                 "completion_tokens_per_second": totals["completion_tokens_per_second"],
             },
-            rendered_prompt_sample=first_prompt(rendered_benches),
+            rendered_prompt_sample=first_prompt(scorable_benches),
             suite_id=suite_ref.suite_id,
             suite_hash=suite_ref.suite_hash,
             suite_source=suite_ref.source,
@@ -275,8 +308,9 @@ async def run_localbench(
         "account": None,
         "model": _run_record_model(config.model, manifest),
         "manifest": manifest,
+        "axis_status": axis_status,
         "benches": benches,
-        "composite": composite(benches),
+        "composite": composite(benches, axis_status, suite_axis_map),
         "conformance": assess_run_conformance(results_by_bench, forced=forcing_active),
         "items": items,
         "totals": totals,

@@ -24,6 +24,7 @@ from localbench.scorers.mcq import score_mcq_detailed
 from localbench.scorers._reasoning import strip_reasoning
 from localbench.scorers.ruler import score_ruler
 from localbench.scorers.tc_json_v1 import score_tc_json_v1
+from localbench.scoring.axis_status import AxisStatusBlock, bench_is_measured
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
 
@@ -165,7 +166,11 @@ def run_totals(items: list[ScoredItem], wall_time: float) -> RunTotals:
     }
 
 
-def composite(benches: Mapping[str, BenchAggregate]) -> float:
+def composite(
+    benches: Mapping[str, BenchAggregate],
+    axis_status: AxisStatusBlock | None = None,
+    suite_axes: Mapping[str, JsonValue] | None = None,
+) -> float:
     """Return the HEADLINE composite: benches pool into capability domains
     (item-weighted within a domain), then the HEADLINE domains combine by
     DOMAIN_WEIGHTS, normalized over the headline domains present. Candidate +
@@ -180,6 +185,8 @@ def composite(benches: Mapping[str, BenchAggregate]) -> float:
     num: dict[str, float] = {}
     den: dict[str, float] = {}
     for name, bench in benches.items():
+        if not bench_is_measured(name, axis_status, suite_axes):
+            continue
         domain = domain_for_bench(name)
         num[domain] = num.get(domain, 0.0) + bench["chance_corrected"] * bench["n"]
         den[domain] = den.get(domain, 0.0) + bench["n"]
