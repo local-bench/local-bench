@@ -85,6 +85,8 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
         } | system_fields(group, best)
         if "conformance_gates" in best:
             row["conformance_gates"] = best["conformance_gates"]
+        if "agentic_run" in best:
+            row["agentic_run"] = best["agentic_run"]
         rows.append(row)
     return sorted(rows, key=lambda row: (not bool_value(row["ranked"], "ranked"), -(_model_point(row) or 0.0), text_value(row.get("model_label")) or ""))
 
@@ -157,6 +159,12 @@ def _scored_run(
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
     }
+    agentic_run = run.get("agentic_run")
+    if isinstance(agentic_run, dict):
+        # Surface the inline campaign provenance (asr_series / mean_asr / drift / subset_hash) so the
+        # board can show how the agentic axis was measured. Absent for sidecar/pre-inline runs, so
+        # this key is omitted there (parity-preserving for the frozen board_v1).
+        scored["agentic_run"] = agentic_run
     conformance_gate = _tc_json_gate(path, runs_dir, slug)
     if conformance_gate is not None:
         scored["conformance_gates"] = {GATE_ID: conformance_gate}
@@ -164,6 +172,12 @@ def _scored_run(
 
 
 def _inject_appworld_c(source: CuratedSource, benches: JsonObject, items: list[JsonObject], runs_dir: Path) -> None:
+    # Inline campaign agentic (Stage 4b) WINS: when the run record already carries appworld_c
+    # (localbench run --bench all ran the rerun campaign inline), keep it and do NOT overwrite from
+    # the agentic_file sidecar — overwriting would also double-count the per-task items. The sidecar
+    # is the FALLBACK only for pre-inline runs that have no inline appworld_c bench.
+    if APPWORLD_C_BENCH in benches:
+        return
     agentic_file = source["agentic_file"]
     if agentic_file is None:
         return

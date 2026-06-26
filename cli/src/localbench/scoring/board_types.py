@@ -55,6 +55,7 @@ class ScoredRun(TypedDict):
     composite: JsonObject
     composite_raw: float
     conformance_gates: NotRequired[JsonObject]
+    agentic_run: NotRequired[JsonObject]
     est_cost_usd: float | None
     family: str
     kind: str

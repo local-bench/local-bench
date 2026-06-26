@@ -60,12 +60,22 @@ def run_record(
     conformance_status: str = "headline-comparable",
     mmlu_correct: tuple[bool, ...] = (True, False),
     if_correct: tuple[bool, ...] = (True, True),
+    appworld_inline: tuple[bool, ...] | None = None,
+    tc_json_correct: tuple[bool, ...] | None = None,
+    agentic_run: JsonObject | None = None,
 ) -> JsonObject:
     benches = {
         "mmlu_pro": aggregate("mmlu_pro", mmlu_correct),
         "ifbench": aggregate("ifbench", if_correct),
     }
-    return {
+    extra_items: list[JsonObject] = []
+    if appworld_inline is not None:
+        benches["appworld_c"] = aggregate("appworld_c", appworld_inline)
+        extra_items.extend(appworld_items(appworld_inline))
+    if tc_json_correct is not None:
+        benches["tc_json_v1"] = aggregate("tc_json_v1", tc_json_correct)
+        extra_items.extend(items("tc_json_v1", tc_json_correct))
+    record: JsonObject = {
         "schema": "localbench-run-v0",
         "manifest": {
             "suite": {
@@ -90,7 +100,7 @@ def run_record(
                 "ifbench": {"truncation_rate": 0.0, "leaked_reasoning_rate": 0.0, "no_final_answer_rate": 0.0},
             },
         },
-        "items": [*items("mmlu_pro", mmlu_correct), *items("ifbench", if_correct)],
+        "items": [*items("mmlu_pro", mmlu_correct), *items("ifbench", if_correct), *extra_items],
         "totals": {
             "n_items": len(mmlu_correct) + len(if_correct),
             "n_errors": 0,
@@ -104,6 +114,17 @@ def run_record(
         "warnings": [],
         "output_path": r"C:\local-bench\cli\runs\fixture.json",
     }
+    if agentic_run is not None:
+        record["agentic_run"] = agentic_run
+    return record
+
+
+def appworld_items(successes: tuple[bool, ...]) -> list[JsonObject]:
+    # Inline appworld_c items, matching the sidecar shape (scenario-prefixed ids for cluster_for_item).
+    return [
+        {"id": f"scenario{index}_{index}", "bench": "appworld_c", "correct": success, "error": None}
+        for index, success in enumerate(successes, start=1)
+    ]
 
 
 def aggregate(bench: str, correct: tuple[bool, ...]) -> JsonObject:

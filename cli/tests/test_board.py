@@ -184,6 +184,85 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     assert cluster_for_item("appworld_c", "calendar_17", {"cluster": "ignored"}) == "calendar"
 
 
+def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
+    # Given: a run with INLINE appworld_c (campaign mean 0.75) + agentic_run provenance, AND a curated
+    # agentic_file sidecar reporting a DIFFERENT (lower) ASR of 0.25.
+    from localbench.scoring.board import build_board
+
+    campaign = {
+        "campaign": True,
+        "single_pass": False,
+        "asr_series": [0.75, 0.75],
+        "mean_asr": 0.75,
+        "max_abs_delta_pp": 0.0,
+        "triggered_third_run": False,
+        "subset_size": 4,
+        "subset_hash": "deadbeefcafe",
+        "stage": "scored",
+    }
+    paths = write_inputs(
+        tmp_path,
+        [source("Inline Agentic", "inline.json", agentic_file="appworld.scored.run1.json")],
+    )
+    write_run(
+        paths["runs"] / "inline.json",
+        run_record(
+            mmlu_correct=(True, True),
+            if_correct=(False, False),
+            appworld_inline=(True, True, True, False),  # inline campaign mean = 0.75
+            agentic_run=campaign,
+        ),
+    )
+    # The sidecar reports a DIFFERENT, lower ASR (0.25) — it MUST be ignored in favour of inline.
+    write_agentic(paths["runs"] / "appworld.scored.run1.json", appworld_report((True, False, False, False)))
+
+    # When: the board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the agentic axis reflects the INLINE 0.75, not the sidecar 0.25, and the campaign
+    # provenance is surfaced on the row.
+    model = objects_value(board["models"])[0]
+    agentic = object_value(object_value(model["axes"])["agentic"])
+    assert agentic["n"] == 4
+    assert agentic["raw_accuracy"] == pytest.approx(0.75)
+    provenance = object_value(model["agentic_run"])
+    assert provenance["mean_asr"] == pytest.approx(0.75)
+    assert provenance["campaign"] is True
+
+
+def test_tool_calling_axis_surfaces_from_inline_tc_json(tmp_path: Path) -> None:
+    # Given: a run carrying the inline tc_json_v1 bench (Stage 3b tool-calling axis).
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(tmp_path, [source("Tool Model", "tool.json")])
+    write_run(
+        paths["runs"] / "tool.json",
+        run_record(tc_json_correct=(True, True, False, True)),  # tool-calling raw = 0.75
+    )
+
+    # When: the board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: tool_calling surfaces as a measured (candidate, 0-weight) axis from the inline bench.
+    model = objects_value(board["models"])[0]
+    axes = object_value(model["axes"])
+    assert "tool_calling" in axes
+    tool = object_value(axes["tool_calling"])
+    assert_axis(tool)
+    assert tool["n"] == 4
+    assert tool["raw_accuracy"] == pytest.approx(0.75)
+
+
 def test_missing_gemma_run_is_skipped_gracefully(tmp_path: Path) -> None:
     # Given: the curation asks for a missing Gemma file plus one valid Qwen file.
     from localbench.scoring.board import build_board
