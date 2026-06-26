@@ -36,7 +36,7 @@ describe("HeroBanner", () => {
   });
 
   it("shows the tagline copy", () => {
-    expect(html).toContain("Open weights. Local hardware. Reproducible results.");
+    expect(html).toContain("Open weights. Local hardware.");
   });
 
   it("contains no Claude / Anthropic-branded language in the trace", () => {

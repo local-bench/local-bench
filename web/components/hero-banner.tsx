@@ -44,7 +44,7 @@ export function HeroBanner() {
         <h1 id="home-hero-title" className={`${styles["logo"]} neon-heading`}>
           local-bench
         </h1>
-        <p className={styles["tagline"]}>Open weights. Local hardware. Reproducible results.</p>
+        <p className={styles["tagline"]}>Open weights. Local hardware.</p>
       </div>
     </section>
   );

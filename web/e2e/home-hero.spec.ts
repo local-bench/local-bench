@@ -12,7 +12,7 @@ test("reduced-motion: logo + tagline show immediately, decorative layers stay hi
   // The real <h1> logo and tagline are part of the static markup, so they are present at first paint
   // with no animation. The decorative thinking/stream layers are display:none under reduced motion.
   await expect(page.getByRole("heading", { level: 1, name: "local-bench" })).toBeVisible();
-  await expect(page.getByText("Open weights. Local hardware. Reproducible results.")).toBeVisible();
+  await expect(page.getByText("Open weights. Local hardware.")).toBeVisible();
   await expect(page.getByTestId("home-hero-stream")).toBeHidden();
   await expect(page.getByTestId("home-hero-thinking")).toBeHidden();
 });
@@ -22,7 +22,7 @@ test("normal motion: settles to a static logo + tagline with the stream faded ou
   await visitRoute(page, "/");
 
   const logo = page.getByRole("heading", { level: 1, name: "local-bench" });
-  const tagline = page.getByText("Open weights. Local hardware. Reproducible results.");
+  const tagline = page.getByText("Open weights. Local hardware.");
 
   // Logo + tagline are always in the DOM; after the one-shot timeline they are the only visible thing.
   await expect(logo).toBeVisible();
@@ -80,7 +80,7 @@ test("forced-colors: the logo + tagline remain readable and decorative layers dr
   await visitRoute(page, "/");
 
   await expect(page.getByRole("heading", { level: 1, name: "local-bench" })).toBeVisible();
-  await expect(page.getByText("Open weights. Local hardware. Reproducible results.")).toBeVisible();
+  await expect(page.getByText("Open weights. Local hardware.")).toBeVisible();
   // The grid / thinking / stream chrome is dropped under forced-colors (display:none).
   await expect(page.getByTestId("home-hero-stream")).toBeHidden();
   await expect(page.getByTestId("home-hero-thinking")).toBeHidden();
