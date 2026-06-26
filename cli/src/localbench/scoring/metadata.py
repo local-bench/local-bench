@@ -18,10 +18,10 @@ from localbench.scoring.axes import bench_domains, domain_weights
 # hardcode a parallel copy here (see METHODOLOGY-v1.2 §8).
 BENCH_DOMAINS: Final[dict[str, str]] = bench_domains()
 
-# Composite weights per domain. Headline axes (Knowledge + Instruction-Following)
-# carry weight; candidate (Math, Long-Context) and experimental (Agentic, Coding)
-# axes carry 0.0 so a present-but-unvalidated axis never enters the headline
-# composite. The composite normalizes over the HEADLINE domains present in a run.
+# Composite weights per domain. Headline axes carry weight; candidate and
+# experimental axes carry 0.0 so a present-but-unvalidated axis never enters
+# the headline composite. The composite normalizes over the HEADLINE domains
+# present in a run.
 DOMAIN_WEIGHTS: Final[dict[str, float]] = domain_weights()
 
 

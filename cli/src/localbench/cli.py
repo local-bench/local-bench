@@ -262,7 +262,7 @@ def _parser() -> argparse.ArgumentParser:
     board_parser.add_argument("--frozen-timestamp")
     board_parser.add_argument("--check-parity", dest="check_parity", action="store_true", default=True)
     board_parser.add_argument("--no-check-parity", dest="check_parity", action="store_false")
-    tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 plaintext tool-calling gate")
+    tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 Tool-calling axis")
     tc_json_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
     tc_json_parser.add_argument("--model", required=True, help="model name to send in requests")
     tc_json_parser.add_argument("--suite-dir", type=Path, default=Path("..") / "suite" / "v1")

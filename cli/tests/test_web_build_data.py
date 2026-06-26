@@ -463,7 +463,7 @@ def _synthetic_item(
 def _tc_json_gate(band: str) -> JsonObject:
     return {
         "id": "tc_json_v1",
-        "label": "JSON tool-call gate",
+        "label": "Tool-calling",
         "band": band,
         "pass_rate": {"point": 82.0, "lo": 78.0, "hi": 86.0},
         "invalid_json_rate": 18.0,

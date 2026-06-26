@@ -22,7 +22,7 @@ _SUITE_V1 = Path(__file__).resolve().parents[2] / "suite" / "v1" / "suite.json"
 def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
     # Given the locked registry (METHODOLOGY-v1.2 §2-3).
     headline = [axis for axis in AXES if axis.role == "headline"]
-    # Then only Knowledge + Instruction are headline, summing to 1.0.
+    # Then headline weights stay locked while candidates remain excluded.
     assert headline_displays() == ("Knowledge", "Instruction-Following", "Agentic")
     assert sum(axis.weight for axis in headline) == pytest.approx(1.0)
     assert all(axis.weight == 0.0 for axis in AXES if axis.role != "headline")
@@ -37,6 +37,7 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert DOMAIN_WEIGHTS["Long-Context"] == 0.0
     assert DOMAIN_WEIGHTS["Agentic"] == 0.60
     assert DOMAIN_WEIGHTS["Coding"] == 0.0
+    assert DOMAIN_WEIGHTS["Tool-calling"] == 0.0
     # Every suite-v1 + legacy bench maps to its axis display label.
     assert BENCH_DOMAINS["mmlu_pro"] == "Knowledge"
     assert BENCH_DOMAINS["supergpqa"] == "Knowledge"
@@ -48,15 +49,17 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert BENCH_DOMAINS["ruler_32k"] == "Long-Context"
     assert BENCH_DOMAINS["appworld_c"] == "Agentic"
     assert BENCH_DOMAINS["lcb"] == "Coding"
+    assert BENCH_DOMAINS["tc_json_v1"] == "Tool-calling"
 
 
 def test_web_derivations_track_the_registry() -> None:
-    assert web_display_axes() == ("knowledge", "instruction", "math", "agentic")
+    assert web_display_axes() == ("knowledge", "instruction", "math", "agentic", "tool_calling")
     assert web_composite_weights() == {
         "knowledge": 0.15,
         "instruction": 0.25,
         "agentic": 0.60,
         "math": 0.0,
+        "tool_calling": 0.0,
     }
     groups = web_source_bench_groups()
     # Suite-v1 benches are preferred over their v0 fallback (knowledge: mmlu_pro first).
@@ -64,6 +67,19 @@ def test_web_derivations_track_the_registry() -> None:
     assert groups["instruction"] == (("ifbench",), ("ifeval",))
     assert groups["math"] == (("olymmath_hard", "amo"), ("genmath",))
     assert groups["agentic"] == (("appworld_c",),)
+    assert groups["tool_calling"] == (("tc_json_v1",),)
+
+
+def test_tool_calling_axis_is_zero_weight_candidate() -> None:
+    axis = next(axis for axis in AXES if axis.key == "tool_calling")
+
+    assert axis.display == "Tool-calling"
+    assert axis.web_key == "tool_calling"
+    assert axis.benches == ("tc_json_v1",)
+    assert axis.legacy_benches == ()
+    assert axis.role == "candidate"
+    assert axis.weight == 0.0
+    assert axis.web_display is True
 
 
 def test_suite_v1_manifest_membership_matches_registry_drift_gate() -> None:

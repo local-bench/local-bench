@@ -26,7 +26,7 @@ def test_tc_json_v1_items_when_loaded_have_expected_counts_and_suite_metadata() 
     assert suite["benches"]["tc_json_v1"]["itemsets"]["standard"]["item_count"] == 330
     assert suite["benches"]["tc_json_v1"]["itemsets"]["standard"]["sha256"] == digest
     assert lock["files"]["tc_json_v1.jsonl"]["sha256"] == digest
-    assert "tc_json_v1" not in json.dumps(suite.get("axes", {}))
+    assert suite["axes"]["tool_calling"]["benches"] == ["tc_json_v1"]
 
 
 def test_tc_json_v1_items_when_gold_calls_are_scored_all_pass() -> None:

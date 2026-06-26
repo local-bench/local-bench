@@ -4,7 +4,7 @@ from typing import Final
 
 from localbench._types import JsonObject
 
-SCORED_DEFAULT_BENCHES: Final[tuple[str, ...]] = ("mmlu_pro", "ifbench")
+SCORED_DEFAULT_BENCHES: Final[tuple[str, ...]] = ("mmlu_pro", "ifbench", "tc_json_v1")
 
 
 def resolve_run_benches(bench_arg: str, suite: JsonObject) -> list[str]:

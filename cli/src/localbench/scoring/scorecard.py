@@ -48,6 +48,7 @@ SCORER_VERSIONS: Final[dict[str, str]] = {
     "bfcl": "1",
     "bfcl_multi_turn": "1",
     "lcb": "1",
+    "tc_json_v1": "1",
     "bigcodebench_hard": "1",
     # suite-v0 legacy benches (back-compat scoring)
     "supergpqa": "1",

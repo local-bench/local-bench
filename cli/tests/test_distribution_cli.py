@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from localbench.cli import main
 
 
@@ -66,6 +68,19 @@ def test_doctor_command_reports_cache_and_suite_status(tmp_path: Path, capsys) -
     assert "cache     " in output
     assert "python    " in output
     assert "core-text-v1" in output
+
+
+def test_tc_json_help_uses_tool_calling_label(capsys) -> None:
+    # Given / When: the top-level CLI help is rendered.
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--help"])
+
+    # Then: the tc-json command is described as a Tool-calling axis.
+    output = capsys.readouterr().out
+    tc_json_line = next(line for line in output.splitlines() if line.strip().startswith("tc-json"))
+    assert exit_info.value.code == 0
+    assert "Tool-calling" in tc_json_line
+    assert "gate" not in tc_json_line.lower()
 
 
 def test_run_dry_defaults_core_text_suite_to_standard_tier(tmp_path: Path, capsys) -> None:

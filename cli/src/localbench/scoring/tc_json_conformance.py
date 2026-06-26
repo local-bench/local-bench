@@ -7,7 +7,7 @@ from localbench._types import JsonObject, JsonValue
 from localbench.scoring.board_support import int_value, number_value, object_value
 
 GATE_ID: Final = "tc_json_v1"
-GATE_LABEL: Final = "JSON tool-call gate"
+GATE_LABEL: Final = "Tool-calling"
 
 
 def tc_json_conformance_gate(aggregate: Mapping[str, JsonValue]) -> JsonObject:

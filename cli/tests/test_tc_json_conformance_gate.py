@@ -37,7 +37,7 @@ def test_tc_json_gate_maps_aggregate_percentages_and_reasons() -> None:
     # Then: web-ready fields are percentages and the band is recomputed, not trusted upstream.
     assert gate == {
         "id": "tc_json_v1",
-        "label": "JSON tool-call gate",
+        "label": "Tool-calling",
         "band": "amber",
         "pass_rate": {"point": pytest.approx(71.2), "lo": pytest.approx(66.3), "hi": pytest.approx(75.8)},
         "invalid_json_rate": pytest.approx(2.3),

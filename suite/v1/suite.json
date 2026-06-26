@@ -193,6 +193,11 @@
         "bfcl_multi_turn"
       ]
     },
+    "tool_calling": {
+      "benches": [
+        "tc_json_v1"
+      ]
+    },
     "coding": {
       "benches": [
         "lcb"
