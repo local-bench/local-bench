@@ -16,6 +16,7 @@ from localbench.suite_resolver import SuiteResolutionError
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
+FIXTURE_FULL_BENCHES = "mmlu_pro,ifeval,genmath"
 
 
 def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path) -> None:
@@ -24,12 +25,13 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
         output_path = tmp_path / "run.json"
         transport = httpx.MockTransport(_mixed_handler)
 
-        # When running all benches through the orchestrator.
+        # When running every fixture bench through the orchestrator.
         record = await run_localbench(
             OrchestrateConfig(
                 endpoint="http://local/v1",
                 model="demo-model",
                 suite_dir=FIXTURE_SUITE,
+                bench=FIXTURE_FULL_BENCHES,
                 out=output_path,
                 price_in=1.0,
                 price_out=2.0,
@@ -97,6 +99,7 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
                 endpoint="http://local/v1",
                 model="demo-model",
                 suite_dir=FIXTURE_SUITE,
+                bench=FIXTURE_FULL_BENCHES,
                 out=output_path,
                 max_items=1,
             ),
@@ -144,6 +147,7 @@ def test_run_localbench_when_item_file_is_missing_fails_closed(tmp_path: Path) -
                     endpoint="http://local/v1",
                     model="demo-model",
                     suite_dir=suite_dir,
+                    bench="genmath",
                     out=tmp_path / "run.json",
                 ),
                 transport=httpx.MockTransport(_all_correct_handler),
@@ -204,6 +208,7 @@ def test_run_localbench_lane_controls_thinking_toggle(tmp_path: Path) -> None:
                 endpoint="http://local/v1",
                 model="demo-model",
                 suite_dir=FIXTURE_SUITE,
+                bench=FIXTURE_FULL_BENCHES,
                 out=tmp_path / "answer_only.json",
             ),
             transport=httpx.MockTransport(capturing_handler),
@@ -223,6 +228,7 @@ def test_run_localbench_lane_controls_thinking_toggle(tmp_path: Path) -> None:
                 endpoint="http://local/v1",
                 model="demo-model",
                 suite_dir=FIXTURE_SUITE,
+                bench=FIXTURE_FULL_BENCHES,
                 out=tmp_path / "uncapped.json",
                 lane="api-uncapped",
             ),

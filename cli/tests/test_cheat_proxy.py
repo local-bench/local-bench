@@ -13,6 +13,7 @@ from localbench.orchestrate import OrchestrateConfig, run_localbench
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
+FIXTURE_FULL_BENCHES = "mmlu_pro,ifeval,genmath"
 
 
 def test_answer_injection_returns_gold_when_prompt_matches_fixture_items(
@@ -65,6 +66,7 @@ def test_run_localbench_scores_near_perfect_when_using_in_process_proxy(
                 endpoint="http://cheat-proxy.test/v1",
                 model="potato-7b-q2",
                 suite_dir=FIXTURE_SUITE,
+                bench=FIXTURE_FULL_BENCHES,
                 out=tmp_path / "attack-run.json",
             ),
             transport=httpx.MockTransport(proxy.handle_httpx_request),

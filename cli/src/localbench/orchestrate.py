@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Literal, NotRequired, TypedDict
+from typing import Final, Literal, NotRequired, TypeAlias, TypedDict
 
 import httpx
 
@@ -42,6 +42,7 @@ from localbench.prompt_rendering import (
 )
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.reasoning_registry import reasoning_entry_for_activation
+from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
 from localbench.scoring.axis_status import (
@@ -53,19 +54,7 @@ from localbench.scoring.axis_status import (
 from localbench.scorers.ruler import estimate_prompt_tokens
 from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
-BenchChoice = Literal[
-    "all",
-    "mmlu_pro",
-    "ifeval",
-    "genmath",
-    "supergpqa",
-    "ifbench",
-    "bfcl",
-    "lcb",
-    "amo",
-    "olymmath_hard",
-    "ruler_32k",
-]
+BenchChoice: TypeAlias = str
 TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
 ReasoningEffortChoice = ReasoningEffort
@@ -143,8 +132,9 @@ async def run_localbench(
     started_perf = time.perf_counter()
     warnings: list[str] = []
     provider = provider_for_name(config.provider)
+    bench_choice = ",".join(resolve_run_benches(config.bench, suite))
     rendered_benches = render_benches(
-        config.bench,
+        bench_choice,
         config.tier,
         config.max_items,
         suite_dir,

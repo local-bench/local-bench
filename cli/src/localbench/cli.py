@@ -34,6 +34,7 @@ from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError
 from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.providers import provider_choices
+from localbench.run_plan import resolve_run_benches
 from localbench.scoring.paired_delta import (
     CompareResult,
     compare_run_files,
@@ -373,7 +374,8 @@ def _scorer_gates(
     suite_axes = suite.get("axes")
     suite_axis_map = suite_axes if isinstance(suite_axes, dict) else None
     warnings: list[str] = []
-    rendered = render_benches(args.bench, tier, args.max_items, ref.path, suite, warnings)
+    bench_choice = ",".join(resolve_run_benches(args.bench, suite))
+    rendered = render_benches(bench_choice, tier, args.max_items, ref.path, suite, warnings)
     gates: dict[str, ScorerGate] = {}
     available: list[str] = []
     for bench in rendered:
@@ -387,7 +389,7 @@ def _scorer_gates(
             axis_key_for_bench(bench.name, suite_axis_map),
         )
     if not gates:
-        return args.bench, {}, suite_axis_map
+        return bench_choice, {}, suite_axis_map
     return ",".join(available) if available else _NO_SCORABLE_BENCH, gates, suite_axis_map
 
 
@@ -559,7 +561,8 @@ def _run_dry(args: argparse.Namespace, tier: str) -> int:
         return 2
     suite = read_json_object(ref.path / "suite.json")
     warnings: list[str] = []
-    benches = render_benches(args.bench, tier, args.max_items, ref.path, suite, warnings)
+    bench_choice = ",".join(resolve_run_benches(args.bench, suite))
+    benches = render_benches(bench_choice, tier, args.max_items, ref.path, suite, warnings)
     n_items = sum(len(bench.benchmark_items) for bench in benches)
     print("dry-run   no endpoint calls made")
     print(f"suite_id  {ref.suite_id}")

@@ -46,6 +46,7 @@ async def _run_demo(args: argparse.Namespace) -> LocalbenchRun:
                 model=args.claimed_model,
                 tier="quick",
                 suite_dir=args.suite_dir,
+                bench="mmlu_pro,ifeval,genmath",
                 max_items=args.max_items,
                 concurrency=1,
                 out=Path(tmp) / "attack-run.json",
