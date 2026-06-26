@@ -29,6 +29,17 @@ class TaskOutcome(StrEnum):
     HARNESS_ERROR = "harness_error"      # sandbox/model raised irrecoverably (rare; logged)
 
 
+class FailureClass(StrEnum):
+    """Additive subclass for separating infra noise from model behavior."""
+
+    NONE = "none"
+    INFRA_TIMEOUT = "infra_timeout"
+    INFRA_SANDBOX = "infra_sandbox"
+    MODEL_FAILURE = "model_failure"
+    MODEL_NO_PROGRESS = "model_no_progress"
+    HARNESS_ERROR = "harness_error"
+
+
 @dataclass(frozen=True, slots=True)
 class TurnRecord:
     """One turn of the loop (one model call + at most one executed block)."""
@@ -44,6 +55,7 @@ class TurnRecord:
     api_docs_calls: int              # apis.api_docs.* call expressions in the block
     observation_truncated: bool      # the observation fed back was truncated to the cap
     is_final: bool                   # the model signalled a final answer this turn
+    raw_response_text: str = ""      # unmodified assistant text for provenance/debugging
 
 
 @dataclass(slots=True)
@@ -71,10 +83,12 @@ class TaskDiagnostics:
     total_output_tokens: int         # summed completion tokens across turns
     finalize_error: str | None = None  # set if finalize itself errored (HARNESS_ERROR)
     turns: list[TurnRecord] = field(default_factory=list)
+    failure_class: FailureClass = FailureClass.NONE
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["outcome"] = self.outcome.value
+        d["failure_class"] = self.failure_class.value
         return d
 
 
@@ -120,16 +134,28 @@ class BenchmarkReport:
     mean_output_tokens: float
     outcome_counts: dict[str, int]
     results: list[TaskRunResult]
+    asr_excluding_infra: float = 0.0
+    infra_timeout_rate: float = 0.0
+    infra_sandbox_rate: float = 0.0
+    model_failure_rate: float = 0.0
+    model_no_progress_rate: float = 0.0
+    harness_error_subclass_rate: float = 0.0
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "tasks_total": self.tasks_total,
             "tasks_succeeded": self.tasks_succeeded,
             "agentic_success_rate": self.agentic_success_rate,
+            "asr_excluding_infra": self.asr_excluding_infra,
             "collateral_damage_rate": self.collateral_damage_rate,
             "cap_exceeded_rate": self.cap_exceeded_rate,
             "no_final_answer_rate": self.no_final_answer_rate,
             "harness_error_rate": self.harness_error_rate,
+            "infra_timeout_rate": self.infra_timeout_rate,
+            "infra_sandbox_rate": self.infra_sandbox_rate,
+            "model_failure_rate": self.model_failure_rate,
+            "model_no_progress_rate": self.model_no_progress_rate,
+            "harness_error_subclass_rate": self.harness_error_subclass_rate,
             "format_failure_rate": self.format_failure_rate,
             "syntax_error_rate": self.syntax_error_rate,
             "runtime_error_rate": self.runtime_error_rate,

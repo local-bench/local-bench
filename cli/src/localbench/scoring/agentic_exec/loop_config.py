@@ -34,6 +34,10 @@ class LoopConfig:
     # keeps observation canonicalisation bounded). Truncations are counted as a diagnostic.
     max_observation_chars: int = 8_000
 
+    # Chat history window used by Protocol C. The loop keeps system/user anchors plus a fixed
+    # number of recent turn/observation messages derived from this budget.
+    context_window: int = 32_768
+
     # Determinism contract (LOCKED): greedy decoding, fixed seed. Passed to the client each
     # turn; the scripted client ignores it, a real client honours it.
     temperature: float = 0.0
@@ -41,8 +45,8 @@ class LoopConfig:
     seed: int = 0
 
     # Wall-clock guard for a single model .complete() call. The sandbox has its own per-block
-    # execution timeout (SandboxConfig.block_timeout_s); this guards the model side only and
-    # is advisory for the scripted client (which is instant).
+    # infrastructure safety net (SandboxConfig.block_wall_timeout_s). This guards only the model
+    # side and is advisory for the scripted client (which is instant).
     model_call_timeout_s: float = 120.0
 
     def generation_params(self) -> GenerationParams:

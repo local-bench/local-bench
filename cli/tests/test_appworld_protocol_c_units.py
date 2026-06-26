@@ -28,12 +28,22 @@ from localbench.scoring.agentic_exec import block_parser as bp  # noqa: E402
 from localbench.scoring.agentic_exec import prompt as prompt_mod  # noqa: E402
 from localbench.scoring.agentic_exec import scripted_agent as sa  # noqa: E402
 from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: E402
-from localbench.scoring.agentic_exec.loop_types import TaskOutcome  # noqa: E402
+from localbench.scoring.agentic_exec.loop_types import (  # noqa: E402
+    FailureClass,
+    TaskDiagnostics,
+    TaskOutcome,
+    TaskRunResult,
+)
 from localbench.scoring.agentic_exec.model_client import (  # noqa: E402
     GenerationParams,
     ModelResponse,
 )
 from localbench.scoring.agentic_exec.protocol_c_loop import run_task  # noqa: E402
+from localbench.scoring.agentic_exec.sandbox import (  # noqa: E402
+    SandboxConfig,
+    SandboxError,
+    SandboxTimeoutError,
+)
 
 
 # ==============================================================================================
@@ -424,6 +434,138 @@ def test_loop_final_without_answer_var_nudges_then_recovers() -> None:
     assert result.diagnostics.format_failures == 1
 
 
+def test_loop_strips_reasoning_only_from_history_and_preserves_raw_turn() -> None:
+    sandbox = FakeSandbox(gold_answer=3, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+
+    class _ThinkingThenFinal:
+        def __init__(self) -> None:
+            self.calls: list[list[ChatMessage]] = []
+
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            self.calls.append([dict(m) for m in messages])
+            if len(self.calls) == 1:
+                return ModelResponse(
+                    "<think>hidden chain</think>\n```python\nprint('observed')\n```",
+                    "stop",
+                    output_tokens=12,
+                )
+            return ModelResponse("```python\nanswer = 3\n```\nFINAL_ANSWER", "stop")
+
+    agent = _ThinkingThenFinal()
+    result = run_task(sandbox, agent, "fac291d_1")
+
+    assert result.success is True
+    assert result.diagnostics.turns[0].raw_response_text.startswith("<think>hidden chain</think>")
+    second_call_history = agent.calls[1]
+    assistant_messages = [m for m in second_call_history if m["role"] == "assistant"]
+    assert assistant_messages[0]["content"] == "\n```python\nprint('observed')\n```"
+    assert "<think>" not in assistant_messages[0]["content"]
+
+
+def test_loop_windows_history_deterministically_with_anchors_and_recent_turns() -> None:
+    class _LongEpisodeAgent:
+        def __init__(self) -> None:
+            self.call_histories: list[list[ChatMessage]] = []
+            self.step = 0
+
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            self.call_histories.append([dict(m) for m in messages])
+            self.step += 1
+            return ModelResponse(f"```python\nprint('turn-{self.step}')\n```", "stop")
+
+    def run_episode() -> list[list[ChatMessage]]:
+        sandbox = FakeSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+        agent = _LongEpisodeAgent()
+        cfg = LoopConfig(
+            max_turns=6,
+            context_window=2_500,
+            max_output_tokens_per_turn=512,
+            max_observation_chars=2_000,
+        )
+        result = run_task(sandbox, agent, "fac291d_1", cfg)
+        assert result.outcome == TaskOutcome.CAP_EXCEEDED
+        return agent.call_histories
+
+    first = run_episode()
+    second = run_episode()
+
+    assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+    final_history = first[-1]
+    assert final_history[0]["role"] == "system"
+    assert _FAC_INSTR in final_history[0]["content"]
+    assert final_history[1] == {"role": "user", "content": "Begin."}
+    assert "turn-1" not in json.dumps(final_history)
+    assert "turn-5" in json.dumps(final_history)
+    assert len(final_history) == 4
+
+
+def test_loop_classifies_block_wall_timeout_as_infra_without_retry() -> None:
+    class _TimeoutSandbox(FakeSandbox):
+        def __init__(self) -> None:
+            super().__init__(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+            self.model_block_attempts = 0
+
+        def run_block(self, code: str) -> _Obs:
+            if "show_active_task" not in code:
+                self.model_block_attempts += 1
+                raise SandboxTimeoutError("block wall-clock safety net fired")
+            return super().run_block(code)
+
+    class _OneBlock:
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            return ModelResponse("```python\nprint('hang')\n```", "stop")
+
+    sandbox = _TimeoutSandbox()
+    result = run_task(sandbox, _OneBlock(), "fac291d_1")
+
+    assert result.outcome == TaskOutcome.HARNESS_ERROR
+    assert result.diagnostics.failure_class == FailureClass.INFRA_TIMEOUT
+    assert result.diagnostics.success is False
+    assert sandbox.model_block_attempts == 1
+
+
+def test_loop_classifies_model_failure_no_progress_and_harness_error() -> None:
+    class _WrongFinal:
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            return ModelResponse("```python\nanswer = 999\n```\nFINAL_ANSWER", "stop")
+
+    class _FinalizeCrashSandbox(FakeSandbox):
+        def finalize(self, answer: object) -> _FakeVerdict:
+            raise RuntimeError("evaluator exploded")
+
+    wrong = run_task(
+        FakeSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com"),
+        _WrongFinal(),
+        "fac291d_1",
+    )
+    capped = run_task(
+        FakeSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com"),
+        sa.NeverFinalizeAgent(),
+        "fac291d_1",
+        LoopConfig(max_turns=1),
+    )
+    harness = run_task(
+        _FinalizeCrashSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com"),
+        _WrongFinal(),
+        "fac291d_1",
+    )
+
+    assert wrong.outcome == TaskOutcome.FAILURE
+    assert wrong.diagnostics.failure_class == FailureClass.MODEL_FAILURE
+    assert capped.outcome == TaskOutcome.CAP_EXCEEDED
+    assert capped.diagnostics.failure_class == FailureClass.MODEL_NO_PROGRESS
+    assert harness.outcome == TaskOutcome.HARNESS_ERROR
+    assert harness.diagnostics.failure_class == FailureClass.HARNESS_ERROR
+
+
+def test_sandbox_config_uses_cpu_budget_and_generous_wall_safety_net() -> None:
+    cfg = SandboxConfig()
+    assert cfg.cpu_seconds == 60
+    assert cfg.block_wall_timeout_s >= 300.0
+    assert cfg.block_wall_timeout_s > cfg.cpu_seconds
+    assert cfg.block_timeout_s == cfg.block_wall_timeout_s
+
+
 def test_observation_truncation_counts() -> None:
     sandbox = FakeSandbox(gold_answer=1, instruction=_FAC_INSTR, supervisor_email="b@x.com")
     cfg = LoopConfig(max_observation_chars=10)
@@ -482,6 +624,102 @@ def test_benchmark_isolates_per_task_harness_error() -> None:
     assert report.harness_error_rate == 1.0
     assert report.results[0].outcome == TaskOutcome.HARNESS_ERROR
     assert "RuntimeError" in (report.results[0].diagnostics.finalize_error or "")
+
+
+def test_benchmark_adds_infra_rates_and_asr_excluding_infra_without_changing_primary_asr() -> None:
+    def diag(
+        task_id: str,
+        outcome: TaskOutcome,
+        success: bool,
+        failure_class: FailureClass,
+    ) -> TaskRunResult:
+        diagnostics = TaskDiagnostics(
+            task_id=task_id,
+            outcome=outcome,
+            success=success,
+            collateral_damage=False,
+            turns_used=1,
+            blocks_run=1,
+            format_failures=0,
+            syntax_errors=0,
+            runtime_errors=0,
+            cap_exceeded=(outcome == TaskOutcome.CAP_EXCEEDED),
+            total_api_calls=0,
+            api_docs_uses=0,
+            observation_truncations=0,
+            total_output_tokens=1,
+            failure_class=failure_class,
+        )
+        return TaskRunResult(
+            task_id=task_id,
+            success=success,
+            outcome=outcome,
+            collateral_damage=False,
+            diagnostics=diagnostics,
+        )
+
+    report = bench.aggregate(
+        [
+            diag("success", TaskOutcome.SUCCESS, True, FailureClass.NONE),
+            diag("infra-timeout", TaskOutcome.HARNESS_ERROR, False, FailureClass.INFRA_TIMEOUT),
+            diag("infra-sandbox", TaskOutcome.HARNESS_ERROR, False, FailureClass.INFRA_SANDBOX),
+            diag("model-failure", TaskOutcome.FAILURE, False, FailureClass.MODEL_FAILURE),
+            diag("no-progress", TaskOutcome.CAP_EXCEEDED, False, FailureClass.MODEL_NO_PROGRESS),
+            diag("harness", TaskOutcome.HARNESS_ERROR, False, FailureClass.HARNESS_ERROR),
+        ]
+    )
+
+    assert report.agentic_success_rate == pytest.approx(1 / 6)
+    assert report.harness_error_rate == pytest.approx(3 / 6)
+    assert report.asr_excluding_infra == pytest.approx(1 / 4)
+    assert report.infra_timeout_rate == pytest.approx(1 / 6)
+    assert report.infra_sandbox_rate == pytest.approx(1 / 6)
+    assert report.model_failure_rate == pytest.approx(1 / 6)
+    assert report.model_no_progress_rate == pytest.approx(1 / 6)
+    assert report.harness_error_subclass_rate == pytest.approx(1 / 6)
+    assert report.as_dict()["asr_excluding_infra"] == pytest.approx(1 / 4)
+
+
+def test_benchmark_classifies_sandbox_setup_error_as_infra_sandbox() -> None:
+    def bad_sandbox_factory(task_id: str):
+        raise SandboxError("bwrap missing")
+
+    report = bench.run_appworld_c_benchmark(
+        task_ids=["fac291d_1"],
+        model_factory=lambda t: sa.ScriptedSolverAgent(t),
+        sandbox_factory=bad_sandbox_factory,
+    )
+
+    assert report.harness_error_rate == 1.0
+    assert report.infra_sandbox_rate == 1.0
+    assert report.asr_excluding_infra == 0.0
+    assert report.results[0].diagnostics.failure_class == FailureClass.INFRA_SANDBOX
+
+
+def test_clean_scripted_run_keeps_primary_score_and_diagnostics_deterministic() -> None:
+    def run_once() -> TaskRunResult:
+        sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+        return run_task(sandbox, sa.ScriptedSolverAgent("fac291d_1"), "fac291d_1")
+
+    first = run_once()
+    second = run_once()
+    report = bench.aggregate([first])
+
+    assert [item.value for item in TaskOutcome] == [
+        "success",
+        "failure",
+        "cap_exceeded",
+        "no_final_answer",
+        "harness_error",
+    ]
+    assert first.success is True
+    assert first.outcome == TaskOutcome.SUCCESS
+    assert report.agentic_success_rate == 1.0
+    assert report.asr_excluding_infra == 1.0
+    assert json.dumps(first.diagnostics.as_dict(), sort_keys=True) == json.dumps(
+        second.diagnostics.as_dict(),
+        sort_keys=True,
+    )
 
 
 def _fac_blocks() -> tuple[str, ...]:

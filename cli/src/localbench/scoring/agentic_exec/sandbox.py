@@ -46,12 +46,16 @@ _JAIL_RPC_SOCKET = "/rpc/rpc.sock"
 _JAIL_RUN_DIR = "/lbrun"  # where the runner bootstrap is mounted read-only
 
 _DEFAULT_READY_TIMEOUT_S = 120.0   # world construction + DB reset can take a little time
-_DEFAULT_BLOCK_TIMEOUT_S = 60.0    # wall-clock cap for a single model block
+_DEFAULT_BLOCK_WALL_TIMEOUT_S = 300.0
 _DEFAULT_FINALIZE_TIMEOUT_S = 120.0
 
 
 class SandboxError(RuntimeError):
     """Raised when the sandbox cannot be constructed or a broker step fails irrecoverably."""
+
+
+class SandboxTimeoutError(SandboxError):
+    """Raised only when the per-block wall-clock infrastructure safety net fires."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,9 +96,19 @@ class SandboxConfig:
     address_space_bytes: int = 2 * 1024 * 1024 * 1024  # 2 GiB
     tmpfs_size_bytes: int = 256 * 1024 * 1024  # 256 MiB scratch
     ready_timeout_s: float = _DEFAULT_READY_TIMEOUT_S
-    block_timeout_s: float = _DEFAULT_BLOCK_TIMEOUT_S
+    # Backward-compatible legacy alias. Prefer ``block_wall_timeout_s`` for new code.
+    block_timeout_s: float = _DEFAULT_BLOCK_WALL_TIMEOUT_S
     finalize_timeout_s: float = _DEFAULT_FINALIZE_TIMEOUT_S
+    # This is NOT a compute budget. CPU is gated by RLIMIT_CPU via ``cpu_seconds``; this larger
+    # wall-clock net only catches infrastructure hangs/deadlocks and is classified separately.
+    block_wall_timeout_s: float = _DEFAULT_BLOCK_WALL_TIMEOUT_S
     experiment_name: str = "lb_agentic_sandbox"
+
+
+@dataclass(frozen=True, slots=True)
+class _RunnerEventRead:
+    event: dict[str, Any] | None
+    timed_out: bool
 
 
 def resolve_host_python(explicit: str = "") -> str:
@@ -307,7 +321,7 @@ class AppWorldSandbox:
                          daemon=True).start()
 
     def _wait_for_runner_ready(self) -> None:
-        event = self._read_runner_event(self.config.ready_timeout_s)
+        event = self._read_runner_event(self.config.ready_timeout_s).event
         if not event or event.get("event") != "ready":
             raise SandboxError(
                 f"runner did not signal ready (got {event!r}). "
@@ -320,7 +334,16 @@ class AppWorldSandbox:
         """Execute one model code block in the jail; return its captured stdout + any error."""
         self._ensure_live()
         self._send_runner({"cmd": "run_block", "code": code})
-        event = self._read_runner_event(self.config.block_timeout_s)
+        read = self._read_runner_event(_effective_block_wall_timeout_s(self.config))
+        event = read.event
+        if read.timed_out:
+            self.close()
+            raise SandboxTimeoutError(
+                "runner exceeded the per-block wall-clock infrastructure safety net. "
+                f"cpu_seconds={self.config.cpu_seconds}, "
+                f"block_wall_timeout_s={_effective_block_wall_timeout_s(self.config)}. "
+                f"stderr:\n{''.join(self._runner_stderr)[-2000:]}"
+            )
         if event is None:
             raise SandboxError(
                 "runner timed out / died during run_block. "
@@ -339,7 +362,7 @@ class AppWorldSandbox:
             raise SandboxError("finalize already called for this task")
         self._finalized = True
         self._send_runner({"cmd": "finalize", "answer": answer})
-        event = self._read_runner_event(self.config.finalize_timeout_s)
+        event = self._read_runner_event(self.config.finalize_timeout_s).event
         if event is None or event.get("event") != "final_result":
             raise SandboxError(
                 f"finalize failed (event={event!r}). "
@@ -365,7 +388,7 @@ class AppWorldSandbox:
         except (BrokenPipeError, OSError) as exc:
             raise SandboxError(f"runner pipe broken: {exc}") from exc
 
-    def _read_runner_event(self, timeout_s: float) -> dict[str, Any] | None:
+    def _read_runner_event(self, timeout_s: float) -> _RunnerEventRead:
         """Read one JSON event line from the runner with a wall-clock timeout."""
         assert self._runner_proc is not None and self._runner_proc.stdout is not None
         result: dict[str, list[str]] = {"line": []}
@@ -378,14 +401,17 @@ class AppWorldSandbox:
         t.start()
         t.join(timeout_s)
         if t.is_alive():
-            return None  # timed out; caller treats as fatal and closes the sandbox
+            return _RunnerEventRead(event=None, timed_out=True)
         line = result["line"][0] if result["line"] else ""
         if not line:
-            return None
+            return _RunnerEventRead(event=None, timed_out=False)
         try:
-            return json.loads(line)
+            return _RunnerEventRead(event=json.loads(line), timed_out=False)
         except json.JSONDecodeError:
-            return {"event": "fatal", "message": "non-json from runner: " + line[:200]}
+            return _RunnerEventRead(
+                event={"event": "fatal", "message": "non-json from runner: " + line[:200]},
+                timed_out=False,
+            )
 
     def _ensure_live(self) -> None:
         if self._closed:
@@ -431,6 +457,16 @@ def _repo_src_path() -> str:
     """Absolute path to ``cli/src`` so the env host can import localbench under WSL."""
     # this file: cli/src/localbench/scoring/agentic_exec/sandbox.py  ->  cli/src
     return str(Path(__file__).resolve().parents[3])
+
+
+def _effective_block_wall_timeout_s(config: SandboxConfig) -> float:
+    legacy_override = (
+        config.block_timeout_s != _DEFAULT_BLOCK_WALL_TIMEOUT_S
+        and config.block_wall_timeout_s == _DEFAULT_BLOCK_WALL_TIMEOUT_S
+    )
+    if legacy_override:
+        return config.block_timeout_s
+    return config.block_wall_timeout_s
 
 
 def _terminate(proc: subprocess.Popen[Any]) -> None:

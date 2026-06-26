@@ -31,6 +31,8 @@ from typing import Callable
 from localbench.scoring.agentic_exec.loop_config import LoopConfig
 from localbench.scoring.agentic_exec.loop_types import (
     BenchmarkReport,
+    FailureClass,
+    TaskDiagnostics,
     TaskOutcome,
     TaskRunResult,
 )
@@ -70,6 +72,9 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
     """Compute ASR + diagnostic rates from per-task results (pure; unit-testable)."""
     n = len(results)
     succeeded = sum(1 for r in results if r.success)
+    infra_timeout = _count_failure_class(results, FailureClass.INFRA_TIMEOUT)
+    infra_sandbox = _count_failure_class(results, FailureClass.INFRA_SANDBOX)
+    infra_failures = infra_timeout + infra_sandbox
 
     # Per-block / per-turn denominators for the rate diagnostics.
     total_turns = sum(r.diagnostics.turns_used for r in results)
@@ -92,10 +97,22 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
         tasks_total=n,
         tasks_succeeded=succeeded,
         agentic_success_rate=_safe_div(succeeded, n),
+        asr_excluding_infra=_safe_div(succeeded, n - infra_failures),
         collateral_damage_rate=_safe_div(tasks_with_collateral, n),
         cap_exceeded_rate=_safe_div(outcome_counts[TaskOutcome.CAP_EXCEEDED.value], n),
         no_final_answer_rate=_safe_div(outcome_counts[TaskOutcome.NO_FINAL_ANSWER.value], n),
         harness_error_rate=_safe_div(outcome_counts[TaskOutcome.HARNESS_ERROR.value], n),
+        infra_timeout_rate=_safe_div(infra_timeout, n),
+        infra_sandbox_rate=_safe_div(infra_sandbox, n),
+        model_failure_rate=_safe_div(_count_failure_class(results, FailureClass.MODEL_FAILURE), n),
+        model_no_progress_rate=_safe_div(
+            _count_failure_class(results, FailureClass.MODEL_NO_PROGRESS),
+            n,
+        ),
+        harness_error_subclass_rate=_safe_div(
+            _count_failure_class(results, FailureClass.HARNESS_ERROR),
+            n,
+        ),
         format_failure_rate=_safe_div(total_format_failures, total_turns),
         syntax_error_rate=_safe_div(total_syntax, total_blocks),
         runtime_error_rate=_safe_div(total_runtime, total_blocks),
@@ -136,8 +153,7 @@ def appworld_sandbox_factory(
 
 
 def _harness_error_result(task_id: str, exc: Exception) -> TaskRunResult:
-    from localbench.scoring.agentic_exec.loop_types import TaskDiagnostics  # noqa: PLC0415
-
+    failure_class = _classify_harness_exception(exc)
     diag = TaskDiagnostics(
         task_id=task_id,
         outcome=TaskOutcome.HARNESS_ERROR,
@@ -153,6 +169,7 @@ def _harness_error_result(task_id: str, exc: Exception) -> TaskRunResult:
         api_docs_uses=0,
         observation_truncations=0,
         total_output_tokens=0,
+        failure_class=failure_class,
         finalize_error=f"{type(exc).__name__}: {exc}",
         turns=[],
     )
@@ -167,3 +184,22 @@ def _harness_error_result(task_id: str, exc: Exception) -> TaskRunResult:
 
 def _safe_div(num: float, den: float) -> float:
     return float(num) / float(den) if den else 0.0
+
+
+def _count_failure_class(results: list[TaskRunResult], failure_class: FailureClass) -> int:
+    return sum(1 for r in results if r.diagnostics.failure_class == failure_class)
+
+
+def _classify_harness_exception(exc: Exception) -> FailureClass:
+    from localbench.scoring.agentic_exec.sandbox import (  # noqa: PLC0415
+        SandboxError,
+        SandboxTimeoutError,
+    )
+
+    match exc:
+        case SandboxTimeoutError():
+            return FailureClass.INFRA_TIMEOUT
+        case SandboxError():
+            return FailureClass.INFRA_SANDBOX
+        case _:
+            return FailureClass.HARNESS_ERROR
