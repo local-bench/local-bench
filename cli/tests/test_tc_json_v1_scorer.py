@@ -33,7 +33,7 @@ def test_build_tc_json_prompt_when_given_item_renders_catalog_and_rules() -> Non
     [
         (_response([_call("weather.get", {"location": "Brisbane"})]), True, None),
         ("not json", False, "invalid_json"),
-        ("```json\n{}\n```", False, "invalid_json"),
+        ("```json\n{}\n```", False, "response_schema_invalid"),
         (_response([]) + _response([]), False, "extra_text_or_multiple_json_objects"),
         ("Here: " + _response([]), False, "invalid_json"),
         (json.dumps({"schema_version": "wrong", "calls": []}), False, "wrong_schema_version"),
@@ -56,6 +56,89 @@ def test_score_tc_json_v1_when_response_varies_returns_expected_taxonomy(
     assert score["correct"] is correct
     assert score["failure_reason"] == failure
     assert set(score["diagnostics"]) == {"extra_call", "missing_call", "arg_mismatch"}
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        _response([_call("weather.get", {"location": "Brisbane"})]),
+        f"<think>scratch</think>{_response([_call('weather.get', {'location': 'Brisbane'})])}",
+        f"<think>scratch</think>\n```json\n{_response([_call('weather.get', {'location': 'Brisbane'})])}\n```",
+        f"```\n{_response([_call('weather.get', {'location': 'Brisbane'})])}\n```",
+    ],
+)
+def test_score_tc_json_v1_when_valid_envelope_has_tolerated_extraction_wrappers_scores_correct(response: str) -> None:
+    # Given a valid item whose gold call exactly matches the model envelope.
+    item = _item([_weather_tool()], [_call("weather.get", {"location": "Brisbane"})])
+
+    # When the response is scored with optional reasoning and fence wrappers.
+    score = score_tc_json_v1(item, response)
+
+    # Then extraction tolerance does not change strict correctness.
+    assert score["correct"] is True
+    assert score["failure_reason"] is None
+
+
+def test_score_tc_json_v1_when_think_block_is_unclosed_returns_invalid_json() -> None:
+    # Given a response still inside an unclosed reasoning block.
+    item = _item([_weather_tool()], [_call("weather.get", {"location": "Brisbane"})])
+    response = f"<think>scratch {_response([_call('weather.get', {'location': 'Brisbane'})])}"
+
+    # When the response is scored.
+    score = score_tc_json_v1(item, response)
+
+    # Then no scratch content is credited as an answer.
+    assert score["correct"] is False
+    assert score["failure_reason"] == "invalid_json"
+
+
+def test_score_tc_json_v1_when_answer_has_trailing_prose_after_reasoning_still_rejects_extra_text() -> None:
+    # Given a valid envelope followed by prose after a complete reasoning block.
+    item = _item([_weather_tool()], [_call("weather.get", {"location": "Brisbane"})])
+    response = f"<think>scratch</think>{_response([_call('weather.get', {'location': 'Brisbane'})])} trailing prose"
+
+    # When the response is scored.
+    score = score_tc_json_v1(item, response)
+
+    # Then the strict single-object rule still rejects trailing text.
+    assert score["correct"] is False
+    assert score["failure_reason"] == "extra_text_or_multiple_json_objects"
+
+
+@pytest.mark.parametrize(
+    ("response", "failure"),
+    [
+        (
+            json.dumps(
+                {
+                    "schema_version": "wrong",
+                    "calls": [_call("weather.get", {"location": "Brisbane"})],
+                }
+            ),
+            "wrong_schema_version",
+        ),
+        (_response([_call("web.search", {"query": "Brisbane weather"})]), "wrong_tool"),
+        (_response([_call("weather.get", {"location": 123})]), "arg_schema_invalid"),
+        (_response([_call("weather.get", {"location": "Sydney"})]), "call_or_arg_mismatch"),
+    ],
+)
+def test_score_tc_json_v1_when_invalid_envelope_has_reasoning_prefix_keeps_validation_failure(
+    response: str,
+    failure: str,
+) -> None:
+    # Given a bare invalid envelope and the same envelope behind a reasoning block.
+    item = _item([_weather_tool()], [_call("weather.get", {"location": "Brisbane"})])
+
+    # When both responses are scored.
+    bare = score_tc_json_v1(item, response)
+    prefixed = score_tc_json_v1(item, f"<think>scratch</think>{response}")
+
+    # Then hardening does not rescue genuinely wrong calls or schema versions.
+    assert bare["correct"] is False
+    assert bare["failure_reason"] == failure
+    assert prefixed["correct"] is False
+    assert prefixed["failure_reason"] == failure
+    assert prefixed["extracted"] == bare["extracted"]
 
 
 def test_score_tc_json_v1_when_malformed_inputs_never_raises() -> None:
@@ -227,4 +310,3 @@ def _timer_tool() -> dict[str, JsonValue]:
         {"duration_minutes": {"type": "integer"}, "label": {"type": "string"}},
         ["duration_minutes", "label"],
     )
-

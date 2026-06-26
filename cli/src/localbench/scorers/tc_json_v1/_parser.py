@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time
 from typing import Final
 
+from localbench.scorers._reasoning import strip_reasoning
 from localbench.scorers.tc_json_v1._types import (
     FailureDiagnostics,
     JsonObject,
@@ -21,10 +22,17 @@ from localbench.scorers.tc_json_v1._types import (
 
 SCHEMA_VERSION: Final = "localbench.tc.v1"
 TOOL_NAME_RE: Final = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
+WRAPPING_JSON_FENCE_RE: Final = re.compile(
+    r"```(?:json)?[ \t]*\r?\n(?P<json>.*)\r?\n```",
+    flags=re.DOTALL | re.IGNORECASE,
+)
 
 
 def parse_single_json_object(response_text: str) -> ParseResult:
-    stripped = response_text.strip()
+    stripped = strip_reasoning(response_text).strip()
+    fenced = WRAPPING_JSON_FENCE_RE.fullmatch(stripped)
+    if fenced is not None:
+        stripped = fenced.group("json").strip()
     if not stripped:
         return {"value": None, "extracted": None, "failure_reason": "invalid_json"}
     decoder = json.JSONDecoder()
