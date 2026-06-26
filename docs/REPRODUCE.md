@@ -1,5 +1,18 @@
 # Reproducing a local-bench run
 
+> **⚠ Updated 2026-06-26 — headline is now v2.0 (agentic-led); suite re-scope in progress.**
+> The steps below reproduce the **Knowledge (MMLU-Pro) + Instruction (IFBench)** axes exactly and remain
+> valid. But the **shipped headline is now Local Intelligence Index v2.0 = 0.70·Agentic + 0.15·Knowledge +
+> 0.15·Instruction** (`board_v2.json`), not the 2-axis K+I composite this page still describes in places.
+> Two caveats for anyone reproducing the *headline*:
+> - The **Agentic axis (AppWorld Protocol-C, 70%)** is not yet a turn-key part of `localbench run`, and its
+>   run-to-run **repeatability is still being validated/hardened** — treat agentic numbers as provisional.
+> - The headline **weights are not final** (pending the agentic repeatability measurement); Math and
+>   Long-Context are being removed from the headline suite.
+> Current source of truth: `docs/foundations/STATUS-2026-06-26.md` + `docs/foundations/REVIEW-2026-06-26.md`.
+
+---
+
 local-bench is a **frozen, reproducible** suite: anyone can run suite-v1.2 against their own
 endpoint and get scores comparable to ours (same items, same scorers, same lane). Methodology:
 `docs/foundations/methodology-lock/METHODOLOGY-v1.2-LOCKED.md`.

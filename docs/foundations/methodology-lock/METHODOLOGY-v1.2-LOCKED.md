@@ -1,5 +1,28 @@
 # local-bench — METHODOLOGY v1.2 (LOCKED, CONSOLIDATED) — 2026-06-19
 
+> **⚠ SUPERSEDED (2026-06-26) — this v1.2 lock is now a HISTORICAL FLOOR, not the shipped headline.**
+> The product shipped past the 2-axis K+I headline described below. Current state:
+> - **Shipped headline = Local Intelligence Index v2.0 = 0.70·Agentic + 0.15·Knowledge + 0.15·Instruction**,
+>   rendered from `cli/runs/board/board_v2.json` (agentic promoted to headline per task #38). board_v1 (the
+>   K+I floor below) is frozen historical.
+> - **Suite re-scope (owner decision, 2026-06-26):** the single `localbench run` is being narrowed to
+>   **Agentic + Knowledge + Instruction + Tool-calling**; **Math and Long-Context are removed** from the
+>   headline suite.
+> - **The weights are NOT final.** Per the "fix + measure first, gate the weight" decision, the 0.70 agentic
+>   weight is provisional: the agentic axis is being hardened for repeatability and its weight will be set —
+>   or capped — by a pre-registered repeatability measurement before any ranking is treated as final. The
+>   exact 4-way split and the raw-vs-scaled composite are pending that measurement.
+> - **Why the gap exists:** the 2026-06-26 package review found the agentic axis (70% of the Index) is the
+>   least-frozen / least-validated part of the system — see `docs/foundations/REVIEW-2026-06-26.md` (risk #5:
+>   docs↔code) and the live state in `docs/foundations/STATUS-2026-06-26.md`. **Those two docs are the current
+>   source of truth.**
+>
+> Everything below remains the accurate, validated record for the **Knowledge (MMLU-Pro) + Instruction
+> (IFBench)** axes and the lane / scorer / freeze machinery — which are unchanged and still reproduce. Only
+> the *headline composition* moved. Original v1.2 content is preserved verbatim for provenance.
+
+---
+
 *Single canonical methodology record. Folds and SUPERSEDES, for day-to-day reference, the separate
 decision/result docs in this folder: `DECISION.md` (dual red-team + Michael's sign-off), `SUITE-LOCK.md`
 (the v1.2 lock), `WEDGE-RESULT.md` (accuracy-wedge NO-GO), `LADDER-RESULT.md` (Gemma quant matrix),
