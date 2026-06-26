@@ -26,6 +26,45 @@ def test_fetch_suite_command_requires_accept_suite_terms(
     assert "--accept-suite-terms" in captured.out
 
 
+def test_scorer_gates_preserves_agentic_token_when_an_http_bench_is_gated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: an explicit bench list with a (forced) scorer-gated HTTP bench AND the agentic token
+    # appworld_c, against the full v1 suite.
+    import argparse
+
+    import localbench.cli as cli_mod
+
+    suite_v1 = Path(__file__).resolve().parents[2] / "suite" / "v1"
+    # Force ifbench to read as scorer-unavailable (host-independent), leaving mmlu_pro/tc_json_v1 ok.
+    monkeypatch.setattr(
+        cli_mod,
+        "scorer_unavailable_warning",
+        lambda bench: "forced scorer gate" if bench.name == "ifbench" else None,
+    )
+    args = argparse.Namespace(
+        suite="suite-v1",
+        suite_dir=suite_v1,
+        accept_suite_terms=True,
+        suite_source=None,
+        cache_dir=None,
+        bench="mmlu_pro,ifbench,tc_json_v1,appworld_c",
+        max_items=1,
+    )
+
+    # When: computing the scorer gates with a gated HTTP bench present.
+    bench_choice, gates, _ = cli_mod._scorer_gates(args, "standard")
+
+    # Then: the gated HTTP bench is recorded + dropped from the HTTP run, but the agentic token
+    # SURVIVES so run_localbench's agentic branch still fires (the silent-drop fix).
+    names = bench_choice.split(",")
+    assert "ifbench" in gates
+    assert "appworld_c" in names
+    assert "mmlu_pro" in names
+    assert "tc_json_v1" in names
+    assert "ifbench" not in names
+
+
 def test_fetch_suite_and_suite_inspect_commands_use_local_source(
     tmp_path: Path,
     capsys,

@@ -374,7 +374,8 @@ def _scorer_gates(
     suite_axes = suite.get("axes")
     suite_axis_map = suite_axes if isinstance(suite_axes, dict) else None
     warnings: list[str] = []
-    bench_choice = ",".join(resolve_run_benches(args.bench, suite))
+    resolved = resolve_run_benches(args.bench, suite)
+    bench_choice = ",".join(resolved)
     rendered = render_benches(bench_choice, tier, args.max_items, ref.path, suite, warnings)
     gates: dict[str, ScorerGate] = {}
     available: list[str] = []
@@ -390,7 +391,14 @@ def _scorer_gates(
         )
     if not gates:
         return bench_choice, {}, suite_axis_map
-    return ",".join(available) if available else _NO_SCORABLE_BENCH, gates, suite_axis_map
+    # Benches that do NOT render as HTTP items (e.g. appworld_c) are executed by the agentic branch
+    # in run_localbench, not this scorer-gate path -- so they never enter `available`. Preserve them
+    # in the returned bench choice; otherwise an unrelated gated HTTP bench would silently drop the
+    # agentic campaign (run_agentic would see no appworld_c).
+    rendered_names = {bench.name for bench in rendered}
+    non_http = [name for name in resolved if name not in rendered_names]
+    passthrough = available + non_http
+    return ",".join(passthrough) if passthrough else _NO_SCORABLE_BENCH, gates, suite_axis_map
 
 
 def _append_scorer_gated_benches(
