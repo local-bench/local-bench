@@ -43,6 +43,8 @@ class CuratedSource(TypedDict):
     kind: str
     model_id: str | None
     model_label: str
+    publisher: str | None
+    gguf_repo: str | None
     quant_label: str | None
     recommended: bool
     reasoning_lane: str | None
@@ -62,6 +64,8 @@ class ScoredRun(TypedDict):
     lane: str | None
     model_label: str
     order: int
+    publisher: NotRequired[str | None]
+    gguf_repo: NotRequired[str | None]
     quant_label: str | None
     ranked: bool
     recommended: bool

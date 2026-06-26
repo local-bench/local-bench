@@ -54,6 +54,12 @@ def _system_row(run: ScoredRun, *, best: ScoredRun, recommended: ScoredRun) -> J
         "is_best": run["run_id"] == best["run_id"],
         "is_recommended": run["run_id"] == recommended["run_id"],
     }
+    publisher = run.get("publisher")
+    if publisher is not None:
+        row["publisher"] = publisher
+    gguf_repo = run.get("gguf_repo")
+    if gguf_repo is not None:
+        row["gguf_repo"] = gguf_repo
     if "conformance_gates" in run:
         row["conformance_gates"] = run["conformance_gates"]
     return row

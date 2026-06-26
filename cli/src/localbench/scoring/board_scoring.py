@@ -83,6 +83,12 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
             "score_status": best["score_status"],
             "demo": False,
         } | system_fields(group, best)
+        publisher = best.get("publisher")
+        if publisher is not None:
+            row["publisher"] = publisher
+        gguf_repo = best.get("gguf_repo")
+        if gguf_repo is not None:
+            row["gguf_repo"] = gguf_repo
         if "conformance_gates" in best:
             row["conformance_gates"] = best["conformance_gates"]
         if "agentic_run" in best:
@@ -159,6 +165,12 @@ def _scored_run(
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
     }
+    publisher = source.get("publisher")
+    if publisher is not None:
+        scored["publisher"] = publisher
+    gguf_repo = source.get("gguf_repo")
+    if gguf_repo is not None:
+        scored["gguf_repo"] = gguf_repo
     agentic_run = run.get("agentic_run")
     if isinstance(agentic_run, dict):
         # Surface the inline campaign provenance (asr_series / mean_asr / drift / subset_hash) so the
