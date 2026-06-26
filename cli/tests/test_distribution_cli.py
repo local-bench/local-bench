@@ -94,7 +94,35 @@ def test_fetch_suite_and_suite_inspect_commands_use_local_source(
     assert "cached    " in fetch_out
     assert inspect_code == 0
     assert "suite_id  core-text-v1" in inspect_out
-    assert "benches   ifbench, mmlu_pro" in inspect_out
+    assert "benches   ifbench, mmlu_pro, tc_json_v1" in inspect_out
+
+
+def test_packaged_suite_fetch_and_suite_inspect_include_public_scored_axes(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    # Given: an empty isolated cache and the packaged public suite.
+    cache_dir = tmp_path / "cache"
+
+    # When: fetching from package data and inspecting the cached suite.
+    fetch_code = main(
+        [
+            "fetch-suite",
+            "--accept-suite-terms",
+            "--cache-dir",
+            str(cache_dir),
+        ],
+    )
+    fetch_out = capsys.readouterr().out
+    inspect_code = main(["suite", "inspect", "--cache-dir", str(cache_dir)])
+    inspect_out = capsys.readouterr().out
+
+    # Then: the packaged distribution verifies and exposes the three packaged benches.
+    assert fetch_code == 0
+    assert "suite_id  core-text-v1" in fetch_out
+    assert "cached    " in fetch_out
+    assert inspect_code == 0
+    assert "benches   ifbench, mmlu_pro, tc_json_v1" in inspect_out
 
 
 def test_doctor_command_reports_cache_and_suite_status(tmp_path: Path, capsys) -> None:
@@ -145,7 +173,8 @@ def test_run_dry_defaults_core_text_suite_to_standard_tier(tmp_path: Path, capsy
     assert code == 0
     assert "mmlu_pro" in output
     assert "ifbench" in output
-    assert "items     2" in output
+    assert "tc_json_v1" in output
+    assert "items     3" in output
     assert "tier is not listed" not in output
 
 
@@ -159,8 +188,47 @@ def _write_suite(path: Path) -> Path:
         '{"key":"if-1","prompt":"Say ok","instruction_id_list":[],"kwargs":[]}\n',
         encoding="utf-8",
     )
+    (path / "tc_json_v1.jsonl").write_text(
+        json.dumps(
+            {
+                "gold": {
+                    "calls": [{"arguments": {"a": 1, "b": 2}, "name": "add"}],
+                    "order_matters": True,
+                },
+                "id": "tc-1",
+                "match_policy": {
+                    "allow_default_omission": True,
+                    "default": "typed_canonical_json_equality",
+                    "normalizers": {},
+                    "unordered_arrays": [],
+                },
+                "prompt": "user: Add 1 and 2.",
+                "source": "local-test",
+                "stratum": "smoke",
+                "tools": [
+                    {
+                        "description": "Add two integers.",
+                        "name": "add",
+                        "parameters": {
+                            "additionalProperties": False,
+                            "properties": {
+                                "a": {"type": "integer"},
+                                "b": {"type": "integer"},
+                            },
+                            "required": ["a", "b"],
+                            "type": "object",
+                        },
+                    },
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     mmlu_hash = _sha256(path / "mmlu_pro.jsonl")
     ifbench_hash = _sha256(path / "ifbench.jsonl")
+    tc_json_hash = _sha256(path / "tc_json_v1.jsonl")
     (path / "suite.json").write_text(
         json.dumps(
             {
@@ -179,6 +247,17 @@ def _write_suite(path: Path) -> Path:
                         "itemsets": {"standard": {"file": "ifbench.jsonl", "item_count": 1, "sha256": ifbench_hash}},
                         "template_text": "{prompt}",
                     },
+                    "tc_json_v1": {
+                        "chance_correction_baseline": 0.0,
+                        "decoding": {"max_tokens": 16, "temperature": 0},
+                        "itemsets": {
+                            "standard": {"file": "tc_json_v1.jsonl", "item_count": 1, "sha256": tc_json_hash},
+                        },
+                        "template_text": (
+                            "Tool catalog:\n{tool_catalog}\n\n"
+                            "User request:\n{user_request}\n"
+                        ),
+                    },
                 },
             },
             sort_keys=True,
@@ -191,6 +270,7 @@ def _write_suite(path: Path) -> Path:
                 "files": {
                     "mmlu_pro.jsonl": {"item_count": 1, "sha256": mmlu_hash},
                     "ifbench.jsonl": {"item_count": 1, "sha256": ifbench_hash},
+                    "tc_json_v1.jsonl": {"item_count": 1, "sha256": tc_json_hash},
                 },
             },
             sort_keys=True,

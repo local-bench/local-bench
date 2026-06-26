@@ -119,7 +119,7 @@
       "role": "headline",
       "web_display": true,
       "web_key": "knowledge",
-      "weight": 0.5
+      "weight": 0.15
     },
     {
       "benches": [
@@ -133,7 +133,7 @@
       "role": "headline",
       "web_display": true,
       "web_key": "instruction",
-      "weight": 0.5
+      "weight": 0.25
     },
     {
       "benches": [
@@ -164,15 +164,26 @@
     },
     {
       "benches": [
-        "bfcl",
-        "bfcl_multi_turn"
+        "appworld_c"
       ],
       "display": "Agentic",
       "key": "agentic",
       "legacy_benches": [],
-      "role": "experimental",
+      "role": "headline",
       "web_display": true,
       "web_key": "agentic",
+      "weight": 0.6
+    },
+    {
+      "benches": [
+        "tc_json_v1"
+      ],
+      "display": "Tool-calling",
+      "key": "tool_calling",
+      "legacy_benches": [],
+      "role": "candidate",
+      "web_display": true,
+      "web_key": "tool_calling",
       "weight": 0.0
     },
     {
@@ -188,11 +199,12 @@
       "weight": 0.0
     }
   ],
-  "registry_digest": "d40e0ccec4d2d144dae386c3a7cc1fef7c638865accbcda4ded93d592528efed",
-  "scorecard_id": "a33742c63ade14b69f068075f98a7bc28d6ed069bddea914a90cfd01eebd7384",
-  "scorecard_version": "scorecard-v1.3",
+  "registry_digest": "2d36c8dd7dd2c8e48f0ffeff7429d6baed7966edef79fc9adb8eae231d7f579b",
+  "scorecard_id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",
+  "scorecard_version": "scorecard-v2.0",
   "scorer_versions": {
     "amo": "1",
+    "appworld_c": "1",
     "bfcl": "1",
     "bfcl_multi_turn": "1",
     "bigcodebench_hard": "1",
@@ -203,6 +215,7 @@
     "mmlu_pro": "1",
     "olymmath_hard": "1",
     "ruler_32k": "1",
-    "supergpqa": "1"
+    "supergpqa": "1",
+    "tc_json_v1": "1"
   }
 }

@@ -1,13 +1,23 @@
 {
   "axes": {
+    "knowledge": {
+      "benches": [
+        "mmlu_pro"
+      ]
+    },
     "instruction_following": {
       "benches": [
         "ifbench"
       ]
     },
-    "knowledge": {
+    "tool_calling": {
       "benches": [
-        "mmlu_pro"
+        "tc_json_v1"
+      ]
+    },
+    "agentic": {
+      "benches": [
+        "appworld_c"
       ]
     }
   },
@@ -44,9 +54,25 @@
       },
       "lane_caps": {},
       "template_text": "{question}\n\n{options}\n\nThink step by step, then give your final answer as a single line: Answer: <letter>\n"
+    },
+    "tc_json_v1": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "tc_json_v1.jsonl",
+          "item_count": 330,
+          "sha256": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+        }
+      },
+      "lane_caps": {},
+      "template_text": "You are evaluating tool-calling conformance over plaintext JSON. You are given a JSON tool catalog and a user request. Decide which catalog tool calls are required.\n\nTool catalog:\n{tool_catalog}\n\nUser request:\n{user_request}\n\nReturn exactly one JSON object and nothing else. Do not use markdown fences. Do not include prose. Use only tools from the catalog. Every call's arguments must match that tool's JSON Schema. The output schema is exactly:\n{\"schema_version\":\"localbench.tc.v1\",\"calls\":[{\"name\":\"tool.name\",\"arguments\":{}}]}\nReturn {\"schema_version\":\"localbench.tc.v1\",\"calls\":[]} if no tool is needed or no catalog tool can satisfy the request.\n"
     }
   },
-  "description": "Core Text v1 public suite: MMLU-Pro 400 + IFBench 294.",
+  "description": "Core Text v1 public suite for the 4-axis Local Intelligence Index: MMLU-Pro 400, IFBench 294, TC-JSON v1 330, plus AppWorld-C agentic membership when localbench is installed with the appworld extra.",
   "headline_only": true,
   "id": "core-text-v1",
   "license_manifest": {
@@ -59,6 +85,10 @@
       "mmlu_pro.jsonl": {
         "license": "MIT",
         "source": "TIGER-Lab/MMLU-Pro"
+      },
+      "tc_json_v1.jsonl": {
+        "license": "Apache-2.0",
+        "source": "BFCL single-turn backbone plus localbench-authored JSON tool-call conformance items"
       }
     },
     "notices": [

@@ -1,8 +1,10 @@
 local-bench Core Text v1 public suite
 
-This bundle redistributes only the v1 headline item sets:
+This bundle redistributes the packaged v1 public item sets:
 - MMLU-Pro by TIGER-Lab, dataset license MIT.
 - IFBench_test by AllenAI/Ai2, dataset license ODC-BY-1.0.
+- TC-JSON v1, a local-bench-authored JSON tool-calling bench with a
+  BFCL-derived single-turn backbone, distributed under Apache-2.0.
 
 The local-bench scorer also includes IFEval-derived verifier code under
 Apache-2.0; that code license is included for scorer provenance.
