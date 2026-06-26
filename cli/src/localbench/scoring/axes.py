@@ -2,8 +2,8 @@
 normal-run axes' membership, composite weights, and roles.
 
 Per METHODOLOGY-v2.0:
-the headline composite weights validated axes as Agentic 0.70, Knowledge 0.15,
-and Instruction 0.15. Math + Long-Context remain *candidates* (measured + displayed,
+the headline composite weights validated axes as Agentic 0.60, Knowledge 0.15,
+and Instruction 0.25. Math + Long-Context remain *candidates* (measured + displayed,
 not yet weighted; promotable once they pass the discrimination gate). The STATIC Coding
 proxy (LiveCodeBench output-prediction, `lcb`) remains *experimental*.
 
@@ -60,13 +60,13 @@ AXES: Final[tuple[Axis, ...]] = (
     Axis("knowledge", "Knowledge", "knowledge",
          ("mmlu_pro",), ("supergpqa",), "headline", 0.15, True),
     Axis("instruction_following", "Instruction-Following", "instruction",
-         ("ifbench",), ("ifeval",), "headline", 0.15, True),
+         ("ifbench",), ("ifeval",), "headline", 0.25, True),
     Axis("math", "Math", "math",
          ("olymmath_hard", "amo"), ("genmath",), "candidate", 0.0, True),
     Axis("long_context", "Long-Context", "long_context",
          ("ruler_32k",), (), "candidate", 0.0, False),
     Axis("agentic", "Agentic", "agentic",
-         ("appworld_c",), (), "headline", 0.70, True),
+         ("appworld_c",), (), "headline", 0.60, True),
     # STATIC judge-free coding proxy (LCB output-prediction) — experimental/gameable. The
     # credible code-GENERATION axis is exec-based (bigcodebench_hard, a SEPARATE opt-in lane
     # via `localbench code`; a candidate), NOT this axis. See the module docstring.

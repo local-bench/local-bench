@@ -653,12 +653,12 @@
       "best_run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
       "catalog_id": "google/gemma-4-31B-it",
       "composite": {
-        "hi": 38.77618792235941,
-        "hi_raw": 0.3877618792235941,
-        "lo": 27.088664658529037,
-        "lo_raw": 0.2708866465852904,
-        "point": 32.470884943296916,
-        "point_raw": 0.3247088494329692
+        "hi": 44.4145167111626,
+        "hi_raw": 0.444145167111626,
+        "lo": 34.15143764724865,
+        "lo_raw": 0.3415143764724865,
+        "point": 38.9440992290112,
+        "point_raw": 0.38944099229011203
       },
       "conformance_status": "headline-comparable",
       "contamination_label": "unverified",
@@ -1935,12 +1935,12 @@
       "best_run_id": "qwen3-6-27b__ladder-qwen36-27b-Q6_K",
       "catalog_id": "Qwen/Qwen3.6-27B",
       "composite": {
-        "hi": 40.184781761309786,
-        "hi_raw": 0.40184781761309785,
-        "lo": 26.383487140791473,
-        "lo_raw": 0.26383487140791473,
-        "point": 32.784604168458365,
-        "point_raw": 0.32784604168458364
+        "hi": 44.411071085651486,
+        "hi_raw": 0.4441107108565149,
+        "lo": 32.46583079619677,
+        "lo_raw": 0.3246583079619677,
+        "point": 38.060964712676046,
+        "point_raw": 0.3806096471267605
       },
       "conformance_status": "headline-comparable",
       "contamination_label": "unverified",

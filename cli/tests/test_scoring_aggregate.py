@@ -18,8 +18,8 @@ def test_aggregate_when_below_chance_stores_signed_score_and_lowers_composite() 
     # Then the stored score stays signed, so the composite is lower than a clamped mean.
     expected_below = signed_score(0.0, chance=0.10)
     assert below_chance["chance_corrected"] == pytest.approx(expected_below)
-    assert result == pytest.approx((expected_below + 1.0) / 2.0)
-    assert result < 0.5
+    assert result == pytest.approx(((0.15 * expected_below) + (0.25 * 1.0)) / 0.40)
+    assert result < 0.625
 
 
 def test_signed_delta_when_chance_corrected_matches_aggregate_score_difference() -> None:

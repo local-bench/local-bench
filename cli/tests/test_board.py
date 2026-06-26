@@ -171,9 +171,9 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     instruction = object_value(axes["instruction"])
     composite = object_value(model["composite"])
     expected = (
-        (0.70 * float_value(agentic["point_raw"]))
+        (0.60 * float_value(agentic["point_raw"]))
         + (0.15 * float_value(knowledge["point_raw"]))
-        + (0.15 * float_value(instruction["point_raw"]))
+        + (0.25 * float_value(instruction["point_raw"]))
     )
     assert agentic["n"] == 4
     assert agentic["raw_accuracy"] == pytest.approx(0.5)

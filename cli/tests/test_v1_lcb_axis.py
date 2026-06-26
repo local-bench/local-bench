@@ -100,7 +100,7 @@ def test_existing_four_axis_composite_is_unchanged_when_coding_domain_is_absent(
     # Then only the HEADLINE axes (knowledge=mmlu_pro + instruction=ifbench) enter
     # the composite; agentic (bfcl) + math (amo) are present but weight 0.0
     # (METHODOLOGY-v1.2 §3), so adding/removing them never moves the headline.
-    assert result == pytest.approx((0.50 + 0.60) / 2)
+    assert result == pytest.approx(((0.15 * 0.50) + (0.25 * 0.60)) / 0.40)
 
 
 def _aggregate(score: float) -> "BenchAggregate":

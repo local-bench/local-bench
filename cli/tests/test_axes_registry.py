@@ -32,10 +32,10 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     # The runtime constants are derived, not a parallel hardcode.
     assert DOMAIN_WEIGHTS == domain_weights()
     assert DOMAIN_WEIGHTS["Knowledge"] == 0.15
-    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.15
+    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.25
     assert DOMAIN_WEIGHTS["Math"] == 0.0
     assert DOMAIN_WEIGHTS["Long-Context"] == 0.0
-    assert DOMAIN_WEIGHTS["Agentic"] == 0.70
+    assert DOMAIN_WEIGHTS["Agentic"] == 0.60
     assert DOMAIN_WEIGHTS["Coding"] == 0.0
     # Every suite-v1 + legacy bench maps to its axis display label.
     assert BENCH_DOMAINS["mmlu_pro"] == "Knowledge"
@@ -54,8 +54,8 @@ def test_web_derivations_track_the_registry() -> None:
     assert web_display_axes() == ("knowledge", "instruction", "math", "agentic")
     assert web_composite_weights() == {
         "knowledge": 0.15,
-        "instruction": 0.15,
-        "agentic": 0.70,
+        "instruction": 0.25,
+        "agentic": 0.60,
         "math": 0.0,
     }
     groups = web_source_bench_groups()

@@ -199,7 +199,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifbench).
     # The present agentic (bfcl) + math axes carry weight 0.0 (METHODOLOGY-v1.2 §3).
     assert composite["point_raw"] == pytest.approx(
-        (((0.5 - chance) / (1.0 - chance)) + 0.5) / 2,
+        ((0.15 * ((0.5 - chance) / (1.0 - chance))) + (0.25 * 0.5)) / 0.40,
     )
     assert isinstance(detail["data_warnings"], list)
     assert any(
