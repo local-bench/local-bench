@@ -142,6 +142,51 @@ def test_orchestrate_import_is_appworld_optional() -> None:
     assert orchestrate.OrchestrateConfig.__name__ == "OrchestrateConfig"
 
 
+def test_inline_agentic_campaign_uses_frozen_scored_output_token_cap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The inline SCORED campaign MUST run at the frozen 3072 per-turn cap. Every official
+    # .scored run uses 3072; the LoopConfig default (1024) truncates verbose thinking models
+    # -> harness-dominated ~0 ASR that is not comparable to the board.
+    import localbench.scoring.agentic_exec.funnel as funnel_mod
+    from localbench import orchestrate as orch
+
+    captured: dict[str, object] = {}
+
+    class _Captured(Exception):
+        pass
+
+    def _capture_config(**kwargs: object) -> object:
+        captured["config"] = kwargs["config"]
+        raise _Captured()
+
+    monkeypatch.setattr(funnel_mod, "run_with_reruns", _capture_config)
+
+    async def scenario() -> None:
+        with pytest.raises(_Captured):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=_SUITE_DIR,
+                    tier="standard",
+                    out=tmp_path / "cap-probe.json",
+                    max_items=1,
+                ),
+                transport=httpx.MockTransport(_v1_agentic_weight_handler),
+                agentic_sandbox_factory=_fake_appworld_sandbox_factory,
+                agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
+                agentic_task_ids=["fac291d_1", "50e1ac9_1"],
+            )
+
+    asyncio.run(scenario())
+
+    config = captured["config"]
+    assert config.max_output_tokens_per_turn == 3072
+    assert orch._AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN == 3072
+
+
 def _v1_agentic_weight_handler(request: httpx.Request) -> httpx.Response:
     if request.url.path.endswith("/models"):
         return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})

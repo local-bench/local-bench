@@ -72,6 +72,12 @@ ReasoningActivationChoice = ReasoningActivation
 _RULER_TRUNCATION_RATIO: Final = 0.80
 _RULER_TRUNCATION_MIN_GAP: Final = 2_048
 _APPWORLD_C_BENCH: Final = "appworld_c"
+# Frozen per-turn output-token cap for the inline SCORED agentic campaign. Every official
+# AppWorld-C .scored run (qwen36-27b all quants, qwopus, qwable-coder, gemma4-31b) uses 3072.
+# The LoopConfig default (1024) truncates verbose native-thinking models mid-reasoning ->
+# finish_reason="length" -> cap_exceeded -> harness-dominated ~0 ASR. The inline campaign must
+# override it to match the board's frozen cap, else its mean ASR is not comparable.
+_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN: Final = 3072
 _HEADLINE_AXIS_KEYS: Final = tuple(axis.key for axis in AXES if axis.role == "headline")
 
 
@@ -442,7 +448,7 @@ def _run_agentic_axis(
         subset=subset,
         model_factory=resolved_model_factory,
         sandbox_factory=resolved_sandbox_factory,
-        config=LoopConfig(),
+        config=LoopConfig(max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN),
         base_count=2,
         results_dir=None,
         endpoint=config.endpoint,
