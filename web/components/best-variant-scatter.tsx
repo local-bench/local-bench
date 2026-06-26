@@ -14,6 +14,20 @@ const X_TIERS = [2, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512
 
 type Domain = { readonly min: number; readonly max: number };
 
+// Candidate label positions around a point (dx/dy from the dot + text anchor), tried in order.
+// Every point is labelled on this overview chart, so we try several slots and fall back to the
+// first rather than dropping a label.
+type LabelSlot = { readonly dx: number; readonly dy: number; readonly anchor: "start" | "end" };
+const FALLBACK_SLOT: LabelSlot = { dx: 9, dy: -9, anchor: "start" };
+const LABEL_SLOTS: readonly LabelSlot[] = [
+  FALLBACK_SLOT,
+  { dx: 9, dy: 18, anchor: "start" },
+  { dx: -9, dy: -9, anchor: "end" },
+  { dx: -9, dy: 18, anchor: "end" },
+  { dx: 9, dy: 5, anchor: "start" },
+  { dx: -9, dy: 5, anchor: "end" },
+];
+
 export function BestVariantVramScatter({
   anchorRuns,
   points,
@@ -40,28 +54,30 @@ export function BestVariantVramScatter({
       }),
     ),
   ];
-  // Declutter: label frontier points greedily by score. Try ABOVE-right first, then BELOW-right,
-  // so neighbouring points (e.g. a sparse 2-model board where the dots sit close together) BOTH get
-  // labelled instead of one being dropped on collision. Colour + legend + hover identify any that
-  // still cannot be placed once the board grows crowded.
+  // Label EVERY point so each dot is identifiable — a single labelled dot on a sparse board leaves
+  // the rest anonymous. Place greedily by score so the leaders claim the clearest slots; try the
+  // slots around each dot and fall back to the first so no dot is ever left unlabelled.
   const placedBoxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  const labelOffsets = new Map<string, number>();
-  for (const candidate of [...points].filter((entry) => entry.isFrontier).sort((a, b) => b.score.point - a.score.point)) {
+  const labelPlacements = new Map<string, LabelSlot>();
+  for (const candidate of [...points].sort((a, b) => b.score.point - a.score.point)) {
     const cx = scaleX(candidate.effectiveVramGb, domain);
     const cy = scaleY(candidate.score.point);
     const width = candidate.modelLabel.length * 6.6 + 6;
-    for (const dy of [-9, 18] as const) {
-      const top = cy + dy - 13;
-      const box = { x1: cx + 9, y1: top, x2: cx + 9 + width, y2: top + 18 };
-      const overlaps = placedBoxes.some(
-        (placed) => box.x1 < placed.x2 && box.x2 > placed.x1 && box.y1 < placed.y2 && box.y2 > placed.y1,
-      );
-      if (!overlaps && box.x2 < WIDTH - 6) {
-        placedBoxes.push(box);
-        labelOffsets.set(candidate.runId, dy);
-        break;
-      }
-    }
+    const boxFor = (slot: LabelSlot) => {
+      const x1 = slot.anchor === "end" ? cx + slot.dx - width : cx + slot.dx;
+      const top = cy + slot.dy - 13;
+      return { x1, y1: top, x2: x1 + width, y2: top + 18 };
+    };
+    const slot =
+      LABEL_SLOTS.find((candidateSlot) => {
+        const box = boxFor(candidateSlot);
+        const overlaps = placedBoxes.some(
+          (placed) => box.x1 < placed.x2 && box.x2 > placed.x1 && box.y1 < placed.y2 && box.y2 > placed.y1,
+        );
+        return !overlaps && box.x1 > 4 && box.x2 < WIDTH - 6;
+      }) ?? FALLBACK_SLOT;
+    placedBoxes.push(boxFor(slot));
+    labelPlacements.set(candidate.runId, slot);
   }
 
   return (
@@ -158,14 +174,29 @@ export function BestVariantVramScatter({
             const cx = scaleX(point.effectiveVramGb, domain);
             const cy = scaleY(point.score.point);
             const color = familyStyle(point.family).color;
+            const slot = labelPlacements.get(point.runId);
             return (
-              <g key={point.runId} opacity={point.isFrontier ? 1 : 0.5}>
+              <g key={point.runId}>
                 <title>
                   {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatCoreTextAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
-                <circle cx={cx} cy={cy} r={point.isFrontier ? 6 : 4} fill={color} className="stroke-bench-bg" strokeWidth="2" />
-                {labelOffsets.has(point.runId) ? (
-                  <text x={cx + 9} y={cy + (labelOffsets.get(point.runId) ?? -9)} className="fill-bench-text" fontSize="12">
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={point.isFrontier ? 6 : 4}
+                  fill={color}
+                  className="stroke-bench-bg"
+                  strokeWidth="2"
+                  opacity={point.isFrontier ? 1 : 0.5}
+                />
+                {slot ? (
+                  <text
+                    x={cx + slot.dx}
+                    y={cy + slot.dy}
+                    textAnchor={slot.anchor}
+                    className={point.isFrontier ? "fill-bench-text" : "fill-bench-muted"}
+                    fontSize="12"
+                  >
                     {point.modelLabel}
                   </text>
                 ) : null}
@@ -215,7 +246,7 @@ export function BestVariantVramScatter({
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-bench-muted-2">
-        <span>labelled = efficiency frontier</span>
+        <span>solid dot = efficiency frontier</span>
         <span>faded = beaten at its size</span>
         <span>dashed cyan = frontier (API) ceilings</span>
       </div>
