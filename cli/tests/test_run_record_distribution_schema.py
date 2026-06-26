@@ -45,6 +45,7 @@ def test_run_record_includes_nullable_v2_submission_and_model_fields(tmp_path: P
         assert record["tier"] == "quick"
         assert record["account"] is None
         assert record["axis_status"]["schema_version"] == "localbench.axis-status.v1"
+        assert record["headline_complete"] is False
         assert record["axis_status"]["axes"]["knowledge"] == {
             "axis": "knowledge",
             "status": "measured",
@@ -103,6 +104,7 @@ def test_axis_status_is_additive_to_existing_run_record_fields(tmp_path: Path) -
             "account",
             "model",
             "manifest",
+            "headline_complete",
             "benches",
             "composite",
             "conformance",

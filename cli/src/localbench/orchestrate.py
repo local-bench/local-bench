@@ -1,16 +1,25 @@
-"""Benchmark suite orchestration for localbench."""
+"""Benchmark suite orchestration for localbench.
+
+NOTE: Inline AppWorld-C agentic runs are a single indicative pass with
+``provenance.single_pass=True``. Whether ``localbench run --bench all`` should run the full
+rerun campaign, which real task source it should use, and at what subset size remains an open
+owner decision localized to the agentic helper.
+"""
 
 from __future__ import annotations
 
+import importlib.util
+import os
 import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final, Literal, NotRequired, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Final, Literal, NotRequired, TypeAlias, TypedDict
 
 import httpx
 
+from localbench._response import empty_usage
 from localbench._requests import utc_now
 from localbench._scoring import (
     BenchAggregate,
@@ -45,6 +54,7 @@ from localbench.reasoning_registry import reasoning_entry_for_activation
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
+from localbench.scoring.axes import AXES
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
     axis_key_for_bench,
@@ -54,6 +64,10 @@ from localbench.scoring.axis_status import (
 from localbench.scorers.ruler import estimate_prompt_tokens
 from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
+if TYPE_CHECKING:
+    from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory
+    from localbench.scoring.agentic_exec.loop_types import BenchmarkReport
+
 BenchChoice: TypeAlias = str
 TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
@@ -62,6 +76,8 @@ ReasoningActivationChoice = ReasoningActivation
 
 _RULER_TRUNCATION_RATIO: Final = 0.80
 _RULER_TRUNCATION_MIN_GAP: Final = 2_048
+_APPWORLD_C_BENCH: Final = "appworld_c"
+_HEADLINE_AXIS_KEYS: Final = tuple(axis.key for axis in AXES if axis.role == "headline")
 
 
 class LocalbenchRun(TypedDict):
@@ -78,6 +94,7 @@ class LocalbenchRun(TypedDict):
     model: JsonObject
     manifest: JsonObject
     axis_status: AxisStatusBlock
+    headline_complete: bool
     benches: dict[str, BenchAggregate]
     composite: float
     conformance: JsonObject
@@ -85,7 +102,15 @@ class LocalbenchRun(TypedDict):
     totals: RunTotals
     warnings: list[str]
     output_path: str
+    agentic_run: NotRequired[JsonObject]
     estimated_cost_usd: NotRequired[float]
+
+
+@dataclass(frozen=True, slots=True)
+class AgenticOutcome:
+    aggregate: BenchAggregate
+    items: list[ScoredItem]
+    provenance: JsonObject
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +142,9 @@ async def run_localbench(
     config: OrchestrateConfig,
     *,
     transport: httpx.AsyncBaseTransport | None = None,
+    agentic_sandbox_factory: SandboxFactory | None = None,
+    agentic_model_factory: ModelFactory | None = None,
+    agentic_task_ids: list[str] | None = None,
 ) -> LocalbenchRun:
     """Run selected suite benches, score responses, write JSON, and return the record."""
     suite_ref = resolve_suite_dir(
@@ -132,7 +160,9 @@ async def run_localbench(
     started_perf = time.perf_counter()
     warnings: list[str] = []
     provider = provider_for_name(config.provider)
-    bench_choice = ",".join(resolve_run_benches(config.bench, suite))
+    resolved = resolve_run_benches(config.bench, suite)
+    run_agentic = _APPWORLD_C_BENCH in resolved
+    bench_choice = ",".join(bench for bench in resolved if bench != _APPWORLD_C_BENCH)
     rendered_benches = render_benches(
         bench_choice,
         config.tier,
@@ -219,9 +249,6 @@ async def run_localbench(
         items.extend(scored_items)
         results_by_bench[bench.name] = record["results"]
 
-    wall_time = time.perf_counter() - started_perf
-    finished_at = utc_now()
-    totals = run_totals(items, wall_time)
     benches = {
         bench.name: aggregate(
             bench.name,
@@ -230,10 +257,38 @@ async def run_localbench(
         )
         for bench in scorable_benches
     }
+    agentic_provenance: JsonObject | None = None
+    agentic_unavailable_detail: str | None = None
+    if run_agentic:
+        warning_start = len(warnings)
+        agentic_outcome = _run_agentic_axis(
+            config,
+            warnings,
+            sandbox_factory=agentic_sandbox_factory,
+            model_factory=agentic_model_factory,
+            task_ids=agentic_task_ids,
+        )
+        if agentic_outcome is None:
+            agentic_unavailable_detail = _agentic_warning_since(warnings, warning_start)
+        else:
+            benches[_APPWORLD_C_BENCH] = agentic_outcome.aggregate
+            items.extend(agentic_outcome.items)
+            agentic_provenance = agentic_outcome.provenance
+
+    wall_time = time.perf_counter() - started_perf
+    finished_at = utc_now()
+    totals = run_totals(items, wall_time)
     axis_status = axis_status_for_benches(
         benches,
         suite_axis_map,
     )
+    if run_agentic and agentic_unavailable_detail is not None:
+        mark_axis_not_measured(
+            axis_status,
+            "agentic",
+            reason="sandbox_unavailable",
+            detail=agentic_unavailable_detail,
+        )
     for axis, warning in scorer_unavailable_axes.items():
         mark_axis_not_measured(
             axis_status,
@@ -241,6 +296,7 @@ async def run_localbench(
             reason="scorer_unavailable",
             detail=warning,
         )
+    headline_complete = _headline_complete(axis_status)
     output_path = config.out or default_output_path(config.model, config.tier)
     manifest = await collect_manifest(
         ManifestContext(
@@ -299,6 +355,7 @@ async def run_localbench(
         "model": _run_record_model(config.model, manifest),
         "manifest": manifest,
         "axis_status": axis_status,
+        "headline_complete": headline_complete,
         "benches": benches,
         "composite": composite(benches, axis_status, suite_axis_map),
         "conformance": assess_run_conformance(results_by_bench, forced=forcing_active),
@@ -307,6 +364,8 @@ async def run_localbench(
         "warnings": warnings,
         "output_path": str(output_path),
     }
+    if agentic_provenance is not None:
+        run_record["agentic_run"] = agentic_provenance
     if config.price_in is not None or config.price_out is not None:
         run_record["estimated_cost_usd"] = estimated_cost(
             totals,
@@ -320,6 +379,133 @@ async def run_localbench(
 def discover_suite_dir() -> Path:
     """Return the resolved default suite directory without source-tree fallback."""
     return resolve_suite_dir(suite_id=DEFAULT_SUITE_ID).path
+
+
+def _run_agentic_axis(
+    config: OrchestrateConfig,
+    warnings: list[str],
+    *,
+    sandbox_factory: SandboxFactory | None = None,
+    model_factory: ModelFactory | None = None,
+    task_ids: list[str] | None = None,
+) -> AgenticOutcome | None:
+    injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
+    resolved_sandbox_factory = sandbox_factory
+    resolved_model_factory = model_factory
+    if injected:
+        if resolved_sandbox_factory is None or resolved_model_factory is None:
+            warnings.append(
+                "appworld sandbox unavailable: incomplete injected agentic factories",
+            )
+            return None
+    else:
+        unavailable_detail = _agentic_preflight_unavailable_detail()
+        if unavailable_detail is not None:
+            warnings.append(unavailable_detail)
+            return None
+        from localbench.scoring.agentic_exec.benchmark import (  # noqa: PLC0415
+            appworld_sandbox_factory,
+        )
+        from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
+
+        resolved_sandbox_factory = appworld_sandbox_factory()
+        resolved_model_factory = chat_client_factory(
+            config.endpoint,
+            config.model,
+            api_key=config.api_key or "",
+        )
+    if task_ids is None:
+        warnings.append(
+            "appworld sandbox unavailable: agentic task subset not configured for inline run",
+        )
+        return None
+
+    from localbench.scoring.agentic_exec.benchmark import (  # noqa: PLC0415
+        run_appworld_c_benchmark,
+    )
+    from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: PLC0415
+
+    report = run_appworld_c_benchmark(
+        list(task_ids),
+        resolved_model_factory,
+        resolved_sandbox_factory,
+        config=LoopConfig(),
+    )
+    return AgenticOutcome(
+        aggregate=_appworld_report_to_aggregate(report),
+        items=_appworld_report_to_items(report),
+        provenance={
+            "subset_size": len(task_ids),
+            "single_pass": True,
+            "asr": report.agentic_success_rate,
+            "stage": "injected" if injected else "smoke",
+            "subset_hash": None,
+        },
+    )
+
+
+def _agentic_preflight_unavailable_detail() -> str | None:
+    failures: list[str] = []
+    if importlib.util.find_spec("appworld") is None:
+        failures.append("appworld package not importable")
+    if not os.environ.get("APPWORLD_ROOT"):
+        failures.append("APPWORLD_ROOT is not set")
+    from localbench.scoring.agentic_exec.sandbox import resolve_bwrap  # noqa: PLC0415
+
+    if resolve_bwrap() is None:
+        failures.append("bubblewrap (bwrap) not found")
+    if not failures:
+        return None
+    return "appworld sandbox unavailable: " + "; ".join(failures)
+
+
+def _appworld_report_to_aggregate(report: BenchmarkReport) -> BenchAggregate:
+    successes = [result.success for result in report.results]
+    asr = sum(1 for success in successes if success) / len(successes) if successes else 0.0
+    return {
+        "n": len(successes),
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "raw_accuracy": asr,
+        "chance_corrected": asr,
+        "conditional_accuracy": asr,
+        "termination_rate": 1.0,
+    }
+
+
+def _appworld_report_to_items(report: BenchmarkReport) -> list[ScoredItem]:
+    timestamp = utc_now()
+    return [
+        {
+            "id": result.task_id,
+            "bench": _APPWORLD_C_BENCH,
+            "response_text": None,
+            "extracted": None,
+            "correct": result.success,
+            "finish_reason": None,
+            "latency_seconds": 0.0,
+            "started_at": timestamp,
+            "finished_at": timestamp,
+            "attempts": 1,
+            "usage": empty_usage(),
+            "error": None,
+        }
+        for result in report.results
+    ]
+
+
+def _agentic_warning_since(warnings: list[str], start: int) -> str:
+    for warning in warnings[start:]:
+        if warning.startswith("appworld sandbox unavailable:"):
+            return warning
+    return "appworld sandbox unavailable: unknown agentic preflight failure"
+
+
+def _headline_complete(axis_status: AxisStatusBlock) -> bool:
+    return all(
+        axis_status["axes"].get(axis, {}).get("status") == "measured"
+        for axis in _HEADLINE_AXIS_KEYS
+    )
 
 
 def default_output_path(model: str, tier: str) -> Path:

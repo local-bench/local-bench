@@ -37,8 +37,8 @@ def test_resolve_run_benches_when_all_uses_scored_default() -> None:
     # When resolving the run-level "all" choice.
     benches = resolve_run_benches("all", suite)
 
-    # Then the scored default endpoint axes include the zero-weight Tool-calling axis.
-    assert benches == ["mmlu_pro", "ifbench", "tc_json_v1"]
+    # Then the scored default endpoint axes include Tool-calling and the Agentic inline attempt.
+    assert benches == ["mmlu_pro", "ifbench", "tc_json_v1", "appworld_c"]
     assert tuple(benches) == SCORED_DEFAULT_BENCHES
     assert not _OPT_IN_BENCHES.intersection(benches)
 
@@ -70,12 +70,16 @@ def test_render_benches_all_still_expands_full_suite() -> None:
     assert _OPT_IN_BENCHES.issubset({bench.name for bench in rendered})
 
 
-def test_run_localbench_when_bench_all_measures_tool_calling_without_changing_composite(tmp_path: Path) -> None:
+def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def scenario() -> None:
         # Given the v1 suite and a handler that can answer the scored default benches.
         output_path = tmp_path / "default-run.json"
+        monkeypatch.delenv("APPWORLD_ROOT", raising=False)
 
-        # When running the default bench choice through the orchestrator.
+        # When running the default bench choice through the orchestrator without agentic seams.
         record = await run_localbench(
             OrchestrateConfig(
                 endpoint="http://local/v1",
@@ -88,7 +92,7 @@ def test_run_localbench_when_bench_all_measures_tool_calling_without_changing_co
             transport=httpx.MockTransport(_v1_scored_default_handler),
         )
 
-        # Then knowledge, instruction-following, and Tool-calling are measured.
+        # Then appworld_c is attempted outside the HTTP/render path and degrades honestly.
         assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1"]
         assert [item["bench"] for item in record["items"]] == [
             "mmlu_pro",
@@ -111,7 +115,11 @@ def test_run_localbench_when_bench_all_measures_tool_calling_without_changing_co
             "status": "measured",
             "reason": "ok",
         }
-        for axis in ("math", "agentic", "coding", "long_context"):
+        assert axes["agentic"]["axis"] == "agentic"
+        assert axes["agentic"]["status"] == "not_measured"
+        assert axes["agentic"]["reason"] == "sandbox_unavailable"
+        assert "appworld sandbox unavailable:" in axes["agentic"]["detail"]
+        for axis in ("math", "coding", "long_context"):
             assert axes[axis] == {
                 "axis": axis,
                 "status": "not_measured",
@@ -124,6 +132,7 @@ def test_run_localbench_when_bench_all_measures_tool_calling_without_changing_co
         }
         assert record["composite"] == pytest.approx(composite(ki_only))
         assert record["composite"] == pytest.approx(1.0)
+        assert record["headline_complete"] is False
 
     asyncio.run(scenario())
 

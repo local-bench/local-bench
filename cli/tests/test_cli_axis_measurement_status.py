@@ -88,6 +88,7 @@ def _record_with_benches(
         "model": {},
         "manifest": {},
         "axis_status": axis_status_for_benches(benches, suite_axes),
+        "headline_complete": False,
         "benches": {
             "mmlu_pro": {
                 "n": 1,
