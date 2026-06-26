@@ -1,10 +1,4 @@
-"""Benchmark suite orchestration for localbench.
-
-NOTE: Inline AppWorld-C agentic runs are a single indicative pass with
-``provenance.single_pass=True``. Whether ``localbench run --bench all`` should run the full
-rerun campaign, which real task source it should use, and at what subset size remains an open
-owner decision localized to the agentic helper.
-"""
+"""Benchmark suite orchestration for localbench."""
 
 from __future__ import annotations
 
@@ -66,6 +60,7 @@ from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
 if TYPE_CHECKING:
     from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory
+    from localbench.scoring.agentic_exec.funnel import RerunAggregate
     from localbench.scoring.agentic_exec.loop_types import BenchmarkReport
 
 BenchChoice: TypeAlias = str
@@ -413,33 +408,60 @@ def _run_agentic_axis(
             config.endpoint,
             config.model,
             api_key=config.api_key or "",
+            chat_template_kwargs={"enable_thinking": True},
         )
-    if task_ids is None:
+
+    from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
+    from localbench.scoring.agentic_exec.funnel import Stage, run_with_reruns  # noqa: PLC0415
+    from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: PLC0415
+
+    if resolved_sandbox_factory is None or resolved_model_factory is None:
         warnings.append(
-            "appworld sandbox unavailable: agentic task subset not configured for inline run",
+            "appworld sandbox unavailable: incomplete injected agentic factories",
         )
         return None
 
-    from localbench.scoring.agentic_exec.benchmark import (  # noqa: PLC0415
-        run_appworld_c_benchmark,
-    )
-    from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: PLC0415
+    if injected:
+        if task_ids is None:
+            warnings.append(
+                "appworld sandbox unavailable: agentic task subset not configured for inline run",
+            )
+            return None
+        injected_task_ids = list(task_ids)
+        if config.tier == "quick" and config.max_items is not None:
+            injected_task_ids = injected_task_ids[: config.max_items]
+        subset = task_pool.subset_from_task_ids(injected_task_ids)
+        provenance_stage = "injected"
+    else:
+        subset = task_pool.build_subset(Stage.SCORED, wide_smoke=False, with_metadata=True)
+        provenance_stage = "scored"
 
-    report = run_appworld_c_benchmark(
-        list(task_ids),
-        resolved_model_factory,
-        resolved_sandbox_factory,
+    agg = run_with_reruns(
+        label=config.model,
+        stage=Stage.SCORED,
+        subset=subset,
+        model_factory=resolved_model_factory,
+        sandbox_factory=resolved_sandbox_factory,
         config=LoopConfig(),
+        base_count=2,
+        results_dir=None,
+        endpoint=config.endpoint,
+        model_id=config.model,
     )
+    last_report = agg.runs[-1].report
     return AgenticOutcome(
-        aggregate=_appworld_report_to_aggregate(report),
-        items=_appworld_report_to_items(report),
+        aggregate=_appworld_campaign_aggregate(agg, subset.size),
+        items=_appworld_report_to_items(last_report),
         provenance={
-            "subset_size": len(task_ids),
-            "single_pass": True,
-            "asr": report.agentic_success_rate,
-            "stage": "injected" if injected else "smoke",
-            "subset_hash": None,
+            "campaign": True,
+            "single_pass": False,
+            "asr_series": list(agg.asr_series),
+            "mean_asr": agg.mean_asr,
+            "max_abs_delta_pp": agg.max_abs_delta_pp,
+            "triggered_third_run": agg.triggered_third_run,
+            "subset_size": subset.size,
+            "subset_hash": subset.manifest_hash,
+            "stage": provenance_stage,
         },
     )
 
@@ -469,6 +491,19 @@ def _appworld_report_to_aggregate(report: BenchmarkReport) -> BenchAggregate:
         "raw_accuracy": asr,
         "chance_corrected": asr,
         "conditional_accuracy": asr,
+        "termination_rate": 1.0,
+    }
+
+
+def _appworld_campaign_aggregate(agg: RerunAggregate, n: int) -> BenchAggregate:
+    mean_asr = agg.mean_asr
+    return {
+        "n": n,
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "raw_accuracy": mean_asr,
+        "chance_corrected": mean_asr,
+        "conditional_accuracy": mean_asr,
         "termination_rate": 1.0,
     }
 

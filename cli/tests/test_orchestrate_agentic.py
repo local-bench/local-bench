@@ -73,19 +73,26 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             "conditional_accuracy": 1.0,
             "termination_rate": 1.0,
         }
+        assert record["benches"]["appworld_c"]["raw_accuracy"] == pytest.approx(
+            record["agentic_run"]["mean_asr"],
+        )
         assert record["axis_status"]["axes"]["agentic"] == {
             "axis": "agentic",
             "status": "measured",
             "reason": "ok",
         }
         assert record["headline_complete"] is True
-        assert record["agentic_run"] == {
-            "subset_size": 2,
-            "single_pass": True,
-            "asr": 1.0,
-            "stage": "injected",
-            "subset_hash": None,
-        }
+        agentic_run = record["agentic_run"]
+        assert agentic_run["campaign"] is True
+        assert agentic_run["single_pass"] is False
+        assert agentic_run["asr_series"] == [1.0, 1.0]
+        assert agentic_run["mean_asr"] == pytest.approx(1.0)
+        assert agentic_run["max_abs_delta_pp"] == pytest.approx(0.0)
+        assert agentic_run["triggered_third_run"] is False
+        assert agentic_run["subset_size"] == 2
+        assert isinstance(agentic_run["subset_hash"], str)
+        assert agentic_run["subset_hash"]
+        assert agentic_run["stage"] == "injected"
         ki_only = {
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],

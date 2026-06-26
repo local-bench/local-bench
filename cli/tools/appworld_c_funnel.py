@@ -34,7 +34,6 @@ Examples (run inside the appworld venv; see ``docs/foundations/appworld-c-funnel
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -43,102 +42,9 @@ sys.path.insert(0, str(_REPO / "cli" / "src"))
 
 from localbench.scoring.agentic_exec import funnel as fn  # noqa: E402
 from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: E402
+from localbench.scoring.agentic_exec.task_pool import build_subset  # noqa: E402
 
 _DEFAULT_RESULTS_DIR = _REPO / "cli" / "runs" / "agentic"
-
-
-# ----------------------------------------------------------------------------------------------
-# AppWorld metadata loading (WSL-only; imported lazily so --help works off-WSL).
-# ----------------------------------------------------------------------------------------------
-def _load_split_ids(split: str) -> list[str]:
-    from appworld import load_task_ids  # noqa: PLC0415 — WSL-only, lazy.
-
-    return list(load_task_ids(split))
-
-
-def _appworld_root() -> Path:
-    import os  # noqa: PLC0415
-
-    root = os.environ.get("APPWORLD_ROOT")
-    if not root:
-        raise RuntimeError("APPWORLD_ROOT is not set (needed to read task metadata for strata).")
-    return Path(root)
-
-
-def _load_metadata(task_ids: list[str]) -> dict[str, fn.TaskMeta]:
-    """Read ``data/tasks/<id>/ground_truth/metadata.json`` for each task (best-effort).
-
-    Stratification keys are optional; a task whose metadata can't be read falls back to a bare
-    ``TaskMeta`` (single-stratum bucket). We read ONLY the difficulty / app / gold-call-count
-    fields needed for selection — never the gold answer or solution.
-    """
-    root = _appworld_root()
-    out: dict[str, fn.TaskMeta] = {}
-    for tid in task_ids:
-        meta_path = root / "data" / "tasks" / tid / "ground_truth" / "metadata.json"
-        difficulty: int | None = None
-        primary_app: str | None = None
-        num_calls: int | None = None
-        try:
-            doc = json.loads(meta_path.read_text(encoding="utf-8"))
-            if isinstance(doc, dict):
-                difficulty = _coerce_int(doc.get("difficulty"))
-                num_calls = _coerce_int(doc.get("num_api_calls"))
-                primary_app = _primary_app(doc)
-        except (OSError, ValueError, TypeError):
-            pass  # leave as None -> single stratum for this task
-        out[tid] = fn.TaskMeta(
-            task_id=tid,
-            difficulty=difficulty,
-            primary_app=primary_app,
-            num_api_calls=num_calls,
-        )
-    return out
-
-
-def _coerce_int(v: object) -> int | None:
-    if isinstance(v, bool):
-        return None
-    if isinstance(v, int):
-        return v
-    if isinstance(v, float):
-        return int(v)
-    return None
-
-
-def _primary_app(doc: dict) -> str | None:
-    """Pick a stable primary-app key for stratification from common metadata shapes.
-
-    AppWorld metadata shapes vary by version; we try a few likely fields and fall back to None
-    (which buckets the task into the no-app stratum). Never fatal.
-    """
-    for key in ("primary_app", "app", "app_name"):
-        val = doc.get(key)
-        if isinstance(val, str) and val:
-            return val
-    apps = doc.get("apps") or doc.get("required_apps")
-    if isinstance(apps, list) and apps and isinstance(apps[0], str):
-        return sorted(apps)[0]  # deterministic: first alphabetically
-    return None
-
-
-# ----------------------------------------------------------------------------------------------
-# Subset construction.
-# ----------------------------------------------------------------------------------------------
-def _build_subset(stage: fn.Stage, *, wide_smoke: bool, with_metadata: bool) -> fn.SubsetSpec:
-    needed_split = {
-        fn.Stage.SMOKE: fn.SMOKE_SPLIT,
-        fn.Stage.LITE: fn.LITE_SPLIT,
-        fn.Stage.SCORED: fn.SCORED_SPLIT,
-    }[stage]
-    ids = _load_split_ids(needed_split)
-    metadata = _load_metadata(ids) if with_metadata else None
-    return fn.subset_for_stage(
-        stage,
-        {needed_split: ids},
-        metadata=metadata,
-        wide_smoke=wide_smoke,
-    )
 
 
 def _print_subset(subset: fn.SubsetSpec) -> None:
@@ -197,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Build the frozen subset (needs WSL appworld for ids; metadata optional).
     try:
-        subset = _build_subset(
+        subset = build_subset(
             stage, wide_smoke=args.wide_smoke, with_metadata=not args.no_metadata
         )
     except Exception as exc:  # noqa: BLE001 — surface a clear message off-WSL.
