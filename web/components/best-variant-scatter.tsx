@@ -1,18 +1,20 @@
 import { formatModularAxisProfile } from "@/components/local-intelligence-index";
 import { formatGb, formatScore } from "@/lib/format";
 import { familyStyle } from "@/lib/family-color";
+import {
+  getVramLogDomain,
+  scaleVramLogX,
+  VRAM_LOG_LABEL_TICKS,
+  VRAM_LOG_TICKS,
+} from "@/lib/vram-log-scale";
 import type { AnchorReference } from "@/lib/data";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
 const WIDTH = 920;
 const HEIGHT = 460;
 const PLOT = { left: 64, right: 188, top: 30, bottom: 64 } as const;
+const VRAM_SCALE_LAYOUT = { left: PLOT.left, right: PLOT.right, width: WIDTH } as const;
 const Y_TICKS = [100, 75, 50, 25, 0] as const;
-// Reference tiers reach down to small/laptop cards (2-6 GB) — that low-RAM region is exactly
-// where local models earn their keep, so it should be marked, not hidden below an 8 GB floor.
-const X_TIERS = [2, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
-
-type Domain = { readonly min: number; readonly max: number };
 
 // Candidate label positions around a point (dx/dy from the dot + text anchor), tried in order.
 // Every point is labelled on this overview chart, so we try several slots and fall back to the
@@ -35,7 +37,7 @@ export function BestVariantVramScatter({
   readonly anchorRuns: readonly AnchorReference[];
   readonly points: readonly BestVariantPoint[];
 }) {
-  const domain = getLogDomain(points);
+  const domain = getVramLogDomain(points.map((point) => point.effectiveVramGb));
   const anchors = layoutAnchors(anchorRuns);
   const frontier = [...points]
     .filter((point) => point.isFrontier)
@@ -43,7 +45,7 @@ export function BestVariantVramScatter({
   const frontierPath = frontier
     .map(
       (point, index) =>
-        `${index === 0 ? "M" : "L"} ${scaleX(point.effectiveVramGb, domain).toFixed(1)} ${scaleY(point.score.point).toFixed(1)}`,
+        `${index === 0 ? "M" : "L"} ${scaleVramLogX(point.effectiveVramGb, domain, VRAM_SCALE_LAYOUT).toFixed(1)} ${scaleY(point.score.point).toFixed(1)}`,
     )
     .join(" ");
   const legend = [
@@ -60,7 +62,7 @@ export function BestVariantVramScatter({
   const placedBoxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
   const labelPlacements = new Map<string, LabelSlot>();
   for (const candidate of [...points].sort((a, b) => b.score.point - a.score.point)) {
-    const cx = scaleX(candidate.effectiveVramGb, domain);
+    const cx = scaleVramLogX(candidate.effectiveVramGb, domain, VRAM_SCALE_LAYOUT);
     const cy = scaleY(candidate.score.point);
     const width = candidate.modelLabel.length * 6.6 + 6;
     const boxFor = (slot: LabelSlot) => {
@@ -122,11 +124,11 @@ export function BestVariantVramScatter({
               </g>
             );
           })}
-          {X_TIERS.map((tier) => {
+          {VRAM_LOG_TICKS.map((tier) => {
             if (tier < domain.min || tier > domain.max) {
               return null;
             }
-            const x = scaleX(tier, domain);
+            const x = scaleVramLogX(tier, domain, VRAM_SCALE_LAYOUT);
             return (
               <g key={tier}>
                 <line
@@ -137,9 +139,11 @@ export function BestVariantVramScatter({
                   className="stroke-bench-line"
                   strokeDasharray="3 9"
                 />
-                <text x={x + 4} y={HEIGHT - PLOT.bottom - 6} className="fill-bench-muted-2" fontSize="11">
-                  {tier}GB
-                </text>
+                {(VRAM_LOG_LABEL_TICKS as readonly number[]).includes(tier) ? (
+                  <text x={x + 4} y={HEIGHT - PLOT.bottom - 6} className="fill-bench-muted-2" fontSize="11">
+                    {tier}GB
+                  </text>
+                ) : null}
               </g>
             );
           })}
@@ -171,7 +175,7 @@ export function BestVariantVramScatter({
             <path d={frontierPath} className="fill-none stroke-bench-accent-dim" strokeWidth="1.5" strokeDasharray="2 5" />
           ) : null}
           {points.map((point) => {
-            const cx = scaleX(point.effectiveVramGb, domain);
+            const cx = scaleVramLogX(point.effectiveVramGb, domain, VRAM_SCALE_LAYOUT);
             const cy = scaleY(point.score.point);
             const color = familyStyle(point.family).color;
             const slot = labelPlacements.get(point.runId);
@@ -238,7 +242,7 @@ export function BestVariantVramScatter({
         </div>
       ) : null}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-bench-muted-2">
-        <span>dashed lines = API model ceilings</span>
+        <span>vertical guides = common VRAM tiers; horizontal guides = API model ceilings</span>
       </div>
     </section>
   );
@@ -247,29 +251,6 @@ export function BestVariantVramScatter({
 function scaleY(value: number): number {
   const height = HEIGHT - PLOT.top - PLOT.bottom;
   return PLOT.top + (1 - value / 100) * height;
-}
-
-function getLogDomain(points: readonly BestVariantPoint[]): Domain {
-  const values = points.map((point) => point.effectiveVramGb).filter((value) => value > 0);
-  if (values.length === 0) {
-    return { min: 6, max: 64 };
-  }
-  // Balance the axis across the realistic local range: keep the popular low-VRAM tiers (8-16 GB,
-  // the bulk of gaming GPUs) on the LEFT and the higher workstation tiers on the RIGHT as context,
-  // with headroom above the top point so its label fits. Floor the ceiling at 64 GB so the higher
-  // tiers stay on the scale (not removed entirely), growing only if a measured model needs more.
-  const padded = Math.max(64, Math.max(...values) * 1.5);
-  const snapped = X_TIERS.find((tier) => tier >= padded) ?? padded;
-  return { min: Math.max(0.5, Math.min(6, Math.min(...values) / 1.3)), max: snapped };
-}
-
-function scaleX(value: number, domain: Domain): number {
-  const width = WIDTH - PLOT.left - PLOT.right;
-  const lo = Math.log2(domain.min);
-  const hi = Math.log2(domain.max);
-  const span = hi - lo || 1;
-  const clamped = Math.max(value, domain.min);
-  return PLOT.left + ((Math.log2(clamped) - lo) / span) * width;
 }
 
 function layoutAnchors(anchorRuns: readonly AnchorReference[]) {
