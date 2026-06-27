@@ -128,5 +128,20 @@
     "release_date": null,
     "vram_footprint_gb": 7.30,
     "notes": "Strict Local / capped-thinking lane. Inline 4-axis run (MMLU-Pro + IFBench + tc_json_v1 + AppWorld-C campaign); appworld_c genuinely 0.0. unsloth GGUF quant. Footprint = on-disk GGUF weight size (decimal GB)."
+  },
+  {
+    "kind": "community",
+    "family": "Gemma 4",
+    "model_id": "google/gemma-4-12b-it",
+    "model_label": "Gemma 4 12B IT",
+    "quant_label": "Q3_K_M",
+    "publisher": "unsloth",
+    "gguf_repo": "unsloth/gemma-4-12b-it-GGUF",
+    "file": "cli/runs/gemma-ladder/gemma-4-12b-it-Q3_K_M.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 5.69387152,
+    "notes": "Strict Local / capped-thinking lane. Inline 4-axis run (MMLU-Pro + IFBench + tc_json_v1 + AppWorld-C campaign); appworld_c genuinely 0.0. unsloth GGUF quant. Footprint = on-disk GGUF weight size (decimal GB)."
   }
 ]
