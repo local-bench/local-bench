@@ -13,7 +13,11 @@ The live two-process gate (scripted agent through the REAL sandbox) lives in
 from __future__ import annotations
 
 import json
+import signal
+import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -26,6 +30,7 @@ from localbench.scoring.agentic_exec import benchmark as bench  # noqa: E402
 from localbench.scoring.agentic_exec import block_introspect as bi  # noqa: E402
 from localbench.scoring.agentic_exec import block_parser as bp  # noqa: E402
 from localbench.scoring.agentic_exec import prompt as prompt_mod  # noqa: E402
+from localbench.scoring.agentic_exec import sandbox as sandbox_mod  # noqa: E402
 from localbench.scoring.agentic_exec import scripted_agent as sa  # noqa: E402
 from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: E402
 from localbench.scoring.agentic_exec.loop_types import (  # noqa: E402
@@ -694,6 +699,118 @@ def test_benchmark_classifies_sandbox_setup_error_as_infra_sandbox() -> None:
     assert report.infra_sandbox_rate == 1.0
     assert report.asr_excluding_infra == 0.0
     assert report.results[0].diagnostics.failure_class == FailureClass.INFRA_SANDBOX
+
+
+def test_benchmark_watchdog_records_infra_timeout_and_continues() -> None:
+    release_hung_model = threading.Event()
+    forced_cleanup = threading.Event()
+
+    class _BlockingModel:
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            release_hung_model.wait(timeout=5.0)
+            return ModelResponse("```python\nanswer = 5\n```\nFINAL_ANSWER", "stop")
+
+    class _KillableSandbox(FakeSandbox):
+        def force_kill(self) -> None:
+            forced_cleanup.set()
+            release_hung_model.set()
+
+    def sandbox_factory(task_id: str) -> FakeSandbox:
+        if task_id == "hang":
+            return _KillableSandbox(
+                gold_answer=5,
+                instruction=_FAC_INSTR,
+                supervisor_email="b@x.com",
+            )
+        return FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+
+    def model_factory(task_id: str):
+        if task_id == "hang":
+            return _BlockingModel()
+        return sa.ScriptedSolverAgent(task_id)
+
+    report = bench.run_appworld_c_benchmark(
+        task_ids=["hang", "fac291d_1"],
+        model_factory=model_factory,
+        sandbox_factory=sandbox_factory,
+        config=LoopConfig(per_task_timeout_s=0.05),
+    )
+
+    assert forced_cleanup.wait(timeout=1.0)
+    assert report.tasks_total == 2
+    assert report.tasks_succeeded == 1
+    assert report.infra_timeout_rate == pytest.approx(0.5)
+    assert report.results[0].task_id == "hang"
+    assert report.results[0].outcome == TaskOutcome.HARNESS_ERROR
+    assert report.results[0].diagnostics.failure_class == FailureClass.INFRA_TIMEOUT
+    assert report.results[1].task_id == "fac291d_1"
+    assert report.results[1].success is True
+
+
+def test_terminate_escalates_to_process_group_sigkill(monkeypatch: pytest.MonkeyPatch) -> None:
+    killed_groups: list[tuple[int, int]] = []
+
+    class _TermIgnoringProcess:
+        pid = 4321
+
+        def __init__(self) -> None:
+            self.waits = 0
+            self.terminated = False
+
+        def terminate(self) -> None:
+            self.terminated = True
+
+        def kill(self) -> None:
+            return None
+
+        def wait(self, timeout: float) -> int:
+            self.waits += 1
+            if self.waits == 1:
+                raise subprocess.TimeoutExpired(cmd=["env-host"], timeout=timeout)
+            return 0
+
+    def fake_getpgid(pid: int) -> int:
+        assert pid == 4321
+        return 9876
+
+    def fake_killpg(pgid: int, sig: int) -> None:
+        killed_groups.append((pgid, sig))
+
+    proc = _TermIgnoringProcess()
+    monkeypatch.setattr(signal, "SIGKILL", 9, raising=False)
+    monkeypatch.setattr(sandbox_mod.os, "getpgid", fake_getpgid, raising=False)
+    monkeypatch.setattr(sandbox_mod.os, "killpg", fake_killpg, raising=False)
+
+    sandbox_mod._terminate(proc)
+
+    assert proc.terminated is True
+    assert killed_groups == [(9876, signal.SIGKILL)]
+
+
+def test_wait_for_socket_times_out_when_stdout_readline_blocks() -> None:
+    class _BlockingStdout:
+        def readline(self) -> str:
+            threading.Event().wait()
+            return ""
+
+    class _NeverReadyEnvProc:
+        stdout = _BlockingStdout()
+        returncode = None
+
+        def poll(self) -> None:
+            return None
+
+    sandbox = sandbox_mod.AppWorldSandbox(
+        "hang",
+        SandboxConfig(ready_timeout_s=0.05),
+    )
+    sandbox._env_proc = _NeverReadyEnvProc()
+
+    started = time.monotonic()
+    with pytest.raises(SandboxError, match="env host did not become READY"):
+        sandbox._wait_for_socket()
+
+    assert time.monotonic() - started < 1.0
 
 
 def test_clean_scripted_run_keeps_primary_score_and_diagnostics_deterministic() -> None:

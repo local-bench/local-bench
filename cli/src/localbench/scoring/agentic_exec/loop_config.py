@@ -44,10 +44,13 @@ class LoopConfig:
     top_p: float = 1.0
     seed: int = 0
 
-    # Wall-clock guard for a single model .complete() call. The sandbox has its own per-block
-    # infrastructure safety net (SandboxConfig.block_wall_timeout_s). This guards only the model
-    # side and is advisory for the scripted client (which is instant).
+    # Wall-clock guard intended for a single model .complete() call. This is currently not
+    # enforced by the loop; the benchmark-level per_task_timeout_s below is the hard stop.
     model_call_timeout_s: float = 120.0
+
+    # Hard wall-clock watchdog for one complete task attempt: sandbox setup, model loop, finalize,
+    # and teardown. This bounds hangs outside the per-block sandbox wall timeout.
+    per_task_timeout_s: float = 360.0
 
     def generation_params(self) -> GenerationParams:
         """The decoding intent handed to the model client every turn."""

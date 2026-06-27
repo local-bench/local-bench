@@ -25,8 +25,11 @@ weight-0 candidate entry point, callable on demand, with zero headline impact.
 
 from __future__ import annotations
 
+import queue
+import threading
 from contextlib import AbstractContextManager
-from typing import Callable
+from dataclasses import dataclass
+from typing import Callable, Protocol, assert_never, runtime_checkable
 
 from localbench.scoring.agentic_exec.loop_config import LoopConfig
 from localbench.scoring.agentic_exec.loop_types import (
@@ -44,6 +47,18 @@ SandboxFactory = Callable[[str], AbstractContextManager[SandboxLike]]
 ModelFactory = Callable[[str], ModelClient]
 
 
+@dataclass(frozen=True, slots=True)
+class _BenchmarkFactories:
+    model: ModelFactory
+    sandbox: SandboxFactory
+
+
+@runtime_checkable
+class _ForceKillable(Protocol):
+    def force_kill(self) -> None:
+        ...
+
+
 def run_appworld_c_benchmark(
     task_ids: list[str],
     model_factory: ModelFactory,
@@ -57,15 +72,71 @@ def run_appworld_c_benchmark(
     never sinks the batch.
     """
     cfg = config or LoopConfig()
+    factories = _BenchmarkFactories(model=model_factory, sandbox=sandbox_factory)
     results: list[TaskRunResult] = []
     for task_id in task_ids:
-        try:
-            with sandbox_factory(task_id) as sandbox:
-                model = model_factory(task_id)
-                results.append(run_task(sandbox, model, task_id, cfg))
-        except Exception as exc:  # noqa: BLE001 — isolate per-task setup/teardown failures.
-            results.append(_harness_error_result(task_id, exc))
+        results.append(_run_task_with_watchdog(task_id, factories, cfg))
     return aggregate(results)
+
+
+def _run_task_with_watchdog(
+    task_id: str,
+    factories: _BenchmarkFactories,
+    cfg: LoopConfig,
+) -> TaskRunResult:
+    result_slot: queue.Queue[TaskRunResult | Exception] = queue.Queue(maxsize=1)
+    cleanup_slot: queue.Queue[SandboxLike] = queue.Queue(maxsize=1)
+
+    def _worker() -> None:
+        try:
+            with factories.sandbox(task_id) as sandbox:
+                cleanup_slot.put(sandbox)
+                model = factories.model(task_id)
+                task_result = run_task(sandbox, model, task_id, cfg)
+            result_slot.put(task_result)
+        except Exception as exc:  # noqa: BLE001 — isolate per-task setup/teardown failures.
+            result_slot.put(exc)
+
+    worker = threading.Thread(target=_worker, name=f"lb-task-{task_id}", daemon=True)
+    worker.start()
+    worker.join(cfg.per_task_timeout_s)
+    if worker.is_alive():
+        _force_kill_sandbox(_cleanup_handle(cleanup_slot))
+        return _task_timeout_result(task_id, cfg.per_task_timeout_s)
+
+    try:
+        published = result_slot.get_nowait()
+    except queue.Empty:
+        return _harness_error_result(task_id, RuntimeError("task worker ended without a result"))
+
+    match published:
+        case TaskRunResult():
+            return published
+        case Exception():
+            return _harness_error_result(task_id, published)
+        case unreachable:
+            assert_never(unreachable)
+
+
+def _cleanup_handle(cleanup_slot: queue.Queue[SandboxLike]) -> SandboxLike | None:
+    try:
+        return cleanup_slot.get_nowait()
+    except queue.Empty:
+        return None
+
+
+def _force_kill_sandbox(sandbox: SandboxLike | None) -> None:
+    if isinstance(sandbox, _ForceKillable):
+        sandbox.force_kill()
+
+
+def _task_timeout_result(task_id: str, timeout_s: float) -> TaskRunResult:
+    from localbench.scoring.agentic_exec.sandbox import SandboxTimeoutError  # noqa: PLC0415
+
+    return _harness_error_result(
+        task_id,
+        SandboxTimeoutError(f"task exceeded per-task watchdog ({timeout_s}s)"),
+    )
 
 
 def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:

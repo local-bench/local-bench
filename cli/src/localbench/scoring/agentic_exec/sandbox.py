@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -245,6 +246,7 @@ class AppWorldSandbox:
             stderr=subprocess.PIPE,
             text=True,
             env=env,
+            start_new_session=True,
         )
         threading.Thread(target=self._drain, args=(self._env_proc.stderr, self._env_stderr),
                          daemon=True).start()
@@ -253,21 +255,51 @@ class AppWorldSandbox:
         """Block until the env host prints READY (world built + socket listening)."""
         assert self._env_proc is not None and self._env_proc.stdout is not None
         deadline = time.monotonic() + self.config.ready_timeout_s
-        while time.monotonic() < deadline:
+        while True:
+            remaining_s = deadline - time.monotonic()
+            if remaining_s <= 0:
+                break
             if self._env_proc.poll() is not None:
                 raise SandboxError(
                     "env host exited before READY (rc="
                     f"{self._env_proc.returncode}). stderr:\n{''.join(self._env_stderr)[-2000:]}"
                 )
-            line = self._env_proc.stdout.readline()
+            line = self._read_env_host_line(remaining_s)
+            if line is None:
+                break
             if line.strip() == "READY":
                 return
+            if not line:
+                raise SandboxError(
+                    "env host stdout closed before READY. "
+                    f"stderr:\n{''.join(self._env_stderr)[-2000:]}"
+                )
             if line:  # unexpected stdout from the host before READY
                 self._env_stderr.append("[host-stdout] " + line)
         raise SandboxError(
             f"env host did not become READY within {self.config.ready_timeout_s}s. "
             f"stderr:\n{''.join(self._env_stderr)[-2000:]}"
         )
+
+    def _read_env_host_line(self, timeout_s: float) -> str | None:
+        assert self._env_proc is not None and self._env_proc.stdout is not None
+        result: list[str] = []
+        errors: list[OSError | ValueError] = []
+
+        def _reader() -> None:
+            try:
+                result.append(self._env_proc.stdout.readline())  # type: ignore[union-attr]
+            except (OSError, ValueError) as exc:
+                errors.append(exc)
+
+        t = threading.Thread(target=_reader, daemon=True)
+        t.start()
+        t.join(timeout_s)
+        if t.is_alive():
+            return None
+        if errors:
+            raise SandboxError(f"env host stdout read failed: {errors[0]}")
+        return result[0] if result else ""
 
     def _start_runner(self, bwrap: str) -> None:
         """Spawn the untrusted runner under bwrap with full isolation."""
@@ -315,6 +347,7 @@ class AppWorldSandbox:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            start_new_session=True,
             preexec_fn=_make_rlimit_preexec(self.config),  # noqa: PLW1509 — POSIX-only, intended.
         )
         threading.Thread(target=self._drain, args=(self._runner_proc.stderr, self._runner_stderr),
@@ -434,17 +467,31 @@ class AppWorldSandbox:
         if self._closed:
             return
         self._closed = True
-        # Ask the runner to exit, then hard-stop both children.
-        if self._runner_proc is not None and self._runner_proc.poll() is None:
-            try:
-                if self._runner_proc.stdin is not None:
-                    self._runner_proc.stdin.write(json.dumps({"cmd": "shutdown"}) + "\n")
-                    self._runner_proc.stdin.flush()
-            except (BrokenPipeError, OSError, ValueError):
-                pass
-            _terminate(self._runner_proc)
-        if self._env_proc is not None and self._env_proc.poll() is None:
-            _terminate(self._env_proc)
+        try:
+            if self._runner_proc is not None and self._runner_proc.poll() is None:
+                try:
+                    if self._runner_proc.stdin is not None:
+                        self._runner_proc.stdin.write(json.dumps({"cmd": "shutdown"}) + "\n")
+                        self._runner_proc.stdin.flush()
+                except (BrokenPipeError, OSError, ValueError):
+                    pass
+                _terminate(self._runner_proc)
+            if self._env_proc is not None and self._env_proc.poll() is None:
+                _terminate(self._env_proc)
+        finally:
+            self._cleanup_paths()
+
+    def force_kill(self) -> None:
+        self._closed = True
+        try:
+            _kill_process_group(self._runner_proc)
+            _kill_process_group(self._env_proc)
+            _wait_for_process_exit(self._runner_proc)
+            _wait_for_process_exit(self._env_proc)
+        finally:
+            self._cleanup_paths()
+
+    def _cleanup_paths(self) -> None:
         for path in (self._sock_dir, self._workdir):
             if path and os.path.isdir(path):
                 shutil.rmtree(path, ignore_errors=True)
@@ -472,13 +519,59 @@ def _effective_block_wall_timeout_s(config: SandboxConfig) -> float:
 def _terminate(proc: subprocess.Popen[Any]) -> None:
     try:
         proc.terminate()
+    except OSError:
+        _kill_process_group(proc)
+        _wait_for_process_exit(proc)
+        return
+    try:
         proc.wait(timeout=5)
-    except (subprocess.TimeoutExpired, OSError):
+    except subprocess.TimeoutExpired:
+        _kill_process_group(proc)
+        _wait_for_process_exit(proc)
+    except OSError:
+        _kill_process_group(proc)
+        _wait_for_process_exit(proc)
+
+
+def _kill_process_group(proc: subprocess.Popen[Any] | None) -> None:
+    if proc is None:
+        return
+    getpgid = getattr(os, "getpgid", None)
+    killpg = getattr(os, "killpg", None)
+    if getpgid is None or killpg is None:
         try:
             proc.kill()
-            proc.wait(timeout=5)
-        except (subprocess.TimeoutExpired, OSError):
+        except OSError:
             pass
+        return
+    try:
+        pgid = getpgid(proc.pid)
+    except ProcessLookupError:
+        return
+    except OSError:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+        return
+    try:
+        killpg(pgid, getattr(signal, "SIGKILL", 9))
+    except ProcessLookupError:
+        pass
+    except OSError:
+        try:
+            proc.kill()
+        except OSError:
+            pass
+
+
+def _wait_for_process_exit(proc: subprocess.Popen[Any] | None) -> None:
+    if proc is None:
+        return
+    try:
+        proc.wait(timeout=5)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
 
 
 def _make_rlimit_preexec(config: SandboxConfig) -> Any:
