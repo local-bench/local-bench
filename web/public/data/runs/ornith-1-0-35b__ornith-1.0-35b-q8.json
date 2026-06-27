@@ -1,0 +1,193 @@
+{
+  "axes": {
+    "instruction": {
+      "conditional_accuracy": 0.30633802816901406,
+      "hi": 34.69387755102041,
+      "hi_raw": 0.3469387755102041,
+      "lo": 24.489795918367346,
+      "lo_raw": 0.24489795918367346,
+      "n": 294,
+      "n_errors": 7,
+      "n_no_answer": 0,
+      "point": 29.591836734693878,
+      "point_raw": 0.29591836734693877,
+      "raw_accuracy": 0.29591836734693877,
+      "termination_rate": 0.9659863945578231
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.82,
+      "hi": 83.7298317044269,
+      "hi_raw": 0.837298317044269,
+      "lo": 75.58422351505217,
+      "lo_raw": 0.7558422351505217,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 2,
+      "point": 79.793840150388,
+      "point_raw": 0.79793840150388,
+      "raw_accuracy": 0.82,
+      "termination_rate": 1.0
+    },
+    "tool_calling": {
+      "conditional_accuracy": 0.7333333333333333,
+      "hi": 77.87878787878788,
+      "hi_raw": 0.7787878787878788,
+      "lo": 68.48484848484848,
+      "lo_raw": 0.6848484848484848,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 4,
+      "point": 73.33333333333333,
+      "point_raw": 0.7333333333333333,
+      "raw_accuracy": 0.7333333333333333,
+      "termination_rate": 1.0
+    }
+  },
+  "composite": {
+    "hi": 63.87858794048971,
+    "hi_raw": 0.6387858794048971,
+    "lo": 54.64896940874444,
+    "lo_raw": 0.5464896940874444,
+    "point": 59.352962165239035,
+    "point_raw": 0.5935296216523903
+  },
+  "conformance": {
+    "n_scored": 1017,
+    "per_bench": {
+      "ifbench": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.003484320557491289,
+        "n_scored": 287,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.010452961672473868
+      },
+      "mmlu_pro": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      },
+      "tc_json_v1": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 330,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "agentic appworld_c quarantined: missing diagnostics or harness-dominated client path",
+    "math not measured in this run; axis omitted",
+    "agentic not measured in this run; axis omitted",
+    "coding not measured in this run; axis omitted",
+    "composite point 0.593529621652 differs from stored composite 0.193670352062"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+    "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "x86_64",
+      "gpu": {
+        "driver": "595.58.03",
+        "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "vram_gb": 95.6,
+        "vram_mb": 97887
+      },
+      "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "Ornith",
+      "file_name": null,
+      "file_sha256": null,
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "ornith-1.0-35b-q8"
+    },
+    "quant": "Q8_0",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "instruction": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "tool_calling": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Ornith 1.0 35B",
+  "ranked": false,
+  "run_id": "ornith-1-0-35b__ornith-1.0-35b-q8",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",
+    "registry_digest": "2d36c8dd7dd2c8e48f0ffeff7429d6baed7966edef79fc9adb8eae231d7f579b",
+    "registry_drift": true,
+    "version": "scorecard-v2.0"
+  },
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 278.0,
+  "tokens_to_answer_p95": 1835.7999999999988,
+  "totals": {
+    "completion_tokens": 598155,
+    "completion_tokens_per_second": 222.99733290127313,
+    "n_errors": 7,
+    "n_items": 1120,
+    "prompt_tokens": 292916,
+    "total_tokens": 891071,
+    "wall_time_seconds": 2682.341498069931
+  },
+  "worst_axis": {
+    "bench": "instruction",
+    "point": 29.591836734693878,
+    "point_raw": 0.29591836734693877
+  }
+}

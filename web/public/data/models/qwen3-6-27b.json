@@ -10,23 +10,6 @@
   "runs": [
     {
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.125,
-          "hi": 19.791666666666664,
-          "hi_raw": 0.19791666666666666,
-          "leaked_reasoning_rate": null,
-          "lo": 6.25,
-          "lo_raw": 0.0625,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 12.5,
-          "point_raw": 0.125,
-          "raw_accuracy": 0.125,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6903914590747331,
           "hi": 71.42857142857143,
@@ -43,8 +26,8 @@
         },
         "knowledge": {
           "conditional_accuracy": 0.85678391959799,
-          "hi": 87.3711500939925,
-          "hi_raw": 0.873711500939925,
+          "hi": 87.09050898497011,
+          "hi_raw": 0.8709050898497012,
           "lo": 79.51319904136561,
           "lo_raw": 0.7951319904136561,
           "n": 400,
@@ -58,12 +41,12 @@
       },
       "bpw": 8.5,
       "composite": {
-        "hi": 42.03682263866605,
-        "hi_raw": 0.4203682263866605,
-        "lo": 31.618442398140978,
-        "lo_raw": 0.3161844239814098,
-        "point": 36.51292482460764,
-        "point_raw": 0.3651292482460764
+        "hi": 79.25954020677078,
+        "hi_raw": 0.7925954020677077,
+        "lo": 70.02870836422022,
+        "lo_raw": 0.7002870836422023,
+        "point": 74.71428456275109,
+        "point_raw": 0.7471428456275109
       },
       "est_cost_usd": null,
       "file_gb": 28.7,
@@ -83,6 +66,7 @@
       "n_errors": 0,
       "n_items": 694,
       "quant_label": "Q8_0",
+      "ranked": false,
       "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q8_0",
       "runtime": {
         "ctx_len_configured": null,
@@ -102,23 +86,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.14583333333333334,
-          "hi": 21.875,
-          "hi_raw": 0.21875,
-          "leaked_reasoning_rate": null,
-          "lo": 7.291666666666667,
-          "lo_raw": 0.07291666666666667,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 14.583333333333334,
-          "point_raw": 0.14583333333333334,
-          "raw_accuracy": 0.14583333333333334,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6947368421052632,
           "hi": 72.78911564625851,
@@ -135,8 +102,8 @@
         },
         "knowledge": {
           "conditional_accuracy": 0.8542713567839196,
-          "hi": 87.09050898497011,
-          "hi_raw": 0.8709050898497012,
+          "hi": 86.80986787594773,
+          "hi_raw": 0.8680986787594773,
           "lo": 79.23255793234323,
           "lo_raw": 0.7923255793234323,
           "n": 400,
@@ -150,12 +117,12 @@
       },
       "bpw": 6.6,
       "composite": {
-        "hi": 44.411071085651486,
-        "hi_raw": 0.4441107108565149,
-        "lo": 32.46583079619677,
-        "lo_raw": 0.3246583079619677,
-        "point": 38.060964712676046,
-        "point_raw": 0.3806096471267605
+        "hi": 79.79949176110311,
+        "hi_raw": 0.7979949176110311,
+        "lo": 70.56865991855257,
+        "lo_raw": 0.7056865991855257,
+        "point": 75.25423611708342,
+        "point_raw": 0.7525423611708343
       },
       "est_cost_usd": null,
       "file_gb": 22.3,
@@ -175,6 +142,7 @@
       "n_errors": 0,
       "n_items": 694,
       "quant_label": "Q6_K",
+      "ranked": false,
       "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q6_K",
       "runtime": {
         "ctx_len_configured": null,
@@ -209,6 +177,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q5_K_M",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -228,27 +197,10 @@
     },
     {
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.14583333333333334,
-          "hi": 21.875,
-          "hi_raw": 0.21875,
-          "leaked_reasoning_rate": null,
-          "lo": 8.333333333333332,
-          "lo_raw": 0.08333333333333333,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 14.583333333333334,
-          "point_raw": 0.14583333333333334,
-          "raw_accuracy": 0.14583333333333334,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.7107142857142857,
-          "hi": 73.12925170068027,
-          "hi_raw": 0.7312925170068028,
+          "hi": 72.78911564625851,
+          "hi_raw": 0.7278911564625851,
           "lo": 62.244897959183675,
           "lo_raw": 0.6224489795918368,
           "n": 294,
@@ -276,12 +228,12 @@
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 43.966357206752335,
-        "hi_raw": 0.4396635720675233,
-        "lo": 32.58527864516324,
-        "lo_raw": 0.32585278645163246,
-        "point": 37.977614060868056,
-        "point_raw": 0.3797761406086806
+        "hi": 79.37853009756954,
+        "hi_raw": 0.7937853009756953,
+        "lo": 70.03712517320747,
+        "lo_raw": 0.7003712517320747,
+        "point": 74.86302192624954,
+        "point_raw": 0.7486302192624954
       },
       "est_cost_usd": null,
       "file_gb": 16.4,
@@ -301,6 +253,7 @@
       "n_errors": 0,
       "n_items": 694,
       "quant_label": "Q4_K_M",
+      "ranked": false,
       "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q4_K_M",
       "runtime": {
         "ctx_len_configured": null,
@@ -320,23 +273,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.13541666666666666,
-          "hi": 20.833333333333336,
-          "hi_raw": 0.20833333333333334,
-          "leaked_reasoning_rate": null,
-          "lo": 7.291666666666667,
-          "lo_raw": 0.07291666666666667,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 13.541666666666666,
-          "point_raw": 0.13541666666666666,
-          "raw_accuracy": 0.13541666666666666,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6787003610108303,
           "hi": 69.38775510204081,
@@ -353,10 +289,10 @@
         },
         "knowledge": {
           "conditional_accuracy": 0.8592964824120602,
-          "hi": 87.65179120301488,
-          "hi_raw": 0.8765179120301488,
-          "lo": 79.793840150388,
-          "lo_raw": 0.79793840150388,
+          "hi": 87.3711500939925,
+          "hi_raw": 0.873711500939925,
+          "lo": 79.79384015038801,
+          "lo_raw": 0.7979384015038801,
           "n": 400,
           "n_errors": 0,
           "n_no_answer": 1,
@@ -368,12 +304,12 @@
       },
       "bpw": 3.9,
       "composite": {
-        "hi": 42.84887063016532,
-        "hi_raw": 0.42848870630165325,
-        "lo": 31.390903939246588,
-        "lo_raw": 0.3139090393924659,
-        "point": 36.66981690932835,
-        "point_raw": 0.36669816909328345
+        "hi": 78.37945259801666,
+        "hi_raw": 0.7837945259801665,
+        "lo": 69.14862075546611,
+        "lo_raw": 0.6914862075546612,
+        "point": 73.83419695399698,
+        "point_raw": 0.7383419695399698
       },
       "est_cost_usd": null,
       "file_gb": 13.2,
@@ -393,6 +329,7 @@
       "n_errors": 0,
       "n_items": 694,
       "quant_label": "Q3_K_M",
+      "ranked": false,
       "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q3_K_M",
       "runtime": {
         "ctx_len_configured": null,
@@ -412,23 +349,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.13541666666666666,
-          "hi": 20.833333333333336,
-          "hi_raw": 0.20833333333333334,
-          "leaked_reasoning_rate": null,
-          "lo": 7.291666666666667,
-          "lo_raw": 0.07291666666666667,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 13.541666666666666,
-          "point_raw": 0.13541666666666666,
-          "raw_accuracy": 0.13541666666666666,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6072727272727273,
           "hi": 62.585034013605444,
@@ -447,8 +367,8 @@
           "conditional_accuracy": 0.8673469387755103,
           "hi": 87.09050898497011,
           "hi_raw": 0.8709050898497012,
-          "lo": 78.95191682332083,
-          "lo_raw": 0.7895191682332083,
+          "lo": 78.95191682332084,
+          "lo_raw": 0.7895191682332084,
           "n": 400,
           "n_errors": 0,
           "n_no_answer": 6,
@@ -460,12 +380,12 @@
       },
       "bpw": 3.0,
       "composite": {
-        "hi": 40.77931874930204,
-        "hi_raw": 0.4077931874930204,
-        "lo": 29.60527127396774,
-        "lo_raw": 0.2960527127396774,
-        "point": 34.79991029090734,
-        "point_raw": 0.34799910290907343
+        "hi": 74.83777149928777,
+        "hi_raw": 0.7483777149928778,
+        "lo": 64.98616249329308,
+        "lo_raw": 0.6498616249329308,
+        "point": 69.98212727354601,
+        "point_raw": 0.6998212727354601
       },
       "est_cost_usd": null,
       "file_gb": 10.1,
@@ -485,6 +405,7 @@
       "n_errors": 0,
       "n_items": 694,
       "quant_label": "Q2_K",
+      "ranked": false,
       "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q2_K",
       "runtime": {
         "ctx_len_configured": null,
@@ -536,6 +457,7 @@
       "n_errors": 0,
       "n_items": 96,
       "quant_label": "Opus distill (Q4_K_M)",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -587,6 +509,7 @@
       "n_errors": 0,
       "n_items": 96,
       "quant_label": "Coder distill (NVFP4)",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,

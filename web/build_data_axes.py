@@ -79,8 +79,8 @@ def build_axes(
         else:
             # No source bench measured this axis in this run -> emit NO axis (never a
             # fabricated/synthesized score). The site hides absent axes and renders
-            # "not measured" (METHODOLOGY-v1.2: only measured axes are displayed; Math/
-            # Agentic stay candidate axes until a run actually scores them).
+            # "not measured" (METHODOLOGY-v2.1: only measured axes are displayed; missing
+            # headline axes make the row diagnostic rather than ranked).
             warnings.append(f"{axis} not measured in this run; axis omitted")
     return axes, warnings
 

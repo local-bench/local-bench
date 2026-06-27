@@ -20,7 +20,7 @@ DEFAULT_CURATION: Final = REPO_ROOT / "web" / "data_sources.json"
 DEFAULT_PARITY_INDEX: Final = REPO_ROOT / "web" / "public" / "data" / "index.json"
 DEFAULT_BOOTSTRAP_ITERS: Final = 10_000
 DEFAULT_BOOTSTRAP_SEED: Final = 0
-INDEX_VERSION_FALLBACK: Final = "index-v1"
+INDEX_VERSION_FALLBACK: Final = "index-v2.1"
 LANE_SCOPE: Final = "capped-thinking"
 DATASET_VERSION: Final = "dataset-pins-via-suite-item-set-hashes"
 # Bare basename: resolved by run_path() against the board's --runs-dir (now the absolute

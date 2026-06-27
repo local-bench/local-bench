@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DemoBadge } from "@/components/badges";
 import {
-  CoreTextAxisProfile,
+  ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -141,7 +141,7 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <Metric
-          detail={<CoreTextAxisProfile axes={config.axes} className="block font-mono text-[11px] text-bench-muted" />}
+          detail={<ModularAxisProfile axes={config.axes} className="block font-mono text-[11px] text-bench-muted" />}
           label={
             <span className="flex flex-col gap-0.5 leading-tight">
               <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>

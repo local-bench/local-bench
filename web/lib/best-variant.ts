@@ -32,6 +32,7 @@ function isEligible(candidate: RigMatchCandidate): boolean {
   return (
     candidate.kind === "community" &&
     !candidate.demo &&
+    candidate.ranked &&
     candidate.scoreStatus === "measured" &&
     candidate.tier?.toLowerCase() === "standard" &&
     candidate.lane === "capped-thinking" &&

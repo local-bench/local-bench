@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DemoBadge } from "@/components/badges";
 import {
-  CoreTextAxisProfile,
+  ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
@@ -131,7 +131,7 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
         {row.run?.composite ? (
           <>
             <div>{scoreWithCi(row.run.composite)}</div>
-            <CoreTextAxisProfile axes={row.run.axes} className="mt-1 block text-[11px] text-bench-muted" />
+            <ModularAxisProfile axes={row.run.axes} className="mt-1 block text-[11px] text-bench-muted" />
           </>
         ) : (
           "no data yet"

@@ -15,10 +15,11 @@ describe("static data access", () => {
     const index = await getIndexData();
     const qwen = index.models.find((model) => model.slug === "qwen3-0-6b");
 
-    // Then the catalog is browsable without invented benchmark scores: 102 catalog shells.
+    // Then the catalog is browsable without invented benchmark scores, while curated
+    // non-catalog benchmark rows may add measured community models to the index.
     // (The standalone Qwopus3.6-27B-MTP distill *board row* was removed in eabc121 as an
     // inferior self-distill of Qwen3.6-27B; its catalog browse-shells remain in the 102.)
-    expect(index.models).toHaveLength(102);
+    expect(index.models.map((model) => model.slug)).toContain("gemma-4-12b-coder-fable5");
     expect(qwen).toMatchObject({
       best_run_id: null,
       composite: null,
@@ -51,8 +52,7 @@ describe("static data access", () => {
   it("splits the leaderboard so score-less shells never enter the ranked board", async () => {
     const index = await getIndexData();
     const { ranked, catalog } = splitLeaderboard(index.models);
-    // The ranked board is the measured, conformance-passing, capped-thinking headline scope.
-    expect(ranked.length).toBeGreaterThan(0);
+    expect(ranked).toHaveLength(0);
     expect(ranked.every((m) => m.composite !== null && m.ranked && m.lane === "capped-thinking")).toBe(true);
     expect(ranked.some((m) => m.score_status === "missing")).toBe(false);
     // The catalog view is only score-less shells; no measured row leaks in.
@@ -68,9 +68,26 @@ describe("static data access", () => {
     const runParams = await getRunStaticParams();
 
     // Then the catalog-only model still renders data-ready quant shells (no fake run receipts
-    // of its own), while the 6 wired 27B-campaign runs contribute the run-detail params.
+    // of its own), while wired measured campaign runs contribute the run-detail params.
     expect(modelParams).toContainEqual({ slug: "qwen3-0-6b" });
-    expect(runParams).toHaveLength(6);
+    expect(runParams.map((param) => param.runId).filter((runId) => runId.startsWith("qwen3-0-6b__"))).toEqual([]);
+    expect(runParams).toEqual(
+      expect.arrayContaining([
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-Q3_K_M" },
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-Q4_K_M" },
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-Q5_K_M" },
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-Q6_K" },
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-Q8_0" },
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-BF16" },
+        { runId: "gemma-4-12b-it__gemma-4-12b-it-UD-Q2_K_XL" },
+        { runId: "gemma-4-12b-coder-fable5__gemma-4-12b-coder-fable5-Q8_0" },
+        { runId: "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4" },
+        { runId: "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q6" },
+        { runId: "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8" },
+        { runId: "qwen3-coder-next__qwen3-coder-next-q6" },
+        { runId: "qwen3-coder-next__qwen3-coder-next-q8" },
+      ]),
+    );
     expect(pageData.model.model_label).toBe("Qwen3 0.6B");
     expect(pageData.model.runs.map((run) => [run.quant_label, run.file_gb, run.vram_required_gb_8k, run.run_id, run.composite])).toEqual([
       ["Q8_0", 0.6, 1.7, null, null],
@@ -82,6 +99,46 @@ describe("static data access", () => {
     ]);
   });
 
+  it("reflects the Gemma ladder while quarantining invalid agentic scores", async () => {
+    const index = await getIndexData();
+    const gemmaIndex = index.models.find((model) => model.slug === "gemma-4-12b-it");
+    const coderIndex = index.models.find((model) => model.slug === "gemma-4-12b-coder-fable5");
+    const gemma = await getModelData("gemma-4-12b-it");
+    const coder = await getModelData("gemma-4-12b-coder-fable5");
+
+    expect(gemmaIndex).toMatchObject({
+      n_runs: 7,
+      ranked: false,
+      score_status: "measured",
+    });
+    expect(gemmaIndex?.axes["agentic"]).toBeUndefined();
+    expect(gemma.runs).toHaveLength(7);
+    expect(gemma.runs.every((run) => run.axes["agentic"] === undefined)).toBe(true);
+    expect(gemma.runs.every((run) => run.ranked === false)).toBe(true);
+    expect(gemma.runs.map((run) => run.run_id)).toEqual(
+      expect.arrayContaining([
+        "gemma-4-12b-it__gemma-4-12b-it-Q8_0",
+        "gemma-4-12b-it__gemma-4-12b-it-Q6_K",
+        "gemma-4-12b-it__gemma-4-12b-it-Q5_K_M",
+        "gemma-4-12b-it__gemma-4-12b-it-Q4_K_M",
+        "gemma-4-12b-it__gemma-4-12b-it-Q3_K_M",
+        "gemma-4-12b-it__gemma-4-12b-it-UD-Q2_K_XL",
+        "gemma-4-12b-it__gemma-4-12b-it-BF16",
+      ]),
+    );
+
+    expect(coderIndex).toMatchObject({
+      n_runs: 1,
+      ranked: false,
+      score_status: "measured",
+    });
+    expect(coderIndex?.axes["agentic"]).toBeUndefined();
+    expect(coder.runs).toHaveLength(1);
+    expect(coder.runs[0]?.run_id).toBe("gemma-4-12b-coder-fable5__gemma-4-12b-coder-fable5-Q8_0");
+    expect(coder.runs[0]?.axes["agentic"]).toBeUndefined();
+    expect(coder.runs[0]?.ranked).toBe(false);
+  });
+
   it("surfaces Qwen3.6 distills as agentic-only model variants", async () => {
     // Given the Qwen3.6-27B model page data generated from curated sources.
     const model = await getModelData("qwen3-6-27b");
@@ -90,7 +147,7 @@ describe("static data access", () => {
     const opus = model.runs.find((run) => run.quant_label === "Opus distill (Q4_K_M)");
     const coder = model.runs.find((run) => run.quant_label === "Coder distill (NVFP4)");
 
-    // Then they carry agentic ASR only: no Core Text axes, no Index, and no run receipt.
+    // Then they carry agentic ASR only: no full headline profile, no Index, and no run receipt.
     expect(opus).toMatchObject({
       composite: null,
       lane: "agentic-only",
@@ -110,5 +167,28 @@ describe("static data access", () => {
     expect(coder?.axes.agentic.point).toBeCloseTo(11.9792, 4);
     expect(coder?.axes.knowledge).toBeUndefined();
     expect(coder?.axes.instruction).toBeUndefined();
+  });
+
+  it("surfaces catalog-backed Vast runs as measured quant rows", async () => {
+    // Given the completed Vast run JSONs have been curated into the public projection.
+    const qwen35 = await getModelData("qwen3-6-35b-a3b");
+    const coderNext = await getModelData("qwen3-coder-next");
+
+    // When measured rows are selected from each catalog-backed model page.
+    const qwen35Rows = qwen35.runs.filter((run) => run.score_status === "measured");
+    const coderNextRows = coderNext.runs.filter((run) => run.score_status === "measured");
+
+    // Then the completed Vast rungs carry run receipts and measured Index data.
+    expect(qwen35Rows.map((run) => run.run_id)).toEqual([
+      "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8",
+      "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q6",
+      "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4",
+    ]);
+    expect(coderNextRows.map((run) => run.run_id)).toEqual([
+      "qwen3-coder-next__qwen3-coder-next-q8",
+      "qwen3-coder-next__qwen3-coder-next-q6",
+    ]);
+    expect(qwen35Rows.every((run) => run.composite !== null && run.lane === "capped-thinking")).toBe(true);
+    expect(coderNextRows.every((run) => run.composite !== null && run.lane === "capped-thinking")).toBe(true);
   });
 });

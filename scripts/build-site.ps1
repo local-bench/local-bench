@@ -43,6 +43,9 @@ Push-Location $repoRoot
 try {
   & $venvPython (Join-Path $webDir "build_data.py")
   if ($LASTEXITCODE -ne 0) { throw "build_data.py failed" }
+
+  & $venvPython (Join-Path $webDir "check_data_freshness.py")
+  if ($LASTEXITCODE -ne 0) { throw "site data freshness check failed" }
 }
 finally {
   Pop-Location

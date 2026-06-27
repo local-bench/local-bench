@@ -110,6 +110,18 @@ describe("rig-match finder logic", () => {
     expect(matches.map((match) => match.quantLabel)).toEqual(["Q3_K_M"]);
   });
 
+  it("keeps partial diagnostic rows out of ranked recommendations", () => {
+    const matches = rankRigMatches({
+      anchors: ANCHORS,
+      candidates: [candidate("partial", "Partial", "Q4_K_M", 8, 90, 89, 91, 12, "community", "answer-only", false)],
+      lane: "answer-only",
+      quant: "any",
+      vramGb: 24,
+    });
+
+    expect(matches[0]?.verdict).toBe("not-enough-data");
+  });
+
   it("computes frontier gap against the top anchor score", () => {
     // Given a local run and two anchor ceiling references.
     const candidateScore = { point: 72, lo: 70, hi: 74 };
@@ -133,6 +145,7 @@ function candidate(
   tokS: number | null,
   kind: "community" | "anchor" = "community",
   lane: string | null = "answer-only",
+  ranked = true,
 ): RigMatchCandidate {
   return {
     axes: {
@@ -149,6 +162,7 @@ function candidate(
     nItems: 252,
     nRuns: 1,
     quantLabel,
+    ranked,
     runId,
     score: { point, lo, hi },
     scoreStatus: "measured",

@@ -1,0 +1,168 @@
+{
+  "axes": {
+    "instruction": {
+      "conditional_accuracy": 0.7107142857142857,
+      "hi": 72.78911564625851,
+      "hi_raw": 0.7278911564625851,
+      "lo": 62.244897959183675,
+      "lo_raw": 0.6224489795918368,
+      "n": 294,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 67.68707482993197,
+      "point_raw": 0.6768707482993197,
+      "raw_accuracy": 0.6768707482993197,
+      "termination_rate": 0.9523809523809523
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8442211055276381,
+      "hi": 85.96794454888055,
+      "hi_raw": 0.8596794454888055,
+      "lo": 77.82935238723128,
+      "lo_raw": 0.7782935238723128,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 1,
+      "point": 82.03896902256712,
+      "point_raw": 0.8203896902256712,
+      "raw_accuracy": 0.84,
+      "termination_rate": 0.995
+    }
+  },
+  "composite": {
+    "hi": 79.37853009756954,
+    "hi_raw": 0.7937853009756953,
+    "lo": 70.03712517320747,
+    "lo_raw": 0.7003712517320747,
+    "point": 74.86302192624954,
+    "point_raw": 0.7486302192624954
+  },
+  "conformance": {
+    "n_scored": 694,
+    "per_bench": {
+      "ifbench": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 294,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=5% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.047619047619047616
+      },
+      "mmlu_pro": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=0% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.005
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "math not measured in this run; axis omitted",
+    "agentic not measured in this run; axis omitted",
+    "tool_calling not measured in this run; axis omitted",
+    "coding not measured in this run; axis omitted"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 8192
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "Qwen3.6",
+      "file_name": null,
+      "file_sha256": "UNHASHED",
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "qwen3.6-27b-q4"
+    },
+    "quant": "Q4_K_M",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "instruction": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Qwen3.6-27B",
+  "ranked": false,
+  "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q4_K_M",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "59c8f3cd3e8d8dc4b5c778e701d22911fc18fdde4bf5d919ecd8beb5f9142a0f",
+    "registry_digest": "d40e0ccec4d2d144dae386c3a7cc1fef7c638865accbcda4ded93d592528efed",
+    "registry_drift": true,
+    "version": "scorecard-v1.2"
+  },
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 3987.0,
+  "tokens_to_answer_p95": 9046.7,
+  "totals": {
+    "completion_tokens": 3382598,
+    "completion_tokens_per_second": 140.47283591642662,
+    "n_errors": 0,
+    "n_items": 694,
+    "prompt_tokens": 3202099,
+    "total_tokens": 6584697,
+    "wall_time_seconds": 24080.086216900003
+  },
+  "worst_axis": {
+    "bench": "instruction",
+    "point": 67.68707482993197,
+    "point_raw": 0.6768707482993197
+  }
+}

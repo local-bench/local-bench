@@ -93,6 +93,35 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
         assert isinstance(agentic_run["subset_hash"], str)
         assert agentic_run["subset_hash"]
         assert agentic_run["stage"] == "injected"
+        agentic_runs = agentic_run["runs"]
+        assert isinstance(agentic_runs, list)
+        assert len(agentic_runs) == 2
+        for index, run_summary in enumerate(agentic_runs, start=1):
+            assert isinstance(run_summary, dict)
+            assert run_summary["run_index"] == index
+            assert run_summary["agentic_success_rate"] == pytest.approx(1.0)
+            assert run_summary["tasks_total"] == 2
+            assert run_summary["tasks_succeeded"] == 2
+            outcome_counts = run_summary["outcome_counts"]
+            assert isinstance(outcome_counts, dict)
+            assert outcome_counts["success"] == 2
+            results_path = run_summary["results_path"]
+            assert isinstance(results_path, str)
+            sidecar_path = Path(results_path)
+            assert sidecar_path.exists()
+            sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
+            assert sidecar["schema"] == "appworld-c-funnel-run/v1"
+            assert sidecar["stage"] == "scored"
+            assert sidecar["run_index"] == index
+            assert sidecar["loop_config"]["max_output_tokens_per_turn"] == 3072
+            assert sidecar["report"]["tasks_total"] == 2
+            assert sidecar["report"]["outcome_counts"]["success"] == 2
+        diagnostics = agentic_run["diagnostics"]
+        assert isinstance(diagnostics, dict)
+        assert diagnostics["tasks_total"] == 2
+        assert diagnostics["tasks_succeeded"] == 2
+        assert diagnostics["agentic_success_rate"] == pytest.approx(1.0)
+        assert diagnostics["outcome_counts"]["success"] == 2
         ki_only = {
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
@@ -159,6 +188,7 @@ def test_inline_agentic_campaign_uses_frozen_scored_output_token_cap(
 
     def _capture_config(**kwargs: object) -> object:
         captured["config"] = kwargs["config"]
+        captured["results_dir"] = kwargs["results_dir"]
         raise _Captured()
 
     monkeypatch.setattr(funnel_mod, "run_with_reruns", _capture_config)
@@ -185,6 +215,7 @@ def test_inline_agentic_campaign_uses_frozen_scored_output_token_cap(
     config = captured["config"]
     assert config.max_output_tokens_per_turn == 3072
     assert orch._AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN == 3072
+    assert captured["results_dir"] == tmp_path / "agentic" / "cap-probe"
 
 
 def _v1_agentic_weight_handler(request: httpx.Request) -> httpx.Response:

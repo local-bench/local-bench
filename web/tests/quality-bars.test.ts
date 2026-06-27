@@ -43,6 +43,15 @@ describe("quality bar chart rows", () => {
       [71, 73],
     ]);
   });
+
+  it("excludes unranked partial profiles from local quality bars", () => {
+    const rows = getRankedQualityRows({
+      anchorRuns: [],
+      runs: [candidate("partial", "Partial", "partial", "Q4_K_M", 90, 8, 12, "community", false)],
+    });
+
+    expect(rows.locals).toEqual([]);
+  });
 });
 
 function axes(knowledge: number, instruction: number) {
@@ -61,6 +70,7 @@ function candidate(
   vramFootprintGb: number | null,
   tokS: number | null,
   kind: "community" | "anchor" = "community",
+  ranked = true,
 ): RigMatchCandidate {
   return {
     axes: axes(point - 1, point + 1),
@@ -74,6 +84,7 @@ function candidate(
     nItems: 252,
     nRuns: 1,
     quantLabel,
+    ranked,
     runId,
     score: { point, lo: point - 2, hi: point + 2 },
     scoreStatus: "measured",

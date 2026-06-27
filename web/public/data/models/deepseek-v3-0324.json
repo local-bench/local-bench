@@ -25,6 +25,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q8_0",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -59,6 +60,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q6_K",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -93,6 +95,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q5_K_M",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -127,6 +130,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q4_K_M",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -161,6 +165,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q3_K_M",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -195,6 +200,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q2_K",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,

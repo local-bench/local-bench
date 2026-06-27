@@ -47,7 +47,7 @@ export function getRankedQualityRows({
   }));
   const localsByModel = new Map<string, RigMatchCandidate>();
   for (const run of runs) {
-    if (run.kind !== "community" || run.score === null) {
+    if (run.kind !== "community" || run.score === null || !run.ranked) {
       continue;
     }
     const current = localsByModel.get(run.modelSlug);

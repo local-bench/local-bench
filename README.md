@@ -1,17 +1,15 @@
 # local-bench
 
-Community quality leaderboard for local AI setups. The headline score is the **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`): a reproducible Core Text tier with the Knowledge / Instruction profile shown beside the composite. Math, Coding-exec, and Agentic are candidate axes; a full Overall intelligence claim is earned only after those axes are validated and promoted.
+Community quality leaderboard for local AI setups. The headline score is the **Local Intelligence Index v2.1**: a modular, repeatable benchmark suite weighted as 50% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, and 10% Coding.
 
-Run a frozen benchmark suite against your own rig (model × quant × runtime × settings) with
-one command; results are server-scored and placed alongside frontier models measured on the
-identical suite. Launch wedge: the quant-degradation dataset nobody publishes.
+The standard run stays practical for local hardware: MMLU-Pro, IFBench, TC-JSON v1, and the lightweight LiveCodeBench output-prediction coding proxy run through the normal HTTP path; AppWorld-C is the agentic lane. Heavier modules such as BigCodeBench-Hard, long-context, and math remain opt-in or diagnostic until their lanes are hardened.
 
 ## Layout
 
-- `cli/` — Python benchmark runner + submission client (`localbench`)
-- `suite/` — versioned suite definitions: item sets, prompts, scorers, generated-math templates
-- `web/` — leaderboard site (Next.js, P1)
-- `docs/` — manifest schema, licensing audit, threat model, methodology
+- `cli/` - Python benchmark runner, scoring registry, board builder, and submission client
+- `suite/` - versioned suite definitions, item sets, prompts, and scorers
+- `web/` - leaderboard site and static data projection
+- `docs/` - reproduction notes, methodology history, licensing, and threat model
 
 ## Quickstart
 
@@ -26,9 +24,8 @@ localbench run \
   --out runs/my-run.json
 ```
 
-`fetch-suite` verifies the bundled Core Text v1 suite and caches it locally; no git clone or
-`--source` path is required for a normal installed CLI.
+`fetch-suite` currently verifies the installable minimal public bundle. The full repo `suite/v1` contains the broader modular suite, including the coding proxy and opt-in expansion benches.
 
 ## Status
 
-P0 validation spike (2026-06). Working name "local-bench" — naming TBD before launch.
+Pre-launch methodology work (2026-06). Active scoring source of truth: `cli/src/localbench/scoring/axes.py` plus `cli/src/localbench/scoring/benchmark_registry.py`.

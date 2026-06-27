@@ -1,4 +1,4 @@
-import { formatCoreTextAxisProfile } from "@/components/local-intelligence-index";
+import { formatModularAxisProfile } from "@/components/local-intelligence-index";
 import { VRAM_TIERS } from "@/lib/rig-match";
 import { formatGb, formatScore } from "@/lib/format";
 import type { AnchorReference } from "@/lib/data";
@@ -101,7 +101,7 @@ export function QualityVramScatter({
               <line x1={PLOT.left} x2={WIDTH - PLOT.right} y1={lineY} y2={lineY} className="stroke-bench-anchor" strokeDasharray="7 6" strokeWidth="1.5" />
               <text x={WIDTH - PLOT.right + 12} y={labelY} className="fill-bench-anchor-soft" fontSize="12">
                 <tspan x={WIDTH - PLOT.right + 12}>{anchor.model_label} {formatScore(anchor.composite.point)}</tspan>
-                <tspan x={WIDTH - PLOT.right + 12} dy="13">{formatCoreTextAxisProfile(anchor.axes)}</tspan>
+                <tspan x={WIDTH - PLOT.right + 12} dy="13">{formatModularAxisProfile(anchor.axes)}</tspan>
               </text>
             </g>
           ))}
@@ -111,7 +111,7 @@ export function QualityVramScatter({
             const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id;
             return (
               <g key={point.run.run_id}>
-                <title>{`${label}: ${formatScore(point.run.composite.point)} (${formatCoreTextAxisProfile(point.run.axes)}) at ${formatGb(point.run.vram_footprint_gb)}`}</title>
+                <title>{`${label}: ${formatScore(point.run.composite.point)} (${formatModularAxisProfile(point.run.axes)}) at ${formatGb(point.run.vram_footprint_gb)}`}</title>
                 <circle cx={cx} cy={cy} r="6" className={point.run.demo ? "fill-bench-warn stroke-bench-bg" : "fill-bench-accent stroke-bench-bg"} strokeWidth="2" />
                 {showPointLabels ? (
                   <text x={cx + 10} y={cy - 10} className="fill-bench-text" fontSize="12">

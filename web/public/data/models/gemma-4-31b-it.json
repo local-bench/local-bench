@@ -25,6 +25,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q8_0",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -59,6 +60,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q6_K",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -93,6 +95,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q5_K_M",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -112,29 +115,12 @@
     },
     {
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.11458333333333333,
-          "hi": 18.75,
-          "hi_raw": 0.1875,
-          "leaked_reasoning_rate": null,
-          "lo": 5.208333333333334,
-          "lo_raw": 0.052083333333333336,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 11.458333333333332,
-          "point_raw": 0.11458333333333333,
-          "raw_accuracy": 0.11458333333333333,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.7671232876712328,
           "hi": 80.95238095238095,
           "hi_raw": 0.8095238095238095,
-          "lo": 71.08843537414967,
-          "lo_raw": 0.7108843537414966,
+          "lo": 71.42857142857143,
+          "lo_raw": 0.7142857142857143,
           "n": 294,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -160,12 +146,12 @@
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 44.4145167111626,
-        "hi_raw": 0.444145167111626,
-        "lo": 34.15143764724865,
-        "lo_raw": 0.3415143764724865,
-        "point": 38.9440992290112,
-        "point_raw": 0.38944099229011203
+        "hi": 85.56497106829868,
+        "hi_raw": 0.8556497106829868,
+        "lo": 77.29505244361405,
+        "lo_raw": 0.7729505244361405,
+        "point": 81.50017203321195,
+        "point_raw": 0.8150017203321196
       },
       "est_cost_usd": null,
       "file_gb": 18.8,
@@ -185,6 +171,7 @@
       "n_errors": 0,
       "n_items": 694,
       "quant_label": "Q4_K_M",
+      "ranked": false,
       "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
       "runtime": {
         "ctx_len_configured": null,
@@ -219,6 +206,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q3_K_M",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
@@ -253,6 +241,7 @@
       "n_errors": 0,
       "n_items": 0,
       "quant_label": "Q2_K",
+      "ranked": false,
       "run_id": null,
       "runtime": {
         "ctx_len_configured": null,

@@ -21,6 +21,12 @@ out/
 
 # Run outputs & local data (raw transcripts can be large)
 runs/
+!cli/runs/
+cli/runs/*
+!cli/runs/vast/
+!cli/runs/vast/*.json
+!web/public/data/runs/
+!web/public/data/runs/*.json
 *.run.json
 data/cache/
 suite/v0/private/

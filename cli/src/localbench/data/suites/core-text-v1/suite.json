@@ -72,7 +72,7 @@
       "template_text": "You are evaluating tool-calling conformance over plaintext JSON. You are given a JSON tool catalog and a user request. Decide which catalog tool calls are required.\n\nTool catalog:\n{tool_catalog}\n\nUser request:\n{user_request}\n\nReturn exactly one JSON object and nothing else. Do not use markdown fences. Do not include prose. Use only tools from the catalog. Every call's arguments must match that tool's JSON Schema. The output schema is exactly:\n{\"schema_version\":\"localbench.tc.v1\",\"calls\":[{\"name\":\"tool.name\",\"arguments\":{}}]}\nReturn {\"schema_version\":\"localbench.tc.v1\",\"calls\":[]} if no tool is needed or no catalog tool can satisfy the request.\n"
     }
   },
-  "description": "Core Text v1 public suite for the 4-axis Local Intelligence Index: MMLU-Pro 400, IFBench 294, TC-JSON v1 330, plus AppWorld-C agentic membership when localbench is installed with the appworld extra.",
+  "description": "Minimal public bundle for local-bench: MMLU-Pro 400, IFBench 294, TC-JSON v1 330, plus AppWorld-C agentic membership when localbench is installed with the appworld extra. The full repo suite/v1 carries the broader v2.1 modular benchmark set.",
   "headline_only": true,
   "id": "core-text-v1",
   "license_manifest": {

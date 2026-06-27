@@ -39,7 +39,16 @@ export function HomeLeaderboard({
   return (
     <div data-testid="full-leaderboard" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
       <BoardScopeHeader />
-      <div className="overflow-x-auto">
+      {sortedModels.length === 0 ? (
+        <div className="px-4 py-8 text-sm leading-6 text-bench-muted">
+          <div className="font-semibold text-bench-text">No ranked rows yet</div>
+          <div className="mt-1 max-w-3xl">
+            Measured partial profiles are diagnostic and stay on their model pages. A row appears here only after
+            Agentic, Knowledge, Instruction, Tool calling, and Coding are all measured in the standard capped-thinking lane.
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
         <table className="min-w-[1380px] border-collapse text-sm">
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
@@ -57,7 +66,7 @@ export function HomeLeaderboard({
             <th className="border-l border-bench-line px-3 py-3 font-semibold">
               <span className="flex flex-col gap-0.5 leading-tight">
                 <span>Conformance</span>
-                <span className="font-mono text-[10px] normal-case text-bench-muted">JSON tool-call gate · not ranked</span>
+                <span className="font-mono text-[10px] normal-case text-bench-muted">Tool calling format gate · not ranked</span>
               </span>
             </th>
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
@@ -119,6 +128,7 @@ export function HomeLeaderboard({
         </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

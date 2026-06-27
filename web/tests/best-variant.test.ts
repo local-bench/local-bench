@@ -14,6 +14,7 @@ function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidat
     nItems: 100,
     nRuns: 1,
     quantLabel: "Q4_K_M",
+    ranked: true,
     runId: "r",
     score: { point: 50, lo: 45, hi: 55 },
     scoreStatus: "measured",
@@ -37,11 +38,12 @@ describe("selectBestVariantPoints", () => {
     expect(points[0]?.runId).toBe("a-q4");
   });
 
-  it("excludes demo, anchor, unmeasured, and unranked (quick-tier) candidates", () => {
+  it("excludes demo, anchor, unmeasured, unranked, and quick-tier candidates", () => {
     const points = selectBestVariantPoints([
       candidate({ modelSlug: "demo", demo: true }),
       candidate({ modelSlug: "anchor", kind: "anchor" }),
       candidate({ modelSlug: "missing", scoreStatus: "missing", score: null }),
+      candidate({ modelSlug: "partial", ranked: false }),
       candidate({ modelSlug: "quick", tier: "quick" }),
       candidate({ modelSlug: "ok", runId: "ok-r" }),
     ]);

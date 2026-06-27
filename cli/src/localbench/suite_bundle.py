@@ -1,5 +1,3 @@
-"""Assemble the distributable Core Text v1 public suite."""
-
 from __future__ import annotations
 
 import hashlib
@@ -13,7 +11,7 @@ from localbench._types import JsonObject
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.suite_resolver import DEFAULT_SUITE_ID, suite_hash
 
-PUBLIC_BENCHES: Final[tuple[str, ...]] = ("mmlu_pro", "ifbench")
+PUBLIC_BENCHES: Final[tuple[str, ...]] = ("mmlu_pro", "ifbench", "tc_json_v1")
 
 @dataclass(frozen=True, slots=True)
 class BundleResult:
@@ -23,7 +21,6 @@ class BundleResult:
 
 
 def assemble_core_text_v1_bundle(source_suite: Path, out_dir: Path) -> BundleResult:
-    """Build the headline-only public suite bundle from suite/v1."""
     stage = out_dir / "_stage"
     if stage.exists():
         shutil.rmtree(stage)
@@ -65,18 +62,24 @@ def _public_suite(source_suite: Path, source_manifest: JsonObject) -> JsonObject
         "id": DEFAULT_SUITE_ID,
         "version": DEFAULT_SUITE_ID,
         "base_suite_version": source_manifest.get("version"),
-        "headline_only": True,
-        "description": "Core Text v1 public suite: MMLU-Pro 400 + IFBench 294.",
+        "headline_only": False,
+        "description": "Minimal public bundle: MMLU-Pro 400, IFBench 294, and TC-JSON v1 330. The full repo suite/v1 carries the broader v2.1 modular benchmark set.",
         "benches": public_benches,
         "axes": {
             "knowledge": {"benches": ["mmlu_pro"]},
             "instruction_following": {"benches": ["ifbench"]},
+            "tool_calling": {"benches": ["tc_json_v1"]},
+            "agentic": {"benches": ["appworld_c"]},
         },
         "license_manifest": {
             "accepted_terms_required": True,
             "files": {
                 "mmlu_pro.jsonl": {"license": "MIT", "source": "TIGER-Lab/MMLU-Pro"},
                 "ifbench.jsonl": {"license": "ODC-BY-1.0", "source": "allenai/IFBench_test"},
+                "tc_json_v1.jsonl": {
+                    "license": "Apache-2.0",
+                    "source": "BFCL single-turn backbone plus localbench-authored JSON tool-call conformance items",
+                },
             },
             "notices": ["NOTICE", "ATTRIBUTION.md", "LICENSES/"],
         },
@@ -120,6 +123,8 @@ def _public_lock_entry(file_name: str, entry: JsonObject) -> JsonObject:
             "Dataset terms per v1 distribution plan: ODC-BY-1.0, Ai2 Responsible "
             "Use Guidelines, and third-party generated-output caveat."
         )
+    if file_name == "tc_json_v1.jsonl":
+        copied["license"] = "Apache-2.0"
     return copied
 
 
@@ -138,6 +143,7 @@ def _write_release_texts(stage: Path, lock: JsonObject) -> None:
         encoding="utf-8",
     )
     (licenses / "IFEval-Apache-2.0").write_text(_apache_license_text(), encoding="utf-8")
+    (licenses / "BFCL-Apache-2.0").write_text(_apache_license_text(), encoding="utf-8")
     (stage / "NOTICE").write_text(_notice_text(), encoding="utf-8")
     (stage / "ATTRIBUTION.md").write_text(_attribution_text(), encoding="utf-8")
     (stage / "SOURCE_REVISIONS.md").write_text(_source_revisions(lock), encoding="utf-8")
@@ -155,11 +161,13 @@ def _write_sha256sums(bundle_dir: Path) -> None:
 
 
 def _notice_text() -> str:
-    return """local-bench Core Text v1 public suite
+    return """local-bench minimal public suite
 
-This bundle redistributes only the v1 headline item sets:
+This bundle redistributes the minimal public item sets:
 - MMLU-Pro by TIGER-Lab, dataset license MIT.
 - IFBench_test by AllenAI/Ai2, dataset license ODC-BY-1.0.
+- TC-JSON v1, a local-bench-authored JSON tool-calling bench with a
+  BFCL-derived single-turn backbone, distributed under Apache-2.0.
 
 The local-bench scorer also includes IFEval-derived verifier code under
 Apache-2.0; that code license is included for scorer provenance.
@@ -186,6 +194,12 @@ Source revision: `2e8a48de45ff3bf41242f927254ca81b59ca3ae2`.
 Dataset license: ODC-BY-1.0.
 Verifier-code provenance: AllenAI IFBench code is Apache-2.0; local-bench also
 reuses IFEval-style Apache-2.0 verifier patterns for scorer compatibility.
+
+## TC-JSON v1
+
+Source dataset: BFCL single-turn backbone plus localbench-authored JSON tool-call conformance items.
+Source revision: local suite/v1 tc_json_v1.
+License: Apache-2.0.
 """
 
 
@@ -207,8 +221,8 @@ def _changes_text() -> str:
     return """# Changes
 
 - This is a sampled/subsetted public bundle derived from local-bench suite/v1.
-- It contains only the headline Core Text v1 benches: MMLU-Pro and IFBench.
-- AMO, OlymMATH, SuperGPQA, BFCL, LiveCodeBench, RULER, and BigCodeBench are
+- It contains the minimal public benches: MMLU-Pro, IFBench, and TC-JSON v1.
+- AMO, OlymMATH, SuperGPQA, BFCL multi-turn, LiveCodeBench, RULER, and BigCodeBench are
   excluded from this public v1 bundle.
 - Scoring is local-bench's own chance-corrected, scorecard-bound composite.
 """

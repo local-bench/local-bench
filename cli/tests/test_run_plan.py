@@ -19,7 +19,6 @@ _OPT_IN_BENCHES = {
     "olymmath_hard",
     "bfcl",
     "bfcl_multi_turn",
-    "lcb",
     "ruler_32k",
     "bigcodebench_hard",
 }
@@ -38,7 +37,7 @@ def test_resolve_run_benches_when_all_uses_scored_default() -> None:
     benches = resolve_run_benches("all", suite)
 
     # Then the scored default endpoint axes include Tool-calling and the Agentic inline attempt.
-    assert benches == ["mmlu_pro", "ifbench", "tc_json_v1", "appworld_c"]
+    assert benches == ["mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"]
     assert tuple(benches) == SCORED_DEFAULT_BENCHES
     assert not _OPT_IN_BENCHES.intersection(benches)
 
@@ -93,11 +92,12 @@ def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashin
         )
 
         # Then appworld_c is attempted outside the HTTP/render path and degrades honestly.
-        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1"]
+        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"]
         assert [item["bench"] for item in record["items"]] == [
             "mmlu_pro",
             "ifbench",
             "tc_json_v1",
+            "lcb",
         ]
         axes = record["axis_status"]["axes"]
         assert axes["knowledge"] == {
@@ -115,35 +115,36 @@ def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashin
             "status": "measured",
             "reason": "ok",
         }
+        assert axes["coding"] == {
+            "axis": "coding",
+            "status": "measured",
+            "reason": "ok",
+        }
         assert axes["agentic"]["axis"] == "agentic"
         assert axes["agentic"]["status"] == "not_measured"
         assert axes["agentic"]["reason"] == "sandbox_unavailable"
         assert "appworld sandbox unavailable:" in axes["agentic"]["detail"]
-        for axis in ("math", "coding", "long_context"):
+        for axis in ("math", "long_context"):
             assert axes[axis] == {
                 "axis": axis,
                 "status": "not_measured",
                 "reason": "not_run",
             }
         assert record["benches"]["tc_json_v1"]["chance_corrected"] == pytest.approx(1.0)
-        ki_only = {
+        measured_without_agentic = {
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
+            "tc_json_v1": record["benches"]["tc_json_v1"],
+            "lcb": record["benches"]["lcb"],
         }
-        assert record["composite"] == pytest.approx(composite(ki_only))
+        assert record["composite"] == pytest.approx(composite(measured_without_agentic))
         assert record["composite"] == pytest.approx(1.0)
         assert record["headline_complete"] is False
 
     asyncio.run(scenario())
 
 
-def test_run_localbench_zero_scoring_tool_calling_does_not_move_composite(tmp_path: Path) -> None:
-    # Load-bearing leak guard for the "candidate weight 0 -> excluded from the Index"
-    # invariant. Here Tool-calling RUNS but scores 0 (wrong tool name) while Knowledge +
-    # Instruction pass. The composite must still equal the K+I-only composite (== 1.0):
-    # if tool_calling ever carried a positive weight, a 0-scoring tool axis would pull the
-    # composite below 1.0 and fail these assertions. (The sibling test above only proves
-    # invariance when the tool axis also scores 1.0, which a leak could not move.)
+def test_run_localbench_zero_scoring_tool_calling_moves_composite(tmp_path: Path) -> None:
     async def scenario() -> None:
         output_path = tmp_path / "tool-fail-run.json"
         record = await run_localbench(
@@ -167,14 +168,14 @@ def test_run_localbench_zero_scoring_tool_calling_does_not_move_composite(tmp_pa
         }
         assert record["benches"]["tc_json_v1"]["chance_corrected"] == pytest.approx(0.0, abs=1e-9)
 
-        # Knowledge + Instruction still pass, so the composite is UNCHANGED by the failing
-        # tool axis -> proves weight-0 candidate exclusion.
-        ki_only = {
+        measured_without_agentic = {
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
+            "tc_json_v1": record["benches"]["tc_json_v1"],
+            "lcb": record["benches"]["lcb"],
         }
-        assert record["composite"] == pytest.approx(composite(ki_only))
-        assert record["composite"] == pytest.approx(1.0)
+        assert record["composite"] == pytest.approx(composite(measured_without_agentic))
+        assert record["composite"] == pytest.approx(0.8)
 
     asyncio.run(scenario())
 
@@ -204,6 +205,8 @@ def _v1_scored_default_handler(request: httpx.Request) -> httpx.Response:
             1,
             1,
         )
+    if "findPeaks" in prompt:
+        return _completion("[]", 1, 1)
     return httpx.Response(500, text="unexpected prompt")
 
 
@@ -234,6 +237,8 @@ def _v1_tool_failing_handler(request: httpx.Request) -> httpx.Response:
             1,
             1,
         )
+    if "findPeaks" in prompt:
+        return _completion("[]", 1, 1)
     return httpx.Response(500, text="unexpected prompt")
 
 

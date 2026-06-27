@@ -1,7 +1,7 @@
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { DetailGrid, DetailItem } from "@/components/detail-grid";
 import {
-  CoreTextAxisProfile,
+  ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -57,6 +57,8 @@ export default async function RunPage({ params }: PageProps) {
   const run = await getRunData(runId);
   const noAnswerCount = Object.values(run.axes).reduce((sum, axis) => sum + axis.n_no_answer, 0);
   const hasQualityNote = run.totals.n_errors > 0 || noAnswerCount > 0;
+  const dataWarnings = run.data_warnings ?? [];
+  const scoreTitle = run.ranked ? LOCAL_INTELLIGENCE_INDEX_NAME : "Diagnostic score profile";
 
   return (
     <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -69,21 +71,21 @@ export default async function RunPage({ params }: PageProps) {
       />
       <header className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <p className="font-mono text-xs uppercase text-bench-accent">
-          {run.suite_version} · {run.index_version}
+          {run.suite_version} | {run.index_version}
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-bench-text">{run.model_label}</h1>
         <p className="mt-1 break-all font-mono text-sm text-bench-muted">{run.run_id}</p>
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div>
-            <div className="text-sm font-semibold text-bench-text">{LOCAL_INTELLIGENCE_INDEX_NAME}</div>
+            <div className="text-sm font-semibold text-bench-text">{scoreTitle}</div>
             <div className="font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
             <div className="font-mono text-6xl font-semibold text-bench-text">{formatScore(run.composite.point)}</div>
             <div className="mt-1 font-mono text-lg text-bench-muted">{formatCi(run.composite)} 95% CI</div>
           </div>
           <div className="pb-2 text-sm text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
-            <CoreTextAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
-            <div className="mt-1">Equal-weighted chance-corrected Knowledge and Instruction axes.</div>
+            <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
+            <div className="mt-1">Weighted headline profile: Agentic 50%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 10%.</div>
           </div>
           <div className="pb-2 text-sm text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">Total run time</div>
@@ -95,6 +97,22 @@ export default async function RunPage({ params }: PageProps) {
             Data quality note: this run has {run.totals.n_errors} error(s) and {noAnswerCount} no-answer item(s).
           </div>
         ) : null}
+        {!run.ranked ? (
+          <div className="mt-5 rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
+            Unranked diagnostic: this receipt is missing one or more headline axes for the current five-axis index.
+            It is useful for comparing measured axes, but it does not receive a ranked Local Intelligence Index position.
+          </div>
+        ) : null}
+        {dataWarnings.length > 0 ? (
+          <div className="mt-5 rounded-md border border-bench-line bg-white/[0.025] p-3 text-sm leading-6 text-bench-muted">
+            <div className="font-semibold text-bench-text">Data warnings</div>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {dataWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </header>
       <RunAxisBreakdown run={run} />
       <IfbenchDecomposition axis={run.axes.instruction} />
@@ -103,6 +121,19 @@ export default async function RunPage({ params }: PageProps) {
         <h2 className="text-lg font-semibold text-bench-text">Provenance</h2>
         <p className="mt-2 font-mono text-sm text-bench-muted">suite_version: {run.suite_version}</p>
         <p className="mt-1 font-mono text-sm text-bench-muted">index_version: {run.index_version}</p>
+        {run.scorecard === undefined ? null : (
+          <div className="mt-3 rounded-md border border-bench-line bg-white/[0.025] p-3 text-sm leading-6 text-bench-muted">
+            <div className="font-mono text-xs uppercase text-bench-muted">source scorecard</div>
+            <p className="mt-1 font-mono text-bench-text">version: {run.scorecard.version ?? "n/a"}</p>
+            <p className="mt-1 break-all font-mono text-xs">id: {run.scorecard.id ?? "n/a"}</p>
+            {run.scorecard.drift || run.scorecard.registry_drift ? (
+              <p className="mt-2 text-bench-warn-soft">
+                Provenance drift: this receipt preserves its original scorecard metadata; the site projection is
+                rendered under {run.index_version}.
+              </p>
+            ) : null}
+          </div>
+        )}
         <div className="mt-4 grid gap-2">
           {Object.entries(run.item_set_hashes).map(([name, hash]) => (
             <div key={name} className="grid gap-1 rounded-md border border-bench-line bg-white/[0.025] p-3 md:grid-cols-[220px_1fr]">
@@ -175,5 +206,5 @@ function formatSampling(run: RunDetail): string {
   const byBench = presentAxes(sampling.by_bench).map(
     ([axis, bench]) => `${axis}: max ${fallbackText(bench.max_tokens)}`,
   );
-  return [...base, ...byBench].join(" · ");
+  return [...base, ...byBench].join(" | ");
 }

@@ -133,7 +133,7 @@
       "role": "headline",
       "web_display": true,
       "web_key": "instruction",
-      "weight": 0.25
+      "weight": 0.15
     },
     {
       "benches": [
@@ -172,7 +172,7 @@
       "role": "headline",
       "web_display": true,
       "web_key": "agentic",
-      "weight": 0.6
+      "weight": 0.5
     },
     {
       "benches": [
@@ -181,10 +181,10 @@
       "display": "Tool-calling",
       "key": "tool_calling",
       "legacy_benches": [],
-      "role": "candidate",
+      "role": "headline",
       "web_display": true,
       "web_key": "tool_calling",
-      "weight": 0.0
+      "weight": 0.1
     },
     {
       "benches": [
@@ -193,15 +193,15 @@
       "display": "Coding",
       "key": "coding",
       "legacy_benches": [],
-      "role": "experimental",
-      "web_display": false,
+      "role": "headline",
+      "web_display": true,
       "web_key": "coding",
-      "weight": 0.0
+      "weight": 0.1
     }
   ],
-  "registry_digest": "2d36c8dd7dd2c8e48f0ffeff7429d6baed7966edef79fc9adb8eae231d7f579b",
-  "scorecard_id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",
-  "scorecard_version": "scorecard-v2.0",
+  "registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+  "scorecard_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+  "scorecard_version": "scorecard-v2.1",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",

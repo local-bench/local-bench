@@ -18,10 +18,15 @@ export default async function LeaderboardPage() {
   const hasMeasuredRankedData = index.models.some(
     (model) => model.score_status === "measured" && model.ranked && !model.demo && model.composite !== null,
   );
+  const measuredPartialCount = index.models.filter(
+    (model) => model.score_status === "measured" && !model.ranked && model.composite !== null,
+  ).length;
   const suiteLabel = index.suite_version ?? "scoreless catalog";
   const axisCopy = hasMeasuredRankedData
     ? `Every ranked model is scored on the same frozen suite${axisNames.length > 0 ? ` across ${axisNames.join(", ")}` : ""}. This is the initial measured ladder — more models land as runs are submitted.`
-    : "Catalog models are listed as score-less shells until benchmark runs land.";
+    : measuredPartialCount > 0
+      ? `${measuredPartialCount} measured partial profile${measuredPartialCount === 1 ? "" : "s"} are available on model pages, but no rows are ranked yet because the current Index requires all five headline axes.`
+      : "Catalog models are listed as score-less shells until benchmark runs land.";
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -40,8 +45,8 @@ export default async function LeaderboardPage() {
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-warn/35 bg-bench-warn/[0.08] p-4 text-sm leading-6 text-bench-warn-soft">
             <strong className="text-bench-warn">Standard tier, capped-thinking lane only.</strong> Only measured,
-            conformance-passing local runs in this lane are ranked. Score-less catalog models are listed below,
-            never mixed into the rank.
+            conformance-passing local runs with all five headline axes are ranked. Partial diagnostics and score-less catalog
+            models never mix into the rank.
           </div>
         </div>
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />

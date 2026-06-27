@@ -62,6 +62,7 @@ def run_record(
     if_correct: tuple[bool, ...] = (True, True),
     appworld_inline: tuple[bool, ...] | None = None,
     tc_json_correct: tuple[bool, ...] | None = None,
+    lcb_correct: tuple[bool, ...] | None = None,
     agentic_run: JsonObject | None = None,
 ) -> JsonObject:
     benches = {
@@ -75,6 +76,9 @@ def run_record(
     if tc_json_correct is not None:
         benches["tc_json_v1"] = aggregate("tc_json_v1", tc_json_correct)
         extra_items.extend(items("tc_json_v1", tc_json_correct))
+    if lcb_correct is not None:
+        benches["lcb"] = aggregate("lcb", lcb_correct)
+        extra_items.extend(items("lcb", lcb_correct))
     record: JsonObject = {
         "schema": "localbench-run-v0",
         "manifest": {

@@ -31,7 +31,7 @@ export const AxisScoreSchema = ScoreSchema.extend({
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
 export const ConformanceGateSchema = z.object({
   id: z.literal("tc_json_v1"),
-  label: z.literal("JSON tool-call gate"),
+  label: z.literal("Tool-calling"),
   band: z.enum(["green", "amber", "red"]),
   pass_rate: z.object({
     point: z.number(),
@@ -48,6 +48,16 @@ export const ConformanceGatesSchema = z
     tc_json_v1: ConformanceGateSchema.optional(),
   })
   .passthrough();
+
+export const ScorecardSummarySchema = z.object({
+  current_id: z.string().nullable().optional(),
+  current_registry_digest: z.string().nullable().optional(),
+  drift: z.boolean(),
+  id: z.string().nullable(),
+  registry_digest: z.string().nullable().optional(),
+  registry_drift: z.boolean().optional(),
+  version: z.string().nullable(),
+});
 
 export const KindSchema = z.enum(["anchor", "community"]);
 export const ScoreStatusSchema = z.enum(["measured", "missing"]);
@@ -142,10 +152,8 @@ export const IndexDataSchema = z.object({
   models: z.array(IndexModelSchema),
 });
 
-// EXPERIMENTAL "Agentic" column data — a SEPARATE read from web/public/data/agentic.json
-// (built by web/build_agentic.py). It is NOT folded into the Index/composite and never flows
-// through the board/scorecard pipeline; the leaderboard joins it to each row by slug and shows
-// the AppWorld-C interactive API-coding ASR as a 0%-Index-weight preview column.
+// Supplementary "Agentic" column data from web/public/data/agentic.json. Ranked Index math still
+// comes from the board axis registry; this join only displays historical AppWorld-C funnel ASR.
 export const AgenticModelSchema = z.object({
   asr: z.number(),
   asr_pct: z.number(),
@@ -182,6 +190,7 @@ export const ModelRunSchema = z.object({
   runtime: RuntimeSchema,
   n_items: z.number(),
   n_errors: z.number(),
+  ranked: z.boolean().optional().default(false),
   wall_time_seconds: z.number().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
   conformance_gates: ConformanceGatesSchema.optional(),
@@ -234,6 +243,8 @@ export const RunDetailSchema = z.object({
     point_raw: z.number(),
   }),
   manifest_summary: ManifestSummarySchema,
+  ranked: z.boolean().optional().default(false),
+  scorecard: ScorecardSummarySchema.optional(),
   totals: TotalsSchema,
   est_cost_usd: z.number().nullable(),
   tokens_to_answer_median: z.number().nullable(),
@@ -248,6 +259,7 @@ export const RunDetailSchema = z.object({
 export type Axis = string;
 export type Score = z.infer<typeof ScoreSchema>;
 export type AxisScore = z.infer<typeof AxisScoreSchema>;
+export type ScorecardSummary = z.infer<typeof ScorecardSummarySchema>;
 export type ConformanceGate = z.infer<typeof ConformanceGateSchema>;
 export type ConformanceGates = z.infer<typeof ConformanceGatesSchema>;
 export type Kind = z.infer<typeof KindSchema>;

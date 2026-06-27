@@ -6,7 +6,7 @@ import type { ConformanceGate } from "@/lib/schemas";
 function gate(band: ConformanceGate["band"], overrides: Partial<ConformanceGate> = {}): ConformanceGate {
   return {
     id: "tc_json_v1",
-    label: "JSON tool-call gate",
+    label: "Tool-calling",
     band,
     pass_rate: { point: 82, lo: 78, hi: 86 },
     invalid_json_rate: 2.3,

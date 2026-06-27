@@ -1,4 +1,4 @@
-import { formatCoreTextAxisProfile } from "@/components/local-intelligence-index";
+import { formatModularAxisProfile } from "@/components/local-intelligence-index";
 import { formatGb, formatScore } from "@/lib/format";
 import { familyStyle } from "@/lib/family-color";
 import type { AnchorReference } from "@/lib/data";
@@ -178,7 +178,7 @@ export function BestVariantVramScatter({
             return (
               <g key={point.runId}>
                 <title>
-                  {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatCoreTextAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
+                  {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatModularAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
                 <circle cx={cx} cy={cy} r="6" fill={color} className="stroke-bench-bg" strokeWidth="2" />
                 {slot ? (
@@ -203,7 +203,7 @@ export function BestVariantVramScatter({
               fontSize="14"
               textAnchor="middle"
             >
-              No measured local models yet — points appear here as runs land.
+              No ranked five-axis local rows yet; partial diagnostics stay off this frontier.
             </text>
           ) : null}
           <text
@@ -283,7 +283,7 @@ function layoutAnchors(anchorRuns: readonly AnchorReference[]) {
 
 function describe(points: readonly BestVariantPoint[]): string {
   if (points.length === 0) {
-    return "Scatter of local model quality versus VRAM; no measured models yet.";
+    return "Scatter of local model quality versus VRAM; no ranked five-axis local rows yet.";
   }
   const best = points.reduce((top, point) => (point.score.point > top.score.point ? point : top));
   return `Scatter of ${points.length} local models: Local Intelligence Index versus effective VRAM to run. Best: ${best.modelLabel} at ${formatScore(best.score.point)}.`;

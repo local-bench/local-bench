@@ -92,6 +92,7 @@ def catalog_quant_row(entry: JsonObject, quant: JsonValue, runs: list[JsonObject
         "n_errors": 0,
         "n_items": 0,
         "quant_label": label,
+        "ranked": False,
         "run_id": None,
         "runtime": {
             "ctx_len_configured": None,

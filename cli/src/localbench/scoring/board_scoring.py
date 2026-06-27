@@ -8,7 +8,7 @@ from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring import bootstrap, cluster_for_item, score_interval, stratum_for_item
-from localbench.scoring.axes import web_display_axes, web_source_bench_groups
+from localbench.scoring.axes import headline_web_axes, web_display_axes, web_source_bench_groups
 from localbench.scoring.board_support import (
     DEFAULT_BOOTSTRAP_SEED,
     LANE_SCOPE,
@@ -125,7 +125,10 @@ def _scored_run(
 ) -> ScoredRun:
     benches = dict(object_value(run.get("benches"), f"{path.name}.benches"))
     items = list(objects_value(run.get("items"), f"{path.name}.items"))
+    has_inline_appworld = APPWORLD_C_BENCH in benches
     _inject_appworld_c(source, benches, items, runs_dir)
+    if has_inline_appworld:
+        _validate_inline_appworld_c(run, benches, items, path)
     totals = object_value(run.get("totals"), f"{path.name}.totals")
     manifest = object_or_empty(run.get("manifest"))
     suite = object_or_empty(manifest.get("suite"))
@@ -215,6 +218,83 @@ def _inject_appworld_c(source: CuratedSource, benches: JsonObject, items: list[J
         "termination_rate": 1.0,
     }
     items.extend({"id": task_id, "bench": APPWORLD_C_BENCH, "correct": success, "error": None} for task_id, success in successes)
+
+
+def _validate_inline_appworld_c(run: JsonObject, benches: JsonObject, items: list[JsonObject], path: Path) -> None:
+    agentic_run = run.get("agentic_run")
+    if not isinstance(agentic_run, dict):
+        _raise_missing_inline_appworld_diagnostics()
+    runs_raw = agentic_run.get("runs")
+    diagnostics_raw = agentic_run.get("diagnostics")
+    if not isinstance(runs_raw, list) or not runs_raw or not isinstance(diagnostics_raw, dict):
+        _raise_missing_inline_appworld_diagnostics()
+
+    bench = object_value(benches.get(APPWORLD_C_BENCH), f"{path.name}.{APPWORLD_C_BENCH}")
+    expected_n = int_value(bench.get("n"), f"{path.name}.{APPWORLD_C_BENCH}.n")
+    item_n = sum(1 for item in items if item.get("bench") == APPWORLD_C_BENCH)
+    if item_n != expected_n:
+        raise BoardBuildError(f"inline appworld_c item count {item_n} does not match bench n {expected_n}")
+
+    subset_size = int_value(agentic_run.get("subset_size"), f"{path.name}.agentic_run.subset_size")
+    if subset_size != expected_n:
+        raise BoardBuildError(f"inline appworld_c subset_size {subset_size} does not match bench n {expected_n}")
+
+    mean_asr = number_value(agentic_run.get("mean_asr"), f"{path.name}.agentic_run.mean_asr")
+    raw_accuracy = number_value(bench.get("raw_accuracy"), f"{path.name}.{APPWORLD_C_BENCH}.raw_accuracy")
+    if abs(mean_asr - raw_accuracy) > 1e-9:
+        raise BoardBuildError("inline appworld_c mean_asr does not match bench raw_accuracy")
+
+    _validate_agentic_report_summary(diagnostics_raw, expected_n, f"{path.name}.agentic_run.diagnostics")
+    if _agentic_summary_is_harness_dominated(diagnostics_raw):
+        raise BoardBuildError("inline appworld_c diagnostics are harness dominated")
+    for index, run_raw in enumerate(runs_raw, start=1):
+        run_summary = object_value(run_raw, f"{path.name}.agentic_run.runs[{index}]")
+        string_value(run_summary.get("results_path"), f"{path.name}.agentic_run.runs[{index}].results_path")
+        _validate_agentic_report_summary(run_summary, expected_n, f"{path.name}.agentic_run.runs[{index}]")
+        if _agentic_summary_is_harness_dominated(run_summary):
+            raise BoardBuildError("inline appworld_c diagnostics are harness dominated")
+
+
+def _raise_missing_inline_appworld_diagnostics() -> None:
+    raise BoardBuildError("inline appworld_c is missing durable agentic diagnostics")
+
+
+def _validate_agentic_report_summary(summary: JsonObject, expected_n: int, context: str) -> None:
+    tasks_total = int_value(summary.get("tasks_total"), f"{context}.tasks_total")
+    if tasks_total != expected_n:
+        raise BoardBuildError(f"{context}.tasks_total does not match inline appworld_c n")
+    tasks_succeeded = int_value(summary.get("tasks_succeeded"), f"{context}.tasks_succeeded")
+    if tasks_succeeded < 0 or tasks_succeeded > tasks_total:
+        raise BoardBuildError(f"{context}.tasks_succeeded is outside the task total")
+    asr = number_value(summary.get("agentic_success_rate"), f"{context}.agentic_success_rate")
+    expected_asr = tasks_succeeded / tasks_total if tasks_total else 0.0
+    if abs(asr - expected_asr) > 1e-9:
+        raise BoardBuildError(f"{context}.agentic_success_rate does not match task counts")
+    outcome_counts = object_value(summary.get("outcome_counts"), f"{context}.outcome_counts")
+    outcome_total = sum(
+        int_value(outcome_counts.get(key), f"{context}.outcome_counts.{key}")
+        for key in ("success", "failure", "cap_exceeded", "no_final_answer", "harness_error")
+    )
+    if outcome_total != tasks_total:
+        raise BoardBuildError(f"{context}.outcome_counts do not sum to tasks_total")
+    if int_value(outcome_counts.get("success"), f"{context}.outcome_counts.success") != tasks_succeeded:
+        raise BoardBuildError(f"{context}.outcome_counts.success does not match tasks_succeeded")
+
+
+def _agentic_summary_is_harness_dominated(summary: JsonObject) -> bool:
+    tasks_total_raw = summary.get("tasks_total")
+    if not isinstance(tasks_total_raw, int) or isinstance(tasks_total_raw, bool) or tasks_total_raw <= 0:
+        return False
+    tasks_succeeded_raw = summary.get("tasks_succeeded")
+    if not isinstance(tasks_succeeded_raw, int) or isinstance(tasks_succeeded_raw, bool) or tasks_succeeded_raw != 0:
+        return False
+    outcome_counts = object_or_empty(summary.get("outcome_counts"))
+    harness_terminal = sum(
+        value
+        for key in ("cap_exceeded", "no_final_answer", "harness_error")
+        if isinstance((value := outcome_counts.get(key)), int) and not isinstance(value, bool)
+    )
+    return harness_terminal >= tasks_total_raw
 
 
 def _tc_json_gate(path: Path, runs_dir: Path, slug: str) -> JsonObject | None:
@@ -352,7 +432,12 @@ def _weighted(aggregates: Sequence[JsonObject], names: Sequence[str], key: str) 
 
 
 def _ranked(source: CuratedSource, lane: str | None, conformance_status: str | None, axes: Mapping[str, JsonValue]) -> bool:
-    return source["kind"] != "anchor" and lane == LANE_SCOPE and conformance_status == "headline-comparable" and bool(axes)
+    return (
+        source["kind"] != "anchor"
+        and lane == LANE_SCOPE
+        and conformance_status == "headline-comparable"
+        and all(axis in axes for axis in headline_web_axes())
+    )
 
 
 def _model_point(model: Mapping[str, JsonValue]) -> float | None:

@@ -33,6 +33,7 @@ export type RigMatchCandidate = {
   readonly nItems: number;
   readonly nRuns: number;
   readonly quantLabel: string | null;
+  readonly ranked: boolean;
   readonly runId: string | null;
   readonly score: Score | null;
   readonly scoreStatus: ScoreStatus;
@@ -199,6 +200,9 @@ function verdictFor(candidate: RigMatchCandidate, index: number, bestLowerBound:
   if (candidate.score === null || candidate.scoreStatus === "missing") {
     return "not-enough-data";
   }
+  if (!candidate.ranked) {
+    return "not-enough-data";
+  }
   if (index === 0) {
     return "best-under-budget";
   }
@@ -216,7 +220,7 @@ function ciHalfWidth(score: Score): number {
 }
 
 function scoreStatusRank(candidate: RigMatchCandidate): number {
-  return candidate.score === null || candidate.scoreStatus === "missing" ? 1 : 0;
+  return candidate.score === null || candidate.scoreStatus === "missing" || !candidate.ranked ? 1 : 0;
 }
 
 function nullableNumber(value: number | null | undefined, fallback: number): number {

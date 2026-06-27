@@ -1,11 +1,11 @@
 import { DemoBadge } from "@/components/badges";
 import {
-  CoreTextAxisProfile,
+  ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
   LocalIntelligenceIndexScope,
-  formatCoreTextAxisProfile,
+  formatModularAxisProfile,
 } from "@/components/local-intelligence-index";
 import { formatGb, formatScore } from "@/lib/format";
 import { getRankedQualityRows, type AnchorQualityRow, type LocalQualityRow } from "@/lib/quality-bars";
@@ -33,8 +33,8 @@ export function QualityBars({
           <p className="mt-1 font-mono text-xs text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</p>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
             {isEmpty
-              ? "Quality bars appear after measured benchmark runs land; catalog shells stay scoreless here."
-              : "Frontier anchors are reference ceilings. Local rows show each model once at its best measured quant. Math / Coding-exec / Agentic are candidate axes until validation earns an Overall tier."}
+              ? "Quality bars appear after complete five-axis benchmark rows land; partial profiles stay diagnostic."
+              : "Frontier anchors are reference ceilings. Local rows show each model once at its best ranked quant. Math, Long-Context, and coding-exec remain candidate or opt-in modules."}
           </p>
         </div>
         <div className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-xs text-bench-muted">
@@ -45,7 +45,7 @@ export function QualityBars({
       <div role="img" aria-label={ariaLabel} className="space-y-2">
         {isEmpty ? (
           <div className="rounded border border-bench-line bg-bench-panel-2/55 p-4 text-sm text-bench-muted">
-            No measured benchmark rows yet. Use the rig-match finder and quant ladders to pick catalog targets for a first run.
+            No ranked benchmark rows yet. Model pages can still show partial measured profiles while the full headline suite fills in.
           </div>
         ) : null}
         <div className="space-y-2">
@@ -73,7 +73,7 @@ export function QualityBars({
             <div key={row.id}>
               <dt>{row.modelLabel}</dt>
               <dd>
-                frontier score {formatScore(row.score)}; {formatCoreTextAxisProfile(row.axes)}
+                frontier score {formatScore(row.score)}; {formatModularAxisProfile(row.axes)}
               </dd>
             </div>
           ))}
@@ -81,7 +81,7 @@ export function QualityBars({
             <div key={row.id}>
               <dt>{row.modelLabel}</dt>
               <dd>
-                local {row.quantLabel ?? "n/a"} score {formatScore(row.score)}; {formatCoreTextAxisProfile(row.axes)};
+                local {row.quantLabel ?? "n/a"} score {formatScore(row.score)}; {formatModularAxisProfile(row.axes)};
                 VRAM {formatGb(row.vramFootprintGb)}
               </dd>
             </div>
@@ -127,7 +127,7 @@ function QualityBarRow({ row }: { readonly row: AnchorQualityRow | LocalQualityR
             <span className="font-mono text-xs font-semibold text-bench-bg">{formatScore(row.score)}</span>
           </div>
         </div>
-        <CoreTextAxisProfile axes={row.axes} className="mt-1 block font-mono text-[11px] text-bench-muted" />
+        <ModularAxisProfile axes={row.axes} className="mt-1 block font-mono text-[11px] text-bench-muted" />
       </div>
 
       {isAnchor ? (

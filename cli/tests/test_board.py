@@ -43,7 +43,7 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
     assert {"generated_note", "schema_version", "index_version", "suite_version"} <= set(board)
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
     assert board["schema_version"] == "board-v2"
-    assert board["scoring_version"] == "scorecard-v2.0"
+    assert board["scoring_version"] == "scorecard-v2.1"
     assert board["lane_scope"] == "capped-thinking"
     manifest = object_value(board["manifest"])
     assert object_value(manifest["item_set_hashes"]) == {
@@ -86,7 +86,15 @@ def test_only_headline_lane_conformance_pass_measured_rows_are_ranked(tmp_path: 
         source("Failed Model", "failed.json"),
     ]
     paths = write_inputs(tmp_path, sources)
-    write_run(paths["runs"] / "ranked.json", run_record())
+    write_run(
+        paths["runs"] / "ranked.json",
+        run_record(
+            appworld_inline=(True, False),
+            agentic_run=_inline_agentic_provenance((True, False)),
+            tc_json_correct=(True, False),
+            lcb_correct=(True, False),
+        ),
+    )
     write_run(paths["runs"] / "anchor.json", run_record())
     write_run(paths["runs"] / "answer-only.json", run_record(lane="answer-only"))
     write_run(paths["runs"] / "failed.json", run_record(conformance_status="failed"))
@@ -171,10 +179,10 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     instruction = object_value(axes["instruction"])
     composite = object_value(model["composite"])
     expected = (
-        (0.60 * float_value(agentic["point_raw"]))
+        (0.50 * float_value(agentic["point_raw"]))
         + (0.15 * float_value(knowledge["point_raw"]))
-        + (0.25 * float_value(instruction["point_raw"]))
-    )
+        + (0.15 * float_value(instruction["point_raw"]))
+    ) / 0.80
     assert agentic["n"] == 4
     assert agentic["raw_accuracy"] == pytest.approx(0.5)
     assert composite["point_raw"] == pytest.approx(expected)
@@ -189,17 +197,7 @@ def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
     # agentic_file sidecar reporting a DIFFERENT (lower) ASR of 0.25.
     from localbench.scoring.board import build_board
 
-    campaign = {
-        "campaign": True,
-        "single_pass": False,
-        "asr_series": [0.75, 0.75],
-        "mean_asr": 0.75,
-        "max_abs_delta_pp": 0.0,
-        "triggered_third_run": False,
-        "subset_size": 4,
-        "subset_hash": "deadbeefcafe",
-        "stage": "scored",
-    }
+    campaign = _inline_agentic_provenance((True, True, True, False))
     paths = write_inputs(
         tmp_path,
         [source("Inline Agentic", "inline.json", agentic_file="appworld.scored.run1.json")],
@@ -233,6 +231,78 @@ def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
     provenance = object_value(model["agentic_run"])
     assert provenance["mean_asr"] == pytest.approx(0.75)
     assert provenance["campaign"] is True
+    assert objects_value(provenance["runs"])
+
+
+def test_inline_agentic_campaign_without_diagnostics_is_skipped(tmp_path: Path) -> None:
+    # Given: a suspicious inline AppWorld-C row with score/items but no durable rerun diagnostics.
+    from localbench.scoring.board import build_board
+
+    stale_campaign = {
+        "campaign": True,
+        "single_pass": False,
+        "asr_series": [0.0, 0.0],
+        "mean_asr": 0.0,
+        "max_abs_delta_pp": 0.0,
+        "triggered_third_run": False,
+        "subset_size": 2,
+        "subset_hash": "deadbeefcafe",
+        "stage": "scored",
+    }
+    paths = write_inputs(tmp_path, [source("Stale Inline Agentic", "inline-zero.json")])
+    write_run(
+        paths["runs"] / "inline-zero.json",
+        run_record(
+            mmlu_correct=(True, True),
+            if_correct=(True, True),
+            appworld_inline=(False, False),
+            agentic_run=stale_campaign,
+        ),
+    )
+
+    # When: the board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the row is quarantined instead of ranked as a clean measured zero.
+    assert objects_value(board["models"]) == []
+    skipped = objects_value(object_value(board["manifest"])["skipped_runs"])
+    inline_skip = next(skip for skip in skipped if skip["file"] == "inline-zero.json")
+    assert "inline appworld_c is missing durable agentic diagnostics" in string_value(inline_skip["reason"])
+
+
+def test_inline_agentic_campaign_with_harness_dominated_diagnostics_is_skipped(tmp_path: Path) -> None:
+    # Given: an inline AppWorld-C row whose persisted diagnostics show no model task attempt landed.
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(tmp_path, [source("Harness Agentic", "inline-harness.json")])
+    write_run(
+        paths["runs"] / "inline-harness.json",
+        run_record(
+            mmlu_correct=(True, True),
+            if_correct=(True, True),
+            appworld_inline=(False, False),
+            agentic_run=_inline_agentic_provenance((False, False), harness_dominated=True),
+        ),
+    )
+
+    # When: the board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the row is quarantined instead of ranked as a valid agentic zero.
+    assert objects_value(board["models"]) == []
+    skipped = objects_value(object_value(board["manifest"])["skipped_runs"])
+    inline_skip = next(skip for skip in skipped if skip["file"] == "inline-harness.json")
+    assert "inline appworld_c diagnostics are harness dominated" in string_value(inline_skip["reason"])
 
 
 def test_tool_calling_axis_surfaces_from_inline_tc_json(tmp_path: Path) -> None:
@@ -333,7 +403,7 @@ def test_parity_check_accepts_matching_web_index_points(tmp_path: Path) -> None:
     model = objects_value(board["models"])[0]
     index_path = tmp_path / "index.json"
     index_path.write_text(
-        json.dumps({"generated_note": "fixture", "index_version": "index-v1", "suite_version": "suite-v1", "models": [model]}),
+        json.dumps({"generated_note": "fixture", "index_version": "index-v2.1", "suite_version": "suite-v1", "models": [model]}),
         encoding="utf-8",
     )
 
@@ -427,3 +497,57 @@ def test_board_rejects_multiple_recommended_quants_in_one_family(tmp_path: Path)
             generated_at=FROZEN_AT,
             bootstrap_iters=50,
         )
+
+
+def _inline_agentic_provenance(successes: tuple[bool, ...], *, harness_dominated: bool = False) -> dict[str, object]:
+    n = len(successes)
+    succeeded = sum(1 for success in successes if success)
+    asr = succeeded / n if n else 0.0
+    outcome_counts = {
+        "success": 0 if harness_dominated else succeeded,
+        "failure": 0 if harness_dominated else n - succeeded,
+        "cap_exceeded": n if harness_dominated else 0,
+        "no_final_answer": 0,
+        "harness_error": 0,
+    }
+    diagnostics = {
+        "tasks_total": n,
+        "tasks_succeeded": 0 if harness_dominated else succeeded,
+        "agentic_success_rate": 0.0 if harness_dominated else asr,
+        "asr_excluding_infra": 0.0 if harness_dominated else asr,
+        "collateral_damage_rate": 0.0,
+        "cap_exceeded_rate": 1.0 if harness_dominated else 0.0,
+        "no_final_answer_rate": 0.0,
+        "harness_error_rate": 0.0,
+        "infra_timeout_rate": 0.0,
+        "infra_sandbox_rate": 0.0,
+        "model_failure_rate": (n - succeeded) / n if n else 0.0,
+        "model_no_progress_rate": 0.0,
+        "harness_error_subclass_rate": 0.0,
+        "format_failure_rate": 0.0,
+        "syntax_error_rate": 0.0,
+        "runtime_error_rate": 0.0,
+        "observation_truncation_rate": 0.0,
+        "api_docs_usage_rate": 0.0,
+        "mean_turns_used": 1.0,
+        "mean_blocks_run": 1.0,
+        "mean_api_calls": 0.0,
+        "mean_output_tokens": 1.0,
+        "outcome_counts": outcome_counts,
+    }
+    return {
+        "campaign": True,
+        "single_pass": False,
+        "asr_series": [asr, asr],
+        "mean_asr": asr,
+        "max_abs_delta_pp": 0.0,
+        "triggered_third_run": False,
+        "subset_size": n,
+        "subset_hash": "deadbeefcafe",
+        "stage": "scored",
+        "diagnostics": diagnostics,
+        "runs": [
+            {"run_index": 1, "results_path": "agentic/inline.scored.run1.json", **diagnostics},
+            {"run_index": 2, "results_path": "agentic/inline.scored.run2.json", **diagnostics},
+        ],
+    }

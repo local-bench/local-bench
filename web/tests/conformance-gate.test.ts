@@ -10,7 +10,7 @@ const GREEN_GATE = gate("green", 70);
 
 describe("conformance gate data", () => {
   it("parses optional gates on index rows and model runs", () => {
-    // Given: board-provided JSON gate sidecars are present on both web data row types.
+    // Given: board-provided Tool calling gate sidecars are present on both web data row types.
     const indexRow = IndexModelSchema.parse({
       axes: {},
       best_run_id: "model-a__run",
@@ -79,7 +79,7 @@ describe("conformance gate data", () => {
 function gate(band: ConformanceGate["band"], point: number): ConformanceGate {
   return {
     id: "tc_json_v1",
-    label: "JSON tool-call gate",
+    label: "Tool-calling",
     band,
     pass_rate: { point, lo: point - 4, hi: point + 4 },
     invalid_json_rate: band === "red" ? 18 : 2,

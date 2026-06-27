@@ -28,14 +28,26 @@ const HEADLINE_SOURCES: readonly Attribution[] = [
     license: "Apache-2.0",
     role: "Instruction-following verifier logic adapted into the local-bench scorer.",
   },
+  {
+    name: "TC-JSON v1",
+    owner: "local-bench + Gorilla LLM / UC Berkeley",
+    license: "Apache-2.0",
+    role: "Tool-calling axis item set and structural JSON scorer (330 items).",
+  },
+  {
+    name: "LiveCodeBench",
+    owner: "LiveCodeBench authors",
+    license: "CC-BY-4.0 item data / MIT harness",
+    role: "Coding proxy axis item set for output prediction (129 items).",
+  },
 ];
 
 const CANDIDATE_SOURCES: readonly Attribution[] = [
   {
-    name: "Berkeley Function-Calling Leaderboard (BFCL)",
+    name: "BFCL / BigCodeBench / RULER / math expansions",
     owner: "Gorilla LLM / UC Berkeley",
-    license: "Apache-2.0",
-    role: "Berkeley-derived items + eval patterns behind the Agentic candidate axis (0% Index weight).",
+    license: "various open licenses",
+    role: "Candidate and opt-in expansion modules credited in their suite manifests.",
   },
 ];
 
@@ -104,7 +116,7 @@ export default function TrustPage() {
           ))}
         </div>
         <p className="pt-1">
-          Candidate axes (0% Index weight, under validation) draw on additional sources, credited the same way:
+          Candidate and opt-in modules draw on additional sources, credited the same way:
         </p>
         <div className="rounded-lg border border-bench-line bg-bench-panel/50 px-4 py-2">
           {CANDIDATE_SOURCES.map((source) => (

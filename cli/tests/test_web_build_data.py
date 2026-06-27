@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -199,13 +200,50 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifbench).
     # The present agentic (bfcl) + math axes carry weight 0.0 (METHODOLOGY-v1.2 §3).
     assert composite["point_raw"] == pytest.approx(
-        ((0.15 * ((0.5 - chance) / (1.0 - chance))) + (0.25 * 0.5)) / 0.40,
+        ((0.15 * ((0.5 - chance) / (1.0 - chance))) + (0.15 * 0.5)) / 0.30,
     )
     assert isinstance(detail["data_warnings"], list)
     assert any(
         "knowledge chance_corrected differs" in warning
         for warning in _strings(detail["data_warnings"])
     )
+
+
+def test_build_data_quarantines_invalid_inline_appworld(tmp_path: Path) -> None:
+    # Given: a run with inline appworld_c scores whose diagnostics show harness-dominated failure.
+    builder = _build_data_module()
+    paths = _write_synthetic_pipeline_inputs(
+        tmp_path,
+        [
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+            _synthetic_item("scenario1_1", "appworld_c", False),
+        ],
+    )
+    run = _object(_read_json(paths["run"]))
+    _object(run["benches"])["appworld_c"] = {
+        "n": 1,
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "raw_accuracy": 0.0,
+        "chance_corrected": 0.0,
+        "conditional_accuracy": 0.0,
+        "termination_rate": 1.0,
+    }
+    run["agentic_run"] = _harness_dominated_agentic_run()
+    paths["run"].write_text(json.dumps(run), encoding="utf-8")
+
+    # When: the web data pipeline builds static JSON.
+    builder.build_static_data(paths["sources"], paths["out"], iters=300)
+
+    # Then: K/I remain visible, but the invalid agentic axis is omitted and the row is unranked.
+    index = _object(_read_json(paths["out"] / "index.json"))
+    model = _model_by_label(_objects(index["models"]), "Synthetic Model")
+    assert _object(model["axes"]).keys() == {"knowledge", "instruction"}
+    assert model["ranked"] is False
+    detail = _only_run_detail(paths["out"])
+    assert "agentic" not in _object(detail["axes"])
+    assert any("agentic appworld_c quarantined" in warning for warning in _strings(detail["data_warnings"]))
 
 
 def test_build_data_carries_board_conformance_gate_to_index_and_model_rows(
@@ -326,6 +364,77 @@ def test_build_data_when_items_have_suite_metadata_uses_real_strata(
     assert len(set(math_strata)) == 2
     assert [call[0] for call in stratum_calls].count("olymmath_hard") == 1
     assert [call[0] for call in stratum_calls].count("amo") == 1
+
+
+def test_build_data_main_reports_absolute_out_dir_when_outside_repo(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a dry-run caller writes generated data outside the repo tree.
+    builder = _build_data_module()
+    sources = tmp_path / "sources.json"
+    sources.write_text("[]", encoding="utf-8")
+    out_dir = tmp_path / "generated"
+
+    def fake_build_static_data(
+        sources_path: Path,
+        output_dir: Path,
+        *,
+        iters: int = 0,
+        benches: tuple[str, ...] = (),
+        weights: dict[str, float] | None = None,
+    ) -> None:
+        assert sources_path == sources
+        assert output_dir == out_dir
+        assert iters == 1
+        assert benches
+        assert weights is not None
+        output_dir.mkdir(parents=True)
+        (output_dir / "index.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(builder, "build_static_data", fake_build_static_data)
+    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir: None)
+
+    # When: the CLI entrypoint completes.
+    code = builder.main(["--sources", str(sources), "--out", str(out_dir), "--iters", "1"])
+
+    # Then: it succeeds and prints the absolute path instead of crashing on relative_to(ROOT).
+    captured = capsys.readouterr()
+    assert code == 0
+    assert f"wrote {out_dir}" in captured.out
+
+
+def test_site_data_freshness_detects_inputs_newer_than_generated_index(tmp_path: Path) -> None:
+    # Given: generated site data older than one run artifact.
+    from web import check_data_freshness
+
+    generated = tmp_path / "web" / "public" / "data" / "index.json"
+    data_sources = tmp_path / "web" / "data_sources.json"
+    runs_dir = tmp_path / "cli" / "runs"
+    board_dir = runs_dir / "board"
+    run_file = runs_dir / "new-run.json"
+    board_file = board_dir / "board_v2.json"
+    for path in (generated, data_sources, run_file, board_file):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}", encoding="utf-8")
+    _set_mtime_ns(generated, 1_000_000_000)
+    _set_mtime_ns(data_sources, 900_000_000)
+    _set_mtime_ns(run_file, 1_100_000_000)
+    _set_mtime_ns(board_file, 800_000_000)
+
+    # When: the freshness checker scans the configured inputs.
+    stale = check_data_freshness.stale_inputs(
+        generated=generated,
+        watched=(data_sources, runs_dir, board_dir),
+    )
+
+    # Then: it reports the newer run file once, even though board is also nested in cli/runs.
+    assert tuple(item.path for item in stale) == (run_file,)
+
+
+def _set_mtime_ns(path: Path, mtime_ns: int) -> None:
+    os.utime(path, ns=(mtime_ns, mtime_ns))
 
 
 def _run_pipeline(*, iters: int) -> None:
@@ -470,6 +579,29 @@ def _tc_json_gate(band: str) -> JsonObject:
         "n_items": 330,
         "threshold_version": "tc_json_v1",
         "band_reasons": ["invalid_json>15"],
+    }
+
+
+def _harness_dominated_agentic_run() -> JsonObject:
+    diagnostics: JsonObject = {
+        "tasks_total": 1,
+        "tasks_succeeded": 0,
+        "agentic_success_rate": 0.0,
+        "outcome_counts": {
+            "success": 0,
+            "failure": 0,
+            "cap_exceeded": 1,
+            "no_final_answer": 0,
+            "harness_error": 0,
+        },
+    }
+    return {
+        "campaign": True,
+        "single_pass": False,
+        "mean_asr": 0.0,
+        "subset_size": 1,
+        "diagnostics": diagnostics,
+        "runs": [{"run_index": 1, "results_path": "agentic/run1.json", **diagnostics}],
     }
 
 

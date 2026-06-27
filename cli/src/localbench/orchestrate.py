@@ -60,7 +60,7 @@ from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
 if TYPE_CHECKING:
     from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory
-    from localbench.scoring.agentic_exec.funnel import RerunAggregate
+    from localbench.scoring.agentic_exec.funnel import RerunAggregate, StageRunResult
     from localbench.scoring.agentic_exec.loop_types import BenchmarkReport
 
 BenchChoice: TypeAlias = str
@@ -258,6 +258,7 @@ async def run_localbench(
         )
         for bench in scorable_benches
     }
+    output_path = config.out or default_output_path(config.model, config.tier)
     agentic_provenance: JsonObject | None = None
     agentic_unavailable_detail: str | None = None
     if run_agentic:
@@ -268,6 +269,7 @@ async def run_localbench(
             sandbox_factory=agentic_sandbox_factory,
             model_factory=agentic_model_factory,
             task_ids=agentic_task_ids,
+            results_dir=_agentic_results_dir(output_path),
         )
         if agentic_outcome is None:
             agentic_unavailable_detail = _agentic_warning_since(warnings, warning_start)
@@ -298,7 +300,6 @@ async def run_localbench(
             detail=warning,
         )
     headline_complete = _headline_complete(axis_status)
-    output_path = config.out or default_output_path(config.model, config.tier)
     manifest = await collect_manifest(
         ManifestContext(
             endpoint=config.endpoint,
@@ -389,6 +390,7 @@ def _run_agentic_axis(
     sandbox_factory: SandboxFactory | None = None,
     model_factory: ModelFactory | None = None,
     task_ids: list[str] | None = None,
+    results_dir: Path | None = None,
 ) -> AgenticOutcome | None:
     injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
     resolved_sandbox_factory = sandbox_factory
@@ -409,13 +411,16 @@ def _run_agentic_axis(
         )
         from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
+        chat_template_kwargs: JsonObject = {"enable_thinking": True}
         resolved_sandbox_factory = appworld_sandbox_factory()
         resolved_model_factory = chat_client_factory(
             config.endpoint,
             config.model,
             api_key=config.api_key or "",
-            chat_template_kwargs={"enable_thinking": True},
+            chat_template_kwargs=chat_template_kwargs,
         )
+    if injected:
+        chat_template_kwargs = {}
 
     from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
     from localbench.scoring.agentic_exec.funnel import Stage, run_with_reruns  # noqa: PLC0415
@@ -450,9 +455,10 @@ def _run_agentic_axis(
         sandbox_factory=resolved_sandbox_factory,
         config=LoopConfig(max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN),
         base_count=2,
-        results_dir=None,
+        results_dir=results_dir,
         endpoint=config.endpoint,
         model_id=config.model,
+        chat_template_kwargs=chat_template_kwargs,
     )
     last_report = agg.runs[-1].report
     return AgenticOutcome(
@@ -468,6 +474,8 @@ def _run_agentic_axis(
             "subset_size": subset.size,
             "subset_hash": subset.manifest_hash,
             "stage": provenance_stage,
+            "diagnostics": _appworld_report_summary(last_report),
+            "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
         },
     )
 
@@ -501,6 +509,10 @@ def _appworld_report_to_aggregate(report: BenchmarkReport) -> BenchAggregate:
     }
 
 
+def _agentic_results_dir(output_path: Path) -> Path:
+    return output_path.parent / "agentic" / output_path.stem
+
+
 def _appworld_campaign_aggregate(agg: RerunAggregate, n: int) -> BenchAggregate:
     mean_asr = agg.mean_asr
     return {
@@ -512,6 +524,43 @@ def _appworld_campaign_aggregate(agg: RerunAggregate, n: int) -> BenchAggregate:
         "conditional_accuracy": mean_asr,
         "termination_rate": 1.0,
     }
+
+
+def _appworld_report_summary(report: BenchmarkReport) -> JsonObject:
+    return {
+        "tasks_total": report.tasks_total,
+        "tasks_succeeded": report.tasks_succeeded,
+        "agentic_success_rate": report.agentic_success_rate,
+        "asr_excluding_infra": report.asr_excluding_infra,
+        "collateral_damage_rate": report.collateral_damage_rate,
+        "cap_exceeded_rate": report.cap_exceeded_rate,
+        "no_final_answer_rate": report.no_final_answer_rate,
+        "harness_error_rate": report.harness_error_rate,
+        "infra_timeout_rate": report.infra_timeout_rate,
+        "infra_sandbox_rate": report.infra_sandbox_rate,
+        "model_failure_rate": report.model_failure_rate,
+        "model_no_progress_rate": report.model_no_progress_rate,
+        "harness_error_subclass_rate": report.harness_error_subclass_rate,
+        "format_failure_rate": report.format_failure_rate,
+        "syntax_error_rate": report.syntax_error_rate,
+        "runtime_error_rate": report.runtime_error_rate,
+        "observation_truncation_rate": report.observation_truncation_rate,
+        "api_docs_usage_rate": report.api_docs_usage_rate,
+        "mean_turns_used": report.mean_turns_used,
+        "mean_blocks_run": report.mean_blocks_run,
+        "mean_api_calls": report.mean_api_calls,
+        "mean_output_tokens": report.mean_output_tokens,
+        "outcome_counts": dict(report.outcome_counts),
+    }
+
+
+def _appworld_stage_run_summary(run: StageRunResult) -> JsonObject:
+    summary = _appworld_report_summary(run.report)
+    summary["run_index"] = run.run_index
+    summary["stage"] = run.stage
+    summary["subset_hash"] = run.subset_hash
+    summary["results_path"] = run.results_path
+    return summary
 
 
 def _appworld_report_to_items(report: BenchmarkReport) -> list[ScoredItem]:

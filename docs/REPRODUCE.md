@@ -1,138 +1,74 @@
 # Reproducing a local-bench run
 
-> **⚠ Updated 2026-06-26 — headline is now v2.0 (agentic-led); suite re-scope in progress.**
-> The steps below reproduce the **Knowledge (MMLU-Pro) + Instruction (IFBench)** axes exactly and remain
-> valid. But the **shipped headline is now Local Intelligence Index v2.0 = 0.70·Agentic + 0.15·Knowledge +
-> 0.15·Instruction** (`board_v2.json`), not the 2-axis K+I composite this page still describes in places.
-> Two caveats for anyone reproducing the *headline*:
-> - The **Agentic axis (AppWorld Protocol-C, 70%)** is not yet a turn-key part of `localbench run`, and its
->   run-to-run **repeatability is still being validated/hardened** — treat agentic numbers as provisional.
-> - The headline **weights are not final** (pending the agentic repeatability measurement); Math and
->   Long-Context are being removed from the headline suite.
-> Current source of truth: `docs/foundations/STATUS-2026-06-26.md` + `docs/foundations/REVIEW-2026-06-26.md`.
+Updated 2026-06-28. The active headline is **Local Intelligence Index v2.1**:
 
----
+```text
+0.50 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool calling + 0.10 Coding
+```
 
-local-bench is a **frozen, reproducible** suite: anyone can run suite-v1.2 against their own
-endpoint and get scores comparable to ours (same items, same scorers, same lane). Methodology:
-`docs/foundations/methodology-lock/METHODOLOGY-v1.2-LOCKED.md`.
+Weights and axis membership are defined in `cli/src/localbench/scoring/axes.py`. Runnable module defaults are defined in `cli/src/localbench/scoring/benchmark_registry.py`.
 
 ## Prerequisites
-- Python 3.11+; install the CLI: `pip install -e cli` (or `pipx install localbench` once published).
-- A running **OpenAI-compatible** chat endpoint serving your model (llama.cpp `llama-server`, vLLM,
-  Ollama, LM Studio, …).
-- For the KLD quant-drift step only: a built llama.cpp **`llama-perplexity`** binary + the GGUF weights.
 
-## 1. Fetch the frozen suite
-```
-localbench fetch-suite \
-  --suite core-text-v1 \
-  --accept-suite-terms
-```
-This verifies the bundled Core Text v1 suite and caches it under your user cache. No `--source`
-is required for a normal `pip`/`pipx` install.
+- Python 3.11+ and the CLI: `pip install -e cli`
+- An OpenAI-compatible chat endpoint serving the model
+- For ranked local runs: capped-thinking lane settings, temperature 0, enough context for the selected modules
+- For AppWorld-C: the AppWorld agentic extra and sandbox setup
+- For BigCodeBench-Hard: Docker sandbox setup; this remains opt-in
 
-## 2. Run the task suite
+## 1. Inspect the suite
+
+```bash
+localbench suite inspect --suite-dir suite/v1
 ```
+
+The full repo suite includes MMLU-Pro, IFBench, TC-JSON v1, LCB, AppWorld-C membership, math, long-context, BFCL, and BigCodeBench-Hard. The installable `core-text-v1` bundle is still the smaller public bundle and does not yet include every modular itemset.
+
+## 2. Run the standard modules
+
+```bash
 localbench run \
   --endpoint http://localhost:8080/v1 \
   --model   <model-name-the-server-reports> \
+  --suite-dir suite/v1 \
   --lane    capped-thinking \
   --tier    standard \
-  --out     runs/my-run.json
+  --out     runs/my-run.json \
+  --accept-suite-terms
 ```
-This drives your endpoint, server-scores every response, writes a manifest, and saves the run JSON.
-`--bench` defaults to `all`; pass e.g. `--bench mmlu_pro,ifbench` for a subset.
 
-**What makes it reproducible**
-- **Fixed item sets**, pinned by sha256 in `suite/v1/suite.json` (+ `itemsets.lock.json`). Same suite
-  version → same questions. `--max-items N` takes a **deterministic first-N slice** per bench, so two
-  runs (e.g. a quant pair) see identical items.
-- **Decoding is deterministic**: temperature 0. The **Local Intelligence Index** (`v1 · Core Text (Knowledge + Instruction)`) is HEADLINE-only, shows the Knowledge / Instruction profile beside the composite, and every score carries a bootstrap CI.
-- **The manifest records provenance**: model file hash, runtime + version, KV-cache quant, context length,
-  sampling, lane, and the item-set hashes — so a run is self-describing.
+`--bench all` resolves from the benchmark module registry. With the full repo suite it runs MMLU-Pro, IFBench, TC-JSON v1, LCB, and the AppWorld-C agentic attempt. If a module is unavailable, the run records that axis as not measured instead of fabricating a score.
 
-**Serve the locked lane (METHODOLOGY §1).** Configure the *server* for the headline lane:
-reasoning-ON, server reasoning-budget **8192**, `max_tokens` ceiling **16384**, **f16 KV** (no KV quant),
-**≥64k** context, **≥12k tokens/slot**. The CLI `--max-tokens` can cap per-item for a bounded local
-context window. Cross-lane scores never merge — keep `--lane capped-thinking` for headline comparability.
+## 3. Coding modules
 
-## 3. Compare two runs (e.g. a quant pair)
-```
-localbench compare runs/q8.json runs/q4.json --out cmp.json
-```
-Paired over identical items → repeatability CI, paired quant-delta, generalization CI, and the **weakest
-headline axis** (METHODOLOGY §5). Deltas are reported "on suite-v1.2 items ± paired CI", never as a
-universal percent.
+The standard Coding axis uses `lcb`, an execution-free LiveCodeBench output-prediction proxy. It is fast enough for regular local submissions.
 
-## 4. KLD quant-drift (distribution drift, NOT a task score)
-Replaces the ad-hoc shell script with a committed, tested tool. Two-pass llama-perplexity: the reference
-dumps its logits once, each quant is scored against them.
-```
-localbench kld \
-  --llama-perplexity ~/llama.cpp/build/bin/llama-perplexity \
-  --reference   ~/models/gemma-4-12b-it-BF16.gguf \
-  --quant Q8_0=~/models/gemma-4-12b-it-Q8_0.gguf \
-  --quant Q4_K_M=~/models/gemma-4-12b-it-Q4_K_M.gguf \
-  --quant Q3_K_M=~/models/gemma-4-12b-it-Q3_K_M.gguf \
-  --calib       ~/kld/calib.txt \
-  --model-label gemma-4-12b-it \
-  --reference-label BF16 \
-  --out         runs/gemma-kld.json
-```
-Emits a `localbench-kld-v1` drift record: per-quant median + q99 KLD + Same-top-p (+ optional **churn** if
-you pass `--churn-reference run-bf16.json --churn-quant Q4_K_M=run-q4.json`). The calib corpus is hashed
-into the record. For big models where FP16 won't fit, use the **Q8 proxy** as the reference and set
-`--reference-label "Q8 (proxy)"` — the Q8≈BF16 proxy was validated on Gemma-12B only, so report the number as
-"drift vs Q8 proxy," NOT as a global "near-lossless" claim. KLD is **drift from full precision — lower is more
-faithful, NOT a task score** (METHODOLOGY §6); always show it beside accuracy + churn + VRAM + speed.
+The heavier code-generation benchmark remains opt-in:
 
-## 5. Coding-exec axis (opt-in, sandboxed code EXECUTION)
-The credible coding axis (red-team verdict: judge-free proxies measure code *reasoning*, not *generation*).
-The user's model generates code; it runs against BigCodeBench-Hard's unit tests inside a hardened, network-
-isolated Docker container **on the user's machine** (we never execute it on our infra). Opt-in.
-```
+```bash
 localbench code \
   --endpoint http://localhost:8080/v1 \
   --model   <model-name> \
-  --image   bigcodebench/bigcodebench-evaluate@sha256:<digest> \   # digest-pin before a ranked run
+  --image   bigcodebench/bigcodebench-evaluate@sha256:<digest> \
   --tier    standard \
   --out     runs/my-coding-exec.json
 ```
-Prereqs: Docker installed. A **fail-closed preflight** runs first: Mac/Windows pass on the Docker-Desktop VM
-boundary; on Linux it auto-selects `--runtime runsc` (gVisor) when present, and **refuses to run** on rootful
-bare-Linux Docker with neither gVisor nor rootless (install gVisor or use rootless Docker, or pass
-`--allow-unsafe-sandbox` to override — not recommended). It also rejects runc below the CVE-2024-21626 floor.
-The container is locked down by default (`--network none`, `--read-only`, `--cap-drop ALL`, `--security-opt
-no-new-privileges`, swap off, bounded tmpfs, `--init`, `--log-driver none`, nofile/fsize/core ulimits, non-root,
-bounded output) — see `docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md`. Each task runs in its own
-subprocess; the trusted runner computes pass/fail from exit codes (never self-reported). Coding-exec is a
-**separate exec lane** with its own score; it is a *candidate* until a discrimination run earns it a headline slot.
-Math and Agentic follow the same candidate-axis rule. A full Overall intelligence tier is earned only after
-candidate axes are validated and promoted.
 
-## 6. Build the site data
+BigCodeBench-Hard should be treated as a diagnostic or expansion module until its sandbox lane is fully hardened and cheap enough for routine runs.
+
+## 4. Build board and site data
+
+```bash
+localbench board --no-check-parity
+python web/build_data.py
 ```
-<cli-venv>/python web/build_data.py
+
+The board and web build derive weights from the registry. Ranked rows require all current headline axes; partial rows still display measured axes but are not rank-comparable.
+
+## 5. Compare runs
+
+```bash
+localbench compare runs/q8.json runs/q4.json --out cmp.json
 ```
-Reads `web/data_sources.json` (+ `web/model_catalog.json`) → `web/public/data/{index,models,runs}.json`.
-Local Intelligence Index (`v1 · Core Text (Knowledge + Instruction)`) weights come from the single registry
-(`localbench.scoring.axes`); no weights are hardcoded in the web build.
 
-**One-command wrapper.** `scripts\build-site.ps1` regenerates the data and then runs the gates +
-static build in one step (`-DataOnly` to just refresh data for the dev server). The immutable board
-re-cut (`localbench board`) and the deploy (`scripts\deploy-site.ps1`) stay separate, deliberate steps.
-
-**Experimental Agentic column (separate, 0% Index weight).** `web/build_data.py` also runs the
-agentic aggregation as a final, additive step that writes only `web/public/data/agentic.json` — it
-reads the AppWorld-C funnel runs in `cli/runs/agentic/*.scored.run*.json`, averages each model's
-`agentic_success_rate` across its runs, joins to the board slug, and the leaderboard renders it as a
-preview column. It does **not** flow through the board/scorecard pipeline and is **never** folded into
-the Index. Run it standalone with `<cli-venv>/python web/build_agentic.py`. New scored runs → re-run →
-the column updates.
-
-## Notes
-- **Anchors** (frontier "vs GPT-5.5/Opus/Gemini" runs) are $-gated and run separately; they are not part
-  of the local repro.
-- **Suite identity** is the sha256-hashed `suite/v1/suite.json`. Scores are comparable only within a suite
-  version.
+Comparisons are meaningful only within the same suite, scorecard, lane, and module coverage. Report paired deltas and confidence intervals rather than treating a small point gap as a universal ranking.

@@ -2,9 +2,11 @@ export type AxisConfigEntry = { readonly key: string; readonly label: string };
 
 // Order here is the canonical DISPLAY order across the site.
 export const AXIS_CONFIG = [
+  { key: "agentic", label: "Agentic" },
   { key: "knowledge", label: "Knowledge" },
   { key: "instruction", label: "Instruction" },
-  { key: "agentic", label: "Agentic" },
+  { key: "tool_calling", label: "Tool calling" },
+  { key: "coding", label: "Coding" },
   { key: "math", label: "Math" },
 ] as const satisfies readonly AxisConfigEntry[];
 

@@ -872,3 +872,7 @@ def _print_compare(comparison: CompareResult) -> None:
                 f"  {flag['domain']}: {flag['stratum']} "
                 f"{format_honest_delta(flag['ci'])}",
             )
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

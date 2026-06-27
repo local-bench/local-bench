@@ -10,35 +10,41 @@ from localbench.scoring.axes import (
     axis_membership,
     domain_weights,
     headline_displays,
+    headline_web_axes,
     web_composite_weights,
     web_display_axes,
     web_source_bench_groups,
 )
+from localbench.scoring.benchmark_registry import BENCHMARK_MODULES, scored_default_benches
 from localbench.scoring.metadata import BENCH_DOMAINS, DOMAIN_WEIGHTS
 
 _SUITE_V1 = Path(__file__).resolve().parents[2] / "suite" / "v1" / "suite.json"
 
 
 def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
-    # Given the locked registry (METHODOLOGY-v1.2 §2-3).
     headline = [axis for axis in AXES if axis.role == "headline"]
-    # Then headline weights stay locked while candidates remain excluded.
-    assert headline_displays() == ("Knowledge", "Instruction-Following", "Agentic")
+
+    assert headline_displays() == (
+        "Knowledge",
+        "Instruction-Following",
+        "Agentic",
+        "Tool-calling",
+        "Coding",
+    )
+    assert headline_web_axes() == ("knowledge", "instruction", "agentic", "tool_calling", "coding")
     assert sum(axis.weight for axis in headline) == pytest.approx(1.0)
     assert all(axis.weight == 0.0 for axis in AXES if axis.role != "headline")
 
 
 def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> None:
-    # The runtime constants are derived, not a parallel hardcode.
     assert DOMAIN_WEIGHTS == domain_weights()
     assert DOMAIN_WEIGHTS["Knowledge"] == 0.15
-    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.25
+    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.15
     assert DOMAIN_WEIGHTS["Math"] == 0.0
     assert DOMAIN_WEIGHTS["Long-Context"] == 0.0
-    assert DOMAIN_WEIGHTS["Agentic"] == 0.60
-    assert DOMAIN_WEIGHTS["Coding"] == 0.0
-    assert DOMAIN_WEIGHTS["Tool-calling"] == 0.0
-    # Every suite-v1 + legacy bench maps to its axis display label.
+    assert DOMAIN_WEIGHTS["Agentic"] == 0.50
+    assert DOMAIN_WEIGHTS["Coding"] == 0.10
+    assert DOMAIN_WEIGHTS["Tool-calling"] == 0.10
     assert BENCH_DOMAINS["mmlu_pro"] == "Knowledge"
     assert BENCH_DOMAINS["supergpqa"] == "Knowledge"
     assert BENCH_DOMAINS["ifbench"] == "Instruction-Following"
@@ -53,46 +59,83 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
 
 
 def test_web_derivations_track_the_registry() -> None:
-    assert web_display_axes() == ("knowledge", "instruction", "math", "agentic", "tool_calling")
+    assert web_display_axes() == (
+        "knowledge",
+        "instruction",
+        "math",
+        "agentic",
+        "tool_calling",
+        "coding",
+    )
     assert web_composite_weights() == {
         "knowledge": 0.15,
-        "instruction": 0.25,
-        "agentic": 0.60,
+        "instruction": 0.15,
+        "agentic": 0.50,
         "math": 0.0,
-        "tool_calling": 0.0,
+        "tool_calling": 0.10,
+        "coding": 0.10,
     }
     groups = web_source_bench_groups()
-    # Suite-v1 benches are preferred over their v0 fallback (knowledge: mmlu_pro first).
     assert groups["knowledge"] == (("mmlu_pro",), ("supergpqa",))
     assert groups["instruction"] == (("ifbench",), ("ifeval",))
     assert groups["math"] == (("olymmath_hard", "amo"), ("genmath",))
     assert groups["agentic"] == (("appworld_c",),)
     assert groups["tool_calling"] == (("tc_json_v1",),)
+    assert groups["coding"] == (("lcb",),)
 
 
-def test_tool_calling_axis_is_zero_weight_candidate() -> None:
+def test_tool_calling_axis_is_weighted_headline_axis() -> None:
     axis = next(axis for axis in AXES if axis.key == "tool_calling")
 
     assert axis.display == "Tool-calling"
     assert axis.web_key == "tool_calling"
     assert axis.benches == ("tc_json_v1",)
     assert axis.legacy_benches == ()
-    assert axis.role == "candidate"
-    assert axis.weight == 0.0
+    assert axis.role == "headline"
+    assert axis.weight == 0.10
     assert axis.web_display is True
 
 
+def test_coding_axis_is_weighted_lightweight_proxy() -> None:
+    axis = next(axis for axis in AXES if axis.key == "coding")
+
+    assert axis.display == "Coding"
+    assert axis.web_key == "coding"
+    assert axis.benches == ("lcb",)
+    assert axis.legacy_benches == ()
+    assert axis.role == "headline"
+    assert axis.weight == 0.10
+    assert axis.web_display is True
+
+
+def test_benchmark_modules_define_fast_defaults_and_opt_in_expansions() -> None:
+    assert [module.key for module in BENCHMARK_MODULES if module.role == "headline"] == [
+        "core_text",
+        "tool_calling",
+        "coding",
+        "agentic",
+    ]
+    assert scored_default_benches({"mmlu_pro", "ifbench", "tc_json_v1", "lcb"}) == (
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "lcb",
+        "appworld_c",
+    )
+    assert scored_default_benches({"mmlu_pro", "ifbench", "tc_json_v1"}) == (
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "appworld_c",
+    )
+    coding = next(module for module in BENCHMARK_MODULES if module.key == "coding")
+    assert coding.default_benches == ("lcb",)
+    assert coding.opt_in_benches == ("bigcodebench_hard",)
+
+
 def test_suite_v1_manifest_membership_matches_registry_drift_gate() -> None:
-    # The drift gate: suite.json carries axis MEMBERSHIP only and must match the
-    # single source of truth (compared order-independently, since axes pool items).
     manifest = json.loads(_SUITE_V1.read_text(encoding="utf-8"))
     manifest_axes = manifest["axes"]
-    # Agentic is EXCLUDED from this gate BY DESIGN: its board source is the opt-in
-    # AppWorld-C lane (cli/runs/agentic/*.scored.json, produced by the agentic_exec
-    # funnel), NOT a suite-v1 bench. The registry has agentic = (appworld_c,) while the
-    # suite manifest carries no appworld_c bench, so a membership comparison does not
-    # apply. Reproducibility caveat: the headline agentic axis is reproduced via the
-    # agentic lane + AppWorld install, not `localbench run suite-v1` (see METHODOLOGY v2.0).
     registry = {axis: members for axis, members in axis_membership().items() if axis != "agentic"}
     manifest_axes = {axis: spec for axis, spec in manifest_axes.items() if axis != "agentic"}
     assert set(manifest_axes) == set(registry)

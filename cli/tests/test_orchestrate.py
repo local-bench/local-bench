@@ -72,7 +72,7 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
         }
         # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifeval).
         # genmath -> Math carries weight 0.0, so it is excluded (METHODOLOGY-v1.2 §3).
-        assert record["composite"] == pytest.approx(((0.15 * (1 / 9)) + (0.25 * 0.5)) / 0.40)
+        assert record["composite"] == pytest.approx(((0.15 * (1 / 9)) + (0.15 * 0.5)) / 0.30)
         assert record["totals"]["prompt_tokens"] == 50
         assert record["totals"]["completion_tokens"] == 14
         assert record["totals"]["total_tokens"] == 64

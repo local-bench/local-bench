@@ -3,7 +3,6 @@ import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
-import { ConformancePill } from "./conformance-pill";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { axisLabel, formatCompactNumber, formatGb } from "@/lib/format";
@@ -13,34 +12,26 @@ import type { ModelData } from "@/lib/data";
 
 type VariantRun = ModelData["runs"][number];
 
-// Per-model leaderboard: this model's quant/distill variants ranked DESCENDING by the Local
-// Intelligence Index — the same presentation language as the full board, scoped to one model.
-// Ranks by composite.point; variants with no run yet sink to the bottom as benchmark bounties.
-// Rank 1 = best quality (the row the full leaderboard shows). The "sweet spot" badge marks the
-// smallest variant that still holds ~the best variant's quality (from getQuantDecisionRows), so
-// the board both RANKS and RECOMMENDS. New quants/distills appear automatically once their run is
-// added to data_sources.json and the data is rebuilt — nothing here is hand-wired.
 export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
   const axisKeys = variantAxisColumns(model.runs);
   const decisionByQuant = new Map<string, QuantDecisionRow>(
     getQuantDecisionRows(model, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [row.quantLabel, row]),
   );
   const ranked = [...model.runs]
-    .filter((run) => run.composite !== null)
+    .filter((run) => run.ranked && run.composite !== null)
     .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0));
-  const partial = model.runs.filter((run) => run.composite === null && run.score_status === "measured");
+  const partial = model.runs.filter((run) => !run.ranked && run.score_status === "measured");
   const pending = model.runs.filter((run) => run.composite === null && run.score_status !== "measured");
 
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
       <div className="border-b border-bench-line px-4 py-3">
-        <h2 className="text-lg font-semibold text-bench-text">Variants ranked</h2>
+        <h2 className="text-lg font-semibold text-bench-text">Variant profiles</h2>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
-          Every measured quant and distill of {model.model_label}, ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
-          (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Quality stays ~flat across the
-          top quants, then falls off — the <span className="text-bench-better">sweet spot</span> is the smallest variant
-          that still holds quality, and the VRAM/Fits columns ({formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you
-          what your card needs.
+          Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
+          (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Partial rows show measured
+          diagnostic axes but do not receive a rank until all five headline modules are present. The VRAM/Fits columns
+          ({formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you what your card needs.
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -55,7 +46,6 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
                 </span>
               </th>
-              <th className="px-3 py-3 font-semibold">JSON gate</th>
               {axisKeys.map((axis) => (
                 <th key={axis} className="px-3 py-3 font-semibold">
                   {axisLabel(axis)}
@@ -92,9 +82,6 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                       <ScoreBar axes={run.axes} score={run.composite} />
                     )}
                   </td>
-                  <td className="px-3 py-3">
-                    <ConformancePill gate={run.conformance_gates?.tc_json_v1} compact />
-                  </td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
                       <AxisMiniBar score={run.axes[axis]} />
@@ -122,14 +109,18 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 <td className="px-3 py-3">
                   <span className="font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</span>
                   <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
-                    <Badge tone="muted" title="Agentic-only measurement; no Core Text Knowledge/Instruction run">agentic-only (no Core Text)</Badge>
+                    <Badge tone="muted" title="Partial measurement; missing one or more headline modules">partial headline</Badge>
                   </span>
                 </td>
                 <td className="px-3 py-3">
-                  <span className="font-mono text-xs text-bench-muted">not measured</span>
-                </td>
-                <td className="px-3 py-3">
-                  <ConformancePill gate={run.conformance_gates?.tc_json_v1} compact />
+                  {run.composite === null ? (
+                    <span className="font-mono text-xs text-bench-muted">not measured</span>
+                  ) : (
+                    <div>
+                      <ScoreBar axes={run.axes} score={run.composite} />
+                      <div className="mt-1 font-mono text-[10px] uppercase text-bench-warn-soft">unranked diagnostic</div>
+                    </div>
+                  )}
                 </td>
                 {axisKeys.map((axis) => (
                   <td key={axis} className="px-3 py-3">
@@ -141,7 +132,13 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                 <td className="px-3 py-3">
-                  <span className="font-mono text-xs text-bench-muted">—</span>
+                  {run.run_id === null ? (
+                    <span className="font-mono text-xs text-bench-muted">—</span>
+                  ) : (
+                    <Link href={`/run/${run.run_id}`} className="font-mono text-xs text-bench-accent hover:underline">
+                      receipt
+                    </Link>
+                  )}
                 </td>
               </tr>
             ))}
@@ -152,9 +149,6 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   <td className="px-3 py-3 font-mono">—</td>
                   <td className="px-3 py-3 font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</td>
                   <td className="px-3 py-3">no run yet</td>
-                  <td className="px-3 py-3">
-                    <ConformancePill gate={undefined} compact />
-                  </td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
                       —

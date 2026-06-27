@@ -1,0 +1,193 @@
+{
+  "axes": {
+    "instruction": {
+      "conditional_accuracy": 0.3125,
+      "hi": 36.054421768707485,
+      "hi_raw": 0.36054421768707484,
+      "lo": 25.510204081632654,
+      "lo_raw": 0.25510204081632654,
+      "n": 294,
+      "n_errors": 5,
+      "n_no_answer": 0,
+      "point": 30.612244897959183,
+      "point_raw": 0.30612244897959184,
+      "raw_accuracy": 0.30612244897959184,
+      "termination_rate": 0.9795918367346939
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8459595959595958,
+      "hi": 85.68730343985817,
+      "hi_raw": 0.8568730343985816,
+      "lo": 77.54871127820888,
+      "lo_raw": 0.7754871127820888,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 2,
+      "point": 81.75832791354473,
+      "point_raw": 0.8175832791354474,
+      "raw_accuracy": 0.8375,
+      "termination_rate": 0.99
+    },
+    "tool_calling": {
+      "conditional_accuracy": 0.7545454545454545,
+      "hi": 80.0,
+      "hi_raw": 0.8,
+      "lo": 70.60606060606061,
+      "lo_raw": 0.706060606060606,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 5,
+      "point": 75.45454545454545,
+      "point_raw": 0.7545454545454545,
+      "raw_accuracy": 0.7545454545454545,
+      "termination_rate": 1.0
+    }
+  },
+  "composite": {
+    "hi": 65.65314695321212,
+    "hi_raw": 0.6565314695321212,
+    "lo": 56.29860841145572,
+    "lo_raw": 0.5629860841145572,
+    "point": 61.00260116795033,
+    "point_raw": 0.6100260116795033
+  },
+  "conformance": {
+    "n_scored": 1019,
+    "per_bench": {
+      "ifbench": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 289,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0034602076124567475
+      },
+      "mmlu_pro": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.01
+      },
+      "tc_json_v1": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 330,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "agentic appworld_c quarantined: missing diagnostics or harness-dominated client path",
+    "math not measured in this run; axis omitted",
+    "agentic not measured in this run; axis omitted",
+    "coding not measured in this run; axis omitted",
+    "composite point 0.610026011680 differs from stored composite 0.199168104115"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+    "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "x86_64",
+      "gpu": {
+        "driver": "595.58.03",
+        "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "vram_gb": 95.6,
+        "vram_mb": 97887
+      },
+      "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "Qwen3 Coder",
+      "file_name": null,
+      "file_sha256": null,
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "qwen3-coder-next-q8"
+    },
+    "quant": "Q8_0",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "instruction": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "tool_calling": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Qwen3 Coder Next",
+  "ranked": false,
+  "run_id": "qwen3-coder-next__qwen3-coder-next-q8",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",
+    "registry_digest": "2d36c8dd7dd2c8e48f0ffeff7429d6baed7966edef79fc9adb8eae231d7f579b",
+    "registry_drift": true,
+    "version": "scorecard-v2.0"
+  },
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 276.0,
+  "tokens_to_answer_p95": 3355.8999999999937,
+  "totals": {
+    "completion_tokens": 812340,
+    "completion_tokens_per_second": 230.2014226391457,
+    "n_errors": 5,
+    "n_items": 1120,
+    "prompt_tokens": 269259,
+    "total_tokens": 1081599,
+    "wall_time_seconds": 3528.822674885858
+  },
+  "worst_axis": {
+    "bench": "instruction",
+    "point": 30.612244897959183,
+    "point_raw": 0.30612244897959184
+  }
+}
