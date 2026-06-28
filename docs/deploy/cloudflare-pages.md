@@ -78,6 +78,8 @@ The script now performs local preflight only: install, tests, typecheck, and sta
 
 ## Online Submission Smoke
 
+Prototype private mode may block public smoke checks. If `LOCALBENCH_SITE_PRIVATE=1`, pass the owner bypass token from `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt` with `x-localbench-bypass`, or open `/?lb_bypass=<token>` once in a browser to set the private cookie.
+
 After the Pages deployment is live:
 
 ```powershell
@@ -119,6 +121,34 @@ Publishing is still manual:
 - A test `.lbsub.zip` uploads directly to R2 and D1 shows `uploaded`.
 - `submit admin-verify` moves the test submission to `needs_review`.
 - Public leaderboard does not change until board data is regenerated and redeployed.
+
+## Prototype Private Mode
+
+The Pages middleware can keep the prototype inaccessible to the public while preserving the deployment, D1, R2, Queues, and owner/API smoke access.
+
+Production secrets:
+
+```powershell
+cd C:\Users\Michael\local-bench\web
+"1" | npx wrangler pages secret put LOCALBENCH_SITE_PRIVATE --project-name local-bench
+Get-Content C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt -Raw | npx wrangler pages secret put LOCALBENCH_PRIVATE_BYPASS_TOKEN --project-name local-bench
+```
+
+Owner smoke:
+
+```powershell
+$token = Get-Content C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt -Raw
+curl.exe -H "x-localbench-bypass: $token" https://local-bench.ai/api/health
+```
+
+Public rollback:
+
+```powershell
+cd C:\Users\Michael\local-bench\web
+"0" | npx wrangler pages secret put LOCALBENCH_SITE_PRIVATE --project-name local-bench
+git commit --allow-empty -m "chore(deploy): refresh private mode"
+git push deploy HEAD:main
+```
 
 ## Rollback
 
