@@ -13,8 +13,8 @@
   - Root directory: `web`
   - Build command: `npm ci && npm run build`
   - Output directory: `out`
-- Production deployment succeeded from commit `423b99c9d293a57a722b49757425378967e4cc06`.
-- Pages deployment URL: `https://494f03cd.local-bench.pages.dev`.
+- Production deployment succeeded from commit `d58e3db` (`chore(deploy): gate prototype behind private mode`).
+- Pages deployment URL: `https://5a325e77.local-bench.pages.dev`.
 - Canonical Pages URL: `https://local-bench.pages.dev`.
 - D1 binding `DB` points to `localbench_prod` (`31023810-a7f8-49d4-825e-01e976bd0e1d`).
 - R2 bindings:
@@ -34,10 +34,18 @@
 
 ## Verification
 
-- `https://local-bench.pages.dev/api/health` returned `{"service":"localbench","status":"ok","storage":{"d1":true,"queue":true,"r2":true}}`.
-- `https://494f03cd.local-bench.pages.dev/api/health` returned the same health payload.
-- `https://local-bench.ai/api/health` returned the same health payload over normal DNS on this machine.
-- `https://local-bench.ai/api/suites/core-text-v1/manifest` returned `suite_id=core-text-v1`, `files=11`, suite hash `6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179`.
+- After private mode deployment, public requests returned HTTP 503 with `cache-control: no-store` and `x-robots-tag: noindex` for:
+  - `https://local-bench.ai/`
+  - `https://www.local-bench.ai/`
+  - `https://local-bench.ai/api/health`
+  - `https://local-bench.pages.dev/api/health`
+  - `https://5a325e77.local-bench.pages.dev/api/health`
+  - `https://local-bench.ai/api/suites/core-text-v1/manifest`
+- Owner bypass header `x-localbench-bypass` returned the health payload and suite manifest for `local-bench.ai`.
+- Before private mode was enabled, `https://local-bench.pages.dev/api/health` returned `{"service":"localbench","status":"ok","storage":{"d1":true,"queue":true,"r2":true}}`.
+- Before private mode was enabled, `https://494f03cd.local-bench.pages.dev/api/health` returned the same health payload.
+- Before private mode was enabled, `https://local-bench.ai/api/health` returned the same health payload over normal DNS on this machine.
+- Before private mode was enabled, `https://local-bench.ai/api/suites/core-text-v1/manifest` returned `suite_id=core-text-v1`, `files=11`, suite hash `6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179`.
 - Public/authoritative DNS resolvers (`1.1.1.1`, `8.8.8.8`, `ganz.ns.cloudflare.com`, `hattie.ns.cloudflare.com`) resolve both `local-bench.ai` and `www.local-bench.ai` to proxied Cloudflare A/AAAA records.
 - Pages custom-domain status is active for both `local-bench.ai` and `www.local-bench.ai`.
 - Forced-resolution checks against Cloudflare edge returned 200 for:
