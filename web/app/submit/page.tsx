@@ -8,45 +8,68 @@ export default function SubmitPage() {
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">community submissions</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submit a run</h1>
         <p className="mt-3 leading-7 text-bench-muted">
-          One command points the frozen suite at any OpenAI-compatible endpoint (llama.cpp / vLLM /
-          LM Studio); results are server-scored and placed on the boards.
+          Run the frozen suite locally against any OpenAI-compatible endpoint, then upload a signed
+          bundle for deterministic re-scoring and maintainer review.
         </p>
       </header>
 
-      <pre aria-label="localbench run command" className="overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-sm text-bench-text">
-        {`localbench run \\
-  --endpoint http://localhost:8080/v1 \\
-  --model your-model-name \\
-  --lane capped-thinking \\
-  --tier standard \\
-  --out my-run.json`}
+      <pre aria-label="localbench online submission commands" className="whitespace-pre-wrap break-words rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        {`localbench fetch-suite \
+  --source-url https://local-bench.ai/api/suites/core-text-v1/manifest \
+  --accept-suite-terms
+
+localbench run \
+  --endpoint http://localhost:8080/v1 \
+  --model your-model-name \
+  --lane capped-thinking \
+  --tier standard \
+  --out my-run.json
+
+localbench submit keygen --out localbench-ed25519.pem
+localbench submit ticket \
+  --site https://local-bench.ai \
+  --signing-key localbench-ed25519.pem \
+  --out ticket.json
+localbench submit pack \
+  --run my-run.json \
+  --suite-dir <cached-suite-dir> \
+  --model-name your-model-name \
+  --signing-key localbench-ed25519.pem \
+  --ticket ticket.json \
+  --out my-run.lbsub.zip
+localbench submit upload --ticket ticket.json --bundle my-run.lbsub.zip
+localbench submit status <submission_id> --site https://local-bench.ai`}
       </pre>
       <p className="-mt-3 text-sm leading-6 text-bench-muted">
         <code className="font-mono text-bench-text">--lane capped-thinking</code> is the headline reasoning-on
-        lane; ranks only compare within a lane, so keep it to land on the ranked board.
+        lane. Accepted submissions are not published immediately; the public board is regenerated only
+        after deterministic checks, local maintainer review, and an explicit deploy.
       </p>
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-bench-line bg-bench-panel p-5">
           <h2 className="text-lg font-semibold text-bench-text">What uploads</h2>
           <p className="mt-3 leading-7 text-bench-muted">
-            The result JSON: per-axis scores + bootstrap CIs, item-set hashes (provenance), and
-            hardware/runtime/quant metadata (the manifest summary). No raw prompts or model outputs.
+            A signed bundle containing the manifest, item records, original run JSON, prompt/response
+            transcript data, suite hashes, and runtime metadata. The upload goes directly to R2 using
+            a short-lived URL; D1 stores metadata and status only.
           </p>
         </div>
         <div className="rounded-lg border border-bench-line bg-bench-panel p-5">
           <h2 className="text-lg font-semibold text-bench-text">What stays local</h2>
           <p className="mt-3 leading-7 text-bench-muted">
-            Your model weights, the raw prompts and generated responses, and any API keys (read from the env var
-            named by <code className="font-mono text-bench-text">--api-key-env</code>, never written to the result).
+            Model weights, API keys, local server credentials, and any private machine access. Do not
+            submit a run if the transcript contains data you are unwilling to share with the maintainer
+            review process.
           </p>
         </div>
       </section>
 
       <section className="space-y-3 text-bench-muted">
         <p>
-          Quick tier is an unranked personal estimate; Standard tier is the ranked board. Independent re-runs of the
-          same setup earn a Replicated badge.
+          Uploaded runs are labelled community re-scored after the server-side verifier recomputes scores
+          from the signed bundle. That label does not prove model identity, hardware identity, or runtime
+          honesty.
         </p>
       </section>
     </main>

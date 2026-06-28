@@ -81,9 +81,10 @@ export default function TrustPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Labels mean exactly what they say</h2>
         <p>
-          Community-reported runs are ordinary submitted results. Replicated is reserved for future results
-          reproduced by at least three independent accounts. Anchor runs are project-maintained references against
-          the same frozen suite.
+          Community re-scored means the submitted bundle was re-scored from its transcript and accepted for
+          maintainer review. It does not verify the model, hardware, or runtime identity. Replicated is reserved
+          for future results reproduced by at least three independent accounts. Anchor runs are project-maintained
+          references against the same frozen suite.
         </p>
       </section>
       <section className="space-y-4 text-bench-muted">
@@ -106,9 +107,9 @@ export default function TrustPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Benchmark sources and attribution</h2>
         <p>
-          local-bench publishes scores and metadata only — no model weights, GGUF files, or benchmark question text
-          are hosted here. The frozen item sets behind the headline Index are derived from the following sources,
-          each used under its own license:
+          local-bench publishes public suite artifacts, scores, and metadata. No model weights, GGUF files, API
+          keys, or private runtime credentials are hosted here. The frozen item sets behind the headline Index
+          are derived from the following sources, each used under its own license:
         </p>
         <div className="rounded-lg border border-bench-line bg-bench-panel/50 px-4 py-2">
           {HEADLINE_SOURCES.map((source) => (

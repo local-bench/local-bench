@@ -30,11 +30,12 @@ def pack_submission_bundle(
     signing_key_path: Path,
     out_path: Path,
     offline: bool,
+    ticket_path: Path | None = None,
     created_at: str | None = None,
     run_nonce: str | None = None,
 ) -> JsonObject:
-    if not offline:
-        raise SubmissionValidationError("only offline submission tickets are supported in M1")
+    if not offline and ticket_path is None:
+        raise SubmissionValidationError("online submission packing requires --ticket")
     verify_suite_dir(suite_dir)
     run = _read_run(run_path)
     check_run_schema_version(run)
@@ -48,6 +49,8 @@ def pack_submission_bundle(
         suite_dir=suite_dir,
         model_name=model_name,
         file_bytes=file_bytes,
+        offline=offline,
+        ticket_path=ticket_path,
         created_at=created_at or _utc_now(),
         run_nonce=run_nonce or uuid.uuid4().hex,
         item_count=len(records),
@@ -68,6 +71,8 @@ def _manifest_payload(
     suite_dir: Path,
     model_name: str,
     file_bytes: dict[str, bytes],
+    offline: bool,
+    ticket_path: Path | None,
     created_at: str,
     run_nonce: str,
     item_count: int,
@@ -80,12 +85,7 @@ def _manifest_payload(
         "submission_format": SUBMISSION_FORMAT,
         "created_at": created_at,
         "run_nonce": run_nonce,
-        "ticket": {
-            "mode": "offline",
-            "submission_id": f"offline-{run_nonce}",
-            "server_nonce": "offline",
-            "account_id": None,
-        },
+        "ticket": _ticket_payload(offline=offline, ticket_path=ticket_path, run_nonce=run_nonce),
         "cli": {"name": "localbench", "version": "0.1.0"},
         "suite": {
             "id": _string(run_suite.get("suite_id")) or _string(run.get("tier")) or "local-suite",
@@ -173,6 +173,25 @@ def _read_run(path: Path) -> JsonObject:
     return json_object_from_bytes(path.read_bytes(), str(path))
 
 
+def _ticket_payload(*, offline: bool, ticket_path: Path | None, run_nonce: str) -> JsonObject:
+    if offline:
+        return {
+            "mode": "offline",
+            "submission_id": f"offline-{run_nonce}",
+            "server_nonce": "offline",
+            "account_id": None,
+        }
+    if ticket_path is None:
+        raise SubmissionValidationError("online submission packing requires --ticket")
+    ticket = json_object_from_bytes(ticket_path.read_bytes(), str(ticket_path))
+    return {
+        "mode": "online",
+        "submission_id": _required_ticket_text(ticket, "submission_id"),
+        "server_nonce": _required_ticket_text(ticket, "server_nonce"),
+        "account_id": _optional_ticket_text(ticket, "account_id"),
+    }
+
+
 def _model_claim(run: JsonObject, manifest: JsonObject, model_name: str) -> JsonObject:
     model = _object(run.get("model"))
     manifest_model = _object(manifest.get("model"))
@@ -217,3 +236,17 @@ def _string(value: JsonValue | None) -> str | None:
 
 def _utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _required_ticket_text(ticket: JsonObject, key: str) -> str:
+    value = ticket.get(key)
+    if not isinstance(value, str) or not value:
+        raise SubmissionValidationError(f"ticket field {key} must be a non-empty string")
+    return value
+
+
+def _optional_ticket_text(ticket: JsonObject, key: str) -> str | None:
+    value = ticket.get(key)
+    if value is None or isinstance(value, str):
+        return value
+    raise SubmissionValidationError(f"ticket field {key} must be a string or null")

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from localbench.cli import main
+from localbench.suite_resolver import DEFAULT_SUITE_ID, SuiteRef
 
 
 def test_fetch_suite_command_requires_accept_suite_terms(
@@ -24,6 +25,50 @@ def test_fetch_suite_command_requires_accept_suite_terms(
     captured = capsys.readouterr()
     assert code == 2
     assert "--accept-suite-terms" in captured.out
+
+
+def test_fetch_suite_command_accepts_remote_manifest_url(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    # Given: a remote manifest URL and a fake verified remote cache result.
+    import localbench.cli as cli_mod
+
+    cached = tmp_path / "cache" / "suites" / DEFAULT_SUITE_ID / ("a" * 64)
+
+    def fake_fetch(config: cli_mod.RemoteSuiteFetch) -> SuiteRef:
+        assert config.accept_suite_terms is True
+        assert config.manifest_url == "https://local-bench.ai/api/suites/core-text-v1/manifest"
+        assert config.cache_root == tmp_path / "cache"
+        return SuiteRef(
+            suite_id=DEFAULT_SUITE_ID,
+            path=cached,
+            suite_hash="a" * 64,
+            source="remote-manifest",
+            version=DEFAULT_SUITE_ID,
+            license_manifest={},
+        )
+
+    monkeypatch.setattr(cli_mod, "fetch_suite_from_manifest_url", fake_fetch)
+
+    # When: fetching through the command-line URL mode.
+    code = main(
+        [
+            "fetch-suite",
+            "--source-url",
+            "https://local-bench.ai/api/suites/core-text-v1/manifest",
+            "--accept-suite-terms",
+            "--cache-dir",
+            str(tmp_path / "cache"),
+        ],
+    )
+
+    # Then: the CLI reports the remote-manifest suite identity.
+    output = capsys.readouterr().out
+    assert code == 0
+    assert "suite_id  core-text-v1" in output
+    assert "cached    " in output
 
 
 def test_scorer_gates_preserves_agentic_token_when_an_http_bench_is_gated(

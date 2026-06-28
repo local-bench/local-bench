@@ -1,136 +1,129 @@
-# Deploy: local-bench.ai on Cloudflare Pages (v1, read-only board)
+# Deploy: local-bench.ai on Cloudflare Pages
 
-**Goal:** publish the static leaderboard at `https://local-bench.ai` with HTTPS.
-**What ships:** a fully static site. `web/next.config.mjs` has `output: "export"`,
-so `npm run build` emits `web/out/` (117 prerendered pages + the committed
-`public/data/*.json`). No server, no Workers, no R2/D1 for v1 — Pages alone is enough.
+Updated 2026-06-28. This runbook is for the online launch with Pages Functions, D1, R2, and Queues.
 
-> v2 (community submissions per `docs/foundations/submission-verification-design.md`)
-> adds Workers + R2 + D1 later. This runbook is v1 only.
+## Architecture
 
----
+- Cloudflare Pages hosts the static Next.js export and the `web/functions` API routes.
+- D1 database `localbench_prod` stores suite/submission/job/decision metadata.
+- R2 bucket `localbench-submissions` stores uploaded `.lbsub.zip` bundles.
+- R2 bucket `localbench-public-artifacts` is reserved for generated public artifacts.
+- Queue `localbench-verification` receives upload-complete jobs for the maintainer verifier loop.
+- The public leaderboard remains generated from committed JSON. Accepted submissions do not publish automatically.
 
-## Decision: Wrangler direct-upload (not Git integration)
+## Private GitHub Deploy Repo
 
-The repo has **no git remote** and the standing rule is "commits stay local, never
-pushed." So we build locally and upload the static output directly with Wrangler.
-No GitHub, no Cloudflare repo access, no CI.
+Use a fresh private repo under `Papa-midnight-dev`, recommended name `local-bench-site`.
 
-| | **Path A — Direct upload (chosen)** | Path B — Git integration (future) |
-|---|---|---|
-| Push repo to GitHub? | No | Yes (required) |
-| Auto-deploy on push | No (run a script) | Yes |
-| PR preview URLs | No | Yes |
-| Build runs where | This machine | Cloudflare's build container |
-| Fits "commits stay local" | Yes | No |
+Cloudflare Pages settings:
 
-Path B is the better long-term setup (previews, provenance). Switch when/if the
-repo goes to GitHub — the build command (`cd web && npm run build`, output `web/out`)
-and the committed `public/data` make it a clean swap. Cloudflare's builder needs
-**no Python**: the data JSON is pre-generated and committed, so CF only runs
-`next build`.
+- Project name: `local-bench`
+- Production branch: `main`
+- Root directory: `web`
+- Build command: `npm ci && npm run build`
+- Build output directory: `out`
+- Functions directory: `functions`
 
----
+Cloudflare supports private GitHub repos for Pages Git integration. Keep the deployment repo private unless public identity exposure is acceptable.
 
-## One-time setup — **MICHAEL'S HANDS** (≈5 min, browser + one CLI auth)
+## Cloudflare Resources
 
-These touch account credentials, so do them yourself; don't hand them to an agent.
+Run from the repo root after authenticating Wrangler:
 
-1. **Account ID** — Cloudflare dashboard → any domain's Overview → right sidebar
-   "Account ID". Copy it.
-2. **API token** — dashboard → My Profile → **API Tokens** → Create Token →
-   template **"Edit Cloudflare Pages"** → scope to your account → Continue → Create.
-   Copy the token (shown once).
-   - Scoped to Pages only — safe to use in the deploy script. Revocable anytime.
-3. **Make the two values available to the shell that runs the deploy** (current
-   PowerShell session — not committed anywhere):
-   ```powershell
-   $env:CLOUDFLARE_ACCOUNT_ID = "<account id>"
-   $env:CLOUDFLARE_API_TOKEN  = "<token>"
-   ```
-   (Alternative to the token: `npx wrangler login` — OAuth browser flow. Token is
-   better here because the deploy script is non-interactive.)
+```powershell
+cd web
+npx wrangler d1 create localbench_prod
+npx wrangler d1 migrations apply localbench_prod --remote
+npx wrangler r2 bucket create localbench-submissions
+npx wrangler r2 bucket create localbench-public-artifacts
+npx wrangler queues create localbench-verification
+```
 
-After the **first** deploy creates the project, one more browser step for the domain:
+Copy the D1 `database_id` into `web/wrangler.jsonc`.
 
-4. **Custom domain** — dashboard → **Workers & Pages** → `local-bench` project →
-   **Custom domains** → "Set up a custom domain" → enter `local-bench.ai`
-   (optionally also `www.local-bench.ai`). Because the zone is already on Cloudflare
-   Registrar, it auto-creates the DNS record and provisions the HTTPS cert (live in
-   a few minutes). Apex works via Cloudflare's automatic CNAME flattening — nothing
-   to configure manually.
+Set Pages environment variables and secrets:
 
-That's the entire hands-on list: **Account ID, API token, custom-domain click.**
+```powershell
+npx wrangler pages secret put ADMIN_API_SECRET --project-name local-bench
+npx wrangler pages secret put R2_ACCESS_KEY_ID --project-name local-bench
+npx wrangler pages secret put R2_SECRET_ACCESS_KEY --project-name local-bench
+npx wrangler pages secret put R2_ACCOUNT_ID --project-name local-bench
+npx wrangler pages secret put R2_BUCKET_NAME --project-name local-bench
+npx wrangler pages secret put LOCALBENCH_PUBLIC_BASE_URL --project-name local-bench
+```
 
----
+Use `https://local-bench.ai` for `LOCALBENCH_PUBLIC_BASE_URL` and `localbench-submissions` for `R2_BUCKET_NAME`.
 
-## Repeatable deploy — **SCRIPTABLE** (`scripts/deploy-site.ps1`)
+## What Needs Manual Account Access
 
-With the two env vars set, every deploy is one command from the repo root:
+Michael must do the credentialed/account steps:
+
+- Create or confirm the private GitHub repo.
+- Connect the repo in Cloudflare Pages.
+- Create R2 API credentials with least privilege for `localbench-submissions`.
+- Set Pages secrets.
+- Attach `local-bench.ai` and optionally `www.local-bench.ai` as custom domains.
+
+Computer-use automation may help with non-sensitive clicks when available, but auth, 2FA, token creation, and final resource confirmation should remain human-confirmed.
+
+## Local Preflight
+
+Before pushing a deploy commit:
 
 ```powershell
 .\scripts\deploy-site.ps1
 ```
 
-The script gates on quality before publishing, then uploads:
+The script now performs local preflight only: install, tests, typecheck, and static build. Git integration performs the actual Cloudflare deploy after the private repo is pushed.
 
-1. `npm ci` in `web/` (clean, lockfile-exact install)
-2. `npm run test` (vitest) — abort on failure
-3. `npx tsc --noEmit` — abort on failure
-4. `npm run build` → `web/out/`
-5. `npx wrangler pages deploy out --project-name=local-bench --branch=main`
+## Online Submission Smoke
 
-First run also creates the project if missing (`wrangler pages project create`).
-The build deploys the **committed** `web/public/data` — it does **not** regenerate
-data (that needs the run JSONs + the pinned Py314 venv, which aren't a deploy
-concern). Regenerate separately with `web/build_data.py` and commit before deploying
-when the numbers change.
+After the Pages deployment is live:
 
----
+```powershell
+curl https://local-bench.ai/api/health
+localbench fetch-suite --source-url https://local-bench.ai/api/suites/core-text-v1/manifest --accept-suite-terms
+localbench submit keygen --out localbench-ed25519.pem
+localbench submit ticket --site https://local-bench.ai --signing-key localbench-ed25519.pem --out ticket.json
+```
 
-## Codex computer-use? — not worth it
+Then run a small fixture, pack it with `--ticket`, upload it, and poll status. A valid upload should appear in D1 as `uploaded`; the maintainer verifier should move it to `needs_review`.
 
-The handoff floated handing the browser-driven Cloudflare setup to a Codex
-computer-use session. Recommendation: **don't.** The hands-on steps are ~5 minutes,
-one-time, and credential-sensitive (an API token + account navigation, likely behind
-2FA). A browser agent there adds account-security risk for almost no time saved. The
-*repeatable* part — the actual deploy — is pure CLI with zero browser, already
-scripted. Give the agent nothing it can't do safely; the click-path above is faster
-and safer by hand.
+## Maintainer Verification
 
----
+Run from a trusted maintainer machine:
 
-## Verify after go-live
+```powershell
+$env:LOCALBENCH_ADMIN_SECRET = "<same value as ADMIN_API_SECRET>"
+localbench submit admin-verify `
+  --site https://local-bench.ai `
+  --suite-dir <cached-suite-dir> `
+  --work-dir runs\submission-verification
+```
 
-- `https://local-bench.ai/` → graph + summary board renders.
-- `https://local-bench.ai/leaderboard/` → full board, "Full bench time" column,
-  no "Core Text" anywhere.
-- `https://local-bench.ai/methodology/` → states Knowledge (MMLU-Pro) + Instruction
-  (IFBench) feed the Index.
-- HTTPS padlock valid; HTTP redirects to HTTPS (Pages default).
+This downloads pending uploaded bundles through admin-only signed URLs, runs the existing deterministic offline verifier, writes local verification artifacts, and marks each submission `needs_review` or `rejected`.
+
+Publishing is still manual:
+
+1. Review the local verifier artifact.
+2. Accept or reject through the admin decision endpoint.
+3. Regenerate board data from accepted submissions.
+4. Push the private deploy repo so Pages publishes the updated static board.
+
+## Verification Checklist
+
+- `https://local-bench.ai/` renders.
+- `https://local-bench.ai/api/health` returns `{"status":"ok"}`.
+- `https://local-bench.ai/api/suites/core-text-v1/manifest` returns hash-pinned suite files.
+- CLI `fetch-suite --source-url` verifies the downloaded suite hash.
+- A test `.lbsub.zip` uploads directly to R2 and D1 shows `uploaded`.
+- `submit admin-verify` moves the test submission to `needs_review`.
+- Public leaderboard does not change until board data is regenerated and redeployed.
 
 ## Rollback
 
-Cloudflare Pages keeps every deployment. Dashboard → project → Deployments →
-pick a previous one → "Rollback to this deployment". Instant, no rebuild.
+Cloudflare Pages keeps deployment history. Use Pages → `local-bench` → Deployments → select previous deployment → Rollback.
 
-## Anonymity (pre-launch gate #20)
+## Anonymity Caveat
 
-Verified 2026-06-23 — the published artifact carries no operator identity:
-- **No public repo.** Deploy is Wrangler **direct upload** of `web/out/`, not a connected git
-  repo, so commit history / author metadata is never published.
-- **Site + `<meta>` clean.** No name, email, or personal account anywhere in the built site
-  (`web/out/`), page copy, or metadata. `app/layout.tsx` sets only a generic title +
-  description; there are no `author` / `og:` / `twitter:` tags, so nothing to leak.
-- **Deploy script clean.** `scripts/deploy-site.ps1` holds no PII; credentials come from the
-  `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` env vars, never hardcoded.
-- **Re-check before each deploy** if site copy changed:
-  `grep -riE "michael|russell|clarity|outlook" web/out/` must return nothing.
-
-## Publish gate G0 (must hold before first go-live)
-
-- [x] No answer-only gemma in headline rank (gemma rows are score-less shells)
-- [x] Candidate axes (Math/Coding-exec/Agentic) out of the composite, no fabricated
-      numbers (synthesized-axes fix + n=0 "— not measured" guards)
-- [x] Site + methodology tell one story; "Intelligence Index" naming applied
-- [ ] Michael provides Account ID + API token, runs `deploy-site.ps1`, attaches domain
+A private GitHub repo hides source and commit history from the public, but Cloudflare and GitHub still know the owning account. If public pseudonymity matters, use a clean pseudonymous GitHub org/repo before connecting Pages.

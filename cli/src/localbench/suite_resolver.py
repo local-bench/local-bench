@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
+import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
+
+import httpx
 
 from localbench._types import JsonObject, JsonValue
 from localbench.suite_errors import SuiteResolutionError
@@ -18,7 +22,7 @@ LOCALBENCH_SUITE_DIR_ENV: Final = "LOCALBENCH_SUITE_DIR"
 LOCALBENCH_SUITE_SOURCE_ENV: Final = "LOCALBENCH_SUITE_SOURCE"
 LOCALBENCH_CACHE_DIR_ENV: Final = "LOCALBENCH_CACHE_DIR"
 
-SuiteSource = Literal["suite-dir", "env", "cache", "package-data", "local-source"]
+SuiteSource = Literal["suite-dir", "env", "cache", "package-data", "local-source", "remote-manifest"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +33,30 @@ class SuiteRef:
     source: SuiteSource
     version: str
     license_manifest: JsonObject
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteSuiteFetch:
+    accept_suite_terms: bool
+    manifest_url: str
+    cache_root: Path | None = None
+    transport: httpx.BaseTransport | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteSuiteFile:
+    path: str
+    sha256: str
+    size: int
+    url: str
+
+
+@dataclass(frozen=True, slots=True)
+class RemoteSuiteManifest:
+    files: tuple[RemoteSuiteFile, ...]
+    suite_hash: str
+    suite_id: str
+    version: str
 
 
 def resolve_suite_dir(
@@ -98,6 +126,34 @@ def fetch_suite(
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_path, target)
     return _verified_ref(normalized_id, target, source_ref.source)
+
+
+def fetch_suite_from_manifest_url(config: RemoteSuiteFetch) -> SuiteRef:
+    if not config.accept_suite_terms:
+        raise SuiteResolutionError(
+            "fetch-suite requires --accept-suite-terms before redistributing "
+            "public suite items into the local cache",
+        )
+    with _http_client(config.transport) as client:
+        manifest_response = client.get(config.manifest_url)
+        manifest_response.raise_for_status()
+        manifest = _remote_manifest(manifest_response.json())
+        with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
+            temp_dir = Path(temp_name) / manifest.suite_id
+            temp_dir.mkdir()
+            for suite_file in manifest.files:
+                _download_suite_file(client, temp_dir, suite_file)
+            ref = _verified_ref(manifest.suite_id, temp_dir, "remote-manifest")
+            if ref.suite_hash != manifest.suite_hash:
+                raise SuiteResolutionError(
+                    f"suite hash mismatch: {ref.suite_hash} != {manifest.suite_hash}",
+                )
+            target = suite_cache_root(config.cache_root) / manifest.suite_id / ref.suite_hash
+            if target.exists():
+                return _verified_ref(manifest.suite_id, target, "remote-manifest")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(temp_dir, target)
+            return _verified_ref(manifest.suite_id, target, "remote-manifest")
 
 
 def suite_cache_root(cache_root: Path | None = None) -> Path:
@@ -174,3 +230,89 @@ def _env_path(name: str) -> Path | None:
 
 def _text(value: JsonValue | None) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _http_client(transport: httpx.BaseTransport | None) -> httpx.Client:
+    timeout = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=10.0)
+    if transport is not None:
+        return httpx.Client(transport=transport, timeout=timeout, follow_redirects=True)
+    return httpx.Client(
+        transport=httpx.HTTPTransport(retries=3),
+        timeout=timeout,
+        follow_redirects=True,
+    )
+
+
+def _remote_manifest(value: JsonValue) -> RemoteSuiteManifest:
+    if not isinstance(value, dict):
+        raise SuiteResolutionError("suite manifest must be a JSON object")
+    schema_version = value.get("schema_version")
+    if schema_version != "localbench.suite-manifest.v1":
+        raise SuiteResolutionError("suite manifest schema_version is not supported")
+    suite_id = _required_text(value, "suite_id")
+    files_value = value.get("files")
+    if not isinstance(files_value, list):
+        raise SuiteResolutionError("suite manifest files must be a list")
+    return RemoteSuiteManifest(
+        files=tuple(_remote_file(file_value) for file_value in files_value),
+        suite_hash=_required_hash(value, "suite_hash"),
+        suite_id=normalize_suite_id(suite_id),
+        version=_required_text(value, "version"),
+    )
+
+
+def _remote_file(value: JsonValue) -> RemoteSuiteFile:
+    if not isinstance(value, dict):
+        raise SuiteResolutionError("suite manifest file entries must be objects")
+    size_value = value.get("size")
+    if not isinstance(size_value, int) or size_value < 0:
+        raise SuiteResolutionError("suite manifest file size must be a non-negative integer")
+    return RemoteSuiteFile(
+        path=_safe_relative_path(_required_text(value, "path")),
+        sha256=_required_hash(value, "sha256"),
+        size=size_value,
+        url=_required_text(value, "url"),
+    )
+
+
+def _download_suite_file(client: httpx.Client, suite_dir: Path, suite_file: RemoteSuiteFile) -> None:
+    response = client.get(suite_file.url)
+    response.raise_for_status()
+    data = response.content
+    if len(data) != suite_file.size:
+        raise SuiteResolutionError(
+            f"suite file size mismatch for {suite_file.path}: {len(data)} != {suite_file.size}",
+        )
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != suite_file.sha256:
+        raise SuiteResolutionError(
+            f"suite file sha256 mismatch for {suite_file.path}: {digest} != {suite_file.sha256}",
+        )
+    target = suite_dir / suite_file.path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+
+
+def _safe_relative_path(value: str) -> str:
+    path = Path(value)
+    if path.is_absolute() or ".." in path.parts or value.replace("\\", "/").startswith("/"):
+        raise SuiteResolutionError(f"suite manifest path is unsafe: {value}")
+    return value.replace("\\", "/")
+
+
+def _required_text(value: JsonObject, key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str) or not item:
+        raise SuiteResolutionError(f"suite manifest {key} must be a non-empty string")
+    return item
+
+
+def _required_hash(value: JsonObject, key: str) -> str:
+    item = _required_text(value, key)
+    if len(item) != 64:
+        raise SuiteResolutionError(f"suite manifest {key} must be a sha256 hex digest")
+    try:
+        bytes.fromhex(item)
+    except ValueError as error:
+        raise SuiteResolutionError(f"suite manifest {key} must be a sha256 hex digest") from error
+    return item
