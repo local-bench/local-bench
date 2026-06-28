@@ -6,7 +6,7 @@
     {
       "binding": "DB",
       "database_name": "localbench_prod",
-      "database_id": "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+      "database_id": "31023810-a7f8-49d4-825e-01e976bd0e1d"
     }
   ],
   "r2_buckets": [
