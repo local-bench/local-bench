@@ -26,6 +26,7 @@ class CampaignConfig:
     model: str
     suite_id: str
     suite_hash: str
+    suite_dir: Path
     suite_terms_accepted: bool
     tier: str
     lane: str
@@ -60,6 +61,7 @@ def campaign_record(
         "suite": {
             "suite_id": config.suite_id,
             "suite_hash": config.suite_hash,
+            "suite_dir": str(config.suite_dir),
             "suite_version": suite_version(suite),
             "suite_terms_accepted": config.suite_terms_accepted,
             "item_set_hashes": item_hashes(suite_dir, item_files),

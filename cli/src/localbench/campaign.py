@@ -37,8 +37,13 @@ class StatusUpdate:
     failure_reason: str | None = None
 
 
-def campaign_paths(output_path: Path) -> CampaignPaths:
-    root = output_path.parent
+def campaign_paths(output_path: Path, campaign_dir: Path | None = None) -> CampaignPaths:
+    if campaign_dir is not None:
+        root = campaign_dir
+    elif output_path.name == "localbench-run.json":
+        root = output_path.parent
+    else:
+        root = output_path.with_suffix("")
     return CampaignPaths(
         root=root,
         final_run=output_path,
@@ -109,4 +114,3 @@ def _write_lock(path: Path, started_at: str) -> None:
         "started_at": started_at,
     }
     atomic_write_json(lock, path)
-

@@ -19,6 +19,7 @@ from localbench.orchestrate import (
     OrchestrateConfig,
     ReasoningActivationChoice,
     ReasoningEffortChoice,
+    UnsafeResumeError,
     default_output_path,
     run_localbench,
 )
@@ -131,8 +132,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="localbench")
     subparsers = parser.add_subparsers(dest="command", required=True)
     run_parser = subparsers.add_parser("run", help="run a local benchmark suite")
-    run_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
-    run_parser.add_argument("--model", required=True, help="model name to send in requests")
+    run_parser.add_argument("--endpoint", help="OpenAI-compatible base URL")
+    run_parser.add_argument("--model", help="model name to send in requests")
+    run_parser.add_argument("--resume", type=Path, help="resume an existing campaign directory")
     run_parser.add_argument(
         "--bench",
         default="all",
@@ -324,6 +326,11 @@ def _parser() -> argparse.ArgumentParser:
 
 def _run(args: argparse.Namespace) -> int:
     api_key = _api_key(args.api_key_env)
+    if args.resume is not None:
+        _populate_resume_args(args)
+    if args.endpoint is None or args.model is None:
+        print("error      --endpoint and --model are required unless --resume is used", file=sys.stderr)
+        return 2
     tier = _resolved_run_tier(args.suite, args.tier)
     if args.dry_run:
         return _run_dry(args, tier)
@@ -355,16 +362,44 @@ def _run(args: argparse.Namespace) -> int:
                 hf_model_id=args.hf_model_id,
                 reasoning_activation=_reasoning_activation(args.reasoning_activation),
                 max_tokens=args.max_tokens,
+                resume=args.resume,
             ),
         )
     except EndpointPreflightError as error:
         print(f"error      {error}")
         return 2
+    except UnsafeResumeError as error:
+        print(f"error      {error}")
+        return 40
     if scorer_gates:
         _append_scorer_gated_benches(record, scorer_gates, suite_axis_map)
         _rewrite_run_record(record)
     _print_summary(record)
     return 0
+
+
+def _populate_resume_args(args: argparse.Namespace) -> None:
+    campaign_path = args.resume / "campaign.json"
+    campaign = read_json_object(campaign_path)
+    suite = campaign.get("suite")
+    model = campaign.get("model")
+    provider = campaign.get("provider")
+    if isinstance(suite, dict):
+        if args.suite_dir is None and isinstance(suite.get("suite_dir"), str):
+            args.suite_dir = Path(suite["suite_dir"])
+        if isinstance(suite.get("suite_id"), str):
+            args.suite = suite["suite_id"]
+    if isinstance(model, dict) and args.model is None and isinstance(model.get("declared_model_id"), str):
+        args.model = model["declared_model_id"]
+    if isinstance(provider, dict):
+        if args.endpoint is None and isinstance(provider.get("endpoint"), str):
+            args.endpoint = provider["endpoint"]
+        if isinstance(provider.get("name"), str):
+            args.provider = provider["name"]
+    if args.tier is None and isinstance(campaign.get("tier"), str):
+        args.tier = campaign["tier"]
+    if isinstance(campaign.get("lane"), str):
+        args.lane = campaign["lane"]
 
 
 def _tc_json(args: argparse.Namespace) -> int:

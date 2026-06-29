@@ -34,14 +34,20 @@ from localbench._suite import (
     render_benches,
     suite_version,
 )
-from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue
+from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue, Usage
 from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
 from localbench.campaign import (
     CampaignConfig,
+    CampaignPaths,
     StatusUpdate,
     campaign_paths,
     initialize_campaign,
     write_status,
+)
+from localbench.campaign_checkpoints import (
+    CompletedBench,
+    completed_benches,
+    write_bench_checkpoint,
 )
 from localbench.lane_conformance import assess_run_conformance
 from localbench.manifest import ManifestContext, collect_manifest
@@ -112,6 +118,17 @@ class LocalbenchRun(TypedDict):
     output_path: str
     agentic_run: NotRequired[JsonObject]
     estimated_cost_usd: NotRequired[float]
+    resumed: NotRequired[bool]
+    resume_count: NotRequired[int]
+    segments: NotRequired[list[JsonObject]]
+    trust_tier: NotRequired[str]
+    serving_verification_level: NotRequired[str]
+
+
+class UnsafeResumeError(RuntimeError):
+    def __init__(self, detail: str) -> None:
+        self.detail = detail
+        super().__init__(detail)
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +161,7 @@ class OrchestrateConfig:
     hf_model_id: str | None = None
     reasoning_activation: ReasoningActivationChoice = "qwen3"
     max_tokens: int | None = None
+    resume: Path | None = None
 
 
 async def run_localbench(
@@ -166,7 +184,7 @@ async def run_localbench(
     suite = read_json_object(suite_dir / "suite.json")
     started_at = utc_now()
     started_perf = time.perf_counter()
-    output_path = config.out or default_output_path(config.model, config.tier)
+    output_path = _campaign_output_path(config)
     warnings: list[str] = []
     provider = provider_for_name(config.provider)
     resolved = resolve_run_benches(config.bench, suite)
@@ -218,32 +236,50 @@ async def run_localbench(
             continue
         scorable_benches.append(bench)
 
-    paths = campaign_paths(output_path)
+    paths = campaign_paths(output_path, config.resume)
     total_items = sum(len(bench.benchmark_items) for bench in scorable_benches)
-    initialize_campaign(
-        paths,
-        CampaignConfig(
-            endpoint=config.endpoint,
-            model=config.model,
-            suite_id=suite_ref.suite_id,
-            suite_hash=suite_ref.suite_hash,
-            suite_terms_accepted=config.accept_suite_terms,
-            tier=config.tier,
-            lane=config.lane,
-            provider=provider.name,
-            concurrency=config.concurrency,
-            max_items=config.max_items,
-            max_tokens=config.max_tokens,
-            reasoning_effort=config.reasoning_effort,
-            reasoning_activation=config.reasoning_activation,
-            hf_model_id=config.hf_model_id,
-            output_path=output_path,
-        ),
-        suite,
-        suite_dir,
-        scorable_benches,
-        started_at=started_at,
+    campaign_config = CampaignConfig(
+        endpoint=config.endpoint,
+        model=config.model,
+        suite_id=suite_ref.suite_id,
+        suite_hash=suite_ref.suite_hash,
+        suite_dir=suite_dir,
+        suite_terms_accepted=config.accept_suite_terms,
+        tier=config.tier,
+        lane=config.lane,
+        provider=provider.name,
+        concurrency=config.concurrency,
+        max_items=config.max_items,
+        max_tokens=config.max_tokens,
+        reasoning_effort=config.reasoning_effort,
+        reasoning_activation=config.reasoning_activation,
+        hf_model_id=config.hf_model_id,
+        output_path=output_path,
     )
+    if config.resume is None:
+        initialize_campaign(
+            paths,
+            campaign_config,
+            suite,
+            suite_dir,
+            scorable_benches,
+            started_at=started_at,
+        )
+    else:
+        _validate_resume_campaign(paths.root / "campaign.json", campaign_config)
+        write_status(
+            paths,
+            StatusUpdate(
+                state="running",
+                current_bench=None,
+                current_item_index=None,
+                current_item_id=None,
+                completed_items=0,
+                total_items=total_items,
+                started_at=started_at,
+            ),
+        )
+    completed = completed_benches(paths) if config.resume is not None else {}
 
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
@@ -261,8 +297,19 @@ async def run_localbench(
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
     results_by_bench: dict[str, list[ItemResult]] = {}
+    bench_aggregates: dict[str, BenchAggregate] = {}
     completed_items = 0
     for bench in scorable_benches:
+        sampling_by_bench[bench.name] = bench.decoding
+        item_files.append(bench.item_file)
+        if bench.name in completed:
+            checkpoint = completed[bench.name]
+            scored_from_disk = _checkpoint_scored_items(checkpoint)
+            items.extend(scored_from_disk)
+            results_by_bench[bench.name] = _checkpoint_raw_results(checkpoint)
+            bench_aggregates[bench.name] = _checkpoint_aggregate(checkpoint)
+            completed_items += len(scored_from_disk)
+            continue
         write_status(
             paths,
             StatusUpdate(
@@ -275,8 +322,6 @@ async def run_localbench(
                 started_at=started_at,
             ),
         )
-        sampling_by_bench[bench.name] = bench.decoding
-        item_files.append(bench.item_file)
         try:
             record = await run_benchmark(
                 base_url=config.endpoint,
@@ -314,6 +359,9 @@ async def run_localbench(
         warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
         items.extend(scored_items)
         results_by_bench[bench.name] = record["results"]
+        bench_aggregate = aggregate(bench.name, scored_items, bench.baseline)
+        bench_aggregates[bench.name] = bench_aggregate
+        write_bench_checkpoint(paths, bench.name, record["results"], scored_items, bench_aggregate)
         completed_items += len(scored_items)
         write_status(
             paths,
@@ -328,14 +376,7 @@ async def run_localbench(
             ),
         )
 
-    benches = {
-        bench.name: aggregate(
-            bench.name,
-            [item for item in items if item["bench"] == bench.name],
-            bench.baseline,
-        )
-        for bench in scorable_benches
-    }
+    benches = dict(bench_aggregates)
     agentic_provenance: JsonObject | None = None
     agentic_unavailable_detail: str | None = None
     if run_agentic:
@@ -443,6 +484,18 @@ async def run_localbench(
         "warnings": warnings,
         "output_path": str(output_path),
     }
+    if config.resume is not None:
+        run_record["resumed"] = True
+        run_record["resume_count"] = 1
+        run_record["segments"] = [
+            {
+                "segment_id": "segment-1",
+                "started_at": started_at,
+                "finished_at": finished_at,
+                "server_fingerprint": None,
+                "completed_items": completed_items,
+            },
+        ]
     if agentic_provenance is not None:
         run_record["agentic_run"] = agentic_provenance
     if config.price_in is not None or config.price_out is not None:
@@ -451,6 +504,7 @@ async def run_localbench(
             config.price_in,
             config.price_out,
         )
+    run_record = _assemble_from_checkpoints(run_record, paths, scorable_benches)
     write_json(run_record, output_path)
     write_status(
         paths,
@@ -466,6 +520,189 @@ async def run_localbench(
         ),
     )
     return run_record
+
+
+def _campaign_output_path(config: OrchestrateConfig) -> Path:
+    if config.out is not None:
+        return config.out
+    if config.resume is not None:
+        return config.resume / "localbench-run.json"
+    return default_output_path(config.model, config.tier)
+
+
+def _validate_resume_campaign(path: Path, config: CampaignConfig) -> None:
+    campaign = read_json_object(path)
+    model = campaign.get("model")
+    suite = campaign.get("suite")
+    provider = campaign.get("provider")
+    if not isinstance(model, dict) or not isinstance(suite, dict) or not isinstance(provider, dict):
+        raise UnsafeResumeError("campaign.json is missing hard-invariant sections")
+    mismatches: list[str] = []
+    _append_mismatch(mismatches, "model", model.get("declared_model_id"), config.model)
+    _append_mismatch(mismatches, "suite_id", suite.get("suite_id"), config.suite_id)
+    _append_mismatch(mismatches, "suite_hash", suite.get("suite_hash"), config.suite_hash)
+    _append_mismatch(mismatches, "tier", campaign.get("tier"), config.tier)
+    _append_mismatch(mismatches, "lane", campaign.get("lane"), config.lane)
+    _append_mismatch(mismatches, "provider", provider.get("name"), config.provider)
+    if mismatches:
+        raise UnsafeResumeError("unsafe resume refused: " + ", ".join(mismatches))
+
+
+def _append_mismatch(
+    mismatches: list[str],
+    field: str,
+    actual: JsonValue | None,
+    expected: str,
+) -> None:
+    if actual != expected:
+        mismatches.append(f"{field} changed")
+
+
+def _checkpoint_raw_results(checkpoint: CompletedBench) -> list[ItemResult]:
+    return [_item_result_from_json(row) for row in checkpoint.raw_results]
+
+
+def _checkpoint_scored_items(checkpoint: CompletedBench) -> list[ScoredItem]:
+    return [_scored_item_from_json(row) for row in checkpoint.scored_items]
+
+
+def _checkpoint_aggregate(checkpoint: CompletedBench) -> BenchAggregate:
+    return _aggregate_from_json(checkpoint.aggregate)
+
+
+def _assemble_from_checkpoints(
+    record: LocalbenchRun,
+    paths: CampaignPaths,
+    scorable_benches: list[RenderedBench],
+) -> LocalbenchRun:
+    checkpoints = completed_benches(paths)
+    disk_items: list[ScoredItem] = []
+    disk_benches: dict[str, BenchAggregate] = {}
+    for bench in scorable_benches:
+        checkpoint = checkpoints.get(bench.name)
+        if checkpoint is None:
+            continue
+        disk_benches[bench.name] = _checkpoint_aggregate(checkpoint)
+        disk_items.extend(_checkpoint_scored_items(checkpoint))
+    checkpointed = set(disk_benches)
+    passthrough = [item for item in record["items"] if item["bench"] not in checkpointed]
+    record["items"] = [*disk_items, *passthrough]
+    record["benches"] = disk_benches | {
+        bench: aggregate_record
+        for bench, aggregate_record in record["benches"].items()
+        if bench not in checkpointed
+    }
+    return record
+
+
+def _item_result_from_json(row: JsonObject) -> ItemResult:
+    usage = _usage_from_json(_object_value(row.get("usage"), "usage"))
+    result: ItemResult = {
+        "id": _text_value(row.get("id"), "id"),
+        "response_text": _nullable_text(row.get("response_text"), "response_text"),
+        "reasoning_text": _nullable_text(row.get("reasoning_text"), "reasoning_text"),
+        "finish_reason": _nullable_text(row.get("finish_reason"), "finish_reason"),
+        "usage": usage,
+        "latency_seconds": _number_value(row.get("latency_seconds"), "latency_seconds"),
+        "started_at": _text_value(row.get("started_at"), "started_at"),
+        "finished_at": _text_value(row.get("finished_at"), "finished_at"),
+        "attempts": _int_value(row.get("attempts"), "attempts"),
+        "error": _nullable_text(row.get("error"), "error"),
+    }
+    thinking_forced = row.get("thinking_forced")
+    if isinstance(thinking_forced, bool):
+        result["thinking_forced"] = thinking_forced
+    return result
+
+
+def _scored_item_from_json(row: JsonObject) -> ScoredItem:
+    item: ScoredItem = {
+        "id": _text_value(row.get("id"), "id"),
+        "bench": _text_value(row.get("bench"), "bench"),
+        "response_text": _nullable_text(row.get("response_text"), "response_text"),
+        "extracted": _nullable_text(row.get("extracted"), "extracted"),
+        "correct": _bool_value(row.get("correct"), "correct"),
+        "finish_reason": _nullable_text(row.get("finish_reason"), "finish_reason"),
+        "latency_seconds": _number_value(row.get("latency_seconds"), "latency_seconds"),
+        "started_at": _text_value(row.get("started_at"), "started_at"),
+        "finished_at": _text_value(row.get("finished_at"), "finished_at"),
+        "attempts": _int_value(row.get("attempts"), "attempts"),
+        "usage": _usage_from_json(_object_value(row.get("usage"), "usage")),
+        "error": _nullable_text(row.get("error"), "error"),
+    }
+    reasoning_text = row.get("reasoning_text")
+    if reasoning_text is None or isinstance(reasoning_text, str):
+        item["reasoning_text"] = reasoning_text
+    warnings = row.get("warnings")
+    if isinstance(warnings, list):
+        item["warnings"] = [warning for warning in warnings if isinstance(warning, str)]
+    return item
+
+
+def _aggregate_from_json(row: JsonObject) -> BenchAggregate:
+    return {
+        "n": _int_value(row.get("n"), "n"),
+        "n_errors": _int_value(row.get("n_errors"), "n_errors"),
+        "n_extraction_failures": _int_value(row.get("n_extraction_failures"), "n_extraction_failures"),
+        "raw_accuracy": _number_value(row.get("raw_accuracy"), "raw_accuracy"),
+        "chance_corrected": _number_value(row.get("chance_corrected"), "chance_corrected"),
+        "termination_rate": _number_value(row.get("termination_rate"), "termination_rate"),
+        "conditional_accuracy": _number_value(row.get("conditional_accuracy"), "conditional_accuracy"),
+    }
+
+
+def _usage_from_json(row: JsonObject) -> Usage:
+    usage: Usage = {
+        "prompt_tokens": _nullable_int(row.get("prompt_tokens"), "prompt_tokens"),
+        "completion_tokens": _nullable_int(row.get("completion_tokens"), "completion_tokens"),
+        "total_tokens": _nullable_int(row.get("total_tokens"), "total_tokens"),
+    }
+    reasoning_tokens = row.get("reasoning_tokens")
+    if isinstance(reasoning_tokens, int) and not isinstance(reasoning_tokens, bool):
+        usage["reasoning_tokens"] = reasoning_tokens
+    return usage
+
+
+def _object_value(value: JsonValue | None, field: str) -> JsonObject:
+    if isinstance(value, dict):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not an object")
+
+
+def _text_value(value: JsonValue | None, field: str) -> str:
+    if isinstance(value, str):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not text")
+
+
+def _nullable_text(value: JsonValue | None, field: str) -> str | None:
+    if value is None or isinstance(value, str):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not nullable text")
+
+
+def _bool_value(value: JsonValue | None, field: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not boolean")
+
+
+def _int_value(value: JsonValue | None, field: str) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not an integer")
+
+
+def _nullable_int(value: JsonValue | None, field: str) -> int | None:
+    if value is None:
+        return None
+    return _int_value(value, field)
+
+
+def _number_value(value: JsonValue | None, field: str) -> float:
+    if isinstance(value, int | float) and not isinstance(value, bool):
+        return float(value)
+    raise UnsafeResumeError(f"checkpoint field {field} is not a number")
 
 
 def discover_suite_dir() -> Path:

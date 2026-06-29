@@ -5,8 +5,9 @@ import json
 from pathlib import Path
 
 import httpx
+import pytest
 
-from localbench.orchestrate import OrchestrateConfig, run_localbench
+from localbench.orchestrate import OrchestrateConfig, UnsafeResumeError, run_localbench
 from localbench.persistence import atomic_write_bytes, atomic_write_json
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
@@ -96,3 +97,135 @@ def test_run_localbench_writes_campaign_json_and_status(tmp_path: Path) -> None:
         assert json.loads(output_path.read_text(encoding="utf-8")) == record
 
     asyncio.run(scenario())
+
+
+def test_run_localbench_writes_complete_bench_checkpoint(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a two-item bench run.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+
+        # When: the bench completes.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                out=output_path,
+            ),
+            transport=httpx.MockTransport(_answer_a_handler),
+        )
+
+        # Then: bench raw, scored, aggregate, and complete files are durable on disk.
+        bench_dir = tmp_path / "campaign" / "benchmarks"
+        raw_lines = (bench_dir / "mmlu_pro.raw_results.jsonl").read_text(encoding="utf-8").splitlines()
+        scored_lines = (bench_dir / "mmlu_pro.scored_items.jsonl").read_text(encoding="utf-8").splitlines()
+        aggregate = json.loads((bench_dir / "mmlu_pro.aggregate.json").read_text(encoding="utf-8"))
+        complete = json.loads((bench_dir / "mmlu_pro.complete.json").read_text(encoding="utf-8"))
+        assert len(raw_lines) == 2
+        assert len(scored_lines) == 2
+        assert aggregate == record["benches"]["mmlu_pro"]
+        assert complete["bench"] == "mmlu_pro"
+        assert complete["raw_count"] == 2
+        assert complete["scored_count"] == 2
+
+    asyncio.run(scenario())
+
+
+def test_run_localbench_resume_skips_completed_benches(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: an already completed campaign.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+        original = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                out=output_path,
+            ),
+            transport=httpx.MockTransport(_answer_a_handler),
+        )
+        output_path.unlink()
+        requested_items: list[str] = []
+
+        def fail_on_chat(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            requested_items.append(json.loads(request.content)["messages"][0]["content"])
+            return httpx.Response(500, text="completed item was requested again")
+
+        # When: resuming from that campaign directory.
+        resumed = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                out=output_path,
+                resume=tmp_path / "campaign",
+            ),
+            transport=httpx.MockTransport(fail_on_chat),
+        )
+
+        # Then: no completed item is requested and the final artifact is reassembled.
+        assert requested_items == []
+        assert resumed["items"] == original["items"]
+        assert resumed["benches"] == original["benches"]
+        assert resumed["resumed"] is True
+        assert json.loads(output_path.read_text(encoding="utf-8")) == resumed
+
+    asyncio.run(scenario())
+
+
+def test_run_localbench_resume_refuses_hard_invariant_mismatch(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a campaign whose immutable model identity was tampered with.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+        await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=1,
+                out=output_path,
+            ),
+            transport=httpx.MockTransport(_answer_a_handler),
+        )
+        campaign_path = tmp_path / "campaign" / "campaign.json"
+        campaign = json.loads(campaign_path.read_text(encoding="utf-8"))
+        campaign["model"]["declared_model_id"] = "other-model"
+        atomic_write_json(campaign, campaign_path)
+
+        # When / Then: resume refuses before making model requests.
+        with pytest.raises(UnsafeResumeError):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    bench="mmlu_pro",
+                    max_items=1,
+                    out=output_path,
+                    resume=tmp_path / "campaign",
+                ),
+                transport=httpx.MockTransport(_answer_a_handler),
+            )
+
+    asyncio.run(scenario())
+
+
+def _answer_a_handler(request: httpx.Request) -> httpx.Response:
+    if request.url.path.endswith("/models"):
+        return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+    return httpx.Response(
+        200,
+        json={
+            "choices": [{"message": {"content": "Answer: A"}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        },
+    )
