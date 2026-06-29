@@ -359,34 +359,70 @@ function Get-WranglerPath {
 }
 
 function Get-WranglerDeploymentIds {
+  $repoRoot = Split-Path -Parent $PSScriptRoot
+  $webRoot = Join-Path $repoRoot "web"
   $wrangler = Get-WranglerPath
-  if ([string]::IsNullOrWhiteSpace($wrangler)) {
-    if ($RequireCloudflareAuth) {
-      Add-CheckResult "FAIL" "Cloudflare deployment enumeration" "Wrangler is unavailable and -RequireCloudflareAuth was set"
-    }
-    else {
-      Add-CheckResult "WARN" "Cloudflare deployment enumeration" "Wrangler is unavailable; cannot enumerate Pages deployments"
-    }
-    return @()
-  }
-
   $output = ""
-  try {
-    $lines = & $wrangler pages deployment list --project-name $ProjectName 2>&1
-    $exitCode = $LASTEXITCODE
-    $output = [string]::Join("`n", @($lines))
-  }
-  catch {
-    $exitCode = 1
-    $output = $_.Exception.Message
+  $exitCode = 1
+
+  if (-not [string]::IsNullOrWhiteSpace($wrangler)) {
+    try {
+      $lines = & $wrangler pages deployment list --project-name $ProjectName 2>&1
+      $exitCode = $LASTEXITCODE
+      $output = [string]::Join("`n", @($lines))
+    }
+    catch {
+      $exitCode = 1
+      $output = $_.Exception.Message
+    }
   }
 
   if ($exitCode -ne 0) {
-    if ($RequireCloudflareAuth) {
-      Add-CheckResult "FAIL" "Cloudflare deployment enumeration" "wrangler list failed and -RequireCloudflareAuth was set; output='$(Limit-Text $output)'"
+    $npxOutput = ""
+    try {
+      Push-Location -LiteralPath $webRoot
+      try {
+        $lines = & npx wrangler pages deployment list --project-name $ProjectName 2>&1
+        $npxExitCode = $LASTEXITCODE
+        $npxOutput = [string]::Join("`n", @($lines))
+      }
+      finally {
+        Pop-Location
+      }
+    }
+    catch {
+      $npxExitCode = 1
+      $npxOutput = $_.Exception.Message
+    }
+
+    if ($npxExitCode -eq 0) {
+      $exitCode = 0
+      $output = $npxOutput
+    }
+    elseif ([string]::IsNullOrWhiteSpace($wrangler)) {
+      $output = $npxOutput
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($npxOutput)) {
+      $output = "$output`nnpx fallback:`n$npxOutput"
+    }
+  }
+
+  if ($exitCode -ne 0) {
+    if ([string]::IsNullOrWhiteSpace($wrangler)) {
+      if ($RequireCloudflareAuth) {
+        Add-CheckResult "FAIL" "Cloudflare deployment enumeration" "Wrangler is unavailable and -RequireCloudflareAuth was set"
+      }
+      else {
+        Add-CheckResult "WARN" "Cloudflare deployment enumeration" "Wrangler is unavailable; cannot enumerate Pages deployments"
+      }
     }
     else {
-      Add-CheckResult "WARN" "Cloudflare deployment enumeration" "wrangler list failed; cannot enumerate Pages deployments; output='$(Limit-Text $output)'"
+      if ($RequireCloudflareAuth) {
+        Add-CheckResult "FAIL" "Cloudflare deployment enumeration" "wrangler list failed and -RequireCloudflareAuth was set; output='$(Limit-Text $output)'"
+      }
+      else {
+        Add-CheckResult "WARN" "Cloudflare deployment enumeration" "wrangler list failed; cannot enumerate Pages deployments; output='$(Limit-Text $output)'"
+      }
     }
     return @()
   }
