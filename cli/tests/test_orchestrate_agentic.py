@@ -56,11 +56,12 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
         )
 
         # Then appworld_c is measured and participates as the 0.60 headline axis.
-        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1", "appworld_c"]
+        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"]
         assert [item["bench"] for item in record["items"]] == [
             "mmlu_pro",
             "ifbench",
             "tc_json_v1",
+            "lcb",
             "appworld_c",
             "appworld_c",
         ]

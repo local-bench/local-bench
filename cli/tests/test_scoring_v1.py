@@ -151,7 +151,7 @@ def test_compare_runs_when_experimental_axis_cannot_mask_headline_regression() -
     # Then the math gain CANNOT mask the collapse (math is weight 0): the headline
     # composite reflects it (knowledge 0 + instruction -1, weighted 0.5/0.5 = -0.5),
     # and worst-axis + subgroup checks pinpoint instruction (METHODOLOGY-v1.2 §3).
-    assert comparison["composite_delta"]["point"] == pytest.approx(-0.625)
+    assert comparison["composite_delta"]["point"] == pytest.approx(-0.5)
     assert comparison["worst_axis"]["domain"] == "Instruction-Following"
     assert comparison["worst_axis"]["delta"]["point"] == pytest.approx(-1.0)
     assert comparison["worst_axis"]["delta"]["hi"] < -0.90
@@ -283,7 +283,7 @@ def test_cli_compare_when_out_is_supplied_writes_json(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert "paired composite delta" in result.stdout
     written = json.loads(out.read_text(encoding="utf-8"))
-    assert written["composite_delta"]["point"] == pytest.approx(-0.625)
+    assert written["composite_delta"]["point"] == pytest.approx(-0.5)
     assert written["worst_axis"]["domain"] == "Instruction-Following"
 
 

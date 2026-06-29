@@ -159,7 +159,7 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     )
     write_run(
         paths["runs"] / "agentic.json",
-        run_record(mmlu_correct=(True, True), if_correct=(False, False)),
+        run_record(mmlu_correct=(True, True), if_correct=(False, False), appworld_inline=None),
     )
     write_agentic(paths["runs"] / "appworld.scored.run1.json", appworld_report((True, False, True, False)))
 

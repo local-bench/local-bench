@@ -60,9 +60,9 @@ def run_record(
     conformance_status: str = "headline-comparable",
     mmlu_correct: tuple[bool, ...] = (True, False),
     if_correct: tuple[bool, ...] = (True, True),
-    appworld_inline: tuple[bool, ...] | None = None,
-    tc_json_correct: tuple[bool, ...] | None = None,
-    lcb_correct: tuple[bool, ...] | None = None,
+    appworld_inline: tuple[bool, ...] | None = (True, False),
+    tc_json_correct: tuple[bool, ...] | None = (True, False),
+    lcb_correct: tuple[bool, ...] | None = (True, False),
     agentic_run: JsonObject | None = None,
 ) -> JsonObject:
     benches = {
@@ -106,7 +106,7 @@ def run_record(
         },
         "items": [*items("mmlu_pro", mmlu_correct), *items("ifbench", if_correct), *extra_items],
         "totals": {
-            "n_items": len(mmlu_correct) + len(if_correct),
+            "n_items": len(mmlu_correct) + len(if_correct) + len(extra_items),
             "n_errors": 0,
             "prompt_tokens": 0,
             "completion_tokens": 100,
@@ -120,6 +120,8 @@ def run_record(
     }
     if agentic_run is not None:
         record["agentic_run"] = agentic_run
+    elif appworld_inline is not None:
+        record["agentic_run"] = inline_agentic_provenance(appworld_inline)
     return record
 
 
@@ -185,6 +187,60 @@ def appworld_report(successes: tuple[bool, ...]) -> JsonObject:
             "results": results,
             "agentic_success_rate": sum(1 for success in successes if success) / len(successes),
         },
+    }
+
+
+def inline_agentic_provenance(successes: tuple[bool, ...]) -> JsonObject:
+    n = len(successes)
+    succeeded = sum(1 for success in successes if success)
+    asr = succeeded / n if n else 0.0
+    outcome_counts: JsonObject = {
+        "success": succeeded,
+        "failure": n - succeeded,
+        "cap_exceeded": 0,
+        "no_final_answer": 0,
+        "harness_error": 0,
+    }
+    diagnostics: JsonObject = {
+        "tasks_total": n,
+        "tasks_succeeded": succeeded,
+        "agentic_success_rate": asr,
+        "asr_excluding_infra": asr,
+        "collateral_damage_rate": 0.0,
+        "cap_exceeded_rate": 0.0,
+        "no_final_answer_rate": 0.0,
+        "harness_error_rate": 0.0,
+        "infra_timeout_rate": 0.0,
+        "infra_sandbox_rate": 0.0,
+        "model_failure_rate": (n - succeeded) / n if n else 0.0,
+        "model_no_progress_rate": 0.0,
+        "harness_error_subclass_rate": 0.0,
+        "format_failure_rate": 0.0,
+        "syntax_error_rate": 0.0,
+        "runtime_error_rate": 0.0,
+        "observation_truncation_rate": 0.0,
+        "api_docs_usage_rate": 0.0,
+        "mean_turns_used": 1.0,
+        "mean_blocks_run": 1.0,
+        "mean_api_calls": 0.0,
+        "mean_output_tokens": 1.0,
+        "outcome_counts": outcome_counts,
+    }
+    return {
+        "campaign": True,
+        "single_pass": False,
+        "asr_series": [asr, asr],
+        "mean_asr": asr,
+        "max_abs_delta_pp": 0.0,
+        "triggered_third_run": False,
+        "subset_size": n,
+        "subset_hash": "fixture-agentic",
+        "stage": "scored",
+        "diagnostics": diagnostics,
+        "runs": [
+            {"run_index": 1, "results_path": "agentic/fixture.scored.run1.json", **diagnostics},
+            {"run_index": 2, "results_path": "agentic/fixture.scored.run2.json", **diagnostics},
+        ],
     }
 
 
