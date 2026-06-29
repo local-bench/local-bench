@@ -6,10 +6,11 @@ import importlib.util
 import os
 import re
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Literal, NotRequired, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Final, Literal, NotRequired, TypeAlias, TypedDict, cast
 
 import httpx
 
@@ -46,9 +47,15 @@ from localbench.campaign import (
 )
 from localbench.campaign_checkpoints import (
     CompletedBench,
+    ExpectedItemCheckpoint,
+    PartialItemCheckpoint,
+    append_item_checkpoint,
+    append_scored_checkpoint,
     completed_benches,
-    write_bench_checkpoint,
+    read_partial_item_checkpoints,
+    write_bench_complete,
 )
+from localbench.campaign_records import item_hash
 from localbench.lane_conformance import assess_run_conformance
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.prompt_rendering import (
@@ -136,6 +143,15 @@ class AgenticOutcome:
     aggregate: BenchAggregate
     items: list[ScoredItem]
     provenance: JsonObject
+
+
+@dataclass(frozen=True, slots=True)
+class BenchItemContext:
+    bench: RenderedBench
+    seq: int
+    item_hash: str
+    source_item: Mapping[str, JsonValue]
+    benchmark_item: BenchmarkItem
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,63 +321,116 @@ async def run_localbench(
         if bench.name in completed:
             checkpoint = completed[bench.name]
             scored_from_disk = _checkpoint_scored_items(checkpoint)
-            items.extend(scored_from_disk)
-            results_by_bench[bench.name] = _checkpoint_raw_results(checkpoint)
+            items.extend(_ordered_streamed_scored(bench, scored_from_disk))
+            results_by_bench[bench.name] = _ordered_streamed_raw(bench, _checkpoint_raw_results(checkpoint))
             bench_aggregates[bench.name] = _checkpoint_aggregate(checkpoint)
             completed_items += len(scored_from_disk)
             continue
+        item_context = _bench_item_context(bench)
+        streamed_raw: list[ItemResult] = []
+        streamed_scored: list[ScoredItem] = []
+        if config.resume is not None:
+            for checkpoint in read_partial_item_checkpoints(
+                paths,
+                bench.name,
+                _expected_item_checkpoints(item_context),
+            ):
+                raw_result = cast(ItemResult, checkpoint.raw_result)
+                if checkpoint.scored_item is None:
+                    scored_item = _score_single_checkpoint(item_context[checkpoint.item_id], raw_result, warnings)
+                    append_scored_checkpoint(
+                        paths,
+                        bench.name,
+                        checkpoint.seq,
+                        checkpoint.item_hash,
+                        scored_item,
+                    )
+                else:
+                    scored_item = cast(ScoredItem, checkpoint.scored_item)
+                streamed_raw.append(raw_result)
+                streamed_scored.append(scored_item)
+        checkpointed_ids = {result["id"] for result in streamed_raw}
+        pending_bench = _pending_bench(bench, checkpointed_ids)
+
+        def on_item_complete(result: ItemResult) -> None:
+            single = item_context[result["id"]]
+            scored_item = _score_single_checkpoint(single, result, warnings)
+            streamed_raw.append(result)
+            streamed_scored.append(scored_item)
+            append_item_checkpoint(
+                paths,
+                bench.name,
+                single.seq,
+                single.item_hash,
+                result,
+                scored_item,
+            )
+            write_status(
+                paths,
+                StatusUpdate(
+                    state="running",
+                    current_bench=bench.name,
+                    current_item_index=single.seq,
+                    current_item_id=result["id"],
+                    completed_items=completed_items + len(streamed_scored),
+                    total_items=total_items,
+                    started_at=started_at,
+                ),
+            )
+
         write_status(
             paths,
             StatusUpdate(
                 state="running",
                 current_bench=bench.name,
-                current_item_index=0 if bench.benchmark_items else None,
-                current_item_id=bench.benchmark_items[0]["id"] if bench.benchmark_items else None,
-                completed_items=completed_items,
+                current_item_index=0 if pending_bench.benchmark_items else None,
+                current_item_id=pending_bench.benchmark_items[0]["id"] if pending_bench.benchmark_items else None,
+                completed_items=completed_items + len(streamed_scored),
                 total_items=total_items,
                 started_at=started_at,
             ),
         )
-        try:
-            record = await run_benchmark(
-                base_url=config.endpoint,
-                model=config.model,
-                items=bench.benchmark_items,
-                api_key=config.api_key,
-                concurrency=config.concurrency,
-                transport=transport,
-                provider=provider,
-                lane=config.lane,
-                effort=config.reasoning_effort,
-                hf_model_id=config.hf_model_id,
-                reasoning_activation=config.reasoning_activation,
-                prompt_renderer=prompt_renderer,
-                forcing_format=forcing_format,
-            )
-        except (httpx.HTTPError, OSError, RuntimeError) as error:
-            write_status(
-                paths,
-                StatusUpdate(
-                    state="failed",
-                    current_bench=bench.name,
-                    current_item_index=None,
-                    current_item_id=None,
-                    completed_items=completed_items,
-                    total_items=total_items,
-                    started_at=started_at,
-                    exit_code=70,
-                    failure_reason=f"{error.__class__.__name__}: {error}",
-                ),
-            )
-            raise
-        scored_items = score_bench(bench, record["results"])
-        _attach_reasoning_text(scored_items, record["results"])
-        warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
+        if pending_bench.benchmark_items:
+            try:
+                await run_benchmark(
+                    base_url=config.endpoint,
+                    model=config.model,
+                    items=pending_bench.benchmark_items,
+                    api_key=config.api_key,
+                    concurrency=config.concurrency,
+                    transport=transport,
+                    provider=provider,
+                    lane=config.lane,
+                    effort=config.reasoning_effort,
+                    hf_model_id=config.hf_model_id,
+                    reasoning_activation=config.reasoning_activation,
+                    prompt_renderer=prompt_renderer,
+                    forcing_format=forcing_format,
+                    on_item_complete=on_item_complete,
+                )
+            except (httpx.HTTPError, OSError, RuntimeError) as error:
+                write_status(
+                    paths,
+                    StatusUpdate(
+                        state="failed",
+                        current_bench=bench.name,
+                        current_item_index=None,
+                        current_item_id=None,
+                        completed_items=completed_items,
+                        total_items=total_items,
+                        started_at=started_at,
+                        exit_code=70,
+                        failure_reason=f"{error.__class__.__name__}: {error}",
+                    ),
+                )
+                raise
+        raw_results = _ordered_streamed_raw(bench, streamed_raw)
+        scored_items = _ordered_streamed_scored(bench, streamed_scored)
         items.extend(scored_items)
-        results_by_bench[bench.name] = record["results"]
+        results_by_bench[bench.name] = raw_results
         bench_aggregate = aggregate(bench.name, scored_items, bench.baseline)
         bench_aggregates[bench.name] = bench_aggregate
-        write_bench_checkpoint(paths, bench.name, record["results"], scored_items, bench_aggregate)
+        write_bench_complete(paths, bench.name, raw_results, scored_items, bench_aggregate)
         completed_items += len(scored_items)
         write_status(
             paths,
@@ -530,6 +599,86 @@ def _campaign_output_path(config: OrchestrateConfig) -> Path:
     return default_output_path(config.model, config.tier)
 
 
+def _bench_item_context(bench: RenderedBench) -> dict[str, BenchItemContext]:
+    contexts: dict[str, BenchItemContext] = {}
+    for seq, (source_item, benchmark_item) in enumerate(
+        zip(bench.source_items, bench.benchmark_items, strict=True),
+    ):
+        single = RenderedBench(
+            name=bench.name,
+            source_items=[source_item],
+            benchmark_items=[benchmark_item],
+            baseline=bench.baseline,
+            decoding=bench.decoding,
+            item_file=bench.item_file,
+        )
+        contexts[benchmark_item["id"]] = BenchItemContext(
+            bench=single,
+            seq=seq,
+            item_hash=item_hash(benchmark_item),
+            source_item=source_item,
+            benchmark_item=benchmark_item,
+        )
+    return contexts
+
+
+def _expected_item_checkpoints(
+    item_context: dict[str, BenchItemContext],
+) -> list[ExpectedItemCheckpoint]:
+    return [
+        ExpectedItemCheckpoint(
+            seq=context.seq,
+            item_id=context.benchmark_item["id"],
+            item_hash=context.item_hash,
+        )
+        for context in sorted(item_context.values(), key=lambda item: item.seq)
+    ]
+
+
+def _pending_bench(bench: RenderedBench, checkpointed_ids: set[str]) -> RenderedBench:
+    source_items: list[Mapping[str, JsonValue]] = []
+    benchmark_items: list[BenchmarkItem] = []
+    for source_item, benchmark_item in zip(bench.source_items, bench.benchmark_items, strict=True):
+        if benchmark_item["id"] not in checkpointed_ids:
+            source_items.append(source_item)
+            benchmark_items.append(benchmark_item)
+    return RenderedBench(
+        name=bench.name,
+        source_items=source_items,
+        benchmark_items=benchmark_items,
+        baseline=bench.baseline,
+        decoding=bench.decoding,
+        item_file=bench.item_file,
+    )
+
+
+def _score_single_checkpoint(
+    context: BenchItemContext,
+    result: ItemResult,
+    warnings: list[str],
+) -> ScoredItem:
+    scored = score_bench(context.bench, [result])
+    _attach_reasoning_text(scored, [result])
+    warnings.extend(_annotate_ruler_truncation(context.bench, [result], scored))
+    return scored[0]
+
+
+def _ordered_streamed_raw(
+    bench: RenderedBench,
+    raw_results: list[ItemResult],
+) -> list[ItemResult]:
+    by_id = {item["id"]: item for item in raw_results}
+    return [by_id[item["id"]] for item in bench.benchmark_items]
+
+
+def _ordered_streamed_scored(
+    bench: RenderedBench,
+    scored_items: list[ScoredItem],
+) -> list[ScoredItem]:
+    by_id = {item["id"]: item for item in scored_items}
+    return [by_id[item["id"]] for item in bench.benchmark_items]
+
+
 def _validate_resume_campaign(path: Path, config: CampaignConfig) -> None:
     campaign = read_json_object(path)
     model = campaign.get("model")
@@ -583,7 +732,7 @@ def _assemble_from_checkpoints(
         if checkpoint is None:
             continue
         disk_benches[bench.name] = _checkpoint_aggregate(checkpoint)
-        disk_items.extend(_checkpoint_scored_items(checkpoint))
+        disk_items.extend(_ordered_streamed_scored(bench, _checkpoint_scored_items(checkpoint)))
     checkpointed = set(disk_benches)
     passthrough = [item for item in record["items"] if item["bench"] not in checkpointed]
     record["items"] = [*disk_items, *passthrough]

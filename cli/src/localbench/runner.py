@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -66,6 +67,7 @@ async def run_benchmark(
     reasoning_activation: ReasoningActivation = "qwen3",
     prompt_renderer: PromptRenderer | None = None,
     forcing_format: ForcingFormat | None = None,
+    on_item_complete: Callable[[ItemResult], None] | None = None,
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
     request_provider = provider or provider_for_name("local")
@@ -83,9 +85,10 @@ async def run_benchmark(
     forced_format = forcing_format or forcing_format_for_activation(reasoning_activation)
 
     async with httpx.AsyncClient(timeout=timeout, transport=transport) as client:
-        results = await asyncio.gather(
-            *[
-                run_item(
+        tasks = [
+            asyncio.create_task(
+                _run_indexed_item(
+                    index=index,
                     client=client,
                     url=request_provider.endpoint_url(endpoint),
                     headers=request_provider.headers(api_key),
@@ -100,10 +103,17 @@ async def run_benchmark(
                     base_url=endpoint,
                     prompt_renderer=forced_prompt_renderer,
                     forcing_format=forced_format,
-                )
-                for item in items
-            ],
-        )
+                ),
+            )
+            for index, item in enumerate(items)
+        ]
+        ordered: list[ItemResult | None] = [None] * len(tasks)
+        for task in asyncio.as_completed(tasks):
+            index, result = await task
+            ordered[index] = result
+            if on_item_complete is not None:
+                on_item_complete(result)
+        results = [result for result in ordered if result is not None]
 
     active_wall_seconds = time.perf_counter() - started_perf
     finished_at = utc_now()
@@ -122,6 +132,43 @@ async def run_benchmark(
         "totals": _totals(results, active_wall_seconds),
         "results": results,
     }
+
+
+async def _run_indexed_item(
+    *,
+    index: int,
+    client: httpx.AsyncClient,
+    url: str,
+    headers: dict[str, str],
+    model: str,
+    item: BenchmarkItem,
+    semaphore: asyncio.Semaphore,
+    max_attempts: int,
+    backoff_base: float,
+    provider: Provider,
+    lane: Lane,
+    effort: ReasoningEffort | None,
+    base_url: str,
+    prompt_renderer: PromptRenderer | None,
+    forcing_format: ForcingFormat,
+) -> tuple[int, ItemResult]:
+    result = await run_item(
+        client=client,
+        url=url,
+        headers=headers,
+        model=model,
+        item=item,
+        semaphore=semaphore,
+        max_attempts=max_attempts,
+        backoff_base=backoff_base,
+        provider=provider,
+        lane=lane,
+        effort=effort,
+        base_url=base_url,
+        prompt_renderer=prompt_renderer,
+        forcing_format=forcing_format,
+    )
+    return index, result
 
 
 def write_json(record: RunRecord | JsonObject, path: str | Path) -> None:

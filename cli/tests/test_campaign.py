@@ -7,6 +7,13 @@ from pathlib import Path
 import httpx
 import pytest
 
+from localbench.campaign import campaign_paths
+from localbench.campaign_checkpoints import (
+    CheckpointCorruptionError,
+    ExpectedItemCheckpoint,
+    append_item_checkpoint,
+    read_partial_item_checkpoints,
+)
 from localbench.orchestrate import OrchestrateConfig, UnsafeResumeError, run_localbench
 from localbench.persistence import atomic_write_bytes, atomic_write_json
 
@@ -121,16 +128,59 @@ def test_run_localbench_writes_complete_bench_checkpoint(tmp_path: Path) -> None
         bench_dir = tmp_path / "campaign" / "benchmarks"
         raw_lines = (bench_dir / "mmlu_pro.raw_results.jsonl").read_text(encoding="utf-8").splitlines()
         scored_lines = (bench_dir / "mmlu_pro.scored_items.jsonl").read_text(encoding="utf-8").splitlines()
+        raw_record = json.loads(raw_lines[0])
+        scored_record = json.loads(scored_lines[0])
         aggregate = json.loads((bench_dir / "mmlu_pro.aggregate.json").read_text(encoding="utf-8"))
         complete = json.loads((bench_dir / "mmlu_pro.complete.json").read_text(encoding="utf-8"))
         assert len(raw_lines) == 2
         assert len(scored_lines) == 2
+        assert raw_record["record_type"] == "raw_result"
+        assert scored_record["record_type"] == "scored_item"
+        assert raw_record["payload_sha256"]
+        assert scored_record["payload_sha256"]
         assert aggregate == record["benches"]["mmlu_pro"]
         assert complete["bench"] == "mmlu_pro"
         assert complete["raw_count"] == 2
         assert complete["scored_count"] == 2
 
     asyncio.run(scenario())
+
+
+def test_partial_item_checkpoints_ignore_torn_line_and_exact_duplicates(tmp_path: Path) -> None:
+    # Given: a checkpointed item, an exact duplicate append, and a torn final raw line.
+    paths = campaign_paths(tmp_path / "campaign" / "localbench-run.json")
+    raw_result = _raw_result("item-1", "Answer: A")
+    scored_item = _scored_item("item-1", True)
+    append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", raw_result, scored_item)
+    append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", raw_result, scored_item)
+    (paths.benchmarks_dir / "mmlu_pro.raw_results.jsonl").open("ab").write(b'{"record_type":"raw_result"')
+
+    # When: partial item checkpoints are loaded for resume.
+    checkpoints = read_partial_item_checkpoints(
+        paths,
+        "mmlu_pro",
+        [ExpectedItemCheckpoint(seq=0, item_id="item-1", item_hash="hash-1")],
+    )
+
+    # Then: only the complete duplicate row is kept.
+    assert len(checkpoints) == 1
+    assert checkpoints[0].raw_result == raw_result
+    assert checkpoints[0].scored_item == scored_item
+
+
+def test_partial_item_checkpoints_reject_conflicting_duplicate(tmp_path: Path) -> None:
+    # Given: two checkpoint rows for the same item identity with different payloads.
+    paths = campaign_paths(tmp_path / "campaign" / "localbench-run.json")
+    append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", _raw_result("item-1", "Answer: A"), _scored_item("item-1", True))
+    append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", _raw_result("item-1", "Answer: B"), _scored_item("item-1", False))
+
+    # When / Then: resume treats the duplicate as corruption.
+    with pytest.raises(CheckpointCorruptionError):
+        read_partial_item_checkpoints(
+            paths,
+            "mmlu_pro",
+            [ExpectedItemCheckpoint(seq=0, item_id="item-1", item_hash="hash-1")],
+        )
 
 
 def test_run_localbench_resume_skips_completed_benches(tmp_path: Path) -> None:
@@ -176,6 +226,70 @@ def test_run_localbench_resume_skips_completed_benches(tmp_path: Path) -> None:
         assert resumed["items"] == original["items"]
         assert resumed["benches"] == original["benches"]
         assert resumed["resumed"] is True
+        assert json.loads(output_path.read_text(encoding="utf-8")) == resumed
+
+    asyncio.run(scenario())
+
+
+def test_run_localbench_resume_skips_checkpointed_items_mid_bench(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a campaign interrupted after the first item checkpoint is flushed.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+        interrupted_requests: list[str] = []
+
+        def interrupt_after_first_item(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            interrupted_requests.append(prompt)
+            if len(interrupted_requests) == 2:
+                raise RuntimeError("worker killed")
+            return _answer_a_handler(request)
+
+        with pytest.raises(RuntimeError, match="worker killed"):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    bench="mmlu_pro",
+                    max_items=2,
+                    concurrency=1,
+                    out=output_path,
+                ),
+                transport=httpx.MockTransport(interrupt_after_first_item),
+            )
+
+        resumed_requests: list[str] = []
+
+        def answer_and_track_resume(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            resumed_requests.append(prompt)
+            return _answer_a_handler(request)
+
+        # When: the campaign is resumed.
+        resumed = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                concurrency=1,
+                out=output_path,
+                resume=tmp_path / "campaign",
+            ),
+            transport=httpx.MockTransport(answer_and_track_resume),
+        )
+
+        # Then: only the missing item is requested and a complete final artifact is assembled.
+        assert len(interrupted_requests) == 2
+        assert len(resumed_requests) == 1
+        assert resumed_requests[0] == interrupted_requests[1]
+        assert resumed["benches"]["mmlu_pro"]["n"] == 2
+        assert [item["id"] for item in resumed["items"]] == ["1", "2"]
         assert json.loads(output_path.read_text(encoding="utf-8")) == resumed
 
     asyncio.run(scenario())
@@ -229,3 +343,36 @@ def _answer_a_handler(request: httpx.Request) -> httpx.Response:
             "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
         },
     )
+
+
+def _raw_result(item_id: str, response_text: str) -> dict:
+    return {
+        "id": item_id,
+        "response_text": response_text,
+        "reasoning_text": None,
+        "finish_reason": "stop",
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        "latency_seconds": 0.01,
+        "started_at": "2026-06-29T00:00:00+00:00",
+        "finished_at": "2026-06-29T00:00:01+00:00",
+        "attempts": 1,
+        "error": None,
+        "thinking_forced": False,
+    }
+
+
+def _scored_item(item_id: str, correct: bool) -> dict:
+    return {
+        "id": item_id,
+        "bench": "mmlu_pro",
+        "response_text": "Answer: A",
+        "extracted": "A",
+        "correct": correct,
+        "finish_reason": "stop",
+        "latency_seconds": 0.01,
+        "started_at": "2026-06-29T00:00:00+00:00",
+        "finished_at": "2026-06-29T00:00:01+00:00",
+        "attempts": 1,
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+        "error": None,
+    }

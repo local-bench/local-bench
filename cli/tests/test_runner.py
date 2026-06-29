@@ -257,6 +257,55 @@ def test_run_benchmark_when_many_items_respects_concurrency_limit() -> None:
     asyncio.run(scenario())
 
 
+def test_run_benchmark_calls_completion_hook_as_items_finish() -> None:
+    async def scenario() -> None:
+        # Given two items where the second response finishes first.
+        completed: list[str] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            payload = json.loads(request.content)
+            prompt = payload["messages"][0]["content"]
+            if prompt == "slow":
+                await asyncio.sleep(0.02)
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [{"message": {"content": prompt}, "finish_reason": "stop"}],
+                    "usage": {"completion_tokens": 1},
+                },
+            )
+
+        # When running with a completion hook.
+        record = await run_benchmark(
+            base_url="http://local/v1",
+            api_key=None,
+            model="demo-model",
+            items=[
+                {
+                    "id": "slow",
+                    "messages": [{"role": "user", "content": "slow"}],
+                    "sampling_params": {},
+                    "max_tokens": 4,
+                },
+                {
+                    "id": "fast",
+                    "messages": [{"role": "user", "content": "fast"}],
+                    "sampling_params": {},
+                    "max_tokens": 4,
+                },
+            ],
+            concurrency=2,
+            transport=httpx.MockTransport(handler),
+            on_item_complete=lambda result: completed.append(result["id"]),
+        )
+
+        # Then the callback observes completion order while the final record preserves input order.
+        assert completed == ["fast", "slow"]
+        assert [result["id"] for result in record["results"]] == ["slow", "fast"]
+
+    asyncio.run(scenario())
+
+
 def test_run_benchmark_when_usage_is_missing_tolerates_response() -> None:
     async def scenario() -> None:
         # Given an endpoint that omits token usage.
