@@ -545,6 +545,8 @@ async def run_localbench(
         "manifest": manifest,
         "axis_status": axis_status,
         "headline_complete": headline_complete,
+        "trust_tier": "external-endpoint",
+        "serving_verification_level": "external-endpoint",
         "benches": benches,
         "composite": composite(benches, axis_status, suite_axis_map),
         "conformance": assess_run_conformance(results_by_bench, forced=forcing_active),

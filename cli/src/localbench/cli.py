@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
+import re
 import shutil
 import sys
 import tempfile
@@ -35,8 +37,17 @@ from localbench._types import ItemResult, JsonValue
 from localbench.campaign import campaign_paths
 from localbench.coding_exec import OPT_IN_WARNING
 from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, DEFAULT_IMAGE, run_coding_exec
+from localbench.exit_codes import (
+    EXIT_CHECKPOINT_CORRUPTION,
+    EXIT_COMPLETE,
+    EXIT_INTERNAL_RUNNER_BUG,
+    EXIT_PREFLIGHT_FAILED,
+    EXIT_UNSAFE_RESUME,
+)
+from localbench.campaign_checkpoints import CheckpointCorruptionError, completed_benches
 from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
+from localbench.persistence import atomic_write_json
 from localbench.providers import provider_choices
 from localbench.run_plan import resolve_run_benches
 from localbench.scoring.paired_delta import (
@@ -118,6 +129,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _submit(args)
     if args.command == "doctor":
         return _doctor(args)
+    if args.command == "status":
+        return _status(args)
+    if args.command == "collect":
+        return _collect(args)
     if args.command == "compare":
         return _compare(args)
     if args.command == "kld":
@@ -253,6 +268,11 @@ def _parser() -> argparse.ArgumentParser:
     doctor_parser = subparsers.add_parser("doctor", help="check localbench local-run readiness")
     doctor_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     doctor_parser.add_argument("--cache-dir", type=Path)
+    status_parser = subparsers.add_parser("status", help="show campaign progress")
+    status_parser.add_argument("campaign_dir", type=Path)
+    collect_parser = subparsers.add_parser("collect", help="write a redacted campaign support bundle")
+    collect_parser.add_argument("campaign_dir", type=Path)
+    collect_parser.add_argument("--out", required=True, type=Path)
     compare_parser = subparsers.add_parser(
         "compare",
         help="compare two saved localbench run records",
@@ -381,15 +401,21 @@ def _run(args: argparse.Namespace) -> int:
         )
     except EndpointPreflightError as error:
         print(f"error      {error}")
-        return 10
+        return EXIT_PREFLIGHT_FAILED
     except UnsafeResumeError as error:
         print(f"error      {error}")
-        return 40
+        return EXIT_UNSAFE_RESUME
+    except CheckpointCorruptionError as error:
+        print(f"error      {error}")
+        return EXIT_CHECKPOINT_CORRUPTION
+    except (RuntimeError, OSError) as error:
+        print(f"error      {error}")
+        return EXIT_INTERNAL_RUNNER_BUG
     if scorer_gates:
         _append_scorer_gated_benches(record, scorer_gates, suite_axis_map)
         _rewrite_run_record(record)
     _print_summary(record)
-    return 0
+    return EXIT_COMPLETE
 
 
 def _populate_resume_args(args: argparse.Namespace) -> None:
@@ -476,6 +502,90 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
 def _append_optional(command: list[str], flag: str, value: object | None) -> None:
     if value is not None:
         command.extend([flag, str(value)])
+
+
+def _status(args: argparse.Namespace) -> int:
+    campaign_dir = args.campaign_dir
+    status = _read_optional_json(campaign_dir / "run.status.json")
+    checkpoints = completed_benches(campaign_paths(campaign_dir / "localbench-run.json", campaign_dir))
+    completed_items = status.get("completed_items") if isinstance(status.get("completed_items"), int) else 0
+    total_items = status.get("total_items") if isinstance(status.get("total_items"), int) else 0
+    current_bench = status.get("current_bench") if isinstance(status.get("current_bench"), str) else "-"
+    state = status.get("state") if isinstance(status.get("state"), str) else "unknown"
+    print(f"state     {state}")
+    print(f"bench     {current_bench}")
+    print(f"progress  {completed_items}/{total_items}")
+    print(f"complete  {', '.join(sorted(checkpoints)) or '-'}")
+    monitor = _monitor_tail(campaign_dir / "monitor" / "monitor.jsonl", 1)
+    if monitor:
+        monitor_status = monitor[-1].get("status")
+        print(f"health    {monitor_status if isinstance(monitor_status, str) else 'unknown'}")
+    return EXIT_COMPLETE
+
+
+def _collect(args: argparse.Namespace) -> int:
+    campaign_dir = args.campaign_dir
+    bundle = {
+        "schema_version": "localbench-support-bundle-v1",
+        "campaign_dir": str(campaign_dir),
+        "campaign": _redact(_read_optional_json(campaign_dir / "campaign.json")),
+        "status": _redact(_read_optional_json(campaign_dir / "run.status.json")),
+        "logs": {
+            "run_tail": _redact(_tail_lines(campaign_dir / "logs" / "run.log")),
+            "serve_tail": _redact(_tail_lines(campaign_dir / "logs" / "serve.log")),
+        },
+        "monitor_tail": _redact(_monitor_tail(campaign_dir / "monitor" / "monitor.jsonl", 20)),
+        "checkpoint_files": sorted(path.name for path in (campaign_dir / "benchmarks").glob("*")),
+        "system": {"platform": platform.platform(), "python": platform.python_version()},
+    }
+    atomic_write_json(bundle, args.out)
+    print(f"wrote     {args.out}")
+    return EXIT_COMPLETE
+
+
+def _read_optional_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return raw if isinstance(raw, dict) else {}
+
+
+def _tail_lines(path: Path, limit: int = 40) -> list[str]:
+    if not path.exists():
+        return []
+    return path.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
+
+
+def _monitor_tail(path: Path, limit: int) -> list[dict]:
+    rows: list[dict] = []
+    for line in _tail_lines(path, limit):
+        raw = json.loads(line)
+        if isinstance(raw, dict):
+            rows.append(raw)
+    return rows
+
+
+def _redact(value):
+    if isinstance(value, dict):
+        redacted = {}
+        for key, item in value.items():
+            redacted[key] = "***REDACTED***" if _secret_key(str(key)) else _redact(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    if isinstance(value, str):
+        return _redact_text(value)
+    return value
+
+
+def _secret_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(marker in lowered for marker in ("api_key", "token", "secret", "password", "authorization"))
+
+
+def _redact_text(value: str) -> str:
+    value = re.sub(r"sk-[A-Za-z0-9_-]{8,}", "***REDACTED***", value)
+    return re.sub(r"Bearer\s+[A-Za-z0-9._~+/=-]+", "Bearer ***REDACTED***", value)
 
 
 def _tc_json(args: argparse.Namespace) -> int:

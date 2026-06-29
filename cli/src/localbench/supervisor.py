@@ -11,6 +11,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from localbench.exit_codes import EXIT_USER_INTERRUPTED, EXIT_WATCHDOG_TIMEOUT
 from localbench.monitoring import (
     MonitorDecision,
     MonitorMode,
@@ -20,8 +21,6 @@ from localbench.monitoring import (
     evaluate_sample,
     monitor_record,
 )
-
-EXIT_WATCHDOG_TIMEOUT = 30
 
 SampleProvider = Callable[[MonitorPolicy], SampleContext]
 
@@ -47,7 +46,7 @@ def run_supervised(config: SupervisorConfig, sample_provider: SampleProvider | N
             return _watch_worker(process, paths.monitor_log, policy, provider, config.sample_interval_seconds)
         except KeyboardInterrupt:
             _terminate_worker(process)
-            return 60
+            return EXIT_USER_INTERRUPTED
 
 
 @dataclass(frozen=True, slots=True)
