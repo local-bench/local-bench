@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -12,6 +11,7 @@ import httpx
 
 from localbench._requests import run_item, utc_now
 from localbench.budget_forcing import forcing_format_for_activation
+from localbench.persistence import atomic_write_json
 from localbench._types import (
     BenchmarkItem,
     ChatMessage,
@@ -126,11 +126,7 @@ async def run_benchmark(
 
 def write_json(record: RunRecord | JsonObject, path: str | Path) -> None:
     """Write a run record to a JSON file."""
-    output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
-        json.dump(record, handle, indent=2)
-        handle.write("\n")
+    atomic_write_json(record, Path(path))
 
 
 def _totals(results: list[ItemResult], active_wall_seconds: float) -> Totals:

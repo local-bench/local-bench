@@ -36,6 +36,13 @@ from localbench._suite import (
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue
 from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
+from localbench.campaign import (
+    CampaignConfig,
+    StatusUpdate,
+    campaign_paths,
+    initialize_campaign,
+    write_status,
+)
 from localbench.lane_conformance import assess_run_conformance
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.prompt_rendering import (
@@ -159,6 +166,7 @@ async def run_localbench(
     suite = read_json_object(suite_dir / "suite.json")
     started_at = utc_now()
     started_perf = time.perf_counter()
+    output_path = config.out or default_output_path(config.model, config.tier)
     warnings: list[str] = []
     provider = provider_for_name(config.provider)
     resolved = resolve_run_benches(config.bench, suite)
@@ -210,6 +218,33 @@ async def run_localbench(
             continue
         scorable_benches.append(bench)
 
+    paths = campaign_paths(output_path)
+    total_items = sum(len(bench.benchmark_items) for bench in scorable_benches)
+    initialize_campaign(
+        paths,
+        CampaignConfig(
+            endpoint=config.endpoint,
+            model=config.model,
+            suite_id=suite_ref.suite_id,
+            suite_hash=suite_ref.suite_hash,
+            suite_terms_accepted=config.accept_suite_terms,
+            tier=config.tier,
+            lane=config.lane,
+            provider=provider.name,
+            concurrency=config.concurrency,
+            max_items=config.max_items,
+            max_tokens=config.max_tokens,
+            reasoning_effort=config.reasoning_effort,
+            reasoning_activation=config.reasoning_activation,
+            hf_model_id=config.hf_model_id,
+            output_path=output_path,
+        ),
+        suite,
+        suite_dir,
+        scorable_benches,
+        started_at=started_at,
+    )
+
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
     reasoning_registry_entry_id: str | None = None
@@ -226,29 +261,72 @@ async def run_localbench(
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
     results_by_bench: dict[str, list[ItemResult]] = {}
+    completed_items = 0
     for bench in scorable_benches:
+        write_status(
+            paths,
+            StatusUpdate(
+                state="running",
+                current_bench=bench.name,
+                current_item_index=0 if bench.benchmark_items else None,
+                current_item_id=bench.benchmark_items[0]["id"] if bench.benchmark_items else None,
+                completed_items=completed_items,
+                total_items=total_items,
+                started_at=started_at,
+            ),
+        )
         sampling_by_bench[bench.name] = bench.decoding
         item_files.append(bench.item_file)
-        record = await run_benchmark(
-            base_url=config.endpoint,
-            model=config.model,
-            items=bench.benchmark_items,
-            api_key=config.api_key,
-            concurrency=config.concurrency,
-            transport=transport,
-            provider=provider,
-            lane=config.lane,
-            effort=config.reasoning_effort,
-            hf_model_id=config.hf_model_id,
-            reasoning_activation=config.reasoning_activation,
-            prompt_renderer=prompt_renderer,
-            forcing_format=forcing_format,
-        )
+        try:
+            record = await run_benchmark(
+                base_url=config.endpoint,
+                model=config.model,
+                items=bench.benchmark_items,
+                api_key=config.api_key,
+                concurrency=config.concurrency,
+                transport=transport,
+                provider=provider,
+                lane=config.lane,
+                effort=config.reasoning_effort,
+                hf_model_id=config.hf_model_id,
+                reasoning_activation=config.reasoning_activation,
+                prompt_renderer=prompt_renderer,
+                forcing_format=forcing_format,
+            )
+        except (httpx.HTTPError, OSError, RuntimeError) as error:
+            write_status(
+                paths,
+                StatusUpdate(
+                    state="failed",
+                    current_bench=bench.name,
+                    current_item_index=None,
+                    current_item_id=None,
+                    completed_items=completed_items,
+                    total_items=total_items,
+                    started_at=started_at,
+                    exit_code=70,
+                    failure_reason=f"{error.__class__.__name__}: {error}",
+                ),
+            )
+            raise
         scored_items = score_bench(bench, record["results"])
         _attach_reasoning_text(scored_items, record["results"])
         warnings.extend(_annotate_ruler_truncation(bench, record["results"], scored_items))
         items.extend(scored_items)
         results_by_bench[bench.name] = record["results"]
+        completed_items += len(scored_items)
+        write_status(
+            paths,
+            StatusUpdate(
+                state="running",
+                current_bench=bench.name,
+                current_item_index=None,
+                current_item_id=None,
+                completed_items=completed_items,
+                total_items=total_items,
+                started_at=started_at,
+            ),
+        )
 
     benches = {
         bench.name: aggregate(
@@ -258,7 +336,6 @@ async def run_localbench(
         )
         for bench in scorable_benches
     }
-    output_path = config.out or default_output_path(config.model, config.tier)
     agentic_provenance: JsonObject | None = None
     agentic_unavailable_detail: str | None = None
     if run_agentic:
@@ -375,6 +452,19 @@ async def run_localbench(
             config.price_out,
         )
     write_json(run_record, output_path)
+    write_status(
+        paths,
+        StatusUpdate(
+            state="complete",
+            current_bench=None,
+            current_item_index=None,
+            current_item_id=None,
+            completed_items=completed_items,
+            total_items=total_items,
+            started_at=started_at,
+            exit_code=0,
+        ),
+    )
     return run_record
 
 
