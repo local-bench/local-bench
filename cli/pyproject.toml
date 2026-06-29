@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 localbench = "localbench.cli:main"
+localbench-monitor = "localbench.monitor_cli:main"
 
 [project.optional-dependencies]
 build = ["datasets>=2.20"]

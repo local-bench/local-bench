@@ -32,6 +32,7 @@ from localbench._scoring import (
 )
 from localbench._suite import RenderedBench, read_json_object, render_benches
 from localbench._types import ItemResult, JsonValue
+from localbench.campaign import campaign_paths
 from localbench.coding_exec import OPT_IN_WARNING
 from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, DEFAULT_IMAGE, run_coding_exec
 from localbench.kld import run_kld_ladder
@@ -77,6 +78,7 @@ from localbench.suite_resolver import (
     resolve_suite_dir,
     suite_cache_root,
 )
+from localbench.supervisor import SupervisorConfig, run_supervised
 
 _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
     "none",
@@ -155,6 +157,8 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--cache-dir", type=Path)
     run_parser.add_argument("--dry-run", action="store_true")
     run_parser.add_argument("--preflight", action="store_true")
+    run_parser.add_argument("--no-supervisor", action="store_true")
+    run_parser.add_argument("--skip-preflight", action="store_true", help=argparse.SUPPRESS)
     run_parser.add_argument("--price-in", type=float)
     run_parser.add_argument("--price-out", type=float)
     run_parser.add_argument(
@@ -340,11 +344,14 @@ def _run(args: argparse.Namespace) -> int:
     out = args.out or default_output_path(args.model, tier)
     try:
         bench_choice, scorer_gates, suite_axis_map = _scorer_gates(args, tier)
-        anyio.run(_preflight_endpoint, args.endpoint, args.model, api_key)
-        anyio.run(_preflight_smoke, args, tier, api_key, bench_choice)
+        if not args.skip_preflight:
+            anyio.run(_preflight_endpoint, args.endpoint, args.model, api_key)
+            anyio.run(_preflight_smoke, args, tier, api_key, bench_choice)
         if args.preflight:
             print("preflight ok")
             return 0
+        if not args.no_supervisor:
+            return _run_supervised(args, tier, out)
         record = anyio.run(
             run_localbench,
             OrchestrateConfig(
@@ -407,6 +414,68 @@ def _populate_resume_args(args: argparse.Namespace) -> None:
         args.tier = campaign["tier"]
     if isinstance(campaign.get("lane"), str):
         args.lane = campaign["lane"]
+
+
+def _run_supervised(args: argparse.Namespace, tier: str, out: Path) -> int:
+    paths = campaign_paths(out, args.resume)
+    command = _worker_command(args, tier, out)
+    return run_supervised(
+        SupervisorConfig(
+            command=command,
+            campaign_root=paths.root,
+            label=f"localbench:{args.model}",
+            sample_interval_seconds=5.0,
+        )
+    )
+
+
+def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]:
+    command = [
+        sys.executable,
+        "-m",
+        "localbench",
+        "run",
+        "--endpoint",
+        args.endpoint,
+        "--model",
+        args.model,
+        "--bench",
+        args.bench,
+        "--tier",
+        tier,
+        "--concurrency",
+        str(args.concurrency),
+        "--provider",
+        args.provider,
+        "--out",
+        str(out),
+        "--lane",
+        args.lane,
+        "--reasoning-activation",
+        args.reasoning_activation,
+        "--no-supervisor",
+        "--skip-preflight",
+    ]
+    _append_optional(command, "--api-key-env", args.api_key_env)
+    _append_optional(command, "--max-items", args.max_items)
+    _append_optional(command, "--suite", args.suite)
+    _append_optional(command, "--suite-dir", args.suite_dir)
+    _append_optional(command, "--suite-source", args.suite_source)
+    _append_optional(command, "--cache-dir", args.cache_dir)
+    _append_optional(command, "--price-in", args.price_in)
+    _append_optional(command, "--price-out", args.price_out)
+    _append_optional(command, "--reasoning-effort", args.reasoning_effort)
+    _append_optional(command, "--hf-model-id", args.hf_model_id)
+    _append_optional(command, "--max-tokens", args.max_tokens)
+    _append_optional(command, "--resume", args.resume)
+    if args.accept_suite_terms:
+        command.append("--accept-suite-terms")
+    return command
+
+
+def _append_optional(command: list[str], flag: str, value: object | None) -> None:
+    if value is not None:
+        command.extend([flag, str(value)])
 
 
 def _tc_json(args: argparse.Namespace) -> int:

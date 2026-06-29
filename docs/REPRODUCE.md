@@ -16,6 +16,36 @@ Weights and axis membership are defined in `cli/src/localbench/scoring/axes.py`.
 - For AppWorld-C: the AppWorld agentic extra and sandbox setup
 - For BigCodeBench-Hard: Docker sandbox setup; this remains opt-in
 
+## 0. Start Safety Monitors
+
+Before starting a benchmark campaign, start a monitor loop for the machine that will run it. The monitor writes JSONL records and exits with code `2` when the campaign should abort.
+
+Local RTX 5090:
+
+```powershell
+localbench-monitor local `
+  --label rtx-5090 `
+  --target-name-contains "RTX 5090" `
+  --disk-path C:\Users\Michael\local-bench `
+  --out C:\Users\Michael\local-bench\runs\monitors\rtx-5090.jsonl
+```
+
+Michael-owned Vast RTX 6000 Pro host, read-only guard from the local machine:
+
+```powershell
+localbench-monitor vast-host `
+  --label vast-rtx6000-pro `
+  --ssh-target michael@<vast-host> `
+  --machine-id <vast-machine-id> `
+  --target-gpu-uuid <live-unrented-gpu-uuid> `
+  --protected-gpu-uuid <live-renter-gpu-uuid> `
+  --protected-min-memory-mib <current-renter-memory-floor> `
+  --expected-available-gpus 1 `
+  --out C:\Users\Michael\local-bench\runs\monitors\vast-rtx6000-pro.jsonl
+```
+
+The Vast monitor samples `nvidia-smi`, disk headroom, and read-only Vast occupancy metadata over SSH. Use `--occupancy "<live-vast-occupancy>"` only when supplying captured status manually instead of `--machine-id`. It must not be used as permission to start a host-side benchmark. Prefer a 1x self-rented Vast instance on Michael's own machine; if direct host-side execution is ever explicitly approved, keep this monitor running and bind the benchmark process to the live unrented GPU UUID only.
+
 ## 1. Inspect the suite
 
 ```bash
