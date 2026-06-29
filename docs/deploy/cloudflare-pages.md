@@ -2,6 +2,8 @@
 
 Updated 2026-06-28. This runbook is for the online launch with Pages Functions, D1, R2, and Queues.
 
+Current live endpoint facts are intentionally not duplicated here. Use `docs/deploy/live-state.md` as the canonical live-state source, and refresh observations with `scripts/launch-smoke.ps1`.
+
 ## Architecture
 
 - Cloudflare Pages hosts the static Next.js export and the `web/functions` API routes.
@@ -54,6 +56,15 @@ npx wrangler pages secret put LOCALBENCH_PUBLIC_BASE_URL --project-name local-be
 
 Use `https://local-bench.ai` for `LOCALBENCH_PUBLIC_BASE_URL` and `localbench-submissions` for `R2_BUCKET_NAME`.
 
+Private-mode variables are separate from the online submission secrets:
+
+- `LOCALBENCH_SITE_PRIVATE`: set to `1`, `true`, `yes`, or `on` to close the public site.
+- `LOCALBENCH_PRIVATE_BYPASS_TOKEN`: owner bypass token used by the middleware.
+
+Cloudflare Pages scopes variables per environment. Set both private-mode variables in Production and Preview, or disable preview/branch builds. A Preview deployment without `LOCALBENCH_SITE_PRIVATE` can serve publicly even when Production is private.
+
+The online submission/admin secrets (`ADMIN_API_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`) are intentionally unset while the submission pipeline is incomplete. Do not set them as part of private-mode launch prep.
+
 ## What Needs Manual Account Access
 
 Michael must do the credentialed/account steps:
@@ -76,7 +87,29 @@ Before pushing a deploy commit:
 
 The script now performs local preflight only: install, tests, typecheck, and static build. Git integration performs the actual Cloudflare deploy after the private repo is pushed.
 
-## Online Submission Smoke
+## Launch Smoke
+
+Run the private-mode smoke from the repo root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch-smoke.ps1 -ExpectedMode Private
+```
+
+The default `-ExpectedMode` is `Private`. In private mode, unauthenticated apex, Pages host, suite manifest, and root-page checks must return the private signature: HTTP 503 plus `cache-control:no-store` plus `x-robots-tag:noindex`. HTTP 200 is a release-blocking leak, not a warning.
+
+Optional owner-bypass smoke reads the token at runtime and redacts it from output:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch-smoke.ps1 `
+  -ExpectedMode Private `
+  -BypassTokenPath C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt
+```
+
+Use `-WriteState` to write `docs/deploy/live-state.generated.json` after a credentialed smoke. Use `-RequireCloudflareAuth` when deployment enumeration must be present instead of warning if Wrangler is unavailable or unauthenticated.
+
+## Online Submission Smoke (blocked by missing secrets)
+
+This section is future-use while `ADMIN_API_SECRET`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are unset. Until those secrets exist, ticket/upload/admin checks are WARN-only in `scripts/launch-smoke.ps1`; they are not site-health failures.
 
 Prototype private mode may block public smoke checks. If `LOCALBENCH_SITE_PRIVATE=1`, pass the owner bypass token from `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt` with `x-localbench-bypass`, or open `/?lb_bypass=<token>` once in a browser to set the private cookie.
 
@@ -114,6 +147,8 @@ Publishing is still manual:
 
 ## Verification Checklist
 
+Use this checklist only for an intentional public-mode launch. For current private-mode expectations, use `docs/deploy/live-state.md` and `scripts/launch-smoke.ps1 -ExpectedMode Private`.
+
 - `https://local-bench.ai/` renders.
 - `https://local-bench.ai/api/health` returns `{"status":"ok"}`.
 - `https://local-bench.ai/api/suites/core-text-v1/manifest` returns hash-pinned suite files.
@@ -126,13 +161,15 @@ Publishing is still manual:
 
 The Pages middleware can keep the prototype inaccessible to the public while preserving the deployment, D1, R2, Queues, and owner/API smoke access.
 
-Production secrets:
+Production private-mode secrets:
 
 ```powershell
 cd C:\Users\Michael\local-bench\web
 "1" | npx wrangler pages secret put LOCALBENCH_SITE_PRIVATE --project-name local-bench
 Get-Content C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt -Raw | npx wrangler pages secret put LOCALBENCH_PRIVATE_BYPASS_TOKEN --project-name local-bench
 ```
+
+Repeat the same private-mode configuration for the Preview environment through the Cloudflare dashboard, or with the equivalent Wrangler environment selector supported by the installed Wrangler version. If Preview cannot be hardened, disable preview/branch builds before exposing deployment URLs outside the owner workflow.
 
 Owner smoke:
 
@@ -149,6 +186,21 @@ cd C:\Users\Michael\local-bench\web
 git commit --allow-empty -m "chore(deploy): refresh private mode"
 git push deploy HEAD:main
 ```
+
+After enabling private mode or rolling back to public mode, run `scripts/launch-smoke.ps1` with the matching `-ExpectedMode`. Do not use `-ExpectedMode Auto` as a release gate; it is diagnostic only and mixed public/private endpoint results are failures.
+
+## Deployment Retention and Leak Guidance
+
+Cloudflare Pages deployment aliases remain routable after newer deployments ship. Any deployment built before the private-mode middleware can serve a full public site if retained. Delete pre-gate deployments, and re-run the smoke after every deploy, rollback, or environment-variable change.
+
+Credentialed cleanup example:
+
+```powershell
+cd C:\Users\Michael\local-bench\web
+npx wrangler pages deployment delete --project-name local-bench <deployment-id> --force
+```
+
+The launch smoke enumerates Pages deployments when Wrangler is available and also checks known aliases. Any deployment alias that returns unauthenticated HTTP 200 fails the gate.
 
 ## Rollback
 
