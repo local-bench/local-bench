@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
+import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Final, TypeAlias
@@ -152,6 +154,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--accept-suite-terms", action="store_true")
     run_parser.add_argument("--cache-dir", type=Path)
     run_parser.add_argument("--dry-run", action="store_true")
+    run_parser.add_argument("--preflight", action="store_true")
     run_parser.add_argument("--price-in", type=float)
     run_parser.add_argument("--price-out", type=float)
     run_parser.add_argument(
@@ -337,7 +340,11 @@ def _run(args: argparse.Namespace) -> int:
     out = args.out or default_output_path(args.model, tier)
     try:
         bench_choice, scorer_gates, suite_axis_map = _scorer_gates(args, tier)
-        anyio.run(_preflight_endpoint, args.endpoint)
+        anyio.run(_preflight_endpoint, args.endpoint, args.model, api_key)
+        anyio.run(_preflight_smoke, args, tier, api_key, bench_choice)
+        if args.preflight:
+            print("preflight ok")
+            return 0
         record = anyio.run(
             run_localbench,
             OrchestrateConfig(
@@ -367,7 +374,7 @@ def _run(args: argparse.Namespace) -> int:
         )
     except EndpointPreflightError as error:
         print(f"error      {error}")
-        return 2
+        return 10
     except UnsafeResumeError as error:
         print(f"error      {error}")
         return 40
@@ -431,16 +438,94 @@ async def _run_tc_json_async(args: argparse.Namespace, api_key: str | None):
     )
 
 
-async def _preflight_endpoint(endpoint: str) -> None:
-    async with httpx.AsyncClient(timeout=5.0) as client:
+async def _preflight_endpoint(
+    endpoint: str,
+    model: str,
+    api_key: str | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> None:
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+    async with httpx.AsyncClient(timeout=5.0, transport=transport) as client:
         try:
-            await client.get(f"{endpoint.rstrip('/')}/models")
+            response = await client.get(f"{endpoint.rstrip('/')}/models", headers=headers)
         except httpx.TransportError as error:
             raise EndpointPreflightError(
                 "nothing is listening at "
                 f"{endpoint.rstrip('/')}; start your llama-server or another "
                 "OpenAI-compatible server before running localbench",
             ) from error
+    if response.status_code >= 400:
+        raise EndpointPreflightError(f"/v1/models returned HTTP {response.status_code}")
+    try:
+        payload = response.json()
+    except json.JSONDecodeError as error:
+        raise EndpointPreflightError("/v1/models returned non-JSON") from error
+    served_models = _served_model_ids(payload)
+    if model not in served_models:
+        models = ", ".join(sorted(served_models)) or "(none)"
+        raise EndpointPreflightError(f"claimed model {model!r} is not served by /v1/models: {models}")
+
+
+async def _preflight_smoke(
+    args: argparse.Namespace,
+    tier: str,
+    api_key: str | None,
+    bench_choice: str,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> None:
+    _check_disk_headroom(args.out, estimated_bytes=10_000_000)
+    with tempfile.TemporaryDirectory(prefix="localbench-preflight-") as tmp:
+        try:
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint=args.endpoint,
+                    model=args.model,
+                    suite=args.suite,
+                    bench=bench_choice,
+                    tier=tier,
+                    concurrency=args.concurrency,
+                    out=Path(tmp) / "campaign" / "localbench-run.json",
+                    api_key=api_key,
+                    max_items=1,
+                    suite_dir=args.suite_dir,
+                    suite_source=args.suite_source,
+                    accept_suite_terms=args.accept_suite_terms,
+                    cache_root=args.cache_dir,
+                    price_in=args.price_in,
+                    price_out=args.price_out,
+                    lane=_lane(args.lane),
+                    provider=args.provider,
+                    reasoning_effort=_reasoning_effort(args.reasoning_effort),
+                    hf_model_id=args.hf_model_id,
+                    reasoning_activation=_reasoning_activation(args.reasoning_activation),
+                    max_tokens=args.max_tokens,
+                    resume=None,
+                ),
+                transport=transport,
+            )
+        except Exception as error:
+            raise EndpointPreflightError(f"preflight smoke failed: {error}") from error
+
+
+def _served_model_ids(payload: object) -> set[str]:
+    if not isinstance(payload, dict):
+        return set()
+    data = payload.get("data")
+    if not isinstance(data, list):
+        return set()
+    ids: set[str] = set()
+    for item in data:
+        if isinstance(item, dict) and isinstance(item.get("id"), str):
+            ids.add(item["id"])
+    return ids
+
+
+def _check_disk_headroom(output_path: Path | None, estimated_bytes: int) -> None:
+    probe = (output_path.parent if output_path is not None else Path.cwd()).resolve()
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    if shutil.disk_usage(probe).free <= estimated_bytes:
+        raise EndpointPreflightError(f"insufficient disk headroom at {probe}")
 
 
 def _scorer_gates(

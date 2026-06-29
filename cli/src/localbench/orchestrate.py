@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import time
@@ -411,16 +412,15 @@ async def run_localbench(
             except (httpx.HTTPError, OSError, RuntimeError) as error:
                 write_status(
                     paths,
-                    StatusUpdate(
-                        state="failed",
-                        current_bench=bench.name,
-                        current_item_index=None,
-                        current_item_id=None,
-                        completed_items=completed_items,
+                    _failure_status(
+                        paths,
+                        bench=bench.name,
+                        completed_items=completed_items + len(streamed_scored),
                         total_items=total_items,
                         started_at=started_at,
                         exit_code=70,
-                        failure_reason=f"{error.__class__.__name__}: {error}",
+                        error=error,
+                        last_completed_item_id=_last_completed_item_id(streamed_scored),
                     ),
                 )
                 raise
@@ -661,6 +661,58 @@ def _score_single_checkpoint(
     _attach_reasoning_text(scored, [result])
     warnings.extend(_annotate_ruler_truncation(context.bench, [result], scored))
     return scored[0]
+
+
+def _failure_status(
+    paths: CampaignPaths,
+    *,
+    bench: str,
+    completed_items: int,
+    total_items: int,
+    started_at: str,
+    exit_code: int,
+    error: BaseException,
+    last_completed_item_id: str | None,
+) -> StatusUpdate:
+    return StatusUpdate(
+        state="failed",
+        current_bench=bench,
+        current_item_index=None,
+        current_item_id=None,
+        completed_items=completed_items,
+        total_items=total_items,
+        started_at=started_at,
+        exit_code=exit_code,
+        failure_reason=f"{error.__class__.__name__}: {error}",
+        stderr_tail=_tail_lines(paths.logs_dir / "run.log"),
+        serve_log_tail=_tail_lines(paths.logs_dir / "serve.log"),
+        monitor_snapshot=_latest_monitor_snapshot(paths.monitor_dir / "monitor.jsonl"),
+        resume_hint=f"localbench run --resume {paths.root}",
+        last_completed_item_id=last_completed_item_id,
+    )
+
+
+def _last_completed_item_id(items: list[ScoredItem]) -> str | None:
+    if not items:
+        return None
+    return items[-1]["id"]
+
+
+def _tail_lines(path: Path, limit: int = 40) -> list[str]:
+    if not path.exists():
+        return []
+    return path.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
+
+
+def _latest_monitor_snapshot(path: Path) -> JsonObject | None:
+    if not path.exists():
+        return None
+    for line in reversed(path.read_text(encoding="utf-8", errors="replace").splitlines()):
+        if not line.strip():
+            continue
+        raw = json.loads(line)
+        return raw if isinstance(raw, dict) else None
+    return None
 
 
 def _ordered_streamed_raw(

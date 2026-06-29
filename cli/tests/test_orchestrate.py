@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import argparse
 import json
 import subprocess
 import sys
@@ -11,6 +12,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from localbench.cli import EndpointPreflightError, _preflight_endpoint, _preflight_smoke
 from localbench.orchestrate import OrchestrateConfig, run_localbench
 from localbench.suite_resolver import SuiteResolutionError
 
@@ -190,6 +192,115 @@ def test_cli_run_when_endpoint_is_missing_exits_two() -> None:
     # Then the parser returns a clean usage error.
     assert result.returncode == 2
     assert "--endpoint" in result.stderr
+
+
+def test_preflight_endpoint_requires_claimed_model() -> None:
+    async def scenario() -> None:
+        # Given: an OpenAI-compatible models endpoint that omits the requested model.
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/v1/models"
+            return httpx.Response(200, json={"data": [{"id": "other-model"}]})
+
+        # When / Then: preflight refuses before any benchmark campaign starts.
+        with pytest.raises(EndpointPreflightError, match="demo-model"):
+            await _preflight_endpoint(
+                "http://local/v1",
+                "demo-model",
+                transport=httpx.MockTransport(handler),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_preflight_smoke_runs_one_item_per_bench_without_real_output(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a full run request covering two benches.
+        requested_prompts: list[str] = []
+        out = tmp_path / "campaign" / "localbench-run.json"
+        args = argparse.Namespace(
+            endpoint="http://local/v1",
+            model="demo-model",
+            suite=FIXTURE_SUITE.name,
+            suite_dir=FIXTURE_SUITE,
+            suite_source=None,
+            accept_suite_terms=False,
+            cache_dir=None,
+            concurrency=2,
+            out=out,
+            max_items=2,
+            price_in=None,
+            price_out=None,
+            lane="answer-only",
+            provider="local",
+            reasoning_effort=None,
+            hf_model_id=None,
+            reasoning_activation="qwen3",
+            max_tokens=None,
+            resume=None,
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "demo-model"}]})
+            requested_prompts.append(json.loads(request.content)["messages"][0]["content"])
+            return _all_correct_handler(request)
+
+        # When: the smoke preflight runs.
+        await _preflight_smoke(
+            args,
+            "quick",
+            api_key=None,
+            bench_choice="mmlu_pro,genmath",
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: it exercises one item per selected bench and does not write the real output.
+        assert len(requested_prompts) == 2
+        assert not out.exists()
+
+    asyncio.run(scenario())
+
+
+def test_run_localbench_failure_status_includes_resume_hint(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: an endpoint that fails after one completed item checkpoint.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+        requests = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal requests
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "demo-model"}]})
+            requests += 1
+            if requests == 2:
+                raise RuntimeError("worker stopped")
+            return _all_correct_handler(request)
+
+        # When / Then: failure status captures resumable context.
+        with pytest.raises(RuntimeError, match="worker stopped"):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    bench="mmlu_pro",
+                    max_items=2,
+                    concurrency=1,
+                    out=output_path,
+                ),
+                transport=httpx.MockTransport(handler),
+            )
+        status = json.loads((tmp_path / "campaign" / "run.status.json").read_text(encoding="utf-8"))
+        assert status["state"] == "failed"
+        assert status["completed_items"] == 1
+        assert status["last_completed_item_id"] == "1"
+        assert "worker stopped" in status["failure_reason"]
+        assert status["resume_hint"] == f"localbench run --resume {tmp_path / 'campaign'}"
+        assert status["stderr_tail"] == []
+        assert status["serve_log_tail"] == []
+        assert status["monitor_snapshot"] is None
+
+    asyncio.run(scenario())
 
 
 def test_run_localbench_lane_controls_thinking_toggle(tmp_path: Path) -> None:

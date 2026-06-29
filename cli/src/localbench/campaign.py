@@ -35,6 +35,11 @@ class StatusUpdate:
     started_at: str
     exit_code: int | None = None
     failure_reason: str | None = None
+    stderr_tail: list[str] | None = None
+    serve_log_tail: list[str] | None = None
+    monitor_snapshot: JsonObject | None = None
+    resume_hint: str | None = None
+    last_completed_item_id: str | None = None
 
 
 def campaign_paths(output_path: Path, campaign_dir: Path | None = None) -> CampaignPaths:
@@ -99,6 +104,11 @@ def write_status(paths: CampaignPaths, update: StatusUpdate) -> None:
         "updated_at": utc_now(),
         "exit_code": update.exit_code,
         "failure_reason": update.failure_reason,
+        "stderr_tail": update.stderr_tail,
+        "serve_log_tail": update.serve_log_tail,
+        "monitor_snapshot": update.monitor_snapshot,
+        "resume_hint": update.resume_hint,
+        "last_completed_item_id": update.last_completed_item_id,
     }
     atomic_write_json(status, paths.root / "run.status.json")
 
