@@ -7,7 +7,7 @@ from typing import Final
 
 from localbench._types import JsonValue
 
-RUN_SCHEMA_VERSION: Final = "localbench.run.v1"
+RUN_SCHEMA_VERSION: Final = "localbench.result_bundle.v1"
 
 
 class RunSchemaVersionError(ValueError):

@@ -136,8 +136,7 @@ def test_benchmark_modules_define_fast_defaults_and_opt_in_expansions() -> None:
 def test_suite_v1_manifest_membership_matches_registry_drift_gate() -> None:
     manifest = json.loads(_SUITE_V1.read_text(encoding="utf-8"))
     manifest_axes = manifest["axes"]
-    registry = {axis: members for axis, members in axis_membership().items() if axis != "agentic"}
-    manifest_axes = {axis: spec for axis, spec in manifest_axes.items() if axis != "agentic"}
+    registry = axis_membership()
     assert set(manifest_axes) == set(registry)
     for axis, members in registry.items():
         assert set(manifest_axes[axis]["benches"]) == set(members), axis

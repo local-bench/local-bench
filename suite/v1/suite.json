@@ -189,8 +189,7 @@
     },
     "agentic": {
       "benches": [
-        "bfcl",
-        "bfcl_multi_turn"
+        "appworld_c"
       ]
     },
     "tool_calling": {

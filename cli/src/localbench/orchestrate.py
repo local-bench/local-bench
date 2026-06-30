@@ -77,6 +77,7 @@ from localbench.scoring.axis_status import (
     mark_axis_not_measured,
 )
 from localbench.scorers.ruler import estimate_prompt_tokens
+from localbench.submissions.foundation import normalize_result_bundle
 from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
 if TYPE_CHECKING:
@@ -179,6 +180,21 @@ class OrchestrateConfig:
     reasoning_activation: ReasoningActivationChoice = "qwen3"
     max_tokens: int | None = None
     resume: Path | None = None
+    publishable: bool = False
+    sampler_seed: int | None = None
+    model_file: Path | None = None
+    model_family: str | None = None
+    quant_label: str | None = None
+    model_format: str | None = None
+    tokenizer_file: Path | None = None
+    chat_template_file: Path | None = None
+    runtime_name: str | None = None
+    runtime_version: str | None = None
+    kv_cache_quant: str | None = None
+    ctx_len_configured: int | None = None
+    parallel_slots: int | None = None
+    build_flags: str | None = None
+    runner_build_id: str | None = None
 
 
 async def run_localbench(
@@ -227,6 +243,8 @@ async def run_localbench(
                     if not isinstance(existing, int)
                     else min(existing, config.max_tokens)
                 )
+    if config.publishable:
+        _pin_publishable_sampler(rendered_benches, config.sampler_seed)
     items: list[ScoredItem] = []
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
@@ -525,6 +543,24 @@ async def run_localbench(
             reasoning_effort=config.reasoning_effort,
             thinking_budget=thinking_budget,
             reasoning_registry_entry_id=reasoning_registry_entry_id,
+            model_file=config.model_file,
+            model_family=config.model_family,
+            quant_label=config.quant_label,
+            model_format=config.model_format,
+            tokenizer_file=config.tokenizer_file,
+            chat_template_file=config.chat_template_file,
+            runtime_name=config.runtime_name,
+            runtime_version=config.runtime_version,
+            kv_cache_quant=config.kv_cache_quant,
+            ctx_len_configured=config.ctx_len_configured,
+            parallel_slots=config.parallel_slots,
+            build_flags=config.build_flags,
+            runner_build_id=config.runner_build_id,
+            determinism_policy=(
+                "top_k_1_seeded"
+                if config.publishable and config.sampler_seed is not None
+                else None
+            ),
         ),
         transport=transport,
     )
@@ -576,6 +612,7 @@ async def run_localbench(
             config.price_out,
         )
     run_record = _assemble_from_checkpoints(run_record, paths, scorable_benches)
+    run_record = cast(LocalbenchRun, normalize_result_bundle(run_record, suite_dir=suite_dir))
     write_json(run_record, output_path)
     write_status(
         paths,
@@ -635,6 +672,17 @@ def _expected_item_checkpoints(
         )
         for context in sorted(item_context.values(), key=lambda item: item.seq)
     ]
+
+
+def _pin_publishable_sampler(benches: list[RenderedBench], seed: int | None) -> None:
+    for bench in benches:
+        bench.decoding["top_k"] = 1
+        bench.decoding["seed"] = seed
+        for item in bench.benchmark_items:
+            sampling_params = item.get("sampling_params")
+            if isinstance(sampling_params, dict):
+                sampling_params["top_k"] = 1
+                sampling_params["seed"] = seed
 
 
 def _pending_bench(bench: RenderedBench, checkpointed_ids: set[str]) -> RenderedBench:

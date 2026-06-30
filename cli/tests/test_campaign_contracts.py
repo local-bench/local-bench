@@ -30,9 +30,10 @@ def test_run_record_reserves_external_endpoint_trust_tier(tmp_path: Path) -> Non
             transport=httpx.MockTransport(_answer_a_handler),
         )
 
-        # Then: the artifact cannot be confused with managed serving verification.
-        assert record["trust_tier"] == "external-endpoint"
-        assert record["serving_verification_level"] == "external-endpoint"
+        # Then: verifier-owned trust fields are outside the runner-authored bundle.
+        assert "trust_tier" not in record
+        assert "serving_verification_level" not in record
+        assert record["serving_mode"] == "external_openai_compatible_endpoint"
 
     asyncio.run(scenario())
 

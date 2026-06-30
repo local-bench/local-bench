@@ -40,13 +40,14 @@ def _render(max_items: int) -> RenderedBench:
     return benches[0]
 
 
-def test_v1_agentic_axis_is_declared_in_suite() -> None:
+def test_v1_bfcl_bench_is_retained_but_not_agentic_membership() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the agentic axis keeps single-turn and multi-turn BFCL as distinct benches.
+    # Then BFCL content remains available, while Agentic membership follows axes.py.
     axes = suite["axes"]
-    assert axes["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn"]
+    assert "bfcl" in suite["benches"]
+    assert axes["agentic"]["benches"] == ["appworld_c"]
     assert "weight" not in axes["agentic"]
 
 

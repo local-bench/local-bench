@@ -137,8 +137,8 @@ def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashin
             "tc_json_v1": record["benches"]["tc_json_v1"],
             "lcb": record["benches"]["lcb"],
         }
-        assert record["composite"] == pytest.approx(composite(measured_without_agentic))
-        assert record["composite"] == pytest.approx(1.0)
+        assert record["scores"]["partial_composite"] == pytest.approx(composite(measured_without_agentic))
+        assert record["scores"]["partial_composite"] == pytest.approx(1.0)
         assert record["headline_complete"] is False
 
     asyncio.run(scenario())
@@ -174,8 +174,8 @@ def test_run_localbench_zero_scoring_tool_calling_moves_composite(tmp_path: Path
             "tc_json_v1": record["benches"]["tc_json_v1"],
             "lcb": record["benches"]["lcb"],
         }
-        assert record["composite"] == pytest.approx(composite(measured_without_agentic))
-        assert record["composite"] == pytest.approx(0.8)
+        assert record["scores"]["partial_composite"] == pytest.approx(composite(measured_without_agentic))
+        assert record["scores"]["partial_composite"] == pytest.approx(0.8)
 
     asyncio.run(scenario())
 

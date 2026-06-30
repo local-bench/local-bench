@@ -399,10 +399,10 @@ def test_build_data_main_reports_absolute_out_dir_when_outside_repo(
     # When: the CLI entrypoint completes.
     code = builder.main(["--sources", str(sources), "--out", str(out_dir), "--iters", "1"])
 
-    # Then: it succeeds and prints the absolute path instead of crashing on relative_to(ROOT).
+    # Then: it succeeds and prints the display path without crashing on relative_to(ROOT).
     captured = capsys.readouterr()
     assert code == 0
-    assert f"wrote {out_dir}" in captured.out
+    assert f"wrote {builder._display_path(out_dir)}" in captured.out
 
 
 def test_site_data_freshness_detects_inputs_newer_than_generated_index(tmp_path: Path) -> None:

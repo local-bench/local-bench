@@ -29,7 +29,6 @@ from localbench.orchestrate import (
 )
 from localbench._scoring import (
     ScoredItem,
-    composite,
     scorer_unavailable_warning,
 )
 from localbench._suite import RenderedBench, read_json_object, render_benches
@@ -59,6 +58,8 @@ from localbench.scoring.axis_status import axis_key_for_bench, mark_axis_not_mea
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
+from localbench.submissions.canon import canonical_json_bytes, write_json_file
+from localbench.submissions.foundation_scores import score_summary
 from localbench.submissions.client import (
     AdminBundleDownloadRequest,
     AdminSubmissionListRequest,
@@ -76,6 +77,10 @@ from localbench.submissions.client import (
 )
 from localbench.submissions.crypto import load_private_key
 from localbench.submissions.keys import Ed25519SeedError, write_private_key
+from localbench.submissions.foundation import (
+    rescore_bundle as rescore_result_bundle,
+    validate_submission_bundle as validate_result_bundle_file,
+)
 from localbench.submissions.validate import SubmissionValidationError
 from localbench.submissions.verify import verify_bundle_offline
 from localbench.tc_json_v1_runner import run_tc_json_v1
@@ -127,6 +132,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _suite(args)
     if args.command == "submit":
         return _submit(args)
+    if args.command == "validate-submission-bundle":
+        return _validate_result_bundle_command(args)
+    if args.command == "rescore-bundle":
+        return _rescore_result_bundle_command(args)
     if args.command == "doctor":
         return _doctor(args)
     if args.command == "status":
@@ -203,6 +212,21 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         help="cap per-item max_tokens (min'd with the bench value); use for bounded local context windows",
     )
+    run_parser.add_argument("--publishable", action="store_true", help="pin sampler settings for submission")
+    run_parser.add_argument("--sampler-seed", type=int)
+    run_parser.add_argument("--model-file", type=Path)
+    run_parser.add_argument("--model-family")
+    run_parser.add_argument("--quant-label")
+    run_parser.add_argument("--model-format")
+    run_parser.add_argument("--tokenizer-file", type=Path)
+    run_parser.add_argument("--chat-template-file", type=Path)
+    run_parser.add_argument("--runtime-name")
+    run_parser.add_argument("--runtime-version")
+    run_parser.add_argument("--kv-cache-quant")
+    run_parser.add_argument("--ctx-len-configured", type=int)
+    run_parser.add_argument("--parallel-slots", type=int)
+    run_parser.add_argument("--build-flags")
+    run_parser.add_argument("--runner-build-id")
     fetch_parser = subparsers.add_parser(
         "fetch-suite",
         help="cache a verified public suite bundle from a local source or manifest URL",
@@ -265,6 +289,21 @@ def _parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("bundle", type=Path)
     verify_parser.add_argument("--suite-dir", required=True, type=Path)
     verify_parser.add_argument("--out", required=True, type=Path)
+    validate_bundle_parser = subparsers.add_parser(
+        "validate-submission-bundle",
+        help="validate a result bundle against the publishable submission contract",
+    )
+    validate_bundle_parser.add_argument("bundle", type=Path)
+    validate_bundle_parser.add_argument("--suite-dir", type=Path, default=Path("..") / "suite" / "v1")
+    validate_bundle_parser.add_argument("--out", type=Path)
+    rescore_bundle_parser = subparsers.add_parser(
+        "rescore-bundle",
+        help="re-score a result bundle and write an accepted-result projection",
+    )
+    rescore_bundle_parser.add_argument("bundle", type=Path)
+    rescore_bundle_parser.add_argument("--suite-dir", required=True, type=Path)
+    rescore_bundle_parser.add_argument("--out", required=True, type=Path)
+    rescore_bundle_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
     doctor_parser = subparsers.add_parser("doctor", help="check localbench local-run readiness")
     doctor_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     doctor_parser.add_argument("--cache-dir", type=Path)
@@ -358,6 +397,9 @@ def _run(args: argparse.Namespace) -> int:
     if args.endpoint is None or args.model is None:
         print("error      --endpoint and --model are required unless --resume is used", file=sys.stderr)
         return 2
+    if args.publishable and args.sampler_seed is None:
+        print("error      --publishable requires --sampler-seed", file=sys.stderr)
+        return 2
     tier = _resolved_run_tier(args.suite, args.tier)
     if args.dry_run:
         return _run_dry(args, tier)
@@ -397,6 +439,21 @@ def _run(args: argparse.Namespace) -> int:
                 reasoning_activation=_reasoning_activation(args.reasoning_activation),
                 max_tokens=args.max_tokens,
                 resume=args.resume,
+                publishable=args.publishable,
+                sampler_seed=args.sampler_seed,
+                model_file=args.model_file,
+                model_family=args.model_family,
+                quant_label=args.quant_label,
+                model_format=args.model_format,
+                tokenizer_file=args.tokenizer_file,
+                chat_template_file=args.chat_template_file,
+                runtime_name=args.runtime_name,
+                runtime_version=args.runtime_version,
+                kv_cache_quant=args.kv_cache_quant,
+                ctx_len_configured=args.ctx_len_configured,
+                parallel_slots=args.parallel_slots,
+                build_flags=args.build_flags,
+                runner_build_id=args.runner_build_id,
             ),
         )
     except EndpointPreflightError as error:
@@ -413,7 +470,7 @@ def _run(args: argparse.Namespace) -> int:
         return EXIT_INTERNAL_RUNNER_BUG
     if scorer_gates:
         _append_scorer_gated_benches(record, scorer_gates, suite_axis_map)
-        _rewrite_run_record(record)
+        _rewrite_run_record(record, out)
     _print_summary(record)
     return EXIT_COMPLETE
 
@@ -494,14 +551,61 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
     _append_optional(command, "--hf-model-id", args.hf_model_id)
     _append_optional(command, "--max-tokens", args.max_tokens)
     _append_optional(command, "--resume", args.resume)
+    _append_optional(command, "--sampler-seed", args.sampler_seed)
+    _append_optional(command, "--model-file", args.model_file)
+    _append_optional(command, "--model-family", args.model_family)
+    _append_optional(command, "--quant-label", args.quant_label)
+    _append_optional(command, "--model-format", args.model_format)
+    _append_optional(command, "--tokenizer-file", args.tokenizer_file)
+    _append_optional(command, "--chat-template-file", args.chat_template_file)
+    _append_optional(command, "--runtime-name", args.runtime_name)
+    _append_optional(command, "--runtime-version", args.runtime_version)
+    _append_optional(command, "--kv-cache-quant", args.kv_cache_quant)
+    _append_optional(command, "--ctx-len-configured", args.ctx_len_configured)
+    _append_optional(command, "--parallel-slots", args.parallel_slots)
+    _append_optional(command, "--build-flags", args.build_flags)
+    _append_optional(command, "--runner-build-id", args.runner_build_id)
     if args.accept_suite_terms:
         command.append("--accept-suite-terms")
+    if args.publishable:
+        command.append("--publishable")
     return command
 
 
 def _append_optional(command: list[str], flag: str, value: object | None) -> None:
     if value is not None:
         command.extend([flag, str(value)])
+
+
+def _validate_result_bundle_command(args: argparse.Namespace) -> int:
+    try:
+        result = validate_result_bundle_file(args.bundle, suite_dir=args.suite_dir)
+    except (SubmissionValidationError, OSError, json.JSONDecodeError) as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    _write_or_print_result(result, args.out)
+    return EXIT_COMPLETE
+
+
+def _rescore_result_bundle_command(args: argparse.Namespace) -> int:
+    try:
+        projection = rescore_result_bundle(
+            args.bundle,
+            suite_dir=args.suite_dir,
+            validated_at=args.validated_at,
+        )
+    except (SubmissionValidationError, OSError, json.JSONDecodeError) as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    write_json_file(args.out, projection)
+    return EXIT_COMPLETE
+
+
+def _write_or_print_result(result: dict[str, JsonValue], output_path: Path | None) -> None:
+    if output_path is None:
+        sys.stdout.buffer.write(canonical_json_bytes(result) + b"\n")
+        return
+    write_json_file(output_path, result)
 
 
 def _status(args: argparse.Namespace) -> int:
@@ -766,7 +870,7 @@ def _append_scorer_gated_benches(
         )
         if warning not in record["warnings"]:
             record["warnings"].append(warning)
-    record["composite"] = composite(record["benches"], record["axis_status"], suite_axes)
+    record["scores"] = score_summary(record["benches"], record["axis_status"], suite_axes=suite_axes)
     record["conformance"] = assess_run_conformance(
         _results_by_bench_from_scored(record["items"]),
         forced=_record_forced(record),
@@ -804,8 +908,7 @@ def _record_forced(record: LocalbenchRun) -> bool:
     return isinstance(thinking_budget, int) and thinking_budget > 0
 
 
-def _rewrite_run_record(record: LocalbenchRun) -> None:
-    output_path = Path(record["output_path"])
+def _rewrite_run_record(record: LocalbenchRun, output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(record, handle, indent=2)
@@ -814,6 +917,19 @@ def _rewrite_run_record(record: LocalbenchRun) -> None:
 
 def _optional_text(value: JsonValue | None) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _summary_score(record: LocalbenchRun) -> float:
+    scores = record.get("scores")
+    if isinstance(scores, dict):
+        headline = scores.get("headline_score")
+        if isinstance(headline, int | float):
+            return float(headline)
+        partial = scores.get("partial_composite")
+        if isinstance(partial, int | float):
+            return float(partial)
+    composite_value = record.get("composite")
+    return float(composite_value) if isinstance(composite_value, int | float) else 0.0
 
 
 def _fetch_suite(args: argparse.Namespace) -> int:
@@ -1338,7 +1454,7 @@ def _print_summary(record: LocalbenchRun) -> None:
             f"{bench_aggregate['n_errors']:>4}",
         )
     totals = record["totals"]
-    print(f"composite  {record['composite'] * 100:.1f}%")
+    print(f"composite  {_summary_score(record) * 100:.1f}%")
     print(
         "tokens     "
         f"prompt={totals['prompt_tokens']} "

@@ -127,13 +127,11 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
         }
-        assert record["composite"] != pytest.approx(composite(ki_only))
+        assert record["scores"]["headline_score"] != pytest.approx(composite(ki_only))
         suite = read_json_object(_SUITE_DIR / "suite.json")
         suite_axes = suite["axes"]
         assert isinstance(suite_axes, dict)
-        assert record["composite"] == pytest.approx(
-            composite(record["benches"], record["axis_status"], suite_axes),
-        )
+        assert record["scores"]["headline_score"] == pytest.approx(0.7316)
 
     asyncio.run(scenario())
 

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-bench.ai/schemas/suite_release_manifest_v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_release_id",
+    "suite_semver",
+    "suite_hash_algorithm",
+    "suite_manifest_sha256",
+    "files",
+    "item_set_hashes",
+    "axis_membership",
+    "bench_membership",
+    "scorecard_id",
+    "registry_digest",
+    "scorer_versions",
+    "license_manifest_sha256",
+    "coverage_profile_id"
+  ],
+  "properties": {
+    "schema_version": {"const": "localbench.suite_release_manifest.v1"},
+    "suite_release_id": {"type": "string"},
+    "suite_semver": {"type": "string"},
+    "suite_hash_algorithm": {"const": "sha256-canonical-json-v1"},
+    "suite_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "files": {"type": "array"},
+    "item_set_hashes": {"type": "object"},
+    "axis_membership": {"type": "object"},
+    "bench_membership": {"type": "object"},
+    "scorecard_id": {"type": "string"},
+    "registry_digest": {"type": "string"},
+    "scorer_versions": {"type": "object"},
+    "license_manifest_sha256": {"type": "string"},
+    "coverage_profile_id": {"type": "string"}
+  }
+}

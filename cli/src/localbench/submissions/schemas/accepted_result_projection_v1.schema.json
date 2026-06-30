@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-bench.ai/schemas/accepted_result_projection_v1.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "model",
+    "runtime",
+    "suite_release_id",
+    "suite_manifest_sha256",
+    "scorecard_id",
+    "coverage_profile_id",
+    "headline_complete",
+    "scores",
+    "axes",
+    "conformance",
+    "artifact_hashes",
+    "origin",
+    "trust_label",
+    "verification_level",
+    "validator"
+  ],
+  "properties": {
+    "schema_version": {"const": "localbench.accepted_result_projection.v1"},
+    "model": {"type": "object"},
+    "runtime": {"type": "object"},
+    "suite_release_id": {"type": "string"},
+    "suite_manifest_sha256": {"type": "string"},
+    "scorecard_id": {"type": "string"},
+    "coverage_profile_id": {"type": "string"},
+    "headline_complete": {"type": "boolean"},
+    "scores": {"type": "object"},
+    "axes": {"type": "object"},
+    "conformance": {"type": "object"},
+    "artifact_hashes": {"type": "object"},
+    "origin": {"enum": ["project_anchor", "community_submission"]},
+    "trust_label": {"type": "string"},
+    "verification_level": {"type": "string"},
+    "validator": {"type": "object"}
+  }
+}

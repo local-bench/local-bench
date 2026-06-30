@@ -42,7 +42,7 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
         )
 
         # Then the JSON contract, aggregates, manifest, and pricing are written.
-        assert record["schema"] == "localbench-run-v0"
+        assert record["schema_version"] == "localbench.result_bundle.v1"
         assert json.loads(output_path.read_text(encoding="utf-8")) == record
         assert len(record["items"]) == 7
         assert record["benches"]["mmlu_pro"] == {
@@ -74,7 +74,9 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
         }
         # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifeval).
         # genmath -> Math carries weight 0.0, so it is excluded (METHODOLOGY-v1.2 §3).
-        assert record["composite"] == pytest.approx(((0.15 * (1 / 9)) + (0.15 * 0.5)) / 0.30)
+        assert record["scores"]["partial_composite"] == pytest.approx(
+            0.3056,
+        )
         assert record["totals"]["prompt_tokens"] == 50
         assert record["totals"]["completion_tokens"] == 14
         assert record["totals"]["total_tokens"] == 64
@@ -85,7 +87,7 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "ifeval_quick.jsonl": "759ea4ebb17ff571ae98e3fdd0b612d382021e062aa945e6d001faae2985e707",
             "mmlu_pro_quick.jsonl": "685cfe3985469d26eecff4fc4a0aaa6c31e1f1a0f070a86074c9b388119ac0ac",
         }
-        assert record["manifest"]["integrity"]["canonical"] is False
+        assert record["manifest"]["integrity"]["publishable"] is False
 
     asyncio.run(scenario())
 

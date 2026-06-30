@@ -49,7 +49,7 @@ def test_scorer_unavailable_gate_marks_axis_not_measured_without_failed_items(
     assert "bfcl_multi_turn" not in record["benches"]
     assert [item["bench"] for item in record["items"]] == ["mmlu_pro", "ifbench"]
     assert record["totals"]["n_items"] == 2
-    assert record["composite"] == pytest.approx(0.90)
+    assert record["scores"]["partial_composite"] == pytest.approx(0.90)
     assert record["warnings"] == ["Scorer unavailable for bfcl_multi_turn: missing evaluator"]
 
 

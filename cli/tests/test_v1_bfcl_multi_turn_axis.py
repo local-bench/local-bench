@@ -13,13 +13,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SUITE_DIR = _REPO_ROOT / "suite" / "v1"
 
 
-def test_v1_bfcl_multi_turn_bench_is_separate_agentic_line() -> None:
+def test_v1_bfcl_multi_turn_bench_is_retained_but_not_agentic_membership() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then BFCL multi-turn is a separate bench in the Agentic axis, not pooled into bfcl.
+    # Then BFCL multi-turn content remains available, while Agentic membership follows axes.py.
     assert "bfcl_multi_turn" in suite["benches"]
-    assert suite["axes"]["agentic"]["benches"] == ["bfcl", "bfcl_multi_turn"]
+    assert suite["axes"]["agentic"]["benches"] == ["appworld_c"]
 
 
 def test_v1_bfcl_multi_turn_prompt_is_built_programmatically() -> None:

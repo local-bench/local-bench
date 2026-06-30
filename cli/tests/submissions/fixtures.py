@@ -5,11 +5,13 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from localbench._scoring import aggregate, composite, run_totals, score_bench
+from localbench._scoring import aggregate, run_totals, score_bench
 from localbench._suite import item_hashes, read_json_object, render_benches, suite_version
 from localbench._types import ItemResult, JsonObject, Usage
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.runner import write_json
+from localbench.scoring.axis_status import axis_status_for_benches
+from localbench.submissions.foundation import normalize_result_bundle
 from localbench.suite_verify import suite_hash
 
 PRIVATE_KEY_PEM = """-----BEGIN PRIVATE KEY-----
@@ -132,6 +134,7 @@ async def _write_run(path: Path, suite_dir: Path) -> Path:
         )
         for bench in rendered
     }
+    axis_status = axis_status_for_benches(benches)
     manifest = await collect_manifest(
         ManifestContext(
             endpoint="http://127.0.0.1:9/v1",
@@ -173,14 +176,17 @@ async def _write_run(path: Path, suite_dir: Path) -> Path:
         "account": None,
         "model": {"name": "fixture-model"},
         "manifest": manifest,
+        "axis_status": axis_status,
+        "headline_complete": False,
         "benches": benches,
-        "composite": composite(benches),
+        "composite": 1.0,
         "conformance": {"status": "headline-comparable", "per_bench": {}},
         "items": items,
         "totals": totals,
         "warnings": [],
         "output_path": str(path),
     }
+    run = normalize_result_bundle(run, suite_dir=suite_dir)
     write_json(run, path)
     return path
 
