@@ -65,6 +65,8 @@ class ManifestContext:
     ctx_len_configured: int | None = None
     parallel_slots: int | None = None
     build_flags: str | None = None
+    runtime_backend: str | None = None
+    cuda_version: str | None = None
     runner_build_id: str | None = None
     determinism_policy: str | None = None
 
@@ -203,7 +205,7 @@ def _model_identity(context: ManifestContext) -> JsonObject:
 
 
 def _runtime_identity(context: ManifestContext) -> JsonObject:
-    return {
+    runtime: JsonObject = {
         "name": context.runtime_name,
         "version": context.runtime_version,
         "kv_cache_quant": context.kv_cache_quant,
@@ -211,6 +213,11 @@ def _runtime_identity(context: ManifestContext) -> JsonObject:
         "parallel_slots": context.parallel_slots,
         "build_flags": context.build_flags,
     }
+    if context.runtime_backend is not None:
+        runtime["backend"] = context.runtime_backend
+    if context.cuda_version is not None:
+        runtime["cuda_version"] = context.cuda_version
+    return runtime
 
 
 def _optional_file_hash(path: Path | None) -> str | None:

@@ -168,7 +168,12 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
                 max_items=1,
                 out=output_path,
                 publishable=True,
+                sampler_temperature=0,
+                sampler_top_k=1,
+                sampler_top_p=1,
+                sampler_min_p=0,
                 sampler_seed=123,
+                determinism_policy="top_k_1_seeded",
                 model_file=model_file,
                 model_family="gemma",
                 quant_label="Q4_K_M",
@@ -188,9 +193,14 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
 
         # Then: sampler pins are present in both request payload and manifest.
         assert chat_payloads[0]["top_k"] == 1
+        assert chat_payloads[0]["top_p"] == 1
+        assert chat_payloads[0]["min_p"] == 0
         assert chat_payloads[0]["seed"] == 123
         sampling = record["manifest"]["sampling"]
+        assert sampling["temperature"] == 0
         assert sampling["top_k"] == 1
+        assert sampling["top_p"] == 1
+        assert sampling["min_p"] == 0
         assert sampling["seed"] == 123
         assert sampling["determinism_policy"] == "top_k_1_seeded"
 

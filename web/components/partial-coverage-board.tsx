@@ -1,5 +1,6 @@
 import { AXIS_CONFIG, axisLabel } from "@/lib/axis-config";
 import { formatScore } from "@/lib/format";
+import { runtimeDisplay } from "@/lib/runtime-display";
 import type { BoardEntryRow } from "@/lib/board-entry";
 
 // Projection axis keys use the scoring-registry names; the site's display config uses "instruction"
@@ -87,11 +88,12 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table data-testid="partial-coverage-table" className="min-w-[1040px] border-collapse text-sm">
+          <table data-testid="partial-coverage-table" className="min-w-[1140px] border-collapse text-sm">
             <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
               <tr>
                 <th className="px-3 py-3 font-semibold">Rank</th>
                 <th className="px-3 py-3 font-semibold">Model</th>
+                <th className="px-3 py-3 font-semibold">Runtime</th>
                 <th className="px-3 py-3 font-semibold">Coverage</th>
                 <th className="px-3 py-3 font-semibold">Partial composite</th>
                 {axisKeys.map((axis) => (
@@ -124,6 +126,9 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
                           <PartialBadge title="Preview row, not a finalized public result">preview</PartialBadge>
                         </span>
                       ) : null}
+                    </td>
+                    <td className="px-3 py-3">
+                      <RuntimeCell row={row} />
                     </td>
                     <td className="px-3 py-3">
                       <span className="font-mono text-xs text-bench-text">{row.coverage_profile_id}</span>
@@ -172,5 +177,20 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
         </div>
       )}
     </section>
+  );
+}
+
+function RuntimeCell({ row }: { readonly row: BoardEntryRow }) {
+  const display = runtimeDisplay({ name: row.runtime_name, version: row.runtime_version });
+  if (display === null) {
+    return <span className="font-mono text-xs text-bench-muted">—</span>;
+  }
+  return (
+    <span className="flex min-w-[96px] flex-col gap-0.5 leading-tight">
+      <span className="font-mono text-xs text-bench-text">{display.label}</span>
+      {display.version === null ? null : (
+        <span className="font-mono text-[10px] text-bench-muted">{display.version}</span>
+      )}
+    </span>
   );
 }

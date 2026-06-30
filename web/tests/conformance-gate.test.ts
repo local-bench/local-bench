@@ -25,6 +25,7 @@ describe("conformance gate data", () => {
       n_runs: 1,
       ranked: true,
       replicated: false,
+      runtime: { name: "llama.cpp", version: "b1234" },
       score_status: "measured",
       slug: "model-a",
       tier: "standard",
@@ -51,6 +52,8 @@ describe("conformance gate data", () => {
 
     // Then: the gate survives parsing with its board-provided band.
     expect(indexRow.conformance_gates?.tc_json_v1?.band).toBe("red");
+    expect(indexRow.runtime?.name).toBe("llama.cpp");
+    expect(IndexModelSchema.parse({ ...indexRow, runtime: undefined }).runtime).toBeUndefined();
     expect(runRow.conformance_gates?.tc_json_v1?.band).toBe("green");
   });
 

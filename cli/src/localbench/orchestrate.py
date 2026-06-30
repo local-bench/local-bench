@@ -181,7 +181,12 @@ class OrchestrateConfig:
     max_tokens: int | None = None
     resume: Path | None = None
     publishable: bool = False
+    sampler_temperature: float | None = None
+    sampler_top_k: int | None = None
+    sampler_top_p: float | None = None
+    sampler_min_p: float | None = None
     sampler_seed: int | None = None
+    determinism_policy: str | None = None
     model_file: Path | None = None
     model_family: str | None = None
     quant_label: str | None = None
@@ -194,6 +199,8 @@ class OrchestrateConfig:
     ctx_len_configured: int | None = None
     parallel_slots: int | None = None
     build_flags: str | None = None
+    runtime_backend: str | None = None
+    cuda_version: str | None = None
     runner_build_id: str | None = None
 
 
@@ -243,8 +250,8 @@ async def run_localbench(
                     if not isinstance(existing, int)
                     else min(existing, config.max_tokens)
                 )
-    if config.publishable:
-        _pin_publishable_sampler(rendered_benches, config.sampler_seed)
+    if _has_sampler_overrides(config):
+        _apply_sampler_overrides(rendered_benches, config)
     items: list[ScoredItem] = []
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
@@ -555,12 +562,10 @@ async def run_localbench(
             ctx_len_configured=config.ctx_len_configured,
             parallel_slots=config.parallel_slots,
             build_flags=config.build_flags,
+            runtime_backend=config.runtime_backend,
+            cuda_version=config.cuda_version,
             runner_build_id=config.runner_build_id,
-            determinism_policy=(
-                "top_k_1_seeded"
-                if config.publishable and config.sampler_seed is not None
-                else None
-            ),
+            determinism_policy=config.determinism_policy,
         ),
         transport=transport,
     )
@@ -674,15 +679,42 @@ def _expected_item_checkpoints(
     ]
 
 
-def _pin_publishable_sampler(benches: list[RenderedBench], seed: int | None) -> None:
+def _has_sampler_overrides(config: OrchestrateConfig) -> bool:
+    return any(
+        value is not None
+        for value in (
+            config.sampler_temperature,
+            config.sampler_top_k,
+            config.sampler_top_p,
+            config.sampler_min_p,
+            config.sampler_seed,
+        )
+    )
+
+
+def _apply_sampler_overrides(benches: list[RenderedBench], config: OrchestrateConfig) -> None:
+    overrides = _sampler_overrides(config)
     for bench in benches:
-        bench.decoding["top_k"] = 1
-        bench.decoding["seed"] = seed
+        bench.decoding.update(overrides)
         for item in bench.benchmark_items:
             sampling_params = item.get("sampling_params")
             if isinstance(sampling_params, dict):
-                sampling_params["top_k"] = 1
-                sampling_params["seed"] = seed
+                sampling_params.update(overrides)
+
+
+def _sampler_overrides(config: OrchestrateConfig) -> JsonObject:
+    overrides: JsonObject = {}
+    if config.sampler_temperature is not None:
+        overrides["temperature"] = config.sampler_temperature
+    if config.sampler_top_k is not None:
+        overrides["top_k"] = config.sampler_top_k
+    if config.sampler_top_p is not None:
+        overrides["top_p"] = config.sampler_top_p
+    if config.sampler_min_p is not None:
+        overrides["min_p"] = config.sampler_min_p
+    if config.sampler_seed is not None:
+        overrides["seed"] = config.sampler_seed
+    return overrides
 
 
 def _pending_bench(bench: RenderedBench, checkpointed_ids: set[str]) -> RenderedBench:

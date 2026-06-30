@@ -31,7 +31,7 @@ const SAMPLE = {
         headline_complete: false,
         model: { display_name: "Gemma 4 12B QAT", family: "gemma-4", quant_label: "UD-Q4_K_XL" },
         origin: "project_anchor",
-        runtime: { name: "llama.cpp" },
+        runtime: { name: "llama.cpp", version: "b1234" },
         schema_version: "localbench.accepted_result_projection.v1",
         scorecard_id: "scorecard-xyz",
         scores: {
@@ -73,9 +73,26 @@ describe("partial-coverage board", () => {
     expect(html).toContain("Gemma 4 12B QAT");
     expect(html).toContain("partial-text-code-4axis-v1");
     expect(html).toContain("unranked");
+    expect(html).toContain("Runtime");
+    expect(html).toContain("llama.cpp");
+    expect(html).toContain("b1234");
     expect(html).toContain(formatScore(74.73)); // partial_composite 0.7473 -> 74.7
     expect(html).toContain(formatScore(77.25)); // knowledge 0.7725 -> 77.2
     expect(html).toContain("Knowledge");
+  });
+
+  it("renders a dash when partial runtime identity is absent", () => {
+    const [row] = partialCoverageRows(PartialCoverageDataSchema.parse(SAMPLE));
+    if (row === undefined) {
+      expect.fail("expected one mapped partial-coverage row");
+      return;
+    }
+    const html = renderToStaticMarkup(
+      createElement(PartialCoverageBoard, {
+        rows: [{ ...row, runtime_name: null, runtime_version: null }],
+      }),
+    );
+    expect(html).toContain("—");
   });
 
   it("shows an empty-state when no partial submissions are published", () => {

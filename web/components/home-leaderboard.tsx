@@ -10,6 +10,7 @@ import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } fro
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatDuration, formatGpuShort, formatInteger, formatLatencySeconds } from "@/lib/format";
+import { runtimeDisplay, runtimeSortLabel } from "@/lib/runtime-display";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 
 const AGENTIC_SORT_KEY = "agentic_experimental";
@@ -33,7 +34,7 @@ export function HomeLeaderboard({
 }) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const axisKeys = useMemo(() => axisColumns(models), [models]);
-  const sortedModels = useMemo(() => sortRows(models, sort, agenticBySlug), [models, sort, agenticBySlug]);
+  const sortedModels = useMemo(() => sortLeaderboardRows(models, sort, agenticBySlug), [models, sort, agenticBySlug]);
   const laneRanks = useMemo(() => buildLaneRanks(models), [models]);
 
   return (
@@ -49,7 +50,7 @@ export function HomeLeaderboard({
         </div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="min-w-[1380px] border-collapse text-sm">
+        <table className="min-w-[1480px] border-collapse text-sm">
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
         </caption>
@@ -69,6 +70,7 @@ export function HomeLeaderboard({
                 <span className="font-mono text-[10px] normal-case text-bench-muted">Tool calling format gate · not ranked</span>
               </span>
             </th>
+            <SortableHeader label="Runtime" sortKey="runtime" sort={sort} onSort={setSort} />
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
             <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
             <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
@@ -115,6 +117,9 @@ export function HomeLeaderboard({
               </td>
               <td className="border-l border-bench-line px-3 py-3">
                 <ConformancePill gate={model.conformance_gates?.tc_json_v1} showReason compact />
+              </td>
+              <td className="px-3 py-3">
+                <RuntimeCell runtime={model.runtime} />
               </td>
               <td className="px-3 py-3 font-mono text-xs text-bench-text">{formatGpuShort(model.gpu)}</td>
               <td className="px-3 py-3 font-mono text-bench-text">
@@ -184,7 +189,7 @@ function nextSort(current: SortState, key: SortKey): SortState {
   return { key, direction: key === "model" ? "asc" : "desc" };
 }
 
-function sortRows(
+export function sortLeaderboardRows(
   models: readonly IndexModel[],
   sort: SortState,
   agenticBySlug: ReadonlyMap<string, AgenticModel> = EMPTY_AGENTIC,
@@ -206,7 +211,7 @@ function buildLaneRanks(models: readonly IndexModel[]): ReadonlyMap<string, numb
 
   const ranks = new Map<string, number>();
   for (const group of groups.values()) {
-    const rankedGroup = sortRows(group, { key: "composite", direction: "desc" });
+    const rankedGroup = sortLeaderboardRows(group, { key: "composite", direction: "desc" });
     rankedGroup.forEach((model, index) => {
       ranks.set(model.slug, index + 1);
     });
@@ -233,6 +238,8 @@ function compareRows(
       return nullableNumber(left.tokens_to_answer_median) - nullableNumber(right.tokens_to_answer_median);
     case "hardware":
       return (left.gpu?.name ?? "").localeCompare(right.gpu?.name ?? "");
+    case "runtime":
+      return runtimeSortLabel(left.runtime).localeCompare(runtimeSortLabel(right.runtime));
     case "user":
       return (left.submitted_by ?? "").localeCompare(right.submitted_by ?? "");
     case "latency":
@@ -242,6 +249,21 @@ function compareRows(
     default:
       return compareAxis(left, right, key);
   }
+}
+
+function RuntimeCell({ runtime }: { readonly runtime: IndexModel["runtime"] }) {
+  const display = runtimeDisplay(runtime);
+  if (display === null) {
+    return <span className="font-mono text-xs text-bench-muted">—</span>;
+  }
+  return (
+    <span className="flex min-w-[96px] flex-col gap-0.5 leading-tight">
+      <span className="font-mono text-xs text-bench-text">{display.label}</span>
+      {display.version === null ? null : (
+        <span className="font-mono text-[10px] text-bench-muted">{display.version}</span>
+      )}
+    </span>
+  );
 }
 
 function LocalIntelligenceHeaderLabel() {

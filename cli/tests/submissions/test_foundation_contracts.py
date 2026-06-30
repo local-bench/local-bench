@@ -32,6 +32,8 @@ _BLOCKING_REASONS = [
     "runtime.identity_missing",
     "suite.not_site_released",
 ]
+_SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
+_SITE_MANIFEST_SHA256 = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
 
 
 def test_contract_schema_versions_are_split_and_loadable() -> None:
@@ -163,6 +165,38 @@ def test_pilot_fixture_validates_not_publishable_with_exact_blockers() -> None:
     ]
 
 
+def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(tmp_path: Path) -> None:
+    # Given: two site-released synthetic result bundles, one with publishable identity and one empty.
+    populated = tmp_path / "populated.json"
+    empty = tmp_path / "empty.json"
+    populated.write_text(
+        json.dumps(_synthetic_result_bundle(identity=True), sort_keys=True),
+        encoding="utf-8",
+    )
+    empty.write_text(
+        json.dumps(_synthetic_result_bundle(identity=False), sort_keys=True),
+        encoding="utf-8",
+    )
+
+    # When: the authoritative validate-submission-bundle path validates both bundles.
+    populated_result = validate_submission_bundle(populated)
+    empty_result = validate_submission_bundle(empty)
+
+    # Then: the populated bundle clears the sampler/model/runtime blockers.
+    assert populated_result["publishable"] is True
+    assert populated_result["blocking_reasons"] == []
+    assert populated_result["missing_required_fields"] == []
+
+    # And: absent fields still produce the exact blocker codes.
+    assert empty_result["publishable"] is False
+    assert empty_result["blocking_reasons"] == [
+        "sampler.top_k_unpinned",
+        "sampler.seed_unpinned",
+        "model.identity_missing",
+        "runtime.identity_missing",
+    ]
+
+
 def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None:
     from localbench.cli import main
 
@@ -220,3 +254,61 @@ def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
     assert first["axes"]["coding"]["score"] == 0.8527
     assert first["scores"]["partial_composite"] == 0.7473
     assert canonical_json_bytes(first) == canonical_json_bytes(second)
+
+
+def _synthetic_result_bundle(*, identity: bool) -> dict[str, object]:
+    manifest = {
+        "suite": {
+            "suite_release_id": _SITE_RELEASE_ID,
+            "suite_manifest_sha256": _SITE_MANIFEST_SHA256,
+        },
+        "sampling": {},
+        "model": {},
+        "runtime": {},
+        "provenance": {},
+    }
+    if identity:
+        manifest["sampling"] = {
+            "temperature": 0,
+            "top_k": 1,
+            "top_p": 1,
+            "min_p": 0,
+            "seed": 123,
+            "determinism_policy": "top_k_1_seeded",
+        }
+        manifest["model"] = {
+            "family": "gemma",
+            "quant_label": "Q4_K_M",
+            "file_name": "model.gguf",
+            "file_size_bytes": 11,
+            "file_sha256": "a" * 64,
+            "format": "gguf",
+            "tokenizer_digest": "b" * 64,
+            "chat_template_digest": "c" * 64,
+        }
+        manifest["runtime"] = {
+            "name": "llama.cpp",
+            "version": "b1234",
+            "kv_cache_quant": "q8_0",
+            "ctx_len_configured": 8192,
+            "parallel_slots": 1,
+            "build_flags": "cuda",
+        }
+    return {
+        "schema_version": RESULT_BUNDLE_SCHEMA_VERSION,
+        "run_started_at": "2026-06-30T00:00:00Z",
+        "run_finished_at": "2026-06-30T00:00:01Z",
+        "producer": "localbench-cli",
+        "tier": "standard",
+        "serving_mode": "external_openai_compatible_endpoint",
+        "model": {},
+        "manifest": manifest,
+        "axis_status": {},
+        "headline_complete": False,
+        "scores": {},
+        "benches": {},
+        "conformance": {},
+        "items": [],
+        "totals": {},
+        "warnings": [],
+    }

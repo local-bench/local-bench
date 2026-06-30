@@ -84,6 +84,7 @@ export const RuntimeSchema = z.object({
   ctx_len_configured: z.number().nullable(),
   parallel_slots: z.number().nullable(),
 });
+const IndexRuntimeSchema = RuntimeSchema.partial();
 
 const SamplingBenchSchema = z
   .object({
@@ -136,6 +137,7 @@ export const IndexModelSchema = z.object({
   // GPU that produced the best run (lifted onto the board row from the run hardware). null for
   // catalog shells / API anchors. Only the compact name + VRAM are shown in the Hardware column.
   gpu: GpuSchema.nullable().optional(),
+  runtime: IndexRuntimeSchema.optional(),
   // V2 stub: who submitted the top run (community submissions). Absent in v1 (maintainer-only,
   // anonymous), so the User column renders a neutral placeholder.
   submitted_by: z.string().nullable().optional(),

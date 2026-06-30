@@ -216,7 +216,12 @@ def _parser() -> argparse.ArgumentParser:
         help="cap per-item max_tokens (min'd with the bench value); use for bounded local context windows",
     )
     run_parser.add_argument("--publishable", action="store_true", help="pin sampler settings for submission")
+    run_parser.add_argument("--sampler-temperature", type=float)
+    run_parser.add_argument("--sampler-top-k", type=int)
+    run_parser.add_argument("--sampler-top-p", type=float)
+    run_parser.add_argument("--sampler-min-p", type=float)
     run_parser.add_argument("--sampler-seed", type=int)
+    run_parser.add_argument("--determinism-policy")
     run_parser.add_argument("--model-file", type=Path)
     run_parser.add_argument("--model-family")
     run_parser.add_argument("--quant-label")
@@ -229,6 +234,8 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--ctx-len-configured", type=int)
     run_parser.add_argument("--parallel-slots", type=int)
     run_parser.add_argument("--build-flags")
+    run_parser.add_argument("--runtime-backend")
+    run_parser.add_argument("--cuda-version")
     run_parser.add_argument("--runner-build-id")
     fetch_parser = subparsers.add_parser(
         "fetch-suite",
@@ -453,7 +460,12 @@ def _run(args: argparse.Namespace) -> int:
                 max_tokens=args.max_tokens,
                 resume=args.resume,
                 publishable=args.publishable,
+                sampler_temperature=args.sampler_temperature,
+                sampler_top_k=args.sampler_top_k,
+                sampler_top_p=args.sampler_top_p,
+                sampler_min_p=args.sampler_min_p,
                 sampler_seed=args.sampler_seed,
+                determinism_policy=args.determinism_policy,
                 model_file=args.model_file,
                 model_family=args.model_family,
                 quant_label=args.quant_label,
@@ -466,6 +478,8 @@ def _run(args: argparse.Namespace) -> int:
                 ctx_len_configured=args.ctx_len_configured,
                 parallel_slots=args.parallel_slots,
                 build_flags=args.build_flags,
+                runtime_backend=args.runtime_backend,
+                cuda_version=args.cuda_version,
                 runner_build_id=args.runner_build_id,
             ),
         )
@@ -564,7 +578,12 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
     _append_optional(command, "--hf-model-id", args.hf_model_id)
     _append_optional(command, "--max-tokens", args.max_tokens)
     _append_optional(command, "--resume", args.resume)
+    _append_optional(command, "--sampler-temperature", args.sampler_temperature)
+    _append_optional(command, "--sampler-top-k", args.sampler_top_k)
+    _append_optional(command, "--sampler-top-p", args.sampler_top_p)
+    _append_optional(command, "--sampler-min-p", args.sampler_min_p)
     _append_optional(command, "--sampler-seed", args.sampler_seed)
+    _append_optional(command, "--determinism-policy", args.determinism_policy)
     _append_optional(command, "--model-file", args.model_file)
     _append_optional(command, "--model-family", args.model_family)
     _append_optional(command, "--quant-label", args.quant_label)
@@ -577,6 +596,8 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
     _append_optional(command, "--ctx-len-configured", args.ctx_len_configured)
     _append_optional(command, "--parallel-slots", args.parallel_slots)
     _append_optional(command, "--build-flags", args.build_flags)
+    _append_optional(command, "--runtime-backend", args.runtime_backend)
+    _append_optional(command, "--cuda-version", args.cuda_version)
     _append_optional(command, "--runner-build-id", args.runner_build_id)
     if args.accept_suite_terms:
         command.append("--accept-suite-terms")

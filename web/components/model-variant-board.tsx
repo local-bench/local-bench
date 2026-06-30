@@ -8,6 +8,7 @@ import { AXIS_CONFIG } from "@/lib/axis-config";
 import { axisLabel, formatCompactNumber, formatGb } from "@/lib/format";
 import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decision";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
+import { runtimeDisplay } from "@/lib/runtime-display";
 import type { ModelData } from "@/lib/data";
 
 type VariantRun = ModelData["runs"][number];
@@ -35,11 +36,12 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table data-testid="model-variant-table" className="min-w-[1260px] border-collapse text-sm">
+        <table data-testid="model-variant-table" className="min-w-[1360px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
             <tr>
               <th className="px-3 py-3 font-semibold">Rank</th>
               <th className="px-3 py-3 font-semibold">Variant</th>
+              <th className="px-3 py-3 font-semibold">Runtime</th>
               <th className="px-3 py-3 font-semibold">
                 <span className="flex flex-col gap-0.5 leading-tight">
                   <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
@@ -74,6 +76,9 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                         <Badge tone="better" title="Smallest variant that still holds the best variant's quality">sweet spot</Badge>
                       ) : null}
                     </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <RuntimeCell run={run} />
                   </td>
                   <td className="px-3 py-3">
                     {run.composite === null ? (
@@ -113,6 +118,9 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   </span>
                 </td>
                 <td className="px-3 py-3">
+                  <RuntimeCell run={run} />
+                </td>
+                <td className="px-3 py-3">
                   {run.composite === null ? (
                     <span className="font-mono text-xs text-bench-muted">not measured</span>
                   ) : (
@@ -148,6 +156,9 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 <tr key={`pending-${run.quant_label ?? index}`} className="border-t border-bench-line/75 align-middle text-bench-muted">
                   <td className="px-3 py-3 font-mono">—</td>
                   <td className="px-3 py-3 font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</td>
+                  <td className="px-3 py-3">
+                    <RuntimeCell run={run} />
+                  </td>
                   <td className="px-3 py-3">no run yet</td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
@@ -183,6 +194,21 @@ function Badge({ tone, title, children }: { readonly tone: "accent" | "better" |
   return (
     <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${cls}`} title={title}>
       {children}
+    </span>
+  );
+}
+
+function RuntimeCell({ run }: { readonly run: VariantRun }) {
+  const display = runtimeDisplay(run.runtime);
+  if (display === null) {
+    return <span className="font-mono text-xs text-bench-muted">—</span>;
+  }
+  return (
+    <span className="flex min-w-[96px] flex-col gap-0.5 leading-tight">
+      <span className="font-mono text-xs text-bench-text">{display.label}</span>
+      {display.version === null ? null : (
+        <span className="font-mono text-[10px] text-bench-muted">{display.version}</span>
+      )}
     </span>
   );
 }
