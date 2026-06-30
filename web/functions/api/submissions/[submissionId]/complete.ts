@@ -1,9 +1,9 @@
-import { handleCompleteSubmission, type ApiEnv } from "../../../_lib/api";
+import { handleFinalizeSubmission, type SubmissionApiEnv } from "../../../_lib/submission-api";
 
 export function onRequestPost(context: {
-  readonly env: ApiEnv;
+  readonly env: SubmissionApiEnv;
   readonly params: { readonly submissionId?: string };
   readonly request: Request;
 }): Promise<Response> {
-  return handleCompleteSubmission(context.request, context.env, context.params);
+  return handleFinalizeSubmission(context.request, context.env, context.params);
 }

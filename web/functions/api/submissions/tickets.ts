@@ -1,5 +1,5 @@
-import { handleCreateTicket, type ApiEnv } from "../../_lib/api";
+import { handleIssueSubmissionTicket, type SubmissionApiEnv } from "../../_lib/submission-api";
 
-export function onRequestPost(context: { readonly env: ApiEnv; readonly request: Request }): Promise<Response> {
-  return handleCreateTicket(context.request, context.env);
+export function onRequestPost(context: { readonly env: SubmissionApiEnv; readonly request: Request }): Promise<Response> {
+  return handleIssueSubmissionTicket(context.request, context.env);
 }

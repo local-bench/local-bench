@@ -5,7 +5,7 @@ create table if not exists submissions (
   origin text not null check (origin in ('project_anchor', 'community_submission')),
   submitter_id text,
   ticket_id text,
-  status text not null check (status in ('ticketed', 'uploaded', 'validating', 'accepted', 'rejected', 'published', 'superseded')),
+  status text not null check (status in ('ticketed', 'uploaded', 'pending_verification', 'validating', 'accepted', 'rejected', 'published', 'superseded')),
   status_reason text,
   bundle_schema_version text,
   raw_bundle_sha256 text not null,
