@@ -18,6 +18,11 @@ import {
   type RunDetail,
   type Score,
 } from "./schemas";
+import {
+  PartialCoverageDataSchema,
+  partialCoverageRows,
+  type BoardEntryRow,
+} from "./board-entry";
 import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 import type { OnrampCatalogModel } from "./onramp";
 
@@ -94,6 +99,20 @@ export async function getAgenticBySlug(): Promise<ReadonlyMap<string, AgenticMod
     throw error;
   }
   return new Map(Object.entries(data.models));
+}
+
+// Published partial-coverage submissions (unranked; measured a subset of headline axes). Reads a
+// separate file so the frozen index.json anchor board is never touched; absent file => empty board.
+export async function getPartialCoverageBoard(): Promise<readonly BoardEntryRow[]> {
+  try {
+    const data = await readJson(["partial-coverage.json"], PartialCoverageDataSchema);
+    return partialCoverageRows(data);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export async function getRunData(runId: string): Promise<RunDetailWithConfiguredAxes> {

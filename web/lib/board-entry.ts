@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type JsonValue =
   | string
   | number
@@ -173,4 +175,86 @@ function sumBenchErrors(benches: JsonRecord | undefined): number {
 
 function isJsonRecord(value: JsonValue): value is JsonRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// --- Validation for loading PUBLISHED partial-coverage projections from public/data ---
+// Partial-coverage rows are published submissions that measured only a subset of headline axes
+// (e.g. the 4-axis text+code profile, missing agentic). They are deliberately UNRANKED. The site
+// reads an accepted_result_projection_v1 per published submission and maps it through the same
+// acceptedProjectionToBoardEntry() used by the D1 index, so the board row matches the index row.
+
+const ProjectionAxisSchema = z.object({ n: z.number().optional() }).passthrough();
+const JsonObjectSchema = z.record(z.string(), z.unknown());
+
+export const AcceptedResultProjectionSchema = z.object({
+  artifact_hashes: z.object({
+    bundle_sha256: z.string(),
+    projection_sha256: z.string(),
+    public_artifact_manifest_sha256: z.string().nullable().optional(),
+  }),
+  axes: z.record(z.string(), ProjectionAxisSchema),
+  benches: JsonObjectSchema.optional(),
+  conformance: JsonObjectSchema,
+  coverage_profile_id: z.string(),
+  headline_complete: z.boolean(),
+  lane_id: z.string().nullable().optional(),
+  model: z.object({
+    display_name: z.string().nullable().optional(),
+    family: z.string().nullable().optional(),
+    file_sha256: z.string().nullable().optional(),
+    quant_label: z.string().nullable().optional(),
+  }),
+  n_errors: z.number().optional(),
+  origin: z.enum(["project_anchor", "community_submission"]),
+  runtime: z.object({
+    hardware_summary: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+    version: z.string().nullable().optional(),
+  }),
+  schema_version: z.string(),
+  scorecard_id: z.string(),
+  scores: z.object({
+    headline_score: z.number().nullable().optional(),
+    known_headline_contribution: z.number(),
+    measured_headline_weight: z.number(),
+    missing_headline_weight: z.number(),
+    partial_composite: z.number().nullable().optional(),
+    rank_scope: z.string(),
+  }),
+  suite_manifest_sha256: z.string(),
+  suite_release_id: z.string(),
+  tier: z.string().nullable().optional(),
+  trust_label: z.string(),
+  validator: JsonObjectSchema.optional(),
+  verification_level: z.string(),
+  warnings: z.array(z.string()).optional(),
+});
+
+export const BoardEntryIdentitySchema = z.object({
+  entryId: z.string(),
+  publishedAt: z.string().nullable(),
+  scopeRank: z.number().nullable().default(null),
+  submissionId: z.string(),
+  visibility: z.enum(["private", "preview", "public"]),
+});
+
+export const PartialCoverageDataSchema = z.object({
+  generated_note: z.string().optional(),
+  entries: z.array(
+    z.object({
+      identity: BoardEntryIdentitySchema,
+      projection: AcceptedResultProjectionSchema,
+    }),
+  ),
+});
+
+export type PartialCoverageData = z.infer<typeof PartialCoverageDataSchema>;
+
+// Map a validated partial-coverage file into board rows via the same projection->row mapper the
+// D1 index uses. Casts the Zod-parsed projection to the hand-written type (records widen to
+// unknown under Zod); the mapper only reads well-typed scalar fields + JSON.stringifies the records.
+export function partialCoverageRows(data: PartialCoverageData): readonly BoardEntryRow[] {
+  return data.entries.map((entry) =>
+    acceptedProjectionToBoardEntry(entry.projection as unknown as AcceptedResultProjectionV1, entry.identity),
+  );
 }

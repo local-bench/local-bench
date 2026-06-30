@@ -1,16 +1,21 @@
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
+import { PartialCoverageBoard } from "@/components/partial-coverage-board";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AXIS_CONFIG } from "@/lib/axis-config";
-import { getAgenticBySlug, getIndexData } from "@/lib/data";
+import { getAgenticBySlug, getIndexData, getPartialCoverageBoard } from "@/lib/data";
 import { splitLeaderboard } from "@/lib/leaderboard";
 
 export default async function LeaderboardPage() {
-  const [index, agenticBySlug] = await Promise.all([getIndexData(), getAgenticBySlug()]);
+  const [index, agenticBySlug, partialCoverage] = await Promise.all([
+    getIndexData(),
+    getAgenticBySlug(),
+    getPartialCoverageBoard(),
+  ]);
   const { ranked, catalog } = splitLeaderboard(index.models);
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
@@ -50,6 +55,7 @@ export default async function LeaderboardPage() {
           </div>
         </div>
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
+        <PartialCoverageBoard rows={partialCoverage} />
         <CatalogShells models={catalog} />
       </section>
     </main>
