@@ -17,6 +17,7 @@
     "registry_digest",
     "scorer_versions",
     "license_manifest_sha256",
+    "license_flags",
     "coverage_profile_id"
   ],
   "properties": {
@@ -33,6 +34,7 @@
     "registry_digest": {"type": "string"},
     "scorer_versions": {"type": "object"},
     "license_manifest_sha256": {"type": "string"},
+    "license_flags": {"type": "array"},
     "coverage_profile_id": {"type": "string"}
   }
 }

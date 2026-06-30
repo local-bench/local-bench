@@ -81,6 +81,7 @@ from localbench.submissions.foundation import (
     rescore_bundle as rescore_result_bundle,
     validate_submission_bundle as validate_result_bundle_file,
 )
+from localbench.submissions.status_update import verify_submission
 from localbench.submissions.validate import SubmissionValidationError
 from localbench.submissions.verify import verify_bundle_offline
 from localbench.tc_json_v1_runner import run_tc_json_v1
@@ -136,6 +137,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _validate_result_bundle_command(args)
     if args.command == "rescore-bundle":
         return _rescore_result_bundle_command(args)
+    if args.command == "verify-submission":
+        return _verify_submission_command(args)
     if args.command == "doctor":
         return _doctor(args)
     if args.command == "status":
@@ -304,6 +307,16 @@ def _parser() -> argparse.ArgumentParser:
     rescore_bundle_parser.add_argument("--suite-dir", required=True, type=Path)
     rescore_bundle_parser.add_argument("--out", required=True, type=Path)
     rescore_bundle_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
+    verify_submission_parser = subparsers.add_parser(
+        "verify-submission",
+        help="validate and re-score a local result bundle for submission status update",
+    )
+    verify_submission_parser.add_argument("bundle", type=Path)
+    verify_submission_parser.add_argument("--suite-dir", required=True, type=Path)
+    verify_submission_parser.add_argument("--projection-out", required=True, type=Path)
+    verify_submission_parser.add_argument("--out", type=Path)
+    verify_submission_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
+    verify_submission_parser.add_argument("--validator-commit")
     doctor_parser = subparsers.add_parser("doctor", help="check localbench local-run readiness")
     doctor_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     doctor_parser.add_argument("--cache-dir", type=Path)
@@ -598,6 +611,22 @@ def _rescore_result_bundle_command(args: argparse.Namespace) -> int:
         print(f"error      {error}", file=sys.stderr)
         return 2
     write_json_file(args.out, projection)
+    return EXIT_COMPLETE
+
+
+def _verify_submission_command(args: argparse.Namespace) -> int:
+    try:
+        status_update = verify_submission(
+            args.bundle,
+            suite_dir=args.suite_dir,
+            projection_out=args.projection_out,
+            validated_at=args.validated_at,
+            validator_commit=args.validator_commit,
+        )
+    except (SubmissionValidationError, OSError, json.JSONDecodeError) as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    _write_or_print_result(status_update, args.out)
     return EXIT_COMPLETE
 
 

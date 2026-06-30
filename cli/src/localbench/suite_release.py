@@ -12,6 +12,8 @@ from localbench.submissions.contracts import SUITE_RELEASE_MANIFEST_SCHEMA_VERSI
 from localbench.suite_errors import SuiteResolutionError
 from localbench.suite_verify import license_manifest, read_json_object, verify_suite_dir
 
+SUITE_RELEASE_MANIFEST_FILE: Final = "suite_release_manifest.json"
+
 
 @dataclass(frozen=True, slots=True)
 class CoverageProfile:
@@ -61,6 +63,7 @@ def build_suite_release_manifest(
         "registry_digest": str(scorecard["registry_digest"]),
         "scorer_versions": dict(scorecard["scorer_versions"]),
         "license_manifest_sha256": canonical_json_hash(license_manifest(suite, suite_dir)),
+        "license_flags": _license_flags(suite_dir),
         "coverage_profile_id": profile.profile_id,
         "coverage_profile": {
             "benches": list(profile.benches),
@@ -116,6 +119,8 @@ def _file_manifest(suite_dir: Path) -> list[JsonObject]:
         key=lambda item: item.relative_to(suite_dir).as_posix(),
     ):
         relative = path.relative_to(suite_dir).as_posix()
+        if relative == SUITE_RELEASE_MANIFEST_FILE:
+            continue
         files.append({"path": relative, "sha256": sha256_file(path), "size": path.stat().st_size})
     return files
 
@@ -140,6 +145,23 @@ def _bench_membership() -> JsonObject:
     }
 
 
+def _license_flags(suite_dir: Path) -> list[JsonObject]:
+    lock = read_json_object(suite_dir / "itemsets.lock.json")
+    files = lock.get("files")
+    if not isinstance(files, dict) or "lcb.jsonl" not in files:
+        return []
+    return [
+        {
+            "path": "lcb.jsonl",
+            "status": "source_tos_notice",
+            "note": (
+                "LiveCodeBench test-generation items are CC-BY-4.0, but source problem "
+                "statements originate from LeetCode; public serving carries this NOTICE "
+                "instead of treating redistribution terms as fully settled."
+            ),
+        },
+    ]
+
+
 def _headline_weight(benches: set[str]) -> float:
     return sum(axis.weight for axis in AXES if benches.intersection(axis.benches))
-

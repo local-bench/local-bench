@@ -55,7 +55,17 @@ _RUNTIME_REQUIRED: Final = (
     "runtime.ctx_len_configured",
     "runtime.parallel_slots",
 )
-_SITE_RELEASED_SUITE_RELEASE_IDS: Final = frozenset({"core-text-v1-core-text-3axis-v1"})
+_SITE_RELEASED_SUITES: Final[dict[str, str]] = {
+    # suite_release_id -> canonical suite_manifest_sha256 the SITE actually serves
+    # (web/public/suites/<id>/suite_release_manifest.json). A bundle counts as
+    # "site-released" ONLY if it DECLARES one of these exact pairs, i.e. it was produced by
+    # a runner that pulled the site release. Validation must NOT infer this from a local
+    # --suite-dir. core-text-v1 is intentionally absent: it has no published release
+    # manifest yet and is not a publishable (headline-bearing) profile.
+    "suite-v1-partial-text-code-4axis-v1": (
+        "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,11 +196,15 @@ def _normalize_manifest(
     suite_dir: Path | None,
 ) -> JsonObject:
     normalized = _copy_object(manifest)
+    # Capture the suite identity the bundle ACTUALLY DECLARES, before _normalize_suite may
+    # enrich/inject release fields from a local --suite-dir. The publishable gate's
+    # site-released check must read this declared identity, never the locally-derived one.
+    declared_suite = _copy_object(_object(normalized.get("suite")))
     suite = _normalize_suite(_object(normalized.get("suite")), record, suite_dir)
     normalized["suite"] = suite
     normalized["provenance"] = _provenance(_object(normalized.get("provenance")))
     missing = _missing_required_fields(normalized)
-    blocking = _blocking_reasons(normalized, missing)
+    blocking = _blocking_reasons(normalized, missing, declared_suite)
     normalized["integrity"] = {
         "publishable": blocking == [],
         "validation_profile": "publishable-result-bundle-v1",
@@ -235,7 +249,11 @@ def _missing_required_fields(manifest: JsonObject) -> list[str]:
     return _dedupe([*existing, *missing])
 
 
-def _blocking_reasons(manifest: JsonObject, missing: list[str]) -> list[str]:
+def _blocking_reasons(
+    manifest: JsonObject,
+    missing: list[str],
+    declared_suite: JsonObject,
+) -> list[str]:
     sampling = _object(manifest.get("sampling"))
     reasons: list[str] = []
     if sampling.get("top_k") != 1:
@@ -247,7 +265,7 @@ def _blocking_reasons(manifest: JsonObject, missing: list[str]) -> list[str]:
         reasons.append("model.identity_missing")
     if any(field in missing for field in _RUNTIME_REQUIRED):
         reasons.append("runtime.identity_missing")
-    if not _site_released(_object(manifest.get("suite"))):
+    if not _site_released(declared_suite):
         reasons.append("suite.not_site_released")
     if reasons == [] and sampling.get("determinism_policy") in {None, ""}:
         reasons.append("sampler.determinism_policy_missing")
@@ -255,7 +273,14 @@ def _blocking_reasons(manifest: JsonObject, missing: list[str]) -> list[str]:
 
 
 def _site_released(suite: JsonObject) -> bool:
-    return suite.get("suite_release_id") in _SITE_RELEASED_SUITE_RELEASE_IDS
+    # Honest gate: the BUNDLE must DECLARE a site-released suite_release_id AND the matching
+    # canonical suite_manifest_sha256 the site serves. A release-id string alone is not enough,
+    # and identity inferred from a local --suite-dir does not count.
+    release_id = suite.get("suite_release_id")
+    if not isinstance(release_id, str):
+        return False
+    expected = _SITE_RELEASED_SUITES.get(release_id)
+    return expected is not None and suite.get("suite_manifest_sha256") == expected
 
 
 def _determinism_policy(sampling: JsonObject) -> str | None:

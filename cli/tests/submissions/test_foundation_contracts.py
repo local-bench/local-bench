@@ -125,7 +125,7 @@ def test_envelope_and_projection_contracts_validate_board_safe_payloads() -> Non
         },
         "origin": "project_anchor",
         "trust_label": "community_re_scored",
-        "verification_level": "offline_rescore",
+        "verification_level": "bundle_rescored",
         "validator": {
             "validator_version": "localbench.submission-validator.v1",
             "commit": None,

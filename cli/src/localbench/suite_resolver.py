@@ -6,14 +6,17 @@ import os
 import shutil
 import tempfile
 import hashlib
+import json
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final, Literal
+from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
 
 from localbench._types import JsonObject, JsonValue
 from localbench.suite_errors import SuiteResolutionError
+from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
 from localbench.suite_verify import license_manifest, read_json_object, suite_hash, verify_suite_dir
 
 DEFAULT_SUITE_ID: Final = "core-text-v1"
@@ -48,14 +51,15 @@ class RemoteSuiteFile:
     path: str
     sha256: str
     size: int
-    url: str
+    url: str | None
 
 
 @dataclass(frozen=True, slots=True)
 class RemoteSuiteManifest:
     files: tuple[RemoteSuiteFile, ...]
-    suite_hash: str
+    suite_hash: str | None
     suite_id: str
+    suite_manifest_sha256: str | None
     version: str
 
 
@@ -134,17 +138,22 @@ def fetch_suite_from_manifest_url(config: RemoteSuiteFetch) -> SuiteRef:
             "fetch-suite requires --accept-suite-terms before redistributing "
             "public suite items into the local cache",
         )
+    local_manifest = _local_manifest_path(config.manifest_url)
+    if local_manifest is not None:
+        return _fetch_suite_from_local_manifest(config, local_manifest)
     with _http_client(config.transport) as client:
         manifest_response = client.get(config.manifest_url)
         manifest_response.raise_for_status()
-        manifest = _remote_manifest(manifest_response.json())
+        manifest = _remote_manifest(manifest_response.json(), base_url=config.manifest_url)
         with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
             temp_dir = Path(temp_name) / manifest.suite_id
             temp_dir.mkdir()
             for suite_file in manifest.files:
                 _download_suite_file(client, temp_dir, suite_file)
+            if manifest.suite_manifest_sha256 is not None:
+                _write_release_manifest_copy(temp_dir, manifest_response.json())
             ref = _verified_ref(manifest.suite_id, temp_dir, "remote-manifest")
-            if ref.suite_hash != manifest.suite_hash:
+            if manifest.suite_hash is not None and ref.suite_hash != manifest.suite_hash:
                 raise SuiteResolutionError(
                     f"suite hash mismatch: {ref.suite_hash} != {manifest.suite_hash}",
                 )
@@ -243,12 +252,42 @@ def _http_client(transport: httpx.BaseTransport | None) -> httpx.Client:
     )
 
 
-def _remote_manifest(value: JsonValue) -> RemoteSuiteManifest:
+def _fetch_suite_from_local_manifest(config: RemoteSuiteFetch, manifest_path: Path) -> SuiteRef:
+    manifest_value = read_json_object(manifest_path)
+    manifest = _remote_manifest(manifest_value, base_url=None)
+    with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
+        temp_dir = Path(temp_name) / manifest.suite_id
+        temp_dir.mkdir()
+        for suite_file in manifest.files:
+            _copy_suite_file(manifest_path.parent, temp_dir, suite_file)
+        _write_release_manifest_copy(temp_dir, manifest_value)
+        ref = _verified_ref(manifest.suite_id, temp_dir, "remote-manifest")
+        if manifest.suite_hash is not None and ref.suite_hash != manifest.suite_hash:
+            raise SuiteResolutionError(
+                f"suite hash mismatch: {ref.suite_hash} != {manifest.suite_hash}",
+            )
+        target = suite_cache_root(config.cache_root) / manifest.suite_id / ref.suite_hash
+        if target.exists():
+            return _verified_ref(manifest.suite_id, target, "remote-manifest")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(temp_dir, target)
+        return _verified_ref(manifest.suite_id, target, "remote-manifest")
+
+
+def _remote_manifest(value: JsonValue, *, base_url: str | None) -> RemoteSuiteManifest:
     if not isinstance(value, dict):
         raise SuiteResolutionError("suite manifest must be a JSON object")
     schema_version = value.get("schema_version")
-    if schema_version != "localbench.suite-manifest.v1":
-        raise SuiteResolutionError("suite manifest schema_version is not supported")
+    match schema_version:
+        case "localbench.suite-manifest.v1":
+            return _legacy_remote_manifest(value)
+        case "localbench.suite_release_manifest.v1":
+            return _suite_release_manifest(value, base_url=base_url)
+        case _:
+            raise SuiteResolutionError("suite manifest schema_version is not supported")
+
+
+def _legacy_remote_manifest(value: JsonObject) -> RemoteSuiteManifest:
     suite_id = _required_text(value, "suite_id")
     files_value = value.get("files")
     if not isinstance(files_value, list):
@@ -257,7 +296,28 @@ def _remote_manifest(value: JsonValue) -> RemoteSuiteManifest:
         files=tuple(_remote_file(file_value) for file_value in files_value),
         suite_hash=_required_hash(value, "suite_hash"),
         suite_id=normalize_suite_id(suite_id),
+        suite_manifest_sha256=None,
         version=_required_text(value, "version"),
+    )
+
+
+def _suite_release_manifest(value: JsonObject, *, base_url: str | None) -> RemoteSuiteManifest:
+    expected = _required_hash(value, "suite_manifest_sha256")
+    actual = suite_manifest_sha256(value)
+    if actual != expected:
+        raise SuiteResolutionError(
+            f"suite release manifest hash mismatch: {actual} != {expected}",
+        )
+    files_value = value.get("files")
+    if not isinstance(files_value, list):
+        raise SuiteResolutionError("suite release manifest files must be a list")
+    suite_id = _required_text(value, "suite_release_id")
+    return RemoteSuiteManifest(
+        files=tuple(_suite_release_file(file_value, base_url=base_url) for file_value in files_value),
+        suite_hash=None,
+        suite_id=normalize_suite_id(suite_id),
+        suite_manifest_sha256=expected,
+        version=_required_text(value, "suite_semver"),
     )
 
 
@@ -275,10 +335,40 @@ def _remote_file(value: JsonValue) -> RemoteSuiteFile:
     )
 
 
+def _suite_release_file(value: JsonValue, *, base_url: str | None) -> RemoteSuiteFile:
+    if not isinstance(value, dict):
+        raise SuiteResolutionError("suite release manifest file entries must be objects")
+    size_value = value.get("size")
+    if not isinstance(size_value, int) or size_value < 0:
+        raise SuiteResolutionError("suite release manifest file size must be a non-negative integer")
+    path = _safe_relative_path(_required_text(value, "path"))
+    return RemoteSuiteFile(
+        path=path,
+        sha256=_required_hash(value, "sha256"),
+        size=size_value,
+        url=urljoin(base_url, path) if base_url is not None else None,
+    )
+
+
 def _download_suite_file(client: httpx.Client, suite_dir: Path, suite_file: RemoteSuiteFile) -> None:
+    if suite_file.url is None:
+        raise SuiteResolutionError(f"suite file {suite_file.path} is missing a download URL")
     response = client.get(suite_file.url)
     response.raise_for_status()
     data = response.content
+    _write_verified_suite_file(suite_dir, suite_file, data)
+
+
+def _copy_suite_file(source_dir: Path, suite_dir: Path, suite_file: RemoteSuiteFile) -> None:
+    source = source_dir / Path(*PurePosixPath(suite_file.path).parts)
+    try:
+        data = source.read_bytes()
+    except FileNotFoundError as error:
+        raise SuiteResolutionError(f"missing suite file: {suite_file.path}") from error
+    _write_verified_suite_file(suite_dir, suite_file, data)
+
+
+def _write_verified_suite_file(suite_dir: Path, suite_file: RemoteSuiteFile, data: bytes) -> None:
     if len(data) != suite_file.size:
         raise SuiteResolutionError(
             f"suite file size mismatch for {suite_file.path}: {len(data)} != {suite_file.size}",
@@ -291,6 +381,25 @@ def _download_suite_file(client: httpx.Client, suite_dir: Path, suite_file: Remo
     target = suite_dir / suite_file.path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
+
+
+def _write_release_manifest_copy(suite_dir: Path, manifest: JsonValue) -> None:
+    if not isinstance(manifest, dict):
+        return
+    target = suite_dir / SUITE_RELEASE_MANIFEST_FILE
+    target.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _local_manifest_path(value: str) -> Path | None:
+    parsed = urlparse(value)
+    if parsed.scheme == "file":
+        return Path(unquote(parsed.path)).expanduser().resolve()
+    if parsed.scheme in {"http", "https"}:
+        return None
+    return Path(value).expanduser().resolve()
 
 
 def _safe_relative_path(value: str) -> str:

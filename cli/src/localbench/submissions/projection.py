@@ -75,7 +75,7 @@ def _projection(
         },
         "origin": "project_anchor",
         "trust_label": "community_re_scored",
-        "verification_level": "offline_rescore",
+        "verification_level": "bundle_rescored",
         "validator": {
             "validator_version": VALIDATOR_VERSION,
             "commit": _object(manifest.get("provenance")).get("localbench_repo_commit"),

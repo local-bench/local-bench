@@ -11,12 +11,17 @@ import pytest
 from localbench.suite_resolver import (
     DEFAULT_SUITE_ID,
     LOCALBENCH_SUITE_DIR_ENV,
+    RemoteSuiteFetch,
     SuiteResolutionError,
     fetch_suite,
+    fetch_suite_from_manifest_url,
     resolve_suite_dir,
     suite_cache_root,
     suite_hash,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SITE_4AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-partial-text-code-4axis-v1"
 
 
 def test_resolve_suite_dir_when_explicit_path_is_given_wins_over_env_and_cache(
@@ -139,6 +144,47 @@ def test_fetch_suite_when_terms_accepted_copies_verified_local_source(tmp_path: 
     assert resolved.path == cache_root / "suites" / DEFAULT_SUITE_ID / suite_hash(source)
     assert (resolved.path / "suite.json").exists()
     assert suite_cache_root(cache_root) == cache_root / "suites"
+
+
+def test_fetch_suite_from_local_suite_release_manifest_verifies_manifest_hash(tmp_path: Path) -> None:
+    # Given: the site-served 4-axis suite release manifest is addressed as a local fixture path.
+    manifest_path = _SITE_4AXIS / "suite_release_manifest.json"
+
+    # When: the remote-manifest resolver pulls it into a temp cache.
+    resolved = fetch_suite_from_manifest_url(
+        RemoteSuiteFetch(
+            accept_suite_terms=True,
+            manifest_url=str(manifest_path),
+            cache_root=tmp_path / "cache",
+        ),
+    )
+
+    # Then: the resolved runner suite is hash-verified and contains the coding axis item set.
+    assert resolved.suite_id == "suite-v1-partial-text-code-4axis-v1"
+    assert resolved.source == "remote-manifest"
+    assert (resolved.path / "lcb.jsonl").exists()
+    assert (resolved.path / "suite_release_manifest.json").exists()
+    assert resolved.suite_hash == suite_hash(resolved.path)
+
+
+def test_fetch_suite_from_local_suite_release_manifest_rejects_manifest_hash_mismatch(
+    tmp_path: Path,
+) -> None:
+    # Given: a local suite release manifest whose embedded canonical hash was tampered.
+    manifest = json.loads((_SITE_4AXIS / "suite_release_manifest.json").read_text(encoding="utf-8"))
+    manifest["suite_manifest_sha256"] = "0" * 64
+    bad_manifest = tmp_path / "suite_release_manifest.json"
+    bad_manifest.write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
+
+    # When / Then: the resolver fails before copying runnable files.
+    with pytest.raises(SuiteResolutionError, match="suite release manifest hash mismatch"):
+        fetch_suite_from_manifest_url(
+            RemoteSuiteFetch(
+                accept_suite_terms=True,
+                manifest_url=str(bad_manifest),
+                cache_root=tmp_path / "cache",
+            ),
+        )
 
 
 def _write_suite(path: Path, *, version: str) -> Path:
