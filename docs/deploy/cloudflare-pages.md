@@ -113,6 +113,8 @@ This section is future-use while `ADMIN_API_SECRET`, `R2_ACCESS_KEY_ID`, and `R2
 
 Prototype private mode may block public smoke checks. If `LOCALBENCH_SITE_PRIVATE=1`, pass the owner bypass token from `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt` with `x-localbench-bypass`, or open `/?lb_bypass=<token>` once in a browser to set the private cookie.
 
+Prototype private mode may block public smoke checks. If `LOCALBENCH_SITE_PRIVATE=1`, pass the owner bypass token from `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt` with `x-localbench-bypass`, or open `/?lb_bypass=<token>` once in a browser to set the private cookie.
+
 After the Pages deployment is live:
 
 ```powershell
