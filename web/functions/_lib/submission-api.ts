@@ -188,10 +188,15 @@ async function routeRow(env: SubmissionApiEnv, params: RouteParams): Promise<Rou
 }
 
 function adminBlocked(request: Request, env: SubmissionApiEnv): Response | null {
-  if (env.ADMIN_API_SECRET === undefined || env.ADMIN_API_SECRET.length === 0) {
+  // Trim both sides: the admin secret is opaque with no meaningful surrounding whitespace, and
+  // secret-provisioning tools (e.g. piping to `wrangler pages secret put`) can append a trailing
+  // newline. HTTP header values cannot carry a newline anyway, so tolerate it rather than 401.
+  const expected = (env.ADMIN_API_SECRET ?? "").trim();
+  if (expected.length === 0) {
     return jsonResponse(503, { code: "admin_api_disabled", error: "submission ticket issuance is disabled" });
   }
-  if (request.headers.get("x-localbench-admin-secret") !== env.ADMIN_API_SECRET) {
+  const provided = (request.headers.get("x-localbench-admin-secret") ?? "").trim();
+  if (provided.length === 0 || provided !== expected) {
     return jsonResponse(401, { code: "unauthorized", error: "unauthorized" });
   }
   return null;
