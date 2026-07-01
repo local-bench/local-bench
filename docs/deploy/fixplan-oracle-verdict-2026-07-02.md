@@ -1,5 +1,15 @@
 # Fix-plan oracle red-team + Claude code-verification — 2026-07-02
 
+> **⚠️ CORRECTION + SUPERSESSION (2026-07-02, later the same day):** Verdict #5 and priority #3
+> below misidentify the released suite. The site-released, publishable suite is
+> **`suite-v1-partial-text-code-4axis-v1`** (manifest `b3fc4019…`, includes lcb) — the ONLY entry
+> in `foundation.py:_SITE_RELEASED_SUITES` and the only `web/public/suites/` dir with a
+> `suite_release_manifest.json`. `core-text-v1` has **no published release manifest** and is
+> explicitly non-publishable (`foundation.py:58-68`); fetching it would still trip
+> `suite.not_site_released`. Row 1 targets the 4-axis release (0.50 weight, incl. coding).
+> The live plan is now **`plan-ranked-row-2026-07-02.md`** (owner-decided: ranked-row-first,
+> unpublished capped-thinking canary, WSL2 lane).
+
 Red-team of the 5-problem fix plan surfaced by the first orchestrated Gemma-12B run
 (`runs/bench/gemma-12b-qat-q4xl-standard-2026-07-01/`). Oracle = GPT-5.5 Pro Extended,
 browser/OAuth engine, 3 files attached (briefing + canary findings + `serving/bench.py`),
