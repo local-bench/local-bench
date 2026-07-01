@@ -202,6 +202,8 @@ class OrchestrateConfig:
     runtime_backend: str | None = None
     cuda_version: str | None = None
     runner_build_id: str | None = None
+    server_fingerprint: str | None = None
+    serve_fingerprint: JsonObject | None = None
 
 
 async def run_localbench(
@@ -297,6 +299,8 @@ async def run_localbench(
         reasoning_activation=config.reasoning_activation,
         hf_model_id=config.hf_model_id,
         output_path=output_path,
+        server_fingerprint=config.server_fingerprint,
+        serve_fingerprint=config.serve_fingerprint,
     )
     if config.resume is None:
         initialize_campaign(
@@ -604,7 +608,7 @@ async def run_localbench(
                 "segment_id": "segment-1",
                 "started_at": started_at,
                 "finished_at": finished_at,
-                "server_fingerprint": None,
+                "server_fingerprint": config.server_fingerprint,
                 "completed_items": completed_items,
             },
         ]
@@ -827,6 +831,17 @@ def _validate_resume_campaign(path: Path, config: CampaignConfig) -> None:
     _append_mismatch(mismatches, "tier", campaign.get("tier"), config.tier)
     _append_mismatch(mismatches, "lane", campaign.get("lane"), config.lane)
     _append_mismatch(mismatches, "provider", provider.get("name"), config.provider)
+    serve_fingerprint = campaign.get("serve_fingerprint")
+    if isinstance(serve_fingerprint, dict):
+        actual_server_fingerprint = serve_fingerprint.get("server_fingerprint")
+    else:
+        actual_server_fingerprint = None
+    _append_optional_mismatch(
+        mismatches,
+        "server_fingerprint",
+        actual_server_fingerprint,
+        config.server_fingerprint,
+    )
     if mismatches:
         raise UnsafeResumeError("unsafe resume refused: " + ", ".join(mismatches))
 
@@ -836,6 +851,16 @@ def _append_mismatch(
     field: str,
     actual: JsonValue | None,
     expected: str,
+) -> None:
+    if actual != expected:
+        mismatches.append(f"{field} changed")
+
+
+def _append_optional_mismatch(
+    mismatches: list[str],
+    field: str,
+    actual: JsonValue | None,
+    expected: str | None,
 ) -> None:
     if actual != expected:
         mismatches.append(f"{field} changed")

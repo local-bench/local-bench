@@ -38,6 +38,8 @@ class CampaignConfig:
     reasoning_activation: str
     hf_model_id: str | None
     output_path: Path
+    server_fingerprint: str | None = None
+    serve_fingerprint: JsonObject | None = None
 
 
 def campaign_record(
@@ -103,17 +105,7 @@ def campaign_record(
             "timeout_seconds": 300.0,
             "retry_policy": {"kind": "exponential-jitter", "base_seconds": 0.5},
         },
-        "serve_fingerprint": {
-            "serve_mode": None,
-            "server_binary_hash": None,
-            "server_build": None,
-            "server_command_redacted": None,
-            "model_artifact_hash": None,
-            "sampler_flags": None,
-            "context_length": None,
-            "gpu_layers": None,
-            "seed_policy": None,
-        },
+        "serve_fingerprint": _serve_fingerprint(config),
         "git": {"commit": _git_commit()},
         "env_summary": {
             "python": platform.python_version(),
@@ -206,6 +198,23 @@ def _sampling_by_bench(
             "capped_thinking": config.lane == "capped-thinking",
         }
     return sampling
+
+
+def _serve_fingerprint(config: CampaignConfig) -> JsonObject:
+    if config.serve_fingerprint is not None:
+        return dict(config.serve_fingerprint)
+    return {
+        "serve_mode": None,
+        "server_fingerprint": config.server_fingerprint,
+        "server_binary_hash": None,
+        "server_build": None,
+        "server_command_redacted": None,
+        "model_artifact_hash": None,
+        "sampler_flags": None,
+        "context_length": None,
+        "gpu_layers": None,
+        "seed_policy": None,
+    }
 
 
 def _git_commit() -> str | None:

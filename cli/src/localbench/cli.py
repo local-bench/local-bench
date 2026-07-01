@@ -96,6 +96,8 @@ from localbench.suite_resolver import (
     suite_cache_root,
 )
 from localbench.supervisor import SupervisorConfig, run_supervised
+from localbench.serving.options import ServeBenchOptions
+from localbench.serving.runner import run_orchestrated_bench
 
 _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
     "none",
@@ -127,6 +129,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "run":
         return _run(args)
+    if args.command == "bench":
+        return _bench(args)
     if args.command == "fetch-suite":
         return _fetch_suite(args)
     if args.command == "suite":
@@ -237,6 +241,35 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--runtime-backend")
     run_parser.add_argument("--cuda-version")
     run_parser.add_argument("--runner-build-id")
+    bench_parser = subparsers.add_parser("bench", help="launch a pinned local server and run a suite")
+    bench_parser.add_argument("--runtime", choices=("llama.cpp", "vllm"), required=True)
+    model_input = bench_parser.add_mutually_exclusive_group(required=True)
+    model_input.add_argument("--model-file", type=Path)
+    model_input.add_argument("--model-ref")
+    bench_parser.add_argument("--model-id", required=True)
+    bench_parser.add_argument("--server-bin", type=Path)
+    bench_parser.add_argument("--ctx", type=int, required=True)
+    bench_parser.add_argument("--determinism", choices=("strict", "throughput"), default="strict")
+    bench_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
+    bench_parser.add_argument(
+        "--bench",
+        default="all",
+        help="'all', a single bench name, or a comma-separated list of bench names",
+    )
+    bench_parser.add_argument(
+        "--lane",
+        choices=("answer-only", "capped-thinking", "api-uncapped"),
+        default="answer-only",
+    )
+    bench_parser.add_argument("--seed", type=int, required=True)
+    bench_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
+    bench_parser.add_argument("--suite-source", type=Path)
+    bench_parser.add_argument("--suite-dir", type=Path)
+    bench_parser.add_argument("--out", type=Path)
+    bench_parser.add_argument("--resume", type=Path)
+    bench_parser.add_argument("--cache-dir", type=Path)
+    bench_parser.add_argument("--threads", type=int, default=8)
+    bench_parser.add_argument("--threads-batch", type=int, default=8)
     fetch_parser = subparsers.add_parser(
         "fetch-suite",
         help="cache a verified public suite bundle from a local source or manifest URL",
@@ -645,6 +678,42 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
 def _append_optional(command: list[str], flag: str, value: object | None) -> None:
     if value is not None:
         command.extend([flag, str(value)])
+
+
+def _bench(args: argparse.Namespace) -> int:
+    try:
+        record = anyio.run(
+            run_orchestrated_bench,
+            ServeBenchOptions(
+                runtime=args.runtime,
+                model_file=args.model_file,
+                model_ref=args.model_ref,
+                model_id=args.model_id,
+                server_bin=args.server_bin,
+                ctx=args.ctx,
+                determinism=args.determinism,
+                tier=args.tier,
+                bench=args.bench,
+                lane=_lane(args.lane),
+                seed=args.seed,
+                suite=args.suite,
+                suite_source=args.suite_source,
+                suite_dir=args.suite_dir,
+                out=args.out,
+                resume=args.resume,
+                cache_dir=args.cache_dir,
+                threads=args.threads,
+                threads_batch=args.threads_batch,
+            ),
+        )
+    except NotImplementedError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    except (RuntimeError, OSError) as error:
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_INTERNAL_RUNNER_BUG
+    _print_summary(record)
+    return EXIT_COMPLETE
 
 
 def _validate_result_bundle_command(args: argparse.Namespace) -> int:
