@@ -73,7 +73,16 @@ export async function handleFinalizeSubmission(
   env: SubmissionApiEnv,
   params: RouteParams,
 ): Promise<Response> {
-  const parsed = CompleteRequestSchema.safeParse(await request.json());
+  let requestBody: unknown;
+  try {
+    requestBody = await request.json();
+  } catch (error) {
+    if (isSyntaxError(error)) {
+      return jsonResponse(400, { code: "invalid_complete_request", error: "invalid upload completion request" });
+    }
+    throw error;
+  }
+  const parsed = CompleteRequestSchema.safeParse(requestBody);
   if (!parsed.success) {
     return jsonResponse(400, { code: "invalid_complete_request", error: "invalid upload completion request" });
   }
@@ -88,18 +97,25 @@ export async function handleFinalizeSubmission(
   if (row.value.raw_bundle_sha256 !== parsed.data.raw_bundle_sha256) {
     return jsonResponse(409, { code: "bundle_sha_mismatch", error: "raw_bundle_sha256 does not match ticket" });
   }
-  const bundleRead = await readRawBundle(env, parsed.data.raw_bundle_sha256);
-  if (bundleRead.kind !== "ok") {
-    return jsonResponse(bundleRead.status, { code: bundleRead.code, error: bundleRead.error });
+  try {
+    const bundleRead = await readRawBundle(env, parsed.data.raw_bundle_sha256);
+    if (bundleRead.kind !== "ok") {
+      return jsonResponse(bundleRead.status, { code: bundleRead.code, error: bundleRead.error });
+    }
+    const rawBundle = parseJson(bundleRead.text);
+    const bundle = rawBundle === null ? null : ResultBundleSchema.safeParse(rawBundle);
+    if (bundle === null || !bundle.success) {
+      return jsonResponse(400, { code: "invalid_result_bundle", error: "uploaded bundle does not match result_bundle_v1" });
+    }
+    await markPendingVerification(env, row.value.submission_id, bundle.data, parsed.data.size_bytes ?? bundleRead.text.length);
+    const updated = await rowBySubmissionId(env, row.value.submission_id);
+    return jsonResponse(200, publicSubmission(updated ?? row.value));
+  } catch (error) {
+    if (isSyntaxError(error)) {
+      return jsonResponse(500, { code: "submission_finalize_failed", error: "submission finalization failed" });
+    }
+    throw error;
   }
-  const rawBundle = parseJson(bundleRead.text);
-  const bundle = rawBundle === null ? null : ResultBundleSchema.safeParse(rawBundle);
-  if (bundle === null || !bundle.success) {
-    return jsonResponse(400, { code: "invalid_result_bundle", error: "uploaded bundle does not match result_bundle_v1" });
-  }
-  await markPendingVerification(env, row.value.submission_id, bundle.data, parsed.data.size_bytes ?? bundleRead.text.length);
-  const updated = await rowBySubmissionId(env, row.value.submission_id);
-  return jsonResponse(200, publicSubmission(updated ?? row.value));
 }
 
 export async function handleApplyVerificationUpdate(
@@ -207,11 +223,18 @@ function parseJson(text: string): unknown | null {
     const value: unknown = JSON.parse(text);
     return value;
   } catch (error) {
-    if (error instanceof SyntaxError) {
+    if (isSyntaxError(error)) {
       return null;
     }
     throw error;
   }
+}
+
+function isSyntaxError(error: unknown): boolean {
+  if (error instanceof SyntaxError) {
+    return true;
+  }
+  return typeof error === "object" && error !== null && "name" in error && error.name === "SyntaxError";
 }
 
 function jsonResponse(status: number, body: unknown): Response {
