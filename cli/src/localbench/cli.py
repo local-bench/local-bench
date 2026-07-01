@@ -61,17 +61,17 @@ from localbench.submissions.bundle import pack_submission_bundle
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
 from localbench.submissions.foundation_scores import score_summary
 from localbench.submissions.client import (
-    AdminBundleDownloadRequest,
-    AdminSubmissionListRequest,
-    AdminVerificationResultRequest,
+    AdminDecisionRequest,
+    AdminVerificationRequest,
+    SiteCredentials,
     SubmissionStatusRequest,
     SubmissionTicketRequest,
     SubmissionUploadRequest,
-    complete_uploaded_bundle,
-    download_admin_bundle,
-    list_admin_submissions,
-    mark_admin_verification_result,
-    read_submission_ticket,
+    get_submission_status,
+    post_admin_decision,
+    post_admin_verification,
+    raw_bundle_sha256,
+    read_submission_envelope,
     request_submission_ticket,
     upload_submission_bundle,
 )
@@ -244,8 +244,10 @@ def _parser() -> argparse.ArgumentParser:
     fetch_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     fetch_parser.add_argument("--source", type=Path)
     fetch_parser.add_argument("--source-url")
+    fetch_parser.add_argument("--site")
     fetch_parser.add_argument("--accept-suite-terms", action="store_true")
     fetch_parser.add_argument("--cache-dir", type=Path)
+    _add_bypass_args(fetch_parser)
     suite_parser = subparsers.add_parser("suite", help="suite utilities")
     suite_subparsers = suite_parser.add_subparsers(dest="suite_command", required=True)
     inspect_parser = suite_subparsers.add_parser("inspect", help="inspect a resolved suite")
@@ -258,11 +260,15 @@ def _parser() -> argparse.ArgumentParser:
     keygen_parser.add_argument("--out", required=True, type=Path)
     ticket_parser = submit_subparsers.add_parser("ticket", help="request an online submission ticket")
     ticket_parser.add_argument("--site", required=True)
+    ticket_parser.add_argument("--bundle", required=True, type=Path)
     ticket_key_group = ticket_parser.add_mutually_exclusive_group(required=True)
     ticket_key_group.add_argument("--public-key")
     ticket_key_group.add_argument("--signing-key", type=Path)
-    ticket_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
+    ticket_key_group.add_argument("--submitter-id")
+    ticket_parser.add_argument("--declared-model-slug")
     ticket_parser.add_argument("--out", type=Path, default=Path("ticket.json"))
+    _add_bypass_args(ticket_parser)
+    _add_admin_secret_args(ticket_parser)
     pack_parser = submit_subparsers.add_parser(
         "pack",
         help="pack an offline or ticket-bound submission bundle",
@@ -277,21 +283,41 @@ def _parser() -> argparse.ArgumentParser:
     pack_parser.add_argument("--created-at", help=argparse.SUPPRESS)
     pack_parser.add_argument("--run-nonce", help=argparse.SUPPRESS)
     upload_parser = submit_subparsers.add_parser("upload", help="upload a ticket-bound submission bundle")
+    upload_parser.add_argument("--site", required=True)
     upload_parser.add_argument("--ticket", required=True, type=Path)
     upload_parser.add_argument("--bundle", required=True, type=Path)
+    _add_bypass_args(upload_parser)
     status_parser = submit_subparsers.add_parser("status", help="poll online submission status")
-    status_parser.add_argument("submission_id")
+    status_parser.add_argument("ticket_id")
     status_parser.add_argument("--site", required=True)
+    _add_bypass_args(status_parser)
     admin_verify_parser = submit_subparsers.add_parser(
         "admin-verify",
-        help="pull uploaded submissions, re-score them locally, and mark them for review",
+        help="re-score a local result bundle and post verifier status",
     )
     admin_verify_parser.add_argument("--site", required=True)
+    admin_verify_parser.add_argument("--submission-id", required=True)
+    admin_verify_parser.add_argument("--bundle", required=True, type=Path)
     admin_verify_parser.add_argument("--suite-dir", required=True, type=Path)
-    admin_verify_parser.add_argument("--work-dir", required=True, type=Path)
-    admin_verify_parser.add_argument("--admin-secret-env", default="LOCALBENCH_ADMIN_SECRET")
-    admin_verify_parser.add_argument("--status", default="uploaded")
-    admin_verify_parser.add_argument("--limit", type=int, default=20)
+    admin_verify_parser.add_argument("--projection-out", required=True, type=Path)
+    admin_verify_parser.add_argument("--out", type=Path)
+    admin_verify_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
+    admin_verify_parser.add_argument("--validator-commit")
+    _add_bypass_args(admin_verify_parser)
+    _add_admin_secret_args(admin_verify_parser)
+    admin_decision_parser = submit_subparsers.add_parser(
+        "admin-decision",
+        help="post a publish-state decision for a verified submission",
+    )
+    admin_decision_parser.add_argument("--site", required=True)
+    admin_decision_parser.add_argument("--submission-id", required=True)
+    admin_decision_parser.add_argument(
+        "--publish-state",
+        required=True,
+        choices=("hidden", "preview", "published"),
+    )
+    _add_bypass_args(admin_decision_parser)
+    _add_admin_secret_args(admin_decision_parser)
     verify_parser = submit_subparsers.add_parser(
         "verify-offline",
         help="verify and re-score an offline submission bundle",
@@ -408,6 +434,16 @@ def _parser() -> argparse.ArgumentParser:
     tc_json_parser.add_argument("--max-items", type=int)
     tc_json_parser.add_argument("--concurrency", type=int, default=4)
     return parser
+
+
+def _add_bypass_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--bypass-token")
+    parser.add_argument("--bypass-token-file", type=Path)
+
+
+def _add_admin_secret_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--admin-secret-env", default="LOCALBENCH_ADMIN_SECRET")
+    parser.add_argument("--admin-secret-file", type=Path)
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -656,6 +692,49 @@ def _write_or_print_result(result: dict[str, JsonValue], output_path: Path | Non
         sys.stdout.buffer.write(canonical_json_bytes(result) + b"\n")
         return
     write_json_file(output_path, result)
+
+
+def _site_credentials(args: argparse.Namespace, admin_secret: str | None = None) -> SiteCredentials:
+    return SiteCredentials(
+        admin_secret=admin_secret,
+        bypass_token=_bypass_token(args),
+        site=args.site,
+    )
+
+
+def _bypass_token(args: argparse.Namespace) -> str | None:
+    token_file = getattr(args, "bypass_token_file", None)
+    if token_file is not None:
+        return _secret_from_file(token_file)
+    token = getattr(args, "bypass_token", None)
+    if token:
+        return str(token).strip()
+    env_token = os.environ.get("LOCALBENCH_PRIVATE_BYPASS_TOKEN")
+    return env_token.strip() if env_token else None
+
+
+def _optional_admin_secret(args: argparse.Namespace) -> str | None:
+    secret_file = getattr(args, "admin_secret_file", None)
+    if secret_file is not None:
+        return _secret_from_file(secret_file)
+    env_name = getattr(args, "admin_secret_env", "LOCALBENCH_ADMIN_SECRET")
+    env_secret = os.environ.get(env_name)
+    return env_secret.strip() if env_secret else None
+
+
+def _required_admin_secret(args: argparse.Namespace) -> str:
+    secret = _optional_admin_secret(args)
+    if secret is None:
+        env_name = getattr(args, "admin_secret_env", "LOCALBENCH_ADMIN_SECRET")
+        raise SubmissionValidationError(f"set {env_name} or pass --admin-secret-file")
+    return secret
+
+
+def _secret_from_file(path: Path) -> str:
+    secret = path.read_text(encoding="utf-8").strip()
+    if not secret:
+        raise SubmissionValidationError(f"secret file is empty: {path}")
+    return secret
 
 
 def _status(args: argparse.Namespace) -> int:
@@ -983,16 +1062,24 @@ def _summary_score(record: LocalbenchRun) -> float:
 
 
 def _fetch_suite(args: argparse.Namespace) -> int:
-    if args.source is not None and args.source_url is not None:
-        print("error      use only one of --source or --source-url")
+    remote_sources = [source for source in (args.source_url, args.site) if source is not None]
+    if args.source is not None and remote_sources:
+        print("error      use only one of --source, --source-url, or --site")
+        return 2
+    if len(remote_sources) > 1:
+        print("error      use only one of --source-url or --site")
         return 2
     try:
-        if args.source_url is not None:
+        source_url = args.source_url
+        if args.site is not None:
+            source_url = f"{args.site.rstrip('/')}/api/suites/{normalize_suite_id(args.suite)}/manifest"
+        if source_url is not None:
             ref = fetch_suite_from_manifest_url(
                 RemoteSuiteFetch(
                     accept_suite_terms=args.accept_suite_terms,
-                    manifest_url=args.source_url,
+                    bypass_token=_bypass_token(args),
                     cache_root=args.cache_dir,
+                    manifest_url=source_url,
                 ),
             )
         else:
@@ -1041,6 +1128,8 @@ def _submit(args: argparse.Namespace) -> int:
         return _submit_status(args)
     if args.submit_command == "admin-verify":
         return _submit_admin_verify(args)
+    if args.submit_command == "admin-decision":
+        return _submit_admin_decision(args)
     if args.submit_command == "verify-offline":
         return _submit_verify_offline(args)
     print("error      unsupported submit command")
@@ -1064,12 +1153,18 @@ def _submit_keygen(args: argparse.Namespace) -> int:
 
 def _submit_ticket(args: argparse.Namespace) -> int:
     try:
-        public_key = args.public_key or load_private_key(args.signing_key).public_key.hex()
+        public_key = args.public_key
+        if args.signing_key is not None:
+            public_key = load_private_key(args.signing_key).public_key.hex()
+        submitter_id = args.submitter_id
+        bundle_sha = raw_bundle_sha256(args.bundle)
         ticket = request_submission_ticket(
             SubmissionTicketRequest(
+                credentials=_site_credentials(args, admin_secret=_optional_admin_secret(args)),
+                declared_model_slug=args.declared_model_slug,
                 public_key=public_key,
-                site=args.site,
-                suite_id=args.suite,
+                raw_bundle_sha256=bundle_sha,
+                submitter_id=submitter_id,
             ),
         )
         args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -1079,8 +1174,10 @@ def _submit_ticket(args: argparse.Namespace) -> int:
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError, ValueError) as error:
         print(f"error      {error}")
         return 2
-    print(f"submission {ticket['submission_id']}")
-    print(f"status     {ticket['status']}")
+    if public_key is not None:
+        print(f"public_key {public_key}")
+    print(f"ticket_id  {ticket['ticket_id']}")
+    print(f"bundle    {bundle_sha}")
     print(f"ticket     {args.out}")
     return 0
 
@@ -1108,105 +1205,77 @@ def _submit_pack(args: argparse.Namespace) -> int:
 
 def _submit_upload(args: argparse.Namespace) -> int:
     try:
-        ticket = read_submission_ticket(args.ticket)
+        envelope = read_submission_envelope(args.ticket)
         result = upload_submission_bundle(
             SubmissionUploadRequest(
                 bundle_path=args.bundle,
-                ticket=ticket,
+                credentials=_site_credentials(args),
+                envelope=envelope,
             ),
         )
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
-    print(f"submission {result.get('submission_id', ticket['submission_id'])}")
-    print(f"status     {result.get('status', 'uploaded')}")
+    print(f"submission {result.get('submission_id', envelope['ticket_id'])}")
+    print(f"status     {result.get('status', 'pending_verification')}")
     return 0
 
 
 def _submit_status(args: argparse.Namespace) -> int:
     try:
-        result = complete_uploaded_bundle(
-            SubmissionStatusRequest(site=args.site, submission_id=args.submission_id),
+        result = get_submission_status(
+            SubmissionStatusRequest(credentials=_site_credentials(args), ticket_id=args.ticket_id),
         )
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
-    print(f"submission {result.get('submission_id', args.submission_id)}")
+    print(f"submission {result.get('submission_id', args.ticket_id)}")
     print(f"status     {result.get('status', 'unknown')}")
     return 0
 
 
 def _submit_admin_verify(args: argparse.Namespace) -> int:
-    admin_secret = os.environ.get(args.admin_secret_env)
-    if not admin_secret:
-        print(f"error      set {args.admin_secret_env} before running admin verification")
-        return 2
     try:
-        submissions = list_admin_submissions(
-            AdminSubmissionListRequest(
-                admin_secret=admin_secret,
-                limit=args.limit,
-                site=args.site,
-                status=args.status,
+        admin_secret = _required_admin_secret(args)
+        status_update = verify_submission(
+            args.bundle,
+            suite_dir=args.suite_dir,
+            projection_out=args.projection_out,
+            validated_at=args.validated_at,
+            validator_commit=args.validator_commit,
+        )
+        result = post_admin_verification(
+            AdminVerificationRequest(
+                credentials=_site_credentials(args, admin_secret=admin_secret),
+                status_update=status_update,
+                submission_id=args.submission_id,
             ),
         )
-    except (SubmissionValidationError, httpx.HTTPError) as error:
+        _write_or_print_result(status_update, args.out)
+    except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
-    args.work_dir.mkdir(parents=True, exist_ok=True)
-    print(f"pending    {len(submissions)}")
-    for submission in submissions:
-        submission_id = submission["submission_id"]
-        bundle_path = args.work_dir / f"{submission_id}.lbsub.zip"
-        verification_path = args.work_dir / f"{submission_id}.verification.json"
-        status = "needs_review"
-        error_text: str | None = None
-        try:
-            mark_admin_verification_result(
-                AdminVerificationResultRequest(
-                    admin_secret=admin_secret,
-                    site=args.site,
-                    status="verifying",
-                    submission_id=submission_id,
-                ),
-            )
-        except (SubmissionValidationError, httpx.HTTPError) as error:
-            print(f"error      {submission_id}: {error}")
-            return 2
-        try:
-            download_admin_bundle(
-                AdminBundleDownloadRequest(
-                    download_url=submission["download_url"],
-                    expected_sha256=submission.get("bundle_sha256"),
-                    out_path=bundle_path,
-                ),
-            )
-            result = verify_bundle_offline(bundle_path, suite_dir=args.suite_dir, out_path=verification_path)
-            if result.get("submission_id") != submission_id:
-                raise SubmissionValidationError("bundle ticket submission_id does not match D1 submission")
-        except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
-            status = "rejected"
-            error_text = str(error)
-            verification_path.parent.mkdir(parents=True, exist_ok=True)
-            with verification_path.open("w", encoding="utf-8") as handle:
-                json.dump({"error": error_text, "status": status, "submission_id": submission_id}, handle, indent=2, sort_keys=True)
-                handle.write("\n")
-        try:
-            mark_admin_verification_result(
-                AdminVerificationResultRequest(
-                    admin_secret=admin_secret,
-                    error=error_text,
-                    site=args.site,
-                    status=status,
-                    submission_id=submission_id,
-                ),
-            )
-        except (SubmissionValidationError, httpx.HTTPError) as error:
-            print(f"error      {submission_id}: {error}")
-            return 2
-        print(f"submission {submission_id}")
-        print(f"status     {status}")
-        print(f"verification {verification_path}")
+    print(f"submission {result.get('submission_id', args.submission_id)}")
+    print(f"status     {result.get('status', status_update.get('status', 'unknown'))}")
+    print(f"projection {args.projection_out}")
+    return 0
+
+
+def _submit_admin_decision(args: argparse.Namespace) -> int:
+    try:
+        admin_secret = _required_admin_secret(args)
+        result = post_admin_decision(
+            AdminDecisionRequest(
+                credentials=_site_credentials(args, admin_secret=admin_secret),
+                publish_state=args.publish_state,
+                submission_id=args.submission_id,
+            ),
+        )
+    except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
+        print(f"error      {error}")
+        return 2
+    print(f"submission {result.get('submission_id', args.submission_id)}")
+    print(f"publish    {result.get('publish_state', args.publish_state)}")
     return 0
 
 

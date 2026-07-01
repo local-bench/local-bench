@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+import httpx
 
 from localbench.suite_resolver import (
     DEFAULT_SUITE_ID,
@@ -185,6 +186,65 @@ def test_fetch_suite_from_local_suite_release_manifest_rejects_manifest_hash_mis
                 cache_root=tmp_path / "cache",
             ),
         )
+
+
+def test_fetch_suite_from_manifest_url_sends_bypass_header_to_site_requests(tmp_path: Path) -> None:
+    # Given: a suite manifest and files served by the private-gated site.
+    source = _write_suite(tmp_path / "source", version="source-suite")
+    manifest_url = "https://local-bench.ai/api/suites/core-text-v1/manifest"
+    suite_files = {
+        "suite.json": source.joinpath("suite.json").read_bytes(),
+        "itemsets.lock.json": source.joinpath("itemsets.lock.json").read_bytes(),
+        "mmlu_pro.jsonl": source.joinpath("mmlu_pro.jsonl").read_bytes(),
+        "ifbench.jsonl": source.joinpath("ifbench.jsonl").read_bytes(),
+    }
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        assert request.headers["x-localbench-bypass"] == "private-token"
+        if request.url.path == "/api/suites/core-text-v1/manifest":
+            return httpx.Response(
+                200,
+                json={
+                    "schema_version": "localbench.suite-manifest.v1",
+                    "suite_hash": suite_hash(source),
+                    "suite_id": DEFAULT_SUITE_ID,
+                    "version": "source-suite",
+                    "files": [
+                        {
+                            "path": path,
+                            "sha256": hashlib.sha256(data).hexdigest(),
+                            "size": len(data),
+                            "url": f"https://local-bench.ai/suites/core-text-v1/{path}",
+                        }
+                        for path, data in sorted(suite_files.items())
+                    ],
+                },
+            )
+        name = request.url.path.rsplit("/", maxsplit=1)[-1]
+        return httpx.Response(200, content=suite_files[name])
+
+    # When: the remote fetcher pulls the suite through the site surface.
+    resolved = fetch_suite_from_manifest_url(
+        RemoteSuiteFetch(
+            accept_suite_terms=True,
+            bypass_token="private-token",
+            cache_root=tmp_path / "cache",
+            manifest_url=manifest_url,
+            transport=httpx.MockTransport(handler),
+        ),
+    )
+
+    # Then: both manifest and file calls carried the private-gate bypass header.
+    assert resolved.source == "remote-manifest"
+    assert seen_paths == [
+        "/api/suites/core-text-v1/manifest",
+        "/suites/core-text-v1/ifbench.jsonl",
+        "/suites/core-text-v1/itemsets.lock.json",
+        "/suites/core-text-v1/mmlu_pro.jsonl",
+        "/suites/core-text-v1/suite.json",
+    ]
 
 
 def _write_suite(path: Path, *, version: str) -> Path:

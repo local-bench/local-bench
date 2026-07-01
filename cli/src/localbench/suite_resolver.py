@@ -44,6 +44,7 @@ class RemoteSuiteFetch:
     manifest_url: str
     cache_root: Path | None = None
     transport: httpx.BaseTransport | None = None
+    bypass_token: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,14 +143,23 @@ def fetch_suite_from_manifest_url(config: RemoteSuiteFetch) -> SuiteRef:
     if local_manifest is not None:
         return _fetch_suite_from_local_manifest(config, local_manifest)
     with _http_client(config.transport) as client:
-        manifest_response = client.get(config.manifest_url)
+        manifest_response = client.get(
+            config.manifest_url,
+            headers=_bypass_headers(config.bypass_token, config.manifest_url, config.manifest_url),
+        )
         manifest_response.raise_for_status()
         manifest = _remote_manifest(manifest_response.json(), base_url=config.manifest_url)
         with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
             temp_dir = Path(temp_name) / manifest.suite_id
             temp_dir.mkdir()
             for suite_file in manifest.files:
-                _download_suite_file(client, temp_dir, suite_file)
+                _download_suite_file(
+                    client,
+                    temp_dir,
+                    suite_file,
+                    bypass_origin=config.manifest_url,
+                    bypass_token=config.bypass_token,
+                )
             if manifest.suite_manifest_sha256 is not None:
                 _write_release_manifest_copy(temp_dir, manifest_response.json())
             ref = _verified_ref(manifest.suite_id, temp_dir, "remote-manifest")
@@ -350,10 +360,20 @@ def _suite_release_file(value: JsonValue, *, base_url: str | None) -> RemoteSuit
     )
 
 
-def _download_suite_file(client: httpx.Client, suite_dir: Path, suite_file: RemoteSuiteFile) -> None:
+def _download_suite_file(
+    client: httpx.Client,
+    suite_dir: Path,
+    suite_file: RemoteSuiteFile,
+    *,
+    bypass_origin: str,
+    bypass_token: str | None,
+) -> None:
     if suite_file.url is None:
         raise SuiteResolutionError(f"suite file {suite_file.path} is missing a download URL")
-    response = client.get(suite_file.url)
+    response = client.get(
+        suite_file.url,
+        headers=_bypass_headers(bypass_token, bypass_origin, suite_file.url),
+    )
     response.raise_for_status()
     data = response.content
     _write_verified_suite_file(suite_dir, suite_file, data)
@@ -391,6 +411,18 @@ def _write_release_manifest_copy(suite_dir: Path, manifest: JsonValue) -> None:
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _bypass_headers(token: str | None, origin_url: str, request_url: str) -> dict[str, str]:
+    if token is None or not _same_origin(origin_url, request_url):
+        return {}
+    return {"x-localbench-bypass": token}
+
+
+def _same_origin(left: str, right: str) -> bool:
+    left_url = urlparse(left)
+    right_url = urlparse(right)
+    return left_url.scheme == right_url.scheme and left_url.netloc == right_url.netloc
 
 
 def _local_manifest_path(value: str) -> Path | None:

@@ -9,19 +9,19 @@ import httpx
 import pytest
 
 from localbench.submissions.client import (
-    AdminBundleDownloadRequest,
-    AdminSubmissionListRequest,
-    AdminVerificationResultRequest,
+    AdminDecisionRequest,
+    AdminVerificationRequest,
+    SiteCredentials,
     SubmissionStatusRequest,
     SubmissionTicketRequest,
     SubmissionUploadRequest,
-    complete_uploaded_bundle,
-    download_admin_bundle,
-    list_admin_submissions,
-    mark_admin_verification_result,
+    get_submission_status,
+    post_admin_decision,
+    post_admin_verification,
     request_submission_ticket,
     upload_submission_bundle,
 )
+from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import load_private_key
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.bundle import pack_submission_bundle
@@ -89,134 +89,247 @@ async def test_online_pack_records_server_ticket(tmp_path: Path) -> None:
 
 def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_path: Path) -> None:
     # Given: a mocked local-bench API and R2 presigned upload URL.
-    bundle = tmp_path / "bundle.lbsub.zip"
-    payload_sha = "aa" * 32
-    with zipfile.ZipFile(bundle, "w") as archive:
-        archive.writestr("manifest.json", json.dumps({"payload_sha256": payload_sha}))
-        archive.writestr("items.jsonl", "{}\n")
+    bundle = tmp_path / "localbench-run.json"
+    bundle.write_bytes(canonical_json_bytes({"schema_version": "localbench.result_bundle.v1"}) + b"\n")
     bundle_bytes = bundle.read_bytes()
     bundle_sha = hashlib.sha256(bundle_bytes).hexdigest()
     seen_upload = b""
+    site_call_headers: list[httpx.Headers] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal seen_upload
         match (request.method, str(request.url)):
             case ("POST", "https://local-bench.ai/api/submissions/tickets"):
+                site_call_headers.append(request.headers)
+                body = json.loads(request.content)
+                assert body == {
+                    "accepted_suite_terms": True,
+                    "bundle_sha256": bundle_sha,
+                    "declared_model_slug": "fixture-model",
+                    "public_key": "ab" * 32,
+                }
+                assert request.headers["x-localbench-admin-secret"] == "admin-secret"
                 return httpx.Response(
                     201,
                     json={
-                        "max_bytes": 104_857_600,
-                        "server_nonce": "nonce",
-                        "site": "https://local-bench.ai",
-                        "status": "issued",
-                        "submission_id": "sub_fixture",
-                        "suite_hash": "suite-hash",
-                        "upload_url": "https://upload.local/sub_fixture",
+                        "accepted_suite_terms": True,
+                        "allowed_schema": "localbench.result_bundle.v1",
+                        "bundle_sha256": bundle_sha,
+                        "declared_model_slug": "fixture-model",
+                        "expected_suite_manifest_sha256": "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231",
+                        "expected_suite_release_id": "suite-v1-partial-text-code-4axis-v1",
+                        "expiry": "2026-07-01T01:00:00Z",
+                        "max_upload_bytes": 104_857_600,
+                        "one_use": True,
+                        "origin": "project_anchor",
+                        "schema_version": "localbench.submission_envelope.v1",
+                        "submitter_id": "public_key:" + ("ab" * 32),
+                        "ticket_id": "ticket_fixture",
                     },
                 )
-            case ("PUT", "https://upload.local/sub_fixture"):
+            case ("POST", "https://local-bench.ai/api/submissions/request-upload"):
+                site_call_headers.append(request.headers)
+                assert json.loads(request.content) == {
+                    "raw_bundle_sha256": bundle_sha,
+                    "ticket_id": "ticket_fixture",
+                }
+                return httpx.Response(
+                    200,
+                    json={
+                        "bucket": "localbench-submissions",
+                        "content_sha256": bundle_sha,
+                        "expires_seconds": 3600,
+                        "method": "PUT",
+                        "r2_key": f"submissions/raw/{bundle_sha}.json",
+                        "upload_url": "https://upload.local/raw",
+                    },
+                )
+            case ("PUT", "https://upload.local/raw"):
                 seen_upload = request.content
+                assert request.headers["content-type"] == "application/json"
                 return httpx.Response(200)
-            case ("POST", "https://local-bench.ai/api/submissions/sub_fixture/complete"):
+            case ("POST", "https://local-bench.ai/api/submissions/ticket_fixture/complete"):
+                site_call_headers.append(request.headers)
                 body = json.loads(request.content)
-                assert body["bundle_sha256"] == bundle_sha
-                assert body["manifest_payload_sha256"] == payload_sha
-                assert body["size"] == len(bundle_bytes)
-                return httpx.Response(200, json={"status": "uploaded", "submission_id": "sub_fixture"})
-            case ("GET", "https://local-bench.ai/api/submissions/sub_fixture"):
-                return httpx.Response(200, json={"status": "uploaded", "submission_id": "sub_fixture"})
+                assert body == {"raw_bundle_sha256": bundle_sha, "size_bytes": len(bundle_bytes)}
+                return httpx.Response(
+                    200,
+                    json={
+                        "raw_bundle_sha256": bundle_sha,
+                        "raw_bundle_size_bytes": len(bundle_bytes),
+                        "status": "pending_verification",
+                        "submission_id": "ticket_fixture",
+                    },
+                )
+            case ("GET", "https://local-bench.ai/api/submissions/ticket_fixture"):
+                site_call_headers.append(request.headers)
+                return httpx.Response(
+                    200,
+                    json={
+                        "raw_bundle_sha256": bundle_sha,
+                        "raw_bundle_size_bytes": len(bundle_bytes),
+                        "status": "pending_verification",
+                        "submission_id": "ticket_fixture",
+                    },
+                )
             case unreachable:
                 raise AssertionError(f"unexpected request: {unreachable}")
 
     transport = httpx.MockTransport(handler)
+    credentials = SiteCredentials(
+        site="https://local-bench.ai",
+        admin_secret="admin-secret",
+        bypass_token="private-token",
+    )
 
     # When: the CLI ticket/upload/status helpers run through their public HTTP surfaces.
     ticket = request_submission_ticket(
         SubmissionTicketRequest(
+            credentials=credentials,
+            declared_model_slug="fixture-model",
             public_key="ab" * 32,
-            site="https://local-bench.ai",
-            suite_id="core-text-v1",
+            raw_bundle_sha256=bundle_sha,
         ),
         transport,
     )
-    upload_submission_bundle(SubmissionUploadRequest(bundle_path=bundle, ticket=ticket), transport)
-    status = complete_uploaded_bundle(
-        SubmissionStatusRequest(site="https://local-bench.ai", submission_id="sub_fixture"),
+    upload_submission_bundle(
+        SubmissionUploadRequest(bundle_path=bundle, credentials=credentials, envelope=ticket),
+        transport,
+    )
+    status = get_submission_status(
+        SubmissionStatusRequest(credentials=credentials, ticket_id="ticket_fixture"),
         transport,
     )
 
     # Then: upload goes directly to R2, while the app API receives metadata only.
-    assert ticket["submission_id"] == "sub_fixture"
+    assert ticket["ticket_id"] == "ticket_fixture"
     assert seen_upload == bundle_bytes
-    assert status["status"] == "uploaded"
+    assert status["status"] == "pending_verification"
+    assert [headers["x-localbench-bypass"] for headers in site_call_headers] == ["private-token"] * 4
 
 
-def test_admin_client_lists_downloads_and_marks_verification(tmp_path: Path) -> None:
-    # Given: mocked admin API and signed R2 download surfaces.
-    bundle_bytes = b"bundle-bytes"
-    bundle_sha = hashlib.sha256(bundle_bytes).hexdigest()
-    downloaded = tmp_path / "downloaded.lbsub.zip"
+def test_submission_client_surfaces_disabled_unauthorized_and_private_gate_paths(tmp_path: Path) -> None:
+    # Given: a mocked backend that exposes route-level failures.
+    bundle = tmp_path / "localbench-run.json"
+    bundle.write_text('{"schema_version":"localbench.result_bundle.v1"}\n', encoding="utf-8")
+    bundle_sha = hashlib.sha256(bundle.read_bytes()).hexdigest()
+    envelope = {
+        "accepted_suite_terms": True,
+        "allowed_schema": "localbench.result_bundle.v1",
+        "bundle_sha256": bundle_sha,
+        "expected_suite_manifest_sha256": None,
+        "expected_suite_release_id": None,
+        "expiry": "2026-07-01T01:00:00Z",
+        "max_upload_bytes": 104_857_600,
+        "one_use": True,
+        "origin": "project_anchor",
+        "schema_version": "localbench.submission_envelope.v1",
+        "submitter_id": "owner",
+        "ticket_id": "ticket_fixture",
+    }
 
     def handler(request: httpx.Request) -> httpx.Response:
         match (request.method, request.url.path):
-            case ("GET", "/api/admin/submissions"):
-                assert request.headers["x-localbench-admin-secret"] == "admin-secret"
-                assert request.url.params["status"] == "uploaded"
-                return httpx.Response(
-                    200,
-                    json={
-                        "submissions": [
-                            {
-                                "bundle_sha256": bundle_sha,
-                                "download_url": "https://download.local/sub_uploaded",
-                                "manifest_payload_sha256": "aa" * 32,
-                                "r2_key": "submissions/sub_uploaded/bundle.lbsub.zip",
-                                "size": len(bundle_bytes),
-                                "status": "uploaded",
-                                "submission_id": "sub_uploaded",
-                            },
-                        ],
-                    },
-                )
-            case ("GET", "/sub_uploaded"):
-                return httpx.Response(200, content=bundle_bytes)
-            case ("POST", "/api/admin/submissions/sub_uploaded/verification"):
-                body = json.loads(request.content)
-                assert request.headers["x-localbench-admin-secret"] == "admin-secret"
-                assert body == {"status": "needs_review"}
-                return httpx.Response(200, json={"status": "needs_review", "submission_id": "sub_uploaded"})
+            case ("POST", "/api/submissions/tickets") if "x-localbench-bypass" not in request.headers:
+                return httpx.Response(503, text="local-bench is temporarily private.\n")
+            case ("POST", "/api/submissions/request-upload"):
+                return httpx.Response(503, json={"code": "r2_signing_disabled"})
+            case ("POST", "/api/admin/submissions/ticket_fixture/verification"):
+                return httpx.Response(401, json={"code": "unauthorized"})
             case unreachable:
                 raise AssertionError(f"unexpected request: {unreachable}")
 
     transport = httpx.MockTransport(handler)
-
-    # When: the admin client lists, downloads, and records a verifier result.
-    pending = list_admin_submissions(
-        AdminSubmissionListRequest(admin_secret="admin-secret", site="https://local-bench.ai"),
-        transport,
+    public_credentials = SiteCredentials(site="https://local-bench.ai")
+    bypass_credentials = SiteCredentials(site="https://local-bench.ai", bypass_token="private-token")
+    admin_credentials = SiteCredentials(
+        site="https://local-bench.ai",
+        admin_secret="wrong-admin-secret",
+        bypass_token="private-token",
     )
-    download_admin_bundle(
-        AdminBundleDownloadRequest(
-            download_url=pending[0]["download_url"],
-            expected_sha256=pending[0]["bundle_sha256"],
-            out_path=downloaded,
+
+    # When / Then: missing bypass, disabled upload signing, and bad admin auth surface as HTTP errors.
+    with pytest.raises(httpx.HTTPStatusError) as gate_error:
+        request_submission_ticket(
+            SubmissionTicketRequest(
+                credentials=public_credentials,
+                raw_bundle_sha256=bundle_sha,
+                submitter_id="owner",
+            ),
+            transport,
+        )
+    with pytest.raises(httpx.HTTPStatusError) as disabled_error:
+        upload_submission_bundle(
+            SubmissionUploadRequest(bundle_path=bundle, credentials=bypass_credentials, envelope=envelope),
+            transport,
+        )
+    with pytest.raises(httpx.HTTPStatusError) as unauthorized_error:
+        post_admin_verification(
+            AdminVerificationRequest(
+                credentials=admin_credentials,
+                status_update=_status_update(bundle_sha),
+                submission_id="ticket_fixture",
+            ),
+            transport,
+        )
+
+    assert gate_error.value.response.status_code == 503
+    assert disabled_error.value.response.status_code == 503
+    assert unauthorized_error.value.response.status_code == 401
+
+
+def test_admin_client_posts_verification_update_and_publish_decision() -> None:
+    # Given: mocked admin routes for verifier status and publish-state decisions.
+    bundle_sha = "a" * 64
+    status_update = _status_update(bundle_sha)
+    seen_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_paths.append(request.url.path)
+        assert request.headers["x-localbench-bypass"] == "private-token"
+        assert request.headers["x-localbench-admin-secret"] == "admin-secret"
+        match (request.method, request.url.path):
+            case ("POST", "/api/admin/submissions/ticket_fixture/verification"):
+                assert json.loads(request.content) == status_update
+                return httpx.Response(200, json={"status": "accepted", "submission_id": "ticket_fixture"})
+            case ("POST", "/api/admin/submissions/ticket_fixture/decision"):
+                assert json.loads(request.content) == {"publish_state": "preview"}
+                return httpx.Response(200, json={"publish_state": "preview", "submission_id": "ticket_fixture"})
+            case unreachable:
+                raise AssertionError(f"unexpected request: {unreachable}")
+
+    transport = httpx.MockTransport(handler)
+    credentials = SiteCredentials(
+        site="https://local-bench.ai",
+        admin_secret="admin-secret",
+        bypass_token="private-token",
+    )
+
+    # When: admin helpers post the Python-authoritative verification and decision payloads.
+    verification = post_admin_verification(
+        AdminVerificationRequest(
+            credentials=credentials,
+            status_update=status_update,
+            submission_id="ticket_fixture",
         ),
         transport,
     )
-    result = mark_admin_verification_result(
-        AdminVerificationResultRequest(
-            admin_secret="admin-secret",
-            site="https://local-bench.ai",
-            status="needs_review",
-            submission_id="sub_uploaded",
+    decision = post_admin_decision(
+        AdminDecisionRequest(
+            credentials=credentials,
+            publish_state="preview",
+            submission_id="ticket_fixture",
         ),
         transport,
     )
 
-    # Then: the local verifier can trust the listed metadata and direct download bytes.
-    assert pending[0]["submission_id"] == "sub_uploaded"
-    assert downloaded.read_bytes() == bundle_bytes
-    assert result["status"] == "needs_review"
+    # Then: both admin routes are driven with the expected headers and bodies.
+    assert seen_paths == [
+        "/api/admin/submissions/ticket_fixture/verification",
+        "/api/admin/submissions/ticket_fixture/decision",
+    ]
+    assert verification["status"] == "accepted"
+    assert decision["publish_state"] == "preview"
 
 
 def test_cli_submit_online_keygen_ticket_upload_and_status(
@@ -236,33 +349,37 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
         archive.writestr("manifest.json", json.dumps({"payload_sha256": payload_sha}))
 
     def fake_ticket(request: cli_mod.SubmissionTicketRequest) -> dict[str, object]:
-        assert request.site == "https://local-bench.ai"
-        assert request.suite_id == "core-text-v1"
+        assert request.credentials.site == "https://local-bench.ai"
         assert len(request.public_key) == 64
+        assert request.raw_bundle_sha256 == hashlib.sha256(bundle.read_bytes()).hexdigest()
         return {
-            "account_id": None,
-            "max_bytes": 104_857_600,
-            "server_nonce": "nonce",
-            "site": "https://local-bench.ai",
-            "status": "issued",
-            "submission_id": "sub_fixture",
-            "suite_hash": "suite-hash",
-            "upload_url": "https://upload.local/sub_fixture",
+            "accepted_suite_terms": True,
+            "allowed_schema": "localbench.result_bundle.v1",
+            "bundle_sha256": request.raw_bundle_sha256,
+            "expected_suite_manifest_sha256": None,
+            "expected_suite_release_id": None,
+            "expiry": "2026-07-01T01:00:00Z",
+            "max_upload_bytes": 104_857_600,
+            "one_use": True,
+            "origin": "project_anchor",
+            "schema_version": "localbench.submission_envelope.v1",
+            "submitter_id": "public_key:" + request.public_key,
+            "ticket_id": "ticket_fixture",
         }
 
     def fake_upload(request: cli_mod.SubmissionUploadRequest) -> dict[str, str]:
         assert request.bundle_path == bundle
-        assert request.ticket["submission_id"] == "sub_fixture"
-        return {"status": "uploaded", "submission_id": "sub_fixture"}
+        assert request.envelope["ticket_id"] == "ticket_fixture"
+        return {"status": "pending_verification", "submission_id": "ticket_fixture"}
 
     def fake_status(request: cli_mod.SubmissionStatusRequest) -> dict[str, str]:
-        assert request.site == "https://local-bench.ai"
-        assert request.submission_id == "sub_fixture"
-        return {"status": "uploaded", "submission_id": "sub_fixture"}
+        assert request.credentials.site == "https://local-bench.ai"
+        assert request.ticket_id == "ticket_fixture"
+        return {"status": "pending_verification", "submission_id": "ticket_fixture"}
 
     monkeypatch.setattr(cli_mod, "request_submission_ticket", fake_ticket)
     monkeypatch.setattr(cli_mod, "upload_submission_bundle", fake_upload)
-    monkeypatch.setattr(cli_mod, "complete_uploaded_bundle", fake_status)
+    monkeypatch.setattr(cli_mod, "get_submission_status", fake_status)
 
     # When: a user drives the online submission commands in order.
     keygen_code = main(["submit", "keygen", "--out", str(key_path)])
@@ -274,16 +391,29 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
             "https://local-bench.ai",
             "--signing-key",
             str(key_path),
+            "--bundle",
+            str(bundle),
             "--out",
             str(ticket_path),
         ],
     )
-    upload_code = main(["submit", "upload", "--ticket", str(ticket_path), "--bundle", str(bundle)])
+    upload_code = main(
+        [
+            "submit",
+            "upload",
+            "--site",
+            "https://local-bench.ai",
+            "--ticket",
+            str(ticket_path),
+            "--bundle",
+            str(bundle),
+        ],
+    )
     status_code = main(
         [
             "submit",
             "status",
-            "sub_fixture",
+            "ticket_fixture",
             "--site",
             "https://local-bench.ai",
         ],
@@ -296,10 +426,10 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
     assert ticket_code == 0
     assert upload_code == 0
     assert status_code == 0
-    assert ticket["submission_id"] == "sub_fixture"
+    assert ticket["ticket_id"] == "ticket_fixture"
     assert "public_key " in output
     assert "ticket     " in output
-    assert "status     uploaded" in output
+    assert "status     pending_verification" in output
 
 
 @pytest.mark.anyio
@@ -308,67 +438,23 @@ async def test_cli_admin_verify_downloads_rescores_and_marks_needs_review(
     monkeypatch: pytest.MonkeyPatch,
     capsys,
 ) -> None:
-    # Given: a real ticket-bound bundle and patched admin transport helpers.
+    # Given: a local result bundle and patched admin verification transport helper.
     from localbench.cli import main
     import localbench.cli as cli_mod
 
     fixtures = await build_submission_fixtures(tmp_path)
-    source_bundle = tmp_path / "source.lbsub.zip"
-    ticket_path = tmp_path / "ticket.json"
-    ticket_path.write_text(
-        json.dumps(
-            {
-                "account_id": None,
-                "server_nonce": "server-nonce",
-                "site": "https://local-bench.ai",
-                "submission_id": "sub_uploaded",
-                "suite_hash": "suite-hash",
-                "upload_url": "https://upload.local/sub_uploaded",
-            },
-            sort_keys=True,
-        ),
-        encoding="utf-8",
-    )
-    pack_submission_bundle(
-        run_path=fixtures.run_path,
-        suite_dir=fixtures.suite_dir,
-        model_name="fixture-model",
-        signing_key_path=fixtures.key_path,
-        out_path=source_bundle,
-        offline=False,
-        ticket_path=ticket_path,
-        created_at="2026-06-24T00:00:00Z",
-        run_nonce="fixed-nonce",
-    )
-    source_sha = hashlib.sha256(source_bundle.read_bytes()).hexdigest()
-    marked: list[tuple[str, str | None]] = []
+    projection_out = tmp_path / "projection.json"
+    status_updates: list[dict[str, object]] = []
 
-    def fake_list(request: cli_mod.AdminSubmissionListRequest) -> tuple[dict[str, object], ...]:
-        assert request.admin_secret == "admin-secret"
-        assert request.site == "https://local-bench.ai"
-        return (
-            {
-                "bundle_sha256": source_sha,
-                "download_url": "https://download.local/sub_uploaded",
-                "r2_key": "submissions/sub_uploaded/bundle.lbsub.zip",
-                "status": "uploaded",
-                "submission_id": "sub_uploaded",
-            },
-        )
-
-    def fake_download(request: cli_mod.AdminBundleDownloadRequest) -> None:
-        assert request.download_url == "https://download.local/sub_uploaded"
-        assert request.expected_sha256 == source_sha
-        request.out_path.write_bytes(source_bundle.read_bytes())
-
-    def fake_mark(request: cli_mod.AdminVerificationResultRequest) -> dict[str, str]:
-        marked.append((request.status, request.error))
-        return {"status": request.status, "submission_id": request.submission_id}
+    def fake_post(request: cli_mod.AdminVerificationRequest) -> dict[str, str]:
+        assert request.credentials.site == "https://local-bench.ai"
+        assert request.credentials.admin_secret == "admin-secret"
+        assert request.submission_id == "sub_uploaded"
+        status_updates.append(dict(request.status_update))
+        return {"status": str(request.status_update["status"]), "submission_id": request.submission_id}
 
     monkeypatch.setenv("LOCALBENCH_ADMIN_SECRET", "admin-secret")
-    monkeypatch.setattr(cli_mod, "list_admin_submissions", fake_list)
-    monkeypatch.setattr(cli_mod, "download_admin_bundle", fake_download)
-    monkeypatch.setattr(cli_mod, "mark_admin_verification_result", fake_mark)
+    monkeypatch.setattr(cli_mod, "post_admin_verification", fake_post)
 
     # When: the maintainer verifier command runs.
     code = main(
@@ -377,16 +463,37 @@ async def test_cli_admin_verify_downloads_rescores_and_marks_needs_review(
             "admin-verify",
             "--site",
             "https://local-bench.ai",
+            "--submission-id",
+            "sub_uploaded",
+            "--bundle",
+            str(fixtures.run_path),
             "--suite-dir",
             str(fixtures.suite_dir),
-            "--work-dir",
-            str(tmp_path / "verify-work"),
+            "--projection-out",
+            str(projection_out),
         ],
     )
 
-    # Then: the bundle is re-scored locally and marked for human review.
+    # Then: the bundle is re-scored locally and posted as a verifier status update.
     output = capsys.readouterr().out
     assert code == 0
-    assert marked == [("verifying", None), ("needs_review", None)]
-    assert "pending    1" in output
-    assert (tmp_path / "verify-work" / "sub_uploaded.verification.json").exists()
+    assert status_updates[0]["schema_version"] == "localbench.submission_status_update.v1"
+    assert status_updates[0]["raw_bundle_sha256"] == hashlib.sha256(fixtures.run_path.read_bytes()).hexdigest()
+    assert "submission sub_uploaded" in output
+    assert projection_out.exists()
+
+
+def _status_update(bundle_sha: str) -> dict[str, object]:
+    return {
+        "schema_version": "localbench.submission_status_update.v1",
+        "accepted": True,
+        "status": "accepted",
+        "reason": "publishable",
+        "blocking_reasons": [],
+        "projection_sha256": "b" * 64,
+        "projection_path": "projection.json",
+        "raw_bundle_sha256": bundle_sha,
+        "validator_version": "localbench.submission-validator.v1",
+        "validator_commit": None,
+        "validated_at": "2026-07-01T00:00:00Z",
+    }
