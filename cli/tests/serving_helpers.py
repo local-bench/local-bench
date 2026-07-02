@@ -6,7 +6,7 @@ from pathlib import Path
 import httpx
 
 from localbench._types import JsonObject
-from localbench.serving.fingerprint import server_fingerprint
+from localbench.serving.fingerprint import resume_identity, server_fingerprint
 from localbench.serving.model_artifact import resolve_model_file_artifact
 from localbench.serving.provenance import ServingEvidence
 from localbench.serving.teardown import TeardownController
@@ -75,6 +75,17 @@ def serving_evidence(tmp_path: Path, *, teardown_terminated: bool) -> ServingEvi
         flash_attention="on",
         chat_template_digest=artifact.chat_template_digest or "",
     )
+    identity = resume_identity(
+        model_file_sha256=artifact.file_sha256,
+        executable_sha256="e" * 64,
+        argv=argv,
+        env_allowlist={"CUDA_VISIBLE_DEVICES": "0"},
+        ctx=32768,
+        kv_cache_quant="k=f16,v=f16",
+        parallel_slots=1,
+        flash_attention="on",
+        chat_template_digest=artifact.chat_template_digest or "",
+    )
     return ServingEvidence(
         runtime="llama.cpp",
         argv=argv,
@@ -111,6 +122,7 @@ def serving_evidence(tmp_path: Path, *, teardown_terminated: bool) -> ServingEvi
         exit_code=0,
         gpu_pids_after=[] if teardown_terminated else [1234],
         server_fingerprint=fingerprint,
+        resume_identity=identity,
         model_id="gemma",
         serve_log_path=str(tmp_path / "run" / "serve.log"),
     )

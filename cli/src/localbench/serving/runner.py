@@ -10,7 +10,7 @@ from localbench.serving.assembly import (
     bench_config,
     llama_cpp_reasoning_for_lane,
     pending_teardown,
-    precheck_resume_fingerprint,
+    precheck_resume_identity,
     redacted_argv,
     resolve_artifact,
     run_dir,
@@ -19,7 +19,7 @@ from localbench.serving.assembly import (
     validate_capped_thinking_context,
 )
 from localbench.serving.bench import VllmAdapter, build_orchestrate_config
-from localbench.serving.fingerprint import server_fingerprint
+from localbench.serving.fingerprint import resume_identity, server_fingerprint
 from localbench.serving.llama_cpp import (
     LlamaCppLaunchConfig,
     collect_build_identity,
@@ -71,10 +71,11 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     argv = strict_llama_cpp_argv(launch_config)
     validate_strict_argv_supported(argv, build.help_text)
     env_allowlist = {"CUDA_VISIBLE_DEVICES": "0"}
+    safe_argv = redacted_argv(argv)
     fingerprint = server_fingerprint(
         model_file_sha256=artifact.file_sha256,
         executable_sha256=build.executable_sha256,
-        argv=redacted_argv(argv),
+        argv=safe_argv,
         env_allowlist=env_allowlist,
         ctx=options.ctx,
         kv_cache_quant="k=f16,v=f16",
@@ -82,7 +83,26 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         flash_attention=launch_config.flash_attn,
         chat_template_digest=artifact.chat_template_digest or "",
     )
-    precheck_resume_fingerprint(options.resume, fingerprint)
+    identity = resume_identity(
+        model_file_sha256=artifact.file_sha256,
+        executable_sha256=build.executable_sha256,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        ctx=options.ctx,
+        kv_cache_quant="k=f16,v=f16",
+        parallel_slots=1,
+        flash_attention=launch_config.flash_attn,
+        chat_template_digest=artifact.chat_template_digest or "",
+    )
+    precheck_resume_identity(
+        options.resume,
+        identity,
+        chat_template_digest=artifact.chat_template_digest or "",
+        env_allowlist=env_allowlist,
+        kv_cache_quant="k=f16,v=f16",
+        parallel_slots=1,
+        flash_attention=launch_config.flash_attn,
+    )
     launched: LaunchedServer | None = None
     teardown: TeardownEvidence | None = None
     try:
@@ -101,11 +121,12 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             readiness=readiness,
             teardown=pending_teardown(launched.process.pid),
             launch_config=launch_config,
-            argv=redacted_argv(argv),
+            argv=safe_argv,
             env_allowlist=env_allowlist,
             api_key=api_key,
             port=port,
             fingerprint=fingerprint,
+            identity=identity,
             root=root,
         )
         await run_localbench(build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence))
@@ -127,11 +148,12 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         readiness=readiness,
         teardown=teardown,
         launch_config=launch_config,
-        argv=redacted_argv(argv),
+        argv=safe_argv,
         env_allowlist=env_allowlist,
         api_key=api_key,
         port=port,
         fingerprint=fingerprint,
+        identity=identity,
         root=root,
     )
     updated = apply_serving_context(record, serving_context(completed_evidence))

@@ -387,7 +387,9 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
     assert inner.chat_template_digest == evidence.artifact.chat_template_digest
     assert inner.chat_template_digest_source == "gguf.embedded"
     assert inner.server_fingerprint == evidence.server_fingerprint
+    assert inner.resume_identity == evidence.resume_identity
     assert inner.serve_fingerprint is not None
+    assert inner.serve_fingerprint["resume_identity"] == evidence.resume_identity
     assert inner.serve_fingerprint["reasoning"] == {
         "mode": "off",
         "budget": None,

@@ -6,9 +6,11 @@ from pathlib import Path
 from typing import Final, assert_never
 
 from localbench._suite import read_json_object
-from localbench.orchestrate import LaneChoice
+from localbench._types import JsonObject
+from localbench.orchestrate import LaneChoice, UnsafeResumeError
 from localbench.run_plan import resolve_run_benches
 from localbench.serving.bench import BenchRunConfig
+from localbench.serving.fingerprint import normalize_ephemeral_argv, server_fingerprint
 from localbench.serving.llama_cpp import (
     BuildIdentity,
     CAPPED_THINKING_REASONING_BUDGET,
@@ -169,6 +171,7 @@ def serving_evidence(
     api_key: str,
     port: int,
     fingerprint: str,
+    identity: str,
     root: Path,
 ) -> ServingEvidence:
     return ServingEvidence(
@@ -207,6 +210,7 @@ def serving_evidence(
         exit_code=teardown.exit_code,
         gpu_pids_after=teardown.gpu_pids_after,
         server_fingerprint=fingerprint,
+        resume_identity=identity,
         model_id=options.model_id,
         serve_log_path=str(root / "serve.log"),
     )
@@ -222,14 +226,91 @@ def pending_teardown(pid: int) -> TeardownEvidence:
     )
 
 
-def precheck_resume_fingerprint(resume: Path | None, fingerprint: str) -> None:
+def precheck_resume_identity(
+    resume: Path | None,
+    identity: str,
+    *,
+    chat_template_digest: str,
+    env_allowlist: dict[str, str],
+    kv_cache_quant: str,
+    parallel_slots: int,
+    flash_attention: str,
+) -> None:
     if resume is None:
         return
     campaign = read_json_object(resume / "campaign.json")
     serve = campaign.get("serve_fingerprint")
-    actual = serve.get("server_fingerprint") if isinstance(serve, dict) else None
-    if actual != fingerprint:
-        raise RuntimeError("unsafe resume refused: server_fingerprint changed")
+    if not isinstance(serve, dict):
+        raise UnsafeResumeError("unsafe resume refused: campaign.json serve_fingerprint is missing")
+    actual = serve.get("resume_identity")
+    if actual is not None:
+        if actual != identity:
+            raise UnsafeResumeError("unsafe resume refused: resume identity changed")
+        return
+    recorded_identity = _legacy_resume_identity(
+        serve,
+        chat_template_digest=chat_template_digest,
+        env_allowlist=env_allowlist,
+        kv_cache_quant=kv_cache_quant,
+        parallel_slots=parallel_slots,
+        flash_attention=flash_attention,
+    )
+    if recorded_identity != identity:
+        raise UnsafeResumeError("unsafe resume refused: resume identity changed")
+
+
+def _legacy_resume_identity(
+    serve: JsonObject,
+    *,
+    chat_template_digest: str,
+    env_allowlist: dict[str, str],
+    kv_cache_quant: str,
+    parallel_slots: int,
+    flash_attention: str,
+) -> str:
+    recorded_argv = _required_string_list(serve, "server_command_redacted")
+    executable_sha256 = _required_string(serve, "server_binary_hash")
+    model_file_sha256 = _required_string(serve, "model_artifact_hash")
+    ctx = _required_int(serve, "context_length")
+    # Legacy records have no resume_identity. Reusing the current template and constant
+    # runtime inputs is sound because matching identities also enforce the recorded model
+    # and binary hashes; future changes to these constants intentionally diverge here.
+    return server_fingerprint(
+        model_file_sha256=model_file_sha256,
+        executable_sha256=executable_sha256,
+        argv=normalize_ephemeral_argv(recorded_argv),
+        env_allowlist=env_allowlist,
+        ctx=ctx,
+        kv_cache_quant=kv_cache_quant,
+        parallel_slots=parallel_slots,
+        flash_attention=flash_attention,
+        chat_template_digest=chat_template_digest,
+    )
+
+
+def _required_string(serve: JsonObject, field: str) -> str:
+    value = serve.get(field)
+    if not isinstance(value, str):
+        _raise_missing_legacy_field(field)
+    return value
+
+
+def _required_int(serve: JsonObject, field: str) -> int:
+    value = serve.get(field)
+    if not isinstance(value, int) or isinstance(value, bool):
+        _raise_missing_legacy_field(field)
+    return value
+
+
+def _required_string_list(serve: JsonObject, field: str) -> list[str]:
+    value = serve.get(field)
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        _raise_missing_legacy_field(field)
+    return value
+
+
+def _raise_missing_legacy_field(field: str) -> None:
+    raise UnsafeResumeError(f"unsafe resume refused: campaign.json serve_fingerprint is missing {field}")
 
 
 def redacted_argv(argv: list[str]) -> list[str]:

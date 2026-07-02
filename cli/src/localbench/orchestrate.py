@@ -217,6 +217,7 @@ class OrchestrateConfig:
     cuda_version: str | None = None
     runner_build_id: str | None = None
     server_fingerprint: str | None = None
+    resume_identity: str | None = None
     serve_fingerprint: JsonObject | None = None
 
 
@@ -314,6 +315,7 @@ async def run_localbench(
         hf_model_id=config.hf_model_id,
         output_path=output_path,
         server_fingerprint=config.server_fingerprint,
+        resume_identity=config.resume_identity,
         serve_fingerprint=config.serve_fingerprint,
     )
     if config.resume is None:
@@ -860,15 +862,18 @@ def _validate_resume_campaign(path: Path, config: CampaignConfig) -> None:
     _append_mismatch(mismatches, "provider", provider.get("name"), config.provider)
     serve_fingerprint = campaign.get("serve_fingerprint")
     if isinstance(serve_fingerprint, dict):
-        actual_server_fingerprint = serve_fingerprint.get("server_fingerprint")
+        actual_resume_identity = serve_fingerprint.get("resume_identity")
     else:
-        actual_server_fingerprint = None
-    _append_optional_mismatch(
-        mismatches,
-        "server_fingerprint",
-        actual_server_fingerprint,
-        config.server_fingerprint,
-    )
+        actual_resume_identity = None
+    if actual_resume_identity is not None and config.resume_identity is not None:
+        # Legacy serve_fingerprint records lack resume_identity, so orchestrate skips them.
+        # Serve-mode resumes are still fail-closed by serving.precheck_resume_identity.
+        _append_optional_mismatch(
+            mismatches,
+            "resume_identity",
+            actual_resume_identity,
+            config.resume_identity,
+        )
     if mismatches:
         raise UnsafeResumeError("unsafe resume refused: " + ", ".join(mismatches))
 

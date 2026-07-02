@@ -49,6 +49,7 @@ class ServingEvidence:
     exit_code: int | None
     gpu_pids_after: list[int]
     server_fingerprint: str
+    resume_identity: str
     model_id: str
     serve_log_path: str
 
@@ -189,6 +190,7 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
         },
         "serve_log_path": evidence.serve_log_path,
         "server_fingerprint": evidence.server_fingerprint,
+        "resume_identity": evidence.resume_identity,
     }
 
 

@@ -39,6 +39,7 @@ class CampaignConfig:
     hf_model_id: str | None
     output_path: Path
     server_fingerprint: str | None = None
+    resume_identity: str | None = None
     serve_fingerprint: JsonObject | None = None
 
 
@@ -206,6 +207,7 @@ def _serve_fingerprint(config: CampaignConfig) -> JsonObject:
     return {
         "serve_mode": None,
         "server_fingerprint": config.server_fingerprint,
+        "resume_identity": config.resume_identity,
         "server_binary_hash": None,
         "server_build": None,
         "server_command_redacted": None,

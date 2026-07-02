@@ -89,6 +89,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         runtime_backend="cuda",
         cuda_version=None,
         server_fingerprint=evidence.server_fingerprint,
+        resume_identity=evidence.resume_identity,
         serve_fingerprint=_serve_fingerprint(evidence),
     )
 
@@ -103,6 +104,7 @@ def _serve_fingerprint(evidence: ServingEvidence) -> JsonObject:
     return {
         "serve_mode": "llama.cpp",
         "server_fingerprint": evidence.server_fingerprint,
+        "resume_identity": evidence.resume_identity,
         "server_binary_hash": evidence.executable_sha256,
         "server_build": evidence.version_stdout,
         "server_command_redacted": _redacted_argv(evidence.argv),
