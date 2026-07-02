@@ -18,13 +18,5 @@
       "binding": "PUBLIC_ARTIFACTS",
       "bucket_name": "localbench-public-artifacts"
     }
-  ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "VERIFICATION_QUEUE",
-        "queue": "localbench-verification"
-      }
-    ]
-  }
+  ]
 }

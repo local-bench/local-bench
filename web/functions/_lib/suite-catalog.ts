@@ -74,6 +74,101 @@ export const CORE_TEXT_SUITE: SuiteRecord = {
   version: "core-text-v1",
 } as const;
 
+export const FOUR_AXIS_SUITE: SuiteRecord = {
+  files: [
+    {
+      path: "ATTRIBUTION.md",
+      sha256: "57ca152e665b8b0ed70b97b3ece26fc96132fb439a649a21bc6516410c40ff76",
+      size: 334,
+    },
+    {
+      path: "CHANGES.md",
+      sha256: "5af40f8d3f8a7ad1b9b18881db8d7e30d91bf77063f1f110a8df75dfd0c97c8d",
+      size: 250,
+    },
+    {
+      path: "LICENSES/BFCL-Apache-2.0",
+      sha256: "801f2893851e1d05c434e6985fe3e7b5a0ab4e194b71f9b37649029f3d910ee0",
+      size: 9073,
+    },
+    {
+      path: "LICENSES/IFBench-ODC-BY-1.0",
+      sha256: "275ebb27595e33a98af9798a7de56003ae78529f3695790a047ee301b27437a9",
+      size: 20276,
+    },
+    {
+      path: "LICENSES/LiveCodeBench-CC-BY-4.0-NOTICE",
+      sha256: "8ef9493c6c2b59caf6723d93518c7bca6ce2d5b254fa478b2a2afcadd4f39c0f",
+      size: 237,
+    },
+    {
+      path: "LICENSES/MMLU-Pro-MIT",
+      sha256: "9eb6f69d48a1dd764e8a33f14a584f460d3cec653477c136a95dd6df9c249211",
+      size: 1055,
+    },
+    {
+      path: "NOTICE",
+      sha256: "cf74fb413bdedd58b212ad642856b6842d1e986e6a20c0ddb220c4af8cffc4f2",
+      size: 717,
+    },
+    {
+      path: "SCORECARD.json",
+      sha256: "556a9f9bb1127803cdc71e8b8d0ae4247fb075ab7005a0d05608424dfab4c420",
+      size: 3818,
+    },
+    {
+      path: "SHA256SUMS",
+      sha256: "bb35e6eae5753995e078446eee25eae98e88ca7a856ac2248a1e4148ffd8a54d",
+      size: 1274,
+    },
+    {
+      path: "SOURCE_REVISIONS.md",
+      sha256: "486315998e11e0353eea0b2338bd90440f9895832272673bcd81a486205bc66c",
+      size: 396,
+    },
+    {
+      path: "ifbench.jsonl",
+      sha256: "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+      size: 141566,
+    },
+    {
+      path: "itemsets.lock.json",
+      sha256: "6a19a23e74e906759444b559d4378a839319cce9cef0484c562b5131651a2218",
+      size: 1488,
+    },
+    {
+      path: "lcb.jsonl",
+      sha256: "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",
+      size: 179626,
+    },
+    {
+      path: "mmlu_pro.jsonl",
+      sha256: "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+      size: 287076,
+    },
+    {
+      path: "suite.json",
+      sha256: "30ff63b82621c12b034a79013df7629d0e36b620fede2f63c4d1b10f70b6638a",
+      size: 3196,
+    },
+    {
+      path: "suite_release_manifest.json",
+      sha256: "f4f01f47841a4b7ad8c4f0943105dcf064a9388e0793664702ee21e8ff9c52f7",
+      size: 3896,
+    },
+    {
+      path: "tc_json_v1.jsonl",
+      sha256: "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74",
+      size: 497028,
+    },
+  ],
+  id: "suite-v1-partial-text-code-4axis-v1",
+  suiteHash: "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231",
+  version: "suite-v1",
+} as const;
+
+export const PUBLIC_SUITES = [CORE_TEXT_SUITE, FOUR_AXIS_SUITE] as const;
+
 export function suiteById(id: string): SuiteRecord | null {
-  return id === CORE_TEXT_SUITE.id ? CORE_TEXT_SUITE : null;
+  return PUBLIC_SUITES.find((suite) => suite.id === id) ?? null;
 }

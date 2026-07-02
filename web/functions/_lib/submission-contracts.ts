@@ -3,6 +3,7 @@ import { z } from "zod";
 export type SqlValue = string | number | null;
 
 export type D1PreparedStatement = {
+  all(): Promise<{ readonly results: readonly Record<string, unknown>[] }> | { readonly results: readonly Record<string, unknown>[] };
   bind(...values: readonly SqlValue[]): D1PreparedStatement;
   first(): Promise<Record<string, unknown> | null> | Record<string, unknown> | null;
   run(): Promise<{ readonly success: boolean }> | { readonly success: boolean };
@@ -172,6 +173,8 @@ export const SubmissionRowSchema = z.object({
   raw_bundle_size_bytes: z.number().nullable(),
   status: z.string(),
   submission_id: z.string(),
+  suite_manifest_sha256: Sha256Schema.nullable(),
+  suite_release_id: z.string().nullable(),
   ticket_id: z.string().nullable(),
 });
 

@@ -100,6 +100,19 @@ export async function rowByRawBundleSha(env: SubmissionApiEnv, rawBundleSha256: 
   );
 }
 
+export async function listSubmissionsByStatus(
+  env: SubmissionApiEnv,
+  status: string,
+  limit: number,
+): Promise<readonly SubmissionRow[]> {
+  const rows = await env.DB.prepare(
+    `${rowSelectSql("status")} order by coalesce(uploaded_at, validated_at, published_at, created_at) desc, created_at desc limit ?`,
+  )
+    .bind(status, limit)
+    .all();
+  return rows.results.map((row) => SubmissionRowSchema.parse(row));
+}
+
 export function publicSubmission(row: SubmissionRow): Record<string, string | number | null> {
   return {
     bundle_schema_version: row.bundle_schema_version,
@@ -113,9 +126,9 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
   };
 }
 
-function rowSelectSql(column: "submission_id" | "raw_bundle_sha256"): string {
+function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "status"): string {
   return `select submission_id, ticket_id, status, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
-    raw_bundle_size_bytes, projection_sha256, publish_state
+    raw_bundle_size_bytes, projection_sha256, publish_state, suite_release_id, suite_manifest_sha256
     from submissions where ${column} = ?`;
 }
 

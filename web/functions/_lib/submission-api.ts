@@ -15,10 +15,12 @@ import {
   type SubmissionEnvelope,
   type TicketRequest,
 } from "./submission-contracts";
+import { adminBlocked, jsonResponse, logSubmissionError, routeRow, suiteMismatches } from "./submission-api-support";
 import { readRawBundle, signedUploadUrl } from "./submission-storage";
 import {
   applyStatusUpdate,
   insertTicketedSubmission,
+  listSubmissionsByStatus,
   markPendingVerification,
   publicSubmission,
   rowByRawBundleSha,
@@ -107,15 +109,42 @@ export async function handleFinalizeSubmission(
     if (bundle === null || !bundle.success) {
       return jsonResponse(400, { code: "invalid_result_bundle", error: "uploaded bundle does not match result_bundle_v1" });
     }
+    if (suiteMismatches(row.value, bundle.data)) {
+      return jsonResponse(409, { code: "suite_mismatch", error: "uploaded bundle suite does not match submission ticket" });
+    }
     await markPendingVerification(env, row.value.submission_id, bundle.data, parsed.data.size_bytes ?? bundleRead.text.length);
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     return jsonResponse(200, publicSubmission(updated ?? row.value));
   } catch (error) {
-    if (isSyntaxError(error)) {
-      return jsonResponse(500, { code: "submission_finalize_failed", error: "submission finalization failed" });
-    }
-    throw error;
+    logSubmissionError("submission_finalize_failed", {
+      error,
+      leg: "mark_pending_verification",
+      route: "POST /api/submissions/:submissionId/complete",
+      submissionId: row.value.submission_id,
+    });
+    return jsonResponse(500, { code: "submission_finalize_failed", error: "submission finalization failed" });
   }
+}
+
+export async function handleSubmissionStatus(env: SubmissionApiEnv, params: RouteParams): Promise<Response> {
+  const row = await routeRow(env, params);
+  if (row.kind !== "ok") {
+    return row.response;
+  }
+  return jsonResponse(200, publicSubmission(row.value));
+}
+
+export async function handleAdminListSubmissions(request: Request, env: SubmissionApiEnv): Promise<Response> {
+  const blocked = adminBlocked(request, env);
+  if (blocked !== null) {
+    return blocked;
+  }
+  const url = new URL(request.url);
+  const status = url.searchParams.get("status") ?? "pending_verification";
+  const requestedLimit = Number(url.searchParams.get("limit") ?? "20");
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 100) : 20;
+  const rows = await listSubmissionsByStatus(env, status, limit);
+  return jsonResponse(200, { submissions: rows.map((row) => publicSubmission(row)) });
 }
 
 export async function handleApplyVerificationUpdate(
@@ -138,9 +167,22 @@ export async function handleApplyVerificationUpdate(
   if (row.value.raw_bundle_sha256 !== parsed.data.raw_bundle_sha256) {
     return jsonResponse(409, { code: "bundle_sha_mismatch", error: "status update does not match submission bundle" });
   }
-  await applyStatusUpdate(env, row.value.submission_id, parsed.data);
-  const updated = await rowBySubmissionId(env, row.value.submission_id);
-  return jsonResponse(200, publicSubmission(updated ?? row.value));
+  try {
+    await applyStatusUpdate(env, row.value.submission_id, parsed.data);
+    const updated = await rowBySubmissionId(env, row.value.submission_id);
+    return jsonResponse(200, publicSubmission(updated ?? row.value));
+  } catch (error) {
+    logSubmissionError("submission_verification_update_failed", {
+      error,
+      leg: "apply_status_update",
+      route: "POST /api/admin/submissions/:submissionId/verification",
+      submissionId: row.value.submission_id,
+    });
+    return jsonResponse(500, {
+      code: "submission_verification_update_failed",
+      error: "submission verification update failed",
+    });
+  }
 }
 
 export async function handlePublishStateDecision(
@@ -171,8 +213,12 @@ function ticketEnvelope(request: TicketRequest): SubmissionEnvelope {
     accepted_suite_terms: true,
     allowed_schema: RESULT_BUNDLE_SCHEMA_VERSION,
     bundle_sha256: request.bundle_sha256,
-    expected_suite_manifest_sha256: request.expected_suite_manifest_sha256 ?? DEFAULT_SUITE_MANIFEST_SHA256,
-    expected_suite_release_id: request.expected_suite_release_id ?? DEFAULT_SUITE_RELEASE_ID,
+    expected_suite_manifest_sha256: request.expected_suite_manifest_sha256 === undefined
+      ? DEFAULT_SUITE_MANIFEST_SHA256
+      : request.expected_suite_manifest_sha256,
+    expected_suite_release_id: request.expected_suite_release_id === undefined
+      ? DEFAULT_SUITE_RELEASE_ID
+      : request.expected_suite_release_id,
     expiry: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     max_upload_bytes: request.max_upload_bytes ?? DEFAULT_MAX_UPLOAD_BYTES,
     one_use: true,
@@ -185,37 +231,6 @@ function ticketEnvelope(request: TicketRequest): SubmissionEnvelope {
     return envelope;
   }
   return { ...envelope, declared_model_slug: request.declared_model_slug };
-}
-
-type RouteRowResult =
-  | { readonly kind: "ok"; readonly value: Awaited<ReturnType<typeof rowBySubmissionId>> extends infer Row ? Exclude<Row, null> : never }
-  | { readonly kind: "error"; readonly response: Response };
-
-async function routeRow(env: SubmissionApiEnv, params: RouteParams): Promise<RouteRowResult> {
-  const submissionId = params.submissionId;
-  if (submissionId === undefined || submissionId.length === 0) {
-    return { kind: "error", response: jsonResponse(400, { code: "missing_submission_id", error: "submission id route param missing" }) };
-  }
-  const row = await rowBySubmissionId(env, submissionId);
-  if (row === null) {
-    return { kind: "error", response: jsonResponse(404, { code: "unknown_submission", error: "unknown submission" }) };
-  }
-  return { kind: "ok", value: row };
-}
-
-function adminBlocked(request: Request, env: SubmissionApiEnv): Response | null {
-  // Trim both sides: the admin secret is opaque with no meaningful surrounding whitespace, and
-  // secret-provisioning tools (e.g. piping to `wrangler pages secret put`) can append a trailing
-  // newline. HTTP header values cannot carry a newline anyway, so tolerate it rather than 401.
-  const expected = (env.ADMIN_API_SECRET ?? "").trim();
-  if (expected.length === 0) {
-    return jsonResponse(503, { code: "admin_api_disabled", error: "submission ticket issuance is disabled" });
-  }
-  const provided = (request.headers.get("x-localbench-admin-secret") ?? "").trim();
-  if (provided.length === 0 || provided !== expected) {
-    return jsonResponse(401, { code: "unauthorized", error: "unauthorized" });
-  }
-  return null;
 }
 
 function parseJson(text: string): unknown | null {
@@ -235,11 +250,4 @@ function isSyntaxError(error: unknown): boolean {
     return true;
   }
   return typeof error === "object" && error !== null && "name" in error && error.name === "SyntaxError";
-}
-
-function jsonResponse(status: number, body: unknown): Response {
-  return Response.json(body, {
-    headers: { "cache-control": "no-store" },
-    status,
-  });
 }

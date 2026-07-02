@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { handleFinalizeSubmission } from "../functions/_lib/submission-api";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv } from "../functions/_lib/submission-contracts";
@@ -35,23 +35,36 @@ describe("handleFinalizeSubmission", () => {
     const env = fakeEnv({
       runErrorMessage: "Expected property name or '}' in JSON at position 1",
     });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    // When: finalization reaches the D1 pending-verification update.
-    const response = await handleFinalizeSubmission(
-      jsonRequest(`/api/submissions/${TICKET_ID}/complete`, {
-        raw_bundle_sha256: RAW_BUNDLE_SHA,
-        size_bytes: RESULT_BUNDLE_JSON.length,
-      }),
-      env,
-      { submissionId: TICKET_ID },
-    );
+    try {
+      // When: finalization reaches the D1 pending-verification update.
+      const response = await handleFinalizeSubmission(
+        jsonRequest(`/api/submissions/${TICKET_ID}/complete`, {
+          raw_bundle_sha256: RAW_BUNDLE_SHA,
+          size_bytes: RESULT_BUNDLE_JSON.length,
+        }),
+        env,
+        { submissionId: TICKET_ID },
+      );
 
-    // Then: the Worker returns a structured JSON failure instead of throwing out of the route.
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({
-      code: "submission_finalize_failed",
-      error: "submission finalization failed",
-    });
+      // Then: the Worker returns a structured JSON failure and emits a safe breadcrumb.
+      expect(response.status).toBe(500);
+      expect(await response.json()).toMatchObject({
+        code: "submission_finalize_failed",
+        error: "submission finalization failed",
+      });
+      expect(errorSpy).toHaveBeenCalledWith(
+        "submission_finalize_failed",
+        expect.objectContaining({
+          leg: "mark_pending_verification",
+          route: "POST /api/submissions/:submissionId/complete",
+          submission_id: TICKET_ID,
+        }),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
 
@@ -119,6 +132,10 @@ class FakeD1Statement implements D1PreparedStatement {
     }
     return { success: true };
   }
+
+  async all(): Promise<{ readonly results: readonly Record<string, unknown>[] }> {
+    return { results: [] };
+  }
 }
 
 function ticketRow(): Record<string, unknown> {
@@ -131,6 +148,8 @@ function ticketRow(): Record<string, unknown> {
     raw_bundle_size_bytes: null,
     status: "ticketed",
     submission_id: TICKET_ID,
+    suite_manifest_sha256: SUITE_MANIFEST_SHA,
+    suite_release_id: SUITE_RELEASE_ID,
     ticket_id: TICKET_ID,
   };
 }
