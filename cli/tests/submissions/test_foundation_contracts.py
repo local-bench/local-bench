@@ -256,6 +256,32 @@ def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
     assert canonical_json_bytes(first) == canonical_json_bytes(second)
 
 
+def test_validate_submission_bundle_accepts_structured_determinism_policy(
+    tmp_path: Path,
+) -> None:
+    # Given: a publishable bundle whose determinism_policy is the structured object the
+    # serve-orchestrator records (not the legacy string form).
+    bundle = _synthetic_result_bundle(identity=True)
+    manifest = bundle["manifest"]
+    assert isinstance(manifest, dict)
+    sampling = manifest["sampling"]
+    assert isinstance(sampling, dict)
+    sampling["determinism_policy"] = {
+        "policy_id": "gpu-greedy-single-slot-v1",
+        "claim": "best-effort same-stack reproducibility; not bitwise cross-stack determinism",
+        "client": {"temperature": 0, "top_k": 1, "seed": 123, "concurrency": 1},
+    }
+    path = tmp_path / "structured.json"
+    path.write_text(json.dumps(bundle, sort_keys=True), encoding="utf-8")
+
+    # When: the authoritative validate-submission-bundle path validates it.
+    result = validate_submission_bundle(path)
+
+    # Then: a structured policy counts as present — no crash, no missing-policy blocker.
+    assert result["publishable"] is True
+    assert result["blocking_reasons"] == []
+
+
 def _synthetic_result_bundle(*, identity: bool) -> dict[str, object]:
     manifest = {
         "suite": {

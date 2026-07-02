@@ -267,7 +267,9 @@ def _blocking_reasons(
         reasons.append("runtime.identity_missing")
     if not _site_released(declared_suite):
         reasons.append("suite.not_site_released")
-    if reasons == [] and sampling.get("determinism_policy") in {None, ""}:
+    # Tuple membership, not set: orchestrated manifests record determinism_policy as a
+    # structured object, which is unhashable and only needs to count as "present".
+    if reasons == [] and sampling.get("determinism_policy") in (None, ""):
         reasons.append("sampler.determinism_policy_missing")
     return reasons
 
