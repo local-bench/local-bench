@@ -68,6 +68,24 @@ The ranked run then travels an already-proven path.
    `b` prefix), public-flip P1 items (preview-env hardening confirm, adversarial submission tests,
    D1 backup).
 
+## Progress log
+
+- **2026-07-02 (late)** — P0 done (leak fix `2f008bc` + vocab unification `ca6187e`); P1 done
+  (`7bd4da1`); P2 local half done (`31e8d04`; remote legs await wrangler re-auth); P3 pull-leg
+  proven (site fetch-suite, hash-verified). **NEW ROOT CAUSE found past the leak fix:** the first
+  capped-thinking mini-run deflated (ifbench 10%) because `bench` never wired
+  `--reasoning-activation`/`--hf-model-id` — the two-pass forcer silently ran QWEN machinery
+  (ChatML render, `</think>` stops) against Gemma; manifest honestly recorded
+  `qwen_thinking_native_v1`. NOT a server-budget issue (forcing runs on raw `/completions`,
+  server reasoning flags inert there; pinned argv unchanged). Fixed fail-closed per
+  `docs/foundations/bench-reasoning-activation-spec-2026-07-02.md`: bench flags (required for
+  capped-thinking, rejected otherwise) + publishable guards (registry entry must exist,
+  model_family must match `entry.model_match`, hf_model_id required). Validation mini-run
+  (10-item ifbench+tc_json, gemma4 activation): ifbench 10/10, tc_json 9/10, **20/20 per-item
+  verdict agreement with the June-29/30 pilot on identical items**, zero leaks/truncation,
+  registry entry `gemma4_thinking_native_v1` recorded. Canary (P3, ASK FIRST) is now unblocked;
+  its command MUST include `--reasoning-activation gemma4 --hf-model-id unsloth/gemma-4-12b-it`.
+
 ## Operating protocols (owner-confirmed 2026-07-02)
 - **GPU**: mini-runs ≤30 min (probes, serve-smokes, 20-item runs) = standing grant, announced
   before firing. Full runs (13h canary, agentic campaigns, ranked run) = explicit ask each time.

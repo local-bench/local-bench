@@ -409,6 +409,190 @@ def test_run_localbench_builds_hf_renderer_once_for_capped_thinking_config(
     asyncio.run(scenario())
 
 
+def test_publishable_capped_thinking_rejects_family_mismatch(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a publishable Gemma-family run is misconfigured with Qwen activation.
+        def unexpected_request(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"unexpected request: {request.url}")
+
+        # When / Then: orchestration fails closed before any request is sent.
+        with pytest.raises(
+            RuntimeError,
+            match=r"model family 'gemma4'.*activation 'qwen3'.*qwen_thinking_native_v1",
+        ):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    out=tmp_path / "mismatch.json",
+                    bench="mmlu_pro",
+                    max_items=1,
+                    lane="capped-thinking",
+                    publishable=True,
+                    model_family="gemma4",
+                    hf_model_id="unsloth/gemma-4-12b-it",
+                    reasoning_activation="qwen3",
+                ),
+                transport=httpx.MockTransport(unexpected_request),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_publishable_capped_thinking_accepts_matching_gemma_activation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class CountingRenderer:
+        def __init__(self) -> None:
+            self.render_count = 0
+
+        def render(self, messages: list[dict[str, str]]) -> str:
+            self.render_count += 1
+            return "<gemma-assistant>\n"
+
+    async def scenario() -> None:
+        # Given: a publishable Gemma-family capped-thinking run with an HF renderer configured.
+        renderer = CountingRenderer()
+        build_calls: list[tuple[str | None, str]] = []
+
+        def build_renderer(hf_model_id: str | None, activation: str) -> CountingRenderer:
+            build_calls.append((hf_model_id, activation))
+            return renderer
+
+        monkeypatch.setattr("localbench.orchestrate.build_forced_prompt_renderer", build_renderer)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            payload = json.loads(request.content)
+            if payload["stop"] == ["<channel|>"]:
+                return _raw_completion("<|channel>thought\nreasoning", "length", 1, 8)
+            return _raw_completion("Answer: A<turn|>", "stop", 1, 1)
+
+        # When: the orchestrator executes the publishable capped-thinking run.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                out=tmp_path / "gemma.json",
+                bench="mmlu_pro",
+                max_items=1,
+                lane="capped-thinking",
+                publishable=True,
+                model_family="gemma4",
+                hf_model_id="unsloth/gemma-4-12b-it",
+                reasoning_activation="gemma4",
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: the guard allows the run and records the resolved Gemma registry entry.
+        assert build_calls == [("unsloth/gemma-4-12b-it", "gemma4")]
+        assert renderer.render_count == 1
+        assert record["manifest"]["sampling"]["reasoning_registry_entry_id"] == (
+            "gemma4_thinking_native_v1"
+        )
+
+    asyncio.run(scenario())
+
+
+def test_publishable_capped_thinking_requires_hf_model_id(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a publishable capped-thinking run has no HF model id.
+        def unexpected_request(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"unexpected request: {request.url}")
+
+        # When / Then: orchestration fails before the ChatML fallback renderer can be used.
+        with pytest.raises(
+            RuntimeError,
+            match=r"publishable capped-thinking requires --hf-model-id",
+        ):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    out=tmp_path / "missing-hf.json",
+                    bench="mmlu_pro",
+                    max_items=1,
+                    lane="capped-thinking",
+                    publishable=True,
+                    model_family="gemma4",
+                    reasoning_activation="gemma4",
+                ),
+                transport=httpx.MockTransport(unexpected_request),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_publishable_capped_thinking_rejects_unranked_activation(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a publishable capped-thinking run requests an activation without a ranked entry.
+        def unexpected_request(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"unexpected request: {request.url}")
+
+        # When / Then: orchestration refuses the unranked registry configuration.
+        with pytest.raises(
+            RuntimeError,
+            match=r"no ranked reasoning-registry entry.*granite",
+        ):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    out=tmp_path / "granite.json",
+                    bench="mmlu_pro",
+                    max_items=1,
+                    lane="capped-thinking",
+                    publishable=True,
+                    hf_model_id="ibm-granite/granite-3.3-8b-instruct",
+                    reasoning_activation="granite",
+                ),
+                transport=httpx.MockTransport(unexpected_request),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_non_publishable_capped_thinking_keeps_default_diagnostic_renderer(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a non-publishable capped-thinking diagnostic run uses the legacy defaults.
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            payload = json.loads(request.content)
+            if payload["stop"] == ["</think>"]:
+                return _raw_completion("<think>\nreasoning", "length", 1, 8)
+            return _raw_completion("Answer: A", "stop", 1, 1)
+
+        # When: the run executes without publishable integrity constraints.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                out=tmp_path / "diagnostic.json",
+                bench="mmlu_pro",
+                max_items=1,
+                lane="capped-thinking",
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: back-compat keeps the Qwen fallback path available for diagnostics.
+        assert record["manifest"]["integrity"]["publishable"] is False
+        assert record["manifest"]["sampling"]["reasoning_registry_entry_id"] == (
+            "qwen_thinking_native_v1"
+        )
+
+    asyncio.run(scenario())
+
+
 def _mixed_handler(request: httpx.Request) -> httpx.Response:
     if request.url.path.endswith("/models"):
         return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})

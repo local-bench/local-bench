@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 import importlib.util
 import json
 import os
@@ -49,7 +50,6 @@ from localbench.campaign import (
 from localbench.campaign_checkpoints import (
     CompletedBench,
     ExpectedItemCheckpoint,
-    PartialItemCheckpoint,
     append_item_checkpoint,
     append_scored_checkpoint,
     completed_benches,
@@ -65,7 +65,7 @@ from localbench.prompt_rendering import (
     build_forced_prompt_renderer,
 )
 from localbench.providers import ReasoningEffort, provider_for_name
-from localbench.reasoning_registry import reasoning_entry_for_activation
+from localbench.reasoning_registry import ReasoningRegistryEntry, reasoning_entry_for_activation
 from localbench.reasoning_leaks import registry_leak_regexes
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
@@ -140,6 +140,14 @@ class UnsafeResumeError(RuntimeError):
     def __init__(self, detail: str) -> None:
         self.detail = detail
         super().__init__(detail)
+
+
+@dataclass(frozen=True, slots=True)
+class PublishableCappedThinkingError(RuntimeError):
+    detail: str
+
+    def __str__(self) -> str:
+        return self.detail
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,7 +351,7 @@ async def run_localbench(
         # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
         thinking_budget = _plumb_think_budget(scorable_benches, suite)
         if thinking_budget > 0:
-            reasoning_entry = reasoning_entry_for_activation(config.reasoning_activation)
+            reasoning_entry = _capped_thinking_reasoning_entry(config)
             if reasoning_entry is not None:
                 reasoning_registry_entry_id = reasoning_entry.id
                 reasoning_leak_regexes = registry_leak_regexes(reasoning_entry.conformance)
@@ -1298,6 +1306,59 @@ def _forced_prompt_renderer(config: OrchestrateConfig, provider_name: str) -> Pr
     if provider_name != "local" or config.lane != "capped-thinking":
         return None
     return build_forced_prompt_renderer(config.hf_model_id, config.reasoning_activation)
+
+
+def _capped_thinking_reasoning_entry(
+    config: OrchestrateConfig,
+) -> ReasoningRegistryEntry | None:
+    reasoning_entry = reasoning_entry_for_activation(config.reasoning_activation)
+    if not config.publishable:
+        return reasoning_entry
+    if reasoning_entry is None:
+        raise PublishableCappedThinkingError(
+            "publishable capped-thinking has no ranked reasoning-registry entry "
+            f"for activation {config.reasoning_activation!r}",
+        )
+    _require_reasoning_family_match(config, reasoning_entry)
+    if config.hf_model_id is None:
+        raise PublishableCappedThinkingError(
+            "publishable capped-thinking requires --hf-model-id; "
+            "the ChatML fallback renderer is only valid for diagnostic runs",
+        )
+    return reasoning_entry
+
+
+def _require_reasoning_family_match(
+    config: OrchestrateConfig,
+    reasoning_entry: ReasoningRegistryEntry,
+) -> None:
+    model_family = config.model_family
+    if model_family is None or model_family == "":
+        return
+    if _reasoning_family_matches(model_family, reasoning_entry.model_match):
+        return
+    patterns = ", ".join(reasoning_entry.model_match)
+    raise PublishableCappedThinkingError(
+        f"publishable capped-thinking model family {model_family!r} does not match "
+        f"activation {config.reasoning_activation!r} reasoning-registry entry "
+        f"{reasoning_entry.id!r} patterns: {patterns}",
+    )
+
+
+def _reasoning_family_matches(model_family: str, patterns: tuple[str, ...]) -> bool:
+    family = model_family.casefold()
+    for pattern in patterns:
+        candidate = pattern.casefold()
+        if _has_glob_syntax(candidate):
+            if fnmatch.fnmatchcase(family, candidate):
+                return True
+        elif family == candidate:
+            return True
+    return False
+
+
+def _has_glob_syntax(pattern: str) -> bool:
+    return any(char in pattern for char in "*?[]")
 
 
 def _audit_forced_cap_hits(items: list[ScoredItem], forcing_active: bool) -> list[str]:

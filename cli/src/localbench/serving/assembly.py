@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Final, assert_never
 
 from localbench._suite import read_json_object
-from localbench._types import JsonObject
 from localbench.orchestrate import LaneChoice
 from localbench.run_plan import resolve_run_benches
 from localbench.serving.bench import BenchRunConfig
@@ -89,6 +88,8 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         out=output_path,
         resume=options.resume,
         max_items=options.max_items,
+        reasoning_activation=options.reasoning_activation,
+        hf_model_id=options.hf_model_id,
     )
 
 

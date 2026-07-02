@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Literal
 
 from localbench._types import JsonObject
-from localbench.orchestrate import LaneChoice, OrchestrateConfig, TierChoice
+from localbench.orchestrate import (
+    LaneChoice,
+    OrchestrateConfig,
+    ReasoningActivationChoice,
+    TierChoice,
+)
 from localbench.serving.provenance import DETERMINISM_POLICY_ID, ServingEvidence
 
 
@@ -24,6 +29,8 @@ class BenchRunConfig:
     out: Path
     resume: Path | None
     max_items: int | None = None
+    reasoning_activation: ReasoningActivationChoice | None = None
+    hf_model_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +59,8 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         suite_source=config.suite_source,
         lane=config.lane,
         provider="local",
+        hf_model_id=config.hf_model_id,
+        reasoning_activation=config.reasoning_activation or "qwen3",
         resume=config.resume,
         max_items=config.max_items,
         publishable=True,

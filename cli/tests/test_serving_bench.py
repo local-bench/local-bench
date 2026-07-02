@@ -180,6 +180,39 @@ def test_bench_parser_accepts_max_items_flag() -> None:
     assert args.max_items == 10
 
 
+def test_bench_parser_accepts_capped_thinking_reasoning_flags() -> None:
+    # Given the bench subcommand's required arguments plus capped-thinking family flags.
+    parser = _parser()
+
+    # When parsing the CLI surface.
+    args = parser.parse_args(
+        [
+            "bench",
+            "--runtime",
+            "llama.cpp",
+            "--model-file",
+            "model.gguf",
+            "--model-id",
+            "gemma",
+            "--ctx",
+            "32768",
+            "--seed",
+            "1234",
+            "--lane",
+            "capped-thinking",
+            "--reasoning-activation",
+            "gemma4",
+            "--hf-model-id",
+            "unsloth/gemma-4-12b-it",
+        ]
+    )
+
+    # Then both values are available to the bench command.
+    assert args.command == "bench"
+    assert args.reasoning_activation == "gemma4"
+    assert args.hf_model_id == "unsloth/gemma-4-12b-it"
+
+
 def test_validate_strict_argv_supported_fails_closed_when_help_omits_required_flag(
     tmp_path: Path,
 ) -> None:
@@ -328,6 +361,8 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
         out=tmp_path / "run" / "localbench-run.json",
         resume=None,
         max_items=10,
+        reasoning_activation="gemma4",
+        hf_model_id="unsloth/gemma-4-12b-it",
     )
 
     # When: building the inner run_localbench config.
@@ -340,6 +375,8 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
     assert inner.sampler_top_k == 1
     assert inner.sampler_seed == 1234
     assert inner.max_items == 10
+    assert inner.reasoning_activation == "gemma4"
+    assert inner.hf_model_id == "unsloth/gemma-4-12b-it"
     assert inner.runtime_name == "llama.cpp"
     assert inner.runtime_backend == "cuda"
     assert inner.parallel_slots == 1
@@ -374,6 +411,8 @@ def test_serving_bench_config_threads_max_items_to_inner_orchestrate_config(tmp_
         seed=1234,
         out=tmp_path / "run",
         max_items=10,
+        reasoning_activation="gemma4",
+        hf_model_id="unsloth/gemma-4-12b-it",
     )
     evidence = serving_evidence(tmp_path, teardown_terminated=True)
 
@@ -383,7 +422,11 @@ def test_serving_bench_config_threads_max_items_to_inner_orchestrate_config(tmp_
 
     # Then the same cap used by the run command reaches OrchestrateConfig.
     assert bench_run.max_items == 10
+    assert bench_run.reasoning_activation == "gemma4"
+    assert bench_run.hf_model_id == "unsloth/gemma-4-12b-it"
     assert inner.max_items == 10
+    assert inner.reasoning_activation == "gemma4"
+    assert inner.hf_model_id == "unsloth/gemma-4-12b-it"
 
 
 def test_capped_thinking_ctx_guard_rejects_context_below_suite_budget(tmp_path: Path) -> None:

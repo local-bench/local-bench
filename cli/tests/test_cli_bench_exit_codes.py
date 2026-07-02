@@ -33,7 +33,75 @@ def test_bench_returns_dedicated_exit_code_for_resume_and_checkpoint_errors(
     assert cli_mod._bench(_bench_args()) == expected_exit
 
 
-def _bench_args() -> argparse.Namespace:
+def test_bench_capped_thinking_requires_reasoning_flags(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: capped-thinking is requested without the family activation flags.
+    launched = False
+
+    def fake_anyio_run(function, options) -> None:
+        nonlocal launched
+        launched = True
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    # When: the bench command is validated.
+    code = cli_mod._bench(_bench_args(lane="capped-thinking"))
+
+    # Then: it fails as a usage error before launch and names both missing flags.
+    stderr = capsys.readouterr().err
+    assert code == 2
+    assert launched is False
+    assert "--reasoning-activation" in stderr
+    assert "--hf-model-id" in stderr
+
+
+@pytest.mark.parametrize(
+    ("hf_model_id", "reasoning_activation", "expected_flag"),
+    (
+        ("unsloth/gemma-4-12b-it", None, "--hf-model-id"),
+        (None, "gemma4", "--reasoning-activation"),
+    ),
+)
+def test_bench_answer_only_rejects_reasoning_flags(
+    hf_model_id: str | None,
+    reasoning_activation: str | None,
+    expected_flag: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: answer-only is requested with a capped-thinking-only flag.
+    launched = False
+
+    def fake_anyio_run(function, options) -> None:
+        nonlocal launched
+        launched = True
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    # When: the bench command is validated.
+    code = cli_mod._bench(
+        _bench_args(
+            hf_model_id=hf_model_id,
+            reasoning_activation=reasoning_activation,
+        ),
+    )
+
+    # Then: it fails as a usage error before launch and names the rejected flag.
+    stderr = capsys.readouterr().err
+    assert code == 2
+    assert launched is False
+    assert expected_flag in stderr
+    assert "capped-thinking" in stderr
+
+
+def _bench_args(
+    *,
+    lane: str = "answer-only",
+    hf_model_id: str | None = None,
+    reasoning_activation: str | None = None,
+) -> argparse.Namespace:
     return argparse.Namespace(
         runtime="llama.cpp",
         model_file=Path("model.gguf"),
@@ -44,7 +112,7 @@ def _bench_args() -> argparse.Namespace:
         determinism="strict",
         tier="standard",
         bench="all",
-        lane="answer-only",
+        lane=lane,
         seed=1234,
         max_items=None,
         suite="core-text-v1",
@@ -55,4 +123,6 @@ def _bench_args() -> argparse.Namespace:
         cache_dir=None,
         threads=8,
         threads_batch=8,
+        hf_model_id=hf_model_id,
+        reasoning_activation=reasoning_activation,
     )

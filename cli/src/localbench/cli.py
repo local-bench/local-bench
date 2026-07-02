@@ -47,6 +47,7 @@ from localbench.campaign_checkpoints import CheckpointCorruptionError, completed
 from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.persistence import atomic_write_json
+from localbench.prompt_rendering import REASONING_ACTIVATIONS
 from localbench.providers import provider_choices
 from localbench.run_plan import resolve_run_benches
 from localbench.scoring.paired_delta import (
@@ -107,13 +108,7 @@ _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
     "high",
     "xhigh",
 )
-_REASONING_ACTIVATION_CHOICES: Final[tuple[ReasoningActivationChoice, ...]] = (
-    "qwen3",
-    "granite",
-    "nemotron",
-    "r1",
-    "gemma4",
-)
+_REASONING_ACTIVATION_CHOICES: Final[tuple[ReasoningActivationChoice, ...]] = REASONING_ACTIVATIONS
 _NO_SCORABLE_BENCH: Final = "__localbench_no_scorable_bench__"
 ScorerGate: TypeAlias = tuple[RenderedBench, str, str]
 
@@ -260,6 +255,17 @@ def _parser() -> argparse.ArgumentParser:
         "--lane",
         choices=("answer-only", "capped-thinking", "api-uncapped"),
         default="answer-only",
+    )
+    bench_parser.add_argument(
+        "--reasoning-activation",
+        choices=REASONING_ACTIVATIONS,
+        default=None,
+        help="model-family activation used with --hf-model-id in local capped-thinking",
+    )
+    bench_parser.add_argument(
+        "--hf-model-id",
+        default=None,
+        help="served model HF repo for local capped-thinking chat-template rendering",
     )
     bench_parser.add_argument("--seed", type=int, required=True)
     bench_parser.add_argument("--max-items", type=int)
@@ -684,6 +690,10 @@ def _append_optional(command: list[str], flag: str, value: object | None) -> Non
 
 
 def _bench(args: argparse.Namespace) -> int:
+    usage_error = _bench_reasoning_usage_error(args)
+    if usage_error is not None:
+        print(f"error      {usage_error}", file=sys.stderr)
+        return 2
     try:
         record = anyio.run(
             run_orchestrated_bench,
@@ -708,6 +718,8 @@ def _bench(args: argparse.Namespace) -> int:
                 cache_dir=args.cache_dir,
                 threads=args.threads,
                 threads_batch=args.threads_batch,
+                reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
+                hf_model_id=args.hf_model_id,
             ),
         )
     except NotImplementedError as error:
@@ -724,6 +736,34 @@ def _bench(args: argparse.Namespace) -> int:
         return EXIT_INTERNAL_RUNNER_BUG
     _print_summary(record)
     return EXIT_COMPLETE
+
+
+def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
+    reasoning_activation = args.reasoning_activation
+    hf_model_id = args.hf_model_id
+    if args.lane == "capped-thinking":
+        missing: list[str] = []
+        if reasoning_activation is None:
+            missing.append("--reasoning-activation")
+        if hf_model_id is None:
+            missing.append("--hf-model-id")
+        if missing:
+            return f"--lane capped-thinking requires {_joined_flags(missing)}"
+        return None
+    rejected: list[str] = []
+    if reasoning_activation is not None:
+        rejected.append("--reasoning-activation")
+    if hf_model_id is not None:
+        rejected.append("--hf-model-id")
+    if rejected:
+        return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking"
+    return None
+
+
+def _joined_flags(flags: list[str]) -> str:
+    if len(flags) == 1:
+        return flags[0]
+    return f"{', '.join(flags[:-1])} and {flags[-1]}"
 
 
 def _validate_result_bundle_command(args: argparse.Namespace) -> int:
@@ -1636,6 +1676,12 @@ def _reasoning_activation(value: str) -> ReasoningActivationChoice:
             return "gemma4"
         case _:
             raise argparse.ArgumentTypeError(f"unsupported reasoning activation: {value}")
+
+
+def _optional_reasoning_activation(value: str | None) -> ReasoningActivationChoice | None:
+    if value is None:
+        return None
+    return _reasoning_activation(value)
 
 
 def _print_summary(record: LocalbenchRun) -> None:

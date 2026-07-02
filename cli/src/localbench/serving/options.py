@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from localbench.orchestrate import LaneChoice, TierChoice
+from localbench.orchestrate import LaneChoice, ReasoningActivationChoice, TierChoice
 from localbench.suite_resolver import DEFAULT_SUITE_ID
 
 
@@ -29,3 +29,5 @@ class ServeBenchOptions:
     cache_dir: Path | None = None
     threads: int = 8
     threads_batch: int = 8
+    reasoning_activation: ReasoningActivationChoice | None = None
+    hf_model_id: str | None = None
