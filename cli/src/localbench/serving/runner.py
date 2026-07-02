@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import subprocess
 import secrets
+from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench._suite import read_json_object
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
+from localbench.run_plan import resolve_run_benches
+from localbench.suite_resolver import resolve_suite_dir
 from localbench.serving.assembly import (
     bench_config,
     llama_cpp_reasoning_for_lane,
@@ -34,6 +38,12 @@ from localbench.serving.provenance import (
 )
 from localbench.serving.readiness import verify_llama_cpp_readiness
 from localbench.serving.teardown import TeardownEvidence, teardown_owned_server
+from localbench.scoring.agentic_exec.wsl_bridge import (
+    WslPreflightResult,
+    default_wsl_repo_path,
+    preflight_wsl_agentic,
+    wsl_sandbox_factory,
+)
 from localbench.submissions.foundation import normalize_result_bundle
 
 
@@ -104,6 +114,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         parallel_slots=1,
         flash_attention=launch_config.flash_attn,
     )
+    agentic_preflight = _preflight_agentic_if_needed(options, root)
     launched: LaunchedServer | None = None
     teardown: TeardownEvidence | None = None
     try:
@@ -130,7 +141,37 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             identity=identity,
             root=root,
         )
-        await run_localbench(build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence))
+        agentic_sandbox_factory = None
+        agentic_model_factory = None
+        agentic_task_ids = None
+        agentic_provenance_extra = None
+        if agentic_preflight is not None:
+            from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
+
+            repo_root = _repo_root()
+            repo_root_wsl = default_wsl_repo_path(repo_root)
+            log_dir = root / "agentic" / "wsl-worker-logs"
+            agentic_sandbox_factory = wsl_sandbox_factory(
+                repo_root_wsl,
+                options.wsl_venv_python,
+                options.appworld_root,
+                log_dir=log_dir,
+            )
+            agentic_model_factory = chat_client_factory(
+                f"http://127.0.0.1:{port}/v1",
+                options.model_id,
+                api_key=api_key,
+                chat_template_kwargs={"enable_thinking": True},
+            )
+            agentic_task_ids = list(agentic_preflight.task_ids)
+            agentic_provenance_extra = agentic_preflight.provenance()
+        await run_localbench(
+            build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence),
+            agentic_sandbox_factory=agentic_sandbox_factory,
+            agentic_model_factory=agentic_model_factory,
+            agentic_task_ids=agentic_task_ids,
+            agentic_provenance_extra=agentic_provenance_extra,
+        )
     finally:
         if launched is not None:
             teardown = teardown_owned_server(
@@ -163,3 +204,55 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     )
     atomic_write_json(updated, output_path)
     return updated
+
+
+def _preflight_agentic_if_needed(
+    options: ServeBenchOptions,
+    root: Path,
+) -> WslPreflightResult | None:
+    if not _needs_wsl_agentic(options):
+        return None
+    repo_root = _repo_root()
+    return preflight_wsl_agentic(
+        repo_root_wsl_path=default_wsl_repo_path(repo_root),
+        venv_python=options.wsl_venv_python,
+        appworld_root=options.appworld_root,
+        log_dir=root / "agentic" / "wsl-worker-logs",
+        expected_git_commit=_git_head(repo_root),
+        max_items=options.max_items,
+    )
+
+
+def _needs_wsl_agentic(options: ServeBenchOptions) -> bool:
+    if options.runtime != "llama.cpp":
+        return False
+    suite_ref = resolve_suite_dir(
+        suite_id=options.suite,
+        suite_dir=options.suite_dir,
+        accept_suite_terms=False,
+        source=options.suite_source,
+        cache_root=options.cache_dir,
+    )
+    suite = read_json_object(suite_ref.path / "suite.json")
+    return "appworld_c" in resolve_run_benches(options.bench, suite)
+
+
+def _repo_root() -> Path:
+    start = Path(__file__).resolve()
+    for parent in start.parents:
+        if (parent / ".git").exists():
+            return parent
+    return start.parents[4]
+
+
+def _git_head(repo_root: Path) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()

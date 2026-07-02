@@ -247,6 +247,7 @@ class AppWorldSandbox:
             text=True,
             env=env,
             start_new_session=True,
+            preexec_fn=_make_pdeathsig_preexec(),  # noqa: PLW1509 — POSIX-only, intended.
         )
         threading.Thread(target=self._drain, args=(self._env_proc.stderr, self._env_stderr),
                          daemon=True).start()
@@ -572,6 +573,31 @@ def _wait_for_process_exit(proc: subprocess.Popen[Any] | None) -> None:
         proc.wait(timeout=5)
     except (subprocess.TimeoutExpired, OSError):
         pass
+
+
+def _make_pdeathsig_preexec() -> Any:
+    """Return a preexec_fn that tethers the child to its parent's death (Linux only).
+
+    The env host runs in its own session (``start_new_session=True``) so group-kill
+    teardown works — but that also means it survives a hard kill of its parent (e.g.
+    the WSL bridge worker dying mid-task) and orphans the AppWorld world. PDEATHSIG
+    persists across exec and makes the kernel deliver SIGKILL the moment the parent
+    dies; lifecycle-only, no change to the sandbox security semantics.
+    """
+    if not sys.platform.startswith("linux"):
+        return None
+
+    def _preexec() -> None:  # pragma: no cover - exercised only under WSL/Linux at runtime.
+        try:
+            import ctypes
+            import signal as _signal
+
+            PR_SET_PDEATHSIG = 1
+            ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, _signal.SIGKILL, 0, 0, 0)
+        except Exception:  # noqa: BLE001 — best effort; close()/force_kill remain the primary path.
+            pass
+
+    return _preexec
 
 
 def _make_rlimit_preexec(config: SandboxConfig) -> Any:

@@ -20,10 +20,11 @@ from localbench.serving.llama_cpp import (
     strict_llama_cpp_argv,
     validate_strict_argv_supported,
 )
-from localbench.serving.model_artifact import resolve_model_file_artifact
+from localbench.serving.model_artifact import ModelArtifact, resolve_model_file_artifact
 from localbench.serving.readiness import ReadinessEvidence
 from localbench.serving.readiness import verify_llama_cpp_readiness
 from localbench.serving.options import ServeBenchOptions
+from localbench.serving.llama_cpp import BuildIdentity
 from localbench.serving.runner import run_orchestrated_bench
 from localbench.serving.teardown import TeardownEvidence
 from localbench.cli import _parser
@@ -464,6 +465,39 @@ def test_bench_parser_accepts_capped_thinking_reasoning_flags() -> None:
     assert args.hf_model_id == "unsloth/gemma-4-12b-it"
 
 
+def test_bench_parser_accepts_wsl_agentic_flags() -> None:
+    # Given the bench subcommand's required arguments plus the WSL AppWorld knobs.
+    parser = _parser()
+
+    # When parsing the CLI surface.
+    args = parser.parse_args(
+        [
+            "bench",
+            "--runtime",
+            "llama.cpp",
+            "--model-file",
+            "model.gguf",
+            "--model-id",
+            "gemma",
+            "--ctx",
+            "32768",
+            "--seed",
+            "1234",
+            "--bench",
+            "appworld_c",
+            "--wsl-venv-python",
+            "~/appworld-harness/venv/bin/python3",
+            "--appworld-root",
+            "/home/michael/appworld-data",
+        ],
+    )
+
+    # Then the values are available to the bench command.
+    assert args.command == "bench"
+    assert args.wsl_venv_python == "~/appworld-harness/venv/bin/python3"
+    assert args.appworld_root == "/home/michael/appworld-data"
+
+
 def test_validate_strict_argv_supported_fails_closed_when_help_omits_required_flag(
     tmp_path: Path,
 ) -> None:
@@ -752,3 +786,85 @@ def test_capped_thinking_ctx_guard_allows_context_at_suite_budget(tmp_path: Path
 
     # When / Then: a compliant ctx passes without raising.
     assembly.validate_capped_thinking_context(options)
+
+
+def test_orchestrated_agentic_preflight_runs_before_server_launch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        # Given: an appworld_c bench run where the WSL preflight fails.
+        model = tmp_path / "model.gguf"
+        model.write_bytes(b"GGUF")
+        server = tmp_path / "llama-server.exe"
+        server.write_bytes(b"server")
+        options = ServeBenchOptions(
+            runtime="llama.cpp",
+            model_file=model,
+            model_ref=None,
+            model_id="gemma",
+            server_bin=server,
+            ctx=32768,
+            determinism="strict",
+            tier="standard",
+            bench="appworld_c",
+            lane="capped-thinking",
+            seed=1234,
+            out=tmp_path / "run",
+            max_items=1,
+        )
+        calls: list[str] = []
+
+        artifact = ModelArtifact(
+            model_file=model,
+            file_sha256="0" * 64,
+            file_size_bytes=4,
+            model_format="GGUF",
+            model_family="gemma",
+            quant_label="Q4_K_M",
+            gguf_metadata_path=tmp_path / "metadata.json",
+            gguf_metadata_sha256="1" * 64,
+            tokenizer_digest="2" * 64,
+            chat_template_digest="3" * 64,
+        )
+        build = BuildIdentity(
+            executable_sha256="4" * 64,
+            dll_or_so_hashes={},
+            version_stdout="llama.cpp b9852 fd1a05791",
+            help_text="--model\n--alias\n",
+            help_text_sha256="5" * 64,
+            source_repo=None,
+            source_commit="fd1a05791",
+            source_tag="b9852",
+            build_flags={},
+            list_devices_stdout="CUDA0 RTX 5090",
+            cuda_version=None,
+        )
+
+        import localbench.serving.runner as runner
+
+        monkeypatch.setattr(runner, "resolve_artifact", lambda _options, _root: artifact)
+        monkeypatch.setattr(runner, "server_bin", lambda _options: server)
+        monkeypatch.setattr(runner, "collect_build_identity", lambda _binary: build)
+        monkeypatch.setattr(runner, "allocate_port", lambda: 49152)
+        monkeypatch.setattr(runner, "strict_llama_cpp_argv", lambda _config: [str(server)])
+        monkeypatch.setattr(runner, "validate_strict_argv_supported", lambda _argv, _help: None)
+        monkeypatch.setattr(runner, "server_fingerprint", lambda **_kwargs: "fp")
+
+        def fail_preflight(**_kwargs: object) -> object:
+            calls.append("preflight")
+            raise RuntimeError("wsl preflight failed")
+
+        def launch_server(*_args: object, **_kwargs: object) -> object:
+            calls.append("launch")
+            raise AssertionError("server launch must not happen after failed WSL preflight")
+
+        monkeypatch.setattr(runner, "preflight_wsl_agentic", fail_preflight)
+        monkeypatch.setattr(runner, "launch_llama_cpp", launch_server)
+
+        # When / Then: preflight fails closed before the model server is launched.
+        with pytest.raises(RuntimeError, match="wsl preflight failed"):
+            await run_orchestrated_bench(options)
+        assert calls == ["preflight"]
+
+    asyncio.run(scenario())

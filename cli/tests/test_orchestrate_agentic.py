@@ -53,6 +53,18 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             agentic_sandbox_factory=_fake_appworld_sandbox_factory,
             agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
             agentic_task_ids=["fac291d_1", "50e1ac9_1"],
+            agentic_provenance_extra={
+                "topology": {
+                    "scorecard_assembly": "single-campaign-no-merge",
+                    "model_call_location": "windows_campaign_process",
+                },
+                "wsl_identity": {"worker_git_commit": "abc123", "worker_dirty_tree": False},
+                "agentic_sandbox_identity": {
+                    "bubblewrap_path": "/home/michael/.local/bin/bwrap",
+                    "appworld_root": "/home/michael/appworld-data",
+                },
+                "single_campaign_integrity": {"merge_step_used": False},
+            },
         )
 
         # Then appworld_c is measured and participates as the 0.60 headline axis.
@@ -94,6 +106,15 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
         assert isinstance(agentic_run["subset_hash"], str)
         assert agentic_run["subset_hash"]
         assert agentic_run["stage"] == "injected"
+        assert agentic_run["topology"] == {
+            "scorecard_assembly": "single-campaign-no-merge",
+            "model_call_location": "windows_campaign_process",
+        }
+        assert agentic_run["wsl_identity"]["worker_git_commit"] == "abc123"
+        assert agentic_run["agentic_sandbox_identity"]["appworld_root"] == (
+            "/home/michael/appworld-data"
+        )
+        assert agentic_run["single_campaign_integrity"] == {"merge_step_used": False}
         agentic_runs = agentic_run["runs"]
         assert isinstance(agentic_runs, list)
         assert len(agentic_runs) == 2

@@ -244,6 +244,7 @@ async def run_localbench(
     agentic_sandbox_factory: SandboxFactory | None = None,
     agentic_model_factory: ModelFactory | None = None,
     agentic_task_ids: list[str] | None = None,
+    agentic_provenance_extra: JsonObject | None = None,
 ) -> LocalbenchRun:
     """Run selected suite benches, score responses, write JSON, and return the record."""
     suite_ref = resolve_suite_dir(
@@ -553,6 +554,7 @@ async def run_localbench(
             model_factory=agentic_model_factory,
             task_ids=agentic_task_ids,
             results_dir=_agentic_results_dir(output_path),
+            provenance_extra=agentic_provenance_extra,
         )
         if agentic_outcome is None:
             agentic_unavailable_detail = _agentic_warning_since(warnings, warning_start)
@@ -1203,6 +1205,7 @@ def _run_agentic_axis(
     model_factory: ModelFactory | None = None,
     task_ids: list[str] | None = None,
     results_dir: Path | None = None,
+    provenance_extra: JsonObject | None = None,
 ) -> AgenticOutcome | None:
     injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
     resolved_sandbox_factory = sandbox_factory
@@ -1273,22 +1276,25 @@ def _run_agentic_axis(
         chat_template_kwargs=chat_template_kwargs,
     )
     last_report = agg.runs[-1].report
+    provenance: JsonObject = {
+        "campaign": True,
+        "single_pass": False,
+        "asr_series": list(agg.asr_series),
+        "mean_asr": agg.mean_asr,
+        "max_abs_delta_pp": agg.max_abs_delta_pp,
+        "triggered_third_run": agg.triggered_third_run,
+        "subset_size": subset.size,
+        "subset_hash": subset.manifest_hash,
+        "stage": provenance_stage,
+        "diagnostics": _appworld_report_summary(last_report),
+        "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
+    }
+    if provenance_extra is not None:
+        provenance.update(provenance_extra)
     return AgenticOutcome(
         aggregate=_appworld_campaign_aggregate(agg, subset.size),
         items=_appworld_report_to_items(last_report),
-        provenance={
-            "campaign": True,
-            "single_pass": False,
-            "asr_series": list(agg.asr_series),
-            "mean_asr": agg.mean_asr,
-            "max_abs_delta_pp": agg.max_abs_delta_pp,
-            "triggered_third_run": agg.triggered_third_run,
-            "subset_size": subset.size,
-            "subset_hash": subset.manifest_hash,
-            "stage": provenance_stage,
-            "diagnostics": _appworld_report_summary(last_report),
-            "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
-        },
+        provenance=provenance,
     )
 
 

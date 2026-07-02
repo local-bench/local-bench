@@ -45,3 +45,6 @@ localbench = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["-ra", "--strict-config", "--strict-markers"]
+markers = [
+  "wsl: requires WSL2 AppWorld harness and bubblewrap",
+]

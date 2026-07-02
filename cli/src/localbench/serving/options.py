@@ -32,3 +32,5 @@ class ServeBenchOptions:
     threads_batch: int = 8
     reasoning_activation: ReasoningActivationChoice | None = None
     hf_model_id: str | None = None
+    wsl_venv_python: str = "~/appworld-harness/venv/bin/python3"
+    appworld_root: str = "/home/michael/appworld-data"

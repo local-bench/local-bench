@@ -269,6 +269,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     bench_parser.add_argument("--seed", type=int, required=True)
     bench_parser.add_argument("--max-items", type=int)
+    bench_parser.add_argument(
+        "--wsl-venv-python",
+        default="~/appworld-harness/venv/bin/python3",
+        help="WSL Python used for the AppWorld-C worker",
+    )
+    bench_parser.add_argument(
+        "--appworld-root",
+        default="/home/michael/appworld-data",
+        help="WSL-native APPWORLD_ROOT for AppWorld-C",
+    )
     bench_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     bench_parser.add_argument("--suite-source", type=Path)
     bench_parser.add_argument("--suite-dir", type=Path)
@@ -721,6 +731,12 @@ def _bench(args: argparse.Namespace) -> int:
         threads_batch=args.threads_batch,
         reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
         hf_model_id=args.hf_model_id,
+        wsl_venv_python=getattr(
+            args,
+            "wsl_venv_python",
+            "~/appworld-harness/venv/bin/python3",
+        ),
+        appworld_root=getattr(args, "appworld_root", "/home/michael/appworld-data"),
     )
     try:
         record = anyio.run(

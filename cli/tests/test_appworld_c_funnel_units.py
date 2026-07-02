@@ -132,6 +132,50 @@ def test_chat_client_maps_length_finish_reason(monkeypatch: pytest.MonkeyPatch) 
     assert resp.text == "trunc"
 
 
+def test_chat_client_ignores_deepseek_reasoning_content_and_forwards_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: llama-server's deepseek-shaped chat response with reasoning_content beside content.
+    client = ChatCompletionsClient(
+        "http://127.0.0.1:8000",
+        "m",
+        chat_template_kwargs={"enable_thinking": True},
+    )
+    captured: dict[str, object] = {}
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "reasoning_content": "private chain of thought",
+                        "content": "```python\nprint(7)\n```",
+                    },
+                    "finish_reason": "length",
+                },
+            ],
+            "usage": {"completion_tokens": 33},
+        },
+    )
+
+    def fake_post(payload: dict[str, object]) -> tuple[int, str]:
+        captured["payload"] = payload
+        return 200, body
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    # When: parsing the response through the client.
+    resp = client.complete([{"role": "user", "content": "go"}], GenerationParams())
+
+    # Then: only content becomes the assistant turn, finish_reason is faithful, and thinking kwargs
+    # are forwarded on the request body.
+    assert resp.text == "```python\nprint(7)\n```"
+    assert "private chain of thought" not in resp.text
+    assert resp.finish_reason == "length"
+    assert resp.output_tokens == 33
+    assert captured["payload"]["chat_template_kwargs"] == {"enable_thinking": True}  # type: ignore[index]
+
+
 def test_chat_client_non_200_is_format_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
     monkeypatch.setattr(client, "_post", lambda p: (500, "internal error"))
