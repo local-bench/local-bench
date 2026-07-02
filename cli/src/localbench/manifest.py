@@ -9,7 +9,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal, TypeAlias
 
 import httpx
 
@@ -26,6 +26,7 @@ _RUNTIME_FIELDS: Final = (
     "runtime.ctx_len_configured", "runtime.parallel_slots",
 )
 _LANES: Final = {"answer-only", "capped-thinking", "api-uncapped"}
+ModelIdentitySource: TypeAlias = Literal["gguf.embedded", "external.file", "server.override"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +60,10 @@ class ManifestContext:
     model_format: str | None = None
     tokenizer_file: Path | None = None
     chat_template_file: Path | None = None
+    tokenizer_digest: str | None = None
+    tokenizer_digest_source: ModelIdentitySource | None = None
+    chat_template_digest: str | None = None
+    chat_template_digest_source: ModelIdentitySource | None = None
     runtime_name: str | None = None
     runtime_version: str | None = None
     kv_cache_quant: str | None = None
@@ -192,6 +197,18 @@ def _model_id(data: JsonValue, requested_model: str) -> str | None:
 
 def _model_identity(context: ManifestContext) -> JsonObject:
     model_file = context.model_file
+    tokenizer_digest, tokenizer_digest_source = _digest_with_source(
+        context.tokenizer_digest,
+        context.tokenizer_digest_source,
+        context.tokenizer_file,
+        "external.file",
+    )
+    chat_template_digest, chat_template_digest_source = _digest_with_source(
+        context.chat_template_digest,
+        context.chat_template_digest_source,
+        context.chat_template_file,
+        "external.file",
+    )
     return {
         "family": context.model_family,
         "quant_label": context.quant_label,
@@ -199,8 +216,10 @@ def _model_identity(context: ManifestContext) -> JsonObject:
         "file_size_bytes": None if model_file is None else model_file.stat().st_size,
         "file_sha256": None if model_file is None else sha256_file(model_file),
         "format": context.model_format,
-        "tokenizer_digest": _optional_file_hash(context.tokenizer_file),
-        "chat_template_digest": _optional_file_hash(context.chat_template_file),
+        "tokenizer_digest": tokenizer_digest,
+        "tokenizer_digest_source": tokenizer_digest_source,
+        "chat_template_digest": chat_template_digest,
+        "chat_template_digest_source": chat_template_digest_source,
     }
 
 
@@ -222,6 +241,19 @@ def _runtime_identity(context: ManifestContext) -> JsonObject:
 
 def _optional_file_hash(path: Path | None) -> str | None:
     return None if path is None else sha256_file(path)
+
+
+def _digest_with_source(
+    explicit_digest: str | None,
+    explicit_source: ModelIdentitySource | None,
+    file_path: Path | None,
+    file_source: ModelIdentitySource,
+) -> tuple[str | None, ModelIdentitySource | None]:
+    if explicit_digest is not None:
+        return explicit_digest, explicit_source
+    if file_path is not None:
+        return sha256_file(file_path), explicit_source or file_source
+    return None, None
 
 
 def _field_missing(model: JsonObject, runtime: JsonObject, dotted: str) -> bool:

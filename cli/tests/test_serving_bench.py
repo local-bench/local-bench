@@ -345,6 +345,10 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
     assert inner.parallel_slots == 1
     assert inner.kv_cache_quant == "k=f16,v=f16"
     assert inner.model_format == "GGUF"
+    assert inner.tokenizer_digest == evidence.artifact.tokenizer_digest
+    assert inner.tokenizer_digest_source == "gguf.embedded"
+    assert inner.chat_template_digest == evidence.artifact.chat_template_digest
+    assert inner.chat_template_digest_source == "gguf.embedded"
     assert inner.server_fingerprint == evidence.server_fingerprint
     assert inner.serve_fingerprint is not None
     assert inner.serve_fingerprint["reasoning"] == {
@@ -380,3 +384,48 @@ def test_serving_bench_config_threads_max_items_to_inner_orchestrate_config(tmp_
     # Then the same cap used by the run command reaches OrchestrateConfig.
     assert bench_run.max_items == 10
     assert inner.max_items == 10
+
+
+def test_capped_thinking_ctx_guard_rejects_context_below_suite_budget(tmp_path: Path) -> None:
+    # Given: capped-thinking serving options for the fixture suite with max_tokens=64.
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=10303,
+        determinism="strict",
+        tier="quick",
+        bench="ifeval",
+        lane="capped-thinking",
+        seed=1234,
+        suite_dir=FIXTURE_SUITE,
+        out=tmp_path / "run",
+    )
+
+    # When / Then: the server launch is refused before work can burn the suite.
+    with pytest.raises(RuntimeError, match=r"minimum ctx is 10304"):
+        assembly.validate_capped_thinking_context(options)
+
+
+def test_capped_thinking_ctx_guard_allows_context_at_suite_budget(tmp_path: Path) -> None:
+    # Given: the same capped-thinking suite with enough ctx for reasoning, output, and prompt headroom.
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=10304,
+        determinism="strict",
+        tier="quick",
+        bench="ifeval",
+        lane="capped-thinking",
+        seed=1234,
+        suite_dir=FIXTURE_SUITE,
+        out=tmp_path / "run",
+    )
+
+    # When / Then: a compliant ctx passes without raising.
+    assembly.validate_capped_thinking_context(options)

@@ -16,6 +16,7 @@ from localbench.serving.assembly import (
     run_dir,
     server_bin,
     serving_evidence,
+    validate_capped_thinking_context,
 )
 from localbench.serving.bench import VllmAdapter, build_orchestrate_config
 from localbench.serving.fingerprint import server_fingerprint
@@ -43,6 +44,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     if options.determinism != "strict":
         raise RuntimeError("--determinism throughput is deferred and non-publishable")
     reasoning_config = llama_cpp_reasoning_for_lane(options.lane)
+    validate_capped_thinking_context(options)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
     artifact = resolve_artifact(options, root)

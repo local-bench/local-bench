@@ -46,14 +46,41 @@ def launch_llama_cpp(argv: list[str], *, cwd: Path, log_path: Path) -> LaunchedS
         text=True,
         env=serve_env(),
     )
-    process_handle = getattr(process, "_handle", None)
-    if not isinstance(process_handle, int):
-        process.terminate()
-        log_handle.close()
-        job.close(job_handle)
-        raise RuntimeError("could not obtain Windows process handle for Job Object assignment")
-    job.assign_process(job_handle, process_handle=process_handle)
+    try:
+        process_handle = getattr(process, "_handle", None)
+        if not isinstance(process_handle, int):
+            raise RuntimeError("could not obtain Windows process handle for Job Object assignment")
+        job.assign_process(job_handle, process_handle=process_handle)
+    except BaseException:  # noqa: BROAD_EXCEPT_OK
+        _cleanup_failed_launch(process, job, job_handle, log_handle)
+        raise
     return LaunchedServer(process=process, job=job, job_handle=job_handle, log_handle=log_handle)
+
+
+def _cleanup_failed_launch(
+    process: subprocess.Popen[str],
+    job: WindowsJobObject,
+    job_handle: int,
+    log_handle: TextIO,
+) -> None:
+    _terminate_failed_launch_process(process)
+    try:
+        job.close(job_handle)
+    except OSError:
+        return
+    finally:
+        log_handle.close()
+
+
+def _terminate_failed_launch_process(process: subprocess.Popen[str]) -> None:
+    try:
+        process.terminate()
+    except OSError:
+        return
+    try:
+        process.wait(timeout=5.0)
+    except (OSError, subprocess.TimeoutExpired):
+        return
 
 
 def allocate_port() -> int:

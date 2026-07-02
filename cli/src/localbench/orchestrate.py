@@ -91,6 +91,7 @@ TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
 ReasoningEffortChoice = ReasoningEffort
 ReasoningActivationChoice = ReasoningActivation
+ModelIdentitySource = Literal["gguf.embedded", "external.file", "server.override"]
 
 _RULER_TRUNCATION_RATIO: Final = 0.80
 _RULER_TRUNCATION_MIN_GAP: Final = 2_048
@@ -194,6 +195,10 @@ class OrchestrateConfig:
     model_format: str | None = None
     tokenizer_file: Path | None = None
     chat_template_file: Path | None = None
+    tokenizer_digest: str | None = None
+    tokenizer_digest_source: ModelIdentitySource | None = None
+    chat_template_digest: str | None = None
+    chat_template_digest_source: ModelIdentitySource | None = None
     runtime_name: str | None = None
     runtime_version: str | None = None
     kv_cache_quant: str | None = None
@@ -563,6 +568,10 @@ async def run_localbench(
             model_format=config.model_format,
             tokenizer_file=config.tokenizer_file,
             chat_template_file=config.chat_template_file,
+            tokenizer_digest=config.tokenizer_digest,
+            tokenizer_digest_source=config.tokenizer_digest_source,
+            chat_template_digest=config.chat_template_digest,
+            chat_template_digest_source=config.chat_template_digest_source,
             runtime_name=config.runtime_name,
             runtime_version=config.runtime_version,
             kv_cache_quant=config.kv_cache_quant,

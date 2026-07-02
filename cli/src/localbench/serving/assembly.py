@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import assert_never
+from typing import Final, assert_never
 
 from localbench._suite import read_json_object
 from localbench._types import JsonObject
 from localbench.orchestrate import LaneChoice
+from localbench.run_plan import resolve_run_benches
 from localbench.serving.bench import BenchRunConfig
 from localbench.serving.llama_cpp import (
     BuildIdentity,
@@ -24,6 +26,24 @@ from localbench.serving.options import ServeBenchOptions
 from localbench.serving.provenance import ServingEvidence, api_key_sha256
 from localbench.serving.readiness import ReadinessEvidence
 from localbench.serving.teardown import TeardownEvidence
+from localbench.suite_resolver import resolve_suite_dir
+
+CAPPED_THINKING_PROMPT_HEADROOM: Final = 2048
+CAPPED_THINKING_DECODING_HEADROOM_FALLBACK: Final = 2048
+
+
+@dataclass(frozen=True, slots=True)
+class CappedThinkingContextError(RuntimeError):
+    ctx: int
+    minimum_ctx: int
+    max_decoding_tokens: int
+
+    def __str__(self) -> str:
+        return (
+            f"capped-thinking --ctx {self.ctx} is too small; minimum ctx is {self.minimum_ctx} "
+            f"(reasoning budget {CAPPED_THINKING_REASONING_BUDGET} + max bench max_tokens "
+            f"{self.max_decoding_tokens} + prompt headroom {CAPPED_THINKING_PROMPT_HEADROOM})"
+        )
 
 
 def run_dir(options: ServeBenchOptions) -> Path:
@@ -90,6 +110,49 @@ def llama_cpp_reasoning_for_lane(lane: LaneChoice) -> LlamaCppReasoningConfig:
             raise RuntimeError("api-uncapped is not supported for local llama.cpp serving")
         case unreachable:
             assert_never(unreachable)
+
+
+def validate_capped_thinking_context(options: ServeBenchOptions) -> None:
+    if options.lane != "capped-thinking":
+        return
+    max_decoding_tokens = _max_resolved_decoding_tokens(options)
+    minimum_ctx = (
+        CAPPED_THINKING_REASONING_BUDGET
+        + max_decoding_tokens
+        + CAPPED_THINKING_PROMPT_HEADROOM
+    )
+    if options.ctx < minimum_ctx:
+        raise CappedThinkingContextError(
+            ctx=options.ctx,
+            minimum_ctx=minimum_ctx,
+            max_decoding_tokens=max_decoding_tokens,
+        )
+
+
+def _max_resolved_decoding_tokens(options: ServeBenchOptions) -> int:
+    suite_ref = resolve_suite_dir(
+        suite_id=options.suite,
+        suite_dir=options.suite_dir,
+        accept_suite_terms=False,
+        source=options.suite_source,
+        cache_root=options.cache_dir,
+    )
+    suite = read_json_object(suite_ref.path / "suite.json")
+    benches = suite.get("benches")
+    if not isinstance(benches, dict):
+        return CAPPED_THINKING_DECODING_HEADROOM_FALLBACK
+    max_tokens_values: list[int] = []
+    for bench_name in resolve_run_benches(options.bench, suite):
+        bench_config = benches.get(bench_name)
+        if not isinstance(bench_config, dict):
+            continue
+        decoding = bench_config.get("decoding")
+        if not isinstance(decoding, dict):
+            continue
+        max_tokens = decoding.get("max_tokens")
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            max_tokens_values.append(max_tokens)
+    return max(max_tokens_values) if max_tokens_values else CAPPED_THINKING_DECODING_HEADROOM_FALLBACK
 
 
 def serving_evidence(

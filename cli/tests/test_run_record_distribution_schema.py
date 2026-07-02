@@ -180,6 +180,8 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
                 model_format="gguf",
                 tokenizer_file=tokenizer_file,
                 chat_template_file=chat_template_file,
+                tokenizer_digest_source="external.file",
+                chat_template_digest_source="server.override",
                 runtime_name="llama.cpp",
                 runtime_version="b1234",
                 kv_cache_quant="q8_0",
@@ -214,7 +216,9 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
             "file_sha256": sha256_file(model_file),
             "format": "gguf",
             "tokenizer_digest": sha256_file(tokenizer_file),
+            "tokenizer_digest_source": "external.file",
             "chat_template_digest": sha256_file(chat_template_file),
+            "chat_template_digest_source": "server.override",
         }
         assert record["manifest"]["runtime"] == {
             "name": "llama.cpp",

@@ -542,6 +542,8 @@ def _run(args: argparse.Namespace) -> int:
                 model_format=args.model_format,
                 tokenizer_file=args.tokenizer_file,
                 chat_template_file=args.chat_template_file,
+                tokenizer_digest_source="external.file" if args.tokenizer_file is not None else None,
+                chat_template_digest_source="server.override" if args.chat_template_file is not None else None,
                 runtime_name=args.runtime_name,
                 runtime_version=args.runtime_version,
                 kv_cache_quant=args.kv_cache_quant,
@@ -711,6 +713,12 @@ def _bench(args: argparse.Namespace) -> int:
     except NotImplementedError as error:
         print(f"error      {error}", file=sys.stderr)
         return 2
+    except UnsafeResumeError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_UNSAFE_RESUME
+    except CheckpointCorruptionError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_CHECKPOINT_CORRUPTION
     except (RuntimeError, OSError) as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG

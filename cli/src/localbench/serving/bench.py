@@ -63,6 +63,14 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         model_family=evidence.artifact.model_family,
         quant_label=evidence.artifact.quant_label,
         model_format=evidence.artifact.model_format,
+        tokenizer_digest=evidence.artifact.tokenizer_digest,
+        tokenizer_digest_source=(
+            "gguf.embedded" if evidence.artifact.tokenizer_digest is not None else None
+        ),
+        chat_template_digest=evidence.artifact.chat_template_digest,
+        chat_template_digest_source=(
+            "gguf.embedded" if evidence.artifact.chat_template_digest is not None else None
+        ),
         runtime_name="llama.cpp",
         runtime_version=_runtime_version(evidence),
         kv_cache_quant=evidence.kv_cache_quant,
