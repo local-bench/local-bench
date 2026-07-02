@@ -8,6 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from localbench.serving import assembly
 from localbench.serving.bench import BenchRunConfig, build_orchestrate_config
 from localbench.serving.llama_cpp import (
     LlamaCppLaunchConfig,
@@ -17,17 +18,24 @@ from localbench.serving.llama_cpp import (
 )
 from localbench.serving.model_artifact import resolve_model_file_artifact
 from localbench.serving.readiness import verify_llama_cpp_readiness
+from localbench.serving.options import ServeBenchOptions
+from localbench.serving.runner import run_orchestrated_bench
 from serving_helpers import flag_value, minimal_gguf, serving_evidence
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 
 
-def test_llama_cpp_strict_argv_pins_score_impacting_flags(tmp_path: Path) -> None:
-    # Given: a strict GGUF launch configuration.
+def _launch_config(
+    tmp_path: Path,
+    *,
+    reasoning: str = "off",
+    reasoning_budget: int | None = None,
+    reasoning_format: str = "deepseek",
+) -> LlamaCppLaunchConfig:
     model = tmp_path / "gemma.gguf"
     model.write_bytes(b"GGUF")
-    config = LlamaCppLaunchConfig(
+    return LlamaCppLaunchConfig(
         server_bin=Path("C:/llama/llama-server.exe"),
         model_file=model,
         model_id="gemma-4-12b-it-q4",
@@ -39,13 +47,25 @@ def test_llama_cpp_strict_argv_pins_score_impacting_flags(tmp_path: Path) -> Non
         threads=8,
         threads_batch=8,
         run_dir=tmp_path,
+        reasoning=reasoning,
+        reasoning_budget=reasoning_budget,
+        reasoning_format=reasoning_format,
     )
+
+
+def test_llama_cpp_strict_argv_pins_score_impacting_flags(tmp_path: Path) -> None:
+    # Given: a strict GGUF launch configuration.
+    config = _launch_config(tmp_path)
 
     # When: the argv is constructed.
     argv = strict_llama_cpp_argv(config)
 
     # Then: every score-impacting strict-lane knob is explicit and no auto value is used.
-    assert argv[:3] == [str(Path("C:/llama/llama-server.exe")), "--model", str(model.resolve())]
+    assert argv[:3] == [
+        str(Path("C:/llama/llama-server.exe")),
+        "--model",
+        str(config.model_file.resolve()),
+    ]
     assert flag_value(argv, "--alias") == "gemma-4-12b-it-q4"
     assert flag_value(argv, "--host") == "127.0.0.1"
     assert flag_value(argv, "--port") == "49152"
@@ -59,31 +79,83 @@ def test_llama_cpp_strict_argv_pins_score_impacting_flags(tmp_path: Path) -> Non
     assert flag_value(argv, "--cache-type-v") == "f16"
     assert "--no-context-shift" in argv
     assert flag_value(argv, "--reasoning") == "off"
-    assert flag_value(argv, "--reasoning-format") == "none"
+    assert "--reasoning-budget" not in argv
+    assert flag_value(argv, "--reasoning-format") == "deepseek"
     assert "--no-webui" in argv
     assert "--no-agent" in argv
     assert "auto" not in argv
+
+
+def test_llama_cpp_strict_argv_for_capped_thinking_enables_budget(tmp_path: Path) -> None:
+    # Given: the capped-thinking lane's pinned reasoning configuration.
+    config = _launch_config(tmp_path, reasoning="on", reasoning_budget=8192)
+
+    # When: the argv is constructed.
+    argv = strict_llama_cpp_argv(config)
+
+    # Then: native reasoning is enabled with the locked budget and Gemma parser.
+    assert flag_value(argv, "--reasoning") == "on"
+    assert flag_value(argv, "--reasoning-budget") == "8192"
+    assert flag_value(argv, "--reasoning-format") == "deepseek"
+    assert "auto" not in argv
+
+
+def test_llama_cpp_reasoning_mapping_for_answer_only_lane() -> None:
+    # Given / When: the local serving answer-only lane is mapped to llama.cpp reasoning flags.
+    reasoning = assembly.llama_cpp_reasoning_for_lane("answer-only")
+
+    # Then: thought parsing stays active while generation-level reasoning is disabled.
+    assert reasoning.reasoning == "off"
+    assert reasoning.reasoning_budget is None
+    assert reasoning.reasoning_format == "deepseek"
+
+
+def test_llama_cpp_reasoning_mapping_for_capped_thinking_lane() -> None:
+    # Given / When: the local serving capped-thinking lane is mapped to llama.cpp reasoning flags.
+    reasoning = assembly.llama_cpp_reasoning_for_lane("capped-thinking")
+
+    # Then: native reasoning is enabled with the locked methodology v1.2 budget.
+    assert reasoning.reasoning == "on"
+    assert reasoning.reasoning_budget == 8192
+    assert reasoning.reasoning_format == "deepseek"
+
+
+def test_llama_cpp_reasoning_mapping_rejects_api_uncapped_lane() -> None:
+    # Given / When / Then: API-uncapped is not a local llama.cpp serving lane.
+    with pytest.raises(RuntimeError, match="api-uncapped.*not supported.*llama.cpp"):
+        assembly.llama_cpp_reasoning_for_lane("api-uncapped")
+
+
+def test_orchestrated_llama_cpp_rejects_api_uncapped_before_model_resolution(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: an api-uncapped lane request against local llama.cpp serving.
+        options = ServeBenchOptions(
+            runtime="llama.cpp",
+            model_file=None,
+            model_ref=None,
+            model_id="gemma",
+            server_bin=None,
+            ctx=32768,
+            determinism="strict",
+            tier="standard",
+            bench="all",
+            lane="api-uncapped",
+            seed=1234,
+            out=tmp_path / "run",
+        )
+
+        # When / Then: lane validation fails before model or server resolution.
+        with pytest.raises(RuntimeError, match="api-uncapped.*not supported.*llama.cpp"):
+            await run_orchestrated_bench(options)
+
+    asyncio.run(scenario())
 
 
 def test_validate_strict_argv_supported_fails_closed_when_help_omits_required_flag(
     tmp_path: Path,
 ) -> None:
     # Given: an argv with a pinned flag missing from the binary help text.
-    argv = strict_llama_cpp_argv(
-        LlamaCppLaunchConfig(
-            server_bin=Path("llama-server.exe"),
-            model_file=tmp_path / "gemma.gguf",
-            model_id="gemma",
-            host="127.0.0.1",
-            port=49152,
-            api_key="secret",
-            ctx=32768,
-            seed=1234,
-            threads=8,
-            threads_batch=8,
-            run_dir=tmp_path,
-        ),
-    )
+    argv = strict_llama_cpp_argv(_launch_config(tmp_path))
     help_text = "\n".join(flag for flag in argv if flag.startswith("--") and flag != "--fit")
 
     # When / Then: support validation refuses instead of silently dropping the knob.
@@ -243,3 +315,9 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
     assert inner.kv_cache_quant == "k=f16,v=f16"
     assert inner.model_format == "GGUF"
     assert inner.server_fingerprint == evidence.server_fingerprint
+    assert inner.serve_fingerprint is not None
+    assert inner.serve_fingerprint["reasoning"] == {
+        "mode": "off",
+        "budget": None,
+        "format": "deepseek",
+    }

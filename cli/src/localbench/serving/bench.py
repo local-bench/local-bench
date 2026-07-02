@@ -91,6 +91,11 @@ def _serve_fingerprint(evidence: ServingEvidence) -> JsonObject:
         "sampler_flags": {"temperature": 0, "top_k": 1},
         "context_length": evidence.ctx_len_configured,
         "gpu_layers": 999,
+        "reasoning": {
+            "mode": evidence.reasoning,
+            "budget": evidence.reasoning_budget,
+            "format": evidence.reasoning_format,
+        },
         "seed_policy": f"seed={evidence.server_fingerprint}",
     }
 

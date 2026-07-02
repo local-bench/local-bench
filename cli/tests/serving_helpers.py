@@ -53,7 +53,17 @@ def minimal_gguf() -> bytes:
 
 def serving_evidence(tmp_path: Path, *, teardown_terminated: bool) -> ServingEvidence:
     artifact = resolve_model_file_artifact(write_minimal_model(tmp_path), run_dir=tmp_path / "run")
-    argv = ["llama-server.exe", "--parallel", "1", "--ctx-size", "32768"]
+    argv = [
+        "llama-server.exe",
+        "--parallel",
+        "1",
+        "--ctx-size",
+        "32768",
+        "--reasoning",
+        "off",
+        "--reasoning-format",
+        "deepseek",
+    ]
     fingerprint = server_fingerprint(
         model_file_sha256=artifact.file_sha256,
         executable_sha256="e" * 64,
@@ -89,6 +99,8 @@ def serving_evidence(tmp_path: Path, *, teardown_terminated: bool) -> ServingEvi
         flash_attention="on",
         rope_scaling="model-default",
         reasoning="off",
+        reasoning_budget=None,
+        reasoning_format="deepseek",
         health_200_at="2026-07-01T00:00:00Z",
         models_response_sha256="m" * 64,
         props_response_sha256="p" * 64,

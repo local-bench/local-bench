@@ -8,6 +8,7 @@ from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
 from localbench.serving.assembly import (
     bench_config,
+    llama_cpp_reasoning_for_lane,
     pending_teardown,
     precheck_resume_fingerprint,
     redacted_argv,
@@ -41,6 +42,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         raise RuntimeError(f"unsupported runtime: {options.runtime}")
     if options.determinism != "strict":
         raise RuntimeError("--determinism throughput is deferred and non-publishable")
+    reasoning_config = llama_cpp_reasoning_for_lane(options.lane)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
     artifact = resolve_artifact(options, root)
@@ -60,6 +62,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         threads=options.threads,
         threads_batch=options.threads_batch,
         run_dir=root,
+        reasoning=reasoning_config.reasoning,
+        reasoning_budget=reasoning_config.reasoning_budget,
+        reasoning_format=reasoning_config.reasoning_format,
     )
     argv = strict_llama_cpp_argv(launch_config)
     validate_strict_argv_supported(argv, build.help_text)
@@ -93,6 +98,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             build=build,
             readiness=readiness,
             teardown=pending_teardown(launched.process.pid),
+            launch_config=launch_config,
             argv=redacted_argv(argv),
             env_allowlist=env_allowlist,
             api_key=api_key,
@@ -118,6 +124,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         build=build,
         readiness=readiness,
         teardown=teardown,
+        launch_config=launch_config,
         argv=redacted_argv(argv),
         env_allowlist=env_allowlist,
         api_key=api_key,

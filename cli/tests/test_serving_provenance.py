@@ -33,6 +33,11 @@ def test_serving_context_applies_block_policy_and_trust_tier(tmp_path: Path) -> 
     assert updated["serving_verification_level"] == "orchestrated-pinned-artifacts-v1"
     assert updated["manifest"]["sampling"]["determinism_policy"]["policy_id"] == DETERMINISM_POLICY_ID
     assert updated["manifest"]["integrity"]["publishable"] is True
+    assert updated["serving"]["resolved_runtime"]["reasoning"] == {
+        "mode": "off",
+        "budget": None,
+        "format": "deepseek",
+    }
 
 
 def test_serving_context_degrades_when_teardown_is_uncertain(tmp_path: Path) -> None:

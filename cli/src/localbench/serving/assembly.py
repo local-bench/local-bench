@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import assert_never
 
 from localbench._suite import read_json_object
 from localbench._types import JsonObject
+from localbench.orchestrate import LaneChoice
 from localbench.serving.bench import BenchRunConfig
-from localbench.serving.llama_cpp import BuildIdentity
+from localbench.serving.llama_cpp import (
+    BuildIdentity,
+    CAPPED_THINKING_REASONING_BUDGET,
+    LLAMA_CPP_REASONING_FORMAT,
+    LlamaCppLaunchConfig,
+    LlamaCppReasoningConfig,
+)
 from localbench.serving.model_artifact import (
     ModelArtifact,
     resolve_model_file_artifact,
@@ -63,6 +71,26 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
     )
 
 
+def llama_cpp_reasoning_for_lane(lane: LaneChoice) -> LlamaCppReasoningConfig:
+    match lane:
+        case "answer-only":
+            return LlamaCppReasoningConfig(
+                reasoning="off",
+                reasoning_budget=None,
+                reasoning_format=LLAMA_CPP_REASONING_FORMAT,
+            )
+        case "capped-thinking":
+            return LlamaCppReasoningConfig(
+                reasoning="on",
+                reasoning_budget=CAPPED_THINKING_REASONING_BUDGET,
+                reasoning_format=LLAMA_CPP_REASONING_FORMAT,
+            )
+        case "api-uncapped":
+            raise RuntimeError("api-uncapped is not supported for local llama.cpp serving")
+        case unreachable:
+            assert_never(unreachable)
+
+
 def serving_evidence(
     *,
     options: ServeBenchOptions,
@@ -70,6 +98,7 @@ def serving_evidence(
     build: BuildIdentity,
     readiness: ReadinessEvidence,
     teardown: TeardownEvidence,
+    launch_config: LlamaCppLaunchConfig,
     argv: list[str],
     env_allowlist: dict[str, str],
     api_key: str,
@@ -94,13 +123,15 @@ def serving_evidence(
         source_tag=build.source_tag,
         build_flags=build.build_flags,
         help_text_sha256=build.help_text_sha256,
-        ctx_len_configured=options.ctx,
+        ctx_len_configured=launch_config.ctx,
         parallel_slots=readiness.total_slots,
         continuous_batching=False,
         kv_cache_quant="k=f16,v=f16",
-        flash_attention="on",
+        flash_attention=launch_config.flash_attn,
         rope_scaling="model-default",
-        reasoning="off",
+        reasoning=launch_config.reasoning,
+        reasoning_budget=launch_config.reasoning_budget,
+        reasoning_format=launch_config.reasoning_format,
         health_200_at=readiness.health_200_at,
         models_response_sha256=readiness.models_response_sha256,
         props_response_sha256=readiness.props_response_sha256,

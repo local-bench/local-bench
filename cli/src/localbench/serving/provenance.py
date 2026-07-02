@@ -37,6 +37,8 @@ class ServingEvidence:
     flash_attention: str
     rope_scaling: str
     reasoning: str
+    reasoning_budget: int | None
+    reasoning_format: str
     health_200_at: str
     models_response_sha256: str
     props_response_sha256: str
@@ -161,7 +163,11 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "kv_cache_quant": evidence.kv_cache_quant,
             "flash_attention": evidence.flash_attention,
             "rope_scaling": evidence.rope_scaling,
-            "reasoning": evidence.reasoning,
+            "reasoning": {
+                "mode": evidence.reasoning,
+                "budget": evidence.reasoning_budget,
+                "format": evidence.reasoning_format,
+            },
             "chat_template_digest": evidence.artifact.chat_template_digest,
         },
         "readiness_evidence": {

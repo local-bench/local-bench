@@ -7,9 +7,19 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal, TypeAlias
 
 _DLL_PATTERNS: Final = ("ggml*.dll", "llama.dll", "cudart64_*.dll", "cublas64_*.dll")
+LLAMA_CPP_REASONING_FORMAT: Final = "deepseek"
+CAPPED_THINKING_REASONING_BUDGET: Final = 8192
+LlamaCppReasoningMode: TypeAlias = Literal["on", "off"]
+
+
+@dataclass(frozen=True, slots=True)
+class LlamaCppReasoningConfig:
+    reasoning: LlamaCppReasoningMode
+    reasoning_budget: int | None
+    reasoning_format: str = LLAMA_CPP_REASONING_FORMAT
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +36,9 @@ class LlamaCppLaunchConfig:
     threads_batch: int
     run_dir: Path
     flash_attn: str = "on"
+    reasoning: LlamaCppReasoningMode = "off"
+    reasoning_budget: int | None = None
+    reasoning_format: str = LLAMA_CPP_REASONING_FORMAT
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +57,9 @@ class BuildIdentity:
 
 
 def strict_llama_cpp_argv(config: LlamaCppLaunchConfig) -> list[str]:
-    return [
+    if config.reasoning_format == "none":
+        raise RuntimeError("strict llama.cpp argv must not use --reasoning-format none")
+    argv = [
         str(config.server_bin),
         "--model",
         str(config.model_file.resolve()),
@@ -90,14 +105,21 @@ def strict_llama_cpp_argv(config: LlamaCppLaunchConfig) -> list[str]:
         str(config.seed),
         "--jinja",
         "--reasoning",
-        "off",
-        "--reasoning-format",
-        "none",
-        "--no-webui",
-        "--no-agent",
-        "--log-file",
-        str(config.run_dir / "serve.log"),
+        config.reasoning,
     ]
+    if config.reasoning_budget is not None:
+        argv.extend(["--reasoning-budget", str(config.reasoning_budget)])
+    argv.extend(
+        [
+            "--reasoning-format",
+            config.reasoning_format,
+            "--no-webui",
+            "--no-agent",
+            "--log-file",
+            str(config.run_dir / "serve.log"),
+        ],
+    )
+    return argv
 
 
 def validate_strict_argv_supported(argv: list[str], help_text: str) -> None:
