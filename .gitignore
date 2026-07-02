@@ -41,3 +41,4 @@ Thumbs.db
 # Tooling / scratch (not product artifacts)
 .superpowers/
 .pytest-review/
+.pytest-tmp/
