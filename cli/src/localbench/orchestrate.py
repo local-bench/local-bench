@@ -66,6 +66,7 @@ from localbench.prompt_rendering import (
 )
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.reasoning_registry import reasoning_entry_for_activation
+from localbench.reasoning_leaks import registry_leak_regexes
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
@@ -330,6 +331,7 @@ async def run_localbench(
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
     reasoning_registry_entry_id: str | None = None
+    reasoning_leak_regexes: tuple[str, ...] = ()
     forcing_format = None
     if config.provider == "local" and config.lane == "capped-thinking":
         # Local capped-thinking enforces the locked thinking budget with two-pass forcing
@@ -339,6 +341,7 @@ async def run_localbench(
             reasoning_entry = reasoning_entry_for_activation(config.reasoning_activation)
             if reasoning_entry is not None:
                 reasoning_registry_entry_id = reasoning_entry.id
+                reasoning_leak_regexes = registry_leak_regexes(reasoning_entry.conformance)
                 forcing_format = reasoning_entry.forcing
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
@@ -594,7 +597,14 @@ async def run_localbench(
         "serving_verification_level": "external-endpoint",
         "benches": benches,
         "composite": composite(benches, axis_status, suite_axis_map),
-        "conformance": assess_run_conformance(results_by_bench, forced=forcing_active),
+        "conformance": assess_run_conformance(
+            results_by_bench,
+            forced=forcing_active,
+            leak_regexes_by_bench={
+                bench: reasoning_leak_regexes
+                for bench in results_by_bench
+            },
+        ),
         "items": items,
         "totals": totals,
         "warnings": warnings,

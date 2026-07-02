@@ -262,6 +262,7 @@ def _parser() -> argparse.ArgumentParser:
         default="answer-only",
     )
     bench_parser.add_argument("--seed", type=int, required=True)
+    bench_parser.add_argument("--max-items", type=int)
     bench_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     bench_parser.add_argument("--suite-source", type=Path)
     bench_parser.add_argument("--suite-dir", type=Path)
@@ -696,6 +697,7 @@ def _bench(args: argparse.Namespace) -> int:
                 bench=args.bench,
                 lane=_lane(args.lane),
                 seed=args.seed,
+                max_items=args.max_items,
                 suite=args.suite,
                 suite_source=args.suite_source,
                 suite_dir=args.suite_dir,

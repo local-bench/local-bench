@@ -93,6 +93,43 @@ def test_run_level_forced_threads_to_every_bench() -> None:
     assert unforced["status"] == "nonconformant"  # single-pass truncation still excludes
 
 
+def test_run_conformance_detects_gemma_channel_family_leaks() -> None:
+    # Given enough scored items leaking Gemma channel scaffolding to breach the hard gate.
+    results = {
+        "ifbench": [
+            _item(response_text="<|channel>thought\n<channel|>Final answer: A")
+            for _ in range(3)
+        ]
+        + [_item() for _ in range(97)]
+    }
+
+    # When assessing the full run.
+    run = assess_run_conformance(results)
+
+    # Then the bench is nonconformant instead of headline-comparable.
+    assert run["status"] == "nonconformant"
+    assert run["worst_bench"] == "ifbench"
+    assert run["per_bench"]["ifbench"]["leaked_reasoning_rate"] == 0.03
+
+
+def test_run_conformance_unions_canonical_and_per_lane_leak_regexes() -> None:
+    # Given a lane-specific leak regex that is not part of the canonical detector.
+    results = {
+        "ifbench": [_item(response_text="<custom_lane_leak> A") for _ in range(3)]
+        + [_item() for _ in range(97)]
+    }
+
+    # When assessing conformance with per-lane registry regexes.
+    run = assess_run_conformance(
+        results,
+        leak_regexes_by_bench={"ifbench": (r"<custom_lane_leak>",)},
+    )
+
+    # Then the per-lane leak still trips the unchanged 2% conformance gate.
+    assert run["status"] == "nonconformant"
+    assert run["per_bench"]["ifbench"]["leaked_reasoning_rate"] == 0.03
+
+
 def test_audit_flags_a_cap_hit_that_scored_correct() -> None:
     items = [
         {"id": "a", "finish_reason": "length", "correct": True},
@@ -137,7 +174,15 @@ def test_no_scored_items_is_diagnostic_only() -> None:
 
 
 def test_has_leaked_reasoning_matches_fence_variants_but_not_the_bare_word() -> None:
-    for leaked in ("<think>x</think> a", "<thought>y</thought> a", "◁think▷ z", "<|think|> w", "<|begin_of_thought|> v"):
+    for leaked in (
+        "<think>x</think> a",
+        "<thought>y</thought> a",
+        "◁think▷ z",
+        "<|think|> w",
+        "<|begin_of_thought|> v",
+        "<|channel|>analysis\nscratch<|message|> a",
+        "<|channel>thought\n<channel|> a",
+    ):
         assert has_leaked_reasoning(leaked) is True, leaked
     # The bare word "think" in a normal answer is NOT a leak (delimiter required).
     assert has_leaked_reasoning("I think the answer is 42.") is False

@@ -23,6 +23,7 @@ class BenchRunConfig:
     suite_source: Path | None
     out: Path
     resume: Path | None
+    max_items: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +53,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         lane=config.lane,
         provider="local",
         resume=config.resume,
+        max_items=config.max_items,
         publishable=True,
         sampler_temperature=0.0,
         sampler_top_k=1,

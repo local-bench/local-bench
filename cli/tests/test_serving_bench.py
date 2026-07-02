@@ -20,6 +20,7 @@ from localbench.serving.model_artifact import resolve_model_file_artifact
 from localbench.serving.readiness import verify_llama_cpp_readiness
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import run_orchestrated_bench
+from localbench.cli import _parser
 from serving_helpers import flag_value, minimal_gguf, serving_evidence
 
 
@@ -149,6 +150,34 @@ def test_orchestrated_llama_cpp_rejects_api_uncapped_before_model_resolution(tmp
             await run_orchestrated_bench(options)
 
     asyncio.run(scenario())
+
+
+def test_bench_parser_accepts_max_items_flag() -> None:
+    # Given the bench subcommand's required arguments plus a real-suite item cap.
+    parser = _parser()
+
+    # When parsing the CLI surface.
+    args = parser.parse_args(
+        [
+            "bench",
+            "--runtime",
+            "llama.cpp",
+            "--model-file",
+            "model.gguf",
+            "--model-id",
+            "gemma",
+            "--ctx",
+            "32768",
+            "--seed",
+            "1234",
+            "--max-items",
+            "10",
+        ]
+    )
+
+    # Then the cap is available to the bench command.
+    assert args.command == "bench"
+    assert args.max_items == 10
 
 
 def test_validate_strict_argv_supported_fails_closed_when_help_omits_required_flag(
@@ -298,6 +327,7 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
         suite_source=None,
         out=tmp_path / "run" / "localbench-run.json",
         resume=None,
+        max_items=10,
     )
 
     # When: building the inner run_localbench config.
@@ -309,6 +339,7 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
     assert inner.sampler_temperature == 0.0
     assert inner.sampler_top_k == 1
     assert inner.sampler_seed == 1234
+    assert inner.max_items == 10
     assert inner.runtime_name == "llama.cpp"
     assert inner.runtime_backend == "cuda"
     assert inner.parallel_slots == 1
@@ -321,3 +352,31 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
         "budget": None,
         "format": "deepseek",
     }
+
+
+def test_serving_bench_config_threads_max_items_to_inner_orchestrate_config(tmp_path: Path) -> None:
+    # Given serving options for a capped real-suite bench run.
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=32768,
+        determinism="strict",
+        tier="standard",
+        bench="ifbench",
+        lane="capped-thinking",
+        seed=1234,
+        out=tmp_path / "run",
+        max_items=10,
+    )
+    evidence = serving_evidence(tmp_path, teardown_terminated=True)
+
+    # When building the bench-managed run config.
+    bench_run = assembly.bench_config(options, tmp_path / "localbench-run.json", "secret", 49152)
+    inner = build_orchestrate_config(bench_run, evidence)
+
+    # Then the same cap used by the run command reaches OrchestrateConfig.
+    assert bench_run.max_items == 10
+    assert inner.max_items == 10

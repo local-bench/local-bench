@@ -15,12 +15,12 @@ of the run (autoreview, 2026-06-19).
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from typing import Final, Literal
 
 from localbench._types import ItemResult, JsonObject
+from localbench.reasoning_leaks import has_reasoning_leak
 
 ConformanceStatus = Literal["headline-comparable", "nonconformant", "diagnostic-only"]
 
@@ -29,18 +29,6 @@ _SEVERITY: Final[dict[str, int]] = {
     "nonconformant": 1,
     "diagnostic-only": 2,
 }
-
-# Reasoning that leaked into the SCORED content (the endpoint did NOT separate
-# reasoning_content from content). Every alternative REQUIRES a delimiter, so the bare
-# word "think" in a normal answer never matches. Covers the common fences across runtimes
-# (llama.cpp, vLLM, DeepSeek/Qwen <|...|> sentinels). The separated reasoning_text channel
-# is fine — only markers inside response_text are leaks.
-_LEAKED_REASONING: Final = re.compile(
-    r"</?think\b|</?thinking\b|</?thought\b|</?reason(?:ing)?\b|</?scratchpad\b"
-    r"|◁think▷|<\|/?think(?:ing)?\|>|<\|/?(?:begin|end)_of_thought\|>",
-    re.IGNORECASE,
-)
-
 
 @dataclass(frozen=True, slots=True)
 class ConformanceThresholds:
@@ -77,9 +65,12 @@ class ConformanceReport:
         return data
 
 
-def has_leaked_reasoning(response_text: str | None) -> bool:
+def has_leaked_reasoning(
+    response_text: str | None,
+    extra_regexes: Sequence[str] = (),
+) -> bool:
     """True when chain-of-thought leaked into the SCORED content (response_text)."""
-    return bool(response_text) and _LEAKED_REASONING.search(response_text) is not None
+    return has_reasoning_leak(response_text, extra_regexes)
 
 
 def _no_final_answer(result: ItemResult) -> bool:
@@ -101,6 +92,7 @@ def assess_conformance(
     *,
     thresholds: ConformanceThresholds = DEFAULT_THRESHOLDS,
     forced: bool = False,
+    leak_regexes: Sequence[str] = (),
 ) -> ConformanceReport:
     """Classify ONE bench's lane-conformance from its item results.
 
@@ -120,7 +112,7 @@ def assess_conformance(
         return ConformanceReport("diagnostic-only", 0, 0.0, 0.0, 0.0, ("no scored items",), forced)
 
     truncation_rate = _rate(sum(1 for r in scored if r.get("finish_reason") == "length"), n)
-    leaked_rate = _rate(sum(1 for r in scored if has_leaked_reasoning(r.get("response_text"))), n)
+    leaked_rate = _rate(sum(1 for r in scored if has_leaked_reasoning(r.get("response_text"), leak_regexes)), n)
     no_answer_rate = _rate(sum(1 for r in scored if _no_final_answer(r)), n)
 
     reasons: list[str] = []
@@ -169,6 +161,7 @@ def assess_run_conformance(
     *,
     thresholds: ConformanceThresholds = DEFAULT_THRESHOLDS,
     forced: bool = False,
+    leak_regexes_by_bench: Mapping[str, Sequence[str]] | None = None,
 ) -> JsonObject:
     """Run-level conformance = the WORST bench status (no dilution of a bench-local
     failure), plus the per-bench breakdown. This is the run_record["conformance"] block.
@@ -177,7 +170,12 @@ def assess_run_conformance(
     scored model failures, not headline-excluding truncation (see assess_conformance).
     """
     per_bench = {
-        bench: assess_conformance(results, thresholds=thresholds, forced=forced)
+        bench: assess_conformance(
+            results,
+            thresholds=thresholds,
+            forced=forced,
+            leak_regexes=(leak_regexes_by_bench or {}).get(bench, ()),
+        )
         for bench, results in results_by_bench.items()
     }
     if not per_bench:

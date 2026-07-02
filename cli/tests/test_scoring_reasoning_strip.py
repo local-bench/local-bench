@@ -79,6 +79,17 @@ def test_strip_reasoning_keeps_final_harmony_message() -> None:
     assert result == "Final answer: A"
 
 
+def test_strip_reasoning_removes_leading_gemma_empty_thought_scaffold() -> None:
+    # Given a Gemma channel response that re-opened empty thought scaffolds before the answer.
+    text = "<|channel>thought\n<channel|><|channel>thought\n<channel|>Final answer: C"
+
+    # When stripping reasoning.
+    result = strip_reasoning(text)
+
+    # Then the empty channel scaffolds cannot corrupt the scorer-visible answer.
+    assert result == "Final answer: C"
+
+
 @dataclass(frozen=True, slots=True)
 class ScorerCase:
     bench: str

@@ -20,6 +20,7 @@ class ServeBenchOptions:
     bench: str
     lane: LaneChoice
     seed: int
+    max_items: int | None = None
     suite: str = DEFAULT_SUITE_ID
     suite_source: Path | None = None
     suite_dir: Path | None = None
