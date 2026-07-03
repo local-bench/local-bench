@@ -90,6 +90,7 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         out=output_path,
         resume=options.resume,
         max_items=options.max_items,
+        retry_errored=options.retry_errored,
         reasoning_activation=options.reasoning_activation,
         hf_model_id=options.hf_model_id,
     )

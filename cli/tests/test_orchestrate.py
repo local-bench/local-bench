@@ -305,6 +305,94 @@ def test_run_localbench_failure_status_includes_resume_hint(tmp_path: Path) -> N
     asyncio.run(scenario())
 
 
+def test_run_localbench_trips_server_unreachable_breaker_after_three_connection_items(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        # Given: a serve-style single-concurrency campaign whose endpoint dies after one item.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+        item_requests = 0
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            nonlocal item_requests
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            item_requests += 1
+            if item_requests == 1:
+                return _completion("Answer: A", 1, 1)
+            raise httpx.ConnectError("connection refused", request=request)
+
+        # When / Then: the campaign stops after three consecutive connection-class item failures.
+        with pytest.raises(RuntimeError, match="server_unreachable_circuit_breaker"):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="demo-model",
+                    suite_dir=FIXTURE_SUITE,
+                    bench=FIXTURE_FULL_BENCHES,
+                    concurrency=1,
+                    out=output_path,
+                ),
+                transport=httpx.MockTransport(handler),
+            )
+
+        status = json.loads((tmp_path / "campaign" / "run.status.json").read_text(encoding="utf-8"))
+        benchmark_dir = tmp_path / "campaign" / "benchmarks"
+        scored_records = [
+            json.loads(line)
+            for path in sorted(benchmark_dir.glob("*.scored_items.jsonl"))
+            for line in path.read_text(encoding="utf-8").splitlines()
+        ]
+        assert status["state"] == "failed"
+        assert status["failure_reason"] == "server_unreachable_circuit_breaker"
+        assert status["exit_code"] == 70
+        assert status["completed_items"] == 4
+        error_flags = [record["payload"]["error"] is not None for record in scored_records]
+        assert len(error_flags) == 4
+        assert error_flags.count(True) == 3
+        assert any(record["payload"]["id"] == "1" and record["payload"]["error"] is None for record in scored_records)
+        assert not (benchmark_dir / "genmath.raw_results.jsonl").exists()
+
+    asyncio.run(scenario())
+
+
+def test_run_localbench_does_not_trip_breaker_for_scattered_connection_errors(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        # Given: connection-class item failures separated by successful measurements.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            if "Choose B" in prompt or "JSON object with key ok" in prompt:
+                raise httpx.ConnectError("connection refused", request=request)
+            return _completion("Answer: A", 1, 1)
+
+        # When: the campaign has connection errors, but never three consecutive item failures.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench=FIXTURE_FULL_BENCHES,
+                concurrency=1,
+                out=output_path,
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: the run completes and keeps the connection errors as item-level non-measurements.
+        status = json.loads((tmp_path / "campaign" / "run.status.json").read_text(encoding="utf-8"))
+        assert status["state"] == "complete"
+        assert status["failure_reason"] is None
+        assert sum(1 for item in record["items"] if item["error"] is not None) == 2
+
+    asyncio.run(scenario())
+
+
 def test_run_localbench_lane_controls_thinking_toggle(tmp_path: Path) -> None:
     async def scenario() -> None:
         # Given a handler that captures every chat-completion request body.

@@ -34,6 +34,7 @@ from localbench.serving.provenance import (
 )
 from localbench.serving.readiness import verify_llama_cpp_readiness
 from localbench.serving.teardown import TeardownEvidence, teardown_owned_server
+from localbench.submissions.foundation import normalize_result_bundle
 
 
 async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
@@ -156,6 +157,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         identity=identity,
         root=root,
     )
-    updated = apply_serving_context(record, serving_context(completed_evidence))
+    updated = normalize_result_bundle(
+        apply_serving_context(record, serving_context(completed_evidence)),
+        suite_dir=options.suite_dir,
+    )
     atomic_write_json(updated, output_path)
     return updated

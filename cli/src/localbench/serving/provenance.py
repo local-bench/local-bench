@@ -128,8 +128,6 @@ def apply_serving_context(record: JsonObject, context: ServingRunContext) -> Jso
     updated["manifest"] = manifest
     updated["serving"] = context.block
     updated["serving_mode"] = "orchestrated_llama_cpp"
-    updated["trust_tier"] = context.trust_tier
-    updated["serving_verification_level"] = context.verification_level
     return updated
 
 
@@ -137,6 +135,7 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
     return {
         "runtime": evidence.runtime,
         "verification_level": verification_level,
+        "trust_tier": verification_level,
         "launch": {
             "argv": evidence.argv,
             "cwd": evidence.cwd,

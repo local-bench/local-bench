@@ -67,6 +67,8 @@ def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -
         "trust_tier",
         "serving_verification_level",
         "composite",
+        "source",
+        "output_path",
     ):
         assert removed not in bundle
     assert bundle["serving_mode"] == "external_openai_compatible_endpoint"

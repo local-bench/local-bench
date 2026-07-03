@@ -41,6 +41,7 @@ class ItemResult(TypedDict):
     finished_at: str
     attempts: int
     error: str | None
+    error_type: NotRequired[str]
     thinking_forced: NotRequired[bool]
 
 

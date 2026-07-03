@@ -54,7 +54,6 @@
     "conformance": {"type": "object"},
     "items": {"type": "array"},
     "totals": {"type": "object"},
-    "warnings": {"type": "array"},
-    "output_path": {"type": "string"}
+    "warnings": {"type": "array"}
   }
 }

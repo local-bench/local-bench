@@ -29,6 +29,7 @@ class BenchRunConfig:
     out: Path
     resume: Path | None
     max_items: int | None = None
+    retry_errored: bool = False
     reasoning_activation: ReasoningActivationChoice | None = None
     hf_model_id: str | None = None
 
@@ -62,6 +63,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         hf_model_id=config.hf_model_id,
         reasoning_activation=config.reasoning_activation or "qwen3",
         resume=config.resume,
+        retry_errored=config.retry_errored,
         max_items=config.max_items,
         publishable=True,
         sampler_temperature=0.0,

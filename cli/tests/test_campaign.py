@@ -168,13 +168,42 @@ def test_partial_item_checkpoints_ignore_torn_line_and_exact_duplicates(tmp_path
     assert checkpoints[0].scored_item == scored_item
 
 
-def test_partial_item_checkpoints_reject_conflicting_duplicate(tmp_path: Path) -> None:
-    # Given: two checkpoint rows for the same item identity with different payloads.
+def test_partial_item_checkpoints_use_latest_record_across_segments(tmp_path: Path) -> None:
+    # Given: an errored-then-retried item — same identity, different payloads, later segment.
+    paths = campaign_paths(tmp_path / "campaign" / "localbench-run.json")
+    append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", _raw_result("item-1", "Answer: A"), _scored_item("item-1", True))
+    append_item_checkpoint(
+        paths,
+        "mmlu_pro",
+        0,
+        "hash-1",
+        _raw_result("item-1", "Answer: B"),
+        _scored_item("item-1", False),
+        "segment-2",
+    )
+
+    # When: partial item checkpoints are loaded for resume.
+    checkpoints = read_partial_item_checkpoints(
+        paths,
+        "mmlu_pro",
+        [ExpectedItemCheckpoint(seq=0, item_id="item-1", item_hash="hash-1")],
+    )
+
+    # Then: append-only supersede uses the latest complete row.
+    assert len(checkpoints) == 1
+    assert checkpoints[0].raw_result["response_text"] == "Answer: B"
+    assert checkpoints[0].scored_item is not None
+    assert checkpoints[0].scored_item["correct"] is False
+
+
+def test_partial_item_checkpoints_reject_same_segment_conflicting_duplicate(tmp_path: Path) -> None:
+    # Given: two different payloads for the same item within one segment — a writer bug,
+    # not a legitimate retry supersede.
     paths = campaign_paths(tmp_path / "campaign" / "localbench-run.json")
     append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", _raw_result("item-1", "Answer: A"), _scored_item("item-1", True))
     append_item_checkpoint(paths, "mmlu_pro", 0, "hash-1", _raw_result("item-1", "Answer: B"), _scored_item("item-1", False))
 
-    # When / Then: resume treats the duplicate as corruption.
+    # When / Then: resume fails closed instead of guessing which row to trust.
     with pytest.raises(CheckpointCorruptionError):
         read_partial_item_checkpoints(
             paths,
@@ -291,6 +320,83 @@ def test_run_localbench_resume_skips_checkpointed_items_mid_bench(tmp_path: Path
         assert resumed["benches"]["mmlu_pro"]["n"] == 2
         assert [item["id"] for item in resumed["items"]] == ["1", "2"]
         assert json.loads(output_path.read_text(encoding="utf-8")) == resumed
+
+    asyncio.run(scenario())
+
+
+def test_run_localbench_resume_retry_errored_replans_only_error_items(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a completed campaign whose latest record for item 2 is an errored non-measurement.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+
+        def fail_second_item(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            if "Choose B" in prompt:
+                return httpx.Response(500, text="server down")
+            return _answer_a_handler(request)
+
+        original = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                concurrency=1,
+                out=output_path,
+                server_fingerprint="fingerprint-a",
+            ),
+            transport=httpx.MockTransport(fail_second_item),
+        )
+        assert original["benches"]["mmlu_pro"]["n_errors"] == 1
+        retried_prompts: list[str] = []
+
+        def answer_and_track_retry(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            prompt = json.loads(request.content)["messages"][0]["content"]
+            retried_prompts.append(prompt)
+            return _answer_a_handler(request)
+
+        # When: resuming with retry-errored enabled.
+        resumed = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                concurrency=1,
+                out=output_path,
+                resume=tmp_path / "campaign",
+                retry_errored=True,
+                server_fingerprint="fingerprint-b",
+            ),
+            transport=httpx.MockTransport(answer_and_track_retry),
+        )
+
+        # Then: only the errored item is requested, the latest record wins, and resume history is honest.
+        assert len(retried_prompts) == 1
+        assert "Choose B" in retried_prompts[0]
+        assert resumed["benches"]["mmlu_pro"]["n_errors"] == 0
+        assert [item["error"] for item in resumed["items"]] == [None, None]
+        assert resumed["resume_count"] == 1
+        assert [segment["segment_id"] for segment in resumed["segments"]] == ["segment-1", "segment-2"]
+        assert resumed["segments"][1]["server_fingerprint"] == "fingerprint-b"
+        assert resumed["segments"][1]["completed_items"] == ["2"]
+        raw_records = [
+            json.loads(line)
+            for line in (tmp_path / "campaign" / "benchmarks" / "mmlu_pro.raw_results.jsonl")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ]
+        assert [record["segment_id"] for record in raw_records] == [
+            "segment-1",
+            "segment-1",
+            "segment-2",
+        ]
 
     asyncio.run(scenario())
 

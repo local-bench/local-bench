@@ -52,7 +52,9 @@ from localbench.campaign_checkpoints import (
     ExpectedItemCheckpoint,
     append_item_checkpoint,
     append_scored_checkpoint,
+    checkpoint_segment_summaries,
     completed_benches,
+    next_segment_id,
     read_partial_item_checkpoints,
     write_bench_complete,
 )
@@ -96,6 +98,8 @@ ModelIdentitySource = Literal["gguf.embedded", "external.file", "server.override
 _RULER_TRUNCATION_RATIO: Final = 0.80
 _RULER_TRUNCATION_MIN_GAP: Final = 2_048
 _APPWORLD_C_BENCH: Final = "appworld_c"
+_SERVE_HEALTH_CIRCUIT_BREAKER_LIMIT: Final = 3
+_SERVE_HEALTH_CIRCUIT_BREAKER_REASON: Final = "server_unreachable_circuit_breaker"
 # Frozen per-turn output-token cap for the inline SCORED agentic campaign. Every official
 # AppWorld-C .scored run (qwen36-27b all quants, qwopus, qwable-coder, gemma4-31b) uses 3072.
 # The LoopConfig default (1024) truncates verbose native-thinking models mid-reasoning ->
@@ -106,27 +110,30 @@ _HEADLINE_AXIS_KEYS: Final = tuple(axis.key for axis in AXES if axis.role == "he
 
 
 class LocalbenchRun(TypedDict):
-    schema: str
+    schema: NotRequired[str]
     schema_version: str
-    submission_ticket_id: str | None
-    server_nonce: str | None
-    issued_at: str | None
+    submission_ticket_id: NotRequired[str | None]
+    server_nonce: NotRequired[str | None]
+    issued_at: NotRequired[str | None]
     run_started_at: str
     run_finished_at: str
-    source: str
+    source: NotRequired[str]
+    producer: NotRequired[str]
     tier: str
-    account: str | None
+    account: NotRequired[str | None]
+    serving_mode: NotRequired[str]
     model: JsonObject
     manifest: JsonObject
     axis_status: AxisStatusBlock
     headline_complete: bool
     benches: dict[str, BenchAggregate]
-    composite: float
+    composite: NotRequired[float]
+    scores: NotRequired[JsonObject]
     conformance: JsonObject
     items: list[ScoredItem]
     totals: RunTotals
     warnings: list[str]
-    output_path: str
+    output_path: NotRequired[str]
     agentic_run: NotRequired[JsonObject]
     estimated_cost_usd: NotRequired[float]
     resumed: NotRequired[bool]
@@ -140,6 +147,14 @@ class UnsafeResumeError(RuntimeError):
     def __init__(self, detail: str) -> None:
         self.detail = detail
         super().__init__(detail)
+
+
+@dataclass(frozen=True, slots=True)
+class ServeHealthCircuitBreakerError(RuntimeError):
+    reason: str = _SERVE_HEALTH_CIRCUIT_BREAKER_REASON
+
+    def __str__(self) -> str:
+        return self.reason
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +234,7 @@ class OrchestrateConfig:
     server_fingerprint: str | None = None
     resume_identity: str | None = None
     serve_fingerprint: JsonObject | None = None
+    retry_errored: bool = False
 
 
 async def run_localbench(
@@ -296,6 +312,8 @@ async def run_localbench(
         scorable_benches.append(bench)
 
     paths = campaign_paths(output_path, config.resume)
+    session_segment_id = "segment-1" if config.resume is None else next_segment_id(paths)
+    segment_completed_item_ids: list[str] = []
     total_items = sum(len(bench.benchmark_items) for bench in scorable_benches)
     campaign_config = CampaignConfig(
         endpoint=config.endpoint,
@@ -341,7 +359,8 @@ async def run_localbench(
                 started_at=started_at,
             ),
         )
-    completed = completed_benches(paths) if config.resume is not None else {}
+    all_completed = completed_benches(paths) if config.resume is not None else {}
+    completed = _completed_benches_to_skip(all_completed, retry_errored=config.retry_errored)
 
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
@@ -363,6 +382,7 @@ async def run_localbench(
     results_by_bench: dict[str, list[ItemResult]] = {}
     bench_aggregates: dict[str, BenchAggregate] = {}
     completed_items = 0
+    consecutive_connection_failures = 0
     for bench in scorable_benches:
         sampling_by_bench[bench.name] = bench.decoding
         item_files.append(bench.item_file)
@@ -392,19 +412,27 @@ async def run_localbench(
                         checkpoint.seq,
                         checkpoint.item_hash,
                         scored_item,
+                        session_segment_id,
                     )
                 else:
                     scored_item = cast(ScoredItem, checkpoint.scored_item)
+                if config.retry_errored and _checkpoint_has_error(raw_result, scored_item):
+                    # payload.error marks a non-measurement; wrong model answers are scored with
+                    # error=None, so retry-errored only replaces non-measurements.
+                    continue
                 streamed_raw.append(raw_result)
                 streamed_scored.append(scored_item)
         checkpointed_ids = {result["id"] for result in streamed_raw}
         pending_bench = _pending_bench(bench, checkpointed_ids)
+        circuit_breaker_tripped = False
 
-        def on_item_complete(result: ItemResult) -> None:
+        def on_item_complete(result: ItemResult) -> bool:
+            nonlocal consecutive_connection_failures, circuit_breaker_tripped
             single = item_context[result["id"]]
             scored_item = _score_single_checkpoint(single, result, warnings)
             streamed_raw.append(result)
             streamed_scored.append(scored_item)
+            segment_completed_item_ids.append(result["id"])
             append_item_checkpoint(
                 paths,
                 bench.name,
@@ -412,6 +440,7 @@ async def run_localbench(
                 single.item_hash,
                 result,
                 scored_item,
+                session_segment_id,
             )
             write_status(
                 paths,
@@ -425,6 +454,14 @@ async def run_localbench(
                     started_at=started_at,
                 ),
             )
+            if _is_connection_failure(result):
+                consecutive_connection_failures += 1
+            else:
+                consecutive_connection_failures = 0
+            circuit_breaker_tripped = (
+                consecutive_connection_failures >= _SERVE_HEALTH_CIRCUIT_BREAKER_LIMIT
+            )
+            return circuit_breaker_tripped
 
         write_status(
             paths,
@@ -456,7 +493,19 @@ async def run_localbench(
                     forcing_format=forcing_format,
                     on_item_complete=on_item_complete,
                 )
+                if circuit_breaker_tripped:
+                    _write_circuit_breaker_status(
+                        paths,
+                        bench=bench.name,
+                        completed_items=completed_items + len(streamed_scored),
+                        total_items=total_items,
+                        started_at=started_at,
+                        last_completed_item_id=_last_completed_item_id(streamed_scored),
+                    )
+                    raise ServeHealthCircuitBreakerError()
             except (httpx.HTTPError, OSError, RuntimeError) as error:
+                if isinstance(error, ServeHealthCircuitBreakerError):
+                    raise
                 write_status(
                     paths,
                     _failure_status(
@@ -612,8 +661,6 @@ async def run_localbench(
         "manifest": manifest,
         "axis_status": axis_status,
         "headline_complete": headline_complete,
-        "trust_tier": "external-endpoint",
-        "serving_verification_level": "external-endpoint",
         "benches": benches,
         "composite": composite(benches, axis_status, suite_axis_map),
         "conformance": assess_run_conformance(
@@ -627,20 +674,19 @@ async def run_localbench(
         "items": items,
         "totals": totals,
         "warnings": warnings,
-        "output_path": str(output_path),
     }
     if config.resume is not None:
         run_record["resumed"] = True
-        run_record["resume_count"] = 1
-        run_record["segments"] = [
-            {
-                "segment_id": "segment-1",
-                "started_at": started_at,
-                "finished_at": finished_at,
-                "server_fingerprint": config.server_fingerprint,
-                "completed_items": completed_items,
-            },
-        ]
+        segments = _resume_segments(
+            paths,
+            current_segment_id=session_segment_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            server_fingerprint=config.server_fingerprint,
+            completed_items=segment_completed_item_ids,
+        )
+        run_record["resume_count"] = max(0, len(segments) - 1)
+        run_record["segments"] = segments
     if agentic_provenance is not None:
         run_record["agentic_run"] = agentic_provenance
     if config.price_in is not None or config.price_out is not None:
@@ -805,6 +851,105 @@ def _failure_status(
         resume_hint=f"localbench run --resume {paths.root}",
         last_completed_item_id=last_completed_item_id,
     )
+
+
+def _write_circuit_breaker_status(
+    paths: CampaignPaths,
+    *,
+    bench: str,
+    completed_items: int,
+    total_items: int,
+    started_at: str,
+    last_completed_item_id: str | None,
+) -> None:
+    write_status(
+        paths,
+        StatusUpdate(
+            state="failed",
+            current_bench=bench,
+            current_item_index=None,
+            current_item_id=None,
+            completed_items=completed_items,
+            total_items=total_items,
+            started_at=started_at,
+            exit_code=70,
+            failure_reason=_SERVE_HEALTH_CIRCUIT_BREAKER_REASON,
+            stderr_tail=_tail_lines(paths.logs_dir / "run.log"),
+            serve_log_tail=_tail_lines(paths.logs_dir / "serve.log"),
+            monitor_snapshot=_latest_monitor_snapshot(paths.monitor_dir / "monitor.jsonl"),
+            resume_hint=f"localbench bench --resume {paths.root} --retry-errored",
+            last_completed_item_id=last_completed_item_id,
+        ),
+    )
+
+
+def _completed_benches_to_skip(
+    checkpoints: dict[str, CompletedBench],
+    *,
+    retry_errored: bool,
+) -> dict[str, CompletedBench]:
+    if not retry_errored:
+        return checkpoints
+    return {
+        name: checkpoint
+        for name, checkpoint in checkpoints.items()
+        if not _completed_bench_has_error(checkpoint)
+    }
+
+
+def _completed_bench_has_error(checkpoint: CompletedBench) -> bool:
+    return any(_payload_has_error(item) for item in [*checkpoint.raw_results, *checkpoint.scored_items])
+
+
+def _checkpoint_has_error(raw_result: ItemResult, scored_item: ScoredItem) -> bool:
+    return _payload_has_error(raw_result) or _payload_has_error(scored_item)
+
+
+def _payload_has_error(payload: Mapping[str, JsonValue]) -> bool:
+    return payload.get("error") is not None
+
+
+def _is_connection_failure(result: ItemResult) -> bool:
+    return result.get("error_type") in {"ConnectError", "ConnectTimeout"}
+
+
+def _resume_segments(
+    paths: CampaignPaths,
+    *,
+    current_segment_id: str,
+    started_at: str,
+    finished_at: str,
+    server_fingerprint: str | None,
+    completed_items: list[str],
+) -> list[JsonObject]:
+    previous = _existing_run_segments(paths.final_run)
+    if not previous:
+        previous = checkpoint_segment_summaries(paths)
+    previous = [segment for segment in previous if segment.get("segment_id") != current_segment_id]
+    return [
+        *previous,
+        {
+            "segment_id": current_segment_id,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "server_fingerprint": server_fingerprint,
+            "completed_items": completed_items,
+        },
+    ]
+
+
+def _existing_run_segments(path: Path) -> list[JsonObject]:
+    if not path.exists():
+        return []
+    record = read_json_object(path)
+    segments = record.get("segments")
+    if not isinstance(segments, list):
+        return []
+    return [
+        json.loads(json.dumps(segment, ensure_ascii=False))
+        for segment in segments
+        if isinstance(segment, dict)
+    ]
 
 
 def _last_completed_item_id(items: list[ScoredItem]) -> str | None:

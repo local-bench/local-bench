@@ -31,6 +31,8 @@ from localbench.prompt_rendering import (
 )
 from localbench.providers import Lane, Provider, ReasoningEffort, provider_for_name
 
+ItemCompleteHook = Callable[[ItemResult], bool | None]
+
 if TYPE_CHECKING:
     from localbench.budget_forcing import ForcingFormat
 
@@ -67,7 +69,7 @@ async def run_benchmark(
     reasoning_activation: ReasoningActivation = "qwen3",
     prompt_renderer: PromptRenderer | None = None,
     forcing_format: ForcingFormat | None = None,
-    on_item_complete: Callable[[ItemResult], None] | None = None,
+    on_item_complete: ItemCompleteHook | None = None,
 ) -> RunRecord:
     """Run benchmark items against an OpenAI-compatible chat endpoint."""
     request_provider = provider or provider_for_name("local")
@@ -112,7 +114,12 @@ async def run_benchmark(
             index, result = await task
             ordered[index] = result
             if on_item_complete is not None:
-                on_item_complete(result)
+                if on_item_complete(result):
+                    for pending in tasks:
+                        if not pending.done():
+                            pending.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    break
         results = [result for result in ordered if result is not None]
 
     active_wall_seconds = time.perf_counter() - started_perf

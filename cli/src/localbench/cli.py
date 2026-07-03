@@ -274,6 +274,7 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--suite-dir", type=Path)
     bench_parser.add_argument("--out", type=Path)
     bench_parser.add_argument("--resume", type=Path)
+    bench_parser.add_argument("--retry-errored", action="store_true")
     bench_parser.add_argument("--cache-dir", type=Path)
     bench_parser.add_argument("--threads", type=int, default=8)
     bench_parser.add_argument("--threads-batch", type=int, default=8)
@@ -576,7 +577,7 @@ def _run(args: argparse.Namespace) -> int:
     if scorer_gates:
         _append_scorer_gated_benches(record, scorer_gates, suite_axis_map)
         _rewrite_run_record(record, out)
-    _print_summary(record)
+    _print_summary(record, out)
     return EXIT_COMPLETE
 
 
@@ -691,36 +692,40 @@ def _append_optional(command: list[str], flag: str, value: object | None) -> Non
 
 def _bench(args: argparse.Namespace) -> int:
     usage_error = _bench_reasoning_usage_error(args)
+    if usage_error is None and args.retry_errored and args.resume is None:
+        usage_error = "--retry-errored requires --resume"
     if usage_error is not None:
         print(f"error      {usage_error}", file=sys.stderr)
         return 2
+    options = ServeBenchOptions(
+        runtime=args.runtime,
+        model_file=args.model_file,
+        model_ref=args.model_ref,
+        model_id=args.model_id,
+        server_bin=args.server_bin,
+        ctx=args.ctx,
+        determinism=args.determinism,
+        tier=args.tier,
+        bench=args.bench,
+        lane=_lane(args.lane),
+        seed=args.seed,
+        max_items=args.max_items,
+        suite=args.suite,
+        suite_source=args.suite_source,
+        suite_dir=args.suite_dir,
+        out=args.out,
+        resume=args.resume,
+        retry_errored=args.retry_errored,
+        cache_dir=args.cache_dir,
+        threads=args.threads,
+        threads_batch=args.threads_batch,
+        reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
+        hf_model_id=args.hf_model_id,
+    )
     try:
         record = anyio.run(
             run_orchestrated_bench,
-            ServeBenchOptions(
-                runtime=args.runtime,
-                model_file=args.model_file,
-                model_ref=args.model_ref,
-                model_id=args.model_id,
-                server_bin=args.server_bin,
-                ctx=args.ctx,
-                determinism=args.determinism,
-                tier=args.tier,
-                bench=args.bench,
-                lane=_lane(args.lane),
-                seed=args.seed,
-                max_items=args.max_items,
-                suite=args.suite,
-                suite_source=args.suite_source,
-                suite_dir=args.suite_dir,
-                out=args.out,
-                resume=args.resume,
-                cache_dir=args.cache_dir,
-                threads=args.threads,
-                threads_batch=args.threads_batch,
-                reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
-                hf_model_id=args.hf_model_id,
-            ),
+            options,
         )
     except NotImplementedError as error:
         print(f"error      {error}", file=sys.stderr)
@@ -734,7 +739,7 @@ def _bench(args: argparse.Namespace) -> int:
     except (RuntimeError, OSError) as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG
-    _print_summary(record)
+    _print_summary(record, _bench_output_path(options))
     return EXIT_COMPLETE
 
 
@@ -758,6 +763,11 @@ def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
     if rejected:
         return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking"
     return None
+
+
+def _bench_output_path(options: ServeBenchOptions) -> Path:
+    root = options.resume or options.out or Path("runs") / "bench" / options.model_id
+    return root / "localbench-run.json"
 
 
 def _joined_flags(flags: list[str]) -> str:
@@ -1684,7 +1694,7 @@ def _optional_reasoning_activation(value: str | None) -> ReasoningActivationChoi
     return _reasoning_activation(value)
 
 
-def _print_summary(record: LocalbenchRun) -> None:
+def _print_summary(record: LocalbenchRun, output_path: Path | None = None) -> None:
     print("bench             raw  corrected     term     cond    n   fail  err")
     for name, bench_aggregate in record["benches"].items():
         print(
@@ -1711,7 +1721,8 @@ def _print_summary(record: LocalbenchRun) -> None:
     )
     if "estimated_cost_usd" in record:
         print(f"cost       ${record['estimated_cost_usd']:.6f}")
-    print(f"output     {record['output_path']}")
+    if output_path is not None:
+        print(f"output     {output_path}")
     for warning in record["warnings"]:
         print(f"warning    {warning}")
 

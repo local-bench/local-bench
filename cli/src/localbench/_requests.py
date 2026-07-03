@@ -128,7 +128,14 @@ async def run_item(
                 if attempt < max_attempts:
                     await asyncio.sleep(backoff_seconds(attempt, backoff_base))
                     continue
-                return item_result(item, started_at, started_perf, attempt, error=last_error)
+                return item_result(
+                    item,
+                    started_at,
+                    started_perf,
+                    attempt,
+                    error=last_error,
+                    error_type=exc.__class__.__name__,
+                )
             except (json.JSONDecodeError, ProviderPayloadError, ResponseParseError) as exc:
                 return item_result(
                     item,
@@ -136,6 +143,7 @@ async def run_item(
                     started_perf,
                     attempt,
                     error=f"{exc.__class__.__name__}: {exc}",
+                    error_type=exc.__class__.__name__,
                 )
         return item_result(item, started_at, started_perf, max_attempts, error=last_error)
 
@@ -170,10 +178,11 @@ def item_result(
     *,
     parsed: ParsedCompletion | None = None,
     error: str | None = None,
+    error_type: str | None = None,
 ) -> ItemResult:
     """Build a stable item result record."""
     finished_at = utc_now()
-    return {
+    result: ItemResult = {
         "id": item["id"],
         "response_text": None if parsed is None else parsed.response_text,
         "reasoning_text": None if parsed is None else parsed.reasoning_text,
@@ -186,6 +195,9 @@ def item_result(
         "error": error,
         "thinking_forced": False if parsed is None else parsed.thinking_forced,
     }
+    if error_type is not None:
+        result["error_type"] = error_type
+    return result
 
 
 def is_retryable_status(status_code: int) -> bool:

@@ -167,7 +167,14 @@ async def run_forced_item(
                 if attempt < max_attempts:
                     await asyncio.sleep(backoff_seconds(attempt, backoff_base))
                     continue
-                return item_result(item, started_at, started_perf, attempt, error=last_error)
+                return item_result(
+                    item,
+                    started_at,
+                    started_perf,
+                    attempt,
+                    error=last_error,
+                    error_type=exc.__class__.__name__,
+                )
             except (json.JSONDecodeError, ResponseParseError) as exc:
                 return item_result(
                     item,
@@ -175,6 +182,7 @@ async def run_forced_item(
                     started_perf,
                     attempt,
                     error=f"{exc.__class__.__name__}: {exc}",
+                    error_type=exc.__class__.__name__,
                 )
         return item_result(item, started_at, started_perf, max_attempts, error=last_error)
 

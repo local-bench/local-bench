@@ -36,6 +36,8 @@ _REMOVED_RESULT_FIELDS: Final = frozenset(
         "trust_tier",
         "serving_verification_level",
         "composite",
+        "source",
+        "output_path",
     },
 )
 _MODEL_REQUIRED: Final = (
@@ -112,8 +114,6 @@ def normalize_result_bundle(
         "totals": _object(record.get("totals")),
         "warnings": _string_list(record.get("warnings")),
     }
-    if "output_path" in record:
-        bundle["output_path"] = _safe_path(record.get("output_path"))
     _copy_optional(record, bundle, "agentic_run")
     _copy_optional(record, bundle, "estimated_cost_usd")
     _copy_optional(record, bundle, "resumed")
@@ -313,13 +313,8 @@ def _provenance(existing: JsonObject) -> JsonObject:
 
 
 def _sanitize_output_path(bundle: JsonObject) -> JsonObject:
-    if "output_path" in bundle:
-        bundle["output_path"] = _safe_path(bundle.get("output_path"))
+    bundle.pop("output_path", None)
     return bundle
-
-
-def _safe_path(value: JsonValue | None) -> str:
-    return Path(value if isinstance(value, str) else "localbench-run.json").name
 
 
 def _read_json(path: Path) -> JsonObject:

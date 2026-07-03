@@ -47,6 +47,8 @@ def test_run_record_emits_result_bundle_v1_fields(tmp_path: Path) -> None:
             "trust_tier",
             "serving_verification_level",
             "composite",
+            "source",
+            "output_path",
         ):
             assert removed not in record
         assert isinstance(record["run_started_at"], str)
@@ -81,8 +83,6 @@ def test_run_record_emits_result_bundle_v1_fields(tmp_path: Path) -> None:
             "runtime.identity_missing",
             "suite.not_site_released",
         ]
-        assert "\\" not in record["output_path"]
-        assert "/" not in record["output_path"]
         assert json.loads(output_path.read_text(encoding="utf-8")) == record
 
         # And: the per-item transcript shape keeps reasoning_text and finish_reason.
@@ -130,7 +130,6 @@ def test_axis_status_is_additive_to_existing_run_record_fields(tmp_path: Path) -
             "items",
             "totals",
             "warnings",
-            "output_path",
         )
         assert tuple(key for key in record if key != "axis_status") == result_bundle_keys
         assert {key: written[key] for key in result_bundle_keys} == {

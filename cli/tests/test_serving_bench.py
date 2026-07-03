@@ -8,23 +8,43 @@ from pathlib import Path
 import httpx
 import pytest
 
+from localbench._types import JsonObject
+from localbench.orchestrate import OrchestrateConfig
 from localbench.serving import assembly
+from localbench.serving import runner as serving_runner
 from localbench.serving.bench import BenchRunConfig, build_orchestrate_config
 from localbench.serving.llama_cpp import (
+    BuildIdentity,
     LlamaCppLaunchConfig,
     collect_build_identity,
     strict_llama_cpp_argv,
     validate_strict_argv_supported,
 )
 from localbench.serving.model_artifact import resolve_model_file_artifact
+from localbench.serving.readiness import ReadinessEvidence
 from localbench.serving.readiness import verify_llama_cpp_readiness
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import run_orchestrated_bench
+from localbench.serving.teardown import TeardownEvidence
 from localbench.cli import _parser
+from localbench.persistence import atomic_write_json
+from localbench.submissions.canon import sha256_file
+from localbench.submissions.contracts import RESULT_BUNDLE_SCHEMA_VERSION
+from localbench.submissions.foundation import validate_submission_bundle
 from serving_helpers import flag_value, minimal_gguf, serving_evidence
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
+SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
+SITE_MANIFEST_SHA256 = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
+BANNED_RESULT_BUNDLE_FIELDS = {
+    "schema",
+    "composite",
+    "trust_tier",
+    "serving_verification_level",
+    "source",
+    "output_path",
+}
 
 
 def _launch_config(
@@ -152,6 +172,207 @@ def test_orchestrated_llama_cpp_rejects_api_uncapped_before_model_resolution(tmp
     asyncio.run(scenario())
 
 
+def test_orchestrated_llama_cpp_final_writer_emits_compliant_publishable_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        # Given: a serving run with external process boundaries faked but the final writer intact.
+        model = tmp_path / "Gemma-12B-Q4_K_M.gguf"
+        model.write_bytes(minimal_gguf())
+        server_bin = tmp_path / "llama-server.exe"
+        server_bin.write_text("fake", encoding="utf-8")
+        out_dir = tmp_path / "run"
+        options = ServeBenchOptions(
+            runtime="llama.cpp",
+            model_file=model,
+            model_ref=None,
+            model_id="gemma",
+            server_bin=server_bin,
+            ctx=32768,
+            determinism="strict",
+            tier="standard",
+            bench="mmlu_pro,ifbench,tc_json_v1,lcb",
+            lane="answer-only",
+            seed=1234,
+            out=out_dir,
+        )
+
+        monkeypatch.setattr(serving_runner, "allocate_port", lambda: 49152)
+        monkeypatch.setattr(serving_runner, "collect_build_identity", lambda _binary: _build_identity())
+        monkeypatch.setattr(serving_runner, "validate_strict_argv_supported", lambda _argv, _help: None)
+        monkeypatch.setattr(serving_runner, "launch_llama_cpp", lambda _argv, *, cwd, log_path: _FakeLaunch())
+        monkeypatch.setattr(
+            serving_runner,
+            "verify_llama_cpp_readiness",
+            _fake_readiness,
+        )
+        monkeypatch.setattr(
+            serving_runner,
+            "teardown_owned_server",
+            lambda **_kwargs: TeardownEvidence(
+                owned_process_tree=["1234"],
+                terminated=True,
+                exit_code=0,
+                gpu_pids_after=[],
+                teardown_uncertain=False,
+            ),
+        )
+        monkeypatch.setattr(serving_runner, "run_localbench", _write_publishable_record)
+
+        # When: the orchestrated serving runner completes its final localbench-run.json write.
+        updated = await serving_runner.run_orchestrated_bench(options)
+        written = json.loads((out_dir / "localbench-run.json").read_text(encoding="utf-8"))
+        validation = validate_submission_bundle(out_dir / "localbench-run.json")
+
+        # Then: the serialized result_bundle_v1 has no banned writer fields and remains publishable.
+        assert BANNED_RESULT_BUNDLE_FIELDS.isdisjoint(written)
+        assert BANNED_RESULT_BUNDLE_FIELDS.isdisjoint(updated)
+        assert written["serving"]["trust_tier"] == "orchestrated-pinned-artifacts-v1"
+        assert written["serving"]["verification_level"] == "orchestrated-pinned-artifacts-v1"
+        assert validation["publishable"] is True
+        assert validation["blocking_reasons"] == []
+
+    asyncio.run(scenario())
+
+
+class _FakeProcess:
+    pid = 1234
+    returncode = 0
+
+    def terminate(self) -> None:
+        return
+
+    def wait(self, timeout: float | None = None) -> int:
+        return self.returncode
+
+
+class _FakeLaunch:
+    process = _FakeProcess()
+    job = object()
+    job_handle = 1
+
+    def close_log(self) -> None:
+        return
+
+
+def _build_identity() -> BuildIdentity:
+    return BuildIdentity(
+        executable_sha256="e" * 64,
+        dll_or_so_hashes={"ggml-cuda.dll": "d" * 64},
+        version_stdout="llama.cpp b9852 fd1a05791",
+        source_repo="ggml-org/llama.cpp",
+        source_commit="fd1a05791",
+        source_tag="b9852",
+        build_flags="cuda",
+        help_text_sha256="h" * 64,
+        help_text="",
+        list_devices_stdout="CUDA0",
+        cuda_version="12.4",
+    )
+
+
+async def _fake_readiness(**_kwargs: object) -> ReadinessEvidence:
+    return ReadinessEvidence(
+        health_200_at="2026-07-01T00:00:00Z",
+        models_response_sha256="m" * 64,
+        props_response_sha256="p" * 64,
+        reported_model="gemma",
+        smoke_chat_sha256="s" * 64,
+        tokenize_sha256="t" * 64,
+        apply_template_sha256="a" * 64,
+        total_slots=1,
+        model_path="model.gguf",
+        chat_template="{{messages}}",
+        build_info="llama.cpp b9852 fd1a05791",
+    )
+
+
+async def _write_publishable_record(config: OrchestrateConfig) -> JsonObject:
+    record = _publishable_result_bundle(config)
+    atomic_write_json(record, config.out or Path("localbench-run.json"))
+    return record
+
+
+def _publishable_result_bundle(config: OrchestrateConfig) -> JsonObject:
+    model_file = config.model_file
+    if model_file is None:
+        raise AssertionError("serving writer test requires a resolved model file")
+    model_sha = sha256_file(model_file)
+    benches = {
+        bench: {
+            "n": 1,
+            "n_errors": 0,
+            "n_extraction_failures": 0,
+            "raw_accuracy": 1.0,
+            "chance_corrected": 1.0,
+            "termination_rate": 1.0,
+            "conditional_accuracy": 1.0,
+        }
+        for bench in ("mmlu_pro", "ifbench", "tc_json_v1", "lcb")
+    }
+    return {
+        "schema_version": RESULT_BUNDLE_SCHEMA_VERSION,
+        "run_started_at": "2026-07-01T00:00:00Z",
+        "run_finished_at": "2026-07-01T00:00:01Z",
+        "producer": "localbench-cli",
+        "tier": "standard",
+        "serving_mode": "external_openai_compatible_endpoint",
+        "model": {
+            "name": config.model,
+            "file_sha256": model_sha,
+            "tokenizer_digest": config.tokenizer_digest,
+            "chat_template_digest": config.chat_template_digest,
+        },
+        "manifest": {
+            "suite": {
+                "suite_release_id": SITE_RELEASE_ID,
+                "suite_manifest_sha256": SITE_MANIFEST_SHA256,
+                "suite_hash_algorithm": "sha256-canonical-json-v1",
+            },
+            "sampling": {"temperature": 0.0, "top_k": 1, "seed": 1234},
+            "model": {
+                "family": config.model_family,
+                "quant_label": config.quant_label,
+                "file_name": model_file.name,
+                "file_size_bytes": model_file.stat().st_size,
+                "file_sha256": model_sha,
+                "format": config.model_format,
+                "tokenizer_digest": config.tokenizer_digest,
+                "chat_template_digest": config.chat_template_digest,
+            },
+            "runtime": {
+                "name": config.runtime_name,
+                "version": config.runtime_version,
+                "kv_cache_quant": config.kv_cache_quant,
+                "ctx_len_configured": config.ctx_len_configured,
+                "parallel_slots": config.parallel_slots,
+            },
+            "integrity": {
+                "publishable": False,
+                "blocking_reasons": [],
+                "missing_required_fields": [],
+            },
+        },
+        "axis_status": {"schema_version": "localbench.axis-status.v1", "axes": {}},
+        "headline_complete": True,
+        "scores": {
+            "headline_score": 1.0,
+            "partial_composite": 1.0,
+            "partial_composite_scope": "measured_headline_axes",
+            "measured_headline_weight": 0.5,
+            "missing_headline_weight": 0.0,
+            "known_headline_contribution": 1.0,
+            "rank_scope": "partial-text-code-4axis-v1",
+        },
+        "benches": benches,
+        "conformance": {"status": "headline-comparable"},
+        "items": [],
+        "totals": {},
+        "warnings": [],
+    }
+
+
 def test_bench_parser_accepts_max_items_flag() -> None:
     # Given the bench subcommand's required arguments plus a real-suite item cap.
     parser = _parser()
@@ -178,6 +399,36 @@ def test_bench_parser_accepts_max_items_flag() -> None:
     # Then the cap is available to the bench command.
     assert args.command == "bench"
     assert args.max_items == 10
+
+
+def test_bench_parser_accepts_retry_errored_flag() -> None:
+    # Given the bench subcommand's required arguments plus retry-errored resume mode.
+    parser = _parser()
+
+    # When parsing the CLI surface.
+    args = parser.parse_args(
+        [
+            "bench",
+            "--runtime",
+            "llama.cpp",
+            "--model-file",
+            "model.gguf",
+            "--model-id",
+            "gemma",
+            "--ctx",
+            "32768",
+            "--seed",
+            "1234",
+            "--resume",
+            "runs/bench/gemma",
+            "--retry-errored",
+        ]
+    )
+
+    # Then the retry intent is available to the bench command.
+    assert args.command == "bench"
+    assert args.resume == Path("runs/bench/gemma")
+    assert args.retry_errored is True
 
 
 def test_bench_parser_accepts_capped_thinking_reasoning_flags() -> None:
@@ -383,6 +634,7 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
         out=tmp_path / "run" / "localbench-run.json",
         resume=None,
         max_items=10,
+        retry_errored=True,
         reasoning_activation="gemma4",
         hf_model_id="unsloth/gemma-4-12b-it",
     )
@@ -397,6 +649,7 @@ def test_bench_orchestrate_config_forces_strict_local_lane(tmp_path: Path) -> No
     assert inner.sampler_top_k == 1
     assert inner.sampler_seed == 1234
     assert inner.max_items == 10
+    assert inner.retry_errored is True
     assert inner.reasoning_activation == "gemma4"
     assert inner.hf_model_id == "unsloth/gemma-4-12b-it"
     assert inner.runtime_name == "llama.cpp"
@@ -435,6 +688,7 @@ def test_serving_bench_config_threads_max_items_to_inner_orchestrate_config(tmp_
         seed=1234,
         out=tmp_path / "run",
         max_items=10,
+        retry_errored=True,
         reasoning_activation="gemma4",
         hf_model_id="unsloth/gemma-4-12b-it",
     )
@@ -446,9 +700,11 @@ def test_serving_bench_config_threads_max_items_to_inner_orchestrate_config(tmp_
 
     # Then the same cap used by the run command reaches OrchestrateConfig.
     assert bench_run.max_items == 10
+    assert bench_run.retry_errored is True
     assert bench_run.reasoning_activation == "gemma4"
     assert bench_run.hf_model_id == "unsloth/gemma-4-12b-it"
     assert inner.max_items == 10
+    assert inner.retry_errored is True
     assert inner.reasoning_activation == "gemma4"
     assert inner.hf_model_id == "unsloth/gemma-4-12b-it"
 

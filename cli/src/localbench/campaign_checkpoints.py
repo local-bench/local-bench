@@ -45,6 +45,7 @@ class CheckpointRecord:
     item_id: str
     item_hash: str
     seq: int
+    segment_id: str
     payload: JsonObject
 
 
@@ -60,16 +61,35 @@ def write_bench_checkpoint(
     raw_results: list[ItemResult],
     scored_items: list[ScoredItem],
     aggregate: BenchAggregate,
+    segment_id: str = "segment-1",
 ) -> None:
     paths.benchmarks_dir.mkdir(parents=True, exist_ok=True)
     raw_path = _bench_path(paths, bench, "raw_results.jsonl")
     scored_path = _bench_path(paths, bench, "scored_items.jsonl")
     raw_envelopes = [
-        _record_envelope(paths, "raw_result", bench, result["id"], _payload_hash(result), seq, result)
+        _record_envelope(
+            paths,
+            "raw_result",
+            bench,
+            result["id"],
+            _payload_hash(result),
+            seq,
+            result,
+            segment_id,
+        )
         for seq, result in enumerate(raw_results)
     ]
     scored_envelopes = [
-        _record_envelope(paths, "scored_item", bench, item["id"], _payload_hash(item), seq, item)
+        _record_envelope(
+            paths,
+            "scored_item",
+            bench,
+            item["id"],
+            _payload_hash(item),
+            seq,
+            item,
+            segment_id,
+        )
         for seq, item in enumerate(scored_items)
     ]
     atomic_write_bytes(_jsonl_bytes(raw_envelopes), raw_path)
@@ -84,10 +104,20 @@ def append_item_checkpoint(
     item_hash: str,
     raw_result: ItemResult,
     scored_item: ScoredItem,
+    segment_id: str = "segment-1",
 ) -> None:
     paths.benchmarks_dir.mkdir(parents=True, exist_ok=True)
-    raw = _record_envelope(paths, "raw_result", bench, raw_result["id"], item_hash, seq, raw_result)
-    scored = _record_envelope(paths, "scored_item", bench, scored_item["id"], item_hash, seq, scored_item)
+    raw = _record_envelope(paths, "raw_result", bench, raw_result["id"], item_hash, seq, raw_result, segment_id)
+    scored = _record_envelope(
+        paths,
+        "scored_item",
+        bench,
+        scored_item["id"],
+        item_hash,
+        seq,
+        scored_item,
+        segment_id,
+    )
     _append_jsonl(_bench_path(paths, bench, "raw_results.jsonl"), raw)
     _append_jsonl(_bench_path(paths, bench, "scored_items.jsonl"), scored)
 
@@ -98,8 +128,18 @@ def append_scored_checkpoint(
     seq: int,
     item_hash: str,
     scored_item: ScoredItem,
+    segment_id: str = "segment-1",
 ) -> None:
-    scored = _record_envelope(paths, "scored_item", bench, scored_item["id"], item_hash, seq, scored_item)
+    scored = _record_envelope(
+        paths,
+        "scored_item",
+        bench,
+        scored_item["id"],
+        item_hash,
+        seq,
+        scored_item,
+        segment_id,
+    )
     _append_jsonl(_bench_path(paths, bench, "scored_items.jsonl"), scored)
 
 
@@ -135,6 +175,30 @@ def completed_benches(paths: CampaignPaths) -> dict[str, CompletedBench]:
         bench = marker.name.removesuffix(".complete.json")
         completed[bench] = read_completed_bench(paths, bench)
     return completed
+
+
+def next_segment_id(paths: CampaignPaths) -> str:
+    return f"segment-{_highest_segment_index(paths) + 1}"
+
+
+def checkpoint_segment_summaries(paths: CampaignPaths) -> list[JsonObject]:
+    completed_by_segment: dict[str, list[str]] = {}
+    for record in _checkpoint_records(paths):
+        if record.record_type != "scored_item":
+            continue
+        completed = completed_by_segment.setdefault(record.segment_id, [])
+        if record.item_id not in completed:
+            completed.append(record.item_id)
+    return [
+        {
+            "segment_id": segment_id,
+            "started_at": None,
+            "finished_at": None,
+            "server_fingerprint": None,
+            "completed_items": completed_by_segment[segment_id],
+        }
+        for segment_id in sorted(completed_by_segment, key=_segment_sort_key)
+    ]
 
 
 def read_partial_item_checkpoints(
@@ -230,19 +294,23 @@ def _read_checkpoint_records(
     if not path.exists():
         return []
     records: dict[tuple[str, str, str, int], CheckpointRecord] = {}
-    payload_hashes: dict[tuple[str, str, str, int], str] = {}
+    segment_payload_hashes: dict[tuple[str, str, str, int, str], str] = {}
     for line in _complete_jsonl_lines(path, truncate_torn=truncate_torn):
         raw = json.loads(line)
         if not isinstance(raw, dict):
             raise CheckpointCorruptionError(f"checkpoint row is not an object: {path}")
         record = _checkpoint_record(raw, path, bench=bench, record_type=record_type)
         key = (record.record_type, record.item_id, record.item_hash, record.seq)
+        # Append-only supersede: the latest row wins across segments (retry-errored),
+        # but two different payloads for the same item within one segment can only be
+        # a writer bug, so that still fails closed.
+        segment_key = (*key, record.segment_id)
         payload_hash = _payload_hash(record.payload)
-        existing_hash = payload_hashes.get(key)
+        existing_hash = segment_payload_hashes.get(segment_key)
         if existing_hash is not None and existing_hash != payload_hash:
             raise CheckpointCorruptionError(f"conflicting duplicate checkpoint row in {path}")
-        payload_hashes[key] = payload_hash
-        records.setdefault(key, record)
+        segment_payload_hashes[segment_key] = payload_hash
+        records[key] = record
     return [records[key] for key in sorted(records, key=lambda item: item[3])]
 
 
@@ -262,6 +330,7 @@ def _record_envelope(
     item_hash: str,
     seq: int,
     payload: JsonObject,
+    segment_id: str,
 ) -> JsonObject:
     return {
         "record_type": record_type,
@@ -271,7 +340,7 @@ def _record_envelope(
         "item_id": item_id,
         "item_hash": item_hash,
         "seq": seq,
-        "segment_id": "segment-1",
+        "segment_id": segment_id,
         "payload": payload,
         "payload_sha256": _payload_hash(payload),
     }
@@ -291,13 +360,50 @@ def _checkpoint_record(row: JsonObject, path: Path, *, bench: str, record_type: 
         raise CheckpointCorruptionError(f"checkpoint row in {path} missing item identity")
     if not isinstance(seq, int) or isinstance(seq, bool):
         raise CheckpointCorruptionError(f"checkpoint row in {path} missing integer seq")
+    segment_id = row.get("segment_id")
+    if not isinstance(segment_id, str) or segment_id == "":
+        segment_id = "segment-1"
     payload = _payload_from_record(row, path)
     payload_id = payload.get("id")
     if payload_id != item_id:
         raise CheckpointCorruptionError(f"checkpoint payload id mismatch in {path}")
     if record_type == "scored_item" and payload.get("bench") != bench:
         raise CheckpointCorruptionError(f"checkpoint scored payload bench mismatch in {path}")
-    return CheckpointRecord(record_type, item_id, item_hash, seq, payload)
+    return CheckpointRecord(record_type, item_id, item_hash, seq, segment_id, payload)
+
+
+def _checkpoint_records(paths: CampaignPaths) -> list[CheckpointRecord]:
+    if not paths.benchmarks_dir.exists():
+        return []
+    records: list[CheckpointRecord] = []
+    for path in sorted(paths.benchmarks_dir.glob("*.jsonl")):
+        for line in _complete_jsonl_lines(path, truncate_torn=True):
+            raw = json.loads(line)
+            if not isinstance(raw, dict):
+                raise CheckpointCorruptionError(f"checkpoint row is not an object: {path}")
+            bench = raw.get("bench")
+            record_type = raw.get("record_type")
+            if not isinstance(bench, str) or not isinstance(record_type, str):
+                raise CheckpointCorruptionError(f"checkpoint row in {path} missing identity")
+            records.append(_checkpoint_record(raw, path, bench=bench, record_type=record_type))
+    return records
+
+
+def _highest_segment_index(paths: CampaignPaths) -> int:
+    indexes = [_segment_index(record.segment_id) for record in _checkpoint_records(paths)]
+    return max(indexes, default=0)
+
+
+def _segment_index(segment_id: str) -> int:
+    prefix = "segment-"
+    if not segment_id.startswith(prefix):
+        return 0
+    suffix = segment_id.removeprefix(prefix)
+    return int(suffix) if suffix.isdecimal() else 0
+
+
+def _segment_sort_key(segment_id: str) -> tuple[int, str]:
+    return (_segment_index(segment_id), segment_id)
 
 
 def _payload_from_record(row: JsonObject, path: Path) -> JsonObject:

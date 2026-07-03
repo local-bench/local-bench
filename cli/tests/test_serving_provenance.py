@@ -45,8 +45,9 @@ def test_serving_context_applies_block_policy_and_trust_tier(tmp_path: Path) -> 
 
     # Then: the serving block, determinism policy object, and earned tier are present.
     assert updated["serving"]["verification_level"] == "orchestrated-pinned-artifacts-v1"
-    assert updated["trust_tier"] == "orchestrated-pinned-artifacts-v1"
-    assert updated["serving_verification_level"] == "orchestrated-pinned-artifacts-v1"
+    assert updated["serving"]["trust_tier"] == "orchestrated-pinned-artifacts-v1"
+    assert "trust_tier" not in updated
+    assert "serving_verification_level" not in updated
     assert updated["manifest"]["sampling"]["determinism_policy"]["policy_id"] == DETERMINISM_POLICY_ID
     assert updated["manifest"]["integrity"]["publishable"] is True
     assert updated["serving"]["resolved_runtime"]["reasoning"] == {
@@ -289,8 +290,9 @@ def test_run_localbench_resume_segment_carries_server_fingerprint(tmp_path: Path
             transport=httpx.MockTransport(answer_a_handler),
         )
 
-        # Then: the resumed segment records the current exact fingerprint, not the identity.
-        assert resumed["segments"][0]["server_fingerprint"] == "fingerprint-b"
+        # Then: the current resumed segment records the exact fingerprint, not the identity.
+        assert [segment["segment_id"] for segment in resumed["segments"]] == ["segment-1", "segment-2"]
+        assert resumed["segments"][-1]["server_fingerprint"] == "fingerprint-b"
 
     asyncio.run(scenario())
 
@@ -337,7 +339,8 @@ def test_run_localbench_skips_legacy_missing_resume_identity_at_orchestrate_gate
         )
 
         # Then: this gate skips legacy records; serve-mode resumes are fail-closed earlier.
-        assert resumed["segments"][0]["server_fingerprint"] == "fingerprint-b"
+        assert [segment["segment_id"] for segment in resumed["segments"]] == ["segment-1", "segment-2"]
+        assert resumed["segments"][-1]["server_fingerprint"] == "fingerprint-b"
 
     asyncio.run(scenario())
 

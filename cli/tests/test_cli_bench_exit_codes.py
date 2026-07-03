@@ -96,11 +96,35 @@ def test_bench_answer_only_rejects_reasoning_flags(
     assert "capped-thinking" in stderr
 
 
+def test_bench_retry_errored_requires_resume(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: retry-errored is requested without a resume directory.
+    launched = False
+
+    def fake_anyio_run(function, options) -> None:
+        nonlocal launched
+        launched = True
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    # When: the bench command is validated.
+    code = cli_mod._bench(_bench_args(retry_errored=True))
+
+    # Then: it fails as a usage error before launch.
+    stderr = capsys.readouterr().err
+    assert code == 2
+    assert launched is False
+    assert "--retry-errored requires --resume" in stderr
+
+
 def _bench_args(
     *,
     lane: str = "answer-only",
     hf_model_id: str | None = None,
     reasoning_activation: str | None = None,
+    retry_errored: bool = False,
 ) -> argparse.Namespace:
     return argparse.Namespace(
         runtime="llama.cpp",
@@ -120,6 +144,7 @@ def _bench_args(
         suite_dir=None,
         out=Path("runs/bench/gemma"),
         resume=None,
+        retry_errored=retry_errored,
         cache_dir=None,
         threads=8,
         threads_batch=8,

@@ -26,6 +26,7 @@ class ServeBenchOptions:
     suite_dir: Path | None = None
     out: Path | None = None
     resume: Path | None = None
+    retry_errored: bool = False
     cache_dir: Path | None = None
     threads: int = 8
     threads_batch: int = 8
