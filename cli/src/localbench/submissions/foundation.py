@@ -67,6 +67,9 @@ _SITE_RELEASED_SUITES: Final[dict[str, str]] = {
     "suite-v1-partial-text-code-4axis-v1": (
         "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
     ),
+    "suite-v1-text-code-agentic-5axis-v1": (
+        "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9"
+    ),
 }
 
 

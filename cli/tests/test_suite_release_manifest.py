@@ -8,6 +8,7 @@ from localbench.scoring.axes import axis_membership
 from localbench.suite_release import (
     COVERAGE_PROFILES,
     build_suite_release_manifest,
+    coverage_profile_for_benches,
     suite_manifest_sha256,
 )
 
@@ -15,10 +16,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SUITE_V1 = _REPO_ROOT / "suite" / "v1"
 _SITE_4AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-partial-text-code-4axis-v1"
 _SITE_MANIFEST = _SITE_4AXIS / "suite_release_manifest.json"
+_SITE_5AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-text-code-agentic-5axis-v1"
+_SITE_5AXIS_MANIFEST = _SITE_5AXIS / "suite_release_manifest.json"
 
 
 def test_coverage_profiles_define_current_partial_scopes() -> None:
-    # Given / When / Then: the two frozen coverage profiles carry explicit scoped membership.
+    # Given / When / Then: the frozen coverage profiles carry explicit scoped membership.
     assert COVERAGE_PROFILES["core-text-3axis-v1"].benches == (
         "mmlu_pro",
         "ifbench",
@@ -32,6 +35,30 @@ def test_coverage_profiles_define_current_partial_scopes() -> None:
         "lcb",
     )
     assert COVERAGE_PROFILES["partial-text-code-4axis-v1"].headline_weight == 0.50
+    assert COVERAGE_PROFILES["text-code-agentic-5axis-v1"].benches == (
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "lcb",
+        "appworld_c",
+    )
+    assert COVERAGE_PROFILES["text-code-agentic-5axis-v1"].headline_weight == 1.00
+
+
+def test_coverage_profile_for_benches_preserves_four_axis_and_matches_five_axis() -> None:
+    # Given: four-axis and five-axis measured bench sets.
+    four_axis = {"mmlu_pro", "ifbench", "tc_json_v1", "lcb"}
+    five_axis = {"mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"}
+
+    # When: coverage profiles are inferred from measured benches.
+    four_axis_profile = coverage_profile_for_benches(four_axis)
+    five_axis_profile = coverage_profile_for_benches(five_axis)
+
+    # Then: the 5-axis set does not get swallowed by the 4-axis subset fallback.
+    assert four_axis_profile.profile_id == "partial-text-code-4axis-v1"
+    assert four_axis_profile.rank_scope == "partial-text-code-4axis-v1"
+    assert five_axis_profile.profile_id == "text-code-agentic-5axis-v1"
+    assert five_axis_profile.rank_scope == "text-code-agentic-5axis-v1"
 
 
 def test_suite_release_manifest_hashes_canonical_serialization() -> None:
@@ -104,6 +131,25 @@ def test_site_4axis_release_manifest_matches_foundation_builder() -> None:
 
     # Then: the checked-in release is exactly the canonical foundation output.
     assert manifest == rebuilt
+
+
+def test_site_5axis_release_manifest_matches_foundation_builder_and_is_hash_stable() -> None:
+    # Given: the committed site release directory and its manifest.
+    manifest = read_json(_SITE_5AXIS_MANIFEST)
+
+    # When: the foundation manifest builder runs over that same served directory twice.
+    first = build_suite_release_manifest(_SITE_5AXIS, coverage_profile_id="text-code-agentic-5axis-v1")
+    second = build_suite_release_manifest(_SITE_5AXIS, coverage_profile_id="text-code-agentic-5axis-v1")
+
+    # Then: the checked-in release is exactly reproducible and includes out-of-band agentic membership.
+    assert manifest == first
+    assert first == second
+    assert first["suite_manifest_sha256"] == second["suite_manifest_sha256"]
+    assert first["suite_release_id"] == "suite-v1-text-code-agentic-5axis-v1"
+    assert first["coverage_profile_id"] == "text-code-agentic-5axis-v1"
+    assert first["coverage_profile"]["headline_weight"] == 1.0
+    assert first["axis_membership"]["agentic"] == ["appworld_c"]
+    assert "appworld_c.jsonl" not in _manifest_paths(first)
 
 
 def read_json(path: Path) -> JsonObject:

@@ -36,6 +36,12 @@ COVERAGE_PROFILES: Final[dict[str, CoverageProfile]] = {
         headline_weight=0.50,
         rank_scope="partial-text-code-4axis-v1",
     ),
+    "text-code-agentic-5axis-v1": CoverageProfile(
+        profile_id="text-code-agentic-5axis-v1",
+        benches=("mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"),
+        headline_weight=1.00,
+        rank_scope="text-code-agentic-5axis-v1",
+    ),
 }
 
 
@@ -84,6 +90,8 @@ def coverage_profile_for_benches(benches: set[str]) -> CoverageProfile:
     for profile in COVERAGE_PROFILES.values():
         if set(profile.benches) == benches:
             return profile
+    if {"mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"}.issubset(benches):
+        return COVERAGE_PROFILES["text-code-agentic-5axis-v1"]
     if {"mmlu_pro", "ifbench", "tc_json_v1", "lcb"}.issubset(benches):
         return COVERAGE_PROFILES["partial-text-code-4axis-v1"]
     if {"mmlu_pro", "ifbench", "tc_json_v1"}.issubset(benches):
