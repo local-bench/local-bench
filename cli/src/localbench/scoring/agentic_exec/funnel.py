@@ -654,6 +654,8 @@ def chat_client_factory(
     is stateless across tasks) but matches the ``ModelFactory`` signature the benchmark expects.
     ``chat_template_kwargs`` (e.g. ``{"enable_thinking": True}``) is forwarded per-request so the
     loop engages a thinking model's native reasoning reproducibly (not via a server launch flag).
+    ``base_url`` may be the server root OR the OpenAI-style base including ``/v1`` — the client
+    normalizes so both yield ``ROOT/v1/chat/completions`` (a double ``/v1`` 404s silently).
     """
     from localbench.scoring.agentic_exec.chat_client import (  # noqa: PLC0415 — lazy by design.
         ChatCompletionsClient,

@@ -89,12 +89,21 @@ class ChatCompletionsClient:
         chat_path: str = "/v1/chat/completions",
         chat_template_kwargs: dict[str, object] | None = None,
     ) -> None:
+        base = base_url.rstrip("/")
+        resolved_chat_path = chat_path
+        if base.endswith("/v1") and chat_path == "/v1/chat/completions":
+            # Callers across localbench pass the OpenAI-style base INCLUDING /v1 (the serve
+            # orchestrator does exactly that), while the default chat_path also carries /v1.
+            # Collapse the overlap so BOTH conventions yield ROOT/v1/chat/completions — a
+            # double /v1 404s on every call and, because complete() never raises, silently
+            # burns the whole turn cap as empty turns (found by the 2026-07-03 shakeout).
+            resolved_chat_path = "/chat/completions"
         self._config = ChatClientConfig(
-            base_url=base_url.rstrip("/"),
+            base_url=base,
             model=model,
             api_key=api_key,
             timeout_s=timeout_s,
-            chat_path=chat_path,
+            chat_path=resolved_chat_path,
             chat_template_kwargs=chat_template_kwargs,
         )
 
@@ -230,9 +239,16 @@ class ChatCompletionsClient:
         """A turn the loop will treat as a (recoverable) format failure.
 
         Empty text → block_parser yields a ``no_block`` format error → the loop injects a
-        corrective observation and continues. ``finish_reason`` carries the cause for diagnostics.
+        corrective observation and continues. ``error_detail`` carries the cause into the
+        per-turn record so endpoint failures stay diagnosable (the 2026-07-03 shakeout burned
+        144 silent turns partly because this detail used to be dropped).
         """
-        return ModelResponse(text="", finish_reason=ERROR_FINISH_REASON, output_tokens=0)
+        return ModelResponse(
+            text="",
+            finish_reason=ERROR_FINISH_REASON,
+            output_tokens=0,
+            error_detail=detail,
+        )
 
 
 def _extract_completion_tokens(usage: object) -> int | None:

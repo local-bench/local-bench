@@ -612,3 +612,40 @@ def test_chat_client_factory_builds_clients() -> None:
     assert isinstance(client, ChatCompletionsClient)
     assert client.config.model == "qwen-x"
     assert client.config.base_url == "http://127.0.0.1:8000"
+
+
+def test_chat_client_normalizes_v1_suffixed_base_url() -> None:
+    # Given / When: the OpenAI-style base INCLUDING /v1 (what the serve orchestrator passes)
+    # and the bare server root.
+    with_v1 = ChatCompletionsClient("http://127.0.0.1:8000/v1", "m")
+    bare_root = ChatCompletionsClient("http://127.0.0.1:8000", "m")
+
+    # Then: both yield exactly ONE /v1 in the endpoint (a double /v1 404s on every call and
+    # silently burns the turn cap — found live by the 2026-07-03 agentic shakeout).
+    assert with_v1.endpoint == "http://127.0.0.1:8000/v1/chat/completions"
+    assert bare_root.endpoint == "http://127.0.0.1:8000/v1/chat/completions"
+
+
+def test_chat_client_custom_chat_path_is_never_rewritten() -> None:
+    # Given / When: an explicit non-default chat_path (non-standard gateway).
+    client = ChatCompletionsClient(
+        "http://gw.example/v1", "m", chat_path="/custom/chat"
+    )
+
+    # Then: normalization only applies to the default path pairing.
+    assert client.endpoint == "http://gw.example/v1/custom/chat"
+
+
+def test_chat_client_error_response_carries_detail(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given: a transport that fails with a connection-level error (status 0 sentinel).
+    client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
+    monkeypatch.setattr(client, "_post", lambda p: (0, "URLError: [Errno 111] refused"))
+
+    # When: completing a turn.
+    response = client.complete([{"role": "user", "content": "hi"}], GenerationParams())
+
+    # Then: the degraded turn carries the cause for per-turn diagnostics (it used to be dropped).
+    assert response.finish_reason == "error"
+    assert response.text == ""
+    assert response.error_detail is not None
+    assert "URLError" in response.error_detail

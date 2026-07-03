@@ -66,6 +66,9 @@ class ModelResponse:
     text: str
     finish_reason: str = "stop"
     output_tokens: int | None = None
+    # Populated ONLY on client-degraded turns (finish_reason="error"): the transport/parse
+    # cause (e.g. "http_status=404: ...", "URLError: refused") for per-turn diagnostics.
+    error_detail: str | None = None
 
 
 @runtime_checkable

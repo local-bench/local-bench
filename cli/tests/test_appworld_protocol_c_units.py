@@ -30,6 +30,7 @@ from localbench.scoring.agentic_exec import benchmark as bench  # noqa: E402
 from localbench.scoring.agentic_exec import block_introspect as bi  # noqa: E402
 from localbench.scoring.agentic_exec import block_parser as bp  # noqa: E402
 from localbench.scoring.agentic_exec import prompt as prompt_mod  # noqa: E402
+from localbench.scoring.agentic_exec import protocol_c_loop as pcl  # noqa: E402
 from localbench.scoring.agentic_exec import sandbox as sandbox_mod  # noqa: E402
 from localbench.scoring.agentic_exec import scripted_agent as sa  # noqa: E402
 from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: E402
@@ -938,3 +939,71 @@ def test_loop_finalization_provenance_is_none_for_plain_sandboxes() -> None:
     # Then: the field is present-but-null, never fabricated.
     assert result.diagnostics.finalization is None
     assert result.diagnostics.as_dict()["finalization"] is None
+
+
+# ==============================================================================================
+# endpoint-dead abort: a task whose FIRST turns are all client errors must not burn the cap
+# ==============================================================================================
+
+
+class _DeadEndpointModel:
+    """Model client double: every complete() is a client transport error."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(self, messages: object, params: object) -> ModelResponse:
+        self.calls += 1
+        return ModelResponse(
+            text="", finish_reason="error", output_tokens=0,
+            error_detail="http_status=404: File Not Found",
+        )
+
+
+def test_loop_aborts_task_when_endpoint_is_dead_from_turn_one() -> None:
+    # Given: a sandbox that bootstraps fine but a model endpoint that never answers.
+    sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+    model = _DeadEndpointModel()
+
+    # When / Then: the loop raises after the abort streak instead of burning all 24 turns,
+    # and the benchmark surface records it as a HARNESS_ERROR row (not a silent 0 ASR).
+    with pytest.raises(pcl.ModelEndpointError):
+        run_task(sandbox, model, "fac291d_1")
+    assert model.calls == pcl._ENDPOINT_DEAD_ABORT_TURNS
+
+    result = bench.run_appworld_c_benchmark(
+        ["fac291d_1"],
+        model_factory=lambda task_id: _DeadEndpointModel(),
+        sandbox_factory=lambda task_id: FakeSandbox(
+            gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com"
+        ),
+    ).results[0]
+    assert result.outcome == TaskOutcome.HARNESS_ERROR
+    assert "model endpoint returned errors" in (result.diagnostics.finalize_error or "")
+
+
+def test_loop_does_not_abort_on_midtask_client_errors() -> None:
+    # Given: a model whose FIRST turn succeeds (runs a block), then the endpoint dies.
+    class _DiesAfterFirstTurn:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def complete(self, messages: object, params: object) -> ModelResponse:
+            self.calls += 1
+            if self.calls == 1:
+                return ModelResponse(text="```python\nprint('warm')\n```", finish_reason="stop")
+            return ModelResponse(
+                text="", finish_reason="error", output_tokens=0, error_detail="URLError: refused"
+            )
+
+    sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+
+    # When: running the task to the cap.
+    result = run_task(sandbox, _DiesAfterFirstTurn(), "fac291d_1")
+
+    # Then: the documented per-turn degradation holds (no abort — one turn DID succeed), the
+    # task ends cap_exceeded, and the client cause is preserved on the degraded turn records.
+    assert result.outcome == TaskOutcome.CAP_EXCEEDED
+    error_turns = [t for t in result.diagnostics.turns if t.finish_reason == "error"]
+    assert error_turns
+    assert all(t.error_detail == "URLError: refused" for t in error_turns)

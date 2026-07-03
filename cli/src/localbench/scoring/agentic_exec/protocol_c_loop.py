@@ -70,6 +70,14 @@ _READBACK_CODE = (
 _ANCHOR_MESSAGE_COUNT = 2
 _HISTORY_ANCHOR_RESERVE_TOKENS = 2_048
 _HISTORY_TURN_OVERHEAD_TOKENS = 256
+# Abort a task once its FIRST N turns are all client transport/protocol errors (endpoint never
+# answered): burning the remaining cap can only produce a silent 0. Mid-task transients (any
+# earlier successful turn) never trigger this — they keep the per-turn degradation contract.
+_ENDPOINT_DEAD_ABORT_TURNS = 6
+
+
+class ModelEndpointError(RuntimeError):
+    """The model endpoint produced only transport/protocol errors from the first turn on."""
 
 
 class SandboxLike(Protocol):
@@ -191,8 +199,21 @@ def run_task(
     finalization: dict[str, Any] | None = None
     failure_class = FailureClass.NONE
 
+    client_error_streak_from_start = 0
     for turn_index in range(1, cfg.max_turns + 1):
         response = model.complete(messages, params)
+        # Endpoint-dead guard: if the FIRST N turns are ALL client transport/protocol errors
+        # (the endpoint never answered once), the task can only burn the whole turn cap as
+        # empty turns and score a silent 0. Abort as a harness failure instead. A mid-task
+        # transient (some turn succeeded earlier) keeps the documented per-turn degradation.
+        if response.finish_reason == "error":
+            client_error_streak_from_start += 1
+            if turn_index == client_error_streak_from_start == _ENDPOINT_DEAD_ABORT_TURNS:
+                detail = getattr(response, "error_detail", None)
+                raise ModelEndpointError(
+                    f"model endpoint returned errors for the first {turn_index} turns "
+                    f"(last detail: {detail!r}); aborting task instead of burning the turn cap"
+                )
         out_tokens = (
             response.output_tokens
             if response.output_tokens is not None
@@ -229,6 +250,7 @@ def run_task(
                 out_tokens,
                 parsed.kind,
                 response.text,
+                error_detail=getattr(response, "error_detail", None),
             ))
             messages.append(_user_msg(parsed.message))
             messages = _window_messages(messages, cfg)
@@ -486,7 +508,12 @@ def _sandbox_failure_result(task_id: str, exc: SandboxError) -> TaskRunResult:
 
 
 def _format_turn(
-    index: int, finish_reason: str, out_tokens: int, kind: str, raw_response_text: str
+    index: int,
+    finish_reason: str,
+    out_tokens: int,
+    kind: str,
+    raw_response_text: str,
+    error_detail: str | None = None,
 ) -> TurnRecord:
     """A TurnRecord for a turn that produced no runnable block (a format failure)."""
     return TurnRecord(
@@ -502,6 +529,7 @@ def _format_turn(
         observation_truncated=False,
         is_final=False,
         raw_response_text=raw_response_text,
+        error_detail=error_detail,
     )
 
 

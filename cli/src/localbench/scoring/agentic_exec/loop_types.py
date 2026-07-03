@@ -56,6 +56,7 @@ class TurnRecord:
     observation_truncated: bool      # the observation fed back was truncated to the cap
     is_final: bool                   # the model signalled a final answer this turn
     raw_response_text: str = ""      # unmodified assistant text for provenance/debugging
+    error_detail: str | None = None  # client transport/parse cause when finish_reason="error"
 
 
 @dataclass(slots=True)
