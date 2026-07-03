@@ -259,6 +259,28 @@ def test_collect_build_identity_hashes_binary_and_adjacent_runtime_files(tmp_pat
     assert identity.list_devices_stdout == "CUDA0 RTX 5090"
 
 
+def test_collect_build_identity_derives_release_tag_from_unprefixed_version(tmp_path: Path) -> None:
+    # Given: the real release --version format, which omits the bNNNN token.
+    server = tmp_path / "llama-server.exe"
+    server.write_bytes(b"server")
+
+    def runner(argv: list[str]) -> str:
+        if argv[-1] == "--version":
+            return "version: 9852 (fd1a05791)\nbuilt with Clang 20.1.8 for Windows x86_64"
+        if argv[-1] == "--help":
+            return "--model\n"
+        if argv[-1] == "--list-devices":
+            return "CUDA0 RTX 5090"
+        raise AssertionError(argv)
+
+    # When: collecting build identity.
+    identity = collect_build_identity(server, runner=runner)
+
+    # Then: the release tag is derived as b<build-number>, matching the tagged form.
+    assert identity.source_tag == "b9852"
+    assert identity.source_commit == "fd1a05791"
+
+
 def test_resolve_model_file_artifact_dumps_and_hashes_gguf_metadata(tmp_path: Path) -> None:
     # Given: a minimal GGUF with embedded model and tokenizer metadata.
     model = tmp_path / "Gemma-12B-Q4_K_M.gguf"

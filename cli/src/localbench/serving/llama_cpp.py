@@ -147,7 +147,7 @@ def collect_build_identity(
         version_stdout=version_stdout,
         source_repo="ggml-org/llama.cpp",
         source_commit=_first_regex(version_stdout, r"\b[0-9a-f]{8,40}\b"),
-        source_tag=_first_regex(version_stdout, r"\bb\d+\b"),
+        source_tag=_source_tag(version_stdout),
         build_flags=version_stdout,
         help_text_sha256=hashlib.sha256(help_text.encode("utf-8")).hexdigest(),
         help_text=help_text,
@@ -192,6 +192,16 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _source_tag(version_stdout: str) -> str | None:
+    tagged = _first_regex(version_stdout, r"\bb\d+\b")
+    if tagged is not None:
+        return tagged
+    # Release binaries print "version: 9852 (fd1a05791)" without the bNNNN token;
+    # the upstream release tag convention is b<build-number>.
+    number = _first_regex(version_stdout, r"version:\s*(\d+)\b")
+    return None if number is None else f"b{number}"
 
 
 def _first_regex(text: str, pattern: str) -> str | None:
