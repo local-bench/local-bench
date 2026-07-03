@@ -107,11 +107,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch-smoke.ps1 `
 
 Use `-WriteState` to write `docs/deploy/live-state.generated.json` after a credentialed smoke. Use `-RequireCloudflareAuth` when deployment enumeration must be present instead of warning if Wrangler is unavailable or unauthenticated.
 
-## Online Submission Smoke (blocked by missing secrets)
+## Online Submission Smoke
 
-This section is future-use while `ADMIN_API_SECRET`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are unset. Until those secrets exist, ticket/upload/admin checks are WARN-only in `scripts/launch-smoke.ps1`; they are not site-health failures.
-
-Prototype private mode may block public smoke checks. If `LOCALBENCH_SITE_PRIVATE=1`, pass the owner bypass token from `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt` with `x-localbench-bypass`, or open `/?lb_bypass=<token>` once in a browser to set the private cookie.
+Production secrets (`ADMIN_API_SECRET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`) are set and were proven working out-of-band on 2026-07-03 (admin-gated ticket issuance, R2 presigned PUT). `scripts/launch-smoke.ps1` still does not probe ticket/upload/admin paths because they are state-mutating (tickets create D1 rows); it emits a single informational WARN pointing here instead.
 
 Prototype private mode may block public smoke checks. If `LOCALBENCH_SITE_PRIVATE=1`, pass the owner bypass token from `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt` with `x-localbench-bypass`, or open `/?lb_bypass=<token>` once in a browser to set the private cookie.
 

@@ -18,7 +18,7 @@ $ProjectName = "local-bench"
 $SuiteId = "core-text-v1"
 $SuiteHash = "6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179"
 $HttpTimeoutSec = 15
-$MissingSecretBlockers = @("ADMIN_API_SECRET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
+$SubmissionProbeNote = "not probed by smoke (state-mutating: tickets create D1 rows); verified out-of-band 2026-07-03 with secrets present - see docs/deploy/live-state.md"
 $KnownDeploymentIds = @(
   "049f238e", # current gated production deployment
   "5a325e77", # prior gated deployment
@@ -228,13 +228,15 @@ function Test-HealthPublic {
     return $false
   }
 
+  # storage.queue is expected false: the dead VERIFICATION_QUEUE producer binding was
+  # removed deliberately (Pages cannot consume queues).
   $storage = $payload.storage
   $storageOk = (
     $payload.service -eq "localbench" -and
     $payload.status -eq "ok" -and
     $null -ne $storage -and
     $storage.d1 -eq $true -and
-    $storage.queue -eq $true -and
+    $storage.queue -eq $false -and
     $storage.r2 -eq $true
   )
 
@@ -533,10 +535,7 @@ function Test-AutoMode {
 }
 
 function Add-SubmissionAdminWarnings {
-  $blockers = $MissingSecretBlockers -join "/"
-  Add-CheckResult "WARN" "Submission ticket" "blocked by missing secrets $blockers"
-  Add-CheckResult "WARN" "Submission upload" "blocked by missing secrets $blockers"
-  Add-CheckResult "WARN" "Admin checks" "blocked by missing secrets $blockers"
+  Add-CheckResult "WARN" "Submission/admin legs" $SubmissionProbeNote
 }
 
 function Write-LiveStateJson {
@@ -554,11 +553,12 @@ function Write-LiveStateJson {
       expected_file_count = 11
     }
     production_deployment = [pscustomobject]@{
-      id = "049f238e"
-      commit = "05263f1"
+      id = "unverified (wrangler unauthenticated)"
+      commit = "40423f4"
       branch = "main"
+      as_of = "2026-07-03"
     }
-    missing_secret_blockers = $MissingSecretBlockers
+    submission_admin_probe = $SubmissionProbeNote
     deployment_aliases_checked = $script:DeploymentAliasIds
     checks = $script:Observations
   }
