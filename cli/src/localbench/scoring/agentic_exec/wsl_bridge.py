@@ -78,17 +78,23 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
 
     def __enter__(self) -> WslSandboxProxy:
         self._start()
-        hello = self._request({"op": "hello"}, timeout_s=self.config.op_timeout_s)
-        identity = hello.get("identity")
-        if not isinstance(identity, dict):
+        try:
+            hello = self._request({"op": "hello"}, timeout_s=self.config.op_timeout_s)
+            identity = hello.get("identity")
+            if not isinstance(identity, dict):
+                raise SandboxError("wsl worker hello returned no identity")
+            self.identity = identity
+            if self.task_id is not None:
+                self._request(
+                    {"op": "open_task", "task_id": self.task_id},
+                    timeout_s=self.config.open_task_timeout_s,
+                )
+        except BaseException:
+            # Any enter-time failure (hello/open_task timeout or error) must not leak the wsl.exe
+            # worker + its stderr log handle: __exit__ never runs when __enter__ raises. Over a
+            # 96-task run these would accumulate. Tear down before propagating.
             self.force_kill()
-            raise SandboxError("wsl worker hello returned no identity")
-        self.identity = identity
-        if self.task_id is not None:
-            self._request(
-                {"op": "open_task", "task_id": self.task_id},
-                timeout_s=self.config.open_task_timeout_s,
-            )
+            raise
         return self
 
     def __exit__(self, *_exc: object) -> None:

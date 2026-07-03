@@ -132,6 +132,26 @@ def test_proxy_force_kill_terminates_fake_worker_child(tmp_path: Path) -> None:
     assert _eventually_dead(child_pid)
 
 
+def test_proxy_enter_time_failure_raises_and_tears_down(tmp_path: Path) -> None:
+    # Given: a worker that exits immediately, so the hello handshake in __enter__ fails.
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/x",
+        venv_python="/x/py",
+        appworld_root="/x/data",
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, "-c", "import sys; sys.exit(0)"),
+        op_timeout_s=2.0,
+    )
+    proxy = WslSandboxProxy("fac291d_1", config)
+
+    # When / Then: __enter__ fails closed (no hang) and cleans up rather than leaking the worker.
+    # (Previously an enter-time hello/open_task failure skipped force_kill entirely, since __exit__
+    # never runs when __enter__ raises.)
+    with pytest.raises(SandboxError):
+        proxy.__enter__()
+    assert proxy._proc is None or proxy._proc.poll() is not None
+
+
 def test_wsl_sandbox_factory_builds_proxy_context(tmp_path: Path) -> None:
     # Given: WSL bridge defaults plus a test launch argv.
     script = _write_fake_worker(tmp_path)
