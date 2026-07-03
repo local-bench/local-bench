@@ -18,6 +18,7 @@ from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike
 from localbench.scoring.agentic_exec.sandbox import (
     BlockObservation,
     SandboxError,
+    FINALIZATION_PROVENANCE,
 )
 from localbench.scoring.agentic_exec.wsl_worker import (
     decode_worker_frame,
@@ -130,6 +131,12 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             ),
         )
 
+    def finalization_provenance(self) -> JsonObject:
+        # The proxy delegates finalize to the trusted WSL worker, which drives the same env-host
+        # stdin control channel (AppWorldSandbox.finalize) — the verdict path is identical, so
+        # the descriptor is shared. Every hop (proxy -> worker -> env-host) is trusted.
+        return dict(FINALIZATION_PROVENANCE)
+
     def close(self) -> None:
         if self._closed:
             return
@@ -189,11 +196,20 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         if proc.stdin is None or proc.stdout is None:
             raise SandboxError("wsl worker pipes are unavailable")
         try:
-            proc.stdin.write(encode_worker_frame(message))
-            proc.stdin.flush()
-        except (BrokenPipeError, OSError, ValueError) as exc:
-            raise SandboxError(f"wsl worker pipe write failed: {exc}") from exc
-        response = _read_response(proc.stdout, timeout_s)
+            try:
+                proc.stdin.write(encode_worker_frame(message))
+                proc.stdin.flush()
+            except (BrokenPipeError, OSError, ValueError) as exc:
+                raise SandboxError(f"wsl worker pipe write failed: {exc}") from exc
+            response = _read_response(proc.stdout, timeout_s)
+        except SandboxError:
+            # A transport-level failure (timeout, closed/garbled stdout, broken pipe) leaves the
+            # NDJSON request/response stream in an unknown state: a late response could pair with
+            # the NEXT request and desync every read after it. Fail closed — kill the worker tree
+            # so the proxy is dead rather than subtly wrong. Well-formed error responses below do
+            # NOT kill: for those the protocol is still in sync and close() stays graceful.
+            self.force_kill()
+            raise
         kind = response.get("kind")
         if kind == "ok":
             return response
@@ -285,6 +301,12 @@ def provenance_from_identity(identity: JsonObject) -> JsonObject:
         },
         "single_campaign_integrity": {
             "merge_step_used": False,
+        },
+        # Run-level trust-tier note for the agentic harness: the verdict is host-derived over
+        # the env-host stdin control channel; the untrusted runner is not in the verdict path.
+        "agentic_verdict_channel": {
+            **FINALIZATION_PROVENANCE,
+            "trust_note": "host-derived+direct-finalize-v1",
         },
     }
 

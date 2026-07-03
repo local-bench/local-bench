@@ -82,6 +82,9 @@ class TaskDiagnostics:
     observation_truncations: int     # observations truncated to the char cap
     total_output_tokens: int         # summed completion tokens across turns
     finalize_error: str | None = None  # set if finalize itself errored (HARNESS_ERROR)
+    # Additive direct-finalize provenance: verdict-channel descriptor + sha256 of the
+    # orchestrator's read-back answer. None when the sandbox does not advertise one (mocks).
+    finalization: dict[str, Any] | None = None
     turns: list[TurnRecord] = field(default_factory=list)
     failure_class: FailureClass = FailureClass.NONE
 

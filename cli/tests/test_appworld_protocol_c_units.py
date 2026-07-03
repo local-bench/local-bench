@@ -896,3 +896,45 @@ def test_gate1_canary_driver_parser_rejection_never_executes() -> None:
     # parse_turn saw two blocks -> rejected -> synthetic traceback, and NOTHING ran in the sandbox.
     assert "Traceback" in out and "BlockFormatError" in out
     assert sandbox.run_blocks == []  # the jail was never entered for a rejected turn
+
+
+# ==============================================================================================
+# finalization provenance (direct-finalize descriptor + answer hash) in the per-task record
+# ==============================================================================================
+
+
+def test_loop_records_finalization_provenance_when_sandbox_advertises_it() -> None:
+    # Given: a sandbox that advertises the direct-finalize descriptor (as the real ones do).
+    class _ProvenancedSandbox(FakeSandbox):
+        def finalization_provenance(self) -> dict:
+            return dict(sandbox_mod.FINALIZATION_PROVENANCE)
+
+    sandbox = _ProvenancedSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+
+    # When: the loop finalizes through it.
+    result = run_task(sandbox, sa.ScriptedSolverAgent("fac291d_1"), "fac291d_1")
+
+    # Then: the per-task record carries the descriptor + sha256 of the read-back answer bytes.
+    import hashlib
+
+    fin = result.diagnostics.finalization
+    assert fin is not None
+    assert fin["path"] == "orchestrator-direct-envhost-stdin-v1"
+    assert fin["runner_in_verdict_path"] is False
+    assert fin["finalize_correlation"] == "finalize_id+pinned_task+one_shot"
+    expected = hashlib.sha256(
+        json.dumps(5, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+    ).hexdigest()
+    assert fin["answer_hash"] == expected
+    # And: it survives serialisation into the per-task record dict (funnel run JSON path).
+    assert result.diagnostics.as_dict()["finalization"]["answer_hash"] == expected
+
+
+def test_loop_finalization_provenance_is_none_for_plain_sandboxes() -> None:
+    # Given / When: a sandbox with no descriptor (test doubles, hypothetical legacy paths).
+    sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+    result = run_task(sandbox, sa.ScriptedSolverAgent("fac291d_1"), "fac291d_1")
+
+    # Then: the field is present-but-null, never fabricated.
+    assert result.diagnostics.finalization is None
+    assert result.diagnostics.as_dict()["finalization"] is None

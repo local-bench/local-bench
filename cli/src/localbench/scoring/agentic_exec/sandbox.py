@@ -52,6 +52,17 @@ _DEFAULT_READY_TIMEOUT_S = 120.0   # world construction + DB reset can take a li
 _DEFAULT_BLOCK_WALL_TIMEOUT_S = 300.0
 _DEFAULT_FINALIZE_TIMEOUT_S = 120.0
 
+# Additive per-task finalization provenance (docs/benchmark-build/
+# direct-finalize-provenance-trust-tier-note-2026-07-03.md). Constant because this module has
+# exactly one finalize path: the orchestrator-held env-host stdin control channel, correlated by
+# finalize_id against the task pinned at env-host spawn, one-shot. The untrusted runner cannot
+# reach the verdict path. The loop stamps answer_hash on top of this descriptor per task.
+FINALIZATION_PROVENANCE: dict[str, Any] = {
+    "path": "orchestrator-direct-envhost-stdin-v1",
+    "runner_in_verdict_path": False,
+    "finalize_correlation": "finalize_id+pinned_task+one_shot",
+}
+
 
 class SandboxError(RuntimeError):
     """Raised when the sandbox cannot be constructed or a broker step fails irrecoverably."""
@@ -414,6 +425,10 @@ class AppWorldSandbox:
             passes=tuple(result.get("passes", [])),
             failures=tuple(result.get("failures", [])),
         )
+
+    def finalization_provenance(self) -> dict[str, Any]:
+        """Descriptor of the verdict channel this sandbox uses (additive per-task provenance)."""
+        return dict(FINALIZATION_PROVENANCE)
 
     # -- internals ------------------------------------------------------------------------------
 

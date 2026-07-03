@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import subprocess
 import sys
@@ -16,6 +15,7 @@ from localbench.scoring.agentic_exec.sandbox import SandboxError
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslSandboxProxy,
     WslWorkerConfig,
+    provenance_from_identity,
     wsl_list_scored_task_ids,
     wsl_sandbox_factory,
 )
@@ -273,3 +273,79 @@ def _pid_exists(pid: int) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def test_request_timeout_kills_worker_fail_closed(tmp_path: Path) -> None:
+    # Given: a fake worker that hangs on one run_block request.
+    script = _write_fake_worker(tmp_path)
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
+        venv_python="/home/michael/appworld-harness/venv/bin/python3",
+        appworld_root="/home/michael/appworld-data",
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, str(script)),
+        op_timeout_s=0.1,
+    )
+    proxy = WslSandboxProxy("fac291d_1", config)
+    proxy.__enter__()
+    try:
+        # When: the op times out.
+        with pytest.raises(SandboxError):
+            proxy.run_block("hang")
+        # Then: the worker is killed immediately (fail closed). A late response from a
+        # still-alive worker could pair with the NEXT request and desync every later read.
+        assert proxy._proc is not None
+        assert proxy._proc.poll() is not None
+    finally:
+        proxy.close()
+
+
+def test_well_formed_error_response_keeps_worker_alive(tmp_path: Path) -> None:
+    # Given: a live fake worker (its unknown-op branch answers protocol_error and keeps serving).
+    script = _write_fake_worker(tmp_path)
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
+        venv_python="/home/michael/appworld-harness/venv/bin/python3",
+        appworld_root="/home/michael/appworld-data",
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, str(script)),
+        op_timeout_s=2.0,
+    )
+    with WslSandboxProxy("fac291d_1", config) as sandbox:
+        # When: the worker answers a well-formed protocol_error.
+        with pytest.raises(SandboxError):
+            sandbox._request({"op": "bogus"}, timeout_s=2.0)
+        # Then: the protocol is still in sync — worker alive, next request round-trips fine.
+        assert sandbox._proc is not None
+        assert sandbox._proc.poll() is None
+        assert sandbox.run_block("print(3)").stdout == "ran: print(3)"
+
+
+def test_proxy_finalization_provenance_is_the_shared_direct_finalize_descriptor(
+    tmp_path: Path,
+) -> None:
+    # Given: a proxy (never entered — the descriptor is static).
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/x",
+        venv_python="/x/py",
+        appworld_root="/x/data",
+        log_dir=tmp_path,
+    )
+    proxy = WslSandboxProxy("fac291d_1", config)
+
+    # When / Then: it advertises the same descriptor as the WSL-side AppWorldSandbox.
+    descriptor = proxy.finalization_provenance()
+    assert descriptor["path"] == "orchestrator-direct-envhost-stdin-v1"
+    assert descriptor["runner_in_verdict_path"] is False
+    assert descriptor["finalize_correlation"] == "finalize_id+pinned_task+one_shot"
+
+
+def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
+    # Given / When: run-level provenance built from a worker identity.
+    prov = provenance_from_identity({"bwrap_path": "/x/bwrap", "bwrap_version": "bwrap 0.9.0"})
+
+    # Then: the agentic verdict-channel trust note is present and host-derived.
+    channel = prov["agentic_verdict_channel"]
+    assert channel["path"] == "orchestrator-direct-envhost-stdin-v1"
+    assert channel["runner_in_verdict_path"] is False
+    assert channel["trust_note"] == "host-derived+direct-finalize-v1"

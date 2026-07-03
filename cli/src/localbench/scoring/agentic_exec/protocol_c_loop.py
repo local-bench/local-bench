@@ -26,6 +26,7 @@ run passes a live ``AppWorldSandbox``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Protocol, assert_never
@@ -187,6 +188,7 @@ def run_task(
     outcome: TaskOutcome = TaskOutcome.NO_FINAL_ANSWER
     verdict = _Verdict(success=False, collateral_damage=False, failures=())
     finalize_error: str | None = None
+    finalization: dict[str, Any] | None = None
     failure_class = FailureClass.NONE
 
     for turn_index in range(1, cfg.max_turns + 1):
@@ -329,6 +331,9 @@ def run_task(
         ))
 
         if turn_is_final:
+            # Stamp finalization provenance BEFORE calling finalize: the descriptor + answer
+            # hash document what the orchestrator attempted even when finalize itself errors.
+            finalization = _finalization_record(sandbox, answer)
             try:
                 verdict = _coerce_verdict(sandbox.finalize(answer))
             except Exception as exc:  # noqa: BLE001 — finalize failure is a reported outcome.
@@ -362,6 +367,7 @@ def run_task(
         total_output_tokens=total_output_tokens,
         failure_class=failure_class,
         finalize_error=finalize_error,
+        finalization=finalization,
         turns=turns,
     )
     return TaskRunResult(
@@ -371,6 +377,33 @@ def run_task(
         collateral_damage=verdict.collateral_damage,
         diagnostics=diagnostics,
     )
+
+
+def _finalization_record(sandbox: SandboxLike, answer: Any) -> dict[str, Any] | None:
+    """Additive per-task finalization provenance, or None for sandboxes without a descriptor.
+
+    ``answer_hash`` is the sha256 of the orchestrator's OWN read-back answer — the exact value
+    handed to ``finalize`` — canonicalised as compact sorted-key ASCII JSON. It documents what
+    the trusted side asked the env-host to evaluate, independent of the verdict outcome.
+    """
+    descriptor = getattr(sandbox, "finalization_provenance", None)
+    if not callable(descriptor):
+        return None
+    record = dict(descriptor())
+    try:
+        answer_bytes = json.dumps(
+            answer,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        # The answer came from json.loads so this is near-impossible; record the descriptor
+        # with an explicit null hash rather than failing the task over provenance.
+        record["answer_hash"] = None
+        return record
+    record["answer_hash"] = hashlib.sha256(answer_bytes).hexdigest()
+    return record
 
 
 def _user_msg(content: str) -> ChatMessage:
