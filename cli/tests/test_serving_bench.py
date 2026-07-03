@@ -21,10 +21,8 @@ from localbench.serving.llama_cpp import (
     validate_strict_argv_supported,
 )
 from localbench.serving.model_artifact import ModelArtifact, resolve_model_file_artifact
-from localbench.serving.readiness import ReadinessEvidence
-from localbench.serving.readiness import verify_llama_cpp_readiness
+from localbench.serving.readiness import ReadinessEvidence, verify_llama_cpp_readiness
 from localbench.serving.options import ServeBenchOptions
-from localbench.serving.llama_cpp import BuildIdentity
 from localbench.serving.runner import run_orchestrated_bench
 from localbench.serving.teardown import TeardownEvidence
 from localbench.cli import _parser
@@ -289,7 +287,15 @@ async def _fake_readiness(**_kwargs: object) -> ReadinessEvidence:
     )
 
 
-async def _write_publishable_record(config: OrchestrateConfig) -> JsonObject:
+async def _write_publishable_record(
+    config: OrchestrateConfig,
+    *,
+    transport: object | None = None,
+    agentic_sandbox_factory: object | None = None,
+    agentic_model_factory: object | None = None,
+    agentic_task_ids: object | None = None,
+    agentic_provenance_extra: object | None = None,
+) -> JsonObject:
     record = _publishable_result_bundle(config)
     atomic_write_json(record, config.out or Path("localbench-run.json"))
     return record
