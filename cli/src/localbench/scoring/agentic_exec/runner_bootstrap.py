@@ -10,11 +10,11 @@ It speaks a tiny line-protocol on its stdin/stdout to the orchestrator (the trus
 other side of the bwrap pipe):
 
   * orchestrator -> runner :  {"cmd":"run_block","code":"..."}        run one model code block
-                              {"cmd":"finalize","answer":<json>}      finalize + evaluate
+                              {"cmd":"finalize","answer":<json>}      legacy non-scoreable ack
                               {"cmd":"shutdown"}                        exit cleanly
   * runner -> orchestrator :  {"event":"ready"}                        once, at startup
                               {"event":"block_result","stdout":..,"error":..}
-                              {"event":"final_result","verdict":{...}}
+                              {"event":"final_ack","scoreable":false}
                               {"event":"fatal","message":...}
 
 The model's code runs via ``exec`` in a namespace whose ONLY AppWorld surface is an ``ApisProxy``
@@ -41,7 +41,6 @@ RPC_SOCKET_PATH = "/rpc/rpc.sock"
 
 OP_CALL_API = "call_api"
 OP_API_DOCS = "api_docs"
-OP_FINALIZE = "finalize"
 OP_PING = "ping"
 KIND_OK = "ok"
 KIND_API_ERROR = "api_error"
@@ -160,7 +159,7 @@ class ApisProxy:
     ``apis.spotify.show_song_library(access_token=..., page_index=0)`` -> RPC -> plain data.
     Attribute access for any app name returns an ``_ApiApp``; ``apis.api_docs`` is the docs shim.
     There is deliberately NO ``_requester``, NO ``close``/``close_all``, NO ``complete_task``
-    (finalization is harness-owned via the separate finalize command).
+    (finalization is harness-owned by the orchestrator's direct env-host control channel).
     """
 
     __slots__ = ("_rpc", "api_docs")
@@ -306,6 +305,24 @@ def _emit(event: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def _handle_command(
+    namespace: dict[str, Any],
+    cmd: dict[str, Any],
+) -> tuple[dict[str, Any] | None, bool]:
+    kind = cmd.get("cmd")
+    if kind == "run_block":
+        return _run_block(namespace, cmd.get("code", "")), False
+    if kind == "finalize":
+        return {
+            "event": "final_ack",
+            "scoreable": False,
+            "message": "finalize is handled by the orchestrator",
+        }, False
+    if kind == "shutdown":
+        return None, True
+    return {"event": "fatal", "message": f"unknown cmd: {kind!r}"}, False
+
+
 def main() -> int:
     try:
         rpc = _Rpc(RPC_SOCKET_PATH)
@@ -326,20 +343,11 @@ def main() -> int:
         except json.JSONDecodeError as exc:
             _emit({"event": "fatal", "message": f"bad command json: {exc}"})
             continue
-        kind = cmd.get("cmd")
-        if kind == "run_block":
-            _emit(_run_block(namespace, cmd.get("code", "")))
-        elif kind == "finalize":
-            resp = rpc.call({"op": OP_FINALIZE, "answer": cmd.get("answer")})
-            if resp.get("kind") == KIND_OK:
-                _emit({"event": "final_result", "verdict": resp.get("result")})
-            else:
-                _emit({"event": "final_result", "verdict": None,
-                       "error": str(resp.get("message", resp))})
-        elif kind == "shutdown":
+        event, should_exit = _handle_command(namespace, cmd)
+        if event is not None:
+            _emit(event)
+        if should_exit:
             break
-        else:
-            _emit({"event": "fatal", "message": f"unknown cmd: {kind!r}"})
 
     rpc.close()
     return 0

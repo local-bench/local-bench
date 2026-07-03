@@ -9,9 +9,10 @@ This is the ONLY process that imports/initialises AppWorld. That is mandatory fo
      ground truth and the evaluator. None of those may ever reach the untrusted runner, so they
      live only on this side of the boundary and are NEVER serialised across the socket.
 
-The RPC surface is exactly four opcodes (see ``sandbox_protocol``): ``call_api``, ``api_docs``,
-``finalize``, ``ping``. There is NO generic code-exec, NO ``world`` passthrough, NO ``requester``
-exposure, NO filesystem op. Every inbound field is treated as hostile and validated before use.
+The runner socket surface is exactly three opcodes: ``call_api``, ``api_docs``, ``ping``.
+Finalization is accepted only on the trusted stdin control channel from the orchestrator.
+There is NO generic code-exec, NO ``world`` passthrough, NO ``requester`` exposure, NO filesystem
+op. Every inbound field is treated as hostile and validated before use.
 
 Run as a subprocess (in the WSL appworld venv with APPWORLD_ROOT set)::
 
@@ -26,10 +27,12 @@ from __future__ import annotations
 import ast
 import json
 import os
+import queue
 import socket
 import sys
+import threading
 import warnings
-from typing import Any
+from typing import Any, TextIO
 
 from localbench.scoring.agentic_exec.sandbox_protocol import (
     KIND_API_ERROR,
@@ -92,7 +95,10 @@ class _RealEnvHost:
         if op == OP_API_DOCS:
             return self._handle_api_docs(message)
         if op == OP_FINALIZE:
-            return self._handle_finalize(message)
+            return {
+                "kind": KIND_PROTOCOL_ERROR,
+                "message": "finalize is not available on the runner surface",
+            }
         return {"kind": KIND_PROTOCOL_ERROR, "message": f"unknown op: {op!r}"}
 
     def _handle_call_api(self, message: dict[str, Any]) -> dict[str, Any]:
@@ -224,6 +230,90 @@ def _requirement_text(item: Any) -> str:
     return str(item)
 
 
+def _handle_control_message(host: _RealEnvHost, message: dict[str, Any], stdout: TextIO) -> None:
+    finalize_id = message.get("finalize_id")
+    payload: dict[str, Any] = {
+        "type": "authoritative_verdict",
+        "finalize_id": finalize_id if isinstance(finalize_id, str) else "",
+        "task_id": host._task_id,
+    }
+    if message.get("op") != OP_FINALIZE:
+        payload["error"] = {
+            "kind": KIND_PROTOCOL_ERROR,
+            "message": f"unknown control op: {message.get('op')!r}",
+        }
+        _emit_stdout(payload, stdout)
+        return
+    if not isinstance(finalize_id, str) or not finalize_id:
+        payload["error"] = {
+            "kind": KIND_PROTOCOL_ERROR,
+            "message": "finalize_id must be a non-empty string",
+        }
+        _emit_stdout(payload, stdout)
+        return
+    response = host._handle_finalize(message)
+    if response.get("kind") == KIND_OK:
+        payload["result"] = response.get("result")
+    else:
+        payload["error"] = {
+            "kind": response.get("kind", KIND_PROTOCOL_ERROR),
+            "message": str(response.get("message", response)),
+        }
+    _emit_stdout(payload, stdout)
+
+
+def _emit_control_error(host: _RealEnvHost, message: str, stdout: TextIO) -> None:
+    _emit_stdout(
+        {
+            "type": "authoritative_verdict",
+            "finalize_id": "",
+            "task_id": host._task_id,
+            "error": {"kind": KIND_PROTOCOL_ERROR, "message": message},
+        },
+        stdout,
+    )
+
+
+def _emit_stdout(payload: dict[str, Any], stdout: TextIO) -> None:
+    stdout.write(json.dumps(payload, ensure_ascii=True, separators=(",", ":")) + "\n")
+    stdout.flush()
+
+
+def _enqueue_control_messages(
+    stdin: TextIO,
+    events: queue.Queue[tuple[str, Any]],
+) -> None:
+    for line in stdin:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            message = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            events.put(("control_error", exc))
+            continue
+        if isinstance(message, dict):
+            events.put(("control_message", message))
+        else:
+            events.put(("control_error", ValueError("control frame must be an object")))
+
+
+def _enqueue_socket_messages(
+    reader: FrameReader,
+    events: queue.Queue[tuple[str, Any]],
+) -> None:
+    while True:
+        try:
+            message = reader.read_message()
+        except (ValueError, json.JSONDecodeError) as exc:
+            events.put(("socket_error", exc))
+            continue
+        if message is None:
+            events.put(("socket_eof", None))
+            return
+        events.put(("socket_message", message))
+
+
 def serve(task_id: str, socket_path: str, experiment_name: str) -> int:
     """Construct the world, listen on ``socket_path``, serve RPCs until the client disconnects."""
     # Create the listening socket BEFORE building the world is unnecessary, but we must bind with
@@ -247,13 +337,24 @@ def serve(task_id: str, socket_path: str, experiment_name: str) -> int:
         host.close()
         return 1
     reader = FrameReader(conn)
+    events: queue.Queue[tuple[str, Any]] = queue.Queue()
+    threading.Thread(target=_enqueue_control_messages, args=(sys.stdin, events), daemon=True).start()
+    threading.Thread(target=_enqueue_socket_messages, args=(reader, events), daemon=True).start()
     try:
         while True:
-            try:
-                message = reader.read_message()
-            except (ValueError, json.JSONDecodeError) as exc:
-                send_message(conn, {"kind": KIND_PROTOCOL_ERROR, "message": str(exc)})
+            source, payload = events.get()
+            if source == "control_message":
+                _handle_control_message(host, payload, sys.stdout)
                 continue
+            if source == "control_error":
+                _emit_control_error(host, str(payload), sys.stdout)
+                continue
+            if source == "socket_error":
+                send_message(conn, {"kind": KIND_PROTOCOL_ERROR, "message": str(payload)})
+                continue
+            if source == "socket_eof":
+                break
+            message = payload
             if message is None:
                 break
             if not isinstance(message, dict):

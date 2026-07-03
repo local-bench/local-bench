@@ -10,17 +10,19 @@ Public interface (what the future Protocol C agent loop sits on top of)::
 Boundary (proven end-to-end against the canary suite):
 
   * TRUSTED env-host process (``env_host``) runs in the WSL appworld venv WITH ``APPWORLD_ROOT``,
-    owns the real ``world`` + data + ``requester`` + evaluator, and serves a 4-opcode unix-socket
-    RPC. It is the only process that imports AppWorld.
+    owns the real ``world`` + data + ``requester`` + evaluator, serves API calls over a narrow
+    unix-socket RPC, and accepts finalization only over its trusted stdin control channel. It is
+    the only process that imports AppWorld.
   * UNTRUSTED code-runner (``runner_bootstrap``) runs under **bubblewrap** with ``--unshare-all``
     (incl. network), NO bind-mount of the data tree, empty tmpfs ``/tmp`` + ``/home``, a scrubbed
     env (no ``APPWORLD_ROOT``), dropped caps, ``no_new_privs``, and CPU/mem/wall limits. Its ONLY
     window onto AppWorld is the bind-mounted unix socket at ``/rpc/rpc.sock``; the ``apis`` proxy
     it hands model code carries no requester/world/client. An in-process allow-list is a belt only.
 
-The orchestrator brokers JSON commands to the runner over the bwrap stdio pipe, and the runner
-RPCs API calls/finalization to the env host over the socket. The sandbox never lets the runner
-talk to the env host's *constructor* — only the already-bound, single-task RPC surface.
+The orchestrator brokers JSON commands to the runner over the bwrap stdio pipe, while API calls
+go from the runner to the env host over the socket. Finalization goes directly from the
+orchestrator to the env host over stdin/stdout. The sandbox never lets the runner talk to the
+env host's *constructor* — only the already-bound, single-task RPC surface.
 
 This module is import-safe on Windows (no Linux-only imports at module load); ``__enter__`` is
 what requires bwrap + the appworld venv and therefore only runs under WSL.
@@ -179,6 +181,7 @@ class AppWorldSandbox:
         self._runner_proc: subprocess.Popen[str] | None = None
         self._closed = False
         self._finalized = False
+        self._finalize_counter = 0
         # captured stderr from children (for diagnostics on failure)
         self._env_stderr: list[str] = []
         self._runner_stderr: list[str] = []
@@ -241,7 +244,7 @@ class AppWorldSandbox:
         ]
         self._env_proc = subprocess.Popen(
             argv,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -390,29 +393,83 @@ class AppWorldSandbox:
         return BlockObservation(stdout=event.get("stdout", ""), error=event.get("error"))
 
     def finalize(self, answer: Any) -> Verdict:
-        """Finalize the task (complete_task + evaluate) via the harness-owned seam."""
+        """Finalize the task (complete_task + evaluate) via the trusted env-host control seam."""
         self._ensure_live()
         if self._finalized:
             raise SandboxError("finalize already called for this task")
         self._finalized = True
-        self._send_runner({"cmd": "finalize", "answer": answer})
-        event = self._read_runner_event(self.config.finalize_timeout_s).event
-        if event is None or event.get("event") != "final_result":
+        finalize_id = self._next_finalize_id()
+        self._send_env_control({"op": "finalize", "answer": answer, "finalize_id": finalize_id})
+        event = self._read_authoritative_verdict(finalize_id, self.config.finalize_timeout_s)
+        result = event.get("result")
+        if not isinstance(result, dict):
+            error = event.get("error")
             raise SandboxError(
-                f"finalize failed (event={event!r}). "
+                f"env host finalize failed (event={event!r}, error={error!r}). "
                 f"env-stderr:\n{''.join(self._env_stderr)[-1500:]}"
             )
-        verdict = event.get("verdict")
-        if verdict is None:
-            raise SandboxError("finalize returned no verdict: " + str(event.get("error")))
         return Verdict(
-            success=bool(verdict.get("success", False)),
-            collateral_damage=bool(verdict.get("collateral_damage", False)),
-            passes=tuple(verdict.get("passes", [])),
-            failures=tuple(verdict.get("failures", [])),
+            success=bool(result.get("success", False)),
+            collateral_damage=bool(result.get("collateral_damage", False)),
+            passes=tuple(result.get("passes", [])),
+            failures=tuple(result.get("failures", [])),
         )
 
     # -- internals ------------------------------------------------------------------------------
+
+    def _next_finalize_id(self) -> str:
+        # A deterministic id is intentional and safe: security rests on channel separation — the
+        # untrusted runner cannot write the env-host's stdin (finalize in) or stdout (verdict out),
+        # both of which are private orchestrator<->env-host pipes. The id only CORRELATES the
+        # verdict to the pending finalization; it is not a secret capability.
+        self._finalize_counter += 1
+        return f"{self.config.experiment_name}:{self.task_id}:finalize:{self._finalize_counter}"
+
+    def _send_env_control(self, message: dict[str, Any]) -> None:
+        assert self._env_proc is not None and self._env_proc.stdin is not None
+        try:
+            self._env_proc.stdin.write(json.dumps(message, ensure_ascii=True) + "\n")
+            self._env_proc.stdin.flush()
+        except (BrokenPipeError, OSError, ValueError) as exc:
+            raise SandboxError(f"env host control pipe broken: {exc}") from exc
+
+    def _read_authoritative_verdict(
+        self,
+        finalize_id: str,
+        timeout_s: float,
+    ) -> dict[str, Any]:
+        deadline = time.monotonic() + timeout_s
+        while True:
+            remaining_s = deadline - time.monotonic()
+            if remaining_s <= 0:
+                raise SandboxError(
+                    f"authoritative finalize timed out waiting for finalize_id={finalize_id!r}"
+                )
+            line = self._read_env_host_line(remaining_s)
+            if line is None:
+                raise SandboxError(
+                    f"authoritative finalize timed out waiting for finalize_id={finalize_id!r}"
+                )
+            if not line:
+                raise SandboxError("env host stdout closed before authoritative verdict")
+            # The env-host control stdout may also carry benign noise (AppWorld/library prints
+            # during complete_task/evaluate). Only the trusted env-host writes here — the runner
+            # cannot reach this fd — so skipping non-verdict lines is safe and prevents a stray
+            # log line from failing an otherwise-valid task. Keep waiting for the correlated line.
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict) or event.get("type") != "authoritative_verdict":
+                continue
+            echoed_id = event.get("finalize_id")
+            if echoed_id != finalize_id:
+                # A genuine authoritative_verdict for the wrong finalization is anomalous (only one
+                # finalize is ever armed, one-shot). Fail closed rather than skip — never "latest wins".
+                raise SandboxError(
+                    f"authoritative verdict finalize_id mismatch: {echoed_id!r} != {finalize_id!r}"
+                )
+            return event
 
     def _send_runner(self, command: dict[str, Any]) -> None:
         assert self._runner_proc is not None and self._runner_proc.stdin is not None
