@@ -3,7 +3,7 @@
 Generated: 2026-07-03
 Expected mode: Private
 Expires for decision-making: 24h
-Source: scripts/launch-smoke.ps1 -ExpectedMode Private -WriteState (plus out-of-band submission-leg verification, 2026-07-03)
+Source: scripts/launch-smoke.ps1 -ExpectedMode Private -WriteState (plus out-of-band submission-leg verification + authenticated wrangler deployment/D1 sweep, 2026-07-03)
 
 This file is the canonical live-facts document for launch-prep decisions. Handoffs and runbooks should link here instead of duplicating endpoint expectations.
 
@@ -32,22 +32,24 @@ All four private signatures plus both alias-domain checks PASSED on 2026-07-03 a
 
 ## Deployment facts
 
-- Commit: `40423f4` (branch `main` on the deploy remote, pushed 2026-07-03)
-- Deployment id: unverified — wrangler is unauthenticated on this machine (`npx wrangler login` pending with Michael); the smoke's alias-leak checks still cover the known historical ids.
+- Commit: `40423f4` (branch `main` on the deploy remote, pushed 2026-07-03). Current production deployment id `6f96b0d5-1144-42b6-943b-259c6400202a` (source `40423f4`).
+- Deployment id: VERIFIED 2026-07-03. `npx wrangler login` completed (account `michael.russell@clarityconsultive.com`, id `4af6606afb8636c5243c521f9bb26c70`). All 8 current production Pages deployments were enumerated and each alias URL returns HTTP 503 — no leak on any live deployment, not just the historical ids.
 - Health payload now reports `storage.queue: false` BY DESIGN: the dead `VERIFICATION_QUEUE` producer binding was removed (Pages cannot consume queues). d1 and r2 must be `true`.
 
 ## Leak-closure note
 
-Two pre-gate production deployments, `494f03cd` and `ccedf382`, previously served unauthenticated HTTP 200 and were deleted on 2026-06-29. Deployment aliases remain part of the smoke gate because any deployment built before private-mode middleware, or any new deployment missing preview/production private vars, can re-open the leak.
+Two pre-gate production deployments, `494f03cd` and `ccedf382`, previously served unauthenticated HTTP 200 and were deleted on 2026-06-29. Deployment aliases remain part of the smoke gate because any deployment built before private-mode middleware, or any new deployment missing preview/production private vars, can re-open the leak. Full-fleet alias sweep 2026-07-03 (all 8 live deployments) returned 503 across the board.
 
 ## Secrets and submission pipeline state (verified 2026-07-03)
 
 `ADMIN_API_SECRET`, `R2_ACCESS_KEY_ID`, and `R2_SECRET_ACCESS_KEY` are SET and proven working: admin-gated ticket issuance (401 without the admin secret, 201 with), R2 presigned PUT of an 18.6MB bundle, and owner-bypass health/manifest all succeeded out-of-band. The smoke script does not probe these paths (state-mutating) and emits one informational WARN instead.
 
-Current real blockers:
+Both prior blockers are CLEARED as of 2026-07-03:
 
-1. `POST /api/submissions/{ticket}/complete` returns 400 `invalid_result_bundle` for orchestrated runs: the CLI writer emits removed `result_bundle_v1` top-level fields (`trust_tier`, `serving_verification_level`, `output_path`). Writer-compliance fix in flight on branch `retry-errored-resume`; the site contract is correct and unchanged.
-2. `npx wrangler login` (Michael) — needed for deployment-id enumeration, remote D1 `0003` apply, and log tailing. Not needed for submissions themselves.
+1. RESOLVED — `POST /api/submissions/{ticket}/complete`: the CLI writer-compliance fix landed on `main` (commit `e1876eb`) and was proven end-to-end. A full orchestrated submission (canary bundle sha `e8b34c05`) went ticket → R2 PUT → `/complete` → admin-verify → admin-decision `hidden`, all accepted; the 400 no longer reproduces. The banned `result_bundle_v1` top-level fields are stripped, and the embedded `manifest.integrity.publishable` now matches the validator (the W3 normalize-after-apply ordering fix). The site contract was correct and unchanged throughout.
+2. RESOLVED — `npx wrangler login` completed; deployment enumeration and remote D1 `0003` apply are done (see below). Log tailing (`wrangler tail`) is now available.
+
+Remote D1 state (2026-07-03): migration `0003_submission_reconcile.sql` applied to `localbench_prod` after confirming the live `submissions`/`board_entries` DDL already matched the target and the three dropped tables (`verification_jobs`, `admin_decisions`, `suites`) were empty. `wrangler d1 migrations list --remote` now reports no pending migrations. The one real accepted submission (`ticket_4cfd0aa2…`, status `accepted`, publish `hidden`) is intact.
 
 The legacy finalize Bug 2 (opaque 500) is retired: the deployed structured error handling returns precise coded errors.
 
