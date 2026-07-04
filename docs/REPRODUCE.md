@@ -10,7 +10,7 @@ Weights and axis membership are defined in `cli/src/localbench/scoring/axes.py`.
 
 ## Prerequisites
 
-- Python 3.11+ and the CLI: `pip install -e cli`
+- Python 3.11+ and the CLI: `pip install local-bench-ai` (or from a source checkout: `pip install -e cli`)
 - A GGUF model plus llama.cpp for the pinned `bench` path, or an OpenAI-compatible
   chat endpoint for the bring-your-own `run --endpoint` path
 - For ranked local runs: capped-thinking lane settings, temperature 0, enough context for the selected modules

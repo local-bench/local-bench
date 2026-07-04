@@ -543,9 +543,10 @@ def _add_admin_secret_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _package_version() -> str:
-    # Distribution renamed localbench -> local-bench (PyPI); old name kept for
-    # editable installs predating the rename.
-    for distribution in ("local-bench", "localbench"):
+    # Distribution is local-bench-ai on PyPI (local-bench/localbench were blocked
+    # by / belong to an unrelated project); older names kept for editable installs
+    # predating the renames.
+    for distribution in ("local-bench-ai", "local-bench", "localbench"):
         try:
             return importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
