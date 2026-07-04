@@ -1,6 +1,27 @@
 [
   {
     "kind": "community",
+    "origin": "project_anchor",
+    "trust_label": "project_anchor",
+    "agentic_provenance": "project_attested",
+    "provenance_notes": [
+      "grandfathered_attested_bundle"
+    ],
+    "family": "Gemma 4",
+    "model_id": null,
+    "model_label": "Gemma 4 12B IT Q4_K_XL",
+    "quant_label": "Q4_K_XL",
+    "publisher": "google",
+    "gguf_repo": null,
+    "file": "runs/bench/ranked-5axis-capped-2026-07-03/localbench-run.json",
+    "reasoning_lane": "capped-thinking",
+    "independent_replication": false,
+    "release_date": null,
+    "vram_footprint_gb": 6.716355328,
+    "notes": "Project-anchor ranked five-axis proof row from runs/bench/ranked-5axis-capped-2026-07-03. Agentic verdicts predate per-verdict signing and are labeled project_attested only through the documented grandfathered bundle mechanism."
+  },
+  {
+    "kind": "community",
     "family": "Qwen3.6",
     "model_id": "Qwen/Qwen3.6-27B",
     "model_label": "Qwen3.6-27B",

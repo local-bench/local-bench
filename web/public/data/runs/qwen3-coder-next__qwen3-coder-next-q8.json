@@ -51,6 +51,8 @@
     "point": 61.00260116795033,
     "point_raw": 0.6100260116795033
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 1019,
     "per_bench": {
@@ -161,6 +163,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Qwen3 Coder Next",
+  "origin": "community",
   "ranked": false,
   "run_id": "qwen3-coder-next__qwen3-coder-next-q8",
   "scorecard": {
@@ -185,6 +188,7 @@
     "total_tokens": 1081599,
     "wall_time_seconds": 3528.822674885858
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
     "bench": "instruction",
     "point": 30.612244897959183,

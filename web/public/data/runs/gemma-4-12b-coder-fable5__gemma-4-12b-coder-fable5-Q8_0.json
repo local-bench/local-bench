@@ -51,6 +51,8 @@
     "point": 52.909655026067625,
     "point_raw": 0.5290965502606763
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 1018,
     "per_bench": {
@@ -161,6 +163,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Gemma 4 12B Coder Fable5",
+  "origin": "community",
   "ranked": false,
   "run_id": "gemma-4-12b-coder-fable5__gemma-4-12b-coder-fable5-Q8_0",
   "scorecard": {
@@ -185,6 +188,7 @@
     "total_tokens": 524637,
     "wall_time_seconds": 4437.270994546001
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
     "bench": "instruction",
     "point": 33.33333333333333,

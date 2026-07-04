@@ -56,6 +56,8 @@
         "point": 59.43423845001544,
         "point_raw": 0.5943423845001544
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -73,6 +75,7 @@
       "latency_s_median": 1.463,
       "n_errors": 4,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "BF16",
       "ranked": false,
       "run_id": "ornith-1-0-35b__ornith-1.0-35b-bf16",
@@ -88,6 +91,7 @@
       "tok_s": 178.7224831981476,
       "tokens_to_answer_median": 261.5,
       "tokens_to_answer_p95": 1821.8499999999992,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 69.376637,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 3259.1031054230407
@@ -145,6 +149,8 @@
         "point": 59.352962165239035,
         "point_raw": 0.5935296216523903
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -162,6 +168,7 @@
       "latency_s_median": 1.247,
       "n_errors": 7,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q8_0",
       "ranked": false,
       "run_id": "ornith-1-0-35b__ornith-1.0-35b-q8",
@@ -177,6 +184,7 @@
       "tok_s": 222.99733290127313,
       "tokens_to_answer_median": 278.0,
       "tokens_to_answer_p95": 1835.7999999999988,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 36.903139,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 2682.341498069931
@@ -234,6 +242,8 @@
         "point": 60.35657843299841,
         "point_raw": 0.6035657843299841
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -251,6 +261,7 @@
       "latency_s_median": 1.178,
       "n_errors": 4,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q6_K",
       "ranked": false,
       "run_id": "ornith-1-0-35b__ornith-1.0-35b-q6",
@@ -266,6 +277,7 @@
       "tok_s": 233.54023630412706,
       "tokens_to_answer_median": 275.0,
       "tokens_to_answer_p95": 1735.149999999998,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 28.514152,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 2448.0192751688883
@@ -323,6 +335,8 @@
         "point": 58.751002510064474,
         "point_raw": 0.5875100251006448
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -340,6 +354,7 @@
       "latency_s_median": 1.156,
       "n_errors": 4,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q5_K_M",
       "ranked": false,
       "run_id": "ornith-1-0-35b__ornith-1.0-35b-q5",
@@ -355,6 +370,7 @@
       "tok_s": 221.91359299299623,
       "tokens_to_answer_median": 256.5,
       "tokens_to_answer_p95": 1815.2499999999989,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 24.729131,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 2428.8913208530284

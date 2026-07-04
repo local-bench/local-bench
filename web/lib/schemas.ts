@@ -61,6 +61,8 @@ export const ScorecardSummarySchema = z.object({
 
 export const KindSchema = z.enum(["anchor", "community"]);
 export const ScoreStatusSchema = z.enum(["measured", "missing"]);
+export const BoardOriginSchema = z.enum(["project_anchor", "community", "community_submission"]);
+export const AgenticProvenanceSchema = z.enum(["none", "project_attested", "self_reported"]);
 const DemoFlagSchema = z.boolean().optional().default(false);
 
 export const GpuSchema = z.object({
@@ -124,6 +126,8 @@ export const IndexModelSchema = z.object({
   kind: KindSchema,
   best_run_id: RunIdSchema.nullable(),
   composite: ScoreSchema.nullable(),
+  composite_full: ScoreSchema.nullable().optional(),
+  composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
   tier: z.string().nullable(),
   lane: z.string().nullable(),
@@ -141,6 +145,12 @@ export const IndexModelSchema = z.object({
   // V2 stub: who submitted the top run (community submissions). Absent in v1 (maintainer-only,
   // anonymous), so the User column renders a neutral placeholder.
   submitted_by: z.string().nullable().optional(),
+  submitter_display_name: z.string().nullable().optional(),
+  origin: BoardOriginSchema.optional(),
+  trust_label: z.string().optional(),
+  agentic_provenance: AgenticProvenanceSchema.optional(),
+  provenance_notes: z.array(z.string()).optional(),
+  static_index_version: z.string().optional(),
   replicated: z.boolean(),
   score_status: ScoreStatusSchema.optional().default("measured"),
   conformance_gates: ConformanceGatesSchema.optional(),
@@ -180,6 +190,8 @@ export const ModelRunSchema = z.object({
   file_gb: z.number().nullable().optional(),
   bpw: z.number().nullable().optional(),
   composite: ScoreSchema.nullable(),
+  composite_full: ScoreSchema.nullable().optional(),
+  composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
   tier: z.string().nullable(),
   lane: z.string().nullable(),
@@ -196,6 +208,12 @@ export const ModelRunSchema = z.object({
   wall_time_seconds: z.number().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
   conformance_gates: ConformanceGatesSchema.optional(),
+  submitter_display_name: z.string().nullable().optional(),
+  origin: BoardOriginSchema.optional(),
+  trust_label: z.string().optional(),
+  agentic_provenance: AgenticProvenanceSchema.optional(),
+  provenance_notes: z.array(z.string()).optional(),
+  static_index_version: z.string().optional(),
   demo: DemoFlagSchema,
 });
 
@@ -238,6 +256,8 @@ export const RunDetailSchema = z.object({
   kind: KindSchema,
   tier: z.string(),
   composite: ScoreSchema,
+  composite_full: ScoreSchema.nullable().optional(),
+  composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
   worst_axis: z.object({
     bench: z.string(),
@@ -255,6 +275,12 @@ export const RunDetailSchema = z.object({
   suite_version: z.string(),
   index_version: z.string(),
   data_warnings: z.array(z.string()).optional(),
+  submitter_display_name: z.string().nullable().optional(),
+  origin: BoardOriginSchema.optional(),
+  trust_label: z.string().optional(),
+  agentic_provenance: AgenticProvenanceSchema.optional(),
+  provenance_notes: z.array(z.string()).optional(),
+  static_index_version: z.string().optional(),
   demo: DemoFlagSchema,
 });
 
@@ -266,6 +292,8 @@ export type ConformanceGate = z.infer<typeof ConformanceGateSchema>;
 export type ConformanceGates = z.infer<typeof ConformanceGatesSchema>;
 export type Kind = z.infer<typeof KindSchema>;
 export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
+export type BoardOrigin = z.infer<typeof BoardOriginSchema>;
+export type AgenticProvenance = z.infer<typeof AgenticProvenanceSchema>;
 export type IndexData = z.infer<typeof IndexDataSchema>;
 export type IndexModel = z.infer<typeof IndexModelSchema>;
 export type AgenticModel = z.infer<typeof AgenticModelSchema>;

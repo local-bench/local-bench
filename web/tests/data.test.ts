@@ -51,13 +51,31 @@ describe("static data access", () => {
 
   it("splits the leaderboard so score-less shells never enter the ranked board", async () => {
     const index = await getIndexData();
-    const { ranked, catalog } = splitLeaderboard(index.models);
-    expect(ranked).toHaveLength(0);
+    const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
+    expect(ranked.some((m) => m.slug === "gemma-4-12b-it-q4-k-xl")).toBe(true);
     expect(ranked.every((m) => m.composite !== null && m.ranked && m.lane === "capped-thinking")).toBe(true);
     expect(ranked.some((m) => m.score_status === "missing")).toBe(false);
+    expect(staticComposite.every((m) => m.composite_static !== null && m.static_index_version === "static-suite-v1")).toBe(true);
     // The catalog view is only score-less shells; no measured row leaks in.
     expect(catalog.length).toBeGreaterThan(0);
     expect(catalog.every((m) => m.composite === null)).toBe(true);
+  });
+
+  it("surfaces the ranked Gemma proof row with project-anchor attested provenance", async () => {
+    const index = await getIndexData();
+    const proof = index.models.find((model) => model.slug === "gemma-4-12b-it-q4-k-xl");
+
+    expect(proof).toMatchObject({
+      agentic_provenance: "project_attested",
+      best_run_id: "gemma-4-12b-it-q4-k-xl__localbench-run",
+      origin: "project_anchor",
+      ranked: true,
+      static_index_version: "static-suite-v1",
+      trust_label: "project_anchor",
+    });
+    expect(proof?.axes["agentic"]?.point).toBeGreaterThan(5);
+    expect(proof?.composite_full?.point).toBeCloseTo(40.26, 1);
+    expect(proof?.composite_static?.point).toBeGreaterThan(70);
   });
 
   it("keeps a catalog-only model as quant shells while measured runs add run-detail params", async () => {

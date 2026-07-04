@@ -51,6 +51,8 @@
     "point": 60.550135906981254,
     "point_raw": 0.6055013590698125
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 1014,
     "per_bench": {
@@ -161,6 +163,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Gemma 4 12B IT",
+  "origin": "community",
   "ranked": false,
   "run_id": "gemma-4-12b-it__gemma-4-12b-it-BF16",
   "scorecard": {
@@ -185,6 +188,7 @@
     "total_tokens": 671371,
     "wall_time_seconds": 6704.329146120999
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
     "bench": "instruction",
     "point": 39.1156462585034,

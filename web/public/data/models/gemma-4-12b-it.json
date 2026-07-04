@@ -62,6 +62,8 @@
         "point": 60.79892534105714,
         "point_raw": 0.6079892534105714
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 12.8,
       "hardware": {
@@ -79,6 +81,7 @@
       "latency_s_median": 3.249,
       "n_errors": 3,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q8_0",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-Q8_0",
@@ -94,6 +97,7 @@
       "tok_s": 77.55808206793895,
       "tokens_to_answer_median": 252.0,
       "tokens_to_answer_p95": 1007.0,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 12.66964624,
       "vram_required_gb_8k": 14.4,
       "wall_time_seconds": 5118.4994447419995
@@ -152,6 +156,8 @@
         "point": 60.88737386143459,
         "point_raw": 0.6088737386143459
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 9.9,
       "hardware": {
@@ -169,6 +175,7 @@
       "latency_s_median": 3.632,
       "n_errors": 10,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q6_K",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-Q6_K",
@@ -184,6 +191,7 @@
       "tok_s": 71.18140034034423,
       "tokens_to_answer_median": 258.5,
       "tokens_to_answer_p95": 1000.0999999999976,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 9.78602128,
       "vram_required_gb_8k": 11.5,
       "wall_time_seconds": 4981.174833659999
@@ -242,6 +250,8 @@
         "point": 59.94982977838892,
         "point_raw": 0.5994982977838892
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 8.6,
       "hardware": {
@@ -259,6 +269,7 @@
       "latency_s_median": 3.731,
       "n_errors": 7,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q5_K_M",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-Q5_K_M",
@@ -274,6 +285,7 @@
       "tok_s": 67.54255060162183,
       "tokens_to_answer_median": 252.0,
       "tokens_to_answer_p95": 987.1999999999999,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 8.41357456,
       "vram_required_gb_8k": 10.2,
       "wall_time_seconds": 5976.558427308
@@ -332,6 +344,8 @@
         "point": 60.376310150941336,
         "point_raw": 0.6037631015094134
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 7.3,
       "hardware": {
@@ -349,6 +363,7 @@
       "latency_s_median": 4.513,
       "n_errors": 13,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q4_K_M",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-Q4_K_M",
@@ -364,6 +379,7 @@
       "tok_s": 55.84094084418555,
       "tokens_to_answer_median": 252.0,
       "tokens_to_answer_p95": 1040.0,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 7.12186,
       "vram_required_gb_8k": 8.9,
       "wall_time_seconds": 6784.681530656
@@ -422,6 +438,8 @@
         "point": 57.56350786449386,
         "point_raw": 0.5756350786449386
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 5.9,
       "hardware": {
@@ -439,6 +457,7 @@
       "latency_s_median": 4.494,
       "n_errors": 22,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q3_K_M",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-Q3_K_M",
@@ -454,6 +473,7 @@
       "tok_s": 52.737135871310514,
       "tokens_to_answer_median": 237.0,
       "tokens_to_answer_p95": 1025.8999999999999,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 5.69387152,
       "vram_required_gb_8k": 7.5,
       "wall_time_seconds": 7071.14623953
@@ -512,6 +532,8 @@
         "point": 29.440666781853185,
         "point_raw": 0.29440666781853186
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 4.5,
       "hardware": {
@@ -529,6 +551,7 @@
       "latency_s_median": 10.435,
       "n_errors": 139,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q2_K",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-UD-Q2_K_XL",
@@ -544,6 +567,7 @@
       "tok_s": 19.645540135039493,
       "tokens_to_answer_median": 205.0,
       "tokens_to_answer_p95": 928.3999999999999,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 4.6614184,
       "vram_required_gb_8k": 6.1,
       "wall_time_seconds": 15672.310248719004
@@ -601,6 +625,8 @@
         "point": 60.550135906981254,
         "point_raw": 0.6055013590698125
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -618,6 +644,7 @@
       "latency_s_median": 4.555,
       "n_errors": 10,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "FP16",
       "ranked": false,
       "run_id": "gemma-4-12b-it__gemma-4-12b-it-BF16",
@@ -633,6 +660,7 @@
       "tok_s": 55.870317795587496,
       "tokens_to_answer_median": 254.5,
       "tokens_to_answer_p95": 1011.3999999999996,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 23.832065184,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 6704.329146120999

@@ -1,5 +1,22 @@
 {
   "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.125,
+      "hi": 19.791666666666664,
+      "hi_raw": 0.19791666666666666,
+      "leaked_reasoning_rate": null,
+      "lo": 6.25,
+      "lo_raw": 0.0625,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 12.5,
+      "point_raw": 0.125,
+      "raw_accuracy": 0.125,
+      "termination_rate": 1.0,
+      "truncation_rate": null
+    },
     "instruction": {
       "conditional_accuracy": 0.6903914590747331,
       "hi": 71.42857142857143,
@@ -16,8 +33,8 @@
     },
     "knowledge": {
       "conditional_accuracy": 0.85678391959799,
-      "hi": 87.09050898497011,
-      "hi_raw": 0.8709050898497012,
+      "hi": 87.3711500939925,
+      "hi_raw": 0.873711500939925,
       "lo": 79.51319904136561,
       "lo_raw": 0.7951319904136561,
       "n": 400,
@@ -30,13 +47,15 @@
     }
   },
   "composite": {
-    "hi": 79.25954020677078,
-    "hi_raw": 0.7925954020677077,
-    "lo": 70.02870836422022,
-    "lo_raw": 0.7002870836422023,
-    "point": 74.71428456275109,
-    "point_raw": 0.7471428456275109
+    "hi": 41.51508729108343,
+    "hi_raw": 0.41515087291083436,
+    "lo": 30.83640990698618,
+    "lo_raw": 0.3083640990698618,
+    "point": 35.830356711031655,
+    "point_raw": 0.3583035671103166
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 694,
     "per_bench": {
@@ -136,6 +155,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Qwen3.6-27B",
+  "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q8_0",
   "scorecard": {
@@ -160,9 +180,10 @@
     "total_tokens": 6494227,
     "wall_time_seconds": 38569.341868699994
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
-    "bench": "instruction",
-    "point": 65.98639455782312,
-    "point_raw": 0.6598639455782312
+    "bench": "agentic",
+    "point": 12.5,
+    "point_raw": 0.125
   }
 }

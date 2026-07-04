@@ -51,6 +51,8 @@
     "point": 58.751002510064474,
     "point_raw": 0.5875100251006448
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 1020,
     "per_bench": {
@@ -161,6 +163,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Ornith 1.0 35B",
+  "origin": "community",
   "ranked": false,
   "run_id": "ornith-1-0-35b__ornith-1.0-35b-q5",
   "scorecard": {
@@ -185,6 +188,7 @@
     "total_tokens": 832122,
     "wall_time_seconds": 2428.8913208530284
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
     "bench": "instruction",
     "point": 29.591836734693878,

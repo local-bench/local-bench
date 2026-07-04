@@ -54,7 +54,7 @@ from localbench.scoring import (  # noqa: E402
     metadata,
     worst_axis,
 )
-from localbench.scoring.axes import headline_web_axes  # noqa: E402
+from localbench.scoring.axes import STATIC_SUITE_INDEX_VERSION, headline_web_axes, static_suite_web_weights  # noqa: E402
 from localbench.scoring.scorecard import scorecard_identity  # noqa: E402
 
 DEFAULT_ITERS: Final = 10_000
@@ -70,6 +70,8 @@ BOARD_PATH: Final = ROOT / "cli" / "runs" / "board" / "board_v2.json"
 _INTERVAL_FIELDS: Final = ("point", "lo", "hi", "point_raw", "lo_raw", "hi_raw")
 
 _BOARD_AXES: Final = headline_web_axes()
+_STATIC_AXES: Final = tuple(static_suite_web_weights())
+_STATIC_WEIGHTS: Final = static_suite_web_weights()
 _APPWORLD_C_BENCH: Final = "appworld_c"
 
 
@@ -108,19 +110,14 @@ def _build_agentic_column(out_dir: Path) -> None:
 def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT_ITERS, benches: tuple[str, ...] = BENCHES, weights: dict[str, float] = COMPOSITE_WEIGHTS) -> None:
     sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
     catalog = catalog_entries(_read_json(ROOT / "web" / CATALOG_FILENAME))
-    board = _board_ranked_by_slug()
+    board = _board_models_by_slug()
     runs = [_build_run(source, order=index, iters=iters, benches=benches, weights=weights, board=board) for index, source in enumerate(sources)]
     _write_outputs(out_dir, runs, catalog)
 
 
-def _board_ranked_by_slug() -> dict[str, JsonObject]:
-    """{slug: board_model} for the RANKED rows of the immutable board artifact. The site
-    is a pure renderer of board_v2.json (METHODOLOGY v2.1 — no re-derived Index math in
-    the web layer), so ranked rows render the board's exact composite/headline-axis intervals
-    rather than the web build's independent re-bootstrap (different seed; per-axis quantile
-    weighting instead of the board's joint item-level composite CI)."""
+def _board_models_by_slug() -> dict[str, JsonObject]:
     board = _object(_read_json(BOARD_PATH), str(BOARD_PATH))
-    return {slug: model for model in _list(board.get("models"), f"{BOARD_PATH}:models") for model in [_object(model, f"{BOARD_PATH}:model")] if _bool(model.get("ranked"), "board.model.ranked") and (slug := _text(model.get("slug")))}
+    return {slug: model for model in _list(board.get("models"), f"{BOARD_PATH}:models") for model in [_object(model, f"{BOARD_PATH}:model")] if (slug := _text(model.get("slug")))}
 
 
 def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_interval: JsonObject, board: dict[str, JsonObject]) -> None:
@@ -223,6 +220,29 @@ def _board_interval(interval: JsonObject) -> JsonObject:
     return {field: _number(interval.get(field), f"board.interval.{field}") for field in _INTERVAL_FIELDS}
 
 
+def _board_composites_for_run(
+    slug: str,
+    run_id: str,
+    board: dict[str, JsonObject],
+) -> tuple[JsonObject | None, JsonObject | None, str | None]:
+    board_model = board.get(slug)
+    if board_model is None:
+        return None, None, None
+    if _board_system_for_run(board_model, run_id) is None:
+        return None, None, None
+    if run_id not in {_text(board_model.get("best_run_id")), _text(board_model.get("best_system_run_id"))}:
+        return None, None, None
+    return (
+        _board_optional_interval(board_model.get("composite_full")),
+        _board_optional_interval(board_model.get("composite_static")),
+        _text(board_model.get("static_index_version")),
+    )
+
+
+def _board_optional_interval(value: JsonValue | None) -> JsonObject | None:
+    return _board_interval(value) if isinstance(value, dict) else None
+
+
 def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: dict[str, JsonObject]) -> JsonObject:
     if _bool(source["demo"], "source.demo"):
         return build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
@@ -264,11 +284,26 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     _apply_board_intervals(slug, run_id, axes, _object(composite["interval"], "composite.interval"), board)
     conformance_gates = _board_conformance_gates(slug, run_id, board)
     headline_complete = all(axis in axes for axis in headline_web_axes())
+    static_composite = build_composite(run, axes, _STATIC_AXES, _STATIC_WEIGHTS) if _static_complete(axes) else None
+    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(slug, run_id, board)
+    computed_composite_full = dict(_object(composite["interval"], "composite.interval")) if headline_complete else None
+    computed_composite_static = dict(_object(static_composite["interval"], "static_composite.interval")) if static_composite is not None else None
+    composite_full = board_composite_full if board_composite_full is not None else computed_composite_full
+    composite_static = board_composite_static if board_composite_static is not None else computed_composite_static
+    static_index_version = (board_static_index_version or STATIC_SUITE_INDEX_VERSION) if composite_static is not None else None
+    annotations = _source_annotations(source, axes, headline_complete)
     tier = _text(suite.get("tier"))
     ranked = tier == "standard" and conformance_status == "headline-comparable" and headline_complete and not quarantined_agentic
-    detail = {"axes": axes, "composite": composite["interval"], "data_warnings": quarantined_agentic + axis_warnings + _list(composite["warnings"], "composite.warnings"), "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))}
-    model_row = {"axes": axes, "composite": composite["interval"], "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))}
-    index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]}
+    data_warnings = quarantined_agentic + axis_warnings + _list(composite["warnings"], "composite.warnings")
+    if static_composite is not None:
+        data_warnings += _list(static_composite["warnings"], "static_composite.warnings")
+    detail = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
+    model_row = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | annotations
+    index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | annotations
+    if static_index_version is not None:
+        detail["static_index_version"] = static_index_version
+        model_row["static_index_version"] = static_index_version
+        index_row["static_index_version"] = static_index_version
     if conformance_gates is not None:
         detail["conformance_gates"] = conformance_gates
         model_row["conformance_gates"] = conformance_gates
@@ -391,6 +426,48 @@ def _headline_benches(axes: JsonObject, benches: tuple[str, ...], weights: dict[
     present = tuple(bench for bench in benches if bench in axes)
     headline = tuple(bench for bench in present if weights.get(bench, 0.0) > 0.0)
     return headline or present or benches
+
+
+def _static_complete(axes: JsonObject) -> bool:
+    return all(axis in axes for axis in _STATIC_AXES)
+
+
+def _source_annotations(source: JsonObject, axes: JsonObject, headline_complete: bool) -> JsonObject:
+    origin = _source_origin(source)
+    annotations: JsonObject = {
+        "origin": origin,
+        "trust_label": _text(source.get("trust_label")) or _trust_label(origin),
+    }
+    display_name = _text(source.get("submitter_display_name"))
+    if display_name is not None:
+        annotations["submitter_display_name"] = display_name
+    notes = _text_list(source.get("provenance_notes"), -1, "provenance_notes")
+    if notes:
+        annotations["provenance_notes"] = notes
+    provenance = _agentic_provenance(source, origin, headline_complete and "agentic" in axes)
+    if provenance is not None:
+        annotations["agentic_provenance"] = provenance
+    return annotations
+
+
+def _source_origin(source: JsonObject) -> str:
+    origin = _text(source.get("origin"))
+    if origin is not None:
+        return origin
+    return "project_anchor" if _text(source.get("kind")) == "anchor" else "community"
+
+
+def _trust_label(origin: str) -> str:
+    return "project_anchor" if origin == "project_anchor" else "community_re_scored"
+
+
+def _agentic_provenance(source: JsonObject, origin: str, agentic_complete: bool) -> str | None:
+    if not agentic_complete:
+        return None
+    annotated = _text(source.get("agentic_provenance"))
+    if annotated is not None:
+        return annotated
+    return "project_attested" if origin == "project_anchor" else "self_reported"
 
 
 # When suite-v1's frozen item subset was published/locked (suite-v1.2). A documented
@@ -531,7 +608,17 @@ def _source(value: JsonValue, index: int) -> JsonObject:
         raise DataBuildError(f"data_sources[{index}].kind must be anchor or community")
     independent_replication = item.get("independent_replication")
     demo = _bool(item.get("demo"), f"data_sources[{index}].demo") if item.get("demo") is not None else False
-    return {"agentic_file": item.get("agentic_file"), "demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _nullable_text(item.get("file"), index, "file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "release_date": _nullable_text(item.get("release_date"), index, "release_date"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
+    return {"agentic_file": item.get("agentic_file"), "agentic_provenance": _nullable_text(item.get("agentic_provenance"), index, "agentic_provenance"), "demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _nullable_text(item.get("file"), index, "file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "origin": _nullable_text(item.get("origin"), index, "origin"), "provenance_notes": _text_list(item.get("provenance_notes"), index, "provenance_notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "release_date": _nullable_text(item.get("release_date"), index, "release_date"), "submitter_display_name": _nullable_text(item.get("submitter_display_name"), index, "submitter_display_name"), "trust_label": _nullable_text(item.get("trust_label"), index, "trust_label"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}
+
+
+def _text_list(value: JsonValue | None, index: int, key: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return list(value)
+    if index < 0:
+        raise DataBuildError(f"{key} must be a list of strings")
+    raise DataBuildError(f"data_sources[{index}].{key} must be a list of strings")
 
 
 def _write_json(path: Path, payload: JsonValue) -> None:

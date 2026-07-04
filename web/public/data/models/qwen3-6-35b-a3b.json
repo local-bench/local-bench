@@ -62,6 +62,8 @@
         "point": 61.19298305104673,
         "point_raw": 0.6119298305104673
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 37.2,
       "hardware": {
@@ -79,6 +81,7 @@
       "latency_s_median": 1.145,
       "n_errors": 5,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q8_0",
       "ranked": false,
       "run_id": "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8",
@@ -94,6 +97,7 @@
       "tok_s": 227.13825237491318,
       "tokens_to_answer_median": 260.0,
       "tokens_to_answer_p95": 2109.6999999999985,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 37.2,
       "vram_required_gb_8k": 39.9,
       "wall_time_seconds": 2672.2755575231276
@@ -152,6 +156,8 @@
         "point": 62.04753159159478,
         "point_raw": 0.6204753159159478
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 28.9,
       "hardware": {
@@ -169,6 +175,7 @@
       "latency_s_median": 1.028,
       "n_errors": 4,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q6_K",
       "ranked": false,
       "run_id": "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q6",
@@ -184,6 +191,7 @@
       "tok_s": 241.20409310814009,
       "tokens_to_answer_median": 248.0,
       "tokens_to_answer_p95": 2430.4999999999995,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 28.9,
       "vram_required_gb_8k": 31.6,
       "wall_time_seconds": 2641.1865229599643
@@ -277,6 +285,8 @@
         "point": 62.31311292117662,
         "point_raw": 0.6231311292117662
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 21.2,
       "hardware": {
@@ -294,6 +304,7 @@
       "latency_s_median": 0.863,
       "n_errors": 2,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q4_K_M",
       "ranked": false,
       "run_id": "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4",
@@ -309,6 +320,7 @@
       "tok_s": 286.11980346112756,
       "tokens_to_answer_median": 247.0,
       "tokens_to_answer_p95": 2504.999999999996,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 21.2,
       "vram_required_gb_8k": 24.0,
       "wall_time_seconds": 2419.727651232155

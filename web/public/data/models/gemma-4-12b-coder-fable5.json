@@ -56,6 +56,8 @@
         "point": 52.909655026067625,
         "point_raw": 0.5290965502606763
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -73,6 +75,7 @@
       "latency_s_median": 2.578,
       "n_errors": 6,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q8_0",
       "ranked": false,
       "run_id": "gemma-4-12b-coder-fable5__gemma-4-12b-coder-fable5-Q8_0",
@@ -88,6 +91,7 @@
       "tok_s": 51.20805113757728,
       "tokens_to_answer_median": 132.0,
       "tokens_to_answer_p95": 583.0,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 12.669645344,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 4437.270994546001

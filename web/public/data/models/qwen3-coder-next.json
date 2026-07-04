@@ -62,6 +62,8 @@
         "point": 61.00260116795033,
         "point_raw": 0.6100260116795033
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 85.0,
       "hardware": {
@@ -79,6 +81,7 @@
       "latency_s_median": 1.199,
       "n_errors": 5,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q8_0",
       "ranked": false,
       "run_id": "qwen3-coder-next__qwen3-coder-next-q8",
@@ -94,6 +97,7 @@
       "tok_s": 230.2014226391457,
       "tokens_to_answer_median": 276.0,
       "tokens_to_answer_p95": 3355.8999999999937,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 85.0,
       "vram_required_gb_8k": 90.0,
       "wall_time_seconds": 3528.822674885858
@@ -152,6 +156,8 @@
         "point": 59.72292428184364,
         "point_raw": 0.5972292428184364
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 66.0,
       "hardware": {
@@ -169,6 +175,7 @@
       "latency_s_median": 1.032,
       "n_errors": 3,
       "n_items": 1120,
+      "origin": "community",
       "quant_label": "Q6_K",
       "ranked": false,
       "run_id": "qwen3-coder-next__qwen3-coder-next-q6",
@@ -184,6 +191,7 @@
       "tok_s": 255.7101168555596,
       "tokens_to_answer_median": 264.0,
       "tokens_to_answer_p95": 3379.0,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 66.0,
       "vram_required_gb_8k": 71.0,
       "wall_time_seconds": 3261.830271936953

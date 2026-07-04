@@ -1,4 +1,5 @@
 import type { IndexModel } from "./schemas";
+import { isFullIndexRow, isStaticCompositeRow } from "./leaderboard-score";
 
 // The /leaderboard splits the catalog into the scoped ranked board and the not-yet-benchmarked
 // shells. Score-less shells NEVER enter or sort into the ranked board (board-display contract):
@@ -7,15 +8,13 @@ import type { IndexModel } from "./schemas";
 // it lives on the model detail page as a diagnostic, not on the leaderboard.
 export function splitLeaderboard(models: readonly IndexModel[]): {
   readonly ranked: readonly IndexModel[];
+  readonly staticComposite: readonly IndexModel[];
   readonly catalog: readonly IndexModel[];
 } {
-  const ranked = models.filter(
-    (model) =>
-      model.kind === "community" &&
-      model.ranked &&
-      model.lane === "capped-thinking" &&
-      model.composite !== null,
+  const ranked = models.filter(isFullIndexRow);
+  const staticComposite = models.filter(isStaticCompositeRow);
+  const catalog = models.filter(
+    (model) => !isStaticCompositeRow(model) && (model.score_status === "missing" || model.composite === null),
   );
-  const catalog = models.filter((model) => model.score_status === "missing" || model.composite === null);
-  return { ranked, catalog };
+  return { ranked, staticComposite, catalog };
 }

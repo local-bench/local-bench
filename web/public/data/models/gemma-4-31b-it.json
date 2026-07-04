@@ -115,12 +115,29 @@
     },
     {
       "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.11458333333333333,
+          "hi": 18.75,
+          "hi_raw": 0.1875,
+          "leaked_reasoning_rate": null,
+          "lo": 5.208333333333334,
+          "lo_raw": 0.052083333333333336,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "no_final_answer_rate": null,
+          "point": 11.458333333333332,
+          "point_raw": 0.11458333333333333,
+          "raw_accuracy": 0.11458333333333333,
+          "termination_rate": 1.0,
+          "truncation_rate": null
+        },
         "instruction": {
           "conditional_accuracy": 0.7671232876712328,
           "hi": 80.95238095238095,
           "hi_raw": 0.8095238095238095,
-          "lo": 71.42857142857143,
-          "lo_raw": 0.7142857142857143,
+          "lo": 71.08843537414967,
+          "lo_raw": 0.7108843537414966,
           "n": 294,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -146,13 +163,15 @@
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 85.56497106829868,
-        "hi_raw": 0.8556497106829868,
-        "lo": 77.29505244361405,
-        "lo_raw": 0.7729505244361405,
-        "point": 81.50017203321195,
-        "point_raw": 0.8150017203321196
+        "hi": 43.397373980090705,
+        "hi_raw": 0.4339737398009071,
+        "lo": 32.82388933855501,
+        "lo_raw": 0.3282388933855501,
+        "point": 37.72402284578781,
+        "point_raw": 0.3772402284578781
       },
+      "composite_full": null,
+      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 18.8,
       "hardware": {
@@ -170,6 +189,7 @@
       "latency_s_median": 43.744,
       "n_errors": 0,
       "n_items": 694,
+      "origin": "community",
       "quant_label": "Q4_K_M",
       "ranked": false,
       "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
@@ -185,6 +205,7 @@
       "tok_s": 60.522512976153834,
       "tokens_to_answer_median": 2647.5,
       "tokens_to_answer_p95": 8759.85,
+      "trust_label": "community_re_scored",
       "vram_footprint_gb": 18.32,
       "vram_required_gb_8k": 21.3,
       "wall_time_seconds": 44835.84482139998

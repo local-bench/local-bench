@@ -1,5 +1,22 @@
 {
   "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.14583333333333334,
+      "hi": 21.875,
+      "hi_raw": 0.21875,
+      "leaked_reasoning_rate": null,
+      "lo": 7.291666666666667,
+      "lo_raw": 0.07291666666666667,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 14.583333333333334,
+      "point_raw": 0.14583333333333334,
+      "raw_accuracy": 0.14583333333333334,
+      "termination_rate": 1.0,
+      "truncation_rate": null
+    },
     "instruction": {
       "conditional_accuracy": 0.6947368421052632,
       "hi": 72.78911564625851,
@@ -16,8 +33,8 @@
     },
     "knowledge": {
       "conditional_accuracy": 0.8542713567839196,
-      "hi": 86.80986787594773,
-      "hi_raw": 0.8680986787594773,
+      "hi": 87.09050898497011,
+      "hi_raw": 0.8709050898497012,
       "lo": 79.23255793234323,
       "lo_raw": 0.7923255793234323,
       "n": 400,
@@ -30,13 +47,15 @@
     }
   },
   "composite": {
-    "hi": 79.79949176110311,
-    "hi_raw": 0.7979949176110311,
-    "lo": 70.56865991855257,
-    "lo_raw": 0.7056865991855257,
-    "point": 75.25423611708342,
-    "point_raw": 0.7525423611708343
+    "hi": 43.93142817821444,
+    "hi_raw": 0.4393142817821444,
+    "lo": 31.587465216705162,
+    "lo_raw": 0.31587465216705163,
+    "point": 37.334921877239616,
+    "point_raw": 0.3733492187723962
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 694,
     "per_bench": {
@@ -136,6 +155,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Qwen3.6-27B",
+  "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q6_K",
   "scorecard": {
@@ -160,9 +180,10 @@
     "total_tokens": 6494481,
     "wall_time_seconds": 20113.836787600012
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
-    "bench": "instruction",
-    "point": 67.3469387755102,
-    "point_raw": 0.673469387755102
+    "bench": "agentic",
+    "point": 14.583333333333334,
+    "point_raw": 0.14583333333333334
   }
 }

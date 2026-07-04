@@ -1,5 +1,22 @@
 {
   "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.13541666666666666,
+      "hi": 20.833333333333336,
+      "hi_raw": 0.20833333333333334,
+      "leaked_reasoning_rate": null,
+      "lo": 7.291666666666667,
+      "lo_raw": 0.07291666666666667,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 13.541666666666666,
+      "point_raw": 0.13541666666666666,
+      "raw_accuracy": 0.13541666666666666,
+      "termination_rate": 1.0,
+      "truncation_rate": null
+    },
     "instruction": {
       "conditional_accuracy": 0.6787003610108303,
       "hi": 69.38775510204081,
@@ -16,10 +33,10 @@
     },
     "knowledge": {
       "conditional_accuracy": 0.8592964824120602,
-      "hi": 87.3711500939925,
-      "hi_raw": 0.873711500939925,
-      "lo": 79.79384015038801,
-      "lo_raw": 0.7979384015038801,
+      "hi": 87.65179120301488,
+      "hi_raw": 0.8765179120301488,
+      "lo": 79.793840150388,
+      "lo_raw": 0.79793840150388,
       "n": 400,
       "n_errors": 0,
       "n_no_answer": 1,
@@ -30,13 +47,15 @@
     }
   },
   "composite": {
-    "hi": 78.37945259801666,
-    "hi_raw": 0.7837945259801665,
-    "lo": 69.14862075546611,
-    "lo_raw": 0.6914862075546612,
-    "point": 73.83419695399698,
-    "point_raw": 0.7383419695399698
+    "hi": 42.47680299122381,
+    "hi_raw": 0.42476802991223817,
+    "lo": 30.751161434782087,
+    "lo_raw": 0.30751161434782087,
+    "point": 36.15136552441553,
+    "point_raw": 0.3615136552441553
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 694,
     "per_bench": {
@@ -136,6 +155,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Qwen3.6-27B",
+  "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q3_K_M",
   "scorecard": {
@@ -160,9 +180,10 @@
     "total_tokens": 5908185,
     "wall_time_seconds": 19825.804516100005
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
-    "bench": "instruction",
-    "point": 63.94557823129252,
-    "point_raw": 0.6394557823129252
+    "bench": "agentic",
+    "point": 13.541666666666666,
+    "point_raw": 0.13541666666666666
   }
 }

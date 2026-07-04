@@ -89,8 +89,13 @@ def build_composite(run: JsonObject, axes: JsonObject, benches: tuple[str, ...],
     point = _weighted_axis_value(axes, benches, weights, "point_raw")
     lo = _weighted_axis_value(axes, benches, weights, "lo_raw")
     hi = _weighted_axis_value(axes, benches, weights, "hi_raw")
-    stored = _number(run.get("composite"), "composite")
-    warnings: list[JsonValue] = [f"composite point {point:.12f} differs from stored composite {stored:.12f}"] if abs(point - stored) > 1e-6 else []
+    stored_raw = run.get("composite")
+    stored = None if isinstance(stored_raw, bool) else float(stored_raw) if isinstance(stored_raw, int | float) else None
+    warnings: list[JsonValue] = (
+        [f"composite point {point:.12f} differs from stored composite {stored:.12f}"]
+        if stored is not None and abs(point - stored) > 1e-6
+        else []
+    )
     return {"interval": score_interval(point, lo, hi), "raw_point": point, "warnings": warnings}
 
 

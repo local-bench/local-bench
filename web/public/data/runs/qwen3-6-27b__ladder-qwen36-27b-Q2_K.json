@@ -1,5 +1,22 @@
 {
   "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.13541666666666666,
+      "hi": 20.833333333333336,
+      "hi_raw": 0.20833333333333334,
+      "leaked_reasoning_rate": null,
+      "lo": 7.291666666666667,
+      "lo_raw": 0.07291666666666667,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 13.541666666666666,
+      "point_raw": 0.13541666666666666,
+      "raw_accuracy": 0.13541666666666666,
+      "termination_rate": 1.0,
+      "truncation_rate": null
+    },
     "instruction": {
       "conditional_accuracy": 0.6072727272727273,
       "hi": 62.585034013605444,
@@ -18,8 +35,8 @@
       "conditional_accuracy": 0.8673469387755103,
       "hi": 87.09050898497011,
       "hi_raw": 0.8709050898497012,
-      "lo": 78.95191682332084,
-      "lo_raw": 0.7895191682332084,
+      "lo": 78.95191682332083,
+      "lo_raw": 0.7895191682332083,
       "n": 400,
       "n_errors": 0,
       "n_no_answer": 6,
@@ -30,13 +47,15 @@
     }
   },
   "composite": {
-    "hi": 74.83777149928777,
-    "hi_raw": 0.7483777149928778,
-    "lo": 64.98616249329308,
-    "lo_raw": 0.6498616249329308,
-    "point": 69.98212727354601,
-    "point_raw": 0.6998212727354601
+    "hi": 40.85618002940345,
+    "hi_raw": 0.40856180029403444,
+    "lo": 29.424199350905532,
+    "lo_raw": 0.29424199350905533,
+    "point": 34.70683939424642,
+    "point_raw": 0.3470683939424642
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 694,
     "per_bench": {
@@ -136,6 +155,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Qwen3.6-27B",
+  "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q2_K",
   "scorecard": {
@@ -160,9 +180,10 @@
     "total_tokens": 4365222,
     "wall_time_seconds": 13031.371899200007
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
-    "bench": "instruction",
-    "point": 56.80272108843537,
-    "point_raw": 0.5680272108843537
+    "bench": "agentic",
+    "point": 13.541666666666666,
+    "point_raw": 0.13541666666666666
   }
 }

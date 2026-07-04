@@ -51,6 +51,8 @@
     "point": 61.19298305104673,
     "point_raw": 0.6119298305104673
   },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 1019,
     "per_bench": {
@@ -161,6 +163,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Qwen3.6 35B A3B",
+  "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8",
   "scorecard": {
@@ -185,6 +188,7 @@
     "total_tokens": 900030,
     "wall_time_seconds": 2672.2755575231276
   },
+  "trust_label": "community_re_scored",
   "worst_axis": {
     "bench": "instruction",
     "point": 31.97278911564626,

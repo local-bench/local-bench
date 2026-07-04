@@ -5,41 +5,42 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { DemoBadge, KindBadge } from "@/components/badges";
+import { ProvenanceLabels, SubmitterCell } from "@/components/leaderboard-provenance";
 import { ConformancePill } from "./conformance-pill";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatDuration, formatGpuShort, formatInteger, formatLatencySeconds } from "@/lib/format";
-import { runtimeDisplay, runtimeSortLabel } from "@/lib/runtime-display";
+import { scoreForMode, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
+import { AGENTIC_SORT_KEY, buildLaneRanks, sortLeaderboardRows, type SortKey, type SortState } from "@/lib/leaderboard-sort";
+import { runtimeDisplay } from "@/lib/runtime-display";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 
-const AGENTIC_SORT_KEY = "agentic_experimental";
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 
-type SortKey = string;
-
-type SortDirection = "asc" | "desc";
-
-type SortState = {
-  readonly key: SortKey;
-  readonly direction: SortDirection;
-};
+export { sortLeaderboardRows } from "@/lib/leaderboard-sort";
 
 export function HomeLeaderboard({
   models,
   agenticBySlug = EMPTY_AGENTIC,
+  scoreMode = "full",
 }: {
   readonly models: readonly IndexModel[];
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
+  readonly scoreMode?: LeaderboardScoreMode;
 }) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const axisKeys = useMemo(() => axisColumns(models), [models]);
-  const sortedModels = useMemo(() => sortLeaderboardRows(models, sort, agenticBySlug), [models, sort, agenticBySlug]);
-  const laneRanks = useMemo(() => buildLaneRanks(models), [models]);
+  const sortedModels = useMemo(
+    () => sortLeaderboardRows(models, sort, { agenticBySlug, scoreMode }),
+    [models, sort, agenticBySlug, scoreMode],
+  );
+  const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
+  const showAgenticColumn = scoreMode === "full";
 
   return (
     <div data-testid="full-leaderboard" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
-      <BoardScopeHeader />
+      <BoardScopeHeader mode={scoreMode} />
       {sortedModels.length === 0 ? (
         <div className="px-4 py-8 text-sm leading-6 text-bench-muted">
           <div className="font-semibold text-bench-text">No ranked rows yet</div>
@@ -59,11 +60,13 @@ export function HomeLeaderboard({
             <th className="px-3 py-3 font-semibold">Rank</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
             <SortableHeader label="Kind" sortKey="kind" sort={sort} onSort={setSort} />
-            <SortableHeader label={<LocalIntelligenceHeaderLabel />} sortKey="composite" sort={sort} onSort={setSort} />
+            <SortableHeader label={<CompositeHeaderLabel scoreMode={scoreMode} />} sortKey="composite" sort={sort} onSort={setSort} />
             {axisKeys.map((axis) => (
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
-            <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
+            {showAgenticColumn ? (
+              <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
+            ) : null}
             <th className="border-l border-bench-line px-3 py-3 font-semibold">
               <span className="flex flex-col gap-0.5 leading-tight">
                 <span>Conformance</span>
@@ -79,12 +82,15 @@ export function HomeLeaderboard({
           </tr>
         </thead>
         <tbody>
-          {sortedModels.map((model) => (
+          {sortedModels.map((model) => {
+            const score = scoreForMode(model, scoreMode);
+            const isProjectAnchor = model.origin === "project_anchor" || model.kind === "anchor";
+            return (
             <tr
               key={model.slug}
               className={[
                 "border-t border-bench-line/75 align-middle transition-colors hover:bg-white/[0.035]",
-                model.kind === "anchor" ? "bg-bench-anchor/[0.025]" : "",
+                isProjectAnchor ? "bg-bench-anchor/[0.025]" : "",
               ].join(" ")}
             >
               <td className="px-3 py-3 font-mono text-bench-muted">
@@ -96,15 +102,16 @@ export function HomeLeaderboard({
                 </Link>
                 {model.demo ? <span className="ml-2"><DemoBadge /></span> : null}
                 <div className="text-xs text-bench-muted">{model.family}</div>
+                <ProvenanceLabels model={model} />
               </td>
               <td className="px-3 py-3">
-                <KindBadge kind={model.kind} runCount={model.n_runs} />
+                {isProjectAnchor ? <KindBadge kind="anchor" /> : <KindBadge kind={model.kind} runCount={model.n_runs} />}
               </td>
               <td className="px-3 py-3">
-                {model.composite === null ? (
+                {score === null ? (
                   <NoScoreCell />
                 ) : (
-                  <ScoreBar axes={model.axes} score={model.composite} tone={model.kind === "anchor" ? "anchor" : "accent"} />
+                  <ScoreBar axes={model.axes} score={score} tone={scoreTone(model, scoreMode)} />
                 )}
               </td>
               {axisKeys.map((axisKey) => (
@@ -112,9 +119,11 @@ export function HomeLeaderboard({
                   <AxisMiniBar score={model.axes[axisKey]} />
                 </td>
               ))}
-              <td className="px-3 py-3">
-                <AgenticCell model={agenticBySlug.get(model.slug)} />
-              </td>
+              {showAgenticColumn ? (
+                <td className="px-3 py-3">
+                  <AgenticCell model={agenticBySlug.get(model.slug)} />
+                </td>
+              ) : null}
               <td className="border-l border-bench-line px-3 py-3">
                 <ConformancePill gate={model.conformance_gates?.tc_json_v1} showReason compact />
               </td>
@@ -127,9 +136,12 @@ export function HomeLeaderboard({
               </td>
               <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(model.latency_s_median ?? null)}</td>
               <td className="px-3 py-3 font-mono text-bench-text">{formatDuration(model.wall_time_seconds ?? null)}</td>
-              <td className="px-3 py-3 font-mono text-xs text-bench-muted" title="Top-run submitter — V2 community submissions">{model.submitted_by ?? "—"}</td>
+              <td className="px-3 py-3" title="Top-run submitter — V2 community submissions">
+                <SubmitterCell model={model} />
+              </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
         </table>
       </div>
@@ -189,68 +201,6 @@ function nextSort(current: SortState, key: SortKey): SortState {
   return { key, direction: key === "model" ? "asc" : "desc" };
 }
 
-export function sortLeaderboardRows(
-  models: readonly IndexModel[],
-  sort: SortState,
-  agenticBySlug: ReadonlyMap<string, AgenticModel> = EMPTY_AGENTIC,
-): readonly IndexModel[] {
-  const direction = sort.direction === "asc" ? 1 : -1;
-  return [...models].sort((left, right) => compareRows(left, right, sort.key, agenticBySlug) * direction);
-}
-
-function buildLaneRanks(models: readonly IndexModel[]): ReadonlyMap<string, number> {
-  const groups = new Map<string, readonly IndexModel[]>();
-  for (const model of models) {
-    if (!model.ranked) {
-      continue;
-    }
-    const lane = model.lane ?? "n/a";
-    const group = groups.get(lane) ?? [];
-    groups.set(lane, [...group, model]);
-  }
-
-  const ranks = new Map<string, number>();
-  for (const group of groups.values()) {
-    const rankedGroup = sortLeaderboardRows(group, { key: "composite", direction: "desc" });
-    rankedGroup.forEach((model, index) => {
-      ranks.set(model.slug, index + 1);
-    });
-  }
-  return ranks;
-}
-
-function compareRows(
-  left: IndexModel,
-  right: IndexModel,
-  key: SortKey,
-  agenticBySlug: ReadonlyMap<string, AgenticModel>,
-): number {
-  switch (key) {
-    case "model":
-      return left.model_label.localeCompare(right.model_label);
-    case "kind":
-      return left.kind.localeCompare(right.kind);
-    case "composite":
-      return nullableNumber(left.composite?.point ?? null) - nullableNumber(right.composite?.point ?? null);
-    case AGENTIC_SORT_KEY:
-      return nullableNumber(agenticBySlug.get(left.slug)?.asr_pct ?? null) - nullableNumber(agenticBySlug.get(right.slug)?.asr_pct ?? null);
-    case "tokens":
-      return nullableNumber(left.tokens_to_answer_median) - nullableNumber(right.tokens_to_answer_median);
-    case "hardware":
-      return (left.gpu?.name ?? "").localeCompare(right.gpu?.name ?? "");
-    case "runtime":
-      return runtimeSortLabel(left.runtime).localeCompare(runtimeSortLabel(right.runtime));
-    case "user":
-      return (left.submitted_by ?? "").localeCompare(right.submitted_by ?? "");
-    case "latency":
-      return nullableNumber(left.latency_s_median ?? null) - nullableNumber(right.latency_s_median ?? null);
-    case "benchtime":
-      return nullableNumber(left.wall_time_seconds ?? null) - nullableNumber(right.wall_time_seconds ?? null);
-    default:
-      return compareAxis(left, right, key);
-  }
-}
-
 function RuntimeCell({ runtime }: { readonly runtime: IndexModel["runtime"] }) {
   const display = runtimeDisplay(runtime);
   if (display === null) {
@@ -266,7 +216,15 @@ function RuntimeCell({ runtime }: { readonly runtime: IndexModel["runtime"] }) {
   );
 }
 
-function LocalIntelligenceHeaderLabel() {
+function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardScoreMode }) {
+  if (scoreMode === "static") {
+    return (
+      <span className="flex flex-col gap-0.5 leading-tight">
+        <span>Static composite</span>
+        <span className="font-mono text-[10px] normal-case text-bench-muted">static-suite-v1 | not score-comparable</span>
+      </span>
+    );
+  }
   return (
     <span className="flex flex-col gap-0.5 leading-tight">
       <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
@@ -275,12 +233,11 @@ function LocalIntelligenceHeaderLabel() {
   );
 }
 
-function compareAxis(left: IndexModel, right: IndexModel, axis: string): number {
-  return (left.axes[axis]?.point ?? Number.NEGATIVE_INFINITY) - (right.axes[axis]?.point ?? Number.NEGATIVE_INFINITY);
-}
-
-function nullableNumber(value: number | null): number {
-  return value ?? Number.NEGATIVE_INFINITY;
+function scoreTone(model: IndexModel, scoreMode: LeaderboardScoreMode): "accent" | "anchor" | "muted" {
+  if (scoreMode === "static") {
+    return "muted";
+  }
+  return model.origin === "project_anchor" || model.kind === "anchor" ? "anchor" : "accent";
 }
 
 function axisColumns(models: readonly IndexModel[]): readonly string[] {

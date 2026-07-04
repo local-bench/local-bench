@@ -16,7 +16,7 @@ export default async function LeaderboardPage() {
     getAgenticBySlug(),
     getPartialCoverageBoard(),
   ]);
-  const { ranked, catalog } = splitLeaderboard(index.models);
+  const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
@@ -55,6 +55,7 @@ export default async function LeaderboardPage() {
           </div>
         </div>
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
+        <HomeLeaderboard models={staticComposite} scoreMode="static" />
         <PartialCoverageBoard rows={partialCoverage} />
         <CatalogShells models={catalog} />
       </section>
