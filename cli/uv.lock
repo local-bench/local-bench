@@ -627,7 +627,7 @@ wheels = [
 ]
 
 [[package]]
-name = "local-bench"
+name = "local-bench-ai"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

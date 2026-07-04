@@ -14,17 +14,32 @@ The standard run stays practical for local hardware: MMLU-Pro, IFBench, TC-JSON 
 ## Quickstart
 
 ```bash
-pipx install localbench
-localbench fetch-suite --suite core-text-v1 --accept-suite-terms
+pip install local-bench-ai   # installs the `localbench` command (Python 3.11+)
+
+localbench fetch-suite \
+  --site https://local-bench.ai \
+  --suite suite-v1-text-code-agentic-5axis-v1 \
+  --accept-suite-terms
+
+# strongest provenance: the CLI launches the pinned llama.cpp server itself
+localbench bench \
+  --runtime llama.cpp --model-file <model.gguf> --model-id <model-slug> \
+  --ctx 32768 --seed 1234 --out runs/my-bench
+
+# or bring your own OpenAI-compatible server (LM Studio, ollama, vLLM, ...)
 localbench run \
-  --endpoint http://localhost:8080/v1 \
-  --model <model-name> \
-  --lane capped-thinking \
-  --tier standard \
-  --out runs/my-run.json
+  --endpoint http://localhost:8080/v1 --model <name-your-server-reports> \
+  --lane capped-thinking --tier standard \
+  --publishable --sampler-seed 1234 --out runs/my-run.json
+
+localbench submit run \
+  --run runs/my-run.json --suite-dir <cached-suite-dir-from-fetch-suite>
 ```
 
-`fetch-suite` currently verifies the installable minimal public bundle. The full repo `suite/v1` contains the broader modular suite, including the coding proxy and opt-in expansion benches.
+Submissions are identified by an Ed25519 key generated on first submit — no
+account, no email. Nothing publishes without maintainer review; see
+https://local-bench.ai/submit for the full loop and what the trust labels mean.
+Working from source instead: `pip install -e cli`.
 
 ## Status
 

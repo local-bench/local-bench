@@ -40,13 +40,15 @@ export default function SubmitPage() {
         <h2 className="text-xl font-semibold text-bench-text">The loop</h2>
 
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
-        <p>Clone the repository and install the CLI into a fresh environment (Python 3.11+):</p>
+        <p>Python 3.11+ required:</p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`pip install -e cli`}
+          {`pip install local-bench-ai`}
         </pre>
         <p className="text-sm">
-          A packaged <code className="font-mono text-bench-text">uv tool install local-bench</code> is
-          planned; until then the repo install is the supported path.
+          Installs the <code className="font-mono text-bench-text">localbench</code> command. Working
+          from source instead? Clone{" "}
+          <code className="font-mono text-bench-text">github.com/local-bench/local-bench</code> and{" "}
+          <code className="font-mono text-bench-text">pip install -e cli</code>.
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">2. Fetch the frozen suite</h3>
