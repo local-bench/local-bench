@@ -1,0 +1,148 @@
+{
+  "family": "Gemma 4",
+  "kind": "community",
+  "model_label": "Gemma 4 12B IT Q4_K_XL",
+  "runs": [
+    {
+      "agentic_provenance": "project_attested",
+      "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.057291666666666664,
+          "hi": 10.416666666666668,
+          "hi_raw": 0.10416666666666667,
+          "lo": 1.0416666666666665,
+          "lo_raw": 0.010416666666666666,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 5.208333333333334,
+          "point_raw": 0.052083333333333336,
+          "raw_accuracy": 0.057291666666666664,
+          "termination_rate": 1.0
+        },
+        "coding": {
+          "conditional_accuracy": 0.9512195121951219,
+          "hi": 95.34883720930233,
+          "hi_raw": 0.9534883720930233,
+          "lo": 85.27131782945736,
+          "lo_raw": 0.8527131782945736,
+          "n": 129,
+          "n_errors": 0,
+          "n_no_answer": 7,
+          "point": 90.69767441860465,
+          "point_raw": 0.9069767441860465,
+          "raw_accuracy": 0.9069767441860465,
+          "termination_rate": 0.9534883720930233
+        },
+        "instruction": {
+          "conditional_accuracy": 0.704225352112676,
+          "hi": 73.46938775510205,
+          "hi_raw": 0.7346938775510204,
+          "lo": 62.585034013605444,
+          "lo_raw": 0.6258503401360545,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 68.02721088435374,
+          "point_raw": 0.6802721088435374,
+          "raw_accuracy": 0.6802721088435374,
+          "termination_rate": 0.9659863945578231
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.7835051546391754,
+          "hi": 77.54871127820888,
+          "hi_raw": 0.7754871127820888,
+          "lo": 68.28755468047005,
+          "lo_raw": 0.6828755468047005,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 11,
+          "point": 73.05845353385067,
+          "point_raw": 0.7305845353385066,
+          "raw_accuracy": 0.76,
+          "termination_rate": 0.97
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7424242424242424,
+          "hi": 78.78787878787878,
+          "hi_raw": 0.7878787878787878,
+          "lo": 69.39393939393939,
+          "lo_raw": 0.693939393939394,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 74.24242424242425,
+          "point_raw": 0.7424242424242424,
+          "raw_accuracy": 0.7424242424242424,
+          "termination_rate": 1.0
+        }
+      },
+      "composite": {
+        "hi": 43.50254876587276,
+        "hi_raw": 0.4350254876587276,
+        "lo": 37.62372931355355,
+        "lo_raw": 0.3762372931355355,
+        "point": 40.261026195500214,
+        "point_raw": 0.40261026195500216
+      },
+      "composite_full": {
+        "hi": 43.50254876587276,
+        "hi_raw": 0.4350254876587276,
+        "lo": 37.62372931355355,
+        "lo_raw": 0.3762372931355355,
+        "point": 40.261026195500214,
+        "point_raw": 0.40261026195500216
+      },
+      "composite_static": {
+        "hi": 77.84717211750439,
+        "hi_raw": 0.7784717211750438,
+        "lo": 72.75274253145282,
+        "lo_raw": 0.7275274253145283,
+        "point": 75.3137190576671,
+        "point_raw": 0.7531371905766711
+      },
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "610.62",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 79.686,
+      "n_errors": 0,
+      "n_items": 1249,
+      "origin": "project_anchor",
+      "provenance_notes": [
+        "grandfathered_attested_bundle"
+      ],
+      "quant_label": "Q4_K_XL",
+      "ranked": true,
+      "run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
+      "runtime": {
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
+      },
+      "score_status": "measured",
+      "static_index_version": "static-suite-v1",
+      "tier": "standard",
+      "tok_s": 102.82918518702921,
+      "tokens_to_answer_median": 8194.0,
+      "tokens_to_answer_p95": 9062.4,
+      "trust_label": "project_anchor",
+      "vram_footprint_gb": 6.716355328,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 59274.173853600005
+    }
+  ],
+  "slug": "gemma-4-12b-it-q4-k-xl"
+}

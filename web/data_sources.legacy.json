@@ -1,0 +1,62 @@
+[
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q8_0.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q8_0",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 30
+  },
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q6_k.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q6_K",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 25
+  },
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q4_k_m.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q4_K_M",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 20
+  },
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q3_k_m.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q3_K_M",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 18
+  },
+  {
+    "family": "Qwen3.6-27B",
+    "file": "runs/lcpp-q2_k.json",
+    "kind": "community",
+    "model_label": "Qwen3.6-27B",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q2_K",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 16
+  },
+  {
+    "family": "Gemma-4-12B",
+    "file": "runs/gemma-4-12b-it-q4_k_m.json",
+    "kind": "community",
+    "model_label": "Gemma-4-12B-it",
+    "notes": "Real measurement, native llama.cpp (sm_120) on RTX 5090, suite-v1 answer-only lane, N=80/bench.",
+    "quant_label": "Q4_K_M",
+    "reasoning_lane": "answer-only",
+    "vram_footprint_gb": 11
+  }
+]

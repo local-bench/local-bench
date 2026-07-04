@@ -1,0 +1,188 @@
+{
+  "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.11458333333333333,
+      "hi": 18.75,
+      "hi_raw": 0.1875,
+      "leaked_reasoning_rate": null,
+      "lo": 5.208333333333334,
+      "lo_raw": 0.052083333333333336,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 11.458333333333332,
+      "point_raw": 0.11458333333333333,
+      "raw_accuracy": 0.11458333333333333,
+      "termination_rate": 1.0,
+      "truncation_rate": null
+    },
+    "instruction": {
+      "conditional_accuracy": 0.7671232876712328,
+      "hi": 80.95238095238095,
+      "hi_raw": 0.8095238095238095,
+      "lo": 71.08843537414967,
+      "lo_raw": 0.7108843537414966,
+      "n": 294,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 76.19047619047619,
+      "point_raw": 0.7619047619047619,
+      "raw_accuracy": 0.7619047619047619,
+      "termination_rate": 0.9931972789115646
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8825,
+      "hi": 90.17756118421639,
+      "hi_raw": 0.9017756118421638,
+      "lo": 83.16153345865666,
+      "lo_raw": 0.8316153345865667,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 86.80986787594772,
+      "point_raw": 0.8680986787594772,
+      "raw_accuracy": 0.8825,
+      "termination_rate": 1.0
+    }
+  },
+  "composite": {
+    "hi": 43.397373980090705,
+    "hi_raw": 0.4339737398009071,
+    "lo": 32.82388933855501,
+    "lo_raw": 0.3282388933855501,
+    "point": 37.72402284578781,
+    "point_raw": 0.3772402284578781
+  },
+  "composite_full": null,
+  "composite_static": null,
+  "conformance": {
+    "n_scored": 694,
+    "per_bench": {
+      "ifbench": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 294,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=1% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.006802721088435374
+      },
+      "mmlu_pro": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "math not measured in this run; axis omitted",
+    "agentic not measured in this run; axis omitted",
+    "tool_calling not measured in this run; axis omitted",
+    "coding not measured in this run; axis omitted"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 8192
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "Gemma 4",
+      "file_name": null,
+      "file_sha256": "UNHASHED",
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "gemma-4-31B-it-Q4_K_M.gguf"
+    },
+    "quant": "Q4_K_M",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "instruction": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "reasoning_registry_entry_id": "gemma4_thinking_native_v1",
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Gemma 4 31B IT",
+  "origin": "community",
+  "ranked": false,
+  "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "eab7934471ee63246c72005f149ab41fe54468e76f59bb4440103c988c498483",
+    "registry_digest": "30f452ea03e0a553faed3c1816ed0d00f1042b94813efbc6bcb57ba151bbf8de",
+    "registry_drift": true,
+    "version": "scorecard-v1.3"
+  },
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 2647.5,
+  "tokens_to_answer_p95": 8759.85,
+  "totals": {
+    "completion_tokens": 2713578,
+    "completion_tokens_per_second": 60.522512976153834,
+    "n_errors": 0,
+    "n_items": 694,
+    "prompt_tokens": 2679699,
+    "total_tokens": 5393277,
+    "wall_time_seconds": 44835.84482139998
+  },
+  "trust_label": "community_re_scored",
+  "worst_axis": {
+    "bench": "agentic",
+    "point": 11.458333333333332,
+    "point_raw": 0.11458333333333333
+  }
+}

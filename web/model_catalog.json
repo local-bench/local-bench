@@ -1,0 +1,5919 @@
+[
+  {
+    "id": "Qwen/Qwen3-0.6B",
+    "slug": "qwen3-0-6b",
+    "display_name": "Qwen3 0.6B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 0.6,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 24499972,
+      "likes": 1342,
+      "trending": 25
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-0.6B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 0.5,
+        "vram_gb_8k": 1.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 0.4,
+        "vram_gb_8k": 1.5
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.4,
+        "vram_gb_8k": 1.4
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.3,
+        "vram_gb_8k": 1.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.2,
+        "vram_gb_8k": 1.3
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-1.7B",
+    "slug": "qwen3-1-7b",
+    "display_name": "Qwen3 1.7B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 1.7,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 4854154,
+      "likes": 486,
+      "trending": 3
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 1.8,
+        "vram_gb_8k": 2.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 1.4,
+        "vram_gb_8k": 2.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 1.2,
+        "vram_gb_8k": 2.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.8,
+        "vram_gb_8k": 1.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-4B",
+    "slug": "qwen3-4b",
+    "display_name": "Qwen3 4B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 4,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 14117172,
+      "likes": 639,
+      "trending": 4
+    },
+    "gguf_repo": "Qwen/Qwen3-4B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.3,
+        "vram_gb_8k": 4.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.4,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-8B",
+    "slug": "qwen3-8b",
+    "display_name": "Qwen3 8B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 8.2,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 11467741,
+      "likes": 1148,
+      "trending": 14
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-8B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 8.7,
+        "vram_gb_8k": 10.1
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 5,
+        "vram_gb_8k": 6.4
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 4,
+        "vram_gb_8k": 5.4
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 3.1,
+        "vram_gb_8k": 4.5
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-14B",
+    "slug": "qwen3-14b",
+    "display_name": "Qwen3 14B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1792436,
+      "likes": 411,
+      "trending": 4
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-14B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-32B",
+    "slug": "qwen3-32b",
+    "display_name": "Qwen3 32B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 32,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 3396764,
+      "likes": 702,
+      "trending": 2
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-32B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 34,
+        "vram_gb_8k": 36.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 26.4,
+        "vram_gb_8k": 29
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 22.8,
+        "vram_gb_8k": 25.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 19.4,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 15.6,
+        "vram_gb_8k": 18.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 12,
+        "vram_gb_8k": 14.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-30B-A3B",
+    "slug": "qwen3-30b-a3b",
+    "display_name": "Qwen3 30B A3B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 30,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 2111563,
+      "likes": 900,
+      "trending": 1
+    },
+    "gguf_repo": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 31.9,
+        "vram_gb_8k": 34.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 24.8,
+        "vram_gb_8k": 27.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 21.4,
+        "vram_gb_8k": 23.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 18.2,
+        "vram_gb_8k": 20.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 14.6,
+        "vram_gb_8k": 17.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 11.3,
+        "vram_gb_8k": 13.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-235B-A22B",
+    "slug": "qwen3-235b-a22b",
+    "display_name": "Qwen3 235B A22B",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 235,
+      "active_b": 22
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 673910,
+      "likes": 1096,
+      "trending": 2
+    },
+    "gguf_repo": "unsloth/Qwen3-235B-A22B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 249.7,
+        "vram_gb_8k": 262.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 193.9,
+        "vram_gb_8k": 206.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 167.4,
+        "vram_gb_8k": 180.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 142.5,
+        "vram_gb_8k": 155.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 114.6,
+        "vram_gb_8k": 127.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 88.1,
+        "vram_gb_8k": 100.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-4B-Instruct-2507",
+    "slug": "qwen3-4b-instruct-2507",
+    "display_name": "Qwen3 4B Instruct 2507",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 4,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 4338344,
+      "likes": 879,
+      "trending": 3
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.3,
+        "vram_gb_8k": 4.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.4,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-4B-Thinking-2507",
+    "slug": "qwen3-4b-thinking-2507",
+    "display_name": "Qwen3 4B Thinking 2507",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": 4,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 589500,
+      "likes": 599,
+      "trending": 1
+    },
+    "gguf_repo": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.3,
+        "vram_gb_8k": 4.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.4,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+    "slug": "qwen3-30b-a3b-instruct-2507",
+    "display_name": "Qwen3 30B A3B Instruct 2507",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 30,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 720957,
+      "likes": 815,
+      "trending": 0
+    },
+    "gguf_repo": "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 31.9,
+        "vram_gb_8k": 34.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 24.8,
+        "vram_gb_8k": 27.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 21.4,
+        "vram_gb_8k": 23.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 18.2,
+        "vram_gb_8k": 20.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 14.6,
+        "vram_gb_8k": 17.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 11.3,
+        "vram_gb_8k": 13.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-30B-A3B-Thinking-2507",
+    "slug": "qwen3-30b-a3b-thinking-2507",
+    "display_name": "Qwen3 30B A3B Thinking 2507",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 30,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 182396,
+      "likes": 379,
+      "trending": 0
+    },
+    "gguf_repo": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 31.9,
+        "vram_gb_8k": 34.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 24.8,
+        "vram_gb_8k": 27.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 21.4,
+        "vram_gb_8k": 23.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 18.2,
+        "vram_gb_8k": 20.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 14.6,
+        "vram_gb_8k": 17.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 11.3,
+        "vram_gb_8k": 13.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "slug": "qwen3-235b-a22b-instruct-2507",
+    "display_name": "Qwen3 235B A22B Instruct 2507",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 235,
+      "active_b": 22
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 115395,
+      "likes": 782,
+      "trending": 1
+    },
+    "gguf_repo": "unsloth/Qwen3-235B-A22B-Instruct-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 249.7,
+        "vram_gb_8k": 262.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 193.9,
+        "vram_gb_8k": 206.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 167.4,
+        "vram_gb_8k": 180.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 142.5,
+        "vram_gb_8k": 155.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 114.6,
+        "vram_gb_8k": 127.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 88.1,
+        "vram_gb_8k": 100.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-235B-A22B-Thinking-2507",
+    "slug": "qwen3-235b-a22b-thinking-2507",
+    "display_name": "Qwen3 235B A22B Thinking 2507",
+    "family": "Qwen3",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 235,
+      "active_b": 22
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 51265,
+      "likes": 407,
+      "trending": 0
+    },
+    "gguf_repo": "unsloth/Qwen3-235B-A22B-Thinking-2507-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 249.7,
+        "vram_gb_8k": 262.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 193.9,
+        "vram_gb_8k": 206.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 167.4,
+        "vram_gb_8k": 180.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 142.5,
+        "vram_gb_8k": 155.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 114.6,
+        "vram_gb_8k": 127.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 88.1,
+        "vram_gb_8k": 100.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    "slug": "qwen3-coder-30b-a3b-instruct",
+    "display_name": "Qwen3 Coder 30B A3B Instruct",
+    "family": "Qwen3 Coder",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 30,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1690302,
+      "likes": 1113,
+      "trending": 11
+    },
+    "gguf_repo": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 31.9,
+        "vram_gb_8k": 34.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 24.8,
+        "vram_gb_8k": 27.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 21.4,
+        "vram_gb_8k": 23.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 18.2,
+        "vram_gb_8k": 20.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 14.6,
+        "vram_gb_8k": 17.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 11.3,
+        "vram_gb_8k": 13.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-Coder-Next",
+    "slug": "qwen3-coder-next",
+    "display_name": "Qwen3 Coder Next",
+    "family": "Qwen3 Coder",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 80,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 954831,
+      "likes": 1461,
+      "trending": 13
+    },
+    "gguf_repo": "unsloth/Qwen3-Coder-Next-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 85,
+        "vram_gb_8k": 90
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 66,
+        "vram_gb_8k": 71
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 57,
+        "vram_gb_8k": 62
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 48.5,
+        "vram_gb_8k": 53.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 39,
+        "vram_gb_8k": 44
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 30,
+        "vram_gb_8k": 35
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
+    "slug": "qwen3-next-80b-a3b-instruct",
+    "display_name": "Qwen3 Next 80B A3B Instruct",
+    "family": "Qwen3 Next",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 80,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 263644,
+      "likes": 1027,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 85,
+        "vram_gb_8k": 90
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 66,
+        "vram_gb_8k": 71
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 57,
+        "vram_gb_8k": 62
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 48.5,
+        "vram_gb_8k": 53.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 39,
+        "vram_gb_8k": 44
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 30,
+        "vram_gb_8k": 35
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3-Next-80B-A3B-Thinking",
+    "slug": "qwen3-next-80b-a3b-thinking",
+    "display_name": "Qwen3 Next 80B A3B Thinking",
+    "family": "Qwen3 Next",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 80,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 26810,
+      "likes": 489,
+      "trending": 0
+    },
+    "gguf_repo": "Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 85,
+        "vram_gb_8k": 90
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 66,
+        "vram_gb_8k": 71
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 57,
+        "vram_gb_8k": 62
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 48.5,
+        "vram_gb_8k": 53.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 39,
+        "vram_gb_8k": 44
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 30,
+        "vram_gb_8k": 35
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen3.6-27B",
+    "slug": "qwen3-6-27b",
+    "display_name": "Qwen3.6 27B",
+    "family": "Qwen3.6",
+    "org": "Qwen",
+    "params_b": 27,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 5247709,
+      "likes": 1744,
+      "trending": 62
+    },
+    "gguf_repo": "unsloth/Qwen3.6-27B-MTP-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 28.7,
+        "vram_gb_8k": 31
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 22.3,
+        "vram_gb_8k": 24.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 19.2,
+        "vram_gb_8k": 21.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 16.4,
+        "vram_gb_8k": 18.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 13.2,
+        "vram_gb_8k": 15.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 10.1,
+        "vram_gb_8k": 12.5
+      }
+    ],
+    "distills": [
+      {
+        "id": "Jackrong/Qwopus3.6-27B-v2-MTP-GGUF",
+        "display_name": "Qwopus 3.6 27B v2 MTP",
+        "org": "Jackrong",
+        "popularity": {
+          "downloads": 292588,
+          "likes": 322,
+          "trending": 44
+        }
+      },
+      {
+        "id": "Jackrong/Qwopus3.6-27B-Coder-MTP-GGUF",
+        "display_name": "Qwopus 3.6 27B Coder MTP",
+        "org": "Jackrong",
+        "popularity": {
+          "downloads": 122175,
+          "likes": 249,
+          "trending": 244
+        }
+      },
+      {
+        "id": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+        "display_name": "Qwopus 3.6 27B v1 Preview",
+        "org": "Jackrong",
+        "popularity": {
+          "downloads": 171536,
+          "likes": 124,
+          "trending": 0
+        }
+      }
+    ]
+  },
+  {
+    "id": "Qwen/Qwen3.6-35B-A3B",
+    "slug": "qwen3-6-35b-a3b",
+    "display_name": "Qwen3.6 35B A3B",
+    "family": "Qwen3.6",
+    "org": "Qwen",
+    "params_b": {
+      "total_b": 35,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 4354202,
+      "likes": 2162,
+      "trending": 76
+    },
+    "gguf_repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 37.2,
+        "vram_gb_8k": 39.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 28.9,
+        "vram_gb_8k": 31.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 24.9,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 21.2,
+        "vram_gb_8k": 24
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 13.1,
+        "vram_gb_8k": 15.9
+      }
+    ],
+    "distills": [
+      {
+        "id": "Jackrong/Qwopus3.6-35B-A3B-v1-GGUF",
+        "display_name": "Qwopus 3.6 35B A3B v1",
+        "org": "Jackrong",
+        "popularity": {
+          "downloads": 313403,
+          "likes": 203,
+          "trending": 9
+        }
+      },
+      {
+        "id": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
+        "display_name": "Qwen3.6 35B A3B Uncensored HauhauCS Aggressive",
+        "org": "HauhauCS",
+        "popularity": {
+          "downloads": 3420052,
+          "likes": 1965,
+          "trending": 221
+        }
+      }
+    ]
+  },
+  {
+    "id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "slug": "qwen2-5-0-5b-instruct",
+    "display_name": "Qwen2.5 0.5B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 0.5,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 4085841,
+      "likes": 533,
+      "trending": 2
+    },
+    "gguf_repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 0.5,
+        "vram_gb_8k": 1.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 0.4,
+        "vram_gb_8k": 1.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 0.4,
+        "vram_gb_8k": 1.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.3,
+        "vram_gb_8k": 1.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.2,
+        "vram_gb_8k": 1.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.2,
+        "vram_gb_8k": 1.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-1.5B-Instruct",
+    "slug": "qwen2-5-1-5b-instruct",
+    "display_name": "Qwen2.5 1.5B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 1.5,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 9370219,
+      "likes": 742,
+      "trending": 4
+    },
+    "gguf_repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 1.6,
+        "vram_gb_8k": 2.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 1.2,
+        "vram_gb_8k": 2.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.9,
+        "vram_gb_8k": 2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.7,
+        "vram_gb_8k": 1.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-3B-Instruct",
+    "slug": "qwen2-5-3b-instruct",
+    "display_name": "Qwen2.5 3B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 3,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "other",
+    "popularity": {
+      "downloads": 10143016,
+      "likes": 503,
+      "trending": 2
+    },
+    "gguf_repo": "Qwen/Qwen2.5-3B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 3.2,
+        "vram_gb_8k": 4.3
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 2.5,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.1,
+        "vram_gb_8k": 3.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 1.8,
+        "vram_gb_8k": 3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.3
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-7B-Instruct",
+    "slug": "qwen2-5-7b-instruct",
+    "display_name": "Qwen2.5 7B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 11459075,
+      "likes": 1370,
+      "trending": 12
+    },
+    "gguf_repo": "Qwen/Qwen2.5-7B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-14B-Instruct",
+    "slug": "qwen2-5-14b-instruct",
+    "display_name": "Qwen2.5 14B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1817282,
+      "likes": 349,
+      "trending": 2
+    },
+    "gguf_repo": "Qwen/Qwen2.5-14B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-32B-Instruct",
+    "slug": "qwen2-5-32b-instruct",
+    "display_name": "Qwen2.5 32B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 32,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 932490,
+      "likes": 352,
+      "trending": 0
+    },
+    "gguf_repo": "Qwen/Qwen2.5-32B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 34,
+        "vram_gb_8k": 36.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 26.4,
+        "vram_gb_8k": 29
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 22.8,
+        "vram_gb_8k": 25.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 19.4,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 15.6,
+        "vram_gb_8k": 18.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 12,
+        "vram_gb_8k": 14.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-72B-Instruct",
+    "slug": "qwen2-5-72b-instruct",
+    "display_name": "Qwen2.5 72B Instruct",
+    "family": "Qwen2.5",
+    "org": "Qwen",
+    "params_b": 72,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "other",
+    "popularity": {
+      "downloads": 433757,
+      "likes": 953,
+      "trending": 2
+    },
+    "gguf_repo": "bartowski/Qwen2.5-72B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 76.5,
+        "vram_gb_8k": 81.1
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 59.4,
+        "vram_gb_8k": 64
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 51.3,
+        "vram_gb_8k": 55.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 43.7,
+        "vram_gb_8k": 48.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 35.1,
+        "vram_gb_8k": 39.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 27,
+        "vram_gb_8k": 31.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "slug": "qwen2-5-coder-7b-instruct",
+    "display_name": "Qwen2.5 Coder 7B Instruct",
+    "family": "Qwen2.5 Coder",
+    "org": "Qwen",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1984081,
+      "likes": 733,
+      "trending": 5
+    },
+    "gguf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-Coder-14B-Instruct",
+    "slug": "qwen2-5-coder-14b-instruct",
+    "display_name": "Qwen2.5 Coder 14B Instruct",
+    "family": "Qwen2.5 Coder",
+    "org": "Qwen",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 3743314,
+      "likes": 165,
+      "trending": 3
+    },
+    "gguf_repo": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "slug": "qwen2-5-coder-32b-instruct",
+    "display_name": "Qwen2.5 Coder 32B Instruct",
+    "family": "Qwen2.5 Coder",
+    "org": "Qwen",
+    "params_b": 32,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1598903,
+      "likes": 2045,
+      "trending": 3
+    },
+    "gguf_repo": "Qwen/Qwen2.5-Coder-32B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 34,
+        "vram_gb_8k": 36.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 26.4,
+        "vram_gb_8k": 29
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 22.8,
+        "vram_gb_8k": 25.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 19.4,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 15.6,
+        "vram_gb_8k": 18.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 12,
+        "vram_gb_8k": 14.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-Math-1.5B-Instruct",
+    "slug": "qwen2-5-math-1-5b-instruct",
+    "display_name": "Qwen2.5 Math 1.5B Instruct",
+    "family": "Qwen2.5 Math",
+    "org": "Qwen",
+    "params_b": 1.5,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 204570,
+      "likes": 56,
+      "trending": 1
+    },
+    "gguf_repo": "bartowski/Qwen2.5-Math-1.5B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 1.6,
+        "vram_gb_8k": 2.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 1.2,
+        "vram_gb_8k": 2.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.9,
+        "vram_gb_8k": 2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.7,
+        "vram_gb_8k": 1.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/Qwen2.5-Math-7B-Instruct",
+    "slug": "qwen2-5-math-7b-instruct",
+    "display_name": "Qwen2.5 Math 7B Instruct",
+    "family": "Qwen2.5 Math",
+    "org": "Qwen",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 133478,
+      "likes": 91,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "Qwen/QwQ-32B",
+    "slug": "qwq-32b",
+    "display_name": "QwQ 32B",
+    "family": "QwQ",
+    "org": "Qwen",
+    "params_b": 32,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 55467,
+      "likes": 2931,
+      "trending": 3
+    },
+    "gguf_repo": "MaziyarPanahi/QwQ-32B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 34,
+        "vram_gb_8k": 36.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 26.4,
+        "vram_gb_8k": 29
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 22.8,
+        "vram_gb_8k": 25.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 19.4,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 15.6,
+        "vram_gb_8k": 18.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 12,
+        "vram_gb_8k": 14.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-3.1-8B-Instruct",
+    "slug": "llama-3-1-8b-instruct",
+    "display_name": "Llama 3.1 8B Instruct",
+    "family": "Llama 3.1",
+    "org": "Meta",
+    "params_b": 8,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "llama3.1",
+    "popularity": {
+      "downloads": 8341937,
+      "likes": 6110,
+      "trending": 23
+    },
+    "gguf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 8.5,
+        "vram_gb_8k": 9.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 6.6,
+        "vram_gb_8k": 8
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5.7,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.9,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.9,
+        "vram_gb_8k": 5.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 3,
+        "vram_gb_8k": 4.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-3.1-70B-Instruct",
+    "slug": "llama-3-1-70b-instruct",
+    "display_name": "Llama 3.1 70B Instruct",
+    "family": "Llama 3.1",
+    "org": "Meta",
+    "params_b": 70,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "llama3.1",
+    "popularity": {
+      "downloads": 584462,
+      "likes": 926,
+      "trending": 2
+    },
+    "gguf_repo": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 74.4,
+        "vram_gb_8k": 78.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 57.8,
+        "vram_gb_8k": 62.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 49.9,
+        "vram_gb_8k": 54.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 42.4,
+        "vram_gb_8k": 46.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 34.1,
+        "vram_gb_8k": 38.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 26.3,
+        "vram_gb_8k": 30.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-3.1-405B-Instruct",
+    "slug": "llama-3-1-405b-instruct",
+    "display_name": "Llama 3.1 405B Instruct",
+    "family": "Llama 3.1",
+    "org": "Meta",
+    "params_b": 405,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "llama3.1",
+    "popularity": {
+      "downloads": 188777,
+      "likes": 596,
+      "trending": 0
+    },
+    "gguf_repo": "MaziyarPanahi/Meta-Llama-3.1-405B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 430.3,
+        "vram_gb_8k": 451.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 334.1,
+        "vram_gb_8k": 355.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 288.6,
+        "vram_gb_8k": 309.8
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 245.5,
+        "vram_gb_8k": 266.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 197.4,
+        "vram_gb_8k": 218.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 151.9,
+        "vram_gb_8k": 173.1
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-3.2-1B-Instruct",
+    "slug": "llama-3-2-1b-instruct",
+    "display_name": "Llama 3.2 1B Instruct",
+    "family": "Llama 3.2",
+    "org": "Meta",
+    "params_b": 1,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "llama3.2",
+    "popularity": {
+      "downloads": 7182769,
+      "likes": 1487,
+      "trending": 8
+    },
+    "gguf_repo": "hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 0.8,
+        "vram_gb_8k": 1.9
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 0.7,
+        "vram_gb_8k": 1.8
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.5,
+        "vram_gb_8k": 1.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.4,
+        "vram_gb_8k": 1.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-3.2-3B-Instruct",
+    "slug": "llama-3-2-3b-instruct",
+    "display_name": "Llama 3.2 3B Instruct",
+    "family": "Llama 3.2",
+    "org": "Meta",
+    "params_b": 3,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "llama3.2",
+    "popularity": {
+      "downloads": 1532807,
+      "likes": 2241,
+      "trending": 16
+    },
+    "gguf_repo": "bartowski/Llama-3.2-3B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 3.2,
+        "vram_gb_8k": 4.3
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 2.5,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.1,
+        "vram_gb_8k": 3.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 1.8,
+        "vram_gb_8k": 3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.3
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-3.3-70B-Instruct",
+    "slug": "llama-3-3-70b-instruct",
+    "display_name": "Llama 3.3 70B Instruct",
+    "family": "Llama 3.3",
+    "org": "Meta",
+    "params_b": 70,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "llama3.3",
+    "popularity": {
+      "downloads": 578238,
+      "likes": 2833,
+      "trending": 10
+    },
+    "gguf_repo": "MaziyarPanahi/Llama-3.3-70B-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 74.4,
+        "vram_gb_8k": 78.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 57.8,
+        "vram_gb_8k": 62.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 49.9,
+        "vram_gb_8k": 54.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 42.4,
+        "vram_gb_8k": 46.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 34.1,
+        "vram_gb_8k": 38.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 26.3,
+        "vram_gb_8k": 30.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+    "slug": "llama-4-scout-17b-16e-instruct",
+    "display_name": "Llama 4 Scout 17B 16E Instruct",
+    "family": "Llama 4",
+    "org": "Meta",
+    "params_b": {
+      "total_b": 109,
+      "active_b": 17
+    },
+    "is_moe": true,
+    "reasoning_capable": false,
+    "license": "other",
+    "popularity": {
+      "downloads": 577634,
+      "likes": 1308,
+      "trending": 3
+    },
+    "gguf_repo": "unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 115.8,
+        "vram_gb_8k": 122.3
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 89.9,
+        "vram_gb_8k": 96.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 77.7,
+        "vram_gb_8k": 84.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 66.1,
+        "vram_gb_8k": 72.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 53.1,
+        "vram_gb_8k": 59.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 40.9,
+        "vram_gb_8k": 47.3
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+    "slug": "llama-4-maverick-17b-128e-instruct",
+    "display_name": "Llama 4 Maverick 17B 128E Instruct",
+    "family": "Llama 4",
+    "org": "Meta",
+    "params_b": {
+      "total_b": 400,
+      "active_b": 17
+    },
+    "is_moe": true,
+    "reasoning_capable": false,
+    "license": "other",
+    "popularity": {
+      "downloads": 27046,
+      "likes": 495,
+      "trending": 1
+    },
+    "gguf_repo": "unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 425,
+        "vram_gb_8k": 446
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 330,
+        "vram_gb_8k": 351
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 285,
+        "vram_gb_8k": 306
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 242.5,
+        "vram_gb_8k": 263.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 195,
+        "vram_gb_8k": 216
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 150,
+        "vram_gb_8k": 171
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-3-1b-it",
+    "slug": "gemma-3-1b-it",
+    "display_name": "Gemma 3 1B IT",
+    "family": "Gemma 3",
+    "org": "Google",
+    "params_b": 1,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "gemma",
+    "popularity": {
+      "downloads": 1881186,
+      "likes": 1015,
+      "trending": 4
+    },
+    "gguf_repo": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 0.8,
+        "vram_gb_8k": 1.9
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 0.7,
+        "vram_gb_8k": 1.8
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.5,
+        "vram_gb_8k": 1.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.4,
+        "vram_gb_8k": 1.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-3-4b-it",
+    "slug": "gemma-3-4b-it",
+    "display_name": "Gemma 3 4B IT",
+    "family": "Gemma 3",
+    "org": "Google",
+    "params_b": 4,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "gemma",
+    "popularity": {
+      "downloads": 1417957,
+      "likes": 1371,
+      "trending": 7
+    },
+    "gguf_repo": "MaziyarPanahi/gemma-3-4b-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.3,
+        "vram_gb_8k": 4.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.4,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-3-12b-it",
+    "slug": "gemma-3-12b-it",
+    "display_name": "Gemma 3 12B IT",
+    "family": "Gemma 3",
+    "org": "Google",
+    "params_b": 12,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "gemma",
+    "popularity": {
+      "downloads": 2107889,
+      "likes": 759,
+      "trending": 5
+    },
+    "gguf_repo": "MaziyarPanahi/gemma-3-12b-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 12.8,
+        "vram_gb_8k": 14.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 9.9,
+        "vram_gb_8k": 11.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 8.6,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 7.3,
+        "vram_gb_8k": 8.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 5.9,
+        "vram_gb_8k": 7.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 4.5,
+        "vram_gb_8k": 6.1
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-3-27b-it",
+    "slug": "gemma-3-27b-it",
+    "display_name": "Gemma 3 27B IT",
+    "family": "Gemma 3",
+    "org": "Google",
+    "params_b": 27,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "gemma",
+    "popularity": {
+      "downloads": 1140520,
+      "likes": 1980,
+      "trending": 4
+    },
+    "gguf_repo": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 28.7,
+        "vram_gb_8k": 31
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 22.3,
+        "vram_gb_8k": 24.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 19.2,
+        "vram_gb_8k": 21.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 16.4,
+        "vram_gb_8k": 18.7
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 13.2,
+        "vram_gb_8k": 15.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 10.1,
+        "vram_gb_8k": 12.5
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-3n-E2B-it",
+    "slug": "gemma-3n-e2b-it",
+    "display_name": "Gemma 3n E2B IT",
+    "family": "Gemma 3n",
+    "org": "Google",
+    "params_b": 2,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "gemma",
+    "popularity": {
+      "downloads": 330351,
+      "likes": 306,
+      "trending": 1
+    },
+    "gguf_repo": "unsloth/gemma-3n-E2B-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 2.1,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 1.7,
+        "vram_gb_8k": 2.8
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 1.4,
+        "vram_gb_8k": 2.5
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 1.2,
+        "vram_gb_8k": 2.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.8,
+        "vram_gb_8k": 1.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-3n-E4B-it",
+    "slug": "gemma-3n-e4b-it",
+    "display_name": "Gemma 3n E4B IT",
+    "family": "Gemma 3n",
+    "org": "Google",
+    "params_b": 4,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "gemma",
+    "popularity": {
+      "downloads": 18224,
+      "likes": 918,
+      "trending": 1
+    },
+    "gguf_repo": "unsloth/gemma-3n-E4B-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.3,
+        "vram_gb_8k": 4.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.4,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-4-12B-it",
+    "slug": "gemma-4-12b-it",
+    "display_name": "Gemma 4 12B IT",
+    "family": "Gemma 4",
+    "org": "Google",
+    "params_b": 12,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1309625,
+      "likes": 1082,
+      "trending": 109
+    },
+    "gguf_repo": "unsloth/gemma-4-12b-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 12.8,
+        "vram_gb_8k": 14.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 9.9,
+        "vram_gb_8k": 11.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 8.6,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 7.3,
+        "vram_gb_8k": 8.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 5.9,
+        "vram_gb_8k": 7.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 4.5,
+        "vram_gb_8k": 6.1
+      }
+    ],
+    "distills": [
+      {
+        "id": "OBLITERATUS/Gemma-4-12B-OBLITERATED",
+        "display_name": "Gemma 4 12B OBLITERATED",
+        "org": "OBLITERATUS",
+        "popularity": {
+          "downloads": 96805,
+          "likes": 347,
+          "trending": 90
+        }
+      },
+      {
+        "id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+        "display_name": "Gemma 4 12B Coder Fable Composer",
+        "org": "yuxinlu1",
+        "popularity": {
+          "downloads": 211424,
+          "likes": 1687,
+          "trending": 1501
+        }
+      }
+    ]
+  },
+  {
+    "id": "google/gemma-4-26B-A4B-it",
+    "slug": "gemma-4-26b-a4b-it",
+    "display_name": "Gemma 4 26B A4B IT",
+    "family": "Gemma 4",
+    "org": "Google",
+    "params_b": {
+      "total_b": 26,
+      "active_b": 4
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 11228826,
+      "likes": 1161,
+      "trending": 37
+    },
+    "gguf_repo": "unsloth/gemma-4-26B-A4B-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 27.6,
+        "vram_gb_8k": 29.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 21.5,
+        "vram_gb_8k": 23.8
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 18.5,
+        "vram_gb_8k": 20.8
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 15.8,
+        "vram_gb_8k": 18.1
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 12.7,
+        "vram_gb_8k": 15
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 9.8,
+        "vram_gb_8k": 12.1
+      }
+    ],
+    "distills": [
+      {
+        "id": "coder3101/gemma-4-26B-A4B-it-heretic",
+        "display_name": "Gemma 4 26B A4B IT Heretic",
+        "org": "coder3101",
+        "popularity": {
+          "downloads": 8716,
+          "likes": 91,
+          "trending": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "google/gemma-4-31B-it",
+    "slug": "gemma-4-31b-it",
+    "display_name": "Gemma 4 31B IT",
+    "family": "Gemma 4",
+    "org": "Google",
+    "params_b": 31,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 9921732,
+      "likes": 3020,
+      "trending": 39
+    },
+    "gguf_repo": "unsloth/gemma-4-31B-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 32.9,
+        "vram_gb_8k": 35.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 25.6,
+        "vram_gb_8k": 28.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 22.1,
+        "vram_gb_8k": 24.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 18.8,
+        "vram_gb_8k": 21.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 15.1,
+        "vram_gb_8k": 17.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 11.6,
+        "vram_gb_8k": 14.2
+      }
+    ],
+    "distills": [
+      {
+        "id": "coder3101/gemma-4-31B-it-heretic",
+        "display_name": "Gemma 4 31B IT Heretic",
+        "org": "coder3101",
+        "popularity": {
+          "downloads": 9503,
+          "likes": 57,
+          "trending": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "google/gemma-4-E2B-it",
+    "slug": "gemma-4-e2b-it",
+    "display_name": "Gemma 4 E2B IT",
+    "family": "Gemma 4",
+    "org": "Google",
+    "params_b": 2,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 2180235,
+      "likes": 757,
+      "trending": 32
+    },
+    "gguf_repo": "unsloth/gemma-4-E2B-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 2.1,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 1.7,
+        "vram_gb_8k": 2.8
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 1.4,
+        "vram_gb_8k": 2.5
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 1.2,
+        "vram_gb_8k": 2.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.8,
+        "vram_gb_8k": 1.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "google/gemma-4-E4B-it",
+    "slug": "gemma-4-e4b-it",
+    "display_name": "Gemma 4 E4B IT",
+    "family": "Gemma 4",
+    "org": "Google",
+    "params_b": 4,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 5541206,
+      "likes": 1262,
+      "trending": 26
+    },
+    "gguf_repo": "unsloth/gemma-4-E4B-it-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.3,
+        "vram_gb_8k": 4.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.4,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2,
+        "vram_gb_8k": 3.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.7
+      }
+    ],
+    "distills": [
+      {
+        "id": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
+        "display_name": "Gemma 4 E4B IT OBLITERATED",
+        "org": "OBLITERATUS",
+        "popularity": {
+          "downloads": 309858,
+          "likes": 715,
+          "trending": 12
+        }
+      }
+    ]
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1",
+    "slug": "deepseek-r1",
+    "display_name": "DeepSeek R1",
+    "family": "DeepSeek R1",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 6032772,
+      "likes": 13399,
+      "trending": 15
+    },
+    "gguf_repo": "MaziyarPanahi/DeepSeek-R1-0528-Qwen3-8B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-0528",
+    "slug": "deepseek-r1-0528",
+    "display_name": "DeepSeek R1 0528",
+    "family": "DeepSeek R1",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 6463039,
+      "likes": 2452,
+      "trending": 2
+    },
+    "gguf_repo": "MaziyarPanahi/DeepSeek-R1-0528-Qwen3-8B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+    "slug": "deepseek-r1-distill-qwen-1-5b",
+    "display_name": "DeepSeek R1 Distill Qwen 1.5B",
+    "family": "DeepSeek R1 Distill",
+    "org": "DeepSeek",
+    "params_b": 1.5,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 579085,
+      "likes": 1525,
+      "trending": 4
+    },
+    "gguf_repo": "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 1.6,
+        "vram_gb_8k": 2.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 1.2,
+        "vram_gb_8k": 2.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 0.9,
+        "vram_gb_8k": 2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 0.7,
+        "vram_gb_8k": 1.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 0.6,
+        "vram_gb_8k": 1.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "slug": "deepseek-r1-distill-qwen-7b",
+    "display_name": "DeepSeek R1 Distill Qwen 7B",
+    "family": "DeepSeek R1 Distill",
+    "org": "DeepSeek",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 344204,
+      "likes": 845,
+      "trending": 4
+    },
+    "gguf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "slug": "deepseek-r1-distill-qwen-14b",
+    "display_name": "DeepSeek R1 Distill Qwen 14B",
+    "family": "DeepSeek R1 Distill",
+    "org": "DeepSeek",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 466310,
+      "likes": 656,
+      "trending": 2
+    },
+    "gguf_repo": "unsloth/DeepSeek-R1-Distill-Qwen-14B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "slug": "deepseek-r1-distill-qwen-32b",
+    "display_name": "DeepSeek R1 Distill Qwen 32B",
+    "family": "DeepSeek R1 Distill",
+    "org": "DeepSeek",
+    "params_b": 32,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 592996,
+      "likes": 1567,
+      "trending": 3
+    },
+    "gguf_repo": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 34,
+        "vram_gb_8k": 36.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 26.4,
+        "vram_gb_8k": 29
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 22.8,
+        "vram_gb_8k": 25.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 19.4,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 15.6,
+        "vram_gb_8k": 18.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 12,
+        "vram_gb_8k": 14.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+    "slug": "deepseek-r1-distill-llama-8b",
+    "display_name": "DeepSeek R1 Distill Llama 8B",
+    "family": "DeepSeek R1 Distill",
+    "org": "DeepSeek",
+    "params_b": 8,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 400549,
+      "likes": 866,
+      "trending": 3
+    },
+    "gguf_repo": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 8.5,
+        "vram_gb_8k": 9.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 6.6,
+        "vram_gb_8k": 8
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5.7,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.9,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.9,
+        "vram_gb_8k": 5.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 3,
+        "vram_gb_8k": 4.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "slug": "deepseek-r1-distill-llama-70b",
+    "display_name": "DeepSeek R1 Distill Llama 70B",
+    "family": "DeepSeek R1 Distill",
+    "org": "DeepSeek",
+    "params_b": 70,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 89400,
+      "likes": 780,
+      "trending": 1
+    },
+    "gguf_repo": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 74.4,
+        "vram_gb_8k": 78.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 57.8,
+        "vram_gb_8k": 62.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 49.9,
+        "vram_gb_8k": 54.4
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 42.4,
+        "vram_gb_8k": 46.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 34.1,
+        "vram_gb_8k": 38.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 26.3,
+        "vram_gb_8k": 30.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V3",
+    "slug": "deepseek-v3",
+    "display_name": "DeepSeek V3",
+    "family": "DeepSeek V3",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": false,
+    "license": null,
+    "popularity": {
+      "downloads": 933738,
+      "likes": 4089,
+      "trending": 2
+    },
+    "gguf_repo": "MaziyarPanahi/DeepSeek-V3-0324-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V3-0324",
+    "slug": "deepseek-v3-0324",
+    "display_name": "DeepSeek V3 0324",
+    "family": "DeepSeek V3",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": false,
+    "license": "mit",
+    "popularity": {
+      "downloads": 834448,
+      "likes": 3128,
+      "trending": 1
+    },
+    "gguf_repo": "MaziyarPanahi/DeepSeek-V3-0324-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V3.1",
+    "slug": "deepseek-v3-1",
+    "display_name": "DeepSeek V3.1",
+    "family": "DeepSeek V3",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 215077,
+      "likes": 825,
+      "trending": 0
+    },
+    "gguf_repo": "unsloth/DeepSeek-V3.1-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V3.1-Terminus",
+    "slug": "deepseek-v3-1-terminus",
+    "display_name": "DeepSeek V3.1 Terminus",
+    "family": "DeepSeek V3",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 8366,
+      "likes": 365,
+      "trending": 0
+    },
+    "gguf_repo": "unsloth/DeepSeek-V3.1-Terminus-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V3.2",
+    "slug": "deepseek-v3-2",
+    "display_name": "DeepSeek V3.2",
+    "family": "DeepSeek V3",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 3199831,
+      "likes": 1449,
+      "trending": 3
+    },
+    "gguf_repo": "unsloth/DeepSeek-V3.2-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V3.2-Exp",
+    "slug": "deepseek-v3-2-exp",
+    "display_name": "DeepSeek V3.2 Exp",
+    "family": "DeepSeek V3",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 671,
+      "active_b": 37
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 153181,
+      "likes": 990,
+      "trending": 0
+    },
+    "gguf_repo": "sszymczyk/DeepSeek-V3.2-Exp-light-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 712.9,
+        "vram_gb_8k": 747.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 553.6,
+        "vram_gb_8k": 588.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 478.1,
+        "vram_gb_8k": 512.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 406.8,
+        "vram_gb_8k": 441.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 327.1,
+        "vram_gb_8k": 361.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 251.6,
+        "vram_gb_8k": 286.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V4-Pro",
+    "slug": "deepseek-v4-pro",
+    "display_name": "DeepSeek V4 Pro",
+    "family": "DeepSeek V4",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 739,
+      "active_b": 42
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 2948726,
+      "likes": 4953,
+      "trending": 126
+    },
+    "gguf_repo": "teamblobfish/DeepSeek-V4-Pro-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 785.2,
+        "vram_gb_8k": 823.1
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 609.7,
+        "vram_gb_8k": 647.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 526.5,
+        "vram_gb_8k": 564.5
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 448,
+        "vram_gb_8k": 486
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 360.3,
+        "vram_gb_8k": 398.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 277.1,
+        "vram_gb_8k": 315.1
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "deepseek-ai/DeepSeek-V4-Flash",
+    "slug": "deepseek-v4-flash",
+    "display_name": "DeepSeek V4 Flash",
+    "family": "DeepSeek V4",
+    "org": "DeepSeek",
+    "params_b": {
+      "total_b": 200,
+      "active_b": 21
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 2403213,
+      "likes": 1529,
+      "trending": 54
+    },
+    "gguf_repo": "Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 212.5,
+        "vram_gb_8k": 223.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 165,
+        "vram_gb_8k": 176
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 142.5,
+        "vram_gb_8k": 153.5
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 121.2,
+        "vram_gb_8k": 132.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 97.5,
+        "vram_gb_8k": 108.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 75,
+        "vram_gb_8k": 86
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-7B-Instruct-v0.2",
+    "slug": "mistral-7b-instruct-v0-2",
+    "display_name": "Mistral 7B Instruct v0.2",
+    "family": "Mistral",
+    "org": "Mistral AI",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 1132708,
+      "likes": 3160,
+      "trending": 1
+    },
+    "gguf_repo": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-7B-Instruct-v0.3",
+    "slug": "mistral-7b-instruct-v0-3",
+    "display_name": "Mistral 7B Instruct v0.3",
+    "family": "Mistral",
+    "org": "Mistral AI",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 2523712,
+      "likes": 2640,
+      "trending": 6
+    },
+    "gguf_repo": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-Nemo-Instruct-2407",
+    "slug": "mistral-nemo-instruct-2407",
+    "display_name": "Mistral Nemo 12B Instruct",
+    "family": "Mistral Nemo",
+    "org": "Mistral AI",
+    "params_b": 12,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 358928,
+      "likes": 1682,
+      "trending": 3
+    },
+    "gguf_repo": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 12.8,
+        "vram_gb_8k": 14.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 9.9,
+        "vram_gb_8k": 11.5
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 8.6,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 7.3,
+        "vram_gb_8k": 8.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 5.9,
+        "vram_gb_8k": 7.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 4.5,
+        "vram_gb_8k": 6.1
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-Small-Instruct-2409",
+    "slug": "mistral-small-instruct-2409",
+    "display_name": "Mistral Small Instruct 2409",
+    "family": "Mistral Small",
+    "org": "Mistral AI",
+    "params_b": 22,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "other",
+    "popularity": {
+      "downloads": 112511,
+      "likes": 393,
+      "trending": 0
+    },
+    "gguf_repo": "MaziyarPanahi/Mistral-Small-Instruct-2409-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 23.4,
+        "vram_gb_8k": 25.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 18.2,
+        "vram_gb_8k": 20.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 15.7,
+        "vram_gb_8k": 17.8
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 13.3,
+        "vram_gb_8k": 15.4
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 10.7,
+        "vram_gb_8k": 12.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 8.3,
+        "vram_gb_8k": 10.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+    "slug": "mistral-small-3-1-24b-instruct-2503",
+    "display_name": "Mistral Small 3.1 24B Instruct",
+    "family": "Mistral Small",
+    "org": "Mistral AI",
+    "params_b": 24,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 221080,
+      "likes": 1364,
+      "trending": 0
+    },
+    "gguf_repo": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 25.5,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 19.8,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 14.6,
+        "vram_gb_8k": 16.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 11.7,
+        "vram_gb_8k": 13.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 9,
+        "vram_gb_8k": 11.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+    "slug": "mistral-small-3-2-24b-instruct-2506",
+    "display_name": "Mistral Small 3.2 24B Instruct",
+    "family": "Mistral Small",
+    "org": "Mistral AI",
+    "params_b": 24,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 610264,
+      "likes": 594,
+      "trending": 1
+    },
+    "gguf_repo": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 25.5,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 19.8,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 14.6,
+        "vram_gb_8k": 16.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 11.7,
+        "vram_gb_8k": 13.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 9,
+        "vram_gb_8k": 11.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "slug": "mixtral-8x7b-instruct-v0-1",
+    "display_name": "Mixtral 8x7B Instruct",
+    "family": "Mixtral",
+    "org": "Mistral AI",
+    "params_b": {
+      "total_b": 46.7,
+      "active_b": 12.9
+    },
+    "is_moe": true,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 787285,
+      "likes": 4697,
+      "trending": 3
+    },
+    "gguf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 49.6,
+        "vram_gb_8k": 53
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 38.5,
+        "vram_gb_8k": 41.9
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 33.3,
+        "vram_gb_8k": 36.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 28.3,
+        "vram_gb_8k": 31.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 22.8,
+        "vram_gb_8k": 26.1
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 17.5,
+        "vram_gb_8k": 20.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
+    "slug": "mixtral-8x22b-instruct-v0-1",
+    "display_name": "Mixtral 8x22B Instruct",
+    "family": "Mixtral",
+    "org": "Mistral AI",
+    "params_b": {
+      "total_b": 141,
+      "active_b": 39
+    },
+    "is_moe": true,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 37673,
+      "likes": 753,
+      "trending": 0
+    },
+    "gguf_repo": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 149.8,
+        "vram_gb_8k": 157.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 116.3,
+        "vram_gb_8k": 124.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 100.5,
+        "vram_gb_8k": 108.5
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 85.5,
+        "vram_gb_8k": 93.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 68.7,
+        "vram_gb_8k": 76.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 52.9,
+        "vram_gb_8k": 60.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Devstral-Small-2505",
+    "slug": "devstral-small-2505",
+    "display_name": "Devstral Small 2505",
+    "family": "Mistral Small",
+    "org": "Mistral AI",
+    "params_b": 24,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 5378,
+      "likes": 870,
+      "trending": 0
+    },
+    "gguf_repo": "unsloth/Devstral-Small-2505-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 25.5,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 19.8,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 14.6,
+        "vram_gb_8k": 16.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 11.7,
+        "vram_gb_8k": 13.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 9,
+        "vram_gb_8k": 11.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Devstral-Small-2-24B-Instruct-2512",
+    "slug": "devstral-small-2-24b-instruct-2512",
+    "display_name": "Devstral Small 2 24B Instruct",
+    "family": "Mistral Small",
+    "org": "Mistral AI",
+    "params_b": 24,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 240440,
+      "likes": 617,
+      "trending": 6
+    },
+    "gguf_repo": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 25.5,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 19.8,
+        "vram_gb_8k": 22
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 14.6,
+        "vram_gb_8k": 16.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 11.7,
+        "vram_gb_8k": 13.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 9,
+        "vram_gb_8k": 11.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Ministral-3-3B-Instruct-2512",
+    "slug": "ministral-3-3b-instruct-2512",
+    "display_name": "Ministral 3 3B Instruct",
+    "family": "Ministral",
+    "org": "Mistral AI",
+    "params_b": 3,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 856222,
+      "likes": 248,
+      "trending": 2
+    },
+    "gguf_repo": "lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 3.2,
+        "vram_gb_8k": 4.3
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 2.5,
+        "vram_gb_8k": 3.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.1,
+        "vram_gb_8k": 3.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 1.8,
+        "vram_gb_8k": 3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1.5,
+        "vram_gb_8k": 2.6
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.1,
+        "vram_gb_8k": 2.3
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Ministral-3-8B-Instruct-2512",
+    "slug": "ministral-3-8b-instruct-2512",
+    "display_name": "Ministral 3 8B Instruct",
+    "family": "Ministral",
+    "org": "Mistral AI",
+    "params_b": 8,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 166928,
+      "likes": 175,
+      "trending": 2
+    },
+    "gguf_repo": "mistralai/Ministral-3-8B-Instruct-2512-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 8.5,
+        "vram_gb_8k": 9.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 6.6,
+        "vram_gb_8k": 8
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5.7,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.9,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.9,
+        "vram_gb_8k": 5.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 3,
+        "vram_gb_8k": 4.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Ministral-3-14B-Instruct-2512",
+    "slug": "ministral-3-14b-instruct-2512",
+    "display_name": "Ministral 3 14B Instruct",
+    "family": "Ministral",
+    "org": "Mistral AI",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 68680,
+      "likes": 293,
+      "trending": 5
+    },
+    "gguf_repo": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "mistralai/Mistral-Medium-3.5-128B",
+    "slug": "mistral-medium-3-5-128b",
+    "display_name": "Mistral Medium 3.5 128B",
+    "family": "Mistral Medium",
+    "org": "Mistral AI",
+    "params_b": 128,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "other",
+    "popularity": {
+      "downloads": 412782,
+      "likes": 365,
+      "trending": 15
+    },
+    "gguf_repo": "unsloth/Mistral-Medium-3.5-128B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 136,
+        "vram_gb_8k": 143.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 105.6,
+        "vram_gb_8k": 113
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 91.2,
+        "vram_gb_8k": 98.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 77.6,
+        "vram_gb_8k": 85
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 62.4,
+        "vram_gb_8k": 69.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 48,
+        "vram_gb_8k": 55.4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "microsoft/Phi-3-mini-4k-instruct",
+    "slug": "phi-3-mini-4k-instruct",
+    "display_name": "Phi 3 Mini 4K Instruct",
+    "family": "Phi 3",
+    "org": "Microsoft",
+    "params_b": 3.8,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "mit",
+    "popularity": {
+      "downloads": 563478,
+      "likes": 1435,
+      "trending": 3
+    },
+    "gguf_repo": "microsoft/Phi-3-mini-4k-instruct-gguf",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4,
+        "vram_gb_8k": 5.2
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.1,
+        "vram_gb_8k": 4.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.7,
+        "vram_gb_8k": 3.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.3,
+        "vram_gb_8k": 3.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1.9,
+        "vram_gb_8k": 3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.4,
+        "vram_gb_8k": 2.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "microsoft/Phi-3-small-8k-instruct",
+    "slug": "phi-3-small-8k-instruct",
+    "display_name": "Phi 3 Small 8K Instruct",
+    "family": "Phi 3",
+    "org": "Microsoft",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "mit",
+    "popularity": {
+      "downloads": 10430,
+      "likes": 178,
+      "trending": 0
+    },
+    "gguf_repo": "LiteLLMs/Phi-3-small-8k-instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "microsoft/Phi-3-medium-4k-instruct",
+    "slug": "phi-3-medium-4k-instruct",
+    "display_name": "Phi 3 Medium 4K Instruct",
+    "family": "Phi 3",
+    "org": "Microsoft",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "mit",
+    "popularity": {
+      "downloads": 12894,
+      "likes": 227,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "microsoft/phi-4",
+    "slug": "phi-4",
+    "display_name": "Phi 4",
+    "family": "Phi 4",
+    "org": "Microsoft",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "mit",
+    "popularity": {
+      "downloads": 938043,
+      "likes": 2257,
+      "trending": 3
+    },
+    "gguf_repo": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "microsoft/Phi-4-mini-instruct",
+    "slug": "phi-4-mini-instruct",
+    "display_name": "Phi 4 Mini Instruct",
+    "family": "Phi 4",
+    "org": "Microsoft",
+    "params_b": 3.8,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "mit",
+    "popularity": {
+      "downloads": 883877,
+      "likes": 773,
+      "trending": 7
+    },
+    "gguf_repo": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 4,
+        "vram_gb_8k": 5.2
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 3.1,
+        "vram_gb_8k": 4.3
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 2.7,
+        "vram_gb_8k": 3.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 2.3,
+        "vram_gb_8k": 3.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 1.9,
+        "vram_gb_8k": 3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 1.4,
+        "vram_gb_8k": 2.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "microsoft/Phi-4-reasoning",
+    "slug": "phi-4-reasoning",
+    "display_name": "Phi 4 Reasoning",
+    "family": "Phi 4",
+    "org": "Microsoft",
+    "params_b": 14,
+    "is_moe": false,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 11079,
+      "likes": 228,
+      "trending": 1
+    },
+    "gguf_repo": "lmstudio-community/Phi-4-reasoning-plus-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 14.9,
+        "vram_gb_8k": 16.6
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 11.5,
+        "vram_gb_8k": 13.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 10,
+        "vram_gb_8k": 11.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 8.5,
+        "vram_gb_8k": 10.2
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 6.8,
+        "vram_gb_8k": 8.5
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 5.3,
+        "vram_gb_8k": 7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "zai-org/GLM-5",
+    "slug": "glm-5",
+    "display_name": "GLM 5",
+    "family": "GLM 5",
+    "org": "Z.ai",
+    "params_b": {
+      "total_b": 355,
+      "active_b": 32
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 65622,
+      "likes": 2099,
+      "trending": 10
+    },
+    "gguf_repo": "unsloth/GLM-5.1-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 377.2,
+        "vram_gb_8k": 395.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 292.9,
+        "vram_gb_8k": 311.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 252.9,
+        "vram_gb_8k": 271.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 215.2,
+        "vram_gb_8k": 234
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 173.1,
+        "vram_gb_8k": 191.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 133.1,
+        "vram_gb_8k": 151.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "zai-org/GLM-5.1",
+    "slug": "glm-5-1",
+    "display_name": "GLM 5.1",
+    "family": "GLM 5",
+    "org": "Z.ai",
+    "params_b": {
+      "total_b": 355,
+      "active_b": 32
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 110135,
+      "likes": 1804,
+      "trending": 51
+    },
+    "gguf_repo": "unsloth/GLM-5.1-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 377.2,
+        "vram_gb_8k": 395.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 292.9,
+        "vram_gb_8k": 311.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 252.9,
+        "vram_gb_8k": 271.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 215.2,
+        "vram_gb_8k": 234
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 173.1,
+        "vram_gb_8k": 191.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 133.1,
+        "vram_gb_8k": 151.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "zai-org/GLM-5.2",
+    "slug": "glm-5-2",
+    "display_name": "GLM 5.2",
+    "family": "GLM 5",
+    "org": "Z.ai",
+    "params_b": {
+      "total_b": 355,
+      "active_b": 32
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "mit",
+    "popularity": {
+      "downloads": 4307,
+      "likes": 1321,
+      "trending": 1252
+    },
+    "gguf_repo": "unsloth/GLM-5.2-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 377.2,
+        "vram_gb_8k": 395.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 292.9,
+        "vram_gb_8k": 311.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 252.9,
+        "vram_gb_8k": 271.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 215.2,
+        "vram_gb_8k": 234
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 173.1,
+        "vram_gb_8k": 191.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 133.1,
+        "vram_gb_8k": 151.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "openai/gpt-oss-20b",
+    "slug": "gpt-oss-20b",
+    "display_name": "GPT OSS 20B",
+    "family": "GPT OSS",
+    "org": "OpenAI",
+    "params_b": {
+      "total_b": 21,
+      "active_b": 3.6
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 6052771,
+      "likes": 4714,
+      "trending": 11
+    },
+    "gguf_repo": "unsloth/gpt-oss-20b-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 22.3,
+        "vram_gb_8k": 24.4
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 17.3,
+        "vram_gb_8k": 19.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 15,
+        "vram_gb_8k": 17
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 12.7,
+        "vram_gb_8k": 14.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 10.2,
+        "vram_gb_8k": 12.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 7.9,
+        "vram_gb_8k": 9.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "openai/gpt-oss-120b",
+    "slug": "gpt-oss-120b",
+    "display_name": "GPT OSS 120B",
+    "family": "GPT OSS",
+    "org": "OpenAI",
+    "params_b": {
+      "total_b": 117,
+      "active_b": 5.1
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 3679099,
+      "likes": 4896,
+      "trending": 20
+    },
+    "gguf_repo": "unsloth/gpt-oss-120b-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 124.3,
+        "vram_gb_8k": 131.2
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 96.5,
+        "vram_gb_8k": 103.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 83.4,
+        "vram_gb_8k": 90.2
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 70.9,
+        "vram_gb_8k": 77.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 57,
+        "vram_gb_8k": 63.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 43.9,
+        "vram_gb_8k": 50.7
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "01-ai/Yi-1.5-6B-Chat",
+    "slug": "yi-1-5-6b-chat",
+    "display_name": "Yi 1.5 6B Chat",
+    "family": "Yi 1.5",
+    "org": "01.AI",
+    "params_b": 6,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 5651,
+      "likes": 42,
+      "trending": 0
+    },
+    "gguf_repo": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 6.4,
+        "vram_gb_8k": 7.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 4.9,
+        "vram_gb_8k": 6.2
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 4.3,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 3.6,
+        "vram_gb_8k": 4.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 2.9,
+        "vram_gb_8k": 4.2
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.3,
+        "vram_gb_8k": 3.6
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "01-ai/Yi-1.5-9B-Chat",
+    "slug": "yi-1-5-9b-chat",
+    "display_name": "Yi 1.5 9B Chat",
+    "family": "Yi 1.5",
+    "org": "01.AI",
+    "params_b": 9,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 13370,
+      "likes": 148,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/Yi-1.5-9B-Chat-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 9.6,
+        "vram_gb_8k": 11
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.9
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 6.4,
+        "vram_gb_8k": 7.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 5.5,
+        "vram_gb_8k": 6.9
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 4.4,
+        "vram_gb_8k": 5.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "01-ai/Yi-1.5-34B-Chat",
+    "slug": "yi-1-5-34b-chat",
+    "display_name": "Yi 1.5 34B Chat",
+    "family": "Yi 1.5",
+    "org": "01.AI",
+    "params_b": 34,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 18209,
+      "likes": 278,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/Yi-1.5-34B-Chat-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 36.1,
+        "vram_gb_8k": 38.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 28.1,
+        "vram_gb_8k": 30.7
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 24.2,
+        "vram_gb_8k": 26.9
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 20.6,
+        "vram_gb_8k": 23.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 16.6,
+        "vram_gb_8k": 19.3
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 12.8,
+        "vram_gb_8k": 15.5
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "CohereLabs/c4ai-command-r-v01",
+    "slug": "c4ai-command-r-v01",
+    "display_name": "Command R",
+    "family": "Command R",
+    "org": "Cohere",
+    "params_b": 35,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "cc-by-nc-4.0",
+    "popularity": {
+      "downloads": 23606,
+      "likes": 1111,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/c4ai-command-r-v01-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 37.2,
+        "vram_gb_8k": 39.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 28.9,
+        "vram_gb_8k": 31.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 24.9,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 21.2,
+        "vram_gb_8k": 24
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 13.1,
+        "vram_gb_8k": 15.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "CohereLabs/c4ai-command-r-plus",
+    "slug": "c4ai-command-r-plus",
+    "display_name": "Command R+",
+    "family": "Command R",
+    "org": "Cohere",
+    "params_b": 104,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "cc-by-nc-4.0",
+    "popularity": {
+      "downloads": 4676,
+      "likes": 1797,
+      "trending": 0
+    },
+    "gguf_repo": "bartowski/c4ai-command-r-plus-08-2024-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 110.5,
+        "vram_gb_8k": 116.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 85.8,
+        "vram_gb_8k": 92
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 74.1,
+        "vram_gb_8k": 80.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 63.1,
+        "vram_gb_8k": 69.3
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 50.7,
+        "vram_gb_8k": 56.9
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 39,
+        "vram_gb_8k": 45.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "CohereLabs/c4ai-command-r7b-12-2024",
+    "slug": "c4ai-command-r7b-12-2024",
+    "display_name": "Command R7B 12-2024",
+    "family": "Command R",
+    "org": "Cohere",
+    "params_b": 7,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "cc-by-nc-4.0",
+    "popularity": {
+      "downloads": 24224,
+      "likes": 424,
+      "trending": 1
+    },
+    "gguf_repo": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 7.4,
+        "vram_gb_8k": 8.8
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 5.8,
+        "vram_gb_8k": 7.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 5,
+        "vram_gb_8k": 6.3
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 3.4,
+        "vram_gb_8k": 4.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 2.6,
+        "vram_gb_8k": 4
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "CohereLabs/command-a-plus-05-2026-bf16",
+    "slug": "command-a-plus-05-2026-bf16",
+    "display_name": "Command A Plus 05-2026 BF16",
+    "family": "Command A",
+    "org": "Cohere",
+    "params_b": 111,
+    "is_moe": false,
+    "reasoning_capable": false,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 24614,
+      "likes": 136,
+      "trending": 5
+    },
+    "gguf_repo": "DevQuasar/CohereLabs.command-a-plus-05-2026-bf16-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 117.9,
+        "vram_gb_8k": 124.5
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 91.6,
+        "vram_gb_8k": 98.1
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 79.1,
+        "vram_gb_8k": 85.6
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 67.3,
+        "vram_gb_8k": 73.8
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 54.1,
+        "vram_gb_8k": 60.7
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 41.6,
+        "vram_gb_8k": 48.2
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "nex-agi/Nex-N2-mini",
+    "slug": "nex-n2-mini",
+    "display_name": "Nex N2 Mini",
+    "family": "Nex N2",
+    "org": "Nex AGI",
+    "params_b": {
+      "total_b": 35,
+      "active_b": 3
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 11660,
+      "likes": 241,
+      "trending": 80
+    },
+    "gguf_repo": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 37.2,
+        "vram_gb_8k": 39.9
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 28.9,
+        "vram_gb_8k": 31.6
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 24.9,
+        "vram_gb_8k": 27.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 21.2,
+        "vram_gb_8k": 24
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 17.1,
+        "vram_gb_8k": 19.8
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 13.1,
+        "vram_gb_8k": 15.9
+      }
+    ],
+    "distills": []
+  },
+  {
+    "id": "nex-agi/Nex-N2-Pro",
+    "slug": "nex-n2-pro",
+    "display_name": "Nex N2 Pro",
+    "family": "Nex N2",
+    "org": "Nex AGI",
+    "params_b": {
+      "total_b": 397,
+      "active_b": 17
+    },
+    "is_moe": true,
+    "reasoning_capable": true,
+    "license": "apache-2.0",
+    "popularity": {
+      "downloads": 6640,
+      "likes": 327,
+      "trending": 117
+    },
+    "gguf_repo": "paragon-of-brah/Nex-N2-Pro-397B-A17B-GGUF",
+    "quants": [
+      {
+        "label": "Q8_0",
+        "bpw": 8.5,
+        "file_gb": 421.8,
+        "vram_gb_8k": 442.7
+      },
+      {
+        "label": "Q6_K",
+        "bpw": 6.6,
+        "file_gb": 327.5,
+        "vram_gb_8k": 348.4
+      },
+      {
+        "label": "Q5_K_M",
+        "bpw": 5.7,
+        "file_gb": 282.9,
+        "vram_gb_8k": 303.7
+      },
+      {
+        "label": "Q4_K_M",
+        "bpw": 4.85,
+        "file_gb": 240.7,
+        "vram_gb_8k": 261.5
+      },
+      {
+        "label": "Q3_K_M",
+        "bpw": 3.9,
+        "file_gb": 193.5,
+        "vram_gb_8k": 214.4
+      },
+      {
+        "label": "Q2_K",
+        "bpw": 3,
+        "file_gb": 148.9,
+        "vram_gb_8k": 169.7
+      }
+    ],
+    "distills": []
+  }
+]

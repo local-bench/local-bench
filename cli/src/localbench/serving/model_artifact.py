@@ -1,0 +1,247 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import struct
+from dataclasses import dataclass
+from enum import IntEnum, unique
+from io import BytesIO
+from pathlib import Path
+from typing import BinaryIO, Final, assert_never
+
+from localbench._types import JsonObject, JsonValue
+
+_GGUF_MAGIC: Final = b"GGUF"
+_QUANT_RE: Final = re.compile(r"((?:[IQF]\d|BF16|FP16|FP8|Q\d)(?:_[A-Z0-9]+)*)", re.IGNORECASE)
+
+
+@unique
+class GgufValueType(IntEnum):
+    UINT8 = 0
+    INT8 = 1
+    UINT16 = 2
+    INT16 = 3
+    UINT32 = 4
+    INT32 = 5
+    FLOAT32 = 6
+    BOOL = 7
+    STRING = 8
+    ARRAY = 9
+    UINT64 = 10
+    INT64 = 11
+    FLOAT64 = 12
+
+
+@dataclass(frozen=True, slots=True)
+class ModelArtifactError(RuntimeError):
+    detail: str
+
+    def __str__(self) -> str:
+        return self.detail
+
+
+@dataclass(frozen=True, slots=True)
+class ModelArtifact:
+    model_file: Path
+    file_sha256: str
+    file_size_bytes: int
+    gguf_metadata_sha256: str
+    tokenizer_digest: str | None
+    chat_template_digest: str | None
+    gguf_metadata_path: Path
+    model_family: str | None
+    quant_label: str | None
+    model_format: str = "GGUF"
+    snapshot_merkle_sha256: str | None = None
+    snapshot_files: tuple[JsonObject, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ModelReference:
+    repo_id: str
+    revision: str
+    filename: str
+
+
+def resolve_model_file_artifact(model_file: Path, *, run_dir: Path) -> ModelArtifact:
+    resolved = model_file.resolve()
+    if not resolved.exists():
+        raise ModelArtifactError(f"model file does not exist: {resolved}")
+    if resolved.suffix.lower() != ".gguf":
+        raise ModelArtifactError(f"model file must be a GGUF: {resolved}")
+    metadata = parse_gguf_metadata(resolved)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = run_dir / "gguf_metadata.json"
+    metadata_bytes = json.dumps(metadata, sort_keys=True, indent=2, ensure_ascii=False).encode("utf-8")
+    metadata_path.write_bytes(metadata_bytes)
+    return ModelArtifact(
+        model_file=resolved,
+        file_sha256=sha256_file(resolved),
+        file_size_bytes=resolved.stat().st_size,
+        gguf_metadata_sha256=hashlib.sha256(metadata_bytes).hexdigest(),
+        tokenizer_digest=_metadata_subset_digest(metadata, "tokenizer."),
+        chat_template_digest=_metadata_value_digest(metadata.get("tokenizer.chat_template")),
+        gguf_metadata_path=metadata_path,
+        model_family=_metadata_text(metadata.get("general.architecture")),
+        quant_label=_quant_label(resolved.name, metadata),
+    )
+
+
+def resolve_model_reference(ref: str, *, cache_dir: Path, run_dir: Path) -> ModelArtifact:
+    parsed = parse_model_reference(ref)
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as error:
+        raise ModelArtifactError(
+            "install the cli hf extra to use --model-ref, or pass --model-file",
+        ) from error
+    downloaded = hf_hub_download(
+        repo_id=parsed.repo_id,
+        filename=parsed.filename,
+        revision=parsed.revision,
+        local_dir=cache_dir,
+    )
+    return resolve_model_file_artifact(Path(downloaded), run_dir=run_dir)
+
+
+def parse_model_reference(ref: str) -> ModelReference:
+    prefix = "hf://"
+    if not ref.startswith(prefix):
+        raise ModelArtifactError("--model-ref must start with hf://")
+    body = ref.removeprefix(prefix)
+    repo_and_revision, separator, filename = body.partition("#")
+    if separator == "" or filename == "":
+        raise ModelArtifactError("--model-ref must include #<exact-file.gguf>")
+    repo_id, at, revision = repo_and_revision.partition("@")
+    if at == "" or len(revision) != 40 or not all(char in "0123456789abcdefABCDEF" for char in revision):
+        raise ModelArtifactError("--model-ref revision must be a full 40-character SHA")
+    if repo_id == "":
+        raise ModelArtifactError("--model-ref is missing the HF repo id")
+    return ModelReference(repo_id=repo_id, revision=revision, filename=filename)
+
+
+def parse_gguf_metadata(path: Path) -> JsonObject:
+    with path.open("rb") as stream:
+        if stream.read(4) != _GGUF_MAGIC:
+            raise ModelArtifactError(f"model file is not GGUF: {path}")
+        version = _read_u32(stream)
+        if version not in {2, 3}:
+            raise ModelArtifactError(f"unsupported GGUF version {version}: {path}")
+        _read_u64(stream)
+        metadata_count = _read_u64(stream)
+        metadata: JsonObject = {}
+        for _ in range(metadata_count):
+            key = _read_string(stream)
+            value_type = _read_value_type(stream)
+            metadata[key] = _read_value(stream, value_type)
+        return metadata
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _read_value(stream: BinaryIO, value_type: GgufValueType) -> JsonValue:
+    match value_type:
+        case GgufValueType.UINT8:
+            return _read_struct(stream, "<B")
+        case GgufValueType.INT8:
+            return _read_struct(stream, "<b")
+        case GgufValueType.UINT16:
+            return _read_struct(stream, "<H")
+        case GgufValueType.INT16:
+            return _read_struct(stream, "<h")
+        case GgufValueType.UINT32:
+            return _read_u32(stream)
+        case GgufValueType.INT32:
+            return _read_struct(stream, "<i")
+        case GgufValueType.FLOAT32:
+            return _read_struct(stream, "<f")
+        case GgufValueType.BOOL:
+            return bool(_read_struct(stream, "<?"))
+        case GgufValueType.STRING:
+            return _read_string(stream)
+        case GgufValueType.ARRAY:
+            item_type = _read_value_type(stream)
+            return [_read_value(stream, item_type) for _ in range(_read_u64(stream))]
+        case GgufValueType.UINT64:
+            return _read_u64(stream)
+        case GgufValueType.INT64:
+            return _read_struct(stream, "<q")
+        case GgufValueType.FLOAT64:
+            return _read_struct(stream, "<d")
+        case _ as unreachable:
+            assert_never(unreachable)
+
+
+def _read_value_type(stream: BinaryIO) -> GgufValueType:
+    raw = _read_u32(stream)
+    try:
+        return GgufValueType(raw)
+    except ValueError as error:
+        raise ModelArtifactError(f"unknown GGUF metadata value type {raw}") from error
+
+
+def _read_string(stream: BinaryIO) -> str:
+    size = _read_u64(stream)
+    data = stream.read(size)
+    if len(data) != size:
+        raise ModelArtifactError("truncated GGUF string")
+    return data.decode("utf-8")
+
+
+def _read_u32(stream: BinaryIO) -> int:
+    return int(_read_struct(stream, "<I"))
+
+
+def _read_u64(stream: BinaryIO) -> int:
+    return int(_read_struct(stream, "<Q"))
+
+
+def _read_struct(stream: BinaryIO, fmt: str) -> int | float | bool:
+    size = struct.calcsize(fmt)
+    data = stream.read(size)
+    if len(data) != size:
+        raise ModelArtifactError("truncated GGUF metadata")
+    value = struct.unpack(fmt, data)[0]
+    if isinstance(value, int | float | bool):
+        return value
+    raise ModelArtifactError("unsupported GGUF scalar")
+
+
+def _metadata_subset_digest(metadata: JsonObject, prefix: str) -> str | None:
+    subset = {
+        key: value
+        for key, value in metadata.items()
+        if key.startswith(prefix) and key != "tokenizer.chat_template"
+    }
+    if not subset:
+        return None
+    return hashlib.sha256(
+        json.dumps(subset, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
+    ).hexdigest()
+
+
+def _metadata_value_digest(value: JsonValue | None) -> str | None:
+    if value is None:
+        return None
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
+    ).hexdigest()
+
+
+def _metadata_text(value: JsonValue | None) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _quant_label(file_name: str, metadata: JsonObject) -> str | None:
+    direct = _metadata_text(metadata.get("general.file_type"))
+    if direct is not None:
+        return direct
+    match = _QUANT_RE.search(file_name)
+    return match.group(1).upper() if match is not None else None

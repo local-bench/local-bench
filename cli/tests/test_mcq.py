@@ -1,0 +1,225 @@
+"""Tests for multiple-choice extraction and scoring."""
+
+from __future__ import annotations
+
+import pytest
+
+from localbench._scoring import score_bench
+from localbench._suite import RenderedBench
+from localbench._types import ItemResult
+from localbench.scorers.mcq import extract_choice, score_mcq, score_mcq_detailed
+
+
+@pytest.mark.parametrize(
+    ("text", "n_options", "expected"),
+    [
+        ("Answer: C", 4, "C"),
+        ("The answer is (C).", 4, "C"),
+        ("final answer: d", 4, "D"),
+        ("After the work, **C**", 4, "C"),
+        (r"The result is \boxed{C}", 4, "C"),
+        ("Reasoning...\nC", 4, "C"),
+        ("Reasoning ends with (C)", 4, "C"),
+        ("I considered C, but the answer is D.", 4, "D"),
+        ("A looked close. B failed. Final answer: C.", 4, "C"),
+        ("The answer is J.", 10, "J"),
+        ("answer: j", 10, "J"),
+        ("The answer is J.", 4, None),
+        ("The answer is catalyst.", 4, None),
+        ("", 4, None),
+        ("No option follows.", 4, None),
+        ("Answer: A. Later, answer: B.", 4, "B"),
+        (r"\boxed{A} then \boxed{B}", 4, "B"),
+        ("Answer: C. Because of that, answer is c.", 4, "C"),
+        ("Answer: D. Photosynthesis is the process.", 4, "D"),
+        ("Final answer: A, B is wrong", 10, "A"),
+        ("Answer: A, B is a distractor", 10, "A"),
+        ("Final answer is (B).", 4, "B"),
+        ("ANSWER IS [A]", 4, "A"),
+        ("I will choose ** e **", 5, "E"),
+        ("Reasoning\n(f)", 6, "F"),
+        ("Options were A, B, C. The final answer: A.", 4, "A"),
+        ("The best choice is (H).", 8, "H"),
+        ("final answer: A. final answer: B.", 4, "B"),
+        ("Answer: B - evaporation.", 4, "B"),
+        ("abc", 4, None),
+        ("The answer is a.", 1, "A"),
+        ("The answer is C... wait, no, the answer is D.", 4, "D"),
+        ("Answer: B\n\nD", 4, "B"),
+        ("Reasoning...\nA\nB", 4, None),
+        ("Maybe (A), but maybe (B)", 4, None),
+        ("Final answer: A or B", 4, None),
+        ("The answer is A or B", 4, None),
+        ("Final answer: C", 4, "C"),
+        ("The answer is (D).", 4, "D"),
+        # Answer stated first, another option only mentioned in trailing explanation -> extract the answer.
+        ("answer is A because B is wrong", 10, "A"),
+        ("The answer is D. Note option B is a distractor.", 10, "D"),
+        ("The correct answer is G, not A.", 10, "G"),
+        # Adjacent alternation is genuinely ambiguous.
+        ("Final answer: A and B", 10, None),
+        ("answer: A/B", 10, None),
+        # A terminal comma-separated letter list = multiple answers = ambiguous;
+        # distinguished from an explanatory clause that continues past the letters.
+        ("Final answer: A, B", 10, None),
+        ("Final answer: A, B, C", 10, None),
+        ("answer: A, B.", 10, None),
+        ("(A), (B)", 4, None),
+    ],
+)
+def test_extract_choice_when_response_contains_choice_patterns(
+    text: str,
+    n_options: int,
+    expected: str | None,
+) -> None:
+    # Given text that may contain a final answer marker.
+    # When extracting the final choice.
+    result = extract_choice(text, n_options)
+
+    # Then the chosen letter is normalized or rejected.
+    assert result == expected
+
+
+def test_extract_choice_accepts_bold_letter_in_answer_marker_context() -> None:
+    # A bold letter in answer-marker context IS the stated answer, even with trailing explanation.
+    assert extract_choice("Final answer: **C** because the rest are wrong.", 4) == "C"
+    assert extract_choice("The answer is **G** here.", 10) == "G"
+    # But a bold letter mid-reasoning with NO marker is still rejected.
+    assert extract_choice("Let me reconsider option **G** before deciding", 10) is None
+
+
+def test_extract_choice_rejects_bold_letter_embedded_in_prose() -> None:
+    # Given a bold letter mid-reasoning with trailing prose after it (a false positive the
+    # old match-anywhere bold fallback credited on hedged/truncated output).
+    # When extracting.
+    # Then no answer is extracted...
+    assert extract_choice("Let me reconsider option **G** before deciding", 10) is None
+    # ...but a bold letter that ENDS the response is still the stated answer.
+    assert extract_choice("After weighing it, **C**", 4) == "C"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (r"Answer: \(\boxed{\text{H}}\)", "H"),
+        (r"\boxed{C}", "C"),
+        (r"\boxed{C. 67.8 kJ/mol}", "C"),
+        (r"\( \boxed{J} \)", "J"),
+    ],
+)
+def test_extract_choice_accepts_latex_boxed_answer_formats(text: str, expected: str) -> None:
+    # Given a response whose final answer is wrapped in LaTeX boxed notation.
+    # When extracting the final choice.
+    result = extract_choice(text, 10)
+
+    # Then the single valid option letter inside the box is extracted.
+    assert result == expected
+
+
+def test_extract_choice_preserves_existing_normal_answer_extractions() -> None:
+    # Given normal answer formats already handled before boxed extraction.
+    # When extracting the final choice.
+    parenthesized = extract_choice("The answer is (A)", 4)
+    marker = extract_choice("Answer: B", 4)
+    marker_before_boxed = extract_choice(r"Answer: B. Scratch: \boxed{C. 67.8 kJ/mol}", 4)
+
+    # Then existing extractions are unchanged.
+    assert parenthesized == "A"
+    assert marker == "B"
+    assert marker_before_boxed == "B"
+
+
+def test_score_mcq_when_extracted_choice_matches_gold() -> None:
+    # Given a response with a lower-case answer marker.
+    # When scoring against the matching gold letter.
+    result = score_mcq("Reasoning. Answer: b.", "B", 4)
+
+    # Then the score is correct.
+    assert result is True
+
+
+def test_score_mcq_when_no_choice_is_extracted() -> None:
+    # Given a response without a usable final answer.
+    # When scoring against any gold letter.
+    result = score_mcq("I cannot tell.", "A", 4)
+
+    # Then missing extraction is wrong.
+    assert result is False
+
+
+def test_score_mcq_when_choice_does_not_match_gold() -> None:
+    # Given a response with a final answer marker.
+    # When scoring against a different gold letter.
+    result = score_mcq("Final answer: D", "A", 4)
+
+    # Then the score is wrong.
+    assert result is False
+
+
+def test_score_mcq_detailed_when_answer_is_extracted() -> None:
+    # Given a response with a final answer marker.
+    # When requesting detailed MCQ scoring.
+    result = score_mcq_detailed("Final answer: c", "C", 4)
+
+    # Then both extraction and correctness are returned.
+    assert result == {"extracted": "C", "correct": True}
+
+
+def test_score_mcq_detailed_when_answer_is_missing() -> None:
+    # Given a response without a usable answer.
+    # When requesting detailed MCQ scoring.
+    result = score_mcq_detailed("No final choice.", "A", 4)
+
+    # Then missing extraction is visible and scored as wrong.
+    assert result == {"extracted": None, "correct": False}
+
+
+def test_score_bench_marks_mmlu_pro_cap_hit_incorrect_even_when_answer_matches() -> None:
+    # Given a cap-hit mmlu_pro answer whose extracted choice matches the gold answer.
+    bench = RenderedBench(
+        name="mmlu_pro",
+        source_items=[
+            {
+                "id": "mmlu-cap-hit",
+                "question": "Fixture question?",
+                "options": ["alpha", "beta", "gamma", "delta"],
+                "answer": "C",
+            },
+        ],
+        benchmark_items=[],
+        baseline=0.25,
+        decoding={},
+        item_file="fixture.jsonl",
+    )
+    result = _item_result(
+        item_id="mmlu-cap-hit",
+        response_text="Reasoning that keeps going. Final answer: C",
+        finish_reason="length",
+    )
+
+    # When scoring through the production bench scorer.
+    scored = score_bench(bench, [result])
+
+    # Then extraction is preserved but the non-terminating answer is incorrect.
+    assert scored[0]["extracted"] == "C"
+    assert scored[0]["correct"] is False
+
+
+def _item_result(
+    *,
+    item_id: str,
+    response_text: str,
+    finish_reason: str,
+) -> ItemResult:
+    return {
+        "id": item_id,
+        "response_text": response_text,
+        "reasoning_text": None,
+        "finish_reason": finish_reason,
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "latency_seconds": 0.0,
+        "started_at": "2026-06-21T00:00:00+00:00",
+        "finished_at": "2026-06-21T00:00:00+00:00",
+        "attempts": 1,
+        "error": None,
+    }

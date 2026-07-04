@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-bench.ai/schemas/result_bundle_v1.schema.json",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "run_started_at",
+    "run_finished_at",
+    "producer",
+    "tier",
+    "serving_mode",
+    "model",
+    "manifest",
+    "axis_status",
+    "headline_complete",
+    "scores",
+    "benches",
+    "conformance",
+    "items",
+    "totals",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "localbench.result_bundle.v1"},
+    "producer": {"type": "string"},
+    "serving_mode": {"type": "string"},
+    "headline_complete": {"type": "boolean"},
+    "model": {"type": "object"},
+    "manifest": {"type": "object"},
+    "axis_status": {"type": "object"},
+    "scores": {
+      "type": "object",
+      "required": [
+        "headline_score",
+        "partial_composite",
+        "partial_composite_scope",
+        "measured_headline_weight",
+        "missing_headline_weight",
+        "known_headline_contribution",
+        "rank_scope"
+      ],
+      "properties": {
+        "headline_score": {"type": ["number", "null"]},
+        "partial_composite": {"type": "number"},
+        "partial_composite_scope": {"const": "measured_headline_axes"},
+        "measured_headline_weight": {"type": "number"},
+        "missing_headline_weight": {"type": "number"},
+        "known_headline_contribution": {"type": "number"},
+        "rank_scope": {"type": "string"}
+      }
+    },
+    "benches": {"type": "object"},
+    "conformance": {"type": "object"},
+    "items": {"type": "array"},
+    "totals": {"type": "object"},
+    "warnings": {"type": "array"}
+  }
+}

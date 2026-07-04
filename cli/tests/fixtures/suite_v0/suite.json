@@ -1,0 +1,53 @@
+{
+  "version": "suite-fixture-v0",
+  "benches": {
+    "mmlu_pro": {
+      "chance_correction_baseline": 0.25,
+      "decoding": {
+        "max_tokens": 32,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "mmlu_pro_quick.jsonl",
+          "item_count": 3,
+          "sha256": "685cfe3985469d26eecff4fc4a0aaa6c31e1f1a0f070a86074c9b388119ac0ac"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/mcq_cot.txt"
+    },
+    "ifeval": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 64,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "ifeval_quick.jsonl",
+          "item_count": 2,
+          "sha256": "759ea4ebb17ff571ae98e3fdd0b612d382021e062aa945e6d001faae2985e707"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/ifeval.txt"
+    },
+    "genmath": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 48,
+        "temperature": 0
+      },
+      "itemsets": {
+        "quick": {
+          "file": "genmath_quick.jsonl",
+          "item_count": 2,
+          "sha256": "2550942dd15a44f48e574d83d9c2bec559a56b128e51fa9197c44146f93fa976"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/genmath.txt"
+    }
+  }
+}

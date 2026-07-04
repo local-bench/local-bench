@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-bench.ai/schemas/submission_envelope_v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "ticket_id",
+    "submitter_id",
+    "origin",
+    "allowed_schema",
+    "expected_suite_release_id",
+    "expected_suite_manifest_sha256",
+    "accepted_suite_terms",
+    "max_upload_bytes",
+    "expiry",
+    "one_use",
+    "bundle_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "localbench.submission_envelope.v1"},
+    "ticket_id": {"type": "string"},
+    "submitter_id": {"type": "string"},
+    "origin": {"enum": ["project_anchor", "community", "community_submission"]},
+    "allowed_schema": {"const": "localbench.result_bundle.v1"},
+    "expected_suite_release_id": {"type": ["string", "null"]},
+    "expected_suite_manifest_sha256": {"type": ["string", "null"]},
+    "accepted_suite_terms": {"type": "boolean"},
+    "max_upload_bytes": {"type": "integer", "minimum": 1},
+    "expiry": {"type": "string"},
+    "one_use": {"type": "boolean"},
+    "declared_model_slug": {"type": "string"},
+    "bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

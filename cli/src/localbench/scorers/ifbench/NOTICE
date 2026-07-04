@@ -1,0 +1,32 @@
+IFBench verifier code attribution
+=================================
+
+This package vendors and adapts the programmatic verifier semantics from:
+
+  Generalizing Verifiable Instruction Following / IFBench
+  https://github.com/allenai/IFBench
+  Source revision inspected for vendoring: 1091c4c3de6c1f6ed12c012ed68f11ea450b0117
+
+The upstream IFBench codebase is licensed under Apache License 2.0.
+The upstream repository states:
+
+  "This codebase is licensed under Apache 2.0 as given in [LICENSE](./LICENSE)."
+
+The frozen itemset is derived from the Hugging Face dataset:
+
+  allenai/IFBench_test
+  Dataset revision: 2e8a48de45ff3bf41242f927254ca81b59ca3ae2
+
+The upstream dataset card states:
+
+  "This dataset is licensed under ODC-BY-1.0. It is intended for research and
+  educational use in accordance with Ai2's Responsible Use Guidelines. This
+  dataset includes output data generated from third party models that are
+  subject to separate terms governing their use."
+
+This local package keeps the public scoring interface aligned with
+localbench.scorers.ifeval while avoiding a runtime dependency on the IFBench
+reference package and its optional verifier dependencies.
+
+The words:start_verb constraint is excluded to keep the scorer deterministic and
+dependency-free.

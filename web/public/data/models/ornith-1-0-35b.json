@@ -1,0 +1,380 @@
+{
+  "family": "Ornith",
+  "kind": "community",
+  "model_label": "Ornith 1.0 35B",
+  "runs": [
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.30662020905923343,
+          "hi": 35.374149659863946,
+          "hi_raw": 0.35374149659863946,
+          "lo": 24.829931972789115,
+          "lo_raw": 0.24829931972789115,
+          "n": 294,
+          "n_errors": 4,
+          "n_no_answer": 0,
+          "point": 29.931972789115648,
+          "point_raw": 0.29931972789115646,
+          "raw_accuracy": 0.29931972789115646,
+          "termination_rate": 0.9761904761904762
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8225,
+          "hi": 84.00345678572383,
+          "hi_raw": 0.8400345678572383,
+          "lo": 75.86486462407456,
+          "lo_raw": 0.7586486462407456,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 1,
+          "point": 80.07448125941039,
+          "point_raw": 0.8007448125941039,
+          "raw_accuracy": 0.8225,
+          "termination_rate": 1.0
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7272727272727273,
+          "hi": 77.57575757575758,
+          "hi_raw": 0.7757575757575758,
+          "lo": 67.87878787878789,
+          "lo_raw": 0.6787878787878788,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 3,
+          "point": 72.72727272727273,
+          "point_raw": 0.7272727272727273,
+          "raw_accuracy": 0.7272727272727273,
+          "termination_rate": 1.0
+        }
+      },
+      "composite": {
+        "hi": 64.1605418110348,
+        "hi_raw": 0.6416054181103481,
+        "lo": 54.73024569352084,
+        "lo_raw": 0.5473024569352084,
+        "point": 59.43423845001544,
+        "point_raw": 0.5943423845001544
+      },
+      "composite_full": null,
+      "composite_static": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "x86_64",
+        "gpu": {
+          "driver": "595.58.03",
+          "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          "vram_gb": 95.6,
+          "vram_mb": 97887
+        },
+        "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 1.463,
+      "n_errors": 4,
+      "n_items": 1120,
+      "origin": "community",
+      "quant_label": "BF16",
+      "ranked": false,
+      "run_id": "ornith-1-0-35b__ornith-1.0-35b-bf16",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 178.7224831981476,
+      "tokens_to_answer_median": 261.5,
+      "tokens_to_answer_p95": 1821.8499999999992,
+      "trust_label": "community_re_scored",
+      "vram_footprint_gb": 69.376637,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 3259.1031054230407
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.30633802816901406,
+          "hi": 34.69387755102041,
+          "hi_raw": 0.3469387755102041,
+          "lo": 24.489795918367346,
+          "lo_raw": 0.24489795918367346,
+          "n": 294,
+          "n_errors": 7,
+          "n_no_answer": 0,
+          "point": 29.591836734693878,
+          "point_raw": 0.29591836734693877,
+          "raw_accuracy": 0.29591836734693877,
+          "termination_rate": 0.9659863945578231
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.82,
+          "hi": 83.7298317044269,
+          "hi_raw": 0.837298317044269,
+          "lo": 75.58422351505217,
+          "lo_raw": 0.7558422351505217,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 79.793840150388,
+          "point_raw": 0.79793840150388,
+          "raw_accuracy": 0.82,
+          "termination_rate": 1.0
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7333333333333333,
+          "hi": 77.87878787878788,
+          "hi_raw": 0.7787878787878788,
+          "lo": 68.48484848484848,
+          "lo_raw": 0.6848484848484848,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 4,
+          "point": 73.33333333333333,
+          "point_raw": 0.7333333333333333,
+          "raw_accuracy": 0.7333333333333333,
+          "termination_rate": 1.0
+        }
+      },
+      "composite": {
+        "hi": 63.87858794048971,
+        "hi_raw": 0.6387858794048971,
+        "lo": 54.64896940874444,
+        "lo_raw": 0.5464896940874444,
+        "point": 59.352962165239035,
+        "point_raw": 0.5935296216523903
+      },
+      "composite_full": null,
+      "composite_static": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "x86_64",
+        "gpu": {
+          "driver": "595.58.03",
+          "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          "vram_gb": 95.6,
+          "vram_mb": 97887
+        },
+        "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 1.247,
+      "n_errors": 7,
+      "n_items": 1120,
+      "origin": "community",
+      "quant_label": "Q8_0",
+      "ranked": false,
+      "run_id": "ornith-1-0-35b__ornith-1.0-35b-q8",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 222.99733290127313,
+      "tokens_to_answer_median": 278.0,
+      "tokens_to_answer_p95": 1835.7999999999988,
+      "trust_label": "community_re_scored",
+      "vram_footprint_gb": 36.903139,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 2682.341498069931
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.3275862068965517,
+          "hi": 37.755102040816325,
+          "hi_raw": 0.37755102040816324,
+          "lo": 26.87074829931973,
+          "lo_raw": 0.2687074829931973,
+          "n": 294,
+          "n_errors": 4,
+          "n_no_answer": 0,
+          "point": 32.31292517006803,
+          "point_raw": 0.3231292517006803,
+          "raw_accuracy": 0.3231292517006803,
+          "termination_rate": 0.9863945578231292
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8270676691729322,
+          "hi": 84.56473900376861,
+          "hi_raw": 0.8456473900376861,
+          "lo": 76.14550573309694,
+          "lo_raw": 0.7614550573309694,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 1,
+          "point": 80.35512236843277,
+          "point_raw": 0.8035512236843277,
+          "raw_accuracy": 0.825,
+          "termination_rate": 0.9975
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7242424242424242,
+          "hi": 77.27272727272727,
+          "hi_raw": 0.7727272727272727,
+          "lo": 67.57575757575758,
+          "lo_raw": 0.6757575757575758,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 72.42424242424242,
+          "point_raw": 0.7242424242424242,
+          "raw_accuracy": 0.7242424242424242,
+          "termination_rate": 1.0
+        }
+      },
+      "composite": {
+        "hi": 65.18812220990117,
+        "hi_raw": 0.6518812220990117,
+        "lo": 55.52503465609564,
+        "lo_raw": 0.5552503465609564,
+        "point": 60.35657843299841,
+        "point_raw": 0.6035657843299841
+      },
+      "composite_full": null,
+      "composite_static": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "x86_64",
+        "gpu": {
+          "driver": "595.58.03",
+          "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          "vram_gb": 95.6,
+          "vram_mb": 97887
+        },
+        "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 1.178,
+      "n_errors": 4,
+      "n_items": 1120,
+      "origin": "community",
+      "quant_label": "Q6_K",
+      "ranked": false,
+      "run_id": "ornith-1-0-35b__ornith-1.0-35b-q6",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 233.54023630412706,
+      "tokens_to_answer_median": 275.0,
+      "tokens_to_answer_p95": 1735.149999999998,
+      "trust_label": "community_re_scored",
+      "vram_footprint_gb": 28.514152,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 2448.0192751688883
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.30103806228373703,
+          "hi": 35.034013605442176,
+          "hi_raw": 0.35034013605442177,
+          "lo": 24.149659863945576,
+          "lo_raw": 0.24149659863945577,
+          "n": 294,
+          "n_errors": 4,
+          "n_no_answer": 0,
+          "point": 29.591836734693878,
+          "point_raw": 0.29591836734693877,
+          "raw_accuracy": 0.29591836734693877,
+          "termination_rate": 0.9829931972789115
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8075,
+          "hi": 82.60025124061188,
+          "hi_raw": 0.8260025124061188,
+          "lo": 74.18101796994023,
+          "lo_raw": 0.7418101796994023,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 78.39063460527605,
+          "point_raw": 0.7839063460527604,
+          "raw_accuracy": 0.8075,
+          "termination_rate": 1.0
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7303030303030303,
+          "hi": 77.57575757575758,
+          "hi_raw": 0.7757575757575758,
+          "lo": 68.18181818181817,
+          "lo_raw": 0.6818181818181818,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 4,
+          "point": 73.03030303030303,
+          "point_raw": 0.7303030303030303,
+          "raw_accuracy": 0.7303030303030303,
+          "termination_rate": 1.0
+        }
+      },
+      "composite": {
+        "hi": 63.50678871120966,
+        "hi_raw": 0.6350678871120966,
+        "lo": 53.91945873316172,
+        "lo_raw": 0.5391945873316172,
+        "point": 58.751002510064474,
+        "point_raw": 0.5875100251006448
+      },
+      "composite_full": null,
+      "composite_static": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "x86_64",
+        "gpu": {
+          "driver": "595.58.03",
+          "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          "vram_gb": 95.6,
+          "vram_mb": 97887
+        },
+        "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 1.156,
+      "n_errors": 4,
+      "n_items": 1120,
+      "origin": "community",
+      "quant_label": "Q5_K_M",
+      "ranked": false,
+      "run_id": "ornith-1-0-35b__ornith-1.0-35b-q5",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 221.91359299299623,
+      "tokens_to_answer_median": 256.5,
+      "tokens_to_answer_p95": 1815.2499999999989,
+      "trust_label": "community_re_scored",
+      "vram_footprint_gb": 24.729131,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 2428.8913208530284
+    }
+  ],
+  "slug": "ornith-1-0-35b"
+}

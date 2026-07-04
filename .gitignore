@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Env & secrets
+.env
+.env.*
+*.key
+
+# Run outputs & local data (raw transcripts can be large)
+runs/
+!cli/runs/
+cli/runs/*
+!cli/runs/vast/
+!cli/runs/vast/*.json
+!web/public/data/runs/
+!web/public/data/runs/*.json
+*.run.json
+data/cache/
+suite/v0/private/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Tooling / scratch (not product artifacts)
+.superpowers/
+.pytest-review/
+.pytest-tmp/

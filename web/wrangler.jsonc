@@ -1,0 +1,22 @@
+{
+  "name": "local-bench",
+  "compatibility_date": "2026-06-27",
+  "pages_build_output_dir": "out",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "localbench_prod",
+      "database_id": "31023810-a7f8-49d4-825e-01e976bd0e1d"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SUBMISSIONS",
+      "bucket_name": "localbench-submissions"
+    },
+    {
+      "binding": "PUBLIC_ARTIFACTS",
+      "bucket_name": "localbench-public-artifacts"
+    }
+  ]
+}

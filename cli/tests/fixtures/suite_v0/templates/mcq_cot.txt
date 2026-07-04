@@ -1,0 +1,5 @@
+{question}
+
+{options}
+
+Answer with one letter.

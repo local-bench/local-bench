@@ -1,0 +1,189 @@
+{
+  "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.14583333333333334,
+      "hi": 21.875,
+      "hi_raw": 0.21875,
+      "leaked_reasoning_rate": null,
+      "lo": 7.291666666666667,
+      "lo_raw": 0.07291666666666667,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 14.583333333333334,
+      "point_raw": 0.14583333333333334,
+      "raw_accuracy": 0.14583333333333334,
+      "termination_rate": 1.0,
+      "truncation_rate": null
+    },
+    "instruction": {
+      "conditional_accuracy": 0.6947368421052632,
+      "hi": 72.78911564625851,
+      "hi_raw": 0.7278911564625851,
+      "lo": 61.904761904761905,
+      "lo_raw": 0.6190476190476191,
+      "n": 294,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 67.3469387755102,
+      "point_raw": 0.673469387755102,
+      "raw_accuracy": 0.673469387755102,
+      "termination_rate": 0.9693877551020408
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8542713567839196,
+      "hi": 87.09050898497011,
+      "hi_raw": 0.8709050898497012,
+      "lo": 79.23255793234323,
+      "lo_raw": 0.7923255793234323,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 83.16153345865666,
+      "point_raw": 0.8316153345865667,
+      "raw_accuracy": 0.85,
+      "termination_rate": 0.995
+    }
+  },
+  "composite": {
+    "hi": 43.93142817821444,
+    "hi_raw": 0.4393142817821444,
+    "lo": 31.587465216705162,
+    "lo_raw": 0.31587465216705163,
+    "point": 37.334921877239616,
+    "point_raw": 0.3733492187723962
+  },
+  "composite_full": null,
+  "composite_static": null,
+  "conformance": {
+    "n_scored": 694,
+    "per_bench": {
+      "ifbench": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 294,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=3% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.030612244897959183
+      },
+      "mmlu_pro": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=0% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.005
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "math not measured in this run; axis omitted",
+    "agentic not measured in this run; axis omitted",
+    "tool_calling not measured in this run; axis omitted",
+    "coding not measured in this run; axis omitted"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 8192
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "Qwen3.6",
+      "file_name": null,
+      "file_sha256": "UNHASHED",
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "qwen36-27b-q6"
+    },
+    "quant": "Q6_K",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "instruction": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Qwen3.6-27B",
+  "origin": "community",
+  "ranked": false,
+  "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q6_K",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "59c8f3cd3e8d8dc4b5c778e701d22911fc18fdde4bf5d919ecd8beb5f9142a0f",
+    "registry_digest": "d40e0ccec4d2d144dae386c3a7cc1fef7c638865accbcda4ded93d592528efed",
+    "registry_drift": true,
+    "version": "scorecard-v1.2"
+  },
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 4017.0,
+  "tokens_to_answer_p95": 9077.35,
+  "totals": {
+    "completion_tokens": 3330738,
+    "completion_tokens_per_second": 165.59436348083366,
+    "n_errors": 0,
+    "n_items": 694,
+    "prompt_tokens": 3163743,
+    "total_tokens": 6494481,
+    "wall_time_seconds": 20113.836787600012
+  },
+  "trust_label": "community_re_scored",
+  "worst_axis": {
+    "bench": "agentic",
+    "point": 14.583333333333334,
+    "point_raw": 0.14583333333333334
+  }
+}

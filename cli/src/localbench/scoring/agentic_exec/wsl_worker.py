@@ -1,0 +1,367 @@
+from __future__ import annotations
+
+import importlib.metadata as metadata
+import json
+import os
+import platform
+import signal
+import subprocess
+import sys
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import BinaryIO, Final, TypeAlias
+
+from localbench._types import JsonObject, JsonValue
+from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike
+from localbench.scoring.agentic_exec.sandbox import (
+    AppWorldSandbox,
+    SandboxConfig,
+    SandboxError,
+    resolve_bwrap,
+)
+from localbench.scoring.agentic_exec.sandbox_protocol import _MAX_FRAME_BYTES
+
+WorkerReply: TypeAlias = tuple[JsonObject, bool]
+SandboxFactory: TypeAlias = Callable[[str], AbstractContextManager[SandboxLike]]
+
+_PIN_ENV: Final[dict[str, str]] = {
+    "PYTHONHASHSEED": "0",
+    "TZ": "UTC",
+    "LC_ALL": "C.UTF-8",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class FrameTooLargeError(ValueError):
+    size: int
+    limit: int = _MAX_FRAME_BYTES
+
+    def __str__(self) -> str:
+        return f"worker frame too large: {self.size} bytes > {self.limit}"
+
+
+@dataclass(frozen=True, slots=True)
+class WorkerPreflightError(RuntimeError):
+    detail: str
+
+    def __str__(self) -> str:
+        return self.detail
+
+
+class WorkerSession:
+    def __init__(
+        self,
+        sandbox_factory: SandboxFactory | None = None,
+    ) -> None:
+        self._sandbox_factory = sandbox_factory or _default_sandbox_factory
+        self._sandbox_context: AbstractContextManager[SandboxLike] | None = None
+        self._sandbox: SandboxLike | None = None
+
+    def open_task(self, task_id: str) -> None:
+        if self._sandbox_context is not None:
+            raise SandboxError("worker already has an open task")
+        context = self._sandbox_factory(task_id)
+        self._sandbox = context.__enter__()
+        self._sandbox_context = context
+
+    def run_block(self, code: str) -> JsonObject:
+        sandbox = self._require_sandbox()
+        obs = sandbox.run_block(code)
+        return {
+            "kind": "ok",
+            "stdout": str(getattr(obs, "stdout", "") or ""),
+            "error": _json_string_or_none(getattr(obs, "error", None)),
+        }
+
+    def finalize(self, answer: JsonValue) -> JsonObject:
+        sandbox = self._require_sandbox()
+        verdict = sandbox.finalize(answer)
+        passes = tuple(getattr(verdict, "passes", ()) or ())
+        failures = tuple(getattr(verdict, "failures", ()) or ())
+        return {
+            "kind": "ok",
+            "verdict": {
+                "success": bool(getattr(verdict, "success", False)),
+                "collateral_damage": bool(getattr(verdict, "collateral_damage", False)),
+                "passes": [str(item) for item in passes],
+                "failures": [str(item) for item in failures],
+                "num_passes": len(passes),
+                "num_failures": len(failures),
+            },
+        }
+
+    def close(self) -> None:
+        context = self._sandbox_context
+        self._sandbox = None
+        self._sandbox_context = None
+        if context is not None:
+            context.__exit__(None, None, None)
+
+    def _require_sandbox(self) -> SandboxLike:
+        if self._sandbox is None:
+            raise SandboxError("worker has no open task")
+        return self._sandbox
+
+
+def encode_worker_frame(message: JsonObject) -> bytes:
+    payload = json.dumps(message, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    size = len(payload) + 1
+    if size > _MAX_FRAME_BYTES:
+        raise FrameTooLargeError(size=size)
+    return payload + b"\n"
+
+
+def decode_worker_frame(frame: bytes | str) -> JsonObject:
+    raw = frame.encode("utf-8") if isinstance(frame, str) else frame
+    if len(raw) > _MAX_FRAME_BYTES:
+        raise FrameTooLargeError(size=len(raw))
+    line = raw[:-1] if raw.endswith(b"\n") else raw
+    decoded = json.loads(line.decode("utf-8"))
+    if not isinstance(decoded, dict):
+        raise ValueError("worker frame is not a JSON object")
+    return decoded
+
+
+def handle_worker_message(
+    message: JsonValue,
+    session: WorkerSession | None = None,
+) -> WorkerReply:
+    worker = session or WorkerSession()
+    if not isinstance(message, dict):
+        return _protocol_error("request must be a JSON object"), False
+    op_value = message.get("op")
+    if not isinstance(op_value, str):
+        return _protocol_error("missing string op"), False
+
+    match op_value:
+        case "hello":
+            return _ok_with_identity(), False
+        case "open_task":
+            task_id = message.get("task_id")
+            if not isinstance(task_id, str) or not task_id:
+                return _protocol_error("open_task requires task_id"), False
+            return _sandbox_call(lambda: _open_task(worker, task_id)), False
+        case "run_block":
+            code = message.get("code")
+            if not isinstance(code, str):
+                return _protocol_error("run_block requires code"), False
+            return _sandbox_call(lambda: worker.run_block(code)), False
+        case "finalize":
+            return _sandbox_call(lambda: worker.finalize(message.get("answer"))), False
+        case "close":
+            return _sandbox_call(lambda: _close(worker)), True
+        case "list_tasks":
+            stage = message.get("stage", "scored")
+            if stage != "scored":
+                return _protocol_error("list_tasks only supports stage='scored'"), False
+            return _sandbox_call(_list_scored_tasks), False
+        case _:
+            return _protocol_error(f"unknown op: {op_value}"), False
+
+
+def collect_identity(appworld_root: str | None = None) -> JsonObject:
+    _ensure_env_pins()
+    root = appworld_root or os.environ.get("APPWORLD_ROOT", "")
+    if not root:
+        raise WorkerPreflightError("APPWORLD_ROOT is not set")
+    root_posix = Path(root).as_posix()
+    root_under_mnt = root_posix == "/mnt" or root_posix.startswith("/mnt/")
+    if root_under_mnt:
+        raise WorkerPreflightError(f"APPWORLD_ROOT must not be under /mnt: {root_posix}")
+    bwrap = resolve_bwrap()
+    if bwrap is None:
+        raise WorkerPreflightError("bubblewrap (bwrap) not found")
+    appworld_version = _package_version("appworld")
+    if not appworld_version:
+        raise WorkerPreflightError("appworld package not importable")
+    os_release = _os_release()
+    return {
+        "wsl_kernel": platform.release(),
+        "wsl_distro": os.environ.get("WSL_DISTRO_NAME", os_release.get("ID", "")),
+        "wsl_os_release": os_release.get("PRETTY_NAME", ""),
+        "python_version": platform.python_version(),
+        "venv_path": sys.prefix,
+        "worker_entrypoint": "localbench.scoring.agentic_exec.wsl_worker",
+        "worker_git_commit": _git_output("rev-parse", "HEAD"),
+        "worker_dirty_tree": bool(_git_output("status", "--porcelain")),
+        "bwrap_path": bwrap,
+        "bwrap_version": _command_output([bwrap, "--version"]),
+        "appworld_root": root_posix,
+        "appworld_root_under_mnt": root_under_mnt,
+        "appworld_root_filesystem": _filesystem_type(root_posix),
+        "appworld_version": appworld_version,
+        "env_pins": dict(_PIN_ENV),
+    }
+
+
+def main() -> int:
+    session = WorkerSession()
+
+    def _terminate(_signum: int, _frame: object) -> None:
+        session.close()
+        raise SystemExit(143)
+
+    signal.signal(signal.SIGTERM, _terminate)
+    try:
+        return _serve(sys.stdin.buffer, sys.stdout.buffer, session)
+    finally:
+        session.close()
+
+
+def _serve(stdin: BinaryIO, stdout: BinaryIO, session: WorkerSession) -> int:
+    for raw in stdin:
+        try:
+            message = decode_worker_frame(raw)
+        except (FrameTooLargeError, json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+            response, should_exit = _protocol_error(str(exc)), False
+        else:
+            response, should_exit = handle_worker_message(message, session)
+        _write_response(stdout, response)
+        if should_exit:
+            return 0
+    session.close()
+    return 0
+
+
+def _write_response(stdout: BinaryIO, response: JsonObject) -> None:
+    try:
+        stdout.write(encode_worker_frame(response))
+    except FrameTooLargeError as exc:
+        stdout.write(encode_worker_frame(_protocol_error(str(exc))))
+    stdout.flush()
+
+
+def _ok_with_identity() -> JsonObject:
+    try:
+        return {"kind": "ok", "identity": collect_identity()}
+    except WorkerPreflightError as exc:
+        return {"kind": "error", "detail": str(exc), "error_type": type(exc).__name__}
+
+
+def _open_task(worker: WorkerSession, task_id: str) -> JsonObject:
+    worker.open_task(task_id)
+    return {"kind": "ok"}
+
+
+def _close(worker: WorkerSession) -> JsonObject:
+    worker.close()
+    return {"kind": "ok"}
+
+
+def _list_scored_tasks() -> JsonObject:
+    from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
+    from localbench.scoring.agentic_exec.funnel import Stage  # noqa: PLC0415
+
+    subset = task_pool.build_subset(Stage.SCORED, wide_smoke=False, with_metadata=True)
+    return {"kind": "ok", "task_ids": list(subset.task_ids)}
+
+
+def _sandbox_call(operation: Callable[[], JsonObject]) -> JsonObject:
+    try:
+        return operation()
+    except (SandboxError, RuntimeError, OSError, ValueError, TimeoutError) as exc:
+        return {"kind": "error", "detail": str(exc), "error_type": type(exc).__name__}
+
+
+def _protocol_error(detail: str) -> JsonObject:
+    return {"kind": "protocol_error", "detail": detail}
+
+
+def _default_sandbox_factory(task_id: str) -> AbstractContextManager[SandboxLike]:
+    return AppWorldSandbox(
+        task_id,
+        SandboxConfig(experiment_name=f"lb_wsl_worker_{task_id}"),
+    )
+
+
+def _json_string_or_none(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _ensure_env_pins() -> None:
+    for key, value in _PIN_ENV.items():
+        os.environ.setdefault(key, value)
+
+
+def _os_release() -> dict[str, str]:
+    path = Path("/etc/os-release")
+    if not path.exists():
+        return {}
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if "=" not in line:
+            continue
+        key, raw = line.split("=", 1)
+        values[key] = raw.strip().strip('"')
+    return values
+
+
+def _package_version(package: str) -> str:
+    try:
+        return metadata.version(package)
+    except metadata.PackageNotFoundError:
+        return ""
+
+
+def _git_output(*args: str) -> str:
+    direct = _command_output(["git", *args])
+    if direct:
+        return direct
+    git_paths = _gitdir_work_tree()
+    if git_paths is None:
+        return ""
+    git_dir, work_tree = git_paths
+    return _command_output(["git", "--git-dir", git_dir, "--work-tree", work_tree, *args])
+
+
+def _gitdir_work_tree() -> tuple[str, str] | None:
+    dot_git = Path.cwd() / ".git"
+    if not dot_git.is_file():
+        return None
+    try:
+        raw = dot_git.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return None
+    prefix = "gitdir:"
+    if not raw.startswith(prefix):
+        return None
+    git_dir = _worktree_path_for_current_os(raw.removeprefix(prefix).strip())
+    return git_dir, Path.cwd().as_posix()
+
+
+def _worktree_path_for_current_os(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    if len(normalized) >= 3 and normalized[1] == ":" and normalized[2] == "/":
+        drive = normalized[0].lower()
+        return f"/mnt/{drive}/{normalized[3:]}"
+    if normalized.startswith("/"):
+        return normalized
+    return (Path.cwd() / normalized).resolve().as_posix()
+
+
+def _filesystem_type(path: str) -> str:
+    return _command_output(["stat", "-f", "-c", "%T", path])
+
+
+def _command_output(argv: list[str]) -> str:
+    try:
+        result = subprocess.run(
+            argv,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

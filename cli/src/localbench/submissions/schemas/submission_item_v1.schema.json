@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "localbench.submission-item.v1",
+  "type": "object",
+  "required": ["schema_version", "sequence_index", "bench", "item_id", "suite_item_sha256", "request", "response", "usage", "timing", "client_scoring"],
+  "properties": {
+    "schema_version": { "const": "localbench.submission-item.v1" },
+    "sequence_index": { "type": "integer", "minimum": 0 },
+    "bench": { "type": "string" },
+    "item_id": { "type": "string" },
+    "suite_item_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "request": { "type": "object" },
+    "response": { "type": "object" },
+    "usage": { "type": "object" },
+    "timing": { "type": "object" },
+    "client_scoring": { "type": "object" }
+  }
+}

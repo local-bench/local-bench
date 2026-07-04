@@ -1,0 +1,197 @@
+{
+  "axes": {
+    "instruction": {
+      "conditional_accuracy": 0.313588850174216,
+      "hi": 36.054421768707485,
+      "hi_raw": 0.36054421768707484,
+      "lo": 25.510204081632654,
+      "lo_raw": 0.25510204081632654,
+      "n": 294,
+      "n_errors": 3,
+      "n_no_answer": 0,
+      "point": 30.612244897959183,
+      "point_raw": 0.30612244897959184,
+      "raw_accuracy": 0.30612244897959184,
+      "termination_rate": 0.9761904761904762
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8207070707070707,
+      "hi": 82.88089234963428,
+      "hi_raw": 0.8288089234963428,
+      "lo": 74.46165907896261,
+      "lo_raw": 0.7446165907896262,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 3,
+      "point": 78.95191682332083,
+      "point_raw": 0.7895191682332083,
+      "raw_accuracy": 0.8125,
+      "termination_rate": 0.99
+    },
+    "tool_calling": {
+      "conditional_accuracy": 0.7454545454545455,
+      "hi": 79.0909090909091,
+      "hi_raw": 0.7909090909090909,
+      "lo": 69.6969696969697,
+      "lo_raw": 0.696969696969697,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 5,
+      "point": 74.54545454545455,
+      "point_raw": 0.7454545454545455,
+      "raw_accuracy": 0.7454545454545455,
+      "termination_rate": 1.0
+    }
+  },
+  "composite": {
+    "hi": 64.37347006710543,
+    "hi_raw": 0.6437347006710543,
+    "lo": 54.913691109465645,
+    "lo_raw": 0.5491369110946565,
+    "point": 59.72292428184364,
+    "point_raw": 0.5972292428184364
+  },
+  "composite_full": null,
+  "composite_static": null,
+  "conformance": {
+    "n_scored": 1021,
+    "per_bench": {
+      "ifbench": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 291,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.013745704467353952
+      },
+      "mmlu_pro": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.01
+      },
+      "tc_json_v1": {
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 330,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "agentic appworld_c quarantined: missing diagnostics or harness-dominated client path",
+    "math not measured in this run; axis omitted",
+    "agentic not measured in this run; axis omitted",
+    "coding not measured in this run; axis omitted",
+    "composite point 0.597229242818 differs from stored composite 0.194958487480"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+    "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 0
+    },
+    "hardware": {
+      "cpu": "x86_64",
+      "gpu": {
+        "driver": "595.58.03",
+        "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "vram_gb": 95.6,
+        "vram_mb": 97887
+      },
+      "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "Qwen3 Coder",
+      "file_name": null,
+      "file_sha256": null,
+      "file_size_bytes": null,
+      "format": null,
+      "runtime_reported_model": "qwen3-coder-next-q6"
+    },
+    "quant": "Q6_K",
+    "runtime": {
+      "ctx_len_configured": null,
+      "kv_cache_quant": "unknown",
+      "name": null,
+      "parallel_slots": null,
+      "version": null
+    },
+    "sampling": {
+      "by_bench": {
+        "instruction": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "temperature": 0
+        },
+        "tool_calling": {
+          "max_tokens": 16384,
+          "temperature": 0
+        }
+      },
+      "min_p": null,
+      "seed": null,
+      "temperature": 0,
+      "thinking_mode": "n/a",
+      "top_k": null,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Qwen3 Coder Next",
+  "origin": "community",
+  "ranked": false,
+  "run_id": "qwen3-coder-next__qwen3-coder-next-q6",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",
+    "registry_digest": "2d36c8dd7dd2c8e48f0ffeff7429d6baed7966edef79fc9adb8eae231d7f579b",
+    "registry_drift": true,
+    "version": "scorecard-v2.0"
+  },
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 264.0,
+  "tokens_to_answer_p95": 3379.0,
+  "totals": {
+    "completion_tokens": 834083,
+    "completion_tokens_per_second": 255.7101168555596,
+    "n_errors": 3,
+    "n_items": 1120,
+    "prompt_tokens": 269497,
+    "total_tokens": 1103580,
+    "wall_time_seconds": 3261.830271936953
+  },
+  "trust_label": "community_re_scored",
+  "worst_axis": {
+    "bench": "instruction",
+    "point": 30.612244897959183,
+    "point_raw": 0.30612244897959184
+  }
+}

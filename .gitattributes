@@ -1,0 +1,3 @@
+# Frozen suite artifacts are byte-addressed by SHA256SUMS.
+cli/src/localbench/data/suites/core-text-v1/** -text
+web/public/suites/core-text-v1/** -text -diff

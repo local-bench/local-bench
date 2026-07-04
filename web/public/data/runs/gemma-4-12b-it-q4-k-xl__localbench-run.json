@@ -1,0 +1,302 @@
+{
+  "agentic_provenance": "project_attested",
+  "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.057291666666666664,
+      "hi": 10.416666666666668,
+      "hi_raw": 0.10416666666666667,
+      "lo": 1.0416666666666665,
+      "lo_raw": 0.010416666666666666,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 5.208333333333334,
+      "point_raw": 0.052083333333333336,
+      "raw_accuracy": 0.057291666666666664,
+      "termination_rate": 1.0
+    },
+    "coding": {
+      "conditional_accuracy": 0.9512195121951219,
+      "hi": 95.34883720930233,
+      "hi_raw": 0.9534883720930233,
+      "lo": 85.27131782945736,
+      "lo_raw": 0.8527131782945736,
+      "n": 129,
+      "n_errors": 0,
+      "n_no_answer": 7,
+      "point": 90.69767441860465,
+      "point_raw": 0.9069767441860465,
+      "raw_accuracy": 0.9069767441860465,
+      "termination_rate": 0.9534883720930233
+    },
+    "instruction": {
+      "conditional_accuracy": 0.704225352112676,
+      "hi": 73.46938775510205,
+      "hi_raw": 0.7346938775510204,
+      "lo": 62.585034013605444,
+      "lo_raw": 0.6258503401360545,
+      "n": 294,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 68.02721088435374,
+      "point_raw": 0.6802721088435374,
+      "raw_accuracy": 0.6802721088435374,
+      "termination_rate": 0.9659863945578231
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.7835051546391754,
+      "hi": 77.54871127820888,
+      "hi_raw": 0.7754871127820888,
+      "lo": 68.28755468047005,
+      "lo_raw": 0.6828755468047005,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 11,
+      "point": 73.05845353385067,
+      "point_raw": 0.7305845353385066,
+      "raw_accuracy": 0.76,
+      "termination_rate": 0.97
+    },
+    "tool_calling": {
+      "conditional_accuracy": 0.7424242424242424,
+      "hi": 78.78787878787878,
+      "hi_raw": 0.7878787878787878,
+      "lo": 69.39393939393939,
+      "lo_raw": 0.693939393939394,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 74.24242424242425,
+      "point_raw": 0.7424242424242424,
+      "raw_accuracy": 0.7424242424242424,
+      "termination_rate": 1.0
+    }
+  },
+  "composite": {
+    "hi": 43.50254876587276,
+    "hi_raw": 0.4350254876587276,
+    "lo": 37.62372931355355,
+    "lo_raw": 0.3762372931355355,
+    "point": 40.261026195500214,
+    "point_raw": 0.40261026195500216
+  },
+  "composite_full": {
+    "hi": 43.50254876587276,
+    "hi_raw": 0.4350254876587276,
+    "lo": 37.62372931355355,
+    "lo_raw": 0.3762372931355355,
+    "point": 40.261026195500214,
+    "point_raw": 0.40261026195500216
+  },
+  "composite_static": {
+    "hi": 77.84717211750439,
+    "hi_raw": 0.7784717211750438,
+    "lo": 72.75274253145282,
+    "lo_raw": 0.7275274253145283,
+    "point": 75.3137190576671,
+    "point_raw": 0.7531371905766711
+  },
+  "conformance": {
+    "n_scored": 1153,
+    "per_bench": {
+      "ifbench": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 294,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=3% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.034013605442176874
+      },
+      "lcb": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 129,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=5% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.046511627906976744
+      },
+      "mmlu_pro": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "answer_cap_hit_rate=3% - scored as model failures under budget-forcing (degenerate loop / non-termination), not a conformance breach"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.03
+      },
+      "tc_json_v1": {
+        "forced": true,
+        "leaked_reasoning_rate": 0.0,
+        "n_scored": 330,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "math not measured in this run; axis omitted",
+    "agentic chance_corrected differs from item-derived mean; stale/inconsistent run JSON"
+  ],
+  "est_cost_usd": null,
+  "index_version": "index-v2.1",
+  "item_set_hashes": {
+    "coding.jsonl": "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+    "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 8192
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "610.62",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "capped-thinking",
+    "model": {
+      "family": "gemma4",
+      "file_name": "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf",
+      "file_sha256": "cc9ff072e0a8203429ed854e6662c17a6c2bc1e5dca5b475dd4736caaacbc165",
+      "file_size_bytes": 6716355328,
+      "format": "GGUF",
+      "runtime_reported_model": "gemma-4-12b-it-qat-ud-q4-k-xl"
+    },
+    "quant": "Q4_K_XL",
+    "runtime": {
+      "ctx_len_configured": 32768,
+      "kv_cache_quant": "k=f16,v=f16",
+      "name": "llama.cpp",
+      "parallel_slots": 1,
+      "version": "b9852/fd1a05791"
+    },
+    "sampling": {
+      "by_bench": {
+        "coding": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "instruction": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "tool_calling": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        }
+      },
+      "determinism_policy": {
+        "claim": "best-effort same-stack reproducibility; not bitwise cross-stack determinism",
+        "client": {
+          "concurrency": 1,
+          "seed": 1234,
+          "temperature": 0,
+          "top_k": 1
+        },
+        "known_limits": [
+          "GPU floating-point non-associativity",
+          "kernel/library changes",
+          "driver changes",
+          "batching/scheduler changes",
+          "timeout/VRAM pressure effects"
+        ],
+        "policy_id": "gpu-greedy-single-slot-v1",
+        "scope": [
+          "same model artifact hash",
+          "same runtime binary/container digest",
+          "same GPU architecture",
+          "same driver/runtime family",
+          "same serve flags",
+          "same localbench suite hash"
+        ],
+        "server": {
+          "continuous_batching": false,
+          "llama_cont_batching": false,
+          "parallel_slots": 1,
+          "vllm_batch_invariant": true,
+          "vllm_max_num_seqs": 1
+        }
+      },
+      "min_p": null,
+      "reasoning_registry_entry_id": "gemma4_thinking_native_v1",
+      "seed": 1234,
+      "temperature": 0.0,
+      "thinking_mode": "n/a",
+      "top_k": 1,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Gemma 4 12B IT Q4_K_XL",
+  "origin": "project_anchor",
+  "provenance_notes": [
+    "grandfathered_attested_bundle"
+  ],
+  "ranked": true,
+  "run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
+  "scorecard": {
+    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
+    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "drift": true,
+    "id": "30d33810e489411d79d5e0b0643baa81689e94deffbb05e6ead46694e973f7f9",
+    "registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "registry_drift": false,
+    "version": "scorecard-v2.1"
+  },
+  "static_index_version": "static-suite-v1",
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 8194.0,
+  "tokens_to_answer_p95": 9062.4,
+  "totals": {
+    "completion_tokens": 6095115,
+    "completion_tokens_per_second": 102.82918518702921,
+    "n_errors": 0,
+    "n_items": 1249,
+    "prompt_tokens": 6246568,
+    "total_tokens": 12341683,
+    "wall_time_seconds": 59274.173853600005
+  },
+  "trust_label": "project_anchor",
+  "worst_axis": {
+    "bench": "agentic",
+    "point": 5.208333333333334,
+    "point_raw": 0.052083333333333336
+  }
+}

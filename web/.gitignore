@@ -1,0 +1,10 @@
+.next/
+out/
+node_modules/
+tsconfig.tsbuildinfo
+.qa/
+.e2e-artifacts/
+playwright-report/
+test-results/
+.cache/ms-playwright/
+ms-playwright/

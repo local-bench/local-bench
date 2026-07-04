@@ -1,0 +1,7 @@
+local-bench partial-text-code-4axis-v1 public suite
+
+This bundle redistributes the packaged v1 public item sets for MMLU-Pro, IFBench, TC-JSON v1, and LiveCodeBench output prediction.
+
+LiveCodeBench notice: lcb.jsonl is derived from livecodebench/test_generation with dataset license metadata CC-BY-4.0, but source problem statements originate from LeetCode. Until that source-site serving question is fully closed, this release flags lcb.jsonl in suite_release_manifest.json and carries this NOTICE.
+
+IFBench caveat: the upstream dataset card states that use should follow Ai2's Responsible Use Guidelines and that the dataset includes output data generated from third-party models subject to separate terms.

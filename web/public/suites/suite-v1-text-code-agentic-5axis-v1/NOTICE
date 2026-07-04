@@ -1,0 +1,6 @@
+local-bench text-code-agentic-5axis-v1 public suite
+
+This release extends the 4-axis text+code release with agentic axis membership for appworld_c.
+AppWorld-C is out-of-band and is not redistributed as a jsonl itemset in this directory.
+
+LiveCodeBench notice: lcb.jsonl is derived from livecodebench/test_generation with dataset license metadata CC-BY-4.0, but source problem statements originate from LeetCode. Until that source-site serving question is fully closed, this release flags lcb.jsonl in suite_release_manifest.json and carries this NOTICE.

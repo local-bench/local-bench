@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-bench"
+version = "0.1.0"
+description = "Thin benchmark runner for OpenAI-compatible chat completion endpoints."
+requires-python = ">=3.11"
+dependencies = [
+  "anyio>=4",
+  "httpx>=0.27",
+  "langdetect>=1.0.9",
+  "math-verify>=0.9.0",
+]
+
+[project.scripts]
+localbench = "localbench.cli:main"
+localbench-monitor = "localbench.monitor_cli:main"
+
+[project.optional-dependencies]
+build = ["datasets>=2.20"]
+dev = ["pytest>=8", "nltk>=3.9", "jinja2>=3.1"]
+hf = ["transformers>=4.51"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+localbench = [
+  "data/board_sources.json",
+  "data/licenses/*",
+  "data/suites/tiny-smoke-v1/*",
+  "data/suites/core-text-v1/*",
+  "data/suites/core-text-v1/LICENSES/*",
+  "scorers/ifbench/NOTICE",
+  "scorers/bfcl/NOTICE",
+  "scorers/bfcl_multi_turn/NOTICE",
+  "submissions/schemas/*.json",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+markers = [
+  "wsl: requires WSL2 AppWorld harness and bubblewrap",
+]

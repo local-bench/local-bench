@@ -1,0 +1,386 @@
+{
+  "generated_for": "ANCHOR-VALIDATION-PREREG-2026-06-21.md",
+  "lane": "capped-thinking (greedy temp-0, s1 two-pass, think<=8192)",
+  "primary_metric": "strict-S (oracle-endorsed; pre-reg literal was health-gated-C, see module docstring)",
+  "metrics": {
+    "granite-2b": {
+      "mmlu_pro": {
+        "S": 17.5,
+        "T": 99.5,
+        "C": 17.6
+      },
+      "ifbench": {
+        "S": 14.3,
+        "T": 100.0,
+        "C": 14.3
+      }
+    },
+    "granite-8b": {
+      "mmlu_pro": {
+        "S": 34.5,
+        "T": 99.5,
+        "C": 34.7
+      },
+      "ifbench": {
+        "S": 18.0,
+        "T": 99.7,
+        "C": 18.1
+      }
+    },
+    "nemotron-4b": {
+      "mmlu_pro": {
+        "S": 52.5,
+        "T": 94.8,
+        "C": 55.4
+      },
+      "ifbench": {
+        "S": 17.7,
+        "T": 97.6,
+        "C": 18.1
+      }
+    },
+    "r1-8b": {
+      "mmlu_pro": {
+        "S": 38.0,
+        "T": 91.0,
+        "C": 41.8
+      },
+      "ifbench": {
+        "S": 9.5,
+        "T": 97.6,
+        "C": 9.8
+      }
+    },
+    "qwen-0.8b": {
+      "mmlu_pro": {
+        "S": 24.8,
+        "T": 48.2,
+        "C": 51.3
+      },
+      "ifbench": {
+        "S": 12.9,
+        "T": 48.3,
+        "C": 26.8
+      }
+    },
+    "qwen-2b": {
+      "mmlu_pro": {
+        "S": 51.5,
+        "T": 70.2,
+        "C": 73.3
+      },
+      "ifbench": {
+        "S": 19.0,
+        "T": 57.1,
+        "C": 33.3
+      }
+    },
+    "qwen-4b": {
+      "mmlu_pro": {
+        "S": 73.0,
+        "T": 93.0,
+        "C": 78.5
+      },
+      "ifbench": {
+        "S": 43.2,
+        "T": 66.0,
+        "C": 65.5
+      }
+    },
+    "qwen-9b": {
+      "mmlu_pro": {
+        "S": 78.5,
+        "T": 94.2,
+        "C": 83.3
+      },
+      "ifbench": {
+        "S": 57.1,
+        "T": 78.9,
+        "C": 72.4
+      }
+    }
+  },
+  "coverage": {
+    "granite-2b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "granite-8b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "nemotron-4b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "r1-8b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-0.8b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-2b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-4b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    },
+    "qwen-9b": {
+      "mmlu_pro": 400,
+      "ifbench": 294
+    }
+  },
+  "placement": [
+    {
+      "anchor": "granite-2b",
+      "axis": "mmlu_pro",
+      "S": 17.5,
+      "T": 99.5,
+      "C": 17.6,
+      "S_ci95": [
+        14.0,
+        21.2
+      ],
+      "bracket_strict": [
+        24.8,
+        51.5
+      ],
+      "bracket_rungs": [
+        "qwen-0.8b",
+        "qwen-2b"
+      ],
+      "miss_below_lower": 7.2,
+      "ci_survives_miss": true,
+      "health_ok": true
+    },
+    {
+      "anchor": "granite-2b",
+      "axis": "ifbench",
+      "S": 14.3,
+      "T": 100.0,
+      "C": 14.3,
+      "S_ci95": [
+        10.5,
+        18.4
+      ],
+      "bracket_strict": [
+        12.9,
+        43.2
+      ],
+      "bracket_rungs": [
+        "qwen-0.8b",
+        "qwen-4b"
+      ],
+      "miss_below_lower": 0.0,
+      "ci_survives_miss": false,
+      "health_ok": true
+    },
+    {
+      "anchor": "granite-8b",
+      "axis": "mmlu_pro",
+      "S": 34.5,
+      "T": 99.5,
+      "C": 34.7,
+      "S_ci95": [
+        30.0,
+        39.2
+      ],
+      "bracket_strict": [
+        24.8,
+        73.0
+      ],
+      "bracket_rungs": [
+        "qwen-0.8b",
+        "qwen-4b"
+      ],
+      "miss_below_lower": 0.0,
+      "ci_survives_miss": false,
+      "health_ok": true
+    },
+    {
+      "anchor": "granite-8b",
+      "axis": "ifbench",
+      "S": 18.0,
+      "T": 99.7,
+      "C": 18.1,
+      "S_ci95": [
+        13.6,
+        22.5
+      ],
+      "bracket_strict": [
+        19.0,
+        57.1
+      ],
+      "bracket_rungs": [
+        "qwen-2b",
+        "qwen-9b"
+      ],
+      "miss_below_lower": 1.0,
+      "ci_survives_miss": false,
+      "health_ok": true
+    },
+    {
+      "anchor": "nemotron-4b",
+      "axis": "mmlu_pro",
+      "S": 52.5,
+      "T": 94.8,
+      "C": 55.4,
+      "S_ci95": [
+        47.8,
+        57.5
+      ],
+      "bracket_strict": [
+        51.5,
+        73.0
+      ],
+      "bracket_rungs": [
+        "qwen-2b",
+        "qwen-4b"
+      ],
+      "miss_below_lower": 0.0,
+      "ci_survives_miss": false,
+      "health_ok": true
+    },
+    {
+      "anchor": "nemotron-4b",
+      "axis": "ifbench",
+      "S": 17.7,
+      "T": 97.6,
+      "C": 18.1,
+      "S_ci95": [
+        13.3,
+        22.4
+      ],
+      "bracket_strict": [
+        43.2,
+        57.1
+      ],
+      "bracket_rungs": [
+        "qwen-4b",
+        "qwen-9b"
+      ],
+      "miss_below_lower": 25.5,
+      "ci_survives_miss": true,
+      "health_ok": true
+    },
+    {
+      "anchor": "r1-8b",
+      "axis": "mmlu_pro",
+      "S": 38.0,
+      "T": 91.0,
+      "C": 41.8,
+      "S_ci95": [
+        33.2,
+        42.8
+      ],
+      "bracket_strict": [
+        73.0,
+        78.5
+      ],
+      "bracket_rungs": [
+        "qwen-4b",
+        "qwen-9b"
+      ],
+      "miss_below_lower": 35.0,
+      "ci_survives_miss": true,
+      "health_ok": true
+    },
+    {
+      "anchor": "r1-8b",
+      "axis": "ifbench",
+      "S": 9.5,
+      "T": 97.6,
+      "C": 9.8,
+      "S_ci95": [
+        6.5,
+        12.9
+      ],
+      "bracket_strict": [
+        43.2,
+        57.1
+      ],
+      "bracket_rungs": [
+        "qwen-4b",
+        "qwen-9b"
+      ],
+      "miss_below_lower": 33.7,
+      "ci_survives_miss": true,
+      "health_ok": true
+    }
+  ],
+  "termination_asymmetry": {
+    "mmlu_pro": {
+      "granite-2b": 99.5,
+      "granite-8b": 99.5,
+      "nemotron-4b": 94.8,
+      "r1-8b": 91.0,
+      "qwen-0.8b": 48.2,
+      "qwen-2b": 70.2,
+      "qwen-4b": 93.0,
+      "qwen-9b": 94.2
+    },
+    "ifbench": {
+      "granite-2b": 100.0,
+      "granite-8b": 99.7,
+      "nemotron-4b": 97.6,
+      "r1-8b": 97.6,
+      "qwen-0.8b": 48.3,
+      "qwen-2b": 57.1,
+      "qwen-4b": 66.0,
+      "qwen-9b": 78.9
+    }
+  },
+  "difficulty_audit_mmlu": [
+    {
+      "anchor": "granite-2b",
+      "qwen4b_on_terminated_pct": 73.1,
+      "n_terminated": 398,
+      "qwen4b_on_nonterminated_pct": 50.0,
+      "n_nonterminated": 2
+    },
+    {
+      "anchor": "granite-8b",
+      "qwen4b_on_terminated_pct": 72.9,
+      "n_terminated": 398,
+      "qwen4b_on_nonterminated_pct": 100.0,
+      "n_nonterminated": 2
+    },
+    {
+      "anchor": "nemotron-4b",
+      "qwen4b_on_terminated_pct": 74.1,
+      "n_terminated": 379,
+      "qwen4b_on_nonterminated_pct": 52.4,
+      "n_nonterminated": 21
+    },
+    {
+      "anchor": "r1-8b",
+      "qwen4b_on_terminated_pct": 73.1,
+      "n_terminated": 364,
+      "qwen4b_on_nonterminated_pct": 72.2,
+      "n_nonterminated": 36
+    }
+  ],
+  "decode_audit_r1": {
+    "r1_items": 693,
+    "bytelevel_mismatches": 0,
+    "chars_dropped": 0,
+    "u_fffd_replacements": 2,
+    "replacement_contexts": [
+      {
+        "id": "mmlu-pro-139",
+        "bench": "mmlu_pro",
+        "context": " logical expression: MN~M\ufffdO/NA. I'm assuming that "
+      },
+      {
+        "id": "ifbench-116",
+        "bench": "ifbench",
+        "context": "ilidadespecialhaciacausas\ufffdprogresistas\u017c\" - This te"
+      }
+    ]
+  },
+  "notes": "S=strict (leaderboard). T=termination. C=conditional. Anchors recovered on CPU (Granite \\boxed extractor; R1 byte-BPE decode, audited vs tokenizers ByteLevel). Self-verified."
+}
