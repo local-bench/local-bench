@@ -28,6 +28,10 @@ from localbench.submissions.validate import SubmissionValidationError
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PILOT = _REPO_ROOT / "runs" / "campaigns" / "wave0-gemma-12b-q4xl-cal-20260629" / "localbench-run.json"
 _SUITE_V1 = _REPO_ROOT / "suite" / "v1"
+_REQUIRES_PILOT = pytest.mark.skipif(
+    not _PILOT.exists(),
+    reason="golden pilot run not present (source-repo artifact, excluded from the public snapshot)",
+)
 _BLOCKING_REASONS = [
     "sampler.top_k_unpinned",
     "sampler.seed_unpinned",
@@ -51,6 +55,7 @@ def test_contract_schema_versions_are_split_and_loadable() -> None:
     assert projection_schema["properties"]["schema_version"]["const"] == ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION
 
 
+@_REQUIRES_PILOT
 def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -> None:
     # Given: the pilot's legacy localbench.run.v1 record.
     legacy = json.loads(_PILOT.read_text(encoding="utf-8"))
@@ -174,6 +179,7 @@ def test_submission_envelope_normalizes_legacy_origin_and_rejects_unknown() -> N
         validate_submission_envelope(envelope)
 
 
+@_REQUIRES_PILOT
 def test_pilot_fixture_validates_not_publishable_with_exact_blockers() -> None:
     # Given / When: the pilot result bundle is validated offline.
     result = validate_submission_bundle(_PILOT, suite_dir=_SUITE_V1)
@@ -231,6 +237,7 @@ def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(t
     ]
 
 
+@_REQUIRES_PILOT
 def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None:
     from localbench.cli import main
 
@@ -276,6 +283,7 @@ def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None
     )
 
 
+@_REQUIRES_PILOT
 def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
     # Given / When: the pilot is rescored twice from item-level responses.
     first = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")

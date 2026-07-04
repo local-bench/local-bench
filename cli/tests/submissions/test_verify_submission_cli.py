@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from localbench._types import JsonObject
 from localbench.cli import main
 from localbench.submissions.canon import canonical_json_bytes, sha256_file
@@ -11,6 +13,10 @@ from localbench.submissions.foundation import rescore_bundle
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PILOT = _REPO_ROOT / "runs" / "campaigns" / "wave0-gemma-12b-q4xl-cal-20260629" / "localbench-run.json"
 _SUITE_V1 = _REPO_ROOT / "suite" / "v1"
+pytestmark = pytest.mark.skipif(
+    not _PILOT.exists(),
+    reason="golden pilot run not present (source-repo artifact, excluded from the public snapshot)",
+)
 _BLOCKING_REASONS = [
     "sampler.top_k_unpinned",
     "sampler.seed_unpinned",
