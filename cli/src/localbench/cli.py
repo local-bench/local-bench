@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 import os
 import platform
@@ -56,6 +57,7 @@ from localbench.scoring.paired_delta import (
     format_honest_delta,
 )
 from localbench.scoring.axis_status import axis_key_for_bench, mark_axis_not_measured
+from localbench.scoring.axes import AXES, STATIC_SUITE_INDEX_VERSION, STATIC_SUITE_WEIGHTS
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
@@ -78,6 +80,13 @@ from localbench.submissions.client import (
 )
 from localbench.submissions.crypto import load_private_key
 from localbench.submissions.keys import Ed25519SeedError, write_private_key
+from localbench.submissions.submit_run import (
+    DEFAULT_SITE,
+    SubmitRunError,
+    SubmitRunOptions,
+    default_signing_key_path,
+    submit_finished_run,
+)
 from localbench.submissions.foundation import (
     rescore_bundle as rescore_result_bundle,
     validate_submission_bundle as validate_result_bundle_file,
@@ -88,6 +97,7 @@ from localbench.submissions.verify import verify_bundle_offline
 from localbench.tc_json_v1_runner import run_tc_json_v1
 from localbench.suite_resolver import (
     DEFAULT_SUITE_ID,
+    KNOWN_SUITE_IDS,
     RemoteSuiteFetch,
     SuiteResolutionError,
     fetch_suite,
@@ -110,6 +120,12 @@ _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
 )
 _REASONING_ACTIVATION_CHOICES: Final[tuple[ReasoningActivationChoice, ...]] = REASONING_ACTIVATIONS
 _NO_SCORABLE_BENCH: Final = "__localbench_no_scorable_bench__"
+_CLI_VERSION_FALLBACK: Final = "0.1.0"
+_PUBLISHABLE_WARNING: Final = (
+    "this run will not be submittable as publishable — add --publishable --sampler-seed <n>"
+)
+_HEADLINE_AXIS_KEYS: Final = tuple(axis.key for axis in AXES if axis.role == "headline")
+_STATIC_AXIS_KEYS: Final = tuple(STATIC_SUITE_WEIGHTS)
 ScorerGate: TypeAlias = tuple[RenderedBench, str, str]
 
 
@@ -120,8 +136,12 @@ class EndpointPreflightError(RuntimeError):
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the localbench CLI."""
     _prefer_utf8_stdout()
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if raw_argv == ["--version"]:
+        print(_package_version())
+        return 0
     parser = _parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw_argv)
     if args.command == "run":
         return _run(args)
     if args.command == "bench":
@@ -159,7 +179,21 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="localbench")
+    parser = argparse.ArgumentParser(
+        prog="localbench",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Quickstart:\n"
+            "  localbench fetch-suite --site https://local-bench.ai --suite "
+            "suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms\n"
+            "  localbench bench --runtime llama.cpp --model-file <gguf> --model-id <slug> "
+            "--ctx <n> --seed <n>\n"
+            "  localbench run --endpoint <OpenAI-compatible url> --model <name>\n"
+            "  localbench submit run --run <run-or-campaign> --suite-dir <suite-dir>\n"
+            "Submission guide: https://local-bench.ai/submit"
+        ),
+    )
+    parser.add_argument("--version", action="store_true", help="print the localbench package version")
     subparsers = parser.add_subparsers(dest="command", required=True)
     run_parser = subparsers.add_parser("run", help="run a local benchmark suite")
     run_parser.add_argument("--endpoint", help="OpenAI-compatible base URL")
@@ -376,6 +410,16 @@ def _parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("bundle", type=Path)
     verify_parser.add_argument("--suite-dir", required=True, type=Path)
     verify_parser.add_argument("--out", required=True, type=Path)
+    submit_run_parser = submit_subparsers.add_parser("run", help="pack and submit a finished run")
+    submit_run_source = submit_run_parser.add_mutually_exclusive_group(required=True)
+    submit_run_source.add_argument("--run", type=Path)
+    submit_run_source.add_argument("--bundle", type=Path)
+    submit_run_parser.add_argument("--site")
+    submit_run_parser.add_argument("--suite-dir", type=Path)
+    submit_run_parser.add_argument("--signing-key", type=Path)
+    submit_run_parser.add_argument("--display-name")
+    submit_run_parser.add_argument("--dry-run", action="store_true")
+    _add_bypass_args(submit_run_parser)
     validate_bundle_parser = subparsers.add_parser(
         "validate-submission-bundle",
         help="validate a result bundle against the publishable submission contract",
@@ -401,6 +445,7 @@ def _parser() -> argparse.ArgumentParser:
     verify_submission_parser.add_argument("--out", type=Path)
     verify_submission_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
     verify_submission_parser.add_argument("--validator-commit")
+    verify_submission_parser.add_argument("--origin", choices=("project_anchor", "community"), default="project_anchor")
     doctor_parser = subparsers.add_parser("doctor", help="check localbench local-run readiness")
     doctor_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
     doctor_parser.add_argument("--cache-dir", type=Path)
@@ -497,6 +542,34 @@ def _add_admin_secret_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--admin-secret-file", type=Path)
 
 
+def _package_version() -> str:
+    try:
+        return importlib.metadata.version("localbench")
+    except importlib.metadata.PackageNotFoundError:
+        return _CLI_VERSION_FALLBACK
+
+
+def _publishability_warning_needed(args: argparse.Namespace) -> bool:
+    return not bool(getattr(args, "publishable", False)) or getattr(args, "sampler_seed", None) is None
+
+
+def _print_suite_resolution_error(error: SuiteResolutionError, suite_id: str) -> None:
+    normalized = normalize_suite_id(suite_id)
+    print(f"error      {error}")
+    print(f"known suite ids: {', '.join(KNOWN_SUITE_IDS)}")
+    print(f"fetch-suite --site {DEFAULT_SITE} --suite {normalized} --accept-suite-terms")
+
+
+def _print_doctor_next_steps(args: argparse.Namespace) -> None:
+    suite_id = normalize_suite_id(args.suite)
+    if not (suite_cache_root(args.cache_dir) / suite_id).exists():
+        print(f"next      localbench fetch-suite --site {DEFAULT_SITE} --suite {suite_id} --accept-suite-terms")
+    if not default_signing_key_path().exists():
+        print("next      submit run will create ~/.localbench/submitter_ed25519.pem if needed")
+    if not os.environ.get("LOCALBENCH_ATTESTER_KEY_FILE"):
+        print("next      LOCALBENCH_ATTESTER_KEY_FILE unset; attestations are project-anchor-only")
+
+
 def _run(args: argparse.Namespace) -> int:
     api_key = _api_key(args.api_key_env)
     if args.resume is not None:
@@ -507,6 +580,8 @@ def _run(args: argparse.Namespace) -> int:
     if args.publishable and args.sampler_seed is None:
         print("error      --publishable requires --sampler-seed", file=sys.stderr)
         return 2
+    if _publishability_warning_needed(args):
+        print(f"warning    {_PUBLISHABLE_WARNING}")
     tier = _resolved_run_tier(args.suite, args.tier)
     if args.dry_run:
         return _run_dry(args, tier)
@@ -572,6 +647,9 @@ def _run(args: argparse.Namespace) -> int:
                 runner_build_id=args.runner_build_id,
             ),
         )
+    except SuiteResolutionError as error:
+        _print_suite_resolution_error(error, args.suite)
+        return 2
     except EndpointPreflightError as error:
         print(f"error      {error}")
         return EXIT_PREFLIGHT_FAILED
@@ -743,6 +821,9 @@ def _bench(args: argparse.Namespace) -> int:
             run_orchestrated_bench,
             options,
         )
+    except SuiteResolutionError as error:
+        _print_suite_resolution_error(error, args.suite)
+        return 2
     except NotImplementedError as error:
         print(f"error      {error}", file=sys.stderr)
         return 2
@@ -824,7 +905,7 @@ def _verify_submission_command(args: argparse.Namespace) -> int:
             projection_out=args.projection_out,
             validated_at=args.validated_at,
             validator_commit=args.validator_commit,
-            origin="project_anchor",
+            origin=args.origin,
         )
     except (SubmissionValidationError, OSError, json.JSONDecodeError) as error:
         print(f"error      {error}", file=sys.stderr)
@@ -1236,7 +1317,7 @@ def _fetch_suite(args: argparse.Namespace) -> int:
                 cache_root=args.cache_dir,
             )
     except SuiteResolutionError as error:
-        print(f"error      {error}")
+        _print_suite_resolution_error(error, args.suite)
         return 2
     print(f"suite_id  {ref.suite_id}")
     print(f"hash      {ref.suite_hash}")
@@ -1253,7 +1334,7 @@ def _suite(args: argparse.Namespace) -> int:
                 cache_root=args.cache_dir,
             )
         except SuiteResolutionError as error:
-            print(f"error      {error}")
+            _print_suite_resolution_error(error, args.suite)
             return 2
         _print_suite_ref(ref.path, ref.suite_id, ref.suite_hash, ref.source)
         return 0
@@ -1278,6 +1359,8 @@ def _submit(args: argparse.Namespace) -> int:
         return _submit_admin_decision(args)
     if args.submit_command == "verify-offline":
         return _submit_verify_offline(args)
+    if args.submit_command == "run":
+        return _submit_run(args)
     print("error      unsupported submit command")
     return 2
 
@@ -1380,6 +1463,29 @@ def _submit_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _submit_run(args: argparse.Namespace) -> int:
+    try:
+        result = submit_finished_run(
+            SubmitRunOptions(
+                site=args.site,
+                run=args.run,
+                bundle=args.bundle,
+                suite_dir=args.suite_dir,
+                signing_key=args.signing_key,
+                display_name=args.display_name,
+                bypass_token=_bypass_token(args),
+                bypass_token_file=None,
+                dry_run=args.dry_run,
+            ),
+        )
+    except (SubmitRunError, SubmissionValidationError, OSError, json.JSONDecodeError, ValueError) as error:
+        print(f"error      {error}")
+        return error.exit_code if isinstance(error, SubmitRunError) else 2
+    for line in result.lines:
+        print(line)
+    return result.exit_code
+
+
 def _submit_admin_verify(args: argparse.Namespace) -> int:
     try:
         admin_secret = _required_admin_secret(args)
@@ -1458,8 +1564,9 @@ def _doctor(args: argparse.Namespace) -> int:
         ref = resolve_suite_dir(suite_id=args.suite, cache_root=args.cache_dir)
     except SuiteResolutionError as error:
         print(f"suite     {args.suite} unavailable: {error}")
-        return 0
-    print(f"suite     {ref.suite_id} ok ({ref.source}, {ref.suite_hash})")
+    else:
+        print(f"suite     {ref.suite_id} ok ({ref.source}, {ref.suite_hash})")
+    _print_doctor_next_steps(args)
     return 0
 
 
@@ -1473,7 +1580,7 @@ def _run_dry(args: argparse.Namespace, tier: str) -> int:
             cache_root=args.cache_dir,
         )
     except SuiteResolutionError as error:
-        print(f"error      {error}")
+        _print_suite_resolution_error(error, args.suite)
         return 2
     suite = read_json_object(ref.path / "suite.json")
     warnings: list[str] = []
@@ -1740,6 +1847,7 @@ def _print_summary(record: LocalbenchRun, output_path: Path | None = None) -> No
         )
     totals = record["totals"]
     print(f"composite  {_summary_score(record) * 100:.1f}%")
+    print(_placement_line(record))
     print(
         "tokens     "
         f"prompt={totals['prompt_tokens']} "
@@ -1756,6 +1864,28 @@ def _print_summary(record: LocalbenchRun, output_path: Path | None = None) -> No
         print(f"output     {output_path}")
     for warning in record["warnings"]:
         print(f"warning    {warning}")
+
+
+def _placement_line(record: Mapping[str, JsonValue]) -> str:
+    axis_status = _json_object(record.get("axis_status"))
+    axes = _json_object(axis_status.get("axes"))
+    measured = {
+        axis
+        for axis in _HEADLINE_AXIS_KEYS
+        if _json_object(axes.get(axis)).get("status") == "measured"
+    }
+    if set(_HEADLINE_AXIS_KEYS) <= measured:
+        return "placement  all 5 headline axes measured; this run is eligible for the full composite."
+    if set(_STATIC_AXIS_KEYS) <= measured:
+        return (
+            "placement  4 static headline axes measured; this run is eligible for the static "
+            f"composite ({STATIC_SUITE_INDEX_VERSION}), not the full composite."
+        )
+    return "placement  fewer than 4 static headline axes measured; this run is reported per-axis only."
+
+
+def _json_object(value: JsonValue | None) -> JsonObject:
+    return dict(value) if isinstance(value, dict) else {}
 
 
 def _print_compare(comparison: CompareResult) -> None:

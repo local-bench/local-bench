@@ -19,8 +19,16 @@ from localbench.suite_errors import SuiteResolutionError
 from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
 from localbench.suite_verify import license_manifest, read_json_object, suite_hash, verify_suite_dir
 
-DEFAULT_SUITE_ID: Final = "core-text-v1"
+DEFAULT_SUITE_ID: Final = "suite-v1-text-code-agentic-5axis-v1"
+CORE_TEXT_SUITE_ID: Final = "core-text-v1"
 TINY_SMOKE_SUITE_ID: Final = "tiny-smoke-v1"
+PARTIAL_TEXT_CODE_SUITE_ID: Final = "suite-v1-partial-text-code-4axis-v1"
+KNOWN_SUITE_IDS: Final[tuple[str, ...]] = (
+    DEFAULT_SUITE_ID,
+    PARTIAL_TEXT_CODE_SUITE_ID,
+    CORE_TEXT_SUITE_ID,
+    TINY_SMOKE_SUITE_ID,
+)
 LOCALBENCH_SUITE_DIR_ENV: Final = "LOCALBENCH_SUITE_DIR"
 LOCALBENCH_SUITE_SOURCE_ENV: Final = "LOCALBENCH_SUITE_SOURCE"
 LOCALBENCH_CACHE_DIR_ENV: Final = "LOCALBENCH_CACHE_DIR"
@@ -186,8 +194,10 @@ def suite_cache_root(cache_root: Path | None = None) -> Path:
 def normalize_suite_id(suite_id: str) -> str:
     """Normalize public aliases without accepting ambiguous suite names."""
     match suite_id:
-        case "v1" | "suite-v1" | "core-text-v1":
+        case "v1" | "suite-v1":
             return DEFAULT_SUITE_ID
+        case "core-text-v1":
+            return CORE_TEXT_SUITE_ID
         case "smoke" | "tiny-smoke" | "tiny-smoke-v1":
             return TINY_SMOKE_SUITE_ID
         case _:
@@ -224,7 +234,7 @@ def _cached_suite(suite_id: str, cache_root: Path | None) -> SuiteRef | None:
 
 
 def _package_data_suite(suite_id: str) -> SuiteRef | None:
-    if suite_id not in {DEFAULT_SUITE_ID, TINY_SMOKE_SUITE_ID}:
+    if suite_id not in {CORE_TEXT_SUITE_ID, TINY_SMOKE_SUITE_ID}:
         return None
     package_suite = Path(__file__).resolve().parent / "data" / "suites" / suite_id
     return _verified_ref(suite_id, package_suite, "package-data")

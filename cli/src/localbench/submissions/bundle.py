@@ -19,6 +19,7 @@ from localbench.submissions.canon import (
 from localbench.submissions.contracts import MANIFEST_SCHEMA_VERSION, SUBMISSION_FORMAT
 from localbench.submissions.crypto import manifest_payload_sha, sign_manifest_payload
 from localbench.submissions.validate import SubmissionValidationError
+from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE
 from localbench.suite_verify import suite_hash, verify_suite_dir
 
 
@@ -97,6 +98,7 @@ def _manifest_payload(
             "hash": suite_hash(suite_dir),
             "tier": _string(run_suite.get("tier")) or _string(run.get("tier")) or "standard",
             "item_set_hashes": _object(run_suite.get("item_set_hashes")),
+            **_suite_release_pair(run_suite, suite_dir),
         },
         "scorecard": {
             "version": _string(scorecard.get("scorecard_version")) or "",
@@ -234,6 +236,36 @@ def _item_id(item: JsonObject) -> str:
         if isinstance(value, str | int):
             return str(value)
     return "unknown"
+
+
+def _suite_release_pair(run_suite: JsonObject, suite_dir: Path) -> JsonObject:
+    """Suite release identity for the manifest; keys are omitted when unknown.
+
+    Organic run records do not carry the release pair, so fall back to the
+    suite dir's release manifest (present in every site-released suite)."""
+    release_id = _string(run_suite.get("suite_release_id"))
+    manifest_sha = _string(run_suite.get("suite_manifest_sha256"))
+    if release_id is None or manifest_sha is None:
+        released = _suite_release_manifest_pair(suite_dir)
+        release_id = release_id or released[0]
+        manifest_sha = manifest_sha or released[1]
+    pair: JsonObject = {}
+    if release_id is not None:
+        pair["suite_release_id"] = release_id
+    if manifest_sha is not None:
+        pair["suite_manifest_sha256"] = manifest_sha
+    return pair
+
+
+def _suite_release_manifest_pair(suite_dir: Path) -> tuple[str | None, str | None]:
+    path = suite_dir / SUITE_RELEASE_MANIFEST_FILE
+    if not path.is_file():
+        return None, None
+    try:
+        release = read_json_object(path)
+    except (OSError, ValueError):
+        return None, None
+    return _string(release.get("suite_release_id")), _string(release.get("suite_manifest_sha256"))
 
 
 def _object(value: JsonValue | None) -> JsonObject:

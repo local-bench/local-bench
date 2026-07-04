@@ -34,6 +34,7 @@ from serving_helpers import flag_value, minimal_gguf, serving_evidence
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
+SUITE_V1 = Path(__file__).resolve().parents[2] / "suite" / "v1"
 SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
 SITE_MANIFEST_SHA256 = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
 BANNED_RESULT_BUNDLE_FIELDS = {
@@ -198,6 +199,7 @@ def test_orchestrated_llama_cpp_final_writer_emits_compliant_publishable_bundle(
         )
 
         monkeypatch.setattr(serving_runner, "allocate_port", lambda: 49152)
+        monkeypatch.setattr(serving_runner, "_needs_wsl_agentic", lambda _options: False)
         monkeypatch.setattr(serving_runner, "collect_build_identity", lambda _binary: _build_identity())
         monkeypatch.setattr(serving_runner, "validate_strict_argv_supported", lambda _argv, _help: None)
         monkeypatch.setattr(serving_runner, "launch_llama_cpp", lambda _argv, *, cwd, log_path: _FakeLaunch())
@@ -816,6 +818,7 @@ def test_orchestrated_agentic_preflight_runs_before_server_launch(
             bench="appworld_c",
             lane="capped-thinking",
             seed=1234,
+            suite_dir=SUITE_V1,
             out=tmp_path / "run",
             max_items=1,
         )

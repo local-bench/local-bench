@@ -1268,7 +1268,10 @@ def _run_agentic_axis(
         subset=subset,
         model_factory=resolved_model_factory,
         sandbox_factory=resolved_sandbox_factory,
-        config=LoopConfig(max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN),
+        config=LoopConfig(
+            max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN,
+            attestation_run_id=_attestation_run_id(results_dir),
+        ),
         base_count=2,
         results_dir=results_dir,
         endpoint=config.endpoint,
@@ -1314,6 +1317,13 @@ def _agentic_preflight_unavailable_detail() -> str | None:
     if not failures:
         return None
     return "appworld sandbox unavailable: " + "; ".join(failures)
+
+
+def _attestation_run_id(results_dir: Path | None) -> str:
+    if results_dir is None:
+        return "appworld_c"
+    name = results_dir.name
+    return name or "appworld_c"
 
 
 def _appworld_report_to_aggregate(report: BenchmarkReport) -> BenchAggregate:

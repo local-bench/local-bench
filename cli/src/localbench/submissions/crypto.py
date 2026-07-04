@@ -34,6 +34,11 @@ def sign_manifest_payload(payload: JsonObject, signing_key_path: Path) -> JsonOb
     }
 
 
+def sign_bytes(payload: bytes, signing_key_path: Path) -> str:
+    key = load_private_key(signing_key_path)
+    return _sign(payload, key.seed, key.public_key).hex()
+
+
 def verify_manifest_signature(manifest: JsonObject) -> bool:
     payload = manifest.get("payload")
     signature = manifest.get("signature")

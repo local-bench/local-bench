@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from localbench.cli import main
-from localbench.suite_resolver import DEFAULT_SUITE_ID, SuiteRef
+from localbench.suite_resolver import CORE_TEXT_SUITE_ID, DEFAULT_SUITE_ID, SuiteRef
 
 
 def test_fetch_suite_command_requires_accept_suite_terms(
@@ -35,18 +35,18 @@ def test_fetch_suite_command_accepts_remote_manifest_url(
     # Given: a remote manifest URL and a fake verified remote cache result.
     import localbench.cli as cli_mod
 
-    cached = tmp_path / "cache" / "suites" / DEFAULT_SUITE_ID / ("a" * 64)
+    cached = tmp_path / "cache" / "suites" / CORE_TEXT_SUITE_ID / ("a" * 64)
 
     def fake_fetch(config: cli_mod.RemoteSuiteFetch) -> SuiteRef:
         assert config.accept_suite_terms is True
         assert config.manifest_url == "https://local-bench.ai/api/suites/core-text-v1/manifest"
         assert config.cache_root == tmp_path / "cache"
         return SuiteRef(
-            suite_id=DEFAULT_SUITE_ID,
+            suite_id=CORE_TEXT_SUITE_ID,
             path=cached,
             suite_hash="a" * 64,
             source="remote-manifest",
-            version=DEFAULT_SUITE_ID,
+            version=CORE_TEXT_SUITE_ID,
             license_manifest={},
         )
 
@@ -122,6 +122,8 @@ def test_fetch_suite_and_suite_inspect_commands_use_local_source(
     fetch_code = main(
         [
             "fetch-suite",
+            "--suite",
+            CORE_TEXT_SUITE_ID,
             "--accept-suite-terms",
             "--source",
             str(source),
@@ -130,7 +132,7 @@ def test_fetch_suite_and_suite_inspect_commands_use_local_source(
         ],
     )
     fetch_out = capsys.readouterr().out
-    inspect_code = main(["suite", "inspect", "--cache-dir", str(cache_dir)])
+    inspect_code = main(["suite", "inspect", "--suite", CORE_TEXT_SUITE_ID, "--cache-dir", str(cache_dir)])
     inspect_out = capsys.readouterr().out
 
     # Then: both commands expose the verified suite identity.
@@ -153,13 +155,15 @@ def test_packaged_suite_fetch_and_suite_inspect_include_public_scored_axes(
     fetch_code = main(
         [
             "fetch-suite",
+            "--suite",
+            CORE_TEXT_SUITE_ID,
             "--accept-suite-terms",
             "--cache-dir",
             str(cache_dir),
         ],
     )
     fetch_out = capsys.readouterr().out
-    inspect_code = main(["suite", "inspect", "--cache-dir", str(cache_dir)])
+    inspect_code = main(["suite", "inspect", "--suite", CORE_TEXT_SUITE_ID, "--cache-dir", str(cache_dir)])
     inspect_out = capsys.readouterr().out
 
     # Then: the packaged distribution verifies and exposes the three packaged benches.
@@ -179,7 +183,8 @@ def test_doctor_command_reports_cache_and_suite_status(tmp_path: Path, capsys) -
     assert code == 0
     assert "cache     " in output
     assert "python    " in output
-    assert "core-text-v1" in output
+    assert DEFAULT_SUITE_ID in output
+    assert "fetch-suite --site https://local-bench.ai" in output
 
 
 def test_tc_json_help_uses_tool_calling_label(capsys) -> None:

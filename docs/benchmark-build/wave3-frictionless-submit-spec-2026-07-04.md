@@ -133,3 +133,70 @@ One command from a finished run to a submitted bundle.
 ## AS-BUILT (implementer appends)
 Files touched, deviations + reasons, `uv run pytest` summary line, and
 `git hash-object cli/runs/board/board_v1.json` output.
+
+### 2026-07-04 Codex AS-BUILT
+
+Files touched:
+- `cli/src/localbench/cli.py`
+- `cli/src/localbench/orchestrate.py`
+- `cli/src/localbench/suite_bundle.py`
+- `cli/src/localbench/suite_resolver.py`
+- `cli/src/localbench/submissions/bundle.py`
+- `cli/src/localbench/submissions/client.py`
+- `cli/src/localbench/submissions/crypto.py`
+- `cli/src/localbench/submissions/submit_run.py`
+- `cli/src/localbench/submissions/submit_run_inputs.py`
+- `cli/src/localbench/submissions/submit_run_output.py`
+- `cli/tests/submissions/test_submit_run_cli.py`
+- `cli/tests/submissions/test_submit_run_errors.py`
+- `cli/tests/test_distribution_cli.py`
+- `cli/tests/test_serving_bench.py`
+- `cli/tests/test_wave3_attestation_run_id.py`
+- `cli/tests/test_wave3_cli_ux.py`
+- `docs/REPRODUCE.md`
+- `docs/benchmark-build/wave3-frictionless-submit-spec-2026-07-04.md`
+
+Deviations + reasons:
+- No implementation deviations inside the allowed `cli/` and `docs/` scope.
+- Root `README.md` quickstart was not changed because section 0 restricted writes to
+  `cli/` and `docs/`. The Wave-3 quickstart is present in root CLI `--help` and
+  `docs/REPRODUCE.md`.
+
+Verification:
+- `uv run pytest`: `1111 passed, 17 skipped, 1 xfailed, 19 warnings in 123.52s (0:02:03)`
+- `git hash-object cli/runs/board/board_v1.json`: `3d058e6074bd781cc488c03255904b5f9599e37e`
+
+### 2026-07-04 Manager review addendum (Claude)
+
+Independent verification: full `uv run pytest` re-run matched the AS-BUILT summary
+(1111 passed / 17 skipped / 1 xfailed) before the fix below; line review confirmed the
+PoP message is byte-identical to the server's reconstruction in
+`web/functions/_lib/submission-pop.ts` (`localbench.ticket_pop.v1\n<bundle_sha256>\n
+<release_id>\n<manifest_sha>\n<timestamp>`, ±10-min window), `accepted_suite_terms`
+rides in the pre-existing base ticket body, key autogen never overwrites, 410 re-mints
+exactly once, 429 exits 3, and the default-suite flip cleanly splits
+`CORE_TEXT_SUITE_ID` out of `DEFAULT_SUITE_ID` without touching released suite data.
+
+One launch-gating defect found and fixed by the manager (not a Codex spec deviation —
+the spec under-specified it):
+
+- **Organic run records do not carry `suite_release_id`/`suite_manifest_sha256`.**
+  No writer exists in `cli/src` for those fields; they appear only in runs that passed
+  through `normalize_result_bundle` (fixtures, and the ranked row during its submission
+  leg). As built, `_manifest_payload` read them from the run record, so
+  `submit run --run <organic run>` failed with "bundle manifest missing
+  suite_release_id" before any network call, and for such runs the pack wrote
+  `"suite_release_id": null` into the signed manifest.
+- **Fix (bundle.py):** `_suite_release_pair` — run-record values win when present;
+  otherwise the pair is read from `<suite-dir>/suite_release_manifest.json` (present in
+  every site-released/fetched suite dir and excluded from suite hashing); keys are
+  OMITTED when unknown, never null. Two regression tests added in
+  `test_bundle_pack.py` (derived-from-suite-dir, omitted-for-local-suites).
+- **Live proof:** ranked-run copy with the pair stripped + the real released 5-axis
+  suite dir → `submit run --dry-run` packed and derived
+  `suite-v1-text-code-agentic-5axis-v1` / `5a47282a…c420f9` (the server-registered
+  pair) with no network calls; the same invocation exercised first-use key autogen
+  (public key + backup line printed, no secret material echoed).
+
+Noted, not blocking: `submit_run.py` duplicates suite-pair extraction that also lives
+in the pre-existing `submit_run_inputs.py`; fold together in a later hygiene pass.

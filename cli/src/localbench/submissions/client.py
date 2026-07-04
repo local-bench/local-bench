@@ -29,6 +29,7 @@ class SubmissionEnvelope(TypedDict):
     submitter_id: str
     ticket_id: str
     declared_model_slug: NotRequired[str]
+    submitter_display_name: NotRequired[str]
 
 
 class UploadTarget(TypedDict):
@@ -48,12 +49,23 @@ class SiteCredentials:
 
 
 @dataclass(frozen=True, slots=True)
+class TicketProofOfPossession:
+    timestamp: str
+    signature: str
+    message: str
+
+
+@dataclass(frozen=True, slots=True)
 class SubmissionTicketRequest:
     credentials: SiteCredentials
     raw_bundle_sha256: str
     public_key: str | None = None
     submitter_id: str | None = None
     declared_model_slug: str | None = None
+    expected_suite_release_id: str | None = None
+    expected_suite_manifest_sha256: str | None = None
+    pop: TicketProofOfPossession | None = None
+    submitter_display_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +238,17 @@ def _ticket_request_body(request: SubmissionTicketRequest) -> JsonObject:
         payload["submitter_id"] = request.submitter_id
     if request.declared_model_slug is not None:
         payload["declared_model_slug"] = request.declared_model_slug
+    if request.expected_suite_release_id is not None:
+        payload["expected_suite_release_id"] = request.expected_suite_release_id
+    if request.expected_suite_manifest_sha256 is not None:
+        payload["expected_suite_manifest_sha256"] = request.expected_suite_manifest_sha256
+    if request.pop is not None:
+        payload["pop"] = {
+            "timestamp": request.pop.timestamp,
+            "signature": request.pop.signature,
+        }
+    if request.submitter_display_name is not None:
+        payload["submitter_display_name"] = request.submitter_display_name
     return payload
 
 
@@ -253,6 +276,9 @@ def _envelope(value: JsonValue) -> SubmissionEnvelope:
     declared_model_slug = _nullable_text(data.get("declared_model_slug"))
     if declared_model_slug is not None:
         envelope["declared_model_slug"] = declared_model_slug
+    submitter_display_name = _nullable_text(data.get("submitter_display_name"))
+    if submitter_display_name is not None:
+        envelope["submitter_display_name"] = submitter_display_name
     return envelope
 
 

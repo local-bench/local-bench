@@ -9,7 +9,7 @@ from typing import Final
 
 from localbench._types import JsonObject
 from localbench.scoring.scorecard import scorecard_identity
-from localbench.suite_resolver import DEFAULT_SUITE_ID, suite_hash
+from localbench.suite_resolver import CORE_TEXT_SUITE_ID, suite_hash
 
 PUBLIC_BENCHES: Final[tuple[str, ...]] = ("mmlu_pro", "ifbench", "tc_json_v1")
 
@@ -59,8 +59,8 @@ def _public_suite(source_suite: Path, source_manifest: JsonObject) -> JsonObject
             raise ValueError(f"source suite missing bench: {bench_name}")
         public_benches[bench_name] = _public_bench(source_suite, bench)
     return {
-        "id": DEFAULT_SUITE_ID,
-        "version": DEFAULT_SUITE_ID,
+        "id": CORE_TEXT_SUITE_ID,
+        "version": CORE_TEXT_SUITE_ID,
         "base_suite_version": source_manifest.get("version"),
         "headline_only": False,
         "description": "Minimal public bundle: MMLU-Pro 400, IFBench 294, and TC-JSON v1 330. The full repo suite/v1 carries the broader v2.1 modular benchmark set.",

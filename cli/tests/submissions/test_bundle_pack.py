@@ -77,3 +77,65 @@ async def test_pack_records_manifest_counts_and_file_hashes(tmp_path: Path) -> N
     assert files["items.jsonl"]["sha256"] == hashlib.sha256(
         zipfile.ZipFile(out, "r").read("items.jsonl"),
     ).hexdigest()
+
+
+@pytest.mark.anyio
+async def test_pack_derives_suite_release_pair_from_suite_dir(tmp_path: Path) -> None:
+    # Given: an organic run record (no release pair) over a site-released suite dir.
+    fixtures = await build_submission_fixtures(tmp_path)
+    run = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    run["manifest"]["suite"].pop("suite_release_id", None)
+    run["manifest"]["suite"].pop("suite_manifest_sha256", None)
+    fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
+    release = {"suite_release_id": "suite-v1-fixture-release", "suite_manifest_sha256": "a" * 64}
+    (fixtures.suite_dir / "suite_release_manifest.json").write_text(json.dumps(release), encoding="utf-8")
+    out = tmp_path / "released.lbsub.zip"
+
+    # When: packing the run.
+    pack_submission_bundle(
+        run_path=fixtures.run_path,
+        suite_dir=fixtures.suite_dir,
+        model_name="fixture-model",
+        signing_key_path=fixtures.key_path,
+        out_path=out,
+        offline=True,
+        created_at="2026-06-24T00:00:00Z",
+        run_nonce="fixed-nonce",
+    )
+
+    # Then: the manifest carries the release pair read from the suite dir.
+    with zipfile.ZipFile(out, "r") as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    suite = manifest["payload"]["suite"]
+    assert suite["suite_release_id"] == "suite-v1-fixture-release"
+    assert suite["suite_manifest_sha256"] == "a" * 64
+
+
+@pytest.mark.anyio
+async def test_pack_omits_release_pair_for_local_suites(tmp_path: Path) -> None:
+    # Given: an organic run record over a local suite dir with no release manifest.
+    fixtures = await build_submission_fixtures(tmp_path)
+    run = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    run["manifest"]["suite"].pop("suite_release_id", None)
+    run["manifest"]["suite"].pop("suite_manifest_sha256", None)
+    fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
+    out = tmp_path / "local.lbsub.zip"
+
+    # When: packing the run.
+    pack_submission_bundle(
+        run_path=fixtures.run_path,
+        suite_dir=fixtures.suite_dir,
+        model_name="fixture-model",
+        signing_key_path=fixtures.key_path,
+        out_path=out,
+        offline=True,
+        created_at="2026-06-24T00:00:00Z",
+        run_nonce="fixed-nonce",
+    )
+
+    # Then: the keys are absent, never null, in the signed manifest.
+    with zipfile.ZipFile(out, "r") as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    suite = manifest["payload"]["suite"]
+    assert "suite_release_id" not in suite
+    assert "suite_manifest_sha256" not in suite
