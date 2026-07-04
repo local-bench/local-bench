@@ -31,7 +31,7 @@
     },
     "scorecard_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
     "scorecard_version": "scorecard-v2.1",
-    "scorer_git_commit": "2d572d94e1519af3745f6e55fc86dac6690f8357",
+    "scorer_git_commit": "f1c913699b8f5a5de21dd3908dd14511a09a1b35",
     "scorer_versions": {
       "amo": "1",
       "appworld_c": "1",
@@ -201,7 +201,6 @@
               "no_final_answer": 0,
               "success": 6
             },
-            "results_path": "C:\\Users\\Michael\\local-bench\\runs\\bench\\ranked-5axis-capped-2026-07-03\\agentic\\localbench-run\\gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json",
             "run_index": 1,
             "runtime_error_rate": 0.055226824457593686,
             "stage": "scored",
@@ -236,7 +235,6 @@
               "no_final_answer": 0,
               "success": 5
             },
-            "results_path": "C:\\Users\\Michael\\local-bench\\runs\\bench\\ranked-5axis-capped-2026-07-03\\agentic\\localbench-run\\gemma-4-12b-it-qat-ud-q4-k-xl.scored.run2.json",
             "run_index": 2,
             "runtime_error_rate": 0.05796370967741935,
             "stage": "scored",

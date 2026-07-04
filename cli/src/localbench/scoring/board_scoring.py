@@ -201,7 +201,7 @@ def _scored_run(
         # Surface the inline campaign provenance (asr_series / mean_asr / drift / subset_hash) so the
         # board can show how the agentic axis was measured. Absent for sidecar/pre-inline runs, so
         # this key is omitted there (parity-preserving for the frozen board_v1).
-        scored["agentic_run"] = agentic_run
+        scored["agentic_run"] = _without_local_paths(agentic_run)
     conformance_gate = _tc_json_gate(path, runs_dir, slug)
     if conformance_gate is not None:
         scored["conformance_gates"] = {GATE_ID: conformance_gate}
@@ -317,6 +317,20 @@ def _agentic_summary_is_harness_dominated(summary: JsonObject) -> bool:
         if isinstance((value := outcome_counts.get(key)), int) and not isinstance(value, bool)
     )
     return harness_terminal >= tasks_total_raw
+
+
+def _without_local_paths(value: JsonObject) -> JsonObject:
+    """Deep-copy with machine-local path fields dropped (board artifacts publish)."""
+
+    def strip(node: JsonValue) -> JsonValue:
+        if isinstance(node, dict):
+            return {key: strip(item) for key, item in node.items() if key != "results_path"}
+        if isinstance(node, list):
+            return [strip(item) for item in node]
+        return node
+
+    stripped = strip(dict(value))
+    return stripped if isinstance(stripped, dict) else {}
 
 
 def _tc_json_gate(path: Path, runs_dir: Path, slug: str) -> JsonObject | None:
