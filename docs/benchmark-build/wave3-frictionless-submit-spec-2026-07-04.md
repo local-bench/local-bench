@@ -200,3 +200,13 @@ the spec under-specified it):
 
 Noted, not blocking: `submit_run.py` duplicates suite-pair extraction that also lives
 in the pre-existing `submit_run_inputs.py`; fold together in a later hygiene pass.
+
+### 2026-07-04 AS-BUILT correction (manager)
+
+Codex continued refactoring after appending the AS-BUILT above: the final tree
+splits the submit-run implementation across `submit_run.py` (network flow +
+PoP + error mapping), `submit_run_inputs.py` (config/key/bundle preparation,
+`SubmitInputError`), and `submit_run_output.py` (line rendering) — the
+files-touched list above is short those two modules. Logic is unchanged from
+the reviewed mid-flight version; final full suite (with the manager fix's two
+regression tests) = 1113 passed. Committed complete as 043effa.
