@@ -284,11 +284,11 @@ function Test-ManifestPublic {
   $manifestOk = (
     $payload.suite_id -eq $SuiteId -and
     $payload.suite_hash -eq $SuiteHash -and
-    $fileCount -eq 11
+    $fileCount -eq 15
   )
 
   if ($manifestOk) {
-    Add-CheckResult "PASS" $Name "manifest matches suite_id=$SuiteId, files=11, suite_hash=$SuiteHash"
+    Add-CheckResult "PASS" $Name "manifest matches suite_id=$SuiteId, files=15, suite_hash=$SuiteHash"
     return $true
   }
 
@@ -550,13 +550,13 @@ function Write-LiveStateJson {
     suite = [pscustomobject]@{
       suite_id = $SuiteId
       suite_hash = $SuiteHash
-      expected_file_count = 11
+      expected_file_count = 15
     }
     production_deployment = [pscustomobject]@{
-      id = "unverified (wrangler unauthenticated)"
-      commit = "40423f4"
+      id = "f0d7b5a2-e5ad-48d8-8910-0fd86f40379a"
+      commit = "a0e4d20"
       branch = "main"
-      as_of = "2026-07-03"
+      as_of = "2026-07-04"
     }
     submission_admin_probe = $SubmissionProbeNote
     deployment_aliases_checked = $script:DeploymentAliasIds

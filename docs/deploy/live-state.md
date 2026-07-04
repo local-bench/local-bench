@@ -1,9 +1,9 @@
 # Live deployment state
 
-Generated: 2026-07-03
+Generated: 2026-07-04
 Expected mode: Private
 Expires for decision-making: 24h
-Source: scripts/launch-smoke.ps1 -ExpectedMode Private -WriteState (plus out-of-band submission-leg verification + authenticated wrangler deployment/D1 sweep, 2026-07-03)
+Source: scripts/launch-smoke.ps1 -ExpectedMode Private -WriteState (plus authenticated wrangler deployment/D1 sweep after the contract-v2 deploy, 2026-07-04)
 
 This file is the canonical live-facts document for launch-prep decisions. Handoffs and runbooks should link here instead of duplicating endpoint expectations.
 
@@ -27,13 +27,13 @@ All four private signatures plus both alias-domain checks PASSED on 2026-07-03 a
 - Pages host: `local-bench.pages.dev`
 - Suite id (manifest smoke): `core-text-v1`
 - Suite hash: `6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179`
-- Expected suite file count: `11`
-- Site-released submission suite: `suite-v1-partial-text-code-4axis-v1` (manifest sha `b3fc4019...`) — the only suite the ticket route binds.
+- Expected suite file count: `15` (contract v2 added the 4 LICENSES entries that were missing from the catalog file list; suite dir hash unchanged — this was the `fetch-suite --site` fix)
+- Site-released submission suites (contract v2): registered pairs `suite-v1-text-code-agentic-5axis-v1` (manifest sha `5a47282a...`, the ticket default) and `suite-v1-partial-text-code-4axis-v1` (manifest sha `b3fc4019...`). Community tickets must name a registered pair explicitly.
 
 ## Deployment facts
 
-- Commit: `40423f4` (branch `main` on the deploy remote, pushed 2026-07-03). Current production deployment id `6f96b0d5-1144-42b6-943b-259c6400202a` (source `40423f4`).
-- Deployment id: VERIFIED 2026-07-03. `npx wrangler login` completed (account `michael.russell@clarityconsultive.com`, id `4af6606afb8636c5243c521f9bb26c70`). All 8 current production Pages deployments were enumerated and each alias URL returns HTTP 503 — no leak on any live deployment, not just the historical ids.
+- Commit: `a0e4d20` (submission contract v2; branch `main` on the deploy remote, pushed 2026-07-04). Current production deployment id `f0d7b5a2-e5ad-48d8-8910-0fd86f40379a` (source `a0e4d20`).
+- Deployment id: VERIFIED 2026-07-04 via authenticated wrangler (account `michael.russell@clarityconsultive.com`, id `4af6606afb8636c5243c521f9bb26c70`). All enumerated production Pages deployment aliases return HTTP 503 or 404 — no leak on any live deployment.
 - Health payload now reports `storage.queue: false` BY DESIGN: the dead `VERIFICATION_QUEUE` producer binding was removed (Pages cannot consume queues). d1 and r2 must be `true`.
 
 ## Leak-closure note
@@ -49,7 +49,7 @@ Both prior blockers are CLEARED as of 2026-07-03:
 1. RESOLVED — `POST /api/submissions/{ticket}/complete`: the CLI writer-compliance fix landed on `main` (commit `e1876eb`) and was proven end-to-end. A full orchestrated submission (canary bundle sha `e8b34c05`) went ticket → R2 PUT → `/complete` → admin-verify → admin-decision `hidden`, all accepted; the 400 no longer reproduces. The banned `result_bundle_v1` top-level fields are stripped, and the embedded `manifest.integrity.publishable` now matches the validator (the W3 normalize-after-apply ordering fix). The site contract was correct and unchanged throughout.
 2. RESOLVED — `npx wrangler login` completed; deployment enumeration and remote D1 `0003` apply are done (see below). Log tailing (`wrangler tail`) is now available.
 
-Remote D1 state (2026-07-03): migration `0003_submission_reconcile.sql` applied to `localbench_prod` after confirming the live `submissions`/`board_entries` DDL already matched the target and the three dropped tables (`verification_jobs`, `admin_decisions`, `suites`) were empty. `wrangler d1 migrations list --remote` now reports no pending migrations. The one real accepted submission (`ticket_4cfd0aa2…`, status `accepted`, publish `hidden`) is intact.
+Remote D1 state (2026-07-04): migration `0004_submission_contract_v2.sql` applied to `localbench_prod` (data-preserving submissions rebuild: server-derived `origin` column with CHECK, `expires_at`, `run_payload_sha256`, `duplicate_of`, unique indexes, `rate_counters` table). Pre-migration backup taken to `C:\Users\Michael\.localbench\backups\d1-localbench_prod-2026-07-04-pre0004.sql` and verified to contain both accepted rows. Post-migration query confirmed all 5 rows intact with `origin=project_anchor`; both accepted submissions (`ticket_790a73b6…` ranked row, `ticket_4cfd0aa2…` canary) remain `accepted` + publish `hidden`. Earlier state (2026-07-03): migration `0003_submission_reconcile.sql` applied.
 
 The legacy finalize Bug 2 (opaque 500) is retired: the deployed structured error handling returns precise coded errors.
 
