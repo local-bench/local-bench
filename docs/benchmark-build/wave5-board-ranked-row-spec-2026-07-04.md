@@ -201,3 +201,19 @@ Hashes and scope:
   `3d03bc892d4f4596dc6f32a0fc1847e4b3814df7ae447e9298661cb4d3c0484c`.
 - Final scope check: `git status --short` showed only `web/` changes plus this
   spec file after this AS-BUILT append; no tracked `cli/` files were modified.
+
+### 2026-07-04 Manager addendum — axis/composite single-sourcing + freeze re-pin
+
+Post-review, `test_site_parity` (cli-side, not in W5.4's npm-only verification
+— spec gap) exposed that board_v2's proof row was internally inconsistent:
+axes.agentic 5.7292 (11/192, the run's claimed bench aggregate) vs composite
+40.261 built from per-item evidence (10/192 — matching the server-accepted
+rescore of record; one live-counted verdict is unsupported by the carried
+per-task records). Fix in `board_scoring._axes_and_samples`: the axis point and
+raw_accuracy now derive from the same per-item samples as the CI and the
+composites, never from claimed aggregates (no-op for all pre-existing rows —
+their aggregates match their items). Board + web data regenerated:
+board_v2 sha256 now `eabdb69d828f6c6d2339beb8ea666b59d5004ceecce953df9522cb822b195280`
+(LAUNCH_FREEZE re-pinned); displayed agentic 5.2083 reconstructs the composite
+exactly. Also fixed: `test_web_build_data` monkeypatch target renamed to
+`_board_models_by_slug`.

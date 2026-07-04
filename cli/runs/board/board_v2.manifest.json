@@ -1,5 +1,5 @@
 {
-  "board_sha256": "3d03bc892d4f4596dc6f32a0fc1847e4b3814df7ae447e9298661cb4d3c0484c",
+  "board_sha256": "eabdb69d828f6c6d2339beb8ea666b59d5004ceecce953df9522cb822b195280",
   "ci_method": "stratified-nonparametric-bootstrap-percentile",
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
   "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
@@ -26,7 +26,7 @@
   },
   "scorecard_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
   "scorecard_version": "scorecard-v2.1",
-  "scorer_git_commit": "7aa45ec28359581c59ede13944f39482197b721e",
+  "scorer_git_commit": "2d572d94e1519af3745f6e55fc86dac6690f8357",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",

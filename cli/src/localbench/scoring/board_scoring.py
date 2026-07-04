@@ -346,9 +346,18 @@ def _axes_and_samples(
         axis_values, axis_strata, no_answer = _axis_samples(source_names, item_groups, samples)
         aggregates = [object_value(benches.get(bench), f"benches.{bench}") for bench in source_names]
         axis_ci = bootstrap.stratified_mean_ci(axis_values, axis_strata, seed=DEFAULT_BOOTSTRAP_SEED, iters=bootstrap_iters)
-        axis_score = score_interval(_weighted(aggregates, source_names, "chance_corrected"), axis_ci["lo"], axis_ci["hi"])
+        # Point AND raw derive from the same per-item evidence as the CI and the
+        # composites — never from the run's claimed bench aggregates, which can
+        # disagree with the item records (first seen: an agentic verdict counted
+        # live but unsupported by the carried per-task records).
+        axis_score = score_interval(axis_ci["point"], axis_ci["lo"], axis_ci["hi"])
+        raw_values = [
+            1.0 if value else 0.0
+            for bench in source_names
+            for value in samples[bench]["correct"]
+        ]
         axis_score |= {
-            "raw_accuracy": _weighted(aggregates, source_names, "raw_accuracy"),
+            "raw_accuracy": (sum(raw_values) / len(raw_values)) if raw_values else 0.0,
             "n": sum(int_value(aggregate.get("n"), "bench.n") for aggregate in aggregates),
             "n_errors": sum(int_value(aggregate.get("n_errors"), "bench.n_errors") for aggregate in aggregates),
             "n_no_answer": sum(int_value(aggregate.get("n_extraction_failures"), "bench.n_extraction_failures") for aggregate in aggregates) + no_answer,

@@ -50,8 +50,8 @@
           "n": 400,
           "n_errors": 0,
           "n_no_answer": 2,
-          "point": 83.44217456767906,
-          "point_raw": 0.8344217456767906,
+          "point": 83.44217456767905,
+          "point_raw": 0.8344217456767905,
           "raw_accuracy": 0.8525,
           "termination_rate": 0.995
         }
@@ -279,8 +279,8 @@
           "n": 400,
           "n_errors": 0,
           "n_no_answer": 1,
-          "point": 82.03896902256712,
-          "point_raw": 0.8203896902256712,
+          "point": 82.0389690225671,
+          "point_raw": 0.820389690225671,
           "raw_accuracy": 0.84,
           "termination_rate": 0.995
         }

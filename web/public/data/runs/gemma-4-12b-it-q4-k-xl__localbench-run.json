@@ -10,8 +10,8 @@
       "n": 96,
       "n_errors": 0,
       "n_no_answer": 0,
-      "point": 5.729166666666666,
-      "point_raw": 0.057291666666666664,
+      "point": 5.208333333333334,
+      "point_raw": 0.052083333333333336,
       "raw_accuracy": 0.057291666666666664,
       "termination_rate": 1.0
     },
@@ -296,7 +296,7 @@
   "trust_label": "project_anchor",
   "worst_axis": {
     "bench": "agentic",
-    "point": 5.729166666666666,
-    "point_raw": 0.057291666666666664
+    "point": 5.208333333333334,
+    "point_raw": 0.052083333333333336
   }
 }

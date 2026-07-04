@@ -265,7 +265,7 @@ def test_build_data_carries_board_conformance_gate_to_index_and_model_rows(
     interval = {"hi": 90.0, "hi_raw": 0.9, "lo": 70.0, "lo_raw": 0.7, "point": 80.0, "point_raw": 0.8}
     monkeypatch.setattr(
         builder,
-        "_board_ranked_by_slug",
+        "_board_models_by_slug",
         lambda: {
             "synthetic-model": {
                 "ranked": True,
