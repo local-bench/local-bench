@@ -99,9 +99,26 @@ On mint for `bundle_sha256` with existing row:
 
 ## 5. Community dynamic-item rejection (T1 — the launch blocker)
 
-At `complete` (after schema parse, before markPendingVerification): when
-row.origin == 'community', every `item.bench` in the bundle MUST be in the ticket
-release's `static_benches` → else
+> **SUPERSEDED — OWNER DECISION 2026-07-04 (Michael, verbatim intent).** "Let people
+> ship the whole lot. We can figure out a bench verification after. The agentic item
+> holds the most weight — it seems silly for us not to get people to do it. I do not
+> have the time or resources to bench them all myself."
+>
+> The rejection below was implemented in Wave 1 and REMOVED the same night (commit
+> following 268813e): community bundles MAY now include dynamic (agentic) benches.
+> T1 (fabricated agentic verdicts) is re-mitigated by layered controls instead of
+> exclusion: (1) rows never auto-publish — manual admin acceptance is the fraud
+> backstop; (2) the 4 static axes of every community bundle are still independently
+> re-scored, so a fabricated-agentic row must also survive plausibility review against
+> its verified static scores; (3) the Wave-2 rescorer labels carried agentic verdicts
+> `self_reported` for community rows vs `project_attested` for attested anchor rows,
+> and the board shows the label; (4) verification of community agentic runs (spot
+> replication / attested replication) is roadmap, deliberately deferred by the owner.
+> `static_benches` stays in the suite catalog as metadata for the rescorer/labeling.
+
+Original Wave-1 rule (no longer in force): at `complete` (after schema parse, before
+markPendingVerification): when row.origin == 'community', every `item.bench` in the
+bundle MUST be in the ticket release's `static_benches` → else
 `422 { code: "dynamic_items_not_accepted", benches: [<offenders>] }`. REJECT, never
 strip (silent stripping hides the rule). Defense in depth: the Wave-2 rescorer enforces
 the same rule origin-aware; Wave 1 only needs the server gate.

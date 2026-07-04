@@ -97,8 +97,10 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).toMatchObject({ code: "invalid_result_bundle" });
   });
 
-  it("rejects community bundles containing dynamic benches", async () => {
-    // Given: a community ticket targets the 5-axis release, but the uploaded bundle includes appworld_c.
+  it("accepts community bundles containing dynamic benches with a community-origin row", async () => {
+    // Given: a community ticket targets the 5-axis release and the uploaded bundle includes appworld_c.
+    // (Owner decision 2026-07-04: community submissions carry all five axes; agentic verdicts are
+    // labeled self-reported at rescore and rows only publish after manual admin acceptance.)
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
     const bundle = signedResultBundle(key.publicKeyHex, {
@@ -115,7 +117,7 @@ describe("submission contract v2 upload and complete routes", () => {
     const envelope = await ticket.json();
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
-    // When: finalization enforces the origin-aware static-bench gate.
+    // When: the community submitter finalizes the upload.
     const response = await completeSubmission({
       env,
       params: { submissionId: envelope.ticket_id },
@@ -125,11 +127,11 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    // Then: the dynamic item is rejected, not stripped.
-    expect(response.status).toBe(422);
+    // Then: the dynamic item is accepted into pending_verification and origin stays server-derived.
+    expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      benches: ["appworld_c"],
-      code: "dynamic_items_not_accepted",
+      origin: "community",
+      status: "pending_verification",
     });
   });
 

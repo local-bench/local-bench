@@ -163,6 +163,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
     bundle_schema_version: row.bundle_schema_version,
     duplicate_of: row.duplicate_of,
     expires_at: row.status === "ticketed" ? row.expires_at : null,
+    origin: row.origin,
     projection_sha256: row.projection_sha256,
     publish_state: row.publish_state,
     raw_bundle_sha256: row.raw_bundle_sha256,

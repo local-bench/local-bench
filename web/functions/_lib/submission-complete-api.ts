@@ -7,10 +7,9 @@ import {
 } from "./submission-contracts";
 import { canonicalPayloadSha256 } from "./submission-canonical";
 import { jsonResponse, logSubmissionError, routeRow, suiteMismatches } from "./submission-api-support";
-import { isRecord, isSyntaxError, parseJson, reject, ticketExpired, type SubmissionOrigin } from "./submission-api-common";
+import { isRecord, isSyntaxError, parseJson, reject, ticketExpired } from "./submission-api-common";
 import { readRawBundle, rawBundleMetadata } from "./submission-storage";
 import { markPendingVerification, publicSubmission, rowByPayloadSha, rowBySubmissionId } from "./submission-store";
-import { suiteById } from "./suite-catalog";
 
 export async function handleFinalizeSubmission(
   request: Request,
@@ -69,18 +68,10 @@ export async function handleFinalizeSubmission(
     if (suiteMismatches(row.value, bundle.data)) {
       return jsonResponse(409, { code: "suite_mismatch", error: "uploaded bundle suite does not match submission ticket" });
     }
-    const dynamicRejection = dynamicBenchRejection(row.value.origin, row.value.suite_release_id, bundle.data);
-    if (dynamicRejection !== null) {
-      return reject(
-        422,
-        "dynamic_items_not_accepted",
-        row.value.origin,
-        "POST /api/submissions/:submissionId/complete",
-        dynamicRejection,
-        row.value.raw_bundle_sha256,
-        row.value.submitter_id ?? undefined,
-      );
-    }
+    // Owner decision 2026-07-04: community bundles may include dynamic (agentic)
+    // benches. Their verdicts are carried as self-reported at rescore and rows only
+    // publish after manual admin acceptance; provenance labeling happens in the
+    // Python rescorer, not by rejection here.
     if (keyMismatch(row.value.submitter_id, rawBundle)) {
       return reject(409, "key_mismatch", row.value.origin, "POST /api/submissions/:submissionId/complete", {
         code: "key_mismatch",
@@ -113,23 +104,6 @@ export async function handleFinalizeSubmission(
   }
 }
 
-function dynamicBenchRejection(
-  origin: SubmissionOrigin,
-  suiteReleaseId: string | null,
-  bundle: { readonly items: readonly unknown[] },
-): Record<string, unknown> | null {
-  if (origin !== "community" || suiteReleaseId === null) {
-    return null;
-  }
-  const suite = suiteById(suiteReleaseId);
-  if (suite === null) {
-    return { benches: [], code: "dynamic_items_not_accepted" };
-  }
-  const allowed = new Set(suite.staticBenches);
-  const offenders = [...new Set(bundle.items.map((item) => itemBench(item)).filter((bench) => bench !== null && !allowed.has(bench)))].sort();
-  return offenders.length === 0 ? null : { benches: offenders, code: "dynamic_items_not_accepted" };
-}
-
 function keyMismatch(submitterId: string | null, rawBundle: unknown): boolean {
   const ticketPublicKey = publicKeyFromSubmitterId(submitterId);
   if (ticketPublicKey === null) {
@@ -151,13 +125,6 @@ function publicKeyFromSubmitterId(submitterId: string | null): string | null {
     return null;
   }
   return submitterId.slice("public_key:".length);
-}
-
-function itemBench(item: unknown): string | null {
-  if (!isRecord(item)) {
-    return null;
-  }
-  return typeof item["bench"] === "string" ? item["bench"] : null;
 }
 
 function invalidCompleteRequest(): Response {
