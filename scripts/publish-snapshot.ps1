@@ -140,9 +140,14 @@ $RootDotFileAllow = @('.gitignore', '.gitattributes', '.editorconfig')
 # Dot-dirs allowed at the snapshot ROOT.
 $RootDotDirAllow  = @('.github')
 
-# Single-file re-include: frozen board fixture required by cli tests
-# (cli/tests/test_site_parity.py, cli/tests/submissions/test_wave2_static_composite.py).
-$ReIncludeRel = 'cli\runs\board\board_v1.json'
+# Re-includes from the otherwise-pruned cli\runs: the frozen board fixture
+# required by cli tests, plus the board_v2 artifact + manifest whose sha256 the
+# site's LAUNCH_FREEZE cites (must stay auditable from the public repo).
+$ReIncludeRels = @(
+    'cli\runs\board\board_v1.json',
+    'cli\runs\board\board_v2.json',
+    'cli\runs\board\board_v2.manifest.json'
+)
 
 # File extensions treated as binary (skipped by the content scrub).
 $BinaryExtensions = @(
@@ -424,18 +429,18 @@ foreach ($c in $sorted) {
     $copiedBytes += $c.Length
 }
 
-# Single-file re-include: frozen board fixture needed by cli tests.
-$boardNote = ''
-$boardSrc = Join-Path $SourceRoot $ReIncludeRel
-if (Test-Path -LiteralPath $boardSrc -PathType Leaf) {
-    Copy-FileRobust $boardSrc (Join-Path $OutDir $ReIncludeRel)
-    $copiedCount++
-    $copiedBytes += ([System.IO.FileInfo]::new($boardSrc)).Length
-    $boardNote = "re-included: $ReIncludeRel (frozen fixture required by cli tests)"
-} else {
-    $boardNote = "WARNING: $ReIncludeRel NOT FOUND in source -- cli tests in the snapshot will fail without it."
+# Re-includes from pruned dirs: board fixture + freeze-cited board artifacts.
+foreach ($reIncludeRel in $ReIncludeRels) {
+    $boardSrc = Join-Path $SourceRoot $reIncludeRel
+    if (Test-Path -LiteralPath $boardSrc -PathType Leaf) {
+        Copy-FileRobust $boardSrc (Join-Path $OutDir $reIncludeRel)
+        $copiedCount++
+        $copiedBytes += ([System.IO.FileInfo]::new($boardSrc)).Length
+        Write-Step "re-included: $reIncludeRel"
+    } else {
+        Write-Step "WARNING: $reIncludeRel NOT FOUND in source -- snapshot verification may fail without it."
+    }
 }
-Write-Step $boardNote
 Write-Step "Copied $copiedCount file(s), $copiedBytes bytes."
 
 # --------------------------------------------------------------------------
