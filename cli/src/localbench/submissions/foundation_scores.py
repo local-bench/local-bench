@@ -6,7 +6,7 @@ from typing import Final
 
 from localbench._scoring import BenchAggregate, composite
 from localbench._types import JsonObject, JsonValue
-from localbench.scoring.axes import AXES, Axis
+from localbench.scoring.axes import AXES, STATIC_SUITE_INDEX_VERSION, STATIC_SUITE_WEIGHTS, Axis, static_suite_domain_weights
 from localbench.scoring.axis_status import AxisStatusBlock
 from localbench.suite_release import coverage_profile_for_benches
 
@@ -23,7 +23,7 @@ def score_summary(
     partial = _round_score(composite(benches, axis_status, suite_axes))
     headline_complete = measured >= 1.0
     profile = coverage_profile_for_benches(set(benches))
-    return {
+    summary: JsonObject = {
         "headline_score": partial if headline_complete else None,
         "partial_composite": partial,
         "partial_composite_scope": "measured_headline_axes",
@@ -31,7 +31,24 @@ def score_summary(
         "missing_headline_weight": _round_fixed(max(0.0, 1.0 - measured), 2),
         "known_headline_contribution": _round_score(partial * measured),
         "rank_scope": profile.rank_scope,
+        "composite_static": _strict_composite(
+            benches,
+            axis_status,
+            suite_axes,
+            required_axes=frozenset(STATIC_SUITE_WEIGHTS),
+            weights=static_suite_domain_weights(),
+        ),
+        "composite_full": _strict_composite(
+            benches,
+            axis_status,
+            suite_axes,
+            required_axes=frozenset(axis.key for axis in AXES if axis.role == "headline"),
+            weights=None,
+        ),
     }
+    if summary["composite_static"] is not None:
+        summary["static_index_version"] = STATIC_SUITE_INDEX_VERSION
+    return summary
 
 
 def axis_projection(
@@ -66,6 +83,19 @@ def _measured_headline_weight(axis_status: AxisStatusBlock) -> float:
         if axis.role == "headline"
         and axis_status["axes"].get(axis.key, {}).get("status") == "measured"
     )
+
+
+def _strict_composite(
+    benches: Mapping[str, BenchAggregate],
+    axis_status: AxisStatusBlock,
+    suite_axes: Mapping[str, JsonValue] | None,
+    *,
+    required_axes: frozenset[str],
+    weights: Mapping[str, float] | None,
+) -> float | None:
+    if not all(axis_status["axes"].get(axis, {}).get("status") == "measured" for axis in required_axes):
+        return None
+    return _round_score(composite(benches, axis_status, suite_axes, weights=weights))
 
 
 def _axis_aggregate(

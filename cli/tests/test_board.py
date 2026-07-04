@@ -192,6 +192,57 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     assert cluster_for_item("appworld_c", "calendar_17", {"cluster": "ignored"}) == "calendar"
 
 
+def test_board_emits_static_and_full_composites_without_changing_rank_composite(tmp_path: Path) -> None:
+    # Given: one four-static-axis row and one full five-axis row.
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(
+        tmp_path,
+        [
+            source("Static Model", "static.json"),
+            source("Full Model", "full.json"),
+        ],
+    )
+    write_run(
+        paths["runs"] / "static.json",
+        run_record(appworld_inline=None, tc_json_correct=(True, False), lcb_correct=(True, True)),
+    )
+    write_run(
+        paths["runs"] / "full.json",
+        run_record(appworld_inline=(True, False), tc_json_correct=(True, False), lcb_correct=(True, True)),
+    )
+
+    # When: the board is built through the public board surface.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: additive static/full fields are present without changing the existing composite.
+    rows = {string_value(model["model_label"]): model for model in objects_value(board["models"])}
+    static_row = rows["Static Model"]
+    static_axes = object_value(static_row["axes"])
+    expected_static = (
+        0.30 * float_value(object_value(static_axes["knowledge"])["point_raw"])
+        + 0.30 * float_value(object_value(static_axes["instruction"])["point_raw"])
+        + 0.20 * float_value(object_value(static_axes["tool_calling"])["point_raw"])
+        + 0.20 * float_value(object_value(static_axes["coding"])["point_raw"])
+    )
+    assert object_value(static_row["composite_static"])["point_raw"] == pytest.approx(expected_static)
+    assert static_row["static_index_version"] == "static-suite-v1"
+    assert static_row["composite_full"] is None
+    assert object_value(static_row["composite"])["point_raw"] == pytest.approx(expected_static)
+
+    full_row = rows["Full Model"]
+    assert object_value(full_row["composite_static"])["point_raw"] == pytest.approx(expected_static)
+    assert full_row["static_index_version"] == "static-suite-v1"
+    assert object_value(full_row["composite_full"])["point_raw"] == pytest.approx(
+        float_value(object_value(full_row["composite"])["point_raw"]),
+    )
+
+
 def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
     # Given: a run with INLINE appworld_c (campaign mean 0.75) + agentic_run provenance, AND a curated
     # agentic_file sidecar reporting a DIFFERENT (lower) ASR of 0.25.

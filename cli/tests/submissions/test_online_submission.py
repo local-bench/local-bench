@@ -18,6 +18,7 @@ from localbench.submissions.client import (
     get_submission_status,
     post_admin_decision,
     post_admin_verification,
+    read_submission_envelope,
     request_submission_ticket,
     upload_submission_bundle,
 )
@@ -25,6 +26,7 @@ from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import load_private_key
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.bundle import pack_submission_bundle
+from localbench.submissions.validate import SubmissionValidationError
 
 from .fixtures import build_submission_fixtures
 
@@ -40,6 +42,51 @@ def test_keygen_writes_ed25519_key_that_pack_can_sign(tmp_path: Path) -> None:
     loaded = load_private_key(key_path)
     assert loaded.public_key.hex() == public_key
     assert key_path.read_text(encoding="utf-8").startswith("-----BEGIN PRIVATE KEY-----")
+
+
+def test_submission_envelope_normalizes_legacy_community_origin(tmp_path: Path) -> None:
+    envelope_path = tmp_path / "ticket.json"
+    envelope = {
+        "accepted_suite_terms": True,
+        "allowed_schema": "localbench.result_bundle.v1",
+        "bundle_sha256": "a" * 64,
+        "expected_suite_manifest_sha256": None,
+        "expected_suite_release_id": None,
+        "expiry": "2026-07-04T01:00:00Z",
+        "max_upload_bytes": 104_857_600,
+        "one_use": True,
+        "origin": "community_submission",
+        "schema_version": "localbench.submission_envelope.v1",
+        "submitter_id": "submitter",
+        "ticket_id": "ticket_fixture",
+    }
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+
+    parsed = read_submission_envelope(envelope_path)
+
+    assert parsed["origin"] == "community"
+
+
+def test_submission_envelope_rejects_unknown_origin(tmp_path: Path) -> None:
+    envelope_path = tmp_path / "ticket.json"
+    envelope = {
+        "accepted_suite_terms": True,
+        "allowed_schema": "localbench.result_bundle.v1",
+        "bundle_sha256": "a" * 64,
+        "expected_suite_manifest_sha256": None,
+        "expected_suite_release_id": None,
+        "expiry": "2026-07-04T01:00:00Z",
+        "max_upload_bytes": 104_857_600,
+        "one_use": True,
+        "origin": "untrusted",
+        "schema_version": "localbench.submission_envelope.v1",
+        "submitter_id": "submitter",
+        "ticket_id": "ticket_fixture",
+    }
+    envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
+
+    with pytest.raises(SubmissionValidationError, match="origin"):
+        read_submission_envelope(envelope_path)
 
 
 @pytest.mark.anyio
@@ -446,6 +493,12 @@ async def test_cli_admin_verify_downloads_rescores_and_marks_needs_review(
     projection_out = tmp_path / "projection.json"
     status_updates: list[dict[str, object]] = []
 
+    def fake_get(request: cli_mod.SubmissionStatusRequest) -> dict[str, object]:
+        assert request.credentials.site == "https://local-bench.ai"
+        assert request.credentials.admin_secret == "admin-secret"
+        assert request.ticket_id == "sub_uploaded"
+        return {"submission_id": "sub_uploaded", "status": "pending_verification", "origin": "community"}
+
     def fake_post(request: cli_mod.AdminVerificationRequest) -> dict[str, str]:
         assert request.credentials.site == "https://local-bench.ai"
         assert request.credentials.admin_secret == "admin-secret"
@@ -454,6 +507,7 @@ async def test_cli_admin_verify_downloads_rescores_and_marks_needs_review(
         return {"status": str(request.status_update["status"]), "submission_id": request.submission_id}
 
     monkeypatch.setenv("LOCALBENCH_ADMIN_SECRET", "admin-secret")
+    monkeypatch.setattr(cli_mod, "get_submission_status", fake_get)
     monkeypatch.setattr(cli_mod, "post_admin_verification", fake_post)
 
     # When: the maintainer verifier command runs.
@@ -481,6 +535,53 @@ async def test_cli_admin_verify_downloads_rescores_and_marks_needs_review(
     assert status_updates[0]["raw_bundle_sha256"] == hashlib.sha256(fixtures.run_path.read_bytes()).hexdigest()
     assert "submission sub_uploaded" in output
     assert projection_out.exists()
+    projection = json.loads(projection_out.read_text(encoding="utf-8"))
+    assert projection["origin"] == "community"
+    assert projection["trust_label"] == "community_self_submitted"
+
+
+@pytest.mark.anyio
+async def test_cli_admin_verify_fails_when_server_row_omits_origin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys,
+) -> None:
+    from localbench.cli import main
+    import localbench.cli as cli_mod
+
+    fixtures = await build_submission_fixtures(tmp_path)
+
+    def fake_get(request: cli_mod.SubmissionStatusRequest) -> dict[str, object]:
+        assert request.ticket_id == "sub_uploaded"
+        return {"submission_id": "sub_uploaded", "status": "pending_verification"}
+
+    def fake_post(request: cli_mod.AdminVerificationRequest) -> dict[str, str]:
+        raise AssertionError("admin verification must not post without origin")
+
+    monkeypatch.setenv("LOCALBENCH_ADMIN_SECRET", "admin-secret")
+    monkeypatch.setattr(cli_mod, "get_submission_status", fake_get)
+    monkeypatch.setattr(cli_mod, "post_admin_verification", fake_post)
+
+    code = main(
+        [
+            "submit",
+            "admin-verify",
+            "--site",
+            "https://local-bench.ai",
+            "--submission-id",
+            "sub_uploaded",
+            "--bundle",
+            str(fixtures.run_path),
+            "--suite-dir",
+            str(fixtures.suite_dir),
+            "--projection-out",
+            str(tmp_path / "projection.json"),
+        ],
+    )
+
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "origin" in output
 
 
 def _status_update(bundle_sha: str) -> dict[str, object]:

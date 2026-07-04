@@ -32,7 +32,7 @@ from localbench._scoring import (
     scorer_unavailable_warning,
 )
 from localbench._suite import RenderedBench, read_json_object, render_benches
-from localbench._types import ItemResult, JsonValue
+from localbench._types import ItemResult, JsonObject, JsonValue
 from localbench.campaign import campaign_paths
 from localbench.coding_exec import OPT_IN_WARNING
 from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, DEFAULT_IMAGE, run_coding_exec
@@ -824,6 +824,7 @@ def _verify_submission_command(args: argparse.Namespace) -> int:
             projection_out=args.projection_out,
             validated_at=args.validated_at,
             validator_commit=args.validator_commit,
+            origin="project_anchor",
         )
     except (SubmissionValidationError, OSError, json.JSONDecodeError) as error:
         print(f"error      {error}", file=sys.stderr)
@@ -1382,12 +1383,19 @@ def _submit_status(args: argparse.Namespace) -> int:
 def _submit_admin_verify(args: argparse.Namespace) -> int:
     try:
         admin_secret = _required_admin_secret(args)
+        submission = get_submission_status(
+            SubmissionStatusRequest(
+                credentials=_site_credentials(args, admin_secret=admin_secret),
+                ticket_id=args.submission_id,
+            ),
+        )
         status_update = verify_submission(
             args.bundle,
             suite_dir=args.suite_dir,
             projection_out=args.projection_out,
             validated_at=args.validated_at,
             validator_commit=args.validator_commit,
+            origin=_submission_origin(submission),
         )
         result = post_admin_verification(
             AdminVerificationRequest(
@@ -1404,6 +1412,13 @@ def _submit_admin_verify(args: argparse.Namespace) -> int:
     print(f"status     {result.get('status', status_update.get('status', 'unknown'))}")
     print(f"projection {args.projection_out}")
     return 0
+
+
+def _submission_origin(submission: JsonObject) -> str:
+    origin = submission.get("origin")
+    if not isinstance(origin, str):
+        raise SubmissionValidationError("submission origin missing from server response")
+    return origin
 
 
 def _submit_admin_decision(args: argparse.Namespace) -> int:

@@ -10,7 +10,9 @@ Pure config: no AppWorld, no sandbox, no model.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from localbench.scoring.agentic_exec.model_client import GenerationParams
 
@@ -51,6 +53,8 @@ class LoopConfig:
     # Hard wall-clock watchdog for one complete task attempt: sandbox setup, model loop, finalize,
     # and teardown. This bounds hangs outside the per-block sandbox wall timeout.
     per_task_timeout_s: float = 360.0
+    attester_key_path: Path | None = field(default_factory=lambda: _env_path("LOCALBENCH_ATTESTER_KEY_FILE"))
+    attestation_run_id: str = "appworld_c"
 
     def generation_params(self) -> GenerationParams:
         """The decoding intent handed to the model client every turn."""
@@ -60,3 +64,8 @@ class LoopConfig:
             seed=self.seed,
             max_output_tokens=self.max_output_tokens_per_turn,
         )
+
+
+def _env_path(name: str) -> Path | None:
+    value = os.environ.get(name)
+    return Path(value) if value else None

@@ -1289,6 +1289,9 @@ def _run_agentic_axis(
         "diagnostics": _appworld_report_summary(last_report),
         "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
     }
+    attestations = _appworld_report_attestations(last_report)
+    if attestations:
+        provenance["attestations"] = attestations
     if provenance_extra is not None:
         provenance.update(provenance_extra)
     return AgenticOutcome(
@@ -1379,6 +1382,10 @@ def _appworld_stage_run_summary(run: StageRunResult) -> JsonObject:
     summary["subset_hash"] = run.subset_hash
     summary["results_path"] = run.results_path
     return summary
+
+
+def _appworld_report_attestations(report: BenchmarkReport) -> list[JsonObject]:
+    return [dict(result.attestation) for result in report.results if result.attestation is not None]
 
 
 def _appworld_report_to_items(report: BenchmarkReport) -> list[ScoredItem]:

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.contracts import (
     ACCEPTED_RESULT_PROJECTION_SCHEMA,
@@ -21,6 +23,7 @@ from localbench.submissions.foundation import (
     validate_submission_bundle,
     validate_submission_envelope,
 )
+from localbench.submissions.validate import SubmissionValidationError
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PILOT = _REPO_ROOT / "runs" / "campaigns" / "wave0-gemma-12b-q4xl-cal-20260629" / "localbench-run.json"
@@ -80,6 +83,9 @@ def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -
         "missing_headline_weight": 0.5,
         "known_headline_contribution": 0.3737,
         "rank_scope": "partial-text-code-4axis-v1",
+        "composite_static": 0.7473,
+        "static_index_version": "static-suite-v1",
+        "composite_full": None,
     }
     assert bundle["manifest"]["integrity"]["publishable"] is False
     assert validation.blocking_reasons == _BLOCKING_REASONS
@@ -130,6 +136,7 @@ def test_envelope_and_projection_contracts_validate_board_safe_payloads() -> Non
         "origin": "project_anchor",
         "trust_label": "community_re_scored",
         "verification_level": "bundle_rescored",
+        "agentic_provenance": "none",
         "validator": {
             "validator_version": "localbench.submission-validator.v1",
             "commit": None,
@@ -140,6 +147,31 @@ def test_envelope_and_projection_contracts_validate_board_safe_payloads() -> Non
     # When / Then: both contracts validate without trusting submitter-authored board fields.
     validate_submission_envelope(envelope)
     validate_accepted_result_projection(projection)
+
+
+def test_submission_envelope_normalizes_legacy_origin_and_rejects_unknown() -> None:
+    envelope = {
+        "schema_version": SUBMISSION_ENVELOPE_SCHEMA_VERSION,
+        "ticket_id": "ticket-1",
+        "submitter_id": "owner",
+        "origin": "community_submission",
+        "allowed_schema": RESULT_BUNDLE_SCHEMA_VERSION,
+        "expected_suite_release_id": None,
+        "expected_suite_manifest_sha256": None,
+        "accepted_suite_terms": True,
+        "max_upload_bytes": 25_000_000,
+        "expiry": "2026-07-01T00:00:00Z",
+        "one_use": True,
+        "bundle_sha256": "a" * 64,
+    }
+
+    validate_submission_envelope(envelope)
+
+    assert envelope["origin"] == "community"
+
+    envelope["origin"] = "unexpected"
+    with pytest.raises(SubmissionValidationError, match="origin"):
+        validate_submission_envelope(envelope)
 
 
 def test_pilot_fixture_validates_not_publishable_with_exact_blockers() -> None:

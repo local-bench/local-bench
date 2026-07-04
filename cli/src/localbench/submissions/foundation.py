@@ -8,6 +8,7 @@ from typing import Final
 from localbench._scoring import BenchAggregate
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
+from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import sha256_file
 from localbench.submissions.contracts import (
     ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
@@ -15,6 +16,7 @@ from localbench.submissions.contracts import (
     SUBMISSION_ENVELOPE_SCHEMA_VERSION,
 )
 from localbench.submissions.foundation_scores import score_summary
+from localbench.submissions.origin import normalize_origin
 from localbench.submissions.validate import SubmissionValidationError
 from localbench.suite_release import (
     COVERAGE_PROFILES,
@@ -147,8 +149,8 @@ def validate_submission_bundle(
     *,
     suite_dir: Path | None = None,
 ) -> JsonObject:
-    raw = _read_json(path)
-    bundle = normalize_result_bundle(raw, suite_dir=suite_dir)
+    loaded = load_result_bundle_input(path)
+    bundle = normalize_result_bundle(loaded.record, suite_dir=suite_dir)
     validation = validate_result_bundle(bundle)
     return {
         "schema_version": VALIDATION_SCHEMA_VERSION,
@@ -162,8 +164,7 @@ def validate_submission_bundle(
 def validate_submission_envelope(envelope: JsonObject) -> None:
     if envelope.get("schema_version") != SUBMISSION_ENVELOPE_SCHEMA_VERSION:
         raise SubmissionValidationError("submission envelope schema_version is not supported")
-    if envelope.get("origin") not in {"project_anchor", "community_submission"}:
-        raise SubmissionValidationError("submission envelope origin is not supported")
+    envelope["origin"] = normalize_origin(envelope.get("origin"))
     if envelope.get("allowed_schema") != RESULT_BUNDLE_SCHEMA_VERSION:
         raise SubmissionValidationError("submission envelope allowed_schema is not supported")
     digest = envelope.get("bundle_sha256")
@@ -180,6 +181,16 @@ def validate_accepted_result_projection(projection: JsonObject) -> None:
     for field in ("model", "runtime", "scores", "axes", "artifact_hashes", "validator"):
         if field not in projection:
             raise SubmissionValidationError(f"accepted projection missing {field}")
+    normalize_origin(projection.get("origin"))
+    if projection.get("trust_label") not in {"project_anchor", "community_self_submitted", "community_re_scored"}:
+        raise SubmissionValidationError("accepted projection trust_label is not supported")
+    if projection.get("verification_level") != "bundle_rescored":
+        raise SubmissionValidationError("accepted projection verification_level is not supported")
+    if projection.get("agentic_provenance") not in {"none", "project_attested", "self_reported"}:
+        raise SubmissionValidationError("accepted projection agentic_provenance is not supported")
+    notes = projection.get("provenance_notes")
+    if notes is not None and (not isinstance(notes, list) or not all(isinstance(note, str) for note in notes)):
+        raise SubmissionValidationError("accepted projection provenance_notes must be a list of strings")
 
 
 def rescore_bundle(
@@ -187,10 +198,11 @@ def rescore_bundle(
     *,
     suite_dir: Path,
     validated_at: str = "1970-01-01T00:00:00Z",
+    origin: str = "project_anchor",
 ) -> JsonObject:
     from localbench.submissions.projection import rescore_bundle as _rescore_bundle
 
-    return _rescore_bundle(path, suite_dir=suite_dir, validated_at=validated_at)
+    return _rescore_bundle(path, suite_dir=suite_dir, validated_at=validated_at, origin=normalize_origin(origin))
 
 
 def _normalize_manifest(

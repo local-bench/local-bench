@@ -33,6 +33,7 @@ def pack_submission_bundle(
     ticket_path: Path | None = None,
     created_at: str | None = None,
     run_nonce: str | None = None,
+    attestations: list[JsonObject] | None = None,
 ) -> JsonObject:
     if not offline and ticket_path is None:
         raise SubmissionValidationError("online submission packing requires --ticket")
@@ -40,10 +41,13 @@ def pack_submission_bundle(
     run = _read_run(run_path)
     check_run_schema_version(run)
     records = _submission_items(run, suite_dir)
+    attestation_records = attestations if attestations is not None else _attestations_from_run(run)
     file_bytes = {
         "items.jsonl": jsonl_bytes(records),
         "run.original.json": canonical_json_bytes(run) + b"\n",
     }
+    if attestation_records:
+        file_bytes["attestations.jsonl"] = jsonl_bytes(attestation_records)
     payload = _manifest_payload(
         run=run,
         suite_dir=suite_dir,
@@ -117,7 +121,9 @@ def _submission_items(run: JsonObject, suite_dir: Path) -> list[JsonObject]:
     suite = read_json_object(suite_dir / "suite.json")
     tier = _string(_object(_object(run.get("manifest")).get("suite")).get("tier")) or _string(run.get("tier")) or "standard"
     names = sorted({bench for item in _list(run.get("items")) if isinstance((bench := item.get("bench")), str)})
-    rendered = render_benches(",".join(names), tier, None, suite_dir, suite, [])
+    suite_benches = _object(suite.get("benches"))
+    static_names = [name for name in names if name in suite_benches]
+    rendered = render_benches(",".join(static_names), tier, None, suite_dir, suite, []) if static_names else []
     source = {(bench.name, _item_id(item)): dict(item) for bench in rendered for item in bench.source_items}
     requests = {(bench.name, item["id"]): dict(item) for bench in rendered for item in bench.benchmark_items}
     records: list[JsonObject] = []
@@ -212,6 +218,14 @@ def _counts_by_bench(run: JsonObject) -> JsonObject:
         if bench is not None:
             counts[bench] = counts.get(bench, 0) + 1
     return counts
+
+
+def _attestations_from_run(run: JsonObject) -> list[JsonObject]:
+    agentic_run = _object(run.get("agentic_run"))
+    attestations = agentic_run.get("attestations")
+    if not isinstance(attestations, list):
+        return []
+    return [dict(record) for record in attestations if isinstance(record, dict)]
 
 
 def _item_id(item: JsonObject) -> str:

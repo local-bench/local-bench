@@ -105,15 +105,19 @@ class TaskRunResult:
     outcome: TaskOutcome
     collateral_damage: bool
     diagnostics: TaskDiagnostics
+    attestation: dict[str, Any] | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "task_id": self.task_id,
             "success": self.success,
             "outcome": self.outcome.value,
             "collateral_damage": self.collateral_damage,
             "diagnostics": self.diagnostics.as_dict(),
         }
+        if self.attestation is not None:
+            result["attestation"] = self.attestation
+        return result
 
 
 @dataclass(frozen=True, slots=True)

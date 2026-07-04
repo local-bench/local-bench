@@ -55,7 +55,7 @@ def deterministic_zip(path: Path, files: Mapping[str, bytes]) -> None:
 
 
 def _zip_order(files: Mapping[str, bytes]) -> tuple[str, ...]:
-    preferred = ("manifest.json", "items.jsonl", "run.original.json", "environment.json")
+    preferred = ("manifest.json", "items.jsonl", "run.original.json", "attestations.jsonl", "environment.json")
     present = [name for name in preferred if name in files]
     extras = sorted(name for name in files if name not in preferred)
     return (*present, *extras)

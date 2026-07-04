@@ -170,6 +170,7 @@ def composite(
     benches: Mapping[str, BenchAggregate],
     axis_status: AxisStatusBlock | None = None,
     suite_axes: Mapping[str, JsonValue] | None = None,
+    weights: Mapping[str, float] | None = None,
 ) -> float:
     """Return the HEADLINE composite: benches pool into capability domains
     (item-weighted within a domain), then the HEADLINE domains combine by
@@ -182,6 +183,7 @@ def composite(
     """
     if not benches:
         return 0.0
+    composite_weights = DOMAIN_WEIGHTS if weights is None else weights
     num: dict[str, float] = {}
     den: dict[str, float] = {}
     for name, bench in benches.items():
@@ -193,11 +195,11 @@ def composite(
     domain_scores = {d: num[d] / den[d] for d in num if den[d] > 0}
     if not domain_scores:
         return 0.0
-    total_weight = sum(DOMAIN_WEIGHTS.get(d, 0.0) for d in domain_scores)
+    total_weight = sum(composite_weights.get(d, 0.0) for d in domain_scores)
     if total_weight <= 0:
         return 0.0
     return (
-        sum(score * DOMAIN_WEIGHTS.get(d, 0.0) for d, score in domain_scores.items())
+        sum(score * composite_weights.get(d, 0.0) for d, score in domain_scores.items())
         / total_weight
     )
 

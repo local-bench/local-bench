@@ -10,7 +10,7 @@ from localbench._types import JsonObject
 from localbench.submissions.canon import sha256_bytes
 from localbench.submissions.validate import SubmissionValidationError
 
-ALLOWED_MEMBERS: Final = frozenset({"manifest.json", "items.jsonl", "run.original.json", "environment.json"})
+ALLOWED_MEMBERS: Final = frozenset({"manifest.json", "items.jsonl", "run.original.json", "environment.json", "attestations.jsonl"})
 MAX_MANIFEST_BYTES: Final = 262_144
 MAX_MEMBER_BYTES: Final = 64 * 1024 * 1024
 
@@ -19,6 +19,7 @@ MAX_MEMBER_BYTES: Final = 64 * 1024 * 1024
 class UnpackedBundle:
     manifest: JsonObject
     items: list[JsonObject]
+    attestations: list[JsonObject]
     run_original: JsonObject | None
     files: dict[str, bytes]
     bundle_sha256: str
@@ -47,7 +48,8 @@ def unpack_bundle(path: Path) -> UnpackedBundle:
     item_bytes = members.get("items.jsonl", b"")
     return UnpackedBundle(
         manifest=json_object_from_bytes(manifest_bytes, "manifest.json"),
-        items=_jsonl_objects(item_bytes),
+        items=_jsonl_objects(item_bytes, "items.jsonl"),
+        attestations=_jsonl_objects(members.get("attestations.jsonl", b""), "attestations.jsonl"),
         run_original=optional_json_object(members.get("run.original.json"), "run.original.json"),
         files=members,
         bundle_sha256=sha256_bytes(bundle_bytes),
@@ -74,13 +76,13 @@ def _check_member(info: zipfile.ZipInfo) -> None:
         raise SubmissionValidationError(f"unsafe archive path: {info.filename}")
 
 
-def _jsonl_objects(data: bytes) -> list[JsonObject]:
+def _jsonl_objects(data: bytes, label: str) -> list[JsonObject]:
     records: list[JsonObject] = []
     for line in data.decode("utf-8").splitlines():
         if not line.strip():
             continue
         parsed = json.loads(line)
         if not isinstance(parsed, dict):
-            raise SubmissionValidationError("items.jsonl rows must be JSON objects")
+            raise SubmissionValidationError(f"{label} rows must be JSON objects")
         records.append(parsed)
     return records

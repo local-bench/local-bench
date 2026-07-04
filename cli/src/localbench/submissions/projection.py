@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
+from typing import assert_never
 
 from localbench._scoring import BenchAggregate, ScoredItem, aggregate
 from localbench._suite import read_json_object
 from localbench._types import JsonObject, JsonValue, Usage
 from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
 from localbench.scoring.public_rescore import score_public_item
+from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import canonical_json_hash, sha256_file
 from localbench.submissions.contracts import ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION
 from localbench.submissions.foundation import (
@@ -17,10 +19,24 @@ from localbench.submissions.foundation import (
     validate_accepted_result_projection,
 )
 from localbench.submissions.foundation_scores import axis_projection, score_summary
+from localbench.submissions.origin import SubmissionOrigin
+from localbench.submissions.provenance import (
+    AgenticProvenanceResult,
+    CarriedVerdict,
+    carried_from_result_items,
+    evaluate_agentic_provenance,
+)
 from localbench.submissions.validate import (
     SuiteItem,
     SubmissionValidationError,
     suite_item_index,
+)
+
+GRANDFATHERED_ATTESTED_BUNDLE_SHA256S = frozenset(
+    {
+        # ticket_790a73b6: validator-v1 ranked Gemma row from the pre-attestation direct-finalize path.
+        "f815ebbb78516cbdd27b379a87c9fc34fd172692ee4e4e2ce047c5c02c846f85",
+    },
 )
 
 
@@ -29,23 +45,34 @@ def rescore_bundle(
     *,
     suite_dir: Path,
     validated_at: str,
+    origin: SubmissionOrigin = "project_anchor",
 ) -> JsonObject:
-    bundle = normalize_result_bundle(_read_json(path), suite_dir=suite_dir)
+    loaded = load_result_bundle_input(path)
+    bundle_sha256 = sha256_file(path)
+    bundle = normalize_result_bundle(loaded.record, suite_dir=suite_dir)
     suite_items = _suite_items(bundle, suite_dir)
     dynamic_benches = _dynamic_benches(suite_dir, suite_items)
     items = _scored_items(_items(bundle), suite_items, dynamic_benches)
     benches = _bench_aggregates(items, suite_items, dynamic_benches)
     axis_status = parse_axis_status_block(_object(bundle.get("axis_status")))
+    provenance = _agentic_provenance(
+        origin,
+        carried_from_result_items(_items(bundle), dynamic_benches),
+        loaded.attestations,
+        bundle_sha256,
+    )
     projection = _projection(
         bundle=bundle,
         benches=benches,
         axis_status=axis_status,
-        bundle_sha256=sha256_file(path),
+        bundle_sha256=bundle_sha256,
         validated_at=validated_at,
         rescore_modes={
             bench: ("verdict_carried" if bench in dynamic_benches else "rescored")
             for bench in sorted(benches)
         },
+        origin=origin,
+        provenance=provenance,
     )
     projection["artifact_hashes"] = _artifact_hashes(path, projection)
     validate_accepted_result_projection(projection)
@@ -90,6 +117,33 @@ def _dynamic_benches(
     return frozenset(dynamic)
 
 
+def _agentic_provenance(
+    origin: SubmissionOrigin,
+    carried: list[CarriedVerdict],
+    attestations: list[JsonObject],
+    bundle_sha256: str,
+) -> AgenticProvenanceResult:
+    result = evaluate_agentic_provenance(
+        carried,
+        attestations,
+        bundle_sha256=bundle_sha256,
+        grandfathered_bundle_sha256s=GRANDFATHERED_ATTESTED_BUNDLE_SHA256S,
+    )
+    if origin == "community" and result.label == "project_attested":
+        return AgenticProvenanceResult("self_reported", ("community_origin",))
+    return result
+
+
+def _trust_label(origin: SubmissionOrigin) -> str:
+    match origin:
+        case "project_anchor":
+            return "project_anchor"
+        case "community":
+            return "community_self_submitted"
+        case unreachable:
+            assert_never(unreachable)
+
+
 def _projection(
     *,
     bundle: JsonObject,
@@ -98,11 +152,13 @@ def _projection(
     bundle_sha256: str,
     validated_at: str,
     rescore_modes: Mapping[str, str],
+    origin: SubmissionOrigin,
+    provenance: AgenticProvenanceResult,
 ) -> JsonObject:
     manifest = _object(bundle.get("manifest"))
     suite = _object(manifest.get("suite"))
     scorecard = _object(manifest.get("scorecard"))
-    return {
+    projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
         "model": _projection_model(bundle, manifest),
         "runtime": _object(manifest.get("runtime")),
@@ -119,9 +175,10 @@ def _projection(
             "projection_sha256": "",
             "public_artifact_manifest_sha256": "",
         },
-        "origin": "project_anchor",
-        "trust_label": "community_re_scored",
+        "origin": origin,
+        "trust_label": _trust_label(origin),
         "verification_level": "bundle_rescored",
+        "agentic_provenance": provenance.label,
         # Per-bench honesty marker: "rescored" = recomputed from suite sources here;
         # "verdict_carried" = the bundle's own verdicts (dynamic bench, no static source).
         "rescore_modes": dict(rescore_modes),
@@ -131,6 +188,9 @@ def _projection(
             "validated_at": validated_at,
         },
     }
+    if provenance.notes:
+        projection["provenance_notes"] = list(provenance.notes)
+    return projection
 
 
 def _scored_items(

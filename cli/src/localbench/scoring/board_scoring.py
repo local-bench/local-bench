@@ -8,7 +8,7 @@ from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring import bootstrap, cluster_for_item, score_interval, stratum_for_item
-from localbench.scoring.axes import headline_web_axes, web_display_axes, web_source_bench_groups
+from localbench.scoring.axes import STATIC_SUITE_INDEX_VERSION, headline_web_axes, static_suite_web_weights, web_display_axes, web_source_bench_groups
 from localbench.scoring.board_support import (
     DEFAULT_BOOTSTRAP_SEED,
     LANE_SCOPE,
@@ -69,6 +69,8 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
             "kind": best["kind"],
             "best_run_id": best["best_run_id"],
             "composite": best["composite"],
+            "composite_static": best["composite_static"],
+            "composite_full": best["composite_full"],
             "axes": best["axes"],
             "tier": best["tier"],
             "lane": best["lane"],
@@ -93,6 +95,8 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
             row["conformance_gates"] = best["conformance_gates"]
         if "agentic_run" in best:
             row["agentic_run"] = best["agentic_run"]
+        if best.get("static_index_version") is not None:
+            row["static_index_version"] = best["static_index_version"]
         rows.append(row)
     return sorted(rows, key=lambda row: (not bool_value(row["ranked"], "ranked"), -(_model_point(row) or 0.0), text_value(row.get("model_label")) or ""))
 
@@ -137,6 +141,20 @@ def _scored_run(
     slug = slugify(source["model_label"])
     axes, samples = _axes_and_samples(benches, items, object_or_empty(conformance.get("per_bench")), bootstrap_iters)
     composite = _composite(samples, axes, bootstrap_iters, weights)
+    composite_static = _strict_composite(
+        samples,
+        axes,
+        bootstrap_iters,
+        required_axes=frozenset(static_suite_web_weights()),
+        weights=static_suite_web_weights(),
+    )
+    composite_full = _strict_composite(
+        samples,
+        axes,
+        bootstrap_iters,
+        required_axes=frozenset(headline_web_axes()),
+        weights=weights,
+    )
     tokens = _completion_token_stats(items)
     tok_s = number_or_none(totals.get("completion_tokens_per_second"))
     run_id = f"{slug}__{path.stem}"
@@ -145,6 +163,8 @@ def _scored_run(
         "best_run_id": run_id,
         "catalog_id": source["model_id"],
         "composite": composite,
+        "composite_static": composite_static,
+        "composite_full": composite_full,
         "composite_raw": number_value(composite["point_raw"], "composite.point_raw"),
         "est_cost_usd": number_or_none(run.get("estimated_cost_usd")),
         "family": source["family"],
@@ -168,6 +188,8 @@ def _scored_run(
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
     }
+    if composite_static is not None:
+        scored["static_index_version"] = STATIC_SUITE_INDEX_VERSION
     publisher = source.get("publisher")
     if publisher is not None:
         scored["publisher"] = publisher
@@ -363,6 +385,19 @@ def _composite(samples: Mapping[str, bootstrap.BenchSample], axes: Mapping[str, 
         return score_interval(0.0, 0.0, 0.0)
     ci = bootstrap.composite_ci(present, source_weights, seed=DEFAULT_BOOTSTRAP_SEED, iters=bootstrap_iters)
     return score_interval(ci["point"], ci["lo"], ci["hi"])
+
+
+def _strict_composite(
+    samples: Mapping[str, bootstrap.BenchSample],
+    axes: Mapping[str, JsonValue],
+    bootstrap_iters: int,
+    *,
+    required_axes: frozenset[str],
+    weights: Mapping[str, float],
+) -> JsonObject | None:
+    if not required_axes <= set(axes):
+        return None
+    return _composite(samples, axes, bootstrap_iters, weights)
 
 
 def _sample_parts(bench: str, items: Sequence[JsonObject]) -> tuple[list[bool], list[str], list[str], int]:

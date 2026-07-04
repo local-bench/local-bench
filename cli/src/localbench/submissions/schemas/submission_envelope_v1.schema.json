@@ -21,7 +21,7 @@
     "schema_version": {"const": "localbench.submission_envelope.v1"},
     "ticket_id": {"type": "string"},
     "submitter_id": {"type": "string"},
-    "origin": {"enum": ["project_anchor", "community_submission"]},
+    "origin": {"enum": ["project_anchor", "community", "community_submission"]},
     "allowed_schema": {"const": "localbench.result_bundle.v1"},
     "expected_suite_release_id": {"type": ["string", "null"]},
     "expected_suite_manifest_sha256": {"type": ["string", "null"]},

@@ -242,3 +242,53 @@ semantics (normalize over present headline domains) are UNCHANGED everywhere.
 Fill in: files touched, deviations from spec (with reasons), test counts before/after,
 and the exact command outputs for `uv run pytest` (from cli/) summary line and
 `git hash-object cli/runs/board/board_v1.json`.
+
+### AS-BUILT - Codex 2026-07-04
+
+Files touched:
+- `cli/src/localbench/submissions/attestation.py`, `origin.py`, `bundle_input.py`, `provenance.py`.
+- Submission path updates: `archive.py`, `bundle.py`, `canon.py`, `client.py`, `foundation.py`, `foundation_scores.py`, `projection.py`, `rescore.py`, `status_update.py`, `validate.py`, `verify.py`, and submission schemas.
+- Scoring/board updates: `_scoring.py`, `scoring/axes.py`, `scoring/board_scoring.py`, `scoring/board_types.py`.
+- Agentic signing/persistence updates: `scoring/agentic_exec/loop_config.py`, `loop_types.py`, `protocol_c_loop.py`, `funnel.py`, and `orchestrate.py`.
+- CLI/test/docs updates: `cli.py`, `cli/tests/submissions/test_wave2_origin_attestation.py`, `test_wave2_static_composite.py`, updates to existing submission/board tests, and this spec file.
+
+Deviations or implementation notes:
+- No intentional scope deviations: no `web/`, `cli/runs/**`, released suite data, `pyproject` version, `Axis` dataclass, `AXES` weights, scorecard identity, or board regeneration changes.
+- `rescore_bundle` accepts both raw JSON result bundles and `.lbsub.zip` bundles so existing admin/local verification tests remain compatible while attested zip submissions can supply `attestations.jsonl`.
+- The static weight constant uses the actual `AXES` keys: `knowledge`, `instruction_following`, `tool_calling`, and `coding`.
+- The generic `campaign_checkpoints.py` writer was not changed because it does not persist AppWorld `TaskRunResult` rows. Attestations are persisted in `funnel._persist_report` as `attestations` and carried into inline `agentic_run.attestations`, which is the agentic per-task surface consumed by bundle packing.
+
+Test counts:
+- Before: `uv run pytest --collect-only -q` from `cli/` collected `1097 tests`.
+- After: full `uv run pytest` from `cli/` collected `1115 items`.
+
+Verification outputs:
+- `uv run ruff check ...` on changed Python/test files: `All checks passed!`
+- `uv run pytest` summary line:
+  `==== 1097 passed, 17 skipped, 1 xfailed, 19 warnings in 128.26s (0:02:08) =====`
+- `git hash-object cli/runs/board/board_v1.json`:
+  `3d058e6074bd781cc488c03255904b5f9599e37e`
+
+### Manager review addendum — Claude 2026-07-04
+
+- Independent verification: full `uv run pytest` re-run by the manager matched
+  Codex's summary exactly (1097 passed / 17 skipped / 1 xfailed), before AND after
+  pinning the production attester public key
+  (`c2325733eecbd7360080347520f46ad5f7a882b5b90add4219e8b306aca4dcde`,
+  key_id `localbench-attester-2026-07`; private key sealed outside the repo).
+- Line review of trust-boundary code (attestation.py, provenance.py, origin.py,
+  projection threading, signing hook, archive/bundle members): no security findings.
+  Two designs Codex added beyond spec, both ACCEPTED as improvements:
+  (1) community-origin rows can never label `project_attested` even with
+  valid-looking attestation records (downgrade + `community_origin` note) — closes
+  a cross-bundle attestation-replay corner the spec missed;
+  (2) a stray wrong-key attestation downgrades an otherwise-attested run — fails
+  toward less trust.
+- Accepted deviation: `rescore_bundle`/`verify_submission` default
+  `origin="project_anchor"` for legacy internal callers (spec said required-no-default);
+  acceptable because the online admin path sources origin from the server row and
+  fails typed when absent, and local `verify-submission` is admin tooling. Follow-up
+  (Wave 3): add `--origin` to the local command.
+- Hardening follow-up (non-blocking): `attestation_run_id` defaults to the bench
+  name; bind it to the real campaign/run id at orchestrate level so attestation
+  records carry run identity.

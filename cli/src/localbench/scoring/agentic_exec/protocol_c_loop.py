@@ -56,6 +56,7 @@ from localbench.scoring.agentic_exec.prompt import (
     format_observation,
 )
 from localbench.scoring.agentic_exec.sandbox import SandboxError, SandboxTimeoutError
+from localbench.submissions.attestation import sign_verdict_attestation
 
 # Variable name the model must bind for its final answer (matches the prompt + block_parser).
 _ANSWER_VAR = "answer"
@@ -195,6 +196,7 @@ def run_task(
 
     outcome: TaskOutcome = TaskOutcome.NO_FINAL_ANSWER
     verdict = _Verdict(success=False, collateral_damage=False, failures=())
+    attestation: dict[str, Any] | None = None
     finalize_error: str | None = None
     finalization: dict[str, Any] | None = None
     failure_class = FailureClass.NONE
@@ -363,6 +365,14 @@ def run_task(
                 outcome = TaskOutcome.HARNESS_ERROR
                 failure_class = FailureClass.HARNESS_ERROR
                 break
+            if cfg.attester_key_path is not None:
+                attestation = sign_verdict_attestation(
+                    bench="appworld_c",
+                    task_id=task_id,
+                    run_id=cfg.attestation_run_id,
+                    verdict={"success": verdict.success, "collateral_damage": verdict.collateral_damage},
+                    signing_key_path=cfg.attester_key_path,
+                )
             outcome = TaskOutcome.SUCCESS if verdict.success else TaskOutcome.FAILURE
             failure_class = _failure_class_for_outcome(outcome)
             break
@@ -398,6 +408,7 @@ def run_task(
         outcome=outcome,
         collateral_damage=verdict.collateral_damage,
         diagnostics=diagnostics,
+        attestation=attestation,
     )
 
 

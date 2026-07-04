@@ -9,6 +9,7 @@ from localbench.submissions.contracts import VERIFICATION_SCHEMA_VERSION
 from localbench.submissions.crypto import verify_manifest_signature
 from localbench.submissions.dedup import dedup_keys
 from localbench.submissions.divergence import compare_client_divergence
+from localbench.submissions.provenance import carried_from_submission_items, evaluate_agentic_provenance
 from localbench.submissions.rescore import recompute_public_scores
 from localbench.submissions.trust import offline_trust_state
 from localbench.submissions.validate import (
@@ -36,10 +37,22 @@ def verify_bundle_offline(
     validate_item_contracts(bundle.items)
     validate_suite_and_scorecard(payload, suite_dir)
     expected = suite_item_index(payload, suite_dir)
-    validate_items_match_suite(bundle.items, expected)
-    recomputed = recompute_public_scores(bundle.items, expected)
+    from localbench.submissions.projection import (  # noqa: PLC0415
+        GRANDFATHERED_ATTESTED_BUNDLE_SHA256S,
+        _dynamic_benches,
+    )
+
+    dynamic_benches = _dynamic_benches(suite_dir, expected)
+    validate_items_match_suite(bundle.items, expected, dynamic_benches)
+    recomputed = recompute_public_scores(bundle.items, expected, dynamic_benches)
     divergence = compare_client_divergence(bundle.items, recomputed)
     trust = offline_trust_state()
+    provenance = evaluate_agentic_provenance(
+        carried_from_submission_items(bundle.items, dynamic_benches),
+        bundle.attestations,
+        bundle_sha256=bundle.bundle_sha256,
+        grandfathered_bundle_sha256s=GRANDFATHERED_ATTESTED_BUNDLE_SHA256S,
+    )
     result: JsonObject = {
         "schema_version": VERIFICATION_SCHEMA_VERSION,
         "status": "accepted",
@@ -51,12 +64,15 @@ def verify_bundle_offline(
         "recomputed": recomputed,
         "divergence": divergence,
         "dedup": dedup_keys(bundle.bundle_sha256, bundle.manifest, bundle.items),
+        "agentic_provenance": provenance.label,
         "audit": {
             "client_aggregates_ignored": True,
             "client_item_scores_ignored": True,
             "run_original_present": bundle.run_original is not None,
         },
     }
+    if provenance.notes:
+        result["provenance_notes"] = list(provenance.notes)
     if out_path is not None:
         write_json_file(out_path, result)
     return result

@@ -19,6 +19,7 @@
     "origin",
     "trust_label",
     "verification_level",
+    "agentic_provenance",
     "validator"
   ],
   "properties": {
@@ -34,9 +35,11 @@
     "axes": {"type": "object"},
     "conformance": {"type": "object"},
     "artifact_hashes": {"type": "object"},
-    "origin": {"enum": ["project_anchor", "community_submission"]},
-    "trust_label": {"type": "string"},
-    "verification_level": {"type": "string"},
+    "origin": {"enum": ["project_anchor", "community", "community_submission"]},
+    "trust_label": {"enum": ["project_anchor", "community_self_submitted", "community_re_scored"]},
+    "verification_level": {"const": "bundle_rescored"},
+    "agentic_provenance": {"enum": ["none", "project_attested", "self_reported"]},
+    "provenance_notes": {"type": "array", "items": {"type": "string"}},
     "validator": {"type": "object"}
   }
 }

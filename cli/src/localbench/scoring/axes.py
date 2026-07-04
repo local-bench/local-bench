@@ -119,6 +119,13 @@ AXES: Final[tuple[Axis, ...]] = (
         True,
     ),
 )
+STATIC_SUITE_INDEX_VERSION: Final = "static-suite-v1"
+STATIC_SUITE_WEIGHTS: Final[dict[str, float]] = {
+    "knowledge": 0.30,
+    "instruction_following": 0.30,
+    "tool_calling": 0.20,
+    "coding": 0.20,
+}
 
 
 def bench_domains() -> dict[str, str]:
@@ -153,6 +160,22 @@ def web_composite_weights() -> dict[str, float]:
     return {axis.web_key: axis.weight for axis in AXES if axis.web_display}
 
 
+def static_suite_domain_weights() -> dict[str, float]:
+    return {
+        axis.display: STATIC_SUITE_WEIGHTS[axis.key]
+        for axis in AXES
+        if axis.key in STATIC_SUITE_WEIGHTS
+    }
+
+
+def static_suite_web_weights() -> dict[str, float]:
+    return {
+        axis.web_key: STATIC_SUITE_WEIGHTS[axis.key]
+        for axis in AXES
+        if axis.key in STATIC_SUITE_WEIGHTS
+    }
+
+
 def web_source_bench_groups() -> dict[str, tuple[tuple[str, ...], ...]]:
     groups: dict[str, tuple[tuple[str, ...], ...]] = {}
     for axis in AXES:
@@ -175,6 +198,12 @@ def _validate() -> None:
     benches = [bench for axis in AXES for bench in (*axis.benches, *axis.legacy_benches)]
     if len(benches) != len(set(benches)):
         raise ValueError("a bench is mapped to more than one axis")
+    headline_keys = {axis.key for axis in headline}
+    if not set(STATIC_SUITE_WEIGHTS) <= headline_keys:
+        raise ValueError("static suite weights must reference headline axes")
+    static_weight = sum(STATIC_SUITE_WEIGHTS.values())
+    if abs(static_weight - 1.0) > 1e-9:
+        raise ValueError(f"static suite weights must sum to 1.0, got {static_weight}")
 
 
 _validate()

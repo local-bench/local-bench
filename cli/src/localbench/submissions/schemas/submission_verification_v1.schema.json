@@ -8,6 +8,8 @@
     "status": { "const": "accepted" },
     "bundle_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "trust_label": { "const": "community_re_scored" },
+    "agentic_provenance": { "enum": ["none", "project_attested", "self_reported"] },
+    "provenance_notes": { "type": "array", "items": { "type": "string" } },
     "publishable": { "const": false },
     "recomputed": { "type": "object" },
     "divergence": {

@@ -17,9 +17,10 @@ def verify_submission(
     projection_out: Path,
     validated_at: str,
     validator_commit: str | None,
+    origin: str,
 ) -> JsonObject:
     validation = validate_submission_bundle(bundle_path, suite_dir=suite_dir)
-    projection = rescore_bundle(bundle_path, suite_dir=suite_dir, validated_at=validated_at)
+    projection = rescore_bundle(bundle_path, suite_dir=suite_dir, validated_at=validated_at, origin=origin)
     write_json_file(projection_out, projection)
     blockers = _string_list(validation.get("blocking_reasons"))
     accepted = bool(validation.get("publishable"))

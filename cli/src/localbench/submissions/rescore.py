@@ -11,9 +11,10 @@ from localbench.submissions.validate import SuiteItem, SubmissionValidationError
 def recompute_public_scores(
     items: list[JsonObject],
     suite_items: Mapping[tuple[str, str], SuiteItem],
+    dynamic_benches: frozenset[str] = frozenset(),
 ) -> JsonObject:
-    scored = [_rescore_item(item, suite_items) for item in items]
-    baselines = _baselines(suite_items)
+    scored = [_rescore_item(item, suite_items, dynamic_benches) for item in items]
+    baselines = _baselines(suite_items) | {bench: 0.0 for bench in dynamic_benches}
     benches = {
         bench: aggregate(bench, [item for item in scored if item["bench"] == bench], baseline)
         for bench, baseline in baselines.items()
@@ -30,11 +31,14 @@ def recompute_public_scores(
 def _rescore_item(
     item: JsonObject,
     suite_items: Mapping[tuple[str, str], SuiteItem],
+    dynamic_benches: frozenset[str],
 ) -> ScoredItem:
     bench = _string_or_error(item.get("bench"), "bench")
     item_id = _string_or_error(item.get("item_id"), "item_id")
     suite_item = suite_items.get((bench, item_id))
     if suite_item is None:
+        if bench in dynamic_benches:
+            return _verdict_carried_item(item, bench, item_id)
         raise SubmissionValidationError(f"unknown item: {bench}/{item_id}")
     response = _object(item.get("response"))
     timing = _object(item.get("timing"))
@@ -62,6 +66,26 @@ def _rescore_item(
     if "failure_kind" in detail:
         scored["failure_kind"] = detail["failure_kind"]
     return scored
+
+
+def _verdict_carried_item(item: JsonObject, bench: str, item_id: str) -> ScoredItem:
+    response = _object(item.get("response"))
+    timing = _object(item.get("timing"))
+    client_scoring = _object(item.get("client_scoring"))
+    return {
+        "id": item_id,
+        "bench": bench,
+        "response_text": _optional_string(response.get("text")),
+        "extracted": _optional_string(client_scoring.get("extracted")),
+        "correct": bool(client_scoring.get("correct")),
+        "finish_reason": _optional_string(response.get("finish_reason")),
+        "latency_seconds": _number(timing.get("latency_seconds")),
+        "started_at": _optional_string(timing.get("started_at")) or "",
+        "finished_at": _optional_string(timing.get("finished_at")) or "",
+        "attempts": _int(timing.get("attempts")),
+        "usage": _usage(item.get("usage")),
+        "error": _optional_string(response.get("error")),
+    }
 
 
 def _public_item(item: ScoredItem) -> JsonObject:

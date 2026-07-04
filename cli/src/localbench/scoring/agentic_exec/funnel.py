@@ -382,10 +382,15 @@ def _persist_report(
             "seed": config.seed,
         },
         "subset": subset.as_dict(),
+        "attestations": _report_attestations(report),
         "report": report.as_dict(),
     }
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     return str(path)
+
+
+def _report_attestations(report: BenchmarkReport) -> list[dict[str, Any]]:
+    return [result.attestation for result in report.results if result.attestation is not None]
 
 
 # ==================================================================================================

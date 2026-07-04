@@ -55,7 +55,9 @@ class ScoredRun(TypedDict):
     best_run_id: str
     catalog_id: str | None
     composite: JsonObject
+    composite_full: JsonObject | None
     composite_raw: float
+    composite_static: JsonObject | None
     conformance_gates: NotRequired[JsonObject]
     agentic_run: NotRequired[JsonObject]
     est_cost_usd: float | None
@@ -81,3 +83,4 @@ class ScoredRun(TypedDict):
     wall_time_seconds: float | None
     suite_version: str | None
     item_set_hashes: JsonObject
+    static_index_version: NotRequired[str]

@@ -111,7 +111,11 @@ def suite_item_index(payload: JsonObject, suite_dir: Path) -> dict[tuple[str, st
     return index
 
 
-def validate_items_match_suite(items: list[JsonObject], expected: dict[tuple[str, str], SuiteItem]) -> None:
+def validate_items_match_suite(
+    items: list[JsonObject],
+    expected: dict[tuple[str, str], SuiteItem],
+    dynamic_benches: frozenset[str] = frozenset(),
+) -> None:
     seen: set[tuple[str, str]] = set()
     for item in items:
         key = (_require_string(item, "bench"), _require_string(item, "item_id"))
@@ -120,6 +124,8 @@ def validate_items_match_suite(items: list[JsonObject], expected: dict[tuple[str
         seen.add(key)
         suite_item = expected.get(key)
         if suite_item is None:
+            if key[0] in dynamic_benches:
+                continue
             raise SubmissionValidationError(f"unknown item: {key[0]}/{key[1]}")
         if item.get("suite_item_sha256") != suite_item.item_sha256:
             raise SubmissionValidationError(f"suite item hash mismatch: {key[0]}/{key[1]}")

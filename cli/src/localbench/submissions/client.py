@@ -9,6 +9,7 @@ from typing import Literal, NotRequired, TypedDict
 import httpx
 
 from localbench._types import JsonObject, JsonValue
+from localbench.submissions.origin import normalize_origin
 from localbench.submissions.validate import SubmissionValidationError
 
 PublishState = Literal["hidden", "preview", "published"]
@@ -244,7 +245,7 @@ def _envelope(value: JsonValue) -> SubmissionEnvelope:
         "expiry": _required_text(data, "expiry"),
         "max_upload_bytes": _required_int(data, "max_upload_bytes"),
         "one_use": _required_true(data, "one_use"),
-        "origin": _required_text(data, "origin"),
+        "origin": normalize_origin(_required_text(data, "origin")),
         "schema_version": _required_text(data, "schema_version"),
         "submitter_id": _required_text(data, "submitter_id"),
         "ticket_id": _required_text(data, "ticket_id"),
