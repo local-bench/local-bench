@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { handleHealth, handleSuiteManifest, handleSuites, type ApiEnv } from "../functions/_lib/api";
 import { PUBLIC_SUITES } from "../functions/_lib/suite-catalog";
@@ -62,7 +62,7 @@ describe("Cloudflare backend contract", () => {
     const manifest = await response.json();
     expect(manifest).toMatchObject({
       schema_version: "localbench.suite-manifest.v1",
-      suite_hash: "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231",
+      suite_hash: "bf463bf8526baad676f0a87d743f0037fdc8eb50dc4faf6abc374b29833dd558",
       suite_id: suiteId,
     });
     expect(manifest.files.map((file: { readonly path: string }) => file.path)).toEqual(
@@ -85,7 +85,7 @@ describe("Cloudflare backend contract", () => {
     const paths = manifest.files.map((file: { readonly path: string }) => file.path);
     expect(manifest).toMatchObject({
       schema_version: "localbench.suite-manifest.v1",
-      suite_hash: "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9",
+      suite_hash: "de25c8064f2342ef1f59a6a99065f7fe8dd17b389a899f0db3ce197f64f3fbf3",
       suite_id: suiteId,
     });
     expect(paths).toEqual(
@@ -106,6 +106,22 @@ describe("Cloudflare backend contract", () => {
         expect(createHash("sha256").update(data).digest("hex")).toBe(file.sha256);
         expect(data.byteLength).toBe(file.size);
       }
+    }
+  });
+
+  it("serves manifest hashes that match the CLI executable directory hash", async () => {
+    // Given: fetch-suite verifies the legacy manifest suite_hash against the local directory hash.
+    for (const suite of PUBLIC_SUITES) {
+      const requestUrl = new URL(`https://local-bench.ai/api/suites/${suite.id}/manifest`);
+
+      // When: the manifest route renders the suite.
+      const response = handleSuiteManifest(env(), requestUrl, { suiteId: suite.id });
+
+      // Then: the route serves the same executable directory hash the CLI computes.
+      expect(response.status).toBe(200);
+      const manifest = await response.json();
+      expect(manifest.suite_hash).toBe(executableSuiteHash(suite.id));
+      expect(suite.files.map((file) => file.path)).toEqual(expect.arrayContaining([...sha256SumsPaths(suite.id)]));
     }
   });
 
@@ -130,3 +146,52 @@ describe("Cloudflare backend contract", () => {
     });
   });
 });
+
+function executableSuiteHash(suiteId: string): string {
+  const root = suiteRoot(suiteId);
+  const suite = JSON.parse(readFileSync(new URL("suite.json", root), "utf-8"));
+  const lock = JSON.parse(readFileSync(new URL("itemsets.lock.json", root), "utf-8"));
+  const files = new Set<string>(["suite.json", "itemsets.lock.json"]);
+  if (isRecord(lock.files)) {
+    for (const file of Object.keys(lock.files)) {
+      files.add(file);
+    }
+  }
+  if (isRecord(suite.benches)) {
+    for (const bench of Object.values(suite.benches)) {
+      if (isRecord(bench) && typeof bench["template"] === "string") {
+        files.add(bench["template"]);
+      }
+    }
+  }
+  const digest = createHash("sha256");
+  for (const file of [...files].sort()) {
+    const fileHash = createHash("sha256").update(readFileSync(new URL(file, root))).digest("hex");
+    digest.update(file);
+    digest.update("\0");
+    digest.update(fileHash);
+    digest.update("\n");
+  }
+  return digest.digest("hex");
+}
+
+function sha256SumsPaths(suiteId: string): readonly string[] {
+  const sumsUrl = new URL("SHA256SUMS", suiteRoot(suiteId));
+  if (!existsSync(sumsUrl)) {
+    return [];
+  }
+  return readFileSync(sumsUrl, "utf-8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => line.split("  ")[1])
+    .filter((path): path is string => path !== undefined);
+}
+
+function suiteRoot(suiteId: string): URL {
+  return new URL(`../public/suites/${suiteId}/`, import.meta.url);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

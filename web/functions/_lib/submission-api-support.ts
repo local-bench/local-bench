@@ -29,6 +29,12 @@ export function adminBlocked(request: Request, env: SubmissionApiEnv): Response 
   return null;
 }
 
+export function hasValidAdminSecret(request: Request, env: SubmissionApiEnv): boolean {
+  const expected = (env.ADMIN_API_SECRET ?? "").trim();
+  const provided = (request.headers.get("x-localbench-admin-secret") ?? "").trim();
+  return expected.length > 0 && provided === expected;
+}
+
 export function suiteMismatches(row: SubmissionRow, bundle: ResultBundle): boolean {
   const suite = bundle.manifest.suite;
   if (row.suite_release_id !== null && row.suite_release_id !== suite.suite_release_id) {
@@ -41,7 +47,7 @@ export type ErrorLogContext = {
   readonly error: unknown;
   readonly leg: string;
   readonly route: string;
-  readonly submissionId: string;
+  readonly submission_id: string;
 };
 
 export function logSubmissionError(message: string, context: ErrorLogContext): void {
@@ -49,7 +55,27 @@ export function logSubmissionError(message: string, context: ErrorLogContext): v
     error: errorDetails(context.error),
     leg: context.leg,
     route: context.route,
-    submission_id: context.submissionId,
+    submission_id: context.submission_id,
+  });
+}
+
+export type TypedRejectionContext = {
+  readonly bundleSha256?: string;
+  readonly code: string;
+  readonly origin: "project_anchor" | "community";
+  readonly route: string;
+  readonly status: number;
+  readonly submitterId?: string;
+};
+
+export function logTypedRejection(context: TypedRejectionContext): void {
+  console.warn("submission_typed_rejection", {
+    bundle_sha256: truncateForLog(context.bundleSha256),
+    code: context.code,
+    origin: context.origin,
+    route: context.route,
+    status: context.status,
+    submitter_id: truncateForLog(context.submitterId),
   });
 }
 
@@ -58,6 +84,13 @@ export function jsonResponse(status: number, body: unknown): Response {
     headers: { "cache-control": "no-store" },
     status,
   });
+}
+
+function truncateForLog(value: string | undefined): string | null {
+  if (value === undefined) {
+    return null;
+  }
+  return value.length <= 16 ? value : value.slice(0, 16);
 }
 
 function errorDetails(error: unknown): Record<string, string | null> {

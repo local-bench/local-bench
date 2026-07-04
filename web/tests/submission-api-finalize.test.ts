@@ -141,16 +141,23 @@ class FakeD1Statement implements D1PreparedStatement {
 function ticketRow(): Record<string, unknown> {
   return {
     bundle_schema_version: "localbench.result_bundle.v1",
+    duplicate_of: null,
+    expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    origin: "project_anchor",
     projection_sha256: null,
     publish_state: "hidden",
     raw_bundle_r2_key: rawBundleKey(RAW_BUNDLE_SHA),
     raw_bundle_sha256: RAW_BUNDLE_SHA,
     raw_bundle_size_bytes: null,
+    run_payload_sha256: null,
     status: "ticketed",
+    status_reason: null,
     submission_id: TICKET_ID,
+    submitter_id: "project-anchor",
     suite_manifest_sha256: SUITE_MANIFEST_SHA,
     suite_release_id: SUITE_RELEASE_ID,
     ticket_id: TICKET_ID,
+    uploaded_at: null,
   };
 }
 

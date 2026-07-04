@@ -10,13 +10,13 @@ import {
   getRequest,
   issueEnvelope,
   jsonRequest,
-  migration0002WithoutTier,
+  migrationContractV2WithoutTier,
   resultBundle,
   sha256Hex,
 } from "./submission-test-support";
 
 describe("submission finalize route contracts", () => {
-  it("finalizes uploaded bundles idempotently by raw_bundle_sha256", async () => {
+  it("finalizes uploaded bundles idempotently for the same submission id", async () => {
     // Given: a ticketed row and the raw result_bundle_v1 bytes in mock R2.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const envelope = await issueEnvelope(env);
@@ -33,7 +33,7 @@ describe("submission finalize route contracts", () => {
     });
     const second = await completeSubmission({
       env,
-      params: { submissionId: `sub_duplicate_${envelope.ticket_id}` },
+      params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
@@ -122,8 +122,8 @@ describe("submission finalize route contracts", () => {
     });
   });
 
-  it("returns the 0002 public submission shape from the status route", async () => {
-    // Given: a finalized 0002 submission row exists.
+  it("returns the contract-v2 public submission shape from the status route", async () => {
+    // Given: a finalized contract-v2 submission row exists.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const envelope = await issueEnvelope(env);
     await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);
@@ -142,23 +142,25 @@ describe("submission finalize route contracts", () => {
       params: { submissionId: envelope.ticket_id },
     });
 
-    // Then: the route uses the 0002 store contract, not the retired 0001 columns.
+    // Then: the route uses the public store contract without exposing storage keys.
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toMatchObject({
       bundle_schema_version: "localbench.result_bundle.v1",
+      duplicate_of: null,
+      expires_at: null,
       publish_state: "hidden",
-      raw_bundle_r2_key: `submissions/raw/${RAW_BUNDLE_SHA}.json`,
       raw_bundle_sha256: RAW_BUNDLE_SHA,
       status: "pending_verification",
       submission_id: envelope.ticket_id,
     });
+    expect(body).not.toHaveProperty("raw_bundle_r2_key");
     expect(body).not.toHaveProperty("r2_key");
     expect(body).not.toHaveProperty("bundle_sha256");
   });
 
-  it("lists 0002 submissions from the admin route", async () => {
-    // Given: one pending-verification 0002 row and an admin secret.
+  it("lists contract-v2 submissions from the admin route", async () => {
+    // Given: one pending-verification contract-v2 row and an admin secret.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const envelope = await issueEnvelope(env);
     await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);
@@ -179,25 +181,27 @@ describe("submission finalize route contracts", () => {
       }),
     });
 
-    // Then: the list endpoint returns 0002 submission projections ordered for verifier work.
+    // Then: the list endpoint returns public-safe submission projections ordered for verifier work.
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.submissions).toEqual([
       expect.objectContaining({
-        raw_bundle_r2_key: `submissions/raw/${RAW_BUNDLE_SHA}.json`,
+        duplicate_of: null,
+        expires_at: null,
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         status: "pending_verification",
         submission_id: envelope.ticket_id,
       }),
     ]);
+    expect(body.submissions[0]).not.toHaveProperty("raw_bundle_r2_key");
   });
 
   it("logs and returns a structured 500 when finalize hits a drifted D1 schema", async () => {
-    // Given: local D1 has the 0002 shape except for the tier column used by markPendingVerification.
+    // Given: local D1 has the contract-v2 shape except for the tier column used by markPendingVerification.
     const env = await createEnv({
       includeAdminSecret: true,
       includeR2Secrets: true,
-      migrations: [migration0002WithoutTier()],
+      migrations: [migrationContractV2WithoutTier()],
     });
     const envelope = await issueEnvelope(env);
     await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);

@@ -15,11 +15,18 @@ export type D1DatabaseBinding = {
 };
 
 export type R2ObjectBodyBinding = {
+  readonly size?: number;
+  arrayBuffer?(): Promise<ArrayBuffer>;
   text(): Promise<string>;
+};
+
+export type R2ObjectMetadataBinding = {
+  readonly size?: number;
 };
 
 export type R2BucketBinding = {
   get(key: string): Promise<R2ObjectBodyBinding | null>;
+  head?(key: string): Promise<R2ObjectMetadataBinding | null>;
   put(key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream): Promise<unknown>;
 };
 
@@ -32,6 +39,7 @@ export type SubmissionApiEnv = {
   readonly R2_BUCKET_NAME?: string;
   readonly R2_SECRET_ACCESS_KEY?: string;
   readonly SUBMISSIONS: R2BucketBinding;
+  readonly TURNSTILE_ENABLED?: string;
 };
 
 export type RouteParams = {
@@ -45,41 +53,46 @@ export type SubmissionEnvelope = {
   readonly declared_model_slug?: string;
   readonly expected_suite_manifest_sha256: string | null;
   readonly expected_suite_release_id: string | null;
+  readonly expires_at: string;
   readonly expiry: string;
   readonly max_upload_bytes: number;
   readonly one_use: true;
-  readonly origin: "project_anchor";
+  readonly origin: "project_anchor" | "community";
   readonly schema_version: typeof SUBMISSION_ENVELOPE_SCHEMA_VERSION;
   readonly submitter_id: string;
   readonly ticket_id: string;
 };
 
 export const RESULT_BUNDLE_SCHEMA_VERSION = "localbench.result_bundle.v1";
-export const SUBMISSION_ENVELOPE_SCHEMA_VERSION = "localbench.submission_envelope.v1";
+export const SUBMISSION_ENVELOPE_SCHEMA_VERSION = "localbench.submission_envelope.v2";
 export const STATUS_UPDATE_SCHEMA_VERSION = "localbench.submission_status_update.v1";
 export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v1";
-export const DEFAULT_MAX_UPLOAD_BYTES = 104_857_600;
-export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
-export const DEFAULT_SUITE_MANIFEST_SHA256 = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231";
+export const MAX_UPLOAD_BYTES = 67_108_864;
+export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
+export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
+export const DEFAULT_SUITE_MANIFEST_SHA256 = "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9";
 export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
+const Ed25519SignatureSchema = z.string().regex(/^[0-9a-f]{128}$/);
 const RemovedBundleFields = ["schema", "composite", "trust_tier", "serving_verification_level", "source", "output_path"] as const;
+const PopSchema = z.object({
+  signature: Ed25519SignatureSchema,
+  timestamp: z.string().min(1),
+});
 
-export const TicketRequestSchema = z
-  .object({
-    accepted_suite_terms: z.literal(true),
-    bundle_sha256: Sha256Schema,
-    declared_model_slug: z.string().min(1).max(200).optional(),
-    expected_suite_manifest_sha256: Sha256Schema.nullable().optional(),
-    expected_suite_release_id: z.string().min(1).nullable().optional(),
-    max_upload_bytes: z.number().int().positive().max(DEFAULT_MAX_UPLOAD_BYTES).optional(),
-    public_key: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-    submitter_id: z.string().min(1).optional(),
-  })
-  .refine((request) => request.submitter_id !== undefined || request.public_key !== undefined, {
-    message: "submitter_id or public_key is required",
-  });
+export const TicketRequestSchema = z.object({
+  accepted_suite_terms: z.literal(true),
+  bundle_sha256: Sha256Schema,
+  declared_model_slug: z.string().min(1).max(200).optional(),
+  expected_suite_manifest_sha256: Sha256Schema.nullable().optional(),
+  expected_suite_release_id: z.string().min(1).nullable().optional(),
+  max_upload_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
+  pop: PopSchema.optional(),
+  public_key: Ed25519PublicKeySchema.optional(),
+  submitter_id: z.string().min(1).optional(),
+});
 
 export const UploadTargetRequestSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
@@ -88,7 +101,7 @@ export const UploadTargetRequestSchema = z.object({
 
 export const CompleteRequestSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
-  size_bytes: z.number().int().positive().max(DEFAULT_MAX_UPLOAD_BYTES).optional(),
+  size_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
 });
 
 export const StatusUpdateSchema = z
@@ -166,16 +179,23 @@ export const ResultBundleSchema = z
 
 export const SubmissionRowSchema = z.object({
   bundle_schema_version: z.string().nullable(),
+  duplicate_of: z.string().nullable(),
+  expires_at: z.string().nullable(),
+  origin: z.enum(["project_anchor", "community"]),
   projection_sha256: z.string().nullable(),
   publish_state: z.enum(["hidden", "preview", "published"]),
   raw_bundle_r2_key: z.string().nullable(),
   raw_bundle_sha256: Sha256Schema,
   raw_bundle_size_bytes: z.number().nullable(),
+  run_payload_sha256: Sha256Schema.nullable(),
   status: z.string(),
+  status_reason: z.string().nullable(),
   submission_id: z.string(),
+  submitter_id: z.string().nullable(),
   suite_manifest_sha256: Sha256Schema.nullable(),
   suite_release_id: z.string().nullable(),
   ticket_id: z.string().nullable(),
+  uploaded_at: z.string().nullable(),
 });
 
 export type TicketRequest = z.infer<typeof TicketRequestSchema>;

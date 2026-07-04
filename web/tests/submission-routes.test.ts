@@ -19,21 +19,21 @@ import {
 } from "./submission-test-support";
 
 describe("submission route contracts", () => {
-  it("returns disabled when ticket issuance lacks the admin secret binding", async () => {
+  it("treats ticket issuance without the admin header as the public community path", async () => {
     // Given: D1/R2 exist but ADMIN_API_SECRET is intentionally absent.
     const env = await createEnv({ includeAdminSecret: false, includeR2Secrets: true });
 
-    // When: the project-anchor ticket route is called.
+    // When: the ticket route is called without an admin secret.
     const response = await issueTicket({
       env,
       request: jsonRequest("/api/submissions/tickets", ticketRequest()),
     });
 
-    // Then: the route degrades clearly without requiring a secret to build.
-    expect(response.status).toBe(503);
+    // Then: the route uses the community contract instead of issuing an admin ticket.
+    expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
-      code: "admin_api_disabled",
-      error: "submission ticket issuance is disabled",
+      code: "invalid_ticket_request",
+      error: "invalid submission ticket request",
     });
   });
 
@@ -49,7 +49,7 @@ describe("submission route contracts", () => {
       }),
     });
 
-    // Then: the response is a submission_envelope_v1, not a scoring artifact.
+    // Then: the response is a submission_envelope_v2, not a scoring artifact.
     expect(response.status).toBe(201);
     const envelope = await response.json();
     expect(envelope).toMatchObject({
@@ -58,21 +58,24 @@ describe("submission route contracts", () => {
       bundle_sha256: RAW_BUNDLE_SHA,
       expected_suite_manifest_sha256: SUITE_MANIFEST_SHA,
       expected_suite_release_id: SUITE_RELEASE_ID,
-      max_upload_bytes: 104_857_600,
+      max_upload_bytes: 67_108_864,
       one_use: true,
       origin: "project_anchor",
-      schema_version: "localbench.submission_envelope.v1",
+      schema_version: "localbench.submission_envelope.v2",
       submitter_id: "project-anchor",
     });
     expect(envelope.ticket_id).toMatch(/^ticket_/);
+    expect(envelope.expires_at).toMatch(/Z$/);
     expect(envelope.expiry).toMatch(/Z$/);
 
     const row = await env.DB.prepare(
-      "select status, raw_bundle_sha256, raw_bundle_r2_key from submissions where ticket_id = ?",
+      "select status, origin, raw_bundle_sha256, raw_bundle_r2_key, expires_at from submissions where ticket_id = ?",
     )
       .bind(envelope.ticket_id)
       .first();
     expect(row).toMatchObject({
+      expires_at: envelope.expires_at,
+      origin: "project_anchor",
       raw_bundle_r2_key: `submissions/raw/${RAW_BUNDLE_SHA}.json`,
       raw_bundle_sha256: RAW_BUNDLE_SHA,
       status: "ticketed",

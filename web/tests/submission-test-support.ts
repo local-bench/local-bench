@@ -8,10 +8,11 @@ import type { SubmissionApiEnv } from "../functions/_lib/submission-api";
 export const MIGRATION_0001 = readFileSync(new URL("../migrations/0001_online_submissions.sql", import.meta.url), "utf-8");
 export const MIGRATION_0002 = readFileSync(new URL("../migrations/0002_submission_slice_index.sql", import.meta.url), "utf-8");
 export const MIGRATION_0003 = readFileSync(new URL("../migrations/0003_submission_reconcile.sql", import.meta.url), "utf-8");
+export const MIGRATION_0004 = readFileSync(new URL("../migrations/0004_submission_contract_v2.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
-export const SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
-export const SUITE_MANIFEST_SHA = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231";
+export const SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
+export const SUITE_MANIFEST_SHA = "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9";
 export const RESULT_BUNDLE = resultBundle();
 export const RESULT_BUNDLE_JSON = JSON.stringify(RESULT_BUNDLE);
 export const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
@@ -29,18 +30,14 @@ export type TestEnvOptions = {
   readonly migrations?: readonly string[];
 };
 
-export type IssuedEnvelope = {
-  readonly ticket_id: string;
-};
+export type IssuedEnvelope = { readonly ticket_id: string };
 
 export type MigrationError = {
   readonly message: string;
   readonly statement: string;
 };
 
-export type MigrationOptions = {
-  readonly allowErrors?: boolean;
-};
+export type MigrationOptions = { readonly allowErrors?: boolean };
 
 export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiEnv> {
   const miniflare = new Miniflare({
@@ -52,7 +49,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  for (const migration of options.migrations ?? [MIGRATION_0002]) {
+  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004]) {
     await applyMigration(bindings.DB, migration);
   }
   return {
@@ -131,12 +128,20 @@ export async function tableExists(db: SubmissionApiEnv["DB"], tableName: string)
   return numericCount(row) === 1;
 }
 
-export function migration0002WithoutTier(): string {
-  const withoutTier = MIGRATION_0002.replace("  tier text,\n", "");
-  if (withoutTier === MIGRATION_0002) {
-    throw new Error("test fixture did not remove the tier column");
-  }
-  return withoutTier;
+export function migrationContractV2WithoutTier(): string {
+  const migration0002 = replaceOnce(MIGRATION_0002, "  tier text,\n", "");
+  let migration0004 = replaceOnce(MIGRATION_0004, "  tier text,\n", "");
+  migration0004 = replaceOnce(
+    migration0004,
+    "  suite_manifest_sha256, scorecard_id, model_identity_digest, model_display_name, lane_id, tier,\n",
+    "  suite_manifest_sha256, scorecard_id, model_identity_digest, model_display_name, lane_id,\n",
+  );
+  migration0004 = replaceOnce(
+    migration0004,
+    "  model_identity_digest, model_display_name, lane_id, tier, validator_version, validator_commit,\n",
+    "  model_identity_digest, model_display_name, lane_id, validator_version, validator_commit,\n",
+  );
+  return `${migration0002}\n${migration0004}`;
 }
 
 export function ticketRequest(rawBundleSha = RAW_BUNDLE_SHA, overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -164,10 +169,7 @@ export function jsonRequest(path: string, body: unknown, headers: Record<string,
   });
 }
 
-export type ResultBundleOptions = {
-  readonly suiteManifestSha?: string;
-  readonly suiteReleaseId?: string;
-};
+export type ResultBundleOptions = { readonly suiteManifestSha?: string; readonly suiteReleaseId?: string };
 
 export function resultBundle(options: ResultBundleOptions = {}): Record<string, unknown> {
   return {
@@ -180,7 +182,7 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
       integrity: { publishable: true },
       provenance: { localbench_repo_commit: "440f540" },
       suite: {
-        coverage_profile_id: "partial-text-code-4axis-v1",
+        coverage_profile_id: "text-code-agentic-5axis-v1",
         suite_manifest_sha256: options.suiteManifestSha ?? SUITE_MANIFEST_SHA,
         suite_release_id: options.suiteReleaseId ?? SUITE_RELEASE_ID,
       },
@@ -249,6 +251,14 @@ function errorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function replaceOnce(value: string, search: string, replacement: string): string {
+  const replaced = value.replace(search, replacement);
+  if (replaced === value) {
+    throw new Error(`test fixture replacement did not match: ${search.trim()}`);
+  }
+  return replaced;
 }
 
 function isIssuedEnvelope(value: unknown): value is IssuedEnvelope {

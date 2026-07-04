@@ -25,6 +25,7 @@ export function handleSuites(env: ApiEnv): Response {
       id: suite.id,
       manifest_url: `${baseUrl}/api/suites/${suite.id}/manifest`,
       suite_hash: suite.suiteHash,
+      suite_manifest_sha256: suite.suiteManifestSha256,
       version: suite.version,
     })),
   });

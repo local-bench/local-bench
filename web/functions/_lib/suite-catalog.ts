@@ -7,7 +7,9 @@ export type SuiteFile = {
 export type SuiteRecord = {
   readonly files: readonly SuiteFile[];
   readonly id: string;
+  readonly staticBenches: readonly string[];
   readonly suiteHash: string;
+  readonly suiteManifestSha256: string;
   readonly version: string;
 };
 
@@ -37,6 +39,26 @@ export const CORE_TEXT_SUITE: SuiteRecord = {
       path: "tc_json_v1.jsonl",
       sha256: "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74",
       size: 497028,
+    },
+    {
+      path: "LICENSES/BFCL-Apache-2.0",
+      sha256: "801f2893851e1d05c434e6985fe3e7b5a0ab4e194b71f9b37649029f3d910ee0",
+      size: 9073,
+    },
+    {
+      path: "LICENSES/IFBench-ODC-BY-1.0",
+      sha256: "275ebb27595e33a98af9798a7de56003ae78529f3695790a047ee301b27437a9",
+      size: 20276,
+    },
+    {
+      path: "LICENSES/IFEval-Apache-2.0",
+      sha256: "09ee2bff51da5a25e5ab5c757f73a832ce1b016deb3971291ec2cca9128c4c3f",
+      size: 9230,
+    },
+    {
+      path: "LICENSES/MMLU-Pro-MIT",
+      sha256: "9eb6f69d48a1dd764e8a33f14a584f460d3cec653477c136a95dd6df9c249211",
+      size: 1055,
     },
     {
       path: "SCORECARD.json",
@@ -70,7 +92,9 @@ export const CORE_TEXT_SUITE: SuiteRecord = {
     },
   ],
   id: "core-text-v1",
+  staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1"],
   suiteHash: "6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179",
+  suiteManifestSha256: "6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179",
   version: "core-text-v1",
 } as const;
 
@@ -163,7 +187,9 @@ export const FOUR_AXIS_SUITE: SuiteRecord = {
     },
   ],
   id: "suite-v1-partial-text-code-4axis-v1",
-  suiteHash: "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231",
+  staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"],
+  suiteHash: "bf463bf8526baad676f0a87d743f0037fdc8eb50dc4faf6abc374b29833dd558",
+  suiteManifestSha256: "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231",
   version: "suite-v1",
 } as const;
 
@@ -188,7 +214,9 @@ export const FIVE_AXIS_SUITE: SuiteRecord = {
     { path: "suite_release_manifest.json", sha256: "86e56a61fc75114ffd264cd0538c4c939567a79b5008b86d0cb310492905f625", size: 3909 },
   ],
   id: "suite-v1-text-code-agentic-5axis-v1",
-  suiteHash: "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9",
+  staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"],
+  suiteHash: "de25c8064f2342ef1f59a6a99065f7fe8dd17b389a899f0db3ce197f64f3fbf3",
+  suiteManifestSha256: "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9",
   version: "suite-v1",
 } as const;
 
@@ -196,4 +224,8 @@ export const PUBLIC_SUITES = [CORE_TEXT_SUITE, FOUR_AXIS_SUITE, FIVE_AXIS_SUITE]
 
 export function suiteById(id: string): SuiteRecord | null {
   return PUBLIC_SUITES.find((suite) => suite.id === id) ?? null;
+}
+
+export function suiteByReleasePair(releaseId: string, manifestSha256: string): SuiteRecord | null {
+  return PUBLIC_SUITES.find((suite) => suite.id === releaseId && suite.suiteManifestSha256 === manifestSha256) ?? null;
 }
