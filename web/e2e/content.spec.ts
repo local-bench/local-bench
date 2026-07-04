@@ -18,7 +18,7 @@ test("trust page explains replication and community reporting and links back hom
 
   await expect(page.getByRole("heading", { name: "Honesty is the credibility signal" })).toBeVisible();
   await expect(page.getByText(/trust unit is replication/i)).toBeVisible();
-  await expect(page.getByText(/Community-reported runs/i)).toBeVisible();
+  await expect(page.getByText(/Community re-scored means/i)).toBeVisible();
   await capturePage(page, "content-trust");
 
   await page.getByRole("link", { name: "Back to leaderboard" }).click();

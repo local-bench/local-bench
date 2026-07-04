@@ -103,7 +103,7 @@ export function BestVariantVramScatter({
             </p>
           ) : null}
         </div>
-        <div className="font-mono text-xs text-bench-muted">{points.length} models</div>
+        <div className="font-mono text-xs text-bench-muted">{points.length} model{points.length === 1 ? "" : "s"}</div>
       </div>
       <div className="overflow-x-auto">
         <svg

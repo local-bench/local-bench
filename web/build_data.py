@@ -46,6 +46,7 @@ from build_data_support import (
     object_value as _object,
     string_value as _string,
     text_value as _text,
+    without_scoreless_conformance_status,
 )
 
 ensure_cli_src_path()
@@ -555,7 +556,8 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
         if any(_bool(_object(run["model_row"], "model_row").get("demo"), "model_row.demo") for run in group if _object(run["model_row"], "model_row").get("demo") is not None):
             model_payload["demo"] = True
         _write_json(models_dir / f"{slug}.json", model_payload)
-    _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "index_version": INDEX_VERSION, "models": models, "suite_version": _suite_version(runs)})
+    index_models = [without_scoreless_conformance_status(_object(model, "index.model")) for model in models]
+    _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "index_version": INDEX_VERSION, "models": index_models, "suite_version": _suite_version(runs)})
 
 
 def _manifest_summary(source: JsonObject, manifest: JsonObject, lane: str | None, quant: str | None) -> JsonObject:

@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { hasAgenticAxis } from "@/lib/leaderboard-score";
 import type { AgenticProvenance, BoardOrigin, IndexModel } from "@/lib/schemas";
 
-export function ProvenanceLabels({ model }: { readonly model: IndexModel }) {
+type ProvenanceModel = {
+  readonly agentic_provenance?: AgenticProvenance | undefined;
+  readonly axes: IndexModel["axes"];
+  readonly origin?: BoardOrigin | undefined;
+  readonly trust_label?: string | undefined;
+};
+
+export function ProvenanceLabels({ model }: { readonly model: ProvenanceModel }) {
   const trust = trustChip(model);
   const agentic = agenticChip(model);
   if (trust === null && agentic === null) {
@@ -24,7 +30,7 @@ export function SubmitterCell({ model }: { readonly model: IndexModel }) {
   return <span className="text-xs text-bench-muted">submitted by {displayName}</span>;
 }
 
-function trustChip(model: IndexModel) {
+function trustChip(model: ProvenanceModel) {
   if (model.origin === undefined && model.trust_label === undefined) {
     return null;
   }
@@ -45,8 +51,8 @@ function trustChip(model: IndexModel) {
   );
 }
 
-function agenticChip(model: IndexModel) {
-  if (!hasAgenticAxis(model) || model.agentic_provenance === undefined || model.agentic_provenance === "none") {
+function agenticChip(model: ProvenanceModel) {
+  if (model.axes["agentic"] === undefined || model.agentic_provenance === undefined || model.agentic_provenance === "none") {
     return null;
   }
   return (
