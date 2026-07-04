@@ -175,6 +175,50 @@ describe("submission contract v2 ticket route", () => {
     });
   });
 
+  it("carries an optional submitter display name for board credit", async () => {
+    // Given: a community submitter wants visible credit next to their row.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+
+    // When: the ticket names a display name, then a re-mint renames it, then a bad name tries.
+    const first = await issueTicket({
+      env,
+      request: jsonRequest(
+        "/api/submissions/tickets",
+        communityTicketBody(RAW_BUNDLE_SHA, key, { submitter_display_name: "Quant Cowboy" }),
+        { "CF-Connecting-IP": TEST_IP },
+      ),
+    });
+    const firstBody = await first.json();
+    const rotated = await issueTicket({
+      env,
+      request: jsonRequest(
+        "/api/submissions/tickets",
+        communityTicketBody(RAW_BUNDLE_SHA, key, { submitter_display_name: "Quant.Cowboy_2" }),
+        { "CF-Connecting-IP": TEST_IP },
+      ),
+    });
+    const invalid = await issueTicket({
+      env,
+      request: jsonRequest(
+        "/api/submissions/tickets",
+        communityTicketBody("d".repeat(64), key, { submitter_display_name: "https://spam.example/x" }),
+        { "CF-Connecting-IP": TEST_IP },
+      ),
+    });
+
+    // Then: the name is echoed, stored, updated on rotation, and URL-shaped names are rejected.
+    expect(first.status).toBe(201);
+    expect(firstBody.submitter_display_name).toBe("Quant Cowboy");
+    expect(rotated.status).toBe(200);
+    const stored = await env.DB.prepare("select submitter_display_name from submissions where raw_bundle_sha256 = ?")
+      .bind(RAW_BUNDLE_SHA)
+      .first();
+    expect(stored?.["submitter_display_name"]).toBe("Quant.Cowboy_2");
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ code: "invalid_ticket_request" });
+  });
+
   it("rotates a live same-submitter ticket and conflicts on submitted or different-submitter rows", async () => {
     // Given: a community submitter has one live ticket for a raw bundle.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });

@@ -169,6 +169,19 @@ the same rule origin-aware; Wave 1 only needs the server gate.
   `duplicate_of`, `expires_at` (ticketed rows), and `status_reason` when status is
   rejected (safe text only — no internal paths).
 
+### 9b. Submitter credit (added 2026-07-04, owner request)
+
+- Optional `submitter_display_name` on the ticket request (any origin): 2-40 chars,
+  `^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,38}[A-Za-z0-9]$` (alphanumeric ends; no `/` or `:`
+  so URLs can't be smuggled). Stored on the row (migration 0005), updated on ticket
+  rotation, echoed in the envelope, and exposed in `publicSubmission`.
+- Identity is still the Ed25519 key (`submitter_id = public_key:<hex>`); the display
+  name is display-only credit for the leaderboard ("submitted by X"). Moderation gate
+  = manual admin acceptance (nothing publishes without it). Name-squatting policy is
+  deliberately deferred: admin eyeball at accept time; first-use key binding is a
+  post-launch option. Board rendering of the credit lands in Wave 5; the CLI flag
+  (`--display-name`) lands in Wave 3.
+
 ## 10. Flip the defaults (safe now that community requires an explicit pair)
 
 - `DEFAULT_SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1"`,

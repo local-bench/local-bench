@@ -9,6 +9,7 @@ export const MIGRATION_0001 = readFileSync(new URL("../migrations/0001_online_su
 export const MIGRATION_0002 = readFileSync(new URL("../migrations/0002_submission_slice_index.sql", import.meta.url), "utf-8");
 export const MIGRATION_0003 = readFileSync(new URL("../migrations/0003_submission_reconcile.sql", import.meta.url), "utf-8");
 export const MIGRATION_0004 = readFileSync(new URL("../migrations/0004_submission_contract_v2.sql", import.meta.url), "utf-8");
+export const MIGRATION_0005 = readFileSync(new URL("../migrations/0005_submitter_display_name.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
 export const SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
@@ -49,7 +50,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004]) {
+  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005]) {
     await applyMigration(bindings.DB, migration);
   }
   return {
@@ -141,7 +142,7 @@ export function migrationContractV2WithoutTier(): string {
     "  model_identity_digest, model_display_name, lane_id, tier, validator_version, validator_commit,\n",
     "  model_identity_digest, model_display_name, lane_id, validator_version, validator_commit,\n",
   );
-  return `${migration0002}\n${migration0004}`;
+  return `${migration0002}\n${migration0004}\n${MIGRATION_0005}`;
 }
 
 export function ticketRequest(rawBundleSha = RAW_BUNDLE_SHA, overrides: Record<string, unknown> = {}): Record<string, unknown> {

@@ -158,6 +158,7 @@ function ticketRow(): Record<string, unknown> {
     status: "ticketed",
     status_reason: null,
     submission_id: "ticket_oversize",
+    submitter_display_name: null,
     submitter_id: "project-anchor",
     suite_manifest_sha256: FOUR_AXIS_SUITE_MANIFEST_SHA,
     suite_release_id: FOUR_AXIS_SUITE_RELEASE_ID,

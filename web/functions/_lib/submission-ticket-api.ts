@@ -165,10 +165,11 @@ function ticketEnvelope(request: TicketRequest, origin: SubmissionOrigin): Submi
     submitter_id: request.submitter_id ?? `public_key:${request.public_key ?? ""}`,
     ticket_id: ticketId,
   } satisfies SubmissionEnvelope;
-  if (request.declared_model_slug === undefined) {
-    return envelope;
-  }
-  return { ...envelope, declared_model_slug: request.declared_model_slug };
+  return {
+    ...envelope,
+    ...(request.declared_model_slug === undefined ? {} : { declared_model_slug: request.declared_model_slug }),
+    ...(request.submitter_display_name === undefined ? {} : { submitter_display_name: request.submitter_display_name }),
+  };
 }
 
 function invalidTicket(origin: SubmissionOrigin, bundleSha256?: string, submitterId?: string): Response {

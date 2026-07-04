@@ -13,14 +13,15 @@ import { projectionKey, rawBundleKey } from "./submission-storage";
 export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: SubmissionEnvelope): Promise<void> {
   await env.DB.prepare(
     `insert into submissions (
-      submission_id, origin, submitter_id, ticket_id, status, bundle_schema_version,
+      submission_id, origin, submitter_id, submitter_display_name, ticket_id, status, bundle_schema_version,
       raw_bundle_sha256, raw_bundle_r2_key, suite_release_id, suite_manifest_sha256, expires_at, idempotency_key
-    ) values (?, ?, ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?)`,
+    ) values (?, ?, ?, ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       ticket.ticket_id,
       ticket.origin,
       ticket.submitter_id,
+      ticket.submitter_display_name ?? null,
       ticket.ticket_id,
       RESULT_BUNDLE_SCHEMA_VERSION,
       ticket.bundle_sha256,
@@ -36,7 +37,7 @@ export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: Su
 export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSubmissionId: string, ticket: SubmissionEnvelope): Promise<void> {
   await env.DB.prepare(
     `update submissions set
-      submission_id = ?, ticket_id = ?, submitter_id = ?, origin = ?, suite_release_id = ?,
+      submission_id = ?, ticket_id = ?, submitter_id = ?, submitter_display_name = ?, origin = ?, suite_release_id = ?,
       suite_manifest_sha256 = ?, expires_at = ?, bundle_schema_version = ?
       where submission_id = ?`,
   )
@@ -44,6 +45,7 @@ export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSub
       ticket.ticket_id,
       ticket.ticket_id,
       ticket.submitter_id,
+      ticket.submitter_display_name ?? null,
       ticket.origin,
       ticket.expected_suite_release_id,
       ticket.expected_suite_manifest_sha256,
@@ -170,6 +172,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
     raw_bundle_size_bytes: row.raw_bundle_size_bytes,
     status: row.status,
     submission_id: row.submission_id,
+    submitter_display_name: row.submitter_display_name,
   };
   if (row.status === "rejected") {
     result["status_reason"] = row.status_reason;
@@ -180,7 +183,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
 function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "run_payload_sha256" | "status"): string {
   return `select submission_id, ticket_id, status, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
     raw_bundle_size_bytes, projection_sha256, publish_state, suite_release_id, suite_manifest_sha256,
-    origin, submitter_id, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason
+    origin, submitter_id, submitter_display_name, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason
     from submissions where ${column} = ?`;
 }
 

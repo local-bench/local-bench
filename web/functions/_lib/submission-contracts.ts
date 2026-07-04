@@ -59,6 +59,7 @@ export type SubmissionEnvelope = {
   readonly one_use: true;
   readonly origin: "project_anchor" | "community";
   readonly schema_version: typeof SUBMISSION_ENVELOPE_SCHEMA_VERSION;
+  readonly submitter_display_name?: string;
   readonly submitter_id: string;
   readonly ticket_id: string;
 };
@@ -76,6 +77,10 @@ export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
 const Ed25519SignatureSchema = z.string().regex(/^[0-9a-f]{128}$/);
+// Display-only submitter credit: 2-40 chars, alphanumeric at both ends, interior may
+// add space . _ ' - (no slashes/colons, so it cannot smuggle a URL). Identity stays
+// the Ed25519 key; admin acceptance is the moderation gate before anything publishes.
+const SubmitterDisplayNameSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,38}[A-Za-z0-9]$/);
 const RemovedBundleFields = ["schema", "composite", "trust_tier", "serving_verification_level", "source", "output_path"] as const;
 const PopSchema = z.object({
   signature: Ed25519SignatureSchema,
@@ -91,6 +96,7 @@ export const TicketRequestSchema = z.object({
   max_upload_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
   pop: PopSchema.optional(),
   public_key: Ed25519PublicKeySchema.optional(),
+  submitter_display_name: SubmitterDisplayNameSchema.optional(),
   submitter_id: z.string().min(1).optional(),
 });
 
@@ -191,6 +197,7 @@ export const SubmissionRowSchema = z.object({
   status: z.string(),
   status_reason: z.string().nullable(),
   submission_id: z.string(),
+  submitter_display_name: z.string().nullable(),
   submitter_id: z.string().nullable(),
   suite_manifest_sha256: Sha256Schema.nullable(),
   suite_release_id: z.string().nullable(),
