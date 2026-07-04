@@ -71,3 +71,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\launch-smoke.ps1 -
 ```
 
 That command writes `docs/deploy/live-state.generated.json` for machine-readable observations. This markdown file remains the human canonical live-facts document.
+
+## 2026-07-05 — PUBLIC LAUNCH
+- `LOCALBENCH_SITE_PRIVATE=0` set 2026-07-05; deployment `c0dcac37` (source `47aa5e0`) is PUBLIC. Smoke: 27 PASS / 0 FAIL, mode=Public (alias-leak check is now Private-mode-only by design).
+- Ranked row `ticket_790a73b6e5b94f9ab26845da82d10dd1` publish_state=published.
+- Public repo: https://github.com/local-bench/local-bench (anonymous author; initial snapshot + dist-rename commit; independent clone re-scrub PASS).
+- PyPI: `local-bench-ai` 0.1.0 live (`local-bench` blocked by PyPI similarity to Menlo AI's `localbench`; owner chose local-bench-ai). Fresh-venv install + public fetch-suite verified end-to-end without any token.
