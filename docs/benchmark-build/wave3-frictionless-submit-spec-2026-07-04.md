@@ -210,3 +210,23 @@ PoP + error mapping), `submit_run_inputs.py` (config/key/bundle preparation,
 files-touched list above is short those two modules. Logic is unchanged from
 the reviewed mid-flight version; final full suite (with the manager fix's two
 regression tests) = 1113 passed. Committed complete as 043effa.
+
+### 2026-07-04 Live-QA contract fix (manager)
+
+The first LIVE community-path submission (QA fixture) failed at complete with
+`invalid_result_bundle`: the deployed v2 server validates the uploaded object
+against `result_bundle_v1` — the publishable RUN JSON — while `submit run`
+uploaded the `.lbsub.zip` archive. The W3.1 spec conflated the offline archive
+format with the server upload format (Wave-1 AS-BUILT: "upload payload remains
+the existing JSON result_bundle_v1 object... full archive handling remains
+Wave 2/3"). Unit tests stubbed the transport and `--dry-run` stops pre-network,
+so only the live leg could catch it.
+
+Fix (`submit_run_inputs.py`): `--run` now uploads a prepared run JSON — the
+run record with the suite release pair injected from the suite dir when absent,
+signed at top level with the submitter key over the payload minus
+signature/envelope/submission_envelope (the server's run_payload_sha256
+exclusion list); `--suite-dir` is required only when the run lacks the pair;
+`.lbsub.zip` inputs fail closed with remediation (zips stay the offline
+verification format). `bundle_info` gains a top-level model fallback. Tests
+updated to the JSON contract + a zip-rejection case.

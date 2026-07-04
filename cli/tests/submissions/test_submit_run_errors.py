@@ -118,23 +118,39 @@ def test_submit_run_maps_ticket_errors_to_human_lines(
     assert "Traceback" not in output
 
 
-def _bundle(tmp_path: Path) -> Path:
+def test_submit_run_rejects_zip_archives_with_remediation(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a prepacked .lbsub.zip archive (the offline verification format).
     path = tmp_path / "bundle.lbsub.zip"
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr(
-            "manifest.json",
-            json.dumps(
-                {
-                    "payload": {
-                        "suite": {
-                            "suite_release_id": _RELEASE_ID,
-                            "suite_manifest_sha256": _MANIFEST_SHA,
-                        },
-                        "model_claim": {"display_name": "fixture-model"},
-                    },
-                },
-            ),
-        )
+        archive.writestr("manifest.json", "{}")
+    key = _key(tmp_path)
+
+    # When: submit run is pointed at the archive.
+    code = main(["submit", "run", "--bundle", str(path), "--signing-key", str(key), "--dry-run"])
+
+    # Then: it fails closed with the server-format remediation, before any network call.
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "the submission server accepts the publishable run JSON" in output
+    assert "Traceback" not in output
+
+
+def _bundle(tmp_path: Path) -> Path:
+    path = tmp_path / "bundle-run.json"
+    run = {
+        "manifest": {
+            "suite": {
+                "suite_release_id": _RELEASE_ID,
+                "suite_manifest_sha256": _MANIFEST_SHA,
+            },
+            "model_claim": {"display_name": "fixture-model"},
+        },
+        "signature": {"algorithm": "Ed25519", "public_key": "ab" * 32, "signature": "cd" * 64},
+    }
+    path.write_text(json.dumps(run), encoding="utf-8")
     return path
 
 

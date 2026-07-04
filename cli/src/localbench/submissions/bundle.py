@@ -98,7 +98,7 @@ def _manifest_payload(
             "hash": suite_hash(suite_dir),
             "tier": _string(run_suite.get("tier")) or _string(run.get("tier")) or "standard",
             "item_set_hashes": _object(run_suite.get("item_set_hashes")),
-            **_suite_release_pair(run_suite, suite_dir),
+            **suite_release_pair(run_suite, suite_dir),
         },
         "scorecard": {
             "version": _string(scorecard.get("scorecard_version")) or "",
@@ -238,7 +238,7 @@ def _item_id(item: JsonObject) -> str:
     return "unknown"
 
 
-def _suite_release_pair(run_suite: JsonObject, suite_dir: Path) -> JsonObject:
+def suite_release_pair(run_suite: JsonObject, suite_dir: Path) -> JsonObject:
     """Suite release identity for the manifest; keys are omitted when unknown.
 
     Organic run records do not carry the release pair, so fall back to the

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,6 +27,7 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
     _isolate_home(monkeypatch, tmp_path)
     fixtures = await build_submission_fixtures(tmp_path)
     _mark_site_release(fixtures.run_path)
+    expected_public_key = load_private_key(fixtures.key_path).public_key.hex()
     captured_tickets: list[submit_mod.SubmissionTicketRequest] = []
     uploaded_bundles: list[Path] = []
 
@@ -56,6 +56,10 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
         uploaded_bundles.append(request.bundle_path)
         assert request.envelope["ticket_id"] == "sub_123"
         assert request.bundle_path.exists()
+        uploaded = json.loads(request.bundle_path.read_text(encoding="utf-8"))
+        assert uploaded["manifest"]["suite"]["suite_release_id"] == _RELEASE_ID
+        assert uploaded["manifest"]["suite"]["suite_manifest_sha256"] == _MANIFEST_SHA
+        assert uploaded["signature"]["public_key"] == expected_public_key
         return {"submission_id": "sub_123", "status": "pending_verification"}
 
     def fake_status(request: submit_mod.SubmissionStatusRequest) -> dict[str, str]:
@@ -102,7 +106,7 @@ def test_submit_run_default_key_autogen_reuses_key_and_explicit_missing_errors(
 ) -> None:
     # Given: a prepacked bundle and an isolated home without a submitter key.
     _isolate_home(monkeypatch, tmp_path)
-    bundle = _write_prepacked_bundle(tmp_path / "bundle.lbsub.zip")
+    bundle = _write_prepacked_bundle(tmp_path / "bundle-run.json")
     default_key = tmp_path / "home" / ".localbench" / "submitter_ed25519.pem"
 
     # When: dry-run submit uses the default key twice.
@@ -142,7 +146,7 @@ def test_submit_run_reads_config_and_rejects_malformed_config(
 ) -> None:
     # Given: a malformed submit config.
     _isolate_home(monkeypatch, tmp_path)
-    bundle = _write_prepacked_bundle(tmp_path / "bundle.lbsub.zip")
+    bundle = _write_prepacked_bundle(tmp_path / "bundle-run.json")
     config_path = tmp_path / "home" / ".localbench" / "submit.json"
     config_path.parent.mkdir(parents=True)
     config_path.write_text("{not json", encoding="utf-8")
@@ -174,19 +178,17 @@ def _mark_site_release(run_path: Path) -> None:
 
 
 def _write_prepacked_bundle(path: Path) -> Path:
-    manifest = {
-        "payload": {
+    run = {
+        "manifest": {
             "suite": {
                 "suite_release_id": _RELEASE_ID,
                 "suite_manifest_sha256": _MANIFEST_SHA,
             },
             "model_claim": {"display_name": "fixture-model"},
         },
-        "signature": {"public_key": "ab" * 32},
+        "signature": {"algorithm": "Ed25519", "public_key": "ab" * 32, "signature": "cd" * 64},
     }
-    with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("manifest.json", json.dumps(manifest))
-        archive.writestr("items.jsonl", "")
+    path.write_text(json.dumps(run), encoding="utf-8")
     return path
 
 

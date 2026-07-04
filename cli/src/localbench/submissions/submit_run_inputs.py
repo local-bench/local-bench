@@ -7,10 +7,14 @@ from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
 from localbench.submissions.archive import json_object_from_bytes, unpack_bundle
-from localbench.submissions.bundle import pack_submission_bundle
+from localbench.submissions.bundle import suite_release_pair
 from localbench.submissions.client import raw_bundle_sha256
-from localbench.submissions.crypto import load_private_key
+from localbench.submissions.crypto import load_private_key, sign_manifest_payload
 from localbench.submissions.keys import Ed25519SeedError, write_private_key
+
+# Top-level fields excluded from the signed payload — matches the server's
+# run_payload_sha256 exclusion list (submission contract v2 AS-BUILT).
+_UNSIGNED_TOP_LEVEL_FIELDS = ("signature", "envelope", "submission_envelope")
 
 DEFAULT_SITE = "https://local-bench.ai"
 KEY_BACKUP_LINE = "this key is your leaderboard identity — back it up."
@@ -102,21 +106,55 @@ def prepare_bundle(
     source = run or bundle
     if source is None:
         raise SubmitInputError("one of --run or --bundle is required")
-    if run is not None or not zipfile.is_zipfile(source):
-        if suite_dir is None:
-            raise SubmitInputError("--suite-dir is required when packing a run")
-        located = locate_run(source)
-        out = temp_dir / "submission.lbsub.zip"
-        pack_submission_bundle(
-            run_path=located.path,
-            suite_dir=suite_dir,
-            model_name=run_model_name(located.path),
-            signing_key_path=signing_key,
-            out_path=out,
-            offline=True,
+    if source.is_file() and zipfile.is_zipfile(source):
+        raise SubmitInputError(
+            "the submission server accepts the publishable run JSON, not .lbsub.zip "
+            "archives (zips are the offline verification format); pass the run JSON "
+            "or its campaign directory",
         )
-        return bundle_info(out, located.inferred_line)
-    return bundle_info(source, None)
+    if bundle is not None:
+        return bundle_info(source, None)
+    located = locate_run(source)
+    prepared = _prepare_run_upload(
+        run_path=located.path,
+        suite_dir=suite_dir,
+        signing_key=signing_key,
+        temp_dir=temp_dir,
+    )
+    return bundle_info(prepared, located.inferred_line)
+
+
+def _prepare_run_upload(
+    *,
+    run_path: Path,
+    suite_dir: Path | None,
+    signing_key: Path,
+    temp_dir: Path,
+) -> Path:
+    run_record = json_object_from_bytes(run_path.read_bytes(), str(run_path))
+    manifest = _object(run_record.get("manifest"))
+    suite = _object(manifest.get("suite"))
+    if _text(suite.get("suite_release_id")) is None or _text(suite.get("suite_manifest_sha256")) is None:
+        if suite_dir is None:
+            raise SubmitInputError(
+                "--suite-dir is required when the run record does not carry the suite "
+                "release pair (pass the cached suite dir printed by fetch-suite)",
+            )
+        pair = suite_release_pair(suite, suite_dir)
+        if "suite_release_id" not in pair or "suite_manifest_sha256" not in pair:
+            raise SubmitInputError("bundle manifest missing suite_release_id or suite_manifest_sha256")
+        suite.update(pair)
+        manifest["suite"] = suite
+        run_record["manifest"] = manifest
+    payload = {key: value for key, value in run_record.items() if key not in _UNSIGNED_TOP_LEVEL_FIELDS}
+    signed: JsonObject = dict(payload)
+    signed["signature"] = sign_manifest_payload(payload, signing_key)
+    out = temp_dir / "submission-run.json"
+    out.write_text(
+        json.dumps(signed, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    return out
 
 
 def locate_run(path: Path) -> LocatedRun:
@@ -141,6 +179,9 @@ def run_model_name(path: Path) -> str:
 
 def bundle_info(path: Path, inferred_line: str | None) -> BundleInfo:
     bundle_sha = raw_bundle_sha256(path)
+    top: JsonObject = {}
+    if not zipfile.is_zipfile(path):
+        top = json_object_from_bytes(path.read_bytes(), str(path))
     manifest = bundle_manifest(path)
     suite = _object(manifest.get("suite"))
     release_id = _text(suite.get("suite_release_id"))
@@ -149,12 +190,18 @@ def bundle_info(path: Path, inferred_line: str | None) -> BundleInfo:
         raise SubmitInputError("bundle manifest missing suite_release_id or suite_manifest_sha256")
     model = _object(manifest.get("model"))
     model_claim = _object(manifest.get("model_claim"))
+    top_model = _object(top.get("model"))
     return BundleInfo(
         path=path,
         sha256=bundle_sha,
         suite_release_id=release_id,
         suite_manifest_sha256=manifest_sha,
-        declared_model_slug=_text(model.get("name")) or _text(model_claim.get("display_name")),
+        declared_model_slug=(
+            _text(model.get("name"))
+            or _text(model_claim.get("display_name"))
+            or _text(top_model.get("name"))
+            or _text(top_model.get("declared_model_id"))
+        ),
         inferred_line=inferred_line,
     )
 
