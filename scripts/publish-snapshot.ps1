@@ -430,6 +430,7 @@ foreach ($c in $sorted) {
 }
 
 # Re-includes from pruned dirs: board fixture + freeze-cited board artifacts.
+$boardNotes = New-Object System.Collections.Generic.List[string]
 foreach ($reIncludeRel in $ReIncludeRels) {
     $boardSrc = Join-Path $SourceRoot $reIncludeRel
     if (Test-Path -LiteralPath $boardSrc -PathType Leaf) {
@@ -437,10 +438,13 @@ foreach ($reIncludeRel in $ReIncludeRels) {
         $copiedCount++
         $copiedBytes += ([System.IO.FileInfo]::new($boardSrc)).Length
         Write-Step "re-included: $reIncludeRel"
+        $boardNotes.Add("re-included: $reIncludeRel")
     } else {
         Write-Step "WARNING: $reIncludeRel NOT FOUND in source -- snapshot verification may fail without it."
+        $boardNotes.Add("WARNING: $reIncludeRel NOT FOUND in source")
     }
 }
+$boardNote = $boardNotes -join '; '
 Write-Step "Copied $copiedCount file(s), $copiedBytes bytes."
 
 # --------------------------------------------------------------------------
