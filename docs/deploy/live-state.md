@@ -32,7 +32,8 @@ All four private signatures plus both alias-domain checks PASSED on 2026-07-03 a
 
 ## Deployment facts
 
-- Commit: `a0e4d20` (submission contract v2; branch `main` on the deploy remote, pushed 2026-07-04). Current production deployment id `f0d7b5a2-e5ad-48d8-8910-0fd86f40379a` (source `a0e4d20`).
+- Commit: `8742223` (Wave 5 board + provenance rendering, consistency fix, freeze re-pin eabdb69d…; branch `main` on the deploy remote, pushed 2026-07-05 early). Current production deployment id `992deab1-a6a0-43a5-b8d1-873267a77529` (source `8742223`). Smoke after this deploy: 24 PASS / 0 FAIL (private mode). Prior pin: `f0d7b5a2` (source `a0e4d20`).
+- Pending rows added by live QA 2026-07-05: `ticket_2d2f80a8640d4dc48fb8052744ec1ea2` (community, display name "QA Fixture", hidden, pending) — content-equivalent to the ranked run; recommend REJECT after owner eyeball (its purpose, proving the live community leg, is served).
 - Deployment id: VERIFIED 2026-07-04 via authenticated wrangler (account `michael.russell@clarityconsultive.com`, id `4af6606afb8636c5243c521f9bb26c70`). All enumerated production Pages deployment aliases return HTTP 503 or 404 — no leak on any live deployment.
 - Health payload now reports `storage.queue: false` BY DESIGN: the dead `VERIFICATION_QUEUE` producer binding was removed (Pages cannot consume queues). d1 and r2 must be `true`.
 
