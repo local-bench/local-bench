@@ -30,7 +30,7 @@ endpoint**. Design reviewed by GPT-5.5 Pro (oracle) on 2026-06-29; its correctio
   commit-by-commit. End each commit message with nothing special; do not push.
 
 ## Repo & branch
-- `C:\Users\Michael\local-bench`, branch `codex/local-bench-online-backend` (HEAD c083a8c).
+- `<home>\local-bench`, branch `codex/local-bench-online-backend` (HEAD c083a8c).
 - Build in this working tree (the uncommitted monitor layer to integrate lives here).
 - Existing intentional state (do NOT revert): modified `cli/pyproject.toml`, `docs/REPRODUCE.md`;
   untracked `cli/src/localbench/{monitor_cli,monitor_records,monitoring}.py`,

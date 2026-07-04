@@ -7,7 +7,7 @@ A community **quality**-benchmark leaderboard for **LOCAL / open LLM setups**. A
 benchmark suite against their own rig — **model × quantization × runtime × hardware** — with one CLI
 command pointed at any OpenAI-compatible endpoint (Ollama / vLLM / LM Studio / llama.cpp). Results are
 server-scored and placed on boards and charts **alongside frontier "anchor" models measured on the
-identical suite**. Tagline: *"Geekbench for local AI intelligence."* Repo: `C:\Users\Michael\local-bench`.
+identical suite**. Tagline: *"Geekbench for local AI intelligence."* Repo: `<home>\local-bench`.
 
 ## 2. The wedge (why anyone uses it)
 The launch differentiator is the **quant-degradation dataset nobody else publishes**: *"what does Q4_K_M
@@ -118,5 +118,5 @@ locked suite (the "vs frontier" spine); (3) exec stance (lean: exec-free coding 
 Claude manages/reviews/synthesizes; research fans out to subagents; **codex GPT-5.5 xhigh** implements heavy
 code. Hardware: **RTX 5090** for local runs (mining pauses for benches, restored after); the **vast.ai host
 box (machine 105688) is EXCLUDED** from all benchmarking (revenue asset, reliability must not be risked).
-API keys live in `C:\Users\Michael\Desktop\API keys.txt` — in-process env only, **never echo or commit**.
+API keys live in a machine-local file outside the repo — loaded into process env only, **never echo or commit**.
 Work on branches, not `main`, until signed off.

@@ -46,10 +46,10 @@ suite from the site -> run locally -> submit the result bundle -> poll status, a
 ## Bypass + admin secret (headers on every site call)
 - Bypass: send `x-localbench-bypass: <token>` when available, from (in order) `--bypass-token-file`,
   `--bypass-token`, or env `LOCALBENCH_PRIVATE_BYPASS_TOKEN`. Owner file:
-  `C:\Users\Michael\.localbench\local-bench-private-bypass-token.txt`. If no token, omit (public mode).
+  `<home>\.localbench\local-bench-private-bypass-token.txt`. If no token, omit (public mode).
 - Admin secret: admin-gated calls send `x-localbench-admin-secret` from `--admin-secret-env`
   (default `LOCALBENCH_ADMIN_SECRET`) or `--admin-secret-file`. Owner file:
-  `C:\Users\Michael\.localbench\local-bench-admin-secret.txt`.
+  `<home>\.localbench\local-bench-admin-secret.txt`.
 
 ## Bundle format
 The uploaded object is the **result_bundle_v1 JSON** (a post-fcf9a9f run's localbench-run.json). NOT a zip.

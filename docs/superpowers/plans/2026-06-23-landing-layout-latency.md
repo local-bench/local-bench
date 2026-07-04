@@ -13,7 +13,7 @@
 - **Methodology v1.2 is untouched** — no changes to scoring, axes, weights, or composite. The only new data field is `latency_s_median`.
 - **Latency definition:** `tokens_to_answer_median ÷ tok/s`, in seconds; `None`/`null` when either input is missing or `tok/s ≤ 0`. It is a test-rig estimate (includes thinking tokens) — UI labels it as a guide.
 - **Null display convention for latency:** render `—` (em dash) for absent latency.
-- **Build data with the pinned venv:** `cli/.venv/Scripts/python.exe web/build_data.py` (run from repo root `C:\Users\Michael\local-bench`).
+- **Build data with the pinned venv:** `cli/.venv/Scripts/python.exe web/build_data.py` (run from repo root `<home>\local-bench`).
 - **Web commands run in `web/`:** `npm run typecheck`, `npm run test`, `npm run build`.
 - **Commits stay local, never pushed.** Per the repo's "commit only when asked" rule, treat the per-task commit steps as checkpoints — confirm with the user before committing, or batch to the end.
 - Follow existing component/format patterns. The codebase unit-tests lib logic (not TSX); UI is verified by typecheck + `next build` + grepping the static export under `web/out/`.

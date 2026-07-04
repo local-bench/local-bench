@@ -5,7 +5,7 @@
 The generator lives in `cli/src/localbench/scoring/board_scoring.py` (+ `board_types.py`,
 `board_sources.py`, `board_support.py`, `board.py`, `board_manifest.py`). Tests:
 `cli/tests/test_board.py`, `board_fixtures.py`, `test_board_manifest.py`. The CLI venv is
-`C:\Users\Michael\local-bench\cli\.venv\Scripts\python.exe` / `pytest.exe` (run from `cli\`).
+`<home>\local-bench\cli\.venv\Scripts\python.exe` / `pytest.exe` (run from `cli\`).
 
 ## Problem (oracle launch flag)
 `model_rows()` collapses each family's quant ladder to its single best run

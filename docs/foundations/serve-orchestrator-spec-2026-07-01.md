@@ -34,7 +34,7 @@ localbench bench
   --model-file "<ABS_PATH.gguf>"              # tonight's primary input: an already-local GGUF
     | --model-ref "hf://<repo>@<FULL_40CHAR_SHA>#<exact-file.gguf>"   # auto-pull path (see §4)
   --model-id "<board-model-id>"               # the alias / served-model-name
-  --server-bin "C:\Users\Michael\llamacpp\b9852\llama-server.exe"     # pinned binary (default discoverable via env LOCALBENCH_LLAMA_SERVER)
+  --server-bin "<home>\llamacpp\b9852\llama-server.exe"     # pinned binary (default discoverable via env LOCALBENCH_LLAMA_SERVER)
   --ctx 32768
   --determinism strict                        # strict = headline reproducibility lane (default)
   --tier standard|quick

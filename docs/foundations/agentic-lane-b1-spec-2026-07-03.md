@@ -136,8 +136,8 @@ the locked agentic contract is the chat endpoint with native thinking.
 
 ## Hard constraints
 
-- Work ONLY in this worktree (`C:/Users/Michael/local-bench-wt-agentic`, branch
-  `agentic-lane-b1`). NEVER touch `C:/Users/Michael/local-bench` (a 13h canary is
+- Work ONLY in this worktree (`<home>/local-bench-wt-agentic`, branch
+  `agentic-lane-b1`). NEVER touch `<home>/local-bench` (a 13h canary is
   stamping tree state there).
 - `cli/` only. No changes to frozen sandbox internals, scorecard identity,
   reasoning registry, axes weights, or any released SCORECARD.json.

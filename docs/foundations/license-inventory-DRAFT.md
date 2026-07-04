@@ -222,11 +222,11 @@ the pyproject; they are pointers for the owner, and several are already remediat
 
 - `cli/pyproject.toml`: **nothing to scrub.** (Stated explicitly so a reviewer doesn't
   go hunting.)
-- `cli/tests/test_ifbench.py:285`: previously hardcoded `C:/Users/Michael/AppData/...`;
+- `cli/tests/test_ifbench.py:285`: previously hardcoded `<home>/AppData/...`;
   **already fixed** to `tempfile.gettempdir()` (verified in current source). The
   `anonymity-audit-v1.md` still lists this as launch-blocker "B1" — that entry is **stale**.
-- **Git author identity** on every commit = `Michael Russell <michael.russell@clarityconsultive.com>`
-  (per anonymity-audit). Not exposed by the site (direct-upload of `web/out/` only), but
+- **Git author identity** on every commit = the maintainer's personal name and work
+  email (redacted here; per anonymity-audit). Not exposed by the site (direct-upload of `web/out/` only), but
   would surface if the **source repo** is ever pushed. Owner decision before any repo publish.
 - Internal `docs/` + `.superpowers/sdd/` planning files reference "Michael" / Windows
   user paths. Internal-only; never served. Tracked in anonymity-audit §A2–A3.

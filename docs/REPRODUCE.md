@@ -27,8 +27,8 @@ Local RTX 5090:
 localbench-monitor local `
   --label rtx-5090 `
   --target-name-contains "RTX 5090" `
-  --disk-path C:\Users\Michael\local-bench `
-  --out C:\Users\Michael\local-bench\runs\monitors\rtx-5090.jsonl
+  --disk-path <home>\local-bench `
+  --out <home>\local-bench\runs\monitors\rtx-5090.jsonl
 ```
 
 Michael-owned Vast RTX 6000 Pro host, read-only guard from the local machine:
@@ -42,7 +42,7 @@ localbench-monitor vast-host `
   --protected-gpu-uuid <live-renter-gpu-uuid> `
   --protected-min-memory-mib <current-renter-memory-floor> `
   --expected-available-gpus 1 `
-  --out C:\Users\Michael\local-bench\runs\monitors\vast-rtx6000-pro.jsonl
+  --out <home>\local-bench\runs\monitors\vast-rtx6000-pro.jsonl
 ```
 
 The Vast monitor samples `nvidia-smi`, disk headroom, and read-only Vast occupancy metadata over SSH. Use `--occupancy "<live-vast-occupancy>"` only when supplying captured status manually instead of `--machine-id`. It must not be used as permission to start a host-side benchmark. Prefer a 1x self-rented Vast instance on Michael's own machine; if direct host-side execution is ever explicitly approved, keep this monitor running and bind the benchmark process to the live unrented GPU UUID only.

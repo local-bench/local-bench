@@ -210,3 +210,17 @@ independent PASS, then delete the temp output.
   runs on 2026-07-04, which the tool picked up correctly).
 - The scrub report next to the snapshot contains identity strings by nature — treat
   it as private, delete it before sharing the snapshot dir itself.
+
+## 2026-07-04 residual close-out (Claude)
+
+- EDIT bucket done in source: `C:\Users\Michael\` → `<home>\` (and `/` variant)
+  across REPRODUCE, PROJECT-HANDOFF, roster, license-inventory-DRAFT, 3
+  benchmark-build specs, 6 foundations specs, one superpowers plan; plus three
+  rewords (API-keys pointer, OneDrive runbook path, git-author identity line).
+- EXCLUDE bucket added to the script (v1.3.0): dirs `docs\foundations\redteam`,
+  `docs\superpowers`; `$RelFileExcludes` for the two anonymity audits, five
+  session/overnight docs, own-benchmark-research-prompt, SESSION-CHECKPOINT,
+  and the two redteam_*.py scripts.
+- LICENSE is now real Apache-2.0 (654b45f); NOTICE adopted from the verified
+  draft; LICENSES/ has both LiveCodeBench texts; lcb.py header added;
+  dist renamed `local-bench` — items 1–5 of the licensing tasks are CLOSED.

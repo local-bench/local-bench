@@ -147,7 +147,7 @@ Thermal and reliability guard:
 - Keep model downloads, extraction, scoring, and cleanup away from renter data and system directories.
 - Keep `localbench-monitor vast-host` running during any approved Vast host campaign. It must use live GPU UUIDs and metadata-only renter state, and it exits with code `2` when the campaign should abort.
 
-This safety gate is based on the local Vast Host runbooks in `C:\Users\Michael\OneDrive - clarityconsultive.com\ClaudeCode\Projects\Vast Host\` and Vast's hosting guidance that running client contracts must be honored. Vast's own documentation recommends testing a host by renting your own machine or using the CLI to create a free instance on your own machine, which is the preferred pattern for benchmark work here: <https://docs.vast.ai/host/hosting-overview>.
+This safety gate is based on the operator's local Vast Host runbooks (private, outside this repo) and Vast's hosting guidance that running client contracts must be honored. Vast's own documentation recommends testing a host by renting your own machine or using the CLI to create a free instance on your own machine, which is the preferred pattern for benchmark work here: <https://docs.vast.ai/host/hosting-overview>.
 
 ### Paths
 
@@ -156,8 +156,8 @@ Use these paths unless a campaign note explicitly overrides them:
 - Remote workspace: `/workspace/local-bench`
 - Remote run root: `/workspace/local-bench/runs/campaigns/<campaign_id>/`
 - Remote bundle root: `/workspace/local-bench/artifact-bundles/`
-- Local raw import root: `C:\Users\Michael\local-bench\runs\imports\vast\<campaign_id>\`
-- Local reviewed Vast receipt lane: `C:\Users\Michael\local-bench\cli\runs\vast\`
+- Local raw import root: `<home>\local-bench\runs\imports\vast\<campaign_id>\`
+- Local reviewed Vast receipt lane: `<home>\local-bench\cli\runs\vast\`
 
 `runs/` is intentionally ignored by git and should hold raw imported bundles, logs, raw outputs, and scratch material. Reviewed public receipt JSON can be promoted into `cli/runs/vast/*.json`, which is the tracked Vast receipt lane already used by the repo.
 
@@ -235,7 +235,7 @@ $HostName = "<vast_host_or_ip>"
 $Port = "<ssh_port>"
 $Remote = "root@${HostName}:/workspace/local-bench/artifact-bundles/${CampaignId}.tar.zst"
 $RemoteSha = "root@${HostName}:/workspace/local-bench/artifact-bundles/${CampaignId}.tar.zst.sha256"
-$LocalDir = "C:\Users\Michael\local-bench\runs\imports\vast\$CampaignId"
+$LocalDir = "<home>\local-bench\runs\imports\vast\$CampaignId"
 New-Item -ItemType Directory -Force -Path $LocalDir | Out-Null
 scp -P $Port $Remote $LocalDir
 scp -P $Port $RemoteSha $LocalDir
@@ -264,8 +264,8 @@ After transfer:
 PowerShell hash check:
 
 ```powershell
-Get-FileHash "C:\Users\Michael\local-bench\runs\imports\vast\<campaign_id>\<campaign_id>.tar.zst" -Algorithm SHA256
-Get-Content "C:\Users\Michael\local-bench\runs\imports\vast\<campaign_id>\<campaign_id>.tar.zst.sha256"
+Get-FileHash "<home>\local-bench\runs\imports\vast\<campaign_id>\<campaign_id>.tar.zst" -Algorithm SHA256
+Get-Content "<home>\local-bench\runs\imports\vast\<campaign_id>\<campaign_id>.tar.zst.sha256"
 ```
 
 ### Vast Release Gate

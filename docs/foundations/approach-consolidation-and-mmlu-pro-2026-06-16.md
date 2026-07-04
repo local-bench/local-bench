@@ -15,7 +15,7 @@ before beginning." This doc IS the approach to red-team. Do not execute until a 
 - Branches (all merged into wedge): `main`, `site-overhaul`, `foundations/suite-v1-research`,
   `refactor/architecture`, `suite/v1-scorers`, `quant-scoring-fixes`, `feat/coding-axis`,
   `feat/longcontext-axis`.
-- Worktree `C:/Users/Michael/local-bench-site` is on `feat/longcontext-axis` (`6e79a9d`, merged).
+- Worktree `<home>/local-bench-site` is on `feat/longcontext-axis` (`6e79a9d`, merged).
 - One stash: `stash@{0} … obsolete v0 web mods (pre-session, superseded by v1 site merge)`.
 - 58 uncommitted files on wedge = **(i)** ~50 GENERATED `web/public/data/*` with small score drift
   (e.g. instruction 67.5→66.25; pre-existing, NOT from my scorer commit — belongs to the `site-overhaul`

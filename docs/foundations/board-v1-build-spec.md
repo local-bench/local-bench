@@ -9,8 +9,8 @@ manifest. This is the credibility spine of the first public launch — correctne
 determinism matter more than cleverness.
 
 ## Hard constraints
-- Work ONLY in `C:\Users\Michael\local-bench` (the repo). Use the venv:
-  `C:\Users\Michael\local-bench\cli\.venv\Scripts\python.exe` (+ `pytest.exe`).
+- Work ONLY in `<home>\local-bench` (the repo). Use the venv:
+  `<home>\local-bench\cli\.venv\Scripts\python.exe` (+ `pytest.exe`).
 - ADD a new module (suggest `cli/src/localbench/scoring/board.py`) and a `localbench board`
   subcommand in `cli/src/localbench/cli.py`. Do NOT refactor the existing scorer, the
   `scoring.axes` registry, or `reasoning_registry.py`. Minimal, additive changes only.

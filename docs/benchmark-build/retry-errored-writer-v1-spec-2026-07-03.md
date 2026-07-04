@@ -9,7 +9,7 @@ violates the `result_bundle_v1` contract, so the site's `/complete` endpoint cor
 refuses it (400 `invalid_result_bundle`).
 
 Four workstreams, ONE branch (`retry-errored-resume`), separate commits per workstream.
-Live evidence: `C:\Users\Michael\local-bench\runs\bench\canary-4axis-capped-2026-07-02`
+Live evidence: `<home>\local-bench\runs\bench\canary-4axis-capped-2026-07-02`
 (main checkout) is READ-ONLY — probes read it, nothing writes to it.
 
 ## W1 — retry-errored resume (append-only supersede)
@@ -123,9 +123,9 @@ Motivating incident: dead server → 70 items burned as ConnectErrors in 10 minu
 
 ## Hard constraints
 
-- Work ONLY in this worktree (`C:\Users\Michael\local-bench-wt-resumefix`, branch
-  `retry-errored-resume`). NEVER touch `C:\Users\Michael\local-bench` (main checkout) or
-  `C:\Users\Michael\local-bench-wt-agentic`.
+- Work ONLY in this worktree (`<home>\local-bench-wt-resumefix`, branch
+  `retry-errored-resume`). NEVER touch `<home>\local-bench` (main checkout) or
+  `<home>\local-bench-wt-agentic`.
 - Live run dirs under the main checkout's `runs/` are evidence: READ-ONLY.
 - No GPU work, no llama-server model loads, no benchmarks, no git commits (reviewer
   commits). Leave the tree dirty.

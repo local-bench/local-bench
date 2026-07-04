@@ -115,14 +115,14 @@ it is recorded today (forensic/segment provenance).
 ### R7 — acceptance probe (no GPU, no server launch)
 - Script-level check (throwaway, do not commit results): construct the current-launch
   resume identity for the live canary run dir
-  `C:\Users\Michael\local-bench\runs\bench\canary-4axis-capped-2026-07-02` (READ ONLY —
+  `<home>\local-bench\runs\bench\canary-4axis-capped-2026-07-02` (READ ONLY —
   never write there) using the real model/exe files, and assert the legacy-backfill
   reconstruction from its campaign.json matches. This proves the blocked canary resume
   will pass the new gate. Print both hashes in your final report.
 
 ## Hard constraints
-- Work ONLY in this worktree (`C:\Users\Michael\local-bench-wt-resumefix`). NEVER touch
-  `C:\Users\Michael\local-bench` (main checkout) or `C:\Users\Michael\local-bench-wt-agentic`.
+- Work ONLY in this worktree (`<home>\local-bench-wt-resumefix`). NEVER touch
+  `<home>\local-bench` (main checkout) or `<home>\local-bench-wt-agentic`.
 - The live run dir `runs/bench/canary-4axis-capped-2026-07-02` (main checkout) is
   evidence: read-only.
 - No GPU work, no llama-server model loads, no benchmarks.

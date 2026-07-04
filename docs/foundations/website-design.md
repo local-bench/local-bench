@@ -1,6 +1,6 @@
 # local-bench — Website Design Specification
 
-**Status:** design spec (not code) · **Target repo:** `C:\Users\Michael\local-bench\web` (Next.js static export, dark-only) · **Suite/index:** `suite-v1 · index-v2` · **Date:** 2026-06-13
+**Status:** design spec (not code) · **Target repo:** `<home>\local-bench\web` (Next.js static export, dark-only) · **Suite/index:** `suite-v1 · index-v2` · **Date:** 2026-06-13
 
 ---
 

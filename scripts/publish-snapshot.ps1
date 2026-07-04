@@ -68,7 +68,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$ScriptVersion = '1.2.0 (wave-4)'
+$ScriptVersion = '1.3.0 (wave-4, residual-scrub close-out)'
 $SelfRelPath   = 'scripts\publish-snapshot.ps1'   # excluded from the snapshot
 
 # --------------------------------------------------------------------------
@@ -93,8 +93,26 @@ $PathPrunes = @(
     'tmp',                     # local scratch
     'data',                    # local dataset cache (data\cache)
     'suite\v0\private',        # private held-out items -- never publish
+    'docs\foundations\redteam',# raw external-model red-team logs (machine paths)
+    'docs\superpowers',        # internal agent working plans
     '.agents', '.omo', '.codegraph', '.superpowers',
     '.pytest-review', '.pytest-tmp', '.pytest_cache', '.ruff_cache'
+)
+
+# Specific files excluded by relative path (internal working docs and tooling
+# that quote identity strings by nature; documented in the manifest).
+$RelFileExcludes = @(
+    'docs\foundations\anonymity-audit-v1.md',
+    'docs\foundations\anonymity-license-sweep-2026-06-23.md',
+    'docs\foundations\OVERNIGHT-2026-06-25.md',
+    'docs\foundations\OVERNIGHT-AUTONOMY-PROMPT.md',
+    'docs\foundations\OVERNIGHT-LOG.md',
+    'docs\foundations\own-benchmark-research-prompt.md',
+    'docs\foundations\SESSION-HANDOFF-2026-06-14.md',
+    'docs\foundations\SESSION-HANDOFF-2026-06-15-night.md',
+    'docs\SESSION-CHECKPOINT-2026-06-20.md',
+    'scripts\redteam_gemini.py',
+    'scripts\redteam_qwen.py'
 )
 
 # Directories pruned wherever they appear, by name.
@@ -283,6 +301,8 @@ $namePruneSet = New-Object 'System.Collections.Generic.HashSet[string]' ([String
 foreach ($n in $NamePrunes) { [void]$namePruneSet.Add($n) }
 $pathPruneSet = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
 foreach ($p in $PathPrunes) { [void]$pathPruneSet.Add($p) }
+$relFileExcludeSet = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+foreach ($f in $RelFileExcludes) { [void]$relFileExcludeSet.Add($f) }
 
 $stack = New-Object 'System.Collections.Generic.Stack[string]'
 $stack.Push($SourceRoot)
@@ -326,6 +346,7 @@ while ($stack.Count -gt 0) {
             $stack.Push($entry)
         } else {
             if ($rel -ieq $SelfRelPath) { $excludedFiles.Add("$rel  [self: publish tooling stays private]"); continue }
+            if ($relFileExcludeSet.Contains($rel)) { $excludedFiles.Add("$rel  [rel-file-exclude]"); continue }
             if ($isRootLevel -and $leaf.StartsWith('.') -and ($RootDotFileAllow -notcontains $leaf)) {
                 $excludedFiles.Add("$rel  [root-dot-file]"); continue
             }
