@@ -543,10 +543,14 @@ def _add_admin_secret_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _package_version() -> str:
-    try:
-        return importlib.metadata.version("localbench")
-    except importlib.metadata.PackageNotFoundError:
-        return _CLI_VERSION_FALLBACK
+    # Distribution renamed localbench -> local-bench (PyPI); old name kept for
+    # editable installs predating the rename.
+    for distribution in ("local-bench", "localbench"):
+        try:
+            return importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return _CLI_VERSION_FALLBACK
 
 
 def _publishability_warning_needed(args: argparse.Namespace) -> bool:

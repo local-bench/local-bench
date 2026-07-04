@@ -2,7 +2,8 @@
 local-bench — NOTICE (DRAFT)
 ==============================================================================
 
-  STATUS: DRAFT — PENDING OWNER + LEGAL REVIEW. NOT THE LIVE NOTICE.
+  STATUS: SUPERSEDED 2026-07-04 — verified against upstreams and adopted into
+  the repo-root NOTICE (TO-CONFIRM block resolved). Kept for provenance.
 
   This is a PROPOSED repo-root NOTICE for review. It does not replace the
   existing top-level `NOTICE` until the owner approves it. Attribution lines in

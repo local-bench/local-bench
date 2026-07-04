@@ -1,26 +1,128 @@
 local-bench
+===========
 
-This repository includes frozen benchmark item sets derived from:
+Copyright 2026 local-bench contributors.
+The local-bench source code (the cli/ runner and the web/ site) is licensed
+under the Apache License, Version 2.0 — see the top-level LICENSE file.
+
+This project includes frozen benchmark item sets derived from third-party
+datasets, and adapts third-party verifier code. Each upstream carries its own
+license, which continues to apply in full. Full third-party license texts are
+in the LICENSES/ directory; a per-dataset redistribution analysis is in
+docs/foundations/license-inventory-v1.md. Upstream licenses below were
+verified against the upstream Hugging Face card / repository on 2026-07-04
+unless noted.
+
+
+------------------------------------------------------------------------------
+A. REDISTRIBUTED PUBLICLY
+   (the public CLI suite bundle cli/src/localbench/data/suites/core-text-v1/
+   and the site-served suite releases, e.g. suite-v1-text-code-agentic-5axis-v1)
+------------------------------------------------------------------------------
 
 - MMLU-Pro by TIGER-Lab, distributed under the MIT License.
-- IFBench_test by AllenAI/Ai2, dataset license ODC-BY-1.0.
-- IFEval by Google Research, distributed under the Apache License, Version 2.0.
+  Source: https://huggingface.co/datasets/TIGER-Lab/MMLU-Pro
+  Revision: b189ec765aa7ed75c8acfea42df31fdae71f97be
+  (Build-gated against the upstream card; full text: LICENSES/MMLU-Pro-MIT.txt.)
 
-The following source is used by a candidate axis (Math, Coding-exec, and Agentic
-axes carry 0% weight in the headline Index and are under validation):
+- IFBench (IFBench_test) by the Allen Institute for AI (Ai2 / AllenAI),
+  dataset distributed under the Open Data Commons Attribution License
+  (ODC-BY-1.0).
+  Source: https://huggingface.co/datasets/allenai/IFBench_test
+  Revision: 2e8a48de45ff3bf41242f927254ca81b59ca3ae2
+  Full text: LICENSES/IFBench-ODC-BY-1.0.txt.
+  Upstream caveats that travel with this dataset:
+    * Use should follow Ai2's Responsible Use Guidelines.
+    * The dataset includes output data generated from third-party models that
+      are subject to separate terms governing their use.
+  Note: this attributes the DATASET (ODC-BY-1.0). The IFBench/IFEval-derived
+  verifier CODE is separately Apache-2.0 (see block C).
 
 - Berkeley Function-Calling Leaderboard (BFCL) by Gorilla LLM / UC Berkeley,
-  distributed under the Apache License, Version 2.0. Berkeley-derived items and
-  evaluation patterns inform the Agentic candidate axis.
+  distributed under the Apache License, Version 2.0 (dataset and eval code).
+  Dataset:   https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard
+             (revision 61fc0608cfd831fcfbbaa676ebdfef0ed963eeda)
+  Eval repo: https://github.com/ShishirPatil/gorilla
+             (revision 6ea57973c7a6097fd7c5915698c54c17c5b1b6c8)
+  BFCL-derived items form the backbone of the tc_json_v1 tool-calling item
+  set, and 100 multi-turn rows are vendored from the eval repo into
+  suite/v1/bfcl_multi_turn.jsonl. Changes were made (sub-sampling,
+  reformatting, and locally authored conformance items).
 
-The IFEval checker registry and scoring behavior in
-cli/src/localbench/scorers/ifeval/ are adapted from the Google Research
-instruction_following_eval implementation (Apache-2.0). Note the distinction for
-IFBench: the IFBench_test dataset is redistributed under ODC-BY-1.0, while the
-Ai2 IFBench verifier *code* (and the IFEval-style verifier patterns reused here)
-are Apache-2.0.
+- LiveCodeBench (test_generation subset, contest window
+  2023-12-01..2024-03-02), used for the lcb output-prediction coding items.
+  Dataset: https://huggingface.co/datasets/livecodebench/test_generation
+           (revision 6f3ac40bbecf81eba15899139d279b077f2816fd)
+  The upstream Hugging Face card's license metadata is the generic "cc"
+  (Creative Commons) tag; the LiveCodeBench project distributes under
+  CC-BY-4.0, and this project honors CC-BY-4.0 attribution obligations:
+  credit to LiveCodeBench, https://creativecommons.org/licenses/by/4.0/,
+  and notice that changes were made (the suite sub-samples and reformats).
+  Full text: LICENSES/LiveCodeBench-CC-BY-4.0.txt.
+  ADDITIONAL CAVEAT: problem statements originate from LeetCode, and LeetCode
+  Terms of Service may apply to the underlying problem text; suite releases
+  flag lcb.jsonl accordingly rather than treating redistribution terms as
+  fully settled.
 
-Full third-party license texts are in the LICENSES/ directory. A per-dataset
-redistribution analysis is in docs/foundations/license-inventory-v1.md. The
-license for local-bench's own source code is not yet finalized; see the top-level
-LICENSE file.
+
+------------------------------------------------------------------------------
+B. REDISTRIBUTED IN THE SOURCE REPOSITORY ONLY
+   (suite/v1/ — git-tracked; not in the public CLI wheel)
+------------------------------------------------------------------------------
+
+- AMO-Bench by Meituan (meituan-longcat), distributed under the MIT License.
+  Source: https://huggingface.co/datasets/meituan-longcat/AMO-Bench
+  Revision: 2f422616c25d862984408fbbfaed63a961e8e025
+  (Build-gated against the upstream card.)
+
+- OlymMATH (en-hard) by RUC-AIBOX, distributed under the MIT License.
+  Source: https://huggingface.co/datasets/RUC-AIBOX/OlymMATH
+  Revision: 2c6532ea2cf929ac1c421532af5951553eaee727
+  (Build-gated against the upstream card.)
+
+- SuperGPQA by m-a-p, distributed under the Open Data Commons Attribution
+  License (ODC-BY-1.0).
+  Source: https://huggingface.co/datasets/m-a-p/SuperGPQA
+  Revision: 4430d4458112c7d4497fdcf94d7cc223313d6acf
+  (Build-gated against the upstream card. Full ODC-BY-1.0 text:
+  LICENSES/IFBench-ODC-BY-1.0.txt — the same license text applies.)
+
+- BigCodeBench-Hard by BigCode (opt-in code-execution module; not part of
+  the headline Index and not served by the site).
+  Dataset: https://huggingface.co/datasets/bigcode/bigcodebench-hard
+           (revision 298d2cc7b96612e15e47313c3603ee124cee0c1f)
+  Harness: https://github.com/bigcode-project/bigcodebench (Apache-2.0).
+  As of 2026-07-04 the bigcodebench-hard subset card carries no explicit
+  license metadata; it is a subset of bigcode/bigcodebench, whose card
+  declares Apache-2.0, and is treated here as Apache-2.0 on that basis.
+
+- RULER NIAH task pattern by NVIDIA, Apache License, Version 2.0
+  (algorithmic pattern only).
+  Source: https://github.com/NVIDIA/RULER (paper: arXiv:2404.06654)
+  The shipped ruler_32k.jsonl items are LOCALLY GENERATED synthetic data —
+  no upstream RULER code, prompts, or haystack data are vendored — so this
+  is attribution of the algorithmic pattern, not redistribution.
+
+
+------------------------------------------------------------------------------
+C. ADAPTED VERIFIER / SCORER CODE (compiled into the CLI; not dataset items)
+------------------------------------------------------------------------------
+
+- IFEval verifier semantics, adapted from Google Research's
+  instruction_following_eval, Apache License, Version 2.0.
+  Full text: cli/src/localbench/data/suites/core-text-v1/LICENSES/IFEval-Apache-2.0
+  Lives in: cli/src/localbench/scorers/ifeval/
+
+- IFBench verifier semantics, adapted from AllenAI's IFBench codebase,
+  Apache License, Version 2.0 (https://github.com/allenai/IFBench).
+  Lives in: cli/src/localbench/scorers/ifbench/ (see that directory's NOTICE).
+  (Distinct from the IFBench DATASET, which is ODC-BY-1.0 — see block A.)
+
+- BFCL verifier semantics, adapted from the Gorilla eval repo, Apache
+  License, Version 2.0. Lives in: cli/src/localbench/scorers/bfcl/ and
+  cli/src/localbench/scorers/bfcl_multi_turn/ (each carries a NOTICE).
+
+- LiveCodeBench output-prediction scoring follows the LiveCodeBench harness,
+  distributed under the MIT License (Copyright (c) 2024 LiveCodeBench).
+  Full text: LICENSES/LiveCodeBench-harness-MIT.txt.
+  Lives in: cli/src/localbench/scorers/lcb.py

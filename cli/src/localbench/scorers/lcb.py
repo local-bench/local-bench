@@ -1,4 +1,12 @@
-"""LiveCodeBench Test Output Prediction scorer (exec-free)."""
+"""LiveCodeBench Test Output Prediction scorer (exec-free).
+
+Scoring semantics follow the LiveCodeBench harness
+(https://github.com/LiveCodeBench/LiveCodeBench, MIT License,
+Copyright (c) 2024 LiveCodeBench; full text in LICENSES/
+LiveCodeBench-harness-MIT.txt). Items derive from the
+livecodebench/test_generation dataset — attribution and caveats
+in the repo-root NOTICE.
+"""
 
 from __future__ import annotations
 
