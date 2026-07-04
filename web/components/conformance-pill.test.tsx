@@ -18,12 +18,16 @@ function gate(band: ConformanceGate["band"], overrides: Partial<ConformanceGate>
 }
 
 describe("ConformancePill", () => {
-  it.each(["green", "amber", "red"] as const)("renders the %s gate band from the artifact", (band) => {
+  it.each([
+    ["green", "PASS"],
+    ["amber", "MARGINAL"],
+    ["red", "FAIL"],
+  ] as const)("renders the %s gate band from the artifact", (band, label) => {
     // Given: the board artifact has already computed the gate band.
     const html = renderToStaticMarkup(<ConformancePill gate={gate(band)} />);
 
     // Then: the pill renders that band and the CI without recomputing thresholds.
-    expect(html).toContain(`GATE ${band.toUpperCase()}`);
+    expect(html).toContain(label);
     expect(html).toContain("82.0%");
     expect(html).toContain("[78.0-86.0]");
   });
@@ -44,7 +48,7 @@ describe("ConformancePill", () => {
     );
 
     // Then: the web layer displays the artifact band and reason; it does not recolor by pass rate.
-    expect(html).toContain("GATE RED");
+    expect(html).toContain("FAIL");
     expect(html).toContain("82.0%");
     expect(html).toContain("invalid JSON 18.0%");
   });

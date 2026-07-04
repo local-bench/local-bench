@@ -11,6 +11,7 @@ from localbench.submissions.bundle import suite_release_pair
 from localbench.submissions.client import raw_bundle_sha256
 from localbench.submissions.crypto import load_private_key, sign_manifest_payload
 from localbench.submissions.keys import Ed25519SeedError, write_private_key
+from localbench.suite_resolver import SuiteResolutionError, resolve_suite_dir
 
 # Top-level fields excluded from the signed payload — matches the server's
 # run_payload_sha256 exclusion list (submission contract v2 AS-BUILT).
@@ -135,12 +136,8 @@ def _prepare_run_upload(
     manifest = _object(run_record.get("manifest"))
     suite = _object(manifest.get("suite"))
     if _text(suite.get("suite_release_id")) is None or _text(suite.get("suite_manifest_sha256")) is None:
-        if suite_dir is None:
-            raise SubmitInputError(
-                "--suite-dir is required when the run record does not carry the suite "
-                "release pair (pass the cached suite dir printed by fetch-suite)",
-            )
-        pair = suite_release_pair(suite, suite_dir)
+        resolved_suite_dir = suite_dir or _resolve_run_suite_dir(suite)
+        pair = suite_release_pair(suite, resolved_suite_dir)
         if "suite_release_id" not in pair or "suite_manifest_sha256" not in pair:
             raise SubmitInputError("bundle manifest missing suite_release_id or suite_manifest_sha256")
         suite.update(pair)
@@ -155,6 +152,24 @@ def _prepare_run_upload(
         encoding="utf-8",
     )
     return out
+
+
+def _resolve_run_suite_dir(suite: JsonObject) -> Path:
+    suite_id = _text(suite.get("suite_id"))
+    if suite_id is None:
+        raise SubmitInputError(_suite_dir_remediation())
+    try:
+        return resolve_suite_dir(suite_id=suite_id).path
+    except SuiteResolutionError as error:
+        raise SubmitInputError(_suite_dir_remediation()) from error
+
+
+def _suite_dir_remediation() -> str:
+    return (
+        "--suite-dir is required when the run record does not carry the suite release pair "
+        "and its suite cannot be resolved from the local cache; pass --suite-dir <suite-dir>, "
+        "or run localbench fetch-suite --site https://local-bench.ai --accept-suite-terms"
+    )
 
 
 def locate_run(path: Path) -> LocatedRun:

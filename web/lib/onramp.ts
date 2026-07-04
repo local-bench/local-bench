@@ -28,10 +28,6 @@ export type OnrampCatalogModel = {
 export type ReasoningActivation = "qwen3" | "gemma4";
 export type RuntimeId = "llamacpp" | "lmstudio" | "vllm";
 
-// The headline board runs the v1 suite. `localbench run` with no --suite-dir falls back to suite/v0
-// (discover_suite_dir), so every recipe pins this explicitly.
-export const BOARD_SUITE_DIR = "suite/v1";
-
 export type RuntimeProfile = {
   readonly id: RuntimeId;
   readonly label: string;
@@ -42,20 +38,33 @@ export type RuntimeProfile = {
   readonly serveNote: (model: OnrampCatalogModel, quant: OnrampCatalogQuant) => string | null;
 };
 
+const LLAMACPP_RUNTIME: RuntimeProfile = {
+  id: "llamacpp",
+  label: "llama.cpp",
+  endpoint: "http://localhost:8080/v1",
+  recommended: true,
+  servedModelName: (model, quant) => `${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label}`,
+  serveCommand: (model, quant) => `llama-server -hf ${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label} --port 8080`,
+  serveNote: () => null,
+};
+
 export type RecommendedEntry = {
   readonly model: OnrampCatalogModel;
   readonly quant: OnrampCatalogQuant;
 };
 
 export type BenchmarkRecipe = {
+  readonly setupCommand: string;
   readonly serveCommand: string;
   readonly serveNote: string | null;
   readonly benchCommand: string;
+  readonly submitCommand: string | null;
   readonly lane: "capped-thinking" | "answer-only";
   readonly boardComparable: boolean;
   readonly notRankableReason: string | null;
   readonly activation: ReasoningActivation | null;
   readonly servedModelName: string;
+  readonly ggufRepo: string | null;
 };
 
 // Best-to-worst quality order is the order of QUANT_OPTIONS (FP16 first, Q2_K last).
@@ -88,18 +97,23 @@ export function recommendedQuantForVram(model: OnrampCatalogModel, vramGb: numbe
   return fitting.reduce((best, quant) => (quantRank(quant.label) < quantRank(best.label) ? quant : best));
 }
 
-// "Popular" models for the picker: only board-rankable families (Qwen3/Gemma) with a GGUF repo and a
-// quant that fits, ranked by the catalog's HF download snapshot. Popularity is a convenience ordering,
-// not an endorsement, and the catalog is a static snapshot until the live HF refresh lands.
+// "Popular" models for the picker: most-downloaded board-rankable models near the top of the size
+// range that fits the selected VRAM. Popularity is a convenience ordering, not an endorsement.
 export function popularModels(
   catalog: readonly OnrampCatalogModel[],
   vramGb: number,
   limit = 5,
 ): readonly RecommendedEntry[] {
-  return catalog
+  const fitting = catalog
     .filter((model) => model.reasoningCapable && model.ggufRepo !== null && rankedActivationFor(model) !== null)
     .map((model) => ({ model, quant: recommendedQuantForVram(model, vramGb) }))
-    .filter((entry): entry is RecommendedEntry => entry.quant !== null)
+    .filter((entry): entry is RecommendedEntry => entry.quant !== null);
+  const maxParams = fitting.reduce((max, entry) => Math.max(max, entry.model.paramsB ?? 0), 0);
+  const nearTopSizeRange = fitting.filter(
+    (entry) => entry.model.paramsB !== null && entry.model.paramsB >= 0.3 * maxParams,
+  );
+  const candidates = nearTopSizeRange.length > 0 ? nearTopSizeRange : fitting;
+  return candidates
     .sort((left, right) => right.model.downloads - left.model.downloads)
     .slice(0, limit);
 }
@@ -119,16 +133,7 @@ export function modelsForOrg(catalog: readonly OnrampCatalogModel[], org: string
 // through it are not comparable. The on-ramp recommends llama.cpp (serves GGUF directly, full
 // control over sampling/context/template).
 export const RUNTIME_PROFILES: readonly RuntimeProfile[] = [
-  {
-    id: "llamacpp",
-    label: "llama.cpp",
-    endpoint: "http://localhost:8080/v1",
-    recommended: true,
-    servedModelName: (model, quant) => `${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label}`,
-    serveCommand: (model, quant) =>
-      `llama-server -hf ${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label} --port 8080`,
-    serveNote: () => null,
-  },
+  LLAMACPP_RUNTIME,
   {
     id: "lmstudio",
     label: "LM Studio",
@@ -168,27 +173,44 @@ export function buildRecipe(input: {
       ? "Only Qwen3 and Gemma reasoning modes are board-ranked today."
       : "Not a reasoning model, so it runs answer-only.";
 
-  const parts = ["localbench run", `--endpoint ${runtime.endpoint}`, `--model ${servedModelName}`];
-  if (boardComparable && activation !== null) {
-    parts.push(
-      `--hf-model-id ${model.id}`,
-      `--suite-dir ${BOARD_SUITE_DIR}`,
-      "--lane capped-thinking",
-      `--reasoning-activation ${activation}`,
-    );
-  } else {
-    parts.push(`--suite-dir ${BOARD_SUITE_DIR}`, "--lane answer-only");
-  }
-  parts.push("--tier standard", "--out my-run.json");
+  const setupCommand = [
+    "pip install local-bench-ai",
+    "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms",
+  ].join("\n");
+  const benchCommand =
+    boardComparable && activation !== null
+      ? [
+          "localbench run",
+          `--endpoint ${runtime.endpoint}`,
+          `--model ${servedModelName}`,
+          `--hf-model-id ${model.id}`,
+          "--lane capped-thinking",
+          `--reasoning-activation ${activation}`,
+          "--tier standard",
+          "--publishable",
+          "--sampler-seed 1234",
+          "--out runs/my-run.json",
+        ].join(" \\\n  ")
+      : [
+          "localbench run",
+          `--endpoint ${runtime.endpoint}`,
+          `--model ${servedModelName}`,
+          "--lane answer-only",
+          "--tier standard",
+          "--out runs/my-run.json",
+        ].join(" ");
 
   return {
+    setupCommand,
     serveCommand: runtime.serveCommand(model, quant),
     serveNote: runtime.serveNote(model, quant),
-    benchCommand: parts.join(" "),
+    benchCommand,
+    submitCommand: boardComparable ? "localbench submit run --run runs/my-run.json" : null,
     lane,
     boardComparable,
     notRankableReason,
     activation,
     servedModelName,
+    ggufRepo: model.ggufRepo,
   };
 }

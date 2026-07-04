@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ModelPicker, type PickMode } from "@/components/benchmark-model-picker";
 import { BenchmarkRecipe } from "@/components/benchmark-recipe";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -19,9 +20,6 @@ import {
   type RuntimeId,
 } from "@/lib/onramp";
 import { VRAM_TIERS } from "@/lib/rig-match";
-import { QUANT_OPTIONS } from "@/lib/quant";
-
-type PickMode = "popular" | "browse" | "paste";
 
 const DEFAULT_VRAM = 24;
 const PASTE_QUANT_DEFAULT = "Q4_K_M";
@@ -43,6 +41,10 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
   };
 }
 
+function isRuntimeId(value: string): value is RuntimeId {
+  return RUNTIME_PROFILES.some((profile) => profile.id === value);
+}
+
 export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly OnrampCatalogModel[] }) {
   const [vramGb, setVramGb] = useState<number>(DEFAULT_VRAM);
   const [mode, setMode] = useState<PickMode>("popular");
@@ -57,7 +59,7 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
   const orgs = useMemo(() => listOrgs(catalog), [catalog]);
   const popular = useMemo(() => popularModels(catalog, vramGb, 5), [catalog, vramGb]);
   const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg) : []), [catalog, browseOrg]);
-  const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0]!;
+  const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
   const selection = useMemo<{ model: OnrampCatalogModel; quant: OnrampCatalogQuant } | null>(() => {
     if (mode === "popular") {
@@ -79,24 +81,26 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
       return null;
     }
     const synthetic = syntheticPasteModel(pasteRepo, pasteQuant);
-    return { model: synthetic, quant: synthetic.quants[0]! };
+    const quant = synthetic.quants[0];
+    return quant === undefined ? null : { model: synthetic, quant };
   }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
 
-  const recipe = selection ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
+  const recipe = selection && runtime ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
-      <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">Benchmark a model · preview</p>
-      <h2 className="mt-2 text-3xl font-semibold text-bench-text">Get the recipe to benchmark a model</h2>
+      <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">benchmark a model</p>
+      <h2 className="mt-2 text-3xl font-semibold text-bench-text">Pick a model, get the exact commands</h2>
       <p className="mt-1 font-mono text-xs text-bench-muted">
         {LOCAL_INTELLIGENCE_INDEX_NAME} · {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
       </p>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-        Pick your VRAM and a model to get the exact benchmark command. The board ranks Qwen3 and Gemma families today; the
-        v1 suite the recipe needs, and one-step submission, ship with v2.
+        Choose your VRAM, model, and runtime — the recipe is the exact pinned command sequence for a run you can submit to
+        this board. Only Qwen3- and Gemma-family reasoning modes are board-rankable today; anything else still runs as an
+        unranked diagnostic.
       </p>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[170px_1fr_170px]">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
         <label className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor="onramp-vram">
           I have
           <select
@@ -158,7 +162,12 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
             id="onramp-runtime"
             className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-sm text-bench-text outline-none focus:border-bench-accent"
             value={runtimeId}
-            onChange={(event) => setRuntimeId(event.currentTarget.value as RuntimeId)}
+            onChange={(event) => {
+              const value = event.currentTarget.value;
+              if (isRuntimeId(value)) {
+                setRuntimeId(value);
+              }
+            }}
           >
             {RUNTIME_PROFILES.map((profile) => (
               <option key={profile.id} value={profile.id}>
@@ -174,8 +183,12 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
-          Preview of the contribution flow · the recipe is the real command, pinned to the v1 board. Obtaining the suite
-          and one-step submission land with v2 · for now it produces a local <span className="font-mono text-bench-text">my-run.json</span>.
+          Every command is pinned to the frozen v1 suite. Submissions are signed with a key generated on your machine and
+          reviewed before anything publishes —{" "}
+          <Link href="/submit" className="text-bench-accent hover:underline">
+            how to submit
+          </Link>{" "}
+          has the full loop and what the trust labels mean.
         </span>
         <Link href="/leaderboard" className="font-semibold text-bench-accent hover:underline">
           Just exploring? See the board →
@@ -189,111 +202,6 @@ function EmptyRecipe({ mode }: { readonly mode: PickMode }) {
   return (
     <div className="mt-5 rounded border border-bench-line bg-bench-panel-2/70 p-5 text-sm leading-6 text-bench-muted">
       {mode === "paste" ? "Paste a Hugging Face GGUF repo (owner/repo) to generate a recipe." : "Pick a model to generate a recipe."}
-    </div>
-  );
-}
-
-function ModelPicker(props: {
-  readonly mode: PickMode;
-  readonly popular: readonly { model: OnrampCatalogModel; quant: OnrampCatalogQuant }[];
-  readonly popularSlug: string | null;
-  readonly onPopular: (slug: string) => void;
-  readonly orgs: readonly string[];
-  readonly browseOrg: string;
-  readonly onOrg: (org: string) => void;
-  readonly orgModels: readonly OnrampCatalogModel[];
-  readonly browseSlug: string;
-  readonly onModel: (slug: string) => void;
-  readonly browseQuant: string;
-  readonly onQuant: (label: string) => void;
-  readonly pasteRepo: string;
-  readonly onPasteRepo: (value: string) => void;
-  readonly pasteQuant: string;
-  readonly onPasteQuant: (value: string) => void;
-}) {
-  const selectClass =
-    "rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-sm text-bench-text outline-none focus:border-bench-accent";
-
-  if (props.mode === "popular") {
-    if (props.popular.length === 0) {
-      return <p className="font-mono text-xs text-bench-muted">No board-rankable model (Qwen3 / Gemma) fits this VRAM yet · try Browse or a larger tier.</p>;
-    }
-    const activeSlug = props.popularSlug ?? props.popular[0]!.model.slug;
-    return (
-      <div className="flex flex-col gap-2">
-        {props.popular.map((entry) => (
-          <button
-            key={entry.model.slug}
-            type="button"
-            onClick={() => props.onPopular(entry.model.slug)}
-            className={[
-              "flex items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors",
-              entry.model.slug === activeSlug
-                ? "border-bench-accent bg-bench-accent/10 text-bench-text"
-                : "border-bench-line text-bench-muted hover:border-bench-accent/60",
-            ].join(" ")}
-          >
-            <span className="font-semibold text-bench-text">{entry.model.displayName}</span>
-            <span className="font-mono text-[11px] text-bench-muted">{entry.quant.label}</span>
-          </button>
-        ))}
-        <p className="font-mono text-[10px] text-bench-muted">Most-downloaded board-rankable models that fit · catalog snapshot, not an endorsement.</p>
-      </div>
-    );
-  }
-
-  if (props.mode === "browse") {
-    return (
-      <div className="grid gap-2 sm:grid-cols-3">
-        <select className={selectClass} aria-label="Lab" value={props.browseOrg} onChange={(event) => props.onOrg(event.currentTarget.value)}>
-          <option value="">Lab…</option>
-          {props.orgs.map((org) => (
-            <option key={org} value={org}>
-              {org}
-            </option>
-          ))}
-        </select>
-        <select className={selectClass} aria-label="Model" value={props.browseSlug} onChange={(event) => props.onModel(event.currentTarget.value)} disabled={props.orgModels.length === 0}>
-          <option value="">Model…</option>
-          {props.orgModels.map((model) => (
-            <option key={model.slug} value={model.slug}>
-              {model.displayName}
-            </option>
-          ))}
-        </select>
-        <select className={selectClass} aria-label="Quant" value={props.browseQuant} onChange={(event) => props.onQuant(event.currentTarget.value)}>
-          <option value="">Quant (auto)</option>
-          {QUANT_OPTIONS.map((label) => (
-            <option key={label} value={label}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
-      <input
-        type="text"
-        className={selectClass}
-        placeholder="owner/repo-GGUF"
-        aria-label="Hugging Face GGUF repo"
-        value={props.pasteRepo}
-        onChange={(event) => props.onPasteRepo(event.currentTarget.value)}
-      />
-      <select className={selectClass} aria-label="Quant" value={props.pasteQuant} onChange={(event) => props.onPasteQuant(event.currentTarget.value)}>
-        {QUANT_OPTIONS.map((label) => (
-          <option key={label} value={label}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <p className="font-mono text-[11px] text-bench-muted sm:col-span-2">
-        Experimental · we have not validated this repo has a compatible GGUF, template, or license · only Qwen3/Gemma
-        families are board-rankable today.
-      </p>
     </div>
   );
 }

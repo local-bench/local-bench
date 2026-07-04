@@ -25,6 +25,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
     );
   }
   const rows = [...points].sort((left, right) => right.score.point - left.score.point);
+  const showFrontierChips = rows.length >= 3;
   const top = rows[0];
   const second = rows[1];
   const tied = top !== undefined && second !== undefined && top.score.lo <= second.score.hi;
@@ -81,9 +82,12 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                         {point.modelLabel}
                       </Link>
                       {point.quantLabel ? <span className="font-mono text-xs text-bench-muted">{point.quantLabel}</span> : null}
-                      {point.isFrontier ? (
-                        <span className="rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bench-accent">
-                          frontier
+                      {showFrontierChips && point.isFrontier ? (
+                        <span
+                          className="rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bench-accent"
+                          title="No ranked model is both smaller and higher-scoring (size-vs-score Pareto frontier). Not a capability tier."
+                        >
+                          efficiency frontier
                         </span>
                       ) : null}
                     </span>

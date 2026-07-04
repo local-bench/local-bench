@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { PartialCoverageBoard } from "@/components/partial-coverage-board";
@@ -48,10 +49,13 @@ export default async function LeaderboardPage() {
             </p>
           </div>
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
-          <div className="rounded-lg border border-bench-warn/35 bg-bench-warn/[0.08] p-4 text-sm leading-6 text-bench-warn-soft">
-            <strong className="text-bench-warn">Standard tier, capped-thinking lane only.</strong> Only measured,
-            conformance-passing local runs with all five headline axes are ranked. Partial diagnostics and score-less catalog
-            models never mix into the rank.
+          <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
+            Ranked rows are complete five-axis runs under the standard capped-thinking settings. Partial or unscored entries
+            are listed separately below and never mix into the rank — see{" "}
+            <Link href="/methodology" className="text-bench-accent hover:underline">
+              methodology
+            </Link>
+            .
           </div>
         </div>
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />

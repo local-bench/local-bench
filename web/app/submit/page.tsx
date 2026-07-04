@@ -60,8 +60,7 @@ export default function SubmitPage() {
         </pre>
         <p>
           This downloads the sha256-pinned item sets, verifies them against the release manifest, and
-          caches them locally — keep the printed cache path for{" "}
-          <code className="font-mono text-bench-text">submit run --suite-dir</code>.{" "}
+          caches them locally.{" "}
           <code className="font-mono text-bench-text">--accept-suite-terms</code> acknowledges the
           upstream benchmark licenses listed on the{" "}
           <Link href="/trust" className="text-bench-accent hover:underline">
@@ -102,7 +101,12 @@ export default function SubmitPage() {
           The ranked board is the capped-thinking lane at standard tier. A run must pin its sampler
           settings to be publishable (<code className="font-mono text-bench-text">--publishable</code>{" "}
           requires <code className="font-mono text-bench-text">--sampler-seed</code>); the CLI warns up
-          front — before any GPU time is spent — if your flags make the run unpublishable.
+          front — before any GPU time is spent — if your flags make the run unpublishable. Want these
+          pre-filled for your VRAM and model? The{" "}
+          <Link href="/" className="text-bench-accent hover:underline">
+            recipe builder on the home page
+          </Link>{" "}
+          generates this exact sequence.
         </p>
         <p>
           The agentic axis (AppWorld) executes live in a Linux sandbox (native Linux or WSL2). If your
@@ -112,14 +116,14 @@ export default function SubmitPage() {
 
         <h3 className="text-base font-semibold text-bench-text">4. Submit</h3>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`localbench submit run \\
-  --run runs/my-run.json \\
-  --suite-dir <cached-suite-dir-from-fetch-suite>`}
+          {`localbench submit run --run runs/my-run.json`}
         </pre>
         <p>
           One command takes a finished run all the way in: it packs the signed bundle, requests a
           submission ticket (signing a proof-of-possession challenge with your key), uploads the
-          bundle, completes the submission, and prints your submission id and status.{" "}
+          bundle, completes the submission, and prints your submission id and status. The suite is
+          auto-resolved from your <code className="font-mono text-bench-text">fetch-suite</code> cache;
+          <code className="font-mono text-bench-text"> --suite-dir</code> overrides it.{" "}
           <code className="font-mono text-bench-text">--run</code> accepts the run JSON or its campaign
           directory; add <code className="font-mono text-bench-text">--display-name</code> once to set
           your credit line (remembered in{" "}

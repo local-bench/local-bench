@@ -12,6 +12,12 @@ const BAND_CLASS: Record<ConformanceGate["band"], string> = {
   red: "border-red-400/45 bg-red-400/10 text-red-200",
 };
 
+const BAND_LABEL: Record<ConformanceGate["band"], string> = {
+  green: "PASS",
+  amber: "MARGINAL",
+  red: "FAIL",
+};
+
 export function ConformancePill({ gate, showReason = false, compact = false }: Props) {
   if (gate === undefined) {
     return (
@@ -27,7 +33,7 @@ export function ConformancePill({ gate, showReason = false, compact = false }: P
       className={`inline-flex min-w-[142px] flex-col rounded border px-2 py-1 font-mono leading-tight ${BAND_CLASS[gate.band]}`}
       title={`${gate.label}: ${formatPercent(gate.pass_rate.point)}% [${formatPercent(gate.pass_rate.lo)}-${formatPercent(gate.pass_rate.hi)}], invalid JSON ${formatPercent(gate.invalid_json_rate)}%, n=${gate.n_items}`}
     >
-      <span className="text-[10px] font-semibold uppercase">GATE {gate.band.toUpperCase()}</span>
+      <span className="text-[10px] font-semibold uppercase">{BAND_LABEL[gate.band]}</span>
       <span className={compact ? "text-[11px]" : "text-xs"}>
         {formatPercent(gate.pass_rate.point)}% [{formatPercent(gate.pass_rate.lo)}-{formatPercent(gate.pass_rate.hi)}]
       </span>

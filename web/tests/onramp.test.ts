@@ -8,6 +8,9 @@ import {
   recommendedQuantForVram,
   rankedActivationFor,
   type OnrampCatalogModel,
+  type OnrampCatalogQuant,
+  type RuntimeId,
+  type RuntimeProfile,
 } from "../lib/onramp";
 import { getOnrampCatalog } from "../lib/data";
 
@@ -30,6 +33,22 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     ],
     ...overrides,
   };
+}
+
+function runtimeProfile(id: RuntimeId): RuntimeProfile {
+  const profile = RUNTIME_PROFILES.find((candidate) => candidate.id === id);
+  if (profile === undefined) {
+    throw new Error(`Missing runtime profile: ${id}`);
+  }
+  return profile;
+}
+
+function quantAt(entry: OnrampCatalogModel, index: number): OnrampCatalogQuant {
+  const quant = entry.quants[index];
+  if (quant === undefined) {
+    throw new Error(`Missing quant at index ${index}`);
+  }
+  return quant;
 }
 
 describe("rankedActivationFor", () => {
@@ -61,18 +80,27 @@ describe("recommendedQuantForVram", () => {
 });
 
 describe("popularModels", () => {
-  it("returns only board-rankable (Qwen3/Gemma) models with a GGUF and a fitting quant, ranked by downloads", () => {
+  it("returns the most-downloaded rankable models near the top of the fitting size range", () => {
     const catalog = [
-      model({ slug: "qwen-a", downloads: 100 }),
-      model({ slug: "qwen-b", downloads: 900 }),
-      model({ slug: "gemma", family: "Gemma 4", org: "Google", downloads: 500 }),
+      model({ slug: "qwen-8b", paramsB: 8.2, downloads: 100 }),
+      model({ slug: "qwen-14b", paramsB: 14.8, downloads: 900 }),
+      model({ slug: "gemma-12b", family: "Gemma 4", org: "Google", paramsB: 12.2, downloads: 500 }),
+      model({ slug: "tiny-download-magnet", paramsB: 0.6, downloads: 50_000_000 }),
       model({ slug: "granite", family: "Granite", org: "IBM", downloads: 5000 }),
       model({ slug: "no-gguf", ggufRepo: null, downloads: 5000 }),
       model({ slug: "too-big", downloads: 5000, quants: [{ label: "Q8_0", vramGb8k: 99, fileGb: 80, bpw: 8.5 }] }),
     ];
     const result = popularModels(catalog, 24, 5);
-    expect(result.map((entry) => entry.model.slug)).toEqual(["qwen-b", "gemma", "qwen-a"]);
+    expect(result.map((entry) => entry.model.slug)).toEqual(["qwen-14b", "gemma-12b", "qwen-8b"]);
     expect(result.every((entry) => entry.quant.vramGb8k !== null)).toBe(true);
+  });
+
+  it("falls back to all fitting candidates when size metadata is missing", () => {
+    const catalog = [
+      model({ slug: "unknown-a", paramsB: null, downloads: 100 }),
+      model({ slug: "unknown-b", paramsB: null, downloads: 900 }),
+    ];
+    expect(popularModels(catalog, 24, 5).map((entry) => entry.model.slug)).toEqual(["unknown-b", "unknown-a"]);
   });
 
   it("respects the limit", () => {
@@ -104,31 +132,40 @@ describe("RUNTIME_PROFILES", () => {
 });
 
 describe("buildRecipe", () => {
-  const llamacpp = RUNTIME_PROFILES.find((p) => p.id === "llamacpp")!;
-  const vllm = RUNTIME_PROFILES.find((p) => p.id === "vllm")!;
-  const lmstudio = RUNTIME_PROFILES.find((p) => p.id === "lmstudio")!;
+  const llamacpp = runtimeProfile("llamacpp");
+  const vllm = runtimeProfile("vllm");
+  const lmstudio = runtimeProfile("lmstudio");
 
-  it("emits a board-comparable capped-thinking recipe for a Qwen model on llama.cpp, pinning suite/v1", () => {
-    const recipe = buildRecipe({ model: model(), quant: model().quants[2]!, runtime: llamacpp });
+  it("emits a board-comparable capped-thinking recipe for a Qwen model on llama.cpp", () => {
+    const selected = model();
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
     expect(recipe.boardComparable).toBe(true);
     expect(recipe.lane).toBe("capped-thinking");
     expect(recipe.activation).toBe("qwen3");
     expect(recipe.notRankableReason).toBeNull();
+    expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
+    expect(recipe.setupCommand).toBe(
+      "pip install local-bench-ai\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms",
+    );
+    expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
     expect(recipe.serveCommand).toBe("llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080");
     expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
     expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
     expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
-    expect(recipe.benchCommand).toContain("--suite-dir suite/v1");
     expect(recipe.benchCommand).toContain("--lane capped-thinking");
     expect(recipe.benchCommand).toContain("--reasoning-activation qwen3");
+    expect(recipe.benchCommand).toContain("--publishable");
+    expect(recipe.benchCommand).toContain("--sampler-seed 1234");
     expect(recipe.benchCommand).toContain("--tier standard");
-    expect(recipe.benchCommand).toContain("--out my-run.json");
-    expect(recipe.benchCommand.includes("\n")).toBe(false);
+    expect(recipe.benchCommand).toContain("--out runs/my-run.json");
+    expect(recipe.benchCommand).not.toContain("--suite-dir");
+    expect(recipe.benchCommand).toContain(" \\\n  --endpoint");
   });
 
   it("uses the HF model id as the served name for vLLM and warns about full weights", () => {
-    const recipe = buildRecipe({ model: model(), quant: model().quants[2]!, runtime: vllm });
+    const selected = model();
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: vllm });
     expect(recipe.servedModelName).toBe("Qwen/Qwen3-8B");
     expect(recipe.serveCommand).toBe("vllm serve Qwen/Qwen3-8B --port 8000");
     expect(recipe.benchCommand).toContain("--endpoint http://localhost:8000/v1");
@@ -136,25 +173,30 @@ describe("buildRecipe", () => {
   });
 
   it("renders a GUI note instead of a serve command for LM Studio", () => {
-    const recipe = buildRecipe({ model: model(), quant: model().quants[2]!, runtime: lmstudio });
+    const selected = model();
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: lmstudio });
     expect(recipe.serveCommand).toBe("");
     expect(recipe.serveNote).toContain("LM Studio");
   });
 
-  it("marks a non-reasoning model as not board-comparable (answer-only, still suite-pinned)", () => {
-    const recipe = buildRecipe({ model: model({ reasoningCapable: false }), quant: model().quants[2]!, runtime: llamacpp });
+  it("marks a non-reasoning model as not board-comparable", () => {
+    const selected = model({ reasoningCapable: false });
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
     expect(recipe.boardComparable).toBe(false);
     expect(recipe.lane).toBe("answer-only");
     expect(recipe.activation).toBeNull();
+    expect(recipe.submitCommand).toBeNull();
     expect(recipe.benchCommand).not.toContain("--hf-model-id");
     expect(recipe.benchCommand).not.toContain("--reasoning-activation");
     expect(recipe.benchCommand).toContain("--lane answer-only");
-    expect(recipe.benchCommand).toContain("--suite-dir suite/v1");
+    expect(recipe.benchCommand).toContain("--out runs/my-run.json");
+    expect(recipe.benchCommand).not.toContain("--suite-dir");
     expect(recipe.notRankableReason).toContain("Not a reasoning model");
   });
 
   it("marks a reasoning model outside Qwen3/Gemma as not board-comparable", () => {
-    const recipe = buildRecipe({ model: model({ family: "Granite 3", org: "IBM" }), quant: model().quants[2]!, runtime: llamacpp });
+    const selected = model({ family: "Granite 3", org: "IBM" });
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
     expect(recipe.boardComparable).toBe(false);
     expect(recipe.lane).toBe("answer-only");
     expect(recipe.activation).toBeNull();

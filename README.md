@@ -32,8 +32,8 @@ localbench run \
   --lane capped-thinking --tier standard \
   --publishable --sampler-seed 1234 --out runs/my-run.json
 
-localbench submit run \
-  --run runs/my-run.json --suite-dir <cached-suite-dir-from-fetch-suite>
+localbench submit run --run runs/my-run.json
+# suite auto-resolved from your fetched cache; --suite-dir to override
 ```
 
 Submissions are identified by an Ed25519 key generated on first submit — no
