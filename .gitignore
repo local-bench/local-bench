@@ -42,3 +42,6 @@ Thumbs.db
 .superpowers/
 .pytest-review/
 .pytest-tmp/
+
+# wrangler CLI local cache (account metadata — never commit)
+.wrangler/
