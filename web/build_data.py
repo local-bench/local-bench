@@ -302,6 +302,10 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     detail = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
     model_row = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | annotations
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | annotations
+    extra_status = _run_status_annotations(run, items)
+    detail.update(extra_status)
+    model_row.update(extra_status)
+    index_row.update(extra_status)
     if static_index_version is not None:
         detail["static_index_version"] = static_index_version
         model_row["static_index_version"] = static_index_version
@@ -435,6 +439,48 @@ def _headline_benches(axes: JsonObject, benches: tuple[str, ...], weights: dict[
 
 def _static_complete(axes: JsonObject) -> bool:
     return all(axis in axes for axis in _STATIC_AXES)
+
+
+def _run_status_annotations(run: JsonObject, items: list[JsonValue]) -> JsonObject:
+    annotations: JsonObject = {}
+    axis_status = _object_or_empty(_object_or_empty(run.get("axis_status")).get("axes"))
+    if axis_status:
+        annotations["axis_status"] = axis_status
+    if _has_code_artifacts(items):
+        annotations["has_code_artifacts"] = True
+    verdict_source = _code_verdict_source(items)
+    if verdict_source is not None:
+        annotations["verdict_source"] = verdict_source
+    return annotations
+
+
+def _has_code_artifacts(items: list[JsonValue]) -> bool:
+    return any(
+        isinstance(item, dict)
+        and item.get("bench") == "bigcodebench_hard"
+        and isinstance(item.get("code_artifact"), dict)
+        for item in items
+    )
+
+
+def _code_verdict_source(items: list[JsonValue]) -> str | None:
+    sources: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict) or item.get("bench") != "bigcodebench_hard":
+            continue
+        artifact = item.get("code_artifact")
+        if not isinstance(artifact, dict):
+            continue
+        source = artifact.get("verdict_source")
+        if isinstance(source, str):
+            sources.add(source)
+    if not sources:
+        return None
+    if "verifier" in sources:
+        return "verifier"
+    if "submitter" in sources:
+        return "submitter"
+    return sorted(sources)[0]
 
 
 def _source_annotations(source: JsonObject, axes: JsonObject, headline_complete: bool) -> JsonObject:

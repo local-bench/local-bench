@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass
 from typing import Final, Literal
 
 from localbench._types import ItemResult, JsonObject
-from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID
+from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_IDS
 from localbench.reasoning_leaks import has_reasoning_leak
 
 ConformanceStatus = Literal["headline-comparable", "nonconformant", "diagnostic-only"]
@@ -125,7 +125,7 @@ def assess_conformance(
     diagnostic but does not exclude the run from the headline (oracle red-team 2026-06-20,
     option A). Leaked-reasoning and no-final-answer remain hard gates either way.
     """
-    if lane_spec_id == BOUNDED_FINAL_LANE_SPEC_ID:
+    if lane_spec_id in BOUNDED_FINAL_LANE_SPEC_IDS:
         return _assess_bounded_final_conformance(
             results,
             thresholds=thresholds,

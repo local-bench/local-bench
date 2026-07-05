@@ -82,14 +82,13 @@ def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -
     assert bundle["serving_mode"] == "external_openai_compatible_endpoint"
     assert bundle["scores"] == {
         "headline_score": None,
-        "partial_composite": 0.7473,
+        "partial_composite": 0.7569,
         "partial_composite_scope": "measured_headline_axes",
-        "measured_headline_weight": 0.5,
-        "missing_headline_weight": 0.5,
-        "known_headline_contribution": 0.3737,
+        "measured_headline_weight": 0.55,
+        "missing_headline_weight": 0.45,
+        "known_headline_contribution": 0.4163,
         "rank_scope": "partial-text-code-4axis-v1",
-        "composite_static": 0.7473,
-        "static_index_version": "static-suite-v1",
+        "composite_static": None,
         "composite_full": None,
     }
     assert bundle["manifest"]["integrity"]["publishable"] is False
@@ -326,12 +325,12 @@ def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
     first = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
     second = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
 
-    # Then: the scorer path reproduces the published calibration numbers deterministically.
+    # Then: the scorer path reproduces the axis scores and index-v3.0 composite deterministically.
     assert first["axes"]["knowledge"]["score"] == 0.7725
     assert first["axes"]["instruction_following"]["score"] == 0.6871
     assert first["axes"]["tool_calling"]["score"] == 0.7364
     assert first["axes"]["coding"]["score"] == 0.8527
-    assert first["scores"]["partial_composite"] == 0.7473
+    assert first["scores"]["partial_composite"] == 0.7569
     assert canonical_json_bytes(first) == canonical_json_bytes(second)
 
 

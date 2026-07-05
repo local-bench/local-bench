@@ -9,6 +9,7 @@ from typing import Final, NotRequired, TypedDict
 from localbench._response import empty_usage
 from localbench._suite import RenderedBench
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue, Usage
+from localbench.coding_exec.artifacts import code_artifact_for_generation
 from localbench.scorers.bfcl import score_bfcl
 from localbench.scorers.bfcl_multi_turn import score_bfcl_multi_turn
 from localbench.scorers.bfcl_multi_turn._backend import (
@@ -51,6 +52,7 @@ class ScoredItem(TypedDict):
     max_tokens: NotRequired[int]
     generated_tokens: NotRequired[JsonValue]
     server_timings: NotRequired[JsonObject | None]
+    code_artifact: NotRequired[JsonObject]
 
 
 class BenchAggregate(TypedDict):
@@ -80,7 +82,11 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
         return _scorer_unavailable_items(bench, results, readiness_warning)
     scored: list[ScoredItem] = []
     try:
-        for source_item, result in zip(bench.source_items, results, strict=True):
+        for index, (source_item, result) in enumerate(zip(bench.source_items, results, strict=True)):
+            if bench.name == "bigcodebench_hard":
+                benchmark_item = bench.benchmark_items[index]
+                scored.append(_score_bigcodebench_item(bench, source_item, benchmark_item, result))
+                continue
             response_text = result["response_text"]
             error = result["error"]
             detailed = _score_response_detail(
@@ -112,6 +118,52 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
             _scorer_unavailable_message(bench.name, str(error)),
         )
     return scored
+
+
+def _score_bigcodebench_item(
+    bench: RenderedBench,
+    source_item: Mapping[str, JsonValue],
+    benchmark_item: BenchmarkItem,
+    result: ItemResult,
+) -> ScoredItem:
+    artifact = _code_artifact(source_item, benchmark_item, result)
+    verdict = artifact.get("verdict")
+    correct = (
+        artifact.get("verdict_source") == "verifier"
+        and isinstance(verdict, dict)
+        and verdict.get("passed") is True
+    )
+    item: ScoredItem = {
+        "id": result["id"],
+        "bench": bench.name,
+        "response_text": result["response_text"],
+        "extracted": artifact.get("sanitized_code") if isinstance(artifact.get("sanitized_code"), str) else None,
+        "correct": correct,
+        "finish_reason": result["finish_reason"],
+        "latency_seconds": result["latency_seconds"],
+        "started_at": result["started_at"],
+        "finished_at": result["finished_at"],
+        "attempts": result["attempts"],
+        "usage": result["usage"],
+        "error": result["error"],
+        "server_timings": result.get("server_timings"),
+        "code_artifact": artifact,
+    }
+    extraction_status = artifact.get("extraction_status")
+    if isinstance(extraction_status, dict) and isinstance(extraction_status.get("failure"), str):
+        item["failure_kind"] = f"ambiguous_extraction:{extraction_status['failure']}"
+    return item
+
+
+def _code_artifact(
+    source_item: Mapping[str, JsonValue],
+    benchmark_item: BenchmarkItem,
+    result: ItemResult,
+) -> JsonObject:
+    existing = result.get("code_artifact")
+    if isinstance(existing, dict):
+        return dict(existing)
+    return dict(code_artifact_for_generation(source_item, benchmark_item, result))
 
 
 def scorer_unavailable_warning(bench: RenderedBench) -> str | None:
@@ -400,6 +452,7 @@ def _bench_has_extraction(bench: str) -> bool:
         "tc_json_v1",
         "bfcl_multi_turn",
         "lcb",
+        "bigcodebench_hard",
         "ruler_32k",
     }
 

@@ -12,6 +12,7 @@ import pytest
 from localbench._types import JsonValue
 from localbench.budget_forcing import (
     CAPPED_THINKING_THINK_BUDGET,
+    QWEN_FORCING,
     answer_budget_for,
     render_qwen3_chat_prompt,
     run_forced_item,
@@ -472,6 +473,35 @@ def test_run_benchmark_answer_only_uses_chat_path_unchanged() -> None:
 
         assert paths == ["/v1/chat/completions"]  # single normal pass, no forcing
         assert record["results"][0]["response_text"] == "Answer: A"
+        assert record["results"][0]["thinking_forced"] is False
+
+    asyncio.run(scenario())
+
+
+def test_bounded_final_v2_item_execution_mode_answer_only_uses_chat_path() -> None:
+    async def scenario() -> None:
+        paths: list[str] = []
+        item = _item()
+        item["execution_mode"] = "answer_only"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            paths.append(request.url.path)
+            return httpx.Response(200, json={
+                "choices": [{"message": {"content": "```python\nx = 1\n```"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 4, "completion_tokens": 2, "total_tokens": 6}})
+
+        record = await run_benchmark(
+            base_url="http://local/v1",
+            model="qwen",
+            items=[item],
+            lane="bounded-final-v2",
+            transport=httpx.MockTransport(handler),
+            prompt_renderer=HfChatPromptRenderer(tokenizer=_FakeTokenizer(), activation=None),
+            forcing_format=QWEN_FORCING,
+        )
+
+        assert paths == ["/v1/chat/completions"]
+        assert record["results"][0]["response_text"] == "```python\nx = 1\n```"
         assert record["results"][0]["thinking_forced"] is False
 
     asyncio.run(scenario())

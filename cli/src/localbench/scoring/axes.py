@@ -3,20 +3,19 @@
 This is the single source of truth for normal-run axis membership, composite
 weights, web keys, and roles.
 
-Per METHODOLOGY-v2.1, the headline Local Intelligence Index is modular and
-weighted as:
+Per METHODOLOGY-v3.0, the headline Local Intelligence Index is a six-axis
+score with deferred verification for execution-required coding:
 
-- Agentic: 0.50
+- Agentic: 0.40
 - Knowledge: 0.15
 - Instruction-Following: 0.15
 - Tool-calling: 0.10
-- Coding: 0.10
+- Coding: 0.15
+- Math: 0.05
 
-Math and Long-Context remain candidate axes. The normal-run Coding axis is the
-lightweight, exec-free LiveCodeBench output-prediction proxy (`lcb`) so standard
-runs stay practical. BigCodeBench-Hard remains the heavier opt-in coding-exec
-module and is tracked in benchmark module metadata, not pooled into this static
-axis until its execution lane is hardened.
+Coding is BigCodeBench-Hard Instruct generation with verifier-side execution.
+LiveCodeBench (`lcb`) remains a legacy diagnostic bench and is not pooled into
+the v3 headline coding axis. Long-Context remains candidate-only.
 
 Everything downstream derives from `AXES`:
 - `localbench.scoring.metadata` builds `BENCH_DOMAINS` + `DOMAIN_WEIGHTS`.
@@ -74,8 +73,8 @@ AXES: Final[tuple[Axis, ...]] = (
         "math",
         ("olymmath_hard", "amo"),
         ("genmath",),
-        "candidate",
-        0.0,
+        "headline",
+        0.05,
         True,
     ),
     Axis(
@@ -95,7 +94,7 @@ AXES: Final[tuple[Axis, ...]] = (
         ("appworld_c",),
         (),
         "headline",
-        0.50,
+        0.40,
         True,
     ),
     Axis(
@@ -112,19 +111,20 @@ AXES: Final[tuple[Axis, ...]] = (
         "coding",
         "Coding",
         "coding",
+        ("bigcodebench_hard",),
         ("lcb",),
-        (),
         "headline",
-        0.10,
+        0.15,
         True,
     ),
 )
-STATIC_SUITE_INDEX_VERSION: Final = "static-suite-v1"
+STATIC_SUITE_INDEX_VERSION: Final = "static-suite-v2"
 STATIC_SUITE_WEIGHTS: Final[dict[str, float]] = {
-    "knowledge": 0.30,
-    "instruction_following": 0.30,
+    "knowledge": 0.25,
+    "instruction_following": 0.25,
     "tool_calling": 0.20,
     "coding": 0.20,
+    "math": 0.10,
 }
 
 

@@ -18,15 +18,17 @@ _SITE_4AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-partial-text-
 _SITE_MANIFEST = _SITE_4AXIS / "suite_release_manifest.json"
 _SITE_5AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-text-code-agentic-5axis-v1"
 _SITE_5AXIS_MANIFEST = _SITE_5AXIS / "suite_release_manifest.json"
+_EXPECTED_RELEASE_PAIRS = _REPO_ROOT / "suite" / "release-pairs.expected.json"
 
 
 def test_coverage_profiles_define_current_partial_scopes() -> None:
-    # Given / When / Then: the frozen coverage profiles carry explicit scoped membership.
+    # Given / When / Then: legacy profiles remain registered and flagged legacy.
     assert COVERAGE_PROFILES["core-text-3axis-v1"].benches == (
         "mmlu_pro",
         "ifbench",
         "tc_json_v1",
     )
+    assert COVERAGE_PROFILES["core-text-3axis-v1"].legacy is True
     assert COVERAGE_PROFILES["core-text-3axis-v1"].headline_weight == 0.40
     assert COVERAGE_PROFILES["partial-text-code-4axis-v1"].benches == (
         "mmlu_pro",
@@ -34,6 +36,7 @@ def test_coverage_profiles_define_current_partial_scopes() -> None:
         "tc_json_v1",
         "lcb",
     )
+    assert COVERAGE_PROFILES["partial-text-code-4axis-v1"].legacy is True
     assert COVERAGE_PROFILES["partial-text-code-4axis-v1"].headline_weight == 0.50
     assert COVERAGE_PROFILES["text-code-agentic-5axis-v1"].benches == (
         "mmlu_pro",
@@ -42,7 +45,36 @@ def test_coverage_profiles_define_current_partial_scopes() -> None:
         "lcb",
         "appworld_c",
     )
+    assert COVERAGE_PROFILES["text-code-agentic-5axis-v1"].legacy is True
     assert COVERAGE_PROFILES["text-code-agentic-5axis-v1"].headline_weight == 1.00
+    assert COVERAGE_PROFILES["full-exec-6axis-v1"].benches == (
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "bigcodebench_hard",
+        "olymmath_hard",
+        "amo",
+        "appworld_c",
+    )
+    assert COVERAGE_PROFILES["full-exec-6axis-v1"].rankable is True
+    assert COVERAGE_PROFILES["full-exec-6axis-v1"].legacy is False
+    assert COVERAGE_PROFILES["static-exec-5axis-v1"].benches == (
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "bigcodebench_hard",
+        "olymmath_hard",
+        "amo",
+    )
+    assert COVERAGE_PROFILES["static-exec-5axis-v1"].rankable is True
+    assert COVERAGE_PROFILES["static-core-diag-v1"].benches == (
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "olymmath_hard",
+        "amo",
+    )
+    assert COVERAGE_PROFILES["static-core-diag-v1"].rankable is False
 
 
 def test_coverage_profile_for_benches_preserves_four_axis_and_matches_five_axis() -> None:
@@ -59,6 +91,26 @@ def test_coverage_profile_for_benches_preserves_four_axis_and_matches_five_axis(
     assert four_axis_profile.rank_scope == "partial-text-code-4axis-v1"
     assert five_axis_profile.profile_id == "text-code-agentic-5axis-v1"
     assert five_axis_profile.rank_scope == "text-code-agentic-5axis-v1"
+
+
+def test_coverage_profile_for_benches_prefers_v2_exec_releases() -> None:
+    full = {
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "bigcodebench_hard",
+        "olymmath_hard",
+        "amo",
+        "appworld_c",
+    }
+    static = full - {"appworld_c"}
+    static_core = static - {"bigcodebench_hard"}
+
+    assert coverage_profile_for_benches(full).profile_id == "full-exec-6axis-v1"
+    assert coverage_profile_for_benches(static).profile_id == "static-exec-5axis-v1"
+    diagnostic = coverage_profile_for_benches(static_core)
+    assert diagnostic.profile_id == "static-core-diag-v1"
+    assert diagnostic.rank_scope == "diagnostic"
 
 
 def test_suite_release_manifest_hashes_canonical_serialization() -> None:
@@ -80,13 +132,34 @@ def test_suite_release_manifest_hashes_canonical_serialization() -> None:
 
 def test_suite_release_membership_is_generated_from_axes_registry() -> None:
     # Given / When: the release manifest is generated.
-    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="partial-text-code-4axis-v1")
+    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="full-exec-6axis-v1")
 
     # Then: every axis membership, including agentic, matches axes.py exactly.
     expected = {axis: list(benches) for axis, benches in axis_membership().items()}
     assert manifest["axis_membership"] == expected
     assert manifest["axis_membership"]["agentic"] == ["appworld_c"]
+    assert manifest["axis_membership"]["coding"] == ["bigcodebench_hard"]
+    assert manifest["axis_membership"]["math"] == ["olymmath_hard", "amo"]
     assert manifest["bench_membership"]["appworld_c"] == "agentic"
+
+
+def test_cli_release_pairs_match_shared_fixture() -> None:
+    fixture = read_json(_EXPECTED_RELEASE_PAIRS)
+    pairs = fixture["pairs"]
+    assert isinstance(pairs, list)
+    actual: dict[str, str] = {}
+    for pair in pairs:
+        assert isinstance(pair, dict)
+        release_id = str(pair["id"])
+        if pair.get("legacy") is True:
+            actual[release_id] = str(pair["suite_manifest_sha256"])
+            continue
+        profile_id = release_id.removeprefix("suite-v1-")
+        manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id=profile_id)
+        actual[release_id] = str(manifest["suite_manifest_sha256"])
+
+    expected = {str(pair["id"]): str(pair["suite_manifest_sha256"]) for pair in pairs if isinstance(pair, dict)}
+    assert actual == expected
 
 
 def test_site_serves_4axis_release_with_canonical_manifest_and_lcb_notice() -> None:

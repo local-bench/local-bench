@@ -17,6 +17,7 @@ from localbench._response import (
     empty_usage,
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, ParsedCompletion
+from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_IDS
 from localbench.prompt_rendering import PromptRenderer
 
 if TYPE_CHECKING:
@@ -92,8 +93,9 @@ async def run_item(
         )
     if (
         request_provider.name == "local"
-        and lane == "bounded-final-v1"
+        and lane in BOUNDED_FINAL_LANE_SPEC_IDS
         and isinstance(item.get("think_budget"), int)
+        and item.get("execution_mode") != "answer_only"
         and base_url is not None
         and prompt_renderer is not None
         and forcing_format is not None

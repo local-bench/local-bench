@@ -63,6 +63,8 @@ def run_record(
     appworld_inline: tuple[bool, ...] | None = (True, False),
     tc_json_correct: tuple[bool, ...] | None = (True, False),
     lcb_correct: tuple[bool, ...] | None = (True, False),
+    bigcode_correct: tuple[bool, ...] | None = None,
+    math_correct: tuple[bool, ...] | None = None,
     agentic_run: JsonObject | None = None,
 ) -> JsonObject:
     benches = {
@@ -79,6 +81,14 @@ def run_record(
     if lcb_correct is not None:
         benches["lcb"] = aggregate("lcb", lcb_correct)
         extra_items.extend(items("lcb", lcb_correct))
+    if bigcode_correct is not None:
+        benches["bigcodebench_hard"] = aggregate("bigcodebench_hard", bigcode_correct)
+        extra_items.extend(coding_items(bigcode_correct))
+    if math_correct is not None:
+        benches["olymmath_hard"] = aggregate("olymmath_hard", math_correct)
+        benches["amo"] = aggregate("amo", math_correct)
+        extra_items.extend(items("olymmath_hard", math_correct))
+        extra_items.extend(items("amo", math_correct))
     record: JsonObject = {
         "schema": "localbench-run-v0",
         "manifest": {
@@ -155,6 +165,31 @@ def items(bench: str, correct: tuple[bool, ...]) -> list[JsonObject]:
             "error": None,
             "extracted": "answer" if value else None,
             "usage": {"prompt_tokens": 0, "completion_tokens": 10 * index, "total_tokens": 10 * index},
+        }
+        for index, value in enumerate(correct, start=1)
+    ]
+
+
+def coding_items(correct: tuple[bool, ...]) -> list[JsonObject]:
+    return [
+        {
+            "id": f"bigcodebench_hard-{index}",
+            "bench": "bigcodebench_hard",
+            "correct": value,
+            "error": None,
+            "extracted": "def solution():\n    return 1" if value else None,
+            "usage": {"prompt_tokens": 0, "completion_tokens": 10 * index, "total_tokens": 10 * index},
+            "code_artifact": {
+                "verdict": {
+                    "passed": value,
+                    "timeout": False,
+                    "oom": False,
+                    "runtime_ms": 10,
+                    "stdout_tail": "",
+                    "stderr_tail": "",
+                },
+                "verdict_source": "verifier",
+            },
         }
         for index, value in enumerate(correct, start=1)
     ]

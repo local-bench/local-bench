@@ -5,6 +5,8 @@ import pytest
 from localbench._scoring import BenchAggregate, composite
 from localbench.scoring.axis_status import (
     axis_status_for_benches,
+    generated_unverified_axis,
+    mark_axis_generated_unverified,
     mark_axis_not_measured,
     not_measured_axis,
     parse_axis_status,
@@ -73,6 +75,22 @@ def test_axis_status_reason_codes_round_trip_through_serialization() -> None:
     # Then reason codes and detail survive exactly.
     assert parsed_status == status
     assert parsed_block == block
+
+
+def test_generated_unverified_axis_round_trips_and_is_not_measured() -> None:
+    benches = {
+        "mmlu_pro": _aggregate(1.0),
+        "bigcodebench_hard": _aggregate(0.0),
+    }
+    status = axis_status_for_benches(benches)
+    mark_axis_generated_unverified(status, "coding", detail="verifier verdict pending")
+
+    parsed_status = parse_axis_status(serialize_axis_status(generated_unverified_axis("coding")))
+    parsed_block = parse_axis_status_block(status)
+
+    assert parsed_status == generated_unverified_axis("coding")
+    assert parsed_block == status
+    assert composite(benches, axis_status=status) == pytest.approx(1.0)
 
 
 def test_composite_when_all_axes_measured_matches_legacy_call_exactly() -> None:

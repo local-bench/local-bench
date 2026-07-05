@@ -1,0 +1,35 @@
+{
+  "schema_version": "localbench.release-pairs.expected.v1",
+  "pairs": [
+    {
+      "id": "suite-v1-full-exec-6axis-v1",
+      "suite_manifest_sha256": "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514",
+      "rankable": true,
+      "legacy": false
+    },
+    {
+      "id": "suite-v1-static-exec-5axis-v1",
+      "suite_manifest_sha256": "d02afc7283360d8b1cbd2413a81c10716b1c11907172ccbe8c669e972533bc6e",
+      "rankable": true,
+      "legacy": false
+    },
+    {
+      "id": "suite-v1-static-core-diag-v1",
+      "suite_manifest_sha256": "020d5bd4749cbd81e93bec8fe31db099ac3dfc5ca60b3abad88d0316591b8d60",
+      "rankable": false,
+      "legacy": false
+    },
+    {
+      "id": "suite-v1-partial-text-code-4axis-v1",
+      "suite_manifest_sha256": "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
+      "rankable": true,
+      "legacy": true
+    },
+    {
+      "id": "suite-v1-text-code-agentic-5axis-v1",
+      "suite_manifest_sha256": "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f",
+      "rankable": true,
+      "legacy": true
+    }
+  ]
+}

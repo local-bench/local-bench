@@ -213,10 +213,8 @@ def test_existing_five_axis_composite_is_unchanged_when_long_context_domain_is_a
     # When computing the composite with Long-Context declared but absent from the run.
     result = composite(benches)
 
-    # Then only the HEADLINE axes (knowledge=mmlu_pro + instruction=ifbench) enter
-    # the composite; agentic/math/coding are present but weight 0.0
-    # (METHODOLOGY-v1.2 §3), so adding/removing them never moves the headline.
-    assert result == pytest.approx(((0.15 * 0.50) + (0.15 * 0.60) + (0.10 * 0.90)) / 0.40)
+    # Then long-context remains outside the scalar while v3 headline math and legacy coding contribute.
+    assert result == pytest.approx(((0.15 * 0.50) + (0.15 * 0.60) + (0.05 * 0.80) + (0.15 * 0.90)) / 0.50)
 
 
 def test_v1_ruler_itemset_hash_matches_suite_and_lock() -> None:

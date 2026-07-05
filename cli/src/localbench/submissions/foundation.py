@@ -73,6 +73,15 @@ _SITE_RELEASED_SUITES: Final[dict[str, str]] = {
     "suite-v1-text-code-agentic-5axis-v1": (
         "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f"
     ),
+    "suite-v1-full-exec-6axis-v1": (
+        "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514"
+    ),
+    "suite-v1-static-exec-5axis-v1": (
+        "d02afc7283360d8b1cbd2413a81c10716b1c11907172ccbe8c669e972533bc6e"
+    ),
+    "suite-v1-static-core-diag-v1": (
+        "020d5bd4749cbd81e93bec8fe31db099ac3dfc5ca60b3abad88d0316591b8d60"
+    ),
 }
 
 
@@ -227,7 +236,7 @@ def _normalize_manifest(
     normalized["suite"] = suite
     normalized["provenance"] = _provenance(_object(normalized.get("provenance")))
     missing = _missing_required_fields(normalized)
-    blocking = _blocking_reasons(normalized, missing, declared_suite)
+    blocking = _blocking_reasons(normalized, missing, declared_suite, record)
     normalized["integrity"] = {
         "publishable": blocking == [],
         "validation_profile": "publishable-result-bundle-v1",
@@ -276,6 +285,7 @@ def _blocking_reasons(
     manifest: JsonObject,
     missing: list[str],
     declared_suite: JsonObject,
+    record: JsonObject,
 ) -> list[str]:
     sampling = _object(manifest.get("sampling"))
     reasons: list[str] = []
@@ -290,11 +300,32 @@ def _blocking_reasons(
         reasons.append("runtime.identity_missing")
     if not _site_released(declared_suite):
         reasons.append("suite.not_site_released")
+    if _requires_code_artifacts(declared_suite, record) and _has_missing_code_artifacts(record):
+        reasons.append("missing_code_artifacts")
     # Tuple membership, not set: orchestrated manifests record determinism_policy as a
     # structured object, which is unhashable and only needs to count as "present".
     if reasons == [] and sampling.get("determinism_policy") in (None, ""):
         reasons.append("sampler.determinism_policy_missing")
     return reasons
+
+
+def _requires_code_artifacts(suite: JsonObject, record: JsonObject) -> bool:
+    release_id = suite.get("suite_release_id")
+    return (
+        release_id in {"suite-v1-full-exec-6axis-v1", "suite-v1-static-exec-5axis-v1"}
+        and "bigcodebench_hard" in _object(record.get("benches"))
+    )
+
+
+def _has_missing_code_artifacts(record: JsonObject) -> bool:
+    seen = False
+    for item in _list(record.get("items")):
+        if item.get("bench") != "bigcodebench_hard":
+            continue
+        seen = True
+        if not isinstance(item.get("code_artifact"), dict):
+            return True
+    return not seen
 
 
 def _site_released(suite: JsonObject) -> bool:

@@ -29,6 +29,17 @@ export const AxisScoreSchema = ScoreSchema.extend({
 });
 
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
+export const AxisStatusSchema = z.record(
+  z.string(),
+  z
+    .object({
+      axis: z.string(),
+      status: z.enum(["measured", "not_measured", "generated_unverified"]),
+      reason: z.string(),
+      detail: z.string().optional(),
+    })
+    .passthrough(),
+);
 export const ConformanceGateSchema = z.object({
   id: z.literal("tc_json_v1"),
   label: z.literal("Tool-calling"),
@@ -154,6 +165,7 @@ export const IndexModelSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
+  axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
   lane: z.string().nullable(),
   n_runs: z.number(),
@@ -178,6 +190,8 @@ export const IndexModelSchema = z.object({
   static_index_version: z.string().optional(),
   replicated: z.boolean(),
   score_status: ScoreStatusSchema.optional().default("measured"),
+  has_code_artifacts: z.boolean().optional(),
+  verdict_source: z.string().nullable().optional(),
   conformance_gates: ConformanceGatesSchema.optional(),
   demo: DemoFlagSchema,
 });
@@ -218,6 +232,7 @@ export const ModelRunSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
+  axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
   lane: z.string().nullable(),
   tokens_to_answer_median: z.number().nullable(),
@@ -233,6 +248,8 @@ export const ModelRunSchema = z.object({
   ranked: z.boolean().optional().default(false),
   wall_time_seconds: z.number().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
+  has_code_artifacts: z.boolean().optional(),
+  verdict_source: z.string().nullable().optional(),
   conformance_gates: ConformanceGatesSchema.optional(),
   submitter_display_name: z.string().nullable().optional(),
   origin: BoardOriginSchema.optional(),
@@ -285,6 +302,7 @@ export const RunDetailSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
+  axis_status: AxisStatusSchema.optional(),
   worst_axis: z.object({
     bench: z.string(),
     point: z.number(),
@@ -293,6 +311,8 @@ export const RunDetailSchema = z.object({
   manifest_summary: ManifestSummarySchema,
   ranked: z.boolean().optional().default(false),
   scorecard: ScorecardSummarySchema.optional(),
+  has_code_artifacts: z.boolean().optional(),
+  verdict_source: z.string().nullable().optional(),
   totals: TotalsSchema,
   perf: PerfSchema.optional(),
   est_cost_usd: z.number().nullable(),

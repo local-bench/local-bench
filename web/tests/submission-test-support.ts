@@ -13,8 +13,8 @@ export const MIGRATION_0005 = readFileSync(new URL("../migrations/0005_submitter
 export const MIGRATION_0006 = readFileSync(new URL("../migrations/0006_zt0_foundation.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
-export const SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
-export const SUITE_MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f";
+export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
+export const SUITE_MANIFEST_SHA = "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514";
 export const RESULT_BUNDLE = resultBundle();
 export const RESULT_BUNDLE_JSON = JSON.stringify(RESULT_BUNDLE);
 export const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
@@ -184,7 +184,7 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
       integrity: { publishable: true },
       provenance: { localbench_repo_commit: "440f540" },
       suite: {
-        coverage_profile_id: "text-code-agentic-5axis-v1",
+        coverage_profile_id: "full-exec-6axis-v1",
         suite_manifest_sha256: options.suiteManifestSha ?? SUITE_MANIFEST_SHA,
         suite_release_id: options.suiteReleaseId ?? SUITE_RELEASE_ID,
       },
@@ -196,12 +196,12 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
     schema_version: "localbench.result_bundle.v1",
     scores: {
       headline_score: null,
-      known_headline_contribution: 0.3737,
-      measured_headline_weight: 0.5,
-      missing_headline_weight: 0.5,
-      partial_composite: 0.7473,
+      known_headline_contribution: 0.6316,
+      measured_headline_weight: 0.85,
+      missing_headline_weight: 0.15,
+      partial_composite: 0.7431,
       partial_composite_scope: "measured_headline_axes",
-      rank_scope: "partial-text-code-4axis-v1",
+      rank_scope: "full-exec-6axis-v1",
     },
     serving_mode: "external_openai_compatible_endpoint",
     tier: "standard",

@@ -19,12 +19,18 @@ from localbench.suite_errors import SuiteResolutionError
 from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
 from localbench.suite_verify import license_manifest, read_json_object, suite_hash, verify_suite_dir
 
-DEFAULT_SUITE_ID: Final = "suite-v1-text-code-agentic-5axis-v1"
+DEFAULT_SUITE_ID: Final = "suite-v1-full-exec-6axis-v1"
 CORE_TEXT_SUITE_ID: Final = "core-text-v1"
 TINY_SMOKE_SUITE_ID: Final = "tiny-smoke-v1"
+STATIC_EXEC_SUITE_ID: Final = "suite-v1-static-exec-5axis-v1"
+STATIC_CORE_DIAG_SUITE_ID: Final = "suite-v1-static-core-diag-v1"
 PARTIAL_TEXT_CODE_SUITE_ID: Final = "suite-v1-partial-text-code-4axis-v1"
+LEGACY_TEXT_CODE_AGENTIC_SUITE_ID: Final = "suite-v1-text-code-agentic-5axis-v1"
 KNOWN_SUITE_IDS: Final[tuple[str, ...]] = (
     DEFAULT_SUITE_ID,
+    STATIC_EXEC_SUITE_ID,
+    STATIC_CORE_DIAG_SUITE_ID,
+    LEGACY_TEXT_CODE_AGENTIC_SUITE_ID,
     PARTIAL_TEXT_CODE_SUITE_ID,
     CORE_TEXT_SUITE_ID,
     TINY_SMOKE_SUITE_ID,

@@ -11,6 +11,11 @@ from localbench._types import JsonObject
 
 DEFAULT_LANE_SPEC_ID: Final = "capped-thinking-v1"
 BOUNDED_FINAL_LANE_SPEC_ID: Final = "bounded-final-v1"
+BOUNDED_FINAL_V2_LANE_SPEC_ID: Final = "bounded-final-v2"
+BOUNDED_FINAL_LANE_SPEC_IDS: Final = (
+    BOUNDED_FINAL_LANE_SPEC_ID,
+    BOUNDED_FINAL_V2_LANE_SPEC_ID,
+)
 BOUNDED_FINAL_MIN_FINAL: Final = 1024
 BOUNDED_FINAL_THINK_CAP: Final = 8192
 
@@ -35,17 +40,28 @@ LANE_SPECS: Final[Mapping[str, JsonObject]] = MappingProxyType(
             "scored_text": "final_text_only",
             "sampler_policy": "pinned greedy temp-0 seeded",
         },
+        BOUNDED_FINAL_V2_LANE_SPEC_ID: {
+            "id": BOUNDED_FINAL_V2_LANE_SPEC_ID,
+            "total_cap_source": "suite item max_tokens",
+            "answer_reserve_source": "suite item answer_reserve default 1024",
+            "think_cap": BOUNDED_FINAL_THINK_CAP,
+            "think_budget_formula": "min(8192, max(0, T_i - answer_reserve))",
+            "answer_budget": "T_i - reasoning_tokens_used",
+            "execution_profiles_per_run": 1,
+            "scored_text": "final_text_only",
+            "sampler_policy": "pinned greedy temp-0 seeded",
+        },
     },
 )
 
 
-def bounded_final_think_budget(total_cap: int) -> int:
-    return min(BOUNDED_FINAL_THINK_CAP, max(0, total_cap - BOUNDED_FINAL_MIN_FINAL))
+def bounded_final_think_budget(total_cap: int, *, answer_reserve: int = BOUNDED_FINAL_MIN_FINAL) -> int:
+    return min(BOUNDED_FINAL_THINK_CAP, max(0, total_cap - answer_reserve))
 
 
 def lane_spec_id_for_lane(lane: str) -> str:
-    if lane == BOUNDED_FINAL_LANE_SPEC_ID:
-        return BOUNDED_FINAL_LANE_SPEC_ID
+    if lane in BOUNDED_FINAL_LANE_SPEC_IDS:
+        return lane
     return DEFAULT_LANE_SPEC_ID
 
 

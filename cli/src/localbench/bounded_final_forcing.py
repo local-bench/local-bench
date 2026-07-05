@@ -41,7 +41,7 @@ async def run_bounded_final_forced_item(
     forcing_format: ForcingFormat,
 ) -> ItemResult:
     total_cap = _total_cap(item)
-    think_budget = bounded_final_think_budget(total_cap)
+    think_budget = bounded_final_think_budget(total_cap, answer_reserve=_answer_reserve(item))
     decoding = _forcing_decoding(item["sampling_params"])
     prompt = prompt_renderer.render(item["messages"])
     url = f"{base_url.rstrip('/')}/completions"
@@ -159,6 +159,13 @@ def _total_cap(item: BenchmarkItem) -> int:
     if not isinstance(total_cap, int) or isinstance(total_cap, bool):
         raise ValueError("ranked bounded-final forcing requires integer max_tokens")
     return total_cap
+
+
+def _answer_reserve(item: BenchmarkItem) -> int:
+    answer_reserve = item.get("answer_reserve")
+    if isinstance(answer_reserve, int) and not isinstance(answer_reserve, bool):
+        return max(0, answer_reserve)
+    return BOUNDED_FINAL_MIN_FINAL
 
 
 def _completion_tokens(usage: Usage) -> int:

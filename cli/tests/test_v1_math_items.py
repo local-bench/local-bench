@@ -17,7 +17,7 @@ _ITEM_FILES = (
     (_REPO_ROOT / "suite" / "v1" / "amo.jsonl", "amo", 39),
     (_REPO_ROOT / "suite" / "v1" / "olymmath_hard.jsonl", "olymmath-hard", 100),
 )
-_SCHEMA_KEYS = {"id", "statement", "answer"}
+_SCHEMA_KEYS = {"id", "statement", "answer", "max_tokens", "sampling_params"}
 
 
 @pytest.mark.parametrize(("path", "id_prefix", "expected_count"), _ITEM_FILES)
@@ -37,6 +37,8 @@ def test_v1_math_items_match_schema_when_loaded(path: Path, id_prefix: str, expe
         ids.add(item_id)
         assert _required_str(item, "statement")
         assert _required_str(item, "answer")
+        assert item["max_tokens"] == 16_384
+        assert item["sampling_params"] == {"temperature": 0}
 
 
 @pytest.mark.parametrize(("path", "id_prefix", "expected_count"), _ITEM_FILES)

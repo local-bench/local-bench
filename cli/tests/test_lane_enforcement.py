@@ -28,12 +28,21 @@ def _board(tmp_path: Path, sources: list[JsonObject]) -> JsonObject:
     for item in sources:
         file_name = string_value(item["file"])
         lane = string_value(item["reasoning_lane"])
-        write_run(paths["runs"] / file_name, run_record(lane=lane))
+        write_run(paths["runs"] / file_name, _exec_run_record(lane=lane))
     return build_board(
         runs_dir=paths["runs"],
         curation_path=paths["curation"],
         generated_at=FROZEN_AT,
         bootstrap_iters=50,
+    )
+
+
+def _exec_run_record(**kwargs: object) -> JsonObject:
+    return run_record(
+        lcb_correct=None,
+        bigcode_correct=(True, False),
+        math_correct=(True, False),
+        **kwargs,
     )
 
 
@@ -117,11 +126,11 @@ def test_every_ranked_row_is_capped_thinking(tmp_path: Path) -> None:
         source("Failed Model", "failed.json"),
     ]
     paths = write_inputs(tmp_path, sources)
-    write_run(paths["runs"] / "ranked.json", run_record())
-    write_run(paths["runs"] / "answer-only.json", run_record(lane="answer-only"))
-    write_run(paths["runs"] / "api-uncapped.json", run_record(lane="api-uncapped"))
-    write_run(paths["runs"] / "anchor.json", run_record())
-    write_run(paths["runs"] / "failed.json", run_record(conformance_status="failed"))
+    write_run(paths["runs"] / "ranked.json", _exec_run_record())
+    write_run(paths["runs"] / "answer-only.json", _exec_run_record(lane="answer-only"))
+    write_run(paths["runs"] / "api-uncapped.json", _exec_run_record(lane="api-uncapped"))
+    write_run(paths["runs"] / "anchor.json", _exec_run_record())
+    write_run(paths["runs"] / "failed.json", _exec_run_record(conformance_status="failed"))
 
     # When: the board publishes all rows together.
     board = build_board(

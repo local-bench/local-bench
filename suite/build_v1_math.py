@@ -39,6 +39,8 @@ OLYMMATH_EXPECTED_TOTAL: Final = 100
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
+CANONICAL_MAX_TOKENS: Final = 16_384
+CANONICAL_SAMPLING_PARAMS: Final[JsonObject] = {"temperature": 0}
 
 
 class BuildError(RuntimeError):
@@ -96,6 +98,8 @@ def _build_amo_items(rows: list[Mapping[str, JsonValue]]) -> list[JsonObject]:
                 "id": f"amo-{item_number:03d}",
                 "statement": _amo_statement(_required_str(row, "prompt")),
                 "answer": _normalize_answer(_required_str(row, "answer"), answer_type=answer_type),
+                "max_tokens": CANONICAL_MAX_TOKENS,
+                "sampling_params": dict(CANONICAL_SAMPLING_PARAMS),
             }
         )
 
@@ -114,6 +118,8 @@ def _build_olymmath_items(rows: list[Mapping[str, JsonValue]]) -> list[JsonObjec
             "id": f"olymmath-hard-{index:03d}",
             "statement": _required_str(row, "problem").strip(),
             "answer": _normalize_answer(_required_str(row, "answer"), answer_type=None),
+            "max_tokens": CANONICAL_MAX_TOKENS,
+            "sampling_params": dict(CANONICAL_SAMPLING_PARAMS),
         }
         for index, row in enumerate(rows, start=1)
     ]

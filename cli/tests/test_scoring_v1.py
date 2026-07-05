@@ -135,9 +135,8 @@ def test_stratified_mean_ci_when_items_share_cluster_uses_block_resampling() -> 
 
 
 def test_compare_runs_when_experimental_axis_cannot_mask_headline_regression() -> None:
-    # Given a planted regression where instruction-following (HEADLINE) loses every
-    # item, while math (experimental, composite weight 0.0) improves by an offsetting
-    # amount and knowledge (HEADLINE) is unchanged.
+    # Given a planted regression where instruction-following loses every item,
+    # while math improves by an offsetting amount and knowledge is unchanged.
     degraded = _balanced_regression_run(degraded=True)
     baseline = _balanced_regression_run(degraded=False)
 
@@ -148,10 +147,9 @@ def test_compare_runs_when_experimental_axis_cannot_mask_headline_regression() -
         threshold=0.10,
     )
 
-    # Then the math gain CANNOT mask the collapse (math is weight 0): the headline
-    # composite reflects it (knowledge 0 + instruction -1, weighted 0.5/0.5 = -0.5),
-    # and worst-axis + subgroup checks pinpoint instruction (METHODOLOGY-v1.2 §3).
-    assert comparison["composite_delta"]["point"] == pytest.approx(-0.5)
+    # Then math only partially offsets the collapse under index-v3.0 weights, and
+    # worst-axis + subgroup checks still pinpoint instruction.
+    assert comparison["composite_delta"]["point"] == pytest.approx(-0.2857142857142857)
     assert comparison["worst_axis"]["domain"] == "Instruction-Following"
     assert comparison["worst_axis"]["delta"]["point"] == pytest.approx(-1.0)
     assert comparison["worst_axis"]["delta"]["hi"] < -0.90
@@ -277,13 +275,11 @@ def test_cli_compare_when_out_is_supplied_writes_json(tmp_path: Path) -> None:
         check=False,
     )
 
-    # Then the CLI reports and writes the same planted worst-axis regression. The
-    # headline composite delta is -0.5 (math is weight 0 and cannot offset the
-    # instruction collapse); worst-axis pinpoints instruction (METHODOLOGY-v1.2 §3).
+    # Then the CLI reports and writes the same planted worst-axis regression.
     assert result.returncode == 0
     assert "paired composite delta" in result.stdout
     written = json.loads(out.read_text(encoding="utf-8"))
-    assert written["composite_delta"]["point"] == pytest.approx(-0.5)
+    assert written["composite_delta"]["point"] == pytest.approx(-0.2857142857142857)
     assert written["worst_axis"]["domain"] == "Instruction-Following"
 
 

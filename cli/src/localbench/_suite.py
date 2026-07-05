@@ -138,16 +138,26 @@ def _benchmark_item(
     template: str,
     decoding: JsonObject,
 ) -> BenchmarkItem:
+    item_sampling = item.get("sampling_params")
+    sampling_params = dict(item_sampling) if isinstance(item_sampling, dict) else {
+        key: value for key, value in decoding.items() if key != "max_tokens"
+    }
     benchmark_item: BenchmarkItem = {
         "id": _item_id(item),
         "messages": [{"role": "user", "content": _prompt(bench, item, template)}],
-        "sampling_params": {
-            key: value for key, value in decoding.items() if key != "max_tokens"
-        },
+        "sampling_params": sampling_params,
     }
-    max_tokens = decoding.get("max_tokens")
+    max_tokens = item.get("max_tokens")
+    if not isinstance(max_tokens, int) or isinstance(max_tokens, bool):
+        max_tokens = decoding.get("max_tokens")
     if isinstance(max_tokens, int):
         benchmark_item["max_tokens"] = max_tokens
+    answer_reserve = item.get("answer_reserve")
+    if isinstance(answer_reserve, int) and not isinstance(answer_reserve, bool):
+        benchmark_item["answer_reserve"] = answer_reserve
+    execution_mode = _string(item.get("execution_mode"))
+    if execution_mode is not None:
+        benchmark_item["execution_mode"] = execution_mode
     return benchmark_item
 
 

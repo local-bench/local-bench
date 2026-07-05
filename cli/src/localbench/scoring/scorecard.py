@@ -22,6 +22,7 @@ from dataclasses import fields
 from typing import Final
 
 from localbench._types import JsonObject
+from localbench.coding_exec.extract import EXTRACTOR_REV
 from localbench.lane_spec import DEFAULT_LANE_SPEC_ID, lane_spec_digest
 from localbench.reasoning_registry import (
     execution_profile_digest,
@@ -132,6 +133,7 @@ def scorecard_identity(
         "scorecard_version": SCORECARD_VERSION,
         "registry_digest": registry_digest(),
         "scorer_versions": dict(SCORER_VERSIONS),
+        "extractor_rev": EXTRACTOR_REV,
         "ci_method": CI_METHOD,
         "lane_spec_digest": lane_spec_digest(lane_spec_id),
         "execution_profile_id": execution_profile_id,

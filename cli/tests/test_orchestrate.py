@@ -73,10 +73,9 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "termination_rate": 1.0,
             "conditional_accuracy": 0.5,
         }
-        # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifeval).
-        # genmath -> Math carries weight 0.0, so it is excluded (METHODOLOGY-v1.2 §3).
+        # Composite is HEADLINE-only: knowledge, instruction, and math are measured here.
         assert record["scores"]["partial_composite"] == pytest.approx(
-            0.3056,
+            0.3333,
         )
         assert record["totals"]["prompt_tokens"] == 50
         assert record["totals"]["completion_tokens"] == 14

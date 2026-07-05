@@ -38,7 +38,10 @@ FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 LEGACY_QWEN_DIGEST = "a2fd0e4701fc6724a71aa4ab8a0f43d908b1e69472b3b72617c759aa96f17dec"
 LEGACY_GEMMA4_DIGEST = "bf66a190a9c04e27aa79d008c4e4e6c2c2deadb80ca9f9ee0b78cb19779d2f62"
 WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID = (
-    "312fcc2e4c45b7c26beb81904eb9c4b292f5feabafa61f7942511635ced93567"
+    "a892f8a27a8bacd781a2117a16f1ccc107cf407b07cf317163390dbbc74fd80c"
+)
+WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID = (
+    "cf4cddf3d70b87652f851e466a4ba10dbe232dbbb657f4592489cb0e900c1981"
 )
 
 
@@ -173,6 +176,21 @@ def test_explicit_think_profile_on_unsupported_template_fails_with_answer_only_g
         )
 
 
+def test_answer_stop_with_backtick_is_rejected_for_code_safe_bounded_final() -> None:
+    introspection = TemplateIntrospection(
+        answer_stop=("```",),
+        chat_template_kwargs={"enable_thinking": True},
+        supports_generic_thinking=True,
+        supports_gemma_channel=False,
+    )
+
+    with pytest.raises(UnsupportedBoundedFinalProfileError, match="backtick"):
+        resolve_bounded_final_profile_from_introspection(
+            "generic_think_tags_8192_v1",
+            introspection,
+        )
+
+
 def test_new_ranked_profiles_are_allowlisted_without_changing_legacy_digests() -> None:
     ranked = ranked_execution_profiles()
 
@@ -233,6 +251,13 @@ def test_adding_profiles_does_not_change_wave_2a_bounded_answer_only_scorecard_i
     identity = scorecard_identity("answer_only_v1", lane_spec_id="bounded-final-v1")
 
     assert identity["scorecard_id"] == WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID
+    assert identity["execution_profile_id"] == "answer_only_v1"
+
+
+def test_bounded_final_v2_answer_only_scorecard_id_is_frozen() -> None:
+    identity = scorecard_identity("answer_only_v1", lane_spec_id="bounded-final-v2")
+
+    assert identity["scorecard_id"] == WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID
     assert identity["execution_profile_id"] == "answer_only_v1"
 
 

@@ -26,6 +26,10 @@ from localbench._requests import utc_now
 from localbench._suite import item_hashes, read_json_object, render_benches, suite_version
 from localbench._types import JsonObject
 from localbench.coding_exec import runner as runner_module
+from localbench.coding_exec.artifacts import (
+    verified_artifact,
+    verdict_from_runner_result,
+)
 from localbench.coding_exec.extract import extract_code
 from localbench.coding_exec.program import assemble_program
 from localbench.coding_exec.sandbox import (
@@ -146,6 +150,74 @@ async def run_coding_exec(
     return run
 
 
+def execute_pending_artifacts(
+    run_path: Path,
+    config: CodingExecConfig,
+    *,
+    sandbox_runner: SandboxRunner | None = None,
+    docker_env: DockerEnv | None = None,
+) -> JsonObject:
+    env = docker_env if docker_env is not None else probe_docker_env()
+    preflight = preflight_checks(env, allow_unsafe=config.allow_unsafe_sandbox)
+    if not preflight.ok:
+        raise CodingExecError(
+            "sandbox preflight failed — refusing to run model-generated code: "
+            + "; ".join(preflight.blockers)
+            + " (override with allow_unsafe_sandbox if you accept the risk)"
+        )
+    config = replace(config, runtime=config.runtime or preflight.runtime)
+    run = read_json_object(run_path)
+    suite = read_json_object(config.suite_dir / "suite.json")
+    warnings: list[str] = []
+    rendered = render_benches(BENCH, config.tier, config.max_items, config.suite_dir, suite, warnings)
+    source_by_id = {
+        str(source["id"]): source
+        for bench in rendered
+        for source in bench.source_items
+        if isinstance(source.get("id"), str)
+    }
+    tasks: list[JsonObject] = []
+    pending_items: list[JsonObject] = []
+    for item in _run_items(run):
+        if item.get("bench") != BENCH:
+            continue
+        artifact = item.get("code_artifact")
+        if not isinstance(artifact, dict) or artifact.get("verdict_source") == "verifier":
+            continue
+        sanitized = artifact.get("sanitized_code")
+        source = source_by_id.get(str(item.get("id")))
+        if not isinstance(sanitized, str) or source is None:
+            continue
+        tasks.append(
+            {
+                "id": str(item["id"]),
+                "program": assemble_program(sanitized, str(source["test"]), str(source["entry_point"])),
+            },
+        )
+        pending_items.append(item)
+    if not tasks:
+        write_json(run, config.out or run_path)
+        return run
+    verdicts = {str(result["id"]): result for result in _execute(tasks, config, sandbox_runner)}
+    image_digest = config.image if "@sha256:" in config.image else None
+    for item in pending_items:
+        result = verdicts.get(str(item["id"]))
+        if result is None:
+            continue
+        artifact = item["code_artifact"]
+        if isinstance(artifact, dict):
+            item["code_artifact"] = verified_artifact(
+                artifact,
+                verdict=verdict_from_runner_result(result),
+                image_digest=image_digest,
+            )
+            item["correct"] = bool(result.get("passed"))
+    _refresh_bigcodebench_aggregate(run)
+    output_path = config.out or run_path
+    write_json(run, output_path)
+    return run
+
+
 def _assemble_tasks(
     source_items: list,
     generation_results: list,
@@ -165,6 +237,46 @@ def _assemble_tasks(
         program = assemble_program(code, str(source_item["test"]), str(source_item["entry_point"]))
         tasks.append({"id": item_id, "program": program})
     return tasks, failures
+
+
+def _run_items(run: JsonObject) -> list[JsonObject]:
+    items = run.get("items")
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _refresh_bigcodebench_aggregate(run: JsonObject) -> None:
+    items = [item for item in _run_items(run) if item.get("bench") == BENCH]
+    verdict_rows: list[JsonObject] = []
+    for item in items:
+        artifact = item.get("code_artifact")
+        verdict = artifact.get("verdict") if isinstance(artifact, dict) else None
+        if not isinstance(verdict, dict):
+            verdict_rows.append({"id": item.get("id"), "passed": False, "no_code": item.get("extracted") is None})
+            continue
+        verdict_rows.append(
+            {
+                "id": item.get("id"),
+                "passed": verdict.get("passed") is True,
+                "timed_out": verdict.get("timeout") is True,
+            },
+        )
+    score = score_coding_exec(verdict_rows)
+    benches = run.get("benches")
+    if not isinstance(benches, dict):
+        benches = {}
+        run["benches"] = benches
+    termination_rate = 1.0 - (score["n_timed_out"] / score["n"] if score["n"] else 0.0)
+    benches[BENCH] = {
+        "n": score["n"],
+        "n_errors": 0,
+        "n_extraction_failures": score["n_no_code"],
+        "raw_accuracy": score["raw_accuracy"],
+        "chance_corrected": score["chance_corrected"],
+        "termination_rate": termination_rate,
+        "conditional_accuracy": score["raw_accuracy"] / termination_rate if termination_rate else 0.0,
+    }
 
 
 def _execute(

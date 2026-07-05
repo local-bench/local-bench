@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from localbench._scoring import score_bench
+from localbench._scoring import BenchAggregate, score_bench
 from localbench._suite import RenderedBench, read_json_object, render_benches
 from localbench._types import ItemResult, Usage
 
@@ -46,9 +46,10 @@ def test_v1_coding_axis_is_declared_in_suite() -> None:
     # Given the suite-v1 manifest.
     suite = read_json_object(_SUITE_DIR / "suite.json")
 
-    # Then the coding axis groups LCB; axis weights live in the code registry, not suite.json (METHODOLOGY-v1.2 §8).
+    # Then the ranked coding axis groups BigCodeBench-Hard while LCB remains an opt-in legacy bench.
     axes = suite["axes"]
-    assert axes["coding"]["benches"] == ["lcb"]
+    assert axes["coding"]["benches"] == ["bigcodebench_hard"]
+    assert "lcb" in suite["benches"]
     assert "weight" not in axes["coding"]
 
 
@@ -97,10 +98,8 @@ def test_existing_four_axis_composite_is_unchanged_when_coding_domain_is_absent(
     # When computing the composite with Coding declared but absent from the run.
     result = composite(benches)
 
-    # Then only the HEADLINE axes (knowledge=mmlu_pro + instruction=ifbench) enter
-    # the composite; agentic (bfcl) + math (amo) are present but weight 0.0
-    # (METHODOLOGY-v1.2 §3), so adding/removing them never moves the headline.
-    assert result == pytest.approx(((0.15 * 0.50) + (0.15 * 0.60)) / 0.30)
+    # Then knowledge, instruction, and math enter the v3 headline composite.
+    assert result == pytest.approx(((0.15 * 0.50) + (0.15 * 0.60) + (0.05 * 0.80)) / 0.35)
 
 
 def _aggregate(score: float) -> "BenchAggregate":

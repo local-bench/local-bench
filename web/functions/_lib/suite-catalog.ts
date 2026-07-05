@@ -7,6 +7,7 @@ export type SuiteFile = {
 export type SuiteRecord = {
   readonly files: readonly SuiteFile[];
   readonly id: string;
+  readonly legacy?: boolean;
   readonly staticBenches: readonly string[];
   readonly suiteHash: string;
   readonly suiteManifestSha256: string;
@@ -92,6 +93,7 @@ export const CORE_TEXT_SUITE: SuiteRecord = {
     },
   ],
   id: "core-text-v1",
+  legacy: true,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1"],
   suiteHash: "6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179",
   suiteManifestSha256: "6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179",
@@ -187,6 +189,7 @@ export const FOUR_AXIS_SUITE: SuiteRecord = {
     },
   ],
   id: "suite-v1-partial-text-code-4axis-v1",
+  legacy: true,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"],
   suiteHash: "bf463bf8526baad676f0a87d743f0037fdc8eb50dc4faf6abc374b29833dd558",
   suiteManifestSha256: "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
@@ -214,13 +217,76 @@ export const FIVE_AXIS_SUITE: SuiteRecord = {
     { path: "suite_release_manifest.json", sha256: "b4ff32fb3d6ff87a162abe18af07d1a6b49ee24eb491e255cdb16861ecbd978f", size: 3909 },
   ],
   id: "suite-v1-text-code-agentic-5axis-v1",
+  legacy: true,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"],
   suiteHash: "de25c8064f2342ef1f59a6a99065f7fe8dd17b389a899f0db3ce197f64f3fbf3",
   suiteManifestSha256: "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f",
   version: "suite-v1",
 } as const;
 
-export const PUBLIC_SUITES = [CORE_TEXT_SUITE, FOUR_AXIS_SUITE, FIVE_AXIS_SUITE] as const;
+const EXEC_SUITE_FILES: readonly SuiteFile[] = [
+  { path: "amo.jsonl", sha256: "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904", size: 24128 },
+  { path: "bfcl.jsonl", sha256: "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17", size: 420003 },
+  { path: "bfcl_multi_turn.jsonl", sha256: "c7f030d64098c4573c0c49b4d837f43b5f18047a941118bb77c8e2857e55f0f9", size: 2231316 },
+  { path: "bigcodebench_hard.jsonl", sha256: "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e", size: 849460 },
+  { path: "ifbench.jsonl", sha256: "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257", size: 141566 },
+  { path: "itemsets.lock.json", sha256: "ffff5567072284a3c9d8fb37bde73d281becbd379e01ba764a0b981ec1b341c7", size: 5324 },
+  { path: "lcb.jsonl", sha256: "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf", size: 179626 },
+  { path: "mmlu_pro.jsonl", sha256: "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4", size: 287076 },
+  { path: "olymmath_hard.jsonl", sha256: "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b", size: 40716 },
+  { path: "ruler_32k.jsonl", sha256: "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540", size: 50474 },
+  { path: "suite.json", sha256: "ad34b7f1463e1953f0697111ea2e837fd11008876678fb2d7e20bea49ed41f7f", size: 5940 },
+  { path: "supergpqa.jsonl", sha256: "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a", size: 264520 },
+  { path: "tc_json_v1.jsonl", sha256: "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74", size: 497028 },
+  { path: "templates/bfcl.txt", sha256: "db54c9aafd809974c5a1fc1663150354d34b1c76a8d8bef1d70dc7b5f4307589", size: 192 },
+  { path: "templates/bfcl_multi_turn.txt", sha256: "3f349f401a42cdd3887664e8bd948a3a4701e31a5cc25f9e1848239fe7baea33", size: 98 },
+  { path: "templates/bigcodebench.txt", sha256: "a697baa82796087b9ef55f485e21776e4e925a3ad68a4ed8a28a54ca5806bdfc", size: 256 },
+  { path: "templates/ifbench.txt", sha256: "c3403df4243682bca4d3ed590c49c7548d3525a4e143505b7e5350959bdfe7f3", size: 9 },
+  { path: "templates/lcb.txt", sha256: "6f48ef15224e006e1e900cc07f875bb35a8ba945d36d072bb4e2f1421ee453a1", size: 283 },
+  { path: "templates/math.txt", sha256: "cda8025aee686b7732d21aa0d43e1684e299e155c1ece4a4b1a7923dd93ea4e0", size: 166 },
+  { path: "templates/mcq_cot.txt", sha256: "f49427d8f4427b07d504ce70aa21097c7a35b470f09f10107b8e57133bf944fc", size: 106 },
+  { path: "templates/ruler.txt", sha256: "12cca0402c7a9a10b27df71c049bc531f78d4b11d1e64fc6aac4c0bb9b636a62", size: 164 },
+  { path: "templates/tc_json_v1.txt", sha256: "d98cbb51f82297886c92d6f39d206a94b981d50641b23306aeacc2b713843251", size: 663 },
+] as const;
+
+export const FULL_EXEC_SUITE: SuiteRecord = {
+  files: EXEC_SUITE_FILES,
+  id: "suite-v1-full-exec-6axis-v1",
+  legacy: false,
+  staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "bigcodebench_hard", "olymmath_hard", "amo"],
+  suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
+  suiteManifestSha256: "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514",
+  version: "suite-v1",
+} as const;
+
+export const STATIC_EXEC_SUITE: SuiteRecord = {
+  files: EXEC_SUITE_FILES,
+  id: "suite-v1-static-exec-5axis-v1",
+  legacy: false,
+  staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "bigcodebench_hard", "olymmath_hard", "amo"],
+  suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
+  suiteManifestSha256: "d02afc7283360d8b1cbd2413a81c10716b1c11907172ccbe8c669e972533bc6e",
+  version: "suite-v1",
+} as const;
+
+export const STATIC_CORE_DIAG_SUITE: SuiteRecord = {
+  files: EXEC_SUITE_FILES,
+  id: "suite-v1-static-core-diag-v1",
+  legacy: false,
+  staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "olymmath_hard", "amo"],
+  suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
+  suiteManifestSha256: "020d5bd4749cbd81e93bec8fe31db099ac3dfc5ca60b3abad88d0316591b8d60",
+  version: "suite-v1",
+} as const;
+
+export const PUBLIC_SUITES = [
+  FULL_EXEC_SUITE,
+  STATIC_EXEC_SUITE,
+  STATIC_CORE_DIAG_SUITE,
+  CORE_TEXT_SUITE,
+  FOUR_AXIS_SUITE,
+  FIVE_AXIS_SUITE,
+] as const;
 
 export function suiteById(id: string): SuiteRecord | null {
   return PUBLIC_SUITES.find((suite) => suite.id === id) ?? null;

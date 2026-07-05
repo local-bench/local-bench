@@ -27,11 +27,19 @@ def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
     assert headline_displays() == (
         "Knowledge",
         "Instruction-Following",
+        "Math",
         "Agentic",
         "Tool-calling",
         "Coding",
     )
-    assert headline_web_axes() == ("knowledge", "instruction", "agentic", "tool_calling", "coding")
+    assert headline_web_axes() == (
+        "knowledge",
+        "instruction",
+        "math",
+        "agentic",
+        "tool_calling",
+        "coding",
+    )
     assert sum(axis.weight for axis in headline) == pytest.approx(1.0)
     assert all(axis.weight == 0.0 for axis in AXES if axis.role != "headline")
 
@@ -40,10 +48,10 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert DOMAIN_WEIGHTS == domain_weights()
     assert DOMAIN_WEIGHTS["Knowledge"] == 0.15
     assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.15
-    assert DOMAIN_WEIGHTS["Math"] == 0.0
+    assert DOMAIN_WEIGHTS["Math"] == 0.05
     assert DOMAIN_WEIGHTS["Long-Context"] == 0.0
-    assert DOMAIN_WEIGHTS["Agentic"] == 0.50
-    assert DOMAIN_WEIGHTS["Coding"] == 0.10
+    assert DOMAIN_WEIGHTS["Agentic"] == 0.40
+    assert DOMAIN_WEIGHTS["Coding"] == 0.15
     assert DOMAIN_WEIGHTS["Tool-calling"] == 0.10
     assert BENCH_DOMAINS["mmlu_pro"] == "Knowledge"
     assert BENCH_DOMAINS["supergpqa"] == "Knowledge"
@@ -54,6 +62,7 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert BENCH_DOMAINS["genmath"] == "Math"
     assert BENCH_DOMAINS["ruler_32k"] == "Long-Context"
     assert BENCH_DOMAINS["appworld_c"] == "Agentic"
+    assert BENCH_DOMAINS["bigcodebench_hard"] == "Coding"
     assert BENCH_DOMAINS["lcb"] == "Coding"
     assert BENCH_DOMAINS["tc_json_v1"] == "Tool-calling"
 
@@ -70,10 +79,10 @@ def test_web_derivations_track_the_registry() -> None:
     assert web_composite_weights() == {
         "knowledge": 0.15,
         "instruction": 0.15,
-        "agentic": 0.50,
-        "math": 0.0,
+        "agentic": 0.40,
+        "math": 0.05,
         "tool_calling": 0.10,
-        "coding": 0.10,
+        "coding": 0.15,
     }
     groups = web_source_bench_groups()
     assert groups["knowledge"] == (("mmlu_pro",), ("supergpqa",))
@@ -81,7 +90,7 @@ def test_web_derivations_track_the_registry() -> None:
     assert groups["math"] == (("olymmath_hard", "amo"), ("genmath",))
     assert groups["agentic"] == (("appworld_c",),)
     assert groups["tool_calling"] == (("tc_json_v1",),)
-    assert groups["coding"] == (("lcb",),)
+    assert groups["coding"] == (("bigcodebench_hard",), ("lcb",))
 
 
 def test_tool_calling_axis_is_weighted_headline_axis() -> None:
@@ -96,41 +105,49 @@ def test_tool_calling_axis_is_weighted_headline_axis() -> None:
     assert axis.web_display is True
 
 
-def test_coding_axis_is_weighted_lightweight_proxy() -> None:
+def test_coding_axis_is_weighted_execution_axis_with_legacy_proxy() -> None:
     axis = next(axis for axis in AXES if axis.key == "coding")
 
     assert axis.display == "Coding"
     assert axis.web_key == "coding"
-    assert axis.benches == ("lcb",)
-    assert axis.legacy_benches == ()
+    assert axis.benches == ("bigcodebench_hard",)
+    assert axis.legacy_benches == ("lcb",)
     assert axis.role == "headline"
-    assert axis.weight == 0.10
+    assert axis.weight == 0.15
     assert axis.web_display is True
 
 
 def test_benchmark_modules_define_fast_defaults_and_opt_in_expansions() -> None:
     assert [module.key for module in BENCHMARK_MODULES if module.role == "headline"] == [
         "core_text",
+        "math",
         "tool_calling",
         "coding",
         "agentic",
     ]
-    assert scored_default_benches({"mmlu_pro", "ifbench", "tc_json_v1", "lcb"}) == (
+    assert scored_default_benches(
+        {"mmlu_pro", "ifbench", "olymmath_hard", "amo", "tc_json_v1", "bigcodebench_hard"},
+    ) == (
         "mmlu_pro",
         "ifbench",
+        "olymmath_hard",
+        "amo",
         "tc_json_v1",
-        "lcb",
+        "bigcodebench_hard",
         "appworld_c",
     )
-    assert scored_default_benches({"mmlu_pro", "ifbench", "tc_json_v1"}) == (
+    assert scored_default_benches() == (
         "mmlu_pro",
         "ifbench",
+        "olymmath_hard",
+        "amo",
         "tc_json_v1",
+        "bigcodebench_hard",
         "appworld_c",
     )
     coding = next(module for module in BENCHMARK_MODULES if module.key == "coding")
-    assert coding.default_benches == ("lcb",)
-    assert coding.opt_in_benches == ("bigcodebench_hard",)
+    assert coding.default_benches == ("bigcodebench_hard",)
+    assert coding.opt_in_benches == ("lcb",)
 
 
 def test_suite_v1_manifest_membership_matches_registry_drift_gate() -> None:

@@ -21,6 +21,8 @@ class BenchmarkItem(TypedDict):
     sampling_params: JsonObject
     max_tokens: NotRequired[int]
     think_budget: NotRequired[int]
+    answer_reserve: NotRequired[int]
+    execution_mode: NotRequired[str]
 
 
 class Usage(TypedDict):
@@ -46,6 +48,7 @@ class ItemResult(TypedDict):
     max_tokens: NotRequired[int]
     generated_tokens: NotRequired[JsonObject]
     server_timings: NotRequired[JsonObject | None]
+    code_artifact: NotRequired[JsonObject]
 
 
 class RunParams(TypedDict):

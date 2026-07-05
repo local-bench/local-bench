@@ -7,7 +7,12 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
-from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_digest
+from localbench.lane_spec import (
+    BOUNDED_FINAL_LANE_SPEC_ID,
+    BOUNDED_FINAL_LANE_SPEC_IDS,
+    BOUNDED_FINAL_V2_LANE_SPEC_ID,
+    lane_spec_digest,
+)
 from localbench.reasoning_registry import ranked_execution_profiles
 from localbench.scoring import bootstrap, cluster_for_item, score_interval, stratum_for_item
 from localbench.scoring.axes import STATIC_SUITE_INDEX_VERSION, headline_web_axes, static_suite_web_weights, web_display_axes, web_source_bench_groups
@@ -451,17 +456,32 @@ def _axis_samples(
 
 
 def _composite(samples: Mapping[str, bootstrap.BenchSample], axes: Mapping[str, JsonValue], bootstrap_iters: int, weights: Mapping[str, float]) -> JsonObject:
-    source_weights = {
-        bench: weights[axis]
-        for axis in web_display_axes()
-        if axis in axes and weights.get(axis, 0.0) > 0.0
-        for bench in _source_benches_for_axis(axis, {name: {} for name in samples})
-    }
+    source_weights = _source_weights_for_composite(samples, axes, weights)
     present = {bench: sample for bench, sample in samples.items() if source_weights.get(bench, 0.0) > 0.0}
     if not present:
         return score_interval(0.0, 0.0, 0.0)
     ci = bootstrap.composite_ci(present, source_weights, seed=DEFAULT_BOOTSTRAP_SEED, iters=bootstrap_iters)
     return score_interval(ci["point"], ci["lo"], ci["hi"])
+
+
+def _source_weights_for_composite(
+    samples: Mapping[str, bootstrap.BenchSample],
+    axes: Mapping[str, JsonValue],
+    weights: Mapping[str, float],
+) -> dict[str, float]:
+    source_weights: dict[str, float] = {}
+    sample_names = {name: {} for name in samples}
+    for axis in web_display_axes():
+        axis_weight = weights.get(axis, 0.0)
+        if axis not in axes or axis_weight <= 0.0:
+            continue
+        source_names = _source_benches_for_axis(axis, sample_names)
+        axis_n = sum(len(samples[bench]["correct"]) for bench in source_names)
+        if axis_n <= 0:
+            continue
+        for bench in source_names:
+            source_weights[bench] = axis_weight * (len(samples[bench]["correct"]) / axis_n)
+    return source_weights
 
 
 def _strict_composite(
@@ -592,26 +612,44 @@ def _ranked_v3(
     profile_id = text_value(scorecard.get("execution_profile_id"))
     profile_digest = text_value(scorecard.get("execution_profile_digest"))
     expected_profile_digest = None if profile_id is None else ranked_execution_profiles().get(profile_id)
+    lane_spec_id = text_value(scorecard.get("lane_spec_id"))
     expected_scorecard = (
         {}
-        if profile_id is None
-        else scorecard_identity(profile_id, lane_spec_id=BOUNDED_FINAL_LANE_SPEC_ID)
+        if profile_id is None or lane_spec_id not in BOUNDED_FINAL_LANE_SPEC_IDS
+        else scorecard_identity(profile_id, lane_spec_id=lane_spec_id)
     )
     return (
         source["kind"] != "anchor"
-        and lane == BOUNDED_FINAL_LANE_SPEC_ID
+        and lane in BOUNDED_FINAL_LANE_SPEC_IDS
         and text_value(suite.get("tier")) == "standard"
         and conformance_status == "headline-comparable"
         and all(axis in axes for axis in headline_web_axes())
+        and _coding_verified_if_required(run, lane)
         and profile_digest is not None
         and profile_digest == expected_profile_digest
-        and scorecard.get("lane_spec_id") == BOUNDED_FINAL_LANE_SPEC_ID
-        and scorecard.get("lane_spec_digest") == lane_spec_digest(BOUNDED_FINAL_LANE_SPEC_ID)
+        and lane_spec_id in BOUNDED_FINAL_LANE_SPEC_IDS
+        and scorecard.get("lane_spec_digest") == lane_spec_digest(lane_spec_id)
         and scorecard.get("scorecard_id") == expected_scorecard.get("scorecard_id")
         and _audit_status(run, "prompt_audit") == "canonical"
         and _audit_status(run, "budget_audit") == "exact"
         and _audit_status(run, "sampler_audit") == "deterministic"
         and _audit_status(run, "suite_coverage") == "complete"
+    )
+
+
+def _coding_verified_if_required(run: JsonObject, lane: str | None) -> bool:
+    if lane != BOUNDED_FINAL_V2_LANE_SPEC_ID:
+        return True
+    items = run.get("items")
+    if not isinstance(items, list):
+        return False
+    coding_items = [item for item in items if isinstance(item, dict) and item.get("bench") == "bigcodebench_hard"]
+    if not coding_items:
+        return False
+    return all(
+        isinstance((artifact := item.get("code_artifact")), dict)
+        and artifact.get("verdict_source") == "verifier"
+        for item in coding_items
     )
 
 
