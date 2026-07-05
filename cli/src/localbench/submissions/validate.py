@@ -94,7 +94,7 @@ def validate_suite_and_scorecard(payload: JsonObject, suite_dir: Path) -> None:
     if submitted_scorecard.get("lane_spec_digest") != expected_lane_digest:
         raise SubmissionValidationError("lane spec digest mismatch")
     execution_profile_id = _validated_execution_profile_id(submitted_scorecard)
-    current = scorecard_identity(execution_profile_id)
+    current = scorecard_identity(execution_profile_id, lane_spec_id=lane_spec_id)
     if submitted_scorecard.get("id") != current.get("scorecard_id"):
         raise SubmissionValidationError("scorecard id mismatch")
     if submitted_scorecard.get("registry_digest") != current.get("registry_digest"):

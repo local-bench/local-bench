@@ -5,7 +5,7 @@ from dataclasses import fields, replace
 import pytest
 
 import localbench.reasoning_registry as reasoning_registry
-from localbench.lane_spec import lane_spec_digest
+from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_digest
 from localbench.reasoning_registry import QWEN_REASONING_ENTRY
 from localbench.scoring.axes import AXES, Axis
 from localbench.scoring.scorecard import (
@@ -88,6 +88,21 @@ def test_scorecard_id_binds_selected_execution_profile() -> None:
     assert qwen["execution_profile"]["id"] == "qwen_thinking_native_v1"
     assert gemma["execution_profile"]["id"] == "gemma4_thinking_native_v1"
     assert qwen["scorecard_id"] != gemma["scorecard_id"]
+
+
+def test_scorecard_identity_binds_selected_lane_spec() -> None:
+    legacy = scorecard_identity()
+    bounded = scorecard_identity(
+        "answer_only_v1",
+        lane_spec_id=BOUNDED_FINAL_LANE_SPEC_ID,
+    )
+
+    assert legacy["lane_spec_id"] == "capped-thinking-v1"
+    assert bounded["lane_spec_id"] == "bounded-final-v1"
+    assert bounded["lane_spec_digest"] == lane_spec_digest("bounded-final-v1")
+    assert bounded["execution_profile_id"] == "answer_only_v1"
+    assert bounded["execution_profile"]["id"] == "answer_only_v1"
+    assert bounded["scorecard_id"] != legacy["scorecard_id"]
 
 
 def test_adding_registry_entry_does_not_change_selected_profile_scorecard_id(

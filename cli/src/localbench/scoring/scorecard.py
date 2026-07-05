@@ -101,7 +101,11 @@ def registry_digest() -> str:
     return _digest(_registry_payload())
 
 
-def scorecard_identity(execution_profile_id: str | None = None) -> JsonObject:
+def scorecard_identity(
+    execution_profile_id: str | None = None,
+    *,
+    lane_spec_id: str = DEFAULT_LANE_SPEC_ID,
+) -> JsonObject:
     """The frozen scoring-object identity recorded in every run manifest.
 
     `scorecard_id` hashes the version, scoring registry digest, scorer versions,
@@ -129,13 +133,13 @@ def scorecard_identity(execution_profile_id: str | None = None) -> JsonObject:
         "registry_digest": registry_digest(),
         "scorer_versions": dict(SCORER_VERSIONS),
         "ci_method": CI_METHOD,
-        "lane_spec_digest": lane_spec_digest(DEFAULT_LANE_SPEC_ID),
+        "lane_spec_digest": lane_spec_digest(lane_spec_id),
         "execution_profile_id": execution_profile_id,
         "execution_profile_digest": profile_digest,
     }
     return {
         **components,
-        "lane_spec_id": DEFAULT_LANE_SPEC_ID,
+        "lane_spec_id": lane_spec_id,
         "scorecard_id": _digest(components),
         # Informational only: excluded from scorecard_id so adding profiles does not
         # invalidate runs that used other profiles.

@@ -7,6 +7,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
+from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_digest
+from localbench.reasoning_registry import ranked_execution_profiles
 from localbench.scoring import bootstrap, cluster_for_item, score_interval, stratum_for_item
 from localbench.scoring.axes import STATIC_SUITE_INDEX_VERSION, headline_web_axes, static_suite_web_weights, web_display_axes, web_source_bench_groups
 from localbench.scoring.board_support import (
@@ -31,11 +33,13 @@ from localbench.scoring.board_support import (
 from localbench.scoring.agentic_exec.score import wilson_95_ci
 from localbench.scoring.board_systems import best_system, system_fields
 from localbench.scoring.board_types import BoardBuildError, CuratedSource, ScoredRun
+from localbench.scoring.scorecard import scorecard_identity
 from localbench.scoring.signed_score import chance_for_bench, signed_score
 from localbench.scoring.tc_json_conformance import GATE_ID, tc_json_conformance_gate
 
 APPWORLD_C_BENCH = "appworld_c"
 TC_JSON_BENCH = "tc_json_v1"
+INDEX_VERSION_V3 = "index-v3.0"
 
 
 def scored_runs(
@@ -142,7 +146,14 @@ def _scored_run(
     conformance = object_or_empty(run.get("conformance"))
     lane = source["reasoning_lane"] or text_value(suite.get("lane"))
     slug = slugify(source["model_label"])
-    axes, samples = _axes_and_samples(benches, items, object_or_empty(conformance.get("per_bench")), bootstrap_iters)
+    is_v3 = _is_v3_row(run)
+    axes, samples = _axes_and_samples(
+        benches,
+        items,
+        object_or_empty(conformance.get("per_bench")),
+        bootstrap_iters,
+        pad_missing_items=is_v3,
+    )
     composite = _composite(samples, axes, bootstrap_iters, weights)
     composite_static = _strict_composite(
         samples,
@@ -176,7 +187,7 @@ def _scored_run(
         "model_label": source["model_label"],
         "order": order,
         "quant_label": source["quant_label"],
-        "ranked": _ranked(source, lane, text_value(conformance.get("status")), axes),
+        "ranked": _ranked(source, run, lane, text_value(conformance.get("status")), axes),
         "recommended": source["recommended"],
         "replicated": source["independent_replication"],
         "run_id": run_id,
@@ -376,6 +387,8 @@ def _axes_and_samples(
     items: Sequence[JsonObject],
     conformance: JsonObject,
     bootstrap_iters: int,
+    *,
+    pad_missing_items: bool = False,
 ) -> tuple[JsonObject, dict[str, bootstrap.BenchSample]]:
     axes: JsonObject = {}
     samples: dict[str, bootstrap.BenchSample] = {}
@@ -384,8 +397,13 @@ def _axes_and_samples(
         source_names = _source_benches_for_axis(axis, benches)
         if not source_names:
             continue
-        axis_values, axis_strata, no_answer = _axis_samples(source_names, item_groups, samples)
         aggregates = [object_value(benches.get(bench), f"benches.{bench}") for bench in source_names]
+        expected_counts = (
+            {bench: int_value(aggregate.get("n"), f"{bench}.n") for bench, aggregate in zip(source_names, aggregates, strict=True)}
+            if pad_missing_items
+            else None
+        )
+        axis_values, axis_strata, no_answer = _axis_samples(source_names, item_groups, samples, expected_counts)
         axis_ci = bootstrap.stratified_mean_ci(axis_values, axis_strata, seed=DEFAULT_BOOTSTRAP_SEED, iters=bootstrap_iters)
         # Point AND raw derive from the same per-item evidence as the CI and the
         # composites — never from the run's claimed bench aggregates, which can
@@ -409,12 +427,21 @@ def _axes_and_samples(
     return axes, samples
 
 
-def _axis_samples(source_names: Sequence[str], item_groups: Mapping[str, Sequence[JsonObject]], samples: dict[str, bootstrap.BenchSample]) -> tuple[list[float], list[str], int]:
+def _axis_samples(
+    source_names: Sequence[str],
+    item_groups: Mapping[str, Sequence[JsonObject]],
+    samples: dict[str, bootstrap.BenchSample],
+    expected_counts: Mapping[str, int] | None = None,
+) -> tuple[list[float], list[str], int]:
     values: list[float] = []
     strata: list[str] = []
     no_answer = 0
     for bench in source_names:
-        correct, bench_strata, clusters, missing = _sample_parts(bench, item_groups.get(bench, ()))
+        correct, bench_strata, clusters, missing = _sample_parts(
+            bench,
+            item_groups.get(bench, ()),
+            expected_n=None if expected_counts is None else expected_counts.get(bench),
+        )
         no_answer += missing
         chance = chance_for_bench(bench)
         values.extend(signed_score(1.0 if value else 0.0, chance=chance) for value in correct)
@@ -450,7 +477,11 @@ def _strict_composite(
     return _composite(samples, axes, bootstrap_iters, weights)
 
 
-def _sample_parts(bench: str, items: Sequence[JsonObject]) -> tuple[list[bool], list[str], list[str], int]:
+def _sample_parts(
+    bench: str,
+    items: Sequence[JsonObject],
+    expected_n: int | None = None,
+) -> tuple[list[bool], list[str], list[str], int]:
     correct: list[bool] = []
     strata: list[str] = []
     clusters: list[str] = []
@@ -463,6 +494,13 @@ def _sample_parts(bench: str, items: Sequence[JsonObject]) -> tuple[list[bool], 
         correct.append(is_correct)
         strata.append(stratum_for_item(bench, item_id, item))
         clusters.append(cluster_for_item(bench, item_id, item))
+    missing_items = max(0, expected_n - len(items)) if expected_n is not None else 0
+    for index in range(missing_items):
+        item_id = f"missing-{index + 1}"
+        correct.append(False)
+        strata.append(bench)
+        clusters.append(f"{bench}:{item_id}")
+    missing += missing_items
     return correct, strata, clusters, missing
 
 
@@ -505,7 +543,15 @@ def _copy_optional_weighted(target: JsonObject, aggregates: Sequence[JsonObject]
 
 
 def _copy_conformance_rates(target: JsonObject, conformance: JsonObject, names: Sequence[str]) -> None:
-    for key in ("leaked_reasoning_rate", "truncation_rate", "no_final_answer_rate"):
+    for key in (
+        "leaked_reasoning_rate",
+        "truncation_rate",
+        "no_final_answer_rate",
+        "budget_cap_hit_rate",
+        "measurement_truncation_rate",
+        "empty_final_rate",
+        "ambiguous_or_contaminated_final_rate",
+    ):
         values = [number_or_none(object_or_empty(conformance.get(name)).get(key)) for name in names]
         target[key] = sum(value for value in values if value is not None) / len(values) if all(value is not None for value in values) and values else None
 
@@ -516,13 +562,65 @@ def _weighted(aggregates: Sequence[JsonObject], names: Sequence[str], key: str) 
     return sum(number_value(aggregate.get(key), f"{name}.{key}") * count for name, aggregate, count in zip(names, aggregates, counts, strict=True)) / total if total else 0.0
 
 
-def _ranked(source: CuratedSource, lane: str | None, conformance_status: str | None, axes: Mapping[str, JsonValue]) -> bool:
+def _ranked(
+    source: CuratedSource,
+    run: JsonObject,
+    lane: str | None,
+    conformance_status: str | None,
+    axes: Mapping[str, JsonValue],
+) -> bool:
+    if _is_v3_row(run):
+        return _ranked_v3(source, run, lane, conformance_status, axes)
     return (
         source["kind"] != "anchor"
         and lane == LANE_SCOPE
         and conformance_status == "headline-comparable"
         and all(axis in axes for axis in headline_web_axes())
     )
+
+
+def _ranked_v3(
+    source: CuratedSource,
+    run: JsonObject,
+    lane: str | None,
+    conformance_status: str | None,
+    axes: Mapping[str, JsonValue],
+) -> bool:
+    manifest = object_or_empty(run.get("manifest"))
+    suite = object_or_empty(manifest.get("suite"))
+    scorecard = object_or_empty(manifest.get("scorecard"))
+    profile_id = text_value(scorecard.get("execution_profile_id"))
+    profile_digest = text_value(scorecard.get("execution_profile_digest"))
+    expected_profile_digest = None if profile_id is None else ranked_execution_profiles().get(profile_id)
+    expected_scorecard = (
+        {}
+        if profile_id is None
+        else scorecard_identity(profile_id, lane_spec_id=BOUNDED_FINAL_LANE_SPEC_ID)
+    )
+    return (
+        source["kind"] != "anchor"
+        and lane == BOUNDED_FINAL_LANE_SPEC_ID
+        and text_value(suite.get("tier")) == "standard"
+        and conformance_status == "headline-comparable"
+        and all(axis in axes for axis in headline_web_axes())
+        and profile_digest is not None
+        and profile_digest == expected_profile_digest
+        and scorecard.get("lane_spec_id") == BOUNDED_FINAL_LANE_SPEC_ID
+        and scorecard.get("lane_spec_digest") == lane_spec_digest(BOUNDED_FINAL_LANE_SPEC_ID)
+        and scorecard.get("scorecard_id") == expected_scorecard.get("scorecard_id")
+        and _audit_status(run, "prompt_audit") == "canonical"
+        and _audit_status(run, "budget_audit") == "exact"
+        and _audit_status(run, "sampler_audit") == "deterministic"
+        and _audit_status(run, "suite_coverage") == "complete"
+    )
+
+
+def _audit_status(run: JsonObject, key: str) -> str | None:
+    return text_value(object_or_empty(run.get(key)).get("status"))
+
+
+def _is_v3_row(run: JsonObject) -> bool:
+    return text_value(run.get("index_version")) == INDEX_VERSION_V3
 
 
 def _model_point(model: Mapping[str, JsonValue]) -> float | None:

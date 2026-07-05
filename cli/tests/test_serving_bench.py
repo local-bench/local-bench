@@ -131,6 +131,14 @@ def test_llama_cpp_reasoning_mapping_for_answer_only_lane() -> None:
     assert reasoning.reasoning_format == "deepseek"
 
 
+def test_llama_cpp_reasoning_mapping_for_bounded_final_lane() -> None:
+    reasoning = assembly.llama_cpp_reasoning_for_lane("bounded-final-v1")
+
+    assert reasoning.reasoning == "off"
+    assert reasoning.reasoning_budget is None
+    assert reasoning.reasoning_format == "deepseek"
+
+
 def test_llama_cpp_reasoning_mapping_for_capped_thinking_lane() -> None:
     # Given / When: the local serving capped-thinking lane is mapped to llama.cpp reasoning flags.
     reasoning = assembly.llama_cpp_reasoning_for_lane("capped-thinking")

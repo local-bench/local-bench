@@ -43,6 +43,8 @@ class ItemResult(TypedDict):
     error: str | None
     error_type: NotRequired[str]
     thinking_forced: NotRequired[bool]
+    max_tokens: NotRequired[int]
+    generated_tokens: NotRequired[JsonObject]
 
 
 class RunParams(TypedDict):

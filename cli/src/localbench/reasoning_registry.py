@@ -30,7 +30,7 @@ class ReasoningRegistryEntry:
     status: ReasoningRegistryStatus
     model_match: tuple[str, ...]
     activation: Mapping[str, JsonValue]
-    forcing: ForcingFormat
+    forcing: ForcingFormat | None
     parser: Mapping[str, JsonValue]
     conformance: Mapping[str, JsonValue]
     provenance: Mapping[str, JsonValue]
@@ -105,7 +105,36 @@ GEMMA4_REASONING_ENTRY: Final = ReasoningRegistryEntry(
     },
 )
 
+ANSWER_ONLY_PROFILE: Final = ReasoningRegistryEntry(
+    id="answer_only_v1",
+    version="1",
+    status="ranked",
+    model_match=("*",),
+    activation={
+        "method": "chat_template_kwargs_when_supported",
+        "chat_template_kwargs": {"enable_thinking": False},
+        "system_prompt_injection": False,
+    },
+    forcing=None,
+    parser={
+        "reasoning_mode": "disabled",
+        "reasoning_tokens": 0,
+        "scored_text": "final_text_only",
+    },
+    conformance={
+        "lane": "bounded-final-v1",
+        "single_pass": True,
+        "max_tokens": "suite item max_tokens",
+        "stops": "canonical tokenizer/template EOS/EOT only",
+    },
+    provenance={
+        "source": "bounded-final-v1 answer-only execution profile",
+        "renderer": "canonical_chat_template",
+    },
+)
+
 REASONING_REGISTRY: Final[tuple[ReasoningRegistryEntry, ...]] = (
+    ANSWER_ONLY_PROFILE,
     QWEN_REASONING_ENTRY,
     GEMMA4_REASONING_ENTRY,
 )

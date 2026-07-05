@@ -197,6 +197,9 @@ def item_result(
     }
     if error_type is not None:
         result["error_type"] = error_type
+    max_tokens = item.get("max_tokens")
+    if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+        result["max_tokens"] = max_tokens
     return result
 
 

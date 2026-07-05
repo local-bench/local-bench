@@ -125,6 +125,11 @@ def normalize_result_bundle(
     _copy_optional(record, bundle, "resumed")
     _copy_optional(record, bundle, "resume_count")
     _copy_optional(record, bundle, "segments")
+    _copy_optional(record, bundle, "prompt_audit")
+    _copy_optional(record, bundle, "budget_audit")
+    _copy_optional(record, bundle, "sampler_audit")
+    _copy_optional(record, bundle, "suite_coverage")
+    _copy_optional(record, bundle, "index_version")
     return bundle
 
 

@@ -120,6 +120,94 @@ def test_only_headline_lane_conformance_pass_measured_rows_are_ranked(tmp_path: 
     }
 
 
+def test_v3_board_does_not_rank_legacy_lane_rows(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+    from localbench.scoring.board_scoring import INDEX_VERSION_V3
+
+    paths = write_inputs(tmp_path, [source("Legacy Model", "legacy.json")])
+    legacy = run_record()
+    legacy["index_version"] = INDEX_VERSION_V3
+    write_run(paths["runs"] / "legacy.json", legacy)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    assert model["ranked"] is False
+
+
+def test_v3_ranked_predicate_requires_allowlisted_profile_and_exact_audits(
+    tmp_path: Path,
+) -> None:
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(
+        tmp_path,
+        [
+            source("Valid V3", "valid.json", lane="bounded-final-v1"),
+            source("Unverified Budget", "unverified.json", lane="bounded-final-v1"),
+            source("Bad Profile", "bad-profile.json", lane="bounded-final-v1"),
+        ],
+    )
+    valid = _bounded_final_v3_run()
+    unverified = _bounded_final_v3_run()
+    object_value(unverified["budget_audit"])["status"] = "unverified"
+    bad_profile = _bounded_final_v3_run()
+    scorecard = object_value(object_value(bad_profile["manifest"])["scorecard"])
+    scorecard["execution_profile_digest"] = "0" * 64
+    write_run(paths["runs"] / "valid.json", valid)
+    write_run(paths["runs"] / "unverified.json", unverified)
+    write_run(paths["runs"] / "bad-profile.json", bad_profile)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    ranked_by_label = {
+        string_value(model["model_label"]): bool_value(model["ranked"])
+        for model in objects_value(board["models"])
+    }
+    assert ranked_by_label == {
+        "Valid V3": True,
+        "Unverified Budget": False,
+        "Bad Profile": False,
+    }
+
+
+def test_v3_missing_suite_item_scores_zero_in_axis_denominator(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(tmp_path, [source("Missing Item", "missing.json", lane="bounded-final-v1")])
+    run = _bounded_final_v3_run()
+    run["items"] = [
+        item
+        for item in objects_value(run["items"])
+        if not (item.get("bench") == "mmlu_pro" and item.get("id") == "mmlu_pro-2")
+    ]
+    object_value(run["suite_coverage"])["status"] = "incomplete"
+    write_run(paths["runs"] / "missing.json", run)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    knowledge = object_value(object_value(model["axes"])["knowledge"])
+    assert knowledge["n"] == 2
+    assert knowledge["raw_accuracy"] == pytest.approx(0.5)
+    assert model["ranked"] is False
+
+
 def test_composite_uses_registry_weighted_axis_combination(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -602,3 +690,25 @@ def _inline_agentic_provenance(successes: tuple[bool, ...], *, harness_dominated
             {"run_index": 2, "results_path": "agentic/inline.scored.run2.json", **diagnostics},
         ],
     }
+
+
+def _bounded_final_v3_run() -> dict:
+    from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID
+    from localbench.scoring.board_scoring import INDEX_VERSION_V3
+    from localbench.scoring.scorecard import scorecard_identity
+
+    record = run_record(lane=BOUNDED_FINAL_LANE_SPEC_ID)
+    record["index_version"] = INDEX_VERSION_V3
+    manifest = object_value(record["manifest"])
+    suite = object_value(manifest["suite"])
+    suite["lane"] = BOUNDED_FINAL_LANE_SPEC_ID
+    suite["tier"] = "standard"
+    manifest["scorecard"] = scorecard_identity(
+        "answer_only_v1",
+        lane_spec_id=BOUNDED_FINAL_LANE_SPEC_ID,
+    )
+    record["prompt_audit"] = {"status": "canonical"}
+    record["budget_audit"] = {"status": "exact"}
+    record["sampler_audit"] = {"status": "deterministic"}
+    record["suite_coverage"] = {"status": "complete"}
+    return record

@@ -16,13 +16,22 @@ def _item(
     reasoning_text: str | None = None,
     finish_reason: str | None = "stop",
     error: str | None = None,
+    completion_tokens: int | None = 8,
+    max_tokens: int | None = 32,
 ) -> dict:
     item = {
         "id": "x",
         "response_text": response_text,
         "reasoning_text": reasoning_text,
         "finish_reason": finish_reason,
+        "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": completion_tokens,
+            "total_tokens": None if completion_tokens is None else completion_tokens + 1,
+        },
     }
+    if max_tokens is not None:
+        item["max_tokens"] = max_tokens
     if error is not None:
         item["error"] = error
     return item
@@ -79,6 +88,63 @@ def test_forced_run_still_gates_on_no_final_answer() -> None:
     empty = [_item(response_text="") for _ in range(12)]
     report = assess_conformance(empty + [_item() for _ in range(88)], forced=True)
     assert report.status == "nonconformant"  # no-final-answer is a hard gate even under forcing
+
+
+def test_bounded_final_cap_hit_is_visible_but_headline_comparable() -> None:
+    capped = [_item(finish_reason="length", completion_tokens=32, max_tokens=32) for _ in range(17)]
+    report = assess_conformance(
+        capped + [_item(max_tokens=32) for _ in range(83)],
+        lane_spec_id="bounded-final-v1",
+    )
+
+    assert report.status == "headline-comparable"
+    assert report.truncation_rate == 0.17
+    assert report.budget_cap_hit_rate == 0.17
+    assert report.measurement_truncation_rate == 0.0
+    assert any("budget_cap_hit_rate" in reason for reason in report.reasons)
+
+
+def test_bounded_final_measurement_truncation_excludes_run() -> None:
+    truncated = [
+        _item(finish_reason="length", completion_tokens=16, max_tokens=32)
+        for _ in range(3)
+    ]
+    report = assess_conformance(
+        truncated + [_item(max_tokens=32) for _ in range(97)],
+        lane_spec_id="bounded-final-v1",
+    )
+
+    assert report.status == "nonconformant"
+    assert report.budget_cap_hit_rate == 0.0
+    assert report.measurement_truncation_rate == 0.03
+    assert any("measurement_truncation_rate" in reason for reason in report.reasons)
+
+
+def test_bounded_final_empty_final_scores_zero_without_excluding() -> None:
+    empty = [_item(response_text="") for _ in range(12)]
+    report = assess_conformance(
+        empty + [_item() for _ in range(88)],
+        lane_spec_id="bounded-final-v1",
+    )
+
+    assert report.status == "headline-comparable"
+    assert report.empty_final_rate == 0.12
+    assert report.ambiguous_or_contaminated_final_rate == 0.0
+
+
+def test_bounded_final_contaminated_final_excludes_at_two_percent() -> None:
+    contaminated = [
+        _item(response_text="<think>scratch</think> The answer is A.")
+        for _ in range(3)
+    ]
+    report = assess_conformance(
+        contaminated + [_item() for _ in range(97)],
+        lane_spec_id="bounded-final-v1",
+    )
+
+    assert report.status == "nonconformant"
+    assert report.ambiguous_or_contaminated_final_rate == 0.03
+    assert any("ambiguous_or_contaminated_final_rate" in reason for reason in report.reasons)
 
 
 def test_run_level_forced_threads_to_every_bench() -> None:
