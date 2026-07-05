@@ -89,8 +89,8 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
-      <p className="font-mono text-xs uppercase tracking-normal text-bench-accent">benchmark a model</p>
-      <h2 className="mt-2 text-3xl font-semibold text-bench-text">Pick a model, get the exact commands</h2>
+      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Benchmark a model</p>
+      <h2 className="mt-1 text-2xl font-semibold text-bench-text">Pick a model, get the exact commands</h2>
       <p className="mt-1 font-mono text-xs text-bench-muted">
         {LOCAL_INTELLIGENCE_INDEX_NAME} · {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
       </p>

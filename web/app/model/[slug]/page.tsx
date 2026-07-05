@@ -1,4 +1,4 @@
-import { KindBadge } from "@/components/badges";
+import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ConformancePill } from "@/components/conformance-pill";
 import { ModelScatter } from "@/components/model-scatter";
@@ -25,13 +25,14 @@ export default async function ModelPage({ params }: PageProps) {
   const measuredRuns = model.runs.filter((run) => run.score_status === "measured");
   const rankedRuns = measuredRuns.filter((run) => run.ranked);
   const partialRuns = measuredRuns.filter((run) => !run.ranked);
-  const isProjectAnchor = model.kind === "anchor" || measuredRuns.some((run) => run.origin === "project_anchor");
   // Headline provenance comes from the ranked (representative) run when one exists —
-  // ladder/partial runs sort first in the payload and carry origin "community", which
-  // must not re-badge a project-anchor model.
+  // ladder/partial runs sort first in the payload and must not set the headline chip.
   const hasProvenance = (run: (typeof measuredRuns)[number]): boolean =>
     run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined;
   const provenanceRun = rankedRuns.find(hasProvenance) ?? measuredRuns.find(hasProvenance);
+  const submitter = measuredRuns.find(
+    (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
+  )?.submitter_display_name;
   const bestMeasuredRun = measuredRuns.reduce<(typeof measuredRuns)[number] | undefined>(
     (best, run) => (best === undefined || (run.composite?.point ?? -Infinity) > (best.composite?.point ?? -Infinity) ? run : best),
     undefined,
@@ -45,9 +46,11 @@ export default async function ModelPage({ params }: PageProps) {
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
-          <div className="flex flex-wrap gap-2">
-            {isProjectAnchor ? <KindBadge kind="anchor" /> : <KindBadge kind={model.kind} runCount={measuredRuns.length} />}
-          </div>
+          {measuredRuns.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <RunByBadge submitter={submitter} />
+            </div>
+          ) : null}
           <h1 className="mt-3 text-4xl font-semibold text-bench-text">{model.model_label}</h1>
           {provenanceRun === undefined ? null : <ProvenanceLabels model={provenanceRun} />}
           <p className="mt-2 max-w-3xl text-bench-muted">

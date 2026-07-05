@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
 import { BoardScopeHeader } from "@/components/board-scope-header";
-import { DemoBadge, KindBadge } from "@/components/badges";
-import { ProvenanceLabels, SubmitterCell } from "@/components/leaderboard-provenance";
-import { ConformancePill } from "./conformance-pill";
+import { DemoBadge } from "@/components/badges";
+import { ProvenanceLabels, RunByCell } from "@/components/leaderboard-provenance";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
@@ -51,7 +50,7 @@ export function HomeLeaderboard({
         </div>
       ) : (
         <div className="overflow-x-auto">
-        <table className="min-w-[1480px] border-collapse text-sm">
+        <table className="min-w-[1280px] border-collapse text-sm">
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
         </caption>
@@ -59,7 +58,6 @@ export function HomeLeaderboard({
           <tr>
             <th className="px-3 py-3 font-semibold">Rank</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
-            <SortableHeader label="Kind" sortKey="kind" sort={sort} onSort={setSort} />
             <SortableHeader label={<CompositeHeaderLabel scoreMode={scoreMode} />} sortKey="composite" sort={sort} onSort={setSort} />
             {axisKeys.map((axis) => (
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
@@ -67,31 +65,21 @@ export function HomeLeaderboard({
             {showAgenticColumn ? (
               <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
             ) : null}
-            <th className="border-l border-bench-line px-3 py-3 font-semibold">
-              <span className="flex flex-col gap-0.5 leading-tight">
-                <span>Tool-call format</span>
-                <span className="font-mono text-[10px] normal-case text-bench-muted">valid-JSON gate · not a score</span>
-              </span>
-            </th>
             <SortableHeader label="Runtime" sortKey="runtime" sort={sort} onSort={setSort} />
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
             <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
             <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
             <SortableHeader label="Full bench time" sortKey="benchtime" sort={sort} onSort={setSort} />
-            <SortableHeader label="User" sortKey="user" sort={sort} onSort={setSort} />
+            <SortableHeader label="Run by" sortKey="user" sort={sort} onSort={setSort} />
           </tr>
         </thead>
         <tbody>
           {sortedModels.map((model) => {
             const score = scoreForMode(model, scoreMode);
-            const isProjectAnchor = model.origin === "project_anchor" || model.kind === "anchor";
             return (
             <tr
               key={model.slug}
-              className={[
-                "border-t border-bench-line/75 align-middle transition-colors hover:bg-white/[0.035]",
-                isProjectAnchor ? "bg-bench-anchor/[0.025]" : "",
-              ].join(" ")}
+              className="border-t border-bench-line/75 align-middle transition-colors hover:bg-white/[0.035]"
             >
               <td className="px-3 py-3 font-mono text-bench-muted">
                 <RankMarker rank={laneRanks.get(model.slug)} />
@@ -105,13 +93,10 @@ export function HomeLeaderboard({
                 <ProvenanceLabels model={model} />
               </td>
               <td className="px-3 py-3">
-                {isProjectAnchor ? <KindBadge kind="anchor" /> : <KindBadge kind={model.kind} runCount={model.n_runs} />}
-              </td>
-              <td className="px-3 py-3">
                 {score === null ? (
                   <NoScoreCell />
                 ) : (
-                  <ScoreBar axes={model.axes} score={score} tone={scoreTone(model, scoreMode)} />
+                  <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} />
                 )}
               </td>
               {axisKeys.map((axisKey) => (
@@ -124,9 +109,6 @@ export function HomeLeaderboard({
                   <AgenticCell model={agenticBySlug.get(model.slug)} />
                 </td>
               ) : null}
-              <td className="border-l border-bench-line px-3 py-3">
-                <ConformancePill gate={model.conformance_gates?.tc_json_v1} showReason compact />
-              </td>
               <td className="px-3 py-3">
                 <RuntimeCell runtime={model.runtime} />
               </td>
@@ -136,8 +118,8 @@ export function HomeLeaderboard({
               </td>
               <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(model.latency_s_median ?? null)}</td>
               <td className="px-3 py-3 font-mono text-bench-text">{formatDuration(model.wall_time_seconds ?? null)}</td>
-              <td className="px-3 py-3" title="Top-run submitter — V2 community submissions">
-                <SubmitterCell model={model} />
+              <td className="px-3 py-3" title="Who ran this benchmark — local-bench for project-run rows, the submitter for community submissions">
+                <RunByCell model={model} />
               </td>
             </tr>
             );
@@ -233,11 +215,8 @@ function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardSc
   );
 }
 
-function scoreTone(model: IndexModel, scoreMode: LeaderboardScoreMode): "accent" | "anchor" | "muted" {
-  if (scoreMode === "static") {
-    return "muted";
-  }
-  return model.origin === "project_anchor" || model.kind === "anchor" ? "anchor" : "accent";
+function scoreTone(scoreMode: LeaderboardScoreMode): "accent" | "muted" {
+  return scoreMode === "static" ? "muted" : "accent";
 }
 
 function axisColumns(models: readonly IndexModel[]): readonly string[] {

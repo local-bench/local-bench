@@ -67,8 +67,6 @@ function compareRows(left: IndexModel, right: IndexModel, context: CompareContex
   switch (context.key) {
     case "model":
       return left.model_label.localeCompare(right.model_label);
-    case "kind":
-      return left.kind.localeCompare(right.kind);
     case "composite":
       return nullableNumber(scoreForMode(left, context.scoreMode)?.point ?? null) - nullableNumber(scoreForMode(right, context.scoreMode)?.point ?? null);
     case AGENTIC_SORT_KEY:
@@ -95,7 +93,13 @@ function compareAxis(left: IndexModel, right: IndexModel, axis: string): number 
 }
 
 function displaySubmitter(model: IndexModel): string {
-  return model.submitter_display_name ?? model.submitted_by ?? "";
+  // Mirrors RunByCell: community submitter name, else "local-bench" for the project's own
+  // measured rows, else empty (catalog shells / demo fixtures).
+  const submitter = model.submitter_display_name ?? model.submitted_by;
+  if (submitter !== null && submitter !== undefined && submitter !== "") {
+    return submitter;
+  }
+  return model.score_status === "measured" && !model.demo ? "local-bench" : "";
 }
 
 function nullableNumber(value: number | null): number {
