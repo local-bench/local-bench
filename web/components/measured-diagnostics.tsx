@@ -77,7 +77,7 @@ function AxisPoints({ axes }: { readonly axes: Readonly<Record<string, AxisScore
       {entries.map(([axis, score]) => (
         <div key={axis} className="min-w-[112px]">
           <div className="mb-1 font-mono text-[10px] uppercase text-bench-muted">{axisLabel(axis)}</div>
-          <AxisMiniBar score={score} />
+          <AxisMiniBar score={score} axis={axis} />
         </div>
       ))}
     </div>

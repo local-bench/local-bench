@@ -12,7 +12,7 @@ from localbench.suite_resolver import SuiteRef
 from .fixtures import build_submission_fixtures
 
 _RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1"
-_MANIFEST_SHA = "db1e6cd14f946126254cc2ada56ea1af0186303e0899f00f374d30382d96870e"
+_MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f"
 
 
 @pytest.mark.anyio

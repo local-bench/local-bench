@@ -12,6 +12,7 @@ from localbench.run_plan import resolve_run_benches
 from localbench.suite_resolver import resolve_suite_dir
 from localbench.serving.assembly import (
     bench_config,
+    effective_serving_profile,
     llama_cpp_reasoning_for_lane,
     pending_teardown,
     precheck_resume_identity,
@@ -54,8 +55,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         raise RuntimeError(f"unsupported runtime: {options.runtime}")
     if options.determinism != "strict":
         raise RuntimeError("--determinism throughput is deferred and non-publishable")
-    reasoning_config = llama_cpp_reasoning_for_lane(options.lane)
-    validate_capped_thinking_context(options)
+    effective_profile = effective_serving_profile(options)
+    reasoning_config = llama_cpp_reasoning_for_lane(options.lane, effective_profile)
+    validate_capped_thinking_context(options, effective_profile)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
     artifact = resolve_artifact(options, root)
@@ -161,7 +163,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 f"http://127.0.0.1:{port}/v1",
                 options.model_id,
                 api_key=api_key,
-                chat_template_kwargs=_agentic_chat_template_kwargs(options.lane),
+                chat_template_kwargs=_agentic_chat_template_kwargs(options.lane, effective_profile),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
             agentic_provenance_extra = agentic_preflight.provenance()
@@ -237,8 +239,14 @@ def _needs_wsl_agentic(options: ServeBenchOptions) -> bool:
     return "appworld_c" in resolve_run_benches(options.bench, suite)
 
 
-def _agentic_chat_template_kwargs(lane: str) -> dict[str, object]:
-    if lane in {"answer-only", "bounded-final-v1"}:
+def _agentic_chat_template_kwargs(lane: str, profile: str) -> JsonObject:
+    if lane == "bounded-final-v1":
+        return (
+            {"enable_thinking": True}
+            if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}
+            else {"enable_thinking": False}
+        )
+    if lane == "answer-only":
         return {"enable_thinking": False}
     return {"enable_thinking": True}
 

@@ -138,7 +138,7 @@ def write_publishable_fixture(path: Path) -> Path:
     manifest["suite"] = {
         **manifest.get("suite", {}),
         "suite_release_id": "suite-v1-partial-text-code-4axis-v1",
-        "suite_manifest_sha256": "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53",
+        "suite_manifest_sha256": "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
     }
     manifest["integrity"] = {}
     path.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")

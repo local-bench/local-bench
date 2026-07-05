@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from localbench.bounded_final_profiles import BoundedFinalProfileChoice
 from localbench.orchestrate import LaneChoice, ReasoningActivationChoice, TierChoice
 from localbench.suite_resolver import DEFAULT_SUITE_ID
 
@@ -20,6 +21,7 @@ class ServeBenchOptions:
     bench: str
     lane: LaneChoice
     seed: int
+    profile: BoundedFinalProfileChoice = "auto"
     max_items: int | None = None
     suite: str = DEFAULT_SUITE_ID
     suite_source: Path | None = None

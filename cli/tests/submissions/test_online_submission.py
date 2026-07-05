@@ -195,7 +195,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                         "allowed_schema": "localbench.result_bundle.v1",
                         "bundle_sha256": bundle_sha,
                         "declared_model_slug": "fixture-model",
-                        "expected_suite_manifest_sha256": "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53",
+                        "expected_suite_manifest_sha256": "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
                         "expected_suite_release_id": "suite-v1-partial-text-code-4axis-v1",
                         "expiry": "2026-07-01T01:00:00Z",
                         "max_upload_bytes": 104_857_600,

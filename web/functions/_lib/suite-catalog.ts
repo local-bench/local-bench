@@ -62,7 +62,7 @@ export const CORE_TEXT_SUITE: SuiteRecord = {
     },
     {
       path: "SCORECARD.json",
-      sha256: "c084b2595554f651a4a79f80b640ed2f374de0ee4aa0b2360fda74b9f31ec3c2",
+      sha256: "f16203bf5ce513d504f3d50ec15b4cf1176a8870bd388829fe46d2aca4e1c4ec",
       size: 1960,
     },
     {
@@ -82,7 +82,7 @@ export const CORE_TEXT_SUITE: SuiteRecord = {
     },
     {
       path: "SHA256SUMS",
-      sha256: "46b6462ba8c3b1326201f05de674dee1de3ab0a0aac933a0fc3a21836427f422",
+      sha256: "dd69be60ff23189903ae31e4677d195e57505933c2adc0bb00087008ebd19392",
       size: 1170,
     },
     {
@@ -137,12 +137,12 @@ export const FOUR_AXIS_SUITE: SuiteRecord = {
     },
     {
       path: "SCORECARD.json",
-      sha256: "c084b2595554f651a4a79f80b640ed2f374de0ee4aa0b2360fda74b9f31ec3c2",
+      sha256: "f16203bf5ce513d504f3d50ec15b4cf1176a8870bd388829fe46d2aca4e1c4ec",
       size: 1960,
     },
     {
       path: "SHA256SUMS",
-      sha256: "afeab2effb1faf3b30e46863c622973e90f6047076d98331ba2d58628ab0e308",
+      sha256: "31637aa90305f15be40cfb2ff0d041bf28346458642d6079b8d710fdd82bf2b4",
       size: 1259,
     },
     {
@@ -177,7 +177,7 @@ export const FOUR_AXIS_SUITE: SuiteRecord = {
     },
     {
       path: "suite_release_manifest.json",
-      sha256: "07040cdc512fd5825311f250ba894d55e7bc7ca7c98a0d6f67e0e4cb477b4486",
+      sha256: "135f902b782a8a4c1017aad9aa3e9076719664695aa36e38069302fd330c8482",
       size: 3896,
     },
     {
@@ -189,7 +189,7 @@ export const FOUR_AXIS_SUITE: SuiteRecord = {
   id: "suite-v1-partial-text-code-4axis-v1",
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"],
   suiteHash: "bf463bf8526baad676f0a87d743f0037fdc8eb50dc4faf6abc374b29833dd558",
-  suiteManifestSha256: "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53",
+  suiteManifestSha256: "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
   version: "suite-v1",
 } as const;
 
@@ -202,8 +202,8 @@ export const FIVE_AXIS_SUITE: SuiteRecord = {
     { path: "LICENSES/LiveCodeBench-CC-BY-4.0-NOTICE", sha256: "8ef9493c6c2b59caf6723d93518c7bca6ce2d5b254fa478b2a2afcadd4f39c0f", size: 237 },
     { path: "LICENSES/MMLU-Pro-MIT", sha256: "9eb6f69d48a1dd764e8a33f14a584f460d3cec653477c136a95dd6df9c249211", size: 1055 },
     { path: "NOTICE", sha256: "8e2e4264cf681282dafe1d0caf0b58b168f88b3acf6af0ee4fb7aad1a8776a92", size: 554 },
-    { path: "SCORECARD.json", sha256: "c084b2595554f651a4a79f80b640ed2f374de0ee4aa0b2360fda74b9f31ec3c2", size: 1960 },
-    { path: "SHA256SUMS", sha256: "5b179f9254b903ac2aa40b38862b21b917656c0048ab9aafca124cb12f0530c7", size: 1259 },
+    { path: "SCORECARD.json", sha256: "f16203bf5ce513d504f3d50ec15b4cf1176a8870bd388829fe46d2aca4e1c4ec", size: 1960 },
+    { path: "SHA256SUMS", sha256: "7b519df4cedc10fe1fb5ae7fd932289dea6edac8c6f535825daeffa72ee2f5b3", size: 1259 },
     { path: "SOURCE_REVISIONS.md", sha256: "486315998e11e0353eea0b2338bd90440f9895832272673bcd81a486205bc66c", size: 396 },
     { path: "ifbench.jsonl", sha256: "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257", size: 141566 },
     { path: "itemsets.lock.json", sha256: "6a19a23e74e906759444b559d4378a839319cce9cef0484c562b5131651a2218", size: 1488 },
@@ -211,12 +211,12 @@ export const FIVE_AXIS_SUITE: SuiteRecord = {
     { path: "mmlu_pro.jsonl", sha256: "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4", size: 287076 },
     { path: "suite.json", sha256: "bbcacd68b8181f95d18f8fefef488ccb406b3f2becf7d769a8c77bd4c6b732b2", size: 3188 },
     { path: "tc_json_v1.jsonl", sha256: "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74", size: 497028 },
-    { path: "suite_release_manifest.json", sha256: "3bd0981c675875a607e19e13c6f5b5c081c4ff181d0c6d2edde3439234b21dbc", size: 3909 },
+    { path: "suite_release_manifest.json", sha256: "b4ff32fb3d6ff87a162abe18af07d1a6b49ee24eb491e255cdb16861ecbd978f", size: 3909 },
   ],
   id: "suite-v1-text-code-agentic-5axis-v1",
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"],
   suiteHash: "de25c8064f2342ef1f59a6a99065f7fe8dd17b389a899f0db3ce197f64f3fbf3",
-  suiteManifestSha256: "db1e6cd14f946126254cc2ada56ea1af0186303e0899f00f374d30382d96870e",
+  suiteManifestSha256: "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f",
   version: "suite-v1",
 } as const;
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConformancePill } from "@/components/conformance-pill";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -10,10 +11,20 @@ import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decisio
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import type { ModelData } from "@/lib/data";
+import type { ConformanceGate } from "@/lib/schemas";
 
 type VariantRun = ModelData["runs"][number];
 
-export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
+export function ModelVariantBoard({
+  model,
+  formatGate,
+}: {
+  readonly model: ModelData;
+  // tc_json tool-call format gate for this model's measured runs — shown with the variant
+  // measurements it qualifies (it is a diagnostic, not a score, so it lives here rather than
+  // as its own page section).
+  readonly formatGate?: ConformanceGate | undefined;
+}) {
   const axisKeys = variantAxisColumns(model.runs);
   const decisionByQuant = new Map<string, QuantDecisionRow>(
     getQuantDecisionRows(model, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [row.quantLabel, row]),
@@ -27,7 +38,15 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
       <div className="border-b border-bench-line px-4 py-3">
-        <h2 className="text-lg font-semibold text-bench-text">Variant profiles</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-bench-text">Variant profiles</h2>
+          {formatGate === undefined ? null : (
+            <span className="flex items-center gap-2 text-xs text-bench-muted">
+              <span className="font-mono">tc_json_v1 format gate</span>
+              <ConformancePill gate={formatGate} showReason compact />
+            </span>
+          )}
+        </div>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
           Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
           (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Partial rows show measured
@@ -89,7 +108,7 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   </td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
-                      <AxisMiniBar score={run.axes[axis]} />
+                      <AxisMiniBar score={run.axes[axis]} axis={axis} />
                     </td>
                   ))}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
@@ -132,7 +151,7 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 </td>
                 {axisKeys.map((axis) => (
                   <td key={axis} className="px-3 py-3">
-                    <AxisMiniBar score={run.axes[axis]} />
+                    <AxisMiniBar score={run.axes[axis]} axis={axis} />
                   </td>
                 ))}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>

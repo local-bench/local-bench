@@ -96,3 +96,17 @@ def test_gemma4_registry_entry_records_verified_provenance_verbatim() -> None:
     assert entry.provenance["answer_stop"] == ("<turn|>",)
     assert entry.provenance["template_confirmed"] == "contains enable_thinking + channel/think tags"
     assert entry.conformance["leak_regexes"] == GEMMA4_LEAK_REGEXES
+
+
+def test_legacy_profile_digests_are_frozen_byte_identical() -> None:
+    """The v1 profiles are published identity: mutating their payloads would re-badge
+    historical runs and break the server allowlist, so their digests are pinned as
+    constants (recomputed 2026-07-05). Semantics changes require NEW profile ids."""
+    assert (
+        execution_profile_digest(QWEN_REASONING_ENTRY)
+        == "a2fd0e4701fc6724a71aa4ab8a0f43d908b1e69472b3b72617c759aa96f17dec"
+    )
+    assert (
+        execution_profile_digest(GEMMA4_REASONING_ENTRY)
+        == "bf66a190a9c04e27aa79d008c4e4e6c2c2deadb80ca9f9ee0b78cb19779d2f62"
+    )

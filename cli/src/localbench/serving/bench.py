@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from localbench._types import JsonObject
+from localbench.bounded_final_profiles import BoundedFinalProfileChoice
 from localbench.orchestrate import (
     LaneChoice,
     OrchestrateConfig,
@@ -28,6 +29,7 @@ class BenchRunConfig:
     suite_source: Path | None
     out: Path
     resume: Path | None
+    profile: BoundedFinalProfileChoice = "auto"
     max_items: int | None = None
     retry_errored: bool = False
     reasoning_activation: ReasoningActivationChoice | None = None
@@ -59,6 +61,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         suite_dir=config.suite_dir,
         suite_source=config.suite_source,
         lane=config.lane,
+        profile=config.profile,
         provider="local",
         hf_model_id=config.hf_model_id,
         reasoning_activation=config.reasoning_activation or "qwen3",

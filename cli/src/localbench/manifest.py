@@ -55,6 +55,7 @@ class ManifestContext:
     reasoning_effort: str | None = None
     thinking_budget: int = 0
     execution_profile_id: str | None = None
+    prompt_renderer: JsonObject | None = None
     model_file: Path | None = None
     model_family: str | None = None
     quant_label: str | None = None
@@ -143,6 +144,7 @@ async def collect_manifest(
         "hardware": _hardware(),
         "sampling": sampling,
         "execution_profile": execution_profile,
+        "prompt_renderer": context.prompt_renderer,
         "execution": {
             "client_version": "localbench 0.1.0",
             "concurrency": context.concurrency,

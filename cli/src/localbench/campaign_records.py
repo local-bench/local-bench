@@ -37,6 +37,7 @@ class CampaignConfig:
     reasoning_effort: str | None
     reasoning_activation: str
     hf_model_id: str | None
+    execution_profile_id: str | None
     output_path: Path
     server_fingerprint: str | None = None
     resume_identity: str | None = None
@@ -72,6 +73,11 @@ def campaign_record(
         "benches": [bench.name for bench in benches],
         "tier": config.tier,
         "lane": config.lane,
+        "execution_profile": (
+            None
+            if config.execution_profile_id is None
+            else {"id": config.execution_profile_id}
+        ),
         "items": {
             "total": _total_items(benches),
             "ordered": _campaign_items(benches),
@@ -196,6 +202,7 @@ def _sampling_by_bench(
             "max_tokens_override": config.max_tokens,
             "reasoning_effort": config.reasoning_effort,
             "reasoning_activation": config.reasoning_activation,
+            "execution_profile_id": config.execution_profile_id,
             "capped_thinking": config.lane == "capped-thinking",
         }
     return sampling

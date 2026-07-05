@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AxisMiniBar } from "@/components/score-bar";
+import { AxisMiniBar, IndexContributionRail } from "@/components/score-bar";
+import { axisColor } from "@/lib/axis-config";
 import { familyStyle } from "@/lib/family-color";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
@@ -56,11 +57,11 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
               <th className="px-3 py-3">Model</th>
               <th className="px-3 py-3">Local Intelligence Index v2.1</th>
               <th className="px-3 py-3">VRAM / fits</th>
-              <th className="px-3 py-3">Agentic 50%</th>
-              <th className="px-3 py-3">Knowledge 15%</th>
-              <th className="px-3 py-3">Instruction 15%</th>
-              <th className="px-3 py-3">Tool calling 10%</th>
-              <th className="px-3 py-3">Coding 10%</th>
+              <th className="px-3 py-3"><AxisDot axis="agentic" />Agentic 50%</th>
+              <th className="px-3 py-3"><AxisDot axis="knowledge" />Knowledge 15%</th>
+              <th className="px-3 py-3"><AxisDot axis="instruction" />Instruction 15%</th>
+              <th className="px-3 py-3"><AxisDot axis="tool_calling" />Tool calling 10%</th>
+              <th className="px-3 py-3"><AxisDot axis="coding" />Coding 10%</th>
               <th className="px-3 py-3">tok/s</th>
               <th className="px-3 py-3">Bench time</th>
             </tr>
@@ -98,18 +99,18 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                       <div className="font-mono text-bench-text">
                         {formatScore(point.score.point)} <span className="text-bench-muted">{formatCi(point.score)}</span>
                       </div>
-                      <ContributionRail axes={point.axes} />
+                      <IndexContributionRail axes={point.axes} className="mt-1.5 h-1.5 w-full max-w-[170px]" />
                     </div>
                   </td>
                   <td className="px-3 py-3 font-mono text-bench-text">
                     ~{formatGb(point.effectiveVramGb)}{" "}
                     <span className="text-xs text-bench-muted">{tier === null ? ">512 GB" : `fits ${tier} GB`}</span>
                   </td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["agentic"]} /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["knowledge"]} /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["instruction"]} /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["tool_calling"]} /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["coding"]} /></td>
+                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["agentic"]} axis="agentic" /></td>
+                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["knowledge"]} axis="knowledge" /></td>
+                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["instruction"]} axis="instruction" /></td>
+                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["tool_calling"]} axis="tool_calling" /></td>
+                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["coding"]} axis="coding" /></td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(point.tokS)}</td>
                   <td className="px-3 py-3 font-mono text-xs text-bench-muted">{formatDuration(point.wallTimeSeconds)}</td>
                 </tr>
@@ -125,23 +126,13 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
   );
 }
 
-function ContributionRail({ axes }: { readonly axes: Readonly<Record<string, AxisScore>> }) {
-  const a = (axes["agentic"]?.point ?? 0) * 0.5;
-  const k = (axes["knowledge"]?.point ?? 0) * 0.15;
-  const i = (axes["instruction"]?.point ?? 0) * 0.15;
-  const t = (axes["tool_calling"]?.point ?? 0) * 0.1;
-  const c = (axes["coding"]?.point ?? 0) * 0.1;
-  const total = a + k + i + t + c;
+function AxisDot({ axis }: { readonly axis: string }) {
   return (
-    <div
-      className="mt-1.5 flex h-1.5 w-full max-w-[170px] overflow-hidden rounded-full bg-white/10"
-      title={`Agentic ${a.toFixed(1)} + Knowledge ${k.toFixed(1)} + Instruction ${i.toFixed(1)} + Tool ${t.toFixed(1)} + Coding ${c.toFixed(1)} = ${total.toFixed(1)}`}
-    >
-      <div className="h-full bg-bench-accent" style={{ width: `${a}%` }} />
-      <div className="h-full bg-bench-accent/60" style={{ width: `${k}%` }} />
-      <div className="h-full bg-bench-accent/35" style={{ width: `${i}%` }} />
-      <div className="h-full bg-bench-anchor/60" style={{ width: `${t}%` }} />
-      <div className="h-full bg-bench-mixed" style={{ width: `${c}%` }} />
-    </div>
+    <span
+      aria-hidden
+      className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+      style={{ backgroundColor: axisColor(axis) }}
+    />
   );
 }
+

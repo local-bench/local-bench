@@ -36,7 +36,7 @@ from serving_helpers import flag_value, minimal_gguf, serving_evidence
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 SUITE_V1 = Path(__file__).resolve().parents[2] / "suite" / "v1"
 SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
-SITE_MANIFEST_SHA256 = "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53"
+SITE_MANIFEST_SHA256 = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7"
 BANNED_RESULT_BUNDLE_FIELDS = {
     "schema",
     "composite",
@@ -132,10 +132,22 @@ def test_llama_cpp_reasoning_mapping_for_answer_only_lane() -> None:
 
 
 def test_llama_cpp_reasoning_mapping_for_bounded_final_lane() -> None:
-    reasoning = assembly.llama_cpp_reasoning_for_lane("bounded-final-v1")
+    reasoning = assembly.llama_cpp_reasoning_for_lane("bounded-final-v1", "answer_only_v1")
 
     assert reasoning.reasoning == "off"
     assert reasoning.reasoning_budget is None
+    assert reasoning.reasoning_format == "deepseek"
+
+
+@pytest.mark.parametrize(
+    "profile",
+    ["generic_think_tags_8192_v1", "gemma4_channel_8192_v1"],
+)
+def test_llama_cpp_reasoning_mapping_for_bounded_final_thinking_profiles(profile: str) -> None:
+    reasoning = assembly.llama_cpp_reasoning_for_lane("bounded-final-v1", profile)
+
+    assert reasoning.reasoning == "on"
+    assert reasoning.reasoning_budget == 8192
     assert reasoning.reasoning_format == "deepseek"
 
 
@@ -801,6 +813,49 @@ def test_capped_thinking_ctx_guard_allows_context_at_suite_budget(tmp_path: Path
     )
 
     # When / Then: a compliant ctx passes without raising.
+    assembly.validate_capped_thinking_context(options)
+
+
+def test_bounded_final_thinking_ctx_guard_rejects_context_below_suite_budget(tmp_path: Path) -> None:
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=10303,
+        determinism="strict",
+        tier="quick",
+        bench="ifeval",
+        lane="bounded-final-v1",
+        profile="generic_think_tags_8192_v1",
+        seed=1234,
+        suite_dir=FIXTURE_SUITE,
+        out=tmp_path / "run",
+    )
+
+    with pytest.raises(RuntimeError, match=r"minimum ctx is 10304"):
+        assembly.validate_capped_thinking_context(options)
+
+
+def test_bounded_final_answer_only_ctx_guard_keeps_existing_noop(tmp_path: Path) -> None:
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=1,
+        determinism="strict",
+        tier="quick",
+        bench="ifeval",
+        lane="bounded-final-v1",
+        profile="answer_only_v1",
+        seed=1234,
+        suite_dir=FIXTURE_SUITE,
+        out=tmp_path / "run",
+    )
+
     assembly.validate_capped_thinking_context(options)
 
 

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
-from pathlib import Path
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Final, Literal, Protocol, assert_never
 
 from localbench._types import ChatMessage
@@ -48,12 +49,22 @@ class ChatTemplateTokenizer(Protocol):
         """Return the rendered chat template string."""
 
 
+@dataclass(frozen=True, slots=True)
+class TemplateIntrospection:
+    answer_stop: tuple[str, ...]
+    chat_template_kwargs: Mapping[str, bool]
+    supports_generic_thinking: bool
+    supports_gemma_channel: bool
+
+
 @dataclass(slots=True)
 class HfChatPromptRenderer:
     """Render prompts with one HF tokenizer and cache repeated message sets."""
 
     tokenizer: ChatTemplateTokenizer
-    activation: ReasoningActivation
+    activation: ReasoningActivation | None
+    chat_template_kwargs: Mapping[str, bool] | None = None
+    answer_stop: tuple[str, ...] = ()
     _cache: dict[str, str] = field(default_factory=dict)
 
     def render(self, messages: list[ChatMessage]) -> str:
@@ -61,7 +72,12 @@ class HfChatPromptRenderer:
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        rendered = render_hf_chat_prompt(messages, self.tokenizer, self.activation)
+        rendered = render_hf_chat_prompt(
+            messages,
+            self.tokenizer,
+            self.activation,
+            chat_template_kwargs=self.chat_template_kwargs,
+        )
         self._cache[key] = rendered
         return rendered
 
@@ -81,6 +97,16 @@ def load_hf_chat_prompt_renderer(
     activation: ReasoningActivation,
 ) -> HfChatPromptRenderer:
     """Load a Hugging Face tokenizer from the offline cache."""
+    return HfChatPromptRenderer(
+        tokenizer=load_hf_chat_template_tokenizer(hf_model_id, activation),
+        activation=activation,
+    )
+
+
+def load_hf_chat_template_tokenizer(
+    hf_model_id: str,
+    activation: ReasoningActivation | None = None,
+):
     previous_offline = os.environ.get("HF_HUB_OFFLINE")
     os.environ["HF_HUB_OFFLINE"] = "1"
     try:
@@ -101,13 +127,13 @@ def load_hf_chat_prompt_renderer(
             os.environ.pop("HF_HUB_OFFLINE", None)
         else:
             os.environ["HF_HUB_OFFLINE"] = previous_offline
-    return HfChatPromptRenderer(tokenizer=tokenizer, activation=activation)
+    return tokenizer
 
 
 def _load_offline_tokenizer(
     auto_tokenizer,
     hf_model_id: str,
-    activation: ReasoningActivation,
+    activation: ReasoningActivation | None,
 ):
     if activation != "gemma4" or hf_model_id != _GEMMA4_HF_MODEL_ID:
         return auto_tokenizer.from_pretrained(hf_model_id, local_files_only=True)
@@ -133,28 +159,59 @@ def _load_offline_tokenizer(
 def render_hf_chat_prompt(
     messages: list[ChatMessage],
     tokenizer: ChatTemplateTokenizer,
-    activation: ReasoningActivation,
+    activation: ReasoningActivation | None,
+    *,
+    chat_template_kwargs: Mapping[str, bool] | None = None,
 ) -> str:
     """Render messages through the model's own tokenizer chat template."""
     rendered = tokenizer.apply_chat_template(
-        _messages_for_activation(messages, activation),
+        _messages_for_activation(messages, activation) if activation is not None else _copy_messages(messages),
         tokenize=False,
         add_generation_prompt=True,
-        **_chat_template_kwargs(activation),
+        **_resolved_chat_template_kwargs(activation, chat_template_kwargs),
     )
     if not isinstance(rendered, str):
         raise PromptRenderingError("chat template did not render to a string")
     return rendered
 
 
+def derive_template_introspection(tokenizer: ChatTemplateTokenizer) -> TemplateIntrospection:
+    template = _tokenizer_template(tokenizer)
+    lowered = template.casefold()
+    behavior = _generation_behavior(tokenizer)
+    kwargs = _thinking_template_kwargs(lowered)
+    supports_gemma_channel = (
+        "<|channel>thought" in lowered
+        or "<channel|>" in lowered
+        or ("gemma" in behavior and "channel" in behavior)
+    )
+    supports_generic_thinking = (
+        "<think" in lowered
+        or "</think" in lowered
+        or "think" in behavior
+        or "reasoning" in behavior
+        or (bool(kwargs) and not supports_gemma_channel)
+    )
+    return TemplateIntrospection(
+        answer_stop=_derived_answer_stops(tokenizer, template),
+        chat_template_kwargs=kwargs,
+        supports_generic_thinking=supports_generic_thinking,
+        supports_gemma_channel=supports_gemma_channel,
+    )
+
+
+def chat_template_sha256(tokenizer: ChatTemplateTokenizer) -> str | None:
+    template = _tokenizer_template(tokenizer)
+    if template == "":
+        return None
+    return hashlib.sha256(template.encode("utf-8")).hexdigest()
+
+
 def _messages_for_activation(
     messages: list[ChatMessage],
     activation: ReasoningActivation,
 ) -> list[ChatMessage]:
-    copied: list[ChatMessage] = [
-        {"role": message["role"], "content": message["content"]}
-        for message in messages
-    ]
+    copied = _copy_messages(messages)
     match activation:
         case "nemotron":
             if any(message["role"] == "system" for message in copied):
@@ -180,6 +237,54 @@ def _chat_template_kwargs(activation: ReasoningActivation) -> dict[str, bool]:
             return {}
         case unreachable:
             assert_never(unreachable)
+
+
+def _copy_messages(messages: list[ChatMessage]) -> list[ChatMessage]:
+    return [{"role": message["role"], "content": message["content"]} for message in messages]
+
+
+def _resolved_chat_template_kwargs(
+    activation: ReasoningActivation | None,
+    chat_template_kwargs: Mapping[str, bool] | None,
+) -> dict[str, bool]:
+    if chat_template_kwargs is not None:
+        return dict(chat_template_kwargs)
+    if activation is None:
+        return {}
+    return _chat_template_kwargs(activation)
+
+
+def _tokenizer_template(tokenizer: ChatTemplateTokenizer) -> str:
+    value = getattr(tokenizer, "chat_template", "")
+    return value if isinstance(value, str) else ""
+
+
+def _generation_behavior(tokenizer: ChatTemplateTokenizer) -> str:
+    values: list[str] = [type(tokenizer).__name__]
+    for attr in ("generation_behavior", "generation_behavior_class", "chat_template_behavior"):
+        value = getattr(tokenizer, attr, None)
+        if isinstance(value, str):
+            values.append(value)
+        elif value is not None:
+            values.append(type(value).__name__)
+    return " ".join(values).casefold()
+
+
+def _thinking_template_kwargs(template: str) -> dict[str, bool]:
+    if "enable_thinking" in template:
+        return {"enable_thinking": True}
+    if "thinking" in template:
+        return {"thinking": True}
+    return {}
+
+
+def _derived_answer_stops(tokenizer: ChatTemplateTokenizer, template: str) -> tuple[str, ...]:
+    stops: list[str] = []
+    for attr in ("eot_token", "eos_token"):
+        value = getattr(tokenizer, attr, None)
+        if isinstance(value, str) and value and (template == "" or value in template):
+            stops.append(value)
+    return tuple(dict.fromkeys(stops))
 
 
 def _messages_cache_key(messages: list[ChatMessage]) -> str:
