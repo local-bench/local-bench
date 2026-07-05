@@ -76,6 +76,7 @@ export const KindSchema = z.enum(["anchor", "community"]);
 export const ScoreStatusSchema = z.enum(["measured", "missing"]);
 export const BoardOriginSchema = z.enum(["project_anchor", "community", "community_submission"]);
 export const AgenticProvenanceSchema = z.enum(["none", "project_attested", "self_reported"]);
+export const ModelKindSchema = z.enum(["base", "finetune", "distill", "merge"]);
 const DemoFlagSchema = z.boolean().optional().default(false);
 
 export const GpuSchema = z.object({
@@ -270,6 +271,7 @@ export const ModelDataSchema = z.object({
   gguf_repo: z.string().nullable().optional(),
   license: z.string().nullable().optional(),
   org: z.string().nullable().optional(),
+  model_kind: ModelKindSchema.optional().default("base"),
   demo: DemoFlagSchema,
   runs: z.array(ModelRunSchema),
 });
@@ -342,6 +344,7 @@ export type Kind = z.infer<typeof KindSchema>;
 export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
 export type BoardOrigin = z.infer<typeof BoardOriginSchema>;
 export type AgenticProvenance = z.infer<typeof AgenticProvenanceSchema>;
+export type ModelKind = z.infer<typeof ModelKindSchema>;
 export type IndexData = z.infer<typeof IndexDataSchema>;
 export type IndexModel = z.infer<typeof IndexModelSchema>;
 export type AgenticModel = z.infer<typeof AgenticModelSchema>;
@@ -381,7 +384,8 @@ const CatalogModelSchema = z
       .optional(),
     reasoning_capable: z.boolean().nullable().optional(),
     license: z.string().nullable().optional(),
-    base_model: z.string().nullable().optional(),
+    base_model: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+    model_kind: ModelKindSchema.optional().default("base"),
     popularity: z
       .object({
         downloads: z.number().nullable().optional(),

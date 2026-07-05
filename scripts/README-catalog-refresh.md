@@ -15,6 +15,7 @@ From the repo root:
 ```
 uv run --project cli python scripts/catalog_refresh.py
 uv run --project cli python scripts/catalog_refresh.py --mode metadata
+uv run --project cli python scripts/catalog_refresh.py --mode discover-finetunes
 ```
 
 A full run makes ~500 throttled API calls (>= 200 ms spacing) and takes a few minutes
@@ -27,7 +28,7 @@ Useful flags:
 | --- | --- | --- |
 | `--catalog PATH` | `web/model_catalog.json` | catalog to verify |
 | `--out-dir PATH` | `catalog-refresh-out/` | where report/proposal/cache go |
-| `--mode full\|metadata` | `full` | full file-size audit or popularity-only refresh |
+| `--mode full\|metadata\|discover-finetunes` | `full` | full file-size audit, popularity-only refresh, or review-only fine-tune promotion |
 | `--apply` | off | in metadata mode, update `web/model_catalog.json` only when guards pass |
 | `--throttle-ms N` | 250 | spacing between network requests (floor 200) |
 | `--cache-max-age-hours H` | 24 | reuse cached API responses younger than this |
@@ -85,7 +86,16 @@ Three probes, all ranked by downloads and deduped against the catalog
 3. `?search={family}&filter=gguf&sort=downloads` per catalog family — popular GGUF
    repos the lineage tags miss.
 
-Candidates are **never** auto-added to the proposal; they appear only in the report.
+Full-mode candidates are **never** auto-added to the proposal; they appear only in the report.
+
+`--mode discover-finetunes` is the curated promotion pass. It starts from the catalog's
+nested `distills[]` arrays, skips entries already present at top level, verifies each
+candidate against the real GGUF repo file listing, and appends at most two verified
+fine-tunes per base model with a wave cap of 12 new entries. A candidate must have at
+least 2,000 monthly downloads or 50 likes, a resolved license, base-model lineage, and
+at least one recipe-grade quant (`FP16`, `Q8_0`, `Q6_K`, `Q5_K_M`, `Q4_K_M`, `Q3_K_M`,
+or `Q2_K`) with a real file size. Rejected candidates and reasons are listed in the
+report; no guessed file sizes are emitted.
 
 ## Outputs
 
@@ -94,7 +104,9 @@ Candidates are **never** auto-added to the proposal; they appear only in the rep
   tables, API notes.
 - `catalog-refresh-out/model_catalog.proposed.json` — the corrected catalog
   (same envelope shape as `web/model_catalog.json`; metadata mode changes only
-  `popularity`, `downloads_all_time`, and `popularity_as_of`).
+  `popularity`, `downloads_all_time`, and `popularity_as_of`; fine-tune discovery
+  appends verified entries with `model_kind: "finetune"` and leaves existing entries
+  unchanged).
 - `catalog-refresh-out/cache/` — raw API responses (safe to delete; only a cache).
 
 ## Metadata-only guards

@@ -15,8 +15,10 @@ import {
   modelsForOrg,
   popularModels,
   recommendedQuantForVram,
+  filterModelsByType,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
+  type BrowseModelType,
   type PopularitySort,
   type RuntimeId,
 } from "@/lib/onramp";
@@ -40,6 +42,7 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
     downloads: 0,
     likes: 0,
     trending: 0,
+    modelKind: "base",
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -63,15 +66,17 @@ export function BenchmarkOnramp({
   const [popularitySort, setPopularitySort] = useState<PopularitySort>("downloads");
   const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
   const [popularSlug, setPopularSlug] = useState<string | null>(null);
+  const [browseType, setBrowseType] = useState<BrowseModelType>("all");
   const [browseOrg, setBrowseOrg] = useState<string>("");
   const [browseSlug, setBrowseSlug] = useState<string>("");
   const [browseQuant, setBrowseQuant] = useState<string>("");
   const [pasteRepo, setPasteRepo] = useState<string>("");
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
-  const orgs = useMemo(() => listOrgs(catalog), [catalog]);
+  const browseCatalog = useMemo(() => filterModelsByType(catalog, browseType), [catalog, browseType]);
+  const orgs = useMemo(() => listOrgs(browseCatalog), [browseCatalog]);
   const popular = useMemo(() => popularModels(catalog, vramGb, popularitySort, 5), [catalog, vramGb, popularitySort]);
-  const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg) : []), [catalog, browseOrg]);
+  const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg, browseType) : []), [catalog, browseOrg, browseType]);
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
   const selection = useMemo<{ model: OnrampCatalogModel; quant: OnrampCatalogQuant } | null>(() => {
@@ -167,6 +172,13 @@ export function BenchmarkOnramp({
               setBrowseQuant("");
             }}
             orgModels={orgModels}
+            browseType={browseType}
+            onBrowseType={(value) => {
+              setBrowseType(value);
+              setBrowseOrg("");
+              setBrowseSlug("");
+              setBrowseQuant("");
+            }}
             browseSlug={browseSlug}
             onModel={setBrowseSlug}
             browseQuant={browseQuant}

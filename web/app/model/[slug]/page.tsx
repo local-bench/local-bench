@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
+import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 
 export const dynamicParams = false;
@@ -20,7 +21,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns, lineage } = await getModelPageData(slug);
+  const { model, anchorRuns, lineage, vsBaseComparisons } = await getModelPageData(slug);
   const measuredRuns = model.runs.filter((run) => run.score_status === "measured");
   const rankedRuns = measuredRuns.filter((run) => run.ranked);
   const partialRuns = measuredRuns.filter((run) => !run.ranked);
@@ -75,6 +76,7 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
         </div>
       </header>
+      <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
       <ModelVariantBoard model={model} formatGate={formatGate} />
       <ModelScatter model={model} anchorRuns={anchorRuns} />
     </main>

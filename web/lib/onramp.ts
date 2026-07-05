@@ -20,6 +20,7 @@ export type OnrampCatalogModel = {
   readonly downloads: number;
   readonly likes: number;
   readonly trending: number;
+  readonly modelKind: ModelKind;
   readonly baseModelId: string | null;
   readonly baseModelSlug: string | null;
   readonly baseModelDisplayName: string | null;
@@ -28,6 +29,8 @@ export type OnrampCatalogModel = {
 
 export type RuntimeId = "llamacpp" | "lmstudio" | "vllm";
 export type PopularitySort = "downloads" | "trending" | "likes";
+export type ModelKind = "base" | "finetune" | "distill" | "merge";
+export type BrowseModelType = "all" | "base" | "finetune";
 
 export type RuntimeProfile = {
   readonly id: RuntimeId;
@@ -114,8 +117,38 @@ export function listOrgs(catalog: readonly OnrampCatalogModel[]): readonly strin
   );
 }
 
-export function modelsForOrg(catalog: readonly OnrampCatalogModel[], org: string): readonly OnrampCatalogModel[] {
-  return catalog.filter((model) => model.org === org).sort((left, right) => right.downloads - left.downloads);
+export function isDerivativeModel(model: OnrampCatalogModel): boolean {
+  return model.modelKind !== "base" || model.baseModelSlug !== null;
+}
+
+export function modelMatchesBrowseType(model: OnrampCatalogModel, browseType: BrowseModelType): boolean {
+  switch (browseType) {
+    case "all":
+      return true;
+    case "base":
+      return !isDerivativeModel(model);
+    case "finetune":
+      return isDerivativeModel(model);
+    default:
+      return assertNever(browseType);
+  }
+}
+
+export function filterModelsByType(
+  catalog: readonly OnrampCatalogModel[],
+  browseType: BrowseModelType,
+): readonly OnrampCatalogModel[] {
+  return catalog.filter((model) => modelMatchesBrowseType(model, browseType));
+}
+
+export function modelsForOrg(
+  catalog: readonly OnrampCatalogModel[],
+  org: string,
+  browseType: BrowseModelType = "all",
+): readonly OnrampCatalogModel[] {
+  return filterModelsByType(catalog, browseType)
+    .filter((model) => model.org === org)
+    .sort((left, right) => right.downloads - left.downloads);
 }
 
 // Ollama is intentionally excluded: its defaults (num_ctx 2048, its own chat template, its own
@@ -186,4 +219,8 @@ export function buildRecipe(input: {
     ggufRepo: model.ggufRepo,
     model,
   };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled browse type: ${String(value)}`);
 }

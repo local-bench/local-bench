@@ -20,6 +20,7 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     downloads: 11_000_000,
     likes: 420,
     trending: 31,
+    modelKind: "base",
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -41,6 +42,8 @@ function baseProps() {
     browseOrg: "Qwen",
     onOrg: vi.fn(),
     orgModels: [model()],
+    browseType: "all" as const,
+    onBrowseType: vi.fn(),
     browseSlug: "qwen3-8b",
     onModel: vi.fn(),
     browseQuant: "Q4_K_M",
@@ -74,6 +77,7 @@ describe("ModelPicker", () => {
       baseModelDisplayName: "Qwen3.6 27B",
       downloads: 2_400,
       likes: 55,
+      modelKind: "finetune",
     });
     const html = renderToStaticMarkup(
       createElement(ModelPicker, { ...baseProps(), mode: "browse", browseSlug: fineTune.slug, orgModels: [fineTune] }),
@@ -81,6 +85,45 @@ describe("ModelPicker", () => {
     expect(html).toContain("Qwopus3.6 27B v2 MTP");
     expect(html).toContain("fine-tune of Qwen3.6 27B");
     expect(html).toContain("↓ 2.4K downloads/mo · ♥ 55");
+  });
+
+  it("filters browse rows to real fine-tunes and links lineage chips to catalog bases", () => {
+    const base = model({ slug: "qwen3-6-27b", displayName: "Qwen3.6 27B" });
+    const officialInstruction = model({
+      slug: "qwen3-0-6b",
+      displayName: "Qwen3 0.6B",
+      baseModelId: "Qwen/Qwen3-0.6B-Base",
+      baseModelDisplayName: "Qwen/Qwen3-0.6B-Base",
+    });
+    const fineTune = model({
+      slug: "qwopus3-6-27b-v2-mtp",
+      displayName: "Qwopus 3.6 27B v2 MTP",
+      baseModelId: "Qwen/Qwen3.6-27B",
+      baseModelSlug: "qwen3-6-27b",
+      baseModelDisplayName: "Qwen3.6 27B",
+      modelKind: "finetune",
+      downloads: 292_588,
+      likes: 322,
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(ModelPicker, {
+        ...baseProps(),
+        mode: "browse",
+        browseType: "finetune",
+        browseSlug: fineTune.slug,
+        orgModels: [base, officialInstruction, fineTune],
+      }),
+    );
+
+    expect(html).toContain("All");
+    expect(html).toContain("Base");
+    expect(html).toContain("Fine-tunes");
+    expect(html).toContain("Qwopus 3.6 27B v2 MTP");
+    expect(html).toContain("↓ 292.6K downloads/mo · ♥ 322");
+    expect(html).toContain('href="/model/qwen3-6-27b"');
+    expect(html).toContain("fine-tune of Qwen3.6 27B");
+    expect(html).not.toContain("Qwen3 0.6B");
   });
 
   it("tells paste users to submit the fine-tune GGUF repo itself", () => {

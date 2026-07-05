@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   RUNTIME_PROFILES,
   buildRecipe,
+  isDerivativeModel,
   listOrgs,
   modelsForOrg,
   popularModels,
@@ -27,6 +28,7 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     downloads: 11_000_000,
     likes: 420,
     trending: 31,
+    modelKind: "base",
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -141,6 +143,33 @@ describe("listOrgs / modelsForOrg", () => {
     ];
     expect(listOrgs(catalog)).toEqual(["Google", "Qwen"]);
     expect(modelsForOrg(catalog, "Qwen").map((m) => m.slug)).toEqual(["q2", "q1"]);
+  });
+
+  it("filters real derivatives without treating official pretraining links as fine-tunes", () => {
+    const base = model({ slug: "qwen3-6-27b", displayName: "Qwen3.6 27B", downloads: 10 });
+    const officialInstruction = model({
+      slug: "qwen3-0-6b",
+      displayName: "Qwen3 0.6B",
+      baseModelId: "Qwen/Qwen3-0.6B-Base",
+      baseModelSlug: null,
+      baseModelDisplayName: "Qwen/Qwen3-0.6B-Base",
+      downloads: 8,
+    });
+    const fineTune = model({
+      slug: "qwopus3-6-27b-v2-mtp",
+      displayName: "Qwopus 3.6 27B v2 MTP",
+      baseModelId: "Qwen/Qwen3.6-27B",
+      baseModelSlug: "qwen3-6-27b",
+      baseModelDisplayName: "Qwen3.6 27B",
+      modelKind: "finetune",
+      downloads: 9,
+    });
+    const catalog = [base, officialInstruction, fineTune];
+
+    expect(isDerivativeModel(fineTune)).toBe(true);
+    expect(isDerivativeModel(officialInstruction)).toBe(false);
+    expect(modelsForOrg(catalog, "Qwen", "finetune").map((m) => m.slug)).toEqual(["qwopus3-6-27b-v2-mtp"]);
+    expect(modelsForOrg(catalog, "Qwen", "base").map((m) => m.slug)).toEqual(["qwen3-6-27b", "qwen3-0-6b"]);
   });
 });
 

@@ -136,6 +136,26 @@ describe("static data access", () => {
     expect(none.lineage).toBeNull();
   });
 
+  it("builds vs-base comparisons from catalog lineage and measured board rows", async () => {
+    const qwen = await getModelPageData("qwen3-6-27b");
+    const qwenComparison = qwen.vsBaseComparisons.find(
+      (comparison) => comparison.derivative.catalogId === "Jackrong/Qwopus3.6-27B-v2-MTP",
+    );
+    expect(qwenComparison).toMatchObject({
+      base: { catalogId: "Qwen/Qwen3.6-27B", displayName: "Qwen3.6 27B" },
+      derivative: { displayName: "Qwopus 3.6 27B v2 MTP" },
+      missing: ["fine-tune not yet benchmarked"],
+    });
+    expect(qwenComparison?.axes).toEqual([]);
+
+    const phi = await getModelPageData("phi-4-reasoning");
+    expect(phi.vsBaseComparisons[0]).toMatchObject({
+      base: { displayName: "Phi 4" },
+      derivative: { displayName: "Phi 4 Reasoning" },
+      missing: ["base not yet benchmarked", "fine-tune not yet benchmarked"],
+    });
+  });
+
   it("reflects the Gemma ladder while quarantining invalid agentic scores", async () => {
     const index = await getIndexData();
     const gemmaIndex = index.models.find((model) => model.slug === "gemma-4-12b-it");

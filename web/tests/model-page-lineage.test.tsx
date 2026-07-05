@@ -19,8 +19,25 @@ describe("ModelPage lineage chip", () => {
     expect(html).not.toContain('href="/model/Qwen/Qwen3-0.6B-Base"');
   });
 
-  it("omits the fine-tune chip for base models", async () => {
+  it("omits the header fine-tune chip for base models", async () => {
     const html = await renderModel("qwen3-6-27b");
-    expect(html).not.toContain("Fine-tune of");
+    const headerHtml = html.slice(0, html.indexOf("This model"));
+    expect(headerHtml).not.toContain("Fine-tune of");
+  });
+
+  it("renders a base model's known derivatives with honest missing benchmark state", async () => {
+    const html = await renderModel("qwen3-6-27b");
+    expect(html).toContain("vs fine-tunes");
+    expect(html).toContain("Qwopus 3.6 27B v2 MTP");
+    expect(html).toContain("fine-tune not yet benchmarked");
+    expect(html).toContain('href="/compare?finetune=qwopus3-6-27b-v2-mtp"');
+  });
+
+  it("renders derivative vs-base missing states without fake numbers", async () => {
+    const html = await renderModel("phi-4-reasoning");
+    expect(html).toContain("vs base");
+    expect(html).toContain("Phi 4 Reasoning");
+    expect(html).toContain("base not yet benchmarked");
+    expect(html).toContain("fine-tune not yet benchmarked");
   });
 });

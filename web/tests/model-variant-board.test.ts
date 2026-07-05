@@ -53,6 +53,7 @@ function fixtureModel(): ModelData {
     demo: false,
     family: "Fixture",
     kind: "community",
+    model_kind: "base",
     model_label: "Fixture Model",
     runs: [
       {

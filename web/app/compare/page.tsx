@@ -1,10 +1,10 @@
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ComparePicker } from "@/components/compare-picker";
 import { getCompareConfigs } from "@/lib/compare";
-import { getIndexData, getModelData } from "@/lib/data";
+import { getFineTuneComparePresets, getIndexData, getModelData } from "@/lib/data";
 
 export default async function ComparePage() {
-  const index = await getIndexData();
+  const [index, fineTunePresets] = await Promise.all([getIndexData(), getFineTuneComparePresets()]);
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
   const configs = getCompareConfigs(models);
 
@@ -19,7 +19,7 @@ export default async function ComparePage() {
           winners side by side. Ranks only compare within the same lane.
         </p>
       </header>
-      <ComparePicker configs={configs} initialLeftId={null} initialRightId={null} />
+      <ComparePicker configs={configs} fineTunePresets={fineTunePresets} initialLeftId={null} initialRightId={null} />
     </main>
   );
 }
