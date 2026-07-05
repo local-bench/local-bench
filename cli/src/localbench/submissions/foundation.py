@@ -74,13 +74,13 @@ _SITE_RELEASED_SUITES: Final[dict[str, str]] = {
         "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f"
     ),
     "suite-v1-full-exec-6axis-v1": (
-        "daf29f4da1da8701ae5c4168d6ecc31df6973cbfc4d92cb59c51fa35b3290b45"
+        "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af"
     ),
     "suite-v1-static-exec-5axis-v1": (
-        "e6517453d5a8465762ee5625fb6535df045378fa4b162879df5ec4a26d500837"
+        "53f5ffb159fa474877ff7777348fd2be1f543064f8e226b5733a58d08cb2a2da"
     ),
     "suite-v1-static-core-diag-v1": (
-        "08fd40568ace8a39e734032ae9df5d03fa82da62cba5020871fa029b6d87b737"
+        "cada3dd47568ef3318b61638e87dfc8a5e9f7da9a3b5ac57f7634c8baed912bf"
     ),
 }
 

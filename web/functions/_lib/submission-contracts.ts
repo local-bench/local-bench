@@ -41,6 +41,8 @@ export type SubmissionApiEnv = {
   readonly R2_SECRET_ACCESS_KEY?: string;
   readonly SUBMISSIONS: R2BucketBinding;
   readonly TURNSTILE_ENABLED?: string;
+  readonly ZT1_KNOWN_ARTIFACTS_JSON?: string;
+  readonly ZT1_PROTECTED_MODEL_PATTERNS_JSON?: string;
 };
 
 export type RouteParams = {
@@ -72,7 +74,7 @@ export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_re
 export const MAX_UPLOAD_BYTES = 67_108_864;
 export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
 export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
-export const DEFAULT_SUITE_MANIFEST_SHA256 = "daf29f4da1da8701ae5c4168d6ecc31df6973cbfc4d92cb59c51fa35b3290b45";
+export const DEFAULT_SUITE_MANIFEST_SHA256 = "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af";
 export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
