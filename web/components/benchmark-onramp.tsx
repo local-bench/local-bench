@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ModelPicker, type PickMode } from "@/components/benchmark-model-picker";
 import { BenchmarkRecipe } from "@/components/benchmark-recipe";
-import { estimateBenchTime, formatBenchTime, type BenchTimeEstimate } from "@/lib/bench-time-estimate";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -87,15 +86,6 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
   }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
 
   const recipe = selection && runtime ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
-  const benchTime = selection
-    ? estimateBenchTime({
-        fileGb: selection.quant.fileGb,
-        paramsB: selection.model.paramsB,
-        bpw: selection.quant.bpw,
-        vramGb8k: selection.quant.vramGb8k,
-        vramGb,
-      })
-    : null;
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
@@ -107,7 +97,6 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
             {LOCAL_INTELLIGENCE_INDEX_NAME} · {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
           </p>
         </div>
-        <BenchTimePanel estimate={benchTime} hasSelection={selection !== null} vramGb={vramGb} />
       </div>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
         Choose your VRAM, model, and runtime — the recipe is the exact pinned command sequence for a run you can submit to
@@ -210,43 +199,6 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
         </Link>
       </div>
     </section>
-  );
-}
-
-function BenchTimePanel({
-  estimate,
-  hasSelection,
-  vramGb,
-}: {
-  readonly estimate: BenchTimeEstimate | null;
-  readonly hasSelection: boolean;
-  readonly vramGb: number;
-}) {
-  return (
-    <div
-      data-testid="bench-time-estimate"
-      title="Lower-bound estimate from model size and typical memory bandwidth for your VRAM tier — verbose reasoning models can run longer, and mixture-of-experts models typically finish faster."
-      className="rounded border border-bench-line bg-bench-panel-2 px-4 py-3"
-    >
-      <p className="font-mono text-[11px] uppercase tracking-wide text-bench-muted">Estimated benchmark time</p>
-      {estimate === null ? (
-        <>
-          <p className="mt-1 font-mono text-xl text-bench-muted">{hasSelection ? "—" : "pick a model"}</p>
-          <p className="mt-0.5 text-xs text-bench-muted">
-            {/* Mirrors the picker's soft fits language — the recipe still renders. */}
-            {hasSelection ? `won't fit in ${vramGb} GB at 8K context` : "full five-axis suite"}
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="mt-1 font-mono text-xl text-bench-text">
-            {formatBenchTime(estimate.lowSeconds)}
-            {estimate.rough ? <span className="ml-1.5 text-sm text-bench-muted">(rough)</span> : null}
-          </p>
-          <p className="mt-0.5 text-xs text-bench-muted">full five-axis suite on your {vramGb} GB tier</p>
-        </>
-      )}
-    </div>
   );
 }
 
