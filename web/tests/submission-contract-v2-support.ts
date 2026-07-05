@@ -4,9 +4,9 @@ import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { RAW_BUNDLE_SHA, resultBundle } from "./submission-test-support";
 
 export const FIVE_AXIS_SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
-export const FIVE_AXIS_SUITE_MANIFEST_SHA = "db1e6cd14f946126254cc2ada56ea1af0186303e0899f00f374d30382d96870e";
+export const FIVE_AXIS_SUITE_MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f";
 const FOUR_AXIS_SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
-const FOUR_AXIS_SUITE_MANIFEST_SHA = "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53";
+const FOUR_AXIS_SUITE_MANIFEST_SHA = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7";
 export const TEST_IP = "203.0.113.9";
 
 export type TestKeyPair = {

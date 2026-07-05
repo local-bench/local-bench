@@ -90,6 +90,28 @@ async def run_item(
             prompt_renderer=prompt_renderer,
             forcing_format=forcing_format,
         )
+    if (
+        request_provider.name == "local"
+        and lane == "bounded-final-v1"
+        and isinstance(item.get("think_budget"), int)
+        and base_url is not None
+        and prompt_renderer is not None
+        and forcing_format is not None
+    ):
+        from localbench.bounded_final_forcing import run_bounded_final_forced_item
+
+        return await run_bounded_final_forced_item(
+            client=client,
+            base_url=base_url,
+            headers=headers,
+            model=model,
+            item=item,
+            semaphore=semaphore,
+            max_attempts=max_attempts,
+            backoff_base=backoff_base,
+            prompt_renderer=prompt_renderer,
+            forcing_format=forcing_format,
+        )
     async with semaphore:
         started_at = utc_now()
         started_perf = time.perf_counter()

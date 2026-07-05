@@ -10,6 +10,7 @@ from typing import Final, Literal, Mapping, assert_never
 from localbench._types import JsonValue
 from localbench.budget_forcing import GEMMA4_FORCING, QWEN_FORCING, ForcingFormat
 from localbench.prompt_rendering import ReasoningActivation
+from localbench.reasoning_leaks import CANONICAL_REASONING_LEAK_REGEXES
 
 ReasoningRegistryStatus = Literal["ranked", "diagnostic", "experimental"]
 
@@ -133,8 +134,67 @@ ANSWER_ONLY_PROFILE: Final = ReasoningRegistryEntry(
     },
 )
 
+GENERIC_THINK_TAGS_FORCING: Final = ForcingFormat("</think>", "\n</think>\n\n", ())
+
+GENERIC_THINK_TAGS_PROFILE: Final = ReasoningRegistryEntry(
+    id="generic_think_tags_8192_v1",
+    version="1",
+    status="ranked",
+    model_match=("<think>", "enable_thinking", "thinking"),
+    activation={
+        "method": "template_introspection",
+        "chat_template_kwargs": "derived_from_canonical_template",
+        "system_prompt_injection": False,
+    },
+    forcing=GENERIC_THINK_TAGS_FORCING,
+    parser={
+        "reasoning_close": "</think>",
+        "answer_reparse": "split_on_final_reasoning_close",
+        "reasoning_parser": "generic_think_tags",
+        "answer_stop": "derived_from_canonical_template_eos_eot",
+    },
+    conformance={
+        "lane": "bounded-final-v1",
+        "think_cap": 8192,
+        "min_final": 1024,
+        "think_budget": "min(8192, max(0, T_i - 1024))",
+        "answer_budget": "T_i - reasoning_tokens_used",
+        "leak_regexes": CANONICAL_REASONING_LEAK_REGEXES,
+    },
+    provenance={
+        "source": "bounded-final-v1 generic think-tags two-pass forcing",
+        "renderer": "canonical_chat_template",
+        "answer_stop": "derived at run time from tokenizer/template EOS/EOT",
+    },
+)
+
+GEMMA4_CHANNEL_PROFILE: Final = ReasoningRegistryEntry(
+    id="gemma4_channel_8192_v1",
+    version="1",
+    status="ranked",
+    model_match=GEMMA4_REASONING_ENTRY.model_match,
+    activation=GEMMA4_REASONING_ENTRY.activation,
+    forcing=GEMMA4_FORCING,
+    parser=GEMMA4_REASONING_ENTRY.parser,
+    conformance={
+        "lane": "bounded-final-v1",
+        "think_cap": 8192,
+        "min_final": 1024,
+        "think_budget": "min(8192, max(0, T_i - 1024))",
+        "answer_budget": "T_i - reasoning_tokens_used",
+        "leak_regexes": GEMMA4_LEAK_REGEXES,
+        "static_render_requires": GEMMA4_REASONING_ENTRY.conformance["static_render_requires"],
+    },
+    provenance={
+        **GEMMA4_REASONING_ENTRY.provenance,
+        "source": "bounded-final-v1 Gemma 4 channel override profile",
+    },
+)
+
 REASONING_REGISTRY: Final[tuple[ReasoningRegistryEntry, ...]] = (
     ANSWER_ONLY_PROFILE,
+    GENERIC_THINK_TAGS_PROFILE,
+    GEMMA4_CHANNEL_PROFILE,
     QWEN_REASONING_ENTRY,
     GEMMA4_REASONING_ENTRY,
 )

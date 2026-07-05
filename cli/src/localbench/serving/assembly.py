@@ -3,10 +3,16 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, assert_never
+from typing import Final, cast, assert_never
 
 from localbench._suite import read_json_object
 from localbench._types import JsonObject
+from localbench.bounded_final_profiles import (
+    BoundedFinalProfileChoice,
+    BoundedFinalProfileRequest,
+    resolve_bounded_final_profile,
+)
+from localbench.reasoning_registry import ANSWER_ONLY_PROFILE
 from localbench.orchestrate import LaneChoice, UnsafeResumeError
 from localbench.run_plan import resolve_run_benches
 from localbench.serving.bench import BenchRunConfig
@@ -84,6 +90,7 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         bench=options.bench,
         tier=options.tier,
         lane=options.lane,
+        profile=effective_serving_profile(options),
         seed=options.seed,
         suite_dir=options.suite_dir,
         suite_source=options.suite_source,
@@ -96,9 +103,38 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
     )
 
 
-def llama_cpp_reasoning_for_lane(lane: LaneChoice) -> LlamaCppReasoningConfig:
+def effective_serving_profile(options: ServeBenchOptions) -> BoundedFinalProfileChoice:
+    if options.lane != "bounded-final-v1":
+        return options.profile
+    if options.profile == "answer_only_v1":
+        return options.profile
+    resolved = resolve_bounded_final_profile(
+        BoundedFinalProfileRequest(
+            profile=options.profile,
+            hf_model_id=options.hf_model_id,
+        ),
+    )
+    return cast(BoundedFinalProfileChoice, resolved.entry.id)
+
+
+def llama_cpp_reasoning_for_lane(
+    lane: LaneChoice,
+    profile: BoundedFinalProfileChoice = "auto",
+) -> LlamaCppReasoningConfig:
     match lane:
-        case "answer-only" | "bounded-final-v1":
+        case "answer-only":
+            return LlamaCppReasoningConfig(
+                reasoning="off",
+                reasoning_budget=None,
+                reasoning_format=LLAMA_CPP_REASONING_FORMAT,
+            )
+        case "bounded-final-v1":
+            if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}:
+                return LlamaCppReasoningConfig(
+                    reasoning="on",
+                    reasoning_budget=CAPPED_THINKING_REASONING_BUDGET,
+                    reasoning_format=LLAMA_CPP_REASONING_FORMAT,
+                )
             return LlamaCppReasoningConfig(
                 reasoning="off",
                 reasoning_budget=None,
@@ -116,8 +152,20 @@ def llama_cpp_reasoning_for_lane(lane: LaneChoice) -> LlamaCppReasoningConfig:
             assert_never(unreachable)
 
 
-def validate_capped_thinking_context(options: ServeBenchOptions) -> None:
-    if options.lane != "capped-thinking":
+def validate_capped_thinking_context(
+    options: ServeBenchOptions,
+    profile: BoundedFinalProfileChoice | None = None,
+) -> None:
+    effective_profile = profile or options.profile
+    thinking_profile = (
+        options.lane == "capped-thinking"
+        or (
+            options.lane == "bounded-final-v1"
+            and effective_profile != "auto"
+            and effective_profile != ANSWER_ONLY_PROFILE.id
+        )
+    )
+    if not thinking_profile:
         return
     max_decoding_tokens = _max_resolved_decoding_tokens(options)
     minimum_ctx = (

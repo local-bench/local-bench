@@ -38,6 +38,12 @@ from localbench._suite import (
     suite_version,
 )
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue, Usage
+from localbench.bounded_final_profiles import (
+    BoundedFinalProfileChoice,
+    BoundedFinalProfileRequest,
+    BoundedFinalProfileRuntime,
+    resolve_bounded_final_profile,
+)
 from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
 from localbench.campaign import (
     CampaignConfig,
@@ -60,7 +66,11 @@ from localbench.campaign_checkpoints import (
 )
 from localbench.campaign_records import item_hash
 from localbench.lane_conformance import assess_run_conformance
-from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_id_for_lane
+from localbench.lane_spec import (
+    BOUNDED_FINAL_LANE_SPEC_ID,
+    bounded_final_think_budget,
+    lane_spec_id_for_lane,
+)
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.prompt_rendering import (
     PromptRenderer,
@@ -94,6 +104,7 @@ TierChoice = Literal["quick", "standard"]
 LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"]
 ReasoningEffortChoice = ReasoningEffort
 ReasoningActivationChoice = ReasoningActivation
+ProfileChoice = BoundedFinalProfileChoice
 ModelIdentitySource = Literal["gguf.embedded", "external.file", "server.override"]
 
 _RULER_TRUNCATION_RATIO: Final = 0.80
@@ -205,6 +216,7 @@ class OrchestrateConfig:
     price_in: float | None = None
     price_out: float | None = None
     lane: LaneChoice = "answer-only"
+    profile: ProfileChoice = "auto"
     provider: str = "local"
     reasoning_effort: ReasoningEffortChoice | None = None
     hf_model_id: str | None = None
@@ -302,19 +314,27 @@ async def run_localbench(
             warnings,
             publishable=config.publishable,
         )
+    bounded_profile: BoundedFinalProfileRuntime | None = None
+    if config.lane == BOUNDED_FINAL_LANE_SPEC_ID:
+        bounded_profile = resolve_bounded_final_profile(
+            BoundedFinalProfileRequest(
+                profile=config.profile,
+                hf_model_id=config.hf_model_id,
+            ),
+        )
+        if provider.name != "local" and bounded_profile.entry is not ANSWER_ONLY_PROFILE:
+            raise RuntimeError(
+                "bounded-final-v1 thinking profiles require the local provider raw /v1/completions path",
+            )
     items: list[ScoredItem] = []
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
 
     if config.provider == "local" and config.lane in {"answer-only", BOUNDED_FINAL_LANE_SPEC_ID}:
-        # Local-runtime lane: disable Qwen3-family thinking via vLLM's
-        # chat_template_kwargs passthrough (llama.cpp/Ollama ignore the field;
-        # cloud lanes never send it because OpenAI-style APIs reject unknown params).
+        chat_template_kwargs = _local_chat_template_kwargs(config.lane, bounded_profile)
         for bench in rendered_benches:
             for benchmark_item in bench.benchmark_items:
-                benchmark_item["sampling_params"]["chat_template_kwargs"] = {
-                    "enable_thinking": False,
-                }
+                benchmark_item["sampling_params"]["chat_template_kwargs"] = chat_template_kwargs
 
     scorer_unavailable_axes: dict[str, str] = {}
     scorable_benches: list[RenderedBench] = []
@@ -328,6 +348,9 @@ async def run_localbench(
             continue
         scorable_benches.append(bench)
 
+    execution_profile_id: str | None = None
+    if bounded_profile is not None:
+        execution_profile_id = bounded_profile.entry.id
     paths = campaign_paths(output_path, config.resume)
     session_segment_id = "segment-1" if config.resume is None else next_segment_id(paths)
     segment_completed_item_ids: list[str] = []
@@ -348,6 +371,7 @@ async def run_localbench(
         reasoning_effort=effective_reasoning_effort,
         reasoning_activation=config.reasoning_activation,
         hf_model_id=config.hf_model_id,
+        execution_profile_id=execution_profile_id,
         output_path=output_path,
         server_fingerprint=config.server_fingerprint,
         resume_identity=config.resume_identity,
@@ -381,11 +405,24 @@ async def run_localbench(
 
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
-    execution_profile_id: str | None = (
-        ANSWER_ONLY_PROFILE.id if config.lane == BOUNDED_FINAL_LANE_SPEC_ID else None
-    )
+    prompt_renderer_manifest: JsonObject | None = None
     reasoning_leak_regexes: tuple[str, ...] = ()
     forcing_format = None
+    if (
+        config.provider == "local"
+        and config.lane == BOUNDED_FINAL_LANE_SPEC_ID
+        and bounded_profile is not None
+        and bounded_profile.entry is not ANSWER_ONLY_PROFILE
+    ):
+        thinking_budget = _plumb_bounded_final_think_budget(scorable_benches)
+        prompt_renderer = bounded_profile.prompt_renderer
+        if prompt_renderer is None:
+            raise RuntimeError(
+                "bounded-final-v1 thinking profile requires a canonical chat-template renderer",
+            )
+        forcing_format = bounded_profile.forcing
+        prompt_renderer_manifest = bounded_profile.prompt_renderer_manifest
+        reasoning_leak_regexes = registry_leak_regexes(bounded_profile.entry.conformance)
     if config.provider == "local" and config.lane == "capped-thinking":
         # Local capped-thinking enforces the locked thinking budget with two-pass forcing
         # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
@@ -583,6 +620,11 @@ async def run_localbench(
             task_ids=agentic_task_ids,
             results_dir=_agentic_results_dir(output_path),
             provenance_extra=agentic_provenance_extra,
+            execution_profile_id=execution_profile_id,
+            chat_template_kwargs=_agentic_chat_template_kwargs_for_profile(
+                config.lane,
+                bounded_profile,
+            ),
         )
         if agentic_outcome is None:
             agentic_unavailable_detail = _agentic_warning_since(warnings, warning_start)
@@ -651,6 +693,7 @@ async def run_localbench(
             reasoning_effort=effective_reasoning_effort,
             thinking_budget=thinking_budget,
             execution_profile_id=execution_profile_id,
+            prompt_renderer=prompt_renderer_manifest,
             model_file=config.model_file,
             model_family=config.model_family,
             quant_label=config.quant_label,
@@ -838,6 +881,19 @@ def _sampler_overrides(config: OrchestrateConfig) -> JsonObject:
     if config.sampler_seed is not None:
         overrides["seed"] = config.sampler_seed
     return overrides
+
+
+def _local_chat_template_kwargs(
+    lane: LaneChoice,
+    bounded_profile: BoundedFinalProfileRuntime | None,
+) -> JsonObject:
+    if lane == BOUNDED_FINAL_LANE_SPEC_ID and bounded_profile is not None:
+        return _json_bool_mapping(bounded_profile.chat_template_kwargs)
+    return {"enable_thinking": False}
+
+
+def _json_bool_mapping(value: Mapping[str, bool]) -> JsonObject:
+    return {key: bool(item) for key, item in value.items()}
 
 
 def _strip_bounded_final_user_stops(
@@ -1233,6 +1289,16 @@ def _validate_resume_campaign(path: Path, config: CampaignConfig) -> None:
     _append_mismatch(mismatches, "tier", campaign.get("tier"), config.tier)
     _append_mismatch(mismatches, "lane", campaign.get("lane"), config.lane)
     _append_mismatch(mismatches, "provider", provider.get("name"), config.provider)
+    execution_profile = campaign.get("execution_profile")
+    actual_execution_profile_id = (
+        execution_profile.get("id") if isinstance(execution_profile, dict) else None
+    )
+    _append_optional_mismatch(
+        mismatches,
+        "execution_profile_id",
+        actual_execution_profile_id,
+        config.execution_profile_id,
+    )
     serve_fingerprint = campaign.get("serve_fingerprint")
     if isinstance(serve_fingerprint, dict):
         actual_resume_identity = serve_fingerprint.get("resume_identity")
@@ -1441,10 +1507,16 @@ def _run_agentic_axis(
     task_ids: list[str] | None = None,
     results_dir: Path | None = None,
     provenance_extra: JsonObject | None = None,
+    execution_profile_id: str | None = None,
+    chat_template_kwargs: JsonObject | None = None,
 ) -> AgenticOutcome | None:
     injected = sandbox_factory is not None or model_factory is not None or task_ids is not None
     resolved_sandbox_factory = sandbox_factory
     resolved_model_factory = model_factory
+    resolved_chat_template_kwargs = chat_template_kwargs or _agentic_chat_template_kwargs_for_profile(
+        config.lane,
+        None,
+    )
     if injected:
         if resolved_sandbox_factory is None or resolved_model_factory is None:
             warnings.append(
@@ -1461,16 +1533,13 @@ def _run_agentic_axis(
         )
         from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-        chat_template_kwargs = _agentic_chat_template_kwargs_for_lane(config.lane)
         resolved_sandbox_factory = appworld_sandbox_factory()
         resolved_model_factory = chat_client_factory(
             config.endpoint,
             config.model,
             api_key=config.api_key or "",
-            chat_template_kwargs=chat_template_kwargs,
+            chat_template_kwargs=resolved_chat_template_kwargs,
         )
-    if injected:
-        chat_template_kwargs = _agentic_chat_template_kwargs_for_lane(config.lane)
 
     from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
     from localbench.scoring.agentic_exec.funnel import Stage, run_with_reruns  # noqa: PLC0415
@@ -1511,7 +1580,7 @@ def _run_agentic_axis(
         results_dir=results_dir,
         endpoint=config.endpoint,
         model_id=config.model,
-        chat_template_kwargs=chat_template_kwargs,
+        chat_template_kwargs=resolved_chat_template_kwargs,
     )
     last_report = agg.runs[-1].report
     provenance: JsonObject = {
@@ -1524,11 +1593,9 @@ def _run_agentic_axis(
         "subset_size": subset.size,
         "subset_hash": subset.manifest_hash,
         "stage": provenance_stage,
-        "execution_profile_id": ANSWER_ONLY_PROFILE.id
-        if config.lane == BOUNDED_FINAL_LANE_SPEC_ID
-        else None,
+        "execution_profile_id": execution_profile_id,
         "stateless_request_semantics": "full_visible_conversation_per_turn",
-        "chat_template_kwargs": chat_template_kwargs,
+        "chat_template_kwargs": resolved_chat_template_kwargs,
         "diagnostics": _appworld_report_summary(last_report),
         "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
     }
@@ -1544,8 +1611,15 @@ def _run_agentic_axis(
     )
 
 
-def _agentic_chat_template_kwargs_for_lane(lane: LaneChoice) -> JsonObject:
-    if lane in {"answer-only", BOUNDED_FINAL_LANE_SPEC_ID}:
+def _agentic_chat_template_kwargs_for_profile(
+    lane: LaneChoice,
+    bounded_profile: BoundedFinalProfileRuntime | None,
+) -> JsonObject:
+    if lane == BOUNDED_FINAL_LANE_SPEC_ID:
+        if bounded_profile is None:
+            return {"enable_thinking": False}
+        return _json_bool_mapping(bounded_profile.chat_template_kwargs)
+    if lane == "answer-only":
         return {"enable_thinking": False}
     if lane == "capped-thinking":
         return {"enable_thinking": True}
@@ -1720,6 +1794,19 @@ def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject
         for benchmark_item in bench.benchmark_items:
             benchmark_item["think_budget"] = think_budget
         budget_used = max(budget_used, think_budget)
+    return budget_used
+
+
+def _plumb_bounded_final_think_budget(rendered_benches: list[RenderedBench]) -> int:
+    budget_used = 0
+    for bench in rendered_benches:
+        for benchmark_item in bench.benchmark_items:
+            max_tokens = benchmark_item.get("max_tokens")
+            if not isinstance(max_tokens, int) or isinstance(max_tokens, bool):
+                raise RuntimeError("bounded-final-v1 thinking profiles require integer max_tokens")
+            think_budget = bounded_final_think_budget(max_tokens)
+            benchmark_item["think_budget"] = think_budget
+            budget_used = max(budget_used, think_budget)
     return budget_used
 
 

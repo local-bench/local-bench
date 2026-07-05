@@ -18,6 +18,10 @@ from typing import Final, TypeAlias
 import anyio
 import httpx
 
+from localbench.bounded_final_profiles import (
+    BOUNDED_FINAL_PROFILE_CHOICES,
+    BoundedFinalProfileChoice,
+)
 from localbench.orchestrate import (
     LaneChoice,
     LocalbenchRun,
@@ -120,6 +124,7 @@ _REASONING_EFFORT_CHOICES: Final[tuple[ReasoningEffortChoice, ...]] = (
     "xhigh",
 )
 _REASONING_ACTIVATION_CHOICES: Final[tuple[ReasoningActivationChoice, ...]] = REASONING_ACTIVATIONS
+_PROFILE_CHOICES: Final[tuple[BoundedFinalProfileChoice, ...]] = BOUNDED_FINAL_PROFILE_CHOICES
 _NO_SCORABLE_BENCH: Final = "__localbench_no_scorable_bench__"
 _CLI_VERSION_FALLBACK: Final = "0.1.0"
 _PUBLISHABLE_WARNING: Final = (
@@ -244,6 +249,12 @@ def _parser() -> argparse.ArgumentParser:
         help="model-family activation used with --hf-model-id in local capped-thinking",
     )
     run_parser.add_argument(
+        "--profile",
+        choices=_PROFILE_CHOICES,
+        default="auto",
+        help="bounded-final-v1 execution profile",
+    )
+    run_parser.add_argument(
         "--max-tokens",
         type=int,
         default=None,
@@ -301,6 +312,12 @@ def _parser() -> argparse.ArgumentParser:
         "--hf-model-id",
         default=None,
         help="served model HF repo for local capped-thinking chat-template rendering",
+    )
+    bench_parser.add_argument(
+        "--profile",
+        choices=_PROFILE_CHOICES,
+        default="auto",
+        help="bounded-final-v1 execution profile",
     )
     bench_parser.add_argument("--seed", type=int, required=True)
     bench_parser.add_argument("--max-items", type=int)
@@ -586,6 +603,9 @@ def _run(args: argparse.Namespace) -> int:
     if args.publishable and args.sampler_seed is None:
         print("error      --publishable requires --sampler-seed", file=sys.stderr)
         return 2
+    if args.lane != "bounded-final-v1" and args.profile != "auto":
+        print("error      --profile only allowed with --lane bounded-final-v1", file=sys.stderr)
+        return 2
     if _publishability_warning_needed(args):
         print(f"warning    {_PUBLISHABLE_WARNING}")
     tier = _resolved_run_tier(args.suite, args.tier)
@@ -621,6 +641,7 @@ def _run(args: argparse.Namespace) -> int:
                 price_in=args.price_in,
                 price_out=args.price_out,
                 lane=_lane(args.lane),
+                profile=_profile(getattr(args, "profile", "auto")),
                 provider=args.provider,
                 reasoning_effort=_reasoning_effort(args.reasoning_effort),
                 hf_model_id=args.hf_model_id,
@@ -734,6 +755,8 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
         str(out),
         "--lane",
         args.lane,
+        "--profile",
+        getattr(args, "profile", "auto"),
         "--reasoning-activation",
         args.reasoning_activation,
         "--no-supervisor",
@@ -802,6 +825,7 @@ def _bench(args: argparse.Namespace) -> int:
         tier=args.tier,
         bench=args.bench,
         lane=_lane(args.lane),
+        profile=_profile(getattr(args, "profile", "auto")),
         seed=args.seed,
         max_items=args.max_items,
         suite=args.suite,
@@ -849,7 +873,10 @@ def _bench(args: argparse.Namespace) -> int:
 def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
     reasoning_activation = args.reasoning_activation
     hf_model_id = args.hf_model_id
+    profile = getattr(args, "profile", "auto")
     if args.lane == "capped-thinking":
+        if profile != "auto":
+            return "--profile only allowed with --lane bounded-final-v1"
         missing: list[str] = []
         if reasoning_activation is None:
             missing.append("--reasoning-activation")
@@ -858,13 +885,19 @@ def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
         if missing:
             return f"--lane capped-thinking requires {_joined_flags(missing)}"
         return None
+    if args.lane == "bounded-final-v1":
+        if reasoning_activation is not None:
+            return "--reasoning-activation only allowed with --lane capped-thinking"
+        return None
     rejected: list[str] = []
+    if profile != "auto":
+        rejected.append("--profile")
     if reasoning_activation is not None:
         rejected.append("--reasoning-activation")
     if hf_model_id is not None:
         rejected.append("--hf-model-id")
     if rejected:
-        return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking"
+        return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking or bounded-final-v1"
     return None
 
 
@@ -1139,6 +1172,7 @@ async def _preflight_smoke(
                     price_in=args.price_in,
                     price_out=args.price_out,
                     lane=_lane(args.lane),
+                    profile=_profile(getattr(args, "profile", "auto")),
                     provider=args.provider,
                     reasoning_effort=_reasoning_effort(args.reasoning_effort),
                     hf_model_id=args.hf_model_id,
@@ -1811,6 +1845,16 @@ def _lane(value: str) -> LaneChoice:
     if value == "api-uncapped":
         return "api-uncapped"
     return "answer-only"
+
+
+def _profile(value: str) -> BoundedFinalProfileChoice:
+    if value == "answer_only_v1":
+        return "answer_only_v1"
+    if value == "generic_think_tags_8192_v1":
+        return "generic_think_tags_8192_v1"
+    if value == "gemma4_channel_8192_v1":
+        return "gemma4_channel_8192_v1"
+    return "auto"
 
 
 def _reasoning_effort(value: str | None) -> ReasoningEffortChoice | None:
