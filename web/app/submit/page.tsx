@@ -42,7 +42,7 @@ export default function SubmitPage() {
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
         <p>Python 3.11+ required:</p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`pip install local-bench-ai`}
+          {`pip install "local-bench-ai[hf]"`}
         </pre>
         <p className="text-sm">
           Installs the <code className="font-mono text-bench-text">localbench</code> command. Working
@@ -91,15 +91,20 @@ export default function SubmitPage() {
           {`localbench run \\
   --endpoint http://localhost:8080/v1 \\
   --model <name-your-server-reports> \\
-  --lane capped-thinking \\
+  --hf-model-id <the-model's-HF-repo> \\
+  --lane bounded-final-v1 \\
+  --profile auto \\
   --tier standard \\
   --publishable \\
   --sampler-seed 1234 \\
   --out runs/my-run.json`}
         </pre>
         <p>
-          The ranked board is the capped-thinking lane at standard tier. A run must pin its sampler
-          settings to be publishable (<code className="font-mono text-bench-text">--publishable</code>{" "}
+          The ranked board is the bounded-final lane at standard tier: every model gets the same
+          generated-token budget per item, and <code className="font-mono text-bench-text">--profile auto</code>{" "}
+          reads your model&apos;s own chat template to decide whether it thinks (bounded) or answers directly.
+          A run must pin its sampler settings to be publishable (
+          <code className="font-mono text-bench-text">--publishable</code>{" "}
           requires <code className="font-mono text-bench-text">--sampler-seed</code>); the CLI warns up
           front — before any GPU time is spent — if your flags make the run unpublishable. Want these
           pre-filled for your VRAM and model? The{" "}

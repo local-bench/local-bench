@@ -111,8 +111,8 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
       </div>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
         Choose your VRAM, model, and runtime — the recipe is the exact pinned command sequence for a run you can submit to
-        this board. Only Qwen3- and Gemma-family reasoning modes are board-rankable today; anything else still runs as an
-        unranked diagnostic.
+        this board. Every model runs the same ranked lane: the CLI reads the model&apos;s own chat template, gives
+        reasoning models a fixed thinking budget inside the shared token cap, and runs everything else answer-only.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
