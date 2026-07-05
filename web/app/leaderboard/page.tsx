@@ -64,7 +64,9 @@ export default async function LeaderboardPage() {
           </div>
         </div>
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
-        <HomeLeaderboard models={staticComposite} scoreMode="static" />
+        {/* The no-agentic lane renders only once it has rows — an empty second ranking
+            table reads as a competing benchmark instead of a fallback lane. */}
+        {staticComposite.length > 0 ? <HomeLeaderboard models={staticComposite} scoreMode="static" /> : null}
         <PartialCoverageBoard rows={partialCoverage} />
         <MeasuredDiagnostics models={measuredDiagnostics} />
         <CatalogShells models={catalog} />

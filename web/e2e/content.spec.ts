@@ -5,7 +5,7 @@ test("methodology explains scoring uncertainty and links back home", async ({ pa
 
   await expect(page.getByRole("heading", { name: "How local-bench scores runs" })).toBeVisible();
   await expect(page.getByText(/every displayed score carries a bootstrap confidence interval/i)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "What the headline Index is — and is not" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "What the headline Index is" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Frozen as of/i })).toBeVisible();
   await capturePage(page, "content-methodology");
 
@@ -13,14 +13,11 @@ test("methodology explains scoring uncertainty and links back home", async ({ pa
   await expect(page.getByRole("heading", { name: "Local Intelligence Index" })).toBeVisible();
 });
 
-test("trust page explains replication and community reporting and links back home", async ({ page }) => {
-  await visitRoute(page, "/trust");
+test("methodology carries the benchmark sources and licenses section", async ({ page }) => {
+  await visitRoute(page, "/methodology");
 
-  await expect(page.getByRole("heading", { name: "Honesty is the credibility signal" })).toBeVisible();
-  await expect(page.getByText(/trust unit is replication/i)).toBeVisible();
-  await expect(page.getByText(/Community re-scored means/i)).toBeVisible();
-  await capturePage(page, "content-trust");
-
-  await page.getByRole("link", { name: "Back to leaderboard" }).click();
-  await expect(page.getByRole("heading", { name: "Local Intelligence Index" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Benchmark sources & licenses" })).toBeVisible();
+  await expect(page.getByText("MMLU-Pro")).toBeVisible();
+  await expect(page.getByText(/ODC-BY-1.0/)).toBeVisible();
+  await capturePage(page, "content-licenses");
 });

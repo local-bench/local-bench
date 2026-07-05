@@ -57,7 +57,6 @@ export async function getAllStaticRoutes(): Promise<readonly StaticRoute[]> {
     { path: "/leaderboard", screenshotName: "route-leaderboard" },
     { path: "/compare", screenshotName: "route-compare" },
     { path: "/methodology", screenshotName: "route-methodology" },
-    { path: "/trust", screenshotName: "route-trust" },
   ];
   const modelRoutes = index.models.map((model) => ({
     path: `/model/${model.slug}/`,

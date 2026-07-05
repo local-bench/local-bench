@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -7,6 +6,65 @@ import {
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
 import { getIndexData } from "@/lib/data";
+
+type Attribution = {
+  readonly name: string;
+  readonly owner: string;
+  readonly license: string;
+  readonly role: string;
+};
+
+const HEADLINE_SOURCES: readonly Attribution[] = [
+  { name: "MMLU-Pro", owner: "TIGER-Lab", license: "MIT", role: "Knowledge axis item set (400 items)." },
+  {
+    name: "IFBench",
+    owner: "Allen Institute for AI (Ai2)",
+    license: "ODC-BY-1.0 (dataset)",
+    role: "Instruction-Following axis item set (294 items).",
+  },
+  {
+    name: "IFEval checker",
+    owner: "Google Research",
+    license: "Apache-2.0",
+    role: "Instruction-following verifier logic adapted into the local-bench scorer.",
+  },
+  {
+    name: "TC-JSON v1",
+    owner: "local-bench + Gorilla LLM / UC Berkeley",
+    license: "Apache-2.0",
+    role: "Tool-calling axis item set and structural JSON scorer (330 items).",
+  },
+  {
+    name: "LiveCodeBench",
+    owner: "LiveCodeBench authors",
+    license: "CC-BY-4.0 item data / MIT harness",
+    role: "Coding proxy axis item set for output prediction (129 items).",
+  },
+];
+
+const CANDIDATE_SOURCES: readonly Attribution[] = [
+  {
+    name: "BFCL / BigCodeBench / RULER / math expansions",
+    owner: "Gorilla LLM / UC Berkeley",
+    license: "various open licenses",
+    role: "Candidate and opt-in expansion modules credited in their suite manifests.",
+  },
+];
+
+function AttributionRow({ source }: { readonly source: Attribution }) {
+  return (
+    <div className="flex flex-col gap-1 border-b border-bench-line/60 py-3 last:border-b-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+      <div className="min-w-0 sm:max-w-md">
+        <p className="text-sm font-semibold text-bench-text">{source.name}</p>
+        <p className="text-xs text-bench-muted">{source.role}</p>
+      </div>
+      <div className="shrink-0 text-xs text-bench-muted sm:text-right">
+        <p>{source.owner}</p>
+        <p className="font-mono text-bench-accent">{source.license}</p>
+      </div>
+    </div>
+  );
+}
 
 export default async function MethodologyPage() {
   const index = await getIndexData();
@@ -42,27 +100,31 @@ export default async function MethodologyPage() {
       </section>
 
       <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">Two composites, one suite</h2>
+        <h2 className="text-xl font-semibold text-bench-text">One suite, one headline rank — and a no-agentic lane</h2>
         <p>
-          Not every platform can run the agentic axis — AppWorld executes in a Linux sandbox — so the board
-          carries two named composites:
+          local-bench is one benchmark: one frozen suite, one methodology, one headline rank. But the agentic
+          axis executes model-written code in a Linux sandbox, and not every platform can run that. Rather than
+          rejecting those runs or fudging them a number, runs without agentic get a clearly-subordinate fallback
+          lane:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <span className="text-bench-text">index-v2.1</span> (the main index): Agentic 50 / Knowledge 15 /
+            <span className="text-bench-text">index-v2.1</span> — the headline rank: Agentic 50 / Knowledge 15 /
             Instruction-Following 15 / Tool calling 10 / Coding 10. Requires all five headline axes.
           </li>
           <li>
-            <span className="text-bench-text">static-suite-v1</span> (the static composite): Knowledge 30 /
-            Instruction-Following 30 / Tool calling 20 / Coding 20. Requires the four static axes and applies
-            to rows without agentic results.
+            <span className="text-bench-text">static-suite-v1</span> — the no-agentic lane: Knowledge 30 /
+            Instruction-Following 30 / Tool calling 20 / Coding 20, renormalized over the four static axes.
+            It appears as its own table, only when such rows exist, and ranks only against itself.
           </li>
         </ul>
         <p>
-          The two are not score-comparable — agentic is deliberately half the main index, and the static
-          composite renormalizes over what was actually measured rather than pretending the gap isn&apos;t there.
-          Rows with fewer than the four static axes display per-axis scores and confidence intervals only and
-          are not ranked. Both weight sets are explicit editorial choices, versioned and hashed like everything
+          The two are never score-comparable, and that is deliberate. Renormalizing without agentic produces
+          systematically higher numbers — the same model can score 40 on the main index and 60 renormalized —
+          so letting four-axis runs into the headline rank would reward skipping the hardest, longest axis.
+          The quarantined lane removes that incentive: you cannot dodge agentic and place higher for it. Rows
+          with fewer than the four static axes display per-axis scores and confidence intervals only and are
+          not ranked. Both weight sets are explicit editorial choices, versioned and hashed like everything
           else (see Editorial versioning below).
         </p>
       </section>
@@ -171,7 +233,7 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
-      <section className="space-y-3 text-bench-muted">
+      <section id="frozen" className="space-y-3 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Frozen as of {LAUNCH_FREEZE.asOfDate}</h2>
         <p>
           The board is a point-in-time snapshot. These identifiers pin exactly what produced it; the same values
@@ -199,12 +261,33 @@ export default async function MethodologyPage() {
             </div>
           ))}
         </dl>
+        <p className="text-sm">Benchmark item licenses and scorer attribution are listed in the next section.</p>
+      </section>
+
+      <section id="licenses" className="space-y-4 text-bench-muted">
+        <h2 className="text-xl font-semibold text-bench-text">Benchmark sources &amp; licenses</h2>
+        <p>
+          local-bench publishes public suite artifacts, scores, and metadata. No model weights, GGUF files, API
+          keys, or private runtime credentials are hosted here. The frozen item sets behind the headline Index
+          are derived from the following sources, each used under its own license:
+        </p>
+        <div className="rounded-lg border border-bench-line bg-bench-panel/50 px-4 py-2">
+          {HEADLINE_SOURCES.map((source) => (
+            <AttributionRow key={source.name} source={source} />
+          ))}
+        </div>
+        <p className="pt-1">Candidate and opt-in modules draw on additional sources, credited the same way:</p>
+        <div className="rounded-lg border border-bench-line bg-bench-panel/50 px-4 py-2">
+          {CANDIDATE_SOURCES.map((source) => (
+            <AttributionRow key={source.name} source={source} />
+          ))}
+        </div>
         <p className="text-sm">
-          Benchmark item licenses and scorer attribution are listed on the{" "}
-          <Link href="/trust" className="text-bench-accent hover:underline">
-            trust &amp; licenses page
-          </Link>
-          .
+          Full license texts and the complete redistribution notice ship in the repository&rsquo;s{" "}
+          <span className="font-mono text-bench-text">NOTICE</span> file and{" "}
+          <span className="font-mono text-bench-text">LICENSES/</span> directory. Model names are the property of
+          their respective owners; listing a model is benchmark evaluation, not an endorsement by — or of — its
+          maker.
         </p>
       </section>
 

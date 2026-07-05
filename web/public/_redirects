@@ -1,2 +1,13 @@
+# Trust page folded into methodology (2026-07-05)
+/trust/ /methodology/ 301
+/trust /methodology/ 301
+
+# Moved pages (model→variant identity re-anchor, 2026-07-05)
+/model/gemma-4-12b-it-q4-k-xl/ /model/gemma-4-12b-it/ 301
+/model/gemma-4-12b-it-q4-k-xl /model/gemma-4-12b-it/ 301
+/run/gemma-4-12b-it-q4-k-xl__localbench-run/ /run/gemma-4-12b-it__localbench-run/ 301
+/run/gemma-4-12b-it-q4-k-xl__localbench-run /run/gemma-4-12b-it__localbench-run/ 301
+
+# Host consolidation (canonical tags cover indexing; these fire where Pages supports host rules)
 https://www.local-bench.ai/* https://local-bench.ai/:splat 301
 https://local-bench.pages.dev/* https://local-bench.ai/:splat 301
