@@ -59,7 +59,7 @@ export type BenchmarkRecipe = {
   readonly serveNote: string | null;
   readonly benchCommand: string;
   readonly submitCommand: string | null;
-  readonly lane: "capped-thinking" | "answer-only";
+  readonly lane: "bounded-final-v1" | "capped-thinking" | "answer-only";
   readonly boardComparable: boolean;
   readonly notRankableReason: string | null;
   readonly activation: ReasoningActivation | null;
@@ -164,51 +164,37 @@ export function buildRecipe(input: {
   const { model, quant, runtime } = input;
   const servedModelName = runtime.servedModelName(model, quant);
   const activation = model.reasoningCapable ? rankedActivationFor(model) : null;
-  const boardComparable = activation !== null;
-  const lane: BenchmarkRecipe["lane"] = boardComparable ? "capped-thinking" : "answer-only";
 
-  const notRankableReason = boardComparable
-    ? null
-    : model.reasoningCapable
-      ? "Only Qwen3 and Gemma reasoning modes are board-ranked today."
-      : "Not a reasoning model, so it runs answer-only.";
-
+  // bounded-final-v1: every model runs the ONE ranked lane. --profile auto introspects the
+  // model's own chat template (thinking models get the bounded think sub-budget, the rest run
+  // answer-only) — no family gate. The [hf] extra ships the template introspection dependency;
+  // plain `pip install local-bench-ai` cannot resolve --hf-model-id (user-path smoke, 2026-07-05).
   const setupCommand = [
-    "pip install local-bench-ai",
+    'pip install "local-bench-ai[hf]"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms",
   ].join("\n");
-  const benchCommand =
-    boardComparable && activation !== null
-      ? [
-          "localbench run",
-          `--endpoint ${runtime.endpoint}`,
-          `--model ${servedModelName}`,
-          `--hf-model-id ${model.id}`,
-          "--lane capped-thinking",
-          `--reasoning-activation ${activation}`,
-          "--tier standard",
-          "--publishable",
-          "--sampler-seed 1234",
-          "--out runs/my-run.json",
-        ].join(" \\\n  ")
-      : [
-          "localbench run",
-          `--endpoint ${runtime.endpoint}`,
-          `--model ${servedModelName}`,
-          "--lane answer-only",
-          "--tier standard",
-          "--out runs/my-run.json",
-        ].join(" ");
+  const benchCommand = [
+    "localbench run",
+    `--endpoint ${runtime.endpoint}`,
+    `--model ${servedModelName}`,
+    `--hf-model-id ${model.id}`,
+    "--lane bounded-final-v1",
+    "--profile auto",
+    "--tier standard",
+    "--publishable",
+    "--sampler-seed 1234",
+    "--out runs/my-run.json",
+  ].join(" \\\n  ");
 
   return {
     setupCommand,
     serveCommand: runtime.serveCommand(model, quant),
     serveNote: runtime.serveNote(model, quant),
     benchCommand,
-    submitCommand: boardComparable ? "localbench submit run --run runs/my-run.json" : null,
-    lane,
-    boardComparable,
-    notRankableReason,
+    submitCommand: "localbench submit run --run runs/my-run.json",
+    lane: "bounded-final-v1",
+    boardComparable: true,
+    notRankableReason: null,
     activation,
     servedModelName,
     ggufRepo: model.ggufRepo,

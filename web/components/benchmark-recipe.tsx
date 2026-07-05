@@ -31,7 +31,7 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
       </p>
       {recipe.boardComparable ? (
         <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
-          <span>Board-comparable · capped-thinking · {recipe.activation} · 5-axis v1 suite</span>
+          <span>Board-comparable · bounded-final-v1 · profile auto · 5-axis v1 suite</span>
           {recipe.ggufRepo !== null ? (
             <a
               href={`https://huggingface.co/${recipe.ggufRepo}`}

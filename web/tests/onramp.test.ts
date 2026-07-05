@@ -136,16 +136,16 @@ describe("buildRecipe", () => {
   const vllm = runtimeProfile("vllm");
   const lmstudio = runtimeProfile("lmstudio");
 
-  it("emits a board-comparable capped-thinking recipe for a Qwen model on llama.cpp", () => {
+  it("emits a board-comparable bounded-final recipe for a Qwen model on llama.cpp", () => {
     const selected = model();
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
     expect(recipe.boardComparable).toBe(true);
-    expect(recipe.lane).toBe("capped-thinking");
+    expect(recipe.lane).toBe("bounded-final-v1");
     expect(recipe.activation).toBe("qwen3");
     expect(recipe.notRankableReason).toBeNull();
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
     expect(recipe.setupCommand).toBe(
-      "pip install local-bench-ai\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms",
+      'pip install "local-bench-ai[hf]"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -153,8 +153,9 @@ describe("buildRecipe", () => {
     expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
     expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
     expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
-    expect(recipe.benchCommand).toContain("--lane capped-thinking");
-    expect(recipe.benchCommand).toContain("--reasoning-activation qwen3");
+    expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
+    expect(recipe.benchCommand).toContain("--profile auto");
+    expect(recipe.benchCommand).not.toContain("--reasoning-activation");
     expect(recipe.benchCommand).toContain("--publishable");
     expect(recipe.benchCommand).toContain("--sampler-seed 1234");
     expect(recipe.benchCommand).toContain("--tier standard");
@@ -179,28 +180,24 @@ describe("buildRecipe", () => {
     expect(recipe.serveNote).toContain("LM Studio");
   });
 
-  it("marks a non-reasoning model as not board-comparable", () => {
+  it("gives a non-reasoning model the same ranked bounded-final recipe (profile auto)", () => {
     const selected = model({ reasoningCapable: false });
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.boardComparable).toBe(false);
-    expect(recipe.lane).toBe("answer-only");
-    expect(recipe.activation).toBeNull();
-    expect(recipe.submitCommand).toBeNull();
-    expect(recipe.benchCommand).not.toContain("--hf-model-id");
-    expect(recipe.benchCommand).not.toContain("--reasoning-activation");
-    expect(recipe.benchCommand).toContain("--lane answer-only");
-    expect(recipe.benchCommand).toContain("--out runs/my-run.json");
-    expect(recipe.benchCommand).not.toContain("--suite-dir");
-    expect(recipe.notRankableReason).toContain("Not a reasoning model");
+    expect(recipe.boardComparable).toBe(true);
+    expect(recipe.lane).toBe("bounded-final-v1");
+    expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
+    expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
+    expect(recipe.benchCommand).toContain("--profile auto");
+    expect(recipe.notRankableReason).toBeNull();
   });
 
-  it("marks a reasoning model outside Qwen3/Gemma as not board-comparable", () => {
+  it("gives a reasoning model outside Qwen3/Gemma the same ranked bounded-final recipe", () => {
     const selected = model({ family: "Granite 3", org: "IBM" });
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.boardComparable).toBe(false);
-    expect(recipe.lane).toBe("answer-only");
-    expect(recipe.activation).toBeNull();
-    expect(recipe.notRankableReason).toContain("Qwen3 and Gemma");
+    expect(recipe.boardComparable).toBe(true);
+    expect(recipe.lane).toBe("bounded-final-v1");
+    expect(recipe.benchCommand).toContain("--profile auto");
+    expect(recipe.notRankableReason).toBeNull();
   });
 });
 
