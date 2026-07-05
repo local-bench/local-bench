@@ -162,6 +162,24 @@ def test_cli_release_pairs_match_shared_fixture() -> None:
     assert actual == expected
 
 
+def test_site_released_suites_map_matches_shared_fixture() -> None:
+    # Regression guard for the 2026-07-06 manifest-sha desync: foundation._SITE_RELEASED_SUITES
+    # holds a SECOND copy of every release's manifest sha but was not covered by the parity test
+    # above, so a scorer-identity bump that updated release-pairs.expected.json left it stale
+    # (which would have made the CLI treat real v2 bundles as not-site-released). Every entry in
+    # the map must match the single source of truth.
+    from localbench.submissions.foundation import _SITE_RELEASED_SUITES
+
+    fixture = read_json(_EXPECTED_RELEASE_PAIRS)
+    expected = {str(pair["id"]): str(pair["suite_manifest_sha256"]) for pair in fixture["pairs"]}
+    for release_id, sha in _SITE_RELEASED_SUITES.items():
+        assert release_id in expected, f"{release_id} in _SITE_RELEASED_SUITES but not the release-pairs fixture"
+        assert sha == expected[release_id], (
+            f"manifest sha desync for {release_id}: _SITE_RELEASED_SUITES has {sha}, "
+            f"release-pairs fixture has {expected[release_id]}"
+        )
+
+
 def test_site_serves_4axis_release_with_canonical_manifest_and_lcb_notice() -> None:
     # Given: the site-served Batch 2a suite release.
     manifest = read_json(_SITE_MANIFEST)
