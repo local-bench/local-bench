@@ -40,7 +40,7 @@ _BLOCKING_REASONS = [
     "suite.not_site_released",
 ]
 _SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
-_SITE_MANIFEST_SHA256 = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
+_SITE_MANIFEST_SHA256 = "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53"
 
 
 def test_contract_schema_versions_are_split_and_loadable() -> None:

@@ -7,11 +7,11 @@ edit could silently re-score every historical run while the suite identity staye
 same; and `web/build_data` reads the *current* registry weights, so history could be
 reinterpreted with no visible change.
 
-`scorecard_identity()` closes that hole: it hashes the registry digest + scorer
-versions + CI method into a stable `scorecard_id` recorded in every run manifest, so a
-run is self-describing about HOW it was scored. Reweighting or promoting a candidate
-bumps `SCORECARD_VERSION` and changes the id; old runs stay reproducible under their
-own recorded scorecard. (Oracle red-team, 2026-06-19, finding #1.)
+`scorecard_identity()` closes that hole: it hashes the scoring registry digest,
+scorer versions, CI method, lane spec digest, and selected execution-profile digest
+into a stable `scorecard_id` recorded in every run manifest. Reweighting or promoting
+a candidate bumps `SCORECARD_VERSION` and changes the id; adding unrelated execution
+profiles only changes the informational profile-catalog digest.
 """
 
 from __future__ import annotations
@@ -22,12 +22,18 @@ from dataclasses import fields
 from typing import Final
 
 from localbench._types import JsonObject
-from localbench.reasoning_registry import reasoning_registry_payload
+from localbench.lane_spec import DEFAULT_LANE_SPEC_ID, lane_spec_digest
+from localbench.reasoning_registry import (
+    execution_profile_digest,
+    execution_profile_for_id,
+    execution_profile_payload,
+    reasoning_registry_payload,
+)
 from localbench.scoring.axes import AXES, Axis
 
 # Human-facing scorecard label. BUMP whenever the scoring object changes deliberately
 # (a weight edit, a scorer-version bump, a CI-method change).
-SCORECARD_VERSION: Final = "scorecard-v2.1"
+SCORECARD_VERSION: Final = "3"
 
 # How interval estimates are produced (part of scoring identity; the iteration count is
 # a per-call parameter, not part of identity).
@@ -95,27 +101,45 @@ def registry_digest() -> str:
     return _digest(_registry_payload())
 
 
-def scorecard_identity(reasoning_registry_entry_id: str | None = None) -> JsonObject:
+def scorecard_identity(execution_profile_id: str | None = None) -> JsonObject:
     """The frozen scoring-object identity recorded in every run manifest.
 
-    `scorecard_id` hashes the version + registry digest + scorer versions + CI method;
-    the full `registry` payload is embedded so an OLD run stays self-describing even
-    after the live registry is reweighted.
+    `scorecard_id` hashes the version, scoring registry digest, scorer versions,
+    CI method, lane spec digest, and the selected execution profile digest only.
+    The full scoring `registry` payload and selected `execution_profile` payload are
+    embedded so an OLD run stays self-describing after live catalogs change.
     """
-    reasoning_payload = reasoning_registry_payload()
+    execution_profile_entry = (
+        None if execution_profile_id is None else execution_profile_for_id(execution_profile_id)
+    )
+    if execution_profile_id is not None and execution_profile_entry is None:
+        raise ValueError(f"unknown execution profile: {execution_profile_id}")
+    profile_payload = (
+        None
+        if execution_profile_entry is None
+        else execution_profile_payload(execution_profile_entry)
+    )
+    profile_digest = (
+        None
+        if execution_profile_entry is None
+        else execution_profile_digest(execution_profile_entry)
+    )
     components: JsonObject = {
         "scorecard_version": SCORECARD_VERSION,
         "registry_digest": registry_digest(),
-        "reasoning_registry_digest": _digest(reasoning_payload),
-        # Deliberate scorecard bump: reasoning operating-mode identity now affects
-        # comparability, so this intentionally breaks prior scorecard reproducibility.
-        "reasoning_registry_entry_id": reasoning_registry_entry_id,
         "scorer_versions": dict(SCORER_VERSIONS),
         "ci_method": CI_METHOD,
+        "lane_spec_digest": lane_spec_digest(DEFAULT_LANE_SPEC_ID),
+        "execution_profile_id": execution_profile_id,
+        "execution_profile_digest": profile_digest,
     }
     return {
         **components,
+        "lane_spec_id": DEFAULT_LANE_SPEC_ID,
         "scorecard_id": _digest(components),
+        # Informational only: excluded from scorecard_id so adding profiles does not
+        # invalidate runs that used other profiles.
+        "profile_catalog_digest": _digest(reasoning_registry_payload()),
         "registry": _registry_payload(),
-        "reasoning_registry": reasoning_payload,
+        "execution_profile": profile_payload,
     }

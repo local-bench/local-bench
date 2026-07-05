@@ -11,6 +11,9 @@ from localbench.reasoning_registry import (
     GEMMA4_REASONING_ENTRY,
     QWEN_REASONING_ENTRY,
     ReasoningRegistryEntry,
+    execution_profile_digest,
+    execution_profile_payload,
+    ranked_execution_profiles,
     reasoning_entry_for_activation,
 )
 
@@ -34,6 +37,18 @@ def test_qwen_registry_entry_records_existing_native_forcing_behavior() -> None:
     assert entry.forcing.forced_close == "\n</think>\n\n"
     assert entry.forcing.answer_stop == ("<|im_end|>",)
     assert entry.forcing.reparse is None
+
+
+def test_execution_profile_identity_is_per_entry_and_ranked_allowlisted() -> None:
+    payload = execution_profile_payload(QWEN_REASONING_ENTRY)
+    digest = execution_profile_digest(QWEN_REASONING_ENTRY)
+    ranked = ranked_execution_profiles()
+
+    assert payload["id"] == "qwen_thinking_native_v1"
+    assert payload["forcing"]["close"] == "</think>"
+    assert len(digest) == 64
+    assert ranked["qwen_thinking_native_v1"] == digest
+    assert ranked["gemma4_thinking_native_v1"] == execution_profile_digest(GEMMA4_REASONING_ENTRY)
 
 
 def test_gemma4_registry_entry_records_verified_provenance_verbatim() -> None:

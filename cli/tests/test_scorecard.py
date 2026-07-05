@@ -1,7 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import fields
+from dataclasses import fields, replace
 
+import pytest
+
+import localbench.reasoning_registry as reasoning_registry
+from localbench.lane_spec import lane_spec_digest
+from localbench.reasoning_registry import QWEN_REASONING_ENTRY
 from localbench.scoring.axes import AXES, Axis
 from localbench.scoring.scorecard import (
     EXEC_BENCHES,
@@ -29,7 +34,13 @@ def test_scorecard_identity_is_deterministic_and_self_describing() -> None:
     assert first == second
     assert len(first["scorecard_id"]) == 64  # full sha256 hex
     assert first["registry_digest"] == registry_digest()
-    assert first["scorecard_version"].startswith("scorecard-")
+    assert first["scorecard_version"] == "3"
+    assert first["lane_spec_digest"] == lane_spec_digest("capped-thinking-v1")
+    assert first["execution_profile_id"] is None
+    assert first["execution_profile_digest"] is None
+    assert first["execution_profile"] is None
+    assert "reasoning_registry" not in first
+    assert isinstance(first["profile_catalog_digest"], str)
     # The full registry payload is embedded so an OLD run stays self-describing even
     # after the live registry is reweighted.
     assert [axis["key"] for axis in first["registry"]] == [axis.key for axis in AXES]
@@ -50,29 +61,64 @@ def test_scorecard_id_binds_registry_scorers_and_ci_method() -> None:
         {"registry_digest": "0" * 64},
         {"scorer_versions": {**base["scorer_versions"], "mmlu_pro": "2"}},
         {"ci_method": "something-else"},
-        {"scorecard_version": "scorecard-v9.9"},
-        {"reasoning_registry_digest": "1" * 64},
-        {"reasoning_registry_entry_id": "gemma4_thinking_native_v1"},
+        {"scorecard_version": "9"},
+        {"lane_spec_digest": "1" * 64},
+        {"execution_profile_id": "gemma4_thinking_native_v1"},
+        {"execution_profile_digest": "2" * 64},
     ):
         components = {
             "scorecard_version": base["scorecard_version"],
             "registry_digest": base["registry_digest"],
-            "reasoning_registry_digest": base["reasoning_registry_digest"],
-            "reasoning_registry_entry_id": base["reasoning_registry_entry_id"],
             "scorer_versions": base["scorer_versions"],
             "ci_method": base["ci_method"],
+            "lane_spec_digest": base["lane_spec_digest"],
+            "execution_profile_id": base["execution_profile_id"],
+            "execution_profile_digest": base["execution_profile_digest"],
             **perturbation,
         }
         assert _digest(components) != base["scorecard_id"]
 
 
-def test_scorecard_id_binds_resolved_reasoning_registry_entry_id() -> None:
-    qwen = scorecard_identity(reasoning_registry_entry_id="qwen_thinking_native_v1")
-    gemma = scorecard_identity(reasoning_registry_entry_id="gemma4_thinking_native_v1")
+def test_scorecard_id_binds_selected_execution_profile() -> None:
+    qwen = scorecard_identity("qwen_thinking_native_v1")
+    gemma = scorecard_identity("gemma4_thinking_native_v1")
 
-    assert qwen["reasoning_registry_entry_id"] == "qwen_thinking_native_v1"
-    assert gemma["reasoning_registry_entry_id"] == "gemma4_thinking_native_v1"
+    assert qwen["execution_profile_id"] == "qwen_thinking_native_v1"
+    assert gemma["execution_profile_id"] == "gemma4_thinking_native_v1"
+    assert qwen["execution_profile"]["id"] == "qwen_thinking_native_v1"
+    assert gemma["execution_profile"]["id"] == "gemma4_thinking_native_v1"
     assert qwen["scorecard_id"] != gemma["scorecard_id"]
+
+
+def test_adding_registry_entry_does_not_change_selected_profile_scorecard_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    base = scorecard_identity("qwen_thinking_native_v1")
+    synthetic = replace(
+        QWEN_REASONING_ENTRY,
+        id="synthetic_extra_native_v1",
+        model_match=("synthetic-extra",),
+    )
+
+    monkeypatch.setattr(
+        reasoning_registry,
+        "REASONING_REGISTRY",
+        (*reasoning_registry.REASONING_REGISTRY, synthetic),
+    )
+    extended = scorecard_identity("qwen_thinking_native_v1")
+
+    assert extended["scorecard_id"] == base["scorecard_id"]
+    assert extended["profile_catalog_digest"] != base["profile_catalog_digest"]
+
+
+def test_profileless_scorecard_id_is_stable_and_distinct_from_profiled() -> None:
+    answer_only = scorecard_identity()
+    qwen = scorecard_identity("qwen_thinking_native_v1")
+
+    assert answer_only == scorecard_identity()
+    assert answer_only["execution_profile_id"] is None
+    assert answer_only["execution_profile_digest"] is None
+    assert answer_only["scorecard_id"] != qwen["scorecard_id"]
 
 
 def test_every_registry_and_exec_bench_has_a_frozen_scorer_version() -> None:

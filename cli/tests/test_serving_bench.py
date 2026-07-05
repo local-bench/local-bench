@@ -36,7 +36,7 @@ from serving_helpers import flag_value, minimal_gguf, serving_evidence
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 SUITE_V1 = Path(__file__).resolve().parents[2] / "suite" / "v1"
 SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
-SITE_MANIFEST_SHA256 = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
+SITE_MANIFEST_SHA256 = "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53"
 BANNED_RESULT_BUNDLE_FIELDS = {
     "schema",
     "composite",

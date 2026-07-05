@@ -43,7 +43,7 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
     assert {"generated_note", "schema_version", "index_version", "suite_version"} <= set(board)
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
     assert board["schema_version"] == "board-v2"
-    assert board["scoring_version"] == "scorecard-v2.1"
+    assert board["scoring_version"] == "3"
     assert board["lane_scope"] == "capped-thinking"
     manifest = object_value(board["manifest"])
     assert object_value(manifest["item_set_hashes"]) == {

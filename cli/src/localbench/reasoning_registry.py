@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, fields
 from typing import Final, Literal, Mapping, assert_never
 
@@ -125,8 +127,34 @@ def reasoning_entry_for_activation(
 
 
 def reasoning_registry_payload() -> list[dict[str, JsonValue]]:
-    """Canonical serialization of the reasoning registry for scorecard identity."""
+    """Canonical serialization of the reasoning registry for informational embedding."""
     return [_entry_payload(entry) for entry in REASONING_REGISTRY]
+
+
+def execution_profile_payload(entry: ReasoningRegistryEntry) -> dict[str, JsonValue]:
+    """Canonical serialization of one execution profile."""
+    return _entry_payload(entry)
+
+
+def execution_profile_digest(entry: ReasoningRegistryEntry) -> str:
+    """sha256 of one execution profile's canonical payload."""
+    return _digest(execution_profile_payload(entry))
+
+
+def ranked_execution_profiles() -> Mapping[str, str]:
+    """Server-side allowlist of ranked execution-profile ids and digests."""
+    return {
+        entry.id: execution_profile_digest(entry)
+        for entry in REASONING_REGISTRY
+        if entry.status == "ranked"
+    }
+
+
+def execution_profile_for_id(profile_id: str) -> ReasoningRegistryEntry | None:
+    for entry in REASONING_REGISTRY:
+        if entry.id == profile_id:
+            return entry
+    return None
 
 
 def _entry_payload(entry: ReasoningRegistryEntry) -> dict[str, JsonValue]:
@@ -154,3 +182,8 @@ def _json_value(value: object) -> JsonValue:
     if isinstance(value, str | int | float | bool) or value is None:
         return value
     raise TypeError(f"reasoning registry value is not JSON-serializable: {value!r}")
+
+
+def _digest(payload: object) -> str:
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()

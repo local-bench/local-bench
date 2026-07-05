@@ -365,7 +365,7 @@ async def run_localbench(
 
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
-    reasoning_registry_entry_id: str | None = None
+    execution_profile_id: str | None = None
     reasoning_leak_regexes: tuple[str, ...] = ()
     forcing_format = None
     if config.provider == "local" and config.lane == "capped-thinking":
@@ -375,7 +375,7 @@ async def run_localbench(
         if thinking_budget > 0:
             reasoning_entry = _capped_thinking_reasoning_entry(config)
             if reasoning_entry is not None:
-                reasoning_registry_entry_id = reasoning_entry.id
+                execution_profile_id = reasoning_entry.id
                 reasoning_leak_regexes = registry_leak_regexes(reasoning_entry.conformance)
                 forcing_format = reasoning_entry.forcing
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
@@ -622,7 +622,7 @@ async def run_localbench(
             ),
             reasoning_effort=config.reasoning_effort,
             thinking_budget=thinking_budget,
-            reasoning_registry_entry_id=reasoning_registry_entry_id,
+            execution_profile_id=execution_profile_id,
             model_file=config.model_file,
             model_family=config.model_family,
             quant_label=config.quant_label,

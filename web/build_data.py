@@ -498,12 +498,17 @@ def _scorecard_detail(scorecard: JsonObject) -> JsonObject:
     scorecard (weights, scorers, CI method, version); `registry_drift` is the narrower
     weights-differ case that means the DISPLAYED composite is a re-score of this run.
     A null `id` = a pre-scorecard run (provenance unknown)."""
-    current = scorecard_identity()
+    execution_profile_id = _text(scorecard.get("execution_profile_id"))
+    try:
+        current = scorecard_identity(execution_profile_id)
+    except ValueError:
+        current = scorecard_identity()
     recorded_id = _text(scorecard.get("scorecard_id"))
     recorded_registry = _text(scorecard.get("registry_digest"))
     return {
         "id": recorded_id,
         "version": _text(scorecard.get("scorecard_version")),
+        "execution_profile_id": execution_profile_id,
         "registry_digest": recorded_registry,
         "current_id": _text(current["scorecard_id"]),
         "current_registry_digest": _text(current["registry_digest"]),

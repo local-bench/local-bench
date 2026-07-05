@@ -580,7 +580,7 @@ def test_publishable_capped_thinking_accepts_matching_gemma_activation(
         # Then: the guard allows the run and records the resolved Gemma registry entry.
         assert build_calls == [("unsloth/gemma-4-12b-it", "gemma4")]
         assert renderer.render_count == 1
-        assert record["manifest"]["sampling"]["reasoning_registry_entry_id"] == (
+        assert record["manifest"]["sampling"]["execution_profile_id"] == (
             "gemma4_thinking_native_v1"
         )
 
@@ -674,7 +674,7 @@ def test_non_publishable_capped_thinking_keeps_default_diagnostic_renderer(tmp_p
 
         # Then: back-compat keeps the Qwen fallback path available for diagnostics.
         assert record["manifest"]["integrity"]["publishable"] is False
-        assert record["manifest"]["sampling"]["reasoning_registry_entry_id"] == (
+        assert record["manifest"]["sampling"]["execution_profile_id"] == (
             "qwen_thinking_native_v1"
         )
 

@@ -8,6 +8,7 @@ from typing import Final
 from localbench._scoring import BenchAggregate
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
+from localbench.scoring.scorecard import SCORECARD_VERSION
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import sha256_file
 from localbench.submissions.contracts import (
@@ -67,10 +68,10 @@ _SITE_RELEASED_SUITES: Final[dict[str, str]] = {
     # --suite-dir. core-text-v1 is intentionally absent: it has no published release
     # manifest yet and is not a publishable (headline-bearing) profile.
     "suite-v1-partial-text-code-4axis-v1": (
-        "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231"
+        "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53"
     ),
     "suite-v1-text-code-agentic-5axis-v1": (
-        "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9"
+        "db1e6cd14f946126254cc2ada56ea1af0186303e0899f00f374d30382d96870e"
     ),
 }
 
@@ -321,7 +322,7 @@ def _provenance(existing: JsonObject) -> JsonObject:
         "cli_version": existing.get("cli_version") or "0.1.0",
         "python_version": existing.get("python_version"),
         "dependency_lock_hash": existing.get("dependency_lock_hash"),
-        "scorer_package_version": existing.get("scorer_package_version") or "scorecard-v2.1",
+        "scorer_package_version": existing.get("scorer_package_version") or SCORECARD_VERSION,
         "extractor_versions": _object(existing.get("extractor_versions")),
         "runner_build_id": existing.get("runner_build_id"),
     }
