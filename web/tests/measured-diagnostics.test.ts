@@ -19,7 +19,7 @@ describe("measured diagnostics", () => {
     const html = renderToStaticMarkup(createElement(MeasuredDiagnostics, { models: diagnostics }));
 
     // Then it gives each orphaned measured row an inbound model link.
-    expect(diagnostics).toHaveLength(7);
+    expect(diagnostics).toHaveLength(6);
     expect(html).toContain("Measured diagnostics");
     expect(html).toContain("Diagnostic only — never rank-comparable.");
     expect(html).toContain('href="/model/gemma-4-31b-it"');

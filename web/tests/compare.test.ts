@@ -11,13 +11,13 @@ describe("compare configs", () => {
     // When compare configs are built from measured runs.
     const configs = getCompareConfigs(models);
 
-    // Then the nonstandard Q4_K_XL measured row is available and marked rank-comparable.
+    // Then the nonstandard QAT Q4_K_XL measured variant is available and marked rank-comparable.
     expect(
-      configs.find((config) => config.modelSlug === "gemma-4-12b-it-q4-k-xl" && config.quantLabel === "Q4_K_XL"),
+      configs.find((config) => config.modelSlug === "gemma-4-12b-it" && config.quantLabel === "QAT Q4_K_XL"),
     ).toMatchObject({
       coverage: "full",
-      modelSlug: "gemma-4-12b-it-q4-k-xl",
-      quantLabel: "Q4_K_XL",
+      modelSlug: "gemma-4-12b-it",
+      quantLabel: "QAT Q4_K_XL",
     });
     expect(configs.find((config) => config.modelSlug === "gemma-4-12b-it" && config.quantLabel === "Q8_0")).toMatchObject({
       coverage: "partial",

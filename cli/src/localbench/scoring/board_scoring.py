@@ -18,6 +18,7 @@ from localbench.scoring.board_support import (
     number_or_none,
     number_value,
     object_or_empty,
+    object_or_none,
     object_value,
     objects_value,
     percentile,
@@ -27,12 +28,14 @@ from localbench.scoring.board_support import (
     string_value,
     text_value,
 )
+from localbench.scoring.agentic_exec.score import wilson_95_ci
 from localbench.scoring.board_systems import best_system, system_fields
 from localbench.scoring.board_types import BoardBuildError, CuratedSource, ScoredRun
 from localbench.scoring.signed_score import chance_for_bench, signed_score
 from localbench.scoring.tc_json_conformance import GATE_ID, tc_json_conformance_gate
 
 APPWORLD_C_BENCH = "appworld_c"
+TC_JSON_BENCH = "tc_json_v1"
 
 
 def scored_runs(
@@ -202,7 +205,7 @@ def _scored_run(
         # board can show how the agentic axis was measured. Absent for sidecar/pre-inline runs, so
         # this key is omitted there (parity-preserving for the frozen board_v1).
         scored["agentic_run"] = _without_local_paths(agentic_run)
-    conformance_gate = _tc_json_gate(path, runs_dir, slug)
+    conformance_gate = _tc_json_gate(path, runs_dir, slug, benches)
     if conformance_gate is not None:
         scored["conformance_gates"] = {GATE_ID: conformance_gate}
     return scored
@@ -333,7 +336,7 @@ def _without_local_paths(value: JsonObject) -> JsonObject:
     return stripped if isinstance(stripped, dict) else {}
 
 
-def _tc_json_gate(path: Path, runs_dir: Path, slug: str) -> JsonObject | None:
+def _tc_json_gate(path: Path, runs_dir: Path, slug: str, benches: JsonObject) -> JsonObject | None:
     tc_json_dir = runs_dir / "tc-json"
     for key in (path.stem, slug):
         tc_json_path = tc_json_dir / f"{key}.json"
@@ -341,7 +344,31 @@ def _tc_json_gate(path: Path, runs_dir: Path, slug: str) -> JsonObject | None:
             record = object_value(read_json(tc_json_path), str(tc_json_path))
             aggregate = object_value(record.get("aggregate"), f"{tc_json_path}.aggregate")
             return tc_json_conformance_gate(aggregate)
-    return None
+    return _tc_json_gate_from_bench(object_or_none(benches.get(TC_JSON_BENCH)))
+
+
+def _tc_json_gate_from_bench(aggregate: JsonObject | None) -> JsonObject | None:
+    # Sidecar-less fallback: submission-scored and inline runs never ship a tc-json
+    # sidecar, but the gate inputs are recoverable from the run's own tc_json_v1 bench
+    # aggregate — same items, same thresholds. Invalid-JSON on this bench IS extraction
+    # failure (extraction = parsing the tool-call JSON), so the rates coincide. A bench
+    # missing any input (legacy schema) omits the gate rather than failing the build.
+    if aggregate is None:
+        return None
+    n = aggregate.get("n")
+    raw_accuracy = number_or_none(aggregate.get("raw_accuracy"))
+    extraction_failures = aggregate.get("n_extraction_failures")
+    if not isinstance(n, int) or n <= 0 or raw_accuracy is None or not isinstance(extraction_failures, int):
+        return None
+    ci = wilson_95_ci(successes=round(raw_accuracy * n), total=n)
+    return tc_json_conformance_gate(
+        {
+            "raw_asr": raw_accuracy,
+            "invalid_json_rate": extraction_failures / n,
+            "wilson_95_ci": {"point": ci.point, "lo": ci.lo, "hi": ci.hi},
+            "n": n,
+        },
+    )
 
 
 def _axes_and_samples(

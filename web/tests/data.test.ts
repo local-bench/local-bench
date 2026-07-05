@@ -52,7 +52,7 @@ describe("static data access", () => {
   it("splits the leaderboard so score-less shells never enter the ranked board", async () => {
     const index = await getIndexData();
     const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
-    expect(ranked.some((m) => m.slug === "gemma-4-12b-it-q4-k-xl")).toBe(true);
+    expect(ranked.some((m) => m.slug === "gemma-4-12b-it")).toBe(true);
     expect(ranked.every((m) => m.composite !== null && m.ranked && m.lane === "capped-thinking")).toBe(true);
     expect(ranked.some((m) => m.score_status === "missing")).toBe(false);
     expect(staticComposite.every((m) => m.composite_static !== null && m.static_index_version === "static-suite-v1")).toBe(true);
@@ -63,11 +63,11 @@ describe("static data access", () => {
 
   it("surfaces the ranked Gemma proof row with project-anchor attested provenance", async () => {
     const index = await getIndexData();
-    const proof = index.models.find((model) => model.slug === "gemma-4-12b-it-q4-k-xl");
+    const proof = index.models.find((model) => model.slug === "gemma-4-12b-it");
 
     expect(proof).toMatchObject({
       agentic_provenance: "project_attested",
-      best_run_id: "gemma-4-12b-it-q4-k-xl__localbench-run",
+      best_run_id: "gemma-4-12b-it__localbench-run",
       origin: "project_anchor",
       ranked: true,
       static_index_version: "static-suite-v1",
@@ -124,17 +124,24 @@ describe("static data access", () => {
     const gemma = await getModelData("gemma-4-12b-it");
     const coder = await getModelData("gemma-4-12b-coder-fable5");
 
+    // The entity merged with the ranked QAT run (model → variants): it is represented
+    // by that ranked run, while the seven ladder runs keep their quarantined agentic.
     expect(gemmaIndex).toMatchObject({
-      n_runs: 7,
-      ranked: false,
+      n_runs: 8,
+      ranked: true,
       score_status: "measured",
     });
-    expect(gemmaIndex?.axes["agentic"]).toBeUndefined();
-    expect(gemma.runs).toHaveLength(7);
-    expect(gemma.runs.every((run) => run.axes["agentic"] === undefined)).toBe(true);
-    expect(gemma.runs.every((run) => run.ranked === false)).toBe(true);
+    expect(gemmaIndex?.axes["agentic"]).toBeDefined();
+    expect(gemma.runs).toHaveLength(8);
+    const rankedRun = gemma.runs.find((run) => run.run_id === "gemma-4-12b-it__localbench-run");
+    expect(rankedRun?.ranked).toBe(true);
+    const ladderRuns = gemma.runs.filter((run) => run.run_id !== "gemma-4-12b-it__localbench-run");
+    expect(ladderRuns).toHaveLength(7);
+    expect(ladderRuns.every((run) => run.axes["agentic"] === undefined)).toBe(true);
+    expect(ladderRuns.every((run) => run.ranked === false)).toBe(true);
     expect(gemma.runs.map((run) => run.run_id)).toEqual(
       expect.arrayContaining([
+        "gemma-4-12b-it__localbench-run",
         "gemma-4-12b-it__gemma-4-12b-it-Q8_0",
         "gemma-4-12b-it__gemma-4-12b-it-Q6_K",
         "gemma-4-12b-it__gemma-4-12b-it-Q5_K_M",

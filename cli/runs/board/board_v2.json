@@ -1,6 +1,6 @@
 {
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
-  "generated_at": "2026-07-04T00:00:00Z",
+  "generated_at": "2026-07-04T23:54:31.728301+00:00",
   "generated_note": "Produced by localbench board from scorer-side scores; board-v2 folds AppWorld-C into the headline composite.",
   "index_version": "index-v2.1",
   "lane_scope": "capped-thinking",
@@ -10,7 +10,7 @@
     "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
     "extractor_version": null,
     "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-    "generated_at": "2026-07-04T00:00:00Z",
+    "generated_at": "2026-07-04T23:54:31.728301+00:00",
     "index_version": "index-v2.1",
     "item_set_hashes": {
       "ifbench.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
@@ -31,7 +31,7 @@
     },
     "scorecard_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
     "scorecard_version": "scorecard-v2.1",
-    "scorer_git_commit": "f1c913699b8f5a5de21dd3908dd14511a09a1b35",
+    "scorer_git_commit": "6f02eeacb53c94b0b708ce2d3fc3e7325a44dbf5",
     "scorer_versions": {
       "amo": "1",
       "appworld_c": "1",
@@ -365,9 +365,9 @@
           "truncation_rate": 0.0
         }
       },
-      "best_run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
-      "best_system_run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
-      "catalog_id": null,
+      "best_run_id": "gemma-4-12b-it__localbench-run",
+      "best_system_run_id": "gemma-4-12b-it__localbench-run",
+      "catalog_id": "google/gemma-4-12b-it",
       "composite": {
         "hi": 43.50254876587276,
         "hi_raw": 0.4350254876587276,
@@ -392,20 +392,36 @@
         "point": 75.3137190576671,
         "point_raw": 0.7531371905766711
       },
+      "conformance_gates": {
+        "tc_json_v1": {
+          "band": "amber",
+          "band_reasons": [],
+          "id": "tc_json_v1",
+          "invalid_json_rate": 0.0,
+          "label": "Tool-calling",
+          "n_items": 330,
+          "pass_rate": {
+            "hi": 78.66266132888788,
+            "lo": 69.26427996989665,
+            "point": 74.24242424242425
+          },
+          "threshold_version": "tc_json_v1"
+        }
+      },
       "demo": false,
       "est_cost_usd": null,
       "family": "Gemma 4",
       "kind": "community",
       "lane": "capped-thinking",
       "latency_s_median": 79.686,
-      "model_label": "Gemma 4 12B IT Q4_K_XL",
+      "model_label": "Gemma 4 12B IT",
       "n_runs": 1,
       "publisher": "google",
       "ranked": true,
-      "recommended_system_run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
+      "recommended_system_run_id": "gemma-4-12b-it__localbench-run",
       "replicated": false,
       "score_status": "measured",
-      "slug": "gemma-4-12b-it-q4-k-xl",
+      "slug": "gemma-4-12b-it",
       "static_index_version": "static-suite-v1",
       "systems": [
         {
@@ -504,6 +520,22 @@
             "point": 40.261026195500214,
             "point_raw": 0.40261026195500216
           },
+          "conformance_gates": {
+            "tc_json_v1": {
+              "band": "amber",
+              "band_reasons": [],
+              "id": "tc_json_v1",
+              "invalid_json_rate": 0.0,
+              "label": "Tool-calling",
+              "n_items": 330,
+              "pass_rate": {
+                "hi": 78.66266132888788,
+                "lo": 69.26427996989665,
+                "point": 74.24242424242425
+              },
+              "threshold_version": "tc_json_v1"
+            }
+          },
           "est_cost_usd": null,
           "is_best": true,
           "is_recommended": true,
@@ -511,10 +543,10 @@
           "latency_s_median": 79.686,
           "n_runs": 1,
           "publisher": "google",
-          "quant_label": "Q4_K_XL",
+          "quant_label": "QAT Q4_K_XL",
           "ranked": true,
           "replicated": false,
-          "run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
+          "run_id": "gemma-4-12b-it__localbench-run",
           "score_status": "measured",
           "tier": "standard",
           "tokens_to_answer_median": 8194.0,

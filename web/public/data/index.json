@@ -563,94 +563,157 @@
       "tokens_to_answer_p95": null
     },
     {
+      "agentic_provenance": "project_attested",
       "axes": {
-        "instruction": {
-          "conditional_accuracy": 0.3916083916083916,
-          "hi": 43.53741496598639,
-          "hi_raw": 0.43537414965986393,
-          "lo": 32.31292517006803,
-          "lo_raw": 0.3231292517006803,
-          "n": 294,
-          "n_errors": 8,
+        "agentic": {
+          "conditional_accuracy": 0.057291666666666664,
+          "hi": 10.416666666666668,
+          "hi_raw": 0.10416666666666667,
+          "lo": 1.0416666666666665,
+          "lo_raw": 0.010416666666666666,
+          "n": 96,
+          "n_errors": 0,
           "n_no_answer": 0,
-          "point": 38.095238095238095,
-          "point_raw": 0.38095238095238093,
-          "raw_accuracy": 0.38095238095238093,
-          "termination_rate": 0.9727891156462585
+          "point": 5.208333333333334,
+          "point_raw": 0.052083333333333336,
+          "raw_accuracy": 0.057291666666666664,
+          "termination_rate": 1.0
+        },
+        "coding": {
+          "conditional_accuracy": 0.9512195121951219,
+          "hi": 95.34883720930233,
+          "hi_raw": 0.9534883720930233,
+          "lo": 85.27131782945736,
+          "lo_raw": 0.8527131782945736,
+          "n": 129,
+          "n_errors": 0,
+          "n_no_answer": 7,
+          "point": 90.69767441860465,
+          "point_raw": 0.9069767441860465,
+          "raw_accuracy": 0.9069767441860465,
+          "termination_rate": 0.9534883720930233
+        },
+        "instruction": {
+          "conditional_accuracy": 0.704225352112676,
+          "hi": 73.46938775510205,
+          "hi_raw": 0.7346938775510204,
+          "lo": 62.585034013605444,
+          "lo_raw": 0.6258503401360545,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 68.02721088435374,
+          "point_raw": 0.6802721088435374,
+          "raw_accuracy": 0.6802721088435374,
+          "termination_rate": 0.9659863945578231
         },
         "knowledge": {
-          "conditional_accuracy": 0.7864321608040201,
-          "hi": 80.07448125941039,
-          "hi_raw": 0.8007448125941039,
-          "lo": 71.09396577069394,
-          "lo_raw": 0.7109396577069395,
+          "conditional_accuracy": 0.7835051546391754,
+          "hi": 77.54871127820888,
+          "hi_raw": 0.7754871127820888,
+          "lo": 68.28755468047005,
+          "lo_raw": 0.6828755468047005,
           "n": 400,
-          "n_errors": 2,
-          "n_no_answer": 0,
-          "point": 75.58422351505216,
-          "point_raw": 0.7558422351505216,
-          "raw_accuracy": 0.7825,
-          "termination_rate": 0.995
+          "n_errors": 0,
+          "n_no_answer": 11,
+          "point": 73.05845353385067,
+          "point_raw": 0.7305845353385066,
+          "raw_accuracy": 0.76,
+          "termination_rate": 0.97
         },
         "tool_calling": {
-          "conditional_accuracy": 0.7303030303030303,
-          "hi": 77.57575757575758,
-          "hi_raw": 0.7757575757575758,
-          "lo": 68.18181818181817,
-          "lo_raw": 0.6818181818181818,
+          "conditional_accuracy": 0.7424242424242424,
+          "hi": 78.78787878787878,
+          "hi_raw": 0.7878787878787878,
+          "lo": 69.39393939393939,
+          "lo_raw": 0.693939393939394,
           "n": 330,
           "n_errors": 0,
-          "n_no_answer": 2,
-          "point": 73.03030303030303,
-          "point_raw": 0.7303030303030303,
-          "raw_accuracy": 0.7303030303030303,
+          "n_no_answer": 0,
+          "point": 74.24242424242425,
+          "point_raw": 0.7424242424242424,
+          "raw_accuracy": 0.7424242424242424,
           "termination_rate": 1.0
         }
       },
-      "best_run_id": "gemma-4-12b-it__gemma-4-12b-it-Q6_K",
+      "best_run_id": "gemma-4-12b-it__localbench-run",
       "catalog_id": "google/gemma-4-12B-it",
       "composite": {
-        "hi": 65.74840047846318,
-        "hi_raw": 0.6574840047846318,
-        "lo": 55.823038648240285,
-        "lo_raw": 0.5582303864824029,
-        "point": 60.88737386143459,
-        "point_raw": 0.6088737386143459
+        "hi": 43.50254876587276,
+        "hi_raw": 0.4350254876587276,
+        "lo": 37.62372931355355,
+        "lo_raw": 0.3762372931355355,
+        "point": 40.261026195500214,
+        "point_raw": 0.40261026195500216
       },
-      "composite_full": null,
-      "composite_static": null,
+      "composite_full": {
+        "hi": 43.50254876587276,
+        "hi_raw": 0.4350254876587276,
+        "lo": 37.62372931355355,
+        "lo_raw": 0.3762372931355355,
+        "point": 40.261026195500214,
+        "point_raw": 0.40261026195500216
+      },
+      "composite_static": {
+        "hi": 77.84717211750439,
+        "hi_raw": 0.7784717211750438,
+        "lo": 72.75274253145282,
+        "lo_raw": 0.7275274253145283,
+        "point": 75.3137190576671,
+        "point_raw": 0.7531371905766711
+      },
+      "conformance_gates": {
+        "tc_json_v1": {
+          "band": "amber",
+          "band_reasons": [],
+          "id": "tc_json_v1",
+          "invalid_json_rate": 0.0,
+          "label": "Tool-calling",
+          "n_items": 330,
+          "pass_rate": {
+            "hi": 78.66266132888788,
+            "lo": 69.26427996989665,
+            "point": 74.24242424242425
+          },
+          "threshold_version": "tc_json_v1"
+        }
+      },
       "conformance_status": "headline-comparable",
       "contamination_label": "unverified",
       "est_cost_usd": null,
       "family": "Gemma 4",
       "gpu": {
-        "driver": "596.36",
+        "driver": "610.62",
         "name": "NVIDIA GeForce RTX 5090",
         "vram_gb": 31.8,
         "vram_mb": 32607
       },
       "kind": "community",
       "lane": "capped-thinking",
-      "latency_s_median": 3.632,
+      "latency_s_median": 79.686,
       "model_label": "Gemma 4 12B IT",
-      "n_runs": 7,
-      "origin": "community",
-      "ranked": false,
+      "n_runs": 8,
+      "origin": "project_anchor",
+      "provenance_notes": [
+        "grandfathered_attested_bundle"
+      ],
+      "ranked": true,
       "replicated": false,
       "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": "unknown",
-        "name": null,
-        "parallel_slots": null,
-        "version": null
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
       },
       "score_status": "measured",
       "slug": "gemma-4-12b-it",
+      "static_index_version": "static-suite-v1",
       "tier": "standard",
-      "tokens_to_answer_median": 258.5,
-      "tokens_to_answer_p95": 1000.0999999999976,
-      "trust_label": "community_re_scored",
-      "wall_time_seconds": 4981.174833659999
+      "tokens_to_answer_median": 8194.0,
+      "tokens_to_answer_p95": 9062.4,
+      "trust_label": "project_anchor",
+      "wall_time_seconds": 59274.173853600005
     },
     {
       "axes": {},
@@ -2486,142 +2549,6 @@
       "tokens_to_answer_p95": 583.0,
       "trust_label": "community_re_scored",
       "wall_time_seconds": 4437.270994546001
-    },
-    {
-      "agentic_provenance": "project_attested",
-      "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.057291666666666664,
-          "hi": 10.416666666666668,
-          "hi_raw": 0.10416666666666667,
-          "lo": 1.0416666666666665,
-          "lo_raw": 0.010416666666666666,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "point": 5.208333333333334,
-          "point_raw": 0.052083333333333336,
-          "raw_accuracy": 0.057291666666666664,
-          "termination_rate": 1.0
-        },
-        "coding": {
-          "conditional_accuracy": 0.9512195121951219,
-          "hi": 95.34883720930233,
-          "hi_raw": 0.9534883720930233,
-          "lo": 85.27131782945736,
-          "lo_raw": 0.8527131782945736,
-          "n": 129,
-          "n_errors": 0,
-          "n_no_answer": 7,
-          "point": 90.69767441860465,
-          "point_raw": 0.9069767441860465,
-          "raw_accuracy": 0.9069767441860465,
-          "termination_rate": 0.9534883720930233
-        },
-        "instruction": {
-          "conditional_accuracy": 0.704225352112676,
-          "hi": 73.46938775510205,
-          "hi_raw": 0.7346938775510204,
-          "lo": 62.585034013605444,
-          "lo_raw": 0.6258503401360545,
-          "n": 294,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "point": 68.02721088435374,
-          "point_raw": 0.6802721088435374,
-          "raw_accuracy": 0.6802721088435374,
-          "termination_rate": 0.9659863945578231
-        },
-        "knowledge": {
-          "conditional_accuracy": 0.7835051546391754,
-          "hi": 77.54871127820888,
-          "hi_raw": 0.7754871127820888,
-          "lo": 68.28755468047005,
-          "lo_raw": 0.6828755468047005,
-          "n": 400,
-          "n_errors": 0,
-          "n_no_answer": 11,
-          "point": 73.05845353385067,
-          "point_raw": 0.7305845353385066,
-          "raw_accuracy": 0.76,
-          "termination_rate": 0.97
-        },
-        "tool_calling": {
-          "conditional_accuracy": 0.7424242424242424,
-          "hi": 78.78787878787878,
-          "hi_raw": 0.7878787878787878,
-          "lo": 69.39393939393939,
-          "lo_raw": 0.693939393939394,
-          "n": 330,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "point": 74.24242424242425,
-          "point_raw": 0.7424242424242424,
-          "raw_accuracy": 0.7424242424242424,
-          "termination_rate": 1.0
-        }
-      },
-      "best_run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
-      "composite": {
-        "hi": 43.50254876587276,
-        "hi_raw": 0.4350254876587276,
-        "lo": 37.62372931355355,
-        "lo_raw": 0.3762372931355355,
-        "point": 40.261026195500214,
-        "point_raw": 0.40261026195500216
-      },
-      "composite_full": {
-        "hi": 43.50254876587276,
-        "hi_raw": 0.4350254876587276,
-        "lo": 37.62372931355355,
-        "lo_raw": 0.3762372931355355,
-        "point": 40.261026195500214,
-        "point_raw": 0.40261026195500216
-      },
-      "composite_static": {
-        "hi": 77.84717211750439,
-        "hi_raw": 0.7784717211750438,
-        "lo": 72.75274253145282,
-        "lo_raw": 0.7275274253145283,
-        "point": 75.3137190576671,
-        "point_raw": 0.7531371905766711
-      },
-      "conformance_status": "headline-comparable",
-      "contamination_label": "unverified",
-      "est_cost_usd": null,
-      "family": "Gemma 4",
-      "gpu": {
-        "driver": "610.62",
-        "name": "NVIDIA GeForce RTX 5090",
-        "vram_gb": 31.8,
-        "vram_mb": 32607
-      },
-      "kind": "community",
-      "lane": "capped-thinking",
-      "latency_s_median": 79.686,
-      "model_label": "Gemma 4 12B IT Q4_K_XL",
-      "n_runs": 1,
-      "origin": "project_anchor",
-      "provenance_notes": [
-        "grandfathered_attested_bundle"
-      ],
-      "ranked": true,
-      "replicated": false,
-      "runtime": {
-        "ctx_len_configured": 32768,
-        "kv_cache_quant": "k=f16,v=f16",
-        "name": "llama.cpp",
-        "parallel_slots": 1,
-        "version": "b9852/fd1a05791"
-      },
-      "score_status": "measured",
-      "slug": "gemma-4-12b-it-q4-k-xl",
-      "static_index_version": "static-suite-v1",
-      "tier": "standard",
-      "tokens_to_answer_median": 8194.0,
-      "tokens_to_answer_p95": 9062.4,
-      "trust_label": "project_anchor",
-      "wall_time_seconds": 59274.173853600005
     },
     {
       "axes": {

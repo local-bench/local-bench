@@ -46,7 +46,14 @@ def run_path(raw: str, runs_dir: Path) -> Path:
         return path
     if path.parts[:2] == ("cli", "runs"):
         return REPO_ROOT / path
-    return runs_dir / path
+    candidate = runs_dir / path
+    if candidate.exists():
+        return candidate
+    # Curation paths are also written repo-root-relative (e.g. "runs/bench/<campaign>/…"
+    # from `localbench bench` campaigns at the repo root). Fall back there before
+    # reporting the run missing, so the default --runs-dir resolves both layouts.
+    fallback = REPO_ROOT / path
+    return fallback if fallback.exists() else candidate
 
 
 def is_superseded(path: Path) -> bool:

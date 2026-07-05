@@ -132,10 +132,35 @@ def test_board_attaches_tc_json_gate_without_changing_rank_or_composite(tmp_path
     assert system_gate == gate
 
 
-def test_board_omits_tc_json_gate_when_sidecar_is_missing(tmp_path: Path) -> None:
-    # Given: a board fixture with no runs/tc-json sidecar.
+def test_board_computes_tc_json_gate_from_inline_bench_when_sidecar_is_missing(tmp_path: Path) -> None:
+    # Given: a board fixture with no runs/tc-json sidecar but an inline tc_json_v1 bench
+    # (the shape every submission-scored and inline run has).
     paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json")])
     write_run(paths["runs"] / "fixture.json", run_record())
+
+    # When: the board is built.
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    # Then: the gate is recovered from the run's own bench aggregate — raw pass rate as
+    # the point, Wilson bounds, extraction failures as the invalid-JSON rate.
+    model = objects_value(board["models"])[0]
+    gate = object_value(object_value(model["conformance_gates"])["tc_json_v1"])
+    assert gate["band"] == "red"
+    assert gate["band_reasons"] == ["pass<60"]
+    assert float_value(object_value(gate["pass_rate"])["point"]) == pytest.approx(50.0)
+    assert float_value(gate["invalid_json_rate"]) == pytest.approx(0.0)
+    assert gate["n_items"] == 2
+
+
+def test_board_omits_tc_json_gate_without_sidecar_or_inline_bench(tmp_path: Path) -> None:
+    # Given: a board fixture whose run has neither a tc-json sidecar nor a tc_json_v1 bench.
+    paths = write_inputs(tmp_path, [source("Fixture Model", "fixture.json")])
+    write_run(paths["runs"] / "fixture.json", run_record(tc_json_correct=None))
 
     # When: the board is built.
     board = build_board(

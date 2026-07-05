@@ -512,6 +512,20 @@ def _scorecard_detail(scorecard: JsonObject) -> JsonObject:
     }
 
 
+def _representative_run(group: list[JsonObject]) -> JsonObject:
+    # Ranked (full-index, headline-scope) runs always represent the model entity: a
+    # renormalized partial composite can be numerically larger than a full five-axis
+    # composite, but partial diagnostics must never outrank or re-badge the model row.
+    return max(
+        group,
+        key=lambda run: (
+            bool(_object(run["index_row"], "index_row").get("ranked")),
+            _number(run["composite_raw"], "composite_raw"),
+            -_int(run["order"], "order"),
+        ),
+    )
+
+
 def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObject]) -> None:
     models_dir = out_dir / "models"
     runs_dir = out_dir / "runs"
@@ -530,7 +544,7 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
         slug = catalog_slug(entry)
         group = catalog_run_groups.get(catalog_key(entry), groups.get(slug, []))
         if group:
-            best = max(group, key=lambda run: (_number(run["composite_raw"], "composite_raw"), -_int(run["order"], "order")))
+            best = _representative_run(group)
             row = _object(best["index_row"], "index_row") | {
                 "catalog_id": entry["id"],
                 "model_label": entry["display_name"],
@@ -545,7 +559,7 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
         _write_json(models_dir / f"{slug}.json", catalog_model_payload(entry, sorted(group, key=lambda item: _int(item["order"], "order"))))
     for slug in sorted(slug for slug in groups if slug not in catalog_slugs and not any(run_catalog_key(run) is not None for run in groups[slug])):
         group = groups[slug]
-        best = max(group, key=lambda run: (_number(run["composite_raw"], "composite_raw"), -_int(run["order"], "order")))
+        best = _representative_run(group)
         row = _object(best["index_row"], "index_row") | {
             "n_runs": len(group),
             "replicated": any(_bool(_object(run["index_row"], "index_row").get("replicated"), "index_row.replicated") for run in group),
