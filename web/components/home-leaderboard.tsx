@@ -96,7 +96,7 @@ export function HomeLeaderboard({
                 {score === null ? (
                   <NoScoreCell />
                 ) : (
-                  <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} />
+                  <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} rail={scoreMode === "full"} />
                 )}
               </td>
               {axisKeys.map((axisKey) => (
@@ -106,7 +106,7 @@ export function HomeLeaderboard({
               ))}
               {showAgenticColumn ? (
                 <td className="px-3 py-3">
-                  <AgenticCell model={agenticBySlug.get(model.slug)} />
+                  <AgenticCell model={agenticBySlug.get(model.slug)} axisScore={model.axes["agentic"]} />
                 </td>
               ) : null}
               <td className="px-3 py-3">

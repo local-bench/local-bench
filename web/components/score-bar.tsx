@@ -7,10 +7,14 @@ export function ScoreBar({
   axes,
   score,
   tone = "accent",
+  rail = false,
 }: {
   readonly axes?: Readonly<Record<string, AxisScore>>;
   readonly score: Score;
   readonly tone?: "accent" | "anchor" | "muted";
+  // Replace the single-color bar with the index-weighted contribution rail. Only valid where
+  // the score IS the full Local Intelligence Index — the rail hardcodes index-v2.1 weights.
+  readonly rail?: boolean;
 }) {
   const barColor =
     tone === "anchor" ? "bg-bench-anchor" : tone === "muted" ? "bg-bench-muted" : "bg-bench-accent";
@@ -20,12 +24,46 @@ export function ScoreBar({
         <span className="font-mono text-lg font-semibold text-bench-text">{formatScore(score.point)}</span>
         <span className="font-mono text-xs text-bench-muted">{formatCi(score)}</span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${clampScore(score.point)}%` }} />
-      </div>
+      {rail && axes !== undefined ? (
+        <IndexContributionRail axes={axes} className="mt-1 h-1.5 w-full" />
+      ) : (
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${clampScore(score.point)}%` }} />
+        </div>
+      )}
       {axes === undefined ? null : (
         <ModularAxisProfile axes={axes} className="mt-1 block font-mono text-[11px] text-bench-muted" />
       )}
+    </div>
+  );
+}
+
+// The Local Intelligence Index bar as its per-axis contributions, in the shared axis palette —
+// the same rail the landing Leaderboard summary draws, so segments match axis columns everywhere.
+// Hardcodes index-v2.1 headline weights; never use for the static (no-agentic) composite.
+export function IndexContributionRail({
+  axes,
+  className,
+}: {
+  readonly axes: Readonly<Record<string, AxisScore>>;
+  readonly className?: string;
+}) {
+  const a = (axes["agentic"]?.point ?? 0) * 0.5;
+  const k = (axes["knowledge"]?.point ?? 0) * 0.15;
+  const i = (axes["instruction"]?.point ?? 0) * 0.15;
+  const t = (axes["tool_calling"]?.point ?? 0) * 0.1;
+  const c = (axes["coding"]?.point ?? 0) * 0.1;
+  const total = a + k + i + t + c;
+  return (
+    <div
+      className={`flex overflow-hidden rounded-full bg-white/10 ${className ?? "h-1.5 w-full"}`}
+      title={`Agentic ${a.toFixed(1)} + Knowledge ${k.toFixed(1)} + Instruction ${i.toFixed(1)} + Tool ${t.toFixed(1)} + Coding ${c.toFixed(1)} = ${total.toFixed(1)}`}
+    >
+      <div className="h-full" style={{ width: `${a}%`, backgroundColor: axisColor("agentic") }} />
+      <div className="h-full" style={{ width: `${k}%`, backgroundColor: axisColor("knowledge") }} />
+      <div className="h-full" style={{ width: `${i}%`, backgroundColor: axisColor("instruction") }} />
+      <div className="h-full" style={{ width: `${t}%`, backgroundColor: axisColor("tool_calling") }} />
+      <div className="h-full" style={{ width: `${c}%`, backgroundColor: axisColor("coding") }} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AxisMiniBar } from "@/components/score-bar";
+import { AxisMiniBar, IndexContributionRail } from "@/components/score-bar";
 import { axisColor } from "@/lib/axis-config";
 import { familyStyle } from "@/lib/family-color";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
@@ -99,7 +99,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                       <div className="font-mono text-bench-text">
                         {formatScore(point.score.point)} <span className="text-bench-muted">{formatCi(point.score)}</span>
                       </div>
-                      <ContributionRail axes={point.axes} />
+                      <IndexContributionRail axes={point.axes} className="mt-1.5 h-1.5 w-full max-w-[170px]" />
                     </div>
                   </td>
                   <td className="px-3 py-3 font-mono text-bench-text">
@@ -136,24 +136,3 @@ function AxisDot({ axis }: { readonly axis: string }) {
   );
 }
 
-function ContributionRail({ axes }: { readonly axes: Readonly<Record<string, AxisScore>> }) {
-  const a = (axes["agentic"]?.point ?? 0) * 0.5;
-  const k = (axes["knowledge"]?.point ?? 0) * 0.15;
-  const i = (axes["instruction"]?.point ?? 0) * 0.15;
-  const t = (axes["tool_calling"]?.point ?? 0) * 0.1;
-  const c = (axes["coding"]?.point ?? 0) * 0.1;
-  const total = a + k + i + t + c;
-  // Segment colors are the shared axis palette so each slice matches its axis column's bar.
-  return (
-    <div
-      className="mt-1.5 flex h-1.5 w-full max-w-[170px] overflow-hidden rounded-full bg-white/10"
-      title={`Agentic ${a.toFixed(1)} + Knowledge ${k.toFixed(1)} + Instruction ${i.toFixed(1)} + Tool ${t.toFixed(1)} + Coding ${c.toFixed(1)} = ${total.toFixed(1)}`}
-    >
-      <div className="h-full" style={{ width: `${a}%`, backgroundColor: axisColor("agentic") }} />
-      <div className="h-full" style={{ width: `${k}%`, backgroundColor: axisColor("knowledge") }} />
-      <div className="h-full" style={{ width: `${i}%`, backgroundColor: axisColor("instruction") }} />
-      <div className="h-full" style={{ width: `${t}%`, backgroundColor: axisColor("tool_calling") }} />
-      <div className="h-full" style={{ width: `${c}%`, backgroundColor: axisColor("coding") }} />
-    </div>
-  );
-}

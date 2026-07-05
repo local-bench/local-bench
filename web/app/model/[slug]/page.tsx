@@ -1,10 +1,8 @@
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { ConformancePill } from "@/components/conformance-pill";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
-import { AxisMiniBar } from "@/components/score-bar";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 
 export const dynamicParams = false;
@@ -33,11 +31,6 @@ export default async function ModelPage({ params }: PageProps) {
   const submitter = measuredRuns.find(
     (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
   )?.submitter_display_name;
-  const bestMeasuredRun = measuredRuns.reduce<(typeof measuredRuns)[number] | undefined>(
-    (best, run) => (best === undefined || (run.composite?.point ?? -Infinity) > (best.composite?.point ?? -Infinity) ? run : best),
-    undefined,
-  );
-  const toolCallingAxis = bestMeasuredRun?.axes.tool_calling;
   const formatGate = model.runs.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
     ?.tc_json_v1;
 
@@ -65,26 +58,7 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
         </div>
       </header>
-      <section className="rounded-lg border border-bench-line bg-bench-panel/82 px-4 py-3">
-        <h2 className="text-sm font-semibold uppercase text-bench-muted">Tool calling</h2>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-bench-muted">
-          <span className="font-mono text-bench-text">tc_json_v1</span>
-          <span>plaintext tool-call benchmark</span>
-          <AxisMiniBar score={toolCallingAxis} axis="tool_calling" />
-          <span className="font-mono">n={toolCallingAxis?.n ?? "n/a"}</span>
-          {formatGate === undefined ? null : (
-            <>
-              <span>format gate</span>
-              <ConformancePill gate={formatGate} showReason compact />
-            </>
-          )}
-          <span>Weighted axis; 10% Local Intelligence Index weight.</span>
-        </div>
-        <p className="mt-2 text-xs leading-5 text-bench-muted">
-          Tool calling tests single-turn tool selection and argument construction. Agentic tests multi-turn Python code-as-action task completion. They may correlate; they are not independent votes.
-        </p>
-      </section>
-      <ModelVariantBoard model={model} />
+      <ModelVariantBoard model={model} formatGate={formatGate} />
       <ModelScatter model={model} anchorRuns={anchorRuns} />
     </main>
   );

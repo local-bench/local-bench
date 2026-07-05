@@ -10,8 +10,10 @@ export const AXIS_CONFIG = [
   { key: "knowledge", label: "Knowledge", color: "#7c9fff" },
   { key: "instruction", label: "Instruction", color: "#b388ff" },
   { key: "tool_calling", label: "Tool calling", color: "#ffb627" },
-  { key: "coding", label: "Coding", color: "#36e0b0" },
-  { key: "math", label: "Math", color: "#ff5fa8" },
+  // Coding is magenta, NOT the theme's mint green — mint sits too close to the agentic cyan
+  // to tell the two biggest segments apart (owner call, 2026-07-05).
+  { key: "coding", label: "Coding", color: "#ff5fa8" },
+  { key: "math", label: "Math", color: "#36e0b0" },
 ] as const satisfies readonly AxisConfigEntry[];
 
 // Accent at ~55% — the historical mini-bar fill, kept for axes outside the canonical set.
