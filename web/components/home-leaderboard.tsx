@@ -101,7 +101,7 @@ export function HomeLeaderboard({
               </td>
               {axisKeys.map((axisKey) => (
                 <td key={axisKey} className="px-3 py-3">
-                  <AxisMiniBar score={model.axes[axisKey]} />
+                  <AxisMiniBar score={model.axes[axisKey]} axis={axisKey} />
                 </td>
               ))}
               {showAgenticColumn ? (

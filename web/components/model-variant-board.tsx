@@ -89,7 +89,7 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                   </td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
-                      <AxisMiniBar score={run.axes[axis]} />
+                      <AxisMiniBar score={run.axes[axis]} axis={axis} />
                     </td>
                   ))}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
@@ -132,7 +132,7 @@ export function ModelVariantBoard({ model }: { readonly model: ModelData }) {
                 </td>
                 {axisKeys.map((axis) => (
                   <td key={axis} className="px-3 py-3">
-                    <AxisMiniBar score={run.axes[axis]} />
+                    <AxisMiniBar score={run.axes[axis]} axis={axis} />
                   </td>
                 ))}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>

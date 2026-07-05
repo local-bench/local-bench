@@ -1,4 +1,5 @@
 import { ModularAxisProfile } from "@/components/local-intelligence-index";
+import { axisColor } from "@/lib/axis-config";
 import { clampScore, formatCi, formatScore } from "@/lib/format";
 import type { AxisScore, Score } from "@/lib/schemas";
 
@@ -29,7 +30,15 @@ export function ScoreBar({
   );
 }
 
-export function AxisMiniBar({ score }: { readonly score: AxisScore | undefined }) {
+export function AxisMiniBar({
+  score,
+  axis,
+}: {
+  readonly score: AxisScore | undefined;
+  // Axis key selecting the shared axis color, so every mini bar matches the same axis's
+  // segment in the index contribution rail. Omitted -> the neutral accent fill.
+  readonly axis?: string;
+}) {
   if (score === undefined || score.n === 0) {
     return <div className="min-w-[88px] font-mono text-xs text-bench-muted">n/a</div>;
   }
@@ -40,7 +49,10 @@ export function AxisMiniBar({ score }: { readonly score: AxisScore | undefined }
         <span className="text-bench-muted">{formatCi(score)}</span>
       </div>
       <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
-        <div className="h-full rounded-full bg-bench-accent/55" style={{ width: `${clampScore(score.point)}%` }} />
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${clampScore(score.point)}%`, backgroundColor: axisColor(axis) }}
+        />
       </div>
     </div>
   );

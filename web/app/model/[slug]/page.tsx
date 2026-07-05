@@ -70,7 +70,7 @@ export default async function ModelPage({ params }: PageProps) {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-bench-muted">
           <span className="font-mono text-bench-text">tc_json_v1</span>
           <span>plaintext tool-call benchmark</span>
-          <AxisMiniBar score={toolCallingAxis} />
+          <AxisMiniBar score={toolCallingAxis} axis="tool_calling" />
           <span className="font-mono">n={toolCallingAxis?.n ?? "n/a"}</span>
           {formatGate === undefined ? null : (
             <>
