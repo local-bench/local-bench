@@ -452,7 +452,12 @@ function Test-DeploymentAliases {
     $result = Invoke-Http -Uri $uri
 
     if ($result.status_code -eq 200) {
-      Add-CheckResult "FAIL" "Deployment alias $id" "unauthenticated request returned HTTP 200; deployment alias leak"
+      if ($ExpectedMode -eq 'Public') {
+        Add-CheckResult "PASS" "Deployment alias $id" "returned HTTP 200; expected in Public mode (nothing is gated)"
+      }
+      else {
+        Add-CheckResult "FAIL" "Deployment alias $id" "unauthenticated request returned HTTP 200; deployment alias leak"
+      }
     }
     elseif ($result.status_code -eq 0) {
       Add-CheckResult "WARN" "Deployment alias $id" "request failed; cannot prove alias is closed; $($result.error)"

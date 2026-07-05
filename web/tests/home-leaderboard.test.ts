@@ -26,6 +26,8 @@ describe("home leaderboard runtime column", () => {
     );
 
     expect(html).toContain("Runtime");
+    expect(html).toContain("Tool-call format");
+    expect(html).toContain("valid-JSON gate · not a score");
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b1234");
     expect(html).toContain("Missing Runtime");

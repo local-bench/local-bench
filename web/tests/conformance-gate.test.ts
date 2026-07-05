@@ -5,8 +5,8 @@ import { BestVariantTable } from "../components/best-variant-table";
 import { IndexModelSchema, ModelRunSchema, type ConformanceGate } from "../lib/schemas";
 import type { BestVariantPoint } from "../lib/best-variant";
 
-const RED_GATE = gate("red", 90);
-const GREEN_GATE = gate("green", 70);
+const RED_TC_JSON = gate("red", 90);
+const GREEN_TC_JSON = gate("green", 70);
 
 describe("conformance gate data", () => {
   it("parses optional gates on index rows and model runs", () => {
@@ -15,7 +15,7 @@ describe("conformance gate data", () => {
       axes: {},
       best_run_id: "model-a__run",
       composite: { point: 80, lo: 75, hi: 85 },
-      conformance_gates: { tc_json_v1: RED_GATE },
+      conformance_gates: { tc_json_v1: RED_TC_JSON },
       demo: false,
       est_cost_usd: null,
       family: "Fixture",
@@ -34,7 +34,7 @@ describe("conformance gate data", () => {
     const runRow = ModelRunSchema.parse({
       axes: {},
       composite: { point: 80, lo: 75, hi: 85 },
-      conformance_gates: { tc_json_v1: GREEN_GATE },
+      conformance_gates: { tc_json_v1: GREEN_TC_JSON },
       est_cost_usd: null,
       hardware: { cpu: null, gpu: null, os: null, ram_gb: null },
       lane: "capped-thinking",
@@ -62,8 +62,8 @@ describe("conformance gate data", () => {
     const html = renderToStaticMarkup(
       createElement(BestVariantTable, {
         points: [
-          point("lower-green", "Lower Green", 70, GREEN_GATE),
-          point("higher-red", "Higher Red", 90, RED_GATE),
+          point("lower-green", "Lower Green", 70, GREEN_TC_JSON),
+          point("higher-red", "Higher Red", 90, RED_TC_JSON),
         ],
       }),
     );
@@ -76,6 +76,29 @@ describe("conformance gate data", () => {
     expect(higherIndex).toBeGreaterThan(-1);
     expect(lowerIndex).toBeGreaterThan(-1);
     expect(higherIndex).toBeLessThan(lowerIndex);
+  });
+
+  it("renders efficiency-frontier chips only when there are enough ranked points", () => {
+    // Given: one singleton frontier point and one three-point board with a non-dominated point.
+    const singletonHtml = renderToStaticMarkup(
+      createElement(BestVariantTable, {
+        points: [point("only", "Only Model", 90, GREEN_TC_JSON, true)],
+      }),
+    );
+    const multiPointHtml = renderToStaticMarkup(
+      createElement(BestVariantTable, {
+        points: [
+          point("frontier", "Frontier Model", 90, GREEN_TC_JSON, true),
+          point("middle", "Middle Model", 80, GREEN_TC_JSON),
+          point("small", "Small Model", 70, GREEN_TC_JSON),
+        ],
+      }),
+    );
+
+    // Then: the singleton does not get a vacuous badge, while real multi-point frontiers are explicit.
+    expect(singletonHtml).not.toContain("efficiency frontier");
+    expect(multiPointHtml).toContain("efficiency frontier");
+    expect(multiPointHtml).toContain("Not a capability tier.");
   });
 });
 
@@ -92,13 +115,19 @@ function gate(band: ConformanceGate["band"], point: number): ConformanceGate {
   };
 }
 
-function point(runId: string, modelLabel: string, score: number, tcJsonGate: ConformanceGate): BestVariantPoint {
+function point(
+  runId: string,
+  modelLabel: string,
+  score: number,
+  tcJsonGate: ConformanceGate,
+  isFrontier = false,
+): BestVariantPoint {
   return {
     axes: {},
     conformanceGates: { tc_json_v1: tcJsonGate },
     effectiveVramGb: 16,
     family: "Fixture",
-    isFrontier: false,
+    isFrontier,
     modelLabel,
     modelSlug: runId,
     nRuns: 1,

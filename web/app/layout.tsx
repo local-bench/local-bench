@@ -3,10 +3,24 @@ import { AppShell } from "@/components/app-shell";
 import { getIndexData } from "@/lib/data";
 import "./globals.css";
 
+const title = "local-bench";
+const description =
+  "A community quality leaderboard for local and open LLMs: a modular Local Intelligence Index across agentic, knowledge, instruction, tool-calling, and coding axes.";
+const siteUrl = "https://local-bench.ai";
+
 export const metadata: Metadata = {
-  title: "local-bench",
-  description:
-    "A community quality leaderboard for local and open LLMs: a modular Local Intelligence Index across agentic, knowledge, instruction, tool-calling, and coding axes.",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  alternates: { canonical: "./" },
+  openGraph: {
+    description,
+    siteName: "local-bench",
+    title,
+    type: "website",
+    url: `${siteUrl}/`,
+  },
+  twitter: { card: "summary" },
 };
 
 export default async function RootLayout({

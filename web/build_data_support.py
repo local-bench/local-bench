@@ -81,3 +81,11 @@ def int_or_none(value: JsonValue | None) -> int | None:
 
 def bool_value(value: JsonValue | None, context: str) -> bool:
     return value if isinstance(value, bool) else fail(f"{context} must be a bool")
+
+
+def without_scoreless_conformance_status(row: JsonObject) -> JsonObject:
+    if row.get("score_status") == "measured":
+        return row
+    cleaned = row.copy()
+    cleaned.pop("conformance_status", None)
+    return cleaned

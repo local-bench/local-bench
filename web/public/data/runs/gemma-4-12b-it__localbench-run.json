@@ -146,6 +146,22 @@
     "status": "headline-comparable",
     "worst_bench": null
   },
+  "conformance_gates": {
+    "tc_json_v1": {
+      "band": "amber",
+      "band_reasons": [],
+      "id": "tc_json_v1",
+      "invalid_json_rate": 0.0,
+      "label": "Tool-calling",
+      "n_items": 330,
+      "pass_rate": {
+        "hi": 78.66266132888788,
+        "lo": 69.26427996989665,
+        "point": 74.24242424242425
+      },
+      "threshold_version": "tc_json_v1"
+    }
+  },
   "contamination_label": "unverified",
   "data_warnings": [
     "math not measured in this run; axis omitted",
@@ -186,7 +202,7 @@
       "format": "GGUF",
       "runtime_reported_model": "gemma-4-12b-it-qat-ud-q4-k-xl"
     },
-    "quant": "Q4_K_XL",
+    "quant": "QAT Q4_K_XL",
     "runtime": {
       "ctx_len_configured": 32768,
       "kv_cache_quant": "k=f16,v=f16",
@@ -263,13 +279,13 @@
     },
     "thinking_mode": "n/a"
   },
-  "model_label": "Gemma 4 12B IT Q4_K_XL",
+  "model_label": "Gemma 4 12B IT",
   "origin": "project_anchor",
   "provenance_notes": [
     "grandfathered_attested_bundle"
   ],
   "ranked": true,
-  "run_id": "gemma-4-12b-it-q4-k-xl__localbench-run",
+  "run_id": "gemma-4-12b-it__localbench-run",
   "scorecard": {
     "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
     "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",

@@ -6,12 +6,14 @@ import {
   type ContextLengthOption,
   type VramEstimate,
 } from "./rig-match";
-import { isQuantOption } from "./quant";
 import type { AxisScore, ModelData, Score } from "./schemas";
+
+export type CompareCoverage = "full" | "partial";
 
 export type CompareConfig = {
   readonly axes: Record<string, AxisScore>;
   readonly composite: Score;
+  readonly coverage: CompareCoverage;
   readonly demo: boolean;
   readonly fitTierGb: number | null;
   readonly id: string;
@@ -22,6 +24,8 @@ export type CompareConfig = {
   readonly tokS: number | null;
   readonly vramEstimate: VramEstimate | null;
 };
+
+const HEADLINE_AXIS_KEYS = ["agentic", "knowledge", "instruction", "tool_calling", "coding"] as const;
 
 export type AxisDelta = {
   readonly axis: AxisKey;
@@ -39,7 +43,7 @@ export function getCompareConfigs(
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
-        if (!isQuantOption(run.quant_label) || run.composite === null || run.run_id === null) {
+        if (!isNonEmptyString(run.quant_label) || run.composite === null || run.run_id === null) {
           return [];
         }
         const vramEstimate = estimateVramRequirement(
@@ -54,6 +58,7 @@ export function getCompareConfigs(
           {
             axes: run.axes,
             composite: run.composite,
+            coverage: coverageForAxes(run.axes),
             demo: model.demo || run.demo,
             fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
             id: run.run_id,
@@ -80,6 +85,14 @@ export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readon
     const delta = leftScore.point - rightScore.point;
     return [{ axis, delta, leftScore, rightScore, winner: winnerFor(delta) }];
   });
+}
+
+function coverageForAxes(axes: Readonly<Record<string, AxisScore>>): CompareCoverage {
+  return HEADLINE_AXIS_KEYS.every((axis) => axes[axis] !== undefined) ? "full" : "partial";
+}
+
+function isNonEmptyString(value: string | null): value is string {
+  return value !== null && value.trim() !== "";
 }
 
 function compareConfigs(left: CompareConfig, right: CompareConfig): number {

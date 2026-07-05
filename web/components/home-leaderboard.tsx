@@ -69,8 +69,8 @@ export function HomeLeaderboard({
             ) : null}
             <th className="border-l border-bench-line px-3 py-3 font-semibold">
               <span className="flex flex-col gap-0.5 leading-tight">
-                <span>Conformance</span>
-                <span className="font-mono text-[10px] normal-case text-bench-muted">Tool calling format gate · not ranked</span>
+                <span>Tool-call format</span>
+                <span className="font-mono text-[10px] normal-case text-bench-muted">valid-JSON gate · not a score</span>
               </span>
             </th>
             <SortableHeader label="Runtime" sortKey="runtime" sort={sort} onSort={setSort} />

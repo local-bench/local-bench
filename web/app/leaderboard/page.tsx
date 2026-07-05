@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
+import { MeasuredDiagnostics } from "@/components/measured-diagnostics";
 import { PartialCoverageBoard } from "@/components/partial-coverage-board";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -17,6 +19,10 @@ export default async function LeaderboardPage() {
     getPartialCoverageBoard(),
   ]);
   const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
+  const displayedMeasuredSlugs = new Set([...ranked, ...staticComposite].map((model) => model.slug));
+  const measuredDiagnostics = index.models.filter(
+    (model) => model.score_status === "measured" && !displayedMeasuredSlugs.has(model.slug),
+  );
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
@@ -48,15 +54,19 @@ export default async function LeaderboardPage() {
             </p>
           </div>
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
-          <div className="rounded-lg border border-bench-warn/35 bg-bench-warn/[0.08] p-4 text-sm leading-6 text-bench-warn-soft">
-            <strong className="text-bench-warn">Standard tier, capped-thinking lane only.</strong> Only measured,
-            conformance-passing local runs with all five headline axes are ranked. Partial diagnostics and score-less catalog
-            models never mix into the rank.
+          <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
+            Ranked rows are complete five-axis runs under the standard capped-thinking settings. Partial or unscored entries
+            are listed separately below and never mix into the rank — see{" "}
+            <Link href="/methodology" className="text-bench-accent hover:underline">
+              methodology
+            </Link>
+            .
           </div>
         </div>
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
         <HomeLeaderboard models={staticComposite} scoreMode="static" />
         <PartialCoverageBoard rows={partialCoverage} />
+        <MeasuredDiagnostics models={measuredDiagnostics} />
         <CatalogShells models={catalog} />
       </section>
     </main>

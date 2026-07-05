@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DemoBadge } from "@/components/badges";
+import { CompareCoverageChip, compareCoverageLabel } from "@/components/compare-coverage-chip";
 import {
   ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -148,7 +149,12 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
               <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
             </span>
           }
-          value={formatScore(config.composite.point)}
+          value={
+            <span className="flex flex-wrap items-center gap-2">
+              <span>{formatScore(config.composite.point)}</span>
+              <CompareCoverageChip coverage={config.coverage} />
+            </span>
+          }
         />
         <Metric label="Effective VRAM" value={formatGb(config.vramEstimate?.effectiveRequiredGb)} />
         <Metric label="Fits" value={config.fitTierGb === null ? ">512 GB" : `${config.fitTierGb} GB`} />
@@ -168,7 +174,7 @@ function Metric({
 }: {
   readonly detail?: ReactNode;
   readonly label: ReactNode;
-  readonly value: string;
+  readonly value: ReactNode;
 }) {
   return (
     <div className="rounded border border-bench-line bg-bench-panel-2/70 p-3">
@@ -218,7 +224,8 @@ function findDefaultRight(configs: readonly CompareConfig[], leftId: string | nu
 }
 
 function configLabel(config: CompareConfig): string {
-  return `${config.modelLabel} · ${config.quantLabel} · ${formatGb(config.vramEstimate?.effectiveRequiredGb)}`;
+  const demo = config.demo ? " · demo" : "";
+  return `${config.modelLabel} · ${config.quantLabel} · ${compareCoverageLabel(config.coverage)}${demo} · ${formatGb(config.vramEstimate?.effectiveRequiredGb)}`;
 }
 
 function formatSigned(value: number): string {
@@ -245,6 +252,10 @@ function winnerLabel(delta: AxisDelta, left: CompareConfig, right: CompareConfig
     case "tie":
       return "Tie";
     default:
-      return "Tie";
+      return assertNever(delta.winner);
   }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled compare value: ${String(value)}`);
 }
