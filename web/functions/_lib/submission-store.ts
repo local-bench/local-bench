@@ -260,15 +260,44 @@ export async function listSubmissionsByStatus(
 }
 
 export async function listAcceptedFeed(env: SubmissionApiEnv, limit: number): Promise<readonly AcceptedFeedRow[]> {
-  const rows = await env.DB.prepare(
-    `select submission_id, submitter_display_name, origin, suite_release_id, publish_state, validated_at, raw_bundle_sha256
-     from submissions
-     where status = 'accepted'
-     order by coalesce(validated_at, uploaded_at, published_at, created_at) desc, created_at desc
-     limit ?`,
-  )
-    .bind(limit)
-    .all();
+  return listAcceptedFeedView(env, limit, "verified");
+}
+
+export async function listAcceptedFeedView(
+  env: SubmissionApiEnv,
+  limit: number,
+  view: "provisional" | "verified",
+): Promise<readonly AcceptedFeedRow[]> {
+  let rows: { readonly results: readonly Record<string, unknown>[] };
+  try {
+    rows = await env.DB.prepare(
+      `select submission_id, submitter_display_name, origin, suite_release_id, publish_state, validated_at, raw_bundle_sha256
+       from submissions
+       where status = 'accepted'
+         and (${view === "provisional" ? "zt1_decision = 'provisional'" : "coalesce(zt1_decision, '') <> 'provisional'"})
+       order by coalesce(validated_at, uploaded_at, published_at, created_at) desc, created_at desc
+       limit ?`,
+    )
+      .bind(limit)
+      .all();
+  } catch (error) {
+    if (zt1ColumnsMissing(error)) {
+      if (view === "provisional") {
+        return [];
+      }
+      rows = await env.DB.prepare(
+        `select submission_id, submitter_display_name, origin, suite_release_id, publish_state, validated_at, raw_bundle_sha256
+         from submissions
+         where status = 'accepted'
+         order by coalesce(validated_at, uploaded_at, published_at, created_at) desc, created_at desc
+         limit ?`,
+      )
+        .bind(limit)
+        .all();
+    } else {
+      throw error;
+    }
+  }
   return rows.results.map((row) => ({
     origin: text(row, "origin"),
     publish_state: text(row, "publish_state"),
@@ -394,4 +423,8 @@ function nullableText(row: Record<string, unknown>, key: string): string | null 
 
 function transitionTableMissing(error: unknown): boolean {
   return error instanceof Error && error.message.includes("no such table: submission_transitions");
+}
+
+function zt1ColumnsMissing(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("zt1_decision");
 }

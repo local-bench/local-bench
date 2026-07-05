@@ -2,10 +2,19 @@ import {
   PublishStateDecisionSchema,
   StatusUpdateSchema,
   type RouteParams,
+  type SubmissionRow,
   type SubmissionApiEnv,
 } from "./submission-contracts";
 import { adminBlocked, jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
 import { InvalidTransitionError } from "./submission-state";
+import { zt1DecisionForAcceptedSubmission } from "./submission-zt1-decision";
+import {
+  autoPublishEnabled,
+  evaluateFreezeAlarms,
+  persistZt1Decision,
+  publicSubmissionWithZt1,
+  zt1Available,
+} from "./submission-zt1-store";
 import {
   applyStatusUpdate,
   listSubmissionsByStatus,
@@ -67,7 +76,12 @@ export async function handleApplyVerificationUpdate(
   try {
     await applyStatusUpdate(env, row.value.submission_id, parsed.data);
     const updated = await rowBySubmissionId(env, row.value.submission_id);
-    return jsonResponse(200, publicSubmission(updated ?? row.value));
+    if (updated !== null && parsed.data.status === "accepted") {
+      await applyZt1AcceptedDecision(env, updated);
+      const decided = await rowBySubmissionId(env, updated.submission_id);
+      return jsonResponse(200, await publicSubmissionWithZt1(env, decided ?? updated));
+    }
+    return jsonResponse(200, updated === null ? publicSubmission(row.value) : await publicSubmissionWithZt1(env, updated));
   } catch (error) {
     if (error instanceof InvalidTransitionError) {
       return invalidTransition(error);
@@ -83,6 +97,18 @@ export async function handleApplyVerificationUpdate(
       error: "submission verification update failed",
     });
   }
+}
+
+async function applyZt1AcceptedDecision(env: SubmissionApiEnv, row: SubmissionRow): Promise<void> {
+  if (!await zt1Available(env)) {
+    return;
+  }
+  await evaluateFreezeAlarms(env);
+  if (!await autoPublishEnabled(env)) {
+    return;
+  }
+  const plan = await zt1DecisionForAcceptedSubmission(env, row);
+  await persistZt1Decision(env, row.submission_id, plan);
 }
 
 export async function handlePublishStateDecision(
