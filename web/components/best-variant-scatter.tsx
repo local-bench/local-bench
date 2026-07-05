@@ -1,5 +1,4 @@
-import { formatModularAxisProfile } from "@/components/local-intelligence-index";
-import { formatGb, formatScore } from "@/lib/format";
+import { formatDuration, formatGb, formatScore } from "@/lib/format";
 import { familyStyle } from "@/lib/family-color";
 import {
   getVramLogDomain,
@@ -183,7 +182,11 @@ export function BestVariantVramScatter({
             const color = familyStyle(point.family).color;
             const slot = labelPlacements.get(point.runId);
             const tipLine1 = `${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""} — ${formatScore(point.score.point)}`;
-            const tipLine2 = `${formatModularAxisProfile(point.axes)} · ~${formatGb(point.effectiveVramGb)} to run`;
+            // What a visitor weighs before running it themselves: how long the suite took on this
+            // rig and the VRAM to hold it — not a repeat of the axis bars shown above the chart.
+            const tipLine2 = `${
+              point.wallTimeSeconds !== null ? `benched in ${formatDuration(point.wallTimeSeconds)} · ` : ""
+            }~${formatGb(point.effectiveVramGb)} to run`;
             const tipWidth = Math.max(tipLine1.length, tipLine2.length) * 6.6 + 20;
             // Clamp the tooltip inside the plot; flip below the dot when it would clip the top.
             const tipX = Math.min(Math.max(cx - tipWidth / 2, 6), WIDTH - tipWidth - 6);
@@ -195,7 +198,9 @@ export function BestVariantVramScatter({
               // visible 6px dot was too small to hover reliably).
               <g key={point.runId} className="group">
                 <title>
-                  {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatModularAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
+                  {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${
+                    point.wallTimeSeconds !== null ? `benched in ${formatDuration(point.wallTimeSeconds)} — ` : ""
+                  }~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
                 <circle cx={cx} cy={cy} r="14" fill="transparent" />
                 <circle cx={cx} cy={cy} r="6" fill={color} className="stroke-bench-bg" strokeWidth="2" />

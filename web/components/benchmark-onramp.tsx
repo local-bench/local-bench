@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ModelPicker, type PickMode } from "@/components/benchmark-model-picker";
 import { BenchmarkRecipe } from "@/components/benchmark-recipe";
-import { estimateBenchTime, formatBenchTimeRange, type BenchTimeEstimate } from "@/lib/bench-time-estimate";
+import { estimateBenchTime, formatBenchTime, type BenchTimeEstimate } from "@/lib/bench-time-estimate";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -225,7 +225,7 @@ function BenchTimePanel({
   return (
     <div
       data-testid="bench-time-estimate"
-      title="Scaled from measured board runs by model size and typical memory bandwidth for your VRAM tier — actual time varies with hardware and verbosity. Mixture-of-experts models typically finish several times faster than shown."
+      title="Lower-bound estimate from model size and typical memory bandwidth for your VRAM tier — verbose reasoning models can run longer, and mixture-of-experts models typically finish faster."
       className="rounded border border-bench-line bg-bench-panel-2 px-4 py-3"
     >
       <p className="font-mono text-[11px] uppercase tracking-wide text-bench-muted">Estimated benchmark time</p>
@@ -240,7 +240,7 @@ function BenchTimePanel({
       ) : (
         <>
           <p className="mt-1 font-mono text-xl text-bench-text">
-            {formatBenchTimeRange(estimate.lowSeconds, estimate.highSeconds)}
+            {formatBenchTime(estimate.lowSeconds)}
             {estimate.rough ? <span className="ml-1.5 text-sm text-bench-muted">(rough)</span> : null}
           </p>
           <p className="mt-0.5 text-xs text-bench-muted">full five-axis suite on your {vramGb} GB tier</p>

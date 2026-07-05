@@ -138,11 +138,13 @@ describe("bench time panel in the onramp header", () => {
     },
   ];
 
-  it("renders a range for the default selection and a placeholder when nothing fits", () => {
+  it("renders a single lower-bound figure for the default selection and a placeholder when nothing fits", () => {
     const withModel = renderToStaticMarkup(createElement(BenchmarkOnramp, { catalog }));
     expect(withModel).toContain("Estimated benchmark time");
     expect(withModel).toContain("full five-axis suite on your 24 GB tier");
-    expect(withModel).toMatch(/~[\d.]+–[\d.]+ (h|min)/);
+    // Lower bound only — the worst-case range read as a deterrent, so the panel never shows one.
+    expect(withModel).toMatch(/~[\d.]+ (h|min)/);
+    expect(withModel).not.toMatch(/~[\d.]+–[\d.]+ (h|min)/);
 
     const empty = renderToStaticMarkup(createElement(BenchmarkOnramp, { catalog: [] }));
     expect(empty).toContain("Estimated benchmark time");

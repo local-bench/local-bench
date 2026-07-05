@@ -128,6 +128,13 @@ function hoursLabel(hours: number): string {
   return Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
 }
 
+// Single lower-bound figure for display. The high bound assumes near-cap generation at maximum
+// verbosity, which measured board runs undershoot severalfold — showing it deterred users, so the
+// panel quotes the lower bound and lets the tooltip carry the caveat.
+export function formatBenchTime(seconds: number): string {
+  return formatBenchTimeRange(seconds, seconds);
+}
+
 export function formatBenchTimeRange(lowSeconds: number, highSeconds: number): string {
   const lo = Math.min(lowSeconds, highSeconds);
   const hi = Math.max(lowSeconds, highSeconds);
