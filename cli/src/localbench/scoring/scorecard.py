@@ -22,7 +22,9 @@ from dataclasses import fields
 from typing import Final
 
 from localbench._types import JsonObject
+from localbench.coding_exec.ast_gate import AST_GATE_REV
 from localbench.coding_exec.extract import EXTRACTOR_REV
+from localbench.coding_exec.program import SENTINEL_SCHEME_REV
 from localbench.coding_exec.score import CODING_SCOREABLE_REV
 from localbench.lane_spec import DEFAULT_LANE_SPEC_ID, lane_spec_digest
 from localbench.reasoning_registry import (
@@ -57,7 +59,7 @@ SCORER_VERSIONS: Final[dict[str, str]] = {
     "bfcl_multi_turn": "1",
     "lcb": "1",
     "tc_json_v1": "1",
-    "bigcodebench_hard": f"1+{CODING_SCOREABLE_REV}",
+    "bigcodebench_hard": f"1+{CODING_SCOREABLE_REV}+{AST_GATE_REV}+{SENTINEL_SCHEME_REV}",
     # suite-v0 legacy benches (back-compat scoring)
     "supergpqa": "1",
     "ifeval": "1",
@@ -135,6 +137,8 @@ def scorecard_identity(
         "registry_digest": registry_digest(),
         "scorer_versions": dict(SCORER_VERSIONS),
         "extractor_rev": EXTRACTOR_REV,
+        "coding_ast_gate_rev": AST_GATE_REV,
+        "coding_sentinel_scheme_rev": SENTINEL_SCHEME_REV,
         "ci_method": CI_METHOD,
         "lane_spec_digest": lane_spec_digest(lane_spec_id),
         "execution_profile_id": execution_profile_id,

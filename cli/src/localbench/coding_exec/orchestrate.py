@@ -25,12 +25,14 @@ import httpx
 from localbench._requests import utc_now
 from localbench._suite import item_hashes, read_json_object, render_benches, suite_version
 from localbench._types import JsonObject
+from localbench.coding_exec.ast_gate import ASTGateResult, check_ast_gate
 from localbench.coding_exec import runner as runner_module
 from localbench.coding_exec.artifacts import (
+    ast_rejected_artifact,
     verified_artifact,
     verdict_from_runner_result,
 )
-from localbench.coding_exec.extract import extract_code
+from localbench.coding_exec.extract import extract_code_result
 from localbench.coding_exec.program import assemble_program
 from localbench.coding_exec.sandbox import (
     MANDATORY_SECURITY_FLAGS,
@@ -178,6 +180,7 @@ def execute_pending_artifacts(
     }
     tasks: list[JsonObject] = []
     pending_items: list[JsonObject] = []
+    rejected_any = False
     for item in _run_items(run):
         if item.get("bench") != BENCH:
             continue
@@ -188,6 +191,14 @@ def execute_pending_artifacts(
         source = source_by_id.get(str(item.get("id")))
         if not isinstance(sanitized, str) or source is None:
             continue
+        gate = check_ast_gate(sanitized)
+        if not gate.accepted:
+            item["code_artifact"] = ast_rejected_artifact(artifact, gate)
+            item["correct"] = False
+            item["failure_kind"] = "coding_ast_rejected"
+            item["extracted"] = sanitized
+            rejected_any = True
+            continue
         tasks.append(
             {
                 "id": str(item["id"]),
@@ -196,6 +207,8 @@ def execute_pending_artifacts(
         )
         pending_items.append(item)
     if not tasks:
+        if rejected_any:
+            _refresh_bigcodebench_aggregate(run)
         write_json(run, config.out or run_path)
         return run
     verdicts = {str(result["id"]): result for result in _execute(tasks, config, sandbox_runner)}
@@ -230,9 +243,14 @@ def _assemble_tasks(
         if result.get("error") is not None:
             failures.append({"id": item_id, "passed": False, "error": str(result["error"])})
             continue
-        code = extract_code(result.get("response_text"))
-        if code is None:
+        extraction = extract_code_result(result.get("response_text"))
+        if extraction.extracted_code is None:
             failures.append({"id": item_id, "passed": False, "no_code": True})
+            continue
+        code = extraction.extracted_code.rstrip()
+        gate = check_ast_gate(code)
+        if not gate.accepted:
+            failures.append(_ast_rejection_row(item_id, gate))
             continue
         program = assemble_program(code, str(source_item["test"]), str(source_item["entry_point"]))
         tasks.append({"id": item_id, "program": program})
@@ -253,13 +271,21 @@ def _refresh_bigcodebench_aggregate(run: JsonObject) -> None:
         artifact = item.get("code_artifact")
         verdict = artifact.get("verdict") if isinstance(artifact, dict) else None
         if not isinstance(verdict, dict):
-            verdict_rows.append({"id": item.get("id"), "passed": False, "no_code": item.get("extracted") is None})
+            verdict_rows.append(
+                {
+                    "id": item.get("id"),
+                    "passed": False,
+                    "no_code": item.get("extracted") is None,
+                    "conformance_failure": item.get("failure_kind"),
+                },
+            )
             continue
         verdict_rows.append(
             {
                 "id": item.get("id"),
                 "passed": verdict.get("passed") is True,
                 "timed_out": verdict.get("timeout") is True,
+                "conformance_failure": item.get("failure_kind"),
             },
         )
     score = score_coding_exec(verdict_rows)
@@ -272,6 +298,7 @@ def _refresh_bigcodebench_aggregate(run: JsonObject) -> None:
         "n": score["n"],
         "n_errors": 0,
         "n_extraction_failures": score["n_no_code"],
+        "n_conformance_failures": score["n_conformance_failures"],
         "n_unscoreable": score["n_unscoreable"],
         "raw_accuracy": score["raw_accuracy"],
         "chance_corrected": score["chance_corrected"],
@@ -367,9 +394,23 @@ def _manifest(
         "wall_clock_seconds": wall,
         "n_tasks": score["n"],
         "n_no_code": score["n_no_code"],
+        "n_conformance_failures": score["n_conformance_failures"],
         "warning": OPT_IN_WARNING,
     }
 
 
 def _safe(model: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("_") or "model"
+
+
+def _ast_rejection_row(item_id: str, gate: ASTGateResult) -> JsonObject:
+    return {
+        "id": item_id,
+        "passed": False,
+        "conformance_failure": "coding_ast_rejected",
+        "ast_gate_failure": _ast_gate_failure(gate),
+    }
+
+
+def _ast_gate_failure(gate: ASTGateResult) -> str:
+    return gate.failure or "forbidden_reference"

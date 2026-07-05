@@ -7,8 +7,9 @@ from localbench.coding_exec.artifacts import (
     HARNESS_REV,
     code_artifact_for_generation,
 )
+from localbench.coding_exec.ast_gate import AST_GATE_REV
 from localbench.coding_exec.extract import EXTRACTOR_REV
-from localbench.coding_exec.program import assemble_program
+from localbench.coding_exec.program import SENTINEL_SCHEME_REV, assemble_program
 
 
 def test_code_artifact_for_generation_records_unverified_provenance() -> None:
@@ -40,6 +41,8 @@ def test_code_artifact_for_generation_records_unverified_provenance() -> None:
         "item_record_sha": artifact["item_record_sha"],
         "prompt_content_sha": hashlib.sha256(b"Write task_func.").hexdigest(),
         "test_sha": hashlib.sha256(source_item["test"].encode("utf-8")).hexdigest(),
+        "ast_gate_rev": AST_GATE_REV,
+        "sentinel_scheme_rev": SENTINEL_SCHEME_REV,
         "extractor_rev": EXTRACTOR_REV,
         "harness_rev": HARNESS_REV,
         "image_digest": None,
@@ -75,3 +78,34 @@ def test_code_artifact_records_ambiguous_extraction_without_zero_scoring() -> No
     }
     assert artifact["verdict"] is None
     assert artifact["verdict_source"] is None
+
+
+def test_code_artifact_records_ast_gate_rejection_as_conformance_failure() -> None:
+    source_item = {
+        "id": "bcbh-001",
+        "instruct_prompt": "Write task_func.",
+        "entry_point": "task_func",
+        "test": "assert task_func(1) == 2",
+    }
+    benchmark_item = {
+        "id": "bcbh-001",
+        "messages": [{"role": "user", "content": "Write task_func."}],
+        "sampling_params": {"temperature": 0},
+        "max_tokens": 16384,
+    }
+    result = {
+        "id": "bcbh-001",
+        "response_text": "```python\nimport sys\nsys.exit(0)\n\ndef task_func(x):\n    return 0\n```",
+        "error": None,
+    }
+
+    artifact = code_artifact_for_generation(source_item, benchmark_item, result)
+
+    assert artifact["assembled_program_sha256"] is None
+    assert artifact["conformance_status"] == {
+        "status": "failed",
+        "failure": "coding_ast_rejected",
+        "ast_gate_rev": AST_GATE_REV,
+        "reason": "forbidden_reference",
+        "detail": "sys.exit",
+    }

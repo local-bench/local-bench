@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import Final, NotRequired, TypedDict, cast
 
 from localbench._types import JsonObject, JsonValue
+from localbench.coding_exec.ast_gate import AST_GATE_REV, ASTGateResult, check_ast_gate
 from localbench.coding_exec import runner as runner_module
 from localbench.coding_exec.extract import EXTRACTOR_REV, extract_code_result
-from localbench.coding_exec.program import assemble_program
+from localbench.coding_exec.program import SENTINEL_SCHEME_REV, assemble_program
 
-ASSEMBLY_RECIPE_ID: Final = "bigcodebench-python-unittest-v1"
+ASSEMBLY_RECIPE_ID: Final = "bigcodebench-python-unittest-v2"
 HARNESS_REV: Final = hashlib.sha256(Path(runner_module.__file__).resolve().read_bytes()).hexdigest()
 
 
@@ -33,6 +34,8 @@ class CodeArtifact(TypedDict):
     item_record_sha: str
     prompt_content_sha: str
     test_sha: str
+    ast_gate_rev: str
+    sentinel_scheme_rev: str
     extractor_rev: str
     harness_rev: str
     image_digest: str | None
@@ -53,9 +56,11 @@ def code_artifact_for_generation(
     test = _string(source_item.get("test")) or ""
     entry_point = _string(source_item.get("entry_point")) or "task_func"
     assembled_sha = None
+    ast_gate = check_ast_gate(sanitized_code) if sanitized_code is not None else None
     if sanitized_code is not None:
-        assembled = assemble_program(sanitized_code, test, entry_point)
-        assembled_sha = _sha256_text(assembled)
+        if ast_gate is not None and ast_gate.accepted:
+            assembled = assemble_program(sanitized_code, test, entry_point)
+            assembled_sha = _sha256_text(assembled)
     artifact: CodeArtifact = {
         "raw_text_sha256": _sha256_text(raw_text) if raw_text is not None else None,
         "extracted_code": extraction.extracted_code,
@@ -65,6 +70,8 @@ def code_artifact_for_generation(
         "item_record_sha": canonical_item_sha(source_item),
         "prompt_content_sha": _sha256_text(_prompt_content(benchmark_item)),
         "test_sha": _sha256_text(test),
+        "ast_gate_rev": AST_GATE_REV,
+        "sentinel_scheme_rev": SENTINEL_SCHEME_REV,
         "extractor_rev": EXTRACTOR_REV,
         "harness_rev": HARNESS_REV,
         "image_digest": None,
@@ -76,6 +83,8 @@ def code_artifact_for_generation(
             "status": extraction.status,
             "failure": extraction.failure,
         }
+    if ast_gate is not None and not ast_gate.accepted:
+        artifact["conformance_status"] = _ast_gate_status(ast_gate)
     return artifact
 
 
@@ -94,6 +103,18 @@ def verified_artifact(
     updated["verdict"] = dict(verdict)
     updated["verdict_source"] = "verifier"
     updated["image_digest"] = image_digest
+    return cast(CodeArtifact, updated)
+
+
+def ast_rejected_artifact(
+    artifact: Mapping[str, JsonValue],
+    gate: ASTGateResult,
+) -> CodeArtifact:
+    updated = dict(artifact)
+    updated["ast_gate_rev"] = AST_GATE_REV
+    updated["sentinel_scheme_rev"] = SENTINEL_SCHEME_REV
+    updated["assembled_program_sha256"] = None
+    updated["conformance_status"] = _ast_gate_status(gate)
     return cast(CodeArtifact, updated)
 
 
@@ -131,3 +152,13 @@ def _optional_int(value: JsonValue | None) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     return None
+
+
+def _ast_gate_status(gate: ASTGateResult) -> JsonObject:
+    return {
+        "status": "failed",
+        "failure": "coding_ast_rejected",
+        "ast_gate_rev": AST_GATE_REV,
+        "reason": gate.failure or "forbidden_reference",
+        "detail": gate.detail or "",
+    }

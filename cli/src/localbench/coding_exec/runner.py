@@ -15,11 +15,24 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
+from typing import Final, Literal, TypeAlias
 
-SCHEMA = "localbench-coding-exec-runner-v1"
+SCHEMA = "localbench-coding-exec-runner-v2"
+SENTINEL_TAG: Final = "<SENTINEL>"
+NONCE_PLACEHOLDER: Final = "__LOCALBENCH_SENTINEL_NONCE__"
+GradingIntegrity: TypeAlias = Literal[
+    "sentinel_ok",
+    "no_sentinel",
+    "nonce_mismatch",
+    "counts_fail",
+]
+SentinelValue: TypeAlias = str | int | float | bool | None
+SentinelPayload: TypeAlias = Mapping[str, SentinelValue]
 
 
 def _sandbox_env(work: str) -> dict:
@@ -49,11 +62,12 @@ def _sandbox_env(work: str) -> dict:
 
 
 def run_program(program: str, *, timeout: float = 30.0, stderr_tail_bytes: int = 2000) -> dict:
-    """Run one assembled program in a subprocess; pass = clean exit 0 within the timeout."""
+    """Run one assembled program in a subprocess and require trusted completion proof."""
+    nonce = secrets.token_urlsafe(18)
     with tempfile.TemporaryDirectory() as work:
         path = os.path.join(work, "prog.py")
         with open(path, "w", encoding="utf-8") as handle:
-            handle.write(program)
+            handle.write(_inject_nonce(program, nonce))
         try:
             proc = subprocess.run(
                 [sys.executable, path],
@@ -65,16 +79,70 @@ def run_program(program: str, *, timeout: float = 30.0, stderr_tail_bytes: int =
             exit_code = proc.returncode
             timed_out = False
             stderr = proc.stderr
+            stdout = proc.stdout
         except subprocess.TimeoutExpired as exc:
             exit_code = -9
             timed_out = True
-            stderr = exc.stderr or b""
+            stderr = _bytes(exc.stderr)
+            stdout = _bytes(exc.stdout)
+    stdout_text = stdout.decode("utf-8", "replace")
+    grading_integrity = _grading_integrity(_last_sentinel(stdout_text), nonce)
     return {
-        "passed": exit_code == 0 and not timed_out,
+        "passed": exit_code == 0 and not timed_out and grading_integrity == "sentinel_ok",
         "exit_code": exit_code,
         "timed_out": timed_out,
+        "grading_integrity": grading_integrity,
+        "stdout_tail": stdout[-stderr_tail_bytes:].decode("utf-8", "replace"),
         "stderr_tail": stderr[-stderr_tail_bytes:].decode("utf-8", "replace"),
     }
+
+
+def _inject_nonce(program: str, nonce: str) -> str:
+    index = program.rfind(NONCE_PLACEHOLDER)
+    if index < 0:
+        return program
+    end = index + len(NONCE_PLACEHOLDER)
+    return f"{program[:index]}{nonce}{program[end:]}"
+
+
+def _last_sentinel(stdout: str) -> SentinelPayload | None:
+    prefix = f"{SENTINEL_TAG} "
+    for line in reversed(stdout.splitlines()):
+        if not line.startswith(prefix):
+            continue
+        try:
+            payload = json.loads(line[len(prefix):])
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+    return None
+
+
+def _grading_integrity(payload: SentinelPayload | None, nonce: str) -> GradingIntegrity:
+    if payload is None:
+        return "no_sentinel"
+    if payload.get("nonce") != nonce:
+        return "nonce_mismatch"
+    run = payload.get("run")
+    fail = payload.get("fail")
+    err = payload.get("err")
+    if (
+        not isinstance(run, int)
+        or isinstance(run, bool)
+        or run <= 0
+        or fail != 0
+        or err != 0
+    ):
+        return "counts_fail"
+    return "sentinel_ok"
+
+
+def _bytes(value: bytes | str | None) -> bytes:
+    if value is None:
+        return b""
+    if isinstance(value, bytes):
+        return value
+    return value.encode("utf-8", "replace")
 
 
 def main(argv: list[str] | None = None) -> int:

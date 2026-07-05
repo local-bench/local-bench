@@ -41,6 +41,7 @@ class CodingExecScore(TypedDict):
     n_passed: int
     n_timed_out: int
     n_no_code: int
+    n_conformance_failures: int
     n_unscoreable: int
     raw_accuracy: float
     chance_corrected: float
@@ -53,6 +54,9 @@ def score_coding_exec(results: Sequence[Mapping[str, object]]) -> CodingExecScor
     n_passed = sum(1 for result in scoreable if result.get("passed") is True)
     n_timed_out = sum(1 for result in scoreable if result.get("timed_out") is True)
     n_no_code = sum(1 for result in scoreable if result.get("no_code") is True)
+    n_conformance_failures = sum(
+        1 for result in scoreable if result.get("conformance_failure") == "coding_ast_rejected"
+    )
     raw = n_passed / n if n else 0.0
     return {
         "bench": BENCH,
@@ -60,6 +64,7 @@ def score_coding_exec(results: Sequence[Mapping[str, object]]) -> CodingExecScor
         "n_passed": n_passed,
         "n_timed_out": n_timed_out,
         "n_no_code": n_no_code,
+        "n_conformance_failures": n_conformance_failures,
         "n_unscoreable": len(results) - n,
         "raw_accuracy": raw,
         "chance_corrected": signed_score(raw, chance=0.0),

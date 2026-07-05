@@ -4,6 +4,8 @@ from dataclasses import fields, replace
 
 import pytest
 
+import localbench.coding_exec.ast_gate as ast_gate
+import localbench.coding_exec.program as coding_program
 import localbench.reasoning_registry as reasoning_registry
 import localbench.coding_exec.score as coding_score
 from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_digest
@@ -59,13 +61,19 @@ def test_scorecard_id_binds_registry_scorers_and_ci_method() -> None:
     base = scorecard_identity()
     coding_scoreable_rev = getattr(coding_score, "CODING_SCOREABLE_REV", None)
     assert coding_scoreable_rev == "bcbh-scoreable-v1"
-    assert base["scorer_versions"]["bigcodebench_hard"].endswith(coding_scoreable_rev)
+    assert base["coding_ast_gate_rev"] == ast_gate.AST_GATE_REV
+    assert base["coding_sentinel_scheme_rev"] == coding_program.SENTINEL_SCHEME_REV
+    assert coding_scoreable_rev in base["scorer_versions"]["bigcodebench_hard"]
+    assert ast_gate.AST_GATE_REV in base["scorer_versions"]["bigcodebench_hard"]
+    assert coding_program.SENTINEL_SCHEME_REV in base["scorer_versions"]["bigcodebench_hard"]
     # Recompute the id with any one component perturbed -> must differ.
     for perturbation in (
         {"registry_digest": "0" * 64},
         {"scorer_versions": {**base["scorer_versions"], "mmlu_pro": "2"}},
         {"scorer_versions": {**base["scorer_versions"], "bigcodebench_hard": "1"}},
         {"ci_method": "something-else"},
+        {"coding_ast_gate_rev": "different-ast-gate"},
+        {"coding_sentinel_scheme_rev": "different-sentinel"},
         {"scorecard_version": "9"},
         {"lane_spec_digest": "1" * 64},
         {"execution_profile_id": "gemma4_thinking_native_v1"},
@@ -76,6 +84,8 @@ def test_scorecard_id_binds_registry_scorers_and_ci_method() -> None:
             "registry_digest": base["registry_digest"],
             "scorer_versions": base["scorer_versions"],
             "ci_method": base["ci_method"],
+            "coding_ast_gate_rev": base["coding_ast_gate_rev"],
+            "coding_sentinel_scheme_rev": base["coding_sentinel_scheme_rev"],
             "lane_spec_digest": base["lane_spec_digest"],
             "execution_profile_id": base["execution_profile_id"],
             "execution_profile_digest": base["execution_profile_digest"],

@@ -59,6 +59,7 @@ class BenchAggregate(TypedDict):
     n: int
     n_errors: int
     n_extraction_failures: int
+    n_conformance_failures: NotRequired[int]
     raw_accuracy: float
     chance_corrected: float
     termination_rate: float
@@ -152,6 +153,9 @@ def _score_bigcodebench_item(
     extraction_status = artifact.get("extraction_status")
     if isinstance(extraction_status, dict) and isinstance(extraction_status.get("failure"), str):
         item["failure_kind"] = f"ambiguous_extraction:{extraction_status['failure']}"
+    conformance_status = artifact.get("conformance_status")
+    if isinstance(conformance_status, dict) and conformance_status.get("failure") == "coding_ast_rejected":
+        item["failure_kind"] = "coding_ast_rejected"
     return item
 
 
@@ -191,7 +195,7 @@ def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggr
         if item["error"] is None and item["finish_reason"] != "length"
     )
     raw_accuracy = n_correct / n if n else 0.0
-    return {
+    aggregate_result: BenchAggregate = {
         "n": n,
         "n_errors": sum(1 for item in items if item["error"] is not None),
         "n_extraction_failures": sum(
@@ -206,6 +210,11 @@ def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggr
         "termination_rate": n_terminated / n if n else 0.0,
         "conditional_accuracy": n_correct / n_terminated if n_terminated else 0.0,
     }
+    if bench == "bigcodebench_hard":
+        aggregate_result["n_conformance_failures"] = sum(
+            1 for item in items if item.get("failure_kind") == "coding_ast_rejected"
+        )
+    return aggregate_result
 
 
 def run_totals(items: list[ScoredItem], wall_time: float) -> RunTotals:
