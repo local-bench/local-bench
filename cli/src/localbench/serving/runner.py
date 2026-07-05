@@ -240,7 +240,7 @@ def _needs_wsl_agentic(options: ServeBenchOptions) -> bool:
 
 
 def _agentic_chat_template_kwargs(lane: str, profile: str) -> JsonObject:
-    if lane == "bounded-final-v1":
+    if lane in {"bounded-final-v1", "bounded-final-v2"}:
         return (
             {"enable_thinking": True}
             if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}

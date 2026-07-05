@@ -128,7 +128,9 @@ def llama_cpp_reasoning_for_lane(
                 reasoning_budget=None,
                 reasoning_format=LLAMA_CPP_REASONING_FORMAT,
             )
-        case "bounded-final-v1":
+        case "bounded-final-v1" | "bounded-final-v2":
+            # v1 and v2 serve identically; v2 only differs in the per-item answer_reserve, which
+            # is applied downstream in budget_forcing, not in the llama.cpp serving config.
             if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}:
                 return LlamaCppReasoningConfig(
                     reasoning="on",
@@ -160,7 +162,7 @@ def validate_capped_thinking_context(
     thinking_profile = (
         options.lane == "capped-thinking"
         or (
-            options.lane == "bounded-final-v1"
+            options.lane in {"bounded-final-v1", "bounded-final-v2"}
             and effective_profile != "auto"
             and effective_profile != ANSWER_ONLY_PROFILE.id
         )
