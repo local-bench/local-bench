@@ -221,7 +221,7 @@ function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardSc
     return (
       <span className="flex flex-col gap-0.5 leading-tight">
         <span>Static composite</span>
-        <span className="font-mono text-[10px] normal-case text-bench-muted">static-suite-v1 | not score-comparable</span>
+        <span className="font-mono text-[10px] normal-case text-bench-muted">no-agentic lane · not comparable with the main index</span>
       </span>
     );
   }

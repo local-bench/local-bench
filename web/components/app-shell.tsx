@@ -30,9 +30,6 @@ export function AppShell({
               <Link href="/methodology" className="hover:text-bench-text">
                 Methodology
               </Link>
-              <Link href="/trust" className="hover:text-bench-text">
-                Trust
-              </Link>
               <Link href="/submit" className="hover:text-bench-text">
                 Submit
               </Link>
@@ -61,6 +58,15 @@ export function AppShell({
             </div>
             <dl className="space-y-1 font-mono text-[11px] text-bench-muted">
               <div className="flex items-center justify-between gap-3 lg:justify-end">
+                <Link
+                  href="/methodology#frozen"
+                  className="uppercase tracking-wide text-bench-muted/70 hover:text-bench-text"
+                  title="sha256 pins of the frozen artifacts behind this board — anyone can re-hash the served files and check them"
+                >
+                  integrity pins ·
+                </Link>
+              </div>
+              <div className="flex items-center justify-between gap-3 lg:justify-end">
                 <dt className="uppercase tracking-wide text-bench-muted/70">board</dt>
                 <dd title={LAUNCH_FREEZE.boardSha256}>{shortHash(LAUNCH_FREEZE.boardSha256)}</dd>
               </div>
@@ -81,8 +87,8 @@ export function AppShell({
               <Link href="/methodology" className="hover:text-bench-text">
                 Methodology
               </Link>
-              <Link href="/trust" className="hover:text-bench-text">
-                Trust &amp; licenses
+              <Link href="/methodology#licenses" className="hover:text-bench-text">
+                Licenses
               </Link>
             </div>
           </div>

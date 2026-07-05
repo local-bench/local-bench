@@ -62,11 +62,11 @@ export default function SubmitPage() {
           This downloads the sha256-pinned item sets, verifies them against the release manifest, and
           caches them locally.{" "}
           <code className="font-mono text-bench-text">--accept-suite-terms</code> acknowledges the
-          upstream benchmark licenses listed on the{" "}
-          <Link href="/trust" className="text-bench-accent hover:underline">
-            trust &amp; licenses page
-          </Link>
-          .
+          upstream benchmark licenses listed under{" "}
+          <Link href="/methodology#licenses" className="text-bench-accent hover:underline">
+            benchmark sources &amp; licenses
+          </Link>{" "}
+          on the methodology page.
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">3. Run the benchmark</h3>
@@ -166,9 +166,10 @@ export default function SubmitPage() {
           </li>
           <li>
             <span className="text-bench-text">The four static axes</span> (no agentic — e.g. platforms
-            without the Linux sandbox) — ranks on the renormalized static composite, static-suite-v1
-            (Knowledge 30 / Instruction-Following 30 / Tool calling 20 / Coding 20). Static rows are
-            not score-comparable with full-index rows: agentic is half the main index by design.
+            without the Linux sandbox) — ranks in the no-agentic lane (static-suite-v1: Knowledge 30 /
+            Instruction-Following 30 / Tool calling 20 / Coding 20, renormalized), a separate table that
+            never mixes into — and is never score-comparable with — the main index. Agentic is half the
+            main index by design, so skipping it cannot place a run higher.
           </li>
           <li>
             <span className="text-bench-text">Fewer axes</span> — displayed per-axis only, unranked.

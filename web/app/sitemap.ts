@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { getIndexData, getRunStaticParams } from "@/lib/data";
 
 const SITE_URL = "https://local-bench.ai";
-const STATIC_PATHS = ["/", "/leaderboard/", "/compare/", "/methodology/", "/trust/", "/submit/"] as const;
+const STATIC_PATHS = ["/", "/leaderboard/", "/compare/", "/methodology/", "/submit/"] as const;
 
 export const dynamic = "force-static";
 
