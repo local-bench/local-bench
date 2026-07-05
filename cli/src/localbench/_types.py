@@ -45,6 +45,7 @@ class ItemResult(TypedDict):
     thinking_forced: NotRequired[bool]
     max_tokens: NotRequired[int]
     generated_tokens: NotRequired[JsonObject]
+    server_timings: NotRequired[JsonObject | None]
 
 
 class RunParams(TypedDict):
@@ -84,3 +85,4 @@ class ParsedCompletion:
     finish_reason: str | None
     usage: Usage
     thinking_forced: bool = False
+    server_timings: JsonObject | None = None

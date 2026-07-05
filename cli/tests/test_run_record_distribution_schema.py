@@ -90,6 +90,7 @@ def test_run_record_emits_result_bundle_v1_fields(tmp_path: Path) -> None:
         assert item["response_text"] == "Answer: A"
         assert item["reasoning_text"] == "chain of thought hidden by channel"
         assert item["finish_reason"] == "stop"
+        assert item["server_timings"] is None
 
     asyncio.run(scenario())
 
@@ -129,6 +130,7 @@ def test_axis_status_is_additive_to_existing_run_record_fields(tmp_path: Path) -
             "conformance",
             "items",
             "totals",
+            "perf",
             "warnings",
         )
         assert tuple(key for key in record if key != "axis_status") == result_bundle_keys

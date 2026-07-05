@@ -235,6 +235,7 @@ def run_task(
                 out_tokens,
                 "length",
                 response.text,
+                server_timings=response.server_timings,
             ))
             messages.append(_user_msg(
                 "FORMAT ERROR: your reply was cut off at the per-turn token limit. Keep each "
@@ -253,6 +254,7 @@ def run_task(
                 parsed.kind,
                 response.text,
                 error_detail=getattr(response, "error_detail", None),
+                server_timings=response.server_timings,
             ))
             messages.append(_user_msg(parsed.message))
             messages = _window_messages(messages, cfg)
@@ -283,6 +285,7 @@ def run_task(
                 observation_truncated=False,
                 is_final=False,
                 raw_response_text=response.text,
+                server_timings=response.server_timings,
             ))
             break
         err = getattr(obs, "error", None)
@@ -323,6 +326,7 @@ def run_task(
                     observation_truncated=trunc.truncated,
                     is_final=False,
                     raw_response_text=response.text,
+                    server_timings=response.server_timings,
                 ))
                 break
             if read_err is not None:
@@ -352,6 +356,7 @@ def run_task(
             observation_truncated=trunc.truncated,
             is_final=turn_is_final,
             raw_response_text=response.text,
+            server_timings=response.server_timings,
         ))
 
         if turn_is_final:
@@ -525,6 +530,7 @@ def _format_turn(
     kind: str,
     raw_response_text: str,
     error_detail: str | None = None,
+    server_timings: dict[str, Any] | None = None,
 ) -> TurnRecord:
     """A TurnRecord for a turn that produced no runnable block (a format failure)."""
     return TurnRecord(
@@ -541,6 +547,7 @@ def _format_turn(
         is_final=False,
         raw_response_text=raw_response_text,
         error_detail=error_detail,
+        server_timings=server_timings,
     )
 
 

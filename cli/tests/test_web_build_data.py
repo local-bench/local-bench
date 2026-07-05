@@ -336,6 +336,47 @@ def test_build_data_carries_runtime_to_index_model_and_run_rows(tmp_path: Path) 
     assert _object(_object(run_detail["manifest_summary"])["runtime"]) == _object(model["runtime"])
 
 
+def test_build_data_carries_perf_to_model_run_and_run_detail(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    paths = _write_synthetic_pipeline_inputs(
+        tmp_path,
+        [
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+        ],
+    )
+    perf: JsonObject = {
+        "timings_source": "llama.cpp",
+        "timings_coverage": 1.0,
+        "prefill_tps": 500.0,
+        "decode_tps": 250.0,
+        "prompt_ms_median": 20.0,
+        "prompt_ms_p95": 20.0,
+        "predicted_ms_median": 16.0,
+        "predicted_ms_p95": 16.0,
+        "ttft_proxy_ms_median": 20.0,
+        "per_bench": {
+            "mmlu_pro": {
+                "prefill_tps": 500.0,
+                "decode_tps": 250.0,
+                "prompt_ms_median": 20.0,
+                "n": 1,
+            },
+        },
+    }
+    run = _object(_read_json(paths["run"]))
+    run["perf"] = perf
+    paths["run"].write_text(json.dumps(run), encoding="utf-8")
+
+    builder.build_static_data(paths["sources"], paths["out"], iters=50)
+
+    model_payload = _object(_read_json(paths["out"] / "models" / "synthetic-model.json"))
+    run_row = _objects(model_payload["runs"])[0]
+    run_detail = _only_run_detail(paths["out"])
+    assert _object(run_row["perf"]) == perf
+    assert _object(run_detail["perf"]) == perf
+
+
 def test_build_data_when_items_have_suite_metadata_uses_real_strata(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

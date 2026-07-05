@@ -262,6 +262,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     items = list(_list(run.get("items"), f"{path}:items"))
     quarantined_agentic = _quarantine_invalid_inline_appworld(run, source_benches, items)
     totals = _object(run.get("totals"), f"{path}:totals")
+    perf = _object_or_empty(run.get("perf"))
     model_label = _model_label(source, manifest)
     family = _string(source["family"], "source.family")
     kind = _string(source["kind"], "source.kind")
@@ -309,6 +310,9 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
         detail["conformance_gates"] = conformance_gates
         model_row["conformance_gates"] = conformance_gates
         index_row["conformance_gates"] = conformance_gates
+    if perf:
+        detail["perf"] = perf
+        model_row["perf"] = perf
     return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 

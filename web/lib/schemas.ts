@@ -119,6 +119,30 @@ export const TotalsSchema = z.object({
   completion_tokens_per_second: z.number().nullable(),
 });
 
+const PerfBenchSchema = z
+  .object({
+    prefill_tps: z.number().nullable(),
+    decode_tps: z.number().nullable(),
+    prompt_ms_median: z.number().nullable(),
+    n: z.number(),
+  })
+  .passthrough();
+
+export const PerfSchema = z
+  .object({
+    timings_source: z.literal("llama.cpp").nullable(),
+    timings_coverage: z.number(),
+    prefill_tps: z.number().nullable(),
+    decode_tps: z.number().nullable(),
+    prompt_ms_median: z.number().nullable(),
+    prompt_ms_p95: z.number().nullable(),
+    predicted_ms_median: z.number().nullable(),
+    predicted_ms_p95: z.number().nullable(),
+    ttft_proxy_ms_median: z.number().nullable(),
+    per_bench: z.record(z.string(), PerfBenchSchema),
+  })
+  .passthrough();
+
 export const IndexModelSchema = z.object({
   slug: ModelSlugSchema,
   catalog_id: z.string().nullable().optional(),
@@ -205,6 +229,7 @@ export const ModelRunSchema = z.object({
   runtime: RuntimeSchema,
   n_items: z.number(),
   n_errors: z.number(),
+  perf: PerfSchema.optional(),
   ranked: z.boolean().optional().default(false),
   wall_time_seconds: z.number().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
@@ -269,6 +294,7 @@ export const RunDetailSchema = z.object({
   ranked: z.boolean().optional().default(false),
   scorecard: ScorecardSummarySchema.optional(),
   totals: TotalsSchema,
+  perf: PerfSchema.optional(),
   est_cost_usd: z.number().nullable(),
   tokens_to_answer_median: z.number().nullable(),
   tokens_to_answer_p95: z.number().nullable(),
@@ -305,6 +331,7 @@ export type RunDetail = z.infer<typeof RunDetailSchema>;
 export type RuntimeSummary = z.infer<typeof RuntimeSchema>;
 export type HardwareSummary = z.infer<typeof HardwareSchema>;
 export type PrimitiveRecord = z.infer<typeof PrimitiveRecordSchema>;
+export type Perf = z.infer<typeof PerfSchema>;
 
 // Raw shape of model_catalog.json (the on-ramp picker source). Tolerant by design — the catalog is
 // large and varied, so unknown keys pass through and most fields are optional/nullable.

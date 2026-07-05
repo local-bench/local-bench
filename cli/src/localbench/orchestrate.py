@@ -72,6 +72,7 @@ from localbench.lane_spec import (
     lane_spec_id_for_lane,
 )
 from localbench.manifest import ManifestContext, collect_manifest
+from localbench.perf import perf_summary
 from localbench.prompt_rendering import (
     PromptRenderer,
     ReasoningActivation,
@@ -144,6 +145,7 @@ class LocalbenchRun(TypedDict):
     conformance: JsonObject
     items: list[ScoredItem]
     totals: RunTotals
+    perf: JsonObject
     warnings: list[str]
     output_path: NotRequired[str]
     agentic_run: NotRequired[JsonObject]
@@ -754,6 +756,7 @@ async def run_localbench(
         ),
         "items": items,
         "totals": totals,
+        "perf": perf_summary(items),
         "warnings": warnings,
     }
     if config.resume is not None:
@@ -783,6 +786,7 @@ async def run_localbench(
             config.price_out,
         )
     run_record = _assemble_from_checkpoints(run_record, paths, scorable_benches)
+    run_record["perf"] = perf_summary(run_record["items"])
     run_record = cast(LocalbenchRun, normalize_result_bundle(run_record, suite_dir=suite_dir))
     write_json(run_record, output_path)
     write_status(
@@ -1387,6 +1391,7 @@ def _item_result_from_json(row: JsonObject) -> ItemResult:
         "finished_at": _text_value(row.get("finished_at"), "finished_at"),
         "attempts": _int_value(row.get("attempts"), "attempts"),
         "error": _nullable_text(row.get("error"), "error"),
+        "server_timings": _optional_object(row.get("server_timings"), "server_timings"),
     }
     thinking_forced = row.get("thinking_forced")
     if isinstance(thinking_forced, bool):
@@ -1411,6 +1416,7 @@ def _scored_item_from_json(row: JsonObject) -> ScoredItem:
         "attempts": _int_value(row.get("attempts"), "attempts"),
         "usage": _usage_from_json(_object_value(row.get("usage"), "usage")),
         "error": _nullable_text(row.get("error"), "error"),
+        "server_timings": _optional_object(row.get("server_timings"), "server_timings"),
     }
     reasoning_text = row.get("reasoning_text")
     if reasoning_text is None or isinstance(reasoning_text, str):
@@ -1455,6 +1461,12 @@ def _object_value(value: JsonValue | None, field: str) -> JsonObject:
     if isinstance(value, dict):
         return value
     raise UnsafeResumeError(f"checkpoint field {field} is not an object")
+
+
+def _optional_object(value: JsonValue | None, field: str) -> JsonObject | None:
+    if value is None or isinstance(value, dict):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not an optional object")
 
 
 def _text_value(value: JsonValue | None, field: str) -> str:

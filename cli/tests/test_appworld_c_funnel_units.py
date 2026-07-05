@@ -57,21 +57,27 @@ from test_appworld_protocol_c_units import (  # noqa: E402
 # ==================================================================================================
 # ChatCompletionsClient — request shape + parsing + error handling (MOCK transport).
 # ==================================================================================================
-def _ok_body(content: str, finish_reason: str = "stop", completion_tokens: int = 17) -> str:
-    return json.dumps(
-        {
-            "id": "chatcmpl-test",
-            "object": "chat.completion",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {"role": "assistant", "content": content},
-                    "finish_reason": finish_reason,
-                }
-            ],
-            "usage": {"prompt_tokens": 10, "completion_tokens": completion_tokens},
-        }
-    )
+def _ok_body(
+    content: str,
+    finish_reason: str = "stop",
+    completion_tokens: int = 17,
+    timings: dict[str, object] | None = None,
+) -> str:
+    body = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": finish_reason,
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": completion_tokens},
+    }
+    if timings is not None:
+        body["timings"] = timings
+    return json.dumps(body)
 
 
 def test_chat_client_builds_openai_request_shape() -> None:
@@ -119,6 +125,25 @@ def test_chat_client_parses_successful_response(monkeypatch: pytest.MonkeyPatch)
     assert resp.output_tokens == 42
     # the payload actually carried the messages through
     assert captured["payload"]["messages"] == [{"role": "user", "content": "go"}]  # type: ignore[index]
+
+
+def test_chat_client_captures_server_timings(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
+    timings = {
+        "prompt_n": 12,
+        "prompt_ms": 30.0,
+        "predicted_n": 7,
+        "predicted_ms": 14.0,
+    }
+
+    monkeypatch.setattr(
+        client,
+        "_post",
+        lambda p: (200, _ok_body("ok", "stop", completion_tokens=7, timings=timings)),
+    )
+    resp = client.complete([{"role": "user", "content": "go"}], GenerationParams())
+
+    assert resp.server_timings == {"passes": [timings]}
 
 
 def test_chat_client_maps_length_finish_reason(monkeypatch: pytest.MonkeyPatch) -> None:

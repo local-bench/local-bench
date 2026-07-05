@@ -237,6 +237,43 @@ def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(t
     ]
 
 
+def test_result_bundle_normalization_preserves_optional_perf_and_item_timings() -> None:
+    timings = {
+        "passes": [{"prompt_n": 10, "prompt_ms": 20.0, "predicted_n": 5, "predicted_ms": 10.0}]
+    }
+    perf = {
+        "timings_source": "llama.cpp",
+        "timings_coverage": 1.0,
+        "prefill_tps": 500.0,
+        "decode_tps": 500.0,
+        "prompt_ms_median": 20.0,
+        "prompt_ms_p95": 20.0,
+        "predicted_ms_median": 10.0,
+        "predicted_ms_p95": 10.0,
+        "ttft_proxy_ms_median": 20.0,
+        "per_bench": {
+            "mmlu_pro": {
+                "prefill_tps": 500.0,
+                "decode_tps": 500.0,
+                "prompt_ms_median": 20.0,
+                "n": 1,
+            }
+        },
+    }
+    record = _synthetic_result_bundle(identity=True)
+    record["schema"] = "localbench-run-v0"
+    record["perf"] = perf
+    record["axis_status"] = {"schema_version": "localbench.axis-status.v1", "axes": {}}
+    record["items"] = [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
+
+    bundle = normalize_result_bundle(record)
+    validation = validate_result_bundle(bundle)
+
+    assert validation.blocking_reasons == []
+    assert bundle["perf"] == perf
+    assert bundle["items"] == [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
+
+
 @_REQUIRES_PILOT
 def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None:
     from localbench.cli import main

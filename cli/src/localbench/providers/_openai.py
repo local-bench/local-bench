@@ -149,6 +149,7 @@ class OpenAIReasoningProvider:
             reasoning_text=parsed.reasoning_text,
             finish_reason=parsed.finish_reason,
             usage=usage,
+            server_timings=parsed.server_timings,
         )
 
     def notes(

@@ -11,6 +11,7 @@ from localbench._response import ResponseParseError
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, ParsedCompletion, Usage
 from localbench.budget_forcing import (
     ForcingFormat,
+    _combine_server_timings,
     _ForcedStatus,
     _extract_completion,
     _forcing_decoding,
@@ -110,6 +111,7 @@ async def _bounded_final_two_pass(
         think_text = ""
         think_finish = "length"
         think_usage = _empty_usage()
+        think_timings = None
     else:
         think_data = await _post_completion(
             client,
@@ -121,7 +123,7 @@ async def _bounded_final_two_pass(
             decoding,
             [forcing_format.close],
         )
-        think_text, think_finish, think_usage = _extract_completion(think_data)
+        think_text, think_finish, think_usage, think_timings = _extract_completion(think_data)
     reasoning_tokens = _completion_tokens(think_usage)
     answer_budget = bounded_final_answer_budget(total_cap, reasoning_tokens)
     answer_prompt = f"{prompt}{think_text}{forcing_format.forced_close}"
@@ -135,7 +137,7 @@ async def _bounded_final_two_pass(
         decoding,
         list(forcing_format.answer_stop),
     )
-    answer_text, answer_finish, answer_usage = _extract_completion(answer_data)
+    answer_text, answer_finish, answer_usage, answer_timings = _extract_completion(answer_data)
     answer_text = _strip_answer_stop(answer_text, forcing_format.answer_stop)
     extra_reasoning, answer_text = _split_reopened_reasoning(answer_text, forcing_format)
     reasoning = (think_text + extra_reasoning).strip() or None
@@ -145,6 +147,10 @@ async def _bounded_final_two_pass(
         finish_reason="stop" if answer_finish == "stop" else "length",
         usage=_sum_usage(think_usage, answer_usage, reasoning_tokens),
         thinking_forced=think_finish != "stop",
+        server_timings=_combine_server_timings(
+            *([think_timings] if think_budget > 0 else []),
+            answer_timings,
+        ),
     )
 
 

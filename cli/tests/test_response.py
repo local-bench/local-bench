@@ -15,6 +15,43 @@ def test_plain_content_is_used_as_response_text() -> None:
     parsed = parse_chat_completion(_resp({"content": "Answer: C"}))
     assert parsed.response_text == "Answer: C"
     assert parsed.reasoning_text is None
+    assert parsed.server_timings is None
+
+
+def test_timings_dict_is_captured_losslessly() -> None:
+    # Given: llama.cpp-style non-streaming timings on the response body.
+    timings = {
+        "prompt_n": 128,
+        "prompt_ms": 64.0,
+        "prompt_per_second": 2000.0,
+        "predicted_n": 32,
+        "predicted_ms": 80.0,
+        "predicted_per_second": 400.0,
+    }
+    body = _resp({"content": "Answer: C"})
+    body["timings"] = timings
+
+    # When: the response is parsed.
+    parsed = parse_chat_completion(body)
+
+    # Then: the raw server timings are carried as a single pass.
+    assert parsed.server_timings == {"passes": [timings]}
+
+
+def test_missing_or_malformed_timings_parse_to_none() -> None:
+    # Given: responses from servers that omit timings or send a malformed value.
+    malformed_values = (None, [], "not-a-dict")
+
+    for value in malformed_values:
+        body = _resp({"content": "Answer: C"})
+        if value is not None:
+            body["timings"] = value
+
+        # When: the response is parsed.
+        parsed = parse_chat_completion(body)
+
+        # Then: timing capture degrades to None without rejecting the completion.
+        assert parsed.server_timings is None
 
 
 def test_reasoning_split_keeps_content_as_answer_and_captures_reasoning() -> None:

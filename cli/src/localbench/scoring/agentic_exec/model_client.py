@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
-from localbench._types import ChatMessage
+from localbench._types import ChatMessage, JsonObject
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +69,7 @@ class ModelResponse:
     # Populated ONLY on client-degraded turns (finish_reason="error"): the transport/parse
     # cause (e.g. "http_status=404: ...", "URLError: refused") for per-turn diagnostics.
     error_detail: str | None = None
+    server_timings: JsonObject | None = None
 
 
 @runtime_checkable

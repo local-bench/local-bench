@@ -120,6 +120,54 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
     asyncio.run(scenario())
 
 
+def test_perf_capture_does_not_change_scorecard_identity(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        timings = {"prompt_n": 10, "prompt_ms": 20.0, "predicted_n": 4, "predicted_ms": 16.0}
+
+        def timed_handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            payload = json.loads(request.content)
+            prompt = payload["messages"][0]["content"]
+            if "Choose the first letter" in prompt:
+                return _completion("Answer: A", 1, 1, timings=timings)
+            return httpx.Response(500, text="unexpected prompt")
+
+        plain_record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                out=tmp_path / "plain.json",
+                max_items=1,
+            ),
+            transport=httpx.MockTransport(_all_correct_handler),
+        )
+        timed_record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                out=tmp_path / "timed.json",
+                max_items=1,
+            ),
+            transport=httpx.MockTransport(timed_handler),
+        )
+
+        assert plain_record["manifest"]["scorecard"]["scorecard_id"] == (
+            timed_record["manifest"]["scorecard"]["scorecard_id"]
+        )
+        assert plain_record["items"][0]["server_timings"] is None
+        assert timed_record["items"][0]["server_timings"] == {"passes": [timings]}
+        assert timed_record["perf"]["timings_coverage"] == 1.0
+        assert timed_record["perf"]["prefill_tps"] == pytest.approx(500.0)
+        assert timed_record["perf"]["decode_tps"] == pytest.approx(250.0)
+
+    asyncio.run(scenario())
+
+
 def test_run_localbench_when_item_file_is_missing_fails_closed(tmp_path: Path) -> None:
     async def scenario() -> None:
         # Given a suite entry whose item file does not exist.
@@ -842,22 +890,30 @@ def _all_correct_handler(request: httpx.Request) -> httpx.Response:
     return httpx.Response(500, text="unexpected prompt")
 
 
-def _completion(text: str, prompt_tokens: int, completion_tokens: int) -> httpx.Response:
+def _completion(
+    text: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    timings: dict[str, object] | None = None,
+) -> httpx.Response:
+    body = {
+        "choices": [
+            {
+                "message": {"content": text},
+                "finish_reason": "stop",
+            },
+        ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        },
+    }
+    if timings is not None:
+        body["timings"] = timings
     return httpx.Response(
         200,
-        json={
-            "choices": [
-                {
-                    "message": {"content": text},
-                    "finish_reason": "stop",
-                },
-            ],
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens,
-            },
-        },
+        json=body,
     )
 
 

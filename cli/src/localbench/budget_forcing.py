@@ -41,12 +41,13 @@ from localbench._requests import (
     item_result,
     utc_now,
 )
-from localbench._response import ResponseParseError, parse_usage
+from localbench._response import ResponseParseError, parse_server_timings, parse_usage
 from localbench._types import (
     BenchmarkItem,
     ChatMessage,
     ItemResult,
     JsonObject,
+    JsonValue,
     ParsedCompletion,
     Usage,
 )
@@ -203,14 +204,14 @@ async def _forced_two_pass(
     think_data = await _post_completion(
         client, url, headers, model, prompt, think_budget, decoding, [forcing_format.close],
     )
-    think_text, think_finish, think_usage = _extract_completion(think_data)
+    think_text, think_finish, think_usage, think_timings = _extract_completion(think_data)
     forced = think_finish != "stop"
 
     answer_prompt = f"{prompt}{think_text}{forcing_format.forced_close}"
     answer_data = await _post_completion(
         client, url, headers, model, answer_prompt, answer_budget, decoding, list(forcing_format.answer_stop),
     )
-    answer_text, answer_finish, answer_usage = _extract_completion(answer_data)
+    answer_text, answer_finish, answer_usage, answer_timings = _extract_completion(answer_data)
     for stop in forcing_format.answer_stop:
         if answer_text.endswith(stop):
             answer_text = answer_text[: -len(stop)]
@@ -227,6 +228,7 @@ async def _forced_two_pass(
         finish_reason="stop" if answer_finish == "stop" else "length",
         usage=_sum_usage(think_usage, answer_usage),
         thinking_forced=forced,
+        server_timings=_combine_server_timings(think_timings, answer_timings),
     )
 
 
@@ -270,7 +272,7 @@ async def _post_completion(
     return data
 
 
-def _extract_completion(data: JsonObject) -> tuple[str, str | None, Usage]:
+def _extract_completion(data: JsonObject) -> tuple[str, str | None, Usage, JsonObject | None]:
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
         raise ResponseParseError("completion choices are missing")
@@ -281,7 +283,7 @@ def _extract_completion(data: JsonObject) -> tuple[str, str | None, Usage]:
     text = text if isinstance(text, str) else ""
     finish_reason = choice.get("finish_reason")
     finish_reason = finish_reason if isinstance(finish_reason, str) else None
-    return text, finish_reason, parse_usage(data.get("usage"))
+    return text, finish_reason, parse_usage(data.get("usage")), parse_server_timings(data.get("timings"))
 
 
 def _forcing_decoding(sampling_params: JsonObject) -> JsonObject:
@@ -301,3 +303,20 @@ def _sum_usage(first: Usage, second: Usage) -> Usage:
         "completion_tokens": _add("completion_tokens"),
         "total_tokens": _add("total_tokens"),
     }
+
+
+def _combine_server_timings(*timings: JsonObject | None) -> JsonObject | None:
+    if any(timing is None for timing in timings):
+        return None
+    passes: list[JsonValue] = []
+    for timing in timings:
+        if timing is None:
+            return None
+        raw_passes = timing.get("passes")
+        if not isinstance(raw_passes, list):
+            return None
+        for raw_pass in raw_passes:
+            if not isinstance(raw_pass, dict):
+                return None
+            passes.append(dict(raw_pass))
+    return {"passes": passes}

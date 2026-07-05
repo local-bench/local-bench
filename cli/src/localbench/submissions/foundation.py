@@ -98,6 +98,7 @@ def normalize_result_bundle(
         bundle["manifest"] = _normalize_manifest(_object(bundle.get("manifest")), bundle, suite_dir)
         return _sanitize_output_path(bundle)
     manifest = _normalize_manifest(_object(record.get("manifest")), record, suite_dir)
+    perf = _object(record.get("perf")) if "perf" in record else None
     bundle: JsonObject = {
         "schema_version": RESULT_BUNDLE_SCHEMA_VERSION,
         "run_started_at": record.get("run_started_at"),
@@ -118,6 +119,7 @@ def normalize_result_bundle(
         "conformance": _object(record.get("conformance")),
         "items": _list(record.get("items")),
         "totals": _object(record.get("totals")),
+        **({"perf": perf} if perf is not None else {}),
         "warnings": _string_list(record.get("warnings")),
     }
     _copy_optional(record, bundle, "agentic_run")

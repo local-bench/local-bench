@@ -8,7 +8,7 @@ from typing import Final, NotRequired, TypedDict
 
 from localbench._response import empty_usage
 from localbench._suite import RenderedBench
-from localbench._types import BenchmarkItem, ItemResult, JsonValue, Usage
+from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue, Usage
 from localbench.scorers.bfcl import score_bfcl
 from localbench.scorers.bfcl_multi_turn import score_bfcl_multi_turn
 from localbench.scorers.bfcl_multi_turn._backend import (
@@ -50,6 +50,7 @@ class ScoredItem(TypedDict):
     reasoning_text: NotRequired[str | None]
     max_tokens: NotRequired[int]
     generated_tokens: NotRequired[JsonValue]
+    server_timings: NotRequired[JsonObject | None]
 
 
 class BenchAggregate(TypedDict):
@@ -99,6 +100,7 @@ def score_bench(bench: RenderedBench, results: list[ItemResult]) -> list[ScoredI
                 "attempts": result["attempts"],
                 "usage": result["usage"],
                 "error": error,
+                "server_timings": result.get("server_timings"),
             }
             if "failure_kind" in detailed:
                 scored_item["failure_kind"] = detailed["failure_kind"]
@@ -328,6 +330,7 @@ def _scorer_unavailable_items(
             "usage": result["usage"],
             "error": warning,
             "warnings": [warning],
+            "server_timings": result.get("server_timings"),
         }
         for result in results
     ]
@@ -346,6 +349,7 @@ def _unavailable_result(item: BenchmarkItem, error: str) -> ItemResult:
         "finished_at": timestamp,
         "attempts": 0,
         "error": error,
+        "server_timings": None,
     }
 
 

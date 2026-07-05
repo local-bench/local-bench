@@ -216,6 +216,7 @@ def item_result(
         "attempts": attempts,
         "error": error,
         "thinking_forced": False if parsed is None else parsed.thinking_forced,
+        "server_timings": None if parsed is None else parsed.server_timings,
     }
     if error_type is not None:
         result["error_type"] = error_type
