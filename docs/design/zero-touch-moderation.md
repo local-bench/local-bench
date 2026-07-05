@@ -1,9 +1,13 @@
 # Zero-touch moderation — owner-zero for routine cases
 
-Status: **APPROVED DIRECTION 2026-07-05** (owner asked for a plan removing him from day-to-day
-operations; design red-teamed by GPT-5.5 Pro, oracle session `zerotouch-moderation-design` —
-full transcript retained; its three structural corrections are adopted below). One policy
-refinement awaits explicit owner sign-off (§Rank containment).
+Status: **APPROVED 2026-07-05** (owner asked for a plan removing him from day-to-day operations;
+design red-teamed by GPT-5.5 Pro, oracle session `zerotouch-moderation-design` — full transcript
+retained; its three structural corrections are adopted below). Rank containment APPROVED by owner
+with one amendment: **no replication expected** — "I will not likely re-run anything; we will just
+sense check." Quarantine exits are therefore TIME + DOCUMENTED SENSE-CHECK (agent transcript
+spot-reads, plausibility vs re-scored static axes, artifact metadata coherence), never gated on
+GPU re-runs. Spot-replication drops from the critical path to an optional future tool; the
+"trusted reference rows" for plausibility bands are project-run/maintainer-run rows only.
 
 ## Goal
 
@@ -28,13 +32,16 @@ secret rotation). An AI agent-maintainer handles escalations under hard policy c
    Exact known catalog artifact hash → known identity. Protected/official-looking names or the
    first official row of a major family → owner-only.
 
-## Rank containment refinement (needs owner nod)
+## Rank containment (OWNER-APPROVED 2026-07-05, amended)
 
-Standing policy (owner, 2026-07-05 morning): self-reported agentic ranks WITH a label until
-replication ships. Refinement recommended by the red-team and by me: keep exactly that for
-low-impact rows; add the provisional quarantine ONLY for high-impact rows (list above) — 24h for
-first-key/unknown-identity/self-reported-agentic rows, 72h-or-until-replication for
-top-impact rows. This is a narrowing, not a reversal. DEFAULT = adopt unless owner objects.
+Standing policy: self-reported agentic ranks WITH a label. Approved refinement: low-impact rows
+flow through unchanged; HIGH-IMPACT rows (list above) publish immediately but PROVISIONAL —
+24h for first-key/unknown-identity/self-reported-agentic rows, 72h for top-impact rows.
+Exit condition (owner amendment): window elapsed + a documented agent sense-check (transcript
+spot-reads for coherence, agentic-vs-static plausibility, artifact metadata sanity) with the
+check recorded in the decision log. NO replication requirement — re-running submissions is not
+expected operationally; if a sense-check fails, the row goes to "agentic plausibility hold"
+and the owner digest, not to a re-run queue.
 
 ## Submission state machine (typed, replaces ad-hoc statuses)
 
