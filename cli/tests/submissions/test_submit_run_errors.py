@@ -11,7 +11,7 @@ from localbench.cli import main
 from localbench.submissions.keys import write_private_key
 
 _RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1"
-_MANIFEST_SHA = "5a47282a55621cbb9be4b719c1f9bba2f740d7720ef594fa00e794355cc420f9"
+_MANIFEST_SHA = "db1e6cd14f946126254cc2ada56ea1af0186303e0899f00f374d30382d96870e"
 
 
 def test_submit_run_maps_already_submitted_to_successful_info(

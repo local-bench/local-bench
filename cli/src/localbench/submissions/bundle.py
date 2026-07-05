@@ -6,6 +6,7 @@ from pathlib import Path
 
 from localbench._suite import read_json_object, render_benches
 from localbench._types import JsonObject, JsonValue
+from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.run_schema import check_run_schema_version
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.archive import json_object_from_bytes
@@ -85,7 +86,11 @@ def _manifest_payload(
     run_manifest = _object(run.get("manifest"))
     run_suite = _object(run_manifest.get("suite"))
     run_scorecard = _object(run_manifest.get("scorecard"))
-    scorecard = scorecard_identity(_string(run_scorecard.get("reasoning_registry_entry_id")))
+    execution_profile_id = _string(run_scorecard.get("execution_profile_id"))
+    lane_spec_id = _string(run_scorecard.get("lane_spec_id")) or lane_spec_id_for_lane(
+        _string(run_suite.get("lane")) or "",
+    )
+    scorecard = scorecard_identity(execution_profile_id, lane_spec_id=lane_spec_id)
     return {
         "submission_format": SUBMISSION_FORMAT,
         "created_at": created_at,
@@ -100,12 +105,7 @@ def _manifest_payload(
             "item_set_hashes": _object(run_suite.get("item_set_hashes")),
             **suite_release_pair(run_suite, suite_dir),
         },
-        "scorecard": {
-            "version": _string(scorecard.get("scorecard_version")) or "",
-            "id": _string(scorecard.get("scorecard_id")) or "",
-            "registry_digest": _string(scorecard.get("registry_digest")) or "",
-            "reasoning_registry_entry_id": scorecard.get("reasoning_registry_entry_id"),
-        },
+        "scorecard": _submission_scorecard(scorecard),
         "lane": {
             "name": _string(run_suite.get("lane")) or "answer-only",
             "sampler": _object(_object(run_manifest.get("sampling")).get("by_bench")),
@@ -255,6 +255,25 @@ def suite_release_pair(run_suite: JsonObject, suite_dir: Path) -> JsonObject:
     if manifest_sha is not None:
         pair["suite_manifest_sha256"] = manifest_sha
     return pair
+
+
+def _submission_scorecard(scorecard: JsonObject) -> JsonObject:
+    execution_profile_id = _string(scorecard.get("execution_profile_id"))
+    execution_profile = None
+    if execution_profile_id is not None:
+        execution_profile = {
+            "id": execution_profile_id,
+            "digest": _string(scorecard.get("execution_profile_digest")) or "",
+            "payload": _object(scorecard.get("execution_profile")),
+        }
+    return {
+        "version": _string(scorecard.get("scorecard_version")) or "",
+        "id": _string(scorecard.get("scorecard_id")) or "",
+        "registry_digest": _string(scorecard.get("registry_digest")) or "",
+        "lane_spec_id": _string(scorecard.get("lane_spec_id")) or "",
+        "lane_spec_digest": _string(scorecard.get("lane_spec_digest")) or "",
+        "execution_profile": execution_profile,
+    }
 
 
 def _suite_release_manifest_pair(suite_dir: Path) -> tuple[str | None, str | None]:

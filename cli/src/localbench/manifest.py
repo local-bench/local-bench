@@ -14,6 +14,7 @@ from typing import Final, Literal, TypeAlias
 import httpx
 
 from localbench._types import BenchmarkItem, JsonObject, JsonValue, Totals
+from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.canon import sha256_file
 
@@ -25,7 +26,7 @@ _RUNTIME_FIELDS: Final = (
     "runtime.name", "runtime.version", "runtime.kv_cache_quant",
     "runtime.ctx_len_configured", "runtime.parallel_slots",
 )
-_LANES: Final = {"answer-only", "capped-thinking", "api-uncapped"}
+_LANES: Final = {"answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"}
 ModelIdentitySource: TypeAlias = Literal["gguf.embedded", "external.file", "server.override"]
 
 
@@ -53,7 +54,7 @@ class ManifestContext:
     provider_notes: tuple[str, ...] = ()
     reasoning_effort: str | None = None
     thinking_budget: int = 0
-    reasoning_registry_entry_id: str | None = None
+    execution_profile_id: str | None = None
     model_file: Path | None = None
     model_family: str | None = None
     quant_label: str | None = None
@@ -94,8 +95,8 @@ async def collect_manifest(
     }
     if context.reasoning_effort is not None:
         sampling["reasoning_effort"] = context.reasoning_effort
-    if context.reasoning_registry_entry_id is not None:
-        sampling["reasoning_registry_entry_id"] = context.reasoning_registry_entry_id
+    if context.execution_profile_id is not None:
+        sampling["execution_profile_id"] = context.execution_profile_id
     if context.determinism_policy is not None:
         sampling["determinism_policy"] = context.determinism_policy
     model = _model_identity(context)
@@ -106,8 +107,15 @@ async def collect_manifest(
     if reported_model is None:
         missing_fields.append("endpoint.runtime_reported_model")
     scorecard = scorecard_identity(
-        reasoning_registry_entry_id=context.reasoning_registry_entry_id,
+        execution_profile_id=context.execution_profile_id,
+        lane_spec_id=lane_spec_id_for_lane(context.lane),
     )
+    execution_profile: JsonObject | None = None
+    if context.execution_profile_id is not None:
+        execution_profile = {
+            "id": context.execution_profile_id,
+            "digest": scorecard.get("execution_profile_digest"),
+        }
     return {
         "schema_version": "0.1",
         "suite": {
@@ -134,6 +142,7 @@ async def collect_manifest(
         "runtime": runtime,
         "hardware": _hardware(),
         "sampling": sampling,
+        "execution_profile": execution_profile,
         "execution": {
             "client_version": "localbench 0.1.0",
             "concurrency": context.concurrency,

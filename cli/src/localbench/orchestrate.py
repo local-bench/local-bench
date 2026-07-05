@@ -60,6 +60,7 @@ from localbench.campaign_checkpoints import (
 )
 from localbench.campaign_records import item_hash
 from localbench.lane_conformance import assess_run_conformance
+from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_id_for_lane
 from localbench.manifest import ManifestContext, collect_manifest
 from localbench.prompt_rendering import (
     PromptRenderer,
@@ -67,7 +68,7 @@ from localbench.prompt_rendering import (
     build_forced_prompt_renderer,
 )
 from localbench.providers import ReasoningEffort, provider_for_name
-from localbench.reasoning_registry import ReasoningRegistryEntry, reasoning_entry_for_activation
+from localbench.reasoning_registry import ANSWER_ONLY_PROFILE, ReasoningRegistryEntry, reasoning_entry_for_activation
 from localbench.reasoning_leaks import registry_leak_regexes
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
@@ -90,7 +91,7 @@ if TYPE_CHECKING:
 
 BenchChoice: TypeAlias = str
 TierChoice = Literal["quick", "standard"]
-LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped"]
+LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"]
 ReasoningEffortChoice = ReasoningEffort
 ReasoningActivationChoice = ReasoningActivation
 ModelIdentitySource = Literal["gguf.embedded", "external.file", "server.override"]
@@ -135,12 +136,17 @@ class LocalbenchRun(TypedDict):
     warnings: list[str]
     output_path: NotRequired[str]
     agentic_run: NotRequired[JsonObject]
+    prompt_audit: NotRequired[JsonObject]
+    budget_audit: NotRequired[JsonObject]
+    sampler_audit: NotRequired[JsonObject]
+    suite_coverage: NotRequired[JsonObject]
     estimated_cost_usd: NotRequired[float]
     resumed: NotRequired[bool]
     resume_count: NotRequired[int]
     segments: NotRequired[list[JsonObject]]
     trust_tier: NotRequired[str]
     serving_verification_level: NotRequired[str]
+    index_version: NotRequired[str]
 
 
 class UnsafeResumeError(RuntimeError):
@@ -261,6 +267,9 @@ async def run_localbench(
     output_path = _campaign_output_path(config)
     warnings: list[str] = []
     provider = provider_for_name(config.provider)
+    effective_reasoning_effort = (
+        None if config.lane == BOUNDED_FINAL_LANE_SPEC_ID else config.reasoning_effort
+    )
     resolved = resolve_run_benches(config.bench, suite)
     run_agentic = _APPWORLD_C_BENCH in resolved
     bench_choice = ",".join(bench for bench in resolved if bench != _APPWORLD_C_BENCH)
@@ -286,11 +295,18 @@ async def run_localbench(
                 )
     if _has_sampler_overrides(config):
         _apply_sampler_overrides(rendered_benches, config)
+    user_stops_removed = False
+    if config.lane == BOUNDED_FINAL_LANE_SPEC_ID:
+        user_stops_removed = _strip_bounded_final_user_stops(
+            rendered_benches,
+            warnings,
+            publishable=config.publishable,
+        )
     items: list[ScoredItem] = []
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
 
-    if config.provider == "local" and config.lane == "answer-only":
+    if config.provider == "local" and config.lane in {"answer-only", BOUNDED_FINAL_LANE_SPEC_ID}:
         # Local-runtime lane: disable Qwen3-family thinking via vLLM's
         # chat_template_kwargs passthrough (llama.cpp/Ollama ignore the field;
         # cloud lanes never send it because OpenAI-style APIs reject unknown params).
@@ -329,7 +345,7 @@ async def run_localbench(
         concurrency=config.concurrency,
         max_items=config.max_items,
         max_tokens=config.max_tokens,
-        reasoning_effort=config.reasoning_effort,
+        reasoning_effort=effective_reasoning_effort,
         reasoning_activation=config.reasoning_activation,
         hf_model_id=config.hf_model_id,
         output_path=output_path,
@@ -365,7 +381,9 @@ async def run_localbench(
 
     thinking_budget = 0
     prompt_renderer: PromptRenderer | None = None
-    reasoning_registry_entry_id: str | None = None
+    execution_profile_id: str | None = (
+        ANSWER_ONLY_PROFILE.id if config.lane == BOUNDED_FINAL_LANE_SPEC_ID else None
+    )
     reasoning_leak_regexes: tuple[str, ...] = ()
     forcing_format = None
     if config.provider == "local" and config.lane == "capped-thinking":
@@ -375,7 +393,7 @@ async def run_localbench(
         if thinking_budget > 0:
             reasoning_entry = _capped_thinking_reasoning_entry(config)
             if reasoning_entry is not None:
-                reasoning_registry_entry_id = reasoning_entry.id
+                execution_profile_id = reasoning_entry.id
                 reasoning_leak_regexes = registry_leak_regexes(reasoning_entry.conformance)
                 forcing_format = reasoning_entry.forcing
             prompt_renderer = _forced_prompt_renderer(config, provider.name)
@@ -406,7 +424,12 @@ async def run_localbench(
             ):
                 raw_result = cast(ItemResult, checkpoint.raw_result)
                 if checkpoint.scored_item is None:
-                    scored_item = _score_single_checkpoint(item_context[checkpoint.item_id], raw_result, warnings)
+                    scored_item = _score_single_checkpoint(
+                        item_context[checkpoint.item_id],
+                        raw_result,
+                        warnings,
+                        execution_profile_id=execution_profile_id,
+                    )
                     append_scored_checkpoint(
                         paths,
                         bench.name,
@@ -430,7 +453,12 @@ async def run_localbench(
         def on_item_complete(result: ItemResult) -> bool:
             nonlocal consecutive_connection_failures, circuit_breaker_tripped
             single = item_context[result["id"]]
-            scored_item = _score_single_checkpoint(single, result, warnings)
+            scored_item = _score_single_checkpoint(
+                single,
+                result,
+                warnings,
+                execution_profile_id=execution_profile_id,
+            )
             streamed_raw.append(result)
             streamed_scored.append(scored_item)
             segment_completed_item_ids.append(result["id"])
@@ -487,7 +515,7 @@ async def run_localbench(
                     transport=transport,
                     provider=provider,
                     lane=config.lane,
-                    effort=config.reasoning_effort,
+                    effort=effective_reasoning_effort,
                     hf_model_id=config.hf_model_id,
                     reasoning_activation=config.reasoning_activation,
                     prompt_renderer=prompt_renderer,
@@ -616,13 +644,13 @@ async def run_localbench(
             provider=provider.name,
             provider_notes=tuple(
                 provider.notes(
-                    effort=config.reasoning_effort,
+                    effort=effective_reasoning_effort,
                     decodings=tuple(sampling_by_bench.values()),
                 ),
             ),
-            reasoning_effort=config.reasoning_effort,
+            reasoning_effort=effective_reasoning_effort,
             thinking_budget=thinking_budget,
-            reasoning_registry_entry_id=reasoning_registry_entry_id,
+            execution_profile_id=execution_profile_id,
             model_file=config.model_file,
             model_family=config.model_family,
             quant_label=config.quant_label,
@@ -648,6 +676,13 @@ async def run_localbench(
     )
     forcing_active = thinking_budget > 0
     warnings.extend(_audit_forced_cap_hits(items, forcing_active))
+    prompt_audit = _prompt_audit(
+        execution_profile_id=execution_profile_id,
+        user_stops_removed=user_stops_removed,
+    )
+    budget_audit = _budget_audit(items)
+    sampler_audit = _sampler_audit(config)
+    suite_coverage = _suite_coverage(scorable_benches, items)
     run_record: LocalbenchRun = {
         "schema": "localbench-run-v0",
         "schema_version": RUN_SCHEMA_VERSION,
@@ -668,6 +703,7 @@ async def run_localbench(
         "conformance": assess_run_conformance(
             results_by_bench,
             forced=forcing_active,
+            lane_spec_id=lane_spec_id_for_lane(config.lane),
             leak_regexes_by_bench={
                 bench: reasoning_leak_regexes
                 for bench in results_by_bench
@@ -691,6 +727,12 @@ async def run_localbench(
         run_record["segments"] = segments
     if agentic_provenance is not None:
         run_record["agentic_run"] = agentic_provenance
+    if config.lane == BOUNDED_FINAL_LANE_SPEC_ID:
+        run_record["index_version"] = "index-v3.0"
+        run_record["prompt_audit"] = prompt_audit
+        run_record["budget_audit"] = budget_audit
+        run_record["sampler_audit"] = sampler_audit
+        run_record["suite_coverage"] = suite_coverage
     if config.price_in is not None or config.price_out is not None:
         run_record["estimated_cost_usd"] = estimated_cost(
             totals,
@@ -798,6 +840,141 @@ def _sampler_overrides(config: OrchestrateConfig) -> JsonObject:
     return overrides
 
 
+def _strip_bounded_final_user_stops(
+    benches: list[RenderedBench],
+    warnings: list[str],
+    *,
+    publishable: bool,
+) -> bool:
+    removed: list[str] = []
+    for bench in benches:
+        if "stop" in bench.decoding:
+            bench.decoding.pop("stop", None)
+            removed.append(bench.name)
+        for item in bench.benchmark_items:
+            sampling_params = item.get("sampling_params")
+            if isinstance(sampling_params, dict) and "stop" in sampling_params:
+                sampling_params.pop("stop", None)
+                if bench.name not in removed:
+                    removed.append(bench.name)
+    if removed:
+        label = ", ".join(sorted(removed))
+        suffix = " and marked diagnostic-only" if publishable else ""
+        warnings.append(
+            f"bounded-final-v1 rejects user-supplied stop sequences for {label}; "
+            f"stripped from requests{suffix}",
+        )
+    return bool(removed)
+
+
+def _prompt_audit(
+    *,
+    execution_profile_id: str | None,
+    user_stops_removed: bool,
+) -> JsonObject:
+    return {
+        "status": "diagnostic-only" if user_stops_removed else "canonical",
+        "execution_profile_id": execution_profile_id,
+        "user_supplied_stops_removed": user_stops_removed,
+    }
+
+
+def _sampler_audit(config: OrchestrateConfig) -> JsonObject:
+    seed = config.sampler_seed
+    deterministic = (
+        config.sampler_temperature == 0.0
+        and config.sampler_top_k == 1
+        and isinstance(seed, int)
+        and not isinstance(seed, bool)
+    )
+    return {
+        "status": "deterministic" if deterministic else "unverified",
+        "temperature": config.sampler_temperature,
+        "top_k": config.sampler_top_k,
+        "seed": seed,
+        "determinism_policy": config.determinism_policy,
+    }
+
+
+def _budget_audit(items: list[ScoredItem]) -> JsonObject:
+    per_bench: dict[str, JsonObject] = {}
+    unverified = 0
+    breached = 0
+    for item in items:
+        bench = item["bench"]
+        bench_audit = per_bench.setdefault(
+            bench,
+            {
+                "items": 0,
+                "max_observed_total": None,
+                "max_promised_total": None,
+                "unverified_items": 0,
+                "breached_items": 0,
+            },
+        )
+        bench_audit["items"] = _audit_int(bench_audit.get("items")) + 1
+        max_tokens = item.get("max_tokens")
+        generated = item.get("generated_tokens")
+        total = _generated_total(generated)
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            bench_audit["max_promised_total"] = _max_optional_int(
+                bench_audit.get("max_promised_total"),
+                max_tokens,
+            )
+        if total is not None:
+            bench_audit["max_observed_total"] = _max_optional_int(
+                bench_audit.get("max_observed_total"),
+                total,
+            )
+        if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or total is None:
+            unverified += 1
+            bench_audit["unverified_items"] = _audit_int(bench_audit.get("unverified_items")) + 1
+            continue
+        if total > max_tokens:
+            breached += 1
+            bench_audit["breached_items"] = _audit_int(bench_audit.get("breached_items")) + 1
+    status = "breached" if breached else "unverified" if unverified else "exact"
+    return {
+        "status": status,
+        "per_bench": per_bench,
+        "unverified_items": unverified,
+        "breached_items": breached,
+    }
+
+
+def _suite_coverage(benches: list[RenderedBench], items: list[ScoredItem]) -> JsonObject:
+    expected = {
+        (bench.name, benchmark_item["id"])
+        for bench in benches
+        for benchmark_item in bench.benchmark_items
+    }
+    seen = {(item["bench"], item["id"]) for item in items}
+    missing = sorted(f"{bench}/{item_id}" for bench, item_id in expected - seen)
+    return {
+        "status": "complete" if not missing else "incomplete",
+        "expected_items": len(expected),
+        "observed_items": len(expected & seen),
+        "missing_items": missing,
+    }
+
+
+def _generated_total(value: JsonValue | None) -> int | None:
+    if not isinstance(value, dict):
+        return None
+    total = value.get("total")
+    return total if isinstance(total, int) and not isinstance(total, bool) else None
+
+
+def _audit_int(value: JsonValue | None) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _max_optional_int(current: JsonValue | None, candidate: int) -> int:
+    if isinstance(current, int) and not isinstance(current, bool):
+        return max(current, candidate)
+    return candidate
+
+
 def _pending_bench(bench: RenderedBench, checkpointed_ids: set[str]) -> RenderedBench:
     source_items: list[Mapping[str, JsonValue]] = []
     benchmark_items: list[BenchmarkItem] = []
@@ -819,11 +996,60 @@ def _score_single_checkpoint(
     context: BenchItemContext,
     result: ItemResult,
     warnings: list[str],
+    *,
+    execution_profile_id: str | None,
 ) -> ScoredItem:
     scored = score_bench(context.bench, [result])
     _attach_reasoning_text(scored, [result])
     warnings.extend(_annotate_ruler_truncation(context.bench, [result], scored))
+    _attach_generated_token_accounting(
+        scored[0],
+        result,
+        context.benchmark_item,
+        execution_profile_id=execution_profile_id,
+    )
     return scored[0]
+
+
+def _attach_generated_token_accounting(
+    item: ScoredItem,
+    result: ItemResult,
+    benchmark_item: BenchmarkItem,
+    *,
+    execution_profile_id: str | None,
+) -> None:
+    max_tokens = benchmark_item.get("max_tokens")
+    if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+        item["max_tokens"] = max_tokens
+        result["max_tokens"] = max_tokens
+    accounting = _generated_tokens_from_usage(
+        result["usage"],
+        execution_profile_id=execution_profile_id,
+    )
+    if accounting is not None:
+        item["generated_tokens"] = accounting
+
+
+def _generated_tokens_from_usage(
+    usage: Usage,
+    *,
+    execution_profile_id: str | None,
+) -> JsonObject | None:
+    total = usage.get("completion_tokens")
+    if not isinstance(total, int) or isinstance(total, bool):
+        return None
+    if execution_profile_id == ANSWER_ONLY_PROFILE.id:
+        reasoning = 0
+    else:
+        raw_reasoning = usage.get("reasoning_tokens")
+        reasoning = raw_reasoning if isinstance(raw_reasoning, int) and not isinstance(raw_reasoning, bool) else 0
+    final = max(0, total - reasoning)
+    return {
+        "total": total,
+        "reasoning": reasoning,
+        "final": final,
+        "source": "server_usage",
+    }
 
 
 def _failure_status(
@@ -1099,6 +1325,9 @@ def _item_result_from_json(row: JsonObject) -> ItemResult:
     thinking_forced = row.get("thinking_forced")
     if isinstance(thinking_forced, bool):
         result["thinking_forced"] = thinking_forced
+    max_tokens = row.get("max_tokens")
+    if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+        result["max_tokens"] = max_tokens
     return result
 
 
@@ -1123,6 +1352,12 @@ def _scored_item_from_json(row: JsonObject) -> ScoredItem:
     warnings = row.get("warnings")
     if isinstance(warnings, list):
         item["warnings"] = [warning for warning in warnings if isinstance(warning, str)]
+    max_tokens = row.get("max_tokens")
+    if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+        item["max_tokens"] = max_tokens
+    generated_tokens = row.get("generated_tokens")
+    if isinstance(generated_tokens, dict):
+        item["generated_tokens"] = dict(generated_tokens)
     return item
 
 
@@ -1226,7 +1461,7 @@ def _run_agentic_axis(
         )
         from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-        chat_template_kwargs: JsonObject = {"enable_thinking": True}
+        chat_template_kwargs = _agentic_chat_template_kwargs_for_lane(config.lane)
         resolved_sandbox_factory = appworld_sandbox_factory()
         resolved_model_factory = chat_client_factory(
             config.endpoint,
@@ -1235,7 +1470,7 @@ def _run_agentic_axis(
             chat_template_kwargs=chat_template_kwargs,
         )
     if injected:
-        chat_template_kwargs = {}
+        chat_template_kwargs = _agentic_chat_template_kwargs_for_lane(config.lane)
 
     from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
     from localbench.scoring.agentic_exec.funnel import Stage, run_with_reruns  # noqa: PLC0415
@@ -1289,6 +1524,11 @@ def _run_agentic_axis(
         "subset_size": subset.size,
         "subset_hash": subset.manifest_hash,
         "stage": provenance_stage,
+        "execution_profile_id": ANSWER_ONLY_PROFILE.id
+        if config.lane == BOUNDED_FINAL_LANE_SPEC_ID
+        else None,
+        "stateless_request_semantics": "full_visible_conversation_per_turn",
+        "chat_template_kwargs": chat_template_kwargs,
         "diagnostics": _appworld_report_summary(last_report),
         "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
     }
@@ -1302,6 +1542,14 @@ def _run_agentic_axis(
         items=_appworld_report_to_items(last_report),
         provenance=provenance,
     )
+
+
+def _agentic_chat_template_kwargs_for_lane(lane: LaneChoice) -> JsonObject:
+    if lane in {"answer-only", BOUNDED_FINAL_LANE_SPEC_ID}:
+        return {"enable_thinking": False}
+    if lane == "capped-thinking":
+        return {"enable_thinking": True}
+    return {}
 
 
 def _agentic_preflight_unavailable_detail() -> str | None:

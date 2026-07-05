@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass
 from typing import Final, Literal
 
 from localbench._types import ItemResult, JsonObject
+from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID
 from localbench.reasoning_leaks import has_reasoning_leak
 
 ConformanceStatus = Literal["headline-comparable", "nonconformant", "diagnostic-only"]
@@ -58,6 +59,10 @@ class ConformanceReport:
     no_final_answer_rate: float
     reasons: tuple[str, ...]
     forced: bool = False
+    budget_cap_hit_rate: float | None = None
+    measurement_truncation_rate: float | None = None
+    empty_final_rate: float | None = None
+    ambiguous_or_contaminated_final_rate: float | None = None
 
     def as_dict(self) -> JsonObject:
         data: JsonObject = asdict(self)
@@ -87,12 +92,26 @@ def _no_final_answer(result: ItemResult) -> bool:
     return bool(reasoning) and text == reasoning
 
 
+def _empty_final(result: ItemResult) -> bool:
+    return not (result.get("response_text") or "").strip()
+
+
+def _ambiguous_or_contaminated_final(
+    result: ItemResult,
+    leak_regexes: Sequence[str],
+) -> bool:
+    text = result.get("response_text")
+    reasoning = result.get("reasoning_text")
+    return (bool(reasoning) and text == reasoning) or has_leaked_reasoning(text, leak_regexes)
+
+
 def assess_conformance(
     results: Sequence[ItemResult],
     *,
     thresholds: ConformanceThresholds = DEFAULT_THRESHOLDS,
     forced: bool = False,
     leak_regexes: Sequence[str] = (),
+    lane_spec_id: str | None = None,
 ) -> ConformanceReport:
     """Classify ONE bench's lane-conformance from its item results.
 
@@ -106,6 +125,13 @@ def assess_conformance(
     diagnostic but does not exclude the run from the headline (oracle red-team 2026-06-20,
     option A). Leaked-reasoning and no-final-answer remain hard gates either way.
     """
+    if lane_spec_id == BOUNDED_FINAL_LANE_SPEC_ID:
+        return _assess_bounded_final_conformance(
+            results,
+            thresholds=thresholds,
+            leak_regexes=leak_regexes,
+        )
+
     scored = [result for result in results if not result.get("error")]
     n = len(scored)
     if n == 0:
@@ -156,12 +182,127 @@ def assess_conformance(
     )
 
 
+def _assess_bounded_final_conformance(
+    results: Sequence[ItemResult],
+    *,
+    thresholds: ConformanceThresholds,
+    leak_regexes: Sequence[str],
+) -> ConformanceReport:
+    scored = [result for result in results if not result.get("error")]
+    n = len(scored)
+    if n == 0:
+        return ConformanceReport("diagnostic-only", 0, 0.0, 0.0, 0.0, ("no scored items",))
+
+    budget_cap_hits = sum(1 for result in scored if _is_budget_cap_hit(result))
+    measurement_truncations = sum(
+        1
+        for result in scored
+        if result.get("finish_reason") == "length" and not _is_budget_cap_hit(result)
+    )
+    empty_finals = sum(1 for result in scored if _empty_final(result))
+    contaminated = sum(
+        1
+        for result in scored
+        if _ambiguous_or_contaminated_final(result, leak_regexes)
+    )
+    leaked = sum(
+        1
+        for result in scored
+        if has_leaked_reasoning(result.get("response_text"), leak_regexes)
+    )
+    budget_cap_rate = _rate(budget_cap_hits, n)
+    measurement_rate = _rate(measurement_truncations, n)
+    empty_rate = _rate(empty_finals, n)
+    contaminated_rate = _rate(contaminated, n)
+    leaked_rate = _rate(leaked, n)
+    truncation_rate = _rate(budget_cap_hits + measurement_truncations, n)
+    no_answer_rate = _rate(empty_finals + contaminated, n)
+
+    reasons: list[str] = []
+    status: ConformanceStatus = "headline-comparable"
+    if leaked_rate >= thresholds.leaked_reasoning_diagnostic:
+        status = "diagnostic-only"
+        reasons.append(f"chain-of-thought leaked into scored content in {leaked_rate:.0%} of items")
+    elif contaminated_rate >= thresholds.leaked_reasoning_diagnostic:
+        status = "diagnostic-only"
+        reasons.append(
+            "ambiguous_or_contaminated_final_rate="
+            f"{contaminated_rate:.0%} - final text is not a clean final answer",
+        )
+    else:
+        if measurement_rate > 0:
+            status = "nonconformant"
+            reasons.append(
+                f"measurement_truncation_rate={measurement_rate:.0%} - stopped below promised T_i",
+            )
+        if leaked_rate >= thresholds.leaked_reasoning_nonconformant:
+            status = "nonconformant"
+            reasons.append(
+                f"chain-of-thought leaked into scored content in {leaked_rate:.0%} of items "
+                "(IFBench/MCQ corrupting)"
+            )
+        if contaminated_rate >= thresholds.leaked_reasoning_nonconformant:
+            status = "nonconformant"
+            reasons.append(
+                "ambiguous_or_contaminated_final_rate="
+                f"{contaminated_rate:.0%} - final text is not a clean final answer",
+            )
+    if budget_cap_rate > 0:
+        reasons.append(
+            f"budget_cap_hit_rate={budget_cap_rate:.0%} - visible scored cap hits, not exclusions",
+        )
+    if empty_rate > 0:
+        reasons.append(
+            f"empty_final_rate={empty_rate:.0%} - scored as zero, not an automatic exclusion",
+        )
+    return ConformanceReport(
+        status=status,
+        n_scored=n,
+        truncation_rate=truncation_rate,
+        leaked_reasoning_rate=leaked_rate,
+        no_final_answer_rate=no_answer_rate,
+        reasons=tuple(reasons),
+        budget_cap_hit_rate=budget_cap_rate,
+        measurement_truncation_rate=measurement_rate,
+        empty_final_rate=empty_rate,
+        ambiguous_or_contaminated_final_rate=contaminated_rate,
+    )
+
+
+def _is_budget_cap_hit(result: ItemResult) -> bool:
+    if result.get("finish_reason") != "length":
+        return False
+    total = _generated_total(result)
+    max_tokens = result.get("max_tokens")
+    return (
+        total is not None
+        and isinstance(max_tokens, int)
+        and not isinstance(max_tokens, bool)
+        and total == max_tokens
+    )
+
+
+def _generated_total(result: ItemResult) -> int | None:
+    usage = result.get("usage")
+    if isinstance(usage, dict):
+        completion = usage.get("completion_tokens")
+        if isinstance(completion, int) and not isinstance(completion, bool):
+            return completion
+    generated = result.get("generated_tokens")
+    if isinstance(generated, dict):
+        total = generated.get("total")
+        if isinstance(total, int) and not isinstance(total, bool):
+            return total
+    return None
+
+
 def assess_run_conformance(
     results_by_bench: Mapping[str, Sequence[ItemResult]],
     *,
     thresholds: ConformanceThresholds = DEFAULT_THRESHOLDS,
     forced: bool = False,
     leak_regexes_by_bench: Mapping[str, Sequence[str]] | None = None,
+    lane_spec_id: str | None = None,
 ) -> JsonObject:
     """Run-level conformance = the WORST bench status (no dilution of a bench-local
     failure), plus the per-bench breakdown. This is the run_record["conformance"] block.
@@ -175,6 +316,7 @@ def assess_run_conformance(
             thresholds=thresholds,
             forced=forced,
             leak_regexes=(leak_regexes_by_bench or {}).get(bench, ()),
+            lane_spec_id=lane_spec_id,
         )
         for bench, results in results_by_bench.items()
     }

@@ -23,6 +23,14 @@ def test_scorecard_detail_separates_full_drift_from_registry_drift() -> None:
     assert fresh["registry_drift"] is False
     assert fresh["current_id"] == current_id
 
+    # Given: a profiled run recorded under the current selected execution profile.
+    profiled_current = scorecard_identity("qwen_thinking_native_v1")
+    profiled = build_data._scorecard_detail(profiled_current)
+    assert profiled["drift"] is False
+    assert profiled["registry_drift"] is False
+    assert profiled["current_id"] == profiled_current["scorecard_id"]
+    assert profiled["execution_profile_id"] == "qwen_thinking_native_v1"
+
     # Same registry but a DIFFERENT scorecard id (e.g. a scorer-version bump) -> full
     # drift flagged, but the displayed composite is NOT a re-score (weights unchanged).
     scorer_changed = build_data._scorecard_detail(

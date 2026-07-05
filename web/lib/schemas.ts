@@ -53,6 +53,7 @@ export const ScorecardSummarySchema = z.object({
   current_id: z.string().nullable().optional(),
   current_registry_digest: z.string().nullable().optional(),
   drift: z.boolean(),
+  execution_profile_id: z.string().nullable().optional(),
   id: z.string().nullable(),
   registry_digest: z.string().nullable().optional(),
   registry_drift: z.boolean().optional(),

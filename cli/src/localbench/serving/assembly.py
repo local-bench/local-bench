@@ -98,7 +98,7 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
 
 def llama_cpp_reasoning_for_lane(lane: LaneChoice) -> LlamaCppReasoningConfig:
     match lane:
-        case "answer-only":
+        case "answer-only" | "bounded-final-v1":
             return LlamaCppReasoningConfig(
                 reasoning="off",
                 reasoning_budget=None,

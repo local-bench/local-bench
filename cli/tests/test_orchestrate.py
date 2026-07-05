@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -443,6 +444,130 @@ def test_run_localbench_lane_controls_thinking_toggle(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
+def test_bounded_final_publishable_answer_only_accepts_arbitrary_model_id(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        captured: list[dict] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if not request.url.path.endswith("/models"):
+                captured.append(json.loads(request.content))
+            return _all_correct_handler(request)
+
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="unranked-family-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                out=tmp_path / "bounded.json",
+                max_items=1,
+                lane="bounded-final-v1",
+                publishable=True,
+                model_family="arbitrary-new-family",
+                sampler_temperature=0.0,
+                sampler_top_k=1,
+                sampler_seed=1234,
+                determinism_policy="strict-greedy-temp0-seeded-v1",
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        assert captured
+        assert captured[0]["max_tokens"] == 32
+        assert captured[0]["chat_template_kwargs"] == {"enable_thinking": False}
+        assert "think_budget" not in captured[0]
+        assert record["manifest"]["suite"]["lane"] == "bounded-final-v1"
+        assert record["manifest"]["scorecard"]["lane_spec_id"] == "bounded-final-v1"
+        assert record["manifest"]["sampling"]["execution_profile_id"] == "answer_only_v1"
+        assert record["manifest"]["execution_profile"]["id"] == "answer_only_v1"
+        assert record["budget_audit"]["status"] == "exact"
+        assert record["items"][0]["generated_tokens"] == {
+            "total": 1,
+            "reasoning": 0,
+            "final": 1,
+            "source": "server_usage",
+        }
+
+    asyncio.run(scenario())
+
+
+def test_bounded_final_publishable_user_stop_is_diagnostic_only(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        suite_dir = tmp_path / "suite"
+        shutil.copytree(FIXTURE_SUITE, suite_dir)
+        suite_json = json.loads((suite_dir / "suite.json").read_text(encoding="utf-8"))
+        suite_json["benches"]["mmlu_pro"]["decoding"]["stop"] = ["END"]
+        (suite_dir / "suite.json").write_text(json.dumps(suite_json), encoding="utf-8")
+        captured: list[dict] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if not request.url.path.endswith("/models"):
+                captured.append(json.loads(request.content))
+            return _all_correct_handler(request)
+
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=suite_dir,
+                bench="mmlu_pro",
+                out=tmp_path / "bounded-stop.json",
+                max_items=1,
+                lane="bounded-final-v1",
+                publishable=True,
+                sampler_temperature=0.0,
+                sampler_top_k=1,
+                sampler_seed=1234,
+                determinism_policy="strict-greedy-temp0-seeded-v1",
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        assert captured
+        assert "stop" not in captured[0]
+        assert record["prompt_audit"]["status"] == "diagnostic-only"
+        assert any("user-supplied stop" in warning for warning in record["warnings"])
+
+    asyncio.run(scenario())
+
+
+def test_bounded_final_budget_audit_unverified_when_usage_is_missing(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            return _completion_without_usage("Answer: A")
+
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                out=tmp_path / "bounded-unverified.json",
+                max_items=1,
+                lane="bounded-final-v1",
+                publishable=True,
+                sampler_temperature=0.0,
+                sampler_top_k=1,
+                sampler_seed=1234,
+                determinism_policy="strict-greedy-temp0-seeded-v1",
+            ),
+            transport=httpx.MockTransport(handler),
+        )
+
+        assert record["budget_audit"]["status"] == "unverified"
+        assert "generated_tokens" not in record["items"][0]
+
+    asyncio.run(scenario())
+
+
 def test_run_localbench_builds_hf_renderer_once_for_capped_thinking_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -580,7 +705,7 @@ def test_publishable_capped_thinking_accepts_matching_gemma_activation(
         # Then: the guard allows the run and records the resolved Gemma registry entry.
         assert build_calls == [("unsloth/gemma-4-12b-it", "gemma4")]
         assert renderer.render_count == 1
-        assert record["manifest"]["sampling"]["reasoning_registry_entry_id"] == (
+        assert record["manifest"]["sampling"]["execution_profile_id"] == (
             "gemma4_thinking_native_v1"
         )
 
@@ -674,7 +799,7 @@ def test_non_publishable_capped_thinking_keeps_default_diagnostic_renderer(tmp_p
 
         # Then: back-compat keeps the Qwen fallback path available for diagnostics.
         assert record["manifest"]["integrity"]["publishable"] is False
-        assert record["manifest"]["sampling"]["reasoning_registry_entry_id"] == (
+        assert record["manifest"]["sampling"]["execution_profile_id"] == (
             "qwen_thinking_native_v1"
         )
 
@@ -732,6 +857,20 @@ def _completion(text: str, prompt_tokens: int, completion_tokens: int) -> httpx.
                 "completion_tokens": completion_tokens,
                 "total_tokens": prompt_tokens + completion_tokens,
             },
+        },
+    )
+
+
+def _completion_without_usage(text: str) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "message": {"content": text},
+                    "finish_reason": "stop",
+                },
+            ],
         },
     )
 

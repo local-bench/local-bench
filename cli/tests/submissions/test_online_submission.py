@@ -26,7 +26,7 @@ from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import load_private_key
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.bundle import pack_submission_bundle
-from localbench.submissions.validate import SubmissionValidationError
+from localbench.submissions.validate import SubmissionValidationError, validate_suite_and_scorecard
 
 from .fixtures import build_submission_fixtures
 
@@ -87,6 +87,38 @@ def test_submission_envelope_rejects_unknown_origin(tmp_path: Path) -> None:
 
     with pytest.raises(SubmissionValidationError, match="origin"):
         read_submission_envelope(envelope_path)
+
+
+@pytest.mark.anyio
+async def test_pack_submission_bundle_preserves_bounded_final_scorecard_lane(
+    tmp_path: Path,
+) -> None:
+    from localbench.scoring.scorecard import scorecard_identity
+
+    fixtures = await build_submission_fixtures(tmp_path)
+    run = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    run["manifest"]["suite"]["lane"] = "bounded-final-v1"
+    run["manifest"]["scorecard"] = scorecard_identity(
+        "answer_only_v1",
+        lane_spec_id="bounded-final-v1",
+    )
+    fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
+    out = tmp_path / "bounded-final.lbsub.zip"
+
+    manifest = pack_submission_bundle(
+        run_path=fixtures.run_path,
+        suite_dir=fixtures.suite_dir,
+        model_name="fixture-model",
+        signing_key_path=fixtures.key_path,
+        out_path=out,
+        offline=True,
+        created_at="2026-06-24T00:00:00Z",
+        run_nonce="fixed-nonce",
+    )
+
+    payload = manifest["payload"]
+    assert payload["scorecard"]["lane_spec_id"] == "bounded-final-v1"
+    validate_suite_and_scorecard(payload, fixtures.suite_dir)
 
 
 @pytest.mark.anyio
@@ -163,7 +195,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                         "allowed_schema": "localbench.result_bundle.v1",
                         "bundle_sha256": bundle_sha,
                         "declared_model_slug": "fixture-model",
-                        "expected_suite_manifest_sha256": "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231",
+                        "expected_suite_manifest_sha256": "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53",
                         "expected_suite_release_id": "suite-v1-partial-text-code-4axis-v1",
                         "expiry": "2026-07-01T01:00:00Z",
                         "max_upload_bytes": 104_857_600,

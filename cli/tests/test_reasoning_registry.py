@@ -7,10 +7,14 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from localbench.reasoning_registry import (
+    ANSWER_ONLY_PROFILE,
     GEMMA4_LEAK_REGEXES,
     GEMMA4_REASONING_ENTRY,
     QWEN_REASONING_ENTRY,
     ReasoningRegistryEntry,
+    execution_profile_digest,
+    execution_profile_payload,
+    ranked_execution_profiles,
     reasoning_entry_for_activation,
 )
 
@@ -34,6 +38,34 @@ def test_qwen_registry_entry_records_existing_native_forcing_behavior() -> None:
     assert entry.forcing.forced_close == "\n</think>\n\n"
     assert entry.forcing.answer_stop == ("<|im_end|>",)
     assert entry.forcing.reparse is None
+
+
+def test_execution_profile_identity_is_per_entry_and_ranked_allowlisted() -> None:
+    payload = execution_profile_payload(QWEN_REASONING_ENTRY)
+    digest = execution_profile_digest(QWEN_REASONING_ENTRY)
+    ranked = ranked_execution_profiles()
+
+    assert payload["id"] == "qwen_thinking_native_v1"
+    assert payload["forcing"]["close"] == "</think>"
+    assert len(digest) == 64
+    assert ranked["qwen_thinking_native_v1"] == digest
+    assert ranked["gemma4_thinking_native_v1"] == execution_profile_digest(GEMMA4_REASONING_ENTRY)
+    assert ranked["answer_only_v1"] == execution_profile_digest(ANSWER_ONLY_PROFILE)
+
+
+def test_answer_only_profile_records_profile_dispatch_contract() -> None:
+    payload = execution_profile_payload(ANSWER_ONLY_PROFILE)
+
+    assert payload["id"] == "answer_only_v1"
+    assert payload["status"] == "ranked"
+    assert payload["model_match"] == ["*"]
+    assert payload["activation"] == {
+        "method": "chat_template_kwargs_when_supported",
+        "chat_template_kwargs": {"enable_thinking": False},
+        "system_prompt_injection": False,
+    }
+    assert payload["forcing"] is None
+    assert payload["parser"]["scored_text"] == "final_text_only"
 
 
 def test_gemma4_registry_entry_records_verified_provenance_verbatim() -> None:

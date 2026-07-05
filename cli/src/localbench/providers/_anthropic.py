@@ -148,7 +148,7 @@ def _output_effort(
             if thinking_budget is None or thinking_budget <= 0:
                 return None
             return "medium"
-        case "answer-only" | "api-uncapped":
+        case "answer-only" | "api-uncapped" | "bounded-final-v1":
             return None
         case unreachable:
             assert_never(unreachable)

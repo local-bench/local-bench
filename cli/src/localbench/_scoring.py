@@ -48,6 +48,8 @@ class ScoredItem(TypedDict):
     warnings: NotRequired[list[str]]
     failure_kind: NotRequired[str | None]
     reasoning_text: NotRequired[str | None]
+    max_tokens: NotRequired[int]
+    generated_tokens: NotRequired[JsonValue]
 
 
 class BenchAggregate(TypedDict):

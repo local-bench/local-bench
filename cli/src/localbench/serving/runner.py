@@ -161,7 +161,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 f"http://127.0.0.1:{port}/v1",
                 options.model_id,
                 api_key=api_key,
-                chat_template_kwargs={"enable_thinking": True},
+                chat_template_kwargs=_agentic_chat_template_kwargs(options.lane),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
             agentic_provenance_extra = agentic_preflight.provenance()
@@ -235,6 +235,12 @@ def _needs_wsl_agentic(options: ServeBenchOptions) -> bool:
     )
     suite = read_json_object(suite_ref.path / "suite.json")
     return "appworld_c" in resolve_run_benches(options.bench, suite)
+
+
+def _agentic_chat_template_kwargs(lane: str) -> dict[str, object]:
+    if lane in {"answer-only", "bounded-final-v1"}:
+        return {"enable_thinking": False}
+    return {"enable_thinking": True}
 
 
 def _repo_root() -> Path:

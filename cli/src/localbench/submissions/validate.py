@@ -6,7 +6,9 @@ from pathlib import Path
 
 from localbench._suite import read_json_object
 from localbench._types import JsonObject, JsonValue
-from localbench.scoring.scorecard import scorecard_identity
+from localbench.lane_spec import DEFAULT_LANE_SPEC_ID, lane_spec_digest
+from localbench.reasoning_registry import ranked_execution_profiles
+from localbench.scoring.scorecard import SCORECARD_VERSION, _digest, scorecard_identity
 from localbench.submissions.canon import canonical_json_hash, sha256_bytes
 from localbench.submissions.contracts import (
     ITEM_SCHEMA_VERSION,
@@ -77,7 +79,22 @@ def validate_suite_and_scorecard(payload: JsonObject, suite_dir: Path) -> None:
     if submitted_suite.get("hash") != suite_hash(suite_dir):
         raise SubmissionValidationError("suite hash mismatch")
     submitted_scorecard = _object_or_error(payload.get("scorecard"), "payload scorecard")
-    current = scorecard_identity(_optional_string(submitted_scorecard.get("reasoning_registry_entry_id")))
+    submitted_version = _optional_string(submitted_scorecard.get("version")) or _optional_string(
+        submitted_scorecard.get("scorecard_version"),
+    )
+    if submitted_version != SCORECARD_VERSION:
+        raise SubmissionValidationError(
+            "bundle was produced by an older CLI; upgrade local-bench-ai and re-run",
+        )
+    lane_spec_id = _optional_string(submitted_scorecard.get("lane_spec_id")) or DEFAULT_LANE_SPEC_ID
+    try:
+        expected_lane_digest = lane_spec_digest(lane_spec_id)
+    except ValueError as error:
+        raise SubmissionValidationError(str(error)) from error
+    if submitted_scorecard.get("lane_spec_digest") != expected_lane_digest:
+        raise SubmissionValidationError("lane spec digest mismatch")
+    execution_profile_id = _validated_execution_profile_id(submitted_scorecard)
+    current = scorecard_identity(execution_profile_id, lane_spec_id=lane_spec_id)
     if submitted_scorecard.get("id") != current.get("scorecard_id"):
         raise SubmissionValidationError("scorecard id mismatch")
     if submitted_scorecard.get("registry_digest") != current.get("registry_digest"):
@@ -150,6 +167,23 @@ def _read_jsonl(path: Path) -> list[JsonObject]:
         if isinstance(data, dict):
             rows.append(data)
     return rows
+
+
+def _validated_execution_profile_id(scorecard: JsonObject) -> str | None:
+    raw_profile = scorecard.get("execution_profile")
+    if raw_profile is None:
+        return None
+    profile = _object_or_error(raw_profile, "execution profile")
+    profile_id = _require_string(profile, "id")
+    claimed_digest = _require_string(profile, "digest")
+    payload = _object_or_error(profile.get("payload"), "execution profile payload")
+    server_digest = ranked_execution_profiles().get(profile_id)
+    if server_digest is None:
+        raise SubmissionValidationError("execution profile is not ranked")
+    embedded_digest = _digest(payload)
+    if embedded_digest != claimed_digest or embedded_digest != server_digest:
+        raise SubmissionValidationError("execution profile digest mismatch")
+    return profile_id
 
 
 def _item_id(item: JsonObject) -> str:

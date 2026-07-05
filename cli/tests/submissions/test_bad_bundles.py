@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.bundle import pack_submission_bundle
 from localbench.submissions.validate import SubmissionValidationError
 from localbench.submissions.verify import verify_bundle_offline
@@ -74,6 +75,90 @@ async def test_wrong_scorecard_rejects(tmp_path: Path) -> None:
 
     # When / Then: verification rejects scorecard drift.
     with pytest.raises(SubmissionValidationError, match="scorecard"):
+        verify_bundle_offline(bad, suite_dir=fixtures.suite_dir)
+
+
+@pytest.mark.anyio
+async def test_scorecard_v2_bundle_rejects_with_upgrade_message(tmp_path: Path) -> None:
+    # Given: a bundle signed with the legacy scorecard contract version.
+    fixtures, valid = await _valid_bundle(tmp_path)
+    bad = mutate_zip_json(
+        valid,
+        tmp_path / "old-scorecard-version.lbsub.zip",
+        "manifest.json",
+        lambda manifest: {
+            **manifest,
+            "payload": {
+                **manifest["payload"],
+                "scorecard": {**manifest["payload"]["scorecard"], "version": "2"},
+            },
+        },
+        refresh_payload_sha=True,
+        signing_key_path=fixtures.key_path,
+    )
+
+    # When / Then: verification tells the submitter to rerun with a current CLI.
+    with pytest.raises(
+        SubmissionValidationError,
+        match="bundle was produced by an older CLI; upgrade local-bench-ai and re-run",
+    ):
+        verify_bundle_offline(bad, suite_dir=fixtures.suite_dir)
+
+
+@pytest.mark.anyio
+async def test_lane_spec_digest_mismatch_rejects(tmp_path: Path) -> None:
+    # Given: a bundle signed under the wrong lane-spec digest.
+    fixtures, valid = await _valid_bundle(tmp_path)
+    bad = mutate_zip_json(
+        valid,
+        tmp_path / "wrong-lane-spec.lbsub.zip",
+        "manifest.json",
+        lambda manifest: {
+            **manifest,
+            "payload": {
+                **manifest["payload"],
+                "scorecard": {
+                    **manifest["payload"]["scorecard"],
+                    "lane_spec_digest": "0" * 64,
+                },
+            },
+        },
+        refresh_payload_sha=True,
+        signing_key_path=fixtures.key_path,
+    )
+
+    # When / Then: verification rejects lane-spec drift independently of catalog drift.
+    with pytest.raises(SubmissionValidationError, match="lane spec digest mismatch"):
+        verify_bundle_offline(bad, suite_dir=fixtures.suite_dir)
+
+
+@pytest.mark.anyio
+async def test_execution_profile_payload_digest_mismatch_rejects(tmp_path: Path) -> None:
+    # Given: a Qwen-profiled bundle whose embedded profile payload was tampered with.
+    fixtures, valid = await _valid_bundle(tmp_path)
+    bad_scorecard = _submission_scorecard("qwen_thinking_native_v1")
+    profile = dict(bad_scorecard["execution_profile"])
+    payload = dict(profile["payload"])
+    payload["version"] = "tampered"
+    profile["payload"] = payload
+    bad_scorecard["execution_profile"] = profile
+    bad = mutate_zip_json(
+        valid,
+        tmp_path / "profile-payload-mismatch.lbsub.zip",
+        "manifest.json",
+        lambda manifest: {
+            **manifest,
+            "payload": {
+                **manifest["payload"],
+                "scorecard": bad_scorecard,
+            },
+        },
+        refresh_payload_sha=True,
+        signing_key_path=fixtures.key_path,
+    )
+
+    # When / Then: verification rejects the embedded profile before comparing catalogs.
+    with pytest.raises(SubmissionValidationError, match="execution profile digest mismatch"):
         verify_bundle_offline(bad, suite_dir=fixtures.suite_dir)
 
 
@@ -173,3 +258,22 @@ async def _valid_bundle(tmp_path: Path):
         run_nonce="fixed-nonce",
     )
     return fixtures, valid
+
+
+def _submission_scorecard(execution_profile_id: str | None = None) -> dict[str, object]:
+    scorecard = scorecard_identity(execution_profile_id)
+    execution_profile = None
+    if scorecard["execution_profile_id"] is not None:
+        execution_profile = {
+            "id": scorecard["execution_profile_id"],
+            "digest": scorecard["execution_profile_digest"],
+            "payload": scorecard["execution_profile"],
+        }
+    return {
+        "version": scorecard["scorecard_version"],
+        "id": scorecard["scorecard_id"],
+        "registry_digest": scorecard["registry_digest"],
+        "lane_spec_id": scorecard["lane_spec_id"],
+        "lane_spec_digest": scorecard["lane_spec_digest"],
+        "execution_profile": execution_profile,
+    }

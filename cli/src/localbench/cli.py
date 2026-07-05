@@ -47,6 +47,7 @@ from localbench.exit_codes import (
 from localbench.campaign_checkpoints import CheckpointCorruptionError, completed_benches
 from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
+from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.persistence import atomic_write_json
 from localbench.prompt_rendering import REASONING_ACTIVATIONS
 from localbench.providers import provider_choices
@@ -223,7 +224,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--price-out", type=float)
     run_parser.add_argument(
         "--lane",
-        choices=("answer-only", "capped-thinking", "api-uncapped"),
+        choices=("answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"),
         default="answer-only",
     )
     run_parser.add_argument(
@@ -287,7 +288,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     bench_parser.add_argument(
         "--lane",
-        choices=("answer-only", "capped-thinking", "api-uncapped"),
+        choices=("answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"),
         default="answer-only",
     )
     bench_parser.add_argument(
@@ -1235,6 +1236,7 @@ def _append_scorer_gated_benches(
     record["conformance"] = assess_run_conformance(
         _results_by_bench_from_scored(record["items"]),
         forced=_record_forced(record),
+        lane_spec_id=lane_spec_id_for_lane(_record_lane(record) or ""),
     )
 
 
@@ -1254,6 +1256,12 @@ def _results_by_bench_from_scored(items: list[ScoredItem]) -> dict[str, list[Ite
             "attempts": item["attempts"],
             "error": item["error"],
         }
+        max_tokens = item.get("max_tokens")
+        if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
+            result["max_tokens"] = max_tokens
+        generated_tokens = item.get("generated_tokens")
+        if isinstance(generated_tokens, dict):
+            result["generated_tokens"] = dict(generated_tokens)
         results.setdefault(bench, []).append(result)
     return results
 
@@ -1267,6 +1275,14 @@ def _record_forced(record: LocalbenchRun) -> bool:
         return False
     thinking_budget = caps.get("thinking_budget")
     return isinstance(thinking_budget, int) and thinking_budget > 0
+
+
+def _record_lane(record: LocalbenchRun) -> str | None:
+    suite = record["manifest"].get("suite")
+    if not isinstance(suite, dict):
+        return None
+    lane = suite.get("lane")
+    return lane if isinstance(lane, str) else None
 
 
 def _rewrite_run_record(record: LocalbenchRun, output_path: Path) -> None:
@@ -1788,6 +1804,8 @@ def _prefer_utf8_stdout() -> None:
 
 
 def _lane(value: str) -> LaneChoice:
+    if value == "bounded-final-v1":
+        return "bounded-final-v1"
     if value == "capped-thinking":
         return "capped-thinking"
     if value == "api-uncapped":

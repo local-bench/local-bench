@@ -6,7 +6,7 @@ import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv
 
 const TICKET_ID = "ticket_unit_finalize";
 const SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
-const SUITE_MANIFEST_SHA = "b3fc40191c366d87b5537b12daa3d5c3680035238492c47996ab1f1b00d32231";
+const SUITE_MANIFEST_SHA = "487f337ac436c8b3ee327394cd9efc6d0f5562cbe1966ce114ebb611f18c8a53";
 const RESULT_BUNDLE_JSON = JSON.stringify(resultBundle());
 const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
 
