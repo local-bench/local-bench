@@ -1,25 +1,10 @@
-import { kindLabel } from "@/lib/format";
-import type { Kind } from "@/lib/schemas";
-
-export function KindBadge({
-  kind,
-  runCount,
-}: {
-  readonly kind: Kind;
-  readonly runCount?: number;
-}) {
-  const isAnchor = kind === "anchor";
+// Who-ran-this credit chip for model pages. Community submissions carry the submitter's name;
+// everything else on the board was measured by the project and is credited to local-bench.
+export function RunByBadge({ submitter }: { readonly submitter: string | null | undefined }) {
+  const hasSubmitter = submitter !== null && submitter !== undefined && submitter !== "";
   return (
-    <span
-      className={[
-        "inline-flex items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold uppercase",
-        isAnchor
-          ? "border-bench-anchor/45 bg-bench-anchor/10 text-bench-anchor"
-          : "border-bench-community/35 bg-bench-community/10 text-bench-community",
-      ].join(" ")}
-    >
-      {kindLabel(kind)}
-      {!isAnchor && runCount !== undefined ? <span className="text-bench-muted">N={runCount}</span> : null}
+    <span className="inline-flex items-center gap-1 rounded border border-bench-accent/45 bg-bench-accent/10 px-2 py-1 text-[11px] font-semibold uppercase text-bench-accent">
+      {hasSubmitter ? `submitted by ${submitter}` : "run by local-bench"}
     </span>
   );
 }

@@ -96,17 +96,6 @@ export function fallbackText(value: string | number | boolean | null | undefined
   return String(value);
 }
 
-export function kindLabel(kind: Kind): string {
-  switch (kind) {
-    case "anchor":
-      return "Anchor";
-    case "community":
-      return "Community-reported";
-    default:
-      return assertNever(kind);
-  }
-}
-
 export function formatRuntime(runtime: RuntimeSummary, kind: Kind): string {
   const name = runtime.name ?? (kind === "anchor" ? "API" : "n/a");
   const version = runtime.version ?? "n/a";
@@ -143,6 +132,3 @@ export function formatPrimitiveRecord(record: PrimitiveRecord): string {
   return entries.length === 0 ? "n/a" : entries.join(", ");
 }
 
-function assertNever(value: never): never {
-  throw new Error(`Unhandled variant: ${String(value)}`);
-}

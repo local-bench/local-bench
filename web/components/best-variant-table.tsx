@@ -15,7 +15,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
       >
         <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
-          <h2 className="mt-1 text-lg font-semibold text-bench-text">No ranked variants yet</h2>
+          <h2 className="mt-1 text-2xl font-semibold text-bench-text">No ranked variants yet</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
             Partial benchmark profiles are available on model pages, but the Local Intelligence Index ranks only rows
             with Agentic, Knowledge, Instruction, Tool calling, and Coding all measured under the standard capped-thinking lane.
@@ -36,6 +36,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
     >
       <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
+        <h2 className="mt-1 text-2xl font-semibold text-bench-text">Best ranked variant per model</h2>
         <p className="mt-1 text-xs leading-5 text-bench-muted">
           Best local model variants ranked so far, by the Local Intelligence Index
           (<span className="font-mono">0.50 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool + 0.10 Coding</span>).

@@ -157,13 +157,13 @@ export default async function MethodologyPage() {
         </p>
         <ul className="list-disc space-y-3 pl-5">
           <li>
-            <span className="text-bench-text">Origin: project anchor vs community.</span> Anchor rows are runs
-            the project executed on its own hardware; community rows are everything submitted from outside.
-            The server derives this; submitters cannot set it.
+            <span className="text-bench-text">Run by: local-bench vs community.</span> Rows the project
+            measured on its own hardware are credited to local-bench; community rows carry the
+            submitter&apos;s credit line. The server derives this; submitters cannot set it.
           </li>
           <li>
             <span className="text-bench-text">Static axes: always re-scored.</span> For every accepted bundle —
-            anchor or community — the four static axes are independently recomputed from the submitted
+            project-run or community — the four static axes are independently recomputed from the submitted
             transcripts against the frozen, sha256-pinned item sets. A submitted static score never enters the
             board as claimed, so fabricated static scores do not survive.
           </li>
@@ -173,7 +173,7 @@ export default async function MethodologyPage() {
             fact, so carried verdicts wear a provenance label instead.{" "}
             <span className="text-bench-text">Attested</span> means every carried verdict has a valid Ed25519
             attestation, signed at the moment the sandbox verdict was accepted and checked against the
-            project&apos;s pinned attester key — project-run rows carry this. (One historical anchor row, the
+            project&apos;s pinned attester key — project-run rows carry this. (One historical local-bench row, the
             first ranked run, predates per-verdict signing and is grandfathered as attested by bundle hash;
             it was produced by the same host-derived verdict path.){" "}
             <span className="text-bench-text">Self-reported</span> means the verdicts were carried exactly as
@@ -195,7 +195,7 @@ export default async function MethodologyPage() {
           An OpenAI-compatible endpoint can be a cheat proxy: it can look up public answers and fabricate
           plausible transcripts, and no server-side check proves which model — or whose hardware — actually
           produced a bundle. Re-scoring closes the cheapest fraud (claimed static scores that don&apos;t match the
-          transcripts), signed anchor attestations make the project&apos;s own agentic verdicts tamper-evident, and
+          transcripts), signed attestations make the project&apos;s own agentic verdicts tamper-evident, and
           manual review is the backstop for everything else; but a determined submitter could still fabricate a
           self-reported agentic result, which is exactly why the board labels it self-reported rather than
           verified. Spot replication of community agentic runs is on the roadmap. Until then, treat labels as

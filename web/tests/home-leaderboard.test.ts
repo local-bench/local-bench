@@ -26,8 +26,7 @@ describe("home leaderboard runtime column", () => {
     );
 
     expect(html).toContain("Runtime");
-    expect(html).toContain("Tool-call format");
-    expect(html).toContain("valid-JSON gate · not a score");
+    expect(html).not.toContain("Tool-call format");
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b1234");
     expect(html).toContain("Missing Runtime");
@@ -68,12 +67,12 @@ describe("home leaderboard provenance labels", () => {
     expect(legacy).not.toHaveProperty("agentic_provenance");
   });
 
-  it("renders trust and attested chips for project-anchor five-axis rows", () => {
+  it("renders the attested chip and local-bench run-by credit for project-run five-axis rows", () => {
     const html = renderToStaticMarkup(
       createElement(HomeLeaderboard, {
         models: [
           IndexModelSchema.parse({
-            ...rawModel("gemma", "Gemma Anchor", undefined),
+            ...rawModel("gemma", "Gemma Ranked", undefined),
             agentic_provenance: "project_attested",
             axes: { agentic: AXIS_SCORE },
             origin: "project_anchor",
@@ -83,9 +82,11 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).toContain("project anchor");
+    expect(html).toContain("Run by");
+    expect(html).toContain("local-bench");
     expect(html).toContain("attested");
-    expect(html).not.toContain("community-reported");
+    expect(html).not.toContain("project anchor");
+    expect(html).not.toContain("Community-reported");
     expect(html).toContain('href="/methodology"');
   });
 
@@ -105,10 +106,27 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).toContain("community");
     expect(html).toContain("self-reported");
     expect(html).toContain("submitted by Quant Cowboy");
     expect(html).not.toMatch(/<a[^>]*>submitted by Quant Cowboy<\/a>/);
+  });
+
+  it("shows a placeholder run-by for rows that nobody has measured yet", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeLeaderboard, {
+        models: [
+          IndexModelSchema.parse({
+            ...rawModel("shell", "Catalog Shell", undefined),
+            composite: null,
+            ranked: false,
+            score_status: "missing",
+          }),
+        ],
+      }),
+    );
+
+    expect(html).not.toContain("local-bench</span>");
+    expect(html).toContain("be the first to benchmark");
   });
 
   it("sorts static-composite mode by composite_static instead of composite_full", () => {
