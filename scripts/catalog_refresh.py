@@ -20,10 +20,12 @@ What it does
      ``base_model`` field only; NEVER overwrites web/model_catalog.json)
 
 Politeness: >=200 ms request spacing (default 250 ms), retry/backoff on 429 and 5xx,
-no auth token ever sent, all responses cached under ``catalog-refresh-out/cache``.
+HF_TOKEN is used when present for metadata mode, and responses are cached under
+``catalog-refresh-out/cache``.
 
 Run from the repo root:
     uv run --project cli python scripts/catalog_refresh.py
+    uv run --project cli python scripts/catalog_refresh.py --mode metadata
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import re
 import sys
 import time
@@ -44,6 +47,7 @@ import httpx
 
 API_BASE = "https://huggingface.co/api"
 USER_AGENT = "local-bench-catalog-refresh/0.1 (public metadata only; https://local-bench.ai)"
+MAX_CHANGED_ENTRIES = 250
 
 # Canonical-model detail fields (expand[] cannot be combined with blobs=true, so the
 # GGUF-repo fetch uses ?blobs=true and the canonical fetch uses expand[]).
@@ -58,6 +62,7 @@ CANONICAL_EXPAND = [
     "config",
     "safetensors",
 ]
+METADATA_EXPAND = ["downloads", "downloadsAllTime", "likes", "trendingScore"]
 
 # Quant-label extraction from GGUF filenames. Longest alternatives first.
 QUANT_RE = re.compile(
@@ -157,6 +162,79 @@ class HfClient:
             return resp.status_code, body
 
         return -1, None
+
+
+class HubMetadataClient:
+    def __init__(self, cache_dir: Path, throttle_ms: int, cache_max_age_h: float, refresh: bool):
+        try:
+            from huggingface_hub import HfApi
+        except ImportError as exc:
+            raise SystemExit(
+                "metadata mode requires huggingface_hub; run with the CLI environment that includes the hf extra"
+            ) from exc
+        self.cache_dir = cache_dir
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.throttle_s = max(throttle_ms, 200) / 1000.0
+        self.cache_max_age_s = cache_max_age_h * 3600
+        self.refresh = refresh
+        self.token = os.environ.get("HF_TOKEN") or None
+        self.api = HfApi(token=self.token, user_agent=USER_AGENT)
+        self._last_request = 0.0
+        self.network_hits = 0
+        self.cache_hits = 0
+        self.errors: list[str] = []
+
+    def _cache_path(self, repo_id: str) -> Path:
+        key = f"model_info:{repo_id}:{','.join(METADATA_EXPAND)}"
+        return self.cache_dir / (hashlib.sha256(key.encode("utf-8")).hexdigest()[:32] + ".json")
+
+    def model_info(self, repo_id: str) -> dict[str, Any] | None:
+        cpath = self._cache_path(repo_id)
+        if not self.refresh and cpath.exists():
+            try:
+                entry = json.loads(cpath.read_text(encoding="utf-8"))
+                if time.time() - entry["fetched_at"] <= self.cache_max_age_s:
+                    self.cache_hits += 1
+                    return entry["body"]
+            except (json.JSONDecodeError, KeyError, OSError):
+                pass
+        wait = self.throttle_s - (time.monotonic() - self._last_request)
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            info = self.api.model_info(repo_id, expand=METADATA_EXPAND, token=self.token, timeout=60)
+            self._last_request = time.monotonic()
+            self.network_hits += 1
+        except Exception as exc:
+            self._last_request = time.monotonic()
+            self.errors.append(f"{repo_id}: {type(exc).__name__}: {exc}")
+            return None
+        body = model_info_body(info)
+        cpath.write_text(
+            json.dumps({"repo_id": repo_id, "fetched_at": time.time(), "body": body}),
+            encoding="utf-8",
+        )
+        return body
+
+
+def model_info_body(info: Any) -> dict[str, Any]:
+    return {
+        "downloads": value_from_info(info, "downloads"),
+        "downloadsAllTime": value_from_info(info, "downloads_all_time", "downloadsAllTime"),
+        "likes": value_from_info(info, "likes"),
+        "trendingScore": value_from_info(info, "trending_score", "trendingScore"),
+    }
+
+
+def value_from_info(info: Any, *keys: str) -> Any:
+    data = vars(info) if hasattr(info, "__dict__") else {}
+    for key in keys:
+        if key in data:
+            return data[key]
+        value = getattr(info, key, None)
+        if value is not None:
+            return value
+    return None
 
 
 # --------------------------------------------------------------------------- GGUF parsing
@@ -815,6 +893,152 @@ def build_report(
     return "\n".join(L)
 
 
+def load_catalog(path: Path) -> tuple[Any, list[dict[str, Any]]]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(raw, list):
+        return raw, raw
+    if isinstance(raw, dict) and isinstance(raw.get("models"), list):
+        return raw, raw["models"]
+    raise SystemExit("model catalog must be either a list or an object with a models list")
+
+
+def catalog_with_models(raw: Any, models: list[dict[str, Any]], popularity_as_of: str | None = None) -> Any:
+    if isinstance(raw, dict):
+        out = copy.deepcopy(raw)
+        if popularity_as_of is not None:
+            out["popularity_as_of"] = popularity_as_of
+        out["models"] = models
+        return out
+    if popularity_as_of is None:
+        return models
+    return {"popularity_as_of": popularity_as_of, "models": models}
+
+
+def refresh_metadata_mode(args: argparse.Namespace, catalog_path: Path, out_dir: Path, raw_catalog: Any, catalog: list[dict[str, Any]]) -> int:
+    proposed = copy.deepcopy(catalog)
+    work_count = min(args.limit, len(catalog)) if args.limit else len(catalog)
+    client = HubMetadataClient(out_dir / "cache", args.throttle_ms, args.cache_max_age_hours, args.refresh)
+    changed: list[tuple[str, str, dict[str, Any], dict[str, Any]]] = []
+    as_of = datetime.now(timezone.utc).date().isoformat()
+    log(f"Refreshing metadata for {work_count} catalog entries ...")
+    for index, entry in enumerate(catalog[:work_count]):
+        repo_id = entry.get("gguf_repo") or entry.get("id")
+        if not isinstance(repo_id, str) or not repo_id:
+            client.errors.append(f"{entry.get('id', '<unknown>')}: missing repo id")
+            continue
+        log(f"  [{index + 1}/{work_count}] {entry.get('id')}  (popularity repo: {repo_id})")
+        info = client.model_info(repo_id)
+        if info is None:
+            continue
+        old = dict(entry.get("popularity") or {})
+        new = popularity_from_info(info, old)
+        proposed[index]["popularity"] = new
+        if old != new:
+            changed.append((str(entry.get("id") or repo_id), repo_id, old, new))
+    proposed_catalog = catalog_with_models(raw_catalog, proposed, as_of)
+    proposed_path = out_dir / "model_catalog.proposed.json"
+    proposed_path.write_text(json.dumps(proposed_catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    guard = metadata_guard(raw_catalog, proposed_catalog, changed)
+    report = metadata_report(changed, client, as_of, guard, args)
+    report_path = out_dir / "catalog-refresh-report.md"
+    report_path.write_text(report, encoding="utf-8", newline="\n")
+    if args.apply and guard["safe"]:
+        catalog_path.write_text(json.dumps(proposed_catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+        applied = "applied"
+    elif args.apply:
+        applied = "guard_blocked"
+    else:
+        applied = "report_only"
+    print(f"mode=metadata entries={work_count} changed_entries={len(changed)} guard={guard['status']} {applied}")
+    print(f"report: {report_path}")
+    print(f"proposal: {proposed_path}")
+    return 0
+
+
+def popularity_from_info(info: dict[str, Any], old: dict[str, Any]) -> dict[str, Any]:
+    new = dict(old)
+    if isinstance(info.get("downloads"), (int, float)):
+        new["downloads"] = int(info["downloads"])
+    if isinstance(info.get("likes"), (int, float)):
+        new["likes"] = int(info["likes"])
+    if isinstance(info.get("trendingScore"), (int, float)):
+        new["trending"] = int(info["trendingScore"])
+    if isinstance(info.get("downloadsAllTime"), (int, float)):
+        new["downloads_all_time"] = int(info["downloadsAllTime"])
+    return new
+
+
+def metadata_guard(raw_catalog: Any, proposed_catalog: Any, changed: list[tuple[str, str, dict[str, Any], dict[str, Any]]]) -> dict[str, Any]:
+    original_models = raw_catalog["models"] if isinstance(raw_catalog, dict) else raw_catalog
+    proposed_models = proposed_catalog["models"] if isinstance(proposed_catalog, dict) else proposed_catalog
+    reasons: list[str] = []
+    if len(changed) > MAX_CHANGED_ENTRIES:
+        reasons.append(f"changed entries {len(changed)} exceeds MAX_CHANGED_ENTRIES={MAX_CHANGED_ENTRIES}")
+    if len(original_models) != len(proposed_models):
+        reasons.append("model count changed")
+    for old, new in zip(original_models, proposed_models, strict=False):
+        old_without_meta = {k: v for k, v in old.items() if k != "popularity"}
+        new_without_meta = {k: v for k, v in new.items() if k != "popularity"}
+        if old_without_meta != new_without_meta:
+            reasons.append(f"non-metadata diff for {old.get('id') or old.get('slug')}")
+            break
+        if [q.get("label") for q in old.get("quants", [])] != [q.get("label") for q in new.get("quants", [])]:
+            reasons.append(f"quant labels changed for {old.get('id') or old.get('slug')}")
+            break
+        if old.get("id") != new.get("id") or old.get("gguf_repo") != new.get("gguf_repo"):
+            reasons.append(f"recipe target changed for {old.get('id') or old.get('slug')}")
+            break
+    safe = not reasons
+    return {"safe": safe, "status": "ok" if safe else "blocked", "reasons": reasons}
+
+
+def metadata_report(
+    changed: list[tuple[str, str, dict[str, Any], dict[str, Any]]],
+    client: HubMetadataClient,
+    as_of: str,
+    guard: dict[str, Any],
+    args: argparse.Namespace,
+) -> str:
+    lines = [
+        "# Catalog metadata refresh",
+        "",
+        f"- mode: metadata",
+        f"- popularity_as_of: {as_of}",
+        f"- changed entries: {len(changed)}",
+        f"- cache hits: {client.cache_hits}",
+        f"- network hits: {client.network_hits}",
+        f"- apply requested: {bool(args.apply)}",
+        f"- guard: {guard['status']}",
+        "",
+        "Popularity is fetched from the entry GGUF repo when present, so downloads are Hugging Face's monthly repo-level count across all files in that repo, not per quant.",
+        "",
+    ]
+    reasons = guard.get("reasons") or []
+    if reasons:
+        lines.append("## Guard failures")
+        lines.append("")
+        for reason in reasons:
+            lines.append(f"- {reason}")
+        lines.append("")
+    if changed:
+        lines.append("## Changed popularity blocks")
+        lines.append("")
+        lines.append("| Entry | Repo | Downloads old | Downloads new | Likes old | Likes new | Trending old | Trending new |")
+        lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+        for entry_id, repo_id, old, new in changed:
+            lines.append(
+                f"| {entry_id} | {repo_id} | {fmt_int(old.get('downloads'))} | {fmt_int(new.get('downloads'))} | {fmt_int(old.get('likes'))} | {fmt_int(new.get('likes'))} | {fmt_int(old.get('trending'))} | {fmt_int(new.get('trending'))} |"
+            )
+        lines.append("")
+    if client.errors:
+        lines.append("## Metadata fetch errors")
+        lines.append("")
+        for error in client.errors[:50]:
+            lines.append(f"- {error}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -823,6 +1047,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Verify/refresh web/model_catalog.json against the public HF API.")
     ap.add_argument("--catalog", default=str(repo_root / "web" / "model_catalog.json"))
     ap.add_argument("--out-dir", default=str(repo_root / "catalog-refresh-out"))
+    ap.add_argument("--mode", choices=("full", "metadata"), default="full")
+    ap.add_argument("--apply", action="store_true", help="apply metadata mode only when guards pass")
     ap.add_argument("--throttle-ms", type=int, default=250, help="min spacing between network requests (floor 200)")
     ap.add_argument("--cache-max-age-hours", type=float, default=24.0)
     ap.add_argument("--refresh", action="store_true", help="ignore the response cache")
@@ -835,7 +1061,10 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    catalog: list[dict[str, Any]] = json.loads(catalog_path.read_text(encoding="utf-8"))
+    raw_catalog, catalog = load_catalog(catalog_path)
+    if args.mode == "metadata":
+        return refresh_metadata_mode(args, catalog_path, out_dir, raw_catalog, catalog)
+
     if args.limit:
         work = catalog[: args.limit]
     else:
@@ -862,8 +1091,9 @@ def main() -> int:
     report_path.write_text(report, encoding="utf-8", newline="\n")
 
     proposed_path = out_dir / "model_catalog.proposed.json"
+    proposed_catalog = catalog_with_models(raw_catalog, proposal)
     proposed_path.write_text(
-        json.dumps(proposal, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
+        json.dumps(proposed_catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n"
     )
 
     clean = sum(1 for r in results if r.clean)

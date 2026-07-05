@@ -740,7 +740,13 @@ async def run_localbench(
     )
     budget_audit = _budget_audit(items)
     sampler_audit = _sampler_audit(config)
-    suite_coverage = _suite_coverage(scorable_benches, items)
+    suite_coverage = _suite_coverage(
+        scorable_benches,
+        items,
+        suite=suite,
+        tier=config.tier,
+        max_items=config.max_items,
+    )
     run_record: LocalbenchRun = {
         "schema": "localbench-run-v0",
         "schema_version": RUN_SCHEMA_VERSION,
@@ -1015,7 +1021,14 @@ def _budget_audit(items: list[ScoredItem]) -> JsonObject:
     }
 
 
-def _suite_coverage(benches: list[RenderedBench], items: list[ScoredItem]) -> JsonObject:
+def _suite_coverage(
+    benches: list[RenderedBench],
+    items: list[ScoredItem],
+    *,
+    suite: JsonObject,
+    tier: str,
+    max_items: int | None,
+) -> JsonObject:
     expected = {
         (bench.name, benchmark_item["id"])
         for bench in benches
@@ -1023,12 +1036,38 @@ def _suite_coverage(benches: list[RenderedBench], items: list[ScoredItem]) -> Js
     }
     seen = {(item["bench"], item["id"]) for item in items}
     missing = sorted(f"{bench}/{item_id}" for bench, item_id in expected - seen)
+    full_total = _suite_declared_item_count(suite, benches, tier)
+    rendered_total = len(expected)
+    observed = len(expected & seen)
+    max_items_truncated = max_items is not None and full_total > rendered_total
+    status = "partial" if max_items_truncated else "complete" if not missing else "incomplete"
     return {
-        "status": "complete" if not missing else "incomplete",
-        "expected_items": len(expected),
-        "observed_items": len(expected & seen),
+        "status": status,
+        "covered_items": observed,
+        "total_items": full_total,
+        "expected_items": full_total,
+        "rendered_expected_items": rendered_total,
+        "observed_items": observed,
+        "max_items_truncated": max_items_truncated,
         "missing_items": missing,
     }
+
+
+def _suite_declared_item_count(suite: JsonObject, benches: list[RenderedBench], tier: str) -> int:
+    suite_benches = suite.get("benches")
+    if not isinstance(suite_benches, dict):
+        return sum(len(bench.benchmark_items) for bench in benches)
+    total = 0
+    for bench in benches:
+        bench_config = suite_benches.get(bench.name)
+        if not isinstance(bench_config, dict):
+            total += len(bench.benchmark_items)
+            continue
+        itemsets = bench_config.get("itemsets")
+        itemset = itemsets.get(tier) if isinstance(itemsets, dict) else None
+        item_count = itemset.get("item_count") if isinstance(itemset, dict) else None
+        total += item_count if isinstance(item_count, int) and not isinstance(item_count, bool) else len(bench.benchmark_items)
+    return total
 
 
 def _generated_total(value: JsonValue | None) -> int | None:

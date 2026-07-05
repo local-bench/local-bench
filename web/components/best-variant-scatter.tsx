@@ -242,7 +242,7 @@ export function BestVariantVramScatter({
               fontSize="14"
               textAnchor="middle"
             >
-              No ranked five-axis local rows yet; partial diagnostics stay off this frontier.
+              No ranked current-index local rows yet; partial diagnostics stay off this frontier.
             </text>
           ) : null}
           <text
@@ -299,7 +299,7 @@ function layoutAnchors(anchorRuns: readonly AnchorReference[]) {
 
 function describe(points: readonly BestVariantPoint[]): string {
   if (points.length === 0) {
-    return "Scatter of local model quality versus VRAM; no ranked five-axis local rows yet.";
+    return "Scatter of local model quality versus VRAM; no ranked current-index local rows yet.";
   }
   const best = points.reduce((top, point) => (point.score.point > top.score.point ? point : top));
   return `Scatter of ${points.length} local models: Local Intelligence Index versus effective VRAM to run. Best: ${best.modelLabel} at ${formatScore(best.score.point)}.`;

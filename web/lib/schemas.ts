@@ -380,11 +380,29 @@ const CatalogModelSchema = z
       .optional(),
     reasoning_capable: z.boolean().nullable().optional(),
     license: z.string().nullable().optional(),
-    popularity: z.object({ downloads: z.number().nullable().optional() }).passthrough().nullable().optional(),
+    base_model: z.string().nullable().optional(),
+    popularity: z
+      .object({
+        downloads: z.number().nullable().optional(),
+        likes: z.number().nullable().optional(),
+        trending: z.number().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
     gguf_repo: z.string().nullable().optional(),
     quants: z.array(CatalogQuantSchema),
   })
   .passthrough();
 
-export const CatalogSchema = z.array(CatalogModelSchema);
+export const CatalogSchema = z.union([
+  z.array(CatalogModelSchema),
+  z
+    .object({
+      popularity_as_of: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      models: z.array(CatalogModelSchema),
+    })
+    .passthrough(),
+]);
 export type CatalogModel = z.infer<typeof CatalogModelSchema>;
+export type Catalog = z.infer<typeof CatalogSchema>;

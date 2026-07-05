@@ -16,7 +16,7 @@ export default async function HomePage() {
       <HeroBanner />
       <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
       <BestVariantTable points={bestVariantPoints} />
-      <BenchmarkOnramp catalog={catalog} />
+      <BenchmarkOnramp catalog={catalog.models} popularityAsOf={catalog.popularityAsOf} />
       <Link
         href="/leaderboard"
         className="rounded-lg border border-bench-line bg-bench-panel/82 px-5 py-4 text-center font-semibold text-bench-text transition-colors hover:border-bench-accent hover:text-bench-accent"

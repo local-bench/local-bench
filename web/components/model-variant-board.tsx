@@ -34,6 +34,7 @@ export function ModelVariantBoard({
     .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0));
   const partial = model.runs.filter((run) => !run.ranked && run.score_status === "measured");
   const pending = model.runs.filter((run) => run.composite === null && run.score_status !== "measured");
+  const hasPerf = model.runs.some((run) => run.perf !== undefined);
 
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
@@ -47,12 +48,12 @@ export function ModelVariantBoard({
             </span>
           )}
         </div>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
-          Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
-          (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Partial rows show measured
-          diagnostic axes but do not receive a rank until all five headline modules are present. The VRAM/Fits columns
-          ({formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you what your card needs.
-        </p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
+            Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
+            (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Partial rows show measured
+            diagnostic axes but do not receive a rank until the current ranked profile is complete. The VRAM/Fits columns (
+            {formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you what your card needs.
+          </p>
       </div>
       <div className="overflow-x-auto">
         <table data-testid="model-variant-table" className="min-w-[1360px] border-collapse text-sm">
@@ -75,6 +76,7 @@ export function ModelVariantBoard({
               <th className="px-3 py-3 font-semibold">VRAM @8k</th>
               <th className="px-3 py-3 font-semibold">Fits</th>
               <th className="px-3 py-3 font-semibold">tok/s</th>
+              {hasPerf ? <th className="px-3 py-3 font-semibold">decode tok/s</th> : null}
               <th className="px-3 py-3 font-semibold">Footprint</th>
               <th className="px-3 py-3 font-semibold">Run</th>
             </tr>
@@ -114,6 +116,7 @@ export function ModelVariantBoard({
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatFitTier(decision)}</td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
+                  {hasPerf ? <td className="px-3 py-3 font-mono text-bench-text">{formatDecodeTps(run)}</td> : null}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3">
                     {run.run_id === null ? (
@@ -157,6 +160,7 @@ export function ModelVariantBoard({
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
                 <td className="px-3 py-3 font-mono text-bench-text">n/a</td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
+                {hasPerf ? <td className="px-3 py-3 font-mono text-bench-text">{formatDecodeTps(run)}</td> : null}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                 <td className="px-3 py-3">
                   {run.run_id === null ? (
@@ -187,6 +191,7 @@ export function ModelVariantBoard({
                   <td className="px-3 py-3 font-mono">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3 font-mono">{formatFitTier(decision)}</td>
                   <td className="px-3 py-3">—</td>
+                  {hasPerf ? <td className="px-3 py-3" /> : null}
                   <td className="px-3 py-3 font-mono">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3">
                     <Link href={`/submit?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
@@ -230,6 +235,10 @@ function RuntimeCell({ run }: { readonly run: VariantRun }) {
       )}
     </span>
   );
+}
+
+function formatDecodeTps(run: VariantRun): string {
+  return run.perf?.decode_tps === null || run.perf?.decode_tps === undefined ? "" : formatCompactNumber(run.perf.decode_tps);
 }
 
 // "Fits" = the smallest GPU VRAM tier a variant runs on at the displayed context (from the

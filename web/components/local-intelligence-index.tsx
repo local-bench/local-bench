@@ -2,8 +2,8 @@ import { formatScore } from "@/lib/format";
 import type { AxisScore } from "@/lib/schemas";
 
 export const LOCAL_INTELLIGENCE_INDEX_NAME = "Local Intelligence Index";
-export const LOCAL_INTELLIGENCE_INDEX_QUALIFIER = "v2.1 | 50/15/15/10/10";
-export const LOCAL_INTELLIGENCE_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Tool calling / Coding";
+export const LOCAL_INTELLIGENCE_INDEX_QUALIFIER = "index-v3.0 | 40/15/15/10/15/5";
+export const LOCAL_INTELLIGENCE_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Tool calling / Coding / Math";
 
 const HEADLINE_AXES = [
   { key: "agentic", label: "Agentic" },
@@ -11,6 +11,7 @@ const HEADLINE_AXES = [
   { key: "instruction", label: "Instruction" },
   { key: "tool_calling", label: "Tool" },
   { key: "coding", label: "Coding" },
+  { key: "math", label: "Math" },
 ] as const;
 
 export function ModularAxisProfile({

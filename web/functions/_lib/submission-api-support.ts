@@ -17,7 +17,7 @@ export async function routeRow(env: SubmissionApiEnv, params: RouteParams): Prom
   return { kind: "ok", value: row };
 }
 
-export function adminBlocked(request: Request, env: SubmissionApiEnv): Response | null {
+export function adminBlocked(request: Request, env: { readonly ADMIN_API_SECRET?: string }): Response | null {
   const expected = (env.ADMIN_API_SECRET ?? "").trim();
   if (expected.length === 0) {
     return jsonResponse(503, { code: "admin_api_disabled", error: "submission ticket issuance is disabled" });
@@ -29,7 +29,7 @@ export function adminBlocked(request: Request, env: SubmissionApiEnv): Response 
   return null;
 }
 
-export function hasValidAdminSecret(request: Request, env: SubmissionApiEnv): boolean {
+export function hasValidAdminSecret(request: Request, env: { readonly ADMIN_API_SECRET?: string }): boolean {
   const expected = (env.ADMIN_API_SECRET ?? "").trim();
   const provided = (request.headers.get("x-localbench-admin-secret") ?? "").trim();
   return expected.length > 0 && provided === expected;

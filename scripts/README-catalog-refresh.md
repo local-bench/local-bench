@@ -3,9 +3,10 @@
 `web/model_catalog.json` (the onramp picker source) is hand-curated and drifts: quant
 file sizes were estimated from a bpw formula, repos get renamed/deleted, popularity
 goes stale, and popular fine-tunes of catalogued bases never get picked up.
-`scripts/catalog_refresh.py` checks the whole catalog against the **public Hugging Face
-API** (no token, nothing sent anywhere else) and proposes a corrected catalog for
-review. It never touches `web/model_catalog.json` itself.
+`scripts/catalog_refresh.py` checks the whole catalog against Hugging Face metadata and
+proposes a corrected catalog for review. `HF_TOKEN` is used when present for metadata
+refreshes. Full verification never touches `web/model_catalog.json` itself; metadata mode
+only applies in place when `--apply` is passed and the guards below pass.
 
 ## Run
 
@@ -13,6 +14,7 @@ From the repo root:
 
 ```
 uv run --project cli python scripts/catalog_refresh.py
+uv run --project cli python scripts/catalog_refresh.py --mode metadata
 ```
 
 A full run makes ~500 throttled API calls (>= 200 ms spacing) and takes a few minutes
@@ -25,6 +27,8 @@ Useful flags:
 | --- | --- | --- |
 | `--catalog PATH` | `web/model_catalog.json` | catalog to verify |
 | `--out-dir PATH` | `catalog-refresh-out/` | where report/proposal/cache go |
+| `--mode full\|metadata` | `full` | full file-size audit or popularity-only refresh |
+| `--apply` | off | in metadata mode, update `web/model_catalog.json` only when guards pass |
 | `--throttle-ms N` | 250 | spacing between network requests (floor 200) |
 | `--cache-max-age-hours H` | 24 | reuse cached API responses younger than this |
 | `--refresh` | off | ignore the cache entirely |
@@ -46,9 +50,9 @@ Per catalog entry (each has a `gguf_repo`):
   `file_gb + 1.0 + 0.05 * params_b(total)`.
 - **Quant coverage** — catalog quants the repo does **not** ship (dead download
   buttons) and repo quants the catalog doesn't list (informational).
-- **Popularity** — downloads / likes / trendingScore refreshed from the canonical
-  model id (`downloads` is HF's rolling ~30-day figure, the same metric the hub UI
-  and `sort=downloads` use).
+- **Popularity** — downloads / likes / trendingScore refreshed from the GGUF repo when
+  present (`downloads` is HF's rolling monthly figure, so the value is repo-level across
+  all files in that repo, not per quant). Metadata mode writes `popularity_as_of`.
 - **License** — compared against HF's `license:` tag; differences applied to the
   proposal and listed in the report.
 - **Lineage** — if HF declares a `base_model` for the canonical id (fine-tunes,
@@ -89,8 +93,21 @@ Candidates are **never** auto-added to the proposal; they appear only in the rep
   missing quants, dead/gated repos, license diffs, popularity movers, new-candidate
   tables, API notes.
 - `catalog-refresh-out/model_catalog.proposed.json` — the corrected catalog
-  (same array shape, additive `base_model` only).
+  (same envelope shape as `web/model_catalog.json`; metadata mode changes only
+  `popularity`, `downloads_all_time`, and `popularity_as_of`).
 - `catalog-refresh-out/cache/` — raw API responses (safe to delete; only a cache).
+
+## Metadata-only guards
+
+`--mode metadata --apply` updates the live catalog only if all guards pass:
+
+- the diff is metadata-only;
+- at most 250 entries changed;
+- quant labels/counts are unchanged;
+- recipe targets (`id` and `gguf_repo`) are unchanged.
+
+If any guard fails, the script still writes the proposed catalog and report but leaves
+`web/model_catalog.json` untouched.
 
 ## Review workflow
 

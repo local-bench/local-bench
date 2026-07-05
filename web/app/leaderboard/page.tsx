@@ -36,7 +36,7 @@ export default async function LeaderboardPage() {
   const axisCopy = hasMeasuredRankedData
     ? `Every ranked model is scored on the same frozen suite${axisNames.length > 0 ? ` across ${axisNames.join(", ")}` : ""}. This is the initial measured ladder — more models land as runs are submitted.`
     : measuredPartialCount > 0
-      ? `${measuredPartialCount} measured partial profile${measuredPartialCount === 1 ? "" : "s"} are available on model pages, but no rows are ranked yet because the current Index requires all five headline axes.`
+      ? `${measuredPartialCount} measured partial profile${measuredPartialCount === 1 ? "" : "s"} are available on model pages, but no rows are ranked yet because the current Index requires its full headline profile.`
       : "Catalog models are listed as score-less shells until benchmark runs land.";
 
   return (
@@ -55,8 +55,8 @@ export default async function LeaderboardPage() {
           </div>
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
-            Ranked rows are complete five-axis runs under the standard capped-thinking settings. Partial or unscored entries
-            are listed separately below and never mix into the rank — see{" "}
+            Ranked rows are complete current-index runs under the bounded-final lane. Partial or unscored entries are
+            listed separately below and never mix into the rank — see{" "}
             <Link href="/methodology" className="text-bench-accent hover:underline">
               methodology
             </Link>

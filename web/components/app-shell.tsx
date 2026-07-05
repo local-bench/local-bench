@@ -33,6 +33,9 @@ export function AppShell({
               <Link href="/submit" className="hover:text-bench-text">
                 Submit
               </Link>
+              <Link href="/feedback" className="hover:text-bench-text">
+                Feedback
+              </Link>
             </div>
           </div>
           <span className="font-mono text-xs uppercase text-bench-accent">
@@ -51,10 +54,14 @@ export function AppShell({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-2xl space-y-1.5">
               <p className="font-mono text-[11px] uppercase tracking-wide text-bench-accent">
-                Board frozen {LAUNCH_FREEZE.asOfDate} · {LAUNCH_FREEZE.scorecardVersion} · {suiteVersion ?? "suite"}/{indexVersion}
+                Board frozen {LAUNCH_FREEZE.asOfDate} · {suiteVersion ?? "suite"}/{indexVersion}
               </p>
-              <p className="text-sm leading-6 text-bench-muted">{LAUNCH_FREEZE.headlineDefinition}</p>
-              <p className="text-xs leading-5 text-bench-muted/80">{LAUNCH_FREEZE.candidateDefinition}</p>
+              <p className="text-sm leading-6 text-bench-muted">
+                Ranked rows use index-v3.0: Agentic, Knowledge, Instruction, Tool calling, Coding, and Math.
+              </p>
+              <p className="text-xs leading-5 text-bench-muted/80">
+                Static ranked rows remove Agentic; Static-Core is an unranked diagnostic profile.
+              </p>
             </div>
             <dl className="space-y-1 font-mono text-[11px] text-bench-muted">
               <div className="flex items-center justify-between gap-3 lg:justify-end">
@@ -70,12 +77,6 @@ export function AppShell({
                 <dt className="uppercase tracking-wide text-bench-muted/70">board</dt>
                 <dd title={LAUNCH_FREEZE.boardSha256}>{shortHash(LAUNCH_FREEZE.boardSha256)}</dd>
               </div>
-              {LAUNCH_FREEZE.itemSetHashes.map((set) => (
-                <div key={set.file} className="flex items-center justify-between gap-3 lg:justify-end">
-                  <dt className="uppercase tracking-wide text-bench-muted/70">{set.file}</dt>
-                  <dd title={set.sha256}>{shortHash(set.sha256)}</dd>
-                </div>
-              ))}
             </dl>
           </div>
           <div className="mt-5 flex flex-col gap-2 border-t border-bench-line/60 pt-4 text-xs text-bench-muted/80 sm:flex-row sm:items-center sm:justify-between">
@@ -89,6 +90,9 @@ export function AppShell({
               </Link>
               <Link href="/methodology#licenses" className="hover:text-bench-text">
                 Licenses
+              </Link>
+              <Link href="/feedback" className="hover:text-bench-text">
+                Feedback
               </Link>
             </div>
           </div>

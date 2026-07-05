@@ -43,6 +43,18 @@ type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & { readonly axes: Ax
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly lineage: ModelLineage | null;
+};
+
+export type ModelLineage = {
+  readonly baseModelId: string;
+  readonly baseDisplayName: string;
+  readonly baseSlug: string | null;
+};
+
+export type OnrampCatalog = {
+  readonly models: readonly OnrampCatalogModel[];
+  readonly popularityAsOf: string | null;
 };
 
 export type HomePageData = {
@@ -120,9 +132,25 @@ export async function getRunData(runId: string): Promise<RunDetailWithConfigured
   return run as RunDetailWithConfiguredAxes;
 }
 
-function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
+type CatalogFile = {
+  readonly models: readonly CatalogModel[];
+  readonly popularityAsOf: string | null;
+};
+
+async function getCatalogFile(): Promise<CatalogFile> {
+  const file = await readFile(join(process.cwd(), "model_catalog.json"), "utf8");
+  const parsed: unknown = JSON.parse(file);
+  const catalog = CatalogSchema.parse(parsed);
+  if (Array.isArray(catalog)) {
+    return { models: catalog, popularityAsOf: null };
+  }
+  return { models: catalog.models, popularityAsOf: catalog.popularity_as_of };
+}
+
+function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): OnrampCatalogModel {
   const paramsB =
     typeof raw.params_b === "number" ? raw.params_b : raw.params_b ? raw.params_b.total_b ?? null : null;
+  const base = raw.base_model ? byId.get(raw.base_model) : undefined;
   return {
     id: raw.id,
     slug: raw.slug,
@@ -134,6 +162,11 @@ function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
     license: raw.license ?? "",
     ggufRepo: raw.gguf_repo ?? null,
     downloads: raw.popularity?.downloads ?? 0,
+    likes: raw.popularity?.likes ?? 0,
+    trending: raw.popularity?.trending ?? 0,
+    baseModelId: raw.base_model ?? null,
+    baseModelSlug: base?.slug ?? null,
+    baseModelDisplayName: base?.display_name ?? raw.base_model ?? null,
     quants: raw.quants.map((quant) => ({
       label: quant.label,
       vramGb8k: quant.vram_gb_8k ?? null,
@@ -145,11 +178,13 @@ function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
 
 // Reads model_catalog.json (one level above public/data) at build time and trims it to the fields the
 // on-ramp picker needs. No build_data.py change required — the catalog already ships in the repo.
-export async function getOnrampCatalog(): Promise<readonly OnrampCatalogModel[]> {
-  const file = await readFile(join(process.cwd(), "model_catalog.json"), "utf8");
-  const parsed: unknown = JSON.parse(file);
-  const catalog = CatalogSchema.parse(parsed);
-  return catalog.filter((raw) => raw.quants.length > 0).map(toOnrampModel);
+export async function getOnrampCatalog(): Promise<OnrampCatalog> {
+  const catalog = await getCatalogFile();
+  const byId = new Map(catalog.models.map((model) => [model.id, model]));
+  return {
+    models: catalog.models.filter((raw) => raw.quants.length > 0).map((raw) => toOnrampModel(raw, byId)),
+    popularityAsOf: catalog.popularityAsOf,
+  };
 }
 
 type MeasuredModelRunWithConfiguredAxes = ModelRunWithConfiguredAxes & {
@@ -180,8 +215,32 @@ async function getAnchorReferences(): Promise<readonly AnchorReference[]> {
 }
 
 export async function getModelPageData(slug: string): Promise<ModelPageData> {
-  const [model, anchorRuns] = await Promise.all([getModelData(slug), getAnchorReferences()]);
-  return { model, anchorRuns };
+  const [model, anchorRuns, index, catalog] = await Promise.all([
+    getModelData(slug),
+    getAnchorReferences(),
+    getIndexData(),
+    getCatalogFile(),
+  ]);
+  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  const catalogEntry =
+    catalog.models.find((entry) => entry.slug === slug) ??
+    (model.catalog_id ? byId.get(model.catalog_id) : undefined);
+  const base = catalogEntry?.base_model ? byId.get(catalogEntry.base_model) : undefined;
+  const baseBoardRow =
+    catalogEntry?.base_model === undefined || catalogEntry.base_model === null
+      ? undefined
+      : index.models.find(
+          (entry) => entry.catalog_id === catalogEntry.base_model || (base?.slug !== undefined && entry.slug === base.slug),
+        );
+  const lineage =
+    catalogEntry?.base_model === undefined || catalogEntry.base_model === null
+      ? null
+      : {
+          baseModelId: catalogEntry.base_model,
+          baseDisplayName: base?.display_name ?? catalogEntry.base_model,
+          baseSlug: baseBoardRow?.slug ?? null,
+        };
+  return { model, anchorRuns, lineage };
 }
 
 export async function getHomePageData(): Promise<HomePageData> {

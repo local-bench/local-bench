@@ -140,6 +140,40 @@ def test_submit_run_default_key_autogen_reuses_key_and_explicit_missing_errors(
     assert "signing key does not exist" in missing_output
 
 
+def test_submit_run_rejects_unregistered_suite_pair_before_ticket(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a signed bundle that declares a synthesized custom suite release pair.
+    import localbench.submissions.submit_run as submit_mod
+
+    _isolate_home(monkeypatch, tmp_path)
+    bundle = _write_prepacked_bundle(
+        tmp_path / "bundle-run.json",
+        release_id="suite-custom-local-v0",
+        manifest_sha="b" * 64,
+    )
+
+    def fail_ticket(_request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
+        raise AssertionError("ticket request should not be sent")
+
+    monkeypatch.setattr(submit_mod, "request_submission_ticket", fail_ticket)
+
+    # When: the user submits without dry-run.
+    code = main(["submit", "run", "--bundle", str(bundle)])
+
+    # Then: the CLI fails locally with the current registered releases before any ticket request.
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "suite release pair is not registered for submission" in output
+    assert "suite-custom-local-v0" in output
+    assert "suite-v1-full-exec-6axis-v1" in output
+    assert "suite-v1-static-exec-5axis-v1" in output
+    assert "suite-v1-static-core-diag-v1" in output
+    assert "Traceback" not in output
+
+
 def test_submit_run_reads_config_and_rejects_malformed_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -178,12 +212,12 @@ def _mark_site_release(run_path: Path) -> None:
     run_path.write_text(json.dumps(run, indent=2), encoding="utf-8")
 
 
-def _write_prepacked_bundle(path: Path) -> Path:
+def _write_prepacked_bundle(path: Path, *, release_id: str = _RELEASE_ID, manifest_sha: str = _MANIFEST_SHA) -> Path:
     run = {
         "manifest": {
             "suite": {
-                "suite_release_id": _RELEASE_ID,
-                "suite_manifest_sha256": _MANIFEST_SHA,
+                "suite_release_id": release_id,
+                "suite_manifest_sha256": manifest_sha,
             },
             "model_claim": {"display_name": "fixture-model"},
         },

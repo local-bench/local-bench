@@ -11,6 +11,7 @@ export const MIGRATION_0003 = readFileSync(new URL("../migrations/0003_submissio
 export const MIGRATION_0004 = readFileSync(new URL("../migrations/0004_submission_contract_v2.sql", import.meta.url), "utf-8");
 export const MIGRATION_0005 = readFileSync(new URL("../migrations/0005_submitter_display_name.sql", import.meta.url), "utf-8");
 export const MIGRATION_0006 = readFileSync(new URL("../migrations/0006_zt0_foundation.sql", import.meta.url), "utf-8");
+export const MIGRATION_0007 = readFileSync(new URL("../migrations/0007_feedback.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";

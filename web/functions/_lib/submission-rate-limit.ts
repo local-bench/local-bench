@@ -1,11 +1,15 @@
-import type { SubmissionApiEnv } from "./submission-contracts";
+import type { D1DatabaseBinding } from "./submission-contracts";
+
+type RateLimitEnv = {
+  readonly DB: D1DatabaseBinding;
+};
 
 export type RateLimitResult =
   | { readonly limited: false }
   | { readonly limited: true; readonly retryAfterSeconds: number };
 
 export async function rateLimited(
-  env: SubmissionApiEnv,
+  env: RateLimitEnv,
   key: string,
   limit: number,
   windowSeconds: number,

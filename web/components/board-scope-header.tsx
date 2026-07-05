@@ -1,11 +1,11 @@
 import type { LeaderboardScoreMode } from "@/lib/leaderboard-score";
 
-export const BOARD_SCOPE_TITLE = "Local Intelligence Index | v2.1 modular";
+export const BOARD_SCOPE_TITLE = "Local Intelligence Index | index-v3.0";
 export const BOARD_SCOPE_SUBTITLE =
-  "Local open-weight models on one RTX 5090 (32 GB), reasoning on. Headline = 0.50 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool calling + 0.10 Coding. Ranks require all headline axes in this scope.";
-export const STATIC_SCOPE_TITLE = "No-agentic lane | static-suite-v1";
+  "Headline = 0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool calling + 0.15 Coding + 0.05 Math. Ranks require all headline axes in this scope.";
+export const STATIC_SCOPE_TITLE = "No-agentic ranked lane | static-suite-v2";
 export const STATIC_SCOPE_SUBTITLE =
-  "Fallback lane for platforms that cannot run the agentic sandbox. Rows here rank only against each other on the renormalized static composite (Knowledge 30 + Instruction 30 + Tool calling 20 + Coding 20) — never against, and never comparable with, the main Index.";
+  "Static ranked rows compare only against each other on Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. Static-Core is unranked diagnostic, not this lane.";
 
 export function BoardScopeHeader({ mode = "full" }: { readonly mode?: LeaderboardScoreMode }) {
   const title = mode === "static" ? STATIC_SCOPE_TITLE : BOARD_SCOPE_TITLE;

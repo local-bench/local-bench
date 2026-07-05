@@ -85,7 +85,7 @@ export default async function RunPage({ params }: PageProps) {
           <div className="pb-2 text-sm text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
             <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
-            <div className="mt-1">Weighted headline profile: Agentic 50%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 10%.</div>
+            <div className="mt-1">Weighted headline profile: Agentic 40%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 15%, Math 5%.</div>
           </div>
           <div className="pb-2 text-sm text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">Total run time</div>
@@ -99,7 +99,7 @@ export default async function RunPage({ params }: PageProps) {
         ) : null}
         {!run.ranked ? (
           <div className="mt-5 rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
-            Unranked diagnostic: this receipt is missing one or more headline axes for the current five-axis index.
+            Unranked diagnostic: this receipt is missing one or more headline axes for the current index.
             It is useful for comparing measured axes, but it does not receive a ranked Local Intelligence Index position.
           </div>
         ) : null}
@@ -116,7 +116,14 @@ export default async function RunPage({ params }: PageProps) {
       </header>
       <RunAxisBreakdown run={run} />
       <IfbenchDecomposition axis={run.axes.instruction} />
-      <ManifestCard run={run} noAnswerCount={noAnswerCount} />
+      {run.perf === undefined ? (
+        <ManifestCard run={run} noAnswerCount={noAnswerCount} />
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_430px]">
+          <ManifestCard run={run} noAnswerCount={noAnswerCount} />
+          <ServingPerformanceCard run={run} />
+        </div>
+      )}
       <footer className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <h2 className="text-lg font-semibold text-bench-text">Provenance</h2>
         <p className="mt-2 font-mono text-sm text-bench-muted">suite_version: {run.suite_version}</p>
@@ -191,6 +198,89 @@ function ManifestCard({
       </div>
     </section>
   );
+}
+
+export function ServingPerformanceCard({ run }: { readonly run: RunDetail }) {
+  const perf = run.perf;
+  if (perf === undefined) {
+    return null;
+  }
+  return (
+    <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
+      <h2 className="text-lg font-semibold text-bench-text">Serving performance</h2>
+      <p className="mt-1 text-sm leading-6 text-bench-muted">{formatHardware(run.manifest_summary.hardware)}</p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <Metric label="prefill" value={formatTokPerSecond(perf.prefill_tps)} />
+        <Metric label="decode" value={formatTokPerSecond(perf.decode_tps)} />
+        <Metric
+          label="TTFT proxy"
+          value={formatMilliseconds(perf.ttft_proxy_ms_median)}
+          note="prompt processing before first token — non-streaming harness, lower bound"
+        />
+        <Metric label="coverage" value={formatCoverage(perf.timings_coverage)} />
+        <Metric label="prompt median / p95" value={`${formatMilliseconds(perf.prompt_ms_median)} / ${formatMilliseconds(perf.prompt_ms_p95)}`} />
+        <Metric
+          label="predicted median / p95"
+          value={`${formatMilliseconds(perf.predicted_ms_median)} / ${formatMilliseconds(perf.predicted_ms_p95)}`}
+        />
+      </div>
+      <div className="mt-5 overflow-x-auto">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="text-left font-mono text-[10px] uppercase text-bench-muted">
+            <tr>
+              <th className="border-b border-bench-line px-2 py-2 font-semibold">bench</th>
+              <th className="border-b border-bench-line px-2 py-2 font-semibold">prefill</th>
+              <th className="border-b border-bench-line px-2 py-2 font-semibold">decode</th>
+              <th className="border-b border-bench-line px-2 py-2 font-semibold">prompt median</th>
+              <th className="border-b border-bench-line px-2 py-2 font-semibold">n</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(perf.per_bench).map(([bench, benchPerf]) => (
+              <tr key={bench} className="border-b border-bench-line/70">
+                <td className="px-2 py-2 font-mono text-xs text-bench-text">{bench}</td>
+                <td className="px-2 py-2 font-mono text-xs text-bench-muted">{formatTokPerSecond(benchPerf.prefill_tps)}</td>
+                <td className="px-2 py-2 font-mono text-xs text-bench-muted">{formatTokPerSecond(benchPerf.decode_tps)}</td>
+                <td className="px-2 py-2 font-mono text-xs text-bench-muted">{formatMilliseconds(benchPerf.prompt_ms_median)}</td>
+                <td className="px-2 py-2 font-mono text-xs text-bench-muted">{formatInteger(benchPerf.n)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 font-mono text-[11px] text-bench-muted">Source: llama.cpp server timings.</p>
+    </section>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  note,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly note?: string;
+}) {
+  return (
+    <div className="rounded border border-bench-line bg-white/[0.025] p-3">
+      <div className="font-mono text-[10px] uppercase text-bench-muted">{label}</div>
+      <div className="mt-1 font-mono text-base text-bench-text">{value}</div>
+      {note === undefined ? null : <div className="mt-1 text-xs leading-5 text-bench-muted">{note}</div>}
+    </div>
+  );
+}
+
+function formatTokPerSecond(value: number | null | undefined): string {
+  return value === null || value === undefined ? "n/a" : `${formatCompactNumber(value)} tok/s`;
+}
+
+function formatMilliseconds(value: number | null | undefined): string {
+  return value === null || value === undefined ? "n/a" : `${formatCompactNumber(value)} ms`;
+}
+
+function formatCoverage(value: number): string {
+  return `${formatScore(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
 function formatSampling(run: RunDetail): string {

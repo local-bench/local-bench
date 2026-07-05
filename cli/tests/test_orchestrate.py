@@ -104,6 +104,7 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
                 model="demo-model",
                 suite_dir=FIXTURE_SUITE,
                 bench=FIXTURE_FULL_BENCHES,
+                lane="bounded-final-v1",
                 out=output_path,
                 max_items=1,
             ),
@@ -115,6 +116,10 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
         assert record["benches"]["mmlu_pro"]["n"] == 1
         assert record["benches"]["ifeval"]["n"] == 1
         assert record["benches"]["genmath"]["n"] == 1
+        assert record["suite_coverage"]["status"] == "partial"
+        assert record["suite_coverage"]["covered_items"] == 3
+        assert record["suite_coverage"]["total_items"] == 7
+        assert record["suite_coverage"]["max_items_truncated"] is True
 
     asyncio.run(scenario())
 

@@ -117,6 +117,25 @@ describe("static data access", () => {
     ]);
   });
 
+  it("resolves fine-tune lineage as linked, unlinked, or absent model-page metadata", async () => {
+    const linked = await getModelPageData("phi-4-reasoning");
+    expect(linked.lineage).toEqual({
+      baseDisplayName: "Phi 4",
+      baseModelId: "microsoft/phi-4",
+      baseSlug: "phi-4",
+    });
+
+    const unlinked = await getModelPageData("qwen3-0-6b");
+    expect(unlinked.lineage).toEqual({
+      baseDisplayName: "Qwen/Qwen3-0.6B-Base",
+      baseModelId: "Qwen/Qwen3-0.6B-Base",
+      baseSlug: null,
+    });
+
+    const none = await getModelPageData("qwen3-6-27b");
+    expect(none.lineage).toBeNull();
+  });
+
   it("reflects the Gemma ladder while quarantining invalid agentic scores", async () => {
     const index = await getIndexData();
     const gemmaIndex = index.models.find((model) => model.slug === "gemma-4-12b-it");

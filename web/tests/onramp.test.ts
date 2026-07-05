@@ -6,7 +6,6 @@ import {
   modelsForOrg,
   popularModels,
   recommendedQuantForVram,
-  rankedActivationFor,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
   type RuntimeId,
@@ -26,6 +25,11 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     license: "apache-2.0",
     ggufRepo: "MaziyarPanahi/Qwen3-8B-GGUF",
     downloads: 11_000_000,
+    likes: 420,
+    trending: 31,
+    baseModelId: null,
+    baseModelSlug: null,
+    baseModelDisplayName: null,
     quants: [
       { label: "Q8_0", vramGb8k: 10.1, fileGb: 8.7, bpw: 8.5 },
       { label: "Q6_K", vramGb8k: 8.2, fileGb: 6.8, bpw: 6.6 },
@@ -51,17 +55,6 @@ function quantAt(entry: OnrampCatalogModel, index: number): OnrampCatalogQuant {
   return quant;
 }
 
-describe("rankedActivationFor", () => {
-  it("ranks only Qwen3 and Gemma families (the CLI registry's ranked entries)", () => {
-    expect(rankedActivationFor({ family: "Qwen3", org: "Qwen" })).toBe("qwen3");
-    expect(rankedActivationFor({ family: "Gemma 4", org: "Google" })).toBe("gemma4");
-    expect(rankedActivationFor({ family: "Granite 3", org: "IBM" })).toBeNull();
-    expect(rankedActivationFor({ family: "Nemotron", org: "NVIDIA" })).toBeNull();
-    expect(rankedActivationFor({ family: "DeepSeek-R1-Distill", org: "DeepSeek" })).toBeNull();
-    expect(rankedActivationFor({ family: "Mystery", org: "Acme" })).toBeNull();
-  });
-});
-
 describe("recommendedQuantForVram", () => {
   it("picks the highest-quality quant that fits the budget", () => {
     expect(recommendedQuantForVram(model(), 12)?.label).toBe("Q8_0");
@@ -80,19 +73,49 @@ describe("recommendedQuantForVram", () => {
 });
 
 describe("popularModels", () => {
-  it("returns the most-downloaded rankable models near the top of the fitting size range", () => {
+  it("returns the most-downloaded GGUF models near the top of the fitting size range without family gating", () => {
     const catalog = [
       model({ slug: "qwen-8b", paramsB: 8.2, downloads: 100 }),
-      model({ slug: "qwen-14b", paramsB: 14.8, downloads: 900 }),
+      model({ slug: "llama-14b", family: "Llama", org: "Meta", paramsB: 14.8, downloads: 900 }),
       model({ slug: "gemma-12b", family: "Gemma 4", org: "Google", paramsB: 12.2, downloads: 500 }),
       model({ slug: "tiny-download-magnet", paramsB: 0.6, downloads: 50_000_000 }),
       model({ slug: "granite", family: "Granite", org: "IBM", downloads: 5000 }),
       model({ slug: "no-gguf", ggufRepo: null, downloads: 5000 }),
       model({ slug: "too-big", downloads: 5000, quants: [{ label: "Q8_0", vramGb8k: 99, fileGb: 80, bpw: 8.5 }] }),
     ];
-    const result = popularModels(catalog, 24, 5);
-    expect(result.map((entry) => entry.model.slug)).toEqual(["qwen-14b", "gemma-12b", "qwen-8b"]);
+    const result = popularModels(catalog, 24, "downloads", 5);
+    expect(result.map((entry) => entry.model.slug)).toEqual(["granite", "llama-14b", "gemma-12b", "qwen-8b"]);
     expect(result.every((entry) => entry.quant.vramGb8k !== null)).toBe(true);
+  });
+
+  it("sorts by downloads, trending, or likes after applying the VRAM filter", () => {
+    const catalog = [
+      model({ slug: "downloads", downloads: 900, trending: 1, likes: 1 }),
+      model({ slug: "trending", downloads: 100, trending: 90, likes: 2 }),
+      model({ slug: "likes", downloads: 200, trending: 2, likes: 80 }),
+      model({
+        slug: "too-big-liked",
+        downloads: 1,
+        trending: 999,
+        likes: 999,
+        quants: [{ label: "Q8_0", vramGb8k: 99, fileGb: 80, bpw: 8.5 }],
+      }),
+    ];
+    expect(popularModels(catalog, 24, "downloads", 3).map((entry) => entry.model.slug)).toEqual([
+      "downloads",
+      "likes",
+      "trending",
+    ]);
+    expect(popularModels(catalog, 24, "trending", 3).map((entry) => entry.model.slug)).toEqual([
+      "trending",
+      "likes",
+      "downloads",
+    ]);
+    expect(popularModels(catalog, 24, "likes", 3).map((entry) => entry.model.slug)).toEqual([
+      "likes",
+      "trending",
+      "downloads",
+    ]);
   });
 
   it("falls back to all fitting candidates when size metadata is missing", () => {
@@ -100,12 +123,12 @@ describe("popularModels", () => {
       model({ slug: "unknown-a", paramsB: null, downloads: 100 }),
       model({ slug: "unknown-b", paramsB: null, downloads: 900 }),
     ];
-    expect(popularModels(catalog, 24, 5).map((entry) => entry.model.slug)).toEqual(["unknown-b", "unknown-a"]);
+    expect(popularModels(catalog, 24, "downloads", 5).map((entry) => entry.model.slug)).toEqual(["unknown-b", "unknown-a"]);
   });
 
   it("respects the limit", () => {
     const catalog = [model({ slug: "a", downloads: 3 }), model({ slug: "b", downloads: 2 }), model({ slug: "c", downloads: 1 })];
-    expect(popularModels(catalog, 24, 2)).toHaveLength(2);
+    expect(popularModels(catalog, 24, "downloads", 2)).toHaveLength(2);
   });
 });
 
@@ -139,13 +162,11 @@ describe("buildRecipe", () => {
   it("emits a board-comparable bounded-final recipe for a Qwen model on llama.cpp", () => {
     const selected = model();
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.boardComparable).toBe(true);
     expect(recipe.lane).toBe("bounded-final-v1");
-    expect(recipe.activation).toBe("qwen3");
-    expect(recipe.notRankableReason).toBeNull();
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
+    expect(recipe.model).toBe(selected);
     expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms',
+      'pip install "local-bench-ai[hf]"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -183,36 +204,48 @@ describe("buildRecipe", () => {
   it("gives a non-reasoning model the same ranked bounded-final recipe (profile auto)", () => {
     const selected = model({ reasoningCapable: false });
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.boardComparable).toBe(true);
     expect(recipe.lane).toBe("bounded-final-v1");
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
     expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
     expect(recipe.benchCommand).toContain("--profile auto");
-    expect(recipe.notRankableReason).toBeNull();
   });
 
   it("gives a reasoning model outside Qwen3/Gemma the same ranked bounded-final recipe", () => {
     const selected = model({ family: "Granite 3", org: "IBM" });
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.boardComparable).toBe(true);
     expect(recipe.lane).toBe("bounded-final-v1");
     expect(recipe.benchCommand).toContain("--profile auto");
-    expect(recipe.notRankableReason).toBeNull();
+  });
+
+  it("carries fine-tune lineage through the recipe model payload", () => {
+    const selected = model({
+      baseModelId: "Qwen/Qwen3.6-27B",
+      baseModelSlug: "qwen3-6-27b",
+      baseModelDisplayName: "Qwen3.6 27B",
+      displayName: "Qwopus3.6 27B v2 MTP",
+    });
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
+    expect(recipe.model.baseModelDisplayName).toBe("Qwen3.6 27B");
+    expect(recipe.model.baseModelSlug).toBe("qwen3-6-27b");
   });
 });
 
 describe("getOnrampCatalog", () => {
   it("loads the real catalog and trims it to on-ramp models", async () => {
     const catalog = await getOnrampCatalog();
-    expect(catalog.length).toBeGreaterThan(50);
-    for (const entry of catalog) {
+    expect(catalog.popularityAsOf).toBe("2026-07-05");
+    expect(catalog.models.length).toBeGreaterThan(50);
+    for (const entry of catalog.models) {
       expect(entry.id).toBeTruthy();
       expect(entry.slug).toBeTruthy();
       expect(entry.quants.length).toBeGreaterThan(0);
+      expect(entry.likes).toBeGreaterThanOrEqual(0);
+      expect(entry.trending).toBeGreaterThanOrEqual(0);
     }
-    const qwen = catalog.find((entry) => entry.slug === "qwen3-8b");
+    const qwen = catalog.models.find((entry) => entry.slug === "qwen3-8b");
     expect(qwen).toBeDefined();
     expect(qwen?.ggufRepo).toBeTruthy();
     expect(qwen?.quants.some((quant) => quant.label === "Q4_K_M")).toBe(true);
+    expect(catalog.models.some((entry) => entry.baseModelId !== null)).toBe(true);
   });
 });

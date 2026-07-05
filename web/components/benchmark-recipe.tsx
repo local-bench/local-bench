@@ -29,20 +29,23 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
         </Link>
         .
       </p>
-      {recipe.boardComparable ? (
-        <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
-          <span>Board-comparable · bounded-final-v1 · profile auto · 5-axis v1 suite</span>
-          {recipe.ggufRepo !== null ? (
-            <a
-              href={`https://huggingface.co/${recipe.ggufRepo}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-bench-muted hover:text-bench-accent"
-              aria-label={`${recipe.ggufRepo} GGUF repo on Hugging Face`}
-            >
-              HF ↗
-            </a>
-          ) : null}
+      <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
+        <span>Board-ranked · {recipe.lane} · profile auto · suite-v1-full-exec-6axis-v1</span>
+        {recipe.ggufRepo !== null ? (
+          <a
+            href={`https://huggingface.co/${recipe.ggufRepo}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-bench-muted hover:text-bench-accent"
+            aria-label={`${recipe.ggufRepo} GGUF repo on Hugging Face`}
+          >
+            HF ↗
+          </a>
+        ) : null}
+      </p>
+      {recipe.model.baseModelDisplayName !== null ? (
+        <p className="font-mono text-[11px] text-bench-muted">
+          Fine-tune of <span className="text-bench-text">{recipe.model.baseModelDisplayName}</span>
         </p>
       ) : null}
       <CommandBlock title="Step 1 · one-time setup" command={recipe.setupCommand} />
@@ -61,18 +64,10 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
         <p className="font-mono text-[11px] text-bench-muted">{recipe.serveNote}</p>
       ) : null}
       <CommandBlock title="Step 3 · benchmark it (second terminal)" command={recipe.benchCommand} />
-      {recipe.submitCommand !== null ? (
-        <>
-          <CommandBlock title="Step 4 · submit to the board" command={recipe.submitCommand} />
-          <p className="font-mono text-[11px] text-bench-muted">
-            Prints your submission id. Nothing publishes until maintainer review.
-          </p>
-        </>
-      ) : (
-        <p className="rounded border border-bench-warn/35 bg-bench-warn/10 p-2 font-mono text-[11px] text-bench-warn">
-          Not board-rankable yet · {recipe.notRankableReason} This is a personal answer-only run, not a board entry.
-        </p>
-      )}
+      <CommandBlock title="Step 4 · submit to the board" command={recipe.submitCommand} />
+      <p className="font-mono text-[11px] text-bench-muted">
+        Prints your submission id. Nothing publishes until maintainer review.
+      </p>
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         Do not change sampling, context, or prompt-template settings unless the recipe says so. VRAM tiers are
         recommendations, not guaranteed fits · close other GPU workloads.

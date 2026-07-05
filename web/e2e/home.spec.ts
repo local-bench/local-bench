@@ -22,5 +22,6 @@ test("the on-ramp emits a board-comparable recipe", async ({ page }) => {
   // A recommended model is preselected at the default VRAM tier, so a recipe renders immediately.
   await expect(page.getByTestId("benchmark-recipe")).toBeVisible();
   await expect(page.getByText(/localbench run/)).toBeVisible();
-  await expect(page.getByText(/--lane capped-thinking/)).toBeVisible();
+  await expect(page.getByText(/--lane bounded-final-v1/)).toBeVisible();
+  await expect(page.getByText(/--profile auto/)).toBeVisible();
 });

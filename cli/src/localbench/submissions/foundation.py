@@ -85,6 +85,14 @@ _SITE_RELEASED_SUITES: Final[dict[str, str]] = {
 }
 
 
+def site_released_suite_pairs() -> dict[str, str]:
+    return dict(_SITE_RELEASED_SUITES)
+
+
+def is_site_released_suite_pair(release_id: str, manifest_sha256: str) -> bool:
+    return _SITE_RELEASED_SUITES.get(release_id) == manifest_sha256
+
+
 @dataclass(frozen=True, slots=True)
 class ResultBundleValidation:
     publishable: bool
@@ -335,8 +343,8 @@ def _site_released(suite: JsonObject) -> bool:
     release_id = suite.get("suite_release_id")
     if not isinstance(release_id, str):
         return False
-    expected = _SITE_RELEASED_SUITES.get(release_id)
-    return expected is not None and suite.get("suite_manifest_sha256") == expected
+    manifest_sha256 = suite.get("suite_manifest_sha256")
+    return isinstance(manifest_sha256, str) and is_site_released_suite_pair(release_id, manifest_sha256)
 
 
 def _determinism_policy(sampling: JsonObject) -> str | None:

@@ -17,6 +17,7 @@ import {
   recommendedQuantForVram,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
+  type PopularitySort,
   type RuntimeId,
 } from "@/lib/onramp";
 import { VRAM_TIERS } from "@/lib/rig-match";
@@ -37,6 +38,11 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
     license: "",
     ggufRepo: trimmed,
     downloads: 0,
+    likes: 0,
+    trending: 0,
+    baseModelId: null,
+    baseModelSlug: null,
+    baseModelDisplayName: null,
     quants: [{ label: quantLabel, vramGb8k: null, fileGb: null, bpw: null }],
   };
 }
@@ -45,9 +51,16 @@ function isRuntimeId(value: string): value is RuntimeId {
   return RUNTIME_PROFILES.some((profile) => profile.id === value);
 }
 
-export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly OnrampCatalogModel[] }) {
+export function BenchmarkOnramp({
+  catalog,
+  popularityAsOf,
+}: {
+  readonly catalog: readonly OnrampCatalogModel[];
+  readonly popularityAsOf: string | null;
+}) {
   const [vramGb, setVramGb] = useState<number>(DEFAULT_VRAM);
   const [mode, setMode] = useState<PickMode>("popular");
+  const [popularitySort, setPopularitySort] = useState<PopularitySort>("downloads");
   const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
   const [popularSlug, setPopularSlug] = useState<string | null>(null);
   const [browseOrg, setBrowseOrg] = useState<string>("");
@@ -57,7 +70,7 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
   const orgs = useMemo(() => listOrgs(catalog), [catalog]);
-  const popular = useMemo(() => popularModels(catalog, vramGb, 5), [catalog, vramGb]);
+  const popular = useMemo(() => popularModels(catalog, vramGb, popularitySort, 5), [catalog, vramGb, popularitySort]);
   const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg) : []), [catalog, browseOrg]);
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
@@ -101,7 +114,7 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
         Choose your VRAM, model, and runtime — the recipe is the exact pinned command sequence for a run you can submit to
         this board. Every model runs the same ranked lane: the CLI reads the model&apos;s own chat template, gives
-        reasoning models a fixed thinking budget inside the shared token cap, and runs everything else answer-only.
+        reasoning models a fixed thinking budget inside the shared token cap, and keeps final-answer scoring consistent.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
@@ -142,11 +155,16 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
             popular={popular}
             popularSlug={popularSlug}
             onPopular={setPopularSlug}
+            popularitySort={popularitySort}
+            onPopularitySort={setPopularitySort}
+            vramGb={vramGb}
+            popularityAsOf={popularityAsOf}
             orgs={orgs}
             browseOrg={browseOrg}
             onOrg={(org) => {
               setBrowseOrg(org);
               setBrowseSlug("");
+              setBrowseQuant("");
             }}
             orgModels={orgModels}
             browseSlug={browseSlug}
@@ -187,8 +205,8 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
-          Every command is pinned to the frozen v1 suite. Submissions are signed with a key generated on your machine and
-          reviewed before anything publishes —{" "}
+          Every command is pinned to the current 6-axis ranked suite. Submissions are signed with a key generated on your
+          machine and reviewed before anything publishes —{" "}
           <Link href="/submit" className="text-bench-accent hover:underline">
             how to submit
           </Link>{" "}

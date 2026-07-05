@@ -5,7 +5,6 @@ import {
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
-import { getIndexData } from "@/lib/data";
 
 type Attribution = {
   readonly name: string;
@@ -15,6 +14,7 @@ type Attribution = {
 };
 
 const HEADLINE_SOURCES: readonly Attribution[] = [
+  { name: "AppWorld-C", owner: "AppWorld authors", license: "Apache-2.0", role: "Agentic axis task-success module." },
   { name: "MMLU-Pro", owner: "TIGER-Lab", license: "MIT", role: "Knowledge axis item set (400 items)." },
   {
     name: "IFBench",
@@ -35,19 +35,31 @@ const HEADLINE_SOURCES: readonly Attribution[] = [
     role: "Tool-calling axis item set and structural JSON scorer (330 items).",
   },
   {
-    name: "LiveCodeBench",
-    owner: "LiveCodeBench authors",
-    license: "CC-BY-4.0 item data / MIT harness",
-    role: "Coding proxy axis item set for output prediction (129 items).",
+    name: "BigCodeBench-Hard Instruct",
+    owner: "BigCodeBench authors",
+    license: "Apache-2.0",
+    role: "Coding axis generation tasks scored by hardened execution.",
+  },
+  {
+    name: "OlymMATH-Hard",
+    owner: "OlymMATH authors",
+    license: "MIT",
+    role: "Math axis hard olympiad-style item set.",
+  },
+  {
+    name: "AMO",
+    owner: "AMO-Bench authors",
+    license: "MIT",
+    role: "Math axis newly-authored olympiad-style item set.",
   },
 ];
 
 const CANDIDATE_SOURCES: readonly Attribution[] = [
   {
-    name: "BFCL / BigCodeBench / RULER / math expansions",
-    owner: "Gorilla LLM / UC Berkeley",
+    name: "LiveCodeBench / RULER / BFCL expansions",
+    owner: "LiveCodeBench authors / NVIDIA / Gorilla LLM and UC Berkeley",
     license: "various open licenses",
-    role: "Candidate and opt-in expansion modules credited in their suite manifests.",
+    role: "Legacy or candidate diagnostic modules credited in their suite manifests.",
   },
 ];
 
@@ -67,84 +79,63 @@ function AttributionRow({ source }: { readonly source: Attribution }) {
 }
 
 export default async function MethodologyPage() {
-  const index = await getIndexData();
-
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-          {index.suite_version} | {index.index_version} methodology
+          suite-v2 | index-v3.0 methodology
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
         <p className="mt-3 leading-7 text-bench-muted">
           The sortable number is the {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}):
-          50% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, and 10% Coding.
-          Rows that skip the agentic axis rank on a separate renormalized static composite instead.
+          40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math.
+          Static ranked rows use the no-agentic five-axis profile: 25% Knowledge, 25% Instruction-Following,
+          20% Tool calling, 20% Coding, and 10% Math.
           {` ${LOCAL_INTELLIGENCE_INDEX_PROFILE}`} stays visible beside every score.
         </p>
       </header>
 
       <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">What the headline Index is</h2>
+        <h2 className="text-xl font-semibold text-bench-text">What index-v3.0 measures</h2>
         <p>
-          The Index is a weighted arithmetic mean of measured, judge-free axes. Agentic is AppWorld-C task
-          success rate. Knowledge is MMLU-Pro. Instruction is IFBench. Tool calling is tc_json_v1 structural
-          tool selection and argument construction. Coding is the lightweight LiveCodeBench output-prediction
-          proxy used by standard runs so the suite remains practical on local hardware.
+          The Index is a weighted arithmetic mean of measured, judge-free axes. Agentic is AppWorld-C task success
+          rate. Knowledge is MMLU-Pro. Instruction is IFBench. Tool calling is tc_json_v1 structural tool selection
+          and argument construction. Coding is BigCodeBench-Hard Instruct execution pass rate. Math combines
+          OlymMATH-Hard and AMO.
         </p>
         <p>
-          Math, Long-Context, and BigCodeBench-Hard coding-exec remain diagnostic or opt-in expansion modules;
-          they never enter the headline number.
-        </p>
-      </section>
-
-      <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">One suite, one headline rank — and a no-agentic lane</h2>
-        <p>
-          local-bench is one benchmark: one frozen suite, one methodology, one headline rank. But the agentic
-          axis executes model-written code in a Linux sandbox, and not every platform can run that. Rather than
-          rejecting those runs or fudging them a number, runs without agentic get a clearly-subordinate fallback
-          lane:
-        </p>
-        <ul className="list-disc space-y-2 pl-5">
-          <li>
-            <span className="text-bench-text">index-v2.1</span> — the headline rank: Agentic 50 / Knowledge 15 /
-            Instruction-Following 15 / Tool calling 10 / Coding 10. Requires all five headline axes.
-          </li>
-          <li>
-            <span className="text-bench-text">static-suite-v1</span> — the no-agentic lane: Knowledge 30 /
-            Instruction-Following 30 / Tool calling 20 / Coding 20, renormalized over the four static axes.
-            It appears as its own table, only when such rows exist, and ranks only against itself.
-          </li>
-        </ul>
-        <p>
-          The two are never score-comparable, and that is deliberate. Renormalizing without agentic produces
-          systematically higher numbers — the same model can score 40 on the main index and 60 renormalized —
-          so letting four-axis runs into the headline rank would reward skipping the hardest, longest axis.
-          The quarantined lane removes that incentive: you cannot dodge agentic and place higher for it. Rows
-          with fewer than the four static axes display per-axis scores and confidence intervals only and are
-          not ranked. Both weight sets are explicit editorial choices, versioned and hashed like everything
-          else (see Editorial versioning below).
+          The static ranked Index removes Agentic and reweights the remaining five axes. Static-Core measures only
+          Knowledge, Instruction, Tool calling, and Math; it has no sandbox, no Agentic, and no verified Coding, so it is
+          an unranked diagnostic release and is not comparable to ranked static.
         </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">Why the coding split exists</h2>
+        <h2 className="text-xl font-semibold text-bench-text">Lane and ranking rules</h2>
         <p>
-          The standard Coding axis is intentionally fast and repeatable: it asks the model to predict LiveCodeBench
-          testcase outputs without running generated code. The stronger coding-exec module runs BigCodeBench-Hard
-          in a sandbox and is the right long-term generation benchmark, but it stays opt-in until the execution lane
-          is cheap, hardened, and repeatable enough for regular leaderboard submissions.
+          Ranked rows run the bounded-final lane. Each item gets the same total generated-token budget for that item;
+          optional thinking is force-closed inside that budget, and only the final answer is scored. Code items carry a
+          larger final-answer reserve of 4096 tokens, while ordinary bounded-final items default to 1024.
+        </p>
+        <p>
+          Execution profiles replace family gating. Eligibility is audits, conformance, and an allowlisted profile digest,
+          never the model family. Legacy v1-lane rows keep their lane and index labels until they are re-run; the default
+          board shows only the current index identity.
         </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">One lane: capped-thinking</h2>
+        <h2 className="text-xl font-semibold text-bench-text">Coding execution and trust</h2>
         <p>
-          Reasoning lanes are never mixed. The ranked board is the <span className="text-bench-text">capped-thinking</span>{" "}
-          lane: reasoning is on, with a graceful 8192-token reasoning budget and a 16384-token answer ceiling.
-          Answer-only and uncapped-API runs compare only within their own lane and never merge into the headline.
+          Every ranked bundle must include code artifacts; the ranked Coding score is produced by maintainer project
+          re-execution in a hardened rootless sandbox, so submitters do not need Docker and self-reported execution
+          verdicts never rank.
+        </p>
+        <p>
+          The Coding axis reports pass rate over the 141 sandbox-scoreable BigCodeBench-Hard items; seven
+          network/data-dependent upstream items are excluded as unscoreable under mandatory network isolation. lcb, the
+          old LiveCodeBench output-prediction proxy, is legacy diagnostic data and is never pooled into index-v3.0.
         </p>
       </section>
 
@@ -162,10 +153,10 @@ export default async function MethodologyPage() {
             submitter&apos;s credit line. The server derives this; submitters cannot set it.
           </li>
           <li>
-            <span className="text-bench-text">Static axes: always re-scored.</span> For every accepted bundle —
-            project-run or community — the four static axes are independently recomputed from the submitted
-            transcripts against the frozen, sha256-pinned item sets. A submitted static score never enters the
-            board as claimed, so fabricated static scores do not survive.
+            <span className="text-bench-text">Text and math axes: always re-scored.</span> For every accepted bundle —
+            project-run or community — transcript-scored axes are independently recomputed against the frozen,
+            sha256-pinned item sets. A submitted score never enters the board as claimed, so fabricated static scores do
+            not survive.
           </li>
           <li>
             <span className="text-bench-text">Agentic axis: provenance-labeled, not re-scored.</span> Agentic
@@ -179,6 +170,11 @@ export default async function MethodologyPage() {
             <span className="text-bench-text">Self-reported</span> means the verdicts were carried exactly as
             submitted and counted in the composite without independent verification — community rows carry
             this today. The label never changes the score; it tells you how much to trust it.
+          </li>
+          <li>
+            <span className="text-bench-text">Coding axis: artifact-backed.</span> The submitted bundle carries code
+            artifacts, but the ranked verdict is the maintainer re-execution result. Self-reported execution verdicts are
+            displayed only as diagnostics.
           </li>
           <li>
             <span className="text-bench-text">Moderation: nothing auto-publishes.</span> Every submission lands
@@ -198,10 +194,9 @@ export default async function MethodologyPage() {
           transcripts), signed attestations make the project&apos;s own agentic verdicts tamper-evident, and
           manual review is the backstop for everything else; but a determined submitter could still fabricate a
           self-reported agentic result, which is exactly why the board labels it self-reported rather than
-          verified. Spot replication of community agentic runs is on the roadmap. Until then, treat labels as
-          what they are: re-scored means recomputed from your transcripts, attested means cryptographically
-          signed by the project at verdict time, self-reported means taken at your word — and none of them
-          proves model identity.
+          verified. Coding execution is stricter: self-reported execution verdicts never rank. Until then, treat labels as
+          what they are: re-scored means recomputed from your transcripts, attested means cryptographically signed by the
+          project at verdict time, self-reported means taken at your word, and none of them proves model identity.
         </p>
       </section>
 
@@ -210,8 +205,9 @@ export default async function MethodologyPage() {
         <p>{LAUNCH_FREEZE.determinismWording}</p>
         <p>
           Every displayed score carries a bootstrap confidence interval. Repeatability, paired quant-delta, and
-          generalization are kept separate. Quick-tier fixed-item runs are personal estimates and stay unranked;
-          only Standard-tier runs can be ranked.
+          generalization are kept separate. Per-axis confidence intervals are part of the score display; coding deltas
+          under about 8-10 raw points are not ranking claims unless rank containment and intervals support that read.
+          Quick-tier fixed-item runs are personal estimates and stay unranked; only Standard-tier runs can be ranked.
         </p>
       </section>
 
@@ -236,8 +232,8 @@ export default async function MethodologyPage() {
       <section id="frozen" className="space-y-3 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Frozen as of {LAUNCH_FREEZE.asOfDate}</h2>
         <p>
-          The board is a point-in-time snapshot. These identifiers pin exactly what produced it; the same values
-          appear in the site footer on every page.
+          The board is a point-in-time snapshot. Run receipts carry their suite, lane, scorecard, and item-set hashes;
+          legacy receipts keep their original labels until they are re-run under the current release.
         </p>
         <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-bench-line bg-bench-line sm:grid-cols-2">
           <div className="bg-bench-bg px-4 py-3">
@@ -245,21 +241,13 @@ export default async function MethodologyPage() {
             <dd className="mt-1 text-sm text-bench-text">{LAUNCH_FREEZE.asOfDate}</dd>
           </div>
           <div className="bg-bench-bg px-4 py-3">
-            <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Scorecard version</dt>
-            <dd className="mt-1 text-sm text-bench-text">{LAUNCH_FREEZE.scorecardVersion}</dd>
+            <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Index identity</dt>
+            <dd className="mt-1 text-sm text-bench-text">suite-v2 / index-v3.0</dd>
           </div>
           <div className="bg-bench-bg px-4 py-3 sm:col-span-2">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Board sha256</dt>
             <dd className="mt-1 break-all font-mono text-xs text-bench-text">{LAUNCH_FREEZE.boardSha256}</dd>
           </div>
-          {LAUNCH_FREEZE.itemSetHashes.map((set) => (
-            <div key={set.file} className="bg-bench-bg px-4 py-3 sm:col-span-2">
-              <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">
-                {set.label} | {set.file}
-              </dt>
-              <dd className="mt-1 break-all font-mono text-xs text-bench-text">{set.sha256}</dd>
-            </div>
-          ))}
         </dl>
         <p className="text-sm">Benchmark item licenses and scorer attribution are listed in the next section.</p>
       </section>
@@ -286,7 +274,7 @@ export default async function MethodologyPage() {
           Full license texts and the complete redistribution notice ship in the repository&rsquo;s{" "}
           <span className="font-mono text-bench-text">NOTICE</span> file and{" "}
           <span className="font-mono text-bench-text">LICENSES/</span> directory. Model names are the property of
-          their respective owners; listing a model is benchmark evaluation, not an endorsement by — or of — its
+          their respective owners; listing a model is benchmark evaluation, not an endorsement by, or of, its
           maker.
         </p>
       </section>
@@ -294,10 +282,10 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Editorial versioning</h2>
         <p>
-          Domain weights are explicit editorial choices tied to a named composite version — index-v2.1 for the
-          full five-axis index, static-suite-v1 for the static composite — and item sets are tagged by a separate
-          suite version. Weights live in the scorer axis registry and are hashed into the scorecard, so history
-          cannot be silently re-scored under the same label.
+          Domain weights are explicit editorial choices tied to named releases: index-v3.0 for the full six-axis
+          Index, static-suite-v2 for the ranked no-agentic Index, and static-core diagnostic for the unranked no-sandbox
+          profile. Weights live in the scorer axis registry and are hashed into the scorecard, so history cannot be
+          silently re-scored under the same label.
         </p>
       </section>
     </main>

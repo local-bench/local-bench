@@ -12,6 +12,39 @@ describe("model variant board runtime display", () => {
     expect(html).toContain("Runtime");
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b1234");
+    expect(html).not.toContain("decode tok/s");
+  });
+
+  it("shows the compact decode tok/s column only when a run has serving perf", () => {
+    const base = fixtureModel();
+    const run = base.runs[0];
+    if (run === undefined) {
+      throw new Error("fixture missing run");
+    }
+    const model: ModelData = {
+      ...base,
+      runs: [
+        {
+          ...run,
+          perf: {
+            decode_tps: 42.4,
+            per_bench: {},
+            prefill_tps: 812.3,
+            prompt_ms_median: 122,
+            prompt_ms_p95: 250,
+            predicted_ms_median: 3_100,
+            predicted_ms_p95: 4_400,
+            timings_source: "llama.cpp",
+            timings_coverage: 0.91,
+            ttft_proxy_ms_median: 125,
+          },
+        },
+      ],
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model }));
+
+    expect(html).toContain("decode tok/s");
+    expect(html).toContain("42.4");
   });
 });
 
