@@ -22,6 +22,32 @@ import tempfile
 SCHEMA = "localbench-coding-exec-runner-v1"
 
 
+def _sandbox_env(work: str) -> dict:
+    """Env for the task subprocess. The container rootfs is read-only; the ONLY writable
+    location is the /tmp tmpfs. Libraries that insist on writing a cache (numba, matplotlib,
+    fontconfig, HF, etc.) fail against a read-only HOME/site-packages, so point every standard
+    cache var at a per-task scratch dir inside the sandbox. Security-neutral: these are already
+    confined to the bounded tmpfs, and network stays off."""
+    env = dict(os.environ)
+    cache = os.path.join(work, "cache")
+    os.makedirs(cache, exist_ok=True)
+    env.update(
+        {
+            "HOME": work,
+            "TMPDIR": work,
+            "NUMBA_CACHE_DIR": cache,
+            "MPLCONFIGDIR": cache,
+            "XDG_CACHE_HOME": cache,
+            "FONTCONFIG_PATH": cache,
+            "HF_HOME": cache,
+            "NLTK_DATA": cache,
+            "TRANSFORMERS_OFFLINE": "1",
+            "HF_HUB_OFFLINE": "1",
+        }
+    )
+    return env
+
+
 def run_program(program: str, *, timeout: float = 30.0, stderr_tail_bytes: int = 2000) -> dict:
     """Run one assembled program in a subprocess; pass = clean exit 0 within the timeout."""
     with tempfile.TemporaryDirectory() as work:
@@ -34,6 +60,7 @@ def run_program(program: str, *, timeout: float = 30.0, stderr_tail_bytes: int =
                 capture_output=True,
                 timeout=timeout,
                 cwd=work,
+                env=_sandbox_env(work),
             )
             exit_code = proc.returncode
             timed_out = False
