@@ -208,6 +208,68 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     )
 
 
+def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    run_path = tmp_path / "coding-run.json"
+    sources_path = tmp_path / "sources.json"
+    out_dir = tmp_path / "out"
+    run = _synthetic_run(
+        [
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+        ],
+    )
+    coding_items = [
+        _synthetic_item("bcbh-001", "bigcodebench_hard", True, template="exec"),
+        _synthetic_item("bcbh-002", "bigcodebench_hard", True, template="exec"),
+        _synthetic_item("bcbh-006", "bigcodebench_hard", False, template="exec"),
+    ]
+    run_items = run["items"]
+    assert isinstance(run_items, list)
+    run_items.extend(coding_items)
+    _object(run["benches"])["bigcodebench_hard"] = {
+        "n": 2,
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "n_unscoreable": 1,
+        "raw_accuracy": 1.0,
+        "chance_corrected": 1.0,
+    }
+    _object(run["totals"])["n_items"] = 5
+    run_path.write_text(json.dumps(run), encoding="utf-8")
+    sources_path.write_text(
+        json.dumps(
+            [
+                {
+                    "family": "Synthetic",
+                    "file": str(run_path),
+                    "independent_replication": False,
+                    "kind": "community",
+                    "model_label": "Coding Synthetic",
+                    "quant_label": None,
+                    "reasoning_lane": "test",
+                    "vram_footprint_gb": None,
+                },
+            ],
+        ),
+        encoding="utf-8",
+    )
+
+    builder.build_static_data(sources_path, out_dir, iters=300)
+
+    detail = _only_run_detail(out_dir)
+    coding = _object(_object(detail["axes"])["coding"])
+    assert coding["n"] == 2
+    assert coding["n_unscoreable"] == 1
+    assert coding["raw_accuracy"] == pytest.approx(1.0)
+    assert coding["lo_raw"] == pytest.approx(1.0)
+    assert coding["hi_raw"] == pytest.approx(1.0)
+    assert not any(
+        "coding chance_corrected differs" in warning
+        for warning in _strings(detail["data_warnings"])
+    )
+
+
 def test_build_data_quarantines_invalid_inline_appworld(tmp_path: Path) -> None:
     # Given: a run with inline appworld_c scores whose diagnostics show harness-dominated failure.
     builder = _build_data_module()

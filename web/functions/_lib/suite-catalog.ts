@@ -255,7 +255,7 @@ export const FULL_EXEC_SUITE: SuiteRecord = {
   legacy: false,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "bigcodebench_hard", "olymmath_hard", "amo"],
   suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
-  suiteManifestSha256: "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514",
+  suiteManifestSha256: "daf29f4da1da8701ae5c4168d6ecc31df6973cbfc4d92cb59c51fa35b3290b45",
   version: "suite-v1",
 } as const;
 
@@ -265,7 +265,7 @@ export const STATIC_EXEC_SUITE: SuiteRecord = {
   legacy: false,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "bigcodebench_hard", "olymmath_hard", "amo"],
   suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
-  suiteManifestSha256: "d02afc7283360d8b1cbd2413a81c10716b1c11907172ccbe8c669e972533bc6e",
+  suiteManifestSha256: "e6517453d5a8465762ee5625fb6535df045378fa4b162879df5ec4a26d500837",
   version: "suite-v1",
 } as const;
 
@@ -275,7 +275,7 @@ export const STATIC_CORE_DIAG_SUITE: SuiteRecord = {
   legacy: false,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "olymmath_hard", "amo"],
   suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
-  suiteManifestSha256: "020d5bd4749cbd81e93bec8fe31db099ac3dfc5ca60b3abad88d0316591b8d60",
+  suiteManifestSha256: "08fd40568ace8a39e734032ae9df5d03fa82da62cba5020871fa029b6d87b737",
   version: "suite-v1",
 } as const;
 

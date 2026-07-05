@@ -287,6 +287,44 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     assert cluster_for_item("appworld_c", "calendar_17", {"cluster": "ignored"}) == "calendar"
 
 
+def test_board_coding_axis_uses_sandbox_scoreable_items(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(tmp_path, [source("Coding Model", "coding.json")])
+    run = run_record(appworld_inline=None, bigcode_correct=(True, True), lcb_correct=None)
+    coding_rows = [
+        item
+        for item in objects_value(run["items"])
+        if object_value(item)["bench"] == "bigcodebench_hard"
+    ]
+    for item, item_id in zip(coding_rows, ("bcbh-001", "bcbh-002"), strict=True):
+        item["id"] = item_id
+    coding_failure = dict(coding_rows[0])
+    coding_failure["id"] = "bcbh-006"
+    coding_failure["correct"] = False
+    coding_failure["extracted"] = None
+    run_items = run["items"]
+    assert isinstance(run_items, list)
+    run_items.append(coding_failure)
+    object_value(object_value(run["benches"])["bigcodebench_hard"])["n_unscoreable"] = 1
+    object_value(run["totals"])["n_items"] = 7
+    write_run(paths["runs"] / "coding.json", run)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    coding = object_value(object_value(model["axes"])["coding"])
+    assert coding["n"] == 2
+    assert coding["n_unscoreable"] == 1
+    assert coding["raw_accuracy"] == pytest.approx(1.0)
+    assert coding["point_raw"] == pytest.approx(1.0)
+
+
 def test_board_emits_static_and_full_composites_without_changing_rank_composite(tmp_path: Path) -> None:
     # Given: one static-exec row and one full-exec row.
     from localbench.scoring.board import build_board

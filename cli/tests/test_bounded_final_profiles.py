@@ -37,11 +37,17 @@ from localbench.orchestrate import OrchestrateConfig, run_localbench
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 LEGACY_QWEN_DIGEST = "a2fd0e4701fc6724a71aa4ab8a0f43d908b1e69472b3b72617c759aa96f17dec"
 LEGACY_GEMMA4_DIGEST = "bf66a190a9c04e27aa79d008c4e4e6c2c2deadb80ca9f9ee0b78cb19779d2f62"
-WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID = (
+PRE_SCOREABLE_WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID = (
     "a892f8a27a8bacd781a2117a16f1ccc107cf407b07cf317163390dbbc74fd80c"
 )
-WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID = (
+PRE_SCOREABLE_WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID = (
     "cf4cddf3d70b87652f851e466a4ba10dbe232dbbb657f4592489cb0e900c1981"
+)
+WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID = (
+    "49ec83cc940a24a55f7669df2aecc40e80a00829a01d4d161ec0afaedec1f99f"
+)
+WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID = (
+    "b9c2b8f73b8ed3e1cc0030633a9174310893bc489a203f3f1176b1edf3773a68"
 )
 
 
@@ -250,6 +256,7 @@ def test_bounded_final_answer_budget_uses_actual_reasoning_tokens(
 def test_adding_profiles_does_not_change_wave_2a_bounded_answer_only_scorecard_id() -> None:
     identity = scorecard_identity("answer_only_v1", lane_spec_id="bounded-final-v1")
 
+    assert identity["scorecard_id"] != PRE_SCOREABLE_WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID
     assert identity["scorecard_id"] == WAVE_2A_BOUNDED_ANSWER_ONLY_SCORECARD_ID
     assert identity["execution_profile_id"] == "answer_only_v1"
 
@@ -257,6 +264,7 @@ def test_adding_profiles_does_not_change_wave_2a_bounded_answer_only_scorecard_i
 def test_bounded_final_v2_answer_only_scorecard_id_is_frozen() -> None:
     identity = scorecard_identity("answer_only_v1", lane_spec_id="bounded-final-v2")
 
+    assert identity["scorecard_id"] != PRE_SCOREABLE_WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID
     assert identity["scorecard_id"] == WAVE_2A_BOUNDED_V2_ANSWER_ONLY_SCORECARD_ID
     assert identity["execution_profile_id"] == "answer_only_v1"
 

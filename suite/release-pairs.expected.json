@@ -3,19 +3,19 @@
   "pairs": [
     {
       "id": "suite-v1-full-exec-6axis-v1",
-      "suite_manifest_sha256": "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514",
+      "suite_manifest_sha256": "daf29f4da1da8701ae5c4168d6ecc31df6973cbfc4d92cb59c51fa35b3290b45",
       "rankable": true,
       "legacy": false
     },
     {
       "id": "suite-v1-static-exec-5axis-v1",
-      "suite_manifest_sha256": "d02afc7283360d8b1cbd2413a81c10716b1c11907172ccbe8c669e972533bc6e",
+      "suite_manifest_sha256": "e6517453d5a8465762ee5625fb6535df045378fa4b162879df5ec4a26d500837",
       "rankable": true,
       "legacy": false
     },
     {
       "id": "suite-v1-static-core-diag-v1",
-      "suite_manifest_sha256": "020d5bd4749cbd81e93bec8fe31db099ac3dfc5ca60b3abad88d0316591b8d60",
+      "suite_manifest_sha256": "08fd40568ace8a39e734032ae9df5d03fa82da62cba5020871fa029b6d87b737",
       "rankable": false,
       "legacy": false
     },

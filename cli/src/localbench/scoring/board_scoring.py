@@ -7,8 +7,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
+from localbench.coding_exec.score import BENCH as CODING_BENCH, SANDBOX_UNSCOREABLE_BCBH
 from localbench.lane_spec import (
-    BOUNDED_FINAL_LANE_SPEC_ID,
     BOUNDED_FINAL_LANE_SPEC_IDS,
     BOUNDED_FINAL_V2_LANE_SPEC_ID,
     lane_spec_digest,
@@ -426,6 +426,13 @@ def _axes_and_samples(
             "n_errors": sum(int_value(aggregate.get("n_errors"), "bench.n_errors") for aggregate in aggregates),
             "n_no_answer": sum(int_value(aggregate.get("n_extraction_failures"), "bench.n_extraction_failures") for aggregate in aggregates) + no_answer,
         }
+        if any("n_unscoreable" in aggregate for aggregate in aggregates):
+            axis_score["n_unscoreable"] = sum(
+                int_value(aggregate.get("n_unscoreable", 0), "bench.n_unscoreable")
+                if "n_unscoreable" in aggregate
+                else 0
+                for aggregate in aggregates
+            )
         _copy_optional_weighted(axis_score, aggregates, source_names, ("termination_rate", "conditional_accuracy"))
         _copy_conformance_rates(axis_score, conformance, source_names)
         axes[axis] = axis_score
@@ -508,13 +515,15 @@ def _sample_parts(
     missing = 0
     for item in items:
         item_id = string_value(item.get("id"), f"{bench}.item.id")
+        if bench == CODING_BENCH and item_id in SANDBOX_UNSCOREABLE_BCBH:
+            continue
         value = item.get("correct")
         is_correct = bool(value) if isinstance(value, bool) and item.get("error") is None else False
         missing += 1 if not isinstance(value, bool) and item.get("error") is None else 0
         correct.append(is_correct)
         strata.append(stratum_for_item(bench, item_id, item))
         clusters.append(cluster_for_item(bench, item_id, item))
-    missing_items = max(0, expected_n - len(items)) if expected_n is not None else 0
+    missing_items = max(0, expected_n - len(correct)) if expected_n is not None else 0
     for index in range(missing_items):
         item_id = f"missing-{index + 1}"
         correct.append(False)

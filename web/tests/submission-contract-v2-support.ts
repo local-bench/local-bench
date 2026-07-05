@@ -4,7 +4,7 @@ import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { RAW_BUNDLE_SHA, resultBundle } from "./submission-test-support";
 
 export const FIVE_AXIS_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
-export const FIVE_AXIS_SUITE_MANIFEST_SHA = "10369dd3d101db53c80696219b30b64cf588edf2c990dc21a09b9b82023db514";
+export const FIVE_AXIS_SUITE_MANIFEST_SHA = "daf29f4da1da8701ae5c4168d6ecc31df6973cbfc4d92cb59c51fa35b3290b45";
 const FOUR_AXIS_SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
 const FOUR_AXIS_SUITE_MANIFEST_SHA = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7";
 export const TEST_IP = "203.0.113.9";

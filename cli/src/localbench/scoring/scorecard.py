@@ -23,6 +23,7 @@ from typing import Final
 
 from localbench._types import JsonObject
 from localbench.coding_exec.extract import EXTRACTOR_REV
+from localbench.coding_exec.score import CODING_SCOREABLE_REV
 from localbench.lane_spec import DEFAULT_LANE_SPEC_ID, lane_spec_digest
 from localbench.reasoning_registry import (
     execution_profile_digest,
@@ -56,7 +57,7 @@ SCORER_VERSIONS: Final[dict[str, str]] = {
     "bfcl_multi_turn": "1",
     "lcb": "1",
     "tc_json_v1": "1",
-    "bigcodebench_hard": "1",
+    "bigcodebench_hard": f"1+{CODING_SCOREABLE_REV}",
     # suite-v0 legacy benches (back-compat scoring)
     "supergpqa": "1",
     "ifeval": "1",

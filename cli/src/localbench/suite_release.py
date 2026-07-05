@@ -85,6 +85,22 @@ COVERAGE_PROFILES: Final[dict[str, CoverageProfile]] = {
 
 _LEGACY_REGISTRY_DIGEST: Final = "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8"
 _LEGACY_SCORECARD_ID: Final = "8359c46daa85232ac32b9a2bd9b54f5ba6dfb7b0e0acd7669caa05c3bfdbb896"
+_LEGACY_SCORER_VERSIONS: Final[dict[str, str]] = {
+    "amo": "1",
+    "appworld_c": "1",
+    "bfcl": "1",
+    "bfcl_multi_turn": "1",
+    "bigcodebench_hard": "1",
+    "genmath": "1",
+    "ifbench": "1",
+    "ifeval": "1",
+    "lcb": "1",
+    "mmlu_pro": "1",
+    "olymmath_hard": "1",
+    "ruler_32k": "1",
+    "supergpqa": "1",
+    "tc_json_v1": "1",
+}
 _LEGACY_AXIS_MEMBERSHIP: Final[dict[str, list[str]]] = {
     "agentic": ["appworld_c"],
     "coding": ["lcb"],
@@ -126,7 +142,7 @@ def build_suite_release_manifest(
         "bench_membership": bench_members,
         "scorecard_id": _scorecard_id(profile, scorecard),
         "registry_digest": _registry_digest(profile, scorecard),
-        "scorer_versions": dict(scorecard["scorer_versions"]),
+        "scorer_versions": _scorer_versions(profile, scorecard),
         "license_manifest_sha256": canonical_json_hash(license_manifest(suite, suite_dir)),
         "license_flags": _license_flags(suite_dir),
         "coverage_profile_id": profile.profile_id,
@@ -227,6 +243,10 @@ def _scorecard_id(profile: CoverageProfile, scorecard: JsonObject) -> str:
 
 def _registry_digest(profile: CoverageProfile, scorecard: JsonObject) -> str:
     return _LEGACY_REGISTRY_DIGEST if profile.legacy else str(scorecard["registry_digest"])
+
+
+def _scorer_versions(profile: CoverageProfile, scorecard: JsonObject) -> dict[str, str]:
+    return dict(_LEGACY_SCORER_VERSIONS) if profile.legacy else dict(scorecard["scorer_versions"])
 
 
 def _license_flags(suite_dir: Path) -> list[JsonObject]:

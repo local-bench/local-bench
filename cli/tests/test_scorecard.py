@@ -5,6 +5,7 @@ from dataclasses import fields, replace
 import pytest
 
 import localbench.reasoning_registry as reasoning_registry
+import localbench.coding_exec.score as coding_score
 from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_digest
 from localbench.reasoning_registry import QWEN_REASONING_ENTRY
 from localbench.scoring.axes import AXES, Axis
@@ -56,10 +57,14 @@ def test_registry_digest_changes_when_a_weight_moves() -> None:
 
 def test_scorecard_id_binds_registry_scorers_and_ci_method() -> None:
     base = scorecard_identity()
+    coding_scoreable_rev = getattr(coding_score, "CODING_SCOREABLE_REV", None)
+    assert coding_scoreable_rev == "bcbh-scoreable-v1"
+    assert base["scorer_versions"]["bigcodebench_hard"].endswith(coding_scoreable_rev)
     # Recompute the id with any one component perturbed -> must differ.
     for perturbation in (
         {"registry_digest": "0" * 64},
         {"scorer_versions": {**base["scorer_versions"], "mmlu_pro": "2"}},
+        {"scorer_versions": {**base["scorer_versions"], "bigcodebench_hard": "1"}},
         {"ci_method": "something-else"},
         {"scorecard_version": "9"},
         {"lane_spec_digest": "1" * 64},

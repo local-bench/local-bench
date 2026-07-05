@@ -272,6 +272,7 @@ def _refresh_bigcodebench_aggregate(run: JsonObject) -> None:
         "n": score["n"],
         "n_errors": 0,
         "n_extraction_failures": score["n_no_code"],
+        "n_unscoreable": score["n_unscoreable"],
         "raw_accuracy": score["raw_accuracy"],
         "chance_corrected": score["chance_corrected"],
         "termination_rate": termination_rate,
