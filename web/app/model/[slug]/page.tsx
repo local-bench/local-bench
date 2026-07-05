@@ -26,9 +26,12 @@ export default async function ModelPage({ params }: PageProps) {
   const rankedRuns = measuredRuns.filter((run) => run.ranked);
   const partialRuns = measuredRuns.filter((run) => !run.ranked);
   const isProjectAnchor = model.kind === "anchor" || measuredRuns.some((run) => run.origin === "project_anchor");
-  const provenanceRun = measuredRuns.find(
-    (run) => run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined,
-  );
+  // Headline provenance comes from the ranked (representative) run when one exists —
+  // ladder/partial runs sort first in the payload and carry origin "community", which
+  // must not re-badge a project-anchor model.
+  const hasProvenance = (run: (typeof measuredRuns)[number]): boolean =>
+    run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined;
+  const provenanceRun = rankedRuns.find(hasProvenance) ?? measuredRuns.find(hasProvenance);
   const bestMeasuredRun = measuredRuns.reduce<(typeof measuredRuns)[number] | undefined>(
     (best, run) => (best === undefined || (run.composite?.point ?? -Infinity) > (best.composite?.point ?? -Infinity) ? run : best),
     undefined,
