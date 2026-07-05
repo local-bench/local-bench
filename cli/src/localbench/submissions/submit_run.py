@@ -119,7 +119,7 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
             status = _status(site, options, submission_id)
             if options.display_name is not None:
                 write_config(config_path, SubmitConfig(display_name=options.display_name, site=site))
-            lines.extend(summary_lines(status, submission_id))
+            lines.extend(summary_lines(status, submission_id, site))
             return SubmitRunResult(exit_code=0, lines=tuple(lines))
     except AlreadySubmittedError as error:
         if options.display_name is not None:

@@ -84,6 +84,7 @@ function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
 export function oversizeEnv(): SubmissionApiEnv {
   const row = ticketRow();
   const bucket = {
+    delete: async () => undefined,
     get: async () => ({
       text: async () => {
         throw new Error("body should not be read");

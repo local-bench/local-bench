@@ -92,6 +92,7 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
     assert captured_tickets[0].credentials.site == "https://local-bench.ai"
     assert uploaded_bundles
     assert "submission sub_123" in output
+    assert "status_url https://local-bench.ai/submission?id=sub_123" in output
     assert "status     pending_verification" in output
     assert "community submissions are labeled self-reported on the agentic axis" in output
     assert "the maintainer reviews every submission before anything publishes." in output

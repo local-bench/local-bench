@@ -139,7 +139,9 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">submit run</code> with a bundle that is already
           in tells you its existing submission id instead of creating a new row, and a bundle whose
           payload matches an earlier submission is flagged for the reviewer. If a ticket expires
-          mid-flight, a fresh one is minted automatically. Check on a submission any time:
+          mid-flight, a fresh one is minted automatically. The public status page is{" "}
+          <code className="font-mono text-bench-text">local-bench.ai/submission?id=&lt;submission_id&gt;</code>.
+          You can also check from the CLI:
         </p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
           {`localbench submit status <submission_id> --site https://local-bench.ai`}

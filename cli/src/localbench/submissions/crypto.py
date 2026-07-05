@@ -39,6 +39,15 @@ def sign_bytes(payload: bytes, signing_key_path: Path) -> str:
     return _sign(payload, key.seed, key.public_key).hex()
 
 
+def verify_bytes(payload: bytes, signature_hex: str, public_key_hex: str) -> bool:
+    try:
+        signature = bytes.fromhex(signature_hex)
+        public_key = bytes.fromhex(public_key_hex)
+    except ValueError:
+        return False
+    return _verify(payload, signature, public_key)
+
+
 def verify_manifest_signature(manifest: JsonObject) -> bool:
     payload = manifest.get("payload")
     signature = manifest.get("signature")

@@ -25,6 +25,7 @@ export type R2ObjectMetadataBinding = {
 };
 
 export type R2BucketBinding = {
+  delete(key: string): Promise<unknown>;
   get(key: string): Promise<R2ObjectBodyBinding | null>;
   head?(key: string): Promise<R2ObjectMetadataBinding | null>;
   put(key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream): Promise<unknown>;
@@ -130,6 +131,20 @@ export const StatusUpdateSchema = z
 
 export const PublishStateDecisionSchema = z.object({
   publish_state: z.enum(["hidden", "preview", "published"]),
+});
+
+export const ModerationReasonSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+export const OpsSettingsUpdateSchema = z.object({
+  actor: z.enum(["owner", "agent", "security"]),
+  key: z.literal("auto_publish"),
+  value: z.enum(["on", "off"]),
+});
+
+export const GcRequestSchema = z.object({
+  apply: z.boolean().default(false),
 });
 
 export const ResultBundleSchema = z

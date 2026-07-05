@@ -67,6 +67,12 @@ from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
+from localbench.submissions.decision_log import (
+    DecisionLogError,
+    append_decision_log,
+    format_decision_log_entries,
+    verify_log,
+)
 from localbench.submissions.foundation_scores import score_summary
 from localbench.submissions.client import (
     AdminDecisionRequest,
@@ -421,6 +427,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     _add_bypass_args(admin_decision_parser)
     _add_admin_secret_args(admin_decision_parser)
+    log_parser = submit_subparsers.add_parser("log", help="inspect the signed private decision log")
+    log_subparsers = log_parser.add_subparsers(dest="log_command", required=True)
+    log_subparsers.add_parser("verify", help="verify the signed decision log")
+    log_show_parser = log_subparsers.add_parser("show", help="show recent decision log entries")
+    log_show_parser.add_argument("--tail", type=int, default=20)
     verify_parser = submit_subparsers.add_parser(
         "verify-offline",
         help="verify and re-score an offline submission bundle",
@@ -1412,6 +1423,8 @@ def _submit(args: argparse.Namespace) -> int:
         return _submit_admin_verify(args)
     if args.submit_command == "admin-decision":
         return _submit_admin_decision(args)
+    if args.submit_command == "log":
+        return _submit_log(args)
     if args.submit_command == "verify-offline":
         return _submit_verify_offline(args)
     if args.submit_command == "run":
@@ -1569,6 +1582,17 @@ def _submit_admin_verify(args: argparse.Namespace) -> int:
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
+    try:
+        append_decision_log(
+            actor="maintainer",
+            action="admin_verify",
+            submission_id=args.submission_id,
+            reason=_json_text(status_update.get("reason")) or "verification posted",
+            extra={"status": _json_text(status_update.get("status")) or "unknown"},
+        )
+    except (DecisionLogError, OSError, ValueError) as error:
+        print(f"error      server call succeeded but decision log write failed: {error}")
+        return 1
     print(f"submission {result.get('submission_id', args.submission_id)}")
     print(f"status     {result.get('status', status_update.get('status', 'unknown'))}")
     print(f"projection {args.projection_out}")
@@ -1595,9 +1619,36 @@ def _submit_admin_decision(args: argparse.Namespace) -> int:
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
+    try:
+        append_decision_log(
+            actor="maintainer",
+            action="admin_decision",
+            submission_id=args.submission_id,
+            reason=f"publish_state={args.publish_state}",
+            extra={"publish_state": args.publish_state},
+        )
+    except (DecisionLogError, OSError, ValueError) as error:
+        print(f"error      server call succeeded but decision log write failed: {error}")
+        return 1
     print(f"submission {result.get('submission_id', args.submission_id)}")
     print(f"publish    {result.get('publish_state', args.publish_state)}")
     return 0
+
+
+def _submit_log(args: argparse.Namespace) -> int:
+    if args.log_command == "verify":
+        result = verify_log()
+        if result.ok:
+            print(f"decision_log ok entries={result.entries}")
+            return 0
+        print(f"decision_log failed entries={result.entries} error={result.error}")
+        return 1
+    if args.log_command == "show":
+        for line in format_decision_log_entries(args.tail):
+            print(line)
+        return 0
+    print("error      unsupported submit log command")
+    return 2
 
 
 def _submit_verify_offline(args: argparse.Namespace) -> int:
@@ -1953,6 +2004,10 @@ def _placement_line(record: Mapping[str, JsonValue]) -> str:
 
 def _json_object(value: JsonValue | None) -> JsonObject:
     return dict(value) if isinstance(value, dict) else {}
+
+
+def _json_text(value: JsonValue | None) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def _print_compare(comparison: CompareResult) -> None:

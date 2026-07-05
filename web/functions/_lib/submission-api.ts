@@ -5,9 +5,11 @@ import {
   type SubmissionApiEnv,
 } from "./submission-contracts";
 import { adminBlocked, jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
+import { InvalidTransitionError } from "./submission-state";
 import {
   applyStatusUpdate,
   listSubmissionsByStatus,
+  publicTransitionHistory,
   publicSubmission,
   rowBySubmissionId,
   updatePublishState,
@@ -23,7 +25,10 @@ export async function handleSubmissionStatus(env: SubmissionApiEnv, params: Rout
   if (row.kind !== "ok") {
     return row.response;
   }
-  return jsonResponse(200, publicSubmission(row.value));
+  return jsonResponse(200, {
+    ...publicSubmission(row.value),
+    history: await publicTransitionHistory(env, row.value.submission_id),
+  });
 }
 
 export async function handleAdminListSubmissions(request: Request, env: SubmissionApiEnv): Promise<Response> {
@@ -64,6 +69,9 @@ export async function handleApplyVerificationUpdate(
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     return jsonResponse(200, publicSubmission(updated ?? row.value));
   } catch (error) {
+    if (error instanceof InvalidTransitionError) {
+      return invalidTransition(error);
+    }
     logSubmissionError("submission_verification_update_failed", {
       error,
       leg: "apply_status_update",
@@ -94,7 +102,23 @@ export async function handlePublishStateDecision(
   if (!parsed.success) {
     return jsonResponse(400, { code: "invalid_publish_decision", error: "invalid publish_state decision" });
   }
-  await updatePublishState(env, row.value.submission_id, parsed.data.publish_state);
+  try {
+    await updatePublishState(env, row.value.submission_id, parsed.data.publish_state);
+  } catch (error) {
+    if (error instanceof InvalidTransitionError) {
+      return invalidTransition(error);
+    }
+    throw error;
+  }
   const updated = await rowBySubmissionId(env, row.value.submission_id);
   return jsonResponse(200, publicSubmission(updated ?? row.value));
+}
+
+function invalidTransition(error: InvalidTransitionError): Response {
+  return jsonResponse(409, {
+    code: error.code,
+    error: "invalid submission status transition",
+    from: error.from,
+    to: error.to,
+  });
 }
