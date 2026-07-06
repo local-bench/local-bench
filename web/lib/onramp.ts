@@ -37,18 +37,31 @@ export type RuntimeProfile = {
   readonly label: string;
   readonly endpoint: string;
   readonly recommended: boolean;
-  readonly servedModelName: (model: OnrampCatalogModel, quant: OnrampCatalogQuant) => string;
-  readonly serveCommand: (model: OnrampCatalogModel, quant: OnrampCatalogQuant) => string;
-  readonly serveNote: (model: OnrampCatalogModel, quant: OnrampCatalogQuant) => string | null;
+  readonly servedModelName: (input: RuntimeRecipeInput) => string;
+  readonly serveCommand: (input: RuntimeRecipeInput) => string;
+  readonly serveNote: (input: RuntimeRecipeInput) => string | null;
 };
+
+type RuntimeRecipeInput = {
+  readonly model: OnrampCatalogModel;
+  readonly quant: OnrampCatalogQuant;
+  readonly hfModelId: string | null;
+};
+
+function llamaCppServedModelName(input: RuntimeRecipeInput): string {
+  return `${input.model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${input.quant.label}`;
+}
 
 const LLAMACPP_RUNTIME: RuntimeProfile = {
   id: "llamacpp",
   label: "llama.cpp",
   endpoint: "http://localhost:8080/v1",
   recommended: true,
-  servedModelName: (model, quant) => `${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label}`,
-  serveCommand: (model, quant) => `llama-server -hf ${model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${quant.label} --port 8080`,
+  servedModelName: llamaCppServedModelName,
+  serveCommand: (input) => {
+    const servedModelName = llamaCppServedModelName(input);
+    return `llama-server -hf ${input.model.ggufRepo ?? "<owner>/<repo>-GGUF"}:${input.quant.label} --ctx-size 32768 --parallel 1 --alias ${servedModelName} --port 8080`;
+  },
   serveNote: () => null,
 };
 
@@ -66,6 +79,7 @@ export type BenchmarkRecipe = {
   readonly lane: "bounded-final-v2";
   readonly servedModelName: string;
   readonly ggufRepo: string | null;
+  readonly identityMode: "full" | "basic";
   readonly model: OnrampCatalogModel;
 };
 
@@ -162,30 +176,50 @@ export const RUNTIME_PROFILES: readonly RuntimeProfile[] = [
     label: "LM Studio",
     endpoint: "http://localhost:1234/v1",
     recommended: false,
-    servedModelName: (model) => model.id,
+    servedModelName: (input) => input.hfModelId ?? input.model.id,
     serveCommand: () => "",
-    serveNote: (model, quant) =>
-      `In LM Studio: search ${model.ggufRepo ?? model.id}, download the ${quant.label} file, then open the Developer tab and Start Server (port 1234). Use the model name shown in the server log if it differs.`,
+    serveNote: (input) =>
+      `In LM Studio: search ${input.model.ggufRepo ?? input.hfModelId ?? input.model.id}, download the ${input.quant.label} file, then open the Developer tab and Start Server (port 1234). Check the model id with curl http://localhost:1234/v1/models and use the returned id in --model if it differs.`,
   },
   {
     id: "vllm",
     label: "vLLM",
     endpoint: "http://localhost:8000/v1",
     recommended: false,
-    servedModelName: (model) => model.id,
-    serveCommand: (model) => `vllm serve ${model.id} --port 8000`,
+    servedModelName: (input) => input.hfModelId ?? input.model.id,
+    serveCommand: (input) => `vllm serve ${input.hfModelId ?? input.model.id} --port 8000 --generation-config vllm`,
     serveNote: () =>
-      "vLLM serves the full-precision weights — the GGUF quant you picked does not apply, so VRAM use is much higher. It may also apply the repo generation_config; pass --generation-config vllm to pin sampling.",
+      "vLLM serves the full-precision weights — the GGUF quant you picked does not apply, so VRAM use is much higher.",
   },
 ];
+
+const TOKENIZER_DOWNLOAD_INCLUDES = '--include "*.json" --include "*.model" --include "*.jinja" --include "*.txt" --include "*.tiktoken"';
+
+function normalizeIdentityRepo(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  return trimmed === "" ? null : trimmed;
+}
+
+function sanitizeRunPart(value: string): string {
+  const sanitized = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return sanitized === "" ? "model" : sanitized;
+}
+
+function runOutputPath(model: OnrampCatalogModel, quant: OnrampCatalogQuant): string {
+  return `runs/${sanitizeRunPart(model.slug)}-${sanitizeRunPart(quant.label)}.json`;
+}
 
 export function buildRecipe(input: {
   model: OnrampCatalogModel;
   quant: OnrampCatalogQuant;
   runtime: RuntimeProfile;
+  hfModelId?: string | null;
 }): BenchmarkRecipe {
   const { model, quant, runtime } = input;
-  const servedModelName = runtime.servedModelName(model, quant);
+  const hfModelId = "hfModelId" in input ? normalizeIdentityRepo(input.hfModelId) : normalizeIdentityRepo(model.id);
+  const runtimeInput = { model, quant, hfModelId };
+  const servedModelName = runtime.servedModelName(runtimeInput);
+  const outputPath = runOutputPath(model, quant);
 
   // bounded-final-v2: every model runs the ONE ranked lane. --profile auto introspects the
   // model's own chat template and applies the allowlisted execution profile; no family gate.
@@ -201,30 +235,32 @@ export function buildRecipe(input: {
   const setupCommand = [
     'pip install "local-bench-ai[hf]==0.2.2"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
-    `hf download ${model.id} --include "*.json" --include "*.model" --include "*.jinja"`,
+    ...(hfModelId === null ? [] : [`hf download ${hfModelId} ${TOKENIZER_DOWNLOAD_INCLUDES}`]),
   ].join("\n");
   const benchCommand = [
     "localbench run",
     `--endpoint ${runtime.endpoint}`,
     `--model ${servedModelName}`,
-    `--hf-model-id ${model.id}`,
+    ...(hfModelId === null ? [] : [`--hf-model-id ${hfModelId}`]),
+    "--ctx-len-configured 32768",
     "--lane bounded-final-v2",
     "--profile auto",
     "--tier standard",
     "--publishable",
     "--sampler-seed 1234",
-    "--out runs/my-run.json",
+    `--out ${outputPath}`,
   ].join(" \\\n  ");
 
   return {
     setupCommand,
-    serveCommand: runtime.serveCommand(model, quant),
-    serveNote: runtime.serveNote(model, quant),
+    serveCommand: runtime.serveCommand(runtimeInput),
+    serveNote: runtime.serveNote(runtimeInput),
     benchCommand,
-    submitCommand: "localbench submit run --run runs/my-run.json",
+    submitCommand: `localbench submit run --run ${outputPath}`,
     lane: "bounded-final-v2",
     servedModelName,
     ggufRepo: model.ggufRepo,
+    identityMode: hfModelId === null ? "basic" : "full",
     model,
   };
 }

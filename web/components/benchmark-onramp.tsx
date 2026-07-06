@@ -27,11 +27,26 @@ import { VRAM_TIERS } from "@/lib/rig-match";
 const DEFAULT_VRAM = 24;
 const PASTE_QUANT_DEFAULT = "Q4_K_M";
 
+function repoNameSegment(repo: string): string {
+  const segments = repo.trim().split("/").filter((segment) => segment !== "");
+  return segments[segments.length - 1] ?? repo.trim();
+}
+
+function slugFromRepoName(repo: string): string {
+  const sanitized = repoNameSegment(repo).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return sanitized === "" ? "pasted-model" : sanitized;
+}
+
+function normalizeOptionalRepo(repo: string): string | null {
+  const trimmed = repo.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogModel {
   const trimmed = repo.trim();
   return {
     id: trimmed,
-    slug: trimmed,
+    slug: slugFromRepoName(trimmed),
     displayName: trimmed,
     family: "",
     org: "",
@@ -71,6 +86,7 @@ export function BenchmarkOnramp({
   const [browseSlug, setBrowseSlug] = useState<string>("");
   const [browseQuant, setBrowseQuant] = useState<string>("");
   const [pasteRepo, setPasteRepo] = useState<string>("");
+  const [pasteHfModelId, setPasteHfModelId] = useState<string>("");
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
   const browseCatalog = useMemo(() => filterModelsByType(catalog, browseType), [catalog, browseType]);
@@ -79,7 +95,11 @@ export function BenchmarkOnramp({
   const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg, browseType) : []), [catalog, browseOrg, browseType]);
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
-  const selection = useMemo<{ model: OnrampCatalogModel; quant: OnrampCatalogQuant } | null>(() => {
+  const selection = useMemo<
+    | { readonly model: OnrampCatalogModel; readonly quant: OnrampCatalogQuant }
+    | { readonly model: OnrampCatalogModel; readonly quant: OnrampCatalogQuant; readonly hfModelId: string | null }
+    | null
+  >(() => {
     if (mode === "popular") {
       const entry = popular.find((candidate) => candidate.model.slug === popularSlug) ?? popular[0];
       return entry ? { model: entry.model, quant: entry.quant } : null;
@@ -100,10 +120,15 @@ export function BenchmarkOnramp({
     }
     const synthetic = syntheticPasteModel(pasteRepo, pasteQuant);
     const quant = synthetic.quants[0];
-    return quant === undefined ? null : { model: synthetic, quant };
-  }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
+    return quant === undefined ? null : { model: synthetic, quant, hfModelId: normalizeOptionalRepo(pasteHfModelId) };
+  }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant, pasteHfModelId]);
 
-  const recipe = selection && runtime ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
+  const recipe =
+    selection && runtime
+      ? "hfModelId" in selection
+        ? buildRecipe({ model: selection.model, quant: selection.quant, runtime, hfModelId: selection.hfModelId })
+        : buildRecipe({ model: selection.model, quant: selection.quant, runtime })
+      : null;
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
@@ -185,6 +210,8 @@ export function BenchmarkOnramp({
             onQuant={setBrowseQuant}
             pasteRepo={pasteRepo}
             onPasteRepo={setPasteRepo}
+            pasteHfModelId={pasteHfModelId}
+            onPasteHfModelId={setPasteHfModelId}
             pasteQuant={pasteQuant}
             onPasteQuant={setPasteQuant}
           />

@@ -50,6 +50,8 @@ function baseProps() {
     onQuant: vi.fn(),
     pasteRepo: "",
     onPasteRepo: vi.fn(),
+    pasteHfModelId: "",
+    onPasteHfModelId: vi.fn(),
     pasteQuant: "Q4_K_M",
     onPasteQuant: vi.fn(),
   };
@@ -58,7 +60,7 @@ function baseProps() {
 describe("ModelPicker", () => {
   it("renders popularity stats, the three sort controls, and the repo-level disclaimer", () => {
     const html = renderToStaticMarkup(createElement(ModelPicker, { ...baseProps(), mode: "popular" }));
-    expect(html).toContain("Popular models that fit 24 GB VRAM");
+    expect(html).toContain("Popular models with 8k-context VRAM estimates for 24 GB");
     expect(html).toContain("sorted by HF downloads last month");
     expect(html).toContain("popularity as of 2026-07-05");
     expect(html).toContain("Downloads");
@@ -66,6 +68,7 @@ describe("ModelPicker", () => {
     expect(html).toContain("Likes");
     expect(html).toContain("↓ 11M downloads/mo · ♥ 420");
     expect(html).toContain("Hugging Face popularity is repo-level");
+    expect(html).toContain("ranked recipe pins 32k context");
   });
 
   it("renders browse rows with inline popularity and fine-tune lineage", () => {
@@ -126,10 +129,12 @@ describe("ModelPicker", () => {
     expect(html).not.toContain("Qwen3 0.6B");
   });
 
-  it("tells paste users to submit the fine-tune GGUF repo itself", () => {
+  it("renders paste fields for the GGUF repo and optional exact HF identity repo", () => {
     const html = renderToStaticMarkup(createElement(ModelPicker, { ...baseProps(), mode: "paste" }));
-    expect(html).toContain("Fine-tunes are first-class");
-    expect(html).toContain("paste the fine-tune");
-    expect(html).toContain("comparisons against the base come from benchmarking both");
+    expect(html).toContain("HF GGUF repo");
+    expect(html).toContain("Exact HF model repo");
+    expect(html).toContain("Use the fine-tune");
+    expect(html).toContain("Do not enter the base model");
+    expect(html).toContain("Pick the quant label that exists in the GGUF repo");
   });
 });

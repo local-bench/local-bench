@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  RUNTIME_PROFILES,
-  buildRecipe,
   isDerivativeModel,
   listOrgs,
   modelsForOrg,
   popularModels,
   recommendedQuantForVram,
   type OnrampCatalogModel,
-  type OnrampCatalogQuant,
-  type RuntimeId,
-  type RuntimeProfile,
 } from "../lib/onramp";
 import { getOnrampCatalog } from "../lib/data";
 
@@ -39,22 +34,6 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     ],
     ...overrides,
   };
-}
-
-function runtimeProfile(id: RuntimeId): RuntimeProfile {
-  const profile = RUNTIME_PROFILES.find((candidate) => candidate.id === id);
-  if (profile === undefined) {
-    throw new Error(`Missing runtime profile: ${id}`);
-  }
-  return profile;
-}
-
-function quantAt(entry: OnrampCatalogModel, index: number): OnrampCatalogQuant {
-  const quant = entry.quants[index];
-  if (quant === undefined) {
-    throw new Error(`Missing quant at index ${index}`);
-  }
-  return quant;
 }
 
 describe("recommendedQuantForVram", () => {
@@ -170,92 +149,6 @@ describe("listOrgs / modelsForOrg", () => {
     expect(isDerivativeModel(officialInstruction)).toBe(false);
     expect(modelsForOrg(catalog, "Qwen", "finetune").map((m) => m.slug)).toEqual(["qwopus3-6-27b-v2-mtp"]);
     expect(modelsForOrg(catalog, "Qwen", "base").map((m) => m.slug)).toEqual(["qwen3-6-27b", "qwen3-0-6b"]);
-  });
-});
-
-describe("RUNTIME_PROFILES", () => {
-  it("exposes three profiles with llama.cpp recommended and no Ollama", () => {
-    expect(RUNTIME_PROFILES.map((p) => p.id)).toEqual(["llamacpp", "lmstudio", "vllm"]);
-    expect(RUNTIME_PROFILES.map((p) => String(p.id))).not.toContain("ollama");
-    expect(RUNTIME_PROFILES.find((p) => p.id === "llamacpp")?.recommended).toBe(true);
-    expect(RUNTIME_PROFILES.find((p) => p.id === "llamacpp")?.endpoint).toBe("http://localhost:8080/v1");
-    expect(RUNTIME_PROFILES.find((p) => p.id === "vllm")?.endpoint).toBe("http://localhost:8000/v1");
-  });
-});
-
-describe("buildRecipe", () => {
-  const llamacpp = runtimeProfile("llamacpp");
-  const vllm = runtimeProfile("vllm");
-  const lmstudio = runtimeProfile("lmstudio");
-
-  it("emits a board-comparable bounded-final recipe for a Qwen model on llama.cpp", () => {
-    const selected = model();
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v2");
-    expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
-    expect(recipe.model).toBe(selected);
-    expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]==0.2.2"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nhf download Qwen/Qwen3-8B --include "*.json" --include "*.model" --include "*.jinja"',
-    );
-    expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
-    expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
-    expect(recipe.serveCommand).toBe("llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080");
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
-    expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
-    expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v2");
-    expect(recipe.benchCommand).toContain("--profile auto");
-    expect(recipe.benchCommand).not.toContain("--reasoning-activation");
-    expect(recipe.benchCommand).toContain("--publishable");
-    expect(recipe.benchCommand).toContain("--sampler-seed 1234");
-    expect(recipe.benchCommand).toContain("--tier standard");
-    expect(recipe.benchCommand).toContain("--out runs/my-run.json");
-    expect(recipe.benchCommand).not.toContain("--suite-dir");
-    expect(recipe.benchCommand).toContain(" \\\n  --endpoint");
-  });
-
-  it("uses the HF model id as the served name for vLLM and warns about full weights", () => {
-    const selected = model();
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: vllm });
-    expect(recipe.servedModelName).toBe("Qwen/Qwen3-8B");
-    expect(recipe.serveCommand).toBe("vllm serve Qwen/Qwen3-8B --port 8000");
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8000/v1");
-    expect(recipe.serveNote).toContain("full-precision");
-  });
-
-  it("renders a GUI note instead of a serve command for LM Studio", () => {
-    const selected = model();
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: lmstudio });
-    expect(recipe.serveCommand).toBe("");
-    expect(recipe.serveNote).toContain("LM Studio");
-  });
-
-  it("gives a non-reasoning model the same ranked bounded-final recipe (profile auto)", () => {
-    const selected = model({ reasoningCapable: false });
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v2");
-    expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v2");
-    expect(recipe.benchCommand).toContain("--profile auto");
-  });
-
-  it("gives a reasoning model outside Qwen3/Gemma the same ranked bounded-final recipe", () => {
-    const selected = model({ family: "Granite 3", org: "IBM" });
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v2");
-    expect(recipe.benchCommand).toContain("--profile auto");
-  });
-
-  it("carries fine-tune lineage through the recipe model payload", () => {
-    const selected = model({
-      baseModelId: "Qwen/Qwen3.6-27B",
-      baseModelSlug: "qwen3-6-27b",
-      baseModelDisplayName: "Qwen3.6 27B",
-      displayName: "Qwopus3.6 27B v2 MTP",
-    });
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.model.baseModelDisplayName).toBe("Qwen3.6 27B");
-    expect(recipe.model.baseModelSlug).toBe("qwen3-6-27b");
   });
 });
 

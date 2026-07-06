@@ -118,12 +118,13 @@ export default function SubmitPage() {
   --endpoint http://localhost:8080/v1 \\
   --model <name-your-server-reports> \\
   --hf-model-id <the-model's-HF-repo> \\
+  --ctx-len-configured 32768 \\
   --lane bounded-final-v2 \\
   --profile auto \\
   --tier standard \\
   --publishable \\
   --sampler-seed 1234 \\
-  --out runs/my-run.json`}
+  --out runs/qwen3-8b-q4-k-m.json`}
         </pre>
         <p>
           The ranked board is the bounded-final lane at standard tier: every model gets the same
@@ -152,7 +153,7 @@ export default function SubmitPage() {
 
         <h3 className="text-base font-semibold text-bench-text">5. Submit</h3>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`localbench submit run --run runs/my-run.json`}
+          {`localbench submit run --run runs/qwen3-8b-q4-k-m.json`}
         </pre>
         <p>
           One command takes a finished run all the way in: it packs the signed bundle, requests a

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PasteModelPicker } from "@/components/benchmark-paste-picker";
 import { formatCompactNumber } from "@/lib/format";
 import {
   isDerivativeModel,
@@ -10,7 +11,6 @@ import {
   type OnrampCatalogQuant,
   type PopularitySort,
 } from "@/lib/onramp";
-import { QUANT_OPTIONS } from "@/lib/quant";
 
 export type PickMode = "popular" | "browse" | "paste";
 const COUNT_FORMAT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -80,6 +80,8 @@ export function ModelPicker(props: {
   readonly onQuant: (label: string) => void;
   readonly pasteRepo: string;
   readonly onPasteRepo: (value: string) => void;
+  readonly pasteHfModelId: string;
+  readonly onPasteHfModelId: (value: string) => void;
   readonly pasteQuant: string;
   readonly onPasteQuant: (value: string) => void;
 }) {
@@ -96,8 +98,8 @@ export function ModelPicker(props: {
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-mono text-[11px] text-bench-muted">
-            Popular models that fit {props.vramGb} GB VRAM — sorted by {SORT_DESCRIPTIONS[props.popularitySort]} ·
-            popularity as of {props.popularityAsOf ?? "unknown date"}
+            Popular models with 8k-context VRAM estimates for {props.vramGb} GB — sorted by{" "}
+            {SORT_DESCRIPTIONS[props.popularitySort]} · popularity as of {props.popularityAsOf ?? "unknown date"}
           </p>
           <div className="inline-flex rounded border border-bench-line bg-bench-panel-2 p-1" role="group" aria-label="Popular model sort">
             {(["downloads", "trending", "likes"] as const).map((sort) => (
@@ -154,7 +156,8 @@ export function ModelPicker(props: {
           </div>
         ))}
         <p className="font-mono text-[10px] text-bench-muted" title={POPULARITY_DISCLAIMER}>
-          Hugging Face popularity is repo-level and monthly for downloads · not an endorsement.
+          Hugging Face popularity is repo-level and monthly for downloads · 8k-context estimate; the ranked recipe pins
+          32k context — you may need one quant tier smaller.
         </p>
       </div>
     );
@@ -243,27 +246,5 @@ export function ModelPicker(props: {
     );
   }
 
-  return (
-    <div className="grid gap-2 sm:grid-cols-[1fr_140px]">
-      <input
-        type="text"
-        className={selectClass}
-        placeholder="owner/repo-GGUF"
-        aria-label="Hugging Face GGUF repo"
-        value={props.pasteRepo}
-        onChange={(event) => props.onPasteRepo(event.currentTarget.value)}
-      />
-      <select className={selectClass} aria-label="Quant" value={props.pasteQuant} onChange={(event) => props.onPasteQuant(event.currentTarget.value)}>
-        {QUANT_OPTIONS.map((label) => (
-          <option key={label} value={label}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <p className="font-mono text-[11px] text-bench-muted sm:col-span-2">
-        Fine-tunes are first-class: paste the fine-tune&apos;s own GGUF repo. The board shows it as its own model; comparisons
-        against the base come from benchmarking both.
-      </p>
-    </div>
-  );
+  return <PasteModelPicker {...props} />;
 }

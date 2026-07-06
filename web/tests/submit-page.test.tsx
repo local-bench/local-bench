@@ -31,5 +31,8 @@ describe("SubmitPage", () => {
     expect(html).toContain("local-bench.ai/submission?id=");
     expect(html).toContain("signed bundle");
     expect(html).toContain("Nothing auto-publishes");
+    expect(html).toContain("--ctx-len-configured 32768");
+    expect(html).toContain("--out runs/qwen3-8b-q4-k-m.json");
+    expect(html).toContain("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
   });
 });
