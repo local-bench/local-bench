@@ -1,0 +1,470 @@
+{
+  "agentic_provenance": "project_attested",
+  "axes": {
+    "agentic": {
+      "conditional_accuracy": 0.041666666666666664,
+      "hi": 8.333333333333332,
+      "hi_raw": 0.08333333333333333,
+      "lo": 1.0416666666666665,
+      "lo_raw": 0.010416666666666666,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 4.166666666666666,
+      "point_raw": 0.041666666666666664,
+      "raw_accuracy": 0.041666666666666664,
+      "termination_rate": 1.0
+    },
+    "coding": {
+      "conditional_accuracy": 0.28368794326241137,
+      "hi": 36.17021276595745,
+      "hi_raw": 0.3617021276595745,
+      "lo": 21.27659574468085,
+      "lo_raw": 0.2127659574468085,
+      "n": 141,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "n_unscoreable": 7,
+      "point": 28.368794326241137,
+      "point_raw": 0.28368794326241137,
+      "raw_accuracy": 0.28368794326241137,
+      "termination_rate": 1.0
+    },
+    "instruction": {
+      "conditional_accuracy": 0.6950354609929078,
+      "hi": 72.10884353741497,
+      "hi_raw": 0.7210884353741497,
+      "lo": 61.224489795918366,
+      "lo_raw": 0.6122448979591837,
+      "n": 294,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 66.66666666666666,
+      "point_raw": 0.6666666666666666,
+      "raw_accuracy": 0.6666666666666666,
+      "termination_rate": 0.9591836734693877
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8172323759791122,
+      "hi": 80.07448125941039,
+      "hi_raw": 0.8007448125941039,
+      "lo": 70.81332466167156,
+      "lo_raw": 0.7081332466167156,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 16,
+      "point": 75.58422351505216,
+      "point_raw": 0.7558422351505216,
+      "raw_accuracy": 0.7825,
+      "termination_rate": 0.9575
+    },
+    "math": {
+      "conditional_accuracy": 0.32682425488180883,
+      "hi": 17.26618705035971,
+      "hi_raw": 0.17266187050359713,
+      "lo": 6.474820143884892,
+      "lo_raw": 0.06474820143884892,
+      "n": 139,
+      "n_errors": 0,
+      "n_no_answer": 87,
+      "point": 11.510791366906476,
+      "point_raw": 0.11510791366906475,
+      "raw_accuracy": 0.11510791366906475,
+      "termination_rate": 0.35251798561151076
+    },
+    "tool_calling": {
+      "conditional_accuracy": 0.7363636363636363,
+      "hi": 78.18181818181819,
+      "hi_raw": 0.7818181818181819,
+      "lo": 68.78787878787878,
+      "lo_raw": 0.6878787878787879,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 73.63636363636363,
+      "point_raw": 0.7363636363636363,
+      "raw_accuracy": 0.7363636363636363,
+      "termination_rate": 1.0
+    }
+  },
+  "axis_status": {
+    "agentic": {
+      "axis": "agentic",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "coding": {
+      "axis": "coding",
+      "detail": "BigCodeBench-Hard artifacts generated; verifier verdict pending",
+      "reason": "verdict_pending",
+      "status": "generated_unverified"
+    },
+    "instruction_following": {
+      "axis": "instruction_following",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "knowledge": {
+      "axis": "knowledge",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "long_context": {
+      "axis": "long_context",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "math": {
+      "axis": "math",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "tool_calling": {
+      "axis": "tool_calling",
+      "reason": "ok",
+      "status": "measured"
+    }
+  },
+  "composite": {
+    "hi": 37.897734120170846,
+    "hi_raw": 0.37897734120170845,
+    "lo": 32.8087687361433,
+    "lo_raw": 0.328087687361433,
+    "point": 35.19879527484235,
+    "point_raw": 0.3519879527484235
+  },
+  "composite_full": {
+    "hi": 37.897734120170846,
+    "hi_raw": 0.37897734120170845,
+    "lo": 32.8087687361433,
+    "lo_raw": 0.328087687361433,
+    "point": 35.19879527484235,
+    "point_raw": 0.3519879527484235
+  },
+  "composite_static": {
+    "hi": 59.67324562973041,
+    "hi_raw": 0.5967324562973041,
+    "lo": 54.60555783787069,
+    "lo_raw": 0.5460555783787069,
+    "point": 57.114833274641306,
+    "point_raw": 0.5711483327464131
+  },
+  "conformance": {
+    "n_scored": 1311,
+    "per_bench": {
+      "amo": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.6410256410256411,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 39,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "budget_cap_hit_rate=64% - visible scored cap hits, not exclusions"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.6410256410256411
+      },
+      "bigcodebench_hard": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 148,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      },
+      "ifbench": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.04081632653061224,
+        "empty_final_rate": 0.003401360544217687,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 294,
+        "no_final_answer_rate": 0.003401360544217687,
+        "reasons": [
+          "budget_cap_hit_rate=4% - visible scored cap hits, not exclusions",
+          "empty_final_rate=0% - scored as zero, not an automatic exclusion"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.04081632653061224
+      },
+      "mmlu_pro": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0425,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "budget_cap_hit_rate=4% - visible scored cap hits, not exclusions"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0425
+      },
+      "olymmath_hard": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.65,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 100,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "budget_cap_hit_rate=65% - visible scored cap hits, not exclusions"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.65
+      },
+      "tc_json_v1": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 330,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "conformance_gates": {
+    "tc_json_v1": {
+      "band": "amber",
+      "band_reasons": [],
+      "id": "tc_json_v1",
+      "invalid_json_rate": 0.0,
+      "label": "Tool-calling",
+      "n_items": 330,
+      "pass_rate": {
+        "hi": 78.09856278969099,
+        "lo": 68.63020497662392,
+        "point": 73.63636363636363
+      },
+      "threshold_version": "tc_json_v1"
+    }
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [],
+  "est_cost_usd": null,
+  "has_code_artifacts": true,
+  "index_version": "index-v3.0",
+  "item_set_hashes": {
+    "coding.jsonl": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e",
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+    "math-part5.jsonl": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b",
+    "math.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
+    "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+  },
+  "kind": "community",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 8192
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "610.62",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "bounded-final-v2",
+    "model": {
+      "family": "gemma4",
+      "file_name": "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf",
+      "file_sha256": "cc9ff072e0a8203429ed854e6662c17a6c2bc1e5dca5b475dd4736caaacbc165",
+      "file_size_bytes": 6716355328,
+      "format": "GGUF",
+      "runtime_reported_model": "gemma-4-12b-it-qat-ud-q4-k-xl"
+    },
+    "quant": "QAT Q4_K_XL",
+    "runtime": {
+      "ctx_len_configured": 32768,
+      "kv_cache_quant": "k=f16,v=f16",
+      "name": "llama.cpp",
+      "parallel_slots": 1,
+      "version": "b9852/fd1a05791"
+    },
+    "sampling": {
+      "by_bench": {
+        "coding": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "instruction": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "math": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "tool_calling": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        }
+      },
+      "determinism_policy": {
+        "claim": "best-effort same-stack reproducibility; not bitwise cross-stack determinism",
+        "client": {
+          "concurrency": 1,
+          "seed": 1234,
+          "temperature": 0,
+          "top_k": 1
+        },
+        "known_limits": [
+          "GPU floating-point non-associativity",
+          "kernel/library changes",
+          "driver changes",
+          "batching/scheduler changes",
+          "timeout/VRAM pressure effects"
+        ],
+        "policy_id": "gpu-greedy-single-slot-v1",
+        "scope": [
+          "same model artifact hash",
+          "same runtime binary/container digest",
+          "same GPU architecture",
+          "same driver/runtime family",
+          "same serve flags",
+          "same localbench suite hash"
+        ],
+        "server": {
+          "continuous_batching": false,
+          "llama_cont_batching": false,
+          "parallel_slots": 1,
+          "vllm_batch_invariant": true,
+          "vllm_max_num_seqs": 1
+        }
+      },
+      "execution_profile_id": "gemma4_channel_8192_v1",
+      "min_p": null,
+      "seed": 1234,
+      "temperature": 0.0,
+      "thinking_mode": "n/a",
+      "top_k": 1,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Gemma 4 12B IT",
+  "origin": "project_anchor",
+  "perf": {
+    "decode_tps": 148.5366409974186,
+    "per_bench": {
+      "amo": {
+        "decode_tps": 149.5602859630398,
+        "n": 39,
+        "prefill_tps": 4022.2627007056753,
+        "prompt_ms_median": 120.628
+      },
+      "bigcodebench_hard": {
+        "decode_tps": 151.0674340657726,
+        "n": 148,
+        "prefill_tps": 6073.668311841891,
+        "prompt_ms_median": 103.6875
+      },
+      "ifbench": {
+        "decode_tps": 145.47515387041776,
+        "n": 294,
+        "prefill_tps": 5203.057160734607,
+        "prompt_ms_median": 106.1545
+      },
+      "mmlu_pro": {
+        "decode_tps": 150.60378017169973,
+        "n": 400,
+        "prefill_tps": 4297.8764782817225,
+        "prompt_ms_median": 113.599
+      },
+      "olymmath_hard": {
+        "decode_tps": 145.5713189345875,
+        "n": 100,
+        "prefill_tps": 2349.827908673616,
+        "prompt_ms_median": 117.0855
+      },
+      "tc_json_v1": {
+        "decode_tps": 152.46664682207688,
+        "n": 330,
+        "prefill_tps": 6926.270349577909,
+        "prompt_ms_median": 125.48750000000001
+      }
+    },
+    "predicted_ms_median": 54841.634999999995,
+    "predicted_ms_p95": 109721.70749999999,
+    "prefill_tps": 5194.722497576913,
+    "prompt_ms_median": 113.754,
+    "prompt_ms_p95": 205.163,
+    "timings_coverage": 0.9317697228144989,
+    "timings_source": "llama.cpp",
+    "ttft_proxy_ms_median": 113.754
+  },
+  "ranked": true,
+  "run_id": "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2",
+  "scorecard": {
+    "current_id": "bd716fa1ca1da3d4332a053b8ed6eff9b1c9419f3d99bdee0a712527e8252a98",
+    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    "drift": true,
+    "execution_profile_id": "gemma4_channel_8192_v1",
+    "id": "e4903c5de5d613c8c1d99f2c31bf5921fa13c40c1ee87ddd9a37d3613785f15f",
+    "registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    "registry_drift": false,
+    "version": "3"
+  },
+  "static_index_version": "static-suite-v2",
+  "suite_version": "suite-v1",
+  "tier": "standard",
+  "tokens_to_answer_median": 8247.0,
+  "tokens_to_answer_p95": 16384.0,
+  "totals": {
+    "completion_tokens": 8093187,
+    "completion_tokens_per_second": 131.06389681271824,
+    "n_errors": 0,
+    "n_items": 1407,
+    "prompt_tokens": 7434042,
+    "total_tokens": 15527229,
+    "wall_time_seconds": 61749.93416809998
+  },
+  "trust_label": "project_anchor",
+  "verdict_source": "verifier",
+  "worst_axis": {
+    "bench": "agentic",
+    "point": 4.166666666666666,
+    "point_raw": 0.041666666666666664
+  }
+}

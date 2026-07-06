@@ -2,6 +2,12 @@ import type { IndexModel, Score } from "./schemas";
 
 export type LeaderboardScoreMode = "full" | "static";
 
+// The single headline lane of the ranked board. Every lane-scoped view (board split,
+// efficiency scatter) keys off this constant so a lane migration is one edit, not a hunt.
+// Rows measured under other lanes (legacy capped-thinking, answer-only ablations) stay on
+// model detail pages as diagnostics.
+export const HEADLINE_LANE = "bounded-final-v2";
+
 export function scoreForMode(model: IndexModel, mode: LeaderboardScoreMode): Score | null {
   switch (mode) {
     case "full":
@@ -21,7 +27,7 @@ export function isFullIndexRow(model: IndexModel): boolean {
   return (
     model.score_status === "measured" &&
     model.ranked &&
-    model.lane === "capped-thinking" &&
+    model.lane === HEADLINE_LANE &&
     !model.demo &&
     scoreForMode(model, "full") !== null
   );
@@ -31,7 +37,7 @@ export function isStaticCompositeRow(model: IndexModel): boolean {
   return (
     model.score_status === "measured" &&
     !model.ranked &&
-    model.lane === "capped-thinking" &&
+    model.lane === HEADLINE_LANE &&
     !model.demo &&
     model.composite_full == null &&
     model.composite_static !== null &&

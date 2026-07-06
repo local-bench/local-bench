@@ -1,10 +1,12 @@
 {
+  "base_model": "mistralai/Ministral-3-3B-Base-2512",
   "catalog_id": "mistralai/Ministral-3-3B-Instruct-2512",
   "demo": false,
   "family": "Ministral",
   "gguf_repo": "lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Ministral 3 3B Instruct",
   "org": "Mistral AI",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 3.2,
+      "file_gb": 3.7,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 3.2,
-      "vram_required_gb_8k": 4.3,
+      "vram_footprint_gb": 3.7,
+      "vram_required_gb_8k": 4.9,
       "wall_time_seconds": null
     },
     {
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 2.5,
+      "file_gb": 2.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,43 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 2.5,
-      "vram_required_gb_8k": 3.6,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 5.7,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 2.1,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q5_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 2.1,
-      "vram_required_gb_8k": 3.3,
+      "vram_footprint_gb": 2.8,
+      "vram_required_gb_8k": 3.9,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 1.8,
+      "file_gb": 2.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,78 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 1.8,
-      "vram_required_gb_8k": 3.0,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 3.9,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 1.5,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q3_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 1.5,
-      "vram_required_gb_8k": 2.6,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 3.0,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 1.1,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q2_K",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 1.1,
-      "vram_required_gb_8k": 2.3,
+      "vram_footprint_gb": 2.1,
+      "vram_required_gb_8k": 3.2,
       "wall_time_seconds": null
     }
   ],

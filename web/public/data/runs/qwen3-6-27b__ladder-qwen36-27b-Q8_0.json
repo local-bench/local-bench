@@ -1,12 +1,16 @@
 {
   "axes": {
     "agentic": {
+      "ambiguous_or_contaminated_final_rate": null,
+      "budget_cap_hit_rate": null,
       "conditional_accuracy": 0.125,
+      "empty_final_rate": null,
       "hi": 19.791666666666664,
       "hi_raw": 0.19791666666666666,
       "leaked_reasoning_rate": null,
       "lo": 6.25,
       "lo_raw": 0.0625,
+      "measurement_truncation_rate": null,
       "n": 96,
       "n_errors": 0,
       "n_no_answer": 0,
@@ -47,12 +51,12 @@
     }
   },
   "composite": {
-    "hi": 41.51508729108343,
-    "hi_raw": 0.41515087291083436,
-    "lo": 30.83640990698618,
-    "lo_raw": 0.3083640990698618,
-    "point": 35.830356711031655,
-    "point_raw": 0.3583035671103166
+    "hi": 44.44054083900232,
+    "hi_raw": 0.4444054083900232,
+    "lo": 34.502574367751706,
+    "lo_raw": 0.34502574367751704,
+    "point": 39.163264812607615,
+    "point_raw": 0.3916326481260761
   },
   "composite_full": null,
   "composite_static": null,
@@ -94,7 +98,7 @@
     "coding not measured in this run; axis omitted"
   ],
   "est_cost_usd": null,
-  "index_version": "index-v2.1",
+  "index_version": "index-v3.0",
   "item_set_hashes": {
     "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
     "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
@@ -159,9 +163,10 @@
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q8_0",
   "scorecard": {
-    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
-    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "current_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
     "drift": true,
+    "execution_profile_id": null,
     "id": "59c8f3cd3e8d8dc4b5c778e701d22911fc18fdde4bf5d919ecd8beb5f9142a0f",
     "registry_digest": "d40e0ccec4d2d144dae386c3a7cc1fef7c638865accbcda4ded93d592528efed",
     "registry_drift": true,

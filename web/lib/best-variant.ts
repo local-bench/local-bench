@@ -4,6 +4,7 @@ import {
   type ContextLengthOption,
   type RigMatchCandidate,
 } from "./rig-match";
+import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
@@ -26,8 +27,8 @@ export type BestVariantPoint = {
 // A point is eligible only if it is a real, measured LOCAL model run in the headline scope.
 // Anchors (frontier/API references) are drawn as horizontal ceilings, not scatter points;
 // demo/missing rows are excluded so the chart never implies precision the data does not have.
-// The headline is the capped-thinking scoped view, so other lanes (answer-only diagnostics)
-// are excluded here too.
+// The headline is the bounded-final lane scoped view, so other lanes (legacy capped-thinking,
+// answer-only diagnostics) are excluded here too.
 function isEligible(candidate: RigMatchCandidate): boolean {
   return (
     candidate.kind === "community" &&
@@ -35,7 +36,7 @@ function isEligible(candidate: RigMatchCandidate): boolean {
     candidate.ranked &&
     candidate.scoreStatus === "measured" &&
     candidate.tier?.toLowerCase() === "standard" &&
-    candidate.lane === "capped-thinking" &&
+    candidate.lane === HEADLINE_LANE &&
     candidate.score !== null &&
     candidate.runId !== null
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { selectBestVariantPoints } from "../lib/best-variant";
+import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import type { RigMatchCandidate } from "../lib/rig-match";
 
 function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidate {
@@ -8,7 +9,7 @@ function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidat
     demo: false,
     family: "fam",
     kind: "community",
-    lane: "capped-thinking",
+    lane: HEADLINE_LANE,
     modelLabel: "M",
     modelSlug: "m",
     nItems: 100,
@@ -50,12 +51,13 @@ describe("selectBestVariantPoints", () => {
     expect(points.map((point) => point.modelSlug)).toEqual(["ok"]);
   });
 
-  it("excludes non-capped-thinking lanes (headline is the capped-thinking scoped view)", () => {
+  it("excludes non-headline lanes (headline is the bounded-final scoped view)", () => {
     const points = selectBestVariantPoints([
       candidate({ modelSlug: "answeronly", lane: "answer-only" }),
-      candidate({ modelSlug: "capped", lane: "capped-thinking" }),
+      candidate({ modelSlug: "legacycapped", lane: "capped-thinking" }),
+      candidate({ modelSlug: "headline", lane: HEADLINE_LANE }),
     ]);
-    expect(points.map((point) => point.modelSlug)).toEqual(["capped"]);
+    expect(points.map((point) => point.modelSlug)).toEqual(["headline"]);
   });
 
   it("marks the efficiency frontier (non-dominated points)", () => {

@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "microsoft/Phi-3-mini-4k-instruct",
   "demo": false,
   "family": "Phi 3",
-  "gguf_repo": "microsoft/Phi-3-mini-4k-instruct-gguf",
+  "gguf_repo": null,
   "kind": "community",
   "license": "mit",
+  "model_kind": "base",
   "model_label": "Phi 3 Mini 4K Instruct",
   "org": "Microsoft",
   "runs": [

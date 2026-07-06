@@ -1,10 +1,12 @@
 {
+  "base_model": "mistralai/Mixtral-8x7B-v0.1",
   "catalog_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
   "demo": false,
   "family": "Mixtral",
   "gguf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Mixtral 8x7B Instruct",
   "org": "Mistral AI",
   "runs": [
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 38.5,
+      "file_gb": 38.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 38.5,
-      "vram_required_gb_8k": 41.9,
+      "vram_footprint_gb": 38.4,
+      "vram_required_gb_8k": 41.7,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 33.3,
+      "file_gb": 32.2,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 33.3,
-      "vram_required_gb_8k": 36.6,
+      "vram_footprint_gb": 32.2,
+      "vram_required_gb_8k": 35.5,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 28.3,
+      "file_gb": 26.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 28.3,
-      "vram_required_gb_8k": 31.6,
+      "vram_footprint_gb": 26.4,
+      "vram_required_gb_8k": 29.7,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 22.8,
+      "file_gb": 20.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 22.8,
-      "vram_required_gb_8k": 26.1,
+      "vram_footprint_gb": 20.4,
+      "vram_required_gb_8k": 23.7,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 17.5,
+      "file_gb": 15.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 17.5,
-      "vram_required_gb_8k": 20.8,
+      "vram_footprint_gb": 15.6,
+      "vram_required_gb_8k": 18.9,
       "wall_time_seconds": null
     }
   ],

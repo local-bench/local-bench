@@ -1,22 +1,22 @@
 {
-  "base_model": null,
-  "catalog_id": "deepseek-ai/DeepSeek-V3",
+  "base_model": "Qwen/Qwen3.6-27B",
+  "catalog_id": "Jackrong/Qwopus3.6-27B-v2-MTP",
   "demo": false,
-  "family": "DeepSeek V3",
-  "gguf_repo": "MaziyarPanahi/DeepSeek-V3-0324-GGUF",
+  "family": "Qwen3.6",
+  "gguf_repo": "Jackrong/Qwopus3.6-27B-v2-MTP-GGUF",
   "kind": "community",
-  "license": null,
+  "license": "apache-2.0",
   "model_kind": "base",
-  "model_label": "DeepSeek V3",
-  "org": "DeepSeek",
+  "model_label": "Qwopus 3.6 27B v2 MTP",
+  "org": "Jackrong",
   "runs": [
     {
       "axes": {},
-      "bpw": 3.0,
+      "bpw": 4.85,
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 244.0,
+      "file_gb": 15.7,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -26,7 +26,7 @@
       "lane": "answer-only",
       "n_errors": 0,
       "n_items": 0,
-      "quant_label": "Q2_K",
+      "quant_label": "Q4_K_M",
       "ranked": false,
       "run_id": null,
       "runtime": {
@@ -41,10 +41,10 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 244.0,
-      "vram_required_gb_8k": 278.6,
+      "vram_footprint_gb": 15.7,
+      "vram_required_gb_8k": 18.1,
       "wall_time_seconds": null
     }
   ],
-  "slug": "deepseek-v3"
+  "slug": "qwopus3-6-27b-v2-mtp"
 }

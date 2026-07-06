@@ -1,10 +1,12 @@
 {
+  "base_model": "google/gemma-3-1b-pt",
   "catalog_id": "google/gemma-3-1b-it",
   "demo": false,
   "family": "Gemma 3",
   "gguf_repo": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
   "kind": "community",
   "license": "gemma",
+  "model_kind": "base",
   "model_label": "Gemma 3 1B IT",
   "org": "Google",
   "runs": [
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 0.8,
+      "file_gb": 1.0,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 0.8,
-      "vram_required_gb_8k": 1.9,
+      "vram_footprint_gb": 1.0,
+      "vram_required_gb_8k": 2.0,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 0.7,
+      "file_gb": 0.9,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 0.7,
-      "vram_required_gb_8k": 1.8,
+      "vram_footprint_gb": 0.9,
+      "vram_required_gb_8k": 1.9,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 0.6,
+      "file_gb": 0.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 0.6,
-      "vram_required_gb_8k": 1.7,
+      "vram_footprint_gb": 0.8,
+      "vram_required_gb_8k": 1.9,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 0.5,
+      "file_gb": 0.7,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 0.5,
-      "vram_required_gb_8k": 1.5,
+      "vram_footprint_gb": 0.7,
+      "vram_required_gb_8k": 1.8,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 0.4,
+      "file_gb": 0.7,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 0.4,
-      "vram_required_gb_8k": 1.4,
+      "vram_footprint_gb": 0.7,
+      "vram_required_gb_8k": 1.8,
       "wall_time_seconds": null
     }
   ],

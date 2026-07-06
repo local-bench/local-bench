@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
   "demo": false,
   "family": "DeepSeek R1 Distill",
   "gguf_repo": "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
   "kind": "community",
   "license": "mit",
+  "model_kind": "base",
   "model_label": "DeepSeek R1 Distill Qwen 7B",
   "org": "DeepSeek",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 7.4,
+      "file_gb": 8.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 7.4,
-      "vram_required_gb_8k": 8.8,
+      "vram_footprint_gb": 8.1,
+      "vram_required_gb_8k": 9.4,
       "wall_time_seconds": null
     },
     {
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 5.8,
+      "file_gb": 6.3,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 5.8,
-      "vram_required_gb_8k": 7.1,
+      "vram_footprint_gb": 6.3,
+      "vram_required_gb_8k": 7.6,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 5.0,
+      "file_gb": 5.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 5.0,
-      "vram_required_gb_8k": 6.3,
+      "vram_footprint_gb": 5.4,
+      "vram_required_gb_8k": 6.8,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 4.2,
+      "file_gb": 4.7,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 4.2,
-      "vram_required_gb_8k": 5.6,
+      "vram_footprint_gb": 4.7,
+      "vram_required_gb_8k": 6.0,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 3.4,
+      "file_gb": 3.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 3.4,
-      "vram_required_gb_8k": 4.8,
+      "vram_footprint_gb": 3.8,
+      "vram_required_gb_8k": 5.1,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 2.6,
+      "file_gb": 3.0,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 2.6,
-      "vram_required_gb_8k": 4.0,
+      "vram_footprint_gb": 3.0,
+      "vram_required_gb_8k": 4.3,
       "wall_time_seconds": null
     }
   ],

@@ -21,6 +21,9 @@ DEFAULT_PARITY_INDEX: Final = REPO_ROOT / "web" / "public" / "data" / "index.jso
 DEFAULT_BOOTSTRAP_ITERS: Final = 10_000
 DEFAULT_BOOTSTRAP_SEED: Final = 0
 INDEX_VERSION_FALLBACK: Final = "index-v2.1"
+# The LEGACY (pre-index-v3) headline scope: feeds only the legacy non-v3 ranked gate and the
+# v1-era board fixtures. The live board's scope label is BOUNDED_FINAL_V2_LANE_SPEC_ID (see
+# board.py); v3 rows are gated by _ranked_v3 on lane_spec identity, never by this constant.
 LANE_SCOPE: Final = "capped-thinking"
 DATASET_VERSION: Final = "dataset-pins-via-suite-item-set-hashes"
 # Bare basename: resolved by run_path() against the board's --runs-dir (now the absolute

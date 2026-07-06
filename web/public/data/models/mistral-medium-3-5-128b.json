@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "mistralai/Mistral-Medium-3.5-128B",
   "demo": false,
   "family": "Mistral Medium",
   "gguf_repo": "unsloth/Mistral-Medium-3.5-128B-GGUF",
   "kind": "community",
   "license": "other",
+  "model_kind": "base",
   "model_label": "Mistral Medium 3.5 128B",
   "org": "Mistral AI",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 136.0,
+      "file_gb": 132.9,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 136.0,
-      "vram_required_gb_8k": 143.4,
+      "vram_footprint_gb": 132.9,
+      "vram_required_gb_8k": 140.3,
       "wall_time_seconds": null
     },
     {
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 105.6,
+      "file_gb": 102.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 105.6,
-      "vram_required_gb_8k": 113.0,
+      "vram_footprint_gb": 102.6,
+      "vram_required_gb_8k": 110.0,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 91.2,
+      "file_gb": 88.3,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 91.2,
-      "vram_required_gb_8k": 98.6,
+      "vram_footprint_gb": 88.3,
+      "vram_required_gb_8k": 95.7,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 77.6,
+      "file_gb": 74.9,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 77.6,
-      "vram_required_gb_8k": 85.0,
+      "vram_footprint_gb": 74.9,
+      "vram_required_gb_8k": 82.3,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 62.4,
+      "file_gb": 60.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 62.4,
-      "vram_required_gb_8k": 69.8,
+      "vram_footprint_gb": 60.6,
+      "vram_required_gb_8k": 68.0,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 48.0,
+      "file_gb": 46.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 48.0,
-      "vram_required_gb_8k": 55.4,
+      "vram_footprint_gb": 46.6,
+      "vram_required_gb_8k": 54.0,
       "wall_time_seconds": null
     }
   ],

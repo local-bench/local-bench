@@ -1,10 +1,12 @@
 {
+  "base_model": "meta-llama/Llama-4-Maverick-17B-128E",
   "catalog_id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
   "demo": false,
   "family": "Llama 4",
   "gguf_repo": "unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF",
   "kind": "community",
   "license": "other",
+  "model_kind": "base",
   "model_label": "Llama 4 Maverick 17B 128E Instruct",
   "org": "Meta",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 425.0,
+      "file_gb": 425.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 425.0,
-      "vram_required_gb_8k": 446.0,
+      "vram_footprint_gb": 425.8,
+      "vram_required_gb_8k": 446.8,
       "wall_time_seconds": null
     },
     {
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 330.0,
+      "file_gb": 328.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 330.0,
-      "vram_required_gb_8k": 351.0,
+      "vram_footprint_gb": 328.8,
+      "vram_required_gb_8k": 349.8,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 285.0,
+      "file_gb": 284.5,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 285.0,
-      "vram_required_gb_8k": 306.0,
+      "vram_footprint_gb": 284.5,
+      "vram_required_gb_8k": 305.5,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 242.5,
+      "file_gb": 242.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 242.5,
-      "vram_required_gb_8k": 263.5,
+      "vram_footprint_gb": 242.8,
+      "vram_required_gb_8k": 263.8,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 195.0,
+      "file_gb": 191.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 195.0,
-      "vram_required_gb_8k": 216.0,
+      "vram_footprint_gb": 191.1,
+      "vram_required_gb_8k": 212.1,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 150.0,
+      "file_gb": 145.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 150.0,
-      "vram_required_gb_8k": 171.0,
+      "vram_footprint_gb": 145.6,
+      "vram_required_gb_8k": 166.6,
       "wall_time_seconds": null
     }
   ],

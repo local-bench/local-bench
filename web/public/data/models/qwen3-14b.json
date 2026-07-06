@@ -1,55 +1,22 @@
 {
+  "base_model": "Qwen/Qwen3-14B-Base",
   "catalog_id": "Qwen/Qwen3-14B",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "MaziyarPanahi/Qwen3-14B-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Qwen3 14B",
   "org": "Qwen",
   "runs": [
-    {
-      "axes": {},
-      "bpw": 8.5,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 14.9,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q8_0",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 14.9,
-      "vram_required_gb_8k": 16.6,
-      "wall_time_seconds": null
-    },
     {
       "axes": {},
       "bpw": 6.6,
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 11.5,
+      "file_gb": 12.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 11.5,
-      "vram_required_gb_8k": 13.2,
+      "vram_footprint_gb": 12.1,
+      "vram_required_gb_8k": 13.8,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 10.0,
+      "file_gb": 10.5,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 10.0,
-      "vram_required_gb_8k": 11.7,
+      "vram_footprint_gb": 10.5,
+      "vram_required_gb_8k": 12.2,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 8.5,
+      "file_gb": 9.0,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 8.5,
-      "vram_required_gb_8k": 10.2,
+      "vram_footprint_gb": 9.0,
+      "vram_required_gb_8k": 10.7,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 6.8,
+      "file_gb": 7.3,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 6.8,
-      "vram_required_gb_8k": 8.5,
+      "vram_footprint_gb": 7.3,
+      "vram_required_gb_8k": 9.0,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 5.3,
+      "file_gb": 5.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 5.3,
-      "vram_required_gb_8k": 7.0,
+      "vram_footprint_gb": 5.8,
+      "vram_required_gb_8k": 7.5,
       "wall_time_seconds": null
     }
   ],

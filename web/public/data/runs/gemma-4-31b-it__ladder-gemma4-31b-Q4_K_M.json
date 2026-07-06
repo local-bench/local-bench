@@ -1,12 +1,16 @@
 {
   "axes": {
     "agentic": {
+      "ambiguous_or_contaminated_final_rate": null,
+      "budget_cap_hit_rate": null,
       "conditional_accuracy": 0.11458333333333333,
+      "empty_final_rate": null,
       "hi": 18.75,
       "hi_raw": 0.1875,
       "leaked_reasoning_rate": null,
       "lo": 5.208333333333334,
       "lo_raw": 0.052083333333333336,
+      "measurement_truncation_rate": null,
       "n": 96,
       "n_errors": 0,
       "n_no_answer": 0,
@@ -47,12 +51,12 @@
     }
   },
   "composite": {
-    "hi": 43.397373980090705,
-    "hi_raw": 0.4339737398009071,
-    "lo": 32.82388933855501,
-    "lo_raw": 0.3282388933855501,
-    "point": 37.72402284578781,
-    "point_raw": 0.3772402284578781
+    "hi": 46.7102520366052,
+    "hi_raw": 0.467102520366052,
+    "lo": 36.92864224205062,
+    "lo_raw": 0.36928642242050624,
+    "point": 41.476264204709885,
+    "point_raw": 0.41476264204709884
   },
   "composite_full": null,
   "composite_static": null,
@@ -92,7 +96,7 @@
     "coding not measured in this run; axis omitted"
   ],
   "est_cost_usd": null,
-  "index_version": "index-v2.1",
+  "index_version": "index-v3.0",
   "item_set_hashes": {
     "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
     "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
@@ -158,9 +162,10 @@
   "ranked": false,
   "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
   "scorecard": {
-    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
-    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "current_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
     "drift": true,
+    "execution_profile_id": null,
     "id": "eab7934471ee63246c72005f149ab41fe54468e76f59bb4440103c988c498483",
     "registry_digest": "30f452ea03e0a553faed3c1816ed0d00f1042b94813efbc6bcb57ba151bbf8de",
     "registry_drift": true,

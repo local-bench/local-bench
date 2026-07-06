@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "nex-agi/Nex-N2-mini",
   "demo": false,
   "family": "Nex N2",
   "gguf_repo": "bartowski/nex-agi_Nex-N2-mini-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Nex N2 Mini",
   "org": "Nex AGI",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 37.2,
+      "file_gb": 36.9,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 37.2,
-      "vram_required_gb_8k": 39.9,
+      "vram_footprint_gb": 36.9,
+      "vram_required_gb_8k": 39.6,
       "wall_time_seconds": null
     },
     {
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 28.9,
+      "file_gb": 30.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 28.9,
-      "vram_required_gb_8k": 31.6,
+      "vram_footprint_gb": 30.1,
+      "vram_required_gb_8k": 32.9,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 24.9,
+      "file_gb": 25.0,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 24.9,
-      "vram_required_gb_8k": 27.7,
+      "vram_footprint_gb": 25.0,
+      "vram_required_gb_8k": 27.8,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 21.2,
+      "file_gb": 21.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 21.2,
-      "vram_required_gb_8k": 24.0,
+      "vram_footprint_gb": 21.4,
+      "vram_required_gb_8k": 24.1,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 17.1,
+      "file_gb": 16.2,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 17.1,
-      "vram_required_gb_8k": 19.8,
+      "vram_footprint_gb": 16.2,
+      "vram_required_gb_8k": 18.9,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 13.1,
+      "file_gb": 12.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 13.1,
-      "vram_required_gb_8k": 15.9,
+      "vram_footprint_gb": 12.6,
+      "vram_required_gb_8k": 15.3,
       "wall_time_seconds": null
     }
   ],

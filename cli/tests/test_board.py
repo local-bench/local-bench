@@ -44,7 +44,9 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
     assert board["schema_version"] == "board-v2"
     assert board["scoring_version"] == "3"
-    assert board["lane_scope"] == "capped-thinking"
+    # The board's scope label is the live headline lane (bounded-final-v2), independent of
+    # the legacy LANE_SCOPE constant that gates pre-v3 rows.
+    assert board["lane_scope"] == "bounded-final-v2"
     manifest = object_value(board["manifest"])
     assert object_value(manifest["item_set_hashes"]) == {
         "ifbench.jsonl": "ifbench-items",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { splitLeaderboard } from "../lib/leaderboard";
+import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import { IndexModelSchema } from "../lib/schemas";
 
 const SCORE = { hi: 90, lo: 80, point: 85 } as const;
@@ -66,7 +67,7 @@ function row(slug: string, label: string): Record<string, unknown> {
     family: "Fixture",
     gpu: null,
     kind: "community",
-    lane: "capped-thinking",
+    lane: HEADLINE_LANE,
     model_label: label,
     n_runs: 1,
     ranked: true,

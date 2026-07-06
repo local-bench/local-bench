@@ -1,10 +1,12 @@
 {
+  "base_model": "google/gemma-3-27b-pt",
   "catalog_id": "google/gemma-3-27b-it",
   "demo": false,
   "family": "Gemma 3",
   "gguf_repo": "MaziyarPanahi/gemma-3-27b-it-GGUF",
   "kind": "community",
   "license": "gemma",
+  "model_kind": "base",
   "model_label": "Gemma 3 27B IT",
   "org": "Google",
   "runs": [
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 22.3,
+      "file_gb": 22.2,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,7 +76,7 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 22.3,
+      "vram_footprint_gb": 22.2,
       "vram_required_gb_8k": 24.6,
       "wall_time_seconds": null
     },
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 19.2,
+      "file_gb": 19.3,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 19.2,
-      "vram_required_gb_8k": 21.6,
+      "vram_footprint_gb": 19.3,
+      "vram_required_gb_8k": 21.7,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 16.4,
+      "file_gb": 16.5,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 16.4,
-      "vram_required_gb_8k": 18.7,
+      "vram_footprint_gb": 16.5,
+      "vram_required_gb_8k": 18.9,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 13.2,
+      "file_gb": 13.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 13.2,
-      "vram_required_gb_8k": 15.5,
+      "vram_footprint_gb": 13.4,
+      "vram_required_gb_8k": 15.8,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 10.1,
+      "file_gb": 10.5,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 10.1,
-      "vram_required_gb_8k": 12.5,
+      "vram_footprint_gb": 10.5,
+      "vram_required_gb_8k": 12.8,
       "wall_time_seconds": null
     }
   ],

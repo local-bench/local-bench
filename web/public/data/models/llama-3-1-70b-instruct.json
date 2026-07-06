@@ -1,55 +1,22 @@
 {
+  "base_model": "meta-llama/Meta-Llama-3.1-70B",
   "catalog_id": "meta-llama/Llama-3.1-70B-Instruct",
   "demo": false,
   "family": "Llama 3.1",
   "gguf_repo": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
   "kind": "community",
   "license": "llama3.1",
+  "model_kind": "base",
   "model_label": "Llama 3.1 70B Instruct",
   "org": "Meta",
   "runs": [
-    {
-      "axes": {},
-      "bpw": 8.5,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 74.4,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q8_0",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 74.4,
-      "vram_required_gb_8k": 78.9,
-      "wall_time_seconds": null
-    },
     {
       "axes": {},
       "bpw": 6.6,
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 57.8,
+      "file_gb": 57.9,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 57.8,
-      "vram_required_gb_8k": 62.3,
+      "vram_footprint_gb": 57.9,
+      "vram_required_gb_8k": 62.4,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 42.4,
+      "file_gb": 42.5,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 42.4,
-      "vram_required_gb_8k": 46.9,
+      "vram_footprint_gb": 42.5,
+      "vram_required_gb_8k": 47.0,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 34.1,
+      "file_gb": 34.3,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 34.1,
-      "vram_required_gb_8k": 38.6,
+      "vram_footprint_gb": 34.3,
+      "vram_required_gb_8k": 38.8,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 26.3,
+      "file_gb": 26.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 26.3,
-      "vram_required_gb_8k": 30.8,
+      "vram_footprint_gb": 26.4,
+      "vram_required_gb_8k": 30.9,
       "wall_time_seconds": null
     }
   ],
