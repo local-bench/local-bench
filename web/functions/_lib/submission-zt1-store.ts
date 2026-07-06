@@ -20,6 +20,16 @@ export type PublishBatchManifest = {
 
 const GIB = 1024 * 1024 * 1024;
 const DEPLOY_NOTE = "Rows are publishable in D1 only; board artifact regeneration and deploy remain scripts/publish-board.ps1.";
+const SECURITY_DISABLE_COOLDOWN_HOURS = 6;
+const MAX_ROWS_PER_IDENTITY_PER_BATCH = 1;
+const MAX_PROVISIONAL_ROWS = 50;
+const SYBIL_IDENTITY_SUBMISSIONS_24H = 3;
+
+type AutoPublishSetting = {
+  readonly disabledBy: string | null;
+  readonly updatedAt: string;
+  readonly value: string;
+};
 
 export async function zt1Available(env: SubmissionApiEnv): Promise<boolean> {
   try {
@@ -43,7 +53,8 @@ export async function persistZt1Decision(
   submissionId: string,
   plan: Zt1DecisionPlan,
 ): Promise<void> {
-  const publishState = plan.zt1Decision === "escalated" ? "hidden" : "preview";
+  const publishState = await publishStateForDecision(env, plan);
+  const flagsJson = await zt1FlagsForDecision(env, submissionId, plan);
   await env.DB.prepare(
     `update submissions set
       identity_class = ?,
@@ -56,6 +67,7 @@ export async function persistZt1Decision(
       zt1_decided_at = datetime('now'),
       zt1_coding_state = ?,
       publish_state = ?,
+      zt1_flags_json = ?,
       status_reason = case when ? = 'escalated' then ? else status_reason end
      where submission_id = ?`,
   )
@@ -69,6 +81,7 @@ export async function persistZt1Decision(
       plan.reason,
       plan.codingState,
       publishState,
+      flagsJson,
       plan.zt1Decision,
       `escalated:${plan.reason}`,
       submissionId,
@@ -109,6 +122,27 @@ export async function publicSubmissionWithZt1(
 }
 
 export async function evaluateFreezeAlarms(env: SubmissionApiEnv): Promise<readonly FreezeAlarm[]> {
+  const alarms = await currentFreezeAlarms(env);
+  if (alarms.length > 0) {
+    await disableAutoPublishForSecurity(env);
+    await Promise.all(alarms.map((alarm) => recordAlarm(env, alarm)));
+  }
+  return alarms;
+}
+
+export function securityDisableExpired(row: AutoPublishSetting, nowIso: string): boolean {
+  if (row.disabledBy !== "security") {
+    return false;
+  }
+  const disabledAt = Date.parse(row.updatedAt);
+  const now = Date.parse(nowIso);
+  if (!Number.isFinite(disabledAt) || !Number.isFinite(now)) {
+    return false;
+  }
+  return now - disabledAt >= SECURITY_DISABLE_COOLDOWN_HOURS * 60 * 60 * 1000;
+}
+
+async function currentFreezeAlarms(env: SubmissionApiEnv): Promise<readonly FreezeAlarm[]> {
   if (!await zt1Available(env)) {
     return [];
   }
@@ -120,15 +154,12 @@ export async function evaluateFreezeAlarms(env: SubmissionApiEnv): Promise<reado
     await thresholdAlarm(env, "accepts_24h_gt_10", "select count(*) from submissions where status = 'accepted' and validated_at >= datetime('now', '-24 hours')", 10),
     await thresholdAlarm(env, "sybil_pattern_flag", "select count(*) from submissions where zt1_flags_json like '%sybil_pattern%'", 0),
   ].filter((alarm): alarm is FreezeAlarm => alarm !== null);
-  if (alarms.length > 0) {
-    await disableAutoPublishForSecurity(env);
-    await Promise.all(alarms.map((alarm) => recordAlarm(env, alarm)));
-  }
   return alarms;
 }
 
 export async function publishBatch(env: SubmissionApiEnv): Promise<PublishBatchManifest> {
-  const alarms = await evaluateFreezeAlarms(env);
+  const recoveredAlarms = await autoRecoverSecurityDisable(env);
+  const alarms = recoveredAlarms ?? await evaluateFreezeAlarms(env);
   const autoPublish = await autoPublishEnabled(env) ? "on" : "off";
   const skippedProvisional = await provisionalSubmissionIds(env);
   if (autoPublish === "off" || alarms.length > 0) {
@@ -136,14 +167,26 @@ export async function publishBatch(env: SubmissionApiEnv): Promise<PublishBatchM
   }
   const rows = await env.DB.prepare(
     `select submission_id
-     from submissions
-     where status = 'accepted'
-       and publish_state = 'preview'
-       and zt1_decision = 'publishable'
-       and provisional_until is null
-     order by coalesce(zt1_decided_at, validated_at, created_at) asc
+     from (
+       select
+         submission_id,
+         coalesce(zt1_decided_at, validated_at, created_at) as decision_order,
+         row_number() over (
+           partition by coalesce(board_identity_key, submission_id)
+           order by coalesce(zt1_decided_at, validated_at, created_at) asc, submission_id asc
+         ) as identity_rank
+       from submissions
+       where status = 'accepted'
+         and publish_state = 'preview'
+         and zt1_decision = 'publishable'
+         and provisional_until is null
+     )
+     where identity_rank <= ?
+     order by decision_order asc, submission_id asc
      limit 10`,
-  ).all();
+  )
+    .bind(MAX_ROWS_PER_IDENTITY_PER_BATCH)
+    .all();
   const promoted: { readonly submission_id: string }[] = [];
   for (const row of rows.results) {
     const submissionId = text(row["submission_id"]);
@@ -206,8 +249,95 @@ async function disableAutoPublishForSecurity(env: SubmissionApiEnv): Promise<voi
   await env.DB.prepare(
     `insert into ops_settings (key, value, disabled_by, updated_at)
      values ('auto_publish', 'off', 'security', datetime('now'))
-     on conflict(key) do update set value = 'off', disabled_by = 'security', updated_at = datetime('now')`,
+     on conflict(key) do update set
+       value = 'off',
+       disabled_by = case when ops_settings.disabled_by = 'owner' then 'owner' else 'security' end,
+       updated_at = case when ops_settings.disabled_by = 'owner' then ops_settings.updated_at else datetime('now') end`,
   ).run();
+}
+
+async function autoRecoverSecurityDisable(env: SubmissionApiEnv): Promise<readonly FreezeAlarm[] | null> {
+  const setting = await autoPublishSetting(env);
+  if (!securityDisableExpired(setting, new Date().toISOString())) {
+    return null;
+  }
+  const alarms = await currentFreezeAlarms(env);
+  if (alarms.length > 0) {
+    await disableAutoPublishForSecurity(env);
+    await Promise.all(alarms.map((alarm) => recordAlarm(env, alarm)));
+    return alarms;
+  }
+  await env.DB.prepare(
+    `update ops_settings
+     set value = 'on', disabled_by = null, updated_at = datetime('now')
+     where key = 'auto_publish' and value = 'off' and disabled_by = 'security'`,
+  ).run();
+  return [];
+}
+
+async function autoPublishSetting(env: SubmissionApiEnv): Promise<AutoPublishSetting> {
+  const row = await env.DB.prepare("select value, disabled_by, updated_at from ops_settings where key = 'auto_publish'").first();
+  if (row === null) {
+    return { disabledBy: null, updatedAt: new Date().toISOString(), value: "off" };
+  }
+  return {
+    disabledBy: nullableText(row["disabled_by"]),
+    updatedAt: text(row["updated_at"]),
+    value: text(row["value"]),
+  };
+}
+
+async function publishStateForDecision(env: SubmissionApiEnv, plan: Zt1DecisionPlan): Promise<"hidden" | "preview"> {
+  if (plan.zt1Decision === "escalated") {
+    return "hidden";
+  }
+  if (plan.zt1Decision !== "provisional") {
+    return "preview";
+  }
+  const row = await env.DB.prepare(
+    "select count(*) as count from submissions where publish_state = 'preview' and zt1_decision = 'provisional'",
+  ).first();
+  return numeric(row?.["count"]) >= MAX_PROVISIONAL_ROWS ? "hidden" : "preview";
+}
+
+async function zt1FlagsForDecision(env: SubmissionApiEnv, submissionId: string, plan: Zt1DecisionPlan): Promise<string> {
+  const flags = new Set(await existingZt1Flags(env, submissionId));
+  if (await repeatedIdentityInRecentWindow(env, submissionId, plan.boardIdentityKey)) {
+    flags.add("sybil_pattern");
+  }
+  return JSON.stringify([...flags].sort());
+}
+
+async function existingZt1Flags(env: SubmissionApiEnv, submissionId: string): Promise<readonly string[]> {
+  const row = await env.DB.prepare("select zt1_flags_json from submissions where submission_id = ?")
+    .bind(submissionId)
+    .first();
+  const raw = nullableText(row?.["zt1_flags_json"]);
+  if (raw === null) {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : [];
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function repeatedIdentityInRecentWindow(env: SubmissionApiEnv, submissionId: string, boardIdentityKey: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `select count(*) as count
+     from submissions
+     where submission_id <> ?
+       and board_identity_key = ?
+       and created_at >= datetime('now', '-24 hours')`,
+  )
+    .bind(submissionId, boardIdentityKey)
+    .first();
+  return numeric(row?.["count"]) >= SYBIL_IDENTITY_SUBMISSIONS_24H;
 }
 
 async function recordAlarm(env: SubmissionApiEnv, alarm: FreezeAlarm): Promise<void> {

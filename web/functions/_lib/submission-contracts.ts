@@ -42,7 +42,9 @@ export type SubmissionApiEnv = {
   readonly SUBMISSIONS: R2BucketBinding;
   readonly TURNSTILE_ENABLED?: string;
   readonly ZT1_KNOWN_ARTIFACTS_JSON?: string;
+  readonly ZT1_PROTECTED_KEYS_JSON?: string;
   readonly ZT1_PROTECTED_MODEL_PATTERNS_JSON?: string;
+  readonly ZT1_TRUSTED_ATTESTER_PUBKEYS_JSON?: string;
 };
 
 export type RouteParams = {

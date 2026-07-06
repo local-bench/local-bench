@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleApplyVerificationUpdate } from "../functions/_lib/submission-api";
 import { handleAcceptedFeed } from "../functions/_lib/submission-feed-api";
+import { canonicalJson } from "../functions/_lib/submission-canonical";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { handleDigest, handlePublishBatch } from "../functions/_lib/submission-zt1-admin-api";
 import {
@@ -22,14 +23,18 @@ import {
   sha256Hex,
   statusUpdate,
 } from "./submission-test-support";
+import { testKeyPair } from "./submission-contract-v2-support";
 import type { SubmissionApiEnv } from "../functions/_lib/submission-contracts";
 
 const KNOWN_HASH = "a".repeat(64);
 const UNKNOWN_HASH = "b".repeat(64);
+const TRUSTED_ATTESTER = testKeyPair();
+const ATTESTATION_SCHEMA = "localbench.verdict_attestation.v1";
+const ATTESTATION_KEY_ID = "localbench-attester-test";
 
 describe("ZT-1 automatic publish decisions", () => {
   it("marks low-impact accepted rows publishable when every auto-accept gate is green", async () => {
-    // Given: auto-publish is enabled and the accepted bundle resolves to a known catalog artifact.
+    // Given: auto-publish is enabled and the accepted bundle resolves to a trusted known catalog artifact.
     const env = await createZt1Env();
     await enableAutoPublish(env);
     const submissionId = await ticketWithBundle(env, bundleFor({ fileSha: KNOWN_HASH, score: 62 }));
@@ -46,6 +51,29 @@ describe("ZT-1 automatic publish decisions", () => {
       zt1_decision: "publishable",
     });
     await expectDecisionLog(env, submissionId, "auto_accept", "publishable");
+  }, 15_000);
+
+  it("does not grant known artifact trust to an allowlisted hash without a trusted attestation", async () => {
+    // Given: the bundle self-declares an allowlisted artifact hash but carries no trusted attestation.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const submissionId = await ticketWithBundle(env, bundleFor({
+      fileSha: KNOWN_HASH,
+      score: 62,
+      trustedAttestation: false,
+    }));
+
+    // When: the verifier accepts the submission.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: ZT-1 treats the row as unverified instead of joining the trusted catalog slug.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      board_identity_key: KNOWN_HASH,
+      identity_class: "unverified",
+      provisional_reason: "unknown_identity",
+      zt1_decision: "provisional",
+    });
   }, 15_000);
 
   it("does not auto-accept duplicate rows", async () => {
@@ -67,7 +95,7 @@ describe("ZT-1 automatic publish decisions", () => {
       zt1_decision: "escalated",
       zt1_decision_reason: "duplicate_flag",
     });
-  });
+  }, 15_000);
 
   it("creates an unverified identity row without merging into a catalog slug", async () => {
     // Given: the model artifact hash is not in the known catalog map.
@@ -92,7 +120,7 @@ describe("ZT-1 automatic publish decisions", () => {
       provisional_reason: "unknown_identity",
       zt1_decision: "provisional",
     });
-  });
+  }, 15_000);
 
   it("escalates protected official-looking names", async () => {
     // Given: an unknown artifact claims a protected family name.
@@ -116,7 +144,38 @@ describe("ZT-1 automatic publish decisions", () => {
       zt1_decision: "escalated",
       zt1_decision_reason: "protected_identity",
     });
-  });
+  }, 15_000);
+
+  it("escalates protected identities from verified submitter keys", async () => {
+    // Given: a verified submitter key is mapped to a protected vendor identity.
+    const env = await createZt1Env();
+    const protectedKey = testKeyPair();
+    Object.assign(env, {
+      ZT1_PROTECTED_KEYS_JSON: JSON.stringify({ [protectedKey.publicKeyHex]: "protected-vendor" }),
+    });
+    await enableAutoPublish(env);
+    const submissionId = await ticketWithBundle(env, bundleFor({
+      displayName: "Community Small",
+      family: "Community",
+      fileSha: UNKNOWN_HASH,
+      score: 58,
+    }));
+    await env.DB.prepare("update submissions set submitter_id = ? where submission_id = ?")
+      .bind(`public_key:${protectedKey.publicKeyHex}`, submissionId)
+      .run();
+
+    // When: verification accepts the bundle.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: the non-forgeable key map escalates the row even without a protected name claim.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      board_identity_key: "protected-vendor",
+      identity_class: "protected",
+      publish_state: "hidden",
+      zt1_decision_reason: "protected_identity",
+    });
+  }, 15_000);
 
   it("marks self-reported agentic rows provisional", async () => {
     // Given: an otherwise low-impact accepted bundle carries an agentic result.
@@ -177,6 +236,57 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(Date.parse(String(body.provisional_until))).toBeGreaterThan(Date.now() + minimumWindowHours * 60 * 60 * 1000);
   }, 15_000);
 
+  it("keeps new provisional decisions hidden when the provisional preview cap is full", async () => {
+    // Given: the incoming provisional preview lane is already at capacity.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    for (let index = 0; index < 50; index += 1) {
+      await seedAcceptedDecision(env, `provisional_cap_${index}`, "provisional");
+    }
+    await env.DB.prepare("update submissions set created_at = datetime('now', '-2 days'), validated_at = datetime('now', '-2 days') where submission_id like 'provisional_cap_%'")
+      .run();
+    const submissionId = await ticketWithBundle(env, bundleFor({
+      displayName: "Community Tiny Q4",
+      fileSha: UNKNOWN_HASH,
+      score: 55,
+    }));
+
+    // When: another accepted row receives a provisional ZT-1 decision.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: it remains hidden instead of increasing the provisional preview count.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      publish_state: "hidden",
+      zt1_decision: "provisional",
+      zt1_decision_reason: "unknown_identity",
+    });
+    const preview = await env.DB.prepare("select count(*) as count from submissions where publish_state = 'preview' and zt1_decision = 'provisional'").first();
+    expect(preview).toMatchObject({ count: 50 });
+  }, 15_000);
+
+  it("writes a sybil pattern flag when one identity repeats in the recent window", async () => {
+    // Given: the same trusted board identity already has several recent accepted rows.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    for (let index = 0; index < 3; index += 1) {
+      await seedAcceptedDecision(env, `repeat_identity_${index}`, "publishable");
+    }
+    await env.DB.prepare("update submissions set board_identity_key = 'qwen3-4b' where submission_id like 'repeat_identity_%'")
+      .run();
+    const submissionId = await ticketWithBundle(env, bundleFor({ fileSha: KNOWN_HASH, score: 52 }));
+
+    // When: ZT-1 persists the next decision for that identity.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: the dead sybil freeze-alarm signal becomes reachable through zt1_flags_json.
+    expect(response.status).toBe(200);
+    const row = await env.DB.prepare("select zt1_flags_json from submissions where submission_id = ?")
+      .bind(submissionId)
+      .first();
+    expect(JSON.parse(String(row?.["zt1_flags_json"]))).toContain("sybil_pattern");
+  }, 15_000);
+
   it("caps daily publish batches at 10 and skips provisional rows", async () => {
     // Given: eleven publishable rows and one provisional row are waiting in preview.
     const env = await createZt1Env();
@@ -202,6 +312,50 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(published).toMatchObject({ count: 10 });
   }, 15_000);
 
+  it("promotes at most one publishable row per identity in a batch", async () => {
+    // Given: fifteen publishable preview rows all belong to one board identity.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    for (let index = 0; index < 15; index += 1) {
+      await seedAcceptedDecision(env, `same_identity_${index}`, "publishable");
+    }
+    await env.DB.prepare(
+      "update submissions set board_identity_key = 'shared-identity', validated_at = datetime('now', '-2 days') where submission_id like 'same_identity_%'",
+    ).run();
+
+    // When: the publish batch runs.
+    const response = await handlePublishBatch(adminGet("/api/admin/publish-batch"), env);
+
+    // Then: only the oldest row from that identity is promoted.
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.promoted).toEqual([{ submission_id: "same_identity_0" }]);
+    const published = await env.DB.prepare("select count(*) as count from submissions where publish_state = 'published'").first();
+    expect(published).toMatchObject({ count: 1 });
+  }, 15_000);
+
+  it("promotes ten rows across distinct identities in a batch", async () => {
+    // Given: fifteen publishable preview rows each have their own board identity.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    for (let index = 0; index < 15; index += 1) {
+      await seedAcceptedDecision(env, `distinct_identity_${index}`, "publishable");
+    }
+    await env.DB.prepare("update submissions set validated_at = datetime('now', '-2 days') where submission_id like 'distinct_identity_%'")
+      .run();
+
+    // When: the publish batch runs.
+    const response = await handlePublishBatch(adminGet("/api/admin/publish-batch"), env);
+
+    // Then: the batch still fills the 10-row limit when identities are distinct.
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.promoted).toHaveLength(10);
+    const distinctPublished = await env.DB.prepare("select count(distinct board_identity_key) as count from submissions where publish_state = 'published'")
+      .first();
+    expect(distinctPublished).toMatchObject({ count: 10 });
+  }, 15_000);
+
   it.each([
     ["pending_gt_20", async (env: SubmissionApiEnv) => seedPending(env, 21)],
     ["submissions_24h_gt_50", async (env: SubmissionApiEnv) => seedRecentSubmissions(env, 51)],
@@ -223,6 +377,67 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(await response.json()).toMatchObject({ alarms: [expect.objectContaining({ reason: alarm })] });
     const setting = await env.DB.prepare("select value, disabled_by from ops_settings where key = 'auto_publish'").first();
     expect(setting).toEqual({ disabled_by: "security", value: "off" });
+  }, 15_000);
+
+  it("auto-recovers a security disable after cooldown when alarms clear", async () => {
+    // Given: security disabled auto-publish before the cooldown and no alarm is firing now.
+    const env = await createZt1Env();
+    await seedAcceptedDecision(env, "recoverable_1", "publishable");
+    await env.DB.prepare("update submissions set validated_at = datetime('now', '-2 days') where submission_id = 'recoverable_1'")
+      .run();
+    await setAutoPublishDisabled(env, "security", "2000-01-01T00:00:00.000Z");
+
+    // When: the batch starts.
+    const response = await handlePublishBatch(adminGet("/api/admin/publish-batch"), env);
+
+    // Then: auto-publish is re-enabled and the ready row can promote.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      auto_publish: "on",
+      promoted: [{ submission_id: "recoverable_1" }],
+    });
+    const setting = await env.DB.prepare("select value, disabled_by from ops_settings where key = 'auto_publish'").first();
+    expect(setting).toEqual({ disabled_by: null, value: "on" });
+  }, 15_000);
+
+  it("keeps a security disable when cooldown expires but an alarm is still firing", async () => {
+    // Given: security disabled auto-publish before the cooldown and pending rows still breach an alarm.
+    const env = await createZt1Env();
+    await seedPending(env, 21);
+    await setAutoPublishDisabled(env, "security", "2000-01-01T00:00:00.000Z");
+
+    // When: the batch starts.
+    const response = await handlePublishBatch(adminGet("/api/admin/publish-batch"), env);
+
+    // Then: the security disable remains sticky for the active anomaly and the clock is reset.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      alarms: [expect.objectContaining({ reason: "pending_gt_20" })],
+      auto_publish: "off",
+      promoted: [],
+    });
+    const setting = await env.DB.prepare("select value, disabled_by, updated_at from ops_settings where key = 'auto_publish'").first();
+    expect(setting?.["value"]).toBe("off");
+    expect(setting?.["disabled_by"]).toBe("security");
+    expect(setting?.["updated_at"]).not.toBe("2000-01-01T00:00:00.000Z");
+  }, 15_000);
+
+  it("keeps owner-disabled auto-publish disabled after the cooldown", async () => {
+    // Given: the owner disabled auto-publish long before the cooldown.
+    const env = await createZt1Env();
+    await seedAcceptedDecision(env, "owner_sticky_1", "publishable");
+    await env.DB.prepare("update submissions set validated_at = datetime('now', '-2 days') where submission_id = 'owner_sticky_1'")
+      .run();
+    await setAutoPublishDisabled(env, "owner", "2000-01-01T00:00:00.000Z");
+
+    // When: the batch starts.
+    const response = await handlePublishBatch(adminGet("/api/admin/publish-batch"), env);
+
+    // Then: owner intent is still sticky and no row promotes.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ auto_publish: "off", promoted: [] });
+    const setting = await env.DB.prepare("select value, disabled_by from ops_settings where key = 'auto_publish'").first();
+    expect(setting).toEqual({ disabled_by: "owner", value: "off" });
   }, 15_000);
 
   it("returns the owner digest read model", async () => {
@@ -293,11 +508,11 @@ async function createZt1Env(): Promise<SubmissionApiEnv> {
     includeR2Secrets: true,
     migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008],
   });
-  return {
-    ...env,
+  return Object.assign(env, {
     ZT1_KNOWN_ARTIFACTS_JSON: JSON.stringify({ [KNOWN_HASH]: "qwen3-4b" }),
     ZT1_PROTECTED_MODEL_PATTERNS_JSON: JSON.stringify(["qwen", "gemma", "llama", "deepseek", "mistral", "phi"]),
-  };
+    ZT1_TRUSTED_ATTESTER_PUBKEYS_JSON: JSON.stringify([TRUSTED_ATTESTER.publicKeyHex]),
+  });
 }
 
 async function enableAutoPublish(env: SubmissionApiEnv): Promise<void> {
@@ -356,6 +571,7 @@ function bundleFor(options: {
   readonly fileSizeBytes?: number;
   readonly score: number;
   readonly submitterDisplayName?: string;
+  readonly trustedAttestation?: boolean;
 }): Record<string, unknown> {
   const bundle = resultBundle();
   bundle["model"] = { name: options.displayName ?? "Community Tiny Q4" };
@@ -391,7 +607,33 @@ function bundleFor(options: {
   if (options.agentic === true) {
     bundle["items"] = [{ bench: "appworld_c", item_id: "appworld-low-impact", response: "completed" }];
   }
+  if (options.trustedAttestation !== false) {
+    bundle["attestations"] = [trustedAttestation()];
+  }
   return bundle;
+}
+
+function trustedAttestation(): Record<string, unknown> {
+  const verdict = { collateral_damage: false, success: true };
+  const payload = {
+    attested_at: "2026-07-04T00:00:00Z",
+    bench: "mmlu_pro",
+    key_id: ATTESTATION_KEY_ID,
+    run_id: "zt1-test-run",
+    schema: ATTESTATION_SCHEMA,
+    task_id: "zt1-test-task",
+    verdict,
+    verdict_sha256: sha256Hex(canonicalJson(verdict)),
+  };
+  return {
+    payload,
+    payload_sha256: sha256Hex(canonicalJson(payload)),
+    signature: {
+      algorithm: "Ed25519",
+      public_key: TRUSTED_ATTESTER.publicKeyHex,
+      signature: TRUSTED_ATTESTER.signMessage(canonicalJson(payload)),
+    },
+  };
 }
 
 function adminJson(path: string, body: unknown): Request {
@@ -473,10 +715,11 @@ async function seedAcceptedDecision(
       submission_id, origin, submitter_id, ticket_id, status, status_reason, bundle_schema_version,
       raw_bundle_sha256, raw_bundle_size_bytes, suite_release_id, suite_manifest_sha256, projection_sha256,
       projection_r2_key, publish_state, uploaded_at, validated_at, idempotency_key, zt1_decision,
-      zt1_decision_reason, zt1_decided_at, provisional_until, provisional_reason
+      zt1_decision_reason, zt1_decided_at, provisional_until, provisional_reason, identity_class,
+      board_identity_key, board_display_label
     ) values (?, 'community', ?, ?, 'accepted', null, 'localbench.result_bundle.v1', ?, 100,
       'suite-v1-full-exec-6axis-v1', ?, ?, ?, ?, datetime('now'), datetime('now'), ?, ?, ?, datetime('now'),
-      ?, ?)`,
+      ?, ?, 'known_artifact', ?, ?)`,
   )
     .bind(
       submissionId,
@@ -492,7 +735,19 @@ async function seedAcceptedDecision(
       decision,
       decision === "provisional" ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null,
       decision === "provisional" ? "top_10_overall" : null,
+      submissionId,
+      `Label ${submissionId}`,
     )
+    .run();
+}
+
+async function setAutoPublishDisabled(env: SubmissionApiEnv, disabledBy: "owner" | "security", updatedAt: string): Promise<void> {
+  await env.DB.prepare(
+    `insert into ops_settings (key, value, disabled_by, updated_at)
+     values ('auto_publish', 'off', ?, ?)
+     on conflict(key) do update set value = 'off', disabled_by = excluded.disabled_by, updated_at = excluded.updated_at`,
+  )
+    .bind(disabledBy, updatedAt)
     .run();
 }
 

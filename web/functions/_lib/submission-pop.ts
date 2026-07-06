@@ -34,7 +34,7 @@ export async function verifyTicketPop(
   return await verifyEd25519(publicKeyHex, pop.signature, message) ? "ok" : "invalid";
 }
 
-async function verifyEd25519(publicKeyHex: string, signatureHex: string, message: string): Promise<boolean> {
+export async function verifyEd25519(publicKeyHex: string, signatureHex: string, message: string): Promise<boolean> {
   try {
     const publicKey = await crypto.subtle.importKey("raw", arrayBufferFromBytes(hexBytes(publicKeyHex)), "Ed25519", false, ["verify"]);
     return await crypto.subtle.verify(

@@ -1,11 +1,18 @@
 import { z } from "zod";
 import { isRecord, parseJson } from "./submission-api-common";
+import { canonicalJson, sha256Hex as canonicalSha256Hex } from "./submission-canonical";
 import { ResultBundleSchema, type ResultBundle, type SubmissionApiEnv, type SubmissionRow } from "./submission-contracts";
+import { verifyEd25519 } from "./submission-pop";
 import { readRawBundle } from "./submission-storage";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
+const Ed25519SignatureSchema = z.string().regex(/^[0-9a-f]{128}$/);
 const KnownArtifactsSchema = z.record(Sha256Schema, z.string().min(1));
+const ProtectedKeysSchema = z.record(Ed25519PublicKeySchema, z.string().min(1));
 const ProtectedPatternsSchema = z.array(z.string().min(1));
+const TrustedAttesterKeysSchema = z.array(Ed25519PublicKeySchema);
+const ATTESTATION_SCHEMA = "localbench.verdict_attestation.v1";
 
 const FALLBACK_PROTECTED_PATTERNS = [
   "qwen",
@@ -53,7 +60,7 @@ export async function zt1DecisionForAcceptedSubmission(
     return escalatedPlan("bundle_unavailable", unknownIdentity(), "absent", {});
   }
   const model = modelMetadata(bundle);
-  const identity = resolveIdentity(env, row, model);
+  const identity = await resolveIdentity(env, row, model, bundle);
   const codingState = codingStateFor(row, bundle);
   const agenticState = agenticStateFor(bundle);
   const score = candidateScore(bundle);
@@ -120,18 +127,19 @@ async function acceptedBundle(env: SubmissionApiEnv, rawBundleSha256: string): P
   return bundle.success ? bundle.data : null;
 }
 
-function resolveIdentity(
+async function resolveIdentity(
   env: SubmissionApiEnv,
   row: SubmissionRow,
   model: ModelMetadata,
-): {
+  bundle: ResultBundle,
+): Promise<{
   readonly boardDisplayLabel: string;
   readonly boardIdentityKey: string;
   readonly identityClass: Zt1IdentityClass;
-} {
+}> {
   if (model.artifactHash !== null) {
     const knownSlug = knownArtifacts(env)[model.artifactHash];
-    if (typeof knownSlug === "string") {
+    if (typeof knownSlug === "string" && await trustedAttesterSigned(env, bundle)) {
       return {
         boardDisplayLabel: model.displayName,
         boardIdentityKey: knownSlug,
@@ -139,10 +147,11 @@ function resolveIdentity(
       };
     }
   }
-  if (protectedIdentity(env, model)) {
+  const protectedLabel = protectedIdentity(env, row, model);
+  if (protectedLabel !== null) {
     return {
       boardDisplayLabel: model.displayName,
-      boardIdentityKey: model.artifactHash ?? "protected",
+      boardIdentityKey: protectedLabel,
       identityClass: "protected",
     };
   }
@@ -329,16 +338,116 @@ function knownArtifacts(env: SubmissionApiEnv): Record<string, string> {
   return result.success ? result.data : {};
 }
 
-function protectedIdentity(env: SubmissionApiEnv, model: ModelMetadata): boolean {
+function protectedIdentity(env: SubmissionApiEnv, row: SubmissionRow, model: ModelMetadata): string | null {
+  const protectedKeyLabel = protectedKeyIdentity(env, row);
+  if (protectedKeyLabel !== null) {
+    return protectedKeyLabel;
+  }
   const patterns = protectedPatterns(env);
   const haystack = `${model.displayName} ${model.family ?? ""}`.toLowerCase();
-  return patterns.some((pattern) => haystack.includes(pattern.toLowerCase()));
+  // Self-declared names are escalation-only and never grant positive trust.
+  return patterns.some((pattern) => haystack.includes(pattern.toLowerCase())) ? model.artifactHash ?? "protected" : null;
+}
+
+function protectedKeyIdentity(env: SubmissionApiEnv, row: SubmissionRow): string | null {
+  const submitterKey = submitterPublicKey(row);
+  if (submitterKey === null) {
+    return null;
+  }
+  const protectedKeys = protectedKeyMap(env);
+  return protectedKeys[submitterKey] ?? null;
+}
+
+function protectedKeyMap(env: SubmissionApiEnv): Record<string, string> {
+  const parsed = jsonConfig(env.ZT1_PROTECTED_KEYS_JSON, {});
+  const result = ProtectedKeysSchema.safeParse(parsed);
+  return result.success ? result.data : {};
+}
+
+function submitterPublicKey(row: SubmissionRow): string | null {
+  if (row.submitter_id === null || !row.submitter_id.startsWith("public_key:")) {
+    return null;
+  }
+  const key = row.submitter_id.slice("public_key:".length);
+  return Ed25519PublicKeySchema.safeParse(key).success ? key : null;
 }
 
 function protectedPatterns(env: SubmissionApiEnv): readonly string[] {
   const parsed = jsonConfig(env.ZT1_PROTECTED_MODEL_PATTERNS_JSON, [...FALLBACK_PROTECTED_PATTERNS]);
   const result = ProtectedPatternsSchema.safeParse(parsed);
   return result.success ? result.data : FALLBACK_PROTECTED_PATTERNS;
+}
+
+async function trustedAttesterSigned(env: SubmissionApiEnv, bundle: ResultBundle): Promise<boolean> {
+  const trustedKeys = trustedAttesterKeys(env);
+  if (trustedKeys.length === 0) {
+    return false;
+  }
+  const attestations = recordValue(bundle, "attestations");
+  if (!Array.isArray(attestations)) {
+    return false;
+  }
+  for (const attestation of attestations) {
+    if (await verifiedAttestation(attestation, trustedKeys)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function trustedAttesterKeys(env: SubmissionApiEnv): readonly string[] {
+  const parsed = jsonConfig(env.ZT1_TRUSTED_ATTESTER_PUBKEYS_JSON, []);
+  const result = TrustedAttesterKeysSchema.safeParse(parsed);
+  return result.success ? result.data : [];
+}
+
+async function verifiedAttestation(attestation: unknown, trustedKeys: readonly string[]): Promise<boolean> {
+  if (!isRecord(attestation)) {
+    return false;
+  }
+  const payload = attestation["payload"];
+  const signature = attestation["signature"];
+  if (!isRecord(payload) || !isRecord(signature) || !attestationPayloadWellFormed(payload)) {
+    return false;
+  }
+  const publicKey = signature["public_key"];
+  const signatureHex = signature["signature"];
+  if (
+    typeof publicKey !== "string" ||
+    typeof signatureHex !== "string" ||
+    !trustedKeys.includes(publicKey) ||
+    !Ed25519SignatureSchema.safeParse(signatureHex).success
+  ) {
+    return false;
+  }
+  if (attestation["payload_sha256"] !== await canonicalSha256Hex(canonicalJson(payload))) {
+    return false;
+  }
+  const verdict = payload["verdict"];
+  if (!isRecord(verdict) || payload["verdict_sha256"] !== await canonicalSha256Hex(canonicalJson(verdict))) {
+    return false;
+  }
+  return verifyEd25519(publicKey, signatureHex, canonicalJson(payload));
+}
+
+function attestationPayloadWellFormed(payload: Record<string, unknown>): boolean {
+  const verdict = payload["verdict"];
+  return (
+    payload["schema"] === ATTESTATION_SCHEMA &&
+    typeof payload["bench"] === "string" &&
+    typeof payload["task_id"] === "string" &&
+    typeof payload["run_id"] === "string" &&
+    typeof payload["attested_at"] === "string" &&
+    typeof payload["key_id"] === "string" &&
+    typeof payload["verdict_sha256"] === "string" &&
+    isRecord(verdict) &&
+    typeof verdict["success"] === "boolean" &&
+    typeof verdict["collateral_damage"] === "boolean"
+  );
+}
+
+function recordValue(value: unknown, key: string): unknown {
+  return isRecord(value) ? value[key] : undefined;
 }
 
 function jsonConfig(raw: string | undefined, fallback: unknown): unknown {

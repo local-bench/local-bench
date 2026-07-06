@@ -129,6 +129,13 @@ describe("ZT-0 admin operations", () => {
     });
     expect(securityOff.status).toBe(200);
 
+    const agentOnAfterSecurity = await postOpsSettings({
+      env,
+      request: adminJson("/api/admin/ops-settings", { actor: "agent", key: "auto_publish", value: "on" }),
+    });
+    expect(agentOnAfterSecurity.status).toBe(200);
+    expect(await agentOnAfterSecurity.json()).toMatchObject({ disabled_by: null, key: "auto_publish", value: "on" });
+
     const ownerOn = await postOpsSettings({
       env,
       request: adminJson("/api/admin/ops-settings", { actor: "owner", key: "auto_publish", value: "on" }),

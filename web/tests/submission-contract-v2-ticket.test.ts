@@ -8,6 +8,7 @@ import {
   jsonRequest,
   ticketRequest,
 } from "./submission-test-support";
+import type { SubmissionApiEnv } from "../functions/_lib/submission-contracts";
 import {
   FIVE_AXIS_SUITE_MANIFEST_SHA,
   FIVE_AXIS_SUITE_RELEASE_ID,
@@ -290,7 +291,7 @@ describe("submission contract v2 ticket route", () => {
     expect(await otherSubmitter.json()).toMatchObject({ code: "bundle_already_submitted" });
     expect(sameAfterUpload.status).toBe(409);
     expect(await sameAfterUpload.json()).toMatchObject({ code: "bundle_already_submitted" });
-  });
+  }, 15_000);
 
   it("rate-limits community ticket mints after the launch limit", async () => {
     // Given: one public key mints fresh tickets under the same fixed daily bucket.
@@ -314,4 +315,65 @@ describe("submission contract v2 ticket route", () => {
     expect(responses[10]?.status).toBe(429);
     expect(await responses[10]?.json()).toMatchObject({ code: "rate_limited" });
   }, 15_000);
+
+  it("rate-limits community ticket mints after the IPv4 prefix daily cap", async () => {
+    // Given: the caller's /24 prefix bucket is already at the daily admission cap.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+    await seedRateCounter(env, {
+      bucketKey: "tickets:ipprefix:203.0.113.0/24",
+      count: 60,
+      windowSeconds: 24 * 60 * 60,
+    });
+
+    // When: a fresh key from that prefix asks for another ticket.
+    const response = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody("9".repeat(64), key), {
+        "CF-Connecting-IP": "203.0.113.99",
+      }),
+    });
+
+    // Then: the prefix-level cap rejects before minting a Sybil-cheap ticket.
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ code: "rate_limited" });
+  });
+
+  it("rate-limits community ticket mints after the global daily cap", async () => {
+    // Given: the global daily ticket bucket is already at the launch cap.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+    await seedRateCounter(env, {
+      bucketKey: "tickets:global:day",
+      count: 400,
+      windowSeconds: 24 * 60 * 60,
+    });
+
+    // When: a valid community request arrives from an otherwise clean IP and key.
+    const response = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody("8".repeat(64), key), {
+        "CF-Connecting-IP": "198.51.100.10",
+      }),
+    });
+
+    // Then: admission control rejects the request with the standard 429 shape.
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ code: "rate_limited" });
+  });
 });
+
+async function seedRateCounter(
+  env: SubmissionApiEnv,
+  counter: { readonly bucketKey: string; readonly count: number; readonly windowSeconds: number },
+): Promise<void> {
+  await env.DB.prepare("insert into rate_counters (bucket_key, window_start, count) values (?, ?, ?)")
+    .bind(counter.bucketKey, rateLimitWindowStart(counter.windowSeconds), counter.count)
+    .run();
+}
+
+function rateLimitWindowStart(windowSeconds: number): string {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const windowStartSeconds = nowSeconds - (nowSeconds % windowSeconds);
+  return new Date(windowStartSeconds * 1000).toISOString();
+}
