@@ -238,6 +238,13 @@ def _mapped_http_error(error: httpx.HTTPStatusError, leg: str) -> Exception:
     if error.response.status_code == 429 and code == "rate_limited":
         retry_after = payload.get("retry_after_seconds")
         return SubmitRunError(f"rate_limited retry_after_seconds={retry_after}", exit_code=3)
+    if error.response.status_code == 429 and code == "pending_review_limit":
+        return SubmitRunError(
+            "submission cap: you already have the maximum submissions awaiting maintainer "
+            "review; this clears when one is reviewed (not with time). Check them with "
+            "`localbench submit status <submission_id>`",
+            exit_code=3,
+        )
     if code == "pop_stale":
         return SubmitRunError("check your system clock (server allows ±10 minutes)")
     if code == "invalid_ticket_request":

@@ -299,8 +299,8 @@ describe("submission contract v2 ticket route", () => {
     const key = testKeyPair();
     const responses: Response[] = [];
 
-    // When: the submitter exceeds ten ticket mints.
-    for (let index = 0; index < 11; index += 1) {
+    // When: the submitter exceeds twenty ticket mints (the per-key daily cap).
+    for (let index = 0; index < 21; index += 1) {
       const bundleSha = `${index.toString(16).padStart(63, "0")}a`;
       responses.push(await issueTicket({
         env,
@@ -310,11 +310,46 @@ describe("submission contract v2 ticket route", () => {
       }));
     }
 
-    // Then: the eleventh request is rejected with retry guidance.
-    expect(responses.slice(0, 10).every((response) => response.status === 201)).toBe(true);
-    expect(responses[10]?.status).toBe(429);
-    expect(await responses[10]?.json()).toMatchObject({ code: "rate_limited" });
-  }, 15_000);
+    // Then: the twenty-first request is rejected with retry guidance.
+    expect(responses.slice(0, 20).every((response) => response.status === 201)).toBe(true);
+    expect(responses[20]?.status).toBe(429);
+    expect(await responses[20]?.json()).toMatchObject({ code: "rate_limited" });
+  }, 30_000);
+
+  it("caps tickets behind the pending-review limit with an honest non-timer rejection", async () => {
+    // Given: one public key already has five submissions sitting in pending_verification.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+    for (let index = 0; index < 5; index += 1) {
+      const bundleSha = `${index.toString(16).padStart(63, "0")}b`;
+      const minted = await issueTicket({
+        env,
+        request: jsonRequest("/api/submissions/tickets", communityTicketBody(bundleSha, key), {
+          "CF-Connecting-IP": TEST_IP,
+        }),
+      });
+      expect(minted.status).toBe(201);
+      await env.DB.prepare(
+        "update submissions set status = 'pending_verification', uploaded_at = datetime('now') where raw_bundle_sha256 = ?",
+      )
+        .bind(bundleSha)
+        .run();
+    }
+
+    // When: the same key asks for a sixth ticket.
+    const response = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(`${"5".padStart(63, "0")}b`, key), {
+        "CF-Connecting-IP": TEST_IP,
+      }),
+    });
+
+    // Then: rejected with the review-gated code, not a misleading retry_after timer.
+    expect(response.status).toBe(429);
+    const body = await response.json();
+    expect(body).toMatchObject({ code: "pending_review_limit", pending_limit: 5 });
+    expect(body).not.toHaveProperty("retry_after_seconds");
+  }, 30_000);
 
   it("rate-limits community ticket mints after the IPv4 prefix daily cap", async () => {
     // Given: the caller's /24 prefix bucket is already at the daily admission cap.

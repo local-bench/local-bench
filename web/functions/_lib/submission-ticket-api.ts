@@ -22,11 +22,15 @@ import {
 import { suiteByReleasePair } from "./suite-catalog";
 
 const TICKET_TTL_MILLISECONDS = 60 * 60 * 1000;
-const TICKETS_PER_PUBLIC_KEY_PER_DAY = 10;
+// Per-person caps sized for real submitters (a quant ladder is several bundles in one sitting);
+// the IP/prefix/global caps below stay conservative — they are the flood + R2-storage guards.
+// Raised 10→20 / 2→5 on 2026-07-07 (launch-week review; infra cost is negligible, see D1/R2 math
+// in the session notes — the binding budget is R2 storage, guarded by TICKETS_GLOBAL_PER_DAY).
+const TICKETS_PER_PUBLIC_KEY_PER_DAY = 20;
 const TICKETS_PER_IP_PER_HOUR = 30;
 const TICKETS_PER_IP_PREFIX_PER_DAY = 60;
 const TICKETS_GLOBAL_PER_DAY = 400;
-const PENDING_VERIFICATION_PER_PUBLIC_KEY = 2;
+const PENDING_VERIFICATION_PER_PUBLIC_KEY = 5;
 
 export async function handleIssueSubmissionTicket(request: Request, env: SubmissionApiEnv): Promise<Response> {
   const origin = hasValidAdminSecret(request, env) ? "project_anchor" : "community";
@@ -139,7 +143,15 @@ async function communityTicketRejection(
     return rateLimitResponse(publicKeyLimit.retryAfterSeconds, origin, body.bundle_sha256, `public_key:${publicKey}`);
   }
   if (await countPendingVerificationForSubmitter(env, `public_key:${publicKey}`) >= PENDING_VERIFICATION_PER_PUBLIC_KEY) {
-    return rateLimitResponse(60, origin, body.bundle_sha256, `public_key:${publicKey}`);
+    // Deliberately NOT the rate_limited shape: this cap clears when the maintainer decides a
+    // pending submission, not with time, so a retry_after_seconds hint would be misleading.
+    return reject(429, "pending_review_limit", origin, "POST /api/submissions/tickets", {
+      code: "pending_review_limit",
+      error:
+        `you have ${PENDING_VERIFICATION_PER_PUBLIC_KEY} submissions awaiting maintainer review; ` +
+        "this clears when one is reviewed, not with time",
+      pending_limit: PENDING_VERIFICATION_PER_PUBLIC_KEY,
+    }, body.bundle_sha256, `public_key:${publicKey}`);
   }
   return null;
 }
