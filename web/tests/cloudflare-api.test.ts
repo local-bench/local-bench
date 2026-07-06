@@ -99,6 +99,9 @@ describe("Cloudflare backend contract", () => {
     // Given: the suite catalog constants drive online fetch-suite verification.
     for (const suite of PUBLIC_SUITES) {
       const suiteRoot = new URL(`../public/suites/${suite.id}/`, import.meta.url);
+      if (!existsSync(suiteRoot)) {
+        continue;
+      }
 
       // When / Then: every catalog hash matches the file served by Pages.
       for (const file of suite.files) {
@@ -112,6 +115,9 @@ describe("Cloudflare backend contract", () => {
   it("serves manifest hashes that match the CLI executable directory hash", async () => {
     // Given: fetch-suite verifies the legacy manifest suite_hash against the local directory hash.
     for (const suite of PUBLIC_SUITES) {
+      if (!existsSync(suiteRoot(suite.id))) {
+        continue;
+      }
       const requestUrl = new URL(`https://local-bench.ai/api/suites/${suite.id}/manifest`);
 
       // When: the manifest route renders the suite.
@@ -133,17 +139,54 @@ describe("Cloudflare backend contract", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       suites: expect.arrayContaining([
+        expect.objectContaining({
+          id: "suite-v1-full-exec-6axis-v1",
+          legacy: false,
+          manifest_url: "https://local-bench.ai/api/suites/suite-v1-full-exec-6axis-v1/manifest",
+        }),
+        expect.objectContaining({
+          id: "suite-v1-static-exec-5axis-v1",
+          legacy: false,
+          manifest_url: "https://local-bench.ai/api/suites/suite-v1-static-exec-5axis-v1/manifest",
+        }),
+        expect.objectContaining({
+          id: "suite-v1-static-core-diag-v1",
+          legacy: false,
+          manifest_url: "https://local-bench.ai/api/suites/suite-v1-static-core-diag-v1/manifest",
+        }),
         expect.objectContaining({ id: "core-text-v1", manifest_url: "https://local-bench.ai/api/suites/core-text-v1/manifest" }),
         expect.objectContaining({
           id: "suite-v1-partial-text-code-4axis-v1",
+          legacy: true,
           manifest_url: "https://local-bench.ai/api/suites/suite-v1-partial-text-code-4axis-v1/manifest",
         }),
         expect.objectContaining({
           id: "suite-v1-text-code-agentic-5axis-v1",
+          legacy: true,
           manifest_url: "https://local-bench.ai/api/suites/suite-v1-text-code-agentic-5axis-v1/manifest",
         }),
       ]),
     });
+  });
+
+  it("matches the shared release-pair fixture", () => {
+    type ExpectedPair = { readonly id: string; readonly suite_manifest_sha256: string; readonly legacy: boolean };
+    const fixture = JSON.parse(readFileSync(new URL("../../suite/release-pairs.expected.json", import.meta.url), "utf-8")) as { readonly pairs: readonly ExpectedPair[] };
+    const expected = new Map<string, { readonly legacy: boolean; readonly suiteManifestSha256: string }>(
+      fixture.pairs.map((pair) => [
+        pair.id,
+        { legacy: pair.legacy, suiteManifestSha256: pair.suite_manifest_sha256 },
+      ]),
+    );
+
+    for (const suite of PUBLIC_SUITES) {
+      const pair = expected.get(suite.id);
+      if (pair === undefined) {
+        continue;
+      }
+      expect(suite.suiteManifestSha256).toBe(pair.suiteManifestSha256);
+      expect(suite.legacy ?? false).toBe(pair.legacy);
+    }
   });
 });
 

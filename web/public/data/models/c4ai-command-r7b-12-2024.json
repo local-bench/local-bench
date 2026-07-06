@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "CohereLabs/c4ai-command-r7b-12-2024",
   "demo": false,
   "family": "Command R",
   "gguf_repo": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
   "kind": "community",
   "license": "cc-by-nc-4.0",
+  "model_kind": "base",
   "model_label": "Command R7B 12-2024",
   "org": "Cohere",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 7.4,
+      "file_gb": 8.5,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,8 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 7.4,
-      "vram_required_gb_8k": 8.8,
+      "vram_footprint_gb": 8.5,
+      "vram_required_gb_8k": 9.8,
       "wall_time_seconds": null
     },
     {
@@ -49,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 5.8,
+      "file_gb": 6.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -74,8 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 5.8,
-      "vram_required_gb_8k": 7.1,
+      "vram_footprint_gb": 6.6,
+      "vram_required_gb_8k": 7.9,
       "wall_time_seconds": null
     },
     {
@@ -84,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 5.0,
+      "file_gb": 5.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -109,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 5.0,
-      "vram_required_gb_8k": 6.3,
+      "vram_footprint_gb": 5.8,
+      "vram_required_gb_8k": 7.1,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +121,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 4.2,
+      "file_gb": 5.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,8 +146,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 4.2,
-      "vram_required_gb_8k": 5.6,
+      "vram_footprint_gb": 5.1,
+      "vram_required_gb_8k": 6.4,
       "wall_time_seconds": null
     },
     {
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 3.4,
+      "file_gb": 4.2,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 3.4,
-      "vram_required_gb_8k": 4.8,
+      "vram_footprint_gb": 4.2,
+      "vram_required_gb_8k": 5.5,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 2.6,
+      "file_gb": 3.4,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 2.6,
-      "vram_required_gb_8k": 4.0,
+      "vram_footprint_gb": 3.4,
+      "vram_required_gb_8k": 4.8,
       "wall_time_seconds": null
     }
   ],

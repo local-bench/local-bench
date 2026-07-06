@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
+from localbench.lane_spec import BOUNDED_FINAL_V2_LANE_SPEC_ID
 from localbench.scoring.axes import web_composite_weights
 from localbench.scoring.board_manifest import release_manifest
 from localbench.scoring.board_scoring import model_rows, scored_runs, suite_version
@@ -20,7 +21,6 @@ from localbench.scoring.board_support import (
     DEFAULT_OUT_V2,
     DEFAULT_PARITY_INDEX,
     DEFAULT_RUNS_DIR,
-    LANE_SCOPE,
     index_version,
     number_or_none,
     object_or_empty,
@@ -63,7 +63,7 @@ def build_board(
         "suite_version": board_suite_version,
         "scoring_version": SCORECARD_VERSION,
         "dataset_version": DATASET_VERSION,
-        "lane_scope": LANE_SCOPE,
+        "lane_scope": BOUNDED_FINAL_V2_LANE_SPEC_ID,
         "generated_at": timestamp,
         "models": model_rows(scored),
         "manifest": release_manifest(

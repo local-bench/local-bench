@@ -38,9 +38,6 @@ export function ScoreBar({
   );
 }
 
-// The Local Intelligence Index bar as its per-axis contributions, in the shared axis palette —
-// the same rail the landing Leaderboard summary draws, so segments match axis columns everywhere.
-// Hardcodes index-v2.1 headline weights; never use for the static (no-agentic) composite.
 export function IndexContributionRail({
   axes,
   className,
@@ -48,22 +45,24 @@ export function IndexContributionRail({
   readonly axes: Readonly<Record<string, AxisScore>>;
   readonly className?: string;
 }) {
-  const a = (axes["agentic"]?.point ?? 0) * 0.5;
+  const a = (axes["agentic"]?.point ?? 0) * 0.4;
   const k = (axes["knowledge"]?.point ?? 0) * 0.15;
   const i = (axes["instruction"]?.point ?? 0) * 0.15;
   const t = (axes["tool_calling"]?.point ?? 0) * 0.1;
-  const c = (axes["coding"]?.point ?? 0) * 0.1;
-  const total = a + k + i + t + c;
+  const c = (axes["coding"]?.point ?? 0) * 0.15;
+  const m = (axes["math"]?.point ?? 0) * 0.05;
+  const total = a + k + i + t + c + m;
   return (
     <div
       className={`flex overflow-hidden rounded-full bg-white/10 ${className ?? "h-1.5 w-full"}`}
-      title={`Agentic ${a.toFixed(1)} + Knowledge ${k.toFixed(1)} + Instruction ${i.toFixed(1)} + Tool ${t.toFixed(1)} + Coding ${c.toFixed(1)} = ${total.toFixed(1)}`}
+      title={`Agentic ${a.toFixed(1)} + Knowledge ${k.toFixed(1)} + Instruction ${i.toFixed(1)} + Tool ${t.toFixed(1)} + Coding ${c.toFixed(1)} + Math ${m.toFixed(1)} = ${total.toFixed(1)}`}
     >
       <div className="h-full" style={{ width: `${a}%`, backgroundColor: axisColor("agentic") }} />
       <div className="h-full" style={{ width: `${k}%`, backgroundColor: axisColor("knowledge") }} />
       <div className="h-full" style={{ width: `${i}%`, backgroundColor: axisColor("instruction") }} />
       <div className="h-full" style={{ width: `${t}%`, backgroundColor: axisColor("tool_calling") }} />
       <div className="h-full" style={{ width: `${c}%`, backgroundColor: axisColor("coding") }} />
+      <div className="h-full" style={{ width: `${m}%`, backgroundColor: axisColor("math") }} />
     </div>
   );
 }

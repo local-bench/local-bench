@@ -40,7 +40,13 @@ from localbench._suite import RenderedBench, read_json_object, render_benches
 from localbench._types import ItemResult, JsonObject, JsonValue
 from localbench.campaign import campaign_paths
 from localbench.coding_exec import OPT_IN_WARNING
-from localbench.coding_exec.orchestrate import CodingExecConfig, CodingExecError, DEFAULT_IMAGE, run_coding_exec
+from localbench.coding_exec.orchestrate import (
+    CodingExecConfig,
+    CodingExecError,
+    DEFAULT_IMAGE,
+    execute_pending_artifacts,
+    run_coding_exec,
+)
 from localbench.exit_codes import (
     EXIT_CHECKPOINT_CORRUPTION,
     EXIT_COMPLETE,
@@ -67,6 +73,12 @@ from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
+from localbench.submissions.decision_log import (
+    DecisionLogError,
+    append_decision_log,
+    format_decision_log_entries,
+    verify_log,
+)
 from localbench.submissions.foundation_scores import score_summary
 from localbench.submissions.client import (
     AdminDecisionRequest,
@@ -190,8 +202,7 @@ def _parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Quickstart:\n"
-            "  localbench fetch-suite --site https://local-bench.ai --suite "
-            "suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms\n"
+            f"  localbench fetch-suite --site https://local-bench.ai --suite {DEFAULT_SUITE_ID} --accept-suite-terms\n"
             "  localbench bench --runtime llama.cpp --model-file <gguf> --model-id <slug> "
             "--ctx <n> --seed <n>\n"
             "  localbench run --endpoint <OpenAI-compatible url> --model <name>\n"
@@ -229,7 +240,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--price-out", type=float)
     run_parser.add_argument(
         "--lane",
-        choices=("answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"),
+        choices=("answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1", "bounded-final-v2"),
         default="answer-only",
     )
     run_parser.add_argument(
@@ -252,7 +263,7 @@ def _parser() -> argparse.ArgumentParser:
         "--profile",
         choices=_PROFILE_CHOICES,
         default="auto",
-        help="bounded-final-v1 execution profile",
+        help="bounded-final execution profile",
     )
     run_parser.add_argument(
         "--max-tokens",
@@ -299,7 +310,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     bench_parser.add_argument(
         "--lane",
-        choices=("answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"),
+        choices=("answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1", "bounded-final-v2"),
         default="answer-only",
     )
     bench_parser.add_argument(
@@ -317,7 +328,7 @@ def _parser() -> argparse.ArgumentParser:
         "--profile",
         choices=_PROFILE_CHOICES,
         default="auto",
-        help="bounded-final-v1 execution profile",
+        help="bounded-final execution profile",
     )
     bench_parser.add_argument("--seed", type=int, required=True)
     bench_parser.add_argument("--max-items", type=int)
@@ -421,6 +432,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     _add_bypass_args(admin_decision_parser)
     _add_admin_secret_args(admin_decision_parser)
+    log_parser = submit_subparsers.add_parser("log", help="inspect the signed private decision log")
+    log_subparsers = log_parser.add_subparsers(dest="log_command", required=True)
+    log_subparsers.add_parser("verify", help="verify the signed decision log")
+    log_show_parser = log_subparsers.add_parser("show", help="show recent decision log entries")
+    log_show_parser.add_argument("--tail", type=int, default=20)
     verify_parser = submit_subparsers.add_parser(
         "verify-offline",
         help="verify and re-score an offline submission bundle",
@@ -508,8 +524,9 @@ def _parser() -> argparse.ArgumentParser:
         "code",
         help="opt-in code-EXECUTION axis (BigCodeBench-Hard) in a hardened Docker sandbox",
     )
-    code_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
-    code_parser.add_argument("--model", required=True, help="model name to send in requests")
+    code_parser.add_argument("--endpoint", help="OpenAI-compatible base URL")
+    code_parser.add_argument("--model", help="model name to send in requests")
+    code_parser.add_argument("--pending-run", type=Path, help="execute pending code artifacts in an existing run")
     code_parser.add_argument("--suite-dir", type=Path, help="suite dir (defaults to suite/v1)")
     code_parser.add_argument("--image", default=DEFAULT_IMAGE,
                              help="bigcode evaluate Docker image; SHOULD be digest-pinned (repo@sha256:...)")
@@ -603,8 +620,8 @@ def _run(args: argparse.Namespace) -> int:
     if args.publishable and args.sampler_seed is None:
         print("error      --publishable requires --sampler-seed", file=sys.stderr)
         return 2
-    if args.lane != "bounded-final-v1" and args.profile != "auto":
-        print("error      --profile only allowed with --lane bounded-final-v1", file=sys.stderr)
+    if args.lane not in {"bounded-final-v1", "bounded-final-v2"} and args.profile != "auto":
+        print("error      --profile only allowed with --lane bounded-final", file=sys.stderr)
         return 2
     if _publishability_warning_needed(args):
         print(f"warning    {_PUBLISHABLE_WARNING}")
@@ -876,7 +893,7 @@ def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
     profile = getattr(args, "profile", "auto")
     if args.lane == "capped-thinking":
         if profile != "auto":
-            return "--profile only allowed with --lane bounded-final-v1"
+            return "--profile only allowed with --lane bounded-final"
         missing: list[str] = []
         if reasoning_activation is None:
             missing.append("--reasoning-activation")
@@ -885,7 +902,7 @@ def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
         if missing:
             return f"--lane capped-thinking requires {_joined_flags(missing)}"
         return None
-    if args.lane == "bounded-final-v1":
+    if args.lane in {"bounded-final-v1", "bounded-final-v2"}:
         if reasoning_activation is not None:
             return "--reasoning-activation only allowed with --lane capped-thinking"
         return None
@@ -897,7 +914,7 @@ def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
     if hf_model_id is not None:
         rejected.append("--hf-model-id")
     if rejected:
-        return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking or bounded-final-v1"
+        return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking or bounded-final"
     return None
 
 
@@ -1412,6 +1429,8 @@ def _submit(args: argparse.Namespace) -> int:
         return _submit_admin_verify(args)
     if args.submit_command == "admin-decision":
         return _submit_admin_decision(args)
+    if args.submit_command == "log":
+        return _submit_log(args)
     if args.submit_command == "verify-offline":
         return _submit_verify_offline(args)
     if args.submit_command == "run":
@@ -1569,6 +1588,17 @@ def _submit_admin_verify(args: argparse.Namespace) -> int:
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
+    try:
+        append_decision_log(
+            actor="maintainer",
+            action="admin_verify",
+            submission_id=args.submission_id,
+            reason=_json_text(status_update.get("reason")) or "verification posted",
+            extra={"status": _json_text(status_update.get("status")) or "unknown"},
+        )
+    except (DecisionLogError, OSError, ValueError) as error:
+        print(f"error      server call succeeded but decision log write failed: {error}")
+        return 1
     print(f"submission {result.get('submission_id', args.submission_id)}")
     print(f"status     {result.get('status', status_update.get('status', 'unknown'))}")
     print(f"projection {args.projection_out}")
@@ -1595,9 +1625,36 @@ def _submit_admin_decision(args: argparse.Namespace) -> int:
     except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
+    try:
+        append_decision_log(
+            actor="maintainer",
+            action="admin_decision",
+            submission_id=args.submission_id,
+            reason=f"publish_state={args.publish_state}",
+            extra={"publish_state": args.publish_state},
+        )
+    except (DecisionLogError, OSError, ValueError) as error:
+        print(f"error      server call succeeded but decision log write failed: {error}")
+        return 1
     print(f"submission {result.get('submission_id', args.submission_id)}")
     print(f"publish    {result.get('publish_state', args.publish_state)}")
     return 0
+
+
+def _submit_log(args: argparse.Namespace) -> int:
+    if args.log_command == "verify":
+        result = verify_log()
+        if result.ok:
+            print(f"decision_log ok entries={result.entries}")
+            return 0
+        print(f"decision_log failed entries={result.entries} error={result.error}")
+        return 1
+    if args.log_command == "show":
+        for line in format_decision_log_entries(args.tail):
+            print(line)
+        return 0
+    print("error      unsupported submit log command")
+    return 2
 
 
 def _submit_verify_offline(args: argparse.Namespace) -> int:
@@ -1723,9 +1780,12 @@ def _code(args: argparse.Namespace) -> int:
     print(OPT_IN_WARNING)
     if "@sha256:" not in args.image:
         print(f"warning    image '{args.image}' is not digest-pinned; pin repo@sha256:... before a ranked run")
+    if args.pending_run is None and (args.endpoint is None or args.model is None):
+        print("error      --endpoint and --model are required unless --pending-run is used")
+        return 2
     config = CodingExecConfig(
-        endpoint=args.endpoint,
-        model=args.model,
+        endpoint=args.endpoint or "",
+        model=args.model or "pending-artifact-verifier",
         suite_dir=args.suite_dir or _default_v1_suite_dir(),
         image=args.image,
         tier=args.tier,
@@ -1740,13 +1800,20 @@ def _code(args: argparse.Namespace) -> int:
         allow_unsafe_sandbox=args.allow_unsafe_sandbox,
     )
     try:
-        run = anyio.run(run_coding_exec, config)
+        if args.pending_run is not None:
+            run = execute_pending_artifacts(args.pending_run, config)
+        else:
+            run = anyio.run(run_coding_exec, config)
     except CodingExecError as error:
         print(f"error      {error}")
         return 2
-    for warning in run["warnings"]:
-        print(f"warning    {warning}")
-    _print_coding_summary(run)
+    if "warnings" in run and isinstance(run["warnings"], list):
+        for warning in run["warnings"]:
+            print(f"warning    {warning}")
+    if "score" in run:
+        _print_coding_summary(run)
+    else:
+        print(f"output     {args.out or args.pending_run}")
     return 0
 
 
@@ -1840,6 +1907,8 @@ def _prefer_utf8_stdout() -> None:
 def _lane(value: str) -> LaneChoice:
     if value == "bounded-final-v1":
         return "bounded-final-v1"
+    if value == "bounded-final-v2":
+        return "bounded-final-v2"
     if value == "capped-thinking":
         return "capped-thinking"
     if value == "api-uncapped":
@@ -1941,18 +2010,24 @@ def _placement_line(record: Mapping[str, JsonValue]) -> str:
         for axis in _HEADLINE_AXIS_KEYS
         if _json_object(axes.get(axis)).get("status") == "measured"
     }
+    headline_count = len(_HEADLINE_AXIS_KEYS)
+    static_count = len(_STATIC_AXIS_KEYS)
     if set(_HEADLINE_AXIS_KEYS) <= measured:
-        return "placement  all 5 headline axes measured; this run is eligible for the full composite."
+        return f"placement  all {headline_count} headline axes measured; this run is eligible for the full composite."
     if set(_STATIC_AXIS_KEYS) <= measured:
         return (
-            "placement  4 static headline axes measured; this run is eligible for the static "
+            f"placement  {static_count} static headline axes measured; this run is eligible for the static "
             f"composite ({STATIC_SUITE_INDEX_VERSION}), not the full composite."
         )
-    return "placement  fewer than 4 static headline axes measured; this run is reported per-axis only."
+    return f"placement  fewer than {static_count} static headline axes measured; this run is reported per-axis only."
 
 
 def _json_object(value: JsonValue | None) -> JsonObject:
     return dict(value) if isinstance(value, dict) else {}
+
+
+def _json_text(value: JsonValue | None) -> str | None:
+    return value if isinstance(value, str) and value else None
 
 
 def _print_compare(comparison: CompareResult) -> None:

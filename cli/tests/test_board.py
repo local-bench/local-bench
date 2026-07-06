@@ -44,7 +44,9 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
     assert board["schema_version"] == "board-v2"
     assert board["scoring_version"] == "3"
-    assert board["lane_scope"] == "capped-thinking"
+    # The board's scope label is the live headline lane (bounded-final-v2), independent of
+    # the legacy LANE_SCOPE constant that gates pre-v3 rows.
+    assert board["lane_scope"] == "bounded-final-v2"
     manifest = object_value(board["manifest"])
     assert object_value(manifest["item_set_hashes"]) == {
         "ifbench.jsonl": "ifbench-items",
@@ -92,7 +94,9 @@ def test_only_headline_lane_conformance_pass_measured_rows_are_ranked(tmp_path: 
             appworld_inline=(True, False),
             agentic_run=_inline_agentic_provenance((True, False)),
             tc_json_correct=(True, False),
-            lcb_correct=(True, False),
+            lcb_correct=None,
+            bigcode_correct=(True, False),
+            math_correct=(True, False),
         ),
     )
     write_run(paths["runs"] / "anchor.json", run_record())
@@ -148,9 +152,9 @@ def test_v3_ranked_predicate_requires_allowlisted_profile_and_exact_audits(
     paths = write_inputs(
         tmp_path,
         [
-            source("Valid V3", "valid.json", lane="bounded-final-v1"),
-            source("Unverified Budget", "unverified.json", lane="bounded-final-v1"),
-            source("Bad Profile", "bad-profile.json", lane="bounded-final-v1"),
+            source("Valid V3", "valid.json", lane="bounded-final-v2"),
+            source("Unverified Budget", "unverified.json", lane="bounded-final-v2"),
+            source("Bad Profile", "bad-profile.json", lane="bounded-final-v2"),
         ],
     )
     valid = _bounded_final_v3_run()
@@ -184,7 +188,7 @@ def test_v3_ranked_predicate_requires_allowlisted_profile_and_exact_audits(
 def test_v3_missing_suite_item_scores_zero_in_axis_denominator(tmp_path: Path) -> None:
     from localbench.scoring.board import build_board
 
-    paths = write_inputs(tmp_path, [source("Missing Item", "missing.json", lane="bounded-final-v1")])
+    paths = write_inputs(tmp_path, [source("Missing Item", "missing.json", lane="bounded-final-v2")])
     run = _bounded_final_v3_run()
     run["items"] = [
         item
@@ -259,18 +263,23 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
         bootstrap_iters=50,
     )
 
-    # Then: AppWorld-C is a real agentic axis and the composite follows 70/15/15 weighting.
+    # Then: AppWorld-C is a real agentic axis and the composite follows the registry weights.
     model = objects_value(board["models"])[0]
     axes = object_value(model["axes"])
     agentic = object_value(axes["agentic"])
     knowledge = object_value(axes["knowledge"])
     instruction = object_value(axes["instruction"])
+    tool_calling = object_value(axes["tool_calling"])
+    coding = object_value(axes["coding"])
     composite = object_value(model["composite"])
+    weights = web_composite_weights()
     expected = (
-        (0.50 * float_value(agentic["point_raw"]))
-        + (0.15 * float_value(knowledge["point_raw"]))
-        + (0.15 * float_value(instruction["point_raw"]))
-    ) / 0.80
+        (weights["agentic"] * float_value(agentic["point_raw"]))
+        + (weights["knowledge"] * float_value(knowledge["point_raw"]))
+        + (weights["instruction"] * float_value(instruction["point_raw"]))
+        + (weights["tool_calling"] * float_value(tool_calling["point_raw"]))
+        + (weights["coding"] * float_value(coding["point_raw"]))
+    ) / (weights["agentic"] + weights["knowledge"] + weights["instruction"] + weights["tool_calling"] + weights["coding"])
     assert agentic["n"] == 4
     assert agentic["raw_accuracy"] == pytest.approx(0.5)
     assert composite["point_raw"] == pytest.approx(expected)
@@ -280,8 +289,46 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     assert cluster_for_item("appworld_c", "calendar_17", {"cluster": "ignored"}) == "calendar"
 
 
+def test_board_coding_axis_uses_sandbox_scoreable_items(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+
+    paths = write_inputs(tmp_path, [source("Coding Model", "coding.json")])
+    run = run_record(appworld_inline=None, bigcode_correct=(True, True), lcb_correct=None)
+    coding_rows = [
+        item
+        for item in objects_value(run["items"])
+        if object_value(item)["bench"] == "bigcodebench_hard"
+    ]
+    for item, item_id in zip(coding_rows, ("bcbh-001", "bcbh-002"), strict=True):
+        item["id"] = item_id
+    coding_failure = dict(coding_rows[0])
+    coding_failure["id"] = "bcbh-006"
+    coding_failure["correct"] = False
+    coding_failure["extracted"] = None
+    run_items = run["items"]
+    assert isinstance(run_items, list)
+    run_items.append(coding_failure)
+    object_value(object_value(run["benches"])["bigcodebench_hard"])["n_unscoreable"] = 1
+    object_value(run["totals"])["n_items"] = 7
+    write_run(paths["runs"] / "coding.json", run)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    coding = object_value(object_value(model["axes"])["coding"])
+    assert coding["n"] == 2
+    assert coding["n_unscoreable"] == 1
+    assert coding["raw_accuracy"] == pytest.approx(1.0)
+    assert coding["point_raw"] == pytest.approx(1.0)
+
+
 def test_board_emits_static_and_full_composites_without_changing_rank_composite(tmp_path: Path) -> None:
-    # Given: one four-static-axis row and one full five-axis row.
+    # Given: one static-exec row and one full-exec row.
     from localbench.scoring.board import build_board
 
     paths = write_inputs(
@@ -293,11 +340,23 @@ def test_board_emits_static_and_full_composites_without_changing_rank_composite(
     )
     write_run(
         paths["runs"] / "static.json",
-        run_record(appworld_inline=None, tc_json_correct=(True, False), lcb_correct=(True, True)),
+        run_record(
+            appworld_inline=None,
+            tc_json_correct=(True, False),
+            lcb_correct=None,
+            bigcode_correct=(True, True),
+            math_correct=(True, False),
+        ),
     )
     write_run(
         paths["runs"] / "full.json",
-        run_record(appworld_inline=(True, False), tc_json_correct=(True, False), lcb_correct=(True, True)),
+        run_record(
+            appworld_inline=(True, False),
+            tc_json_correct=(True, False),
+            lcb_correct=None,
+            bigcode_correct=(True, True),
+            math_correct=(True, False),
+        ),
     )
 
     # When: the board is built through the public board surface.
@@ -313,19 +372,28 @@ def test_board_emits_static_and_full_composites_without_changing_rank_composite(
     static_row = rows["Static Model"]
     static_axes = object_value(static_row["axes"])
     expected_static = (
-        0.30 * float_value(object_value(static_axes["knowledge"])["point_raw"])
-        + 0.30 * float_value(object_value(static_axes["instruction"])["point_raw"])
+        0.25 * float_value(object_value(static_axes["knowledge"])["point_raw"])
+        + 0.25 * float_value(object_value(static_axes["instruction"])["point_raw"])
         + 0.20 * float_value(object_value(static_axes["tool_calling"])["point_raw"])
         + 0.20 * float_value(object_value(static_axes["coding"])["point_raw"])
+        + 0.10 * float_value(object_value(static_axes["math"])["point_raw"])
     )
+    weights = web_composite_weights()
+    expected_headline_static = (
+        weights["knowledge"] * float_value(object_value(static_axes["knowledge"])["point_raw"])
+        + weights["instruction"] * float_value(object_value(static_axes["instruction"])["point_raw"])
+        + weights["tool_calling"] * float_value(object_value(static_axes["tool_calling"])["point_raw"])
+        + weights["coding"] * float_value(object_value(static_axes["coding"])["point_raw"])
+        + weights["math"] * float_value(object_value(static_axes["math"])["point_raw"])
+    ) / (weights["knowledge"] + weights["instruction"] + weights["tool_calling"] + weights["coding"] + weights["math"])
     assert object_value(static_row["composite_static"])["point_raw"] == pytest.approx(expected_static)
-    assert static_row["static_index_version"] == "static-suite-v1"
+    assert static_row["static_index_version"] == "static-suite-v2"
     assert static_row["composite_full"] is None
-    assert object_value(static_row["composite"])["point_raw"] == pytest.approx(expected_static)
+    assert object_value(static_row["composite"])["point_raw"] == pytest.approx(expected_headline_static)
 
     full_row = rows["Full Model"]
     assert object_value(full_row["composite_static"])["point_raw"] == pytest.approx(expected_static)
-    assert full_row["static_index_version"] == "static-suite-v1"
+    assert full_row["static_index_version"] == "static-suite-v2"
     assert object_value(full_row["composite_full"])["point_raw"] == pytest.approx(
         float_value(object_value(full_row["composite"])["point_raw"]),
     )
@@ -693,19 +761,24 @@ def _inline_agentic_provenance(successes: tuple[bool, ...], *, harness_dominated
 
 
 def _bounded_final_v3_run() -> dict:
-    from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID
+    from localbench.lane_spec import BOUNDED_FINAL_V2_LANE_SPEC_ID
     from localbench.scoring.board_scoring import INDEX_VERSION_V3
     from localbench.scoring.scorecard import scorecard_identity
 
-    record = run_record(lane=BOUNDED_FINAL_LANE_SPEC_ID)
+    record = run_record(
+        lane=BOUNDED_FINAL_V2_LANE_SPEC_ID,
+        lcb_correct=None,
+        bigcode_correct=(True, False),
+        math_correct=(True, False),
+    )
     record["index_version"] = INDEX_VERSION_V3
     manifest = object_value(record["manifest"])
     suite = object_value(manifest["suite"])
-    suite["lane"] = BOUNDED_FINAL_LANE_SPEC_ID
+    suite["lane"] = BOUNDED_FINAL_V2_LANE_SPEC_ID
     suite["tier"] = "standard"
     manifest["scorecard"] = scorecard_identity(
         "answer_only_v1",
-        lane_spec_id=BOUNDED_FINAL_LANE_SPEC_ID,
+        lane_spec_id=BOUNDED_FINAL_V2_LANE_SPEC_ID,
     )
     record["prompt_audit"] = {"status": "canonical"}
     record["budget_audit"] = {"status": "exact"}

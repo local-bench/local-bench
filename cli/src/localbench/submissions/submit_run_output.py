@@ -24,11 +24,12 @@ def dry_run_lines(site: str, public_key: str, display_name: str | None, bundle: 
     return lines
 
 
-def summary_lines(status: JsonObject, fallback_submission_id: str) -> list[str]:
+def summary_lines(status: JsonObject, fallback_submission_id: str, site: str = "https://local-bench.ai") -> list[str]:
     submission_id = _text(status.get("submission_id")) or fallback_submission_id
     state = _text(status.get("status")) or "unknown"
     return [
         f"submission {submission_id}",
+        f"status_url {site.rstrip('/')}/submission?id={submission_id}",
         f"status     {state}",
         f"agentic    {SELF_REPORTED_LINE}",
         f"review     {REVIEW_LINE}",

@@ -1,10 +1,12 @@
 {
+  "base_model": "google/gemma-4-12B",
   "catalog_id": "google/gemma-4-12B-it",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "unsloth/gemma-4-12b-it-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Gemma 4 12B IT",
   "org": "Google",
   "runs": [
@@ -53,6 +55,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 8.5,
       "composite": {
         "hi": 65.65995195808573,
@@ -65,7 +104,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 12.8,
+      "file_gb": 12.7,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -99,7 +138,7 @@
       "tokens_to_answer_p95": 1007.0,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 12.66964624,
-      "vram_required_gb_8k": 14.4,
+      "vram_required_gb_8k": 14.3,
       "wall_time_seconds": 5118.4994447419995
     },
     {
@@ -147,6 +186,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 6.6,
       "composite": {
         "hi": 65.74840047846318,
@@ -159,7 +235,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 9.9,
+      "file_gb": 9.8,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -193,7 +269,7 @@
       "tokens_to_answer_p95": 1000.0999999999976,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 9.78602128,
-      "vram_required_gb_8k": 11.5,
+      "vram_required_gb_8k": 11.4,
       "wall_time_seconds": 4981.174833659999
     },
     {
@@ -241,6 +317,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 5.7,
       "composite": {
         "hi": 64.8108563954175,
@@ -253,7 +366,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 8.6,
+      "file_gb": 8.4,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -287,7 +400,7 @@
       "tokens_to_answer_p95": 987.1999999999999,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 8.41357456,
-      "vram_required_gb_8k": 10.2,
+      "vram_required_gb_8k": 10.0,
       "wall_time_seconds": 5976.558427308
     },
     {
@@ -335,6 +448,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 4.85,
       "composite": {
         "hi": 65.23733676796991,
@@ -347,7 +497,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 7.3,
+      "file_gb": 7.1,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -381,7 +531,7 @@
       "tokens_to_answer_p95": 1040.0,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 7.12186,
-      "vram_required_gb_8k": 8.9,
+      "vram_required_gb_8k": 8.7,
       "wall_time_seconds": 6784.681530656
     },
     {
@@ -429,6 +579,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 3.9,
       "composite": {
         "hi": 62.71077288904681,
@@ -441,7 +628,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 5.9,
+      "file_gb": 5.7,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -475,105 +662,10 @@
       "tokens_to_answer_p95": 1025.8999999999999,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 5.69387152,
-      "vram_required_gb_8k": 7.5,
+      "vram_required_gb_8k": 7.3,
       "wall_time_seconds": 7071.14623953
     },
     {
-      "axes": {
-        "instruction": {
-          "conditional_accuracy": 0.28044280442804426,
-          "hi": 30.952380952380953,
-          "hi_raw": 0.30952380952380953,
-          "lo": 20.74829931972789,
-          "lo_raw": 0.20748299319727892,
-          "n": 294,
-          "n_errors": 23,
-          "n_no_answer": 0,
-          "point": 25.850340136054424,
-          "point_raw": 0.2585034013605442,
-          "raw_accuracy": 0.2585034013605442,
-          "termination_rate": 0.9217687074829932
-        },
-        "knowledge": {
-          "conditional_accuracy": 0.6048951048951049,
-          "hi": 41.62664932334311,
-          "hi_raw": 0.41626649323343107,
-          "lo": 30.962287180492325,
-          "lo_raw": 0.30962287180492326,
-          "n": 400,
-          "n_errors": 113,
-          "n_no_answer": 1,
-          "point": 36.29446825191771,
-          "point_raw": 0.3629446825191771,
-          "raw_accuracy": 0.4325,
-          "termination_rate": 0.715
-        },
-        "tool_calling": {
-          "conditional_accuracy": 0.2484662576687117,
-          "hi": 29.09090909090909,
-          "hi_raw": 0.2909090909090909,
-          "lo": 20.0,
-          "lo_raw": 0.2,
-          "n": 330,
-          "n_errors": 3,
-          "n_no_answer": 213,
-          "point": 24.545454545454547,
-          "point_raw": 0.24545454545454545,
-          "raw_accuracy": 0.24545454545454545,
-          "termination_rate": 0.9878787878787879
-        }
-      },
-      "bpw": 3.0,
-      "composite": {
-        "hi": 34.48986362612379,
-        "hi_raw": 0.3448986362612379,
-        "lo": 24.39146993758258,
-        "lo_raw": 0.2439146993758258,
-        "point": 29.440666781853185,
-        "point_raw": 0.29440666781853186
-      },
-      "composite_full": null,
-      "composite_static": null,
-      "est_cost_usd": null,
-      "file_gb": 4.5,
-      "hardware": {
-        "cpu": "x86_64",
-        "gpu": {
-          "driver": "596.36",
-          "name": "NVIDIA GeForce RTX 5090",
-          "vram_gb": 31.8,
-          "vram_mb": 32607
-        },
-        "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
-        "ram_gb": null
-      },
-      "lane": "capped-thinking",
-      "latency_s_median": 10.435,
-      "n_errors": 139,
-      "n_items": 1120,
-      "origin": "community",
-      "quant_label": "Q2_K",
-      "ranked": false,
-      "run_id": "gemma-4-12b-it__gemma-4-12b-it-UD-Q2_K_XL",
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": "unknown",
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "measured",
-      "tier": "standard",
-      "tok_s": 19.645540135039493,
-      "tokens_to_answer_median": 205.0,
-      "tokens_to_answer_p95": 928.3999999999999,
-      "trust_label": "community_re_scored",
-      "vram_footprint_gb": 4.6614184,
-      "vram_required_gb_8k": 6.1,
-      "wall_time_seconds": 15672.310248719004
-    },
-    {
-      "agentic_provenance": "project_attested",
       "axes": {
         "agentic": {
           "conditional_accuracy": 0.057291666666666664,
@@ -646,30 +738,53 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "composite": {
-        "hi": 43.50254876587276,
-        "hi_raw": 0.4350254876587276,
-        "lo": 37.62372931355355,
-        "lo_raw": 0.3762372931355355,
-        "point": 40.261026195500214,
-        "point_raw": 0.40261026195500216
+        "hi": 49.49006237248613,
+        "hi_raw": 0.49490062372486127,
+        "lo": 44.13372399507101,
+        "lo_raw": 0.4413372399507101,
+        "point": 46.60534377168118,
+        "point_raw": 0.46605343771681174
       },
-      "composite_full": {
-        "hi": 43.50254876587276,
-        "hi_raw": 0.4350254876587276,
-        "lo": 37.62372931355355,
-        "lo_raw": 0.3762372931355355,
-        "point": 40.261026195500214,
-        "point_raw": 0.40261026195500216
-      },
-      "composite_static": {
-        "hi": 77.84717211750439,
-        "hi_raw": 0.7784717211750438,
-        "lo": 72.75274253145282,
-        "lo_raw": 0.7275274253145283,
-        "point": 75.3137190576671,
-        "point_raw": 0.7531371905766711
-      },
+      "composite_full": null,
+      "composite_static": null,
       "conformance_gates": {
         "tc_json_v1": {
           "band": "amber",
@@ -708,7 +823,7 @@
         "grandfathered_attested_bundle"
       ],
       "quant_label": "QAT Q4_K_XL",
-      "ranked": true,
+      "ranked": false,
       "run_id": "gemma-4-12b-it__localbench-run",
       "runtime": {
         "ctx_len_configured": 32768,
@@ -718,7 +833,6 @@
         "version": "b9852/fd1a05791"
       },
       "score_status": "measured",
-      "static_index_version": "static-suite-v1",
       "tier": "standard",
       "tok_s": 102.82918518702921,
       "tokens_to_answer_median": 8194.0,
@@ -727,6 +841,263 @@
       "vram_footprint_gb": 6.716355328,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 59274.173853600005
+    },
+    {
+      "agentic_provenance": "project_attested",
+      "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.041666666666666664,
+          "hi": 8.333333333333332,
+          "hi_raw": 0.08333333333333333,
+          "lo": 1.0416666666666665,
+          "lo_raw": 0.010416666666666666,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 4.166666666666666,
+          "point_raw": 0.041666666666666664,
+          "raw_accuracy": 0.041666666666666664,
+          "termination_rate": 1.0
+        },
+        "coding": {
+          "conditional_accuracy": 0.28368794326241137,
+          "hi": 36.17021276595745,
+          "hi_raw": 0.3617021276595745,
+          "lo": 21.27659574468085,
+          "lo_raw": 0.2127659574468085,
+          "n": 141,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "n_unscoreable": 7,
+          "point": 28.368794326241137,
+          "point_raw": 0.28368794326241137,
+          "raw_accuracy": 0.28368794326241137,
+          "termination_rate": 1.0
+        },
+        "instruction": {
+          "conditional_accuracy": 0.6950354609929078,
+          "hi": 72.10884353741497,
+          "hi_raw": 0.7210884353741497,
+          "lo": 61.224489795918366,
+          "lo_raw": 0.6122448979591837,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 66.66666666666666,
+          "point_raw": 0.6666666666666666,
+          "raw_accuracy": 0.6666666666666666,
+          "termination_rate": 0.9591836734693877
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8172323759791122,
+          "hi": 80.07448125941039,
+          "hi_raw": 0.8007448125941039,
+          "lo": 70.81332466167156,
+          "lo_raw": 0.7081332466167156,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 16,
+          "point": 75.58422351505216,
+          "point_raw": 0.7558422351505216,
+          "raw_accuracy": 0.7825,
+          "termination_rate": 0.9575
+        },
+        "math": {
+          "conditional_accuracy": 0.32682425488180883,
+          "hi": 17.26618705035971,
+          "hi_raw": 0.17266187050359713,
+          "lo": 6.474820143884892,
+          "lo_raw": 0.06474820143884892,
+          "n": 139,
+          "n_errors": 0,
+          "n_no_answer": 87,
+          "point": 11.510791366906476,
+          "point_raw": 0.11510791366906475,
+          "raw_accuracy": 0.11510791366906475,
+          "termination_rate": 0.35251798561151076
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7363636363636363,
+          "hi": 78.18181818181819,
+          "hi_raw": 0.7818181818181819,
+          "lo": 68.78787878787878,
+          "lo_raw": 0.6878787878787879,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.63636363636363,
+          "point_raw": 0.7363636363636363,
+          "raw_accuracy": 0.7363636363636363,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "detail": "BigCodeBench-Hard artifacts generated; verifier verdict pending",
+          "reason": "verdict_pending",
+          "status": "generated_unverified"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "composite": {
+        "hi": 37.897734120170846,
+        "hi_raw": 0.37897734120170845,
+        "lo": 32.8087687361433,
+        "lo_raw": 0.328087687361433,
+        "point": 35.19879527484235,
+        "point_raw": 0.3519879527484235
+      },
+      "composite_full": {
+        "hi": 37.897734120170846,
+        "hi_raw": 0.37897734120170845,
+        "lo": 32.8087687361433,
+        "lo_raw": 0.328087687361433,
+        "point": 35.19879527484235,
+        "point_raw": 0.3519879527484235
+      },
+      "composite_static": {
+        "hi": 59.67324562973041,
+        "hi_raw": 0.5967324562973041,
+        "lo": 54.60555783787069,
+        "lo_raw": 0.5460555783787069,
+        "point": 57.114833274641306,
+        "point_raw": 0.5711483327464131
+      },
+      "conformance_gates": {
+        "tc_json_v1": {
+          "band": "amber",
+          "band_reasons": [],
+          "id": "tc_json_v1",
+          "invalid_json_rate": 0.0,
+          "label": "Tool-calling",
+          "n_items": 330,
+          "pass_rate": {
+            "hi": 78.09856278969099,
+            "lo": 68.63020497662392,
+            "point": 73.63636363636363
+          },
+          "threshold_version": "tc_json_v1"
+        }
+      },
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "610.62",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "has_code_artifacts": true,
+      "lane": "bounded-final-v2",
+      "latency_s_median": 62.924,
+      "n_errors": 0,
+      "n_items": 1407,
+      "origin": "project_anchor",
+      "perf": {
+        "decode_tps": 148.5366409974186,
+        "per_bench": {
+          "amo": {
+            "decode_tps": 149.5602859630398,
+            "n": 39,
+            "prefill_tps": 4022.2627007056753,
+            "prompt_ms_median": 120.628
+          },
+          "bigcodebench_hard": {
+            "decode_tps": 151.0674340657726,
+            "n": 148,
+            "prefill_tps": 6073.668311841891,
+            "prompt_ms_median": 103.6875
+          },
+          "ifbench": {
+            "decode_tps": 145.47515387041776,
+            "n": 294,
+            "prefill_tps": 5203.057160734607,
+            "prompt_ms_median": 106.1545
+          },
+          "mmlu_pro": {
+            "decode_tps": 150.60378017169973,
+            "n": 400,
+            "prefill_tps": 4297.8764782817225,
+            "prompt_ms_median": 113.599
+          },
+          "olymmath_hard": {
+            "decode_tps": 145.5713189345875,
+            "n": 100,
+            "prefill_tps": 2349.827908673616,
+            "prompt_ms_median": 117.0855
+          },
+          "tc_json_v1": {
+            "decode_tps": 152.46664682207688,
+            "n": 330,
+            "prefill_tps": 6926.270349577909,
+            "prompt_ms_median": 125.48750000000001
+          }
+        },
+        "predicted_ms_median": 54841.634999999995,
+        "predicted_ms_p95": 109721.70749999999,
+        "prefill_tps": 5194.722497576913,
+        "prompt_ms_median": 113.754,
+        "prompt_ms_p95": 205.163,
+        "timings_coverage": 0.9317697228144989,
+        "timings_source": "llama.cpp",
+        "ttft_proxy_ms_median": 113.754
+      },
+      "quant_label": "QAT Q4_K_XL",
+      "ranked": true,
+      "run_id": "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2",
+      "runtime": {
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
+      },
+      "score_status": "measured",
+      "static_index_version": "static-suite-v2",
+      "tier": "standard",
+      "tok_s": 131.06389681271824,
+      "tokens_to_answer_median": 8247.0,
+      "tokens_to_answer_p95": 16384.0,
+      "trust_label": "project_anchor",
+      "verdict_source": "verifier",
+      "vram_footprint_gb": 6.716355328,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 61749.93416809998
     },
     {
       "axes": {
@@ -771,6 +1142,43 @@
           "point_raw": 0.7393939393939394,
           "raw_accuracy": 0.7393939393939394,
           "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
         }
       },
       "composite": {
@@ -820,6 +1228,136 @@
       "vram_footprint_gb": 23.832065184,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 6704.329146120999
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.28044280442804426,
+          "hi": 30.952380952380953,
+          "hi_raw": 0.30952380952380953,
+          "lo": 20.74829931972789,
+          "lo_raw": 0.20748299319727892,
+          "n": 294,
+          "n_errors": 23,
+          "n_no_answer": 0,
+          "point": 25.850340136054424,
+          "point_raw": 0.2585034013605442,
+          "raw_accuracy": 0.2585034013605442,
+          "termination_rate": 0.9217687074829932
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.6048951048951049,
+          "hi": 41.62664932334311,
+          "hi_raw": 0.41626649323343107,
+          "lo": 30.962287180492325,
+          "lo_raw": 0.30962287180492326,
+          "n": 400,
+          "n_errors": 113,
+          "n_no_answer": 1,
+          "point": 36.29446825191771,
+          "point_raw": 0.3629446825191771,
+          "raw_accuracy": 0.4325,
+          "termination_rate": 0.715
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.2484662576687117,
+          "hi": 29.09090909090909,
+          "hi_raw": 0.2909090909090909,
+          "lo": 20.0,
+          "lo_raw": 0.2,
+          "n": 330,
+          "n_errors": 3,
+          "n_no_answer": 213,
+          "point": 24.545454545454547,
+          "point_raw": 0.24545454545454545,
+          "raw_accuracy": 0.24545454545454545,
+          "termination_rate": 0.9878787878787879
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "composite": {
+        "hi": 34.48986362612379,
+        "hi_raw": 0.3448986362612379,
+        "lo": 24.39146993758258,
+        "lo_raw": 0.2439146993758258,
+        "point": 29.440666781853185,
+        "point_raw": 0.29440666781853186
+      },
+      "composite_full": null,
+      "composite_static": null,
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "x86_64",
+        "gpu": {
+          "driver": "596.36",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+        "ram_gb": null
+      },
+      "lane": "capped-thinking",
+      "latency_s_median": 10.435,
+      "n_errors": 139,
+      "n_items": 1120,
+      "origin": "community",
+      "quant_label": "Q2_K",
+      "ranked": false,
+      "run_id": "gemma-4-12b-it__gemma-4-12b-it-UD-Q2_K_XL",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "tier": "standard",
+      "tok_s": 19.645540135039493,
+      "tokens_to_answer_median": 205.0,
+      "tokens_to_answer_p95": 928.3999999999999,
+      "trust_label": "community_re_scored",
+      "vram_footprint_gb": 4.6614184,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 15672.310248719004
     }
   ],
   "slug": "gemma-4-12b-it"

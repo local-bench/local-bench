@@ -147,6 +147,15 @@ def test_docker_run_argv_mounts_are_read_only_and_image_command_last() -> None:
     assert all(not part.endswith(":rw") for part in argv)
 
 
+def test_docker_run_argv_overrides_image_entrypoint() -> None:
+    # The evaluation image ships its own ENTRYPOINT; without --entrypoint "" our runner argv
+    # would be appended to it (running the image's evaluator on untrusted code, not ours).
+    argv = docker_run_argv(_IMAGE, ["python", "/work/run.py"])
+    assert _contains(argv, ["--entrypoint", ""])
+    # The override sits in the docker-run flags, before the image digest.
+    assert argv.index("--entrypoint") < argv.index(_IMAGE)
+
+
 def test_run_sandboxed_truncates_oversized_output_against_the_scream_attack() -> None:
     limits = SandboxLimits(max_output_bytes=10)
     runner = _fake(stdout=b"x" * 5000)

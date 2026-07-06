@@ -30,7 +30,12 @@ from localbench.coding_exec.sandbox import (
     probe_docker_env,
     run_sandboxed,
 )
-from localbench.coding_exec.score import CodingExecScore, score_coding_exec
+from localbench.coding_exec.score import (
+    CODING_SCOREABLE_REV,
+    SANDBOX_UNSCOREABLE_BCBH,
+    CodingExecScore,
+    score_coding_exec,
+)
 
 __all__ = [
     "MANDATORY_SECURITY_FLAGS",
@@ -42,6 +47,8 @@ __all__ = [
     "RawRunResult",
     "SandboxLimits",
     "SandboxResult",
+    "CODING_SCOREABLE_REV",
+    "SANDBOX_UNSCOREABLE_BCBH",
     "assemble_program",
     "default_runner",
     "docker_run_argv",

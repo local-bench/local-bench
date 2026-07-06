@@ -10,10 +10,13 @@ export const MIGRATION_0002 = readFileSync(new URL("../migrations/0002_submissio
 export const MIGRATION_0003 = readFileSync(new URL("../migrations/0003_submission_reconcile.sql", import.meta.url), "utf-8");
 export const MIGRATION_0004 = readFileSync(new URL("../migrations/0004_submission_contract_v2.sql", import.meta.url), "utf-8");
 export const MIGRATION_0005 = readFileSync(new URL("../migrations/0005_submitter_display_name.sql", import.meta.url), "utf-8");
+export const MIGRATION_0006 = readFileSync(new URL("../migrations/0006_zt0_foundation.sql", import.meta.url), "utf-8");
+export const MIGRATION_0007 = readFileSync(new URL("../migrations/0007_feedback.sql", import.meta.url), "utf-8");
+export const MIGRATION_0008 = readFileSync(new URL("../migrations/0008_zt1_zero_touch.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
-export const SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
-export const SUITE_MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f";
+export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
+export const SUITE_MANIFEST_SHA = "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af";
 export const RESULT_BUNDLE = resultBundle();
 export const RESULT_BUNDLE_JSON = JSON.stringify(RESULT_BUNDLE);
 export const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
@@ -50,7 +53,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005]) {
+  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006]) {
     await applyMigration(bindings.DB, migration);
   }
   return {
@@ -183,7 +186,7 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
       integrity: { publishable: true },
       provenance: { localbench_repo_commit: "440f540" },
       suite: {
-        coverage_profile_id: "text-code-agentic-5axis-v1",
+        coverage_profile_id: "full-exec-6axis-v1",
         suite_manifest_sha256: options.suiteManifestSha ?? SUITE_MANIFEST_SHA,
         suite_release_id: options.suiteReleaseId ?? SUITE_RELEASE_ID,
       },
@@ -195,12 +198,12 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
     schema_version: "localbench.result_bundle.v1",
     scores: {
       headline_score: null,
-      known_headline_contribution: 0.3737,
-      measured_headline_weight: 0.5,
-      missing_headline_weight: 0.5,
-      partial_composite: 0.7473,
+      known_headline_contribution: 0.6316,
+      measured_headline_weight: 0.85,
+      missing_headline_weight: 0.15,
+      partial_composite: 0.7431,
       partial_composite_scope: "measured_headline_axes",
-      rank_scope: "partial-text-code-4axis-v1",
+      rank_scope: "full-exec-6axis-v1",
     },
     serving_mode: "external_openai_compatible_endpoint",
     tier: "standard",

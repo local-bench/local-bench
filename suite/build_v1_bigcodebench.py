@@ -25,6 +25,9 @@ HARNESS_REPO: Final = "https://github.com/bigcode-project/bigcodebench"
 HARNESS_LICENSE: Final = "Apache-2.0"
 ROOT: Final = Path(__file__).resolve().parents[1]
 OUT_PATH: Final = ROOT / "suite" / "v1" / "bigcodebench_hard.jsonl"
+CANONICAL_MAX_TOKENS: Final = 16_384
+CANONICAL_SAMPLING_PARAMS: Final[JsonObject] = {"temperature": 0}
+CODE_ANSWER_RESERVE: Final = 4_096
 
 JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -56,6 +59,9 @@ def _normalize_item(index: int, row: Mapping[str, JsonValue], revision: str) -> 
         "harness_repo": HARNESS_REPO,
         "harness_license": HARNESS_LICENSE,
         "lane": "exec",
+        "max_tokens": CANONICAL_MAX_TOKENS,
+        "sampling_params": dict(CANONICAL_SAMPLING_PARAMS),
+        "answer_reserve": CODE_ANSWER_RESERVE,
         "entry_point": _required_str(row, "entry_point"),
         "instruct_prompt": _required_str(row, "instruct_prompt"),
         "complete_prompt": _required_str(row, "complete_prompt"),

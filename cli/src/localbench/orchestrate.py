@@ -67,11 +67,13 @@ from localbench.campaign_checkpoints import (
 from localbench.campaign_records import item_hash
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import (
-    BOUNDED_FINAL_LANE_SPEC_ID,
+    BOUNDED_FINAL_LANE_SPEC_IDS,
+    BOUNDED_FINAL_V2_LANE_SPEC_ID,
     bounded_final_think_budget,
     lane_spec_id_for_lane,
 )
 from localbench.manifest import ManifestContext, collect_manifest
+from localbench.perf import perf_summary
 from localbench.prompt_rendering import (
     PromptRenderer,
     ReasoningActivation,
@@ -83,11 +85,12 @@ from localbench.reasoning_leaks import registry_leak_regexes
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
-from localbench.scoring.axes import AXES
+from localbench.scoring.axes import AXES, agentic_benches
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
     axis_key_for_bench,
     axis_status_for_benches,
+    mark_axis_generated_unverified,
     mark_axis_not_measured,
 )
 from localbench.scorers.ruler import estimate_prompt_tokens
@@ -101,7 +104,13 @@ if TYPE_CHECKING:
 
 BenchChoice: TypeAlias = str
 TierChoice = Literal["quick", "standard"]
-LaneChoice = Literal["answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"]
+LaneChoice = Literal[
+    "answer-only",
+    "capped-thinking",
+    "api-uncapped",
+    "bounded-final-v1",
+    "bounded-final-v2",
+]
 ReasoningEffortChoice = ReasoningEffort
 ReasoningActivationChoice = ReasoningActivation
 ProfileChoice = BoundedFinalProfileChoice
@@ -144,6 +153,7 @@ class LocalbenchRun(TypedDict):
     conformance: JsonObject
     items: list[ScoredItem]
     totals: RunTotals
+    perf: JsonObject
     warnings: list[str]
     output_path: NotRequired[str]
     agentic_run: NotRequired[JsonObject]
@@ -280,7 +290,7 @@ async def run_localbench(
     warnings: list[str] = []
     provider = provider_for_name(config.provider)
     effective_reasoning_effort = (
-        None if config.lane == BOUNDED_FINAL_LANE_SPEC_ID else config.reasoning_effort
+        None if config.lane in BOUNDED_FINAL_LANE_SPEC_IDS else config.reasoning_effort
     )
     resolved = resolve_run_benches(config.bench, suite)
     run_agentic = _APPWORLD_C_BENCH in resolved
@@ -293,7 +303,6 @@ async def run_localbench(
         suite,
         warnings,
     )
-    rendered_benches = _exclude_exec_lane(rendered_benches, suite, warnings)
     suite_axes = suite.get("axes")
     suite_axis_map = suite_axes if isinstance(suite_axes, dict) else None
     if config.max_tokens is not None:
@@ -308,14 +317,14 @@ async def run_localbench(
     if _has_sampler_overrides(config):
         _apply_sampler_overrides(rendered_benches, config)
     user_stops_removed = False
-    if config.lane == BOUNDED_FINAL_LANE_SPEC_ID:
+    if config.lane in BOUNDED_FINAL_LANE_SPEC_IDS:
         user_stops_removed = _strip_bounded_final_user_stops(
             rendered_benches,
             warnings,
             publishable=config.publishable,
         )
     bounded_profile: BoundedFinalProfileRuntime | None = None
-    if config.lane == BOUNDED_FINAL_LANE_SPEC_ID:
+    if config.lane in BOUNDED_FINAL_LANE_SPEC_IDS:
         bounded_profile = resolve_bounded_final_profile(
             BoundedFinalProfileRequest(
                 profile=config.profile,
@@ -324,13 +333,13 @@ async def run_localbench(
         )
         if provider.name != "local" and bounded_profile.entry is not ANSWER_ONLY_PROFILE:
             raise RuntimeError(
-                "bounded-final-v1 thinking profiles require the local provider raw /v1/completions path",
+                "bounded-final thinking profiles require the local provider raw /v1/completions path",
             )
     items: list[ScoredItem] = []
     sampling_by_bench: dict[str, JsonObject] = {}
     item_files: list[str] = []
 
-    if config.provider == "local" and config.lane in {"answer-only", BOUNDED_FINAL_LANE_SPEC_ID}:
+    if config.provider == "local" and config.lane in {"answer-only", *BOUNDED_FINAL_LANE_SPEC_IDS}:
         chat_template_kwargs = _local_chat_template_kwargs(config.lane, bounded_profile)
         for bench in rendered_benches:
             for benchmark_item in bench.benchmark_items:
@@ -410,15 +419,15 @@ async def run_localbench(
     forcing_format = None
     if (
         config.provider == "local"
-        and config.lane == BOUNDED_FINAL_LANE_SPEC_ID
+        and config.lane in BOUNDED_FINAL_LANE_SPEC_IDS
         and bounded_profile is not None
         and bounded_profile.entry is not ANSWER_ONLY_PROFILE
     ):
-        thinking_budget = _plumb_bounded_final_think_budget(scorable_benches)
+        thinking_budget = _plumb_bounded_final_think_budget(scorable_benches, config.lane)
         prompt_renderer = bounded_profile.prompt_renderer
         if prompt_renderer is None:
             raise RuntimeError(
-                "bounded-final-v1 thinking profile requires a canonical chat-template renderer",
+                "bounded-final thinking profile requires a canonical chat-template renderer",
             )
         forcing_format = bounded_profile.forcing
         prompt_renderer_manifest = bounded_profile.prompt_renderer_manifest
@@ -640,6 +649,12 @@ async def run_localbench(
         benches,
         suite_axis_map,
     )
+    if _coding_generated_unverified(items):
+        mark_axis_generated_unverified(
+            axis_status,
+            axis_key_for_bench("bigcodebench_hard", suite_axis_map),
+            detail="BigCodeBench-Hard artifacts generated; verifier verdict pending",
+        )
     if run_agentic and agentic_unavailable_detail is not None:
         mark_axis_not_measured(
             axis_status,
@@ -725,7 +740,13 @@ async def run_localbench(
     )
     budget_audit = _budget_audit(items)
     sampler_audit = _sampler_audit(config)
-    suite_coverage = _suite_coverage(scorable_benches, items)
+    suite_coverage = _suite_coverage(
+        scorable_benches,
+        items,
+        suite=suite,
+        tier=config.tier,
+        max_items=config.max_items,
+    )
     run_record: LocalbenchRun = {
         "schema": "localbench-run-v0",
         "schema_version": RUN_SCHEMA_VERSION,
@@ -754,6 +775,7 @@ async def run_localbench(
         ),
         "items": items,
         "totals": totals,
+        "perf": perf_summary(items),
         "warnings": warnings,
     }
     if config.resume is not None:
@@ -770,7 +792,7 @@ async def run_localbench(
         run_record["segments"] = segments
     if agentic_provenance is not None:
         run_record["agentic_run"] = agentic_provenance
-    if config.lane == BOUNDED_FINAL_LANE_SPEC_ID:
+    if config.lane in BOUNDED_FINAL_LANE_SPEC_IDS:
         run_record["index_version"] = "index-v3.0"
         run_record["prompt_audit"] = prompt_audit
         run_record["budget_audit"] = budget_audit
@@ -783,6 +805,7 @@ async def run_localbench(
             config.price_out,
         )
     run_record = _assemble_from_checkpoints(run_record, paths, scorable_benches)
+    run_record["perf"] = perf_summary(run_record["items"])
     run_record = cast(LocalbenchRun, normalize_result_bundle(run_record, suite_dir=suite_dir))
     write_json(run_record, output_path)
     write_status(
@@ -887,7 +910,7 @@ def _local_chat_template_kwargs(
     lane: LaneChoice,
     bounded_profile: BoundedFinalProfileRuntime | None,
 ) -> JsonObject:
-    if lane == BOUNDED_FINAL_LANE_SPEC_ID and bounded_profile is not None:
+    if lane in BOUNDED_FINAL_LANE_SPEC_IDS and bounded_profile is not None:
         return _json_bool_mapping(bounded_profile.chat_template_kwargs)
     return {"enable_thinking": False}
 
@@ -917,7 +940,7 @@ def _strip_bounded_final_user_stops(
         label = ", ".join(sorted(removed))
         suffix = " and marked diagnostic-only" if publishable else ""
         warnings.append(
-            f"bounded-final-v1 rejects user-supplied stop sequences for {label}; "
+            f"bounded-final rejects user-supplied stop sequences for {label}; "
             f"stripped from requests{suffix}",
         )
     return bool(removed)
@@ -956,8 +979,17 @@ def _budget_audit(items: list[ScoredItem]) -> JsonObject:
     per_bench: dict[str, JsonObject] = {}
     unverified = 0
     breached = 0
+    excluded_agentic = 0
+    agentic = agentic_benches()
     for item in items:
         bench = item["bench"]
+        if bench in agentic:
+            # Multi-turn agentic tasks carry no single per-item token budget (each turn is
+            # bounded separately), so they are not part of the per-item budget audit. Excluding
+            # them by axis-registry membership is safe: an item's bench is fixed by the suite
+            # hash, so a submitter cannot relabel a budgeted static item as agentic to dodge it.
+            excluded_agentic += 1
+            continue
         bench_audit = per_bench.setdefault(
             bench,
             {
@@ -995,10 +1027,18 @@ def _budget_audit(items: list[ScoredItem]) -> JsonObject:
         "per_bench": per_bench,
         "unverified_items": unverified,
         "breached_items": breached,
+        "excluded_agentic_items": excluded_agentic,
     }
 
 
-def _suite_coverage(benches: list[RenderedBench], items: list[ScoredItem]) -> JsonObject:
+def _suite_coverage(
+    benches: list[RenderedBench],
+    items: list[ScoredItem],
+    *,
+    suite: JsonObject,
+    tier: str,
+    max_items: int | None,
+) -> JsonObject:
     expected = {
         (bench.name, benchmark_item["id"])
         for bench in benches
@@ -1006,12 +1046,38 @@ def _suite_coverage(benches: list[RenderedBench], items: list[ScoredItem]) -> Js
     }
     seen = {(item["bench"], item["id"]) for item in items}
     missing = sorted(f"{bench}/{item_id}" for bench, item_id in expected - seen)
+    full_total = _suite_declared_item_count(suite, benches, tier)
+    rendered_total = len(expected)
+    observed = len(expected & seen)
+    max_items_truncated = max_items is not None and full_total > rendered_total
+    status = "partial" if max_items_truncated else "complete" if not missing else "incomplete"
     return {
-        "status": "complete" if not missing else "incomplete",
-        "expected_items": len(expected),
-        "observed_items": len(expected & seen),
+        "status": status,
+        "covered_items": observed,
+        "total_items": full_total,
+        "expected_items": full_total,
+        "rendered_expected_items": rendered_total,
+        "observed_items": observed,
+        "max_items_truncated": max_items_truncated,
         "missing_items": missing,
     }
+
+
+def _suite_declared_item_count(suite: JsonObject, benches: list[RenderedBench], tier: str) -> int:
+    suite_benches = suite.get("benches")
+    if not isinstance(suite_benches, dict):
+        return sum(len(bench.benchmark_items) for bench in benches)
+    total = 0
+    for bench in benches:
+        bench_config = suite_benches.get(bench.name)
+        if not isinstance(bench_config, dict):
+            total += len(bench.benchmark_items)
+            continue
+        itemsets = bench_config.get("itemsets")
+        itemset = itemsets.get(tier) if isinstance(itemsets, dict) else None
+        item_count = itemset.get("item_count") if isinstance(itemset, dict) else None
+        total += item_count if isinstance(item_count, int) and not isinstance(item_count, bool) else len(bench.benchmark_items)
+    return total
 
 
 def _generated_total(value: JsonValue | None) -> int | None:
@@ -1387,6 +1453,7 @@ def _item_result_from_json(row: JsonObject) -> ItemResult:
         "finished_at": _text_value(row.get("finished_at"), "finished_at"),
         "attempts": _int_value(row.get("attempts"), "attempts"),
         "error": _nullable_text(row.get("error"), "error"),
+        "server_timings": _optional_object(row.get("server_timings"), "server_timings"),
     }
     thinking_forced = row.get("thinking_forced")
     if isinstance(thinking_forced, bool):
@@ -1394,6 +1461,9 @@ def _item_result_from_json(row: JsonObject) -> ItemResult:
     max_tokens = row.get("max_tokens")
     if isinstance(max_tokens, int) and not isinstance(max_tokens, bool):
         result["max_tokens"] = max_tokens
+    code_artifact = row.get("code_artifact")
+    if isinstance(code_artifact, dict):
+        result["code_artifact"] = dict(code_artifact)
     return result
 
 
@@ -1411,6 +1481,7 @@ def _scored_item_from_json(row: JsonObject) -> ScoredItem:
         "attempts": _int_value(row.get("attempts"), "attempts"),
         "usage": _usage_from_json(_object_value(row.get("usage"), "usage")),
         "error": _nullable_text(row.get("error"), "error"),
+        "server_timings": _optional_object(row.get("server_timings"), "server_timings"),
     }
     reasoning_text = row.get("reasoning_text")
     if reasoning_text is None or isinstance(reasoning_text, str):
@@ -1424,6 +1495,9 @@ def _scored_item_from_json(row: JsonObject) -> ScoredItem:
     generated_tokens = row.get("generated_tokens")
     if isinstance(generated_tokens, dict):
         item["generated_tokens"] = dict(generated_tokens)
+    code_artifact = row.get("code_artifact")
+    if isinstance(code_artifact, dict):
+        item["code_artifact"] = dict(code_artifact)
     return item
 
 
@@ -1455,6 +1529,12 @@ def _object_value(value: JsonValue | None, field: str) -> JsonObject:
     if isinstance(value, dict):
         return value
     raise UnsafeResumeError(f"checkpoint field {field} is not an object")
+
+
+def _optional_object(value: JsonValue | None, field: str) -> JsonObject | None:
+    if value is None or isinstance(value, dict):
+        return value
+    raise UnsafeResumeError(f"checkpoint field {field} is not an optional object")
 
 
 def _text_value(value: JsonValue | None, field: str) -> str:
@@ -1615,7 +1695,7 @@ def _agentic_chat_template_kwargs_for_profile(
     lane: LaneChoice,
     bounded_profile: BoundedFinalProfileRuntime | None,
 ) -> JsonObject:
-    if lane == BOUNDED_FINAL_LANE_SPEC_ID:
+    if lane in BOUNDED_FINAL_LANE_SPEC_IDS:
         if bounded_profile is None:
             return {"enable_thinking": False}
         return _json_bool_mapping(bounded_profile.chat_template_kwargs)
@@ -1755,6 +1835,17 @@ def _headline_complete(axis_status: AxisStatusBlock) -> bool:
     )
 
 
+def _coding_generated_unverified(items: list[ScoredItem]) -> bool:
+    coding_items = [item for item in items if item["bench"] == "bigcodebench_hard"]
+    if not coding_items:
+        return False
+    for item in coding_items:
+        artifact = item.get("code_artifact")
+        if not isinstance(artifact, dict) or artifact.get("verdict_source") != "verifier":
+            return True
+    return False
+
+
 def default_output_path(model: str, tier: str) -> Path:
     """Build the default timestamped run output path."""
     safe_model = re.sub(r"[^A-Za-z0-9_.-]+", "_", model).strip("_") or "model"
@@ -1797,17 +1888,29 @@ def _plumb_think_budget(rendered_benches: list[RenderedBench], suite: JsonObject
     return budget_used
 
 
-def _plumb_bounded_final_think_budget(rendered_benches: list[RenderedBench]) -> int:
+def _plumb_bounded_final_think_budget(rendered_benches: list[RenderedBench], lane: LaneChoice) -> int:
     budget_used = 0
     for bench in rendered_benches:
         for benchmark_item in bench.benchmark_items:
             max_tokens = benchmark_item.get("max_tokens")
             if not isinstance(max_tokens, int) or isinstance(max_tokens, bool):
-                raise RuntimeError("bounded-final-v1 thinking profiles require integer max_tokens")
-            think_budget = bounded_final_think_budget(max_tokens)
+                raise RuntimeError("bounded-final thinking profiles require integer max_tokens")
+            answer_reserve = (
+                _bounded_final_answer_reserve(benchmark_item)
+                if lane == BOUNDED_FINAL_V2_LANE_SPEC_ID
+                else 1024
+            )
+            think_budget = bounded_final_think_budget(max_tokens, answer_reserve=answer_reserve)
             benchmark_item["think_budget"] = think_budget
             budget_used = max(budget_used, think_budget)
     return budget_used
+
+
+def _bounded_final_answer_reserve(benchmark_item: BenchmarkItem) -> int:
+    answer_reserve = benchmark_item.get("answer_reserve")
+    if isinstance(answer_reserve, int) and not isinstance(answer_reserve, bool):
+        return max(0, answer_reserve)
+    return 1024
 
 
 def _forced_prompt_renderer(config: OrchestrateConfig, provider_name: str) -> PromptRenderer | None:

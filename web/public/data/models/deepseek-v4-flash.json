@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "deepseek-ai/DeepSeek-V4-Flash",
   "demo": false,
   "family": "DeepSeek V4",
-  "gguf_repo": "Jackrong/Qwen3.5-9B-DeepSeek-V4-Flash-GGUF",
+  "gguf_repo": null,
   "kind": "community",
   "license": "mit",
+  "model_kind": "base",
   "model_label": "DeepSeek V4 Flash",
   "org": "DeepSeek",
   "runs": [

@@ -21,7 +21,7 @@ def test_root_version_and_help_include_public_quickstart(capsys: pytest.CaptureF
     assert version_code == 0
     assert version_output.strip()
     assert exit_info.value.code == 0
-    assert "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms" in help_output
+    assert "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms" in help_output
     assert "localbench bench --runtime llama.cpp --model-file <gguf> --model-id <slug>" in help_output
     assert "localbench run --endpoint <OpenAI-compatible url> --model <name>" in help_output
     assert "localbench submit run --run <run-or-campaign> --suite-dir <suite-dir>" in help_output
@@ -78,7 +78,7 @@ def test_doctor_prints_next_steps_for_missing_suite_key_and_attester(
     # Then: it reports next steps instead of a traceback.
     output = capsys.readouterr().out
     assert code == 0
-    assert "next      localbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms" in output
+    assert "next      localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms" in output
     assert "next      submit run will create ~/.localbench/submitter_ed25519.pem if needed" in output
     assert "next      LOCALBENCH_ATTESTER_KEY_FILE unset; attestations are project-anchor-only" in output
 
@@ -107,7 +107,7 @@ def test_run_suite_resolution_error_lists_known_suites_and_fetch_command(
     output = capsys.readouterr().out
     assert code == 2
     assert "known suite ids:" in output
-    assert "suite-v1-text-code-agentic-5axis-v1" in output
+    assert "suite-v1-full-exec-6axis-v1" in output
     assert "fetch-suite --site https://local-bench.ai --suite unknown-suite --accept-suite-terms" in output
     assert "Traceback" not in output
 
@@ -115,21 +115,21 @@ def test_run_suite_resolution_error_lists_known_suites_and_fetch_command(
 def test_print_summary_reports_full_static_and_per_axis_placement(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # Given: representative run records with 5, 4, and 2 measured headline axes.
+    # Given: representative run records with 6, 5, and 2 measured headline axes.
     import localbench.cli as cli_mod
 
     for measured_axes, expected in (
         (
-            ("knowledge", "instruction_following", "tool_calling", "coding", "agentic"),
-            "placement  all 5 headline axes measured; this run is eligible for the full composite.",
-        ),
-        (
-            ("knowledge", "instruction_following", "tool_calling", "coding"),
-            "placement  4 static headline axes measured; this run is eligible for the static composite (static-suite-v1), not the full composite.",
-        ),
-        (
-            ("knowledge", "instruction_following"),
-            "placement  fewer than 4 static headline axes measured; this run is reported per-axis only.",
+                ("knowledge", "instruction_following", "math", "tool_calling", "coding", "agentic"),
+                "placement  all 6 headline axes measured; this run is eligible for the full composite.",
+            ),
+            (
+                ("knowledge", "instruction_following", "math", "tool_calling", "coding"),
+                "placement  5 static headline axes measured; this run is eligible for the static composite (static-suite-v2), not the full composite.",
+            ),
+            (
+                ("knowledge", "instruction_following"),
+                "placement  fewer than 5 static headline axes measured; this run is reported per-axis only.",
         ),
     ):
         # When: the run summary is printed.
@@ -173,7 +173,7 @@ def test_run_prints_publishability_warning_at_start(
 def _record(measured_axes: tuple[str, ...]) -> dict[str, object]:
     axes = {
         key: {"axis": key, "status": "measured" if key in measured_axes else "not_measured", "reason": "ok"}
-        for key in ("knowledge", "instruction_following", "tool_calling", "coding", "agentic")
+        for key in ("knowledge", "instruction_following", "math", "tool_calling", "coding", "agentic")
     }
     return {
         "benches": {},

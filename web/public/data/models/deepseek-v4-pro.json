@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "deepseek-ai/DeepSeek-V4-Pro",
   "demo": false,
   "family": "DeepSeek V4",
   "gguf_repo": "teamblobfish/DeepSeek-V4-Pro-GGUF",
   "kind": "community",
   "license": "mit",
+  "model_kind": "base",
   "model_label": "DeepSeek V4 Pro",
   "org": "DeepSeek",
   "runs": [
@@ -14,7 +16,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 785.2,
+      "file_gb": 1671.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -39,78 +41,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 785.2,
-      "vram_required_gb_8k": 823.1,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 6.6,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 609.7,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q6_K",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 609.7,
-      "vram_required_gb_8k": 647.6,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 5.7,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 526.5,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q5_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 526.5,
-      "vram_required_gb_8k": 564.5,
+      "vram_footprint_gb": 1671.8,
+      "vram_required_gb_8k": 1709.8,
       "wall_time_seconds": null
     },
     {
@@ -119,7 +51,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 448.0,
+      "file_gb": 954.6,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -144,43 +76,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 448.0,
-      "vram_required_gb_8k": 486.0,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 3.9,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 360.3,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q3_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 360.3,
-      "vram_required_gb_8k": 398.2,
+      "vram_footprint_gb": 954.6,
+      "vram_required_gb_8k": 992.6,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +86,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 277.1,
+      "file_gb": 574.1,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +111,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 277.1,
-      "vram_required_gb_8k": 315.1,
+      "vram_footprint_gb": 574.1,
+      "vram_required_gb_8k": 612.1,
       "wall_time_seconds": null
     }
   ],

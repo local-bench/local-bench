@@ -186,6 +186,11 @@ def _require_answer_stop(profile: str, answer_stop: tuple[str, ...]) -> None:
             profile,
             "the canonical chat template did not expose an assistant-turn terminator",
         )
+    if any("`" in stop for stop in answer_stop):
+        raise _unsupported(
+            profile,
+            "the canonical chat template answer stop contains a backtick",
+        )
 
 
 def _unsupported(profile: str, reason: str) -> UnsupportedBoundedFinalProfileError:

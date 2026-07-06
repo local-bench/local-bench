@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ModelPicker, type PickMode } from "@/components/benchmark-model-picker";
 import { BenchmarkRecipe } from "@/components/benchmark-recipe";
-import { estimateBenchTime, formatBenchTimeRange, type BenchTimeEstimate } from "@/lib/bench-time-estimate";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -16,8 +15,11 @@ import {
   modelsForOrg,
   popularModels,
   recommendedQuantForVram,
+  filterModelsByType,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
+  type BrowseModelType,
+  type PopularitySort,
   type RuntimeId,
 } from "@/lib/onramp";
 import { VRAM_TIERS } from "@/lib/rig-match";
@@ -38,6 +40,12 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
     license: "",
     ggufRepo: trimmed,
     downloads: 0,
+    likes: 0,
+    trending: 0,
+    modelKind: "base",
+    baseModelId: null,
+    baseModelSlug: null,
+    baseModelDisplayName: null,
     quants: [{ label: quantLabel, vramGb8k: null, fileGb: null, bpw: null }],
   };
 }
@@ -46,20 +54,29 @@ function isRuntimeId(value: string): value is RuntimeId {
   return RUNTIME_PROFILES.some((profile) => profile.id === value);
 }
 
-export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly OnrampCatalogModel[] }) {
+export function BenchmarkOnramp({
+  catalog,
+  popularityAsOf,
+}: {
+  readonly catalog: readonly OnrampCatalogModel[];
+  readonly popularityAsOf: string | null;
+}) {
   const [vramGb, setVramGb] = useState<number>(DEFAULT_VRAM);
   const [mode, setMode] = useState<PickMode>("popular");
+  const [popularitySort, setPopularitySort] = useState<PopularitySort>("downloads");
   const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
   const [popularSlug, setPopularSlug] = useState<string | null>(null);
+  const [browseType, setBrowseType] = useState<BrowseModelType>("all");
   const [browseOrg, setBrowseOrg] = useState<string>("");
   const [browseSlug, setBrowseSlug] = useState<string>("");
   const [browseQuant, setBrowseQuant] = useState<string>("");
   const [pasteRepo, setPasteRepo] = useState<string>("");
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
-  const orgs = useMemo(() => listOrgs(catalog), [catalog]);
-  const popular = useMemo(() => popularModels(catalog, vramGb, 5), [catalog, vramGb]);
-  const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg) : []), [catalog, browseOrg]);
+  const browseCatalog = useMemo(() => filterModelsByType(catalog, browseType), [catalog, browseType]);
+  const orgs = useMemo(() => listOrgs(browseCatalog), [browseCatalog]);
+  const popular = useMemo(() => popularModels(catalog, vramGb, popularitySort, 5), [catalog, vramGb, popularitySort]);
+  const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg, browseType) : []), [catalog, browseOrg, browseType]);
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
   const selection = useMemo<{ model: OnrampCatalogModel; quant: OnrampCatalogQuant } | null>(() => {
@@ -87,15 +104,6 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
   }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
 
   const recipe = selection && runtime ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
-  const benchTime = selection
-    ? estimateBenchTime({
-        fileGb: selection.quant.fileGb,
-        paramsB: selection.model.paramsB,
-        bpw: selection.quant.bpw,
-        vramGb8k: selection.quant.vramGb8k,
-        vramGb,
-      })
-    : null;
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
@@ -107,12 +115,11 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
             {LOCAL_INTELLIGENCE_INDEX_NAME} · {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
           </p>
         </div>
-        <BenchTimePanel estimate={benchTime} hasSelection={selection !== null} vramGb={vramGb} />
       </div>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
         Choose your VRAM, model, and runtime — the recipe is the exact pinned command sequence for a run you can submit to
         this board. Every model runs the same ranked lane: the CLI reads the model&apos;s own chat template, gives
-        reasoning models a fixed thinking budget inside the shared token cap, and runs everything else answer-only.
+        reasoning models a fixed thinking budget inside the shared token cap, and keeps final-answer scoring consistent.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
@@ -153,13 +160,25 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
             popular={popular}
             popularSlug={popularSlug}
             onPopular={setPopularSlug}
+            popularitySort={popularitySort}
+            onPopularitySort={setPopularitySort}
+            vramGb={vramGb}
+            popularityAsOf={popularityAsOf}
             orgs={orgs}
             browseOrg={browseOrg}
             onOrg={(org) => {
               setBrowseOrg(org);
               setBrowseSlug("");
+              setBrowseQuant("");
             }}
             orgModels={orgModels}
+            browseType={browseType}
+            onBrowseType={(value) => {
+              setBrowseType(value);
+              setBrowseOrg("");
+              setBrowseSlug("");
+              setBrowseQuant("");
+            }}
             browseSlug={browseSlug}
             onModel={setBrowseSlug}
             browseQuant={browseQuant}
@@ -198,8 +217,8 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
-          Every command is pinned to the frozen v1 suite. Submissions are signed with a key generated on your machine and
-          reviewed before anything publishes —{" "}
+          Every command is pinned to the current 6-axis ranked suite. Submissions are signed with a key generated on your
+          machine and reviewed before anything publishes —{" "}
           <Link href="/submit" className="text-bench-accent hover:underline">
             how to submit
           </Link>{" "}
@@ -210,43 +229,6 @@ export function BenchmarkOnramp({ catalog }: { readonly catalog: readonly Onramp
         </Link>
       </div>
     </section>
-  );
-}
-
-function BenchTimePanel({
-  estimate,
-  hasSelection,
-  vramGb,
-}: {
-  readonly estimate: BenchTimeEstimate | null;
-  readonly hasSelection: boolean;
-  readonly vramGb: number;
-}) {
-  return (
-    <div
-      data-testid="bench-time-estimate"
-      title="Scaled from measured board runs by model size and typical memory bandwidth for your VRAM tier — actual time varies with hardware and verbosity. Mixture-of-experts models typically finish several times faster than shown."
-      className="rounded border border-bench-line bg-bench-panel-2 px-4 py-3"
-    >
-      <p className="font-mono text-[11px] uppercase tracking-wide text-bench-muted">Estimated benchmark time</p>
-      {estimate === null ? (
-        <>
-          <p className="mt-1 font-mono text-xl text-bench-muted">{hasSelection ? "—" : "pick a model"}</p>
-          <p className="mt-0.5 text-xs text-bench-muted">
-            {/* Mirrors the picker's soft fits language — the recipe still renders. */}
-            {hasSelection ? `won't fit in ${vramGb} GB at 8K context` : "full five-axis suite"}
-          </p>
-        </>
-      ) : (
-        <>
-          <p className="mt-1 font-mono text-xl text-bench-text">
-            {formatBenchTimeRange(estimate.lowSeconds, estimate.highSeconds)}
-            {estimate.rough ? <span className="ml-1.5 text-sm text-bench-muted">(rough)</span> : null}
-          </p>
-          <p className="mt-0.5 text-xs text-bench-muted">full five-axis suite on your {vramGb} GB tier</p>
-        </>
-      )}
-    </div>
   );
 }
 

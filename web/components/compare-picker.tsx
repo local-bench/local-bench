@@ -12,13 +12,16 @@ import {
 } from "@/components/local-intelligence-index";
 import { axisLabel, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
 import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
+import type { FineTuneComparePreset } from "@/lib/vs-base";
 
 export function ComparePicker({
   configs,
   initialLeftId,
   initialRightId,
+  fineTunePresets,
 }: {
   readonly configs: readonly CompareConfig[];
+  readonly fineTunePresets: readonly FineTuneComparePreset[];
   readonly initialLeftId: string | null;
   readonly initialRightId: string | null;
 }) {
@@ -34,6 +37,7 @@ export function ComparePicker({
     const params = new URLSearchParams(window.location.search);
     const queryLeft = params.get("left");
     const queryRight = params.get("right");
+    const queryFineTune = params.get("finetune");
     const matchedLeft = findConfig(configs, queryLeft);
     const matchedRight = findConfig(configs, queryRight);
     if (matchedLeft !== null) {
@@ -42,7 +46,16 @@ export function ComparePicker({
     if (matchedRight !== null) {
       setRightId(matchedRight.id);
     }
-  }, [configs]);
+    if (matchedLeft === null && matchedRight === null && queryFineTune !== null) {
+      const preset = fineTunePresets.find((candidate) => candidate.slug === queryFineTune);
+      const presetLeft = findConfig(configs, preset?.leftRunId ?? null);
+      const presetRight = findConfig(configs, preset?.rightRunId ?? null);
+      if (presetLeft !== null && presetRight !== null) {
+        setLeftId(presetLeft.id);
+        setRightId(presetRight.id);
+      }
+    }
+  }, [configs, fineTunePresets]);
 
   if (left === null || right === null) {
     return (

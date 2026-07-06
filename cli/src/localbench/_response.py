@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from localbench._types import JsonValue, ParsedCompletion, Usage
+from localbench._types import JsonObject, JsonValue, ParsedCompletion, Usage
 
 
 class ResponseParseError(Exception):
@@ -45,6 +45,7 @@ def parse_chat_completion(data: JsonValue) -> ParsedCompletion:
         reasoning_text=reasoning_str,
         finish_reason=finish_reason,
         usage=parse_usage(data.get("usage")),
+        server_timings=parse_server_timings(data.get("timings")),
     )
 
 
@@ -62,6 +63,12 @@ def parse_usage(value: JsonValue | None) -> Usage:
 def empty_usage() -> Usage:
     """Return an empty usage object with stable keys."""
     return {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None}
+
+
+def parse_server_timings(value: JsonValue | None) -> JsonObject | None:
+    if not isinstance(value, dict):
+        return None
+    return {"passes": [dict(value)]}
 
 
 def _int_or_none(value: JsonValue | None) -> int | None:

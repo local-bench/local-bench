@@ -13,6 +13,7 @@ import {
   type AxisScore,
   type CatalogModel,
   type IndexData,
+  type IndexModel,
   type ModelData,
   type ModelRun,
   type RunDetail,
@@ -25,6 +26,13 @@ import {
 } from "./board-entry";
 import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 import type { OnrampCatalogModel } from "./onramp";
+import {
+  buildVsBaseComparison,
+  type FineTuneComparePreset,
+  type VsBaseBoardRow,
+  type VsBaseComparison,
+  type VsBaseSide,
+} from "./vs-base";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 
@@ -43,6 +51,19 @@ type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & { readonly axes: Ax
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly lineage: ModelLineage | null;
+  readonly vsBaseComparisons: readonly VsBaseComparison[];
+};
+
+export type ModelLineage = {
+  readonly baseModelId: string;
+  readonly baseDisplayName: string;
+  readonly baseSlug: string | null;
+};
+
+export type OnrampCatalog = {
+  readonly models: readonly OnrampCatalogModel[];
+  readonly popularityAsOf: string | null;
 };
 
 export type HomePageData = {
@@ -120,9 +141,26 @@ export async function getRunData(runId: string): Promise<RunDetailWithConfigured
   return run as RunDetailWithConfiguredAxes;
 }
 
-function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
+type CatalogFile = {
+  readonly models: readonly CatalogModel[];
+  readonly popularityAsOf: string | null;
+};
+
+async function getCatalogFile(): Promise<CatalogFile> {
+  const file = await readFile(join(process.cwd(), "model_catalog.json"), "utf8");
+  const parsed: unknown = JSON.parse(file);
+  const catalog = CatalogSchema.parse(parsed);
+  if (Array.isArray(catalog)) {
+    return { models: catalog, popularityAsOf: null };
+  }
+  return { models: catalog.models, popularityAsOf: catalog.popularity_as_of };
+}
+
+function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): OnrampCatalogModel {
   const paramsB =
     typeof raw.params_b === "number" ? raw.params_b : raw.params_b ? raw.params_b.total_b ?? null : null;
+  const baseModelId = typeof raw.base_model === "string" ? raw.base_model : null;
+  const base = baseModelId === null ? undefined : byId.get(baseModelId);
   return {
     id: raw.id,
     slug: raw.slug,
@@ -134,6 +172,12 @@ function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
     license: raw.license ?? "",
     ggufRepo: raw.gguf_repo ?? null,
     downloads: raw.popularity?.downloads ?? 0,
+    likes: raw.popularity?.likes ?? 0,
+    trending: raw.popularity?.trending ?? 0,
+    modelKind: raw.model_kind,
+    baseModelId,
+    baseModelSlug: base?.slug ?? null,
+    baseModelDisplayName: base?.display_name ?? baseModelId,
     quants: raw.quants.map((quant) => ({
       label: quant.label,
       vramGb8k: quant.vram_gb_8k ?? null,
@@ -143,13 +187,84 @@ function toOnrampModel(raw: CatalogModel): OnrampCatalogModel {
   };
 }
 
+function catalogBaseId(entry: CatalogModel): string | null {
+  return typeof entry.base_model === "string" ? entry.base_model : null;
+}
+
+function isDerivativeCatalogEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): boolean {
+  const baseModelId = catalogBaseId(entry);
+  return entry.model_kind !== "base" || (baseModelId !== null && byId.has(baseModelId));
+}
+
+function boardRowForCatalogEntry(entry: CatalogModel, indexRows: readonly IndexModel[]): IndexModel | null {
+  return indexRows.find((row) => row.catalog_id === entry.id || row.slug === entry.slug) ?? null;
+}
+
+function toVsBaseBoardRow(row: IndexModel | null): VsBaseBoardRow | null {
+  if (row === null) {
+    return null;
+  }
+  return {
+    axes: row.axes,
+    bestRunId: row.best_run_id,
+    composite: row.composite,
+    scoreStatus: row.score_status,
+  };
+}
+
+function toVsBaseSide(entry: CatalogModel, indexRows: readonly IndexModel[]): VsBaseSide {
+  return {
+    catalogId: entry.id,
+    displayName: entry.display_name,
+    row: toVsBaseBoardRow(boardRowForCatalogEntry(entry, indexRows)),
+    slug: entry.slug,
+  };
+}
+
+function buildModelPageVsBaseComparisons({
+  catalogEntry,
+  catalogModels,
+  indexRows,
+  byId,
+}: {
+  readonly catalogEntry: CatalogModel | undefined;
+  readonly catalogModels: readonly CatalogModel[];
+  readonly indexRows: readonly IndexModel[];
+  readonly byId: ReadonlyMap<string, CatalogModel>;
+}): readonly VsBaseComparison[] {
+  if (catalogEntry === undefined) {
+    return [];
+  }
+  const baseModelId = catalogBaseId(catalogEntry);
+  const base = baseModelId === null ? undefined : byId.get(baseModelId);
+  if (base !== undefined && isDerivativeCatalogEntry(catalogEntry, byId)) {
+    return [
+      buildVsBaseComparison({
+        base: toVsBaseSide(base, indexRows),
+        derivative: toVsBaseSide(catalogEntry, indexRows),
+      }),
+    ];
+  }
+
+  return catalogModels
+    .filter((entry) => catalogBaseId(entry) === catalogEntry.id && isDerivativeCatalogEntry(entry, byId))
+    .map((derivative) =>
+      buildVsBaseComparison({
+        base: toVsBaseSide(catalogEntry, indexRows),
+        derivative: toVsBaseSide(derivative, indexRows),
+      }),
+    );
+}
+
 // Reads model_catalog.json (one level above public/data) at build time and trims it to the fields the
 // on-ramp picker needs. No build_data.py change required — the catalog already ships in the repo.
-export async function getOnrampCatalog(): Promise<readonly OnrampCatalogModel[]> {
-  const file = await readFile(join(process.cwd(), "model_catalog.json"), "utf8");
-  const parsed: unknown = JSON.parse(file);
-  const catalog = CatalogSchema.parse(parsed);
-  return catalog.filter((raw) => raw.quants.length > 0).map(toOnrampModel);
+export async function getOnrampCatalog(): Promise<OnrampCatalog> {
+  const catalog = await getCatalogFile();
+  const byId = new Map(catalog.models.map((model) => [model.id, model]));
+  return {
+    models: catalog.models.filter((raw) => raw.quants.length > 0).map((raw) => toOnrampModel(raw, byId)),
+    popularityAsOf: catalog.popularityAsOf,
+  };
 }
 
 type MeasuredModelRunWithConfiguredAxes = ModelRunWithConfiguredAxes & {
@@ -180,8 +295,61 @@ async function getAnchorReferences(): Promise<readonly AnchorReference[]> {
 }
 
 export async function getModelPageData(slug: string): Promise<ModelPageData> {
-  const [model, anchorRuns] = await Promise.all([getModelData(slug), getAnchorReferences()]);
-  return { model, anchorRuns };
+  const [model, anchorRuns, index, catalog] = await Promise.all([
+    getModelData(slug),
+    getAnchorReferences(),
+    getIndexData(),
+    getCatalogFile(),
+  ]);
+  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  const catalogEntry =
+    catalog.models.find((entry) => entry.slug === slug) ??
+    (model.catalog_id ? byId.get(model.catalog_id) : undefined);
+  const baseModelId = catalogEntry === undefined ? null : catalogBaseId(catalogEntry);
+  const base = baseModelId === null ? undefined : byId.get(baseModelId);
+  const baseBoardRow =
+    baseModelId === null
+      ? undefined
+      : index.models.find(
+          (entry) => entry.catalog_id === baseModelId || (base?.slug !== undefined && entry.slug === base.slug),
+        );
+  const lineage =
+    baseModelId === null
+      ? null
+      : {
+          baseModelId,
+          baseDisplayName: base?.display_name ?? baseModelId,
+          baseSlug: base?.slug ?? baseBoardRow?.slug ?? null,
+        };
+  const vsBaseComparisons = buildModelPageVsBaseComparisons({
+    catalogEntry,
+    catalogModels: catalog.models,
+    indexRows: index.models,
+    byId,
+  });
+  return { model, anchorRuns, lineage, vsBaseComparisons };
+}
+
+export async function getFineTuneComparePresets(): Promise<readonly FineTuneComparePreset[]> {
+  const [index, catalog] = await Promise.all([getIndexData(), getCatalogFile()]);
+  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  return catalog.models.flatMap((entry) => {
+    const baseModelId = catalogBaseId(entry);
+    const base = baseModelId === null ? undefined : byId.get(baseModelId);
+    if (base === undefined || !isDerivativeCatalogEntry(entry, byId)) {
+      return [];
+    }
+    const comparison = buildVsBaseComparison({
+      base: toVsBaseSide(base, index.models),
+      derivative: toVsBaseSide(entry, index.models),
+    });
+    const leftRunId = comparison.derivative.row?.bestRunId ?? null;
+    const rightRunId = comparison.base.row?.bestRunId ?? null;
+    if (leftRunId === null || rightRunId === null) {
+      return [];
+    }
+    return [{ slug: entry.slug, leftRunId, rightRunId }];
+  });
 }
 
 export async function getHomePageData(): Promise<HomePageData> {

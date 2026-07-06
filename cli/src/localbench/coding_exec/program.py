@@ -1,28 +1,39 @@
-"""Assemble a self-executing test program from a generation + the task's unit tests.
-
-The program = generated code + the task's `unittest` TestCase + a trusted epilogue that
-runs the tests and exits 0 (all pass) or 1 (any fail/error). It is run as a FRESH
-subprocess per task by the in-container runner, so:
-- the scorer parent never imports/executes the untrusted generation (uncorruptible), and
-- the blast radius of a malicious/buggy generation is one task.
-
-Honest limit (documented in the threat model): generation + test share the subprocess, so
-a deliberately adversarial generation could fake its own task's pass. That is caught by
-replication (independent accounts must converge) — we never claim a single run is "verified".
-"""
+"""Assemble generated code, unit tests, and the trusted completion epilogue."""
 
 from __future__ import annotations
+
+from typing import Final
+
+SENTINEL_SCHEME_REV: Final = "bigcodebench-unittest-sentinel-v1"
+NONCE_PLACEHOLDER: Final = "__LOCALBENCH_SENTINEL_NONCE__"
 
 _EPILOGUE = '''
 
 if __name__ == "__main__":
+    import json as _json
     import sys as _sys
     import unittest as _unittest
+    _nonce = "__LOCALBENCH_SENTINEL_NONCE__"
     _suite = _unittest.TestLoader().loadTestsFromModule(_sys.modules["__main__"])
     if _suite.countTestCases() == 0:
         _sys.exit(2)  # no tests discovered -> not a pass (guards empty/malformed tests)
     _result = _unittest.TextTestRunner(verbosity=0).run(_suite)
-    _sys.exit(0 if _result.wasSuccessful() else 1)
+    _failures = len(_result.failures)
+    _errors = len(_result.errors)
+    print(
+        "<SENTINEL> "
+        + _json.dumps(
+            {
+                "run": _result.testsRun,
+                "fail": _failures,
+                "err": _errors,
+                "nonce": _nonce,
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+    _sys.exit(0 if _result.testsRun > 0 and _failures == 0 and _errors == 0 else 1)
 '''
 
 

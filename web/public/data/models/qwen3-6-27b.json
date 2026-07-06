@@ -1,22 +1,28 @@
 {
+  "base_model": null,
   "catalog_id": "Qwen/Qwen3.6-27B",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "unsloth/Qwen3.6-27B-MTP-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Qwen3.6 27B",
   "org": "Qwen",
   "runs": [
     {
       "axes": {
         "agentic": {
+          "ambiguous_or_contaminated_final_rate": null,
+          "budget_cap_hit_rate": null,
           "conditional_accuracy": 0.125,
+          "empty_final_rate": null,
           "hi": 19.791666666666664,
           "hi_raw": 0.19791666666666666,
           "leaked_reasoning_rate": null,
           "lo": 6.25,
           "lo_raw": 0.0625,
+          "measurement_truncation_rate": null,
           "n": 96,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -58,17 +64,17 @@
       },
       "bpw": 8.5,
       "composite": {
-        "hi": 41.51508729108343,
-        "hi_raw": 0.41515087291083436,
-        "lo": 30.83640990698618,
-        "lo_raw": 0.3083640990698618,
-        "point": 35.830356711031655,
-        "point_raw": 0.3583035671103166
+        "hi": 44.44054083900232,
+        "hi_raw": 0.4444054083900232,
+        "lo": 34.502574367751706,
+        "lo_raw": 0.34502574367751704,
+        "point": 39.163264812607615,
+        "point_raw": 0.3916326481260761
       },
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 28.7,
+      "file_gb": 29.0,
       "hardware": {
         "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
         "gpu": {
@@ -102,18 +108,22 @@
       "tokens_to_answer_p95": 9056.150000000001,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 28.6,
-      "vram_required_gb_8k": 31.0,
+      "vram_required_gb_8k": 31.4,
       "wall_time_seconds": 38569.341868699994
     },
     {
       "axes": {
         "agentic": {
+          "ambiguous_or_contaminated_final_rate": null,
+          "budget_cap_hit_rate": null,
           "conditional_accuracy": 0.14583333333333334,
+          "empty_final_rate": null,
           "hi": 21.875,
           "hi_raw": 0.21875,
           "leaked_reasoning_rate": null,
           "lo": 7.291666666666667,
           "lo_raw": 0.07291666666666667,
+          "measurement_truncation_rate": null,
           "n": 96,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -155,17 +165,17 @@
       },
       "bpw": 6.6,
       "composite": {
-        "hi": 43.93142817821444,
-        "hi_raw": 0.4393142817821444,
-        "lo": 31.587465216705162,
-        "lo_raw": 0.31587465216705163,
-        "point": 37.334921877239616,
-        "point_raw": 0.3733492187723962
+        "hi": 46.68193098910622,
+        "hi_raw": 0.4668193098910622,
+        "lo": 35.28657732688101,
+        "lo_raw": 0.3528657732688101,
+        "point": 40.58514881208338,
+        "point_raw": 0.4058514881208338
       },
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 22.3,
+      "file_gb": 22.9,
       "hardware": {
         "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
         "gpu": {
@@ -199,7 +209,7 @@
       "tokens_to_answer_p95": 9077.35,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 22.08,
-      "vram_required_gb_8k": 24.6,
+      "vram_required_gb_8k": 25.2,
       "wall_time_seconds": 20113.836787600012
     },
     {
@@ -208,7 +218,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 19.2,
+      "file_gb": 19.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -233,19 +243,23 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 19.2,
-      "vram_required_gb_8k": 21.6,
+      "vram_footprint_gb": 19.8,
+      "vram_required_gb_8k": 22.2,
       "wall_time_seconds": null
     },
     {
       "axes": {
         "agentic": {
+          "ambiguous_or_contaminated_final_rate": null,
+          "budget_cap_hit_rate": null,
           "conditional_accuracy": 0.14583333333333334,
+          "empty_final_rate": null,
           "hi": 21.875,
           "hi_raw": 0.21875,
           "leaked_reasoning_rate": null,
           "lo": 8.333333333333332,
           "lo_raw": 0.08333333333333333,
+          "measurement_truncation_rate": null,
           "n": 96,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -287,17 +301,17 @@
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 43.388790316353855,
-        "hi_raw": 0.43388790316353854,
-        "lo": 31.646552405743133,
-        "lo_raw": 0.31646552405743134,
-        "point": 37.18821655567691,
-        "point_raw": 0.3718821655567691
+        "hi": 46.16650007707849,
+        "hi_raw": 0.4616650007707849,
+        "lo": 35.282909282737805,
+        "lo_raw": 0.35282909282737807,
+        "point": 40.41748558744028,
+        "point_raw": 0.4041748558744028
       },
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 16.4,
+      "file_gb": 17.1,
       "hardware": {
         "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
         "gpu": {
@@ -331,18 +345,22 @@
       "tokens_to_answer_p95": 9046.7,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 16.55,
-      "vram_required_gb_8k": 18.7,
+      "vram_required_gb_8k": 19.5,
       "wall_time_seconds": 24080.086216900003
     },
     {
       "axes": {
         "agentic": {
+          "ambiguous_or_contaminated_final_rate": null,
+          "budget_cap_hit_rate": null,
           "conditional_accuracy": 0.13541666666666666,
+          "empty_final_rate": null,
           "hi": 20.833333333333336,
           "hi_raw": 0.20833333333333334,
           "leaked_reasoning_rate": null,
           "lo": 7.291666666666667,
           "lo_raw": 0.07291666666666667,
+          "measurement_truncation_rate": null,
           "n": 96,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -384,17 +402,17 @@
       },
       "bpw": 3.9,
       "composite": {
-        "hi": 42.47680299122381,
-        "hi_raw": 0.42476802991223817,
-        "lo": 30.751161434782087,
-        "lo_raw": 0.30751161434782087,
-        "point": 36.15136552441553,
-        "point_raw": 0.3615136552441553
+        "hi": 45.21744203486752,
+        "hi_raw": 0.45217442034867517,
+        "lo": 34.33948646872589,
+        "lo_raw": 0.3433948646872589,
+        "point": 39.381322504093944,
+        "point_raw": 0.39381322504093946
       },
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 13.2,
+      "file_gb": 13.8,
       "hardware": {
         "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
         "gpu": {
@@ -428,18 +446,22 @@
       "tokens_to_answer_p95": 9022.85,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 14.82,
-      "vram_required_gb_8k": 15.5,
+      "vram_required_gb_8k": 16.2,
       "wall_time_seconds": 19825.804516100005
     },
     {
       "axes": {
         "agentic": {
+          "ambiguous_or_contaminated_final_rate": null,
+          "budget_cap_hit_rate": null,
           "conditional_accuracy": 0.13541666666666666,
+          "empty_final_rate": null,
           "hi": 20.833333333333336,
           "hi_raw": 0.20833333333333334,
           "leaked_reasoning_rate": null,
           "lo": 7.291666666666667,
           "lo_raw": 0.07291666666666667,
+          "measurement_truncation_rate": null,
           "n": 96,
           "n_errors": 0,
           "n_no_answer": 0,
@@ -479,19 +501,18 @@
           "termination_rate": 0.98
         }
       },
-      "bpw": 3.0,
       "composite": {
-        "hi": 40.85618002940345,
-        "hi_raw": 0.40856180029403444,
-        "lo": 29.424199350905532,
-        "lo_raw": 0.29424199350905533,
-        "point": 34.70683939424642,
-        "point_raw": 0.3470683939424642
+        "hi": 43.4531321212635,
+        "hi_raw": 0.434531321212635,
+        "lo": 32.79267284394757,
+        "lo_raw": 0.3279267284394757,
+        "point": 37.73043549818639,
+        "point_raw": 0.3773043549818639
       },
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 10.1,
+      "file_gb": null,
       "hardware": {
         "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
         "gpu": {
@@ -525,7 +546,7 @@
       "tokens_to_answer_p95": 8933.45,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 12.05,
-      "vram_required_gb_8k": 12.5,
+      "vram_required_gb_8k": null,
       "wall_time_seconds": 13031.371899200007
     },
     {

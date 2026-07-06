@@ -2,12 +2,23 @@ import {
   PublishStateDecisionSchema,
   StatusUpdateSchema,
   type RouteParams,
+  type SubmissionRow,
   type SubmissionApiEnv,
 } from "./submission-contracts";
 import { adminBlocked, jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
+import { InvalidTransitionError } from "./submission-state";
+import { zt1DecisionForAcceptedSubmission } from "./submission-zt1-decision";
+import {
+  autoPublishEnabled,
+  evaluateFreezeAlarms,
+  persistZt1Decision,
+  publicSubmissionWithZt1,
+  zt1Available,
+} from "./submission-zt1-store";
 import {
   applyStatusUpdate,
   listSubmissionsByStatus,
+  publicTransitionHistory,
   publicSubmission,
   rowBySubmissionId,
   updatePublishState,
@@ -23,7 +34,10 @@ export async function handleSubmissionStatus(env: SubmissionApiEnv, params: Rout
   if (row.kind !== "ok") {
     return row.response;
   }
-  return jsonResponse(200, publicSubmission(row.value));
+  return jsonResponse(200, {
+    ...publicSubmission(row.value),
+    history: await publicTransitionHistory(env, row.value.submission_id),
+  });
 }
 
 export async function handleAdminListSubmissions(request: Request, env: SubmissionApiEnv): Promise<Response> {
@@ -62,8 +76,16 @@ export async function handleApplyVerificationUpdate(
   try {
     await applyStatusUpdate(env, row.value.submission_id, parsed.data);
     const updated = await rowBySubmissionId(env, row.value.submission_id);
-    return jsonResponse(200, publicSubmission(updated ?? row.value));
+    if (updated !== null && parsed.data.status === "accepted") {
+      await applyZt1AcceptedDecision(env, updated);
+      const decided = await rowBySubmissionId(env, updated.submission_id);
+      return jsonResponse(200, await publicSubmissionWithZt1(env, decided ?? updated));
+    }
+    return jsonResponse(200, updated === null ? publicSubmission(row.value) : await publicSubmissionWithZt1(env, updated));
   } catch (error) {
+    if (error instanceof InvalidTransitionError) {
+      return invalidTransition(error);
+    }
     logSubmissionError("submission_verification_update_failed", {
       error,
       leg: "apply_status_update",
@@ -75,6 +97,18 @@ export async function handleApplyVerificationUpdate(
       error: "submission verification update failed",
     });
   }
+}
+
+async function applyZt1AcceptedDecision(env: SubmissionApiEnv, row: SubmissionRow): Promise<void> {
+  if (!await zt1Available(env)) {
+    return;
+  }
+  await evaluateFreezeAlarms(env);
+  if (!await autoPublishEnabled(env)) {
+    return;
+  }
+  const plan = await zt1DecisionForAcceptedSubmission(env, row);
+  await persistZt1Decision(env, row.submission_id, plan);
 }
 
 export async function handlePublishStateDecision(
@@ -94,7 +128,23 @@ export async function handlePublishStateDecision(
   if (!parsed.success) {
     return jsonResponse(400, { code: "invalid_publish_decision", error: "invalid publish_state decision" });
   }
-  await updatePublishState(env, row.value.submission_id, parsed.data.publish_state);
+  try {
+    await updatePublishState(env, row.value.submission_id, parsed.data.publish_state);
+  } catch (error) {
+    if (error instanceof InvalidTransitionError) {
+      return invalidTransition(error);
+    }
+    throw error;
+  }
   const updated = await rowBySubmissionId(env, row.value.submission_id);
   return jsonResponse(200, publicSubmission(updated ?? row.value));
+}
+
+function invalidTransition(error: InvalidTransitionError): Response {
+  return jsonResponse(409, {
+    code: error.code,
+    error: "invalid submission status transition",
+    from: error.from,
+    to: error.to,
+  });
 }

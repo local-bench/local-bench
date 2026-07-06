@@ -102,7 +102,7 @@ def _axis_aggregate(
     axis: Axis,
     benches: Mapping[str, BenchAggregate],
 ) -> BenchAggregate | None:
-    selected = [benches[bench] for bench in axis.benches if bench in benches]
+    selected = [benches[bench] for bench in (*axis.benches, *axis.legacy_benches) if bench in benches]
     if not selected:
         return None
     n = sum(item["n"] for item in selected)

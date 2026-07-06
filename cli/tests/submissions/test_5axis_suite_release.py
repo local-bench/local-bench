@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from localbench._types import JsonObject
 from localbench.submissions.contracts import RESULT_BUNDLE_SCHEMA_VERSION
+from localbench.submissions import foundation
 from localbench.submissions.foundation import validate_submission_bundle
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -34,6 +37,38 @@ def test_validate_submission_bundle_accepts_site_released_5axis_suite(tmp_path: 
     assert result["publishable"] is True
     assert result["blocking_reasons"] == []
     assert result["missing_required_fields"] == []
+
+
+def test_validate_submission_bundle_rejects_v2_exec_items_without_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest_sha = "f" * 64
+    monkeypatch.setitem(
+        foundation._SITE_RELEASED_SUITES,
+        "suite-v1-full-exec-6axis-v1",
+        manifest_sha,
+    )
+    bundle = _synthetic_5axis_result_bundle(
+        {
+            "suite_release_id": "suite-v1-full-exec-6axis-v1",
+            "suite_manifest_sha256": manifest_sha,
+        },
+    )
+    bundle["benches"] = {
+        **bundle["benches"],
+        "bigcodebench_hard": {"n": 1, "n_errors": 0, "raw_accuracy": 0.0, "chance_corrected": 0.0},
+        "olymmath_hard": {"n": 1, "n_errors": 0, "raw_accuracy": 1.0, "chance_corrected": 1.0},
+        "amo": {"n": 1, "n_errors": 0, "raw_accuracy": 1.0, "chance_corrected": 1.0},
+    }
+    bundle["items"] = [{"id": "bcbh-001", "bench": "bigcodebench_hard"}]
+    bundle_path = tmp_path / "full-exec-result-bundle.json"
+    bundle_path.write_text(json.dumps(bundle, sort_keys=True), encoding="utf-8")
+
+    result = validate_submission_bundle(bundle_path)
+
+    assert result["publishable"] is False
+    assert "missing_code_artifacts" in result["blocking_reasons"]
 
 
 def _synthetic_5axis_result_bundle(release_manifest: JsonObject) -> JsonObject:

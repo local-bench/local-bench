@@ -57,6 +57,7 @@ class TurnRecord:
     is_final: bool                   # the model signalled a final answer this turn
     raw_response_text: str = ""      # unmodified assistant text for provenance/debugging
     error_detail: str | None = None  # client transport/parse cause when finish_reason="error"
+    server_timings: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)

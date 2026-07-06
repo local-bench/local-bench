@@ -73,10 +73,9 @@ def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path
             "termination_rate": 1.0,
             "conditional_accuracy": 0.5,
         }
-        # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifeval).
-        # genmath -> Math carries weight 0.0, so it is excluded (METHODOLOGY-v1.2 §3).
+        # Composite is HEADLINE-only: knowledge, instruction, and math are measured here.
         assert record["scores"]["partial_composite"] == pytest.approx(
-            0.3056,
+            0.3333,
         )
         assert record["totals"]["prompt_tokens"] == 50
         assert record["totals"]["completion_tokens"] == 14
@@ -105,6 +104,7 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
                 model="demo-model",
                 suite_dir=FIXTURE_SUITE,
                 bench=FIXTURE_FULL_BENCHES,
+                lane="bounded-final-v1",
                 out=output_path,
                 max_items=1,
             ),
@@ -116,6 +116,58 @@ def test_run_localbench_when_max_items_truncates_each_bench(tmp_path: Path) -> N
         assert record["benches"]["mmlu_pro"]["n"] == 1
         assert record["benches"]["ifeval"]["n"] == 1
         assert record["benches"]["genmath"]["n"] == 1
+        assert record["suite_coverage"]["status"] == "partial"
+        assert record["suite_coverage"]["covered_items"] == 3
+        assert record["suite_coverage"]["total_items"] == 7
+        assert record["suite_coverage"]["max_items_truncated"] is True
+
+    asyncio.run(scenario())
+
+
+def test_perf_capture_does_not_change_scorecard_identity(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        timings = {"prompt_n": 10, "prompt_ms": 20.0, "predicted_n": 4, "predicted_ms": 16.0}
+
+        def timed_handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path.endswith("/models"):
+                return httpx.Response(200, json={"data": [{"id": "runtime-demo"}]})
+            payload = json.loads(request.content)
+            prompt = payload["messages"][0]["content"]
+            if "Choose the first letter" in prompt:
+                return _completion("Answer: A", 1, 1, timings=timings)
+            return httpx.Response(500, text="unexpected prompt")
+
+        plain_record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                out=tmp_path / "plain.json",
+                max_items=1,
+            ),
+            transport=httpx.MockTransport(_all_correct_handler),
+        )
+        timed_record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                out=tmp_path / "timed.json",
+                max_items=1,
+            ),
+            transport=httpx.MockTransport(timed_handler),
+        )
+
+        assert plain_record["manifest"]["scorecard"]["scorecard_id"] == (
+            timed_record["manifest"]["scorecard"]["scorecard_id"]
+        )
+        assert plain_record["items"][0]["server_timings"] is None
+        assert timed_record["items"][0]["server_timings"] == {"passes": [timings]}
+        assert timed_record["perf"]["timings_coverage"] == 1.0
+        assert timed_record["perf"]["prefill_tps"] == pytest.approx(500.0)
+        assert timed_record["perf"]["decode_tps"] == pytest.approx(250.0)
 
     asyncio.run(scenario())
 
@@ -842,22 +894,30 @@ def _all_correct_handler(request: httpx.Request) -> httpx.Response:
     return httpx.Response(500, text="unexpected prompt")
 
 
-def _completion(text: str, prompt_tokens: int, completion_tokens: int) -> httpx.Response:
+def _completion(
+    text: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    timings: dict[str, object] | None = None,
+) -> httpx.Response:
+    body = {
+        "choices": [
+            {
+                "message": {"content": text},
+                "finish_reason": "stop",
+            },
+        ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+        },
+    }
+    if timings is not None:
+        body["timings"] = timings
     return httpx.Response(
         200,
-        json={
-            "choices": [
-                {
-                    "message": {"content": text},
-                    "finish_reason": "stop",
-                },
-            ],
-            "usage": {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens,
-            },
-        },
+        json=body,
     )
 
 

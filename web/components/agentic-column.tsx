@@ -2,7 +2,7 @@ import { axisColor } from "@/lib/axis-config";
 import type { AgenticModel, AxisScore } from "@/lib/schemas";
 
 export const AGENTIC_COLUMN_TOOLTIP =
-  "Agentic | AppWorld-C interactive API-coding success rate | 50% of the Local Intelligence Index";
+  "Agentic | AppWorld-C interactive API-coding success rate | 40% of the Local Intelligence Index";
 
 export function formatAgenticPct(model: AgenticModel | undefined): string {
   if (model === undefined) {

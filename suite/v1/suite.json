@@ -11,7 +11,7 @@
         "standard": {
           "file": "amo.jsonl",
           "item_count": 39,
-          "sha256": "4654703c70829704f39ec38cb91dab1a06eba7fc9846a53ec93e1b3b73786980"
+          "sha256": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904"
         }
       },
       "lane_caps": {},
@@ -27,7 +27,7 @@
         "standard": {
           "file": "olymmath_hard.jsonl",
           "item_count": 100,
-          "sha256": "60e172588066dd6f0af14f7ce01b9d87390f6e7803673f42051a830a4a6d2f70"
+          "sha256": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b"
         }
       },
       "lane_caps": {},
@@ -144,7 +144,7 @@
         "standard": {
           "file": "bigcodebench_hard.jsonl",
           "item_count": 148,
-          "sha256": "ecde72cfbe02c6cbdce63b8f2b3f2c6b11d09ddd34cf8c2e454f8d896d1eb8ca"
+          "sha256": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e"
         }
       },
       "lane_caps": {},
@@ -199,7 +199,7 @@
     },
     "coding": {
       "benches": [
-        "lcb"
+        "bigcodebench_hard"
       ]
     },
     "long_context": {

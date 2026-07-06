@@ -15,15 +15,16 @@ def test_score_summary_emits_static_and_full_composites_with_strict_presence() -
         "mmlu_pro": _aggregate(1.0),
         "ifbench": _aggregate(0.0),
         "tc_json_v1": _aggregate(0.5),
-        "lcb": _aggregate(0.25),
+        "bigcodebench_hard": _aggregate(0.25),
+        "olymmath_hard": _aggregate(0.75),
     }
     status = axis_status_for_benches(benches)
 
     summary = score_summary(benches, status)
 
-    assert summary["partial_composite"] == 0.45
-    assert summary["composite_static"] == 0.45
-    assert summary["static_index_version"] == "static-suite-v1"
+    assert summary["partial_composite"] == 0.4583
+    assert summary["composite_static"] == 0.475
+    assert summary["static_index_version"] == "static-suite-v2"
     assert summary["composite_full"] is None
 
 
@@ -48,7 +49,8 @@ def test_score_summary_full_composite_requires_agentic_axis() -> None:
         "mmlu_pro": _aggregate(1.0),
         "ifbench": _aggregate(0.0),
         "tc_json_v1": _aggregate(0.5),
-        "lcb": _aggregate(0.25),
+        "bigcodebench_hard": _aggregate(0.25),
+        "olymmath_hard": _aggregate(0.75),
         "appworld_c": _aggregate(0.75),
     }
     status = axis_status_for_benches(benches)
@@ -56,7 +58,7 @@ def test_score_summary_full_composite_requires_agentic_axis() -> None:
     summary = score_summary(benches, status)
 
     assert summary["composite_full"] == pytest.approx(summary["partial_composite"])
-    assert summary["composite_static"] == 0.45
+    assert summary["composite_static"] == 0.475
 
 
 def test_frozen_board_v1_blob_hash_is_unchanged() -> None:

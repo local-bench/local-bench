@@ -1,0 +1,24 @@
+{
+  "criterion": "An item is sandbox-scoreable iff its upstream canonical solution PASSES in the hardened --network none sandbox (runner cache-env, 60s/task). Derived from bcb-groundtruth.v2.json.",
+  "image_digest": "sha256:a3cd34ec3840a49d6b7afb240f4bdd47c350bc5991043fd0a91773830f7cd405",
+  "total_items": 148,
+  "scoreable_count": 141,
+  "unscoreable_ids": [
+    "bcbh-006",
+    "bcbh-007",
+    "bcbh-014",
+    "bcbh-035",
+    "bcbh-074",
+    "bcbh-096",
+    "bcbh-104"
+  ],
+  "reasons": {
+    "bcbh-006": "network (urlopen)",
+    "bcbh-007": "network (google drive)",
+    "bcbh-035": "data (nltk download)",
+    "bcbh-096": "network (wikibooks)",
+    "bcbh-104": "data (nltk download)",
+    "bcbh-014": "hangs (socket server, no peer under isolation)",
+    "bcbh-074": "hangs (subprocess/psutil monitor)"
+  }
+}

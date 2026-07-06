@@ -1,6 +1,6 @@
 import { formatModularAxisProfile } from "@/components/local-intelligence-index";
 import { VRAM_TIERS } from "@/lib/rig-match";
-import { formatGb, formatScore } from "@/lib/format";
+import { formatDuration, formatGb, formatScore } from "@/lib/format";
 import type { AnchorReference } from "@/lib/data";
 import type { ModelRun, Score } from "@/lib/schemas";
 
@@ -109,15 +109,46 @@ export function QualityVramScatter({
             const cx = scaleX(point.x, xDomain);
             const cy = scaleY(point.run.composite.point);
             const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id;
+            // Demo rows carry synthetic wall times, so only real measured runs show a bench time.
+            const benchedIn =
+              !point.run.demo && typeof point.run.wall_time_seconds === "number"
+                ? `benched in ${formatDuration(point.run.wall_time_seconds)} · `
+                : "";
+            const tipLine1 = `${label} — ${formatScore(point.run.composite.point)}`;
+            const tipLine2 = `${benchedIn}~${formatGb(point.run.vram_footprint_gb)} to run`;
+            const tipWidth = Math.max(tipLine1.length, tipLine2.length) * 6.6 + 20;
+            // Clamp the tooltip inside the plot; flip below the dot when it would clip the top.
+            const tipX = Math.min(Math.max(cx - tipWidth / 2, 6), WIDTH - tipWidth - 6);
+            const tipY = cy - 52 > 4 ? cy - 52 : cy + 14;
             return (
-              <g key={point.run.run_id}>
-                <title>{`${label}: ${formatScore(point.run.composite.point)} (${formatModularAxisProfile(point.run.axes)}) at ${formatGb(point.run.vram_footprint_gb)}`}</title>
+              // CSS-only hover (server component, no client JS): the tooltip group is toggled by
+              // group-hover; the transparent r=14 circle is the hit target — the visible 6px dot
+              // is too small to hover reliably.
+              <g key={point.run.run_id} className="group">
+                <title>{`${label}: ${formatScore(point.run.composite.point)} — ${tipLine2}`}</title>
+                <circle cx={cx} cy={cy} r="14" fill="transparent" />
                 <circle cx={cx} cy={cy} r="6" className={point.run.demo ? "fill-bench-warn stroke-bench-bg" : "fill-bench-accent stroke-bench-bg"} strokeWidth="2" />
                 {showPointLabels ? (
                   <text x={cx + 10} y={cy - 10} className="fill-bench-text" fontSize="12">
                     {label}
                   </text>
                 ) : null}
+                <g className="pointer-events-none opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                  <rect
+                    x={tipX}
+                    y={tipY}
+                    width={tipWidth}
+                    height={38}
+                    rx={4}
+                    className="fill-bench-bg stroke-bench-line-strong"
+                  />
+                  <text x={tipX + 10} y={tipY + 16} className="fill-bench-text" fontSize="11" fontFamily="var(--font-mono)">
+                    {tipLine1}
+                  </text>
+                  <text x={tipX + 10} y={tipY + 30} className="fill-bench-muted" fontSize="11" fontFamily="var(--font-mono)">
+                    {tipLine2}
+                  </text>
+                </g>
               </g>
             );
           })}

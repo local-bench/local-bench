@@ -76,6 +76,7 @@ function fakeEnv(options: FakeEnvOptions): SubmissionApiEnv {
   return {
     DB: new FakeD1Database(options),
     SUBMISSIONS: {
+      delete: async () => undefined,
       get: async (key: string) => {
         if (key !== rawBundleKey(RAW_BUNDLE_SHA)) {
           return null;

@@ -5,7 +5,13 @@ from typing import Literal, Protocol, TypeAlias
 
 from localbench._types import ChatMessage, JsonObject, JsonValue, ParsedCompletion
 
-Lane: TypeAlias = Literal["answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"]
+Lane: TypeAlias = Literal[
+    "answer-only",
+    "capped-thinking",
+    "api-uncapped",
+    "bounded-final-v1",
+    "bounded-final-v2",
+]
 ReasoningEffort: TypeAlias = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
 ProviderName: TypeAlias = Literal[
     "local",

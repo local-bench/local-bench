@@ -82,14 +82,13 @@ def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -
     assert bundle["serving_mode"] == "external_openai_compatible_endpoint"
     assert bundle["scores"] == {
         "headline_score": None,
-        "partial_composite": 0.7473,
+        "partial_composite": 0.7569,
         "partial_composite_scope": "measured_headline_axes",
-        "measured_headline_weight": 0.5,
-        "missing_headline_weight": 0.5,
-        "known_headline_contribution": 0.3737,
+        "measured_headline_weight": 0.55,
+        "missing_headline_weight": 0.45,
+        "known_headline_contribution": 0.4163,
         "rank_scope": "partial-text-code-4axis-v1",
-        "composite_static": 0.7473,
-        "static_index_version": "static-suite-v1",
+        "composite_static": None,
         "composite_full": None,
     }
     assert bundle["manifest"]["integrity"]["publishable"] is False
@@ -237,6 +236,43 @@ def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(t
     ]
 
 
+def test_result_bundle_normalization_preserves_optional_perf_and_item_timings() -> None:
+    timings = {
+        "passes": [{"prompt_n": 10, "prompt_ms": 20.0, "predicted_n": 5, "predicted_ms": 10.0}]
+    }
+    perf = {
+        "timings_source": "llama.cpp",
+        "timings_coverage": 1.0,
+        "prefill_tps": 500.0,
+        "decode_tps": 500.0,
+        "prompt_ms_median": 20.0,
+        "prompt_ms_p95": 20.0,
+        "predicted_ms_median": 10.0,
+        "predicted_ms_p95": 10.0,
+        "ttft_proxy_ms_median": 20.0,
+        "per_bench": {
+            "mmlu_pro": {
+                "prefill_tps": 500.0,
+                "decode_tps": 500.0,
+                "prompt_ms_median": 20.0,
+                "n": 1,
+            }
+        },
+    }
+    record = _synthetic_result_bundle(identity=True)
+    record["schema"] = "localbench-run-v0"
+    record["perf"] = perf
+    record["axis_status"] = {"schema_version": "localbench.axis-status.v1", "axes": {}}
+    record["items"] = [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
+
+    bundle = normalize_result_bundle(record)
+    validation = validate_result_bundle(bundle)
+
+    assert validation.blocking_reasons == []
+    assert bundle["perf"] == perf
+    assert bundle["items"] == [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
+
+
 @_REQUIRES_PILOT
 def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None:
     from localbench.cli import main
@@ -289,12 +325,12 @@ def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
     first = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
     second = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
 
-    # Then: the scorer path reproduces the published calibration numbers deterministically.
+    # Then: the scorer path reproduces the axis scores and index-v3.0 composite deterministically.
     assert first["axes"]["knowledge"]["score"] == 0.7725
     assert first["axes"]["instruction_following"]["score"] == 0.6871
     assert first["axes"]["tool_calling"]["score"] == 0.7364
     assert first["axes"]["coding"]["score"] == 0.8527
-    assert first["scores"]["partial_composite"] == 0.7473
+    assert first["scores"]["partial_composite"] == 0.7569
     assert canonical_json_bytes(first) == canonical_json_bytes(second)
 
 

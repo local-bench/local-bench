@@ -94,6 +94,11 @@ def docker_run_argv(
     ]
     if runtime:
         argv += ["--runtime", runtime]
+    # Clear the image's own ENTRYPOINT so `command` runs verbatim. The bigcodebench-evaluate
+    # image ships ENTRYPOINT=[python3 -m bigcodebench.evaluate]; without this override our
+    # runner argv would be appended to THAT (running the image's evaluator on untrusted input,
+    # not our hardened runner). We use the image only as a pinned Python+deps environment.
+    argv += ["--entrypoint", ""]
     for host_src, container_dst in read_only_mounts:
         argv += ["--volume", f"{host_src}:{container_dst}:ro"]
     argv += [image_digest, *command]

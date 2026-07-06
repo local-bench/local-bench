@@ -33,8 +33,8 @@ export function QualityBars({
           <p className="mt-1 font-mono text-xs text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</p>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
             {isEmpty
-              ? "Quality bars appear after complete five-axis benchmark rows land; partial profiles stay diagnostic."
-              : "Frontier anchors are reference ceilings. Local rows show each model once at its best ranked quant. Math, Long-Context, and coding-exec remain candidate or opt-in modules."}
+              ? "Quality bars appear after complete current-index benchmark rows land; partial profiles stay diagnostic."
+              : "Frontier anchors are reference ceilings. Local rows show each model once at its best ranked quant. Long-Context remains diagnostic."}
           </p>
         </div>
         <div className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-xs text-bench-muted">

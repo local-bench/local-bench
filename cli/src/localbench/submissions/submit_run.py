@@ -20,6 +20,7 @@ from localbench.submissions.client import (
     upload_submission_bundle,
 )
 from localbench.submissions.crypto import sign_bytes
+from localbench.submissions.foundation import is_site_released_suite_pair, site_released_suite_pairs
 from localbench.submissions.submit_run_inputs import (
     DEFAULT_SITE,
     BundleInfo,
@@ -106,6 +107,7 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
             if options.dry_run:
                 lines.extend(dry_run_lines(site, key.public_key, display_name, bundle))
                 return SubmitRunResult(exit_code=0, lines=tuple(lines))
+            _precheck_registered_suite_pair(bundle)
             ticket = _request_ticket(site, options, key, display_name, bundle)
             try:
                 upload = _upload_bundle(site, options, ticket, bundle.path)
@@ -119,7 +121,7 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
             status = _status(site, options, submission_id)
             if options.display_name is not None:
                 write_config(config_path, SubmitConfig(display_name=options.display_name, site=site))
-            lines.extend(summary_lines(status, submission_id))
+            lines.extend(summary_lines(status, submission_id, site))
             return SubmitRunResult(exit_code=0, lines=tuple(lines))
     except AlreadySubmittedError as error:
         if options.display_name is not None:
@@ -131,6 +133,18 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
         return SubmitRunResult(exit_code=0, lines=tuple(lines))
     except SubmitInputError as error:
         raise SubmitRunError(str(error)) from error
+
+
+def _precheck_registered_suite_pair(bundle: BundleInfo) -> None:
+    if is_site_released_suite_pair(bundle.suite_release_id, bundle.suite_manifest_sha256):
+        return
+    registered = ", ".join(sorted(site_released_suite_pairs()))
+    raise SubmitRunError(
+        "suite release pair is not registered for submission: "
+        f"{bundle.suite_release_id} / {bundle.suite_manifest_sha256}. "
+        "Run against a current registered release before submitting. "
+        f"Registered releases: {registered}.",
+    )
 
 
 def _request_ticket(

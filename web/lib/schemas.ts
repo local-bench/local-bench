@@ -22,6 +22,7 @@ export const AxisScoreSchema = ScoreSchema.extend({
   n: z.number(),
   n_errors: z.number(),
   n_no_answer: z.number(),
+  n_unscoreable: z.number().optional(),
   // IFBench strict decomposition (present once strict-scored run JSONs are wired; flat per the
   // producer's shape — see docs/SITE-DATA-CONTRACT.md). raw_accuracy above IS the strict accuracy.
   termination_rate: z.number().optional(),
@@ -29,6 +30,17 @@ export const AxisScoreSchema = ScoreSchema.extend({
 });
 
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
+export const AxisStatusSchema = z.record(
+  z.string(),
+  z
+    .object({
+      axis: z.string(),
+      status: z.enum(["measured", "not_measured", "generated_unverified"]),
+      reason: z.string(),
+      detail: z.string().optional(),
+    })
+    .passthrough(),
+);
 export const ConformanceGateSchema = z.object({
   id: z.literal("tc_json_v1"),
   label: z.literal("Tool-calling"),
@@ -64,6 +76,7 @@ export const KindSchema = z.enum(["anchor", "community"]);
 export const ScoreStatusSchema = z.enum(["measured", "missing"]);
 export const BoardOriginSchema = z.enum(["project_anchor", "community", "community_submission"]);
 export const AgenticProvenanceSchema = z.enum(["none", "project_attested", "self_reported"]);
+export const ModelKindSchema = z.enum(["base", "finetune", "distill", "merge"]);
 const DemoFlagSchema = z.boolean().optional().default(false);
 
 export const GpuSchema = z.object({
@@ -119,6 +132,30 @@ export const TotalsSchema = z.object({
   completion_tokens_per_second: z.number().nullable(),
 });
 
+const PerfBenchSchema = z
+  .object({
+    prefill_tps: z.number().nullable(),
+    decode_tps: z.number().nullable(),
+    prompt_ms_median: z.number().nullable(),
+    n: z.number(),
+  })
+  .passthrough();
+
+export const PerfSchema = z
+  .object({
+    timings_source: z.literal("llama.cpp").nullable(),
+    timings_coverage: z.number(),
+    prefill_tps: z.number().nullable(),
+    decode_tps: z.number().nullable(),
+    prompt_ms_median: z.number().nullable(),
+    prompt_ms_p95: z.number().nullable(),
+    predicted_ms_median: z.number().nullable(),
+    predicted_ms_p95: z.number().nullable(),
+    ttft_proxy_ms_median: z.number().nullable(),
+    per_bench: z.record(z.string(), PerfBenchSchema),
+  })
+  .passthrough();
+
 export const IndexModelSchema = z.object({
   slug: ModelSlugSchema,
   catalog_id: z.string().nullable().optional(),
@@ -130,6 +167,7 @@ export const IndexModelSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
+  axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
   lane: z.string().nullable(),
   n_runs: z.number(),
@@ -154,6 +192,8 @@ export const IndexModelSchema = z.object({
   static_index_version: z.string().optional(),
   replicated: z.boolean(),
   score_status: ScoreStatusSchema.optional().default("measured"),
+  has_code_artifacts: z.boolean().optional(),
+  verdict_source: z.string().nullable().optional(),
   conformance_gates: ConformanceGatesSchema.optional(),
   demo: DemoFlagSchema,
 });
@@ -194,6 +234,7 @@ export const ModelRunSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
+  axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
   lane: z.string().nullable(),
   tokens_to_answer_median: z.number().nullable(),
@@ -205,9 +246,12 @@ export const ModelRunSchema = z.object({
   runtime: RuntimeSchema,
   n_items: z.number(),
   n_errors: z.number(),
+  perf: PerfSchema.optional(),
   ranked: z.boolean().optional().default(false),
   wall_time_seconds: z.number().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
+  has_code_artifacts: z.boolean().optional(),
+  verdict_source: z.string().nullable().optional(),
   conformance_gates: ConformanceGatesSchema.optional(),
   submitter_display_name: z.string().nullable().optional(),
   origin: BoardOriginSchema.optional(),
@@ -227,6 +271,7 @@ export const ModelDataSchema = z.object({
   gguf_repo: z.string().nullable().optional(),
   license: z.string().nullable().optional(),
   org: z.string().nullable().optional(),
+  model_kind: ModelKindSchema.optional().default("base"),
   demo: DemoFlagSchema,
   runs: z.array(ModelRunSchema),
 });
@@ -260,6 +305,7 @@ export const RunDetailSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
+  axis_status: AxisStatusSchema.optional(),
   worst_axis: z.object({
     bench: z.string(),
     point: z.number(),
@@ -268,7 +314,10 @@ export const RunDetailSchema = z.object({
   manifest_summary: ManifestSummarySchema,
   ranked: z.boolean().optional().default(false),
   scorecard: ScorecardSummarySchema.optional(),
+  has_code_artifacts: z.boolean().optional(),
+  verdict_source: z.string().nullable().optional(),
   totals: TotalsSchema,
+  perf: PerfSchema.optional(),
   est_cost_usd: z.number().nullable(),
   tokens_to_answer_median: z.number().nullable(),
   tokens_to_answer_p95: z.number().nullable(),
@@ -295,6 +344,7 @@ export type Kind = z.infer<typeof KindSchema>;
 export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
 export type BoardOrigin = z.infer<typeof BoardOriginSchema>;
 export type AgenticProvenance = z.infer<typeof AgenticProvenanceSchema>;
+export type ModelKind = z.infer<typeof ModelKindSchema>;
 export type IndexData = z.infer<typeof IndexDataSchema>;
 export type IndexModel = z.infer<typeof IndexModelSchema>;
 export type AgenticModel = z.infer<typeof AgenticModelSchema>;
@@ -305,6 +355,7 @@ export type RunDetail = z.infer<typeof RunDetailSchema>;
 export type RuntimeSummary = z.infer<typeof RuntimeSchema>;
 export type HardwareSummary = z.infer<typeof HardwareSchema>;
 export type PrimitiveRecord = z.infer<typeof PrimitiveRecordSchema>;
+export type Perf = z.infer<typeof PerfSchema>;
 
 // Raw shape of model_catalog.json (the on-ramp picker source). Tolerant by design — the catalog is
 // large and varied, so unknown keys pass through and most fields are optional/nullable.
@@ -333,11 +384,30 @@ const CatalogModelSchema = z
       .optional(),
     reasoning_capable: z.boolean().nullable().optional(),
     license: z.string().nullable().optional(),
-    popularity: z.object({ downloads: z.number().nullable().optional() }).passthrough().nullable().optional(),
+    base_model: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+    model_kind: ModelKindSchema.optional().default("base"),
+    popularity: z
+      .object({
+        downloads: z.number().nullable().optional(),
+        likes: z.number().nullable().optional(),
+        trending: z.number().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
     gguf_repo: z.string().nullable().optional(),
     quants: z.array(CatalogQuantSchema),
   })
   .passthrough();
 
-export const CatalogSchema = z.array(CatalogModelSchema);
+export const CatalogSchema = z.union([
+  z.array(CatalogModelSchema),
+  z
+    .object({
+      popularity_as_of: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      models: z.array(CatalogModelSchema),
+    })
+    .passthrough(),
+]);
 export type CatalogModel = z.infer<typeof CatalogModelSchema>;
+export type Catalog = z.infer<typeof CatalogSchema>;

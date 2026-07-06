@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "Qwen/Qwen3.6-35B-A3B",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Qwen3.6 35B A3B",
   "org": "Qwen",
   "runs": [
@@ -53,6 +55,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 8.5,
       "composite": {
         "hi": 65.84352883630854,
@@ -65,7 +104,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 37.2,
+      "file_gb": 36.9,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -99,7 +138,7 @@
       "tokens_to_answer_p95": 2109.6999999999985,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 37.2,
-      "vram_required_gb_8k": 39.9,
+      "vram_required_gb_8k": 39.6,
       "wall_time_seconds": 2672.2755575231276
     },
     {
@@ -147,7 +186,43 @@
           "termination_rate": 1.0
         }
       },
-      "bpw": 6.6,
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "composite": {
         "hi": 66.69807737685657,
         "hi_raw": 0.6669807737685658,
@@ -159,7 +234,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 28.9,
+      "file_gb": null,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -193,43 +268,8 @@
       "tokens_to_answer_p95": 2430.4999999999995,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 28.9,
-      "vram_required_gb_8k": 31.6,
+      "vram_required_gb_8k": null,
       "wall_time_seconds": 2641.1865229599643
-    },
-    {
-      "axes": {},
-      "bpw": 5.7,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 24.9,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q5_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 24.9,
-      "vram_required_gb_8k": 27.7,
-      "wall_time_seconds": null
     },
     {
       "axes": {
@@ -276,7 +316,43 @@
           "termination_rate": 1.0
         }
       },
-      "bpw": 4.85,
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "composite": {
         "hi": 66.9636587064384,
         "hi_raw": 0.669636587064384,
@@ -288,7 +364,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 21.2,
+      "file_gb": null,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -322,78 +398,8 @@
       "tokens_to_answer_p95": 2504.999999999996,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 21.2,
-      "vram_required_gb_8k": 24.0,
+      "vram_required_gb_8k": null,
       "wall_time_seconds": 2419.727651232155
-    },
-    {
-      "axes": {},
-      "bpw": 3.9,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 17.1,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q3_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 17.1,
-      "vram_required_gb_8k": 19.8,
-      "wall_time_seconds": null
-    },
-    {
-      "axes": {},
-      "bpw": 3.0,
-      "composite": null,
-      "demo": false,
-      "est_cost_usd": null,
-      "file_gb": 13.1,
-      "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
-        "ram_gb": null
-      },
-      "lane": "answer-only",
-      "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q2_K",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
-      },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 13.1,
-      "vram_required_gb_8k": 15.9,
-      "wall_time_seconds": null
     }
   ],
   "slug": "qwen3-6-35b-a3b"

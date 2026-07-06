@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "Qwen/Qwen3-Coder-Next",
   "demo": false,
   "family": "Qwen3 Coder",
   "gguf_repo": "unsloth/Qwen3-Coder-Next-GGUF",
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Qwen3 Coder Next",
   "org": "Qwen",
   "runs": [
@@ -53,6 +55,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 8.5,
       "composite": {
         "hi": 65.65314695321212,
@@ -65,7 +104,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 85.0,
+      "file_gb": 84.8,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -99,7 +138,7 @@
       "tokens_to_answer_p95": 3355.8999999999937,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 85.0,
-      "vram_required_gb_8k": 90.0,
+      "vram_required_gb_8k": 89.8,
       "wall_time_seconds": 3528.822674885858
     },
     {
@@ -147,6 +186,43 @@
           "termination_rate": 1.0
         }
       },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 6.6,
       "composite": {
         "hi": 64.37347006710543,
@@ -159,7 +235,7 @@
       "composite_full": null,
       "composite_static": null,
       "est_cost_usd": null,
-      "file_gb": 66.0,
+      "file_gb": 65.6,
       "hardware": {
         "cpu": "x86_64",
         "gpu": {
@@ -193,7 +269,7 @@
       "tokens_to_answer_p95": 3379.0,
       "trust_label": "community_re_scored",
       "vram_footprint_gb": 66.0,
-      "vram_required_gb_8k": 71.0,
+      "vram_required_gb_8k": 70.6,
       "wall_time_seconds": 3261.830271936953
     },
     {
@@ -202,7 +278,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 57.0,
+      "file_gb": 56.8,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -227,8 +303,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 57.0,
-      "vram_required_gb_8k": 62.0,
+      "vram_footprint_gb": 56.8,
+      "vram_required_gb_8k": 61.8,
       "wall_time_seconds": null
     },
     {
@@ -272,7 +348,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 39.0,
+      "file_gb": 38.3,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -297,8 +373,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 39.0,
-      "vram_required_gb_8k": 44.0,
+      "vram_footprint_gb": 38.3,
+      "vram_required_gb_8k": 43.3,
       "wall_time_seconds": null
     },
     {
@@ -307,7 +383,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 30.0,
+      "file_gb": 29.2,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -332,8 +408,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 30.0,
-      "vram_required_gb_8k": 35.0,
+      "vram_footprint_gb": 29.2,
+      "vram_required_gb_8k": 34.2,
       "wall_time_seconds": null
     }
   ],

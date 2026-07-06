@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
   "demo": false,
   "family": "DeepSeek R1 Distill",
   "gguf_repo": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
   "kind": "community",
   "license": "mit",
+  "model_kind": "base",
   "model_label": "DeepSeek R1 Distill Llama 8B",
   "org": "DeepSeek",
   "runs": [
@@ -154,7 +156,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 3.9,
+      "file_gb": 4.0,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -179,8 +181,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 3.9,
-      "vram_required_gb_8k": 5.3,
+      "vram_footprint_gb": 4.0,
+      "vram_required_gb_8k": 5.4,
       "wall_time_seconds": null
     },
     {
@@ -189,7 +191,7 @@
       "composite": null,
       "demo": false,
       "est_cost_usd": null,
-      "file_gb": 3.0,
+      "file_gb": 3.2,
       "hardware": {
         "cpu": null,
         "gpu": null,
@@ -214,8 +216,8 @@
       "tok_s": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 3.0,
-      "vram_required_gb_8k": 4.4,
+      "vram_footprint_gb": 3.2,
+      "vram_required_gb_8k": 4.6,
       "wall_time_seconds": null
     }
   ],

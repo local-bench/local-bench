@@ -1,12 +1,16 @@
 {
   "axes": {
     "agentic": {
+      "ambiguous_or_contaminated_final_rate": null,
+      "budget_cap_hit_rate": null,
       "conditional_accuracy": 0.13541666666666666,
+      "empty_final_rate": null,
       "hi": 20.833333333333336,
       "hi_raw": 0.20833333333333334,
       "leaked_reasoning_rate": null,
       "lo": 7.291666666666667,
       "lo_raw": 0.07291666666666667,
+      "measurement_truncation_rate": null,
       "n": 96,
       "n_errors": 0,
       "n_no_answer": 0,
@@ -47,12 +51,12 @@
     }
   },
   "composite": {
-    "hi": 40.85618002940345,
-    "hi_raw": 0.40856180029403444,
-    "lo": 29.424199350905532,
-    "lo_raw": 0.29424199350905533,
-    "point": 34.70683939424642,
-    "point_raw": 0.3470683939424642
+    "hi": 43.4531321212635,
+    "hi_raw": 0.434531321212635,
+    "lo": 32.79267284394757,
+    "lo_raw": 0.3279267284394757,
+    "point": 37.73043549818639,
+    "point_raw": 0.3773043549818639
   },
   "composite_full": null,
   "composite_static": null,
@@ -94,7 +98,7 @@
     "coding not measured in this run; axis omitted"
   ],
   "est_cost_usd": null,
-  "index_version": "index-v2.1",
+  "index_version": "index-v3.0",
   "item_set_hashes": {
     "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
     "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
@@ -159,9 +163,10 @@
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q2_K",
   "scorecard": {
-    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
-    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "current_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
     "drift": true,
+    "execution_profile_id": null,
     "id": "59c8f3cd3e8d8dc4b5c778e701d22911fc18fdde4bf5d919ecd8beb5f9142a0f",
     "registry_digest": "d40e0ccec4d2d144dae386c3a7cc1fef7c638865accbcda4ded93d592528efed",
     "registry_drift": true,

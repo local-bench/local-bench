@@ -15,12 +15,10 @@ from localbench.run_plan import SCORED_DEFAULT_BENCHES, resolve_run_benches
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SUITE_DIR = _REPO_ROOT / "suite" / "v1"
 _OPT_IN_BENCHES = {
-    "amo",
-    "olymmath_hard",
     "bfcl",
     "bfcl_multi_turn",
     "ruler_32k",
-    "bigcodebench_hard",
+    "lcb",
 }
 _IFBENCH_PASSING_RESPONSE = (
     "kaleidoscope nebula nebula whisper whisper whisper "
@@ -36,8 +34,8 @@ def test_resolve_run_benches_when_all_uses_scored_default() -> None:
     # When resolving the run-level "all" choice.
     benches = resolve_run_benches("all", suite)
 
-    # Then the scored default endpoint axes include Tool-calling and the Agentic inline attempt.
-    assert benches == ["mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"]
+    # Then the scored default endpoint axes include math, tool-calling, coding generation, and the Agentic inline attempt.
+    assert benches == ["mmlu_pro", "ifbench", "olymmath_hard", "amo", "tc_json_v1", "bigcodebench_hard", "appworld_c"]
     assert tuple(benches) == SCORED_DEFAULT_BENCHES
     assert not _OPT_IN_BENCHES.intersection(benches)
 
@@ -92,12 +90,14 @@ def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashin
         )
 
         # Then appworld_c is attempted outside the HTTP/render path and degrades honestly.
-        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1", "lcb"]
+        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "olymmath_hard", "amo", "tc_json_v1", "bigcodebench_hard"]
         assert [item["bench"] for item in record["items"]] == [
             "mmlu_pro",
             "ifbench",
+            "olymmath_hard",
+            "amo",
             "tc_json_v1",
-            "lcb",
+            "bigcodebench_hard",
         ]
         axes = record["axis_status"]["axes"]
         assert axes["knowledge"] == {
@@ -115,30 +115,26 @@ def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashin
             "status": "measured",
             "reason": "ok",
         }
-        assert axes["coding"] == {
-            "axis": "coding",
-            "status": "measured",
-            "reason": "ok",
-        }
+        assert axes["coding"]["axis"] == "coding"
+        assert axes["coding"]["status"] == "generated_unverified"
+        assert axes["coding"]["reason"] == "verdict_pending"
+        assert "verifier verdict pending" in axes["coding"]["detail"]
         assert axes["agentic"]["axis"] == "agentic"
         assert axes["agentic"]["status"] == "not_measured"
         assert axes["agentic"]["reason"] == "sandbox_unavailable"
         assert "appworld sandbox unavailable:" in axes["agentic"]["detail"]
-        for axis in ("math", "long_context"):
-            assert axes[axis] == {
-                "axis": axis,
-                "status": "not_measured",
-                "reason": "not_run",
-            }
+        assert axes["math"] == {"axis": "math", "status": "measured", "reason": "ok"}
+        assert axes["long_context"] == {"axis": "long_context", "status": "not_measured", "reason": "not_run"}
         assert record["benches"]["tc_json_v1"]["chance_corrected"] == pytest.approx(1.0)
         measured_without_agentic = {
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
+            "olymmath_hard": record["benches"]["olymmath_hard"],
+            "amo": record["benches"]["amo"],
             "tc_json_v1": record["benches"]["tc_json_v1"],
-            "lcb": record["benches"]["lcb"],
         }
-        assert record["scores"]["partial_composite"] == pytest.approx(composite(measured_without_agentic))
-        assert record["scores"]["partial_composite"] == pytest.approx(1.0)
+        assert record["scores"]["partial_composite"] == pytest.approx(round(composite(measured_without_agentic), 4))
+        assert record["scores"]["partial_composite"] == pytest.approx(0.8889)
         assert record["headline_complete"] is False
 
     asyncio.run(scenario())
@@ -171,11 +167,12 @@ def test_run_localbench_zero_scoring_tool_calling_moves_composite(tmp_path: Path
         measured_without_agentic = {
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
+            "olymmath_hard": record["benches"]["olymmath_hard"],
+            "amo": record["benches"]["amo"],
             "tc_json_v1": record["benches"]["tc_json_v1"],
-            "lcb": record["benches"]["lcb"],
         }
-        assert record["scores"]["partial_composite"] == pytest.approx(composite(measured_without_agentic))
-        assert record["scores"]["partial_composite"] == pytest.approx(0.8)
+        assert record["scores"]["partial_composite"] == pytest.approx(round(composite(measured_without_agentic), 4))
+        assert record["scores"]["partial_composite"] == pytest.approx(0.6667)
 
     asyncio.run(scenario())
 

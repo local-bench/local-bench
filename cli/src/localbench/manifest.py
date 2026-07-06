@@ -26,7 +26,13 @@ _RUNTIME_FIELDS: Final = (
     "runtime.name", "runtime.version", "runtime.kv_cache_quant",
     "runtime.ctx_len_configured", "runtime.parallel_slots",
 )
-_LANES: Final = {"answer-only", "capped-thinking", "api-uncapped", "bounded-final-v1"}
+_LANES: Final = {
+    "answer-only",
+    "capped-thinking",
+    "api-uncapped",
+    "bounded-final-v1",
+    "bounded-final-v2",
+}
 ModelIdentitySource: TypeAlias = Literal["gguf.embedded", "external.file", "server.override"]
 
 

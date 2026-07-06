@@ -24,7 +24,11 @@ def system_fields(group: Sequence[ScoredRun], best: ScoredRun) -> JsonObject:
 
 
 def _ranked_systems(group: Sequence[ScoredRun]) -> list[ScoredRun]:
-    return sorted(group, key=lambda run: (-run["composite_raw"], run["order"]))
+    # Ranked systems always sort ahead of unranked ones: the board is a ranked leaderboard,
+    # so a legacy/out-of-lane run (not board-comparable) must never shadow a ranked
+    # current-lane run as the family headline — even when its raw composite is higher
+    # (e.g. a v1-era capped-thinking composite vs the harder bounded-final 6-axis one).
+    return sorted(group, key=lambda run: (not run["ranked"], -run["composite_raw"], run["order"]))
 
 
 def _recommended_system(group: Sequence[ScoredRun], best: ScoredRun) -> ScoredRun:

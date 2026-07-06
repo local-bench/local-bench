@@ -29,6 +29,9 @@ def test_bigcodebench_items_have_required_exec_fields() -> None:
         for key in _REQUIRED:
             assert isinstance(item.get(key), str) and item[key].strip(), f"{item.get('id')} missing {key}"
         assert item["lane"] == "exec"
+        assert item["max_tokens"] == 16_384
+        assert item["sampling_params"] == {"temperature": 0}
+        assert item["answer_reserve"] == 4_096
         # Each task ships its own unit tests (which the sandbox runs against the generation).
         assert "TestCase" in item["test"]
         assert item["source_id"].startswith("BigCodeBench/")

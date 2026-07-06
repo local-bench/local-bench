@@ -36,6 +36,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
+from localbench._response import parse_server_timings
 from localbench._types import ChatMessage
 from localbench.scoring.agentic_exec.model_client import (
     GenerationParams,
@@ -233,6 +234,7 @@ class ChatCompletionsClient:
             text=content,
             finish_reason=finish_reason,
             output_tokens=output_tokens,
+            server_timings=parse_server_timings(data.get("timings")),
         )
 
     def _error_response(self, detail: str) -> ModelResponse:

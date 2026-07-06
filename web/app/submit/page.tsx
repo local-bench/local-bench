@@ -55,7 +55,7 @@ export default function SubmitPage() {
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
           {`localbench fetch-suite \\
   --site https://local-bench.ai \\
-  --suite suite-v1-text-code-agentic-5axis-v1 \\
+  --suite suite-v1-full-exec-6axis-v1 \\
   --accept-suite-terms`}
         </pre>
         <p>
@@ -114,9 +114,12 @@ export default function SubmitPage() {
           generates this exact sequence.
         </p>
         <p>
-          The agentic axis (AppWorld) executes live in a Linux sandbox (native Linux or WSL2). If your
-          platform cannot run it, skip it: a run covering the four static axes still gets a rankable
-          static-composite row (see placement below).
+          The full ranked release is <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>.
+          Static-only submitters can use{" "}
+          <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code> and need no Docker:
+          coding artifacts are packed by the CLI and the ranked coding score is produced later by project
+          re-execution. <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> is
+          unranked diagnostic only.
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">4. Submit</h3>
@@ -139,7 +142,9 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">submit run</code> with a bundle that is already
           in tells you its existing submission id instead of creating a new row, and a bundle whose
           payload matches an earlier submission is flagged for the reviewer. If a ticket expires
-          mid-flight, a fresh one is minted automatically. Check on a submission any time:
+          mid-flight, a fresh one is minted automatically. The public status page is{" "}
+          <code className="font-mono text-bench-text">local-bench.ai/submission?id=&lt;submission_id&gt;</code>.
+          You can also check from the CLI:
         </p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
           {`localbench submit status <submission_id> --site https://local-bench.ai`}
@@ -150,10 +155,10 @@ export default function SubmitPage() {
         <h2 className="text-xl font-semibold text-bench-text">What happens after you submit</h2>
         <p>
           Nothing auto-publishes. Every submission lands as pending; the maintainer reviews it and must
-          explicitly accept it before it can appear on the board. As part of review, the four static
-          axes (Knowledge, Instruction-Following, Tool calling, Coding) are always re-scored
-          server-side from the transcripts in your bundle — the score you claim is never the score
-          that publishes. Agentic (AppWorld) results are carried as you submitted them and labeled{" "}
+          explicitly accept it before it can appear on the board. As part of review, transcript-scored
+          axes are re-scored server-side from the transcripts in your bundle, and Coding ranks only after
+          project re-execution of the submitted artifacts. The score you claim is never the score that
+          publishes. Agentic (AppWorld) results are carried as you submitted them and labeled{" "}
           <span className="text-bench-text">self-reported</span> on the board; they count in the
           composite but are not independently verified. The public board is regenerated only after
           these checks, maintainer review, and an explicit deploy.
@@ -162,22 +167,24 @@ export default function SubmitPage() {
 
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What you can submit</h2>
-        <p>All five axes are accepted, agentic included.</p>
+        <p>All current release profiles are accepted, with rankability determined by the release identity.</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <span className="text-bench-text">All five axes</span> — ranks on the main index
-            (index-v2.1: Agentic 50 / Knowledge 15 / Instruction-Following 15 / Tool calling 10 /
-            Coding 10).
+            <span className="text-bench-text">Full 6-axis ranked</span> —{" "}
+            <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>, ranked on
+            index-v3.0: Agentic 40 / Knowledge 15 / Instruction-Following 15 / Tool calling 10 /
+            Coding 15 / Math 5.
           </li>
           <li>
-            <span className="text-bench-text">The four static axes</span> (no agentic — e.g. platforms
-            without the Linux sandbox) — ranks in the no-agentic lane (static-suite-v1: Knowledge 30 /
-            Instruction-Following 30 / Tool calling 20 / Coding 20, renormalized), a separate table that
-            never mixes into — and is never score-comparable with — the main index. Agentic is half the
-            main index by design, so skipping it cannot place a run higher.
+            <span className="text-bench-text">Static 5-axis ranked</span> —{" "}
+            <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code>, no Agentic,
+            verified Coding, and no submitter Docker requirement. It ranks only against static rows:
+            Knowledge 25 / Instruction-Following 25 / Tool calling 20 / Coding 20 / Math 10.
           </li>
           <li>
-            <span className="text-bench-text">Fewer axes</span> — displayed per-axis only, unranked.
+            <span className="text-bench-text">Static-Core diagnostic</span> —{" "}
+            <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code>, no Agentic
+            and no sandboxed Coding. It is displayed as diagnostic and never ranked.
           </li>
         </ul>
       </section>
@@ -203,9 +210,10 @@ export default function SubmitPage() {
 
       <section className="space-y-3 text-bench-muted">
         <p>
-          Labels mean exactly what they say. Re-scored means we recomputed your static scores from
-          your transcripts; self-reported means we carried your agentic verdicts as submitted. None of
-          it proves model identity, hardware identity, or runtime honesty — see the{" "}
+          Labels mean exactly what they say. Re-scored means we recomputed transcript-scored axes from
+          your transcripts; re-executed means Coding was run again by the project; self-reported means
+          we carried your agentic verdicts as submitted. None of it proves model identity, hardware identity,
+          or runtime honesty — see the{" "}
           <Link href="/methodology" className="text-bench-accent hover:underline">
             methodology page
           </Link>{" "}

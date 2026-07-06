@@ -21,7 +21,14 @@ SHELL_SCORE_STATUS: Final = "missing"
 
 
 def catalog_entries(raw: JsonValue) -> list[JsonObject]:
-    return [_catalog_entry(entry, index) for index, entry in enumerate(list_value(raw, "model_catalog"))]
+    return [_catalog_entry(entry, index) for index, entry in enumerate(_catalog_items(raw))]
+
+
+def _catalog_items(raw: JsonValue) -> list[JsonValue]:
+    if isinstance(raw, list):
+        return raw
+    catalog = object_value(raw, "model_catalog")
+    return list_value(catalog.get("models"), "model_catalog.models")
 
 
 def catalog_index_row(entry: JsonObject) -> JsonObject:
@@ -57,11 +64,13 @@ def catalog_model_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObje
     ]
     return {
         "catalog_id": entry["id"],
+        "base_model": entry["base_model"],
         "demo": False,
         "family": entry["family"],
         "gguf_repo": entry["gguf_repo"],
         "kind": SHELL_KIND,
         "license": entry["license"],
+        "model_kind": entry["model_kind"],
         "model_label": entry["display_name"],
         "org": entry["org"],
         "runs": quant_rows + extra_rows,
@@ -128,12 +137,14 @@ def run_catalog_key(run: JsonObject) -> str | None:
 def _catalog_entry(value: JsonValue, index: int) -> JsonObject:
     item = object_value(value, f"model_catalog[{index}]")
     return {
+        "base_model": text_value(item.get("base_model")),
         "display_name": string_value(item.get("display_name"), f"model_catalog[{index}].display_name"),
         "family": string_value(item.get("family"), f"model_catalog[{index}].family"),
         "gguf_repo": text_value(item.get("gguf_repo")),
         "id": string_value(item.get("id"), f"model_catalog[{index}].id"),
         "is_moe": bool_value(item.get("is_moe"), f"model_catalog[{index}].is_moe"),
         "license": text_value(item.get("license")),
+        "model_kind": text_value(item.get("model_kind")) or "base",
         "org": text_value(item.get("org")),
         "popularity": object_or_empty(item.get("popularity")),
         "quants": list_value(item.get("quants"), f"model_catalog[{index}].quants"),

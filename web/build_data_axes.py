@@ -22,13 +22,14 @@ from localbench.scoring.axes import (  # noqa: E402
     web_display_axes,
     web_source_bench_groups,
 )
+from localbench.coding_exec.score import BENCH as CODING_BENCH, SANDBOX_UNSCOREABLE_BCBH  # noqa: E402
 
 StratumForItem: TypeAlias = Callable[[str, str | None, Mapping[str, JsonValue]], str]
 
 # Web display axes, source-bench groups, and composite weights are DERIVED from the
 # single source of truth (localbench.scoring.axes.AXES) — no hardcoded copy here
-# (METHODOLOGY-v1.2 §8). Headline axes (knowledge + instruction) weight 0.5 each;
-# agentic + math are displayed but weight 0.0, so they never enter the composite.
+# (METHODOLOGY-v3.0). Headline/static axis weights are imported from the same
+# registry the CLI scorer hashes into scorecard identity.
 BENCHES: Final = web_display_axes()
 SOURCE_BENCH_GROUPS_BY_AXIS: Final = web_source_bench_groups()
 COMPOSITE_WEIGHTS: Final = web_composite_weights()
@@ -48,8 +49,10 @@ def scored_inputs(
         bench = _text(item.get("bench"))
         if bench not in values:
             continue
-        chance = _chance_baseline(_object(source_benches.get(bench), f"benches.{bench}"), bench)
         item_id = _text(item.get("id"))
+        if bench == CODING_BENCH and item_id in SANDBOX_UNSCOREABLE_BCBH:
+            continue
+        chance = _chance_baseline(_object(source_benches.get(bench), f"benches.{bench}"), bench)
         strata[bench].append(stratum_for_item(bench, item_id, item) if item_id else bench)
         if item.get("error") is not None:
             values[bench].append(_signed_item_score(False, chance))
@@ -143,6 +146,13 @@ def _axis_from_benches(
     for key in ("termination_rate", "conditional_accuracy"):
         if all(key in aggregate for aggregate in aggregates):
             axis_score[key] = _weighted_bench_value(source_names, aggregates, n_by_bench, key)
+    if any("n_unscoreable" in aggregate for aggregate in aggregates):
+        axis_score["n_unscoreable"] = sum(
+            _int(aggregate.get("n_unscoreable", 0), f"{bench}.n_unscoreable")
+            if "n_unscoreable" in aggregate
+            else 0
+            for bench, aggregate in zip(source_names, aggregates, strict=True)
+        )
     return axis_score
 
 

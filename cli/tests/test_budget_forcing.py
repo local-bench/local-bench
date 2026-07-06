@@ -12,6 +12,7 @@ import pytest
 from localbench._types import JsonValue
 from localbench.budget_forcing import (
     CAPPED_THINKING_THINK_BUDGET,
+    QWEN_FORCING,
     answer_budget_for,
     render_qwen3_chat_prompt,
     run_forced_item,
@@ -22,8 +23,15 @@ from localbench.prompt_rendering import HfChatPromptRenderer
 from localbench.runner import run_benchmark
 
 
-def _completion(text: str, finish_reason: str, *, prompt_tokens: int, completion_tokens: int) -> dict:
-    return {
+def _completion(
+    text: str,
+    finish_reason: str,
+    *,
+    prompt_tokens: int,
+    completion_tokens: int,
+    timings: dict | None = None,
+) -> dict:
+    body = {
         "choices": [{"text": text, "finish_reason": finish_reason}],
         "usage": {
             "prompt_tokens": prompt_tokens,
@@ -31,6 +39,9 @@ def _completion(text: str, finish_reason: str, *, prompt_tokens: int, completion
             "total_tokens": prompt_tokens + completion_tokens,
         },
     }
+    if timings is not None:
+        body["timings"] = timings
+    return body
 
 
 def _item(think_budget: int | None = 8192, max_tokens: int = 16384) -> dict:
@@ -210,6 +221,62 @@ def test_forced_when_thinking_exceeds_budget() -> None:
         assert result["error"] is None
         # usage is summed across both passes
         assert result["usage"] == {"prompt_tokens": 30, "completion_tokens": 8197, "total_tokens": 8227}
+
+    asyncio.run(scenario())
+
+
+def test_forced_two_pass_carries_both_server_timings() -> None:
+    async def scenario() -> None:
+        think_timings = {
+            "prompt_n": 10,
+            "prompt_ms": 25.0,
+            "predicted_n": 8192,
+            "predicted_ms": 4096.0,
+        }
+        answer_timings = {
+            "prompt_n": 20,
+            "prompt_ms": 50.0,
+            "predicted_n": 5,
+            "predicted_ms": 20.0,
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            body = json.loads(request.content)
+            if body["stop"] == ["</think>"]:
+                return httpx.Response(
+                    200,
+                    json=_completion(
+                        "<think>\nlong reasoning",
+                        "length",
+                        prompt_tokens=10,
+                        completion_tokens=8192,
+                        timings=think_timings,
+                    ),
+                )
+            return httpx.Response(
+                200,
+                json=_completion(
+                    "Answer: C",
+                    "stop",
+                    prompt_tokens=20,
+                    completion_tokens=5,
+                    timings=answer_timings,
+                ),
+            )
+
+        async with _forcing_client(handler) as client:
+            result = await run_forced_item(
+                client=client,
+                base_url="http://local/v1",
+                headers={},
+                model="qwen",
+                item=_item(),
+                semaphore=asyncio.Semaphore(1),
+                max_attempts=3,
+                backoff_base=0.0,
+            )
+
+        assert result["server_timings"] == {"passes": [think_timings, answer_timings]}
 
     asyncio.run(scenario())
 
@@ -406,6 +473,35 @@ def test_run_benchmark_answer_only_uses_chat_path_unchanged() -> None:
 
         assert paths == ["/v1/chat/completions"]  # single normal pass, no forcing
         assert record["results"][0]["response_text"] == "Answer: A"
+        assert record["results"][0]["thinking_forced"] is False
+
+    asyncio.run(scenario())
+
+
+def test_bounded_final_v2_item_execution_mode_answer_only_uses_chat_path() -> None:
+    async def scenario() -> None:
+        paths: list[str] = []
+        item = _item()
+        item["execution_mode"] = "answer_only"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            paths.append(request.url.path)
+            return httpx.Response(200, json={
+                "choices": [{"message": {"content": "```python\nx = 1\n```"}, "finish_reason": "stop"}],
+                "usage": {"prompt_tokens": 4, "completion_tokens": 2, "total_tokens": 6}})
+
+        record = await run_benchmark(
+            base_url="http://local/v1",
+            model="qwen",
+            items=[item],
+            lane="bounded-final-v2",
+            transport=httpx.MockTransport(handler),
+            prompt_renderer=HfChatPromptRenderer(tokenizer=_FakeTokenizer(), activation=None),
+            forcing_format=QWEN_FORCING,
+        )
+
+        assert paths == ["/v1/chat/completions"]
+        assert record["results"][0]["response_text"] == "```python\nx = 1\n```"
         assert record["results"][0]["thinking_forced"] is False
 
     asyncio.run(scenario())

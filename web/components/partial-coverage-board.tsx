@@ -78,7 +78,7 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
         <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
           Published runs that measured only part of the headline Index (for example the text+code profile, with the
           Agentic module not yet run). They are shown for transparency but are <span className="font-semibold text-bench-warn-soft">never globally ranked</span> and
-          are not comparable to full five-axis rows. Each carries its coverage profile and the headline weight it covers.
+          are not comparable to complete current-index rows. Each carries its coverage profile and the headline weight it covers.
         </p>
       </div>
       {rows.length === 0 ? (

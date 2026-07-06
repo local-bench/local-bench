@@ -1,10 +1,12 @@
 {
+  "base_model": null,
   "catalog_id": "nex-agi/Nex-N2-Pro",
   "demo": false,
   "family": "Nex N2",
-  "gguf_repo": "paragon-of-brah/Nex-N2-Pro-397B-A17B-GGUF",
+  "gguf_repo": null,
   "kind": "community",
   "license": "apache-2.0",
+  "model_kind": "base",
   "model_label": "Nex N2 Pro",
   "org": "Nex AGI",
   "runs": [

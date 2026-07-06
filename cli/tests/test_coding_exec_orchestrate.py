@@ -17,7 +17,6 @@ from localbench.coding_exec.orchestrate import (
     run_coding_exec,
 )
 from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
-from localbench.orchestrate import _exclude_exec_lane
 
 _REPO = Path(__file__).resolve().parents[2]
 _SUITE_V1 = _REPO / "suite" / "v1"
@@ -152,14 +151,19 @@ def test_ranked_eligibility_requires_digest_pin_and_no_unsafe_override() -> None
     assert any("unsafe" in reason for reason in unsafe_reasons)
 
 
-def test_localbench_run_excludes_the_exec_lane_bench() -> None:
+def test_bigcodebench_renders_for_deferred_artifact_generation() -> None:
     suite = read_json_object(_SUITE_V1 / "suite.json")
     warnings: list[str] = []
     rendered = render_benches("bigcodebench_hard", "standard", 1, _SUITE_V1, suite, warnings)
-    assert rendered, "exec bench should still render for `localbench code`"
-    kept = _exclude_exec_lane(rendered, suite, warnings)
-    assert kept == []  # ... but never via the normal `localbench run` path
-    assert any("localbench code" in warning for warning in warnings)
+
+    assert len(rendered) == 1
+    item = rendered[0].benchmark_items[0]
+    source = rendered[0].source_items[0]
+    assert str(source["instruct_prompt"]) in item["messages"][0]["content"]
+    assert "complete_prompt" not in item["messages"][0]["content"]
+    assert item["max_tokens"] == 16_384
+    assert item["sampling_params"] == {"temperature": 0}
+    assert item["answer_reserve"] == 4_096
 
 
 def test_cli_code_help_exits_zero() -> None:

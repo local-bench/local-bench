@@ -23,6 +23,7 @@ export function handleSuites(env: ApiEnv): Response {
   return jsonResponse(200, {
     suites: PUBLIC_SUITES.map((suite) => ({
       id: suite.id,
+      legacy: suite.legacy ?? false,
       manifest_url: `${baseUrl}/api/suites/${suite.id}/manifest`,
       suite_hash: suite.suiteHash,
       suite_manifest_sha256: suite.suiteManifestSha256,

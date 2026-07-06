@@ -1,5 +1,4 @@
 {
-  "agentic_provenance": "project_attested",
   "axes": {
     "agentic": {
       "conditional_accuracy": 0.057291666666666664,
@@ -72,30 +71,53 @@
       "termination_rate": 1.0
     }
   },
+  "axis_status": {
+    "agentic": {
+      "axis": "agentic",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "coding": {
+      "axis": "coding",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "instruction_following": {
+      "axis": "instruction_following",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "knowledge": {
+      "axis": "knowledge",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "long_context": {
+      "axis": "long_context",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "math": {
+      "axis": "math",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "tool_calling": {
+      "axis": "tool_calling",
+      "reason": "ok",
+      "status": "measured"
+    }
+  },
   "composite": {
-    "hi": 43.50254876587276,
-    "hi_raw": 0.4350254876587276,
-    "lo": 37.62372931355355,
-    "lo_raw": 0.3762372931355355,
-    "point": 40.261026195500214,
-    "point_raw": 0.40261026195500216
+    "hi": 49.49006237248613,
+    "hi_raw": 0.49490062372486127,
+    "lo": 44.13372399507101,
+    "lo_raw": 0.4413372399507101,
+    "point": 46.60534377168118,
+    "point_raw": 0.46605343771681174
   },
-  "composite_full": {
-    "hi": 43.50254876587276,
-    "hi_raw": 0.4350254876587276,
-    "lo": 37.62372931355355,
-    "lo_raw": 0.3762372931355355,
-    "point": 40.261026195500214,
-    "point_raw": 0.40261026195500216
-  },
-  "composite_static": {
-    "hi": 77.84717211750439,
-    "hi_raw": 0.7784717211750438,
-    "lo": 72.75274253145282,
-    "lo_raw": 0.7275274253145283,
-    "point": 75.3137190576671,
-    "point_raw": 0.7531371905766711
-  },
+  "composite_full": null,
+  "composite_static": null,
   "conformance": {
     "n_scored": 1153,
     "per_bench": {
@@ -168,7 +190,7 @@
     "agentic chance_corrected differs from item-derived mean; stale/inconsistent run JSON"
   ],
   "est_cost_usd": null,
-  "index_version": "index-v2.1",
+  "index_version": "index-v3.0",
   "item_set_hashes": {
     "coding.jsonl": "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",
     "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
@@ -284,18 +306,18 @@
   "provenance_notes": [
     "grandfathered_attested_bundle"
   ],
-  "ranked": true,
+  "ranked": false,
   "run_id": "gemma-4-12b-it__localbench-run",
   "scorecard": {
-    "current_id": "2c9054971977cde504e4c54fb0ae8869c7f3cb67278226edbf2547b1533d9ce1",
-    "current_registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
+    "current_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
     "drift": true,
+    "execution_profile_id": null,
     "id": "30d33810e489411d79d5e0b0643baa81689e94deffbb05e6ead46694e973f7f9",
     "registry_digest": "17f3669254a8bd152526d69a484c24050aa85cfbc73bd9781cd48997c51562f8",
-    "registry_drift": false,
+    "registry_drift": true,
     "version": "scorecard-v2.1"
   },
-  "static_index_version": "static-suite-v1",
   "suite_version": "suite-v1",
   "tier": "standard",
   "tokens_to_answer_median": 8194.0,

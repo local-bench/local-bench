@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
+import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 
 export const dynamicParams = false;
@@ -19,7 +21,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns } = await getModelPageData(slug);
+  const { model, anchorRuns, lineage, vsBaseComparisons } = await getModelPageData(slug);
   const measuredRuns = model.runs.filter((run) => run.score_status === "measured");
   const rankedRuns = measuredRuns.filter((run) => run.ranked);
   const partialRuns = measuredRuns.filter((run) => !run.ranked);
@@ -45,9 +47,25 @@ export default async function ModelPage({ params }: PageProps) {
             </div>
           ) : null}
           <h1 className="mt-3 text-4xl font-semibold text-bench-text">{model.model_label}</h1>
+          {lineage !== null ? (
+            <div className="mt-3">
+              {lineage.baseSlug !== null ? (
+                <Link
+                  href={`/model/${lineage.baseSlug}`}
+                  className="inline-flex rounded border border-bench-line bg-bench-panel-2 px-2.5 py-1 font-mono text-[11px] uppercase text-bench-accent hover:border-bench-accent"
+                >
+                  Fine-tune of {lineage.baseDisplayName}
+                </Link>
+              ) : (
+                <span className="inline-flex rounded border border-bench-line bg-bench-panel-2 px-2.5 py-1 font-mono text-[11px] uppercase text-bench-muted">
+                  Fine-tune of {lineage.baseDisplayName}
+                </span>
+              )}
+            </div>
+          ) : null}
           {provenanceRun === undefined ? null : <ProvenanceLabels model={provenanceRun} />}
           <p className="mt-2 max-w-3xl text-bench-muted">
-            This model&apos;s quants and distills, with ranks assigned only to complete five-axis Local Intelligence Index
+            This model&apos;s quants and distills, with ranks assigned only to complete current-index Local Intelligence
             rows. Partial profiles remain useful diagnostics; the VRAM and speed columns show what each rung costs.
           </p>
           {partialRuns.length > 0 && rankedRuns.length === 0 ? (
@@ -58,6 +76,7 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
         </div>
       </header>
+      <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
       <ModelVariantBoard model={model} formatGate={formatGate} />
       <ModelScatter model={model} anchorRuns={anchorRuns} />
     </main>

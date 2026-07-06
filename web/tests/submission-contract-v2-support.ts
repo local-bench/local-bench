@@ -3,8 +3,8 @@ import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { RAW_BUNDLE_SHA, resultBundle } from "./submission-test-support";
 
-export const FIVE_AXIS_SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
-export const FIVE_AXIS_SUITE_MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f";
+export const FIVE_AXIS_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
+export const FIVE_AXIS_SUITE_MANIFEST_SHA = "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af";
 const FOUR_AXIS_SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
 const FOUR_AXIS_SUITE_MANIFEST_SHA = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7";
 export const TEST_IP = "203.0.113.9";
@@ -84,6 +84,7 @@ function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
 export function oversizeEnv(): SubmissionApiEnv {
   const row = ticketRow();
   const bucket = {
+    delete: async () => undefined,
     get: async () => ({
       text: async () => {
         throw new Error("body should not be read");

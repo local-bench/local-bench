@@ -67,13 +67,23 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             },
         )
 
-        # Then appworld_c is measured and participates as the 0.60 headline axis.
-        assert list(record["benches"]) == ["mmlu_pro", "ifbench", "tc_json_v1", "lcb", "appworld_c"]
+        # Then appworld_c is measured while coding remains generated-unverified pending verifier execution.
+        assert list(record["benches"]) == [
+            "mmlu_pro",
+            "ifbench",
+            "olymmath_hard",
+            "amo",
+            "tc_json_v1",
+            "bigcodebench_hard",
+            "appworld_c",
+        ]
         assert [item["bench"] for item in record["items"]] == [
             "mmlu_pro",
             "ifbench",
+            "olymmath_hard",
+            "amo",
             "tc_json_v1",
-            "lcb",
+            "bigcodebench_hard",
             "appworld_c",
             "appworld_c",
         ]
@@ -94,7 +104,11 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             "status": "measured",
             "reason": "ok",
         }
-        assert record["headline_complete"] is True
+        coding_status = record["axis_status"]["axes"]["coding"]
+        assert coding_status["axis"] == "coding"
+        assert coding_status["status"] == "generated_unverified"
+        assert coding_status["reason"] == "verdict_pending"
+        assert record["headline_complete"] is False
         agentic_run = record["agentic_run"]
         assert agentic_run["campaign"] is True
         assert agentic_run["single_pass"] is False
@@ -148,11 +162,15 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             "mmlu_pro": record["benches"]["mmlu_pro"],
             "ifbench": record["benches"]["ifbench"],
         }
-        assert record["scores"]["headline_score"] != pytest.approx(composite(ki_only))
+        assert record["scores"]["headline_score"] is None
+        assert record["scores"]["partial_composite"] != pytest.approx(composite(ki_only))
         suite = read_json_object(_SUITE_DIR / "suite.json")
         suite_axes = suite["axes"]
         assert isinstance(suite_axes, dict)
-        assert record["scores"]["headline_score"] == pytest.approx(0.7316)
+        assert record["scores"]["partial_composite"] == pytest.approx(0.7431)
+        assert record["scores"]["measured_headline_weight"] == pytest.approx(0.85)
+        assert record["scores"]["missing_headline_weight"] == pytest.approx(0.15)
+        assert record["scores"]["rank_scope"] == "full-exec-6axis-v1"
 
     asyncio.run(scenario())
 

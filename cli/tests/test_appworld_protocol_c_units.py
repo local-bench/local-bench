@@ -343,6 +343,25 @@ def test_loop_records_turn_level_diagnostics() -> None:
     assert result.diagnostics.total_output_tokens > 0
 
 
+def test_loop_records_turn_level_server_timings() -> None:
+    timings = {"prompt_n": 9, "prompt_ms": 18.0, "predicted_n": 4, "predicted_ms": 8.0}
+
+    class _TimedFinal:
+        def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:
+            return ModelResponse(
+                "```python\nanswer = 5\n```\nFINAL_ANSWER",
+                "stop",
+                server_timings={"passes": [timings]},
+            )
+
+    sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
+    result = run_task(sandbox, _TimedFinal(), "fac291d_1")
+
+    assert result.success is True
+    assert result.diagnostics.turns[0].server_timings == {"passes": [timings]}
+    assert result.diagnostics.as_dict()["turns"][0]["server_timings"] == {"passes": [timings]}
+
+
 # ==============================================================================================
 # failure paths
 # ==============================================================================================

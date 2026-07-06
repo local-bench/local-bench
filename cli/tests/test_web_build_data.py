@@ -197,14 +197,75 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     assert math["point_raw"] == pytest.approx(0.5)
     assert math["hi_raw"] < 1.0
     assert math["n_errors"] == 1
-    # Composite is HEADLINE-only: knowledge (mmlu_pro) + instruction (ifbench).
-    # The present agentic (bfcl) + math axes carry weight 0.0 (METHODOLOGY-v1.2 §3).
+    # Composite is HEADLINE-only: knowledge, instruction, and math are measured here.
     assert composite["point_raw"] == pytest.approx(
-        ((0.15 * ((0.5 - chance) / (1.0 - chance))) + (0.15 * 0.5)) / 0.30,
+        ((0.15 * ((0.5 - chance) / (1.0 - chance))) + (0.15 * 0.5) + (0.05 * 0.5)) / 0.35,
     )
     assert isinstance(detail["data_warnings"], list)
     assert any(
         "knowledge chance_corrected differs" in warning
+        for warning in _strings(detail["data_warnings"])
+    )
+
+
+def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    run_path = tmp_path / "coding-run.json"
+    sources_path = tmp_path / "sources.json"
+    out_dir = tmp_path / "out"
+    run = _synthetic_run(
+        [
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+        ],
+    )
+    coding_items = [
+        _synthetic_item("bcbh-001", "bigcodebench_hard", True, template="exec"),
+        _synthetic_item("bcbh-002", "bigcodebench_hard", True, template="exec"),
+        _synthetic_item("bcbh-006", "bigcodebench_hard", False, template="exec"),
+    ]
+    run_items = run["items"]
+    assert isinstance(run_items, list)
+    run_items.extend(coding_items)
+    _object(run["benches"])["bigcodebench_hard"] = {
+        "n": 2,
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "n_unscoreable": 1,
+        "raw_accuracy": 1.0,
+        "chance_corrected": 1.0,
+    }
+    _object(run["totals"])["n_items"] = 5
+    run_path.write_text(json.dumps(run), encoding="utf-8")
+    sources_path.write_text(
+        json.dumps(
+            [
+                {
+                    "family": "Synthetic",
+                    "file": str(run_path),
+                    "independent_replication": False,
+                    "kind": "community",
+                    "model_label": "Coding Synthetic",
+                    "quant_label": None,
+                    "reasoning_lane": "test",
+                    "vram_footprint_gb": None,
+                },
+            ],
+        ),
+        encoding="utf-8",
+    )
+
+    builder.build_static_data(sources_path, out_dir, iters=300)
+
+    detail = _only_run_detail(out_dir)
+    coding = _object(_object(detail["axes"])["coding"])
+    assert coding["n"] == 2
+    assert coding["n_unscoreable"] == 1
+    assert coding["raw_accuracy"] == pytest.approx(1.0)
+    assert coding["lo_raw"] == pytest.approx(1.0)
+    assert coding["hi_raw"] == pytest.approx(1.0)
+    assert not any(
+        "coding chance_corrected differs" in warning
         for warning in _strings(detail["data_warnings"])
     )
 
@@ -334,6 +395,47 @@ def test_build_data_carries_runtime_to_index_model_and_run_rows(tmp_path: Path) 
     assert _object(run_row["runtime"]) == _object(model["runtime"])
     run_detail = _only_run_detail(paths["out"])
     assert _object(_object(run_detail["manifest_summary"])["runtime"]) == _object(model["runtime"])
+
+
+def test_build_data_carries_perf_to_model_run_and_run_detail(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    paths = _write_synthetic_pipeline_inputs(
+        tmp_path,
+        [
+            _synthetic_item("mmlu-pro-001", "mmlu_pro", True, category="physics", template="mcq-a"),
+            _synthetic_item("ifbench-001", "ifbench", True, template="format-json"),
+        ],
+    )
+    perf: JsonObject = {
+        "timings_source": "llama.cpp",
+        "timings_coverage": 1.0,
+        "prefill_tps": 500.0,
+        "decode_tps": 250.0,
+        "prompt_ms_median": 20.0,
+        "prompt_ms_p95": 20.0,
+        "predicted_ms_median": 16.0,
+        "predicted_ms_p95": 16.0,
+        "ttft_proxy_ms_median": 20.0,
+        "per_bench": {
+            "mmlu_pro": {
+                "prefill_tps": 500.0,
+                "decode_tps": 250.0,
+                "prompt_ms_median": 20.0,
+                "n": 1,
+            },
+        },
+    }
+    run = _object(_read_json(paths["run"]))
+    run["perf"] = perf
+    paths["run"].write_text(json.dumps(run), encoding="utf-8")
+
+    builder.build_static_data(paths["sources"], paths["out"], iters=50)
+
+    model_payload = _object(_read_json(paths["out"] / "models" / "synthetic-model.json"))
+    run_row = _objects(model_payload["runs"])[0]
+    run_detail = _only_run_detail(paths["out"])
+    assert _object(run_row["perf"]) == perf
+    assert _object(run_detail["perf"]) == perf
 
 
 def test_build_data_when_items_have_suite_metadata_uses_real_strata(

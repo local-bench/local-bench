@@ -19,7 +19,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">No ranked variants yet</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
             Partial benchmark profiles are available on model pages, but the Local Intelligence Index ranks only rows
-            with Agentic, Knowledge, Instruction, Tool calling, and Coding all measured under the standard capped-thinking lane.
+            with the current ranked profile complete under the bounded-final lane.
           </p>
         </div>
       </section>
@@ -40,7 +40,11 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
         <h2 className="mt-1 text-2xl font-semibold text-bench-text">Best ranked variant per model</h2>
         <p className="mt-1 text-xs leading-5 text-bench-muted">
           Best local model variants ranked so far, by the Local Intelligence Index
-          (<span className="font-mono">0.50 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool + 0.10 Coding</span>).
+          (
+          <span className="font-mono">
+            0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool + 0.15 Coding + 0.05 Math
+          </span>
+          ).
           See the full leaderboard for every quant, hardware, and run provenance.
         </p>
         <p className="mt-1 font-mono text-[11px] text-bench-muted-2">
@@ -50,18 +54,19 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1080px] border-collapse text-sm">
-          <caption className="sr-only">Best complete five-axis variant per model, ranked by the Local Intelligence Index</caption>
+          <caption className="sr-only">Best complete current-index variant per model, ranked by the Local Intelligence Index</caption>
           <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
             <tr>
               <th className="w-10 px-3 py-3">#</th>
               <th className="px-3 py-3">Model</th>
-              <th className="px-3 py-3">Local Intelligence Index v2.1</th>
+              <th className="px-3 py-3">Local Intelligence Index v3.0</th>
               <th className="px-3 py-3">VRAM / fits</th>
-              <th className="px-3 py-3"><AxisDot axis="agentic" />Agentic 50%</th>
+              <th className="px-3 py-3"><AxisDot axis="agentic" />Agentic 40%</th>
               <th className="px-3 py-3"><AxisDot axis="knowledge" />Knowledge 15%</th>
               <th className="px-3 py-3"><AxisDot axis="instruction" />Instruction 15%</th>
               <th className="px-3 py-3"><AxisDot axis="tool_calling" />Tool calling 10%</th>
-              <th className="px-3 py-3"><AxisDot axis="coding" />Coding 10%</th>
+              <th className="px-3 py-3"><AxisDot axis="coding" />Coding 15%</th>
+              <th className="px-3 py-3"><AxisDot axis="math" />Math 5%</th>
               <th className="px-3 py-3">tok/s</th>
               <th className="px-3 py-3">Bench time</th>
             </tr>
@@ -111,6 +116,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                   <td className="px-3 py-3"><AxisMiniBar score={point.axes["instruction"]} axis="instruction" /></td>
                   <td className="px-3 py-3"><AxisMiniBar score={point.axes["tool_calling"]} axis="tool_calling" /></td>
                   <td className="px-3 py-3"><AxisMiniBar score={point.axes["coding"]} axis="coding" /></td>
+                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["math"]} axis="math" /></td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(point.tokS)}</td>
                   <td className="px-3 py-3 font-mono text-xs text-bench-muted">{formatDuration(point.wallTimeSeconds)}</td>
                 </tr>
@@ -120,7 +126,8 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
         </table>
       </div>
       <p className="border-t border-bench-line px-3 py-2 text-xs leading-5 text-bench-muted">
-        Tool calling uses tc_json_v1 plaintext tool-call tasks. Coding uses the lightweight LiveCodeBench output-prediction proxy in standard runs; BigCodeBench-Hard stays opt-in.
+        Tool calling uses tc_json_v1 plaintext tool-call tasks. Coding ranks only after BigCodeBench-Hard project
+        re-execution in the hardened sandbox; legacy lcb output-prediction data is diagnostic only.
       </p>
     </section>
   );
@@ -135,4 +142,3 @@ function AxisDot({ axis }: { readonly axis: string }) {
     />
   );
 }
-

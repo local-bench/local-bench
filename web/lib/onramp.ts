@@ -18,15 +18,19 @@ export type OnrampCatalogModel = {
   readonly license: string;
   readonly ggufRepo: string | null;
   readonly downloads: number;
+  readonly likes: number;
+  readonly trending: number;
+  readonly modelKind: ModelKind;
+  readonly baseModelId: string | null;
+  readonly baseModelSlug: string | null;
+  readonly baseModelDisplayName: string | null;
   readonly quants: readonly OnrampCatalogQuant[];
 };
 
-// The CLI reasoning registry (cli/src/localbench/reasoning_registry.py) currently RANKS only these two
-// native reasoning modes; granite/nemotron/r1 exist as flag values but resolve to None (not ranked).
-// So the on-ramp only ever emits these activations, and only Qwen3- and Gemma-family models are
-// treated as board-rankable. Broaden this when the registry adds ranked entries.
-export type ReasoningActivation = "qwen3" | "gemma4";
 export type RuntimeId = "llamacpp" | "lmstudio" | "vllm";
+export type PopularitySort = "downloads" | "trending" | "likes";
+export type ModelKind = "base" | "finetune" | "distill" | "merge";
+export type BrowseModelType = "all" | "base" | "finetune";
 
 export type RuntimeProfile = {
   readonly id: RuntimeId;
@@ -58,13 +62,11 @@ export type BenchmarkRecipe = {
   readonly serveCommand: string;
   readonly serveNote: string | null;
   readonly benchCommand: string;
-  readonly submitCommand: string | null;
-  readonly lane: "bounded-final-v1" | "capped-thinking" | "answer-only";
-  readonly boardComparable: boolean;
-  readonly notRankableReason: string | null;
-  readonly activation: ReasoningActivation | null;
+  readonly submitCommand: string;
+  readonly lane: "bounded-final-v1";
   readonly servedModelName: string;
   readonly ggufRepo: string | null;
+  readonly model: OnrampCatalogModel;
 };
 
 // Best-to-worst quality order is the order of QUANT_OPTIONS (FP16 first, Q2_K last).
@@ -72,19 +74,6 @@ const QUANT_RANK = new Map<string, number>(QUANT_OPTIONS.map((label, index) => [
 
 function quantRank(label: string): number {
   return QUANT_RANK.get(label) ?? Number.MAX_SAFE_INTEGER;
-}
-
-// Returns the ranked CLI activation for a model's family, or null when the model is not in the
-// ranked registry (so the on-ramp can flag it as not-board-comparable rather than guess).
-export function rankedActivationFor(model: { family: string; org: string }): ReasoningActivation | null {
-  const haystack = `${model.family} ${model.org}`.toLowerCase();
-  if (haystack.includes("qwen")) {
-    return "qwen3";
-  }
-  if (haystack.includes("gemma")) {
-    return "gemma4";
-  }
-  return null;
 }
 
 export function recommendedQuantForVram(model: OnrampCatalogModel, vramGb: number): OnrampCatalogQuant | null {
@@ -97,15 +86,14 @@ export function recommendedQuantForVram(model: OnrampCatalogModel, vramGb: numbe
   return fitting.reduce((best, quant) => (quantRank(quant.label) < quantRank(best.label) ? quant : best));
 }
 
-// "Popular" models for the picker: most-downloaded board-rankable models near the top of the size
-// range that fits the selected VRAM. Popularity is a convenience ordering, not an endorsement.
 export function popularModels(
   catalog: readonly OnrampCatalogModel[],
   vramGb: number,
+  sort: PopularitySort = "downloads",
   limit = 5,
 ): readonly RecommendedEntry[] {
   const fitting = catalog
-    .filter((model) => model.reasoningCapable && model.ggufRepo !== null && rankedActivationFor(model) !== null)
+    .filter((model) => model.ggufRepo !== null)
     .map((model) => ({ model, quant: recommendedQuantForVram(model, vramGb) }))
     .filter((entry): entry is RecommendedEntry => entry.quant !== null);
   const maxParams = fitting.reduce((max, entry) => Math.max(max, entry.model.paramsB ?? 0), 0);
@@ -114,7 +102,12 @@ export function popularModels(
   );
   const candidates = nearTopSizeRange.length > 0 ? nearTopSizeRange : fitting;
   return candidates
-    .sort((left, right) => right.model.downloads - left.model.downloads)
+    .sort(
+      (left, right) =>
+        right.model[sort] - left.model[sort] ||
+        right.model.downloads - left.model.downloads ||
+        left.model.displayName.localeCompare(right.model.displayName),
+    )
     .slice(0, limit);
 }
 
@@ -124,8 +117,38 @@ export function listOrgs(catalog: readonly OnrampCatalogModel[]): readonly strin
   );
 }
 
-export function modelsForOrg(catalog: readonly OnrampCatalogModel[], org: string): readonly OnrampCatalogModel[] {
-  return catalog.filter((model) => model.org === org).sort((left, right) => right.downloads - left.downloads);
+export function isDerivativeModel(model: OnrampCatalogModel): boolean {
+  return model.modelKind !== "base" || model.baseModelSlug !== null;
+}
+
+export function modelMatchesBrowseType(model: OnrampCatalogModel, browseType: BrowseModelType): boolean {
+  switch (browseType) {
+    case "all":
+      return true;
+    case "base":
+      return !isDerivativeModel(model);
+    case "finetune":
+      return isDerivativeModel(model);
+    default:
+      return assertNever(browseType);
+  }
+}
+
+export function filterModelsByType(
+  catalog: readonly OnrampCatalogModel[],
+  browseType: BrowseModelType,
+): readonly OnrampCatalogModel[] {
+  return catalog.filter((model) => modelMatchesBrowseType(model, browseType));
+}
+
+export function modelsForOrg(
+  catalog: readonly OnrampCatalogModel[],
+  org: string,
+  browseType: BrowseModelType = "all",
+): readonly OnrampCatalogModel[] {
+  return filterModelsByType(catalog, browseType)
+    .filter((model) => model.org === org)
+    .sort((left, right) => right.downloads - left.downloads);
 }
 
 // Ollama is intentionally excluded: its defaults (num_ctx 2048, its own chat template, its own
@@ -163,15 +186,14 @@ export function buildRecipe(input: {
 }): BenchmarkRecipe {
   const { model, quant, runtime } = input;
   const servedModelName = runtime.servedModelName(model, quant);
-  const activation = model.reasoningCapable ? rankedActivationFor(model) : null;
 
   // bounded-final-v1: every model runs the ONE ranked lane. --profile auto introspects the
-  // model's own chat template (thinking models get the bounded think sub-budget, the rest run
-  // answer-only) — no family gate. The [hf] extra ships the template introspection dependency;
+  // model's own chat template and applies the allowlisted execution profile; no family gate.
+  // The [hf] extra ships the template introspection dependency;
   // plain `pip install local-bench-ai` cannot resolve --hf-model-id (user-path smoke, 2026-07-05).
   const setupCommand = [
     'pip install "local-bench-ai[hf]"',
-    "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-text-code-agentic-5axis-v1 --accept-suite-terms",
+    "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
   ].join("\n");
   const benchCommand = [
     "localbench run",
@@ -193,10 +215,12 @@ export function buildRecipe(input: {
     benchCommand,
     submitCommand: "localbench submit run --run runs/my-run.json",
     lane: "bounded-final-v1",
-    boardComparable: true,
-    notRankableReason: null,
-    activation,
     servedModelName,
     ggufRepo: model.ggufRepo,
+    model,
   };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled browse type: ${String(value)}`);
 }

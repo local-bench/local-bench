@@ -25,6 +25,7 @@ export type R2ObjectMetadataBinding = {
 };
 
 export type R2BucketBinding = {
+  delete(key: string): Promise<unknown>;
   get(key: string): Promise<R2ObjectBodyBinding | null>;
   head?(key: string): Promise<R2ObjectMetadataBinding | null>;
   put(key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream): Promise<unknown>;
@@ -40,6 +41,8 @@ export type SubmissionApiEnv = {
   readonly R2_SECRET_ACCESS_KEY?: string;
   readonly SUBMISSIONS: R2BucketBinding;
   readonly TURNSTILE_ENABLED?: string;
+  readonly ZT1_KNOWN_ARTIFACTS_JSON?: string;
+  readonly ZT1_PROTECTED_MODEL_PATTERNS_JSON?: string;
 };
 
 export type RouteParams = {
@@ -70,8 +73,8 @@ export const STATUS_UPDATE_SCHEMA_VERSION = "localbench.submission_status_update
 export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v1";
 export const MAX_UPLOAD_BYTES = 67_108_864;
 export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
-export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1";
-export const DEFAULT_SUITE_MANIFEST_SHA256 = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f";
+export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
+export const DEFAULT_SUITE_MANIFEST_SHA256 = "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af";
 export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -130,6 +133,20 @@ export const StatusUpdateSchema = z
 
 export const PublishStateDecisionSchema = z.object({
   publish_state: z.enum(["hidden", "preview", "published"]),
+});
+
+export const ModerationReasonSchema = z.object({
+  reason: z.string().min(1).max(500),
+});
+
+export const OpsSettingsUpdateSchema = z.object({
+  actor: z.enum(["owner", "agent", "security"]),
+  key: z.literal("auto_publish"),
+  value: z.enum(["on", "off"]),
+});
+
+export const GcRequestSchema = z.object({
+  apply: z.boolean().default(false),
 });
 
 export const ResultBundleSchema = z

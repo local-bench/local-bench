@@ -1,5 +1,4 @@
-import { formatModularAxisProfile } from "@/components/local-intelligence-index";
-import { formatGb, formatScore } from "@/lib/format";
+import { formatDuration, formatGb, formatScore } from "@/lib/format";
 import { familyStyle } from "@/lib/family-color";
 import {
   getVramLogDomain,
@@ -92,14 +91,17 @@ export function BestVariantVramScatter({
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Best variant per model</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">Quality vs the VRAM to run it</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-bench-muted">
-            Each point is a model at its best-scoring quant. Up = smarter; left = fits a smaller card. The dotted line
-            is the point-estimate efficiency frontier — no measured model is both higher-scoring and smaller on current
-            point estimates. Hover any point for details.
+            Each point is a model at its best-scoring quant. Up = smarter; left = fits a smaller card.
+            {/* The frontier line renders only at >=3 frontier points, so only describe it then. */}
+            {frontier.length >= 3
+              ? " The dotted line is the point-estimate efficiency frontier — no measured model is both higher-scoring and smaller on current point estimates."
+              : ""}{" "}
+            Hover any point for details.
           </p>
           {points.length < 4 ? (
             <p className="mt-1.5 font-mono text-[11px] text-bench-muted-2">
-              Only {points.length} model{points.length === 1 ? "" : "s"} measured so far — the efficiency frontier is
-              preliminary and firms up as more variants land.
+              Only {points.length} model{points.length === 1 ? "" : "s"} ranked so far — the size-vs-score frontier
+              line appears once enough variants land.
             </p>
           ) : null}
         </div>
@@ -179,11 +181,28 @@ export function BestVariantVramScatter({
             const cy = scaleY(point.score.point);
             const color = familyStyle(point.family).color;
             const slot = labelPlacements.get(point.runId);
+            const tipLine1 = `${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""} — ${formatScore(point.score.point)}`;
+            // What a visitor weighs before running it themselves: how long the suite took on this
+            // rig and the VRAM to hold it — not a repeat of the axis bars shown above the chart.
+            const tipLine2 = `${
+              point.wallTimeSeconds !== null ? `benched in ${formatDuration(point.wallTimeSeconds)} · ` : ""
+            }~${formatGb(point.effectiveVramGb)} to run`;
+            const tipWidth = Math.max(tipLine1.length, tipLine2.length) * 6.6 + 20;
+            // Clamp the tooltip inside the plot; flip below the dot when it would clip the top.
+            const tipX = Math.min(Math.max(cx - tipWidth / 2, 6), WIDTH - tipWidth - 6);
+            const tipAbove = cy - 52 > 4;
+            const tipY = tipAbove ? cy - 52 : cy + 14;
             return (
-              <g key={point.runId}>
+              // CSS-only hover: this is a server component, so the tooltip is an SVG group toggled
+              // by group-hover — no client JS. The transparent r=14 circle is the hit target (the
+              // visible 6px dot was too small to hover reliably).
+              <g key={point.runId} className="group">
                 <title>
-                  {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${formatModularAxisProfile(point.axes)} — ~${formatGb(point.effectiveVramGb)} to run`}
+                  {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${
+                    point.wallTimeSeconds !== null ? `benched in ${formatDuration(point.wallTimeSeconds)} — ` : ""
+                  }~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
+                <circle cx={cx} cy={cy} r="14" fill="transparent" />
                 <circle cx={cx} cy={cy} r="6" fill={color} className="stroke-bench-bg" strokeWidth="2" />
                 {slot ? (
                   <text
@@ -196,6 +215,22 @@ export function BestVariantVramScatter({
                     {point.modelLabel}
                   </text>
                 ) : null}
+                <g className="pointer-events-none opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                  <rect
+                    x={tipX}
+                    y={tipY}
+                    width={tipWidth}
+                    height={38}
+                    rx={4}
+                    className="fill-bench-bg stroke-bench-line-strong"
+                  />
+                  <text x={tipX + 10} y={tipY + 16} className="fill-bench-text" fontSize="11" fontFamily="var(--font-mono)">
+                    {tipLine1}
+                  </text>
+                  <text x={tipX + 10} y={tipY + 30} className="fill-bench-muted" fontSize="11" fontFamily="var(--font-mono)">
+                    {tipLine2}
+                  </text>
+                </g>
               </g>
             );
           })}
@@ -207,7 +242,7 @@ export function BestVariantVramScatter({
               fontSize="14"
               textAnchor="middle"
             >
-              No ranked five-axis local rows yet; partial diagnostics stay off this frontier.
+              No ranked current-index local rows yet; partial diagnostics stay off this frontier.
             </text>
           ) : null}
           <text
@@ -264,7 +299,7 @@ function layoutAnchors(anchorRuns: readonly AnchorReference[]) {
 
 function describe(points: readonly BestVariantPoint[]): string {
   if (points.length === 0) {
-    return "Scatter of local model quality versus VRAM; no ranked five-axis local rows yet.";
+    return "Scatter of local model quality versus VRAM; no ranked current-index local rows yet.";
   }
   const best = points.reduce((top, point) => (point.score.point > top.score.point ? point : top));
   return `Scatter of ${points.length} local models: Local Intelligence Index versus effective VRAM to run. Best: ${best.modelLabel} at ${formatScore(best.score.point)}.`;

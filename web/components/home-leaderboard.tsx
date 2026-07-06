@@ -45,7 +45,7 @@ export function HomeLeaderboard({
           <div className="font-semibold text-bench-text">No ranked rows yet</div>
           <div className="mt-1 max-w-3xl">
             Measured partial profiles are diagnostic and stay on their model pages. A row appears here only after
-            Agentic, Knowledge, Instruction, Tool calling, and Coding are all measured in the standard capped-thinking lane.
+            the current ranked profile is complete under the bounded-final lane.
           </div>
         </div>
       ) : (

@@ -7,7 +7,6 @@ from pathlib import Path
 from localbench._types import JsonValue
 from localbench.scoring.board_support import (
     GEMMA_FALLBACK_FILE,
-    LANE_SCOPE,
     bool_or_false,
     list_value,
     object_value,
@@ -37,7 +36,8 @@ def load_sources(path: Path) -> list[CuratedSource]:
             "quant_label": "Q4_K_M",
             "recommended": False,
             "file": GEMMA_FALLBACK_FILE,
-            "reasoning_lane": LANE_SCOPE,
+            # v1-era fallback run: keep its own era's lane, not the current board scope.
+            "reasoning_lane": "capped-thinking",
             "independent_replication": False,
         })
     _validate_recommended(sources)

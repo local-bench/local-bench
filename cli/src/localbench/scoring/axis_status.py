@@ -8,12 +8,13 @@ from localbench.scoring.axes import AXES
 
 AXIS_STATUS_SCHEMA_VERSION: Final = "localbench.axis-status.v1"
 
-AxisMeasurementState: TypeAlias = Literal["measured", "not_measured"]
+AxisMeasurementState: TypeAlias = Literal["measured", "not_measured", "generated_unverified"]
 AxisMeasurementReason: TypeAlias = Literal[
     "ok",
     "sandbox_unavailable",
     "scorer_unavailable",
     "not_run",
+    "verdict_pending",
 ]
 
 
@@ -55,6 +56,21 @@ def not_measured_axis(
     return status
 
 
+def generated_unverified_axis(
+    axis: str,
+    *,
+    detail: str | None = None,
+) -> AxisMeasurementStatus:
+    status: AxisMeasurementStatus = {
+        "axis": axis,
+        "status": "generated_unverified",
+        "reason": "verdict_pending",
+    }
+    if detail is not None:
+        status["detail"] = detail
+    return status
+
+
 def mark_axis_not_measured(
     block: AxisStatusBlock,
     axis: str,
@@ -63,6 +79,15 @@ def mark_axis_not_measured(
     detail: str | None = None,
 ) -> None:
     block["axes"][axis] = not_measured_axis(axis, reason=reason, detail=detail)
+
+
+def mark_axis_generated_unverified(
+    block: AxisStatusBlock,
+    axis: str,
+    *,
+    detail: str | None = None,
+) -> None:
+    block["axes"][axis] = generated_unverified_axis(axis, detail=detail)
 
 
 def axis_status_for_benches(
@@ -206,8 +231,10 @@ def _state(value: JsonValue | None) -> AxisMeasurementState:
             return "measured"
         case "not_measured":
             return "not_measured"
+        case "generated_unverified":
+            return "generated_unverified"
         case _:
-            raise AxisStatusParseError("axis status must be measured or not_measured")
+            raise AxisStatusParseError("axis status must be measured, not_measured, or generated_unverified")
 
 
 def _reason(value: JsonValue | None) -> AxisMeasurementReason:
@@ -220,6 +247,8 @@ def _reason(value: JsonValue | None) -> AxisMeasurementReason:
             return "scorer_unavailable"
         case "not_run":
             return "not_run"
+        case "verdict_pending":
+            return "verdict_pending"
         case _:
             raise AxisStatusParseError("axis status reason is not supported")
 
@@ -232,3 +261,5 @@ def _validate_state_reason(
         raise AxisStatusParseError("measured axis reason must be ok")
     if state == "not_measured" and reason == "ok":
         raise AxisStatusParseError("not_measured axis reason cannot be ok")
+    if state == "generated_unverified" and reason != "verdict_pending":
+        raise AxisStatusParseError("generated_unverified axis reason must be verdict_pending")
