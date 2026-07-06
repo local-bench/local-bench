@@ -42,6 +42,8 @@ Thumbs.db
 .superpowers/
 .pytest-review/
 .pytest-tmp/
+# catalog_refresh --mode discover-finetunes output (local proposal awaiting owner curation)
+catalog-refresh-out/
 
 # wrangler CLI local cache (account metadata — never commit)
 .wrangler/

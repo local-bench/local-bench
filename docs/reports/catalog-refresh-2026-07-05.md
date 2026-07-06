@@ -1,7 +1,7 @@
 # Catalog refresh report
 
 Generated 2026-07-05 07:49 UTC by `scripts/catalog_refresh.py` against the public Hugging Face API.
-Catalog: `C:\Users\Michael\local-bench-wt-catalog\web\model_catalog.json` (102 entries). Proposed catalog: `model_catalog.proposed.json` (same shape, additive `base_model` only).
+Catalog: `web/model_catalog.json` (102 entries, refreshed in a catalog worktree). Proposed catalog: `model_catalog.proposed.json` (same shape, additive `base_model` only).
 
 ## Summary
 
