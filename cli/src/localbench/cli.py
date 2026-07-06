@@ -1391,6 +1391,16 @@ def _fetch_suite(args: argparse.Namespace) -> int:
     except SuiteResolutionError as error:
         _print_suite_resolution_error(error, args.suite)
         return 2
+    except httpx.HTTPStatusError as error:
+        print(
+            f"error      suite download failed: HTTP {error.response.status_code} for {error.request.url}\n"
+            "           the site is not serving this suite's files; check the suite id against\n"
+            "           the releases listed on https://local-bench.ai/submit and retry"
+        )
+        return 2
+    except httpx.RequestError as error:
+        print(f"error      network failure during suite download: {error}")
+        return 2
     print(f"suite_id  {ref.suite_id}")
     print(f"hash      {ref.suite_hash}")
     print(f"cached    {ref.path}")

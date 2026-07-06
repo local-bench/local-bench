@@ -49,6 +49,12 @@ def campaign_paths(output_path: Path, campaign_dir: Path | None = None) -> Campa
         root = output_path.parent
     else:
         root = output_path.with_suffix("")
+        if root == output_path:
+            # Extension-less --out (e.g. `--out runs/my-run`): the campaign dir and the final
+            # record would be the SAME path, so the end-of-run atomic rename targets the
+            # directory itself and the whole run is lost after all compute is spent. Treat the
+            # path as the campaign dir and write the record inside it (submit accepts either).
+            output_path = root / "localbench-run.json"
     return CampaignPaths(
         root=root,
         final_run=output_path,

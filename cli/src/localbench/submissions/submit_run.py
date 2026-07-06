@@ -240,6 +240,13 @@ def _mapped_http_error(error: httpx.HTTPStatusError, leg: str) -> Exception:
         return SubmitRunError(f"rate_limited retry_after_seconds={retry_after}", exit_code=3)
     if code == "pop_stale":
         return SubmitRunError("check your system clock (server allows ±10 minutes)")
+    if code == "invalid_ticket_request":
+        return SubmitRunError(
+            "ticket failed: invalid_ticket_request — the server rejected a request field. "
+            "The most common cause is --display-name: 2-40 chars, ASCII letters/digits at the "
+            "start and end, only spaces . _ ' - in between (no accents, parentheses, or URLs). "
+            "Retry with a simpler name, or omit --display-name entirely."
+        )
     return SubmitRunError(f"{leg} failed: {code or error.response.status_code}")
 
 
