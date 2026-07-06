@@ -25,13 +25,18 @@ export function ComparePicker({
   readonly initialLeftId: string | null;
   readonly initialRightId: string | null;
 }) {
-  const defaultLeft = findConfig(configs, initialLeftId) ?? configs[0] ?? null;
-  const defaultRight = findDefaultRight(configs, defaultLeft?.id ?? null, initialRightId);
+  const currentConfigs = useMemo(() => configs.filter(isCurrentIndexConfig), [configs]);
+  const defaultLeft = findConfig(configs, initialLeftId) ?? currentConfigs[0] ?? configs[0] ?? null;
+  const defaultRight =
+    findConfig(configs, initialRightId) ??
+    findDefaultRight(currentConfigs, defaultLeft?.id ?? null, null) ??
+    findDefaultRight(configs, defaultLeft?.id ?? null, null);
   const [leftId, setLeftId] = useState(defaultLeft?.id ?? "");
   const [rightId, setRightId] = useState(defaultRight?.id ?? "");
   const left = findConfig(configs, leftId) ?? defaultLeft;
   const right = findConfig(configs, rightId) ?? defaultRight;
   const axisDeltas = useMemo(() => (left && right ? getAxisDeltas(left, right) : []), [left, right]);
+  const canCompareIndex = left !== null && right !== null && isCurrentIndexConfig(left) && isCurrentIndexConfig(right);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -77,12 +82,21 @@ export function ComparePicker({
         <ConfigCard config={right} label="Right" linkLabel="Open right model" />
       </div>
 
+      {canCompareIndex ? null : (
+        <div className="rounded border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
+          Index delta withheld: previous-index diagnostics were measured under a retired lane and are not comparable to
+          the current {LOCAL_INTELLIGENCE_INDEX_NAME}.
+        </div>
+      )}
+
       <section className="grid gap-3 md:grid-cols-3">
-        <DeltaCard
-          label={`${LOCAL_INTELLIGENCE_INDEX_NAME} delta`}
-          note={`${LOCAL_INTELLIGENCE_INDEX_QUALIFIER}. ${LOCAL_INTELLIGENCE_INDEX_PROFILE} deltas appear below.`}
-          value={formatSigned(left.composite.point - right.composite.point)}
-        />
+        {canCompareIndex ? (
+          <DeltaCard
+            label={`${LOCAL_INTELLIGENCE_INDEX_NAME} delta`}
+            note={`${LOCAL_INTELLIGENCE_INDEX_QUALIFIER}. ${LOCAL_INTELLIGENCE_INDEX_PROFILE} deltas appear below.`}
+            value={formatSigned(left.composite.point - right.composite.point)}
+          />
+        ) : null}
         <DeltaCard label="VRAM delta" value={formatVramDelta(left, right)} />
         <DeltaCard label="tok/s delta" value={formatNullableDelta(left.tokS, right.tokS)} />
       </section>
@@ -122,6 +136,8 @@ function ConfigSelect({
   readonly onChange: (value: string) => void;
   readonly value: string;
 }) {
+  const currentConfigs = configs.filter(isCurrentIndexConfig);
+  const legacyConfigs = configs.filter(isPreviousIndexConfig);
   return (
     <label className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor={id}>
       {label}
@@ -132,13 +148,25 @@ function ConfigSelect({
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
       >
-        {configs.map((config) => (
-          <option key={config.id} value={config.id}>
-            {configLabel(config)}
-          </option>
-        ))}
+        <ConfigOptions label="Current Index" configs={currentConfigs} />
+        <ConfigOptions label="Previous-index diagnostics" configs={legacyConfigs} />
       </select>
     </label>
+  );
+}
+
+function ConfigOptions({ configs, label }: { readonly configs: readonly CompareConfig[]; readonly label: string }) {
+  if (configs.length === 0) {
+    return null;
+  }
+  return (
+    <optgroup label={label}>
+      {configs.map((config) => (
+        <option key={config.id} value={config.id}>
+          {configLabel(config)}
+        </option>
+      ))}
+    </optgroup>
   );
 }
 
@@ -156,12 +184,7 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <Metric
           detail={<ModularAxisProfile axes={config.axes} className="block font-mono text-[11px] text-bench-muted" />}
-          label={
-            <span className="flex flex-col gap-0.5 leading-tight">
-              <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
-              <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
-            </span>
-          }
+          label={<ScoreLabel config={config} />}
           value={
             <span className="flex flex-wrap items-center gap-2">
               <span>{formatScore(config.composite.point)}</span>
@@ -177,6 +200,23 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
         {linkLabel}
       </Link>
     </section>
+  );
+}
+
+function ScoreLabel({ config }: { readonly config: CompareConfig }) {
+  if (isPreviousIndexConfig(config)) {
+    return (
+      <span className="flex flex-col gap-0.5 leading-tight">
+        <span>Diagnostic score (retired lane)</span>
+        <span className="font-mono text-[10px] normal-case text-bench-muted">{config.lane ?? "previous index"}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="flex flex-col gap-0.5 leading-tight">
+      <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+      <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+    </span>
   );
 }
 
@@ -238,7 +278,8 @@ function findDefaultRight(configs: readonly CompareConfig[], leftId: string | nu
 
 function configLabel(config: CompareConfig): string {
   const demo = config.demo ? " · demo" : "";
-  return `${config.modelLabel} · ${config.quantLabel} · ${compareCoverageLabel(config.coverage)}${demo} · ${formatGb(config.vramEstimate?.effectiveRequiredGb)}`;
+  const scope = isPreviousIndexConfig(config) ? ` · retired lane ${config.lane ?? "unknown"}` : "";
+  return `${config.modelLabel} · ${config.quantLabel} · ${compareCoverageLabel(config.coverage)}${scope}${demo} · ${formatGb(config.vramEstimate?.effectiveRequiredGb)}`;
 }
 
 function formatSigned(value: number): string {
@@ -254,6 +295,14 @@ function formatVramDelta(left: CompareConfig, right: CompareConfig): string {
   const leftGb = left.vramEstimate?.effectiveRequiredGb ?? null;
   const rightGb = right.vramEstimate?.effectiveRequiredGb ?? null;
   return leftGb === null || rightGb === null ? "n/a" : formatGb(leftGb - rightGb);
+}
+
+function isCurrentIndexConfig(config: CompareConfig): boolean {
+  return config.scoreScope === "current-index";
+}
+
+function isPreviousIndexConfig(config: CompareConfig): boolean {
+  return config.scoreScope === "previous-index";
 }
 
 function winnerLabel(delta: AxisDelta, left: CompareConfig, right: CompareConfig): string {

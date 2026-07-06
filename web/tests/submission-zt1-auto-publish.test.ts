@@ -285,6 +285,30 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(Date.parse(String(body.provisional_until))).toBeGreaterThan(Date.now() + minimumWindowHours * 60 * 60 * 1000);
   }, 15_000);
 
+  it("ignores partial-only public scores for headline impact flags", async () => {
+    // Given: the public board has only a legacy partial composite on a retired scale.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    await insertPartialOnlyBoardEntry(env, "partial_only_1", "BenchFam", "BenchFam 7B", 50);
+    const submissionId = await ticketWithBundle(env, bundleFor({
+      displayName: "BenchFam 7B Q4",
+      family: "BenchFam",
+      fileSha: KNOWN_HASH,
+      fileSizeBytes: 7_000_000_000,
+      score: 62,
+    }));
+
+    // When: the verifier accepts a headline-scored submission.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: zt1 does not compare the headline score against the retired partial pool.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      publish_state: "preview",
+      zt1_decision: "publishable",
+    });
+  }, 15_000);
+
   it("keeps new provisional decisions hidden when the provisional preview cap is full", async () => {
     // Given: the incoming provisional preview lane is already at capacity.
     const env = await createZt1Env();
@@ -750,6 +774,43 @@ async function insertBoardEntry(
       '{}', '{}', '{}', 1, 0, 0, ?, ?)`,
   )
     .bind(id, id, displayName, family, "e".repeat(64), score, score, score, sha256Hex(`${id}:projection`), sha256Hex(`${id}:bundle`))
+    .run();
+}
+
+async function insertPartialOnlyBoardEntry(
+  env: SubmissionApiEnv,
+  id: string,
+  family: string,
+  displayName: string,
+  partialComposite: number,
+): Promise<void> {
+  await env.DB.prepare("create table if not exists submissions_contract_v1 (submission_id text primary key)")
+    .run();
+  await env.DB.prepare("insert or ignore into submissions_contract_v1 (submission_id) values (?)")
+    .bind(id)
+    .run();
+  await env.DB.prepare(
+    `insert into board_entries (
+      entry_id, submission_id, board_schema_version, visibility, origin, trust_label, verification_level,
+      model_display_name, model_family, suite_release_id, suite_manifest_sha256, scorecard_id,
+      coverage_profile_id, headline_complete, headline_score, partial_composite, measured_headline_weight,
+      missing_headline_weight, known_headline_contribution, rank_scope, axis_scores_json, bench_scores_json,
+      conformance_json, n_scored, n_errors, warning_count, projection_sha256, bundle_sha256
+    ) values (?, ?, 'localbench.board_entries.v1', 'public', 'community', 'community_re_scored', 'bundle_rescored',
+      ?, ?, 'suite-v1-full-exec-6axis-v1', ?, 'scorecard', 'partial-exec-legacy', 0, null, ?, 0.5, 0.5, ?, 'partial-exec-legacy',
+      '{}', '{}', '{}', 1, 0, 0, ?, ?)`,
+  )
+    .bind(
+      id,
+      id,
+      displayName,
+      family,
+      "e".repeat(64),
+      partialComposite,
+      partialComposite,
+      sha256Hex(`${id}:projection`),
+      sha256Hex(`${id}:bundle`),
+    )
     .run();
 }
 

@@ -17,6 +17,7 @@ import {
   type ModelData,
   type ModelRun,
   type RunDetail,
+  type ScoreStatus,
   type Score,
 } from "./schemas";
 import {
@@ -34,6 +35,7 @@ import {
   type VsBaseComparison,
   type VsBaseSide,
 } from "./vs-base";
+import { HEADLINE_LANE } from "./leaderboard-score";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 
@@ -47,7 +49,11 @@ export type AnchorReference = {
 type AxisScoresWithConfiguredAxes = Record<string, AxisScore> & Record<AxisKey, AxisScore>;
 type ModelRunWithConfiguredAxes = Omit<ModelRun, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
 type ModelDataWithConfiguredAxes = Omit<ModelData, "runs"> & { readonly runs: ModelRunWithConfiguredAxes[] };
-type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
+type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & {
+  readonly axes: AxisScoresWithConfiguredAxes;
+  readonly lane: string | null;
+  readonly score_status: ScoreStatus;
+};
 
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
@@ -139,7 +145,13 @@ export async function getPartialCoverageBoard(): Promise<readonly BoardEntryRow[
 
 export async function getRunData(runId: string): Promise<RunDetailWithConfiguredAxes> {
   const run = await readJson(["runs", `${runId}.json`], RunDetailSchema);
-  return run as RunDetailWithConfiguredAxes;
+  const model = await getModelData(modelSlugForRunId(runId));
+  const modelRun = model.runs.find((candidate) => candidate.run_id === runId);
+  return {
+    ...run,
+    lane: modelRun?.lane ?? run.manifest_summary.lane,
+    score_status: modelRun?.score_status ?? "measured",
+  } as RunDetailWithConfiguredAxes;
 }
 
 type CatalogFile = {
@@ -383,6 +395,18 @@ export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
   );
 }
 
+export async function getSitemapRunStaticParams(): Promise<readonly RunStaticParam[]> {
+  const index = await getIndexData();
+  const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
+  return models.flatMap((model) =>
+    model.runs.flatMap((run) =>
+      run.run_id !== null && run.score_status === "measured" && run.lane === HEADLINE_LANE
+        ? [{ runId: run.run_id }]
+        : [],
+    ),
+  );
+}
+
 function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate {
   const candidate = {
     axes: run.axes,
@@ -411,6 +435,10 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
 
 function nullableNumber(value: number | null | undefined, fallback: number): number {
   return value ?? fallback;
+}
+
+function modelSlugForRunId(runId: string): string {
+  return runId.split("__")[0] ?? runId;
 }
 
 export { AXIS_KEYS as AXES } from "./axis-config";

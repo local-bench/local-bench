@@ -30,7 +30,7 @@ describe("ModelPage lineage chip", () => {
     expect(html).toContain("vs fine-tunes");
     expect(html).toContain("Qwopus 3.6 27B v2 MTP");
     expect(html).toContain("fine-tune not yet benchmarked");
-    expect(html).toContain('href="/compare?finetune=qwopus3-6-27b-v2-mtp"');
+    expect(html).toContain('href="/model/qwopus3-6-27b-v2-mtp"');
   });
 
   it("renders derivative vs-base missing states without fake numbers", async () => {

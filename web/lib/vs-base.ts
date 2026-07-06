@@ -108,5 +108,12 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
   if (baseRunId !== null && derivativeRunId !== null) {
     return `/compare?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
   }
+  if (hasPreviousIndexDiagnostics(base.row) || hasPreviousIndexDiagnostics(derivative.row)) {
+    return `/model/${encodeURIComponent(derivative.slug)}`;
+  }
   return `/compare?finetune=${encodeURIComponent(derivative.slug)}`;
+}
+
+function hasPreviousIndexDiagnostics(row: VsBaseBoardRow | null): boolean {
+  return row !== null && row.scoreStatus === "measured" && row.composite !== null && (!row.ranked || row.lane !== HEADLINE_LANE);
 }

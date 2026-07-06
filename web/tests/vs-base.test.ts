@@ -99,7 +99,7 @@ describe("buildVsBaseComparison", () => {
 
     expect(comparison.compositeDelta).toBeNull();
     expect(comparison.axes).toEqual([]);
-    expect(comparison.compareHref).toBe("/compare?finetune=gemma-4-12b-coder-fable5");
+    expect(comparison.compareHref).toBe("/model/gemma-4-12b-coder-fable5");
     expect(comparison.missing).toEqual(["fine-tune has only previous-index runs — awaiting a current-index rerun"]);
   });
 });

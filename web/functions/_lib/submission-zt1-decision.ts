@@ -272,10 +272,10 @@ async function highImpactReasons(
 
 async function publicScores(env: SubmissionApiEnv): Promise<readonly { readonly displayName: string; readonly family: string | null; readonly score: number }[]> {
   const rows = await env.DB.prepare(
-    `select model_display_name, model_family, coalesce(headline_score, partial_composite) as score
+    `select model_display_name, model_family, headline_score as score
      from board_entries
-     where visibility = 'public' and coalesce(headline_score, partial_composite) is not null
-     order by coalesce(headline_score, partial_composite) desc`,
+     where visibility = 'public' and headline_score is not null
+     order by headline_score desc`,
   ).all();
   return rows.results.flatMap((row) => {
     const score = numberOrNull(row["score"]);
