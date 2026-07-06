@@ -1,0 +1,87 @@
+# Requeue landing runbook — Qwopus + Qwen-base v2 rows (mechanical, for whoever lands them)
+
+The GPU requeue (`C:\Users\Michael\lb-user-runs\runner-v2-requeue.ps1`, pid in
+`runner-v2-requeue.pid`) benchmarks **Qwopus3.6-27B-v2-MTP** (a fine-tune of Qwen3.6-27B) then
+**Qwen3.6-27B base** on the SAME v2 config Gemma used. It finishes ~2026-07-08 (past the Fable
+window), so this is the deterministic hand-off. These two rows are the **fine-tune-vs-base
+showcase** — the core purpose ([[feedback-local-bench-finetunes-first-class]]): Qwopus gets its
+own model row with a base_model lineage chip; Qwen3.6-27B base is the comparator.
+
+This is IDENTICAL to the Gemma v2 re-derivation done on the night of 2026-07-06 (see
+`night-plan-2026-07-06.md` and the Gemma steps below). If Gemma landed cleanly, repeat it twice.
+
+## Pre-req reality (why auto-submit "failed" and that's fine)
+The runner auto-runs `localbench submit run` at the end of each phase. That submit **fails**
+with `suite release pair is not registered: suite-v1-full-exec-6axis-v1 / <sha>` — BY DESIGN:
+our runs use `--suite-dir suite/v1` (the source dir), whose manifest sha differs from the
+registered release bundle. **Our own rows do not go through the submit gate — they are
+re-scored and board-built by the maintainer** (steps below). The failed submit is cosmetic; the
+run artifacts are complete. (A third-party user, by contrast, `fetch-suite`s the registered
+bundle and DOES match — that path is proven by the go-live dress rehearsal.)
+
+## 0. Wait for completion
+- `Get-Content C:\Users\Michael\lb-user-runs\state-v2-requeue.json` → `{"phase":"all","status":"complete"}`
+  (or per-phase `"qwopus"/"submitted"` then `"qwen-base"/"submitted"`).
+- Run dirs: `C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\` and `...\qwen3-6-27b-v2-full\`.
+- Each has a `localbench-run.json` with the static/agentic verdicts and **148 PENDING coding
+  items** (verdict null — coding verdicts are filled by the verifier pass, never at gen time).
+- GPU is free after this — you may stop the llama-server and the runner.
+
+## 1. Coding verifier pass (WSL rootless Docker, per model) — fills coding verdicts under the FINAL harness
+The harness is the post-#42 invert-control grader (commit 41dbe8d;
+`SENTINEL_SCHEME_REV=bigcodebench-invert-control-sentinel-v2`,
+`AST_GATE_REV=bigcodebench-ast-gate-v2`). Refresh lb-verify first so it has that code, then run.
+**Launch WSL commands from PowerShell** (MSYS mangles `/mnt/c` paths — see night-plan). Image is
+pinned; 60s/task; DOCKER_HOST is the rootless socket:
+
+```powershell
+# once, refresh the verifier to the committed harness:
+wsl -d Ubuntu -u michael -- sh -lc "~/lb-verify/bin/pip install -q -e /mnt/c/Users/Michael/local-bench/cli"
+
+# per model (run for qwopus-v2-full, then qwen3-6-27b-v2-full):
+$img='bigcodebench/bigcodebench-evaluate@sha256:a3cd34ec3840a49d6b7afb240f4bdd47c350bc5991043fd0a91773830f7cd405'
+wsl -d Ubuntu -u michael -- sh -lc "export DOCKER_HOST=unix:///run/user/1000/docker.sock; cd /mnt/c/Users/Michael/local-bench; ~/lb-verify/bin/localbench code --pending-run 'C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\localbench-run.json' --suite-dir suite/v1 --image $img --per-task-timeout 60 --out 'C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\coding-verified.json'"
+```
+Sanity: coding shows ~141 scoreable, a REAL pass rate (not 0%, not 100%). The 7 unscoreable ids
+(bcbh-006/007/014/035/074/096/104) are auto-excluded. AST-rejected gens show as conformance
+failures, not zeros.
+
+## 2. Re-score under the current scorer (no model re-run)
+The run's inline scores were computed at gen time; re-derive the stamped scorecard identity +
+budget audit from the current canonical functions (generations are hash-pinned, untouched).
+Adapt `scratchpad/rescore_gemma.py` (from session 6fd61c59) — point SRC at each model's
+`coding-verified.json`, OUT at `localbench-run.rescored.json`. It re-derives
+`scorecard_identity(profile_id, lane_spec_id=lane)` + `_budget_audit(items)` and writes a
+`rescore_provenance` block. Confirm the new `scorecard_id` matches the post-#42 profileless/
+profile ids in `cli/tests/test_bounded_final_profiles.py` (the v2 pins updated in commit 41dbe8d).
+
+## 3. Board rebuild (adds both rows; Gemma already present)
+The board is a maintainer-built static artifact — community submits never produce ranked rows.
+```
+# from repo root, cli venv:
+uv run --project cli localbench board          # -> cli/runs/board/board_v2.json + release manifest
+cd web && python build_data.py                 # -> web/public/data/*.json (reads board_v2)
+```
+Curation: **Qwopus = its own model row** (`qwopus3-6-27b-v2-mtp`, catalog entry exists, commit
+c136ce4), fine-tune of Qwen3.6-27B, base_model lineage chip. **Qwen3.6-27B base = its own row**
+= the vs-base comparator. Do NOT merge Qwopus into Qwen. If a model lacks a catalog entry, add it
+to `web/model_catalog.json` (see the Qwopus entry as a template) before build_data.
+Re-pin LAUNCH_FREEZE as the board pipeline requires (`git hash-object cli/runs/board/board_v1.json`
+must stay `3d058e6074bd781cc488c03255904b5f9599e37e`).
+
+## 4. Deploy + smoke
+```
+cd web
+scripts/publish-board.ps1      # chains tests -> data -> build -> deploy -> live-verify
+# or manually: build-site.ps1 ; deploy-site.ps1 ; launch-smoke.ps1 -ExpectedMode Public
+```
+Live-verify: local-bench.ai/leaderboard shows Qwopus + Qwen-base rows with all 6 axes; the
+Qwopus row shows its base_model lineage chip and a vs-base delta against Qwen3.6-27B.
+
+## 5. Notes / gotchas
+- One Docker verifier pass at a time (single WSL rootless daemon). ~10-15 min/model.
+- If a coding re-verify shows a pass count wildly different from a sane range, STOP — a harness/
+  image drift is more likely than a real model regression; check the image sha + lb-verify revs.
+- The requeue rows use the CURRENT scorer, so no sha churn — they slot into the existing v2 board.
+- Publication of these rows is the same board-build path as Gemma (maintainer-built), not the
+  community accept flow — no ticket/accept needed.
