@@ -1,0 +1,3 @@
+{statement}
+
+Work through the problem step by step. On the final line, write your answer inside a LaTeX \boxed{{}} command, for example \boxed{{42}} or \boxed{{1/2}}.
