@@ -44,6 +44,7 @@ _DRIVER = '''\
 import base64 as _b64
 import json as _json
 import os as _os
+import sys as _sys
 import types as _types
 import unittest as _unittest
 
@@ -141,8 +142,14 @@ class _Result(_unittest.TestResult):
 
 
 # --- execute untrusted solution + trusted test in an isolated namespace ---
-_mod = _types.ModuleType("submission")
-_mod.__dict__["__name__"] = "submission"
+# The module is named __main__ and registered as such so tests that patch by
+# `__name__ + ".x"` or `"__main__.x"` resolve to this namespace exactly as they did under the
+# previous single-__main__-module design (result-preserving). Displacing the real __main__ from
+# sys.modules also makes the driver's captured refs + nonce UNREACHABLE to untrusted code via
+# sys.modules["__main__"]; the driver keeps working through its own frame globals.
+_mod = _types.ModuleType("__main__")
+_mod.__dict__["__name__"] = "__main__"
+_sys.modules["__main__"] = _mod
 try:
     exec(compile(_solution, "<solution>", "exec"), _mod.__dict__)
     exec(compile(_test, "<test>", "exec"), _mod.__dict__)

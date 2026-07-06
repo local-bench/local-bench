@@ -47,7 +47,7 @@ def test_assemble_program_embeds_untrusted_code_as_data_not_top_level_source() -
     program = assemble_program(_GEN_OK, _TEST, "task_func")
     # The trusted driver is present and still emits the completion sentinel.
     assert "<SENTINEL>" in program
-    assert 'ModuleType("submission")' in program
+    assert 'ModuleType("__main__")' in program
     # The untrusted generation must NOT appear as executable plaintext at the program's top
     # level — that was the sentinel-forgery enabler. It is carried as base64 data instead.
     assert "def task_func(a, b):" not in program
