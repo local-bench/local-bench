@@ -3,7 +3,14 @@
 Each case is a distinct way untrusted model-generated code tried (or could try) to force a
 passing verdict without the unit tests passing. Every one must resolve to ``passed is False``.
 The invert-control driver (program.py) plus the tightened AST gate (ast_gate.py) close the
-whole simple-forgery class; the honest control confirms the harness still passes real code.
+demonstrated one-liner exploit and its close variants; the honest control confirms the harness
+still passes real code.
+
+SCOPE — these do NOT prove the forgery CLASS is closed. In-process nonce recovery (frame /
+traceback / gc walking) still forges a pass and is tracked as KNOWN-OPEN in
+test_coding_exec_known_residual_forgery.py; see docs/reports/coding-exec-framewalk-forgery-2026-07-07.md.
+The soundness guarantee for ranked coding rows is out-of-process (no-auto-rank + maintainer
+re-execution + container), not this in-process sentinel.
 
 See docs/reports/coding-exec-groundtruth-and-probes-2026-07-05.md and
 scratchpad exploit_sentinel_forgery.py for the originally demonstrated exploit.

@@ -1,33 +1,41 @@
 """Assemble generated code + tests into a program graded by a TRUSTED driver.
 
-Security model (2026-07-06 invert-control redesign — closes the P1 sentinel-forgery vector
-demonstrated in docs/reports/coding-exec-groundtruth-and-probes-2026-07-05.md):
+WHAT THIS PROVIDES — AND WHAT IT DOES NOT (read before trusting a coding verdict):
 
+This is TAMPER-EVIDENCE and a casual-forgery deterrent. It is NOT a forgery-proof grading
+guarantee. The 2026-07-06 invert-control redesign is a real improvement over the trivial
+``raise SystemExit(0)`` + cleartext-``__file__``-nonce exploit it replaced, but it does NOT
+close the sentinel-forgery vector: untrusted code sharing this interpreter can still recover
+the driver's private globals (the nonce, the pre-captured ``os.write``, ``os``) and emit a
+forged passing sentinel. Empirically reproduced 2026-07-07 via THREE independent gate-passing
+paths — ``sys._getframe().f_back.f_globals``, a traceback frame
+(``sys.exc_info()[2].tb_frame``, which bypasses even a ``sys.addaudithook`` lockdown), and a
+``gc.get_objects()`` walk to the displaced ``__main__`` module. See
+docs/reports/coding-exec-framewalk-forgery-2026-07-07.md. In-process grading of adversarial
+Python CANNOT be made forgery-proof; the only sound fix is out-of-process value-marshalling
+(docs/reports/coding-exec-worker-marshalling-spec-2026-07-07.md).
+
+THE ACTUAL SOUNDNESS GUARANTEE FOR RANKED CODING ROWS IS OUT OF PROCESS:
+  * the ranked board is a maintainer-built static artifact regenerated only from a closed set
+    of maintainer-curated local files — community submissions never enter the board build, so a
+    forged verdict cannot auto-rank (an architectural property; keep it enforced);
+  * maintainer re-execution of ranked coding rows in the hardened container under this harness;
+  * the hardened, network-off, read-only-rootfs container bounds each run's blast radius.
+Do NOT relax any of the above (e.g. auto-ranking community coding rows, or trusting a submitted
+``verdict_source`` string) on the belief that the in-process sentinel is forgery-proof — it is not.
+
+HOW THE DRIVER WORKS (tamper-evidence mechanics, still useful for the maintainer's own runs):
 The untrusted model-generated code and the (trusted) BigCodeBench unit test are carried into
-the program as base64 DATA, not as executable top-level source. A trusted DRIVER is
-``__main__`` and runs FIRST. Before any untrusted code can run it:
-
-  * captures the grading tools it needs (os.write, unittest loader/runner and the
-    result-recording methods) into private references;
-  * reads the per-task nonce out of band (an env var, see runner.py) and DELETES it, so
-    untrusted code cannot read it and forge a passing sentinel;
-  * executes the untrusted solution + test inside an isolated module namespace wrapped in
-    ``try/except BaseException`` — a ``SystemExit`` (or any exception) raised during untrusted
-    top-level execution is scored as a FAILURE, never a pass, so the verdict can no longer be
-    skipped by exiting the process early;
-  * runs the tests with a PRIVATE ``TestResult`` subclass the untrusted code has no reference
-    to (robust against monkeypatching ``unittest.TestResult`` on the base class), and
-    identity-checks the grading tools before and after the run;
-  * emits the completion sentinel through the pre-captured ``os.write`` and terminates with
-    ``os._exit`` so no untrusted ``atexit``/``__del__``/thread can run after the verdict.
-
-Residual (documented, not closed here): sophisticated in-process attacks — patch-then-restore
-of a specific assert method from *inside* ``task_func``, or frame/gc walking to recover the
-nonce — remain theoretically possible because gen and tests share an interpreter. These are
-far harder than the trivial one-liner this redesign removes, and are further contained by the
-hardened container, by community coding scores never auto-ranking, and by maintainer review
-before any community coding row is promoted. See runner.py for nonce delivery + verdict
-parsing and the AST gate (ast_gate.py) for the defense-in-depth policy on the untrusted code.
+the program as base64 DATA, not executable top-level source. A trusted DRIVER is ``__main__``
+and runs FIRST. Before any untrusted code runs it captures its grading tools (os.write,
+unittest loader/runner and the result-recording methods) into private references and reads the
+per-task nonce out of band (an env var, see runner.py). It execs the untrusted solution + test
+in an isolated namespace under ``try/except BaseException`` (any exit/exception -> FAILURE),
+runs the tests with a PRIVATE ``TestResult`` subclass, identity-checks the grading tools before
+and after, then emits the sentinel through the pre-captured ``os.write`` and ``os._exit``s.
+This defeats the OLD trivial one-liner; it does not defeat frame/traceback/gc nonce recovery
+(above). See runner.py for nonce delivery + verdict parsing and ast_gate.py for the (leaky,
+defense-in-depth-only) static policy on the untrusted code.
 """
 
 from __future__ import annotations
