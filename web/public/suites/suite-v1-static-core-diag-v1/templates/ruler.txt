@@ -1,0 +1,9 @@
+You are evaluating long-context retrieval.
+
+Haystack:
+{haystack}
+
+Question:
+{question}
+
+Only return the requested value(s), in the requested order. Do not explain.

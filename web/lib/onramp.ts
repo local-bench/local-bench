@@ -194,9 +194,14 @@ export function buildRecipe(input: {
   // Pin ==0.2.2: that release carries the bounded-final-v2 lane + the final coding harness, so a
   // run reproduces the registered suite sha the submit gate checks (older releases compute a
   // different sha and are rejected).
+  // The `hf download` line pre-caches the tokenizer: --hf-model-id template introspection is
+  // OFFLINE-only (HF_HUB_OFFLINE=1), so a fresh machine fails the run's first seconds without it
+  // (clean-room user-journey pass, 2026-07-07). Repeated --include flags are deliberate: the hf
+  // CLI treats extra patterns after one --include as literal filenames.
   const setupCommand = [
     'pip install "local-bench-ai[hf]==0.2.2"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
+    `hf download ${model.id} --include "*.json" --include "*.model" --include "*.jinja"`,
   ].join("\n");
   const benchCommand = [
     "localbench run",

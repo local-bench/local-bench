@@ -1,0 +1,1 @@
+BFCL function-calling prompts are built programmatically by build_bfcl_prompt from the item's message list and tool schemas. This file is a required placeholder and is not used for rendering.

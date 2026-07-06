@@ -1,0 +1,11 @@
+You are evaluating tool-calling conformance over plaintext JSON. You are given a JSON tool catalog and a user request. Decide which catalog tool calls are required.
+
+Tool catalog:
+{tool_catalog}
+
+User request:
+{user_request}
+
+Return exactly one JSON object and nothing else. Do not use markdown fences. Do not include prose. Use only tools from the catalog. Every call's arguments must match that tool's JSON Schema. The output schema is exactly:
+{"schema_version":"localbench.tc.v1","calls":[{"name":"tool.name","arguments":{}}]}
+Return {"schema_version":"localbench.tc.v1","calls":[]} if no tool is needed or no catalog tool can satisfy the request.

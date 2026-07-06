@@ -26,8 +26,9 @@ export default function SubmitPage() {
           password reset, and a new key is a new identity.
         </p>
         <p>
-          You can optionally attach a display name (2–40 characters, starting and ending with a letter
-          or digit; spaces, <code className="font-mono text-bench-text">.</code>,{" "}
+          You can optionally attach a display name (2–40 characters, ASCII letters and digits only —
+          no accents or parentheses — starting and ending with a letter or digit; spaces,{" "}
+          <code className="font-mono text-bench-text">.</code>,{" "}
           <code className="font-mono text-bench-text">_</code>,{" "}
           <code className="font-mono text-bench-text">&apos;</code>, and{" "}
           <code className="font-mono text-bench-text">-</code> allowed in between — no URLs). Accepted
@@ -69,7 +70,29 @@ export default function SubmitPage() {
           on the methodology page.
         </p>
 
-        <h3 className="text-base font-semibold text-bench-text">3. Run the benchmark</h3>
+        <h3 className="text-base font-semibold text-bench-text">3. Cache your model&apos;s tokenizer</h3>
+        <p>
+          Ranked runs pass <code className="font-mono text-bench-text">--hf-model-id</code> so the
+          harness can introspect your model&apos;s chat template. That introspection is deliberately
+          offline (the run never phones home mid-benchmark), so the tokenizer files must already be
+          in your Hugging Face cache before you start:
+        </p>
+        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+          {`hf download <the-model's-HF-repo> --include "*.json" --include "*.model" --include "*.jinja"`}
+        </pre>
+        <p className="text-sm">
+          The <code className="font-mono text-bench-text">hf</code> command ships with the{" "}
+          <code className="font-mono text-bench-text">[hf]</code> install above. Use the original
+          model&apos;s repo (the transformers-format one), not the GGUF repo. Gated repos (for
+          example <code className="font-mono text-bench-text">google/gemma-*</code>) additionally
+          need a one-time <code className="font-mono text-bench-text">hf auth login</code> after
+          accepting the license on huggingface.co — or use an ungated mirror such as the{" "}
+          <code className="font-mono text-bench-text">unsloth/</code> upload of the same model. If
+          this step is skipped, the run stops in its first seconds with{" "}
+          <code className="font-mono text-bench-text">could not load tokenizer … from the offline HF cache</code>.
+        </p>
+
+        <h3 className="text-base font-semibold text-bench-text">4. Run the benchmark</h3>
         <p>
           The strongest-provenance path is <code className="font-mono text-bench-text">bench</code>:
           the CLI launches the llama.cpp server itself with pinned serving flags.
@@ -79,6 +102,9 @@ export default function SubmitPage() {
   --runtime llama.cpp \\
   --model-file <model.gguf> \\
   --model-id <model-slug> \\
+  --hf-model-id <the-model's-HF-repo> \\
+  --lane bounded-final-v2 \\
+  --profile auto \\
   --ctx 32768 \\
   --seed 1234 \\
   --out runs/my-bench`}
@@ -106,8 +132,10 @@ export default function SubmitPage() {
           A run must pin its sampler settings to be publishable (
           <code className="font-mono text-bench-text">--publishable</code>{" "}
           requires <code className="font-mono text-bench-text">--sampler-seed</code>); the CLI warns up
-          front — before any GPU time is spent — if your flags make the run unpublishable. Want these
-          pre-filled for your VRAM and model? The{" "}
+          front — before any GPU time is spent — if your flags make the run unpublishable. Keep the{" "}
+          <code className="font-mono text-bench-text">.json</code> extension on{" "}
+          <code className="font-mono text-bench-text">--out</code> — the campaign directory is derived
+          from it. Want these pre-filled for your VRAM and model? The{" "}
           <Link href="/" className="text-bench-accent hover:underline">
             recipe builder on the home page
           </Link>{" "}
@@ -122,7 +150,7 @@ export default function SubmitPage() {
           unranked diagnostic only.
         </p>
 
-        <h3 className="text-base font-semibold text-bench-text">4. Submit</h3>
+        <h3 className="text-base font-semibold text-bench-text">5. Submit</h3>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
           {`localbench submit run --run runs/my-run.json`}
         </pre>
