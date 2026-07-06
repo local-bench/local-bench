@@ -196,7 +196,17 @@ function codingStateFor(row: SubmissionRow, bundle: ResultBundle): CodingState {
     const source = item["code_artifact"]["verdict_source"];
     return typeof source === "string" ? source : null;
   });
-  if (sources.every((source) => source === "verifier")) {
+  // A `verdict_source: "verifier"` string is SELF-REPORTED: the submitter ran the coding on
+  // their own machine, and the in-process coding sentinel is FORGEABLE — a passing BigCodeBench
+  // verdict can be fabricated (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). So it
+  // confers trust ONLY from an admin-authenticated project_anchor submission (origin is
+  // server-assigned from the admin secret in submission-ticket-api.ts and cannot be
+  // self-declared). There is no coding-bound attestation yet (the Ed25519 attester covers only
+  // agentic verdicts), so a COMMUNITY "verifier" claim is NOT auto-accepted — it falls through
+  // to self_reported_exec and is escalated for maintainer review. See
+  // docs/reports/coding-exec-worker-marshalling-spec-2026-07-07.md for the path to trusted
+  // community coding.
+  if (row.origin === "project_anchor" && sources.every((source) => source === "verifier")) {
     return "verifier";
   }
   if (row.origin === "community" && sources.every((source) => source === null)) {

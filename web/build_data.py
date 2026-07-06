@@ -581,7 +581,40 @@ def _representative_run(group: list[JsonObject]) -> JsonObject:
     )
 
 
+def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
+    """Enforce "community/self-reported coding never ranks" IN CODE (was manual-commit discipline).
+
+    The ranked gate (_build_run) keys only on tier / conformance / headline-completeness and never
+    on coding provenance, and the in-process coding sentinel is FORGEABLE (a submitter can forge a
+    passing BigCodeBench verdict — docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). So
+    nothing structurally stops a self-reported coding run — if one were curated into
+    data_sources.json, or a future path wired community submissions into the board build — from
+    ranking with a forged coding score counted. This guard makes that a build-time failure.
+
+    Invariant: any ranked row carrying the coding axis must have MAINTAINER-attested provenance —
+    trust_label == "project_anchor" (a maintainer-controlled data_sources.json field) AND
+    verdict_source == "verifier" (coding re-executed under the maintainer sandbox verifier). The
+    submitter-controlled verdict_source string alone is NOT trusted; trust_label is the anchor.
+    """
+    for run in runs:
+        index_row = _object(run["index_row"], "index_row")
+        if not index_row.get("ranked") or not index_row.get("has_code_artifacts"):
+            continue
+        trust_label = index_row.get("trust_label")
+        verdict_source = index_row.get("verdict_source")
+        if trust_label != "project_anchor" or verdict_source != "verifier":
+            raise DataBuildError(
+                f"REFUSING to rank {run.get('run_id')!r}: the coding axis is present but its provenance "
+                f"is not maintainer-verified (trust_label={trust_label!r}, verdict_source={verdict_source!r}). "
+                f"A self-reported / community coding verdict must never produce a ranked row — the in-process "
+                f"coding sentinel is forgeable (see docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). "
+                f"Re-execute the coding under the maintainer sandbox verifier and curate the source as "
+                f"project_anchor, or leave the row unranked."
+            )
+
+
 def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObject]) -> None:
+    _assert_ranked_coding_provenance(runs)  # fail before writing any output if the invariant is violated
     models_dir = out_dir / "models"
     runs_dir = out_dir / "runs"
     for generated_dir in (models_dir, runs_dir):

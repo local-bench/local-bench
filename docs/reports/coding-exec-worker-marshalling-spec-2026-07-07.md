@@ -70,10 +70,18 @@ state exactly what fraction is forgery-proof. Do **not** silently fall back and 
 
 ## Lower-effort alternative if soundness isn't yet a goal
 Formally adopt "tamper-evidence + out-of-process guarantee" as the coding-axis posture:
-1. State it plainly on the methodology page (no "forgery-safe" claims for the sentinel).
-2. **Turn the architectural no-auto-rank into an explicit, tested guard** in `web/build_data.py`:
-   assert no ranked row carries a community/self-reported coding verdict (today it's enforced only
-   by which files `data_sources.json` happens to list — one accidental input away from a live hole).
-3. Fix the forgeable `self_reported_exec` gate: `codingStateFor` trusts a bare
-   `verdict_source:"verifier"` string (`submission-zt1-decision.ts`); require the trusted-attester
-   signature (already implemented for `known_artifact`) before honoring a `verifier` source.
+1. State it plainly on the methodology page (no "forgery-safe" claims for the sentinel). *(open)*
+2. **Turn the architectural no-auto-rank into an explicit, tested guard** in `web/build_data.py`.
+   ✅ **DONE 2026-07-07** — `_assert_ranked_coding_provenance` fails the build if a ranked row
+   carries a non-maintainer-verified coding verdict (trust_label must be `project_anchor` AND
+   verdict_source `verifier`); regression test in `cli/tests/test_web_build_data.py`.
+3. Fix the forgeable `self_reported_exec` gate in `submission-zt1-decision.ts`.
+   ✅ **DONE 2026-07-07** — `codingStateFor` now honors a `verdict_source:"verifier"` claim ONLY
+   from a server-assigned `project_anchor` origin (admin-secret; not self-declarable). A community
+   `verifier` claim falls through to `self_reported_exec` → escalated/hidden. NOTE: the review's
+   "reuse the existing Ed25519 `trustedAttesterSigned`" was NOT the right wiring — that attester is
+   agentic-bound (`{success, collateral_damage}` schema) and there is no coding-bound attestation
+   signer, so reusing it would spuriously accept an unrelated AppWorld attestation as "coding is
+   verified." A proper per-coding-verdict attestation scheme (over the `CodeVerdict` +
+   `assembled_program_sha256`) is the future path to let a trusted community `verifier` claim through;
+   tests in `web/tests/submission-zt1-auto-publish.test.ts`.

@@ -270,6 +270,42 @@ def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Pat
     )
 
 
+def test_ranked_coding_provenance_guard_blocks_self_reported_coding() -> None:
+    # Enforce "community/self-reported coding never ranks" IN CODE. A ranked row carrying the
+    # coding axis must be maintainer-verified (trust_label project_anchor AND verdict_source
+    # verifier); anything else is a build-time failure. The in-process coding sentinel is
+    # forgeable (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md), so a self-reported
+    # verdict_source string must never buy a ranked row.
+    builder = _build_data_module()
+
+    def _run(run_id: str, **index_row: JsonValue) -> JsonObject:
+        return {"run_id": run_id, "index_row": index_row}
+
+    # Legit maintainer-verified ranked coding row: must NOT raise.
+    builder._assert_ranked_coding_provenance(
+        [_run("legit", ranked=True, has_code_artifacts=True, trust_label="project_anchor", verdict_source="verifier")]
+    )
+
+    # Each of these is a ranked coding row that is NOT maintainer-verified: must raise.
+    for label, row in {
+        "community_trust_label": _run("a", ranked=True, has_code_artifacts=True, trust_label="community_re_scored", verdict_source="verifier"),
+        "forged_verdict_source": _run("b", ranked=True, has_code_artifacts=True, trust_label="project_anchor", verdict_source="submitter"),
+        "null_verdict_source": _run("c", ranked=True, has_code_artifacts=True, trust_label="project_anchor", verdict_source=None),
+        "no_provenance_at_all": _run("d", ranked=True, has_code_artifacts=True),
+    }.items():
+        with pytest.raises(builder.DataBuildError, match="not maintainer-verified"):
+            builder._assert_ranked_coding_provenance([row])
+
+    # Non-triggering rows must NOT raise: an unranked self-reported coding row, and a ranked
+    # row with no coding axis (provenance is irrelevant when coding is absent).
+    builder._assert_ranked_coding_provenance(
+        [
+            _run("unranked", ranked=False, has_code_artifacts=True, trust_label="community_re_scored", verdict_source="submitter"),
+            _run("nocode", ranked=True, has_code_artifacts=False, trust_label="community_re_scored", verdict_source=None),
+        ]
+    )
+
+
 def test_build_data_quarantines_invalid_inline_appworld(tmp_path: Path) -> None:
     # Given: a run with inline appworld_c scores whose diagnostics show harness-dominated failure.
     builder = _build_data_module()

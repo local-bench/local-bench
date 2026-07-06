@@ -55,11 +55,22 @@ casual-forgery deterrent, not a soundness guarantee.** Any claim that the coding
 The coding axis's real soundness must come from **out of process**:
 1. **Coding rows never auto-rank** — community coding scores are held for maintainer review, never
    promoted to the ranked board by the automated pipeline. (See the blast-radius section — this
-   must be *enforced in code*, not merely documented.)
-2. **Maintainer re-execution** — ranked coding rows are re-run by the maintainer in the hardened
-   container under the current harness (already the documented board-build path).
+   must be *enforced in code*, not merely documented. Now enforced: `build_data.py`'s
+   `_assert_ranked_coding_provenance` fails the build if a ranked row carries a non-maintainer-verified
+   coding verdict.)
+2. **The board holds only the maintainer's own (non-adversarial) model runs.** This — not
+   re-execution — is what makes today's board safe: the maintainer benchmarks their own models and
+   has no incentive to forge against themselves.
 3. **Container isolation** — the hardened, network-off, read-only-rootfs container bounds the blast
    radius of any single run to its own subprocess + tmpfs.
+
+**NOT a defense: maintainer re-execution.** An earlier draft listed "the maintainer re-runs the
+coding in the hardened container" as a soundness pillar. It is not one. Re-running the *same
+forgeable harness* on an adversarial generation just re-confirms the forged pass — a frame-walking
+`task_func` forges whoever runs it. Re-execution defends against non-determinism and environment
+drift, not against forgery. Once community coding is ever eligible to rank, re-execution alone will
+not protect the board — you need either the worker-marshalling fix or manual code inspection of the
+generation (a human reading the source would spot the frame-walk; the interpreter will not).
 
 ## The one sound fix (for when automated coding-row trust is actually wanted)
 Out-of-process **value-marshalling** (see `coding-exec-worker-marshalling-spec-2026-07-07.md`):

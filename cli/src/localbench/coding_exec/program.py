@@ -18,11 +18,16 @@ Python CANNOT be made forgery-proof; the only sound fix is out-of-process value-
 THE ACTUAL SOUNDNESS GUARANTEE FOR RANKED CODING ROWS IS OUT OF PROCESS:
   * the ranked board is a maintainer-built static artifact regenerated only from a closed set
     of maintainer-curated local files — community submissions never enter the board build, so a
-    forged verdict cannot auto-rank (an architectural property; keep it enforced);
-  * maintainer re-execution of ranked coding rows in the hardened container under this harness;
+    forged verdict cannot auto-rank. Now enforced in code (web/build_data.py
+    ``_assert_ranked_coding_provenance``), not merely architectural;
+  * the board holds only the maintainer's own (non-adversarial) model runs — this, not
+    re-execution, is what makes it safe today;
   * the hardened, network-off, read-only-rootfs container bounds each run's blast radius.
-Do NOT relax any of the above (e.g. auto-ranking community coding rows, or trusting a submitted
-``verdict_source`` string) on the belief that the in-process sentinel is forgery-proof — it is not.
+NOT a forgery defense: re-running this harness. Re-executing an adversarial generation just
+re-confirms its forged pass (a frame-walking task_func forges whoever runs it) — re-execution
+guards against non-determinism, not forgery. Do NOT relax the above (e.g. auto-ranking community
+coding rows, or trusting a submitted ``verdict_source`` string) on the belief that the in-process
+sentinel — or a maintainer re-run of it — is forgery-proof. It is not.
 
 HOW THE DRIVER WORKS (tamper-evidence mechanics, still useful for the maintainer's own runs):
 The untrusted model-generated code and the (trusted) BigCodeBench unit test are carried into

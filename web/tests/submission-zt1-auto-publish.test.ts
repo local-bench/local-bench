@@ -97,6 +97,55 @@ describe("ZT-1 automatic publish decisions", () => {
     });
   }, 15_000);
 
+  it("does not auto-trust a community submission's self-declared verifier coding", async () => {
+    // Given: a COMMUNITY bundle self-declares verdict_source:"verifier" on all coding items. The
+    // in-process coding sentinel is forgeable (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md),
+    // so a community "verifier" claim is self-reported and must not be auto-accepted. (origin is
+    // server-assigned; issueEnvelope uses the admin secret => project_anchor, so force community here.)
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const bundle = bundleFor({ fileSha: UNKNOWN_HASH, score: 45 });
+    bundle["items"] = [
+      { bench: "bigcodebench_hard", item_id: "bcbh-001", code_artifact: { verdict_source: "verifier" } },
+      { bench: "bigcodebench_hard", item_id: "bcbh-002", code_artifact: { verdict_source: "verifier" } },
+    ];
+    const submissionId = await ticketWithBundle(env, bundle);
+    await env.DB.prepare("update submissions set origin = 'community' where submission_id = ?").bind(submissionId).run();
+
+    // When: the verifier accepts the submission.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: the forged "verifier" claim is NOT auto-accepted — it escalates to hidden for review.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      publish_state: "hidden",
+      zt1_decision: "escalated",
+      zt1_decision_reason: "coding_self_reported_exec",
+    });
+  }, 15_000);
+
+  it("still honors a project_anchor submission's verifier coding (gate is targeted)", async () => {
+    // Contrast: the same all-"verifier" coding from an admin-authenticated project_anchor origin
+    // stays trusted — the gate downgrades only community/self-reported verifier claims, it does not
+    // break the maintainer path.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const bundle = bundleFor({ fileSha: UNKNOWN_HASH, score: 45 });
+    bundle["items"] = [
+      { bench: "bigcodebench_hard", item_id: "bcbh-001", code_artifact: { verdict_source: "verifier" } },
+      { bench: "bigcodebench_hard", item_id: "bcbh-002", code_artifact: { verdict_source: "verifier" } },
+    ];
+    const submissionId = await ticketWithBundle(env, bundle);
+    await env.DB.prepare("update submissions set origin = 'project_anchor' where submission_id = ?").bind(submissionId).run();
+
+    const response = await verifyAccepted(env, submissionId);
+
+    // Not escalated FOR CODING — the verifier state is honored for a project_anchor origin.
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body["zt1_decision_reason"]).not.toBe("coding_self_reported_exec");
+  }, 15_000);
+
   it("creates an unverified identity row without merging into a catalog slug", async () => {
     // Given: the model artifact hash is not in the known catalog map.
     const env = await createZt1Env();
