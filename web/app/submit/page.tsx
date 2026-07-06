@@ -92,7 +92,7 @@ export default function SubmitPage() {
   --endpoint http://localhost:8080/v1 \\
   --model <name-your-server-reports> \\
   --hf-model-id <the-model's-HF-repo> \\
-  --lane bounded-final-v1 \\
+  --lane bounded-final-v2 \\
   --profile auto \\
   --tier standard \\
   --publishable \\

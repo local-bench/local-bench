@@ -191,11 +191,11 @@ describe("buildRecipe", () => {
   it("emits a board-comparable bounded-final recipe for a Qwen model on llama.cpp", () => {
     const selected = model();
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v1");
+    expect(recipe.lane).toBe("bounded-final-v2");
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
     expect(recipe.model).toBe(selected);
     expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms',
+      'pip install "local-bench-ai[hf]==0.2.2"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -203,7 +203,7 @@ describe("buildRecipe", () => {
     expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
     expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
     expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
+    expect(recipe.benchCommand).toContain("--lane bounded-final-v2");
     expect(recipe.benchCommand).toContain("--profile auto");
     expect(recipe.benchCommand).not.toContain("--reasoning-activation");
     expect(recipe.benchCommand).toContain("--publishable");
@@ -233,16 +233,16 @@ describe("buildRecipe", () => {
   it("gives a non-reasoning model the same ranked bounded-final recipe (profile auto)", () => {
     const selected = model({ reasoningCapable: false });
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v1");
+    expect(recipe.lane).toBe("bounded-final-v2");
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
+    expect(recipe.benchCommand).toContain("--lane bounded-final-v2");
     expect(recipe.benchCommand).toContain("--profile auto");
   });
 
   it("gives a reasoning model outside Qwen3/Gemma the same ranked bounded-final recipe", () => {
     const selected = model({ family: "Granite 3", org: "IBM" });
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v1");
+    expect(recipe.lane).toBe("bounded-final-v2");
     expect(recipe.benchCommand).toContain("--profile auto");
   });
 

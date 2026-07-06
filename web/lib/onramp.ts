@@ -63,7 +63,7 @@ export type BenchmarkRecipe = {
   readonly serveNote: string | null;
   readonly benchCommand: string;
   readonly submitCommand: string;
-  readonly lane: "bounded-final-v1";
+  readonly lane: "bounded-final-v2";
   readonly servedModelName: string;
   readonly ggufRepo: string | null;
   readonly model: OnrampCatalogModel;
@@ -187,12 +187,15 @@ export function buildRecipe(input: {
   const { model, quant, runtime } = input;
   const servedModelName = runtime.servedModelName(model, quant);
 
-  // bounded-final-v1: every model runs the ONE ranked lane. --profile auto introspects the
+  // bounded-final-v2: every model runs the ONE ranked lane. --profile auto introspects the
   // model's own chat template and applies the allowlisted execution profile; no family gate.
   // The [hf] extra ships the template introspection dependency;
   // plain `pip install local-bench-ai` cannot resolve --hf-model-id (user-path smoke, 2026-07-05).
+  // Pin ==0.2.2: that release carries the bounded-final-v2 lane + the final coding harness, so a
+  // run reproduces the registered suite sha the submit gate checks (older releases compute a
+  // different sha and are rejected).
   const setupCommand = [
-    'pip install "local-bench-ai[hf]"',
+    'pip install "local-bench-ai[hf]==0.2.2"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
   ].join("\n");
   const benchCommand = [
@@ -200,7 +203,7 @@ export function buildRecipe(input: {
     `--endpoint ${runtime.endpoint}`,
     `--model ${servedModelName}`,
     `--hf-model-id ${model.id}`,
-    "--lane bounded-final-v1",
+    "--lane bounded-final-v2",
     "--profile auto",
     "--tier standard",
     "--publishable",
@@ -214,7 +217,7 @@ export function buildRecipe(input: {
     serveNote: runtime.serveNote(model, quant),
     benchCommand,
     submitCommand: "localbench submit run --run runs/my-run.json",
-    lane: "bounded-final-v1",
+    lane: "bounded-final-v2",
     servedModelName,
     ggufRepo: model.ggufRepo,
     model,
