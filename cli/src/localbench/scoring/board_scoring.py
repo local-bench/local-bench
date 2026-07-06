@@ -655,11 +655,27 @@ def _coding_verified_if_required(run: JsonObject, lane: str | None) -> bool:
     coding_items = [item for item in items if isinstance(item, dict) and item.get("bench") == "bigcodebench_hard"]
     if not coding_items:
         return False
-    return all(
-        isinstance((artifact := item.get("code_artifact")), dict)
-        and artifact.get("verdict_source") == "verifier"
-        for item in coding_items
-    )
+    return all(_coding_item_trustworthy(item) for item in coding_items)
+
+
+def _coding_item_trustworthy(item: JsonObject) -> bool:
+    """A coding item's verdict is trustworthy when the model's code was executed by the
+    maintainer sandbox verifier, OR it is a deterministic pre-execution FAIL that never needed
+    execution — an AST-gate rejection or unextractable code. Deterministic fails are always
+    correct==False, so they cannot inflate the coding score; an item with neither a verifier
+    verdict nor a recorded deterministic disposition (a silent gap) is still rejected."""
+    artifact = item.get("code_artifact")
+    if not isinstance(artifact, dict):
+        return False
+    if artifact.get("verdict_source") == "verifier":
+        return True
+    if item.get("correct") is not False:
+        return False
+    conformance = artifact.get("conformance_status")
+    if isinstance(conformance, dict) and conformance.get("failure") == "coding_ast_rejected":
+        return True
+    extraction = artifact.get("extraction_status")
+    return isinstance(extraction, dict) and extraction.get("status") not in (None, "ok")
 
 
 def _audit_status(run: JsonObject, key: str) -> str | None:

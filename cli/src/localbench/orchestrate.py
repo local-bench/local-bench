@@ -85,7 +85,7 @@ from localbench.reasoning_leaks import registry_leak_regexes
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
-from localbench.scoring.axes import AXES
+from localbench.scoring.axes import AXES, agentic_benches
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
     axis_key_for_bench,
@@ -979,8 +979,17 @@ def _budget_audit(items: list[ScoredItem]) -> JsonObject:
     per_bench: dict[str, JsonObject] = {}
     unverified = 0
     breached = 0
+    excluded_agentic = 0
+    agentic = agentic_benches()
     for item in items:
         bench = item["bench"]
+        if bench in agentic:
+            # Multi-turn agentic tasks carry no single per-item token budget (each turn is
+            # bounded separately), so they are not part of the per-item budget audit. Excluding
+            # them by axis-registry membership is safe: an item's bench is fixed by the suite
+            # hash, so a submitter cannot relabel a budgeted static item as agentic to dodge it.
+            excluded_agentic += 1
+            continue
         bench_audit = per_bench.setdefault(
             bench,
             {
@@ -1018,6 +1027,7 @@ def _budget_audit(items: list[ScoredItem]) -> JsonObject:
         "per_bench": per_bench,
         "unverified_items": unverified,
         "breached_items": breached,
+        "excluded_agentic_items": excluded_agentic,
     }
 
 

@@ -152,6 +152,13 @@ def axis_membership() -> dict[str, tuple[str, ...]]:
     return {axis.key: axis.benches for axis in AXES}
 
 
+def agentic_benches() -> frozenset[str]:
+    """Benches on the agentic axis — multi-turn tasks with no single per-item token
+    budget (each turn is bounded separately). They are excluded from the per-item
+    token-budget audit, which only applies to single-generation benches."""
+    return frozenset(bench for axis in AXES if axis.key == "agentic" for bench in axis.benches)
+
+
 def web_display_axes() -> tuple[str, ...]:
     return tuple(axis.web_key for axis in AXES if axis.web_display)
 
