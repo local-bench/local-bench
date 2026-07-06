@@ -78,6 +78,20 @@ scripts/publish-board.ps1      # chains tests -> data -> build -> deploy -> live
 Live-verify: local-bench.ai/leaderboard shows Qwopus + Qwen-base rows with all 6 axes; the
 Qwopus row shows its base_model lineage chip and a vs-base delta against Qwen3.6-27B.
 
+## 4b. FOLD IN: Gemma board re-derivation (deferred from the 2026-07-06 night deploy)
+The night-of-2026-07-06 deploy shipped code + the 6-axis bundle + suite-catalog (fetch-suite
+works, submit registers c4098df8) but did NOT rebuild the board, to avoid a rushed LAUNCH_FREEZE
+re-pin. Gemma's board run is ALREADY re-scored on disk under the post-#42 harness:
+`runs/bench/ranked-6axis-bounded-final-2026-07-06/gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2.json`
+now carries scorecard_id `39edac77…` (was `e4903c5d…`); its coding was re-verified under the new
+harness = 40/141, 0 mismatches (result-preserving, number unchanged at Index 35.20). The board
+rebuild in step 3 picks this up automatically (data_sources.json references that file). If the
+file is missing/reverted, re-run `scratchpad/rescore_gemma_v42.py` (session badb6de7) first.
+So the requeue board rebuild re-derives ALL THREE rows (Gemma + Qwopus + Qwen-base) uniformly
+under the post-#42 harness — which is exactly why folding Gemma here (one rebuild) beat rebuilding
+twice. Update `web/components/launch-freeze.ts` `boardSha256` to the freshly built board sha
+(`git hash-object cli/runs/board/board_v2.json` after the build) as part of step 3.
+
 ## 5. Notes / gotchas
 - One Docker verifier pass at a time (single WSL rootless daemon). ~10-15 min/model.
 - If a coding re-verify shows a pass count wildly different from a sane range, STOP — a harness/
