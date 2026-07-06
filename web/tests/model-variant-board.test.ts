@@ -15,6 +15,49 @@ describe("model variant board runtime display", () => {
     expect(html).not.toContain("decode tok/s");
   });
 
+  it("quarantines legacy-lane runs into the previous-index diagnostics table", () => {
+    const base = fixtureModel();
+    const current = base.runs[0];
+    if (current === undefined) {
+      throw new Error("fixture missing run");
+    }
+    const legacy: ModelData["runs"][number] = {
+      ...current,
+      composite: { hi: 62, lo: 58, point: 60 },
+      lane: "capped-thinking",
+      quant_label: "Q8_0",
+      ranked: false,
+      run_id: RunIdSchema.parse("legacy-run"),
+    };
+    const html = renderToStaticMarkup(
+      createElement(ModelVariantBoard, { model: { ...base, runs: [current, legacy] } }),
+    );
+
+    expect(html).toContain("Previous-index diagnostics");
+    expect(html).toContain("capped-thinking");
+    expect(html).toContain('href="/run/legacy-run"');
+    // The legacy composite must never render as a current-index score.
+    expect(html).not.toContain("60.0");
+    // The main table still ranks only the current-index run.
+    expect(html).toContain("85.0");
+  });
+
+  it("shows a benchmark CTA when every measured run is legacy-lane", () => {
+    const base = fixtureModel();
+    const current = base.runs[0];
+    if (current === undefined) {
+      throw new Error("fixture missing run");
+    }
+    const legacyOnly: ModelData = {
+      ...base,
+      runs: [{ ...current, lane: "capped-thinking", ranked: false }],
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: legacyOnly }));
+
+    expect(html).toContain("No current-index measurements yet");
+    expect(html).toContain("Previous-index diagnostics");
+  });
+
   it("shows the compact decode tok/s column only when a run has serving perf", () => {
     const base = fixtureModel();
     const run = base.runs[0];
@@ -63,7 +106,7 @@ function fixtureModel(): ModelData {
         est_cost_usd: null,
         file_gb: null,
         hardware: { cpu: null, gpu: null, os: null, ram_gb: null },
-        lane: "capped-thinking",
+        lane: "bounded-final-v2",
         n_errors: 0,
         n_items: 10,
         quant_label: "Q4_K_M",

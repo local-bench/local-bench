@@ -147,7 +147,12 @@ describe("static data access", () => {
     expect(qwenComparison).toMatchObject({
       base: { catalogId: "Qwen/Qwen3.6-27B", displayName: "Qwen3.6 27B" },
       derivative: { displayName: "Qwopus 3.6 27B v2 MTP" },
-      missing: ["fine-tune not yet benchmarked"],
+      // The base's only measured rows are legacy capped-thinking (previous index), so the
+      // comparison must withhold its composite rather than fake a cross-index delta.
+      missing: [
+        "base has only previous-index runs — awaiting a current-index rerun",
+        "fine-tune not yet benchmarked",
+      ],
     });
     expect(qwenComparison?.axes).toEqual([]);
 

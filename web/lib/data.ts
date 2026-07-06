@@ -28,6 +28,7 @@ import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 import type { OnrampCatalogModel } from "./onramp";
 import {
   buildVsBaseComparison,
+  currentIndexRunId,
   type FineTuneComparePreset,
   type VsBaseBoardRow,
   type VsBaseComparison,
@@ -208,6 +209,8 @@ function toVsBaseBoardRow(row: IndexModel | null): VsBaseBoardRow | null {
     axes: row.axes,
     bestRunId: row.best_run_id,
     composite: row.composite,
+    lane: row.lane,
+    ranked: row.ranked,
     scoreStatus: row.score_status,
   };
 }
@@ -343,8 +346,8 @@ export async function getFineTuneComparePresets(): Promise<readonly FineTuneComp
       base: toVsBaseSide(base, index.models),
       derivative: toVsBaseSide(entry, index.models),
     });
-    const leftRunId = comparison.derivative.row?.bestRunId ?? null;
-    const rightRunId = comparison.base.row?.bestRunId ?? null;
+    const leftRunId = currentIndexRunId(comparison.derivative.row);
+    const rightRunId = currentIndexRunId(comparison.base.row);
     if (leftRunId === null || rightRunId === null) {
       return [];
     }

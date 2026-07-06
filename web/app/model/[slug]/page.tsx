@@ -6,6 +6,7 @@ import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
+import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 
 export const dynamicParams = false;
 
@@ -22,9 +23,17 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
   const { model, anchorRuns, lineage, vsBaseComparisons } = await getModelPageData(slug);
-  const measuredRuns = model.runs.filter((run) => run.score_status === "measured");
-  const rankedRuns = measuredRuns.filter((run) => run.ranked);
-  const partialRuns = measuredRuns.filter((run) => !run.ranked);
+  // Current-index (headline lane) runs drive every headline element; legacy-lane runs are
+  // diagnostics from an earlier index version and only inform the fallback copy below.
+  const headlineMeasured = model.runs.filter(
+    (run) => run.score_status === "measured" && run.lane === HEADLINE_LANE,
+  );
+  const legacyMeasured = model.runs.filter(
+    (run) => run.score_status === "measured" && run.lane !== HEADLINE_LANE,
+  );
+  const measuredRuns = [...headlineMeasured, ...legacyMeasured];
+  const rankedRuns = headlineMeasured.filter((run) => run.ranked);
+  const partialRuns = headlineMeasured.filter((run) => !run.ranked);
   // Headline provenance comes from the ranked (representative) run when one exists —
   // ladder/partial runs sort first in the payload and must not set the headline chip.
   const hasProvenance = (run: (typeof measuredRuns)[number]): boolean =>
@@ -33,7 +42,7 @@ export default async function ModelPage({ params }: PageProps) {
   const submitter = measuredRuns.find(
     (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
   )?.submitter_display_name;
-  const formatGate = model.runs.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
+  const formatGate = measuredRuns.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
     ?.tc_json_v1;
 
   return (
@@ -70,8 +79,15 @@ export default async function ModelPage({ params }: PageProps) {
           </p>
           {partialRuns.length > 0 && rankedRuns.length === 0 ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
-              {partialRuns.length} measured profile{partialRuns.length === 1 ? "" : "s"} are unranked because at least
-              one headline axis is missing.
+              {partialRuns.length} measured profile{partialRuns.length === 1 ? " is" : "s are"} unranked because at
+              least one headline axis is missing.
+            </p>
+          ) : null}
+          {legacyMeasured.length > 0 && headlineMeasured.length === 0 ? (
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
+              All {legacyMeasured.length} measured profile{legacyMeasured.length === 1 ? "" : "s"} for this model come
+              from a previous index lane. They appear below as diagnostics; the model rejoins the ranked board once a
+              current-index run lands.
             </p>
           ) : null}
         </div>

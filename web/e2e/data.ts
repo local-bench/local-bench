@@ -11,8 +11,8 @@ const ScoreSchema = z.object({
 });
 
 const IndexModelSchema = z.object({
-  best_run_id: z.string(),
-  composite: ScoreSchema,
+  best_run_id: z.string().nullable(),
+  composite: ScoreSchema.nullable(),
   kind: z.enum(["anchor", "community"]),
   model_label: z.string(),
   slug: z.string(),
@@ -23,7 +23,9 @@ const IndexDataSchema = z.object({
 });
 
 const ModelRunSchema = z.object({
-  run_id: z.string(),
+  lane: z.string().nullable(),
+  run_id: z.string().nullable(),
+  score_status: z.string(),
 });
 
 const ModelDataSchema = z.object({
@@ -63,10 +65,16 @@ export async function getAllStaticRoutes(): Promise<readonly StaticRoute[]> {
     screenshotName: `route-model-${model.slug}`,
   }));
   const runRoutes = models.flatMap((model) =>
-    model.runs.map((run) => ({
-      path: `/run/${run.run_id}/`,
-      screenshotName: `route-run-${run.run_id}`,
-    })),
+    model.runs.flatMap((run) =>
+      run.run_id === null
+        ? []
+        : [
+            {
+              path: `/run/${run.run_id}/`,
+              screenshotName: `route-run-${run.run_id}`,
+            },
+          ],
+    ),
   );
 
   return [...contentRoutes, ...modelRoutes, ...runRoutes];
