@@ -74,7 +74,7 @@ export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_re
 export const MAX_UPLOAD_BYTES = 67_108_864;
 export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
 export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
-export const DEFAULT_SUITE_MANIFEST_SHA256 = "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af";
+export const DEFAULT_SUITE_MANIFEST_SHA256 = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
 export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
