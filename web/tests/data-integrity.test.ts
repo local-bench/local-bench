@@ -11,9 +11,11 @@ type IndexModel = {
   readonly slug: string;
   readonly best_run_id: string | null;
   readonly composite: { readonly point: number } | null;
+  readonly diagnostic_composite?: { readonly point: number } | null;
   readonly ranked: boolean;
   readonly demo?: boolean;
   readonly score_status?: string;
+  readonly lane: string | null;
   readonly axes: Record<string, unknown>;
 };
 
@@ -60,5 +62,21 @@ describe("public/data integrity — ranked measured rows", () => {
         ).toBeLessThan(0.01);
       }
     }
+  });
+
+  it("keeps retired-lane composites out of the standard index score field", () => {
+    // Given generated index rows that include measured previous-index diagnostics.
+    const legacyMeasured = index.models.filter(
+      (model) => model.score_status === "measured" && model.lane !== "bounded-final-v2",
+    );
+
+    // When the public data is inspected through the index contract.
+    const rowsWithStandardComposite = legacyMeasured.filter((model) => model.composite !== null);
+
+    // Then every retired-lane score is quarantined under diagnostic_composite.
+    expect(legacyMeasured).toHaveLength(6);
+    expect(rowsWithStandardComposite).toEqual([]);
+    expect(legacyMeasured.every((model) => model.diagnostic_composite !== null)).toBe(true);
+    expect(legacyMeasured.every((model) => model.diagnostic_composite !== undefined)).toBe(true);
   });
 });

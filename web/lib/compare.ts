@@ -47,7 +47,8 @@ export function getCompareConfigs(
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
-        if (!isNonEmptyString(run.quant_label) || run.composite === null || run.run_id === null) {
+        const score = scoreForRun(run);
+        if (!isNonEmptyString(run.quant_label) || score === null || run.run_id === null) {
           return [];
         }
         const vramEstimate = estimateVramRequirement(
@@ -61,7 +62,7 @@ export function getCompareConfigs(
         return [
           {
             axes: run.axes,
-            composite: run.composite,
+            composite: score,
             coverage: coverageForAxes(run.axes),
             demo: model.demo || run.demo,
             fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
@@ -116,6 +117,13 @@ function scopeRank(config: CompareConfig): number {
 
 function scoreScopeForLane(lane: string | null): CompareScoreScope {
   return lane === HEADLINE_LANE ? "current-index" : "previous-index";
+}
+
+function scoreForRun(run: ModelData["runs"][number]): Score | null {
+  if (run.lane === HEADLINE_LANE) {
+    return run.composite;
+  }
+  return run.diagnostic_composite ?? run.composite;
 }
 
 function winnerFor(delta: number): "left" | "right" | "tie" {

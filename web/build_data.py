@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Final
@@ -76,6 +77,12 @@ _STATIC_WEIGHTS: Final = static_suite_web_weights()
 _APPWORLD_C_BENCH: Final = "appworld_c"
 
 
+@dataclass(frozen=True, slots=True)
+class BoardContext:
+    headline_lane: str
+    models_by_slug: dict[str, JsonObject]
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         sources, out_dir, iters, benches, weights = parse_args(sys.argv[1:] if argv is None else argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
@@ -111,14 +118,23 @@ def _build_agentic_column(out_dir: Path) -> None:
 def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT_ITERS, benches: tuple[str, ...] = BENCHES, weights: dict[str, float] = COMPOSITE_WEIGHTS) -> None:
     sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
     catalog = catalog_entries(_read_json(ROOT / "web" / CATALOG_FILENAME))
-    board = _board_models_by_slug()
+    board = _board_context()
     runs = [_build_run(source, order=index, iters=iters, benches=benches, weights=weights, board=board) for index, source in enumerate(sources)]
     _write_outputs(out_dir, runs, catalog)
 
 
-def _board_models_by_slug() -> dict[str, JsonObject]:
+def _board_context() -> BoardContext:
     board = _object(_read_json(BOARD_PATH), str(BOARD_PATH))
-    return {slug: model for model in _list(board.get("models"), f"{BOARD_PATH}:models") for model in [_object(model, f"{BOARD_PATH}:model")] if (slug := _text(model.get("slug")))}
+    models_by_slug = {
+        slug: model
+        for model in _list(board.get("models"), f"{BOARD_PATH}:models")
+        for model in [_object(model, f"{BOARD_PATH}:model")]
+        if (slug := _text(model.get("slug")))
+    }
+    return BoardContext(
+        headline_lane=_string(board.get("lane_scope"), f"{BOARD_PATH}:lane_scope"),
+        models_by_slug=models_by_slug,
+    )
 
 
 def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_interval: JsonObject, board: dict[str, JsonObject]) -> None:
@@ -244,7 +260,7 @@ def _board_optional_interval(value: JsonValue | None) -> JsonObject | None:
     return _board_interval(value) if isinstance(value, dict) else None
 
 
-def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: dict[str, JsonObject]) -> JsonObject:
+def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: BoardContext) -> JsonObject:
     if _bool(source["demo"], "source.demo"):
         return build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
     if source.get("file") is None:
@@ -283,12 +299,13 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     # by run_id), so the leaderboard, the landing scatter, and the model-page quant ladder all
     # render the board's single agentic-led Index scale. No-op for unranked rows / unmatched
     # runs. See _apply_board_intervals.
-    _apply_board_intervals(slug, run_id, axes, _object(composite["interval"], "composite.interval"), board)
-    conformance_gates = _board_conformance_gates(slug, run_id, board)
+    composite_interval = _object(composite["interval"], "composite.interval")
+    _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
+    conformance_gates = _board_conformance_gates(slug, run_id, board.models_by_slug)
     headline_complete = all(axis in axes for axis in headline_web_axes())
     static_composite = build_composite(run, axes, _STATIC_AXES, _STATIC_WEIGHTS) if _static_complete(axes) else None
-    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(slug, run_id, board)
-    computed_composite_full = dict(_object(composite["interval"], "composite.interval")) if headline_complete else None
+    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(slug, run_id, board.models_by_slug)
+    computed_composite_full = dict(composite_interval) if headline_complete else None
     computed_composite_static = dict(_object(static_composite["interval"], "static_composite.interval")) if static_composite is not None else None
     composite_full = board_composite_full if board_composite_full is not None else computed_composite_full
     composite_static = board_composite_static if board_composite_static is not None else computed_composite_static
@@ -296,12 +313,13 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     annotations = _source_annotations(source, axes, headline_complete)
     tier = _text(suite.get("tier"))
     ranked = tier == "standard" and conformance_status == "headline-comparable" and headline_complete and not quarantined_agentic
+    score_fields = _score_fields_for_lane(lane, composite_interval, board.headline_lane)
     data_warnings = quarantined_agentic + axis_warnings + _list(composite["warnings"], "composite.warnings")
     if static_composite is not None:
         data_warnings += _list(static_composite["warnings"], "static_composite.warnings")
-    detail = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
-    model_row = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | annotations
-    index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | annotations
+    detail = {"axes": axes, "composite": composite_interval, "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
+    model_row = {"axes": axes, "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | score_fields | annotations
+    index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | score_fields | annotations
     extra_status = _run_status_annotations(run, items)
     detail.update(extra_status)
     model_row.update(extra_status)
@@ -439,6 +457,12 @@ def _headline_benches(axes: JsonObject, benches: tuple[str, ...], weights: dict[
 
 def _static_complete(axes: JsonObject) -> bool:
     return all(axis in axes for axis in _STATIC_AXES)
+
+
+def _score_fields_for_lane(lane: str | None, composite: JsonObject, headline_lane: str) -> JsonObject:
+    if lane == headline_lane:
+        return {"composite": composite}
+    return {"composite": None, "diagnostic_composite": composite}
 
 
 def _run_status_annotations(run: JsonObject, items: list[JsonValue]) -> JsonObject:

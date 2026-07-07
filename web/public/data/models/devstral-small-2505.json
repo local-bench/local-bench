@@ -6,7 +6,7 @@
   "gguf_repo": "unsloth/Devstral-Small-2505-GGUF",
   "kind": "community",
   "license": "apache-2.0",
-  "model_kind": "base",
+  "model_kind": "finetune",
   "model_label": "Devstral Small 2505",
   "org": "Mistral AI",
   "runs": [

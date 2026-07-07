@@ -31,7 +31,9 @@ describe("static data access", () => {
 
   it("emits per-answer latency for measured runs but omits it on catalog shells", async () => {
     const model = await getModelData("qwen3-6-27b");
-    const measured = model.runs.find((run) => run.run_id !== null && run.composite !== null);
+    const measured = model.runs.find(
+      (run) => run.run_id !== null && (run.composite !== null || run.diagnostic_composite !== null),
+    );
     expect(measured).toBeDefined();
     expect(typeof measured?.latency_s_median).toBe("number");
     expect(measured?.latency_s_median ?? 0).toBeGreaterThan(0);
@@ -257,7 +259,7 @@ describe("static data access", () => {
     const qwen35Rows = qwen35.runs.filter((run) => run.score_status === "measured");
     const coderNextRows = coderNext.runs.filter((run) => run.score_status === "measured");
 
-    // Then the completed Vast rungs carry run receipts and measured Index data.
+    // Then the completed Vast rungs carry run receipts and measured diagnostic data.
     expect(qwen35Rows.map((run) => run.run_id)).toEqual([
       "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8",
       "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q6",
@@ -267,7 +269,15 @@ describe("static data access", () => {
       "qwen3-coder-next__qwen3-coder-next-q8",
       "qwen3-coder-next__qwen3-coder-next-q6",
     ]);
-    expect(qwen35Rows.every((run) => run.composite !== null && run.lane === "capped-thinking")).toBe(true);
-    expect(coderNextRows.every((run) => run.composite !== null && run.lane === "capped-thinking")).toBe(true);
+    expect(
+      qwen35Rows.every(
+        (run) => run.composite === null && run.diagnostic_composite !== null && run.lane === "capped-thinking",
+      ),
+    ).toBe(true);
+    expect(
+      coderNextRows.every(
+        (run) => run.composite === null && run.diagnostic_composite !== null && run.lane === "capped-thinking",
+      ),
+    ).toBe(true);
   });
 });

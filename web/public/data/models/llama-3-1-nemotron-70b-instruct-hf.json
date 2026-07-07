@@ -1,0 +1,120 @@
+{
+  "base_model": "meta-llama/Llama-3.1-70B-Instruct",
+  "catalog_id": "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+  "demo": false,
+  "family": "Llama 3.1",
+  "gguf_repo": "lmstudio-community/Llama-3.1-Nemotron-70B-Instruct-HF-GGUF",
+  "kind": "community",
+  "license": "llama3.1",
+  "model_kind": "finetune",
+  "model_label": "Llama 3.1 Nemotron 70B Instruct HF",
+  "org": "nvidia",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 8.5,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 75.0,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q8_0",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 75.0,
+      "vram_required_gb_8k": 79.5,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 6.56,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 57.9,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q6_K",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 57.9,
+      "vram_required_gb_8k": 62.4,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 4.82,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 42.5,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q4_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 42.5,
+      "vram_required_gb_8k": 47.0,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "llama-3-1-nemotron-70b-instruct-hf"
+}

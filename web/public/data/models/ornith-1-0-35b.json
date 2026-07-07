@@ -85,7 +85,10 @@
           "status": "measured"
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 64.1605418110348,
         "hi_raw": 0.6416054181103481,
         "lo": 54.73024569352084,
@@ -93,8 +96,6 @@
         "point": 59.43423845001544,
         "point_raw": 0.5943423845001544
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -215,7 +216,10 @@
           "status": "measured"
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 63.87858794048971,
         "hi_raw": 0.6387858794048971,
         "lo": 54.64896940874444,
@@ -223,8 +227,6 @@
         "point": 59.352962165239035,
         "point_raw": 0.5935296216523903
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -345,7 +347,10 @@
           "status": "measured"
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 65.18812220990117,
         "hi_raw": 0.6518812220990117,
         "lo": 55.52503465609564,
@@ -353,8 +358,6 @@
         "point": 60.35657843299841,
         "point_raw": 0.6035657843299841
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -475,7 +478,10 @@
           "status": "measured"
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 63.50678871120966,
         "hi_raw": 0.6350678871120966,
         "lo": 53.91945873316172,
@@ -483,8 +489,6 @@
         "point": 58.751002510064474,
         "point_raw": 0.5875100251006448
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {

@@ -1,0 +1,50 @@
+{
+  "base_model": "Qwen/Qwen3-32B",
+  "catalog_id": "huihui-ai/Qwen3-32B-abliterated",
+  "demo": false,
+  "family": "Qwen3",
+  "gguf_repo": "RoadToNowhere/Qwen3-32B-abliterated-Q4_K_M-GGUF",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "finetune",
+  "model_label": "Qwen3 32B abliterated",
+  "org": "huihui-ai",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 4.83,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 19.8,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q4_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 19.8,
+      "vram_required_gb_8k": 22.4,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "qwen3-32b-abliterated"
+}

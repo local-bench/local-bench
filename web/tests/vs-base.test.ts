@@ -15,6 +15,7 @@ describe("buildVsBaseComparison", () => {
         row: {
           bestRunId: "base-run",
           composite: { point: 37, lo: 36, hi: 38 },
+          diagnosticComposite: null,
           axes: { knowledge: score(83), instruction: score(67), coding: score(20) },
           lane: "bounded-final-v2",
           ranked: true,
@@ -28,6 +29,7 @@ describe("buildVsBaseComparison", () => {
         row: {
           bestRunId: "fine-run",
           composite: { point: 41, lo: 40, hi: 42 },
+          diagnosticComposite: null,
           axes: { knowledge: score(86), instruction: score(64), tool_calling: score(50) },
           lane: "bounded-final-v2",
           ranked: true,
@@ -76,6 +78,7 @@ describe("buildVsBaseComparison", () => {
         row: {
           bestRunId: "base-run",
           composite: { point: 35.2, lo: 33, hi: 38 },
+          diagnosticComposite: null,
           axes: { knowledge: score(76) },
           lane: "bounded-final-v2",
           ranked: true,
@@ -88,7 +91,8 @@ describe("buildVsBaseComparison", () => {
         slug: "gemma-4-12b-coder-fable5",
         row: {
           bestRunId: "legacy-run",
-          composite: { point: 52.9, lo: 51, hi: 54 },
+          composite: null,
+          diagnosticComposite: { point: 52.9, lo: 51, hi: 54 },
           axes: { knowledge: score(80) },
           lane: "capped-thinking",
           ranked: false,

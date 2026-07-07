@@ -6,7 +6,7 @@
   "gguf_repo": "unsloth/gemma-3n-E2B-it-GGUF",
   "kind": "community",
   "license": "gemma",
-  "model_kind": "base",
+  "model_kind": "finetune",
   "model_label": "Gemma 3n E2B IT",
   "org": "Google",
   "runs": [

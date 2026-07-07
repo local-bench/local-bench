@@ -6,6 +6,7 @@ export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
   readonly bestRunId: string | null;
   readonly composite: Score | null;
+  readonly diagnosticComposite: Score | null;
   readonly lane: string | null;
   readonly ranked: boolean;
   readonly scoreStatus: ScoreStatus;
@@ -80,7 +81,7 @@ function missingMessages(side: "base" | "fine-tune", { row }: VsBaseSide): reado
   }
   // A measured row that fails the gate is legacy-lane/unranked data — comparing composites across
   // index versions would manufacture a delta, so we say why the number is withheld instead.
-  if (row !== null && row.scoreStatus === "measured" && row.composite !== null) {
+  if (row !== null && row.scoreStatus === "measured" && (row.composite !== null || row.diagnosticComposite !== null)) {
     return [`${side} has only previous-index runs — awaiting a current-index rerun`];
   }
   return [`${side} not yet benchmarked`];
@@ -115,5 +116,10 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
 }
 
 function hasPreviousIndexDiagnostics(row: VsBaseBoardRow | null): boolean {
-  return row !== null && row.scoreStatus === "measured" && row.composite !== null && (!row.ranked || row.lane !== HEADLINE_LANE);
+  return (
+    row !== null &&
+    row.scoreStatus === "measured" &&
+    (row.composite !== null || row.diagnosticComposite !== null) &&
+    (!row.ranked || row.lane !== HEADLINE_LANE)
+  );
 }

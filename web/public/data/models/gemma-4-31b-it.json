@@ -168,7 +168,10 @@
         }
       },
       "bpw": 4.85,
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 46.7102520366052,
         "hi_raw": 0.467102520366052,
         "lo": 36.92864224205062,
@@ -176,8 +179,6 @@
         "point": 41.476264204709885,
         "point_raw": 0.41476264204709884
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 18.3,
       "hardware": {

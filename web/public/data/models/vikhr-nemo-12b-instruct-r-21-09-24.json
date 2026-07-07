@@ -1,0 +1,50 @@
+{
+  "base_model": "mistralai/Mistral-Nemo-Instruct-2407",
+  "catalog_id": "Vikhrmodels/Vikhr-Nemo-12B-Instruct-R-21-09-24",
+  "demo": false,
+  "family": "Mistral Nemo",
+  "gguf_repo": "VlSav/Vikhr-Nemo-12B-Instruct-R-21-09-24-Q8_0-GGUF",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "finetune",
+  "model_label": "Vikhr Nemo 12B Instruct R 21 09 24",
+  "org": "Vikhrmodels",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 8.52,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 13.0,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q8_0",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 13.0,
+      "vram_required_gb_8k": 14.6,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "vikhr-nemo-12b-instruct-r-21-09-24"
+}

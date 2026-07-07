@@ -17,12 +17,13 @@ describe("tool-calling presentation", () => {
   });
 
   it("renders measured tool-calling results on the model variant board", async () => {
-    // Given: a model with completed tc_json_v1 results in the generated public data.
-    const model = await getModelData("qwen3-6-35b-a3b");
-    const q4Run = model.runs.find((run) => run.quant_label === "Q4_K_M");
-    const toolCalling = q4Run?.axes.tool_calling;
+    // Given: a model with completed tc_json_v1 results on the CURRENT lane in the generated
+    // public data (retired-lane runs are omitted from the variant board entirely).
+    const model = await getModelData("gemma-4-12b-it");
+    const currentRun = model.runs.find((run) => run.lane === "bounded-final-v2");
+    const toolCalling = currentRun?.axes.tool_calling;
     if (toolCalling === undefined) {
-      expect.fail("expected Qwen3.6 35B A3B Q4_K_M to have a measured tool_calling axis");
+      expect.fail("expected Gemma 4 12B's bounded-final-v2 run to have a measured tool_calling axis");
     }
 
     // When: the model variant table is rendered.
