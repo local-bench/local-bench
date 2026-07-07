@@ -1,0 +1,11 @@
+{
+  "Qwen/Qwen3Guard-Gen-0.6B": "safety classifier, not a chat assistant",
+  "Qwen/Qwen3Guard-Gen-8B": "safety classifier, not a chat assistant",
+  "Qwen/Qwen3Guard-Gen-4B": "safety classifier, not a chat assistant",
+  "GeneralAnalysis/GA_Guard_Core": "guardrail classifier, not a chat assistant",
+  "nomic-ai/CodeRankLLM": "code reranker fine-tune, not a chat assistant",
+  "nomic-ai/nomic-embed-code": "embedding model",
+  "jinaai/jina-reranker-v3": "reranker",
+  "katanemo/Arch-Router-1.5B": "routing classifier, not a general assistant",
+  "Qwen/QwQ-32B-Preview": "superseded preview; final QwQ-32B is catalogued"
+}

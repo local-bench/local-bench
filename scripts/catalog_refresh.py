@@ -54,6 +54,20 @@ MIN_FINETUNE_DOWNLOADS = 2_000
 MIN_FINETUNE_LIKES = 50
 RECIPE_GRADE_QUANTS = ("FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K")
 CATALOG_DISCOVERY_CAPS_PATH = Path(__file__).resolve().with_name("catalog_discovery_caps.json")
+CATALOG_DISCOVERY_DENYLIST_PATH = Path(__file__).resolve().with_name("catalog_discovery_denylist.json")
+_DISCOVERY_DENYLIST_CACHE: set[str] | None = None
+
+
+def _discovery_denylist() -> set[str]:
+    global _DISCOVERY_DENYLIST_CACHE
+    if _DISCOVERY_DENYLIST_CACHE is None:
+        try:
+            raw = json.loads(CATALOG_DISCOVERY_DENYLIST_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raw = []
+        entries = raw.keys() if isinstance(raw, dict) else raw if isinstance(raw, list) else []
+        _DISCOVERY_DENYLIST_CACHE = {str(item).lower() for item in entries}
+    return _DISCOVERY_DENYLIST_CACHE
 FINETUNE_PROBE_KINDS = ("finetune", "merge", "adapter")
 
 # Canonical-model detail fields (expand[] cannot be combined with blobs=true, so the
@@ -704,6 +718,7 @@ class FineTuneCandidate:
     source: str
     relation_kind: str = "finetune"
     gguf_repo: str = ""
+    pipeline_tag: str | None = None
 
 
 @dataclass
@@ -806,6 +821,7 @@ def finetune_candidate_from_probe_item(
         downloads=int(item.get("downloads") or 0),
         likes=int(item.get("likes") or 0),
         trending=int(item.get("trendingScore") or item.get("trending") or 0),
+        pipeline_tag=item.get("pipeline_tag") if isinstance(item.get("pipeline_tag"), str) else None,
         source=f"HF base_model:{probe_kind} probe",
         relation_kind="finetune",
         gguf_repo=gguf_repo,
@@ -949,6 +965,26 @@ def load_catalog_discovery_caps(path: Path | None = None) -> dict[str, int]:
     return caps
 
 
+def _name_segment(repo_id: str) -> str:
+    segment = re.sub(r"[^a-z0-9]+", "", repo_id.rsplit("/", 1)[-1].lower())
+    # Strip packaging/precision suffixes so "X-GGUF" / "X-BF16" mirrors match "X".
+    while True:
+        stripped = re.sub(r"(gguf|bf16|fp16|fp8|f16|f32|awq|gptq|mlx)$", "", segment)
+        if stripped == segment:
+            return segment
+        segment = stripped
+
+
+def _is_base_mirror(candidate_repo: str, base_id: str) -> bool:
+    candidate_segment = _name_segment(candidate_repo)
+    base_segment = _name_segment(base_id)
+    if candidate_segment == "" or base_segment == "":
+        return False
+    # endswith covers org-prefixed re-uploads ("Meta-Llama-3.1-8B" vs "Llama-3.1-8B");
+    # startswith is deliberately NOT used ("<base>-abliterated" is a real fine-tune).
+    return candidate_segment == base_segment or candidate_segment.endswith(base_segment) or base_segment.endswith(candidate_segment)
+
+
 def verify_finetune_candidate(
     client: HfClient,
     candidate: FineTuneCandidate,
@@ -958,6 +994,16 @@ def verify_finetune_candidate(
     gguf_repo = candidate_gguf_repo(candidate)
     if candidate.repo_id.lower() in known or gguf_repo.lower() in known or canonical_id.lower() in known:
         return FineTuneRejection(candidate, "already in catalog")
+    # HF lineage tags cover every downstream artifact kind; the board only benchmarks
+    # chat/text-generation models, so rerankers/embedders/ASR/VLMs must not promote.
+    if candidate.pipeline_tag is not None and candidate.pipeline_tag != "text-generation":
+        return FineTuneRejection(candidate, f"non-text-generation pipeline ({candidate.pipeline_tag})")
+    if candidate.repo_id.lower() in _discovery_denylist() or canonical_id.lower() in _discovery_denylist():
+        return FineTuneRejection(candidate, "on curated denylist (scripts/catalog_discovery_denylist.json)")
+    # A re-upload of the base under another org (unsloth/... mirrors) is not a fine-tune;
+    # promoting it would duplicate the base as a fake variant row.
+    if _is_base_mirror(candidate.repo_id, candidate.base_id):
+        return FineTuneRejection(candidate, "same-name mirror of the base, not a fine-tune")
     if candidate.downloads < MIN_FINETUNE_DOWNLOADS and candidate.likes < MIN_FINETUNE_LIKES:
         return FineTuneRejection(candidate, "below popularity floor")
     if not gguf_repo:
@@ -1045,14 +1091,13 @@ def curate_finetune_promotions(
             known.add(result.entry["id"].lower())
             known.add(result.entry["gguf_repo"].lower())
 
-    selected: list[FineTunePromotion] = []
-    overflow: list[FineTunePromotion] = []
-    for base_id in sorted(accepted_by_base):
-        for promotion in accepted_by_base[base_id]:
-            if len(selected) < wave_cap:
-                selected.append(promotion)
-            else:
-                overflow.append(promotion)
+    # Wave cap picks globally by popularity, NOT base-alphabetically: with per-base
+    # caps already applied, alphabetical selection starved late-sorting flagship bases
+    # (Qwen3.6-27B got zero slots in wave 1 despite its cap override).
+    accepted = [promotion for base_id in sorted(accepted_by_base) for promotion in accepted_by_base[base_id]]
+    accepted.sort(key=lambda p: (-p.candidate.downloads, -p.candidate.likes, p.candidate.repo_id.lower()))
+    selected = accepted[:wave_cap]
+    overflow = accepted[wave_cap:]
     rejected.extend(FineTuneRejection(promotion.candidate, "wave cap reached") for promotion in overflow)
     return selected, rejected, len(candidates)
 

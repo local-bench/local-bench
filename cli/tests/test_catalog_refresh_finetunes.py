@@ -260,6 +260,75 @@ def test_discover_finetunes_promotes_probe_seeded_candidates_and_dedupes_sources
     assert "candidates gathered: 1" in report
 
 
+def test_discover_finetunes_rejects_non_text_generation_and_base_mirrors(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    base_id = "Qwen/Qwen3.6-27B"
+    base = base_entry(base_id, "qwen3-6-27b", [])
+    raw_catalog = {"models": [base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    reranker = hf_item("Tuner/Some-Reranker-GGUF", base_id, 900_000, 400, "finetune")
+    reranker["pipeline_tag"] = "sentence-similarity"
+    mirror = hf_item("Mirror/Qwen3.6-27B-GGUF", base_id, 800_000, 300, "finetune")
+    prefixed_mirror = hf_item("Mirror/Alibaba-Qwen3.6-27B", base_id, 700_000, 250, "finetune")
+    precision_mirror = hf_item("Mirror/Qwen3.6-27B-BF16", base_id, 600_000, 200, "finetune")
+    denylisted = hf_item("Curated/Denied-Tune-GGUF", base_id, 500_000, 150, "finetune")
+    denylist_path = tmp_path / "catalog_discovery_denylist.json"
+    denylist_path.write_text('{"Curated/Denied-Tune-GGUF": "test"}\n', encoding="utf-8")
+    catalog_refresh.CATALOG_DISCOVERY_DENYLIST_PATH = denylist_path
+    keeper_repo = "Creator/Real-Tune-GGUF"
+    client = FakeClient(
+        {
+            ("/models", probe_params(base_id, "finetune")): (
+                200,
+                [reranker, mirror, prefixed_mirror, precision_mirror, denylisted, hf_item(keeper_repo, base_id, 9_000, 120, "finetune")],
+            ),
+            (f"/models/{keeper_repo}", (("blobs", "true"),)): (200, gguf_detail(keeper_repo, base_id)),
+        }
+    )
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(args(catalog_path), catalog_path, out_dir, raw_catalog, [base], client)
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][1:]
+    assert [entry["id"] for entry in promoted] == ["Creator/Real-Tune"]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "non-text-generation pipeline (sentence-similarity)" in report
+    assert report.count("same-name mirror of the base, not a fine-tune") == 3
+    assert "on curated denylist" in report
+
+
+def test_discover_finetunes_wave_cap_selects_globally_by_popularity(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    first_base = base_entry("AAA/First-Base", "first-base", [distill("Tuner/Small-Tune-GGUF", 3_000, 60)])
+    last_base = base_entry("ZZZ/Last-Base", "last-base", [distill("Tuner/Big-Tune-GGUF", 900_000, 500)])
+    raw_catalog = {"models": [first_base, last_base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    client = FakeClient(
+        {
+            ("/models/Tuner/Small-Tune-GGUF", (("blobs", "true"),)): (200, gguf_detail("Tuner/Small-Tune-GGUF", "AAA/First-Base")),
+            ("/models/Tuner/Big-Tune-GGUF", (("blobs", "true"),)): (200, gguf_detail("Tuner/Big-Tune-GGUF", "ZZZ/Last-Base")),
+        }
+    )
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(
+        args(catalog_path, wave_cap=1), catalog_path, out_dir, raw_catalog, [first_base, last_base], client
+    )
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][2:]
+    assert [entry["id"] for entry in promoted] == ["Tuner/Big-Tune"]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "wave cap reached" in report
+
+
 def test_discover_finetunes_honors_per_base_cap_override(tmp_path: Path) -> None:
     catalog_refresh = load_catalog_refresh()
     catalog_path = tmp_path / "model_catalog.json"
