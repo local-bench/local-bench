@@ -56,7 +56,7 @@ describe("buildRecipe", () => {
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
     expect(recipe.model).toBe(selected);
     expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]==0.2.2"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nhf download Qwen/Qwen3-8B --include "*.json" --include "*.model" --include "*.jinja" --include "*.txt" --include "*.tiktoken"',
+      'pip install "local-bench-ai[hf]==0.2.3"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -90,8 +90,9 @@ describe("buildRecipe", () => {
     const recipe = buildRecipe({ model: pasted, quant: quantAt(pasted, 0), runtime: llamacpp, hfModelId: null });
 
     expect(recipe.identityMode).toBe("basic");
-    expect(recipe.setupCommand).not.toContain("hf download");
+    expect(recipe.setupCommand).not.toContain("cache-tokenizer");
     expect(recipe.benchCommand).not.toContain("--hf-model-id");
+    expect(recipe.benchCommand).toContain("--gguf-repo-only");
     expect(recipe.benchCommand).toContain("--model bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF:Q4_K_M");
     expect(recipe.benchCommand).toContain("--out runs/deepseek-r1-distill-qwen-7b-gguf-q4-k-m.json");
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/deepseek-r1-distill-qwen-7b-gguf-q4-k-m.json");
@@ -108,7 +109,8 @@ describe("buildRecipe", () => {
     const recipe = buildRecipe({ model: pasted, quant: quantAt(pasted, 0), runtime: llamacpp, hfModelId: "Qwen/QwQ-32B" });
 
     expect(recipe.identityMode).toBe("full");
-    expect(recipe.setupCommand).toContain('hf download Qwen/QwQ-32B --include "*.json"');
+    expect(recipe.setupCommand).toContain("localbench cache-tokenizer Qwen/QwQ-32B");
+    expect(recipe.benchCommand).not.toContain("--gguf-repo-only");
     expect(recipe.benchCommand).toContain("--hf-model-id Qwen/QwQ-32B");
     expect(recipe.benchCommand).toContain("--out runs/qwq-32b-gguf-q5-k-m.json");
   });

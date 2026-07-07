@@ -43,7 +43,7 @@ export default function SubmitPage() {
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
         <p>Python 3.11+ required:</p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`pip install "local-bench-ai[hf]"`}
+          {`pip install "local-bench-ai[hf]==0.2.3"`}
         </pre>
         <p className="text-sm">
           Installs the <code className="font-mono text-bench-text">localbench</code> command. Working
@@ -78,18 +78,20 @@ export default function SubmitPage() {
           in your Hugging Face cache before you start:
         </p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`hf download <the-model's-HF-repo> --include "*.json" --include "*.model" --include "*.jinja"`}
+          {`localbench cache-tokenizer <the-model's-HF-repo>`}
         </pre>
         <p className="text-sm">
-          The <code className="font-mono text-bench-text">hf</code> command ships with the{" "}
-          <code className="font-mono text-bench-text">[hf]</code> install above. Use the original
-          model&apos;s repo (the transformers-format one), not the GGUF repo. Gated repos (for
-          example <code className="font-mono text-bench-text">google/gemma-*</code>) additionally
-          need a one-time <code className="font-mono text-bench-text">hf auth login</code> after
-          accepting the license on huggingface.co — or use an ungated mirror such as the{" "}
-          <code className="font-mono text-bench-text">unsloth/</code> upload of the same model. If
-          this step is skipped, the run stops in its first seconds with{" "}
-          <code className="font-mono text-bench-text">could not load tokenizer … from the offline HF cache</code>.
+          Downloads exactly what introspection needs, verifies the tokenizer loads offline, and
+          prints the resolved revision and chat-template hash. Use the original model&apos;s repo
+          (the transformers-format one), not the GGUF repo. Gated repos (for example{" "}
+          <code className="font-mono text-bench-text">google/gemma-*</code>) additionally need a
+          one-time <code className="font-mono text-bench-text">hf auth login</code> after accepting
+          the license on huggingface.co — or use an ungated mirror such as the{" "}
+          <code className="font-mono text-bench-text">unsloth/</code> upload of the same model. No
+          exact non-GGUF repo exists for your model? Skip this step and pass{" "}
+          <code className="font-mono text-bench-text">--gguf-repo-only</code> instead of{" "}
+          <code className="font-mono text-bench-text">--hf-model-id</code> in step 4 — the run is
+          then labeled basic identity (tokenizer/template digests null).
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">4. Run the benchmark</h3>

@@ -193,8 +193,6 @@ export const RUNTIME_PROFILES: readonly RuntimeProfile[] = [
   },
 ];
 
-const TOKENIZER_DOWNLOAD_INCLUDES = '--include "*.json" --include "*.model" --include "*.jinja" --include "*.txt" --include "*.tiktoken"';
-
 function normalizeIdentityRepo(value: string | null | undefined): string | null {
   const trimmed = value?.trim() ?? "";
   return trimmed === "" ? null : trimmed;
@@ -223,25 +221,25 @@ export function buildRecipe(input: {
 
   // bounded-final-v2: every model runs the ONE ranked lane. --profile auto introspects the
   // model's own chat template and applies the allowlisted execution profile; no family gate.
-  // The [hf] extra ships the template introspection dependency;
-  // plain `pip install local-bench-ai` cannot resolve --hf-model-id (user-path smoke, 2026-07-05).
-  // Pin ==0.2.2: that release carries the bounded-final-v2 lane + the final coding harness, so a
-  // run reproduces the registered suite sha the submit gate checks (older releases compute a
-  // different sha and are rejected).
-  // The `hf download` line pre-caches the tokenizer: --hf-model-id template introspection is
-  // OFFLINE-only (HF_HUB_OFFLINE=1), so a fresh machine fails the run's first seconds without it
-  // (clean-room user-journey pass, 2026-07-07). Repeated --include flags are deliberate: the hf
-  // CLI treats extra patterns after one --include as literal filenames.
+  // The [hf] extra ships the template introspection dependency.
+  // Pin ==0.2.3: that release carries the bounded-final-v2 lane + the final coding harness (a
+  // run reproduces the registered suite sha the submit gate checks; older releases compute a
+  // different sha and are rejected) PLUS the identity gate: publishable bounded-final runs
+  // require exactly one of --hf-model-id / --gguf-repo-only, so the basic recipe MUST emit
+  // --gguf-repo-only (0.2.2 tolerated omission; 0.2.3 fails fast).
+  // `cache-tokenizer` pre-caches the tokenizer AND verifies it loads offline: --hf-model-id
+  // template introspection is OFFLINE-only (HF_HUB_OFFLINE=1), so a fresh machine fails the
+  // run's first seconds without it (clean-room user-journey pass, 2026-07-07).
   const setupCommand = [
-    'pip install "local-bench-ai[hf]==0.2.2"',
+    'pip install "local-bench-ai[hf]==0.2.3"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
-    ...(hfModelId === null ? [] : [`hf download ${hfModelId} ${TOKENIZER_DOWNLOAD_INCLUDES}`]),
+    ...(hfModelId === null ? [] : [`localbench cache-tokenizer ${hfModelId}`]),
   ].join("\n");
   const benchCommand = [
     "localbench run",
     `--endpoint ${runtime.endpoint}`,
     `--model ${servedModelName}`,
-    ...(hfModelId === null ? [] : [`--hf-model-id ${hfModelId}`]),
+    hfModelId === null ? "--gguf-repo-only" : `--hf-model-id ${hfModelId}`,
     "--ctx-len-configured 32768",
     "--lane bounded-final-v2",
     "--profile auto",
