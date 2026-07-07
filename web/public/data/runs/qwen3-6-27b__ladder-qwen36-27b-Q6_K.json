@@ -50,14 +50,7 @@
       "termination_rate": 0.995
     }
   },
-  "composite": {
-    "hi": 46.68193098910622,
-    "hi_raw": 0.4668193098910622,
-    "lo": 35.28657732688101,
-    "lo_raw": 0.3528657732688101,
-    "point": 40.58514881208338,
-    "point_raw": 0.4058514881208338
-  },
+  "composite": null,
   "composite_full": null,
   "composite_static": null,
   "conformance": {
@@ -97,6 +90,14 @@
     "tool_calling not measured in this run; axis omitted",
     "coding not measured in this run; axis omitted"
   ],
+  "diagnostic_composite": {
+    "hi": 46.68193098910622,
+    "hi_raw": 0.4668193098910622,
+    "lo": 35.28657732688101,
+    "lo_raw": 0.3528657732688101,
+    "point": 40.58514881208338,
+    "point_raw": 0.4058514881208338
+  },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
   "item_set_hashes": {
@@ -104,6 +105,7 @@
     "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
   },
   "kind": "community",
+  "lane": "capped-thinking",
   "manifest_summary": {
     "caps": {
       "max_tokens_math": 0,
@@ -162,6 +164,7 @@
   "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q6_K",
+  "score_status": "measured",
   "scorecard": {
     "current_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
     "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",

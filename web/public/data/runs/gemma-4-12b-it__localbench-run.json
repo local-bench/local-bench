@@ -108,14 +108,7 @@
       "status": "measured"
     }
   },
-  "composite": {
-    "hi": 49.49006237248613,
-    "hi_raw": 0.49490062372486127,
-    "lo": 44.13372399507101,
-    "lo_raw": 0.4413372399507101,
-    "point": 46.60534377168118,
-    "point_raw": 0.46605343771681174
-  },
+  "composite": null,
   "composite_full": null,
   "composite_static": null,
   "conformance": {
@@ -189,6 +182,14 @@
     "math not measured in this run; axis omitted",
     "agentic chance_corrected differs from item-derived mean; stale/inconsistent run JSON"
   ],
+  "diagnostic_composite": {
+    "hi": 49.49006237248613,
+    "hi_raw": 0.49490062372486127,
+    "lo": 44.13372399507101,
+    "lo_raw": 0.4413372399507101,
+    "point": 46.60534377168118,
+    "point_raw": 0.46605343771681174
+  },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
   "item_set_hashes": {
@@ -198,6 +199,7 @@
     "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
   "kind": "community",
+  "lane": "capped-thinking",
   "manifest_summary": {
     "caps": {
       "max_tokens_math": 0,
@@ -308,6 +310,7 @@
   ],
   "ranked": false,
   "run_id": "gemma-4-12b-it__localbench-run",
+  "score_status": "measured",
   "scorecard": {
     "current_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
     "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",

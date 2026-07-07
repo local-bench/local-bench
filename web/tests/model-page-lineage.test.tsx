@@ -40,4 +40,14 @@ describe("ModelPage lineage chip", () => {
     expect(html).toContain("base not yet benchmarked");
     expect(html).toContain("fine-tune not yet benchmarked");
   });
+
+  it("links retired-lane receipts on legacy-only model pages", async () => {
+    const html = await renderModel("gemma-4-31b-it");
+    expect(html).toContain("Retired-lane diagnostic receipts");
+    expect(html).toContain('href="/run/gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M"');
+    expect(html).toContain("Q4_K_M");
+    expect(html).toContain("diagnostic receipt (retired lane)");
+    expect(html).toContain("kept off this chart because the score uses a retired scale");
+    expect(html).not.toContain("They appear below as diagnostics");
+  });
 });

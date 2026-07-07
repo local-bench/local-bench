@@ -24,7 +24,11 @@ export function ModelScatter({
       ],
   );
   const legacyCount = model.runs.filter(
-    (run) => run.composite !== null && run.lane !== HEADLINE_LANE,
+    (run) =>
+      run.score_status === "measured" &&
+      run.lane !== HEADLINE_LANE &&
+      run.diagnostic_composite !== null &&
+      run.diagnostic_composite !== undefined,
   ).length;
 
   if (runs.length === 0) {
@@ -34,9 +38,9 @@ export function ModelScatter({
         <p className="mt-1 font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</p>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
           {legacyCount > 0
-            ? `The scatter appears after this model's first current-index run lands. ${legacyCount} previous-index run${
+            ? `The scatter appears after this model's first current-index run lands. ${legacyCount} retired-lane diagnostic receipt${
                 legacyCount === 1 ? " is" : "s are"
-              } listed above as diagnostics but plot on a retired scale.`
+              } linked above but kept off this chart because the score uses a retired scale.`
             : "Intelligence Index scatter appears after the first measured run attaches to this catalog model. Use the quant ladder above for current file size and VRAM requirements."}
         </p>
       </section>

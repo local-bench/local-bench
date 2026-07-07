@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CatalogSchema, IndexModelSchema, ModelDataSchema } from "../lib/schemas";
+import { CatalogSchema, IndexModelSchema, ModelDataSchema, RunDetailSchema } from "../lib/schemas";
 
 const catalogModel = {
   id: "Qwen/Qwen3.6-27B",
@@ -119,6 +119,72 @@ describe("diagnostic composite schemas", () => {
     expect(parsed.runs[0]).toMatchObject({
       composite: null,
       diagnostic_composite: diagnosticScore,
+    });
+  });
+
+  it("parses diagnostic_composite on run receipts while standard composite is null", () => {
+    // Given a retired-lane receipt whose score is explicitly quarantined from the standard field.
+    const diagnosticScore = { point: 41.5, lo: 36.9, hi: 46.7 };
+
+    // When the run-detail schema parses the receipt payload.
+    const parsed = RunDetailSchema.parse({
+      axes: {},
+      composite: null,
+      diagnostic_composite: diagnosticScore,
+      est_cost_usd: null,
+      index_version: "index-v3.0",
+      item_set_hashes: {},
+      kind: "community",
+      lane: "capped-thinking",
+      manifest_summary: {
+        caps: {},
+        hardware: { cpu: null, gpu: null, os: null, ram_gb: null },
+        lane: "capped-thinking",
+        model: {
+          family: "Fixture",
+          file_name: null,
+          file_sha256: null,
+          file_size_bytes: null,
+          format: null,
+          runtime_reported_model: null,
+        },
+        quant: "Q4_K_M",
+        runtime: {
+          ctx_len_configured: 8192,
+          kv_cache_quant: "q8_0",
+          name: "llama.cpp",
+          parallel_slots: 1,
+          version: "b1234",
+        },
+        sampling: { by_bench: {}, temperature: 0, thinking_mode: "bounded" },
+        thinking_mode: "bounded",
+      },
+      model_label: "Fixture Legacy",
+      ranked: false,
+      run_id: "fixture-legacy__q4",
+      score_status: "measured",
+      suite_version: "suite-v1",
+      tier: "standard",
+      tokens_to_answer_median: 128,
+      tokens_to_answer_p95: 256,
+      totals: {
+        completion_tokens: 0,
+        completion_tokens_per_second: 0,
+        n_errors: 0,
+        n_items: 12,
+        prompt_tokens: 0,
+        total_tokens: 0,
+        wall_time_seconds: 1,
+      },
+      worst_axis: { bench: "knowledge", point: 40, point_raw: 0.4 },
+    });
+
+    // Then the receipt retains the retired-lane score only under diagnostic_composite.
+    expect(parsed).toMatchObject({
+      composite: null,
+      diagnostic_composite: diagnosticScore,
+      lane: "capped-thinking",
+      score_status: "measured",
     });
   });
 });

@@ -19,6 +19,13 @@ type IndexModel = {
   readonly axes: Record<string, unknown>;
 };
 
+type RunReceipt = {
+  readonly composite: { readonly point: number } | null;
+  readonly diagnostic_composite?: { readonly point: number } | null;
+  readonly lane?: string | null;
+  readonly score_status?: string;
+};
+
 function readJson<T>(...segments: string[]): T {
   return JSON.parse(readFileSync(join(DATA_DIR, ...segments), "utf8")) as T;
 }
@@ -78,5 +85,23 @@ describe("public/data integrity — ranked measured rows", () => {
     expect(rowsWithStandardComposite).toEqual([]);
     expect(legacyMeasured.every((model) => model.diagnostic_composite !== null)).toBe(true);
     expect(legacyMeasured.every((model) => model.diagnostic_composite !== undefined)).toBe(true);
+  });
+
+  it("keeps retired-lane composites out of the standard run receipt score field", () => {
+    const legacyMeasured = index.models.filter(
+      (model) => model.score_status === "measured" && model.lane !== "bounded-final-v2",
+    );
+
+    for (const model of legacyMeasured) {
+      expect(model.best_run_id, `${model.slug} best_run_id`).not.toBeNull();
+      const receipt = readJson<RunReceipt>("runs", `${model.best_run_id ?? ""}.json`);
+      expect(receipt.composite, `${model.slug} receipt composite`).toBeNull();
+      expect(receipt.diagnostic_composite?.point, `${model.slug} receipt diagnostic_composite`).toBeCloseTo(
+        model.diagnostic_composite?.point ?? Number.NaN,
+        8,
+      );
+      expect(receipt.lane, `${model.slug} receipt lane`).toBe(model.lane);
+      expect(receipt.score_status, `${model.slug} receipt score_status`).toBe("measured");
+    }
   });
 });

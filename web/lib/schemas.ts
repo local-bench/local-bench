@@ -303,7 +303,8 @@ export const RunDetailSchema = z.object({
   model_label: z.string(),
   kind: KindSchema,
   tier: z.string(),
-  composite: ScoreSchema,
+  composite: ScoreSchema.nullable(),
+  diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
   axes: AxesSchema,
@@ -333,6 +334,8 @@ export const RunDetailSchema = z.object({
   agentic_provenance: AgenticProvenanceSchema.optional(),
   provenance_notes: z.array(z.string()).optional(),
   static_index_version: z.string().optional(),
+  lane: z.string().nullable().optional(),
+  score_status: ScoreStatusSchema.optional().default("measured"),
   demo: DemoFlagSchema,
 });
 

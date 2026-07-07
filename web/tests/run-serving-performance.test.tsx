@@ -43,10 +43,12 @@ describe("RunPage legacy receipts", () => {
     expect(html).toContain("retired lane");
     expect(html).toContain("suite-v1 | retired lane capped-thinking");
     expect(html).toContain("Diagnostic score (retired lane)");
+    expect(html).toContain("60.8");
     expect(html).toContain("capped-thinking");
     expect(html).not.toContain("Local Intelligence Index</div><div class=\"font-mono text-xs text-bench-accent\">index-v3.0");
     expect(html).not.toContain("text-6xl");
   });
+
 });
 
 function fixtureRun(): RunDetail {
@@ -108,6 +110,7 @@ function fixtureRun(): RunDetail {
     },
     ranked: true,
     run_id: "fixture-run",
+    score_status: "measured",
     suite_version: "suite-v2",
     tier: "standard",
     tokens_to_answer_median: 128,

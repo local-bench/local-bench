@@ -151,6 +151,10 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
             run_detail = _object(_read_json(out_first / "runs" / f"{run_id}.json"))
             assert _string(run_detail["suite_version"]) == "suite-v1"
             _assert_run_detail(run_detail)
+            assert run_detail["composite"] is None
+            _assert_interval(_object(run_detail["diagnostic_composite"]))
+            assert _string(run_detail["score_status"]) == "measured"
+            assert _string(run_detail["lane"]) in {"answer-only", "capped-thinking"}
 
 
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
@@ -191,7 +195,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     knowledge = _object(axes["knowledge"])
     instruction = _object(axes["instruction"])
     math = _object(axes["math"])
-    composite = _object(detail["composite"])
+    composite = _score_interval(detail)
     chance = SOURCE_CHANCE_BASELINES["mmlu_pro"]
     assert knowledge["point_raw"] == pytest.approx((0.5 - chance) / (1.0 - chance))
     assert instruction["point_raw"] == pytest.approx(0.5)
@@ -911,11 +915,12 @@ def _assert_run_detail(detail: JsonObject) -> None:
         "manifest_summary",
         "model_label",
         "run_id",
+        "score_status",
         "suite_version",
         "totals",
         "worst_axis",
     } <= set(detail)
-    _assert_interval(_object(detail["composite"]))
+    _assert_interval(_score_interval(detail))
     axes = _object(detail["axes"])
     # Contract: axes ⊆ AXES, headline always present, candidates only when measured.
     # Every emitted axis must be a real measurement (n > 0) — no synthesized n=0 axes.
@@ -926,6 +931,12 @@ def _assert_run_detail(detail: JsonObject) -> None:
         _assert_interval(axis)
         assert {"n", "n_errors", "n_no_answer", "raw_accuracy"} <= set(axis)
         assert _number(axis["n"]) > 0
+
+
+def _score_interval(detail: JsonObject) -> JsonObject:
+    if detail["composite"] is not None:
+        return _object(detail["composite"])
+    return _object(detail["diagnostic_composite"])
 
 
 def _assert_interval(interval: JsonObject) -> None:

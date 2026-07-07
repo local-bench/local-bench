@@ -31,6 +31,7 @@ export default async function ModelPage({ params }: PageProps) {
   const legacyMeasured = model.runs.filter(
     (run) => run.score_status === "measured" && run.lane !== HEADLINE_LANE,
   );
+  const legacyReceiptRuns = legacyMeasured.filter((run) => run.run_id !== null);
   const measuredRuns = [...headlineMeasured, ...legacyMeasured];
   const rankedRuns = headlineMeasured.filter((run) => run.ranked);
   const partialRuns = headlineMeasured.filter((run) => !run.ranked);
@@ -85,10 +86,30 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
           {legacyMeasured.length > 0 && headlineMeasured.length === 0 ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
-              All {legacyMeasured.length} measured profile{legacyMeasured.length === 1 ? "" : "s"} for this model come
-              from a previous index lane. They appear below as diagnostics; the model rejoins the ranked board once a
+              All {legacyMeasured.length} measured profile{legacyMeasured.length === 1 ? "" : "s"} for this model are
+              retired-lane diagnostics from a previous index. They are excluded from current ranks and charts until a
               current-index run lands.
             </p>
+          ) : null}
+          {legacyReceiptRuns.length > 0 ? (
+            <div className="mt-3 max-w-3xl rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3">
+              <div className="font-mono text-xs uppercase text-bench-warn-soft">Retired-lane diagnostic receipts</div>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {legacyReceiptRuns.map((run) =>
+                  run.run_id === null ? null : (
+                    <li key={run.run_id}>
+                      <Link
+                        href={`/run/${run.run_id}`}
+                        className="inline-flex flex-wrap items-center gap-2 rounded border border-bench-line bg-bench-panel-2 px-2.5 py-1 text-xs text-bench-text hover:border-bench-accent"
+                      >
+                        <span className="font-mono">{run.quant_label ?? run.run_id.split("__").at(1) ?? run.run_id}</span>
+                        <span className="text-bench-muted">diagnostic receipt (retired lane)</span>
+                      </Link>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
           ) : null}
         </div>
       </header>

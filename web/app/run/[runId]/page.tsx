@@ -60,6 +60,9 @@ export default async function RunPage({ params }: PageProps) {
   const hasQualityNote = run.totals.n_errors > 0 || noAnswerCount > 0;
   const dataWarnings = run.data_warnings ?? [];
   const isLegacyReceipt = run.score_status === "measured" && run.lane !== HEADLINE_LANE;
+  const visibleScore = isLegacyReceipt ? (run.diagnostic_composite ?? run.composite) : run.composite;
+  const scoreText = visibleScore === null ? "n/a" : formatScore(visibleScore.point);
+  const scoreCiText = visibleScore === null ? "CI unavailable" : `${formatCi(visibleScore)} 95% CI`;
   const scoreTitle = run.ranked ? LOCAL_INTELLIGENCE_INDEX_NAME : "Diagnostic score profile";
 
   return (
@@ -97,8 +100,8 @@ export default async function RunPage({ params }: PageProps) {
               <div>
                 <div className="text-sm font-semibold text-bench-text">Diagnostic score (retired lane)</div>
                 <div className="font-mono text-xs text-bench-accent">{run.lane ?? "previous index"}</div>
-                <div className="font-mono text-3xl font-semibold text-bench-text">{formatScore(run.composite.point)}</div>
-                <div className="mt-1 font-mono text-sm text-bench-muted">{formatCi(run.composite)} 95% CI</div>
+                <div className="font-mono text-3xl font-semibold text-bench-text">{scoreText}</div>
+                <div className="mt-1 font-mono text-sm text-bench-muted">{scoreCiText}</div>
               </div>
             </>
           ) : (
@@ -106,8 +109,8 @@ export default async function RunPage({ params }: PageProps) {
               <div>
                 <div className="text-sm font-semibold text-bench-text">{scoreTitle}</div>
                 <div className="font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
-                <div className="font-mono text-6xl font-semibold text-bench-text">{formatScore(run.composite.point)}</div>
-                <div className="mt-1 font-mono text-lg text-bench-muted">{formatCi(run.composite)} 95% CI</div>
+                <div className="font-mono text-6xl font-semibold text-bench-text">{scoreText}</div>
+                <div className="mt-1 font-mono text-lg text-bench-muted">{scoreCiText}</div>
               </div>
               <div className="pb-2 text-sm text-bench-muted">
                 <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
