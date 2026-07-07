@@ -1,4 +1,4 @@
-import { readModelData } from "./data";
+import { readModelData, runIds } from "./data";
 import { capturePage, expect, test, visitRoute } from "./fixtures";
 
 const HEADLINE_LANE = "bounded-final-v2";
@@ -19,13 +19,11 @@ for (const modelCase of MODEL_CASES) {
 
     await visitRoute(page, `/model/${modelCase.slug}/`);
 
-    await expect(page.getByRole("heading", { name: model.model_label })).toBeVisible();
+    await expect(page.getByRole("heading", { name: model.model_label, exact: true })).toBeVisible();
     await expect(page.getByTestId("model-variant-board")).toBeVisible();
 
-    // Current-index runs get receipt links in the variant board; legacy-lane runs are
-    // omitted from the model page entirely (owner call 2026-07-07 — receipts stay
-    // reachable by direct URL only).
-    const currentRunIds = currentRuns.map((run) => run.run_id).filter((id): id is string => id !== null);
+    const currentRunIds = runIds(currentRuns);
+    const legacyRunIds = runIds(legacyRuns);
     const boardReceipts = page.getByTestId("model-variant-table").locator('a[href^="/run/"]');
     await expect(boardReceipts).toHaveCount(currentRunIds.length);
     for (const runId of currentRunIds) {
@@ -33,8 +31,19 @@ for (const modelCase of MODEL_CASES) {
     }
 
     await expect(page.getByTestId("model-legacy-diagnostics")).toHaveCount(0);
-    for (const runId of legacyRuns.map((run) => run.run_id).filter((id): id is string => id !== null)) {
-      await expect(page.locator(`a[href^="/run/${runId}"]`)).toHaveCount(0);
+    for (const runId of legacyRunIds) {
+      await expect(page.getByTestId("model-variant-table").locator(`a[href^="/run/${runId}"]`)).toHaveCount(0);
+    }
+
+    if (legacyRunIds.length === 0) {
+      await expect(page.getByText("Retired-lane diagnostic receipts", { exact: true })).toHaveCount(0);
+    } else {
+      await expect(page.getByText("Retired-lane diagnostic receipts", { exact: true })).toBeVisible();
+      for (const runId of legacyRunIds) {
+        const receipt = page.locator(`a[href*="${runId}"]`);
+        await expect(receipt).toHaveCount(1);
+        await expect(receipt).toContainText("diagnostic receipt (retired lane)");
+      }
     }
 
     if (modelCase.slug === "qwen3-6-27b") {
@@ -42,7 +51,9 @@ for (const modelCase of MODEL_CASES) {
       // stay pending with benchmark CTAs), and the measured quant ladder survives as diagnostics.
       await expect(page.getByTestId("model-variant-table")).not.toContainText("best");
       await expect(page.getByTestId("model-variant-table")).toContainText("benchmark it");
-      await expect(page.getByTestId("model-legacy-table")).toContainText("Q6_K");
+      await expect(page.locator("header div").filter({ hasText: "Retired-lane diagnostic receipts" }).first()).toContainText(
+        "Q6_K",
+      );
     }
 
     if (modelCase.slug === "gemma-4-12b-it") {
