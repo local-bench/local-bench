@@ -73,15 +73,22 @@ Formally adopt "tamper-evidence + out-of-process guarantee" as the coding-axis p
 1. State it plainly on the methodology page (no "forgery-safe" claims for the sentinel). *(open)*
 2. **Turn the architectural no-auto-rank into an explicit, tested guard** in `web/build_data.py`.
    ✅ **DONE 2026-07-07** — `_assert_ranked_coding_provenance` fails the build if a ranked row
-   carries a non-maintainer-verified coding verdict (trust_label must be `project_anchor` AND
-   verdict_source `verifier`); regression test in `cli/tests/test_web_build_data.py`.
+   whose composite includes the coding axis is not maintainer-verified (trust_label `project_anchor`
+   AND verdict_source `verifier`). **Hardened after a GPT-5.5 red-team** (was bypassable): the guard
+   keys on the **scored coding axis**, not `has_code_artifacts` — coding is scored from bench/item
+   correctness independent of any `code_artifact`, so an artifact-keyed guard skipped a coding-scored
+   run that carried no `code_artifact`. Also `_code_verdict_source` now **fails closed** (a single
+   `submitter` item aggregates to `submitter`, not `verifier`, so mixed provenance can't pass).
+   Regression tests in `cli/tests/test_web_build_data.py`.
 3. Fix the forgeable `self_reported_exec` gate in `submission-zt1-decision.ts`.
-   ✅ **DONE 2026-07-07** — `codingStateFor` now honors a `verdict_source:"verifier"` claim ONLY
-   from a server-assigned `project_anchor` origin (admin-secret; not self-declarable). A community
-   `verifier` claim falls through to `self_reported_exec` → escalated/hidden. NOTE: the review's
-   "reuse the existing Ed25519 `trustedAttesterSigned`" was NOT the right wiring — that attester is
-   agentic-bound (`{success, collateral_damage}` schema) and there is no coding-bound attestation
-   signer, so reusing it would spuriously accept an unrelated AppWorld attestation as "coding is
-   verified." A proper per-coding-verdict attestation scheme (over the `CodeVerdict` +
-   `assembled_program_sha256`) is the future path to let a trusted community `verifier` claim through;
-   tests in `web/tests/submission-zt1-auto-publish.test.ts`.
+   ✅ **DONE 2026-07-07** — `codingStateFor` honors coding trust ONLY from a server-assigned
+   `project_anchor` origin (admin-secret; not self-declarable) with all items verifier-sourced.
+   **Hardened after the red-team** (was bypassable): **ANY community coding now escalates**
+   (`self_reported_exec` → hidden) regardless of verdict_source — the old `generated_unverified`
+   auto-accept let a community submitter dodge review with an empty `code_artifact` (null
+   verdict_source) while claiming passing items. NOTE: the review's "reuse the existing Ed25519
+   `trustedAttesterSigned`" was NOT the right wiring — that attester is agentic-bound
+   (`{success, collateral_damage}` schema) and there is no coding-bound signer, so reusing it would
+   spuriously accept an unrelated AppWorld attestation as "coding is verified." A per-coding-verdict
+   attestation scheme (over the `CodeVerdict` + `assembled_program_sha256`) is the future path to
+   let a trusted community coding claim through; tests in `web/tests/submission-zt1-auto-publish.test.ts`.

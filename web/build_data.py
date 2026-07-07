@@ -500,10 +500,13 @@ def _code_verdict_source(items: list[JsonValue]) -> str | None:
             sources.add(source)
     if not sources:
         return None
-    if "verifier" in sources:
-        return "verifier"
+    # Fail closed: a single self-reported ("submitter") coding item taints the whole row's
+    # provenance, so it must win over "verifier". Otherwise a mostly-verifier run with one forged
+    # "submitter" item would aggregate to "verifier" and slip past _assert_ranked_coding_provenance.
     if "submitter" in sources:
         return "submitter"
+    if "verifier" in sources:
+        return "verifier"
     return sorted(sources)[0]
 
 
@@ -615,15 +618,23 @@ def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
     data_sources.json, or a future path wired community submissions into the board build — from
     ranking with a forged coding score counted. This guard makes that a build-time failure.
 
-    Invariant: any ranked row carrying the coding axis must have MAINTAINER-attested provenance —
-    trust_label == "project_anchor" (a maintainer-controlled data_sources.json field) AND
-    verdict_source == "verifier" (coding re-executed under the maintainer sandbox verifier). The
+    Invariant: any ranked row whose COMPOSITE INCLUDES THE CODING AXIS must have MAINTAINER-attested
+    provenance — trust_label == "project_anchor" (a maintainer-controlled data_sources.json field)
+    AND verdict_source == "verifier" (coding re-executed under the maintainer sandbox verifier). The
     submitter-controlled verdict_source string alone is NOT trusted; trust_label is the anchor.
+
+    Keyed on the scored coding AXIS, not on has_code_artifacts: the coding score derives from bench
+    aggregates / per-item correctness (build_data_axes.py), independent of any code_artifact, so a
+    forged run can score the coding axis while carrying NO code_artifact (has_code_artifacts would
+    stay false and an artifact-keyed guard would skip it). verdict_source is None when there is no
+    code_artifact, so such a forged row fails the "== verifier" check here.
     """
     for run in runs:
         index_row = _object(run["index_row"], "index_row")
-        if not index_row.get("ranked") or not index_row.get("has_code_artifacts"):
+        if not index_row.get("ranked"):
             continue
+        if "coding" not in _object_or_empty(index_row.get("axes")):
+            continue  # coding axis not scored into this ranked row -> nothing to gate
         trust_label = index_row.get("trust_label")
         verdict_source = index_row.get("verdict_source")
         if trust_label != "project_anchor" or verdict_source != "verifier":

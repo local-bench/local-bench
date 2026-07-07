@@ -271,39 +271,59 @@ def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Pat
 
 
 def test_ranked_coding_provenance_guard_blocks_self_reported_coding() -> None:
-    # Enforce "community/self-reported coding never ranks" IN CODE. A ranked row carrying the
-    # coding axis must be maintainer-verified (trust_label project_anchor AND verdict_source
-    # verifier); anything else is a build-time failure. The in-process coding sentinel is
-    # forgeable (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md), so a self-reported
-    # verdict_source string must never buy a ranked row.
+    # Enforce "community/self-reported coding never ranks" IN CODE. A ranked row whose composite
+    # includes the CODING AXIS must be maintainer-verified (trust_label project_anchor AND
+    # verdict_source verifier); anything else is a build-time failure. Keyed on the scored axis,
+    # NOT has_code_artifacts: coding is scored from bench aggregates independent of any
+    # code_artifact, so an artifact-keyed guard is bypassable
+    # (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md).
     builder = _build_data_module()
 
-    def _run(run_id: str, **index_row: JsonValue) -> JsonObject:
-        return {"run_id": run_id, "index_row": index_row}
+    CODING: JsonObject = {"coding": {"n": 1}}  # a scored coding axis; contents irrelevant to the guard
+
+    def _run(run_id: str, *, axes: JsonObject = CODING, **index_row: JsonValue) -> JsonObject:
+        return {"run_id": run_id, "index_row": {"axes": axes, **index_row}}
 
     # Legit maintainer-verified ranked coding row: must NOT raise.
     builder._assert_ranked_coding_provenance(
-        [_run("legit", ranked=True, has_code_artifacts=True, trust_label="project_anchor", verdict_source="verifier")]
+        [_run("legit", ranked=True, trust_label="project_anchor", verdict_source="verifier")]
     )
 
-    # Each of these is a ranked coding row that is NOT maintainer-verified: must raise.
+    # Ranked rows whose coding axis is scored but NOT maintainer-verified: must raise.
     for label, row in {
-        "community_trust_label": _run("a", ranked=True, has_code_artifacts=True, trust_label="community_re_scored", verdict_source="verifier"),
-        "forged_verdict_source": _run("b", ranked=True, has_code_artifacts=True, trust_label="project_anchor", verdict_source="submitter"),
-        "null_verdict_source": _run("c", ranked=True, has_code_artifacts=True, trust_label="project_anchor", verdict_source=None),
-        "no_provenance_at_all": _run("d", ranked=True, has_code_artifacts=True),
+        "community_trust_label": _run("a", ranked=True, trust_label="community_re_scored", verdict_source="verifier"),
+        "forged_submitter_source": _run("b", ranked=True, trust_label="project_anchor", verdict_source="submitter"),
+        "null_source": _run("c", ranked=True, trust_label="project_anchor", verdict_source=None),
+        # The bypass this closes: coding axis scored with NO code_artifact (has_code_artifacts
+        # false, verdict_source None). The old has_code_artifacts-keyed guard skipped this.
+        "coding_scored_without_artifact": _run("d", ranked=True, has_code_artifacts=False, trust_label="community_re_scored", verdict_source=None),
+        "no_provenance_at_all": _run("e", ranked=True),
     }.items():
         with pytest.raises(builder.DataBuildError, match="not maintainer-verified"):
             builder._assert_ranked_coding_provenance([row])
 
-    # Non-triggering rows must NOT raise: an unranked self-reported coding row, and a ranked
-    # row with no coding axis (provenance is irrelevant when coding is absent).
+    # Non-triggering rows must NOT raise: an unranked self-reported coding row, and a ranked row
+    # whose composite has NO coding axis (provenance is irrelevant when coding is not scored).
     builder._assert_ranked_coding_provenance(
         [
-            _run("unranked", ranked=False, has_code_artifacts=True, trust_label="community_re_scored", verdict_source="submitter"),
-            _run("nocode", ranked=True, has_code_artifacts=False, trust_label="community_re_scored", verdict_source=None),
+            _run("unranked", ranked=False, trust_label="community_re_scored", verdict_source="submitter"),
+            _run("nocode", axes={"knowledge": {"n": 1}}, ranked=True, trust_label="community_re_scored", verdict_source=None),
         ]
     )
+
+
+def test_code_verdict_source_fails_closed_on_mixed_provenance() -> None:
+    # A single self-reported ("submitter") coding item must taint the aggregate, so a mostly-verifier
+    # run with one forged submitter item does not aggregate to "verifier" and slip past the guard.
+    builder = _build_data_module()
+
+    def _item(source: JsonValue) -> JsonObject:
+        return {"bench": "bigcodebench_hard", "code_artifact": {"verdict_source": source}}
+
+    assert builder._code_verdict_source([_item("verifier"), _item("submitter")]) == "submitter"
+    assert builder._code_verdict_source([_item("verifier"), _item("verifier")]) == "verifier"
+    # null items (unscoreable, like the real Gemma run) don't count as string sources; verifier wins.
+    assert builder._code_verdict_source([_item("verifier"), _item(None)]) == "verifier"
 
 
 def test_build_data_quarantines_invalid_inline_appworld(tmp_path: Path) -> None:

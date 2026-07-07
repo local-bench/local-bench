@@ -196,22 +196,20 @@ function codingStateFor(row: SubmissionRow, bundle: ResultBundle): CodingState {
     const source = item["code_artifact"]["verdict_source"];
     return typeof source === "string" ? source : null;
   });
-  // A `verdict_source: "verifier"` string is SELF-REPORTED: the submitter ran the coding on
-  // their own machine, and the in-process coding sentinel is FORGEABLE — a passing BigCodeBench
-  // verdict can be fabricated (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). So it
-  // confers trust ONLY from an admin-authenticated project_anchor submission (origin is
-  // server-assigned from the admin secret in submission-ticket-api.ts and cannot be
-  // self-declared). There is no coding-bound attestation yet (the Ed25519 attester covers only
-  // agentic verdicts), so a COMMUNITY "verifier" claim is NOT auto-accepted — it falls through
-  // to self_reported_exec and is escalated for maintainer review. See
-  // docs/reports/coding-exec-worker-marshalling-spec-2026-07-07.md for the path to trusted
-  // community coding.
+  // Coding trust is conferred ONLY by an admin-authenticated project_anchor submission whose every
+  // coding item is verifier-sourced. origin is server-assigned from the admin secret in
+  // submission-ticket-api.ts and cannot be self-declared; the in-process coding sentinel is
+  // FORGEABLE (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md).
   if (row.origin === "project_anchor" && sources.every((source) => source === "verifier")) {
     return "verifier";
   }
-  if (row.origin === "community" && sources.every((source) => source === null)) {
-    return "generated_unverified";
-  }
+  // ANY community coding is self-reported and escalated for maintainer review, regardless of
+  // verdict_source. The coding score derives from per-item correctness (build_data_axes.py), NOT
+  // from code_artifact, so a null/empty/missing verdict_source is NOT a safe "generated but not
+  // run" signal — a submitter can claim passing coding items with an empty `code_artifact` and,
+  // under the old `generated_unverified` path, dodge review. There is no coding-bound attestation
+  // yet; see docs/reports/coding-exec-worker-marshalling-spec-2026-07-07.md for the path to trusted
+  // community coding. `generated_unverified` is retired here (kept in the type for compatibility).
   return "self_reported_exec";
 }
 

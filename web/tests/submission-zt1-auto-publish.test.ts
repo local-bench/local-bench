@@ -146,6 +146,30 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(body["zt1_decision_reason"]).not.toBe("coding_self_reported_exec");
   }, 15_000);
 
+  it("escalates community coding with an empty/unverified code_artifact (no generated_unverified bypass)", async () => {
+    // The forged-"verifier" path was closed first, but a community submitter could still dodge
+    // review with an EMPTY code_artifact: null verdict_source -> old generated_unverified ->
+    // publishable, while claiming passing items. Any community coding now escalates regardless.
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const bundle = bundleFor({ fileSha: UNKNOWN_HASH, score: 45 });
+    bundle["items"] = [
+      { bench: "bigcodebench_hard", item_id: "bcbh-001", correct: true, code_artifact: {} },
+      { bench: "bigcodebench_hard", item_id: "bcbh-002", correct: true, code_artifact: {} },
+    ];
+    const submissionId = await ticketWithBundle(env, bundle);
+    await env.DB.prepare("update submissions set origin = 'community' where submission_id = ?").bind(submissionId).run();
+
+    const response = await verifyAccepted(env, submissionId);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      publish_state: "hidden",
+      zt1_decision: "escalated",
+      zt1_decision_reason: "coding_self_reported_exec",
+    });
+  }, 15_000);
+
   it("creates an unverified identity row without merging into a catalog slug", async () => {
     // Given: the model artifact hash is not in the known catalog map.
     const env = await createZt1Env();
