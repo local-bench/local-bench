@@ -8062,6 +8062,426 @@
         }
       ],
       "distills": []
+    },
+    {
+      "id": "huihui-ai/Qwen2.5-7B-Instruct-abliterated-v2",
+      "slug": "qwen2-5-7b-instruct-abliterated-v2",
+      "display_name": "Qwen2.5 7B Instruct abliterated v2",
+      "family": "Qwen2.5",
+      "org": "huihui-ai",
+      "params_b": 7.6,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-7B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 4915,
+        "likes": 54,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Qwen2.5-7B-Instruct-abliterated-v2-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.53,
+          "file_gb": 8.1,
+          "vram_gb_8k": 9.5,
+          "revision": "547a4a51bed92fbf03d9ccadb88820d3eac3aef4"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.63,
+          "file_gb": 6.3,
+          "vram_gb_8k": 7.7,
+          "revision": "547a4a51bed92fbf03d9ccadb88820d3eac3aef4"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 5.4,
+          "vram_gb_8k": 6.8,
+          "revision": "547a4a51bed92fbf03d9ccadb88820d3eac3aef4"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.95,
+          "file_gb": 4.7,
+          "vram_gb_8k": 6.1,
+          "revision": "547a4a51bed92fbf03d9ccadb88820d3eac3aef4"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 3.8,
+          "vram_gb_8k": 5.2,
+          "revision": "547a4a51bed92fbf03d9ccadb88820d3eac3aef4"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.16,
+          "file_gb": 3.0,
+          "vram_gb_8k": 4.4,
+          "revision": "547a4a51bed92fbf03d9ccadb88820d3eac3aef4"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "agentica-org/DeepSWE-Preview",
+      "slug": "deepswe-preview",
+      "display_name": "DeepSWE Preview",
+      "family": "Qwen3",
+      "org": "agentica-org",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "mit",
+      "base_model": "Qwen/Qwen3-32B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 3443,
+        "likes": 199,
+        "trending": 0
+      },
+      "gguf_repo": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.49,
+          "file_gb": 34.8,
+          "vram_gb_8k": 37.4,
+          "revision": "1a8015681b46c4767c27a588a253a5a225d01b69"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 26.9,
+          "vram_gb_8k": 29.5,
+          "revision": "1a8015681b46c4767c27a588a253a5a225d01b69"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.66,
+          "file_gb": 23.2,
+          "vram_gb_8k": 25.8,
+          "revision": "1a8015681b46c4767c27a588a253a5a225d01b69"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.83,
+          "file_gb": 19.8,
+          "vram_gb_8k": 22.4,
+          "revision": "1a8015681b46c4767c27a588a253a5a225d01b69"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.9,
+          "file_gb": 16.0,
+          "vram_gb_8k": 18.6,
+          "revision": "1a8015681b46c4767c27a588a253a5a225d01b69"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.0,
+          "file_gb": 12.3,
+          "vram_gb_8k": 14.9,
+          "revision": "1a8015681b46c4767c27a588a253a5a225d01b69"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "microsoft/FrogBoss-32B-2510",
+      "slug": "frogboss-32b-2510",
+      "display_name": "FrogBoss 32B 2510",
+      "family": "Qwen3",
+      "org": "microsoft",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "mit",
+      "base_model": "Qwen/Qwen3-32B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2499,
+        "likes": 34,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/FrogBoss-32B-2510-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 26.9,
+          "vram_gb_8k": 29.5,
+          "revision": "b929a6c4a6bc50ba745af9a12f2852a007312267"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.66,
+          "file_gb": 23.2,
+          "vram_gb_8k": 25.8,
+          "revision": "b929a6c4a6bc50ba745af9a12f2852a007312267"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.83,
+          "file_gb": 19.8,
+          "vram_gb_8k": 22.4,
+          "revision": "b929a6c4a6bc50ba745af9a12f2852a007312267"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.9,
+          "file_gb": 16.0,
+          "vram_gb_8k": 18.6,
+          "revision": "b929a6c4a6bc50ba745af9a12f2852a007312267"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.0,
+          "file_gb": 12.3,
+          "vram_gb_8k": 14.9,
+          "revision": "b929a6c4a6bc50ba745af9a12f2852a007312267"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Qwen2.5-32B-Instruct-abliterated",
+      "slug": "qwen2-5-32b-instruct-abliterated",
+      "display_name": "Qwen2.5 32B Instruct abliterated",
+      "family": "Qwen2.5",
+      "org": "huihui-ai",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-32B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2412,
+        "likes": 60,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Qwen2.5-32B-Instruct-abliterated-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.49,
+          "file_gb": 34.8,
+          "vram_gb_8k": 37.4,
+          "revision": "2c6bfad0471495a4b0de8c4d79013f8a7e50d923"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 26.9,
+          "vram_gb_8k": 29.5,
+          "revision": "2c6bfad0471495a4b0de8c4d79013f8a7e50d923"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 23.3,
+          "vram_gb_8k": 25.9,
+          "revision": "2c6bfad0471495a4b0de8c4d79013f8a7e50d923"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.85,
+          "file_gb": 19.9,
+          "vram_gb_8k": 22.5,
+          "revision": "2c6bfad0471495a4b0de8c4d79013f8a7e50d923"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.88,
+          "file_gb": 15.9,
+          "vram_gb_8k": 18.5,
+          "revision": "2c6bfad0471495a4b0de8c4d79013f8a7e50d923"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.0,
+          "file_gb": 12.3,
+          "vram_gb_8k": 14.9,
+          "revision": "2c6bfad0471495a4b0de8c4d79013f8a7e50d923"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Huihui-Qwen3-14B-abliterated-v2",
+      "slug": "huihui-qwen3-14b-abliterated-v2",
+      "display_name": "Huihui Qwen3 14B abliterated v2",
+      "family": "Qwen3",
+      "org": "huihui-ai",
+      "params_b": 14.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-14B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2179,
+        "likes": 22,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.54,
+          "file_gb": 12.1,
+          "vram_gb_8k": 13.8,
+          "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 10.5,
+          "vram_gb_8k": 12.2,
+          "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.86,
+          "file_gb": 9.0,
+          "vram_gb_8k": 10.7,
+          "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.95,
+          "file_gb": 7.3,
+          "vram_gb_8k": 9.0,
+          "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.14,
+          "file_gb": 5.8,
+          "vram_gb_8k": 7.5,
+          "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "BytedTsinghua-SIA/RL-MemoryAgent-14B",
+      "slug": "rl-memoryagent-14b",
+      "display_name": "RL MemoryAgent 14B",
+      "family": "Qwen2.5",
+      "org": "BytedTsinghua-SIA",
+      "params_b": 14.8,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-14B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2005,
+        "likes": 31,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.49,
+          "file_gb": 15.7,
+          "vram_gb_8k": 17.4,
+          "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.54,
+          "file_gb": 12.1,
+          "vram_gb_8k": 13.8,
+          "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 10.5,
+          "vram_gb_8k": 12.2,
+          "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.86,
+          "file_gb": 9.0,
+          "vram_gb_8k": 10.7,
+          "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.95,
+          "file_gb": 7.3,
+          "vram_gb_8k": 9.0,
+          "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.14,
+          "file_gb": 5.8,
+          "vram_gb_8k": 7.5,
+          "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "t-tech/T-pro-it-2.1",
+      "slug": "t-pro-it-2-1",
+      "display_name": "T pro it 2.1",
+      "family": "Qwen3",
+      "org": "t-tech",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-32B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2446,
+        "likes": 35,
+        "trending": 0
+      },
+      "gguf_repo": "t-tech/T-pro-it-2.1-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.49,
+          "file_gb": 34.8,
+          "vram_gb_8k": 37.4,
+          "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 26.9,
+          "vram_gb_8k": 29.5,
+          "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.66,
+          "file_gb": 23.2,
+          "vram_gb_8k": 25.8,
+          "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.83,
+          "file_gb": 19.8,
+          "vram_gb_8k": 22.4,
+          "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a"
+        }
+      ],
+      "distills": []
     }
   ]
 }

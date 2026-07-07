@@ -10,5 +10,6 @@
   "Qwen/QwQ-32B-Preview": "superseded preview; final QwQ-32B is catalogued",
   "GritLM/GritLM-8x7B": "embedding+generation hybrid, embedding-focused",
   "MemTensor/MemOperator-4B": "declared lineage mismatch (4B claiming a 0.6B base)",
-  "inference-optimization/Qwen3-1.6B-A0.9B": "scale-mislabelled prune of a 30B MoE"
+  "inference-optimization/Qwen3-1.6B-A0.9B": "scale-mislabelled prune of a 30B MoE",
+  "openai/gpt-oss-safeguard-120b": "safety classifier variant, not a chat assistant"
 }
