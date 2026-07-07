@@ -8,6 +8,13 @@ const IDENTITY_COPY: Record<Recipe["identityMode"], string> = {
     "Identity: basic - server-side template introspection; tokenizer/chat-template digests will be null. Add the model's exact non-GGUF HF repo for strongest provenance.",
 };
 
+const LINEAGE_KIND_COPY: Record<Recipe["model"]["modelKind"], string> = {
+  base: "variant",
+  finetune: "fine-tune",
+  distill: "distill",
+  merge: "merge",
+};
+
 export function copyableCommand(command: string): string {
   return command.replace(/[ \t]*\\\r?\n[ \t]*/g, " ").trim();
 }
@@ -29,6 +36,21 @@ function CommandBlock({ title, command }: { readonly title: string; readonly com
   );
 }
 
+function isOfficialVariant(model: Recipe["model"]): boolean {
+  const baseOrg = model.baseModelId?.split("/")[0]?.toLowerCase() ?? null;
+  return baseOrg !== null && model.org.toLowerCase() === baseOrg;
+}
+
+function lineageLine(model: Recipe["model"]): string {
+  // Gate on baseModelSlug: base_model pointing OUTSIDE the catalog (a lab's own "-Base"
+  // pretrain) does not make this a variant — the picker lists it as an original release.
+  if (model.baseModelSlug === null || model.baseModelDisplayName === null) {
+    return `Benchmarking ${model.displayName} — Original release`;
+  }
+  const kind = isOfficialVariant(model) ? "official variant" : LINEAGE_KIND_COPY[model.modelKind];
+  return `Benchmarking ${model.displayName} — ${kind} of ${model.baseModelDisplayName} · by ${model.org}`;
+}
+
 export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
   return (
     <div className="mt-5 flex flex-col gap-3" data-testid="benchmark-recipe">
@@ -36,6 +58,7 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
         localbench does not download or run the model. First start a local server, then localbench sends the benchmark to
         that endpoint.
       </p>
+      <p className="font-mono text-xs text-bench-accent">{lineageLine(recipe.model)}</p>
       <p className="font-mono text-xs text-bench-muted">
         Strongest provenance: let the CLI launch the pinned server itself with{" "}
         <span className="font-mono text-bench-text">localbench bench</span> — see{" "}

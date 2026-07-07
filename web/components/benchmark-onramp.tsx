@@ -10,15 +10,14 @@ import {
 } from "@/components/local-intelligence-index";
 import {
   RUNTIME_PROFILES,
+  browseFamilies,
   buildRecipe,
-  listOrgs,
-  modelsForOrg,
+  listBaseLabs,
   popularModels,
   recommendedQuantForVram,
-  filterModelsByType,
+  smallestFileQuant,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
-  type BrowseModelType,
   type PopularitySort,
   type RuntimeId,
 } from "@/lib/onramp";
@@ -58,6 +57,7 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
     likes: 0,
     trending: 0,
     modelKind: "base",
+    baseModelIds: [],
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -81,18 +81,27 @@ export function BenchmarkOnramp({
   const [popularitySort, setPopularitySort] = useState<PopularitySort>("downloads");
   const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
   const [popularSlug, setPopularSlug] = useState<string | null>(null);
-  const [browseType, setBrowseType] = useState<BrowseModelType>("all");
   const [browseOrg, setBrowseOrg] = useState<string>("");
+  const [browseSearch, setBrowseSearch] = useState<string>("");
   const [browseSlug, setBrowseSlug] = useState<string>("");
   const [browseQuant, setBrowseQuant] = useState<string>("");
   const [pasteRepo, setPasteRepo] = useState<string>("");
   const [pasteHfModelId, setPasteHfModelId] = useState<string>("");
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
-  const browseCatalog = useMemo(() => filterModelsByType(catalog, browseType), [catalog, browseType]);
-  const orgs = useMemo(() => listOrgs(browseCatalog), [browseCatalog]);
+  const orgs = useMemo(() => listBaseLabs(catalog), [catalog]);
   const popular = useMemo(() => popularModels(catalog, vramGb, popularitySort, 5), [catalog, vramGb, popularitySort]);
-  const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg, browseType) : []), [catalog, browseOrg, browseType]);
+  const families = useMemo(
+    () =>
+      browseOrg === "" && browseSearch.trim() === ""
+        ? []
+        : browseFamilies(catalog, { lab: browseOrg, search: browseSearch, vramGb }),
+    [catalog, browseOrg, browseSearch, vramGb],
+  );
+  const browseModel = useMemo(
+    () => catalog.find((candidate) => candidate.slug === browseSlug) ?? null,
+    [catalog, browseSlug],
+  );
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
   const selection = useMemo<
@@ -109,10 +118,8 @@ export function BenchmarkOnramp({
       if (!found) {
         return null;
       }
-      const quant =
-        found.quants.find((candidate) => candidate.label === browseQuant) ??
-        recommendedQuantForVram(found, vramGb) ??
-        found.quants[0];
+      const explicitQuant = browseQuant === "" ? undefined : found.quants.find((candidate) => candidate.label === browseQuant);
+      const quant = explicitQuant ?? recommendedQuantForVram(found, vramGb) ?? smallestFileQuant(found);
       return quant ? { model: found, quant } : null;
     }
     if (pasteRepo.trim() === "") {
@@ -196,16 +203,15 @@ export function BenchmarkOnramp({
               setBrowseSlug("");
               setBrowseQuant("");
             }}
-            orgModels={orgModels}
-            browseType={browseType}
-            onBrowseType={(value) => {
-              setBrowseType(value);
-              setBrowseOrg("");
-              setBrowseSlug("");
+            browseSearch={browseSearch}
+            onBrowseSearch={setBrowseSearch}
+            families={families}
+            browseSlug={browseSlug}
+            browseModel={browseModel}
+            onModel={(slug) => {
+              setBrowseSlug(slug);
               setBrowseQuant("");
             }}
-            browseSlug={browseSlug}
-            onModel={setBrowseSlug}
             browseQuant={browseQuant}
             onQuant={setBrowseQuant}
             pasteRepo={pasteRepo}

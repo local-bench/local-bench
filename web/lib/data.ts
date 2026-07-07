@@ -172,7 +172,8 @@ async function getCatalogFile(): Promise<CatalogFile> {
 function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): OnrampCatalogModel {
   const paramsB =
     typeof raw.params_b === "number" ? raw.params_b : raw.params_b ? raw.params_b.total_b ?? null : null;
-  const baseModelId = typeof raw.base_model === "string" ? raw.base_model : null;
+  const baseModelIds = catalogBaseIds(raw);
+  const baseModelId = baseModelIds[0] ?? null;
   const base = baseModelId === null ? undefined : byId.get(baseModelId);
   return {
     id: raw.id,
@@ -188,6 +189,7 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
     likes: raw.popularity?.likes ?? 0,
     trending: raw.popularity?.trending ?? 0,
     modelKind: raw.model_kind,
+    baseModelIds,
     baseModelId,
     baseModelSlug: base?.slug ?? null,
     baseModelDisplayName: base?.display_name ?? baseModelId,
@@ -200,8 +202,15 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
   };
 }
 
+function catalogBaseIds(entry: CatalogModel): readonly string[] {
+  if (typeof entry.base_model === "string") {
+    return [entry.base_model];
+  }
+  return entry.base_model ?? [];
+}
+
 function catalogBaseId(entry: CatalogModel): string | null {
-  return typeof entry.base_model === "string" ? entry.base_model : null;
+  return catalogBaseIds(entry)[0] ?? null;
 }
 
 function isDerivativeCatalogEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): boolean {

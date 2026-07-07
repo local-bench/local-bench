@@ -18,6 +18,7 @@ const baseModel: OnrampCatalogModel = {
   likes: 420,
   trending: 31,
   modelKind: "base",
+  baseModelIds: [],
   baseModelId: null,
   baseModelSlug: null,
   baseModelDisplayName: null,
@@ -55,6 +56,43 @@ describe("BenchmarkRecipe", () => {
     expect(html).toContain("This is a full ranked run");
     expect(html).toContain("Preflight fails fast");
     expect(html).toContain("copies as one line");
+  });
+
+  it("states original-release lineage in the recipe header", () => {
+    const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe() }));
+
+    expect(html).toContain("Benchmarking Qwen3 8B — Original release");
+  });
+
+  it("states variant lineage with kind and creator in the recipe header", () => {
+    const fineTune = {
+      ...baseModel,
+      slug: "qwopus3-6-27b-v2-mtp",
+      displayName: "Qwopus3.6 27B v2 MTP",
+      org: "Jackrong",
+      modelKind: "finetune",
+      baseModelIds: ["Qwen/Qwen3.6-27B"],
+      baseModelId: "Qwen/Qwen3.6-27B",
+      baseModelSlug: "qwen3-6-27b",
+      baseModelDisplayName: "Qwen3.6-27B",
+    } satisfies OnrampCatalogModel;
+    const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe({ model: fineTune }) }));
+
+    expect(html).toContain("Benchmarking Qwopus3.6 27B v2 MTP — fine-tune of Qwen3.6-27B · by Jackrong");
+  });
+
+  it("treats an out-of-catalog pretrain base_model as an original release, not a variant", () => {
+    const instructTuneOfOwnPretrain = {
+      ...baseModel,
+      baseModelIds: ["Qwen/Qwen3-8B-Base"],
+      baseModelId: "Qwen/Qwen3-8B-Base",
+      baseModelSlug: null,
+      baseModelDisplayName: "Qwen/Qwen3-8B-Base",
+    } satisfies OnrampCatalogModel;
+    const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe({ model: instructTuneOfOwnPretrain }) }));
+
+    expect(html).toContain("Benchmarking Qwen3 8B — Original release");
+    expect(html).not.toContain("official variant");
   });
 
   it("shows a loud basic identity badge when tokenizer provenance is absent", () => {

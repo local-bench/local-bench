@@ -21,6 +21,7 @@ export type OnrampCatalogModel = {
   readonly likes: number;
   readonly trending: number;
   readonly modelKind: ModelKind;
+  readonly baseModelIds: readonly string[];
   readonly baseModelId: string | null;
   readonly baseModelSlug: string | null;
   readonly baseModelDisplayName: string | null;
@@ -30,7 +31,6 @@ export type OnrampCatalogModel = {
 export type RuntimeId = "llamacpp" | "lmstudio" | "vllm";
 export type PopularitySort = "downloads" | "trending" | "likes";
 export type ModelKind = "base" | "finetune" | "distill" | "merge";
-export type BrowseModelType = "all" | "base" | "finetune";
 
 export type RuntimeProfile = {
   readonly id: RuntimeId;
@@ -70,6 +70,29 @@ export type RecommendedEntry = {
   readonly quant: OnrampCatalogQuant;
 };
 
+export type BrowseVariant = {
+  readonly model: OnrampCatalogModel;
+  readonly kind: ModelKind;
+  readonly official: boolean;
+  readonly alsoBasedOn: readonly OnrampCatalogModel[];
+};
+
+export type BrowseFamily = {
+  readonly base: OnrampCatalogModel;
+  readonly variants: readonly BrowseVariant[];
+};
+
+export type BrowseFamiliesOptions = {
+  readonly lab?: string;
+  readonly search?: string;
+  readonly vramGb?: number;
+};
+
+export type BestFitLabel = {
+  readonly quant: OnrampCatalogQuant | null;
+  readonly label: string;
+};
+
 export type BenchmarkRecipe = {
   readonly setupCommand: string;
   readonly serveCommand: string;
@@ -98,6 +121,31 @@ export function recommendedQuantForVram(model: OnrampCatalogModel, vramGb: numbe
     return null;
   }
   return fitting.reduce((best, quant) => (quantRank(quant.label) < quantRank(best.label) ? quant : best));
+}
+
+export function bestFitForVram(model: OnrampCatalogModel, vramGb: number): BestFitLabel {
+  const quant = recommendedQuantForVram(model, vramGb);
+  return quant === null
+    ? { quant: null, label: `no listed quant fits ${vramGb} GB` }
+    : { quant, label: `best fit: ${quant.label}` };
+}
+
+export function smallestFileQuant(model: OnrampCatalogModel): OnrampCatalogQuant | null {
+  const first = model.quants[0];
+  if (first === undefined) {
+    return null;
+  }
+  return model.quants.reduce((smallest, quant) => {
+    const smallestFile = smallest.fileGb ?? Number.POSITIVE_INFINITY;
+    const quantFile = quant.fileGb ?? Number.POSITIVE_INFINITY;
+    if (quantFile < smallestFile) {
+      return quant;
+    }
+    if (quantFile === smallestFile && quantRank(quant.label) > quantRank(smallest.label)) {
+      return quant;
+    }
+    return smallest;
+  }, first);
 }
 
 export function popularModels(
@@ -131,38 +179,104 @@ export function listOrgs(catalog: readonly OnrampCatalogModel[]): readonly strin
   );
 }
 
+function catalogModelMap(catalog: readonly OnrampCatalogModel[]): ReadonlyMap<string, OnrampCatalogModel> {
+  return new Map(catalog.map((model) => [model.id, model]));
+}
+
+function cataloguedBases(
+  model: OnrampCatalogModel,
+  byId: ReadonlyMap<string, OnrampCatalogModel>,
+): readonly OnrampCatalogModel[] {
+  return model.baseModelIds.flatMap((baseId) => {
+    const base = byId.get(baseId);
+    return base === undefined || base.id === model.id ? [] : [base];
+  });
+}
+
+function isCataloguedDerivative(model: OnrampCatalogModel, byId: ReadonlyMap<string, OnrampCatalogModel>): boolean {
+  return cataloguedBases(model, byId).length > 0;
+}
+
 export function isDerivativeModel(model: OnrampCatalogModel): boolean {
-  return model.modelKind !== "base" || model.baseModelSlug !== null;
+  return model.baseModelSlug !== null;
 }
 
-export function modelMatchesBrowseType(model: OnrampCatalogModel, browseType: BrowseModelType): boolean {
-  switch (browseType) {
-    case "all":
-      return true;
-    case "base":
-      return !isDerivativeModel(model);
-    case "finetune":
-      return isDerivativeModel(model);
-    default:
-      return assertNever(browseType);
-  }
+export function listBaseLabs(catalog: readonly OnrampCatalogModel[]): readonly string[] {
+  const byId = catalogModelMap(catalog);
+  return [
+    ...new Set(
+      catalog
+        .filter((model) => !isCataloguedDerivative(model, byId))
+        .map((model) => model.org)
+        .filter((org) => org !== ""),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
 }
 
-export function filterModelsByType(
+function searchText(model: OnrampCatalogModel): string {
+  return [model.id, model.displayName, model.org, model.ggufRepo ?? ""].join("\n").toLowerCase();
+}
+
+function matchesSearch(model: OnrampCatalogModel, search: string): boolean {
+  return search === "" || searchText(model).includes(search);
+}
+
+function sortBases(left: OnrampCatalogModel, right: OnrampCatalogModel): number {
+  return right.downloads - left.downloads || left.displayName.localeCompare(right.displayName);
+}
+
+function sortVariants(vramGb: number | undefined) {
+  return (left: BrowseVariant, right: BrowseVariant): number => {
+    const leftFits = vramGb === undefined ? 0 : recommendedQuantForVram(left.model, vramGb) === null ? 0 : 1;
+    const rightFits = vramGb === undefined ? 0 : recommendedQuantForVram(right.model, vramGb) === null ? 0 : 1;
+    return (
+      rightFits - leftFits ||
+      right.model.downloads - left.model.downloads ||
+      left.model.displayName.localeCompare(right.model.displayName)
+    );
+  };
+}
+
+function variantForBase(
+  model: OnrampCatalogModel,
+  base: OnrampCatalogModel,
+  allBases: readonly OnrampCatalogModel[],
+): BrowseVariant {
+  return {
+    model,
+    kind: model.modelKind,
+    official: model.org !== "" && model.org === base.org,
+    alsoBasedOn: allBases.filter((candidate) => candidate.id !== base.id),
+  };
+}
+
+export function browseFamilies(
   catalog: readonly OnrampCatalogModel[],
-  browseType: BrowseModelType,
-): readonly OnrampCatalogModel[] {
-  return catalog.filter((model) => modelMatchesBrowseType(model, browseType));
-}
+  opts: BrowseFamiliesOptions = {},
+): readonly BrowseFamily[] {
+  const byId = catalogModelMap(catalog);
+  const search = (opts.search ?? "").trim().toLowerCase();
+  const bases = catalog
+    .filter((model) => !isCataloguedDerivative(model, byId))
+    .filter((model) => opts.lab === undefined || opts.lab === "" || model.org === opts.lab)
+    .sort(sortBases);
 
-export function modelsForOrg(
-  catalog: readonly OnrampCatalogModel[],
-  org: string,
-  browseType: BrowseModelType = "all",
-): readonly OnrampCatalogModel[] {
-  return filterModelsByType(catalog, browseType)
-    .filter((model) => model.org === org)
-    .sort((left, right) => right.downloads - left.downloads);
+  return bases.flatMap((base) => {
+    const variants = catalog
+      .flatMap((model) => {
+        const basesForVariant = cataloguedBases(model, byId);
+        return basesForVariant.some((candidate) => candidate.id === base.id)
+          ? [variantForBase(model, base, basesForVariant)]
+          : [];
+      })
+      .sort(sortVariants(opts.vramGb));
+    const baseMatches = matchesSearch(base, search);
+    const matchingVariants = variants.filter((variant) => matchesSearch(variant.model, search));
+    if (search !== "" && !baseMatches && matchingVariants.length === 0) {
+      return [];
+    }
+    return [{ base, variants: search !== "" && !baseMatches ? matchingVariants : variants }];
+  });
 }
 
 // Ollama is intentionally excluded: its defaults (num_ctx 2048, its own chat template, its own
@@ -261,8 +375,4 @@ export function buildRecipe(input: {
     identityMode: hfModelId === null ? "basic" : "full",
     model,
   };
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled browse type: ${String(value)}`);
 }

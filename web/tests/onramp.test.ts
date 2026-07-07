@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  isDerivativeModel,
-  listOrgs,
-  modelsForOrg,
+  bestFitForVram,
+  browseFamilies,
+  listBaseLabs,
   popularModels,
   recommendedQuantForVram,
   type OnrampCatalogModel,
@@ -24,6 +24,7 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     likes: 420,
     trending: 31,
     modelKind: "base",
+    baseModelIds: [],
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -113,42 +114,113 @@ describe("popularModels", () => {
   });
 });
 
-describe("listOrgs / modelsForOrg", () => {
-  it("lists unique orgs sorted, and models per org by downloads", () => {
-    const catalog = [
-      model({ slug: "q1", org: "Qwen", downloads: 1 }),
-      model({ slug: "q2", org: "Qwen", downloads: 9 }),
-      model({ slug: "g1", org: "Google" }),
-    ];
-    expect(listOrgs(catalog)).toEqual(["Google", "Qwen"]);
-    expect(modelsForOrg(catalog, "Qwen").map((m) => m.slug)).toEqual(["q2", "q1"]);
+describe("browseFamilies", () => {
+  const qwenBase = model({
+    id: "Qwen/Qwen3.6-27B",
+    slug: "qwen3-6-27b",
+    displayName: "Qwen3.6 27B",
+    downloads: 10_000,
+  });
+  const llamaBase = model({
+    id: "meta-llama/Llama-3.1-8B",
+    slug: "llama-3-1-8b",
+    displayName: "Llama 3.1 8B",
+    org: "Meta",
+    downloads: 8_000,
+  });
+  const outsideBaseLink = model({
+    id: "Qwen/Qwen3-0.6B",
+    slug: "qwen3-0-6b",
+    displayName: "Qwen3 0.6B",
+    baseModelIds: ["Qwen/Qwen3-0.6B-Base"],
+    baseModelId: "Qwen/Qwen3-0.6B-Base",
+    baseModelSlug: null,
+    baseModelDisplayName: "Qwen/Qwen3-0.6B-Base",
+    downloads: 500,
+  });
+  const qwopus = model({
+    id: "Jackrong/Qwopus3.6-27B-v2-MTP",
+    slug: "qwopus3-6-27b-v2-mtp",
+    displayName: "Qwopus3.6 27B v2 MTP",
+    org: "Jackrong",
+    baseModelIds: ["Qwen/Qwen3.6-27B"],
+    baseModelId: "Qwen/Qwen3.6-27B",
+    baseModelSlug: "qwen3-6-27b",
+    baseModelDisplayName: "Qwen3.6 27B",
+    modelKind: "finetune",
+    downloads: 2_400,
+    likes: 55,
+  });
+  const officialVariant = model({
+    id: "Qwen/Qwen3.6-27B-Thinking",
+    slug: "qwen3-6-27b-thinking",
+    displayName: "Qwen3.6 27B Thinking",
+    org: "Qwen",
+    baseModelIds: ["Qwen/Qwen3.6-27B"],
+    baseModelId: "Qwen/Qwen3.6-27B",
+    baseModelSlug: "qwen3-6-27b",
+    baseModelDisplayName: "Qwen3.6 27B",
+    modelKind: "finetune",
+    downloads: 1_200,
+  });
+  const merge = model({
+    id: "MergeLab/Qwen-Llama-Merge",
+    slug: "qwen-llama-merge",
+    displayName: "Qwen Llama Merge",
+    org: "MergeLab",
+    baseModelIds: ["Qwen/Qwen3.6-27B", "meta-llama/Llama-3.1-8B"],
+    baseModelId: "Qwen/Qwen3.6-27B",
+    baseModelSlug: "qwen3-6-27b",
+    baseModelDisplayName: "Qwen3.6 27B",
+    modelKind: "merge",
+    downloads: 900,
+  });
+  const catalog = [qwenBase, llamaBase, outsideBaseLink, qwopus, officialVariant, merge];
+
+  it("lists base labs only after grouping", () => {
+    expect(listBaseLabs(catalog)).toEqual(["Meta", "Qwen"]);
   });
 
-  it("filters real derivatives without treating official pretraining links as fine-tunes", () => {
-    const base = model({ slug: "qwen3-6-27b", displayName: "Qwen3.6 27B", downloads: 10 });
-    const officialInstruction = model({
-      slug: "qwen3-0-6b",
-      displayName: "Qwen3 0.6B",
-      baseModelId: "Qwen/Qwen3-0.6B-Base",
-      baseModelSlug: null,
-      baseModelDisplayName: "Qwen/Qwen3-0.6B-Base",
-      downloads: 8,
-    });
-    const fineTune = model({
-      slug: "qwopus3-6-27b-v2-mtp",
-      displayName: "Qwopus 3.6 27B v2 MTP",
-      baseModelId: "Qwen/Qwen3.6-27B",
-      baseModelSlug: "qwen3-6-27b",
-      baseModelDisplayName: "Qwen3.6 27B",
-      modelKind: "finetune",
-      downloads: 9,
-    });
-    const catalog = [base, officialInstruction, fineTune];
+  it("nests in-catalog derivatives and leaves outside-base links as ordinary bases", () => {
+    const families = browseFamilies(catalog, { lab: "Qwen", search: "", vramGb: 24 });
 
-    expect(isDerivativeModel(fineTune)).toBe(true);
-    expect(isDerivativeModel(officialInstruction)).toBe(false);
-    expect(modelsForOrg(catalog, "Qwen", "finetune").map((m) => m.slug)).toEqual(["qwopus3-6-27b-v2-mtp"]);
-    expect(modelsForOrg(catalog, "Qwen", "base").map((m) => m.slug)).toEqual(["qwen3-6-27b", "qwen3-0-6b"]);
+    expect(families.map((family) => family.base.slug)).toEqual(["qwen3-6-27b", "qwen3-0-6b"]);
+    expect(families[0]?.variants.map((variant) => variant.model.slug)).toEqual([
+      "qwopus3-6-27b-v2-mtp",
+      "qwen3-6-27b-thinking",
+      "qwen-llama-merge",
+    ]);
+    expect(families[1]?.variants).toEqual([]);
+  });
+
+  it("derives official variants and lists merges under every catalogued base", () => {
+    const families = browseFamilies(catalog, { search: "merge", vramGb: 24 });
+    const qwenMerge = families
+      .find((family) => family.base.slug === "qwen3-6-27b")
+      ?.variants.find((variant) => variant.model.slug === "qwen-llama-merge");
+    const llamaMerge = families
+      .find((family) => family.base.slug === "llama-3-1-8b")
+      ?.variants.find((variant) => variant.model.slug === "qwen-llama-merge");
+    const qwenFamily = browseFamilies(catalog, { lab: "Qwen", vramGb: 24 })[0];
+    const official = qwenFamily?.variants.find((variant) => variant.model.slug === "qwen3-6-27b-thinking");
+
+    expect(official?.official).toBe(true);
+    expect(official?.kind).toBe("finetune");
+    expect(qwenMerge?.alsoBasedOn.map((base) => base.displayName)).toEqual(["Llama 3.1 8B"]);
+    expect(llamaMerge?.alsoBasedOn.map((base) => base.displayName)).toEqual(["Qwen3.6 27B"]);
+  });
+
+  it("matches search across base and variant identity fields", () => {
+    const families = browseFamilies(catalog, { search: "jackrong", vramGb: 24 });
+
+    expect(families).toHaveLength(1);
+    expect(families[0]?.base.slug).toBe("qwen3-6-27b");
+    expect(families[0]?.variants.map((variant) => variant.model.slug)).toContain("qwopus3-6-27b-v2-mtp");
+  });
+
+  it("exposes per-row best-fit label data without inventing a fitting quant", () => {
+    expect(bestFitForVram(model(), 9).label).toBe("best fit: Q6_K");
+    expect(bestFitForVram(model(), 4)).toEqual({ quant: null, label: "no listed quant fits 4 GB" });
   });
 });
 
@@ -169,5 +241,6 @@ describe("getOnrampCatalog", () => {
     expect(qwen?.ggufRepo).toBeTruthy();
     expect(qwen?.quants.some((quant) => quant.label === "Q4_K_M")).toBe(true);
     expect(catalog.models.some((entry) => entry.baseModelId !== null)).toBe(true);
+    expect(catalog.models.every((entry) => Array.isArray(entry.baseModelIds))).toBe(true);
   });
 });

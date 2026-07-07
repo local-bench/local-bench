@@ -16,6 +16,7 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     likes: 420,
     trending: 31,
     modelKind: "base",
+    baseModelIds: [],
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
