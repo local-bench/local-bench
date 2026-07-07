@@ -117,16 +117,20 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
     models = _objects(index["models"])
     # The full model catalog is always emitted (unmeasured entries are shells with empty
     # axes / null composite); our two fixture runs attach as standalone measured entries.
-    measured = [model for model in models if model.get("composite") is not None]
+    measured = [model for model in models if model.get("score_status") == "measured"]
     assert {_string(model["model_label"]) for model in measured} >= {"Fixture KI", "Fixture Math"}
 
     # Contract: every MEASURED model's axes ⊆ AXES with the headline always present;
     # candidate axes (math/agentic) appear only when actually measured (no synthesis).
+    # Both fixture runs sit outside the board's headline lane, so their composites are
+    # structurally quarantined: `composite` is null and the score only appears as
+    # `diagnostic_composite`.
     for model in measured:
         model_axes = _object(model["axes"])
         assert set(model_axes) <= set(AXES)
         assert {"knowledge", "instruction"} <= set(model_axes)
-        _assert_interval(_object(model["composite"]))
+        assert model["composite"] is None
+        _assert_interval(_object(model["diagnostic_composite"]))
         assert (out_first / "models" / f"{_string(model['slug'])}.json").exists()
 
     # The K+I-only run carries NO fabricated math/agentic axes...
@@ -382,20 +386,23 @@ def test_build_data_carries_board_conformance_gate_to_index_and_model_rows(
     interval = {"hi": 90.0, "hi_raw": 0.9, "lo": 70.0, "lo_raw": 0.7, "point": 80.0, "point_raw": 0.8}
     monkeypatch.setattr(
         builder,
-        "_board_models_by_slug",
-        lambda: {
-            "synthetic-model": {
-                "ranked": True,
-                "systems": [
-                    {
-                        "run_id": "synthetic-model__synthetic-run",
-                        "composite": interval,
-                        "axes": {"knowledge": interval, "instruction": interval},
-                        "conformance_gates": {"tc_json_v1": gate},
-                    },
-                ],
+        "_board_context",
+        lambda: builder.BoardContext(
+            headline_lane="test",
+            models_by_slug={
+                "synthetic-model": {
+                    "ranked": True,
+                    "systems": [
+                        {
+                            "run_id": "synthetic-model__synthetic-run",
+                            "composite": interval,
+                            "axes": {"knowledge": interval, "instruction": interval},
+                            "conformance_gates": {"tc_json_v1": gate},
+                        },
+                    ],
+                },
             },
-        },
+        ),
     )
 
     # When: the static web JSON is built through the normal pipeline.
