@@ -1071,6 +1071,7 @@
       "reasoning_capable": true,
       "license": "apache-2.0",
       "base_model": "Qwen/Qwen3.6-27B",
+      "model_kind": "finetune",
       "popularity": {
         "downloads": 292588,
         "likes": 322,
@@ -2487,6 +2488,7 @@
       "reasoning_capable": false,
       "license": "gemma",
       "base_model": "google/gemma-3n-E4B-it",
+      "model_kind": "finetune",
       "popularity": {
         "downloads": 406639,
         "likes": 310,
@@ -4171,6 +4173,7 @@
       "reasoning_capable": false,
       "license": "apache-2.0",
       "base_model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+      "model_kind": "finetune",
       "popularity": {
         "downloads": 6066,
         "likes": 870,
@@ -4738,6 +4741,7 @@
       "reasoning_capable": true,
       "license": "mit",
       "base_model": "microsoft/phi-4",
+      "model_kind": "finetune",
       "popularity": {
         "downloads": 23415,
         "likes": 228,
