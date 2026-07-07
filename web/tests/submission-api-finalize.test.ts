@@ -142,6 +142,7 @@ class FakeD1Statement implements D1PreparedStatement {
 function ticketRow(): Record<string, unknown> {
   return {
     bundle_schema_version: "localbench.result_bundle.v1",
+    created_at: "2026-01-01T00:00:00Z",
     duplicate_of: null,
     expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     origin: "project_anchor",

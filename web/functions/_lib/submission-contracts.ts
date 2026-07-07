@@ -204,6 +204,7 @@ export const ResultBundleSchema = z
 
 export const SubmissionRowSchema = z.object({
   bundle_schema_version: z.string().nullable(),
+  created_at: z.string(),
   duplicate_of: z.string().nullable(),
   expires_at: z.string().nullable(),
   origin: z.enum(["project_anchor", "community"]),
