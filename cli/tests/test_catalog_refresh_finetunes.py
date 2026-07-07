@@ -301,6 +301,42 @@ def test_discover_finetunes_rejects_non_text_generation_and_base_mirrors(tmp_pat
     assert "on curated denylist" in report
 
 
+def test_discover_finetunes_floor_mode_all_requires_both_signals(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    base_id = "Qwen/Qwen3.6-27B"
+    base = base_entry(base_id, "qwen3-6-27b", [])
+    raw_catalog = {"models": [base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    downloads_only = hf_item("Tuner/Downloads-Only-GGUF", base_id, 50_000, 3, "finetune")
+    both_signals_repo = "Tuner/Both-Signals-GGUF"
+    client = FakeClient(
+        {
+            ("/models", probe_params(base_id, "finetune")): (
+                200,
+                [downloads_only, hf_item(both_signals_repo, base_id, 9_000, 120, "finetune")],
+            ),
+            (f"/models/{both_signals_repo}", (("blobs", "true"),)): (200, gguf_detail(both_signals_repo, base_id)),
+        }
+    )
+    namespace = args(catalog_path)
+    namespace.min_downloads = 2_000
+    namespace.min_likes = 20
+    namespace.floor_mode = "all"
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(namespace, catalog_path, out_dir, raw_catalog, [base], client)
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][1:]
+    assert [entry["id"] for entry in promoted] == ["Tuner/Both-Signals"]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "below popularity floor (all-mode)" in report
+    assert "downloads_last_month >= 2,000 AND likes >= 20" in report
+
+
 def test_discover_finetunes_wave_cap_selects_globally_by_popularity(tmp_path: Path) -> None:
     catalog_refresh = load_catalog_refresh()
     use_default_caps(catalog_refresh, tmp_path)

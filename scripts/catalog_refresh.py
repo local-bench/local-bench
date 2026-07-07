@@ -989,6 +989,9 @@ def verify_finetune_candidate(
     client: HfClient,
     candidate: FineTuneCandidate,
     known: set[str],
+    min_downloads: int = MIN_FINETUNE_DOWNLOADS,
+    min_likes: int = MIN_FINETUNE_LIKES,
+    floor_mode: str = "any",
 ) -> FineTunePromotion | FineTuneRejection:
     canonical_id = candidate_model_id(candidate)
     gguf_repo = candidate_gguf_repo(candidate)
@@ -1004,7 +1007,12 @@ def verify_finetune_candidate(
     # promoting it would duplicate the base as a fake variant row.
     if _is_base_mirror(candidate.repo_id, candidate.base_id):
         return FineTuneRejection(candidate, "same-name mirror of the base, not a fine-tune")
-    if candidate.downloads < MIN_FINETUNE_DOWNLOADS and candidate.likes < MIN_FINETUNE_LIKES:
+    if floor_mode == "all":
+        # Depth-wave conviction floor: BOTH signals required. Wave 1 established that the
+        # either/or floor admits a long tail of sub-10-like rows once flagship slots fill.
+        if candidate.downloads < min_downloads or candidate.likes < min_likes:
+            return FineTuneRejection(candidate, "below popularity floor (all-mode)")
+    elif candidate.downloads < min_downloads and candidate.likes < min_likes:
         return FineTuneRejection(candidate, "below popularity floor")
     if not gguf_repo:
         return FineTuneRejection(candidate, "GGUF repo did not resolve")
@@ -1066,6 +1074,9 @@ def curate_finetune_promotions(
     catalog: list[dict[str, Any]],
     per_base_caps: dict[str, int],
     wave_cap: int,
+    min_downloads: int = MIN_FINETUNE_DOWNLOADS,
+    min_likes: int = MIN_FINETUNE_LIKES,
+    floor_mode: str = "any",
 ) -> tuple[list[FineTunePromotion], list[FineTuneRejection], int]:
     candidates = gather_finetune_candidates(client, catalog)
     known = known_catalog_repos(catalog)
@@ -1080,7 +1091,7 @@ def curate_finetune_promotions(
         base_promotions = accepted_by_base.setdefault(base_id, [])
         per_base_cap = per_base_caps.get(base_id, MAX_FINETUNES_PER_BASE)
         for candidate in sorted(grouped[base_id], key=lambda item: (-item.downloads, -item.likes, item.repo_id.lower())):
-            result = verify_finetune_candidate(client, candidate, known)
+            result = verify_finetune_candidate(client, candidate, known, min_downloads, min_likes, floor_mode)
             if isinstance(result, FineTuneRejection):
                 rejected.append(result)
                 continue
@@ -1123,7 +1134,11 @@ def finetune_report(
         f"- promotions: {len(promotions)}",
         f"- rejections: {len(rejections)}",
         f"- caps: default top {MAX_FINETUNES_PER_BASE} per base, overrides {len(per_base_caps)} base(s), {wave_cap} total new entries",
-        f"- popularity floor: downloads_last_month >= {MIN_FINETUNE_DOWNLOADS:,} OR likes >= {MIN_FINETUNE_LIKES:,}",
+        "- popularity floor: downloads_last_month >= {:,} {} likes >= {:,}".format(
+            int(getattr(args, "min_downloads", MIN_FINETUNE_DOWNLOADS) or MIN_FINETUNE_DOWNLOADS),
+            "AND" if str(getattr(args, "floor_mode", "any") or "any") == "all" else "OR",
+            int(getattr(args, "min_likes", MIN_FINETUNE_LIKES) or MIN_FINETUNE_LIKES),
+        ),
         f"- HTTP: {client.network_hits} network requests, {client.cache_hits} cache hits, {len(client.errors)} transport errors",
         "",
         "The proposal appends verified fine-tunes only. Existing entries are left byte-for-byte unchanged and the live catalog is not updated.",
@@ -1172,8 +1187,13 @@ def refresh_finetunes_mode(
     hf = client or HfClient(out_dir / "cache", args.throttle_ms, args.cache_max_age_hours, args.refresh)
     per_base_caps = load_catalog_discovery_caps()
     wave_cap = int(getattr(args, "wave_cap", MAX_NEW_FINETUNE_PROMOTIONS) or MAX_NEW_FINETUNE_PROMOTIONS)
+    min_downloads = int(getattr(args, "min_downloads", MIN_FINETUNE_DOWNLOADS) or MIN_FINETUNE_DOWNLOADS)
+    min_likes = int(getattr(args, "min_likes", MIN_FINETUNE_LIKES) or MIN_FINETUNE_LIKES)
+    floor_mode = str(getattr(args, "floor_mode", "any") or "any")
     try:
-        promotions, rejections, candidate_count = curate_finetune_promotions(hf, catalog, per_base_caps, wave_cap)
+        promotions, rejections, candidate_count = curate_finetune_promotions(
+            hf, catalog, per_base_caps, wave_cap, min_downloads, min_likes, floor_mode
+        )
     finally:
         if own_client:
             hf.close()
@@ -1577,6 +1597,14 @@ def main() -> int:
     ap.add_argument("--no-discover", action="store_true", help="skip new-candidate discovery")
     ap.add_argument("--discover-detail-top", type=int, default=40, help="fetch full detail for top-N GGUF candidates")
     ap.add_argument("--wave-cap", type=int, default=MAX_NEW_FINETUNE_PROMOTIONS, help="max discover-finetunes promotions per run")
+    ap.add_argument("--min-downloads", type=int, default=MIN_FINETUNE_DOWNLOADS, help="popularity floor: monthly downloads")
+    ap.add_argument("--min-likes", type=int, default=MIN_FINETUNE_LIKES, help="popularity floor: likes")
+    ap.add_argument(
+        "--floor-mode",
+        choices=("any", "all"),
+        default="any",
+        help="popularity floor combinator: any = downloads OR likes (default), all = downloads AND likes (depth waves)",
+    )
     args = ap.parse_args()
 
     catalog_path = Path(args.catalog)

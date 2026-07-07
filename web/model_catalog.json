@@ -6729,6 +6729,1339 @@
         }
       ],
       "distills": []
+    },
+    {
+      "id": "Orion-zhen/Qwen2.5-7B-Instruct-Uncensored",
+      "slug": "qwen2-5-7b-instruct-uncensored",
+      "display_name": "Qwen2.5 7B Instruct Uncensored",
+      "family": "Qwen2.5",
+      "org": "Orion-zhen",
+      "params_b": 7.6,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "gpl-3.0",
+      "base_model": "Qwen/Qwen2.5-7B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 20219,
+        "likes": 52,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Qwen2.5-7B-Instruct-Uncensored-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.53,
+          "file_gb": 8.1,
+          "vram_gb_8k": 9.5,
+          "revision": "669af4d90c79de6f6a6087eef5b0b958e5cb6abb"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.63,
+          "file_gb": 6.3,
+          "vram_gb_8k": 7.7,
+          "revision": "669af4d90c79de6f6a6087eef5b0b958e5cb6abb"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 5.4,
+          "vram_gb_8k": 6.8,
+          "revision": "669af4d90c79de6f6a6087eef5b0b958e5cb6abb"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.95,
+          "file_gb": 4.7,
+          "vram_gb_8k": 6.1,
+          "revision": "669af4d90c79de6f6a6087eef5b0b958e5cb6abb"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 3.8,
+          "vram_gb_8k": 5.2,
+          "revision": "669af4d90c79de6f6a6087eef5b0b958e5cb6abb"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.16,
+          "file_gb": 3.0,
+          "vram_gb_8k": 4.4,
+          "revision": "669af4d90c79de6f6a6087eef5b0b958e5cb6abb"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "Virtue-AI-HUB/VulnLLM-R-7B",
+      "slug": "vulnllm-r-7b",
+      "display_name": "VulnLLM R 7B",
+      "family": "Qwen2.5",
+      "org": "Virtue-AI-HUB",
+      "params_b": 7.6,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-7B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 12738,
+        "likes": 192,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/VulnLLM-R-7B-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.53,
+          "file_gb": 8.1,
+          "vram_gb_8k": 9.5,
+          "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.63,
+          "file_gb": 6.3,
+          "vram_gb_8k": 7.7,
+          "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 5.4,
+          "vram_gb_8k": 6.8,
+          "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.95,
+          "file_gb": 4.7,
+          "vram_gb_8k": 6.1,
+          "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 3.8,
+          "vram_gb_8k": 5.2,
+          "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.16,
+          "file_gb": 3.0,
+          "vram_gb_8k": 4.4,
+          "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "open-thoughts/OpenThinker2-32B",
+      "slug": "openthinker2-32b",
+      "display_name": "OpenThinker2 32B",
+      "family": "Qwen2.5",
+      "org": "open-thoughts",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-32B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 10822,
+        "likes": 57,
+        "trending": 0
+      },
+      "gguf_repo": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.49,
+          "file_gb": 34.8,
+          "vram_gb_8k": 37.4,
+          "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 26.9,
+          "vram_gb_8k": 29.5,
+          "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 23.3,
+          "vram_gb_8k": 25.9,
+          "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.85,
+          "file_gb": 19.9,
+          "vram_gb_8k": 22.5,
+          "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.88,
+          "file_gb": 15.9,
+          "vram_gb_8k": 18.5,
+          "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.0,
+          "file_gb": 12.3,
+          "vram_gb_8k": 14.9,
+          "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "Goedel-LM/Goedel-Prover-V2-32B",
+      "slug": "goedel-prover-v2-32b",
+      "display_name": "Goedel Prover V2 32B",
+      "family": "Qwen3",
+      "org": "Goedel-LM",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-32B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 10042,
+        "likes": 72,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 26.9,
+          "vram_gb_8k": 29.5,
+          "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.66,
+          "file_gb": 23.2,
+          "vram_gb_8k": 25.8,
+          "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.83,
+          "file_gb": 19.8,
+          "vram_gb_8k": 22.4,
+          "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.9,
+          "file_gb": 16.0,
+          "vram_gb_8k": 18.6,
+          "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.0,
+          "file_gb": 12.3,
+          "vram_gb_8k": 14.9,
+          "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "Goedel-LM/Goedel-Prover-V2-8B",
+      "slug": "goedel-prover-v2-8b",
+      "display_name": "Goedel Prover V2 8B",
+      "family": "Qwen3",
+      "org": "Goedel-LM",
+      "params_b": 8.2,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-8B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 9415,
+        "likes": 29,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Goedel-Prover-V2-8B-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.49,
+          "file_gb": 8.7,
+          "vram_gb_8k": 10.1,
+          "revision": "43fab68ec71738a75b0a84738e18b222d2d4e249"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.54,
+          "file_gb": 6.7,
+          "vram_gb_8k": 8.1,
+          "revision": "43fab68ec71738a75b0a84738e18b222d2d4e249"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.76,
+          "file_gb": 5.9,
+          "vram_gb_8k": 7.3,
+          "revision": "43fab68ec71738a75b0a84738e18b222d2d4e249"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.88,
+          "file_gb": 5.0,
+          "vram_gb_8k": 6.4,
+          "revision": "43fab68ec71738a75b0a84738e18b222d2d4e249"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 4.1,
+          "vram_gb_8k": 5.5,
+          "revision": "43fab68ec71738a75b0a84738e18b222d2d4e249"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.22,
+          "file_gb": 3.3,
+          "vram_gb_8k": 4.7,
+          "revision": "43fab68ec71738a75b0a84738e18b222d2d4e249"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "Snowflake/Arctic-Text2SQL-R1-7B",
+      "slug": "arctic-text2sql-r1-7b",
+      "display_name": "Arctic Text2SQL R1 7B",
+      "family": "Qwen2.5 Coder",
+      "org": "Snowflake",
+      "params_b": 7.6,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 9178,
+        "likes": 77,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.63,
+          "file_gb": 6.3,
+          "vram_gb_8k": 7.7,
+          "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.68,
+          "file_gb": 5.4,
+          "vram_gb_8k": 6.8,
+          "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.95,
+          "file_gb": 4.7,
+          "vram_gb_8k": 6.1,
+          "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 3.8,
+          "vram_gb_8k": 5.2,
+          "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.16,
+          "file_gb": 3.0,
+          "vram_gb_8k": 4.4,
+          "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "abacusai/bigstral-12b-32k",
+      "slug": "bigstral-12b-32k",
+      "display_name": "bigstral 12b 32k",
+      "family": "Mistral",
+      "org": "abacusai",
+      "params_b": 12.5,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 8255,
+        "likes": 44,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/bigstral-12b-32k-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.53,
+          "file_gb": 10.2,
+          "vram_gb_8k": 11.8,
+          "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.63,
+          "file_gb": 8.8,
+          "vram_gb_8k": 10.4,
+          "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.8,
+          "file_gb": 7.5,
+          "vram_gb_8k": 9.1,
+          "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.84,
+          "file_gb": 6.0,
+          "vram_gb_8k": 7.6,
+          "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 2.94,
+          "file_gb": 4.6,
+          "vram_gb_8k": 6.2,
+          "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B",
+      "slug": "mistral-moe-4x7b-dark-multiverse-uncensored-enhanced32-24b",
+      "display_name": "Mistral MOE 4X7B Dark MultiVerse Uncensored Enhanced32 24B",
+      "family": "Mistral",
+      "org": "DavidAU",
+      "params_b": 24.2,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "mistralai/Mistral-7B-Instruct-v0.3",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 8061,
+        "likes": 136,
+        "trending": 0
+      },
+      "gguf_repo": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.73,
+          "file_gb": 26.4,
+          "vram_gb_8k": 28.6,
+          "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.84,
+          "file_gb": 20.7,
+          "vram_gb_8k": 22.9,
+          "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.69,
+          "file_gb": 17.2,
+          "vram_gb_8k": 19.4,
+          "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.86,
+          "file_gb": 14.7,
+          "vram_gb_8k": 16.9,
+          "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.83,
+          "file_gb": 11.6,
+          "vram_gb_8k": 13.8,
+          "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.21,
+          "file_gb": 9.7,
+          "vram_gb_8k": 11.9,
+          "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "AlexWortega/SIQ-1-35B",
+      "slug": "siq-1-35b",
+      "display_name": "SIQ 1 35B",
+      "family": "Qwen3.6",
+      "org": "AlexWortega",
+      "params_b": 34.7,
+      "is_moe": true,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3.6-35B-A3B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 7190,
+        "likes": 92,
+        "trending": 0
+      },
+      "gguf_repo": "AlexWortega/SIQ-1-35B",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.51,
+          "file_gb": 36.9,
+          "vram_gb_8k": 39.6,
+          "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.96,
+          "file_gb": 30.2,
+          "vram_gb_8k": 32.9,
+          "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.69,
+          "file_gb": 24.7,
+          "vram_gb_8k": 27.4,
+          "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.89,
+          "file_gb": 21.2,
+          "vram_gb_8k": 23.9,
+          "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "TrevorJS/gemma-4-E4B-it-uncensored",
+      "slug": "gemma-4-e4b-it-uncensored",
+      "display_name": "gemma 4 E4B it uncensored",
+      "family": "Gemma 4",
+      "org": "TrevorJS",
+      "params_b": 7.5,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "google/gemma-4-E4B-it",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 5107,
+        "likes": 32,
+        "trending": 0
+      },
+      "gguf_repo": "TrevorJS/gemma-4-E4B-it-uncensored-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.53,
+          "file_gb": 8.0,
+          "vram_gb_8k": 9.4,
+          "revision": "771f130d4c49735ace331f68a80f7ae31387e51c"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 5.65,
+          "file_gb": 5.3,
+          "vram_gb_8k": 6.7,
+          "revision": "771f130d4c49735ace331f68a80f7ae31387e51c"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Qwen2.5-72B-Instruct-abliterated",
+      "slug": "qwen2-5-72b-instruct-abliterated",
+      "display_name": "Qwen2.5 72B Instruct abliterated",
+      "family": "Qwen2.5",
+      "org": "huihui-ai",
+      "params_b": 72.7,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "other",
+      "base_model": "Qwen/Qwen2.5-72B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 5082,
+        "likes": 54,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF",
+      "quants": [
+        {
+          "label": "Q4_K_M",
+          "bpw": 5.22,
+          "file_gb": 47.4,
+          "vram_gb_8k": 52.0,
+          "revision": "e4ddd01130c63983ecb92aea60d0e896bf58e98f"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.15,
+          "file_gb": 37.7,
+          "vram_gb_8k": 42.3,
+          "revision": "e4ddd01130c63983ecb92aea60d0e896bf58e98f"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.28,
+          "file_gb": 29.8,
+          "vram_gb_8k": 34.4,
+          "revision": "e4ddd01130c63983ecb92aea60d0e896bf58e98f"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "TrevorJS/gemma-4-31B-it-uncensored",
+      "slug": "gemma-4-31b-it-uncensored",
+      "display_name": "gemma 4 31B it uncensored",
+      "family": "Gemma 4",
+      "org": "TrevorJS",
+      "params_b": 30.7,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "google/gemma-4-31B-it",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 4730,
+        "likes": 25,
+        "trending": 0
+      },
+      "gguf_repo": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.5,
+          "file_gb": 32.6,
+          "vram_gb_8k": 35.1,
+          "revision": "9df23c751dcd4810ad1626386e6e78d8e43a04dc"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.87,
+          "file_gb": 18.7,
+          "vram_gb_8k": 21.2,
+          "revision": "9df23c751dcd4810ad1626386e6e78d8e43a04dc"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Qwen3-32B-abliterated",
+      "slug": "qwen3-32b-abliterated",
+      "display_name": "Qwen3 32B abliterated",
+      "family": "Qwen3",
+      "org": "huihui-ai",
+      "params_b": 32.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-32B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 4566,
+        "likes": 32,
+        "trending": 0
+      },
+      "gguf_repo": "RoadToNowhere/Qwen3-32B-abliterated-Q4_K_M-GGUF",
+      "quants": [
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.83,
+          "file_gb": 19.8,
+          "vram_gb_8k": 22.4,
+          "revision": "36a6a1be225e6728acaec150ae944cf24491f684"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated",
+      "slug": "huihui-qwen3-coder-30b-a3b-instruct-abliterated",
+      "display_name": "Huihui Qwen3 Coder 30B A3B Instruct abliterated",
+      "family": "Qwen3 Coder",
+      "org": "huihui-ai",
+      "params_b": 30.5,
+      "is_moe": true,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 4414,
+        "likes": 40,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.58,
+          "file_gb": 25.1,
+          "vram_gb_8k": 27.6,
+          "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.69,
+          "file_gb": 21.7,
+          "vram_gb_8k": 24.2,
+          "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.88,
+          "file_gb": 18.6,
+          "vram_gb_8k": 21.1,
+          "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.86,
+          "file_gb": 14.7,
+          "vram_gb_8k": 17.2,
+          "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 2.96,
+          "file_gb": 11.3,
+          "vram_gb_8k": 13.8,
+          "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated",
+      "slug": "huihui-qwen3-30b-a3b-thinking-2507-abliterated",
+      "display_name": "Huihui Qwen3 30B A3B Thinking 2507 abliterated",
+      "family": "Qwen3",
+      "org": "huihui-ai",
+      "params_b": 30.5,
+      "is_moe": true,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-30B-A3B-Thinking-2507",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 4189,
+        "likes": 24,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.58,
+          "file_gb": 25.1,
+          "vram_gb_8k": 27.6,
+          "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.69,
+          "file_gb": 21.7,
+          "vram_gb_8k": 24.2,
+          "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.88,
+          "file_gb": 18.6,
+          "vram_gb_8k": 21.1,
+          "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.86,
+          "file_gb": 14.7,
+          "vram_gb_8k": 17.2,
+          "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 2.96,
+          "file_gb": 11.3,
+          "vram_gb_8k": 13.8,
+          "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "agentica-org/DeepScaleR-1.5B-Preview",
+      "slug": "deepscaler-1-5b-preview",
+      "display_name": "DeepScaleR 1.5B Preview",
+      "family": "DeepSeek R1 Distill",
+      "org": "agentica-org",
+      "params_b": 1.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "mit",
+      "base_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 3919,
+        "likes": 584,
+        "trending": 0
+      },
+      "gguf_repo": "bartowski/agentica-org_DeepScaleR-1.5B-Preview-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.44,
+          "file_gb": 1.9,
+          "vram_gb_8k": 3.0,
+          "revision": "9632aa047524c44510438cb3a7bc6262833e9014"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.67,
+          "file_gb": 1.5,
+          "vram_gb_8k": 2.6,
+          "revision": "9632aa047524c44510438cb3a7bc6262833e9014"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.78,
+          "file_gb": 1.3,
+          "vram_gb_8k": 2.4,
+          "revision": "9632aa047524c44510438cb3a7bc6262833e9014"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.89,
+          "file_gb": 1.1,
+          "vram_gb_8k": 2.2,
+          "revision": "9632aa047524c44510438cb3a7bc6262833e9014"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 0.9,
+          "vram_gb_8k": 2.0,
+          "revision": "9632aa047524c44510438cb3a7bc6262833e9014"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.56,
+          "file_gb": 0.8,
+          "vram_gb_8k": 1.9,
+          "revision": "9632aa047524c44510438cb3a7bc6262833e9014"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "Qwen/Qwen3-4B-SafeRL",
+      "slug": "qwen3-4b-saferl",
+      "display_name": "Qwen3 4B SafeRL",
+      "family": "Qwen3",
+      "org": "Qwen",
+      "params_b": 4.0,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-4B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 3474,
+        "likes": 44,
+        "trending": 0
+      },
+      "gguf_repo": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.6,
+          "file_gb": 4.3,
+          "vram_gb_8k": 5.5,
+          "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.6,
+          "file_gb": 3.3,
+          "vram_gb_8k": 4.5,
+          "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.8,
+          "file_gb": 2.9,
+          "vram_gb_8k": 4.1,
+          "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 5.0,
+          "file_gb": 2.5,
+          "vram_gb_8k": 3.7,
+          "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.2,
+          "file_gb": 2.1,
+          "vram_gb_8k": 3.3,
+          "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.4,
+          "file_gb": 1.7,
+          "vram_gb_8k": 2.9,
+          "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "AEON-7/Gemma-4-12B-it-AEON-Abliterated-K4-BF16",
+      "slug": "gemma-4-12b-it-aeon-abliterated-k4-bf16",
+      "display_name": "Gemma 4 12B it AEON Abliterated K4 BF16",
+      "family": "Gemma 4",
+      "org": "AEON-7",
+      "params_b": 11.9,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "gemma",
+      "base_model": "google/gemma-4-12B-it",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 3335,
+        "likes": 29,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.54,
+          "file_gb": 12.7,
+          "vram_gb_8k": 14.3,
+          "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.59,
+          "file_gb": 9.8,
+          "vram_gb_8k": 11.4,
+          "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.71,
+          "file_gb": 8.5,
+          "vram_gb_8k": 10.1,
+          "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.97,
+          "file_gb": 7.4,
+          "vram_gb_8k": 9.0,
+          "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.1,
+          "file_gb": 6.1,
+          "vram_gb_8k": 7.7,
+          "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.23,
+          "file_gb": 4.8,
+          "vram_gb_8k": 6.4,
+          "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "SakanaAI/TinySwallow-1.5B",
+      "slug": "tinyswallow-1-5b",
+      "display_name": "TinySwallow 1.5B",
+      "family": "Qwen2.5",
+      "org": "SakanaAI",
+      "params_b": 1.5,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 3165,
+        "likes": 35,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+      "quants": [
+        {
+          "label": "Q6_K",
+          "bpw": 6.93,
+          "file_gb": 1.3,
+          "vram_gb_8k": 2.4,
+          "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.87,
+          "file_gb": 1.1,
+          "vram_gb_8k": 2.2,
+          "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 5.33,
+          "file_gb": 1.0,
+          "vram_gb_8k": 2.1,
+          "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.27,
+          "file_gb": 0.8,
+          "vram_gb_8k": 1.9,
+          "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.73,
+          "file_gb": 0.7,
+          "vram_gb_8k": 1.8,
+          "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+      "slug": "llama-3-3-70b-instruct-abliterated",
+      "display_name": "Llama 3.3 70B Instruct abliterated",
+      "family": "Llama 3.3",
+      "org": "huihui-ai",
+      "params_b": 70.6,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "llama3.3",
+      "base_model": "meta-llama/Llama-3.3-70B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2995,
+        "likes": 78,
+        "trending": 0
+      },
+      "gguf_repo": "bartowski/Llama-3.3-70B-Instruct-abliterated-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.5,
+          "file_gb": 75.0,
+          "vram_gb_8k": 79.5,
+          "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.56,
+          "file_gb": 57.9,
+          "vram_gb_8k": 62.4,
+          "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.65,
+          "file_gb": 49.9,
+          "vram_gb_8k": 54.4,
+          "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.82,
+          "file_gb": 42.5,
+          "vram_gb_8k": 47.0,
+          "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.89,
+          "file_gb": 34.3,
+          "vram_gb_8k": 38.8,
+          "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 2.99,
+          "file_gb": 26.4,
+          "vram_gb_8k": 30.9,
+          "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "AliesTaha/fable-traces",
+      "slug": "fable-traces",
+      "display_name": "fable traces",
+      "family": "Qwen3",
+      "org": "AliesTaha",
+      "params_b": 4.0,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2903,
+        "likes": 177,
+        "trending": 0
+      },
+      "gguf_repo": "Anonymouse123/fable-traces-Q4_K_M-GGUF",
+      "quants": [
+        {
+          "label": "Q4_K_M",
+          "bpw": 5.0,
+          "file_gb": 2.5,
+          "vram_gb_8k": 3.7,
+          "revision": "465814adb85bd753243836b71eff8a67447edfe2"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B",
+      "slug": "nemotron-research-reasoning-qwen-1-5b",
+      "display_name": "Nemotron Research Reasoning Qwen 1.5B",
+      "family": "DeepSeek R1 Distill",
+      "org": "nvidia",
+      "params_b": 1.8,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "cc-by-nc-4.0",
+      "base_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2862,
+        "likes": 243,
+        "trending": 0
+      },
+      "gguf_repo": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.44,
+          "file_gb": 1.9,
+          "vram_gb_8k": 3.0,
+          "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.67,
+          "file_gb": 1.5,
+          "vram_gb_8k": 2.6,
+          "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.78,
+          "file_gb": 1.3,
+          "vram_gb_8k": 2.4,
+          "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.89,
+          "file_gb": 1.1,
+          "vram_gb_8k": 2.2,
+          "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.0,
+          "file_gb": 0.9,
+          "vram_gb_8k": 2.0,
+          "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.56,
+          "file_gb": 0.8,
+          "vram_gb_8k": 1.9,
+          "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "Nexusflow/Athene-V2-Chat",
+      "slug": "athene-v2-chat",
+      "display_name": "Athene V2 Chat",
+      "family": "Qwen2.5",
+      "org": "Nexusflow",
+      "params_b": 72.0,
+      "is_moe": false,
+      "reasoning_capable": false,
+      "license": "other",
+      "base_model": "Qwen/Qwen2.5-72B-Instruct",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2577,
+        "likes": 294,
+        "trending": 0
+      },
+      "gguf_repo": "bartowski/Athene-V2-Chat-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.59,
+          "file_gb": 77.3,
+          "vram_gb_8k": 81.9,
+          "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 7.14,
+          "file_gb": 64.3,
+          "vram_gb_8k": 68.9,
+          "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 6.04,
+          "file_gb": 54.4,
+          "vram_gb_8k": 59.0,
+          "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 5.27,
+          "file_gb": 47.4,
+          "vram_gb_8k": 52.0,
+          "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 4.19,
+          "file_gb": 37.7,
+          "vram_gb_8k": 42.3,
+          "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 3.31,
+          "file_gb": 29.8,
+          "vram_gb_8k": 34.4,
+          "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f"
+        }
+      ],
+      "distills": []
+    },
+    {
+      "id": "huihui-ai/Huihui-Qwen3-30B-A3B-Instruct-2507-abliterated",
+      "slug": "huihui-qwen3-30b-a3b-instruct-2507-abliterated",
+      "display_name": "Huihui Qwen3 30B A3B Instruct 2507 abliterated",
+      "family": "Qwen3",
+      "org": "huihui-ai",
+      "params_b": 30.5,
+      "is_moe": true,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 2570,
+        "likes": 39,
+        "trending": 0
+      },
+      "gguf_repo": "mradermacher/Huihui-Qwen3-30B-A3B-Instruct-2507-abliterated-GGUF",
+      "quants": [
+        {
+          "label": "Q8_0",
+          "bpw": 8.52,
+          "file_gb": 32.5,
+          "vram_gb_8k": 35.0,
+          "revision": "2b465901dd60faa77d4ef23d63549930fcec41c2"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.58,
+          "file_gb": 25.1,
+          "vram_gb_8k": 27.6,
+          "revision": "2b465901dd60faa77d4ef23d63549930fcec41c2"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.69,
+          "file_gb": 21.7,
+          "vram_gb_8k": 24.2,
+          "revision": "2b465901dd60faa77d4ef23d63549930fcec41c2"
+        },
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.88,
+          "file_gb": 18.6,
+          "vram_gb_8k": 21.1,
+          "revision": "2b465901dd60faa77d4ef23d63549930fcec41c2"
+        },
+        {
+          "label": "Q3_K_M",
+          "bpw": 3.86,
+          "file_gb": 14.7,
+          "vram_gb_8k": 17.2,
+          "revision": "2b465901dd60faa77d4ef23d63549930fcec41c2"
+        },
+        {
+          "label": "Q2_K",
+          "bpw": 2.96,
+          "file_gb": 11.3,
+          "vram_gb_8k": 13.8,
+          "revision": "2b465901dd60faa77d4ef23d63549930fcec41c2"
+        }
+      ],
+      "distills": []
     }
   ]
 }
