@@ -15,7 +15,7 @@ describe("model variant board runtime display", () => {
     expect(html).not.toContain("decode tok/s");
   });
 
-  it("quarantines legacy-lane runs into the previous-index diagnostics table", () => {
+  it("omits legacy-lane runs from the model page entirely", () => {
     const base = fixtureModel();
     const current = base.runs[0];
     if (current === undefined) {
@@ -23,7 +23,8 @@ describe("model variant board runtime display", () => {
     }
     const legacy: ModelData["runs"][number] = {
       ...current,
-      composite: { hi: 62, lo: 58, point: 60 },
+      composite: null,
+      diagnostic_composite: { hi: 62, lo: 58, point: 60 },
       lane: "capped-thinking",
       quant_label: "Q8_0",
       ranked: false,
@@ -33,12 +34,13 @@ describe("model variant board runtime display", () => {
       createElement(ModelVariantBoard, { model: { ...base, runs: [current, legacy] } }),
     );
 
-    expect(html).toContain("Previous-index diagnostics");
-    expect(html).toContain("capped-thinking");
-    expect(html).toContain('href="/run/legacy-run"');
-    // The legacy composite must never render as a current-index score.
+    // Retired-lane runs are omitted (owner call 2026-07-07): no diagnostics table, no
+    // receipt link, no legacy composite anywhere on the page.
+    expect(html).not.toContain("Previous-index diagnostics");
+    expect(html).not.toContain("capped-thinking");
+    expect(html).not.toContain('href="/run/legacy-run"');
     expect(html).not.toContain("60.0");
-    // The main table still ranks only the current-index run.
+    // The main table still ranks the current-index run.
     expect(html).toContain("85.0");
   });
 
@@ -55,7 +57,7 @@ describe("model variant board runtime display", () => {
     const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: legacyOnly }));
 
     expect(html).toContain("No current-index measurements yet");
-    expect(html).toContain("Previous-index diagnostics");
+    expect(html).not.toContain("Previous-index diagnostics");
   });
 
   it("shows the compact decode tok/s column only when a run has serving perf", () => {

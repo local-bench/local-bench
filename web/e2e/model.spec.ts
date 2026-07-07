@@ -22,8 +22,9 @@ for (const modelCase of MODEL_CASES) {
     await expect(page.getByRole("heading", { name: model.model_label })).toBeVisible();
     await expect(page.getByTestId("model-variant-board")).toBeVisible();
 
-    // Every measured run gets a receipt link — current-index runs in the variant board,
-    // legacy-lane runs in the previous-index diagnostics table (never mixed).
+    // Current-index runs get receipt links in the variant board; legacy-lane runs are
+    // omitted from the model page entirely (owner call 2026-07-07 — receipts stay
+    // reachable by direct URL only).
     const currentRunIds = currentRuns.map((run) => run.run_id).filter((id): id is string => id !== null);
     const boardReceipts = page.getByTestId("model-variant-table").locator('a[href^="/run/"]');
     await expect(boardReceipts).toHaveCount(currentRunIds.length);
@@ -31,16 +32,9 @@ for (const modelCase of MODEL_CASES) {
       await expect(page.getByTestId("model-variant-table").locator(`a[href^="/run/${runId}"]`)).toHaveCount(1);
     }
 
-    if (legacyRuns.length > 0) {
-      await expect(page.getByTestId("model-legacy-diagnostics")).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Previous-index diagnostics" })).toBeVisible();
-      const legacyRunIds = legacyRuns.map((run) => run.run_id).filter((id): id is string => id !== null);
-      const legacyReceipts = page.getByTestId("model-legacy-table").locator('a[href^="/run/"]');
-      await expect(legacyReceipts).toHaveCount(legacyRunIds.length);
-      // Legacy diagnostics never present a rank or a current-index score bar.
-      await expect(page.getByTestId("model-legacy-table")).not.toContainText("best");
-    } else {
-      await expect(page.getByTestId("model-legacy-diagnostics")).toHaveCount(0);
+    await expect(page.getByTestId("model-legacy-diagnostics")).toHaveCount(0);
+    for (const runId of legacyRuns.map((run) => run.run_id).filter((id): id is string => id !== null)) {
+      await expect(page.locator(`a[href^="/run/${runId}"]`)).toHaveCount(0);
     }
 
     if (modelCase.slug === "qwen3-6-27b") {
