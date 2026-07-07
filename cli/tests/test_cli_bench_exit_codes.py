@@ -57,6 +57,59 @@ def test_bench_capped_thinking_requires_reasoning_flags(
     assert "--hf-model-id" in stderr
 
 
+def test_bench_publishable_bounded_final_requires_identity_choice(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: bench-managed bounded-final is publishable but lacks HF or basic GGUF identity.
+    launched = False
+
+    def fake_anyio_run(function, options) -> None:
+        nonlocal launched
+        launched = True
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    # When: the bench command is validated.
+    code = cli_mod._bench(_bench_args(lane="bounded-final-v2"))
+
+    # Then: it fails as a usage error before launch and names both identity choices.
+    stderr = capsys.readouterr().err
+    assert code == 2
+    assert launched is False
+    assert "--hf-model-id <repo>" in stderr
+    assert "--gguf-repo-only" in stderr
+
+
+def test_bench_gguf_repo_only_satisfies_bounded_final_identity_choice(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: bench-managed bounded-final explicitly chooses basic GGUF repo identity.
+    captured_options = None
+
+    def fake_anyio_run(function, options):
+        nonlocal captured_options
+        captured_options = options
+        return {"benches": {}, "totals": {}, "warnings": []}
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+    monkeypatch.setattr(cli_mod, "_print_summary", lambda record, out=None: None)
+
+    # When: the bench command is validated and launched.
+    code = cli_mod._bench(_bench_args(lane="bounded-final-v2", gguf_repo_only=True))
+
+    # Then: the launch receives the basic identity choice and prints the null-digest notice.
+    output = capsys.readouterr().out
+    assert code == 0
+    assert captured_options is not None
+    assert captured_options.gguf_repo_only is True
+    assert (
+        "notice     identity basic-gguf-repo-only-v1: tokenizer/chat-template "
+        "digests will be null; add --hf-model-id <exact HF repo> for full provenance"
+    ) in output
+
+
 @pytest.mark.parametrize(
     ("hf_model_id", "reasoning_activation", "expected_flag"),
     (
@@ -124,6 +177,7 @@ def _bench_args(
     lane: str = "answer-only",
     hf_model_id: str | None = None,
     reasoning_activation: str | None = None,
+    gguf_repo_only: bool = False,
     retry_errored: bool = False,
 ) -> argparse.Namespace:
     return argparse.Namespace(
@@ -150,4 +204,5 @@ def _bench_args(
         threads_batch=8,
         hf_model_id=hf_model_id,
         reasoning_activation=reasoning_activation,
+        gguf_repo_only=gguf_repo_only,
     )

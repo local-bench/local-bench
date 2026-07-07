@@ -34,6 +34,7 @@ class BenchRunConfig:
     retry_errored: bool = False
     reasoning_activation: ReasoningActivationChoice | None = None
     hf_model_id: str | None = None
+    gguf_repo_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +65,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         profile=config.profile,
         provider="local",
         hf_model_id=config.hf_model_id,
+        gguf_repo_only=config.gguf_repo_only,
         reasoning_activation=config.reasoning_activation or "qwen3",
         resume=config.resume,
         retry_errored=config.retry_errored,

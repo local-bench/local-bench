@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-bench-ai"
-version = "0.2.2"
+version = "0.2.3"
 description = "Thin benchmark runner for OpenAI-compatible chat completion endpoints."
 requires-python = ">=3.11"
 dependencies = [

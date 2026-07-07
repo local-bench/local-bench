@@ -170,6 +170,125 @@ def test_run_prints_publishability_warning_at_start(
     )
 
 
+def test_run_parser_rejects_hf_model_id_with_gguf_repo_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given / When: both bounded-final identity modes are requested.
+    with pytest.raises(SystemExit) as exit_info:
+        main(
+            [
+                "run",
+                "--endpoint",
+                "http://127.0.0.1:9/v1",
+                "--model",
+                "model",
+                "--lane",
+                "bounded-final-v2",
+                "--hf-model-id",
+                "unsloth/gemma-4-12b-it",
+                "--gguf-repo-only",
+            ],
+        )
+
+    # Then: argparse rejects the mutually exclusive flags before execution.
+    stderr = capsys.readouterr().err
+    assert exit_info.value.code == 2
+    assert "--gguf-repo-only" in stderr
+    assert "--hf-model-id" in stderr
+
+
+def test_publishable_bounded_final_requires_explicit_identity_choice(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given / When: a publishable bounded-final run omits both identity choices.
+    code = main(
+        [
+            "run",
+            "--endpoint",
+            "http://127.0.0.1:9/v1",
+            "--model",
+            "model",
+            "--lane",
+            "bounded-final-v2",
+            "--publishable",
+            "--sampler-seed",
+            "1234",
+            "--dry-run",
+        ],
+    )
+
+    # Then: it fails fast with both remediation options.
+    stderr = capsys.readouterr().err
+    assert code == 2
+    assert "--hf-model-id <repo>" in stderr
+    assert "--gguf-repo-only" in stderr
+    assert "basic GGUF repo-only identity" in stderr
+
+
+def test_non_publishable_bounded_final_warns_when_identity_is_omitted(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a diagnostic bounded-final dry-run with no explicit identity mode.
+    suite = _write_suite(tmp_path / "suite")
+
+    # When: the run is accepted as non-publishable.
+    code = main(
+        [
+            "run",
+            "--endpoint",
+            "http://127.0.0.1:9/v1",
+            "--model",
+            "model",
+            "--lane",
+            "bounded-final-v2",
+            "--suite-dir",
+            str(suite),
+            "--dry-run",
+        ],
+    )
+
+    # Then: omission remains allowed but visible.
+    output = capsys.readouterr().out
+    assert code == 0
+    assert output.count("warning    bounded-final model identity was not declared") == 1
+    assert "--hf-model-id <repo>" in output
+    assert "--gguf-repo-only" in output
+
+
+def test_gguf_repo_only_notice_prints_before_run(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a basic-identity bounded-final diagnostic dry-run.
+    suite = _write_suite(tmp_path / "suite")
+
+    # When: the run starts.
+    code = main(
+        [
+            "run",
+            "--endpoint",
+            "http://127.0.0.1:9/v1",
+            "--model",
+            "model",
+            "--lane",
+            "bounded-final-v2",
+            "--gguf-repo-only",
+            "--suite-dir",
+            str(suite),
+            "--dry-run",
+        ],
+    )
+
+    # Then: the basic identity notice explains the null-digest tradeoff.
+    output = capsys.readouterr().out.splitlines()
+    assert code == 0
+    assert (
+        "notice     identity basic-gguf-repo-only-v1: tokenizer/chat-template "
+        "digests will be null; add --hf-model-id <exact HF repo> for full provenance"
+    ) in output
+
+
 def _record(measured_axes: tuple[str, ...]) -> dict[str, object]:
     axes = {
         key: {"axis": key, "status": "measured" if key in measured_axes else "not_measured", "reason": "ok"}

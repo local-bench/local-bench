@@ -72,7 +72,7 @@ from localbench.lane_spec import (
     bounded_final_think_budget,
     lane_spec_id_for_lane,
 )
-from localbench.manifest import ManifestContext, collect_manifest
+from localbench.manifest import ManifestContext, ModelIdentityLevel, collect_manifest
 from localbench.perf import perf_summary
 from localbench.prompt_rendering import (
     PromptRenderer,
@@ -230,6 +230,7 @@ class OrchestrateConfig:
     provider: str = "local"
     reasoning_effort: ReasoningEffortChoice | None = None
     hf_model_id: str | None = None
+    gguf_repo_only: bool = False
     reasoning_activation: ReasoningActivationChoice = "qwen3"
     max_tokens: int | None = None
     resume: Path | None = None
@@ -254,6 +255,7 @@ class OrchestrateConfig:
     runtime_version: str | None = None
     kv_cache_quant: str | None = None
     ctx_len_configured: int | None = None
+    ctx_len_observed: int | None = None
     parallel_slots: int | None = None
     build_flags: str | None = None
     runtime_backend: str | None = None
@@ -719,10 +721,12 @@ async def run_localbench(
             tokenizer_digest_source=config.tokenizer_digest_source,
             chat_template_digest=config.chat_template_digest,
             chat_template_digest_source=config.chat_template_digest_source,
+            model_identity_level=_model_identity_level(config),
             runtime_name=config.runtime_name,
             runtime_version=config.runtime_version,
             kv_cache_quant=config.kv_cache_quant,
             ctx_len_configured=config.ctx_len_configured,
+            ctx_len_observed=config.ctx_len_observed,
             parallel_slots=config.parallel_slots,
             build_flags=config.build_flags,
             runtime_backend=config.runtime_backend,
@@ -1861,7 +1865,21 @@ def _run_record_model(model_name: str, manifest: JsonObject) -> JsonObject:
         "file_sha256": _nullable_digest(manifest_model.get("file_sha256")),
         "tokenizer_digest": _nullable_digest(manifest_model.get("tokenizer_digest")),
         "chat_template_digest": _nullable_digest(manifest_model.get("chat_template_digest")),
+        "identity_level": _model_identity_level_from_manifest(manifest_model),
     }
+
+
+def _model_identity_level(config: OrchestrateConfig) -> ModelIdentityLevel | None:
+    if config.hf_model_id is not None:
+        return "full-hf-identity-v1"
+    if config.gguf_repo_only:
+        return "basic-gguf-repo-only-v1"
+    return None
+
+
+def _model_identity_level_from_manifest(manifest_model: JsonObject) -> str | None:
+    value = manifest_model.get("identity_level")
+    return value if isinstance(value, str) else None
 
 
 def _nullable_digest(value: JsonValue | None) -> str | None:

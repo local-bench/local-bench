@@ -34,6 +34,7 @@ _LANES: Final = {
     "bounded-final-v2",
 }
 ModelIdentitySource: TypeAlias = Literal["gguf.embedded", "external.file", "server.override"]
+ModelIdentityLevel: TypeAlias = Literal["basic-gguf-repo-only-v1", "full-hf-identity-v1"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,10 +73,12 @@ class ManifestContext:
     tokenizer_digest_source: ModelIdentitySource | None = None
     chat_template_digest: str | None = None
     chat_template_digest_source: ModelIdentitySource | None = None
+    model_identity_level: ModelIdentityLevel | None = None
     runtime_name: str | None = None
     runtime_version: str | None = None
     kv_cache_quant: str | None = None
     ctx_len_configured: int | None = None
+    ctx_len_observed: int | None = None
     parallel_slots: int | None = None
     build_flags: str | None = None
     runtime_backend: str | None = None
@@ -233,6 +236,7 @@ def _model_identity(context: ManifestContext) -> JsonObject:
         "file_size_bytes": None if model_file is None else model_file.stat().st_size,
         "file_sha256": None if model_file is None else sha256_file(model_file),
         "format": context.model_format,
+        "identity_level": context.model_identity_level,
         "tokenizer_digest": tokenizer_digest,
         "tokenizer_digest_source": tokenizer_digest_source,
         "chat_template_digest": chat_template_digest,
@@ -249,6 +253,8 @@ def _runtime_identity(context: ManifestContext) -> JsonObject:
         "parallel_slots": context.parallel_slots,
         "build_flags": context.build_flags,
     }
+    if context.ctx_len_observed is not None:
+        runtime["ctx_len_observed"] = context.ctx_len_observed
     if context.runtime_backend is not None:
         runtime["backend"] = context.runtime_backend
     if context.cuda_version is not None:

@@ -59,7 +59,12 @@ from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.persistence import atomic_write_json
-from localbench.prompt_rendering import REASONING_ACTIVATIONS
+from localbench.prompt_rendering import (
+    REASONING_ACTIVATIONS,
+    PromptRenderingError,
+    chat_template_sha256,
+    load_hf_chat_template_tokenizer,
+)
 from localbench.providers import provider_choices
 from localbench.run_plan import resolve_run_benches
 from localbench.scoring.paired_delta import (
@@ -142,12 +147,38 @@ _CLI_VERSION_FALLBACK: Final = "0.1.0"
 _PUBLISHABLE_WARNING: Final = (
     "this run will not be submittable as publishable — add --publishable --sampler-seed <n>"
 )
+_BOUNDED_FINAL_LANES: Final = frozenset({"bounded-final-v1", "bounded-final-v2"})
+_PUBLISHABLE_IDENTITY_ERROR: Final = (
+    "--publishable --lane bounded-final-v1/v2 requires exactly one model identity option: "
+    "pass --hf-model-id <repo> for full HF tokenizer/chat-template provenance, or "
+    "--gguf-repo-only for basic GGUF repo-only identity with null tokenizer/chat-template digests"
+)
+_IDENTITY_OMITTED_WARNING: Final = (
+    "bounded-final model identity was not declared; pass --hf-model-id <repo> for full provenance "
+    "or --gguf-repo-only to acknowledge basic GGUF repo-only identity"
+)
+_BASIC_IDENTITY_NOTICE: Final = (
+    "identity basic-gguf-repo-only-v1: tokenizer/chat-template digests will be null; "
+    "add --hf-model-id <exact HF repo> for full provenance"
+)
+_BOUNDED_FINAL_REQUIRED_CTX: Final = 32768
+_CTX_MISMATCH_TOLERANCE: Final = 0.05
+_SERVER_CONTEXT_WARNING: Final = "server context could not be verified; ensure >= 32768"
+_HF_TOKENIZER_ALLOW_PATTERNS: Final = ["*.json", "*.model", "*.jinja", "*.txt", "*.tiktoken"]
+_HF_CACHE_EXTRA_ERROR: Final = (
+    "huggingface_hub is required for cache-tokenizer; install localbench[hf] "
+    "to enable Hugging Face tokenizer caching"
+)
 _HEADLINE_AXIS_KEYS: Final = tuple(axis.key for axis in AXES if axis.role == "headline")
 _STATIC_AXIS_KEYS: Final = tuple(STATIC_SUITE_WEIGHTS)
 ScorerGate: TypeAlias = tuple[RenderedBench, str, str]
 
 
 class EndpointPreflightError(RuntimeError):
+    pass
+
+
+class CacheTokenizerError(RuntimeError):
     pass
 
 
@@ -164,6 +195,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run(args)
     if args.command == "bench":
         return _bench(args)
+    if args.command == "cache-tokenizer":
+        return _cache_tokenizer(args)
     if args.command == "fetch-suite":
         return _fetch_suite(args)
     if args.command == "suite":
@@ -248,10 +281,16 @@ def _parser() -> argparse.ArgumentParser:
         choices=_REASONING_EFFORT_CHOICES,
         default=None,
     )
-    run_parser.add_argument(
+    run_identity = run_parser.add_mutually_exclusive_group()
+    run_identity.add_argument(
         "--hf-model-id",
         default=None,
         help="served model HF repo for local capped-thinking chat-template rendering",
+    )
+    run_identity.add_argument(
+        "--gguf-repo-only",
+        action="store_true",
+        help="declare basic GGUF repo-only identity when no exact HF tokenizer repo is available",
     )
     run_parser.add_argument(
         "--reasoning-activation",
@@ -288,6 +327,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--runtime-version")
     run_parser.add_argument("--kv-cache-quant")
     run_parser.add_argument("--ctx-len-configured", type=int)
+    run_parser.add_argument("--ctx-len-observed", type=int, help=argparse.SUPPRESS)
     run_parser.add_argument("--parallel-slots", type=int)
     run_parser.add_argument("--build-flags")
     run_parser.add_argument("--runtime-backend")
@@ -319,10 +359,16 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         help="model-family activation used with --hf-model-id in local capped-thinking",
     )
-    bench_parser.add_argument(
+    bench_identity = bench_parser.add_mutually_exclusive_group()
+    bench_identity.add_argument(
         "--hf-model-id",
         default=None,
         help="served model HF repo for local capped-thinking chat-template rendering",
+    )
+    bench_identity.add_argument(
+        "--gguf-repo-only",
+        action="store_true",
+        help="declare basic GGUF repo-only identity when no exact HF tokenizer repo is available",
     )
     bench_parser.add_argument(
         "--profile",
@@ -351,6 +397,12 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--cache-dir", type=Path)
     bench_parser.add_argument("--threads", type=int, default=8)
     bench_parser.add_argument("--threads-batch", type=int, default=8)
+    cache_tokenizer_parser = subparsers.add_parser(
+        "cache-tokenizer",
+        help="download HF tokenizer/template files for offline introspection",
+    )
+    cache_tokenizer_parser.add_argument("repo", nargs="?", help="Hugging Face model repo id")
+    cache_tokenizer_parser.add_argument("--hf-model-id", help="Hugging Face model repo id")
     fetch_parser = subparsers.add_parser(
         "fetch-suite",
         help="cache a verified public suite bundle from a local source or manifest URL",
@@ -623,17 +675,31 @@ def _run(args: argparse.Namespace) -> int:
     if args.lane not in {"bounded-final-v1", "bounded-final-v2"} and args.profile != "auto":
         print("error      --profile only allowed with --lane bounded-final", file=sys.stderr)
         return 2
+    identity_error = _bounded_final_identity_usage_error(args, publishable=args.publishable)
+    if identity_error is not None:
+        print(f"error      {identity_error}", file=sys.stderr)
+        return 2
     if _publishability_warning_needed(args):
         print(f"warning    {_PUBLISHABLE_WARNING}")
+    _print_identity_guidance(args, publishable=args.publishable)
     tier = _resolved_run_tier(args.suite, args.tier)
     if args.dry_run:
         return _run_dry(args, tier)
     out = args.out or default_output_path(args.model, tier)
     try:
         bench_choice, scorer_gates, suite_axis_map = _scorer_gates(args, tier)
+        ctx_len_observed = getattr(args, "ctx_len_observed", None)
         if not args.skip_preflight:
             anyio.run(_preflight_endpoint, args.endpoint, args.model, api_key)
+            ctx_len_observed = anyio.run(
+                _preflight_server_context,
+                args.endpoint,
+                args.lane,
+                args.publishable,
+                args.ctx_len_configured,
+            )
             anyio.run(_preflight_smoke, args, tier, api_key, bench_choice)
+        args.ctx_len_observed = ctx_len_observed
         if args.preflight:
             print("preflight ok")
             return 0
@@ -662,6 +728,7 @@ def _run(args: argparse.Namespace) -> int:
                 provider=args.provider,
                 reasoning_effort=_reasoning_effort(args.reasoning_effort),
                 hf_model_id=args.hf_model_id,
+                gguf_repo_only=args.gguf_repo_only,
                 reasoning_activation=_reasoning_activation(args.reasoning_activation),
                 max_tokens=args.max_tokens,
                 resume=args.resume,
@@ -684,6 +751,7 @@ def _run(args: argparse.Namespace) -> int:
                 runtime_version=args.runtime_version,
                 kv_cache_quant=args.kv_cache_quant,
                 ctx_len_configured=args.ctx_len_configured,
+                ctx_len_observed=ctx_len_observed,
                 parallel_slots=args.parallel_slots,
                 build_flags=args.build_flags,
                 runtime_backend=args.runtime_backend,
@@ -789,6 +857,8 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
     _append_optional(command, "--price-out", args.price_out)
     _append_optional(command, "--reasoning-effort", args.reasoning_effort)
     _append_optional(command, "--hf-model-id", args.hf_model_id)
+    if args.gguf_repo_only:
+        command.append("--gguf-repo-only")
     _append_optional(command, "--max-tokens", args.max_tokens)
     _append_optional(command, "--resume", args.resume)
     _append_optional(command, "--sampler-temperature", args.sampler_temperature)
@@ -807,6 +877,7 @@ def _worker_command(args: argparse.Namespace, tier: str, out: Path) -> list[str]
     _append_optional(command, "--runtime-version", args.runtime_version)
     _append_optional(command, "--kv-cache-quant", args.kv_cache_quant)
     _append_optional(command, "--ctx-len-configured", args.ctx_len_configured)
+    _append_optional(command, "--ctx-len-observed", getattr(args, "ctx_len_observed", None))
     _append_optional(command, "--parallel-slots", args.parallel_slots)
     _append_optional(command, "--build-flags", args.build_flags)
     _append_optional(command, "--runtime-backend", args.runtime_backend)
@@ -826,11 +897,14 @@ def _append_optional(command: list[str], flag: str, value: object | None) -> Non
 
 def _bench(args: argparse.Namespace) -> int:
     usage_error = _bench_reasoning_usage_error(args)
+    if usage_error is None:
+        usage_error = _bounded_final_identity_usage_error(args, publishable=True)
     if usage_error is None and args.retry_errored and args.resume is None:
         usage_error = "--retry-errored requires --resume"
     if usage_error is not None:
         print(f"error      {usage_error}", file=sys.stderr)
         return 2
+    _print_identity_guidance(args, publishable=True)
     options = ServeBenchOptions(
         runtime=args.runtime,
         model_file=args.model_file,
@@ -856,6 +930,7 @@ def _bench(args: argparse.Namespace) -> int:
         threads_batch=args.threads_batch,
         reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
         hf_model_id=args.hf_model_id,
+        gguf_repo_only=args.gguf_repo_only,
         wsl_venv_python=getattr(
             args,
             "wsl_venv_python",
@@ -887,6 +962,88 @@ def _bench(args: argparse.Namespace) -> int:
     return EXIT_COMPLETE
 
 
+def _cache_tokenizer(args: argparse.Namespace) -> int:
+    repo = _cache_tokenizer_repo(args)
+    if repo is None:
+        print("error      pass --hf-model-id <repo> or a positional repo", file=sys.stderr)
+        return 2
+    if isinstance(repo, CacheTokenizerError):
+        print(f"error      {repo}", file=sys.stderr)
+        return 2
+    try:
+        snapshot_path = _hf_snapshot_download(repo, _HF_TOKENIZER_ALLOW_PATTERNS)
+        tokenizer = load_hf_chat_template_tokenizer(repo)
+    except ImportError:
+        print(f"error      {_HF_CACHE_EXTRA_ERROR}", file=sys.stderr)
+        return 2
+    except CacheTokenizerError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    except PromptRenderingError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    except RuntimeError as error:
+        if _is_hf_auth_error(error):
+            print(f"error      {_hf_auth_error_message(repo)}", file=sys.stderr)
+            return 2
+        raise
+    template_sha = chat_template_sha256(tokenizer) or "none"
+    print(f"cached    repo {repo}")
+    print(f"revision  {_snapshot_revision(snapshot_path)}")
+    print(f"template  sha256:{template_sha}")
+    return 0
+
+
+def _cache_tokenizer_repo(args: argparse.Namespace) -> str | CacheTokenizerError | None:
+    repo = getattr(args, "repo", None)
+    hf_model_id = getattr(args, "hf_model_id", None)
+    if repo is not None and hf_model_id is not None and repo != hf_model_id:
+        return CacheTokenizerError("positional repo and --hf-model-id must match when both are provided")
+    if isinstance(hf_model_id, str) and hf_model_id:
+        return hf_model_id
+    if isinstance(repo, str) and repo:
+        return repo
+    return None
+
+
+def _hf_snapshot_download(repo_id: str, allow_patterns: list[str]) -> str:
+    try:
+        from huggingface_hub import snapshot_download
+        from huggingface_hub.errors import GatedRepoError, HfHubHTTPError, RepositoryNotFoundError
+    except ImportError as error:
+        raise CacheTokenizerError(_HF_CACHE_EXTRA_ERROR) from error
+    try:
+        return str(snapshot_download(repo_id=repo_id, allow_patterns=allow_patterns))
+    except (GatedRepoError, RepositoryNotFoundError) as error:
+        raise CacheTokenizerError(_hf_auth_error_message(repo_id)) from error
+    except HfHubHTTPError as error:
+        status_code = getattr(getattr(error, "response", None), "status_code", None)
+        if status_code in {401, 403}:
+            raise CacheTokenizerError(_hf_auth_error_message(repo_id)) from error
+        raise
+
+
+def _snapshot_revision(snapshot_path: str) -> str:
+    path = Path(snapshot_path)
+    if path.parent.name == "snapshots":
+        return path.name
+    return path.name or "unknown"
+
+
+def _is_hf_auth_error(error: RuntimeError) -> bool:
+    if type(error).__name__ in {"GatedRepoError", "RepositoryNotFoundError"}:
+        return True
+    status_code = getattr(getattr(error, "response", None), "status_code", None)
+    return status_code in {401, 403}
+
+
+def _hf_auth_error_message(repo: str) -> str:
+    return (
+        f"could not cache tokenizer for {repo!r}: accept the license on huggingface.co, "
+        "run hf auth login, retry"
+    )
+
+
 def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
     reasoning_activation = args.reasoning_activation
     hf_model_id = args.hf_model_id
@@ -916,6 +1073,28 @@ def _bench_reasoning_usage_error(args: argparse.Namespace) -> str | None:
     if rejected:
         return f"{_joined_flags(rejected)} only allowed with --lane capped-thinking or bounded-final"
     return None
+
+
+def _bounded_final_identity_usage_error(args: argparse.Namespace, *, publishable: bool) -> str | None:
+    if getattr(args, "lane", None) not in _BOUNDED_FINAL_LANES:
+        return None
+    has_hf_identity = getattr(args, "hf_model_id", None) is not None
+    has_basic_identity = bool(getattr(args, "gguf_repo_only", False))
+    if has_hf_identity and has_basic_identity:
+        return "--hf-model-id and --gguf-repo-only are mutually exclusive"
+    if publishable and not has_hf_identity and not has_basic_identity:
+        return _PUBLISHABLE_IDENTITY_ERROR
+    return None
+
+
+def _print_identity_guidance(args: argparse.Namespace, *, publishable: bool) -> None:
+    if getattr(args, "gguf_repo_only", False):
+        print(f"notice     {_BASIC_IDENTITY_NOTICE}")
+        return
+    if getattr(args, "lane", None) not in _BOUNDED_FINAL_LANES:
+        return
+    if not publishable and getattr(args, "hf_model_id", None) is None:
+        print(f"warning    {_IDENTITY_OMITTED_WARNING}")
 
 
 def _bench_output_path(options: ServeBenchOptions) -> Path:
@@ -1161,6 +1340,66 @@ async def _preflight_endpoint(
         raise EndpointPreflightError(f"claimed model {model!r} is not served by /v1/models: {models}")
 
 
+async def _preflight_server_context(
+    endpoint: str,
+    lane: str,
+    publishable: bool,
+    ctx_len_configured: int | None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> int | None:
+    if not publishable or lane not in _BOUNDED_FINAL_LANES:
+        return None
+    observed = await _probe_server_context(endpoint, transport=transport)
+    if observed is None:
+        print(f"warning    {_SERVER_CONTEXT_WARNING}")
+        if ctx_len_configured is None:
+            raise EndpointPreflightError(
+                "server context could not be verified; pass --ctx-len-configured <n> "
+                f"for publishable bounded-final runs and ensure >= {_BOUNDED_FINAL_REQUIRED_CTX}",
+            )
+        return None
+    if observed < _BOUNDED_FINAL_REQUIRED_CTX:
+        raise EndpointPreflightError(
+            f"probed server context {observed} is below required {_BOUNDED_FINAL_REQUIRED_CTX}; "
+            f"restart llama-server with --ctx-size {_BOUNDED_FINAL_REQUIRED_CTX}",
+        )
+    if ctx_len_configured is not None:
+        mismatch_ratio = abs(ctx_len_configured - observed) / observed
+        if mismatch_ratio > _CTX_MISMATCH_TOLERANCE:
+            raise EndpointPreflightError(
+                f"--ctx-len-configured {ctx_len_configured} disagrees with probed server context "
+                f"{observed} by more than 5%",
+            )
+    return observed
+
+
+async def _probe_server_context(
+    endpoint: str,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> int | None:
+    props_url = f"{_server_root_url(endpoint)}/props"
+    async with httpx.AsyncClient(timeout=5.0, transport=transport) as client:
+        try:
+            response = await client.get(props_url)
+        except httpx.HTTPError:
+            return None
+    if response.status_code >= 400:
+        return None
+    try:
+        payload = response.json()
+    except json.JSONDecodeError:
+        return None
+    return _observed_context_from_props(payload)
+
+
+def _server_root_url(endpoint: str) -> str:
+    base = endpoint.rstrip("/")
+    if base.endswith("/v1"):
+        return base[:-3]
+    return base
+
+
 async def _preflight_smoke(
     args: argparse.Namespace,
     tier: str,
@@ -1214,6 +1453,59 @@ def _served_model_ids(payload: object) -> set[str]:
         if isinstance(item, dict) and isinstance(item.get("id"), str):
             ids.add(item["id"])
     return ids
+
+
+def _observed_context_from_props(payload: JsonValue) -> int | None:
+    if not isinstance(payload, dict):
+        return None
+    slot_context = _slot_context_from_props(payload)
+    if slot_context is not None:
+        return slot_context
+    total_context = _positive_int(payload.get("n_ctx"))
+    settings = payload.get("default_generation_settings")
+    if total_context is None and isinstance(settings, dict):
+        total_context = _positive_int(settings.get("n_ctx"))
+    if total_context is None:
+        return None
+    slots = _positive_int(payload.get("total_slots")) or _positive_int(payload.get("n_parallel")) or 1
+    return total_context // slots
+
+
+def _slot_context_from_props(payload: JsonObject) -> int | None:
+    for key in ("n_ctx_slot", "ctx_len_observed"):
+        value = _positive_int(payload.get(key))
+        if value is not None:
+            return value
+    settings = payload.get("default_generation_settings")
+    if isinstance(settings, dict):
+        value = _positive_int(settings.get("n_ctx_slot"))
+        if value is not None:
+            return value
+    for slots_key in ("slots", "slot_props", "slot_contexts"):
+        slots = payload.get(slots_key)
+        if not isinstance(slots, list):
+            continue
+        values = [_slot_context_from_slot(slot) for slot in slots if isinstance(slot, dict)]
+        observed = [value for value in values if value is not None]
+        if observed:
+            return min(observed)
+    return None
+
+
+def _slot_context_from_slot(slot: JsonObject) -> int | None:
+    for key in ("n_ctx_slot", "n_ctx", "ctx_len"):
+        value = _positive_int(slot.get(key))
+        if value is not None:
+            return value
+    return None
+
+
+def _positive_int(value: JsonValue | None) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value > 0:
+        return value
+    return None
 
 
 def _check_disk_headroom(output_path: Path | None, estimated_bytes: int) -> None:
