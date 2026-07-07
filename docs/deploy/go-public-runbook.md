@@ -47,7 +47,15 @@ Every deploy while private re-checks the smoke (`-ExpectedMode Private`). Then:
    headers/cookies make the traffic path non-identical.
 6. Sanity-check Google: site should re-index naturally (503 was served with
    noindex + no-store; no stale public cache to purge).
-7. Only then: Michael announces (announcement guidance in the launch-authorization
+7. **Flip the watcher**: in the LocalBench-Watch script
+   (`Projects\local-bench\monitor\lb-watch.ps1` in the OneDrive ClaudeCode dir) set
+   `$ExpectedMode = "public"`, then run one manual tick and confirm the log line says
+   `site: 200 (public, ok)`. Skipping this pages Michael with a false
+   "SITE IS PUBLIC (expected private)" urgent alert on the next 15-min tick.
+8. Browser-level family-tree picker walk (part of the mandatory rehearsal above —
+   the picker shipped entirely behind the private gate and has never been exercised
+   ungated).
+9. Only then: Michael announces (announcement guidance in the launch-authorization
    memory; go-public call is Michael's alone).
 
 ## Gotchas learned at flip time (2026-07-07)
