@@ -33,7 +33,7 @@ function recipe(overrides: Partial<Recipe> = {}): Recipe {
       "llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --ctx-size 32768 --parallel 1 --alias MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080",
     serveNote: null,
     benchCommand:
-      "localbench run \\\n  --endpoint http://localhost:8080/v1 \\\n  --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M \\\n  --hf-model-id Qwen/Qwen3-8B \\\n  --ctx-len-configured 32768 \\\n  --lane bounded-final-v2 \\\n  --profile auto \\\n  --tier standard \\\n  --publishable \\\n  --sampler-seed 1234 \\\n  --out runs/qwen3-8b-q4-k-m.json",
+      "localbench run \\\n  --endpoint http://localhost:8080/v1 \\\n  --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M \\\n  --hf-model-id Qwen/Qwen3-8B \\\n  --lane bounded-final-v2 \\\n  --profile auto \\\n  --tier standard \\\n  --publishable \\\n  --sampler-temperature 0 \\\n  --sampler-top-k 1 \\\n  --sampler-seed 1234 \\\n  --determinism-policy gpu-greedy-single-slot-v1 \\\n  --model-file <path-to-qwen3-8b-q4-k-m.gguf> \\\n  --model-family Qwen3 \\\n  --quant-label Q4_K_M \\\n  --model-format gguf \\\n  --tokenizer-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer.json \\\n  --chat-template-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer_config.json \\\n  --runtime-name llama.cpp \\\n  --runtime-version <llama.cpp-build> \\\n  --kv-cache-quant f16 \\\n  --ctx-len-configured 32768 \\\n  --parallel-slots 1 \\\n  --out runs/qwen3-8b-q4-k-m.json",
     submitCommand: "localbench submit run --run runs/qwen3-8b-q4-k-m.json",
     lane: "bounded-final-v2",
     servedModelName: "MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M",
@@ -110,5 +110,11 @@ describe("BenchmarkRecipe", () => {
         "localbench run \\\n  --endpoint http://localhost:8080/v1 \\\n  --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M",
       ),
     ).toBe("localbench run --endpoint http://localhost:8080/v1 --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
+  });
+
+  it("copies the expanded run recipe as one shell line", () => {
+    expect(copyableCommand(recipe().benchCommand)).toBe(
+      "localbench run --endpoint http://localhost:8080/v1 --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --hf-model-id Qwen/Qwen3-8B --lane bounded-final-v2 --profile auto --tier standard --publishable --sampler-temperature 0 --sampler-top-k 1 --sampler-seed 1234 --determinism-policy gpu-greedy-single-slot-v1 --model-file <path-to-qwen3-8b-q4-k-m.gguf> --model-family Qwen3 --quant-label Q4_K_M --model-format gguf --tokenizer-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer.json --chat-template-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer_config.json --runtime-name llama.cpp --runtime-version <llama.cpp-build> --kv-cache-quant f16 --ctx-len-configured 32768 --parallel-slots 1 --out runs/qwen3-8b-q4-k-m.json",
+    );
   });
 });

@@ -82,8 +82,9 @@ export default function SubmitPage() {
         </pre>
         <p className="text-sm">
           Downloads exactly what introspection needs, verifies the tokenizer loads offline, and
-          prints the resolved revision and chat-template hash. Use the original model&apos;s repo
-          (the transformers-format one), not the GGUF repo. Gated repos (for example{" "}
+          prints the resolved revision and chat-template hash. Use the tokenizer and
+          tokenizer_config files from that Hugging Face snapshot in step 4. Use the original
+          model&apos;s repo (the transformers-format one), not the GGUF repo. Gated repos (for example{" "}
           <code className="font-mono text-bench-text">google/gemma-*</code>) additionally need a
           one-time <code className="font-mono text-bench-text">hf auth login</code> after accepting
           the license on huggingface.co — or use an ungated mirror such as the{" "}
@@ -118,14 +119,27 @@ export default function SubmitPage() {
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
           {`localbench run \\
   --endpoint http://localhost:8080/v1 \\
-  --model <name-your-server-reports> \\
-  --hf-model-id <the-model's-HF-repo> \\
-  --ctx-len-configured 32768 \\
+  --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M \\
+  --hf-model-id Qwen/Qwen3-8B \\
   --lane bounded-final-v2 \\
   --profile auto \\
   --tier standard \\
   --publishable \\
+  --sampler-temperature 0 \\
+  --sampler-top-k 1 \\
   --sampler-seed 1234 \\
+  --determinism-policy gpu-greedy-single-slot-v1 \\
+  --model-file <path-to-qwen3-8b-q4-k-m.gguf> \\
+  --model-family Qwen3 \\
+  --quant-label Q4_K_M \\
+  --model-format gguf \\
+  --tokenizer-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer.json \\
+  --chat-template-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer_config.json \\
+  --runtime-name llama.cpp \\
+  --runtime-version <llama.cpp-build> \\
+  --kv-cache-quant f16 \\
+  --ctx-len-configured 32768 \\
+  --parallel-slots 1 \\
   --out runs/qwen3-8b-q4-k-m.json`}
         </pre>
         <p>
@@ -134,7 +148,7 @@ export default function SubmitPage() {
           reads your model&apos;s own chat template to decide whether it thinks (bounded) or answers directly.
           A run must pin its sampler settings to be publishable (
           <code className="font-mono text-bench-text">--publishable</code>{" "}
-          requires <code className="font-mono text-bench-text">--sampler-seed</code>); the CLI warns up
+          requires temperature 0, top-k 1, and a seed); the CLI warns up
           front — before any GPU time is spent — if your flags make the run unpublishable. Keep the{" "}
           <code className="font-mono text-bench-text">.json</code> extension on{" "}
           <code className="font-mono text-bench-text">--out</code> — the campaign directory is derived

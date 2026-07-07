@@ -321,6 +321,36 @@ function runOutputPath(model: OnrampCatalogModel, quant: OnrampCatalogQuant): st
   return `runs/${sanitizeRunPart(model.slug)}-${sanitizeRunPart(quant.label)}.json`;
 }
 
+const RUNTIME_IDENTITY_NAMES: Record<RuntimeId, string> = {
+  llamacpp: "llama.cpp",
+  lmstudio: "lmstudio",
+  vllm: "vllm",
+};
+
+const RUNTIME_VERSION_PLACEHOLDERS: Record<RuntimeId, string> = {
+  llamacpp: "<llama.cpp-build>",
+  lmstudio: "<lmstudio-version>",
+  vllm: "<vllm-version>",
+};
+
+function shellArg(value: string): string {
+  return /^[A-Za-z0-9_./:@~<>-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
+}
+
+function modelFamilyFlag(model: OnrampCatalogModel): string {
+  const family = model.family.trim();
+  return family === "" ? "<model-family>" : shellArg(family);
+}
+
+function modelFilePlaceholder(model: OnrampCatalogModel, quant: OnrampCatalogQuant): string {
+  return `<path-to-${sanitizeRunPart(model.slug)}-${sanitizeRunPart(quant.label)}.gguf>`;
+}
+
+function hfCacheSnapshotPath(repoId: string, fileName: "tokenizer.json" | "tokenizer_config.json"): string {
+  const repoCacheDir = repoId.trim().split("/").filter(Boolean).join("--");
+  return `~/.cache/huggingface/hub/models--${repoCacheDir}/snapshots/<revision>/${fileName}`;
+}
+
 export function buildRecipe(input: {
   model: OnrampCatalogModel;
   quant: OnrampCatalogQuant;
@@ -344,6 +374,8 @@ export function buildRecipe(input: {
   // `cache-tokenizer` pre-caches the tokenizer AND verifies it loads offline: --hf-model-id
   // template introspection is OFFLINE-only (HF_HUB_OFFLINE=1), so a fresh machine fails the
   // run's first seconds without it (clean-room user-journey pass, 2026-07-07).
+  // The publishable run recipe must also declare model, runtime, and deterministic sampler identity:
+  // the verifier rejects under-declared Option B submissions as model.identity_missing/runtime.identity_missing.
   const setupCommand = [
     'pip install "local-bench-ai[hf]==0.2.3"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
@@ -354,12 +386,29 @@ export function buildRecipe(input: {
     `--endpoint ${runtime.endpoint}`,
     `--model ${servedModelName}`,
     hfModelId === null ? "--gguf-repo-only" : `--hf-model-id ${hfModelId}`,
-    "--ctx-len-configured 32768",
     "--lane bounded-final-v2",
     "--profile auto",
     "--tier standard",
     "--publishable",
+    "--sampler-temperature 0",
+    "--sampler-top-k 1",
     "--sampler-seed 1234",
+    "--determinism-policy gpu-greedy-single-slot-v1",
+    `--model-file ${modelFilePlaceholder(model, quant)}`,
+    `--model-family ${modelFamilyFlag(model)}`,
+    `--quant-label ${quant.label}`,
+    "--model-format gguf",
+    ...(hfModelId === null
+      ? []
+      : [
+          `--tokenizer-file ${hfCacheSnapshotPath(hfModelId, "tokenizer.json")}`,
+          `--chat-template-file ${hfCacheSnapshotPath(hfModelId, "tokenizer_config.json")}`,
+        ]),
+    `--runtime-name ${RUNTIME_IDENTITY_NAMES[runtime.id]}`,
+    `--runtime-version ${RUNTIME_VERSION_PLACEHOLDERS[runtime.id]}`,
+    "--kv-cache-quant f16",
+    "--ctx-len-configured 32768",
+    "--parallel-slots 1",
     `--out ${outputPath}`,
   ].join(" \\\n  ");
 

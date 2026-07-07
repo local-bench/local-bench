@@ -16,11 +16,46 @@ function suiteResolverConstant(name: string): string {
   return match[1] ?? "";
 }
 
+function htmlEscapedText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#x27;");
+}
+
 describe("SubmitPage", () => {
   it("renders release guidance from the landed suite resolver constants", () => {
     const full = suiteResolverConstant("DEFAULT_SUITE_ID");
     const staticExec = suiteResolverConstant("STATIC_EXEC_SUITE_ID");
     const staticCore = suiteResolverConstant("STATIC_CORE_DIAG_SUITE_ID");
+    const optionBRunCommand = [
+      "localbench run",
+      "--endpoint http://localhost:8080/v1",
+      "--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M",
+      "--hf-model-id Qwen/Qwen3-8B",
+      "--lane bounded-final-v2",
+      "--profile auto",
+      "--tier standard",
+      "--publishable",
+      "--sampler-temperature 0",
+      "--sampler-top-k 1",
+      "--sampler-seed 1234",
+      "--determinism-policy gpu-greedy-single-slot-v1",
+      "--model-file <path-to-qwen3-8b-q4-k-m.gguf>",
+      "--model-family Qwen3",
+      "--quant-label Q4_K_M",
+      "--model-format gguf",
+      "--tokenizer-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer.json",
+      "--chat-template-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer_config.json",
+      "--runtime-name llama.cpp",
+      "--runtime-version <llama.cpp-build>",
+      "--kv-cache-quant f16",
+      "--ctx-len-configured 32768",
+      "--parallel-slots 1",
+      "--out runs/qwen3-8b-q4-k-m.json",
+    ].join(" \\\n  ");
     const html = renderToStaticMarkup(createElement(SubmitPage));
 
     expect(html).toContain(full);
@@ -31,8 +66,7 @@ describe("SubmitPage", () => {
     expect(html).toContain("local-bench.ai/submission?id=");
     expect(html).toContain("signed bundle");
     expect(html).toContain("Nothing auto-publishes");
-    expect(html).toContain("--ctx-len-configured 32768");
-    expect(html).toContain("--out runs/qwen3-8b-q4-k-m.json");
+    expect(html).toContain(htmlEscapedText(optionBRunCommand));
     expect(html).toContain("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
   });
 });

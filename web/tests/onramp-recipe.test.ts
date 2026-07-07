@@ -65,17 +65,35 @@ describe("buildRecipe", () => {
       "llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --ctx-size 32768 --parallel 1 --alias MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080",
     );
     expect(recipe.identityMode).toBe("full");
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
-    expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
-    expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
-    expect(recipe.benchCommand).toContain("--ctx-len-configured 32768");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v2");
-    expect(recipe.benchCommand).toContain("--profile auto");
+    expect(recipe.benchCommand).toBe(
+      [
+        "localbench run",
+        "--endpoint http://localhost:8080/v1",
+        "--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M",
+        "--hf-model-id Qwen/Qwen3-8B",
+        "--lane bounded-final-v2",
+        "--profile auto",
+        "--tier standard",
+        "--publishable",
+        "--sampler-temperature 0",
+        "--sampler-top-k 1",
+        "--sampler-seed 1234",
+        "--determinism-policy gpu-greedy-single-slot-v1",
+        "--model-file <path-to-qwen3-8b-q4-k-m.gguf>",
+        "--model-family Qwen3",
+        "--quant-label Q4_K_M",
+        "--model-format gguf",
+        "--tokenizer-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer.json",
+        "--chat-template-file ~/.cache/huggingface/hub/models--Qwen--Qwen3-8B/snapshots/<revision>/tokenizer_config.json",
+        "--runtime-name llama.cpp",
+        "--runtime-version <llama.cpp-build>",
+        "--kv-cache-quant f16",
+        "--ctx-len-configured 32768",
+        "--parallel-slots 1",
+        "--out runs/qwen3-8b-q4-k-m.json",
+      ].join(" \\\n  "),
+    );
     expect(recipe.benchCommand).not.toContain("--reasoning-activation");
-    expect(recipe.benchCommand).toContain("--publishable");
-    expect(recipe.benchCommand).toContain("--sampler-seed 1234");
-    expect(recipe.benchCommand).toContain("--tier standard");
-    expect(recipe.benchCommand).toContain("--out runs/qwen3-8b-q4-k-m.json");
     expect(recipe.benchCommand).not.toContain("--suite-dir");
     expect(recipe.benchCommand).toContain(" \\\n  --endpoint");
   });
@@ -85,6 +103,7 @@ describe("buildRecipe", () => {
       id: "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
       slug: "deepseek-r1-distill-qwen-7b-gguf",
       displayName: "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
+      family: "",
       ggufRepo: "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
       quants: [{ label: "Q4_K_M", vramGb8k: null, fileGb: null, bpw: null }],
     });
@@ -93,9 +112,34 @@ describe("buildRecipe", () => {
     expect(recipe.identityMode).toBe("basic");
     expect(recipe.setupCommand).not.toContain("cache-tokenizer");
     expect(recipe.benchCommand).not.toContain("--hf-model-id");
-    expect(recipe.benchCommand).toContain("--gguf-repo-only");
-    expect(recipe.benchCommand).toContain("--model bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF:Q4_K_M");
-    expect(recipe.benchCommand).toContain("--out runs/deepseek-r1-distill-qwen-7b-gguf-q4-k-m.json");
+    expect(recipe.benchCommand).not.toContain("--tokenizer-file");
+    expect(recipe.benchCommand).not.toContain("--chat-template-file");
+    expect(recipe.benchCommand).toBe(
+      [
+        "localbench run",
+        "--endpoint http://localhost:8080/v1",
+        "--model bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF:Q4_K_M",
+        "--gguf-repo-only",
+        "--lane bounded-final-v2",
+        "--profile auto",
+        "--tier standard",
+        "--publishable",
+        "--sampler-temperature 0",
+        "--sampler-top-k 1",
+        "--sampler-seed 1234",
+        "--determinism-policy gpu-greedy-single-slot-v1",
+        "--model-file <path-to-deepseek-r1-distill-qwen-7b-gguf-q4-k-m.gguf>",
+        "--model-family <model-family>",
+        "--quant-label Q4_K_M",
+        "--model-format gguf",
+        "--runtime-name llama.cpp",
+        "--runtime-version <llama.cpp-build>",
+        "--kv-cache-quant f16",
+        "--ctx-len-configured 32768",
+        "--parallel-slots 1",
+        "--out runs/deepseek-r1-distill-qwen-7b-gguf-q4-k-m.json",
+      ].join(" \\\n  "),
+    );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/deepseek-r1-distill-qwen-7b-gguf-q4-k-m.json");
   });
 
@@ -104,6 +148,7 @@ describe("buildRecipe", () => {
       id: "bartowski/QwQ-32B-GGUF",
       slug: "qwq-32b-gguf",
       displayName: "bartowski/QwQ-32B-GGUF",
+      family: "",
       ggufRepo: "bartowski/QwQ-32B-GGUF",
       quants: [{ label: "Q5_K_M", vramGb8k: null, fileGb: null, bpw: null }],
     });
@@ -113,6 +158,13 @@ describe("buildRecipe", () => {
     expect(recipe.setupCommand).toContain("localbench cache-tokenizer Qwen/QwQ-32B");
     expect(recipe.benchCommand).not.toContain("--gguf-repo-only");
     expect(recipe.benchCommand).toContain("--hf-model-id Qwen/QwQ-32B");
+    expect(recipe.benchCommand).toContain("--model-family <model-family>");
+    expect(recipe.benchCommand).toContain(
+      "--tokenizer-file ~/.cache/huggingface/hub/models--Qwen--QwQ-32B/snapshots/<revision>/tokenizer.json",
+    );
+    expect(recipe.benchCommand).toContain(
+      "--chat-template-file ~/.cache/huggingface/hub/models--Qwen--QwQ-32B/snapshots/<revision>/tokenizer_config.json",
+    );
     expect(recipe.benchCommand).toContain("--out runs/qwq-32b-gguf-q5-k-m.json");
   });
 
