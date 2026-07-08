@@ -93,6 +93,19 @@ export type BestFitLabel = {
   readonly label: string;
 };
 
+export type BenchmarkTimeEstimate =
+  | {
+      readonly kind: "range";
+      readonly label: string;
+      readonly lowerHours: number;
+      readonly pointHours: number;
+      readonly upperHours: number;
+    }
+  | {
+      readonly kind: "generic";
+      readonly label: string;
+    };
+
 export type BenchmarkRecipe = {
   readonly setupCommand: string;
   readonly serveCommand: string;
@@ -108,6 +121,13 @@ export type BenchmarkRecipe = {
 
 // Best-to-worst quality order is the order of QUANT_OPTIONS (FP16 first, Q2_K last).
 const QUANT_RANK = new Map<string, number>(QUANT_OPTIONS.map((label, index) => [label, index]));
+const BENCH_TIME_SMALL_ANCHOR_PARAMS_B = 12;
+const BENCH_TIME_SMALL_ANCHOR_HOURS = 17;
+const BENCH_TIME_LARGE_ANCHOR_PARAMS_B = 27;
+const BENCH_TIME_LARGE_ANCHOR_HOURS = 24;
+const BENCH_TIME_MIN_HOURS = 2;
+const BENCH_TIME_MAX_HOURS = 96;
+const Q4_FILE_GB_TO_PARAMS_B = 1.8;
 
 function quantRank(label: string): number {
   return QUANT_RANK.get(label) ?? Number.MAX_SAFE_INTEGER;
@@ -128,6 +148,27 @@ export function bestFitForVram(model: OnrampCatalogModel, vramGb: number): BestF
   return quant === null
     ? { quant: null, label: `no listed quant fits ${vramGb} GB` }
     : { quant, label: `best fit: ${quant.label}` };
+}
+
+export function estimateBenchmarkTime(model: OnrampCatalogModel, quant: OnrampCatalogQuant): BenchmarkTimeEstimate {
+  const effectiveParamsB = model.paramsB ?? (quant.fileGb === null ? null : quant.fileGb * Q4_FILE_GB_TO_PARAMS_B);
+  if (effectiveParamsB === null) {
+    return { kind: "generic", label: "expect a full day on a 24GB-class GPU" };
+  }
+  const slope =
+    (BENCH_TIME_LARGE_ANCHOR_HOURS - BENCH_TIME_SMALL_ANCHOR_HOURS) /
+    (BENCH_TIME_LARGE_ANCHOR_PARAMS_B - BENCH_TIME_SMALL_ANCHOR_PARAMS_B);
+  const rawHours = BENCH_TIME_SMALL_ANCHOR_HOURS + (effectiveParamsB - BENCH_TIME_SMALL_ANCHOR_PARAMS_B) * slope;
+  const pointHours = Math.round(clamp(rawHours, BENCH_TIME_MIN_HOURS, BENCH_TIME_MAX_HOURS));
+  const lowerHours = Math.max(BENCH_TIME_MIN_HOURS, Math.round(pointHours * 0.75));
+  const upperHours = Math.max(lowerHours, Math.round(pointHours * 1.25));
+  return {
+    kind: "range",
+    label: `~${lowerHours}–${upperHours}h`,
+    lowerHours,
+    pointHours,
+    upperHours,
+  };
 }
 
 export function smallestFileQuant(model: OnrampCatalogModel): OnrampCatalogQuant | null {
@@ -223,6 +264,10 @@ function matchesSearch(model: OnrampCatalogModel, search: string): boolean {
 
 function sortBases(left: OnrampCatalogModel, right: OnrampCatalogModel): number {
   return right.downloads - left.downloads || left.displayName.localeCompare(right.displayName);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function sortVariants(vramGb: number | undefined) {

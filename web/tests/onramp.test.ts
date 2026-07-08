@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   bestFitForVram,
   browseFamilies,
+  estimateBenchmarkTime,
   listBaseLabs,
   popularModels,
   recommendedQuantForVram,
   type OnrampCatalogModel,
+  type OnrampCatalogQuant,
 } from "../lib/onramp";
 import { getOnrampCatalog } from "../lib/data";
 
@@ -35,6 +37,14 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     ],
     ...overrides,
   };
+}
+
+function quantByLabel(entry: OnrampCatalogModel, label: string): OnrampCatalogQuant {
+  const quant = entry.quants.find((candidate) => candidate.label === label);
+  if (quant === undefined) {
+    throw new Error(`Missing quant ${label}`);
+  }
+  return quant;
 }
 
 describe("recommendedQuantForVram", () => {
@@ -111,6 +121,52 @@ describe("popularModels", () => {
   it("respects the limit", () => {
     const catalog = [model({ slug: "a", downloads: 3 }), model({ slug: "b", downloads: 2 }), model({ slug: "c", downloads: 1 })];
     expect(popularModels(catalog, 24, "downloads", 2)).toHaveLength(2);
+  });
+});
+
+describe("estimateBenchmarkTime", () => {
+  it("anchors 12B and 27B Q4_K_M models to the measured RTX 5090-class wall times", () => {
+    const gemma = model({ slug: "gemma-4-12b-it", paramsB: 12 });
+    const qwen = model({ slug: "qwen3-6-27b", paramsB: 27 });
+
+    const gemmaEstimate = estimateBenchmarkTime(gemma, quantByLabel(gemma, "Q4_K_M"));
+    const qwenEstimate = estimateBenchmarkTime(qwen, quantByLabel(qwen, "Q4_K_M"));
+
+    if (gemmaEstimate.kind !== "range" || qwenEstimate.kind !== "range") {
+      throw new Error("Expected ranged estimates for catalog models with size metadata");
+    }
+    expect(gemmaEstimate.pointHours).toBe(17);
+    expect(gemmaEstimate.label).toBe("~13–21h");
+    expect(qwenEstimate.pointHours).toBe(24);
+    expect(qwenEstimate.label).toBe("~18–30h");
+  });
+
+  it("is monotonic as parameter count grows", () => {
+    const small = model({ paramsB: 12 });
+    const large = model({ paramsB: 27 });
+
+    const smallEstimate = estimateBenchmarkTime(small, quantByLabel(small, "Q4_K_M"));
+    const largeEstimate = estimateBenchmarkTime(large, quantByLabel(large, "Q4_K_M"));
+
+    if (smallEstimate.kind !== "range" || largeEstimate.kind !== "range") {
+      throw new Error("Expected ranged estimates for catalog models with size metadata");
+    }
+    expect(largeEstimate.pointHours).toBeGreaterThan(smallEstimate.pointHours);
+  });
+
+  it("uses an honest generic fallback when pasted models have no size metadata", () => {
+    const pasted = model({
+      displayName: "bartowski/Unknown-GGUF",
+      paramsB: null,
+      quants: [{ label: "Q4_K_M", vramGb8k: null, fileGb: null, bpw: null }],
+    });
+
+    const estimate = estimateBenchmarkTime(pasted, quantByLabel(pasted, "Q4_K_M"));
+
+    expect(estimate).toEqual({
+      kind: "generic",
+      label: "expect a full day on a 24GB-class GPU",
+    });
   });
 });
 

@@ -12,10 +12,12 @@ import {
   RUNTIME_PROFILES,
   browseFamilies,
   buildRecipe,
+  estimateBenchmarkTime,
   listBaseLabs,
   popularModels,
   recommendedQuantForVram,
   smallestFileQuant,
+  type BenchmarkTimeEstimate,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
   type PopularitySort,
@@ -136,6 +138,7 @@ export function BenchmarkOnramp({
         ? buildRecipe({ model: selection.model, quant: selection.quant, runtime, hfModelId: selection.hfModelId })
         : buildRecipe({ model: selection.model, quant: selection.quant, runtime })
       : null;
+  const timeEstimate = selection === null ? null : estimateBenchmarkTime(selection.model, selection.quant);
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
@@ -246,6 +249,7 @@ export function BenchmarkOnramp({
         </label>
       </div>
 
+      {timeEstimate === null ? null : <BenchmarkTimeCallout estimate={timeEstimate} />}
       {recipe ? <BenchmarkRecipe recipe={recipe} /> : <EmptyRecipe mode={mode} />}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
@@ -262,6 +266,31 @@ export function BenchmarkOnramp({
         </Link>
       </div>
     </section>
+  );
+}
+
+function BenchmarkTimeCallout({ estimate }: { readonly estimate: BenchmarkTimeEstimate }) {
+  return (
+    <div
+      data-testid="benchmark-time-estimate"
+      className="mt-5 rounded border border-bench-warn/45 bg-bench-warn/10 px-4 py-3 text-sm leading-6 text-bench-muted"
+    >
+      <p className="font-mono text-[11px] font-semibold uppercase text-bench-warn">Estimated full-run wall time</p>
+      <p className="mt-1 text-bench-text">
+        {estimate.kind === "range" ? (
+          <>
+            <span className="font-mono text-base font-semibold text-bench-warn">{estimate.label}</span>{" "}
+            <span className="text-bench-muted">about {estimate.pointHours}h midpoint</span>
+          </>
+        ) : (
+          <span className="font-mono text-base font-semibold text-bench-warn">{estimate.label}</span>
+        )}
+      </p>
+      <p className="mt-1">
+        Estimate is calibrated from full 6-axis bounded-final-v2 ranked runs on an RTX 5090-class GPU. Slower GPUs or
+        partial CPU offload can take several times longer.
+      </p>
+    </div>
   );
 }
 
