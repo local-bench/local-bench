@@ -74,7 +74,7 @@ from localbench.lane_spec import (
 )
 from localbench.manifest import ManifestContext, ModelIdentityLevel, collect_manifest
 from localbench.perf import perf_summary
-from localbench.progress import BenchProgressPlan, ProgressReporter
+from localbench.progress import ProgressReporter, plans_from_bench_counts
 from localbench.prompt_rendering import (
     PromptRenderer,
     ReasoningActivation,
@@ -370,11 +370,7 @@ async def run_localbench(
     total_items = sum(len(bench.benchmark_items) for bench in scorable_benches)
     if config.progress_reporter is not None:
         config.progress_reporter.start(
-            tuple(
-                BenchProgressPlan(bench.name, len(bench.benchmark_items))
-                for bench in scorable_benches
-                if bench.benchmark_items
-            ),
+            plans_from_bench_counts((bench.name, len(bench.benchmark_items)) for bench in scorable_benches),
         )
     campaign_config = CampaignConfig(
         endpoint=config.endpoint,
