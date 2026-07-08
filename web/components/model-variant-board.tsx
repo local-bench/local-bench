@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ConformancePill } from "@/components/conformance-pill";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -11,15 +12,28 @@ import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decision";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { runtimeDisplay } from "@/lib/runtime-display";
-import type { ModelData } from "@/lib/data";
+import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
 import type { ConformanceGate } from "@/lib/schemas";
 
 type VariantRun = ModelData["runs"][number];
+type OwnVariantRow = {
+  readonly kind: "this-model";
+  readonly ownRankIndex: number | null;
+  readonly run: VariantRun;
+};
+type FamilyVariantRow = {
+  readonly kind: ModelFamilyScatterRelation;
+  readonly model: ModelFamilyScatterModel["model"];
+  readonly run: VariantRun;
+};
+type VariantRow = OwnVariantRow | FamilyVariantRow;
 
 export function ModelVariantBoard({
+  familyModels = [],
   model,
   formatGate,
 }: {
+  readonly familyModels?: readonly ModelFamilyScatterModel[];
   readonly model: ModelData;
   // tc_json tool-call format gate for this model's measured runs — shown with the variant
   // measurements it qualifies (it is a diagnostic, not a score, so it lives here rather than
@@ -33,19 +47,34 @@ export function ModelVariantBoard({
   const isCurrentIndexRun = (run: VariantRun): boolean =>
     run.score_status !== "measured" || run.lane === HEADLINE_LANE;
   const currentRuns = model.runs.filter(isCurrentIndexRun);
-  const axisKeys = variantAxisColumns(currentRuns);
   const decisionByQuant = new Map<string, QuantDecisionRow>(
     getQuantDecisionRows({ ...model, runs: currentRuns }, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
       row.quantLabel,
       row,
     ]),
   );
-  const ranked = currentRuns
+  const ownRankedRuns = currentRuns
     .filter((run) => run.ranked && run.composite !== null)
     .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0));
-  const partial = currentRuns.filter((run) => !run.ranked && run.score_status === "measured");
-  const pending = currentRuns.filter((run) => run.composite === null && run.score_status !== "measured");
-  const hasPerf = currentRuns.some((run) => run.perf !== undefined);
+  const ownRankByRun = new Map<VariantRun, number>(ownRankedRuns.map((run, index) => [run, index]));
+  const ownRows: readonly OwnVariantRow[] = currentRuns.map((run) => ({
+    kind: "this-model",
+    ownRankIndex: ownRankByRun.get(run) ?? null,
+    run,
+  }));
+  const familyRows: readonly FamilyVariantRow[] = familyModels.flatMap(({ model: familyModel, relation }) =>
+    familyModel.runs
+      .filter((run) => run.score_status === "measured" && run.lane === HEADLINE_LANE)
+      .map((run) => ({ kind: relation, model: familyModel, run })),
+  );
+  const rows = [...ownRows, ...familyRows];
+  const axisKeys = variantAxisColumns(rows.map((row) => row.run));
+  const ranked = rows
+    .filter((row) => row.run.ranked && row.run.composite !== null)
+    .sort((left, right) => (right.run.composite?.point ?? 0) - (left.run.composite?.point ?? 0));
+  const partial = rows.filter((row) => !row.run.ranked && row.run.score_status === "measured");
+  const pending = ownRows.filter((row) => row.run.composite === null && row.run.score_status !== "measured");
+  const hasPerf = rows.some((row) => row.run.perf !== undefined);
 
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
@@ -106,21 +135,22 @@ export function ModelVariantBoard({
                 </td>
               </tr>
             ) : null}
-            {ranked.map((run, index) => {
-              const decision = run.quant_label === null ? undefined : decisionByQuant.get(run.quant_label);
+            {ranked.map((row, index) => {
+              const run = row.run;
+              const decision =
+                row.kind === "this-model" && run.quant_label !== null ? decisionByQuant.get(run.quant_label) : undefined;
               return (
-                <tr key={run.run_id ?? run.quant_label ?? index} className="border-t border-bench-line/75 align-middle hover:bg-white/[0.035]">
+                <tr key={variantRowKey(row, index)} className={variantRowClass(row)}>
                   <td className="px-3 py-3 font-mono text-bench-muted">{index + 1}</td>
                   <td className="px-3 py-3">
-                    <span className="font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</span>
-                    <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
-                      {index === 0 ? (
+                    <VariantCell row={row}>
+                      {row.kind === "this-model" && row.ownRankIndex === 0 ? (
                         <Badge tone="accent" title="Best measured variant — the row shown on the full leaderboard">best</Badge>
                       ) : null}
-                      {decision?.isSweetSpot ? (
+                      {row.kind === "this-model" && decision?.isSweetSpot ? (
                         <Badge tone="better" title="Smallest variant that still holds the best variant's quality">sweet spot</Badge>
                       ) : null}
-                    </span>
+                    </VariantCell>
                   </td>
                   <td className="px-3 py-3">
                     <RuntimeCell run={run} />
@@ -154,14 +184,15 @@ export function ModelVariantBoard({
                 </tr>
               );
             })}
-            {partial.map((run, index) => (
-              <tr key={`partial-${run.quant_label ?? index}`} className="border-t border-bench-line/75 align-middle hover:bg-white/[0.035]">
+            {partial.map((row, index) => {
+              const run = row.run;
+              return (
+              <tr key={`partial-${variantRowKey(row, index)}`} className={variantRowClass(row)}>
                 <td className="px-3 py-3 font-mono text-bench-muted">—</td>
                 <td className="px-3 py-3">
-                  <span className="font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</span>
-                  <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
+                  <VariantCell row={row}>
                     <Badge tone="muted" title="Partial measurement; missing one or more headline modules">partial headline</Badge>
-                  </span>
+                  </VariantCell>
                 </td>
                 <td className="px-3 py-3">
                   <RuntimeCell run={run} />
@@ -196,13 +227,17 @@ export function ModelVariantBoard({
                   )}
                 </td>
               </tr>
-            ))}
-            {pending.map((run, index) => {
+              );
+            })}
+            {pending.map((row, index) => {
+              const run = row.run;
               const decision = run.quant_label === null ? undefined : decisionByQuant.get(run.quant_label);
               return (
-                <tr key={`pending-${run.quant_label ?? index}`} className="border-t border-bench-line/75 align-middle text-bench-muted">
+                <tr key={`pending-${variantRowKey(row, index)}`} className="border-t border-bench-line/75 align-middle text-bench-muted">
                   <td className="px-3 py-3 font-mono">—</td>
-                  <td className="px-3 py-3 font-mono font-semibold text-bench-text">{run.quant_label ?? "n/a"}</td>
+                  <td className="px-3 py-3">
+                    <VariantCell row={row} />
+                  </td>
                   <td className="px-3 py-3">
                     <RuntimeCell run={run} />
                   </td>
@@ -232,10 +267,82 @@ export function ModelVariantBoard({
   );
 }
 
-function Badge({ tone, title, children }: { readonly tone: "accent" | "better" | "muted"; readonly title: string; readonly children: string }) {
+function VariantCell({ row, children }: { readonly row: VariantRow; readonly children?: ReactNode }) {
+  const quantLabel = <span className="font-mono font-semibold text-bench-text">{row.run.quant_label ?? "n/a"}</span>;
+  if (row.kind === "this-model") {
+    return (
+      <>
+        {quantLabel}
+        {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
+      </>
+    );
+  }
+  const lineage = familyLineage(row.kind);
+  return (
+    <div className="flex min-w-[240px] flex-col gap-1">
+      <span className="flex flex-wrap items-center gap-2">
+        <Badge tone={lineage.tone} title={lineage.title}>
+          {lineage.label}
+        </Badge>
+        <Link href={`/model/${row.model.slug}`} className="font-semibold text-bench-accent hover:underline">
+          {row.model.model_label}
+        </Link>
+      </span>
+      <span>
+        {quantLabel}
+        {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
+      </span>
+    </div>
+  );
+}
+
+function familyLineage(relation: ModelFamilyScatterRelation): {
+  readonly label: "base model" | "fine-tune";
+  readonly title: string;
+  readonly tone: "anchor" | "mixed";
+} {
+  switch (relation) {
+    case "base-model":
+      return { label: "base model", title: "Measured row from this fine-tune's root base model", tone: "anchor" };
+    case "family-finetune":
+      return { label: "fine-tune", title: "Measured row from this base model's catalog family", tone: "mixed" };
+    default:
+      return assertNever(relation);
+  }
+}
+
+function variantRowKey(row: VariantRow, index: number): string {
+  const modelPrefix = row.kind === "this-model" ? "this-model" : `${row.kind}-${row.model.slug}`;
+  return `${modelPrefix}-${row.run.run_id ?? row.run.quant_label ?? index}`;
+}
+
+function variantRowClass(row: VariantRow): string {
+  return [
+    "border-t border-bench-line/75 align-middle hover:bg-white/[0.035]",
+    row.kind === "this-model" ? "" : "bg-bench-panel-2/35",
+  ].join(" ");
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unexpected variant relation: ${value}`);
+}
+
+function Badge({
+  tone,
+  title,
+  children,
+}: {
+  readonly tone: "accent" | "anchor" | "better" | "mixed" | "muted";
+  readonly title: string;
+  readonly children: string;
+}) {
   const cls =
     tone === "better"
       ? "border-bench-better/45 bg-bench-better/10 text-bench-better"
+      : tone === "mixed"
+        ? "border-bench-mixed/45 bg-bench-mixed/10 text-bench-mixed"
+        : tone === "anchor"
+          ? "border-bench-anchor/45 bg-bench-anchor/10 text-bench-anchor"
       : tone === "muted"
         ? "border-bench-muted/40 bg-bench-muted/10 text-bench-muted"
         : "border-bench-accent/45 bg-bench-accent/10 text-bench-accent";

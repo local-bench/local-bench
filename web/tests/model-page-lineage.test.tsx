@@ -6,6 +6,15 @@ async function renderModel(slug: string): Promise<string> {
   return renderToStaticMarkup(await ModelPage({ params: Promise.resolve({ slug }) }));
 }
 
+function variantBoardHtml(html: string): string {
+  const start = html.indexOf('data-testid="model-variant-board"');
+  const end = html.indexOf("<section", start + 1);
+  if (start === -1 || end === -1) {
+    throw new Error("Expected model variant board before another page section");
+  }
+  return html.slice(start, end);
+}
+
 describe("ModelPage lineage chip", () => {
   it("links the fine-tune chip when the base has a board row", async () => {
     const html = await renderModel("phi-4-reasoning");
@@ -47,6 +56,15 @@ describe("ModelPage lineage chip", () => {
     expect(html).toContain("Qwopus 3.6 27B v2 MTP");
   });
 
+  it("lists a base model's measured fine-tune rows in Variant profiles with lineage and model links", async () => {
+    const html = variantBoardHtml(await renderModel("qwen3-6-27b"));
+
+    expect(html).toContain("fine-tune");
+    expect(html).toContain('href="/model/qwopus3-6-27b-v2-mtp"');
+    expect(html).toContain("Qwopus 3.6 27B v2 MTP");
+    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2"');
+  });
+
   it("plots a fine-tune page's base model current-lane measured runs with receipt links", async () => {
     const html = await renderModel("qwopus3-6-27b-v2-mtp");
 
@@ -54,6 +72,15 @@ describe("ModelPage lineage chip", () => {
     expect(html).toContain('data-point-kind="base-model"');
     expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2"');
     expect(html).toContain("Qwen3.6 27B");
+  });
+
+  it("lists a fine-tune page's measured base rows in Variant profiles with lineage and model links", async () => {
+    const html = variantBoardHtml(await renderModel("qwopus3-6-27b-v2-mtp"));
+
+    expect(html).toContain("base model");
+    expect(html).toContain('href="/model/qwen3-6-27b"');
+    expect(html).toContain("Qwen3.6 27B");
+    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2"');
   });
 
   it("renders derivative vs-base missing states without fake numbers", async () => {

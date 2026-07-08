@@ -114,7 +114,7 @@ export default async function ModelPage({ params }: PageProps) {
         </div>
       </header>
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
-      <ModelVariantBoard model={model} formatGate={formatGate} />
+      <ModelVariantBoard model={model} familyModels={familyModels} formatGate={formatGate} />
       <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
     </main>
   );

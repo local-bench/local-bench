@@ -2,8 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ModelVariantBoard } from "../components/model-variant-board";
-import type { ModelData } from "../lib/data";
-import { ModelSlugSchema, RunIdSchema } from "../lib/schemas";
+import type { ModelData, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "../lib/data";
+import { ModelSlugSchema, RunIdSchema, type AxisScore } from "../lib/schemas";
 
 describe("model variant board runtime display", () => {
   it("shows the serving runtime for each measured variant", () => {
@@ -91,6 +91,45 @@ describe("model variant board runtime display", () => {
     expect(html).toContain("decode tok/s");
     expect(html).toContain("42.4");
   });
+
+  it("renders family rows without letting them become this model's sweet spot", () => {
+    const base = fixtureModel();
+    const ownRun = base.runs[0];
+    if (ownRun === undefined) {
+      throw new Error("fixture missing run");
+    }
+    const familyRun: ModelDataWithConfiguredAxes["runs"][number] = {
+      ...ownRun,
+      axes: configuredAxes(),
+      composite: { hi: 99, lo: 97, point: 98 },
+      file_gb: 1.1,
+      quant_label: "Q2_K",
+      run_id: RunIdSchema.parse("qwopus-family-run"),
+      vram_footprint_gb: 2,
+    };
+    const family: ModelFamilyScatterModel = {
+      relation: "family-finetune",
+      model: {
+        ...base,
+        model_label: "Qwopus 3.6 27B v2 MTP",
+        runs: [familyRun],
+        slug: ModelSlugSchema.parse("qwopus3-6-27b-v2-mtp"),
+      },
+    };
+
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { familyModels: [family], model: base }));
+    const familyStart = html.indexOf("fine-tune");
+    const familyEnd = html.indexOf("fixture-run", familyStart);
+    if (familyStart === -1 || familyEnd === -1) {
+      throw new Error("Expected family row before own fixture row");
+    }
+    const familyRow = html.slice(familyStart, familyEnd);
+
+    expect(familyRow).toContain("fine-tune");
+    expect(familyRow).toContain('href="/model/qwopus3-6-27b-v2-mtp"');
+    expect(familyRow).toContain('href="/run/qwopus-family-run"');
+    expect(familyRow).not.toContain("sweet spot");
+  });
 });
 
 function fixtureModel(): ModelData {
@@ -129,5 +168,17 @@ function fixtureModel(): ModelData {
       },
     ],
     slug: ModelSlugSchema.parse("fixture-model"),
+  };
+}
+
+function configuredAxes(): ModelDataWithConfiguredAxes["runs"][number]["axes"] {
+  const emptyAxis: AxisScore = { hi: 0, lo: 0, n: 0, n_errors: 0, n_no_answer: 0, point: 0, raw_accuracy: 0 };
+  return {
+    agentic: emptyAxis,
+    coding: emptyAxis,
+    instruction: emptyAxis,
+    knowledge: emptyAxis,
+    math: emptyAxis,
+    tool_calling: emptyAxis,
   };
 }
