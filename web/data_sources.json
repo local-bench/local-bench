@@ -45,7 +45,7 @@
     "agentic_provenance": "project_attested",
     "family": "Qwen3.6",
     "model_id": "Jackrong/Qwopus3.6-27B-v2-MTP",
-    "model_label": "Qwopus 3.6 27B v2 MTP",
+    "model_label": "Qwopus3.6 27B v2 MTP",
     "quant_label": "Q4_K_M",
     "publisher": "Jackrong",
     "gguf_repo": "Jackrong/Qwopus3.6-27B-v2-MTP-GGUF",

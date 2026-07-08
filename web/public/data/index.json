@@ -3633,7 +3633,7 @@
           "status": "measured"
         }
       },
-      "best_run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "best_run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
       "catalog_id": "Jackrong/Qwopus3.6-27B-v2-MTP",
       "composite": {
         "hi": 41.12525207486963,

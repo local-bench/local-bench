@@ -382,7 +382,7 @@
     },
     "thinking_mode": "n/a"
   },
-  "model_label": "Qwopus 3.6 27B v2 MTP",
+  "model_label": "Qwopus3.6 27B v2 MTP",
   "origin": "project_anchor",
   "perf": {
     "decode_tps": 70.90706508036625,
@@ -434,7 +434,7 @@
     "ttft_proxy_ms_median": 386.3
   },
   "ranked": true,
-  "run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+  "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
   "scorecard": {
     "current_id": "5a1e81e81916d0adf014f5b709872f849592fcb81269f3ce2c86231ce0377462",
     "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",

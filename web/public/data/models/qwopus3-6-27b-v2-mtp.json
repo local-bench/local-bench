@@ -248,7 +248,7 @@
       },
       "quant_label": "Q4_K_M",
       "ranked": true,
-      "run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
       "runtime": {
         "ctx_len_configured": 32768,
         "kv_cache_quant": "k=f16,v=f16",
