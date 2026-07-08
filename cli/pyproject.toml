@@ -4,8 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-bench-ai"
-version = "0.2.3"
-description = "Thin benchmark runner for OpenAI-compatible chat completion endpoints."
+version = "0.2.4"
+description = "Benchmark runner for local-bench.ai - the community quality leaderboard for local AI setups."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "anyio>=4",
@@ -13,6 +14,12 @@ dependencies = [
   "langdetect>=1.0.9",
   "math-verify>=0.9.0",
 ]
+
+[project.urls]
+Homepage = "https://local-bench.ai"
+Methodology = "https://local-bench.ai/methodology"
+Submit = "https://local-bench.ai/submit"
+Repository = "https://github.com/local-bench/local-bench"
 
 [project.scripts]
 localbench = "localbench.cli:main"

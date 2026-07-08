@@ -366,7 +366,7 @@ export function buildRecipe(input: {
   // bounded-final-v2: every model runs the ONE ranked lane. --profile auto introspects the
   // model's own chat template and applies the allowlisted execution profile; no family gate.
   // The [hf] extra ships the template introspection dependency.
-  // Pin ==0.2.3: that release carries the bounded-final-v2 lane + the final coding harness (a
+  // Pin ==0.2.4: that release carries the bounded-final-v2 lane + the final coding harness (a
   // run reproduces the registered suite sha the submit gate checks; older releases compute a
   // different sha and are rejected) PLUS the identity gate: publishable bounded-final runs
   // require exactly one of --hf-model-id / --gguf-repo-only, so the basic recipe MUST emit
@@ -377,7 +377,7 @@ export function buildRecipe(input: {
   // The publishable run recipe must also declare model, runtime, and deterministic sampler identity:
   // the verifier rejects under-declared Option B submissions as model.identity_missing/runtime.identity_missing.
   const setupCommand = [
-    'pip install "local-bench-ai[hf]==0.2.3"',
+    'pip install "local-bench-ai[hf]==0.2.4"',
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
     ...(hfModelId === null ? [] : [`localbench cache-tokenizer ${hfModelId}`]),
   ].join("\n");
