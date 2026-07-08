@@ -5,7 +5,13 @@ import {
   type RigMatchCandidate,
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
-import { catalogModelMap, catalogRootEntry } from "./catalog-lineage";
+import {
+  catalogLineageLookup,
+  catalogModelRootForCandidate,
+  catalogWeightsFamilyRootForCandidate,
+  type CatalogLineageLookup,
+  type CatalogLineageRoot,
+} from "./catalog-lineage";
 import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
@@ -36,17 +42,6 @@ export type BestVariantSelectionOptions = {
 type EligibleRigMatchCandidate = RigMatchCandidate & {
   readonly runId: string;
   readonly score: Score;
-};
-
-type CatalogLookup = {
-  readonly byId: ReadonlyMap<string, CatalogModel>;
-  readonly bySlug: ReadonlyMap<string, CatalogModel>;
-};
-
-type WeightsFamilyRoot = {
-  readonly key: string;
-  readonly label: string;
-  readonly slug: string | null;
 };
 
 // A point is eligible only if it is a real, measured LOCAL model run in the headline scope.
@@ -102,7 +97,7 @@ export function selectBestVariantPoints(
 ): readonly BestVariantPoint[] {
   const catalogLookup = buildCatalogLookup(options.catalogModels);
   return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
-    weightsFamilyRootFor(candidate, catalogLookup),
+    catalogWeightsFamilyRootForCandidate(candidate, catalogLookup),
   );
 }
 
@@ -112,14 +107,14 @@ export function selectBestModelVariantPoints(
 ): readonly BestVariantPoint[] {
   const catalogLookup = buildCatalogLookup(options.catalogModels);
   return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
-    modelRootFor(candidate, catalogLookup),
+    catalogModelRootForCandidate(candidate, catalogLookup),
   );
 }
 
 function selectBestPoints(
   candidates: readonly RigMatchCandidate[],
   contextTokens: ContextLengthOption,
-  rootForCandidate: (candidate: EligibleRigMatchCandidate) => WeightsFamilyRoot,
+  rootForCandidate: (candidate: EligibleRigMatchCandidate) => CatalogLineageRoot,
 ): readonly BestVariantPoint[] {
   const bestByRoot = new Map<string, BestVariantPoint>();
   for (const candidate of candidates) {
@@ -170,33 +165,11 @@ function selectBestPoints(
   return markFrontier([...bestByRoot.values()]);
 }
 
-function buildCatalogLookup(catalogModels: readonly CatalogModel[] | undefined): CatalogLookup | null {
+function buildCatalogLookup(catalogModels: readonly CatalogModel[] | undefined): CatalogLineageLookup | null {
   if (catalogModels === undefined) {
     return null;
   }
-  return {
-    byId: catalogModelMap(catalogModels),
-    bySlug: new Map(catalogModels.map((model) => [model.slug, model])),
-  };
-}
-
-function modelRootFor(candidate: EligibleRigMatchCandidate, catalogLookup: CatalogLookup | null): WeightsFamilyRoot {
-  const entry = catalogLookup?.bySlug.get(candidate.modelSlug);
-  return entry === undefined
-    ? { key: candidate.modelSlug, label: candidate.modelLabel, slug: candidate.modelSlug }
-    : { key: entry.id, label: entry.display_name, slug: entry.slug };
-}
-
-function weightsFamilyRootFor(
-  candidate: EligibleRigMatchCandidate,
-  catalogLookup: CatalogLookup | null,
-): WeightsFamilyRoot {
-  const entry = catalogLookup?.bySlug.get(candidate.modelSlug);
-  if (entry === undefined || catalogLookup === null) {
-    return { key: candidate.modelSlug, label: candidate.modelLabel, slug: candidate.modelSlug };
-  }
-  const root = catalogRootEntry(entry, catalogLookup.byId);
-  return { key: root.id, label: root.display_name, slug: root.slug };
+  return catalogLineageLookup(catalogModels);
 }
 
 export function markFrontier(points: readonly BestVariantPoint[]): readonly BestVariantPoint[] {

@@ -27,7 +27,15 @@ import {
 } from "./board-entry";
 import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 import type { OnrampCatalogModel } from "./onramp";
-import { catalogBaseId, catalogBaseIds, catalogDescendsFrom, catalogModelMap, catalogRootEntry } from "./catalog-lineage";
+import {
+  catalogBaseEntry,
+  catalogBaseId,
+  catalogBaseIds,
+  catalogIsDerivativeEntry,
+  catalogLineageFamilyEntries,
+  catalogModelMap,
+  type CatalogLineageRelation,
+} from "./catalog-lineage";
 import {
   buildVsBaseComparison,
   currentIndexRunId,
@@ -64,7 +72,7 @@ export type ModelPageData = {
   readonly vsBaseComparisons: readonly VsBaseComparison[];
 };
 
-export type ModelFamilyScatterRelation = "family-finetune" | "base-model";
+export type ModelFamilyScatterRelation = CatalogLineageRelation;
 
 export type ModelFamilyScatterModel = {
   readonly model: ModelDataWithConfiguredAxes;
@@ -212,11 +220,6 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
   };
 }
 
-function isDerivativeCatalogEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): boolean {
-  const baseModelId = catalogBaseId(entry);
-  return entry.model_kind !== "base" || (baseModelId !== null && byId.has(baseModelId));
-}
-
 function boardRowForCatalogEntry(entry: CatalogModel, indexRows: readonly IndexModel[]): IndexModel | null {
   return indexRows.find((row) => row.catalog_id === entry.id || row.slug === entry.slug) ?? null;
 }
@@ -259,9 +262,8 @@ function buildModelPageVsBaseComparisons({
   if (catalogEntry === undefined) {
     return [];
   }
-  const baseModelId = catalogBaseId(catalogEntry);
-  const base = baseModelId === null ? undefined : byId.get(baseModelId);
-  if (base !== undefined && isDerivativeCatalogEntry(catalogEntry, byId)) {
+  const base = catalogBaseEntry(catalogEntry, byId);
+  if (base !== undefined && catalogIsDerivativeEntry(catalogEntry, byId)) {
     return [
       buildVsBaseComparison({
         base: toVsBaseSide(base, indexRows),
@@ -271,7 +273,7 @@ function buildModelPageVsBaseComparisons({
   }
 
   return catalogModels
-    .filter((entry) => catalogBaseId(entry) === catalogEntry.id && isDerivativeCatalogEntry(entry, byId))
+    .filter((entry) => catalogBaseId(entry) === catalogEntry.id && catalogIsDerivativeEntry(entry, byId))
     .map((derivative) =>
       buildVsBaseComparison({
         base: toVsBaseSide(catalogEntry, indexRows),
@@ -330,21 +332,11 @@ async function getModelFamilyScatterModels({
   if (catalogEntry === undefined) {
     return [];
   }
-  const baseModelId = catalogBaseId(catalogEntry);
-  const base = baseModelId === null ? undefined : byId.get(baseModelId);
-  if (base !== undefined && isDerivativeCatalogEntry(catalogEntry, byId)) {
-    const root = catalogRootEntry(catalogEntry, byId);
-    return root.id === catalogEntry.id ? [] : [{ model: await getModelData(root.slug), relation: "base-model" }];
-  }
-
-  const familyEntries = catalogModels.filter(
-    (entry) =>
-      entry.id !== catalogEntry.id &&
-      catalogDescendsFrom(entry, catalogEntry.id, byId) &&
-      isDerivativeCatalogEntry(entry, byId),
-  );
   return Promise.all(
-    familyEntries.map(async (entry) => ({ model: await getModelData(entry.slug), relation: "family-finetune" })),
+    catalogLineageFamilyEntries({ byId, catalogEntry, catalogModels }).map(async ({ entry, relation }) => ({
+      model: await getModelData(entry.slug),
+      relation,
+    })),
   );
 }
 
@@ -389,9 +381,8 @@ export async function getFineTuneComparePresets(): Promise<readonly FineTuneComp
   const [index, catalog] = await Promise.all([getIndexData(), getCatalogFile()]);
   const byId = catalogModelMap(catalog.models);
   return catalog.models.flatMap((entry) => {
-    const baseModelId = catalogBaseId(entry);
-    const base = baseModelId === null ? undefined : byId.get(baseModelId);
-    if (base === undefined || !isDerivativeCatalogEntry(entry, byId)) {
+    const base = catalogBaseEntry(entry, byId);
+    if (base === undefined || !catalogIsDerivativeEntry(entry, byId)) {
       return [];
     }
     const comparison = buildVsBaseComparison({
