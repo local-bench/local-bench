@@ -6,7 +6,12 @@ import pytest
 
 from localbench.serving import process as process_mod
 from localbench.serving.job_object import JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, WindowsJobObject
-from localbench.serving.teardown import teardown_owned_server
+from localbench.serving.teardown import (
+    LiveProcessIdentity,
+    RecordedProcessIdentity,
+    teardown_owned_server,
+    terminate_recorded_pid,
+)
 from serving_helpers import FakeKernel32, FakeProcess, FakeTeardownController
 
 
@@ -26,11 +31,67 @@ def test_teardown_marks_uncertain_when_owned_gpu_pid_remains() -> None:
     )
 
     # Then: teardown is marked uncertain and the residual PID is recorded.
-    assert process.terminated is True
+    assert process.terminated is False
     assert controller.terminated_job is True
     assert evidence.terminated is False
     assert evidence.gpu_pids_after == [1234]
     assert evidence.teardown_uncertain is True
+
+
+def test_recorded_pid_cleanup_requires_exe_and_commandline_fingerprint_match() -> None:
+    recorded = RecordedProcessIdentity(
+        pid=1234,
+        executable_path="C:/tools/llama-server.exe",
+        commandline_sha256="a" * 64,
+    )
+    killed: list[int] = []
+
+    terminated = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/tools/llama-server.exe",
+            commandline_sha256="a" * 64,
+        ),
+        terminate_pid=killed.append,
+    )
+
+    assert terminated is True
+    assert killed == [1234]
+
+
+def test_recorded_pid_cleanup_refuses_pid_reuse_or_commandline_drift() -> None:
+    recorded = RecordedProcessIdentity(
+        pid=1234,
+        executable_path="C:/tools/llama-server.exe",
+        commandline_sha256="a" * 64,
+    )
+    killed: list[int] = []
+
+    exe_drift = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/Windows/System32/notepad.exe",
+            commandline_sha256="a" * 64,
+        ),
+        terminate_pid=killed.append,
+    )
+    commandline_drift = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/tools/llama-server.exe",
+            commandline_sha256="b" * 64,
+        ),
+        terminate_pid=killed.append,
+    )
+    exited = terminate_recorded_pid(recorded, live_probe=lambda _pid: None, terminate_pid=killed.append)
+
+    assert exe_drift is False
+    assert commandline_drift is False
+    assert exited is False
+    assert killed == []
 
 
 def test_job_object_wrapper_marshals_kill_on_close_and_assigns_process() -> None:
