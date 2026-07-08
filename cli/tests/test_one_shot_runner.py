@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
@@ -17,11 +16,7 @@ from localbench.one_shot.runner import (
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
 from localbench.submissions.submit_run import SubmitRunOptions, SubmitRunResult
-
-
-_REV = "a" * 40
-_MODEL_BYTES = b"GGUF one-shot fixture"
-_MODEL_SHA = hashlib.sha256(_MODEL_BYTES).hexdigest()
+from one_shot_fixtures import MODEL_BYTES, MODEL_SHA, REV_A, catalog_with_artifacts, one_shot_artifact
 
 
 def test_cli_bench_positional_model_dispatches_one_shot(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -84,7 +79,7 @@ def test_one_shot_runner_prompts_submit_default_no_and_builds_bounded_final_opti
     assert options.hf_model_id == "owner/base-model"
     assert options.gguf_repo_only is False
     lock = json.loads((tmp_path / "plan.lock.json").read_text(encoding="utf-8"))
-    assert lock["artifact_revision"] == _REV
+    assert lock["artifact_revision"] == REV_A
     assert lock["suite_manifest_sha256"] == FULL_EXEC_SUITE_MANIFEST_SHA256
     output = capsys.readouterr().out
     assert "submit? [y/N]" in output
@@ -229,28 +224,20 @@ class _CatalogLoader:
     def load(self, *, requested_model: str, site: str) -> dict[str, object]:
         assert requested_model == "qwen3-6-27b"
         assert site == "https://local-bench.ai"
-        return {
-            "models": [
+        return catalog_with_artifacts(
+            tokenizer_repo="owner/base-model",
+            artifacts=[
                 {
-                    "slug": "qwen3-6-27b",
-                    "catalog_id": "Qwen/Qwen3.6-27B",
-                    "display_name": "Qwen3.6 27B",
-                    "family": "Qwen3.6",
-                    "tokenizer_repo": "owner/base-model",
-                    "artifacts": [
-                        {
-                            "quant_label": "Q4_K_M",
-                            "repo_id": "owner/model-gguf",
-                            "filename": "model-q4.gguf",
-                            "revision": _REV,
-                            "sha256": _MODEL_SHA,
-                            "size_bytes": len(_MODEL_BYTES),
-                            "vram_required_gb_32k": 22.0,
-                        },
-                    ],
+                    "quant_label": "Q4_K_M",
+                    "repo_id": "owner/model-gguf",
+                    "filename": "model-q4.gguf",
+                    "revision": REV_A,
+                    "sha256": MODEL_SHA,
+                    "size_bytes": len(MODEL_BYTES),
+                    "vram_required_gb_32k": 22.0,
                 },
             ],
-        }
+        )
 
 
 class _PreflightHttp:
@@ -266,13 +253,13 @@ class _HfClient:
     def download_file(self, *, repo_id: str, filename: str, revision: str, destination: Path) -> None:
         assert repo_id in {"owner/model-gguf", "owner/raw-gguf"}
         assert filename == "model-q4.gguf"
-        assert revision == _REV
+        assert revision == REV_A
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(_MODEL_BYTES)
+        destination.write_bytes(MODEL_BYTES)
 
     def snapshot_download(self, *, repo_id: str, revision: str, destination: Path) -> Path:
         assert repo_id in {"owner/base-model", "owner/raw-gguf"}
-        assert revision == _REV
+        assert revision == REV_A
         destination.mkdir(parents=True, exist_ok=True)
         (destination / "tokenizer.json").write_text("{}", encoding="utf-8")
         (destination / "tokenizer_config.json").write_text(
@@ -312,15 +299,11 @@ class _RawArtifactResolver:
 
     def resolve_raw_artifact(self, *, repo_id: str, quant: str | None):
         self.calls.append((repo_id, quant))
-        from localbench.one_shot.types import OneShotArtifact
-
-        return OneShotArtifact(
+        return one_shot_artifact(
             repo_id=repo_id,
-            filename="model-q4.gguf",
-            revision=_REV,
             quant_label=quant or "Q4_K_M",
-            sha256=_MODEL_SHA,
-            size_bytes=len(_MODEL_BYTES),
+            sha256=MODEL_SHA,
+            size_bytes=len(MODEL_BYTES),
             vram_required_gb_8k=None,
             vram_required_gb_32k=None,
         )

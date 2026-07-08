@@ -22,11 +22,7 @@ from localbench.one_shot.preflight import (
     write_plan_lock,
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
-
-
-_REV_A = "a" * 40
-_REV_B = "b" * 40
-_SHA_A = "1" * 64
+from one_shot_fixtures import REV_A, REV_B, SHA_A, catalog_with_artifacts
 
 
 def test_catalog_resolve_fails_closed_when_publishable_entry_lacks_immutable_hf_pin() -> None:
@@ -47,14 +43,14 @@ def test_catalog_resolve_fails_closed_when_publishable_entry_lacks_immutable_hf_
 
 
 def test_artifact_facts_take_precedence_and_conflicting_catalog_metadata_aborts() -> None:
-    catalog = _catalog_with_artifacts(
+    catalog = catalog_with_artifacts(
         artifacts=[
             {
                 "quant_label": "Q4_K_M",
                 "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
                 "filename": "qwen3-q4.gguf",
-                "revision": _REV_A,
-                "sha256": _SHA_A,
+                "revision": REV_A,
+                "sha256": SHA_A,
                 "size_bytes": 1024,
                 "vram_required_gb_8k": 19.5,
             },
@@ -67,14 +63,14 @@ def test_artifact_facts_take_precedence_and_conflicting_catalog_metadata_aborts(
 
 
 def test_catalog_resolve_selects_best_pinned_quant_that_fits_vram_budget() -> None:
-    catalog = _catalog_with_artifacts(
+    catalog = catalog_with_artifacts(
         artifacts=[
             {
                 "quant_label": "Q6_K",
                 "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
                 "filename": "qwen3-q6.gguf",
-                "revision": _REV_A,
-                "sha256": _SHA_A,
+                "revision": REV_A,
+                "sha256": SHA_A,
                 "size_bytes": 3072,
                 "vram_required_gb_32k": 29.0,
             },
@@ -82,7 +78,7 @@ def test_catalog_resolve_selects_best_pinned_quant_that_fits_vram_budget() -> No
                 "quant_label": "Q4_K_M",
                 "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
                 "filename": "qwen3-q4.gguf",
-                "revision": _REV_B,
+                "revision": REV_B,
                 "sha256": "2" * 64,
                 "size_bytes": 2048,
                 "vram_required_gb_32k": 22.0,
@@ -94,7 +90,7 @@ def test_catalog_resolve_selects_best_pinned_quant_that_fits_vram_budget() -> No
 
     assert resolved.catalog_model_id == "Qwen/Qwen3.6-27B"
     assert resolved.artifact.quant_label == "Q4_K_M"
-    assert resolved.artifact.model_ref == f"hf://unsloth/Qwen3.6-27B-MTP-GGUF@{_REV_B}#qwen3-q4.gguf"
+    assert resolved.artifact.model_ref == f"hf://unsloth/Qwen3.6-27B-MTP-GGUF@{REV_B}#qwen3-q4.gguf"
     assert resolved.local_only is False
     assert resolved.publishable is True
 
@@ -153,7 +149,7 @@ def test_plan_lock_resume_refuses_immutable_drift(tmp_path: Path) -> None:
         "schema_version": "localbench.one_shot_plan.v1",
         "requested_model": "qwen3-6-27b",
         "quant_label": "Q4_K_M",
-        "artifact_revision": _REV_A,
+        "artifact_revision": REV_A,
         "artifact_filename": "qwen3-q4.gguf",
         "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
         "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
@@ -163,7 +159,7 @@ def test_plan_lock_resume_refuses_immutable_drift(tmp_path: Path) -> None:
     write_plan_lock(lock_path, plan)
 
     expected = dict(plan)
-    expected["artifact_revision"] = _REV_B
+    expected["artifact_revision"] = REV_B
     with pytest.raises(PlanLockMismatch, match="artifact_revision"):
         validate_resume_plan_lock(lock_path, expected)
 
@@ -174,14 +170,14 @@ def test_plan_lock_resume_refuses_immutable_drift(tmp_path: Path) -> None:
 def test_identity_envelope_prevalidation_requires_pinned_artifact_and_full_suite_pair() -> None:
     resolved = resolve_one_shot_model(
         "qwen3-6-27b",
-        _catalog_with_artifacts(
+        catalog_with_artifacts(
             artifacts=[
                 {
                     "quant_label": "Q4_K_M",
                     "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
                     "filename": "qwen3-q4.gguf",
-                    "revision": _REV_A,
-                    "sha256": _SHA_A,
+                    "revision": REV_A,
+                    "sha256": SHA_A,
                     "size_bytes": 2048,
                     "vram_required_gb_32k": 22.0,
                 },
@@ -203,14 +199,14 @@ def test_identity_envelope_prevalidation_requires_pinned_artifact_and_full_suite
 def test_publishability_preflight_uses_read_only_submission_preflight_endpoint() -> None:
     resolved = resolve_one_shot_model(
         "qwen3-6-27b",
-        _catalog_with_artifacts(
+        catalog_with_artifacts(
             artifacts=[
                 {
                     "quant_label": "Q4_K_M",
                     "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
                     "filename": "qwen3-q4.gguf",
-                    "revision": _REV_A,
-                    "sha256": _SHA_A,
+                    "revision": REV_A,
+                    "sha256": SHA_A,
                     "size_bytes": 2048,
                     "vram_required_gb_32k": 22.0,
                 },
@@ -239,23 +235,3 @@ class _FakeHttp:
     def post_json(self, url: str, payload: dict[str, object]) -> dict[str, object]:
         self.calls.append((url, payload))
         return self._payload
-
-
-def _catalog_with_artifacts(
-    *,
-    artifacts: list[dict[str, object]],
-    runs: list[dict[str, object]] | None = None,
-) -> dict[str, object]:
-    return {
-        "models": [
-            {
-                "slug": "qwen3-6-27b",
-                "catalog_id": "Qwen/Qwen3.6-27B",
-                "display_name": "Qwen3.6 27B",
-                "family": "Qwen3.6",
-                "tokenizer_repo": "Qwen/Qwen3.6-27B",
-                "artifacts": artifacts,
-                "runs": runs or [],
-            },
-        ],
-    }

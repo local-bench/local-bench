@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -11,36 +10,33 @@ from localbench.one_shot.download import (
     download_artifact_atomic,
     download_tokenizer_snapshot,
 )
-from localbench.one_shot.types import OneShotArtifact
-
-
-_REV = "a" * 40
+from one_shot_fixtures import REV_A, one_shot_artifact, sha256
 
 
 def test_download_artifact_atomic_uses_partial_file_and_pinned_revision(tmp_path: Path) -> None:
     payload = b"GGUF fixture bytes"
-    artifact = _artifact(size_bytes=len(payload), sha256=_sha256(payload))
+    artifact = one_shot_artifact(size_bytes=len(payload), sha256=sha256(payload))
     hf = _FakeHfClient(artifact_bytes=payload)
 
     downloaded = download_artifact_atomic(artifact, tmp_path, hf_client=hf)
 
     assert downloaded.path == tmp_path / "model-q4.gguf"
     assert downloaded.path.read_bytes() == payload
-    assert downloaded.sha256 == _sha256(payload)
+    assert downloaded.sha256 == sha256(payload)
     assert downloaded.size_bytes == len(payload)
     assert not (tmp_path / "model-q4.gguf.partial").exists()
     assert hf.file_calls == [
         {
             "repo_id": "owner/model-gguf",
             "filename": "model-q4.gguf",
-            "revision": _REV,
+            "revision": REV_A,
             "destination": tmp_path / "model-q4.gguf.partial",
         },
     ]
 
 
 def test_download_artifact_atomic_never_promotes_digest_mismatch(tmp_path: Path) -> None:
-    artifact = _artifact(size_bytes=4, sha256="0" * 64)
+    artifact = one_shot_artifact(size_bytes=4, sha256="0" * 64)
     hf = _FakeHfClient(artifact_bytes=b"bad!")
 
     with pytest.raises(DownloadError, match="sha256 mismatch"):
@@ -60,21 +56,21 @@ def test_download_tokenizer_snapshot_uses_artifact_revision_and_hashes_template(
 
     snapshot = download_tokenizer_snapshot(
         repo_id="owner/base-model",
-        revision=_REV,
+        revision=REV_A,
         destination_dir=tmp_path,
         hf_client=hf,
     )
 
-    assert snapshot.path == tmp_path / "owner__base-model" / _REV
-    assert snapshot.revision == _REV
-    assert snapshot.tokenizer_digest == _sha256(b'{"model":"fixture"}\n')
-    assert snapshot.chat_template_digest == _sha256(b"{{ bos_token }}{{ messages }}")
+    assert snapshot.path == tmp_path / "owner__base-model" / REV_A
+    assert snapshot.revision == REV_A
+    assert snapshot.tokenizer_digest == sha256(b'{"model":"fixture"}\n')
+    assert snapshot.chat_template_digest == sha256(b"{{ bos_token }}{{ messages }}")
     assert snapshot.snapshot_sha256 is not None
     assert hf.snapshot_calls == [
         {
             "repo_id": "owner/base-model",
-            "revision": _REV,
-            "destination": tmp_path / "owner__base-model" / _REV,
+            "revision": REV_A,
+            "destination": tmp_path / "owner__base-model" / REV_A,
         },
     ]
 
@@ -112,20 +108,3 @@ class _FakeHfClient:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
         return destination
-
-
-def _artifact(*, size_bytes: int, sha256: str) -> OneShotArtifact:
-    return OneShotArtifact(
-        repo_id="owner/model-gguf",
-        filename="model-q4.gguf",
-        revision=_REV,
-        quant_label="Q4_K_M",
-        sha256=sha256,
-        size_bytes=size_bytes,
-        vram_required_gb_8k=19.5,
-        vram_required_gb_32k=22.0,
-    )
-
-
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
