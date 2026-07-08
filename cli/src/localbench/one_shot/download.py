@@ -25,6 +25,8 @@ _TOKENIZER_ALLOW_PATTERNS: Final = (
 class HfDownloadClient(Protocol):
     def download_file(self, *, repo_id: str, filename: str, revision: str, destination: Path) -> None: ...
 
+    def resolve_model_revision(self, *, repo_id: str) -> str: ...
+
     def snapshot_download(self, *, repo_id: str, revision: str, destination: Path) -> Path: ...
 
 
@@ -121,6 +123,25 @@ class HuggingFaceDownloadClient:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(downloaded, destination)
 
+    def resolve_model_revision(self, *, repo_id: str) -> str:
+        try:
+            from huggingface_hub import HfApi
+            from huggingface_hub.errors import HfHubHTTPError, LocalEntryNotFoundError, OfflineModeIsEnabled
+        except ImportError as error:
+            raise DownloadError("install localbench[hf] to resolve Hugging Face tokenizer revisions") from error
+        try:
+            info = HfApi().model_info(repo_id)
+        except (HfHubHTTPError, LocalEntryNotFoundError, OfflineModeIsEnabled, OSError) as error:
+            raise DownloadError(_tokenizer_revision_resolution_error(repo_id)) from error
+        revision = getattr(info, "sha", None)
+        if not isinstance(revision, str) or not _full_sha(revision):
+            raise DownloadError(
+                f"could not resolve tokenizer repo {repo_id} to a full commit SHA; "
+                "fix: connect to Hugging Face, log in for gated repos, or resume from a run "
+                "whose plan.lock.json already records tokenizer_revision",
+            )
+        return revision.lower()
+
     def snapshot_download(self, *, repo_id: str, revision: str, destination: Path) -> Path:
         try:
             from huggingface_hub import snapshot_download
@@ -134,6 +155,18 @@ class HuggingFaceDownloadClient:
                 allow_patterns=list(_TOKENIZER_ALLOW_PATTERNS),
             ),
         )
+
+
+def _tokenizer_revision_resolution_error(repo_id: str) -> str:
+    return (
+        f"could not resolve tokenizer repo {repo_id} to a pinned commit; "
+        "fix: connect to Hugging Face, log in for gated repos, or resume from a run "
+        "whose plan.lock.json already records tokenizer_revision"
+    )
+
+
+def _full_sha(value: str) -> bool:
+    return len(value) == 40 and all(char in "0123456789abcdefABCDEF" for char in value)
 
 
 def _optional_file_digest(path: Path) -> str | None:

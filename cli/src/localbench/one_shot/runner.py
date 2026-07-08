@@ -27,13 +27,12 @@ from localbench.one_shot.preflight import (
 )
 from localbench.one_shot.plan_lock import (
     OneShotDownloadLockFacts,
-    OneShotPlanLockContext,
-    validate_or_write_plan_lock,
     write_download_plan_lock,
 )
 from localbench.one_shot.raw_hf import HuggingFaceRawArtifactResolver
 from localbench.one_shot.sleep import SleepGapMonitor, SleepWakeClockGap
 from localbench.one_shot.submission import OneShotSubmitContext, Submitter, maybe_submit
+from localbench.one_shot.tokenizer_pin import TokenizerPlanRequest, prepare_tokenizer_plan
 from localbench.one_shot.types import (
     FULL_EXEC_SUITE_RELEASE_ID,
     OneShotArtifact,
@@ -113,19 +112,19 @@ def run_one_shot_bench(
         if choices.submit is True and (choices.offline or resolved.local_only):
             print("error      one-shot run is local-only and cannot be submitted", file=sys.stderr)
             return 2
-        plan_context = OneShotPlanLockContext(run_root=run_root, resolved=resolved, cli_version=cli_version)
-        validate_or_write_plan_lock(plan_context, resume=getattr(args, "resume", None))
+        tokenizer_plan = prepare_tokenizer_plan(
+            TokenizerPlanRequest(resolved, run_root, getattr(args, "resume", None), cli_version, dependencies.hf_client),
+        )
+        resolved = tokenizer_plan.resolved
         downloaded = download_artifact_atomic(resolved.artifact, run_root / "models", hf_client=dependencies.hf_client)
-        tokenizer_repo = resolved.tokenizer_repo or resolved.artifact.repo_id
-        tokenizer_revision = resolved.tokenizer_revision or resolved.artifact.revision
         tokenizer = download_tokenizer_snapshot(
-            repo_id=tokenizer_repo,
-            revision=tokenizer_revision,
+            repo_id=tokenizer_plan.repo_id,
+            revision=tokenizer_plan.revision,
             destination_dir=run_root / "tokenizer",
             hf_client=dependencies.hf_client,
         )
         write_download_plan_lock(
-            plan_context,
+            tokenizer_plan.context,
             OneShotDownloadLockFacts(
                 artifact_path=downloaded.path,
                 artifact_sha256=downloaded.sha256,

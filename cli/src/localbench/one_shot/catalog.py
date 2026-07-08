@@ -79,6 +79,10 @@ def resolve_one_shot_model(
         )
     _assert_artifact_catalog_consistency(entry, artifacts)
     selected = _select_artifact(artifacts, quant=quant, vram_gb=vram_gb)
+    tokenizer_repo = _text(entry, "tokenizer_repo") or _text(entry, "hf_model_id")
+    tokenizer_revision = _text(entry, "tokenizer_revision")
+    if tokenizer_revision is None and (tokenizer_repo is None or tokenizer_repo == selected.repo_id):
+        tokenizer_revision = selected.revision
     return ResolvedOneShotModel(
         requested=requested_model,
         model_id=_text(entry, "model_id") or _text(entry, "slug") or requested_model,
@@ -86,8 +90,8 @@ def resolve_one_shot_model(
         family=_text(entry, "family"),
         source_kind="catalog",
         catalog_model_id=_text(entry, "catalog_id") or _text(entry, "catalog_model_id"),
-        tokenizer_repo=_text(entry, "tokenizer_repo") or _text(entry, "hf_model_id"),
-        tokenizer_revision=_text(entry, "tokenizer_revision") or selected.revision,
+        tokenizer_repo=tokenizer_repo,
+        tokenizer_revision=tokenizer_revision,
         artifact=selected,
         local_only=False,
         publishable=True,

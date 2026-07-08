@@ -18,6 +18,8 @@ class OneShotPlanLockContext:
     run_root: Path
     resolved: ResolvedOneShotModel
     cli_version: str
+    tokenizer_repo: str
+    tokenizer_revision: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +38,12 @@ def validate_or_write_plan_lock(context: OneShotPlanLockContext, *, resume: Path
     write_plan_lock(lock_path, plan)
 
 
+def read_resume_plan_lock(run_root: Path, *, resume: Path | None) -> JsonObject | None:
+    if resume is None:
+        return None
+    return validate_resume_plan_lock(run_root / "plan.lock.json", {})
+
+
 def write_download_plan_lock(context: OneShotPlanLockContext, download: OneShotDownloadLockFacts) -> None:
     write_plan_lock(context.run_root / "plan.lock.json", plan_lock_document(context, download))
 
@@ -50,6 +58,8 @@ def plan_lock_document(
         "quant_label": context.resolved.artifact.quant_label,
         "artifact_revision": context.resolved.artifact.revision,
         "artifact_filename": context.resolved.artifact.filename,
+        "tokenizer_repo": context.tokenizer_repo,
+        "tokenizer_revision": context.tokenizer_revision,
         "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
         "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
         "cli_version": context.cli_version,

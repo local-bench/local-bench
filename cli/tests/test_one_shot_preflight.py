@@ -131,6 +131,28 @@ def test_catalog_resolve_consumes_quant_level_artifact_pins() -> None:
     assert resolved.publishable is True
 
 
+def test_catalog_resolve_inherits_artifact_revision_for_same_tokenizer_repo() -> None:
+    catalog = catalog_with_artifacts(
+        tokenizer_repo="owner/model-gguf",
+        artifacts=[
+            {
+                "quant_label": "Q4_K_M",
+                "repo_id": "owner/model-gguf",
+                "filename": "qwen3-q4.gguf",
+                "revision": REV_A,
+                "sha256": SHA_A,
+                "size_bytes": 2048,
+                "vram_required_gb_32k": 22.0,
+            },
+        ],
+    )
+
+    resolved = resolve_one_shot_model("qwen3-6-27b", catalog, quant="Q4_K_M", vram_gb=24.0)
+
+    assert resolved.tokenizer_repo == "owner/model-gguf"
+    assert resolved.tokenizer_revision == REV_A
+
+
 def test_raw_hf_repo_resolves_local_only_for_0_3_0_scope() -> None:
     resolved = resolve_one_shot_model("owner/raw-gguf-repo", {"models": []}, quant="Q4_K_M", vram_gb=24.0)
 

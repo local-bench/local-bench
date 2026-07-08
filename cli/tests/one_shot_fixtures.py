@@ -6,6 +6,8 @@ from localbench.one_shot.types import OneShotArtifact
 
 REV_A = "a" * 40
 REV_B = "b" * 40
+TOKENIZER_REV_A = "c" * 40
+TOKENIZER_REV_B = "d" * 40
 SHA_A = "1" * 64
 MODEL_BYTES = b"GGUF one-shot fixture"
 

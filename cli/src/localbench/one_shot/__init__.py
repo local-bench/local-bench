@@ -10,5 +10,6 @@ __all__ = [
     "runner",
     "sleep",
     "submission",
+    "tokenizer_pin",
     "types",
 ]
