@@ -42,7 +42,7 @@ export default function SubmitPage() {
 
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
         <p>Python 3.11+ required:</p>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`pip install "local-bench-ai[hf]==0.2.6"`}
         </pre>
         <p className="text-sm">
@@ -53,7 +53,7 @@ export default function SubmitPage() {
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">2. Fetch the frozen suite</h3>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench fetch-suite \\
   --site https://local-bench.ai \\
   --suite suite-v1-full-exec-6axis-v1 \\
@@ -77,7 +77,7 @@ export default function SubmitPage() {
           offline (the run never phones home mid-benchmark), so the tokenizer files must already be
           in your Hugging Face cache before you start:
         </p>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench cache-tokenizer <the-model's-HF-repo>`}
         </pre>
         <p className="text-sm">
@@ -100,7 +100,7 @@ export default function SubmitPage() {
           The strongest-provenance path is <code className="font-mono text-bench-text">bench</code>:
           the CLI launches the llama.cpp server itself with pinned serving flags.
         </p>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench bench \\
   --runtime llama.cpp \\
   --model-file <model.gguf> \\
@@ -116,7 +116,7 @@ export default function SubmitPage() {
           Already serving the model yourself (LM Studio, ollama, vLLM, anything OpenAI-compatible)?
           Use <code className="font-mono text-bench-text">run</code> instead:
         </p>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench run \\
   --endpoint http://localhost:8080/v1 \\
   --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M \\
@@ -168,7 +168,7 @@ export default function SubmitPage() {
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">5. Submit</h3>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench submit run --run runs/qwen3-8b-q4-k-m.json`}
         </pre>
         <p>
@@ -191,7 +191,7 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">local-bench.ai/submission?id=&lt;submission_id&gt;</code>.
           You can also check from the CLI:
         </p>
-        <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`localbench submit status <submission_id> --site https://local-bench.ai`}
         </pre>
       </section>

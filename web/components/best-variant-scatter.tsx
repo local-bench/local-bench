@@ -110,7 +110,7 @@ export function BestVariantVramScatter({
       </div>
       <div className="overflow-x-auto">
         <svg
-          role="img"
+          role="group"
           aria-label={describe(points)}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="h-auto w-full min-w-[340px] sm:min-w-[820px]"

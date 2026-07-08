@@ -63,7 +63,7 @@ export function AppShell({
                 Static ranked rows remove Agentic; Static-Core is an unranked diagnostic profile.
               </p>
             </div>
-            <dl className="space-y-1 font-mono text-[11px] text-bench-muted">
+            <div className="space-y-1 font-mono text-[11px] text-bench-muted">
               <div className="flex items-center justify-between gap-3 lg:justify-end">
                 <Link
                   href="/methodology#frozen"
@@ -73,11 +73,13 @@ export function AppShell({
                   integrity pins ·
                 </Link>
               </div>
-              <div className="flex items-center justify-between gap-3 lg:justify-end">
-                <dt className="uppercase tracking-wide text-bench-muted/70">board</dt>
-                <dd title={LAUNCH_FREEZE.boardSha256}>{shortHash(LAUNCH_FREEZE.boardSha256)}</dd>
-              </div>
-            </dl>
+              <dl>
+                <div className="flex items-center justify-between gap-3 lg:justify-end">
+                  <dt className="uppercase tracking-wide text-bench-muted/70">board</dt>
+                  <dd title={LAUNCH_FREEZE.boardSha256}>{shortHash(LAUNCH_FREEZE.boardSha256)}</dd>
+                </div>
+              </dl>
+            </div>
           </div>
           <div className="mt-5 flex flex-col gap-2 border-t border-bench-line/60 pt-4 text-xs text-bench-muted/80 sm:flex-row sm:items-center sm:justify-between">
             <p>

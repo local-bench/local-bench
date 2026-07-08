@@ -62,7 +62,7 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
       <p className="font-mono text-xs text-bench-muted">
         Strongest provenance: let the CLI launch the pinned server itself with{" "}
         <span className="font-mono text-bench-text">localbench bench</span> — see{" "}
-        <Link href="/submit" className="text-bench-accent hover:underline">
+        <Link href="/submit" className="text-bench-accent underline">
           how to submit
         </Link>
         .

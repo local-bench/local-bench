@@ -71,7 +71,7 @@ export function QualityVramScatter({
         </div>
       </div>
       <div className="overflow-x-auto">
-        <svg role="img" aria-label={ariaLabel} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full min-w-[320px] sm:min-w-[760px]">
+        <svg role="group" aria-label={ariaLabel} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full min-w-[320px] sm:min-w-[760px]">
           <rect width={WIDTH} height={HEIGHT} className="fill-bench-panel" />
           {Y_TICKS.map((tick) => {
             const y = scaleY(tick);

@@ -256,7 +256,7 @@ export function BenchmarkOnramp({
         <span>
           Every command is pinned to the current 6-axis ranked suite. Submissions are signed with a key generated on your
           machine and reviewed before anything publishes —{" "}
-          <Link href="/submit" className="text-bench-accent hover:underline">
+          <Link href="/submit" className="text-bench-accent underline">
             how to submit
           </Link>{" "}
           has the full loop and what the trust labels mean.
