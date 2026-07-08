@@ -47,4 +47,4 @@ Working from source instead: `pip install -e cli`.
 
 ## Status
 
-Launched. Frozen as of 2026-07-06; the public board is live at https://local-bench.ai and is maintainer-verified. Current index identity: suite-v2 / index-v3.0.
+Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v3.0 on the bounded-final-v2 ranked lane; current CLI release: 0.2.6 (progress bar + ETA, submission bug fixes). The site's recipe generator pins the exact CLI version to run.
