@@ -107,6 +107,10 @@ function preflightBody(
 }
 
 async function submissionCount(env: Awaited<ReturnType<typeof createEnv>>): Promise<number> {
-  const row = await env.DB.prepare("select count(*) as count from submissions").first<{ count: number }>();
-  return row?.count ?? 0;
+  const row = await env.DB.prepare("select count(*) as count from submissions").first();
+  const count = row?.["count"];
+  if (typeof count !== "number") {
+    throw new Error("submission count query did not return a number");
+  }
+  return count;
 }
