@@ -28,7 +28,7 @@ const baseModel: OnrampCatalogModel = {
 function recipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
     setupCommand:
-      'pip install "local-bench-ai[hf]==0.2.4"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
+      'pip install "local-bench-ai[hf]==0.2.5"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
     serveCommand:
       "llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --ctx-size 32768 --parallel 1 --alias MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080",
     serveNote: null,

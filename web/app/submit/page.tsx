@@ -43,7 +43,7 @@ export default function SubmitPage() {
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
         <p>Python 3.11+ required:</p>
         <pre className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text sm:text-sm">
-          {`pip install "local-bench-ai[hf]==0.2.4"`}
+          {`pip install "local-bench-ai[hf]==0.2.5"`}
         </pre>
         <p className="text-sm">
           Installs the <code className="font-mono text-bench-text">localbench</code> command. Working
