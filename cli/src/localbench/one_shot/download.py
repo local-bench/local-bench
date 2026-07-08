@@ -11,14 +11,16 @@ from typing import Final, Protocol
 from localbench.one_shot.types import OneShotArtifact
 from localbench.serving.model_artifact import sha256_file
 
+# Must stay a superset of what the offline template-introspection loader reads
+# (config.json, chat_template.jinja, tiktoken files, ...). Keep identical to
+# _HF_TOKENIZER_ALLOW_PATTERNS in localbench/cli.py (cache-tokenizer) — a narrower
+# list here made the engine's HF_HUB_OFFLINE load fail at bench start (2026-07-09).
 _TOKENIZER_ALLOW_PATTERNS: Final = (
-    "tokenizer.json",
-    "tokenizer_config.json",
-    "special_tokens_map.json",
-    "generation_config.json",
+    "*.json",
     "*.model",
-    "vocab.*",
-    "merges.txt",
+    "*.jinja",
+    "*.txt",
+    "*.tiktoken",
 )
 
 
