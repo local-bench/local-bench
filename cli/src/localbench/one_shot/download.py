@@ -147,11 +147,14 @@ class HuggingFaceDownloadClient:
             from huggingface_hub import snapshot_download
         except ImportError as error:
             raise DownloadError("install localbench[hf] to download Hugging Face tokenizers") from error
+        # No local_dir: the snapshot must land in the standard HF cache, because the bench
+        # engine's offline (HF_HUB_OFFLINE=1) template introspection resolves the tokenizer
+        # from that cache — a run-dir copy is invisible to it (rehearsal bug, 2026-07-09).
+        # `destination` is part of the client seam used by fakes; the real client ignores it.
         return Path(
             snapshot_download(
                 repo_id=repo_id,
                 revision=revision,
-                local_dir=destination,
                 allow_patterns=list(_TOKENIZER_ALLOW_PATTERNS),
             ),
         )
