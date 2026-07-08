@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { selectBestVariantPoints } from "../lib/best-variant";
+import { selectBestModelVariantPoints, selectBestVariantPoints } from "../lib/best-variant";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import type { RigMatchCandidate } from "../lib/rig-match";
+import type { CatalogModel } from "../lib/schemas";
 
 function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidate {
   return {
@@ -25,6 +26,17 @@ function candidate(overrides: Partial<RigMatchCandidate> = {}): RigMatchCandidat
     vramRequiredGb8k: 10,
     latencySMedian: 13.2,
     wallTimeSeconds: 4200,
+    ...overrides,
+  };
+}
+
+function catalogModel(overrides: Partial<CatalogModel> = {}): CatalogModel {
+  return {
+    id: "Fixture/Base",
+    slug: "fixture-base",
+    display_name: "Fixture Base",
+    model_kind: "base",
+    quants: [],
     ...overrides,
   };
 }
@@ -86,5 +98,177 @@ describe("selectBestVariantPoints", () => {
     const points = selectBestVariantPoints([candidate()]);
     expect(points).toHaveLength(1);
     expect(points[0]!.wallTimeSeconds).toBe(4200);
+  });
+
+  it("collapses a base and fine-tune into one weights-family point", () => {
+    const base = catalogModel({
+      id: "Qwen/Qwen3.6-27B",
+      slug: "qwen3-6-27b",
+      display_name: "Qwen3.6 27B",
+    });
+    const fineTune = catalogModel({
+      id: "Jackrong/Qwopus3.6-27B-v2-MTP",
+      slug: "qwopus3-6-27b-v2-mtp",
+      display_name: "Qwopus3.6 27B v2 MTP",
+      model_kind: "finetune",
+      base_model: "Qwen/Qwen3.6-27B",
+    });
+
+    const points = selectBestVariantPoints(
+      [
+        candidate({ modelSlug: base.slug, modelLabel: base.display_name, runId: "base", score: { point: 70, lo: 65, hi: 75 } }),
+        candidate({
+          modelSlug: fineTune.slug,
+          modelLabel: fineTune.display_name,
+          runId: "fine-tune",
+          score: { point: 68, lo: 63, hi: 73 },
+        }),
+      ],
+      { catalogModels: [base, fineTune] },
+    );
+
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({
+      modelSlug: base.slug,
+      runId: "base",
+      weightsFamilyLabel: "Qwen3.6 27B",
+      weightsFamilySlug: base.slug,
+    });
+  });
+
+  it("lets the fine-tune win the family point when it outscores its base", () => {
+    const base = catalogModel({ id: "Base/Model", slug: "base", display_name: "Base Model" });
+    const fineTune = catalogModel({
+      id: "Tune/Fine",
+      slug: "fine",
+      display_name: "Fine Tune",
+      model_kind: "finetune",
+      base_model: base.id,
+    });
+
+    const points = selectBestVariantPoints(
+      [
+        candidate({ modelSlug: base.slug, modelLabel: base.display_name, runId: "base", score: { point: 62, lo: 58, hi: 66 } }),
+        candidate({ modelSlug: fineTune.slug, modelLabel: fineTune.display_name, runId: "fine", score: { point: 72, lo: 68, hi: 76 } }),
+      ],
+      { catalogModels: [base, fineTune] },
+    );
+
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({
+      modelSlug: fineTune.slug,
+      modelLabel: "Fine Tune",
+      runId: "fine",
+      weightsFamilyLabel: "Base Model",
+    });
+  });
+
+  it("lets the base win the family point when it outscores its fine-tune", () => {
+    const base = catalogModel({ id: "Base/Model", slug: "base", display_name: "Base Model" });
+    const fineTune = catalogModel({
+      id: "Tune/Fine",
+      slug: "fine",
+      display_name: "Fine Tune",
+      model_kind: "finetune",
+      base_model: base.id,
+    });
+
+    const points = selectBestVariantPoints(
+      [
+        candidate({ modelSlug: base.slug, modelLabel: base.display_name, runId: "base", score: { point: 73, lo: 69, hi: 77 } }),
+        candidate({ modelSlug: fineTune.slug, modelLabel: fineTune.display_name, runId: "fine", score: { point: 70, lo: 66, hi: 74 } }),
+      ],
+      { catalogModels: [base, fineTune] },
+    );
+
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({
+      modelSlug: base.slug,
+      modelLabel: "Base Model",
+      runId: "base",
+      weightsFamilyLabel: "Base Model",
+    });
+  });
+
+  it("walks a multi-level fine-tune chain to the root family", () => {
+    const root = catalogModel({ id: "Root/Model", slug: "root", display_name: "Root Model" });
+    const firstTune = catalogModel({
+      id: "Tune/First",
+      slug: "first-tune",
+      display_name: "First Tune",
+      model_kind: "finetune",
+      base_model: root.id,
+    });
+    const secondTune = catalogModel({
+      id: "Tune/Second",
+      slug: "second-tune",
+      display_name: "Second Tune",
+      model_kind: "finetune",
+      base_model: firstTune.id,
+    });
+
+    const points = selectBestVariantPoints(
+      [
+        candidate({ modelSlug: root.slug, modelLabel: root.display_name, runId: "root", score: { point: 61, lo: 56, hi: 66 } }),
+        candidate({
+          modelSlug: secondTune.slug,
+          modelLabel: secondTune.display_name,
+          runId: "second",
+          score: { point: 75, lo: 70, hi: 80 },
+        }),
+      ],
+      { catalogModels: [root, firstTune, secondTune] },
+    );
+
+    expect(points).toHaveLength(1);
+    expect(points[0]).toMatchObject({
+      modelSlug: secondTune.slug,
+      runId: "second",
+      weightsFamilyLabel: "Root Model",
+      weightsFamilySlug: root.slug,
+    });
+  });
+
+  it("treats an out-of-catalog base_model as its own root", () => {
+    const base = catalogModel({ id: "Base/Model", slug: "base", display_name: "Base Model" });
+    const externalDerivative = catalogModel({
+      id: "Tune/External",
+      slug: "external-tune",
+      display_name: "External Tune",
+      model_kind: "finetune",
+      base_model: "Missing/Base",
+    });
+
+    const familyPoints = selectBestVariantPoints(
+      [
+        candidate({ modelSlug: base.slug, modelLabel: base.display_name, runId: "base", score: { point: 62, lo: 58, hi: 66 } }),
+        candidate({
+          modelSlug: externalDerivative.slug,
+          modelLabel: externalDerivative.display_name,
+          runId: "external",
+          score: { point: 72, lo: 68, hi: 76 },
+        }),
+      ],
+      { catalogModels: [base, externalDerivative] },
+    );
+    const modelPoints = selectBestModelVariantPoints(
+      [
+        candidate({ modelSlug: base.slug, modelLabel: base.display_name, runId: "base", score: { point: 62, lo: 58, hi: 66 } }),
+        candidate({
+          modelSlug: externalDerivative.slug,
+          modelLabel: externalDerivative.display_name,
+          runId: "external",
+          score: { point: 72, lo: 68, hi: 76 },
+        }),
+      ],
+      { catalogModels: [base, externalDerivative] },
+    );
+
+    expect(familyPoints.map((point) => point.modelSlug).sort()).toEqual(["base", "external-tune"]);
+    expect(familyPoints.find((point) => point.modelSlug === "external-tune")).toMatchObject({
+      weightsFamilyLabel: "External Tune",
+      weightsFamilySlug: "external-tune",
+    });
+    expect(modelPoints).toHaveLength(2);
   });
 });

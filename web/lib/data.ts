@@ -27,6 +27,7 @@ import {
 } from "./board-entry";
 import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 import type { OnrampCatalogModel } from "./onramp";
+import { catalogBaseId, catalogBaseIds, catalogDescendsFrom, catalogModelMap, catalogRootEntry } from "./catalog-lineage";
 import {
   buildVsBaseComparison,
   currentIndexRunId,
@@ -48,7 +49,7 @@ export type AnchorReference = {
 
 type AxisScoresWithConfiguredAxes = Record<string, AxisScore> & Record<AxisKey, AxisScore>;
 type ModelRunWithConfiguredAxes = Omit<ModelRun, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
-type ModelDataWithConfiguredAxes = Omit<ModelData, "runs"> & { readonly runs: ModelRunWithConfiguredAxes[] };
+export type ModelDataWithConfiguredAxes = Omit<ModelData, "runs"> & { readonly runs: ModelRunWithConfiguredAxes[] };
 type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & {
   readonly axes: AxisScoresWithConfiguredAxes;
   readonly lane: string | null;
@@ -58,8 +59,16 @@ type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & {
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly familyModels: readonly ModelFamilyScatterModel[];
   readonly lineage: ModelLineage | null;
   readonly vsBaseComparisons: readonly VsBaseComparison[];
+};
+
+export type ModelFamilyScatterRelation = "family-finetune" | "base-model";
+
+export type ModelFamilyScatterModel = {
+  readonly model: ModelDataWithConfiguredAxes;
+  readonly relation: ModelFamilyScatterRelation;
 };
 
 export type ModelLineage = {
@@ -76,6 +85,7 @@ export type OnrampCatalog = {
 export type HomePageData = {
   readonly index: IndexData;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly catalogModels: readonly CatalogModel[];
   readonly rigAnchors: readonly RigMatchAnchor[];
   readonly rigCandidates: readonly RigMatchCandidate[];
 };
@@ -202,17 +212,6 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
   };
 }
 
-function catalogBaseIds(entry: CatalogModel): readonly string[] {
-  if (typeof entry.base_model === "string") {
-    return [entry.base_model];
-  }
-  return entry.base_model ?? [];
-}
-
-function catalogBaseId(entry: CatalogModel): string | null {
-  return catalogBaseIds(entry)[0] ?? null;
-}
-
 function isDerivativeCatalogEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): boolean {
   const baseModelId = catalogBaseId(entry);
   return entry.model_kind !== "base" || (baseModelId !== null && byId.has(baseModelId));
@@ -319,6 +318,36 @@ async function getAnchorReferences(): Promise<readonly AnchorReference[]> {
   );
 }
 
+async function getModelFamilyScatterModels({
+  byId,
+  catalogEntry,
+  catalogModels,
+}: {
+  readonly byId: ReadonlyMap<string, CatalogModel>;
+  readonly catalogEntry: CatalogModel | undefined;
+  readonly catalogModels: readonly CatalogModel[];
+}): Promise<readonly ModelFamilyScatterModel[]> {
+  if (catalogEntry === undefined) {
+    return [];
+  }
+  const baseModelId = catalogBaseId(catalogEntry);
+  const base = baseModelId === null ? undefined : byId.get(baseModelId);
+  if (base !== undefined && isDerivativeCatalogEntry(catalogEntry, byId)) {
+    const root = catalogRootEntry(catalogEntry, byId);
+    return root.id === catalogEntry.id ? [] : [{ model: await getModelData(root.slug), relation: "base-model" }];
+  }
+
+  const familyEntries = catalogModels.filter(
+    (entry) =>
+      entry.id !== catalogEntry.id &&
+      catalogDescendsFrom(entry, catalogEntry.id, byId) &&
+      isDerivativeCatalogEntry(entry, byId),
+  );
+  return Promise.all(
+    familyEntries.map(async (entry) => ({ model: await getModelData(entry.slug), relation: "family-finetune" })),
+  );
+}
+
 export async function getModelPageData(slug: string): Promise<ModelPageData> {
   const [model, anchorRuns, index, catalog] = await Promise.all([
     getModelData(slug),
@@ -326,7 +355,7 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
     getIndexData(),
     getCatalogFile(),
   ]);
-  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  const byId = catalogModelMap(catalog.models);
   const catalogEntry =
     catalog.models.find((entry) => entry.slug === slug) ??
     (model.catalog_id ? byId.get(model.catalog_id) : undefined);
@@ -352,12 +381,13 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
     indexRows: index.models,
     byId,
   });
-  return { model, anchorRuns, lineage, vsBaseComparisons };
+  const familyModels = await getModelFamilyScatterModels({ byId, catalogEntry, catalogModels: catalog.models });
+  return { model, anchorRuns, familyModels, lineage, vsBaseComparisons };
 }
 
 export async function getFineTuneComparePresets(): Promise<readonly FineTuneComparePreset[]> {
   const [index, catalog] = await Promise.all([getIndexData(), getCatalogFile()]);
-  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  const byId = catalogModelMap(catalog.models);
   return catalog.models.flatMap((entry) => {
     const baseModelId = catalogBaseId(entry);
     const base = baseModelId === null ? undefined : byId.get(baseModelId);
@@ -378,7 +408,7 @@ export async function getFineTuneComparePresets(): Promise<readonly FineTuneComp
 }
 
 export async function getHomePageData(): Promise<HomePageData> {
-  const index = await getIndexData();
+  const [index, catalog] = await Promise.all([getIndexData(), getCatalogFile()]);
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
   const anchorRuns = models
     .filter((model) => model.kind === "anchor")
@@ -389,7 +419,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const rigCandidates = models.flatMap((model) =>
     model.runs.map((run) => toRigMatchCandidate(model, run)),
   );
-  return { anchorRuns, index, rigAnchors, rigCandidates };
+  return { anchorRuns, catalogModels: catalog.models, index, rigAnchors, rigCandidates };
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {

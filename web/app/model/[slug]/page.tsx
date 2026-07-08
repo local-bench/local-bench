@@ -22,7 +22,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns, lineage, vsBaseComparisons } = await getModelPageData(slug);
+  const { model, anchorRuns, familyModels, lineage, vsBaseComparisons } = await getModelPageData(slug);
   // Current-index (headline lane) runs drive every headline element; legacy-lane runs are
   // diagnostics from an earlier index version and only inform the fallback copy below.
   const headlineMeasured = model.runs.filter(
@@ -115,7 +115,7 @@ export default async function ModelPage({ params }: PageProps) {
       </header>
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
       <ModelVariantBoard model={model} formatGate={formatGate} />
-      <ModelScatter model={model} anchorRuns={anchorRuns} />
+      <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
     </main>
   );
 }

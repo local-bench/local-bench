@@ -38,6 +38,24 @@ describe("ModelPage lineage chip", () => {
     // missing placeholder; only the measured v2 pair must show a real delta.
   });
 
+  it("plots a base model's current-lane measured family fine-tunes with receipt links", async () => {
+    const html = await renderModel("qwen3-6-27b");
+
+    expect(html).toContain("Family fine-tunes");
+    expect(html).toContain('data-point-kind="family-finetune"');
+    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2"');
+    expect(html).toContain("Qwopus 3.6 27B v2 MTP");
+  });
+
+  it("plots a fine-tune page's base model current-lane measured runs with receipt links", async () => {
+    const html = await renderModel("qwopus3-6-27b-v2-mtp");
+
+    expect(html).toContain("Base model");
+    expect(html).toContain('data-point-kind="base-model"');
+    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2"');
+    expect(html).toContain("Qwen3.6 27B");
+  });
+
   it("renders derivative vs-base missing states without fake numbers", async () => {
     const html = await renderModel("phi-4-reasoning");
     expect(html).toContain("vs base");

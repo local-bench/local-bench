@@ -1,0 +1,138 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+import { ModelScatter } from "../components/model-scatter";
+import { AXIS_KEYS } from "../lib/axis-config";
+import { HEADLINE_LANE } from "../lib/leaderboard-score";
+import type { ModelDataWithConfiguredAxes } from "../lib/data";
+import { ModelDataSchema, RunIdSchema, type AxisScore, type ModelRun, type Score } from "../lib/schemas";
+
+const score = { point: 61.2, lo: 59, hi: 63.4 } satisfies Score;
+const axisScore = { ...score, raw_accuracy: 0.61, n: 100, n_errors: 0, n_no_answer: 0 } satisfies AxisScore;
+
+function axisScores(): Record<(typeof AXIS_KEYS)[number], AxisScore> {
+  return Object.fromEntries(AXIS_KEYS.map((key) => [key, axisScore])) as Record<(typeof AXIS_KEYS)[number], AxisScore>;
+}
+
+function runId(value: string): ModelRun["run_id"] {
+  return RunIdSchema.parse(value);
+}
+
+function run(overrides: Partial<ModelRun> = {}): ModelRun {
+  return {
+    run_id: runId("model__q4"),
+    quant_label: "Q4_K_M",
+    vram_footprint_gb: 21.6,
+    vram_required_gb_8k: null,
+    file_gb: 20.5,
+    bpw: 4.8,
+    composite: score,
+    axes: axisScores(),
+    tier: "standard",
+    lane: HEADLINE_LANE,
+    tokens_to_answer_median: null,
+    tok_s: 30,
+    est_cost_usd: null,
+    hardware: { gpu: null, cpu: null, ram_gb: null, os: null },
+    runtime: { name: "llama.cpp", version: "b1", kv_cache_quant: "f16", ctx_len_configured: 32768, parallel_slots: 1 },
+    n_items: 100,
+    n_errors: 0,
+    ranked: true,
+    wall_time_seconds: 3600,
+    score_status: "measured",
+    demo: false,
+    ...overrides,
+  };
+}
+
+function model({
+  label,
+  runs,
+  slug,
+}: {
+  readonly label: string;
+  readonly runs: readonly ModelRun[];
+  readonly slug: string;
+}): ModelDataWithConfiguredAxes {
+  return ModelDataSchema.parse({
+    slug,
+    model_label: label,
+    family: "Fixture",
+    kind: "community",
+    runs,
+  }) as ModelDataWithConfiguredAxes;
+}
+
+describe("ModelScatter family points", () => {
+  it("renders family fine-tunes with distinct markers, a legend, and run links", () => {
+    const base = model({ slug: "base", label: "Base Model", runs: [run({ run_id: runId("base__q4") })] });
+    const fineTune = model({
+      slug: "fine",
+      label: "Fine Tune",
+      runs: [run({ run_id: runId("fine__q4"), quant_label: "Q4_K_M", vram_footprint_gb: 22.4 })],
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(ModelScatter, {
+        model: base,
+        anchorRuns: [],
+        familyModels: [{ model: fineTune, relation: "family-finetune" }],
+      }),
+    );
+
+    expect(html).toContain("This model");
+    expect(html).toContain("Family fine-tunes");
+    expect(html).toContain('data-point-kind="this-model"');
+    expect(html).toContain('data-point-kind="family-finetune"');
+    expect(html).toContain('href="/run/fine__q4"');
+    expect(html).toContain("Fine Tune");
+  });
+
+  it("renders a fine-tune page's base model points with a separate legend item and run links", () => {
+    const fineTune = model({ slug: "fine", label: "Fine Tune", runs: [run({ run_id: runId("fine__q4") })] });
+    const base = model({
+      slug: "base",
+      label: "Base Model",
+      runs: [run({ run_id: runId("base__q4"), quant_label: "Q4_K_M", vram_footprint_gb: 20.8 })],
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(ModelScatter, {
+        model: fineTune,
+        anchorRuns: [],
+        familyModels: [{ model: base, relation: "base-model" }],
+      }),
+    );
+
+    expect(html).toContain("This model");
+    expect(html).toContain("Base model");
+    expect(html).toContain('data-point-kind="base-model"');
+    expect(html).toContain('href="/run/base__q4"');
+  });
+
+  it("keeps retired-lane family runs off the chart", () => {
+    const base = model({ slug: "base", label: "Base Model", runs: [run({ run_id: runId("base__q4") })] });
+    const legacyFineTune = model({
+      slug: "legacy",
+      label: "Legacy Tune",
+      runs: [
+        run({
+          run_id: runId("legacy__q4"),
+          lane: "capped-thinking",
+          diagnostic_composite: { point: 70, lo: 66, hi: 74 },
+        }),
+      ],
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(ModelScatter, {
+        model: base,
+        anchorRuns: [],
+        familyModels: [{ model: legacyFineTune, relation: "family-finetune" }],
+      }),
+    );
+
+    expect(html).not.toContain('href="/run/legacy__q4"');
+    expect(html).not.toContain("Legacy Tune");
+  });
+});

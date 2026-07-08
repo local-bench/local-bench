@@ -4,18 +4,19 @@ import { BestVariantVramScatter } from "@/components/best-variant-scatter";
 import { BestVariantTable } from "@/components/best-variant-table";
 import { HeroBanner } from "@/components/hero-banner";
 import { getHomePageData, getOnrampCatalog } from "@/lib/data";
-import { selectBestVariantPoints } from "@/lib/best-variant";
+import { selectBestModelVariantPoints, selectBestVariantPoints } from "@/lib/best-variant";
 
 export default async function HomePage() {
-  const { anchorRuns, rigCandidates } = await getHomePageData();
+  const { anchorRuns, catalogModels, rigCandidates } = await getHomePageData();
   const catalog = await getOnrampCatalog();
-  const bestVariantPoints = selectBestVariantPoints(rigCandidates);
+  const bestVariantPoints = selectBestVariantPoints(rigCandidates, { catalogModels });
+  const bestModelVariantPoints = selectBestModelVariantPoints(rigCandidates);
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <HeroBanner />
       <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
-      <BestVariantTable points={bestVariantPoints} />
+      <BestVariantTable points={bestModelVariantPoints} />
       <BenchmarkOnramp catalog={catalog.models} popularityAsOf={catalog.popularityAsOf} />
       <Link
         href="/leaderboard"

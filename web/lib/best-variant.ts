@@ -5,12 +5,16 @@ import {
   type RigMatchCandidate,
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
-import type { AxisScore, ConformanceGates, Score } from "./schemas";
+import { catalogModelMap, catalogRootEntry } from "./catalog-lineage";
+import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
   readonly modelSlug: string;
   readonly modelLabel: string;
   readonly family: string;
+  readonly weightsFamilyKey?: string;
+  readonly weightsFamilyLabel?: string;
+  readonly weightsFamilySlug?: string | null;
   readonly runId: string;
   readonly quantLabel: string | null;
   readonly score: Score;
@@ -24,12 +28,33 @@ export type BestVariantPoint = {
   readonly isFrontier: boolean;
 };
 
+export type BestVariantSelectionOptions = {
+  readonly catalogModels?: readonly CatalogModel[];
+  readonly contextTokens?: ContextLengthOption;
+};
+
+type EligibleRigMatchCandidate = RigMatchCandidate & {
+  readonly runId: string;
+  readonly score: Score;
+};
+
+type CatalogLookup = {
+  readonly byId: ReadonlyMap<string, CatalogModel>;
+  readonly bySlug: ReadonlyMap<string, CatalogModel>;
+};
+
+type WeightsFamilyRoot = {
+  readonly key: string;
+  readonly label: string;
+  readonly slug: string | null;
+};
+
 // A point is eligible only if it is a real, measured LOCAL model run in the headline scope.
 // Anchors (frontier/API references) are drawn as horizontal ceilings, not scatter points;
 // demo/missing rows are excluded so the chart never implies precision the data does not have.
 // The headline is the bounded-final lane scoped view, so other lanes (legacy capped-thinking,
 // answer-only diagnostics) are excluded here too.
-function isEligible(candidate: RigMatchCandidate): boolean {
+function isEligible(candidate: RigMatchCandidate): candidate is EligibleRigMatchCandidate {
   return (
     candidate.kind === "community" &&
     !candidate.demo &&
@@ -73,9 +98,30 @@ function isDominated(point: BestVariantPoint, others: readonly BestVariantPoint[
 
 export function selectBestVariantPoints(
   candidates: readonly RigMatchCandidate[],
-  contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
+  options: BestVariantSelectionOptions = {},
 ): readonly BestVariantPoint[] {
-  const bestByModel = new Map<string, BestVariantPoint>();
+  const catalogLookup = buildCatalogLookup(options.catalogModels);
+  return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
+    weightsFamilyRootFor(candidate, catalogLookup),
+  );
+}
+
+export function selectBestModelVariantPoints(
+  candidates: readonly RigMatchCandidate[],
+  options: BestVariantSelectionOptions = {},
+): readonly BestVariantPoint[] {
+  const catalogLookup = buildCatalogLookup(options.catalogModels);
+  return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
+    modelRootFor(candidate, catalogLookup),
+  );
+}
+
+function selectBestPoints(
+  candidates: readonly RigMatchCandidate[],
+  contextTokens: ContextLengthOption,
+  rootForCandidate: (candidate: EligibleRigMatchCandidate) => WeightsFamilyRoot,
+): readonly BestVariantPoint[] {
+  const bestByRoot = new Map<string, BestVariantPoint>();
   for (const candidate of candidates) {
     if (!isEligible(candidate)) {
       continue;
@@ -93,13 +139,17 @@ export function selectBestVariantPoints(
     if (vram === null) {
       continue;
     }
+    const weightsFamilyRoot = rootForCandidate(candidate);
     const pointBase = {
       modelSlug: candidate.modelSlug,
       modelLabel: candidate.modelLabel,
       family: candidate.family,
-      runId: candidate.runId as string,
+      weightsFamilyKey: weightsFamilyRoot.key,
+      weightsFamilyLabel: weightsFamilyRoot.label,
+      weightsFamilySlug: weightsFamilyRoot.slug,
+      runId: candidate.runId,
       quantLabel: candidate.quantLabel,
-      score: candidate.score as Score,
+      score: candidate.score,
       axes: candidate.axes,
       tokS: candidate.tokS,
       latencySMedian: candidate.latencySMedian,
@@ -112,12 +162,41 @@ export function selectBestVariantPoints(
       candidate.conformanceGates === undefined
         ? pointBase
         : { ...pointBase, conformanceGates: candidate.conformanceGates };
-    const incumbent = bestByModel.get(candidate.modelSlug);
+    const incumbent = bestByRoot.get(weightsFamilyRoot.key);
     if (incumbent === undefined || isBetterWithinModel(point, incumbent)) {
-      bestByModel.set(candidate.modelSlug, point);
+      bestByRoot.set(weightsFamilyRoot.key, point);
     }
   }
-  return markFrontier([...bestByModel.values()]);
+  return markFrontier([...bestByRoot.values()]);
+}
+
+function buildCatalogLookup(catalogModels: readonly CatalogModel[] | undefined): CatalogLookup | null {
+  if (catalogModels === undefined) {
+    return null;
+  }
+  return {
+    byId: catalogModelMap(catalogModels),
+    bySlug: new Map(catalogModels.map((model) => [model.slug, model])),
+  };
+}
+
+function modelRootFor(candidate: EligibleRigMatchCandidate, catalogLookup: CatalogLookup | null): WeightsFamilyRoot {
+  const entry = catalogLookup?.bySlug.get(candidate.modelSlug);
+  return entry === undefined
+    ? { key: candidate.modelSlug, label: candidate.modelLabel, slug: candidate.modelSlug }
+    : { key: entry.id, label: entry.display_name, slug: entry.slug };
+}
+
+function weightsFamilyRootFor(
+  candidate: EligibleRigMatchCandidate,
+  catalogLookup: CatalogLookup | null,
+): WeightsFamilyRoot {
+  const entry = catalogLookup?.bySlug.get(candidate.modelSlug);
+  if (entry === undefined || catalogLookup === null) {
+    return { key: candidate.modelSlug, label: candidate.modelLabel, slug: candidate.modelSlug };
+  }
+  const root = catalogRootEntry(entry, catalogLookup.byId);
+  return { key: root.id, label: root.display_name, slug: root.slug };
 }
 
 export function markFrontier(points: readonly BestVariantPoint[]): readonly BestVariantPoint[] {
