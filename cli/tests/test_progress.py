@@ -74,6 +74,34 @@ def test_progress_formatter_truncates_to_console_width() -> None:
     assert "ETA" in line
 
 
+def test_progress_status_line_renders_overall_bar() -> None:
+    formatter = ProgressLineFormatter(width=200, bar_width=20)
+    estimator = ProgressEstimator([BenchProgressPlan("mmlu_pro", 10)], min_samples=1)
+    estimator.record_completion("mmlu_pro", 5.0)
+
+    line = formatter.status_line(
+        estimator.snapshot(current_bench="mmlu_pro", current_bench_done=1, elapsed_seconds=5.0),
+    )
+
+    assert "[██░░░░░░░░░░░░░░░░░░]" in line
+    assert "10.0%" in line
+
+
+def test_progress_bar_clamps_and_fills_at_bounds() -> None:
+    formatter = ProgressLineFormatter(width=200, bar_width=10)
+
+    assert formatter._bar(0.0) == "[░░░░░░░░░░] "
+    assert formatter._bar(100.0) == "[██████████] "
+    assert formatter._bar(250.0) == "[██████████] "
+    assert formatter._bar(-5.0) == "[░░░░░░░░░░] "
+
+
+def test_progress_bar_falls_back_to_ascii_for_legacy_encodings() -> None:
+    formatter = ProgressLineFormatter(width=200, bar_width=10, bar_chars=("#", "-"))
+
+    assert formatter._bar(50.0) == "[#####-----] "
+
+
 def test_progress_prerun_total_line_reports_estimating_before_samples() -> None:
     formatter = ProgressLineFormatter(width=120)
 

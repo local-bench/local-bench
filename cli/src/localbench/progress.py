@@ -116,8 +116,16 @@ class ProgressEstimator:
 
 
 class ProgressLineFormatter:
-    def __init__(self, *, width: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        width: int | None = None,
+        bar_width: int = 20,
+        bar_chars: tuple[str, str] = ("█", "░"),
+    ) -> None:
         self._width = width
+        self._bar_width = max(0, bar_width)
+        self._bar_chars = bar_chars
 
     def prerun_total_line(self, plans: Sequence[BenchProgressPlan], eta_seconds: float | None = None) -> str:
         total = sum(max(0, plan.total_items) for plan in plans)
@@ -127,15 +135,35 @@ class ProgressLineFormatter:
 
     def status_line(self, snapshot: ProgressSnapshot) -> str:
         eta = "estimating..." if snapshot.eta_seconds is None else _format_seconds(snapshot.eta_seconds)
-        return self._truncate(
-            f"progress {snapshot.current_bench} "
-            f"{snapshot.current_bench_done}/{snapshot.current_bench_total} bench "
-            f"{snapshot.overall_done}/{snapshot.overall_total} "
-            f"{snapshot.percent:.1f}% e {_format_seconds(snapshot.elapsed_seconds)} ETA {eta}",
-        )
+
+        def render(bar: str) -> str:
+            return (
+                f"progress {snapshot.current_bench} "
+                f"{snapshot.current_bench_done}/{snapshot.current_bench_total} bench "
+                f"{snapshot.overall_done}/{snapshot.overall_total} "
+                f"{bar}{snapshot.percent:.1f}% e {_format_seconds(snapshot.elapsed_seconds)} ETA {eta}"
+            )
+
+        line = render(self._bar(snapshot.percent))
+        # On narrow consoles the bar is the expendable part: drop it before letting
+        # _truncate cut counts/ETA out of the middle of the line.
+        if len(line) > self._effective_width():
+            line = render("")
+        return self._truncate(line)
+
+    def _bar(self, percent: float) -> str:
+        if self._bar_width == 0:
+            return ""
+        clamped = min(100.0, max(0.0, percent))
+        filled = round(clamped / 100.0 * self._bar_width)
+        filled_char, empty_char = self._bar_chars
+        return f"[{filled_char * filled}{empty_char * (self._bar_width - filled)}] "
+
+    def _effective_width(self) -> int:
+        return self._width or shutil.get_terminal_size(fallback=(120, 20)).columns
 
     def _truncate(self, line: str) -> str:
-        width = self._width or shutil.get_terminal_size(fallback=(120, 20)).columns
+        width = self._effective_width()
         if width <= 0 or len(line) <= width:
             return line
         if width <= 4:
@@ -164,6 +192,17 @@ class NonTtyProgressCadence:
         self._last_time = now_seconds
 
 
+# Legacy Windows console codepages (cp850/cp1252 when stderr is redirected through
+# wrappers that report them) cannot encode the block glyphs; fall back to ASCII there.
+def _bar_chars_for_stream(stream: TextIO) -> tuple[str, str]:
+    encoding = getattr(stream, "encoding", None) or "utf-8"
+    try:
+        "█░".encode(encoding)
+    except (UnicodeEncodeError, LookupError):
+        return ("#", "-")
+    return ("█", "░")
+
+
 class ProgressReporter:
     def __init__(
         self,
@@ -177,7 +216,7 @@ class ProgressReporter:
     ) -> None:
         self._stream = stream or sys.stderr
         self._is_tty = self._stream.isatty() if is_tty is None else is_tty
-        self._formatter = ProgressLineFormatter(width=width)
+        self._formatter = ProgressLineFormatter(width=width, bar_chars=_bar_chars_for_stream(self._stream))
         self._clock = clock
         self._min_samples = min_samples
         self._rolling_window = rolling_window
