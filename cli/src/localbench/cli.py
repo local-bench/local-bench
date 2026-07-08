@@ -1357,6 +1357,11 @@ async def _preflight_server_context(
                 "server context could not be verified; pass --ctx-len-configured <n> "
                 f"for publishable bounded-final runs and ensure >= {_BOUNDED_FINAL_REQUIRED_CTX}",
             )
+        if ctx_len_configured < _BOUNDED_FINAL_REQUIRED_CTX:
+            raise EndpointPreflightError(
+                f"declared context {ctx_len_configured} is too small for publishable {lane}; "
+                f"restart the server with a >= {_BOUNDED_FINAL_REQUIRED_CTX} context and pass the true value",
+            )
         return None
     if observed < _BOUNDED_FINAL_REQUIRED_CTX:
         raise EndpointPreflightError(

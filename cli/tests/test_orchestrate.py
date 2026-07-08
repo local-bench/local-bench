@@ -354,6 +354,81 @@ def test_preflight_server_context_requires_configured_ctx_when_unverified(
     assert "warning    server context could not be verified; ensure >= 32768" in output
 
 
+def test_preflight_server_context_rejects_small_configured_ctx_when_unverified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def scenario() -> None:
+        # Given: a non-llama.cpp endpoint does not expose a /props context.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"error": "not found"})
+
+        # When / Then: an undersized user-declared context fails closed.
+        with pytest.raises(
+            EndpointPreflightError,
+            match=(
+                r"declared context 8192 is too small for publishable bounded-final-v2; "
+                r"restart the server with a >= 32768 context and pass the true value"
+            ),
+        ):
+            await _preflight_server_context(
+                "http://local/v1",
+                lane="bounded-final-v2",
+                publishable=True,
+                ctx_len_configured=8192,
+                transport=httpx.MockTransport(handler),
+            )
+
+    asyncio.run(scenario())
+    output = capsys.readouterr().out
+    assert "warning    server context could not be verified; ensure >= 32768" in output
+
+
+def test_preflight_server_context_accepts_floor_configured_ctx_when_unverified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def scenario() -> None:
+        # Given: a non-llama.cpp endpoint does not expose a /props context.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"error": "not found"})
+
+        # When: the declared context satisfies the publishable bounded-final floor.
+        observed = await _preflight_server_context(
+            "http://local/v1",
+            lane="bounded-final-v2",
+            publishable=True,
+            ctx_len_configured=32768,
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: preflight allows the run while leaving observed context unknown.
+        assert observed is None
+
+    asyncio.run(scenario())
+    output = capsys.readouterr().out
+    assert "warning    server context could not be verified; ensure >= 32768" in output
+
+
+def test_preflight_server_context_skips_probe_when_not_publishable() -> None:
+    async def scenario() -> None:
+        # Given: a non-publishable bounded-final run.
+        def unexpected_request(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"unexpected probe to {request.url}")
+
+        # When: server context preflight runs.
+        observed = await _preflight_server_context(
+            "http://local/v1",
+            lane="bounded-final-v2",
+            publishable=False,
+            ctx_len_configured=8192,
+            transport=httpx.MockTransport(unexpected_request),
+        )
+
+        # Then: it does not probe /props or enforce publishable-only context rules.
+        assert observed is None
+
+    asyncio.run(scenario())
+
+
 def test_preflight_server_context_rejects_configured_ctx_mismatch() -> None:
     async def scenario() -> None:
         # Given: the declared context is more than five percent above the probed context.
