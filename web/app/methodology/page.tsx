@@ -123,6 +123,14 @@ export default async function MethodologyPage() {
           never the model family. Legacy v1-lane rows keep their lane and index labels until they are re-run; the default
           board shows only the current index identity.
         </p>
+        <p>
+          The &ldquo;best at its size&rdquo; tag and the dotted line on the front-page chart mark the size-vs-score
+          Pareto frontier: a model is on it when no measured model is both higher-scoring and smaller (by the benchmarked
+          artifact&rsquo;s on-disk size plus estimated KV cache). It is a value-per-VRAM marker computed from point
+          estimates, not a capability tier. The chart shows one point per weights family &mdash; the best measured
+          variant across a base model, its fine-tunes, and their quants &mdash; while each model page compares variants
+          within the family.
+        </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">

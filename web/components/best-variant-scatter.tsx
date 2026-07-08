@@ -95,7 +95,7 @@ export function BestVariantVramScatter({
             Each point is a weights family at its best-scoring measured variant. Up = smarter; left = fits a smaller card.
             {/* The frontier line renders only at >=3 frontier points, so only describe it then. */}
             {frontier.length >= 3
-              ? " The dotted line is the point-estimate efficiency frontier — no measured model is both higher-scoring and smaller on current point estimates."
+              ? " The dotted line connects the models that are best at their size — nothing measured is both higher-scoring and smaller on current point estimates."
               : ""}{" "}
             Hover any point for details.
           </p>

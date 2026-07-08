@@ -92,9 +92,9 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                       {showFrontierChips && point.isFrontier ? (
                         <span
                           className="rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bench-accent"
-                          title="No ranked model is both smaller and higher-scoring (size-vs-score Pareto frontier). Not a capability tier."
+                          title="No ranked model is both smaller and higher-scoring — the best pick at this VRAM budget (size-vs-score Pareto frontier; see Methodology). Not a capability tier."
                         >
-                          efficiency frontier
+                          best at its size
                         </span>
                       ) : null}
                     </span>
