@@ -1,0 +1,9 @@
+{
+  "id": "Creator/Quantized-Only-GGUF",
+  "cardData": {},
+  "tags": [
+    "gguf",
+    "base_model:quantized:Qwen/Qwen3.6-27B",
+    "base_model:adapter:Creator/Quantized-Only-Adapter"
+  ]
+}

@@ -320,6 +320,141 @@ def test_ranked_coding_provenance_guard_blocks_self_reported_coding() -> None:
     )
 
 
+def test_lineage_gate_blocks_ranked_measured_row_without_catalog_entry() -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("local-finetune", catalog_id=None, ranked=True)]
+    catalog = [_gate_catalog_entry("Base/Model", "base-model")]
+
+    with pytest.raises(builder.DataBuildError, match="LINEAGE GATE failed") as excinfo:
+        builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    message = str(excinfo.value)
+    assert "measured row without catalog entry: slug=local-finetune" in message
+    assert "Pass --allow-lineage-gaps to downgrade this failure to a warning." in message
+
+
+def test_lineage_gate_blocks_missing_catalog_base_chain() -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("missing-base-tune", catalog_id="Tune/Missing-Base", ranked=True)]
+    catalog = [
+        _gate_catalog_entry(
+            "Tune/Missing-Base",
+            "missing-base-tune",
+            base_model="Base/Missing",
+            model_kind="finetune",
+        )
+    ]
+
+    with pytest.raises(builder.DataBuildError, match="LINEAGE GATE failed") as excinfo:
+        builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    assert (
+        "base-chain-missing: slug=missing-base-tune catalog_id=Tune/Missing-Base "
+        "base_model=Base/Missing missing=Base/Missing"
+    ) in str(excinfo.value)
+
+
+def test_integrity_gates_pass_clean_catalogued_lineage(capsys: pytest.CaptureFixture[str]) -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("clean-tune", catalog_id="Tune/Clean", ranked=True, quant_label="Q4_K_M", vram_footprint_gb=10.2)]
+    catalog = [
+        _gate_catalog_entry("Base/Clean", "base-clean"),
+        _gate_catalog_entry(
+            "Tune/Clean",
+            "clean-tune",
+            base_model="Base/Clean",
+            model_kind="finetune",
+            quants=[{"label": "Q4_K_M", "file_gb": 10.0}],
+        ),
+    ]
+
+    builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    assert capsys.readouterr().err == ""
+
+
+def test_allow_lineage_gaps_downgrades_lineage_gate_to_warning(capsys: pytest.CaptureFixture[str]) -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("local-finetune", catalog_id=None, ranked=True)]
+
+    builder._enforce_integrity_gates(runs, [], allow_lineage_gaps=True)
+
+    captured = capsys.readouterr()
+    assert "LINEAGE GATE warning (--allow-lineage-gaps):" in captured.err
+    assert "measured row without catalog entry: slug=local-finetune" in captured.err
+
+
+def test_size_gate_warns_when_measured_artifact_size_diverges_from_catalog(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("large-drift", catalog_id="Drift/Model", ranked=True, quant_label="Q4_K_M", vram_footprint_gb=12.5)]
+    catalog = [
+        _gate_catalog_entry(
+            "Drift/Model",
+            "large-drift",
+            quants=[{"label": "Q4_K_M", "file_gb": 10.0}],
+        )
+    ]
+
+    builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    captured = capsys.readouterr()
+    assert (
+        "SIZE GATE warning:\n"
+        "- slug=large-drift run_id=large-drift__run quant=Q4_K_M: "
+        "measured vram_footprint_gb=12.5 (model row vram_footprint_gb from web/data_sources.json) "
+        "vs catalog file_gb=10 (web/model_catalog.json quants[].file_gb), delta=25.0%"
+    ) in captured.err
+
+
+def test_build_data_main_passes_allow_lineage_gaps_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    builder = _build_data_module()
+    sources = tmp_path / "sources.json"
+    sources.write_text("[]", encoding="utf-8")
+    out_dir = tmp_path / "generated"
+    captured_allow: list[bool] = []
+
+    def fake_build_static_data(
+        sources_path: Path,
+        output_dir: Path,
+        *,
+        iters: int = 0,
+        benches: tuple[str, ...] = (),
+        weights: dict[str, float] | None = None,
+        allow_lineage_gaps: bool = False,
+    ) -> None:
+        assert sources_path == sources
+        assert output_dir == out_dir
+        assert iters == 1
+        assert benches
+        assert weights is not None
+        captured_allow.append(allow_lineage_gaps)
+        output_dir.mkdir(parents=True)
+        (output_dir / "index.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(builder, "build_static_data", fake_build_static_data)
+    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir: None)
+
+    code = builder.main(
+        [
+            "--allow-lineage-gaps",
+            "--sources",
+            str(sources),
+            "--out",
+            str(out_dir),
+            "--iters",
+            "1",
+        ],
+    )
+
+    assert code == 0
+    assert captured_allow == [True]
+
+
 def test_code_verdict_source_fails_closed_on_mixed_provenance() -> None:
     # A single self-reported ("submitter") coding item must taint the aggregate, so a mostly-verifier
     # run with one forged submitter item does not aggregate to "verifier" and slip past the guard.
@@ -593,12 +728,14 @@ def test_build_data_main_reports_absolute_out_dir_when_outside_repo(
         iters: int = 0,
         benches: tuple[str, ...] = (),
         weights: dict[str, float] | None = None,
+        allow_lineage_gaps: bool = False,
     ) -> None:
         assert sources_path == sources
         assert output_dir == out_dir
         assert iters == 1
         assert benches
         assert weights is not None
+        assert allow_lineage_gaps is False
         output_dir.mkdir(parents=True)
         (output_dir / "index.json").write_text("{}", encoding="utf-8")
 
@@ -811,6 +948,56 @@ def _harness_dominated_agentic_run() -> JsonObject:
         "subset_size": 1,
         "diagnostics": diagnostics,
         "runs": [{"run_index": 1, "results_path": "agentic/run1.json", **diagnostics}],
+    }
+
+
+def _gate_run(
+    slug: str,
+    *,
+    catalog_id: str | None,
+    ranked: bool,
+    quant_label: str | None = "Q4_K_M",
+    vram_footprint_gb: float | None = 10.0,
+) -> JsonObject:
+    return {
+        "catalog_id": catalog_id,
+        "index_row": {
+            "ranked": ranked,
+            "score_status": "measured",
+            "slug": slug,
+        },
+        "model_row": {
+            "quant_label": quant_label,
+            "score_status": "measured",
+            "vram_footprint_gb": vram_footprint_gb,
+        },
+        "run_id": f"{slug}__run",
+        "slug": slug,
+    }
+
+
+def _gate_catalog_entry(
+    model_id: str,
+    slug: str,
+    *,
+    base_model: str | None = None,
+    model_kind: str = "base",
+    quants: list[JsonObject] | None = None,
+) -> JsonObject:
+    return {
+        "base_model": base_model,
+        "display_name": model_id.rsplit("/", 1)[-1],
+        "family": "Fixture",
+        "gguf_repo": None,
+        "id": model_id,
+        "is_moe": False,
+        "license": "apache-2.0",
+        "model_kind": model_kind,
+        "org": model_id.split("/", 1)[0],
+        "popularity": {},
+        "quants": quants or [],
+        "reasoning_capable": True,
+        "slug": slug,
     }
 
 

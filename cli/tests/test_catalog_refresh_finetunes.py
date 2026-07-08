@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 ResponseMap = dict[tuple[str, tuple[tuple[str, str], ...]], tuple[int, JsonValue]]
+HF_PAYLOAD_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "hf_model_payloads"
 
 
 def load_catalog_refresh() -> ModuleType:
@@ -394,3 +396,90 @@ def test_discover_finetunes_honors_per_base_cap_override(tmp_path: Path) -> None
     assert all(entry["base_model"] == base_id for entry in promoted)
     report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
     assert "caps: default top 2 per base, overrides 1 base(s), 24 total new entries" in report
+
+
+def test_declared_base_model_prefers_first_full_weights_parent_from_card_data_list() -> None:
+    catalog_refresh = load_catalog_refresh()
+    payload = hf_payload("list-valued-base-model.json")
+
+    assert catalog_refresh.declared_base_model(payload) == "Qwen/Qwen3.6-27B"
+
+
+def test_declared_base_model_ignores_adapter_and_quantized_relation_tags() -> None:
+    catalog_refresh = load_catalog_refresh()
+
+    assert catalog_refresh.declared_base_model(hf_payload("tagged-full-weights-parent.json")) == "Qwen/Qwen3.6-27B"
+    assert catalog_refresh.declared_base_model(hf_payload("quantized-only-parent.json")) is None
+
+
+def test_auto_stamped_base_model_honors_denylist_null_override(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    denylist = tmp_path / "catalog_discovery_denylist.json"
+    denylist.write_text(
+        json.dumps(
+            {
+                "Creator/Wrong-Lineage": {
+                    "reason": "HF card is stale",
+                    "base_model": None,
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    catalog_refresh.CATALOG_DISCOVERY_DENYLIST_PATH = denylist
+    catalog_refresh._DISCOVERY_DENYLIST_CACHE = None
+
+    assert catalog_refresh.auto_stamped_base_model(
+        "Creator/Wrong-Lineage",
+        {"cardData": {"base_model": "Wrong/Base"}, "tags": ["base_model:finetune:Wrong/Base"]},
+    ) is None
+
+
+def test_verify_entry_honors_denylist_null_lineage_override(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    denylist = tmp_path / "catalog_discovery_denylist.json"
+    denylist.write_text(
+        json.dumps({"Creator/Wrong-Lineage": {"reason": "HF card is stale", "base_model": None}}) + "\n",
+        encoding="utf-8",
+    )
+    catalog_refresh.CATALOG_DISCOVERY_DENYLIST_PATH = denylist
+    catalog_refresh._DISCOVERY_DENYLIST_CACHE = None
+    entry = {
+        "id": "Creator/Wrong-Lineage",
+        "gguf_repo": "Creator/Wrong-Lineage-GGUF",
+        "license": "apache-2.0",
+        "params_b": 27,
+        "quants": [],
+        "base_model": "Wrong/Base",
+    }
+    proposed = dict(entry)
+    client = FakeClient(
+        {
+            ("/models/Creator/Wrong-Lineage", tuple(("expand[]", item) for item in catalog_refresh.CANONICAL_EXPAND)): (
+                200,
+                {"cardData": {"base_model": "Wrong/Base", "license": "apache-2.0"}, "tags": ["base_model:finetune:Wrong/Base"]},
+            ),
+            ("/models/Creator/Wrong-Lineage-GGUF", (("blobs", "true"),)): (
+                200,
+                {
+                    "id": "Creator/Wrong-Lineage-GGUF",
+                    "cardData": {"base_model": "Wrong/Base"},
+                    "tags": ["base_model:finetune:Wrong/Base"],
+                    "siblings": [{"rfilename": "model-Q4_K_M.gguf", "size": 10_000_000_000}],
+                    "gguf": {"total": 27_000_000_000},
+                },
+            ),
+        }
+    )
+
+    catalog_refresh.verify_entry(client, entry, proposed)
+
+    assert proposed["base_model"] is None
+
+
+def hf_payload(name: str) -> dict[str, JsonValue]:
+    with (HF_PAYLOAD_FIXTURES / name).open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    assert isinstance(payload, dict)
+    return payload

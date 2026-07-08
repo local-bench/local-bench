@@ -55,19 +55,41 @@ MIN_FINETUNE_LIKES = 50
 RECIPE_GRADE_QUANTS = ("FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K")
 CATALOG_DISCOVERY_CAPS_PATH = Path(__file__).resolve().with_name("catalog_discovery_caps.json")
 CATALOG_DISCOVERY_DENYLIST_PATH = Path(__file__).resolve().with_name("catalog_discovery_denylist.json")
-_DISCOVERY_DENYLIST_CACHE: set[str] | None = None
+_DISCOVERY_DENYLIST_CACHE: dict[str, Any] | None = None
+FULL_WEIGHT_BASE_RELATIONS = ("", "finetune", "merge", "distill")
+PACKAGING_BASE_RELATIONS = ("adapter", "quantized")
 
 
-def _discovery_denylist() -> set[str]:
+def _discovery_denylist_entries() -> dict[str, Any]:
     global _DISCOVERY_DENYLIST_CACHE
     if _DISCOVERY_DENYLIST_CACHE is None:
         try:
             raw = json.loads(CATALOG_DISCOVERY_DENYLIST_PATH.read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            raw = []
-        entries = raw.keys() if isinstance(raw, dict) else raw if isinstance(raw, list) else []
-        _DISCOVERY_DENYLIST_CACHE = {str(item).lower() for item in entries}
+            raw = {}
+        if isinstance(raw, dict):
+            _DISCOVERY_DENYLIST_CACHE = {str(key).lower(): value for key, value in raw.items()}
+        elif isinstance(raw, list):
+            _DISCOVERY_DENYLIST_CACHE = {str(item).lower(): True for item in raw}
+        else:
+            _DISCOVERY_DENYLIST_CACHE = {}
     return _DISCOVERY_DENYLIST_CACHE
+
+
+def _discovery_denylist() -> set[str]:
+    return set(_discovery_denylist_entries())
+
+
+def _lineage_override(repo_id: str) -> tuple[bool, str | None]:
+    entry = _discovery_denylist_entries().get(repo_id.lower())
+    if not isinstance(entry, dict) or "base_model" not in entry:
+        return False, None
+    base_model = entry.get("base_model")
+    if isinstance(base_model, str) and base_model.strip():
+        return True, base_model.strip()
+    return True, None
+
+
 FINETUNE_PROBE_KINDS = ("finetune", "merge", "adapter")
 
 # Canonical-model detail fields (expand[] cannot be combined with blobs=true, so the
@@ -343,21 +365,65 @@ def license_from_meta(meta: dict[str, Any]) -> str | None:
     return lic
 
 
-def declared_base_model(meta: dict[str, Any]) -> str | list[str] | None:
+def _base_model_values(value: Any) -> list[str]:
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    if isinstance(value, list):
+        return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    return []
+
+
+def _base_model_value_relation(value: str) -> tuple[str, str]:
+    if value.startswith("base_model:"):
+        rels = base_model_relations([value])
+        return rels[0] if rels else ("", "")
+    for kind in (*FULL_WEIGHT_BASE_RELATIONS[1:], *PACKAGING_BASE_RELATIONS):
+        prefix = f"{kind}:"
+        if value.startswith(prefix):
+            return kind, value[len(prefix) :].strip()
+    return "", value
+
+
+def _first_full_weight_base(values: list[str]) -> str | None:
+    for value in values:
+        kind, base_id = _base_model_value_relation(value)
+        if kind in PACKAGING_BASE_RELATIONS:
+            continue
+        if base_id:
+            return base_id
+    return None
+
+
+def declared_base_model(meta: dict[str, Any]) -> str | None:
     card = meta.get("cardData") or {}
-    base = card.get("base_model")
-    if isinstance(base, list):
-        base = [b for b in base if isinstance(b, str) and b.strip()]
-        if not base:
-            return None
-        return base[0] if len(base) == 1 else base
-    if isinstance(base, str) and base.strip():
-        return base.strip()
+    if isinstance(card, dict):
+        base = _first_full_weight_base(_base_model_values(card.get("base_model")))
+        if base is not None:
+            return base
     rels = base_model_relations(meta.get("tags") or [])
-    bases = sorted({b for _, b in rels})
-    if not bases:
-        return None
-    return bases[0] if len(bases) == 1 else bases
+    for relation_kind in FULL_WEIGHT_BASE_RELATIONS:
+        for kind, base_id in rels:
+            if kind == relation_kind and base_id.strip():
+                return base_id.strip()
+    return None
+
+
+def _auto_stamped_base_model_result(repo_ids: tuple[str, ...], meta: dict[str, Any]) -> tuple[bool, str | None]:
+    for repo_id in repo_ids:
+        overridden, base_model = _lineage_override(repo_id)
+        if overridden:
+            return True, base_model
+    meta_id = meta.get("id")
+    if isinstance(meta_id, str) and meta_id not in repo_ids:
+        overridden, base_model = _lineage_override(meta_id)
+        if overridden:
+            return True, base_model
+    base_model = declared_base_model(meta)
+    return (base_model is not None), base_model
+
+
+def auto_stamped_base_model(repo_id: str, meta: dict[str, Any]) -> str | None:
+    return _auto_stamped_base_model_result((repo_id,), meta)[1]
 
 
 def _name_tokens(repo_or_id: str) -> list[str]:
@@ -454,11 +520,13 @@ def verify_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, An
             res.license_change = (entry["license"], hf_license)
             proposed["license"] = hf_license
 
-        base = declared_base_model(meta)
-        if base:
+        has_base, base = _auto_stamped_base_model_result((entry["id"],), meta)
+        if has_base:
             res.base_model = base
             rebuilt = {}
             for k, v in proposed.items():
+                if k == "base_model":
+                    continue
                 rebuilt[k] = v
                 if k == "license":
                     rebuilt["base_model"] = base
@@ -671,12 +739,11 @@ def discover(
             if isinstance(total, (int, float)) and total > 0:
                 c.params_b = round(total / 1e9, 1)
                 c.params_src = "gguf"
-            base = declared_base_model(meta)
-            if base and not c.base_id:
-                first = base[0] if isinstance(base, list) else base
-                c.base_id = first
-                c.relation = f"derived of {first}"
-                c.base_in_catalog = first.lower() in catalog_ids
+            has_base, base = _auto_stamped_base_model_result((c.repo_id,), meta)
+            if has_base and base and not c.base_id:
+                c.base_id = base
+                c.relation = f"derived of {base}"
+                c.base_in_catalog = base.lower() in catalog_ids
 
     # for the top safetensors fine-tunes, probe whether someone published a GGUF of them
     probed = 0
@@ -907,7 +974,7 @@ def base_lineage_matches(meta: dict[str, Any], candidate: FineTuneCandidate) -> 
     base = declared_base_model(meta)
     if base is None:
         return True
-    bases = base if isinstance(base, list) else [base]
+    bases = [base]
     accepted = {candidate.base_id}
     if candidate.gguf_repo:
         accepted.add(candidate.repo_id)
@@ -1045,6 +1112,7 @@ def verify_finetune_candidate(
     if not recipe_quants:
         return FineTuneRejection(candidate, "no recipe-grade GGUF quant with real file size")
 
+    has_stamped_base, stamped_base = _auto_stamped_base_model_result((canonical_id, candidate.repo_id, gguf_repo), meta)
     entry = {
         "id": canonical_id,
         "slug": slugify_model(canonical_id.rsplit("/", 1)[-1]),
@@ -1055,7 +1123,7 @@ def verify_finetune_candidate(
         "is_moe": bool(candidate.base_entry.get("is_moe")),
         "reasoning_capable": bool(candidate.base_entry.get("reasoning_capable")),
         "license": license_id,
-        "base_model": candidate.base_id,
+        "base_model": stamped_base if has_stamped_base else candidate.base_id,
         "model_kind": candidate.relation_kind if candidate.relation_kind in ("distill", "merge") else "finetune",
         "popularity": {"downloads": candidate.downloads, "likes": candidate.likes, "trending": candidate.trending},
         "gguf_repo": gguf_repo,

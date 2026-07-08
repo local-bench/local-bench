@@ -83,10 +83,17 @@ class BoardContext:
     models_by_slug: dict[str, JsonObject]
 
 
+@dataclass(frozen=True, slots=True)
+class BuildDataFlags:
+    argv: list[str]
+    allow_lineage_gaps: bool
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
-        sources, out_dir, iters, benches, weights = parse_args(sys.argv[1:] if argv is None else argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
-        build_static_data(sources, out_dir, iters=iters, benches=benches, weights=weights)
+        flags = _extract_build_data_flags(sys.argv[1:] if argv is None else argv)
+        sources, out_dir, iters, benches, weights = parse_args(flags.argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
+        build_static_data(sources, out_dir, iters=iters, benches=benches, weights=weights, allow_lineage_gaps=flags.allow_lineage_gaps)
     except (DataBuildError, OSError, json.JSONDecodeError) as exc:
         print(f"build_data: {exc}", file=sys.stderr)
         return 2
@@ -97,6 +104,17 @@ def main(argv: list[str] | None = None) -> int:
     # Best-effort: a malformed agentic run must not fail the canonical index build.
     _build_agentic_column(out_dir)
     return 0
+
+
+def _extract_build_data_flags(argv: list[str]) -> BuildDataFlags:
+    filtered: list[str] = []
+    allow_lineage_gaps = False
+    for arg in argv:
+        if arg == "--allow-lineage-gaps":
+            allow_lineage_gaps = True
+            continue
+        filtered.append(arg)
+    return BuildDataFlags(argv=filtered, allow_lineage_gaps=allow_lineage_gaps)
 
 
 def _build_agentic_column(out_dir: Path) -> None:
@@ -115,11 +133,26 @@ def _build_agentic_column(out_dir: Path) -> None:
         print(f"build_data: agentic column skipped ({exc})", file=sys.stderr)
 
 
-def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT_ITERS, benches: tuple[str, ...] = BENCHES, weights: dict[str, float] = COMPOSITE_WEIGHTS) -> None:
+def build_static_data(
+    sources_path: Path,
+    out_dir: Path,
+    *,
+    iters: int = DEFAULT_ITERS,
+    benches: tuple[str, ...] = BENCHES,
+    weights: dict[str, float] = COMPOSITE_WEIGHTS,
+    allow_lineage_gaps: bool = False,
+) -> None:
     sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
-    catalog = catalog_entries(_read_json(ROOT / "web" / CATALOG_FILENAME))
+    raw_catalog = _read_json(ROOT / "web" / CATALOG_FILENAME)
+    catalog = catalog_entries(raw_catalog)
     board = _board_context()
     runs = [_build_run(source, order=index, iters=iters, benches=benches, weights=weights, board=board) for index, source in enumerate(sources)]
+    _enforce_integrity_gates(
+        runs,
+        catalog,
+        allow_lineage_gaps=allow_lineage_gaps,
+        base_models_by_id=_catalog_base_models_by_id(raw_catalog),
+    )
     _write_outputs(out_dir, runs, catalog)
 
 
@@ -650,6 +683,176 @@ def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
                 f"Re-execute the coding under the maintainer sandbox verifier and curate the source as "
                 f"project_anchor, or leave the row unranked."
             )
+
+
+def _enforce_integrity_gates(
+    runs: list[JsonObject],
+    catalog: list[JsonObject],
+    *,
+    allow_lineage_gaps: bool,
+    base_models_by_id: dict[str, list[str]] | None = None,
+) -> None:
+    by_id = {catalog_key(entry): entry for entry in catalog}
+    by_slug = {catalog_slug(entry): entry for entry in catalog}
+    base_lookup = base_models_by_id or _catalog_base_models_from_entries(catalog)
+    lineage_issues = _lineage_gate_issues(runs, by_id, by_slug, base_lookup)
+    if lineage_issues:
+        if allow_lineage_gaps:
+            print("LINEAGE GATE warning (--allow-lineage-gaps):\n" + "\n".join(lineage_issues), file=sys.stderr)
+        else:
+            raise DataBuildError(
+                "LINEAGE GATE failed:\n"
+                + "\n".join(lineage_issues)
+                + "\nPass --allow-lineage-gaps to downgrade this failure to a warning."
+            )
+    size_warnings = _size_gate_warnings(runs, by_id, by_slug)
+    if size_warnings:
+        print("SIZE GATE warning:\n" + "\n".join(size_warnings), file=sys.stderr)
+
+
+def _lineage_gate_issues(
+    runs: list[JsonObject],
+    by_id: dict[str, JsonObject],
+    by_slug: dict[str, JsonObject],
+    base_models_by_id: dict[str, list[str]],
+) -> list[str]:
+    issues: list[str] = []
+    for run in runs:
+        if not _lineage_gated_run(run):
+            continue
+        entry = _catalog_entry_for_run(run, by_id, by_slug)
+        slug = _string(run["slug"], "run.slug")
+        run_id = _text(run.get("run_id")) or "<none>"
+        if entry is None:
+            issues.append(
+                f"- measured row without catalog entry: slug={slug} run_id={run_id} "
+                f"catalog_id={_text(run.get('catalog_id')) or '<none>'}"
+            )
+            continue
+        issues.extend(_base_chain_issues(slug, entry, by_id, base_models_by_id))
+    return issues
+
+
+def _lineage_gated_run(run: JsonObject) -> bool:
+    index_row = _object(run["index_row"], "run.index_row")
+    return index_row.get("score_status") == "measured" and _bool(index_row.get("ranked"), "index_row.ranked")
+
+
+def _catalog_entry_for_run(
+    run: JsonObject,
+    by_id: dict[str, JsonObject],
+    by_slug: dict[str, JsonObject],
+) -> JsonObject | None:
+    key = run_catalog_key(run)
+    if key is not None and key in by_id:
+        return by_id[key]
+    return by_slug.get(_string(run["slug"], "run.slug"))
+
+
+def _base_chain_issues(
+    slug: str,
+    entry: JsonObject,
+    by_id: dict[str, JsonObject],
+    base_models_by_id: dict[str, list[str]],
+) -> list[str]:
+    model_kind = _text(entry.get("model_kind")) or "base"
+    if model_kind == "base":
+        return []
+    catalog_id = _string(entry["id"], "catalog.id")
+    bases = base_models_by_id.get(catalog_id.lower(), _base_model_values(entry.get("base_model")))
+    if not bases:
+        return [f"- base-chain-missing: slug={slug} catalog_id={catalog_id} base_model=<missing> missing=<missing>"]
+    issues: list[str] = []
+    for base_model in bases:
+        missing = _missing_base_in_chain(base_model, by_id, base_models_by_id, visited={catalog_id.lower()})
+        if missing is not None:
+            issues.append(
+                f"- base-chain-missing: slug={slug} catalog_id={catalog_id} "
+                f"base_model={base_model} missing={missing}"
+            )
+    return issues
+
+
+def _missing_base_in_chain(
+    base_model: str,
+    by_id: dict[str, JsonObject],
+    base_models_by_id: dict[str, list[str]],
+    *,
+    visited: set[str],
+) -> str | None:
+    key = base_model.lower()
+    entry = by_id.get(key)
+    if entry is None:
+        return base_model
+    if key in visited:
+        return None
+    visited.add(key)
+    for parent in base_models_by_id.get(key, _base_model_values(entry.get("base_model"))):
+        missing = _missing_base_in_chain(parent, by_id, base_models_by_id, visited=visited)
+        if missing is not None:
+            return missing
+    return None
+
+
+def _size_gate_warnings(
+    runs: list[JsonObject],
+    by_id: dict[str, JsonObject],
+    by_slug: dict[str, JsonObject],
+) -> list[str]:
+    warnings: list[str] = []
+    for run in runs:
+        model_row = _object(run["model_row"], "run.model_row")
+        if model_row.get("score_status") != "measured":
+            continue
+        entry = _catalog_entry_for_run(run, by_id, by_slug)
+        quant_label = _text(model_row.get("quant_label"))
+        measured_gb = _number_or_none(model_row.get("vram_footprint_gb"))
+        if entry is None or quant_label is None or measured_gb is None:
+            continue
+        catalog_gb = _catalog_file_gb(entry, quant_label)
+        if catalog_gb is None or catalog_gb <= 0:
+            continue
+        delta = abs(measured_gb - catalog_gb) / catalog_gb
+        if delta > 0.10:
+            warnings.append(
+                f"- slug={_string(run['slug'], 'run.slug')} run_id={_text(run.get('run_id')) or '<none>'} "
+                f"quant={quant_label}: measured vram_footprint_gb={measured_gb:g} "
+                "(model row vram_footprint_gb from web/data_sources.json) "
+                f"vs catalog file_gb={catalog_gb:g} (web/model_catalog.json quants[].file_gb), "
+                f"delta={delta * 100:.1f}%"
+            )
+    return warnings
+
+
+def _catalog_file_gb(entry: JsonObject, quant_label: str) -> float | None:
+    for quant in _list(entry.get("quants"), "catalog.quants"):
+        quant_entry = _object(quant, "catalog.quant")
+        if _text(quant_entry.get("label")) == quant_label:
+            return _number_or_none(quant_entry.get("file_gb"))
+    return None
+
+
+def _catalog_base_models_by_id(raw_catalog: JsonValue) -> dict[str, list[str]]:
+    raw_items = raw_catalog if isinstance(raw_catalog, list) else _list(_object(raw_catalog, "model_catalog").get("models"), "model_catalog.models")
+    by_id: dict[str, list[str]] = {}
+    for item in raw_items:
+        entry = _object(item, "model_catalog.entry")
+        model_id = _text(entry.get("id"))
+        if model_id is not None:
+            by_id[model_id.lower()] = _base_model_values(entry.get("base_model"))
+    return by_id
+
+
+def _catalog_base_models_from_entries(catalog: list[JsonObject]) -> dict[str, list[str]]:
+    return {_string(entry["id"], "catalog.id").lower(): _base_model_values(entry.get("base_model")) for entry in catalog}
+
+
+def _base_model_values(value: JsonValue | None) -> list[str]:
+    if isinstance(value, str) and value:
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str) and item]
+    return []
 
 
 def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObject]) -> None:

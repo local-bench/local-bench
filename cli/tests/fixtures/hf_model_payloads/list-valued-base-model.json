@@ -1,0 +1,14 @@
+{
+  "id": "Creator/List-Valued-Tune",
+  "cardData": {
+    "base_model": [
+      "Qwen/Qwen3.6-27B",
+      "Creator/List-Valued-Tune-Adapter"
+    ]
+  },
+  "tags": [
+    "base_model:adapter:Creator/List-Valued-Tune-Adapter",
+    "base_model:quantized:Creator/List-Valued-Tune-GGUF",
+    "base_model:finetune:Qwen/Qwen3.6-27B"
+  ]
+}

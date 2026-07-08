@@ -1,0 +1,10 @@
+{
+  "id": "Creator/Tagged-Tune-GGUF",
+  "cardData": {},
+  "tags": [
+    "gguf",
+    "base_model:adapter:Creator/Tagged-Tune-Adapter",
+    "base_model:quantized:Creator/Tagged-Tune-GGUF",
+    "base_model:finetune:Qwen/Qwen3.6-27B"
+  ]
+}
