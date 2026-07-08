@@ -6,9 +6,11 @@ import {
   type ContextLengthOption,
   type VramEstimate,
 } from "./rig-match";
+import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, ModelData, Score } from "./schemas";
 
 export type CompareCoverage = "full" | "partial";
+export type CompareScoreScope = "current-index" | "previous-index";
 
 export type CompareConfig = {
   readonly axes: Record<string, AxisScore>;
@@ -17,10 +19,12 @@ export type CompareConfig = {
   readonly demo: boolean;
   readonly fitTierGb: number | null;
   readonly id: string;
+  readonly lane: string | null;
   readonly modelLabel: string;
   readonly modelSlug: string;
   readonly quantLabel: string;
   readonly runId: string;
+  readonly scoreScope: CompareScoreScope;
   readonly tokS: number | null;
   readonly vramEstimate: VramEstimate | null;
 };
@@ -43,7 +47,8 @@ export function getCompareConfigs(
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
-        if (!isNonEmptyString(run.quant_label) || run.composite === null || run.run_id === null) {
+        const score = scoreForRun(run);
+        if (!isNonEmptyString(run.quant_label) || score === null || run.run_id === null) {
           return [];
         }
         const vramEstimate = estimateVramRequirement(
@@ -57,15 +62,17 @@ export function getCompareConfigs(
         return [
           {
             axes: run.axes,
-            composite: run.composite,
+            composite: score,
             coverage: coverageForAxes(run.axes),
             demo: model.demo || run.demo,
             fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
             id: run.run_id,
+            lane: run.lane,
             modelLabel: model.model_label,
             modelSlug: model.slug,
             quantLabel: run.quant_label,
             runId: run.run_id,
+            scoreScope: scoreScopeForLane(run.lane),
             tokS: run.tok_s,
             vramEstimate,
           },
@@ -97,10 +104,26 @@ function isNonEmptyString(value: string | null): value is string {
 
 function compareConfigs(left: CompareConfig, right: CompareConfig): number {
   return (
+    scopeRank(left) - scopeRank(right) ||
     right.composite.point - left.composite.point ||
     left.modelLabel.localeCompare(right.modelLabel) ||
     left.quantLabel.localeCompare(right.quantLabel)
   );
+}
+
+function scopeRank(config: CompareConfig): number {
+  return config.scoreScope === "current-index" ? 0 : 1;
+}
+
+function scoreScopeForLane(lane: string | null): CompareScoreScope {
+  return lane === HEADLINE_LANE ? "current-index" : "previous-index";
+}
+
+function scoreForRun(run: ModelData["runs"][number]): Score | null {
+  if (run.lane === HEADLINE_LANE) {
+    return run.composite;
+  }
+  return run.diagnostic_composite ?? run.composite;
 }
 
 function winnerFor(delta: number): "left" | "right" | "tie" {

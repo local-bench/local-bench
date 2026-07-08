@@ -1,3 +1,5 @@
+Historical record: this describes Local Intelligence Index v2.1, superseded by index-v3.0 (see local-bench.ai/methodology). Kept unchanged as the v2.1 methodology record.
+
 # Scoring methodology - Local Intelligence Index v2.1
 
 Status: 2026-06-28. The implementation source of truth is the axis registry in `cli/src/localbench/scoring/axes.py` and the benchmark module registry in `cli/src/localbench/scoring/benchmark_registry.py`.

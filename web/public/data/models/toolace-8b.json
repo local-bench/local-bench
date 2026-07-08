@@ -1,0 +1,50 @@
+{
+  "base_model": "meta-llama/Llama-3.1-8B-Instruct",
+  "catalog_id": "Team-ACE/ToolACE-8B",
+  "demo": false,
+  "family": "Llama 3.1",
+  "gguf_repo": "Nekuromento/ToolACE-8B-Q4_K_M-GGUF",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "finetune",
+  "model_label": "ToolACE 8B",
+  "org": "Team-ACE",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 4.9,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 4.9,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q4_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 4.9,
+      "vram_required_gb_8k": 6.3,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "toolace-8b"
+}

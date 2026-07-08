@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 ResponseMap = dict[tuple[str, tuple[tuple[str, str], ...]], tuple[int, JsonValue]]
+HF_PAYLOAD_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "hf_model_payloads"
 
 
 def load_catalog_refresh() -> ModuleType:
@@ -77,12 +79,38 @@ def gguf_detail(repo_id: str, base_id: str, quant_label: str = "Q4_K_M", size: i
     }
 
 
-def args(catalog_path: Path) -> argparse.Namespace:
-    return argparse.Namespace(catalog=str(catalog_path))
+def hf_item(
+    repo_id: str,
+    base_id: str,
+    downloads: int,
+    likes: int,
+    relation_kind: str = "finetune",
+) -> dict[str, JsonValue]:
+    return {
+        "id": repo_id,
+        "downloads": downloads,
+        "likes": likes,
+        "trendingScore": 9,
+        "tags": ["gguf", "license:apache-2.0", f"base_model:{relation_kind}:{base_id}"],
+        "pipeline_tag": "text-generation",
+    }
+
+
+def probe_params(base_id: str, relation_kind: str = "finetune") -> tuple[tuple[str, str], ...]:
+    return (("filter", f"base_model:{relation_kind}:{base_id}"), ("sort", "downloads"), ("direction", "-1"), ("limit", "10"))
+
+
+def args(catalog_path: Path, wave_cap: int = 24) -> argparse.Namespace:
+    return argparse.Namespace(catalog=str(catalog_path), wave_cap=wave_cap)
+
+
+def use_default_caps(catalog_refresh: ModuleType, tmp_path: Path) -> None:
+    catalog_refresh.CATALOG_DISCOVERY_CAPS_PATH = tmp_path / "missing_catalog_discovery_caps.json"
 
 
 def test_discover_finetunes_writes_verified_promotions_and_rejections(tmp_path: Path) -> None:
     catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
     catalog_path = tmp_path / "model_catalog.json"
     out_dir = tmp_path / "out"
     base = base_entry(
@@ -152,7 +180,7 @@ def test_discover_finetunes_writes_verified_promotions_and_rejections(tmp_path: 
         "Jackrong/Qwopus3.6-27B-Coder-MTP",
         "Jackrong/Qwopus3.6-27B-v1-preview",
     ]
-    assert all(entry["model_kind"] == "finetune" for entry in promoted)
+    assert all(entry["model_kind"] == "distill" for entry in promoted)
     assert all(entry["base_model"] == "Qwen/Qwen3.6-27B" for entry in promoted)
     assert promoted[0]["quants"][0] == {
         "label": "Q6_K",
@@ -173,11 +201,12 @@ def test_discover_finetunes_writes_verified_promotions_and_rejections(tmp_path: 
 
 def test_discover_finetunes_enforces_per_base_and_wave_caps(tmp_path: Path) -> None:
     catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
     catalog_path = tmp_path / "model_catalog.json"
     out_dir = tmp_path / "out"
     models: list[dict[str, JsonValue]] = []
     responses: ResponseMap = {}
-    for base_index in range(7):
+    for base_index in range(13):
         base_id = f"Org/Base-{base_index}"
         distills = []
         for candidate_index in range(3):
@@ -193,8 +222,264 @@ def test_discover_finetunes_enforces_per_base_and_wave_caps(tmp_path: Path) -> N
     assert exit_code == 0
     proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
     promoted = proposal["models"][len(models) :]
-    assert len(promoted) == 12
-    for base_index in range(7):
+    assert len(promoted) == 24
+    for base_index in range(13):
         assert sum(1 for entry in promoted if entry["base_model"] == f"Org/Base-{base_index}") <= 2
     report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
     assert "wave cap reached" in report
+
+
+def test_discover_finetunes_promotes_probe_seeded_candidates_and_dedupes_sources(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    base_id = "Qwen/Qwen3.6-27B"
+    base = base_entry(base_id, "qwen3-6-27b", [])
+    probe_repo = "Creator/Probe-Tune-GGUF"
+    raw_catalog = {"models": [base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    client = FakeClient(
+        {
+            ("/models", probe_params(base_id, "finetune")): (200, [hf_item(probe_repo, base_id, 9_000, 120, "finetune")]),
+            ("/models", probe_params(base_id, "merge")): (200, [hf_item(probe_repo, base_id, 8_500, 115, "merge")]),
+            ("/models", probe_params(base_id, "adapter")): (200, [hf_item(probe_repo, base_id, 8_000, 110, "adapter")]),
+            (f"/models/{probe_repo}", (("blobs", "true"),)): (200, gguf_detail(probe_repo, base_id, "Q5_K_M", 19_100_000_000)),
+        }
+    )
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(args(catalog_path), catalog_path, out_dir, raw_catalog, [base], client)
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][1:]
+    assert [entry["id"] for entry in promoted] == ["Creator/Probe-Tune"]
+    assert promoted[0]["model_kind"] == "finetune"
+    assert promoted[0]["base_model"] == base_id
+    assert promoted[0]["gguf_repo"] == probe_repo
+    assert promoted[0]["quants"][0]["label"] == "Q5_K_M"
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "candidates gathered: 1" in report
+
+
+def test_discover_finetunes_rejects_non_text_generation_and_base_mirrors(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    base_id = "Qwen/Qwen3.6-27B"
+    base = base_entry(base_id, "qwen3-6-27b", [])
+    raw_catalog = {"models": [base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    reranker = hf_item("Tuner/Some-Reranker-GGUF", base_id, 900_000, 400, "finetune")
+    reranker["pipeline_tag"] = "sentence-similarity"
+    mirror = hf_item("Mirror/Qwen3.6-27B-GGUF", base_id, 800_000, 300, "finetune")
+    prefixed_mirror = hf_item("Mirror/Alibaba-Qwen3.6-27B", base_id, 700_000, 250, "finetune")
+    precision_mirror = hf_item("Mirror/Qwen3.6-27B-BF16", base_id, 600_000, 200, "finetune")
+    denylisted = hf_item("Curated/Denied-Tune-GGUF", base_id, 500_000, 150, "finetune")
+    denylist_path = tmp_path / "catalog_discovery_denylist.json"
+    denylist_path.write_text('{"Curated/Denied-Tune-GGUF": "test"}\n', encoding="utf-8")
+    catalog_refresh.CATALOG_DISCOVERY_DENYLIST_PATH = denylist_path
+    keeper_repo = "Creator/Real-Tune-GGUF"
+    client = FakeClient(
+        {
+            ("/models", probe_params(base_id, "finetune")): (
+                200,
+                [reranker, mirror, prefixed_mirror, precision_mirror, denylisted, hf_item(keeper_repo, base_id, 9_000, 120, "finetune")],
+            ),
+            (f"/models/{keeper_repo}", (("blobs", "true"),)): (200, gguf_detail(keeper_repo, base_id)),
+        }
+    )
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(args(catalog_path), catalog_path, out_dir, raw_catalog, [base], client)
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][1:]
+    assert [entry["id"] for entry in promoted] == ["Creator/Real-Tune"]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "non-text-generation pipeline (sentence-similarity)" in report
+    assert report.count("same-name mirror of the base, not a fine-tune") == 3
+    assert "on curated denylist" in report
+
+
+def test_discover_finetunes_floor_mode_all_requires_both_signals(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    base_id = "Qwen/Qwen3.6-27B"
+    base = base_entry(base_id, "qwen3-6-27b", [])
+    raw_catalog = {"models": [base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    downloads_only = hf_item("Tuner/Downloads-Only-GGUF", base_id, 50_000, 3, "finetune")
+    both_signals_repo = "Tuner/Both-Signals-GGUF"
+    client = FakeClient(
+        {
+            ("/models", probe_params(base_id, "finetune")): (
+                200,
+                [downloads_only, hf_item(both_signals_repo, base_id, 9_000, 120, "finetune")],
+            ),
+            (f"/models/{both_signals_repo}", (("blobs", "true"),)): (200, gguf_detail(both_signals_repo, base_id)),
+        }
+    )
+    namespace = args(catalog_path)
+    namespace.min_downloads = 2_000
+    namespace.min_likes = 20
+    namespace.floor_mode = "all"
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(namespace, catalog_path, out_dir, raw_catalog, [base], client)
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][1:]
+    assert [entry["id"] for entry in promoted] == ["Tuner/Both-Signals"]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "below popularity floor (all-mode)" in report
+    assert "downloads_last_month >= 2,000 AND likes >= 20" in report
+
+
+def test_discover_finetunes_wave_cap_selects_globally_by_popularity(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    use_default_caps(catalog_refresh, tmp_path)
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    first_base = base_entry("AAA/First-Base", "first-base", [distill("Tuner/Small-Tune-GGUF", 3_000, 60)])
+    last_base = base_entry("ZZZ/Last-Base", "last-base", [distill("Tuner/Big-Tune-GGUF", 900_000, 500)])
+    raw_catalog = {"models": [first_base, last_base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    client = FakeClient(
+        {
+            ("/models/Tuner/Small-Tune-GGUF", (("blobs", "true"),)): (200, gguf_detail("Tuner/Small-Tune-GGUF", "AAA/First-Base")),
+            ("/models/Tuner/Big-Tune-GGUF", (("blobs", "true"),)): (200, gguf_detail("Tuner/Big-Tune-GGUF", "ZZZ/Last-Base")),
+        }
+    )
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(
+        args(catalog_path, wave_cap=1), catalog_path, out_dir, raw_catalog, [first_base, last_base], client
+    )
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][2:]
+    assert [entry["id"] for entry in promoted] == ["Tuner/Big-Tune"]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "wave cap reached" in report
+
+
+def test_discover_finetunes_honors_per_base_cap_override(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    cap_path = tmp_path / "catalog_discovery_caps.json"
+    cap_path.write_text('{"Org/Override-Base": 4}\n', encoding="utf-8")
+    catalog_refresh.CATALOG_DISCOVERY_CAPS_PATH = cap_path
+    base_id = "Org/Override-Base"
+    distills = [distill(f"Tuner/Override-Tune-{index}-GGUF", 20_000 - index, 200 - index) for index in range(6)]
+    base = base_entry(base_id, "override-base", distills)
+    raw_catalog = {"models": [base]}
+    catalog_path.write_text("{}\n", encoding="utf-8")
+    responses: ResponseMap = {
+        (f"/models/Tuner/Override-Tune-{index}-GGUF", (("blobs", "true"),)): (
+            200,
+            gguf_detail(f"Tuner/Override-Tune-{index}-GGUF", base_id),
+        )
+        for index in range(6)
+    }
+
+    exit_code = catalog_refresh.refresh_finetunes_mode(args(catalog_path), catalog_path, out_dir, raw_catalog, [base], FakeClient(responses))
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    promoted = proposal["models"][1:]
+    assert len(promoted) == 4
+    assert all(entry["base_model"] == base_id for entry in promoted)
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "caps: default top 2 per base, overrides 1 base(s), 24 total new entries" in report
+
+
+def test_declared_base_model_prefers_first_full_weights_parent_from_card_data_list() -> None:
+    catalog_refresh = load_catalog_refresh()
+    payload = hf_payload("list-valued-base-model.json")
+
+    assert catalog_refresh.declared_base_model(payload) == "Qwen/Qwen3.6-27B"
+
+
+def test_declared_base_model_ignores_adapter_and_quantized_relation_tags() -> None:
+    catalog_refresh = load_catalog_refresh()
+
+    assert catalog_refresh.declared_base_model(hf_payload("tagged-full-weights-parent.json")) == "Qwen/Qwen3.6-27B"
+    assert catalog_refresh.declared_base_model(hf_payload("quantized-only-parent.json")) is None
+
+
+def test_auto_stamped_base_model_honors_denylist_null_override(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    denylist = tmp_path / "catalog_discovery_denylist.json"
+    denylist.write_text(
+        json.dumps(
+            {
+                "Creator/Wrong-Lineage": {
+                    "reason": "HF card is stale",
+                    "base_model": None,
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    catalog_refresh.CATALOG_DISCOVERY_DENYLIST_PATH = denylist
+    catalog_refresh._DISCOVERY_DENYLIST_CACHE = None
+
+    assert catalog_refresh.auto_stamped_base_model(
+        "Creator/Wrong-Lineage",
+        {"cardData": {"base_model": "Wrong/Base"}, "tags": ["base_model:finetune:Wrong/Base"]},
+    ) is None
+
+
+def test_verify_entry_honors_denylist_null_lineage_override(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    denylist = tmp_path / "catalog_discovery_denylist.json"
+    denylist.write_text(
+        json.dumps({"Creator/Wrong-Lineage": {"reason": "HF card is stale", "base_model": None}}) + "\n",
+        encoding="utf-8",
+    )
+    catalog_refresh.CATALOG_DISCOVERY_DENYLIST_PATH = denylist
+    catalog_refresh._DISCOVERY_DENYLIST_CACHE = None
+    entry = {
+        "id": "Creator/Wrong-Lineage",
+        "gguf_repo": "Creator/Wrong-Lineage-GGUF",
+        "license": "apache-2.0",
+        "params_b": 27,
+        "quants": [],
+        "base_model": "Wrong/Base",
+    }
+    proposed = dict(entry)
+    client = FakeClient(
+        {
+            ("/models/Creator/Wrong-Lineage", tuple(("expand[]", item) for item in catalog_refresh.CANONICAL_EXPAND)): (
+                200,
+                {"cardData": {"base_model": "Wrong/Base", "license": "apache-2.0"}, "tags": ["base_model:finetune:Wrong/Base"]},
+            ),
+            ("/models/Creator/Wrong-Lineage-GGUF", (("blobs", "true"),)): (
+                200,
+                {
+                    "id": "Creator/Wrong-Lineage-GGUF",
+                    "cardData": {"base_model": "Wrong/Base"},
+                    "tags": ["base_model:finetune:Wrong/Base"],
+                    "siblings": [{"rfilename": "model-Q4_K_M.gguf", "size": 10_000_000_000}],
+                    "gguf": {"total": 27_000_000_000},
+                },
+            ),
+        }
+    )
+
+    catalog_refresh.verify_entry(client, entry, proposed)
+
+    assert proposed["base_model"] is None
+
+
+def hf_payload(name: str) -> dict[str, JsonValue]:
+    with (HF_PAYLOAD_FIXTURES / name).open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    assert isinstance(payload, dict)
+    return payload

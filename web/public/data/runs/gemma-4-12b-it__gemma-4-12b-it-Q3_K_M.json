@@ -80,14 +80,7 @@
       "status": "measured"
     }
   },
-  "composite": {
-    "hi": 62.71077288904681,
-    "hi_raw": 0.6271077288904681,
-    "lo": 52.41305406443071,
-    "lo_raw": 0.5241305406443071,
-    "point": 57.56350786449386,
-    "point_raw": 0.5756350786449386
-  },
+  "composite": null,
   "composite_full": null,
   "composite_static": null,
   "conformance": {
@@ -133,6 +126,14 @@
     "coding not measured in this run; axis omitted",
     "composite point 0.575635078645 differs from stored composite 0.195547785323"
   ],
+  "diagnostic_composite": {
+    "hi": 62.71077288904681,
+    "hi_raw": 0.6271077288904681,
+    "lo": 52.41305406443071,
+    "lo_raw": 0.5241305406443071,
+    "point": 57.56350786449386,
+    "point_raw": 0.5756350786449386
+  },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
   "item_set_hashes": {
@@ -141,6 +142,7 @@
     "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
   "kind": "community",
+  "lane": "capped-thinking",
   "manifest_summary": {
     "caps": {
       "max_tokens_math": 0,
@@ -203,8 +205,9 @@
   "origin": "community",
   "ranked": false,
   "run_id": "gemma-4-12b-it__gemma-4-12b-it-Q3_K_M",
+  "score_status": "measured",
   "scorecard": {
-    "current_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+    "current_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
     "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
     "drift": true,
     "execution_profile_id": null,

@@ -17,6 +17,7 @@ import {
   type ModelData,
   type ModelRun,
   type RunDetail,
+  type ScoreStatus,
   type Score,
 } from "./schemas";
 import {
@@ -27,12 +28,23 @@ import {
 import type { RigMatchAnchor, RigMatchCandidate } from "./rig-match";
 import type { OnrampCatalogModel } from "./onramp";
 import {
+  catalogBaseEntry,
+  catalogBaseId,
+  catalogBaseIds,
+  catalogIsDerivativeEntry,
+  catalogLineageFamilyEntries,
+  catalogModelMap,
+  type CatalogLineageRelation,
+} from "./catalog-lineage";
+import {
   buildVsBaseComparison,
+  currentIndexRunId,
   type FineTuneComparePreset,
   type VsBaseBoardRow,
   type VsBaseComparison,
   type VsBaseSide,
 } from "./vs-base";
+import { HEADLINE_LANE } from "./leaderboard-score";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 
@@ -45,14 +57,26 @@ export type AnchorReference = {
 
 type AxisScoresWithConfiguredAxes = Record<string, AxisScore> & Record<AxisKey, AxisScore>;
 type ModelRunWithConfiguredAxes = Omit<ModelRun, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
-type ModelDataWithConfiguredAxes = Omit<ModelData, "runs"> & { readonly runs: ModelRunWithConfiguredAxes[] };
-type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & { readonly axes: AxisScoresWithConfiguredAxes };
+export type ModelDataWithConfiguredAxes = Omit<ModelData, "runs"> & { readonly runs: ModelRunWithConfiguredAxes[] };
+type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & {
+  readonly axes: AxisScoresWithConfiguredAxes;
+  readonly lane: string | null;
+  readonly score_status: ScoreStatus;
+};
 
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly familyModels: readonly ModelFamilyScatterModel[];
   readonly lineage: ModelLineage | null;
   readonly vsBaseComparisons: readonly VsBaseComparison[];
+};
+
+export type ModelFamilyScatterRelation = CatalogLineageRelation;
+
+export type ModelFamilyScatterModel = {
+  readonly model: ModelDataWithConfiguredAxes;
+  readonly relation: ModelFamilyScatterRelation;
 };
 
 export type ModelLineage = {
@@ -69,6 +93,7 @@ export type OnrampCatalog = {
 export type HomePageData = {
   readonly index: IndexData;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly catalogModels: readonly CatalogModel[];
   readonly rigAnchors: readonly RigMatchAnchor[];
   readonly rigCandidates: readonly RigMatchCandidate[];
 };
@@ -138,7 +163,13 @@ export async function getPartialCoverageBoard(): Promise<readonly BoardEntryRow[
 
 export async function getRunData(runId: string): Promise<RunDetailWithConfiguredAxes> {
   const run = await readJson(["runs", `${runId}.json`], RunDetailSchema);
-  return run as RunDetailWithConfiguredAxes;
+  const model = await getModelData(modelSlugForRunId(runId));
+  const modelRun = model.runs.find((candidate) => candidate.run_id === runId);
+  return {
+    ...run,
+    lane: modelRun?.lane ?? run.manifest_summary.lane,
+    score_status: modelRun?.score_status ?? "measured",
+  } as RunDetailWithConfiguredAxes;
 }
 
 type CatalogFile = {
@@ -159,7 +190,8 @@ async function getCatalogFile(): Promise<CatalogFile> {
 function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): OnrampCatalogModel {
   const paramsB =
     typeof raw.params_b === "number" ? raw.params_b : raw.params_b ? raw.params_b.total_b ?? null : null;
-  const baseModelId = typeof raw.base_model === "string" ? raw.base_model : null;
+  const baseModelIds = catalogBaseIds(raw);
+  const baseModelId = baseModelIds[0] ?? null;
   const base = baseModelId === null ? undefined : byId.get(baseModelId);
   return {
     id: raw.id,
@@ -175,6 +207,7 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
     likes: raw.popularity?.likes ?? 0,
     trending: raw.popularity?.trending ?? 0,
     modelKind: raw.model_kind,
+    baseModelIds,
     baseModelId,
     baseModelSlug: base?.slug ?? null,
     baseModelDisplayName: base?.display_name ?? baseModelId,
@@ -185,15 +218,6 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
       bpw: quant.bpw ?? null,
     })),
   };
-}
-
-function catalogBaseId(entry: CatalogModel): string | null {
-  return typeof entry.base_model === "string" ? entry.base_model : null;
-}
-
-function isDerivativeCatalogEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): boolean {
-  const baseModelId = catalogBaseId(entry);
-  return entry.model_kind !== "base" || (baseModelId !== null && byId.has(baseModelId));
 }
 
 function boardRowForCatalogEntry(entry: CatalogModel, indexRows: readonly IndexModel[]): IndexModel | null {
@@ -208,6 +232,9 @@ function toVsBaseBoardRow(row: IndexModel | null): VsBaseBoardRow | null {
     axes: row.axes,
     bestRunId: row.best_run_id,
     composite: row.composite,
+    diagnosticComposite: row.diagnostic_composite ?? null,
+    lane: row.lane,
+    ranked: row.ranked,
     scoreStatus: row.score_status,
   };
 }
@@ -235,9 +262,8 @@ function buildModelPageVsBaseComparisons({
   if (catalogEntry === undefined) {
     return [];
   }
-  const baseModelId = catalogBaseId(catalogEntry);
-  const base = baseModelId === null ? undefined : byId.get(baseModelId);
-  if (base !== undefined && isDerivativeCatalogEntry(catalogEntry, byId)) {
+  const base = catalogBaseEntry(catalogEntry, byId);
+  if (base !== undefined && catalogIsDerivativeEntry(catalogEntry, byId)) {
     return [
       buildVsBaseComparison({
         base: toVsBaseSide(base, indexRows),
@@ -247,7 +273,7 @@ function buildModelPageVsBaseComparisons({
   }
 
   return catalogModels
-    .filter((entry) => catalogBaseId(entry) === catalogEntry.id && isDerivativeCatalogEntry(entry, byId))
+    .filter((entry) => catalogBaseId(entry) === catalogEntry.id && catalogIsDerivativeEntry(entry, byId))
     .map((derivative) =>
       buildVsBaseComparison({
         base: toVsBaseSide(catalogEntry, indexRows),
@@ -294,6 +320,26 @@ async function getAnchorReferences(): Promise<readonly AnchorReference[]> {
   );
 }
 
+async function getModelFamilyScatterModels({
+  byId,
+  catalogEntry,
+  catalogModels,
+}: {
+  readonly byId: ReadonlyMap<string, CatalogModel>;
+  readonly catalogEntry: CatalogModel | undefined;
+  readonly catalogModels: readonly CatalogModel[];
+}): Promise<readonly ModelFamilyScatterModel[]> {
+  if (catalogEntry === undefined) {
+    return [];
+  }
+  return Promise.all(
+    catalogLineageFamilyEntries({ byId, catalogEntry, catalogModels }).map(async ({ entry, relation }) => ({
+      model: await getModelData(entry.slug),
+      relation,
+    })),
+  );
+}
+
 export async function getModelPageData(slug: string): Promise<ModelPageData> {
   const [model, anchorRuns, index, catalog] = await Promise.all([
     getModelData(slug),
@@ -301,7 +347,7 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
     getIndexData(),
     getCatalogFile(),
   ]);
-  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  const byId = catalogModelMap(catalog.models);
   const catalogEntry =
     catalog.models.find((entry) => entry.slug === slug) ??
     (model.catalog_id ? byId.get(model.catalog_id) : undefined);
@@ -327,24 +373,24 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
     indexRows: index.models,
     byId,
   });
-  return { model, anchorRuns, lineage, vsBaseComparisons };
+  const familyModels = await getModelFamilyScatterModels({ byId, catalogEntry, catalogModels: catalog.models });
+  return { model, anchorRuns, familyModels, lineage, vsBaseComparisons };
 }
 
 export async function getFineTuneComparePresets(): Promise<readonly FineTuneComparePreset[]> {
   const [index, catalog] = await Promise.all([getIndexData(), getCatalogFile()]);
-  const byId = new Map(catalog.models.map((entry) => [entry.id, entry]));
+  const byId = catalogModelMap(catalog.models);
   return catalog.models.flatMap((entry) => {
-    const baseModelId = catalogBaseId(entry);
-    const base = baseModelId === null ? undefined : byId.get(baseModelId);
-    if (base === undefined || !isDerivativeCatalogEntry(entry, byId)) {
+    const base = catalogBaseEntry(entry, byId);
+    if (base === undefined || !catalogIsDerivativeEntry(entry, byId)) {
       return [];
     }
     const comparison = buildVsBaseComparison({
       base: toVsBaseSide(base, index.models),
       derivative: toVsBaseSide(entry, index.models),
     });
-    const leftRunId = comparison.derivative.row?.bestRunId ?? null;
-    const rightRunId = comparison.base.row?.bestRunId ?? null;
+    const leftRunId = currentIndexRunId(comparison.derivative.row);
+    const rightRunId = currentIndexRunId(comparison.base.row);
     if (leftRunId === null || rightRunId === null) {
       return [];
     }
@@ -353,7 +399,7 @@ export async function getFineTuneComparePresets(): Promise<readonly FineTuneComp
 }
 
 export async function getHomePageData(): Promise<HomePageData> {
-  const index = await getIndexData();
+  const [index, catalog] = await Promise.all([getIndexData(), getCatalogFile()]);
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
   const anchorRuns = models
     .filter((model) => model.kind === "anchor")
@@ -364,7 +410,7 @@ export async function getHomePageData(): Promise<HomePageData> {
   const rigCandidates = models.flatMap((model) =>
     model.runs.map((run) => toRigMatchCandidate(model, run)),
   );
-  return { anchorRuns, index, rigAnchors, rigCandidates };
+  return { anchorRuns, catalogModels: catalog.models, index, rigAnchors, rigCandidates };
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {
@@ -377,6 +423,18 @@ export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {
   const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
   return models.flatMap((model) =>
     model.runs.flatMap((run) => (run.run_id === null ? [] : [{ runId: run.run_id }])),
+  );
+}
+
+export async function getSitemapRunStaticParams(): Promise<readonly RunStaticParam[]> {
+  const index = await getIndexData();
+  const models = await Promise.all(index.models.map((model) => getModelData(model.slug)));
+  return models.flatMap((model) =>
+    model.runs.flatMap((run) =>
+      run.run_id !== null && run.score_status === "measured" && run.lane === HEADLINE_LANE
+        ? [{ runId: run.run_id }]
+        : [],
+    ),
   );
 }
 
@@ -408,6 +466,10 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
 
 function nullableNumber(value: number | null | undefined, fallback: number): number {
   return value ?? fallback;
+}
+
+function modelSlugForRunId(runId: string): string {
+  return runId.split("__")[0] ?? runId;
 }
 
 export { AXIS_KEYS as AXES } from "./axis-config";

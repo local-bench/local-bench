@@ -16,7 +16,16 @@ const Y_TICKS = [100, 75, 50, 25, 0] as const;
 
 export type QualityVramRun = Omit<ModelRun, "composite"> & {
   readonly composite: Score;
+  readonly point_href?: string;
+  readonly point_kind?: QualityVramPointKind;
   readonly point_label?: string;
+};
+
+export type QualityVramPointKind = "this-model" | "family-finetune" | "base-model";
+
+export type QualityVramLegendItem = {
+  readonly kind: QualityVramPointKind;
+  readonly label: string;
 };
 
 type ScatterPoint = {
@@ -29,6 +38,7 @@ export function QualityVramScatter({
   ariaLabel,
   description,
   omittedLabel = "run(s) omitted from x-axis: no footprint",
+  pointLegend = [],
   runs,
   showPointLabels = true,
   testId = "quality-vram-scatter",
@@ -38,6 +48,7 @@ export function QualityVramScatter({
   readonly ariaLabel: string;
   readonly description: string;
   readonly omittedLabel?: string;
+  readonly pointLegend?: readonly QualityVramLegendItem[];
   readonly runs: readonly QualityVramRun[];
   readonly showPointLabels?: boolean;
   readonly testId?: string;
@@ -108,7 +119,7 @@ export function QualityVramScatter({
           {points.map((point) => {
             const cx = scaleX(point.x, xDomain);
             const cy = scaleY(point.run.composite.point);
-            const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id;
+            const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id ?? "catalog shell";
             // Demo rows carry synthetic wall times, so only real measured runs show a bench time.
             const benchedIn =
               !point.run.demo && typeof point.run.wall_time_seconds === "number"
@@ -120,14 +131,12 @@ export function QualityVramScatter({
             // Clamp the tooltip inside the plot; flip below the dot when it would clip the top.
             const tipX = Math.min(Math.max(cx - tipWidth / 2, 6), WIDTH - tipWidth - 6);
             const tipY = cy - 52 > 4 ? cy - 52 : cy + 14;
-            return (
-              // CSS-only hover (server component, no client JS): the tooltip group is toggled by
-              // group-hover; the transparent r=14 circle is the hit target — the visible 6px dot
-              // is too small to hover reliably.
-              <g key={point.run.run_id} className="group">
+            const pointKind = point.run.point_kind ?? "this-model";
+            const pointBody = (
+              <>
                 <title>{`${label}: ${formatScore(point.run.composite.point)} — ${tipLine2}`}</title>
                 <circle cx={cx} cy={cy} r="14" fill="transparent" />
-                <circle cx={cx} cy={cy} r="6" className={point.run.demo ? "fill-bench-warn stroke-bench-bg" : "fill-bench-accent stroke-bench-bg"} strokeWidth="2" />
+                <PointMarker cx={cx} cy={cy} demo={point.run.demo} kind={pointKind} />
                 {showPointLabels ? (
                   <text x={cx + 10} y={cy - 10} className="fill-bench-text" fontSize="12">
                     {label}
@@ -149,7 +158,21 @@ export function QualityVramScatter({
                     {tipLine2}
                   </text>
                 </g>
-              </g>
+              </>
+            );
+            return (
+              // CSS-only hover (server component, no client JS): the tooltip group is toggled by
+              // group-hover; the transparent r=14 circle is the hit target — the visible 6px dot
+              // is too small to hover reliably.
+              point.run.point_href === undefined ? (
+                <g key={point.run.run_id ?? label} className="group">
+                  {pointBody}
+                </g>
+              ) : (
+                <a key={point.run.run_id ?? label} href={point.run.point_href} className="group">
+                  {pointBody}
+                </a>
+              )
             );
           })}
           {points.length === 0 ? (
@@ -172,11 +195,74 @@ export function QualityVramScatter({
         </svg>
       </div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs text-bench-muted">
+        {pointLegend.map((item) => (
+          <span key={item.kind} className="inline-flex items-center gap-1.5">
+            <LegendMarker kind={item.kind} />
+            {item.label}
+          </span>
+        ))}
         <span>{anchors.length > 0 ? "Dashed horizontal lines are API frontier ceilings." : "Dashed vertical lines mark common VRAM tiers."}</span>
         <span className="text-bench-warn">Amber points are synthetic demo preview data.</span>
       </div>
     </section>
   );
+}
+
+function PointMarker({
+  cx,
+  cy,
+  demo,
+  kind,
+}: {
+  readonly cx: number;
+  readonly cy: number;
+  readonly demo: boolean;
+  readonly kind: QualityVramPointKind;
+}) {
+  if (kind === "family-finetune") {
+    return (
+      <rect
+        data-point-kind={kind}
+        x={cx - 5}
+        y={cy - 5}
+        width="10"
+        height="10"
+        rx="1"
+        className="fill-bench-anchor stroke-bench-bg"
+        strokeWidth="2"
+      />
+    );
+  }
+  if (kind === "base-model") {
+    return (
+      <path
+        data-point-kind={kind}
+        d={`M ${cx} ${cy - 7} L ${cx + 7} ${cy} L ${cx} ${cy + 7} L ${cx - 7} ${cy} Z`}
+        className="fill-bench-mixed stroke-bench-bg"
+        strokeWidth="2"
+      />
+    );
+  }
+  return (
+    <circle
+      data-point-kind={kind}
+      cx={cx}
+      cy={cy}
+      r="6"
+      className={demo ? "fill-bench-warn stroke-bench-bg" : "fill-bench-accent stroke-bench-bg"}
+      strokeWidth="2"
+    />
+  );
+}
+
+function LegendMarker({ kind }: { readonly kind: QualityVramPointKind }) {
+  if (kind === "family-finetune") {
+    return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[1px] bg-bench-anchor" />;
+  }
+  if (kind === "base-model") {
+    return <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-bench-mixed" />;
+  }
+  return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-bench-accent" />;
 }
 
 function toScatterPoint(run: QualityVramRun): ScatterPoint | null {

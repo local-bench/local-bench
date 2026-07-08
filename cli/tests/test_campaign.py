@@ -20,6 +20,25 @@ from localbench.persistence import atomic_write_bytes, atomic_write_json
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 
 
+def test_campaign_paths_derivations(tmp_path: Path) -> None:
+    # localbench-run.json out: root is its parent, record stays at the given path.
+    named = campaign_paths(tmp_path / "campaign" / "localbench-run.json")
+    assert named.root == tmp_path / "campaign"
+    assert named.final_run == tmp_path / "campaign" / "localbench-run.json"
+
+    # .json out (the documented recipe shape): root is the suffix-stripped sibling dir.
+    json_out = campaign_paths(tmp_path / "runs" / "my-run.json")
+    assert json_out.root == tmp_path / "runs" / "my-run"
+    assert json_out.final_run == tmp_path / "runs" / "my-run.json"
+
+    # Extension-less out: MUST NOT collide root with final_run — that made the end-of-run
+    # atomic rename target the campaign directory itself and lose the whole run.
+    bare = campaign_paths(tmp_path / "runs" / "my-run")
+    assert bare.root == tmp_path / "runs" / "my-run"
+    assert bare.final_run == tmp_path / "runs" / "my-run" / "localbench-run.json"
+    assert bare.root != bare.final_run
+
+
 def test_atomic_write_json_when_target_is_nested(tmp_path: Path) -> None:
     # Given: a nested destination and a JSON payload.
     target = tmp_path / "nested" / "record.json"

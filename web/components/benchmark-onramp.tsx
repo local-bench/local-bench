@@ -10,15 +10,16 @@ import {
 } from "@/components/local-intelligence-index";
 import {
   RUNTIME_PROFILES,
+  browseFamilies,
   buildRecipe,
-  listOrgs,
-  modelsForOrg,
+  estimateBenchmarkTime,
+  listBaseLabs,
   popularModels,
   recommendedQuantForVram,
-  filterModelsByType,
+  smallestFileQuant,
+  type BenchmarkTimeEstimate,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
-  type BrowseModelType,
   type PopularitySort,
   type RuntimeId,
 } from "@/lib/onramp";
@@ -27,11 +28,26 @@ import { VRAM_TIERS } from "@/lib/rig-match";
 const DEFAULT_VRAM = 24;
 const PASTE_QUANT_DEFAULT = "Q4_K_M";
 
+function repoNameSegment(repo: string): string {
+  const segments = repo.trim().split("/").filter((segment) => segment !== "");
+  return segments[segments.length - 1] ?? repo.trim();
+}
+
+function slugFromRepoName(repo: string): string {
+  const sanitized = repoNameSegment(repo).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return sanitized === "" ? "pasted-model" : sanitized;
+}
+
+function normalizeOptionalRepo(repo: string): string | null {
+  const trimmed = repo.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
 function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogModel {
   const trimmed = repo.trim();
   return {
     id: trimmed,
-    slug: trimmed,
+    slug: slugFromRepoName(trimmed),
     displayName: trimmed,
     family: "",
     org: "",
@@ -43,6 +59,7 @@ function syntheticPasteModel(repo: string, quantLabel: string): OnrampCatalogMod
     likes: 0,
     trending: 0,
     modelKind: "base",
+    baseModelIds: [],
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -66,20 +83,34 @@ export function BenchmarkOnramp({
   const [popularitySort, setPopularitySort] = useState<PopularitySort>("downloads");
   const [runtimeId, setRuntimeId] = useState<RuntimeId>("llamacpp");
   const [popularSlug, setPopularSlug] = useState<string | null>(null);
-  const [browseType, setBrowseType] = useState<BrowseModelType>("all");
   const [browseOrg, setBrowseOrg] = useState<string>("");
+  const [browseSearch, setBrowseSearch] = useState<string>("");
   const [browseSlug, setBrowseSlug] = useState<string>("");
   const [browseQuant, setBrowseQuant] = useState<string>("");
   const [pasteRepo, setPasteRepo] = useState<string>("");
+  const [pasteHfModelId, setPasteHfModelId] = useState<string>("");
   const [pasteQuant, setPasteQuant] = useState<string>(PASTE_QUANT_DEFAULT);
 
-  const browseCatalog = useMemo(() => filterModelsByType(catalog, browseType), [catalog, browseType]);
-  const orgs = useMemo(() => listOrgs(browseCatalog), [browseCatalog]);
+  const orgs = useMemo(() => listBaseLabs(catalog), [catalog]);
   const popular = useMemo(() => popularModels(catalog, vramGb, popularitySort, 5), [catalog, vramGb, popularitySort]);
-  const orgModels = useMemo(() => (browseOrg ? modelsForOrg(catalog, browseOrg, browseType) : []), [catalog, browseOrg, browseType]);
+  const families = useMemo(
+    () =>
+      browseOrg === "" && browseSearch.trim() === ""
+        ? []
+        : browseFamilies(catalog, { lab: browseOrg, search: browseSearch, vramGb }),
+    [catalog, browseOrg, browseSearch, vramGb],
+  );
+  const browseModel = useMemo(
+    () => catalog.find((candidate) => candidate.slug === browseSlug) ?? null,
+    [catalog, browseSlug],
+  );
   const runtime = RUNTIME_PROFILES.find((profile) => profile.id === runtimeId) ?? RUNTIME_PROFILES[0];
 
-  const selection = useMemo<{ model: OnrampCatalogModel; quant: OnrampCatalogQuant } | null>(() => {
+  const selection = useMemo<
+    | { readonly model: OnrampCatalogModel; readonly quant: OnrampCatalogQuant }
+    | { readonly model: OnrampCatalogModel; readonly quant: OnrampCatalogQuant; readonly hfModelId: string | null }
+    | null
+  >(() => {
     if (mode === "popular") {
       const entry = popular.find((candidate) => candidate.model.slug === popularSlug) ?? popular[0];
       return entry ? { model: entry.model, quant: entry.quant } : null;
@@ -89,10 +120,8 @@ export function BenchmarkOnramp({
       if (!found) {
         return null;
       }
-      const quant =
-        found.quants.find((candidate) => candidate.label === browseQuant) ??
-        recommendedQuantForVram(found, vramGb) ??
-        found.quants[0];
+      const explicitQuant = browseQuant === "" ? undefined : found.quants.find((candidate) => candidate.label === browseQuant);
+      const quant = explicitQuant ?? recommendedQuantForVram(found, vramGb) ?? smallestFileQuant(found);
       return quant ? { model: found, quant } : null;
     }
     if (pasteRepo.trim() === "") {
@@ -100,10 +129,16 @@ export function BenchmarkOnramp({
     }
     const synthetic = syntheticPasteModel(pasteRepo, pasteQuant);
     const quant = synthetic.quants[0];
-    return quant === undefined ? null : { model: synthetic, quant };
-  }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant]);
+    return quant === undefined ? null : { model: synthetic, quant, hfModelId: normalizeOptionalRepo(pasteHfModelId) };
+  }, [mode, popular, popularSlug, catalog, browseSlug, browseQuant, vramGb, pasteRepo, pasteQuant, pasteHfModelId]);
 
-  const recipe = selection && runtime ? buildRecipe({ model: selection.model, quant: selection.quant, runtime }) : null;
+  const recipe =
+    selection && runtime
+      ? "hfModelId" in selection
+        ? buildRecipe({ model: selection.model, quant: selection.quant, runtime, hfModelId: selection.hfModelId })
+        : buildRecipe({ model: selection.model, quant: selection.quant, runtime })
+      : null;
+  const timeEstimate = selection === null ? null : estimateBenchmarkTime(selection.model, selection.quant);
 
   return (
     <section data-testid="benchmark-onramp" className="rounded-lg border border-bench-line bg-bench-panel p-5 shadow-2xl shadow-black/20">
@@ -171,20 +206,21 @@ export function BenchmarkOnramp({
               setBrowseSlug("");
               setBrowseQuant("");
             }}
-            orgModels={orgModels}
-            browseType={browseType}
-            onBrowseType={(value) => {
-              setBrowseType(value);
-              setBrowseOrg("");
-              setBrowseSlug("");
+            browseSearch={browseSearch}
+            onBrowseSearch={setBrowseSearch}
+            families={families}
+            browseSlug={browseSlug}
+            browseModel={browseModel}
+            onModel={(slug) => {
+              setBrowseSlug(slug);
               setBrowseQuant("");
             }}
-            browseSlug={browseSlug}
-            onModel={setBrowseSlug}
             browseQuant={browseQuant}
             onQuant={setBrowseQuant}
             pasteRepo={pasteRepo}
             onPasteRepo={setPasteRepo}
+            pasteHfModelId={pasteHfModelId}
+            onPasteHfModelId={setPasteHfModelId}
             pasteQuant={pasteQuant}
             onPasteQuant={setPasteQuant}
           />
@@ -213,6 +249,7 @@ export function BenchmarkOnramp({
         </label>
       </div>
 
+      {timeEstimate === null ? null : <BenchmarkTimeCallout estimate={timeEstimate} />}
       {recipe ? <BenchmarkRecipe recipe={recipe} /> : <EmptyRecipe mode={mode} />}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
@@ -229,6 +266,31 @@ export function BenchmarkOnramp({
         </Link>
       </div>
     </section>
+  );
+}
+
+function BenchmarkTimeCallout({ estimate }: { readonly estimate: BenchmarkTimeEstimate }) {
+  return (
+    <div
+      data-testid="benchmark-time-estimate"
+      className="mt-5 rounded border border-bench-warn/45 bg-bench-warn/10 px-4 py-3 text-sm leading-6 text-bench-muted"
+    >
+      <p className="font-mono text-[11px] font-semibold uppercase text-bench-warn">Estimated full-run wall time</p>
+      <p className="mt-1 text-bench-text">
+        {estimate.kind === "range" ? (
+          <>
+            <span className="font-mono text-base font-semibold text-bench-warn">{estimate.label}</span>{" "}
+            <span className="text-bench-muted">about {estimate.pointHours}h midpoint</span>
+          </>
+        ) : (
+          <span className="font-mono text-base font-semibold text-bench-warn">{estimate.label}</span>
+        )}
+      </p>
+      <p className="mt-1">
+        Estimate is calibrated from full 6-axis bounded-final-v2 ranked runs on an RTX 5090-class GPU. Slower GPUs or
+        partial CPU offload can take several times longer.
+      </p>
+    </div>
   );
 }
 

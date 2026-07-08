@@ -22,9 +22,15 @@ import {
 import { suiteByReleasePair } from "./suite-catalog";
 
 const TICKET_TTL_MILLISECONDS = 60 * 60 * 1000;
-const TICKETS_PER_PUBLIC_KEY_PER_DAY = 10;
+// Per-person caps sized for real submitters (a quant ladder is several bundles in one sitting);
+// the IP/prefix/global caps below stay conservative — they are the flood + R2-storage guards.
+// Raised 10→20 / 2→5 on 2026-07-07 (launch-week review; infra cost is negligible, see D1/R2 math
+// in the session notes — the binding budget is R2 storage, guarded by TICKETS_GLOBAL_PER_DAY).
+const TICKETS_PER_PUBLIC_KEY_PER_DAY = 20;
 const TICKETS_PER_IP_PER_HOUR = 30;
-const PENDING_VERIFICATION_PER_PUBLIC_KEY = 2;
+const TICKETS_PER_IP_PREFIX_PER_DAY = 60;
+const TICKETS_GLOBAL_PER_DAY = 400;
+const PENDING_VERIFICATION_PER_PUBLIC_KEY = 5;
 
 export async function handleIssueSubmissionTicket(request: Request, env: SubmissionApiEnv): Promise<Response> {
   const origin = hasValidAdminSecret(request, env) ? "project_anchor" : "community";
@@ -119,16 +125,33 @@ async function communityTicketRejection(
       error: "invalid proof of possession",
     }, body.bundle_sha256, `public_key:${publicKey}`);
   }
-  const ipLimit = await rateLimited(env, `tickets:ip:${clientIp(request)}`, TICKETS_PER_IP_PER_HOUR, 60 * 60);
+  const requestIp = clientIp(request);
+  const ipLimit = await rateLimited(env, `tickets:ip:${requestIp}`, TICKETS_PER_IP_PER_HOUR, 60 * 60);
   if (ipLimit.limited) {
     return rateLimitResponse(ipLimit.retryAfterSeconds, origin, body.bundle_sha256, `public_key:${publicKey}`);
+  }
+  const prefixLimit = await rateLimited(env, `tickets:ipprefix:${ipPrefix(requestIp)}`, TICKETS_PER_IP_PREFIX_PER_DAY, 24 * 60 * 60);
+  if (prefixLimit.limited) {
+    return rateLimitResponse(prefixLimit.retryAfterSeconds, origin, body.bundle_sha256, `public_key:${publicKey}`);
+  }
+  const globalLimit = await rateLimited(env, "tickets:global:day", TICKETS_GLOBAL_PER_DAY, 24 * 60 * 60);
+  if (globalLimit.limited) {
+    return rateLimitResponse(globalLimit.retryAfterSeconds, origin, body.bundle_sha256, `public_key:${publicKey}`);
   }
   const publicKeyLimit = await rateLimited(env, `tickets:pubkey:${publicKey}`, TICKETS_PER_PUBLIC_KEY_PER_DAY, 24 * 60 * 60);
   if (publicKeyLimit.limited) {
     return rateLimitResponse(publicKeyLimit.retryAfterSeconds, origin, body.bundle_sha256, `public_key:${publicKey}`);
   }
   if (await countPendingVerificationForSubmitter(env, `public_key:${publicKey}`) >= PENDING_VERIFICATION_PER_PUBLIC_KEY) {
-    return rateLimitResponse(60, origin, body.bundle_sha256, `public_key:${publicKey}`);
+    // Deliberately NOT the rate_limited shape: this cap clears when the maintainer decides a
+    // pending submission, not with time, so a retry_after_seconds hint would be misleading.
+    return reject(429, "pending_review_limit", origin, "POST /api/submissions/tickets", {
+      code: "pending_review_limit",
+      error:
+        `you have ${PENDING_VERIFICATION_PER_PUBLIC_KEY} submissions awaiting maintainer review; ` +
+        "this clears when one is reviewed, not with time",
+      pending_limit: PENDING_VERIFICATION_PER_PUBLIC_KEY,
+    }, body.bundle_sha256, `public_key:${publicKey}`);
   }
   return null;
 }
@@ -193,4 +216,61 @@ function rateLimitResponse(
 
 function turnstileEnabled(env: SubmissionApiEnv): boolean {
   return (env.TURNSTILE_ENABLED ?? "").toLowerCase() === "true";
+}
+
+function ipPrefix(ip: string): string {
+  const ipv4 = ipv4Prefix(ip);
+  if (ipv4 !== null) {
+    return ipv4;
+  }
+  const ipv6 = ipv6Prefix(ip);
+  return ipv6 ?? ip;
+}
+
+function ipv4Prefix(ip: string): string | null {
+  const octets = ip.split(".");
+  if (octets.length !== 4) {
+    return null;
+  }
+  const parsed = octets.map((octet) => Number.parseInt(octet, 10));
+  if (parsed.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return null;
+  }
+  return `${parsed[0]}.${parsed[1]}.${parsed[2]}.0/24`;
+}
+
+function ipv6Prefix(ip: string): string | null {
+  const [address] = ip.toLowerCase().split("%");
+  if (address === undefined || !/^[0-9a-f:.]+$/.test(address)) {
+    return null;
+  }
+  const compressed = address.split("::");
+  if (compressed.length > 2) {
+    return null;
+  }
+  const head = ipv6Groups(compressed[0] ?? "");
+  const tail = compressed.length === 2 ? ipv6Groups(compressed[1] ?? "") : [];
+  if (head === null || tail === null) {
+    return null;
+  }
+  const missing = compressed.length === 2 ? 8 - head.length - tail.length : 0;
+  if (missing < 0 || (compressed.length === 1 && head.length !== 8)) {
+    return null;
+  }
+  const groups = [...head, ...Array.from({ length: missing }, () => "0"), ...tail];
+  if (groups.length !== 8) {
+    return null;
+  }
+  return `${groups.slice(0, 4).map((group) => group.replace(/^0+(?=[0-9a-f])/, "")).join(":")}::/64`;
+}
+
+function ipv6Groups(value: string): readonly string[] | null {
+  if (value.length === 0) {
+    return [];
+  }
+  const groups = value.split(":");
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) {
+    return null;
+  }
+  return groups;
 }

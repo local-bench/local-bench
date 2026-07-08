@@ -1,0 +1,1013 @@
+Reading additional input from stdin...
+2026-06-13T08:57:56.151377Z ERROR codex_core::session: failed to load skill C:\Users\Michael\.agents\skills\grill-me\SKILL.md: invalid YAML: mapping values are not allowed in this context at line 2 column 510
+OpenAI Codex v0.130.0
+--------
+workdir: C:\Users\Michael\local-bench
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019ec033-bbaf-7842-9b98-205d4692e2fc
+--------
+user
+You are reviewer GPT-5.5, one of several independent frontier-model reviewers red-teaming a website design before it is built. The full red-team brief is provided via stdin below. Before answering, also read these repository files for complete context: docs/foundations/PROJECT-HANDOFF.md, docs/foundations/website-design.md, and docs/foundations/site-audit.md. Then produce an adversarial critique that attacks the design and follows EXACTLY the Section 7 output contract from the brief: VERDICT, killer homepage lead, model-page hero, biggest risk, cut list, and a concrete alternative IA if you would revise or pivot. Be specific and opinionated, grounded in what a skeptical local-LLM power user actually wants. Output ONLY the critique markdown and do not modify any files.
+
+<stdin>
+# local-bench — Website Design Red-Team Brief
+
+*You are one of several independent frontier-model reviewers. Critique adversarially — attack the
+design, do not flatter it. Be specific, opinionated, and ground every claim in the actual needs of
+the audience. The goal is to decide WHAT the site should present BEFORE we build it.*
+
+---
+
+## 1. What local-bench is
+A community **quality**-benchmark leaderboard for **LOCAL / open LLM setups**. A user runs a frozen
+benchmark suite against their own rig — **model × quantization × runtime × hardware** — with one CLI
+command pointed at any OpenAI-compatible endpoint (Ollama / vLLM / LM Studio / llama.cpp). Results
+are server-scored and placed on boards and charts **alongside frontier "anchor" models measured on
+the identical suite**. Tagline: *"Geekbench for local AI intelligence."*
+
+## 2. The wedge (why anyone would use it)
+The launch differentiator is a **quant-degradation dataset nobody else publishes**: *"what does
+Q4_K_M actually cost YOUR model, measured, with confidence intervals."* Verified gaps in the market:
+- **Artificial Analysis** — quality composites, but **API/datacenter models only**.
+- **LocalScore** — community runs on local rigs, but **speed only** (tok/s), no quality.
+- **HF Open LLM Leaderboard** — died on central-compute cost (our user-brings-compute model inverts that).
+
+So nobody does community-run **quality** benchmarks on your **actual local setup**, anchored to
+frontier. We measure **distance-to-frontier across the local range** — the frontier anchors are a
+**reference ceiling**, NOT a frontier-vs-frontier ranking we try to win.
+
+## 3. The audience
+Local-LLM enthusiasts (think r/LocalLLaMA): people choosing a model + quant for their own 16–48 GB
+consumer GPU, asking *"is Q4 good enough on my 3090?"*, *"what's the best model that fits 24 GB?"*,
+*"how far is my local rig from GPT-5.5 / Claude / Gemini, really?"* They are technical, skeptical of
+marketing, allergic to unverifiable numbers, and they already read AA and LocalScore.
+
+## 4. The CURRENT design direction — CRITIQUE THIS
+Dark-mode, Artificial-Analysis-inspired, **3-level information architecture**:
+- **HOME**: all models ranked (composite sorts) **+ a quality-vs-VRAM scatter as the hero** above the
+  table. Scatter has "what fits my card" VRAM-tier guide lines (8/12/16/24/32/48 GB), a lane toggle
+  (reasoning / answer-only), and frontier anchors drawn as a dashed **reference ceiling**.
+- **MODEL page**: hero is a **quant-degradation strip** — what each quant (Q4/Q5/Q8…) costs vs the
+  FP16 baseline, with **paired confidence intervals** and a dominance verdict.
+- **RUN DETAIL**: per-axis breakdown + the full hardware/config manifest + provenance hashes.
+- Per-axis profile leads at depth; composite is the sortable summary. Reasoning lanes never merge;
+  tokens + cost shown beside accuracy (never folded into the score).
+- **CIs on every point** (AA does NOT show CIs on its Intelligence Index — we treat this as a
+  differentiator). Hand-rolled SVG charts, dark-first palette.
+- **Methodology + Trust pages**: trust = **replication, never "verified"** (a proxy that routes
+  "local" calls to a frontier API defeats transcript verification, so we never claim cryptographic
+  proof); published threat model. A **DiagnosticsPanel** shows measured anchor-spread / discrimination
+  (our "we publish what AA doesn't" credibility moat).
+- **Submit page**: the CLI contribution funnel (raw transcripts + manifest uploaded; server scores).
+
+## 5. Hard constraints (any proposal must respect these)
+- Data is **community-contributed** and **sparse at launch** (cold-start: maybe a handful of runs +
+  4 frontier anchors on day one). The design must not look broken when near-empty.
+- We are honest that the suite measures the **local range** vs a frontier ceiling — we are NOT
+  crowning a local model as "the best AI." Don't propose anything that overclaims.
+- No LLM-judge scoring; everything is programmatic + reproducible. (Affects what's chartable.)
+- It must read as **credible to skeptics**, visually distinct from "AA but worse," and defensible vs
+  AA / LocalScore.
+
+## 6. YOUR TASK — attack, then rebuild
+Answer these directly and concretely:
+1. **Is this the right thing to present** for THIS audience and wedge? What is the single most
+   compelling thing the **homepage should lead with** — and is a "quality-vs-VRAM scatter" actually
+   it, or is something better (e.g. a *"find the best model for MY GPU"* finder; a quant-degradation
+   table; a *"your rig vs frontier"* gauge; a model-vs-model diff)?
+2. **What makes a local-LLM user bookmark this and come back weekly** vs dismiss it as another
+   leaderboard / AA clone? Name the killer view.
+3. **Is the quant-degradation strip the right MODEL-page hero**, or is it too niche / not the first
+   thing people want to see?
+4. **What is WRONG or risky** about the current direction — where will it fail to land, what's
+   missing entirely, what's overbuilt (YAGNI)?
+5. **Cold-start**: does the design survive a near-empty dataset? If not, what's the day-one design?
+6. Propose the **ideal information design**: homepage lead + the 3–4 views that matter + what to CUT.
+
+## 7. Output contract
+Produce a structured markdown critique, ~1–1.5 pages, in this order:
+- **VERDICT** (one line): KEEP current direction / REVISE / PIVOT — and the single highest-impact change.
+- **Killer homepage lead** — what you'd put first, and why it beats the alternatives.
+- **Model-page hero** — keep the quant strip or replace it; justify.
+- **Biggest risk** — the one thing most likely to make this fail with the audience.
+- **Cut list** — what to drop (be ruthless).
+- **Concrete alternative IA** (only if you'd REVISE/PIVOT) — the pages + the lead view of each.
+Ground every claim in the audience's real behavior. Prefer concrete examples over abstractions.
+If you reference how AA / LocalScore / other leaderboards do something, be specific about what and why.
+</stdin>
+2026-06-13T08:57:59.249256Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=\"https://mcp.figma.com/.well-known/oauth-protected-resource\",scope=\"mcp:connect\",authorization_uri=\"https://api.figma.com/.well-known/oauth-authorization-server\"" })
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Failed
+hook: UserPromptSubmit
+hook: UserPromptSubmit
+hook: UserPromptSubmit
+hook: UserPromptSubmit
+hook: UserPromptSubmit Completed
+hook: UserPromptSubmit Completed
+hook: UserPromptSubmit Completed
+hook: UserPromptSubmit Completed
+codex
+I detect critique-only review: you want a grounded adversarial design judgment, not file changes. I’ll read the required project docs and the applicable skill guidance, then return only the requested critique markdown.
+hook: PreToolUse
+hook: PreToolUse
+hook: PreToolUse
+hook: PreToolUse
+hook: PreToolUse Completed
+hook: PreToolUse Completed
+hook: PreToolUse Completed
+hook: PreToolUse Completed
+exec
+"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -lc "sed -n '1,260p' docs/foundations/PROJECT-HANDOFF.md" in C:\Users\Michael\local-bench
+exec
+"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -lc "sed -n '1,280p' docs/foundations/website-design.md" in C:\Users\Michael\local-bench
+exec
+"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -lc "sed -n '1,220p' /c/Users/Michael/.codex/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/using-superpowers/SKILL.md" in C:\Users\Michael\local-bench
+exec
+"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -lc "sed -n '1,320p' docs/foundations/site-audit.md" in C:\Users\Michael\local-bench
+ succeeded in 160ms:
+# local-bench — Website Design Specification
+
+**Status:** design spec (not code) · **Target repo:** `C:\Users\Michael\local-bench\web` (Next.js static export, dark-only) · **Suite/index:** `suite-v1 · index-v2` · **Date:** 2026-06-13
+
+---
+
+## 0. Why this redesign exists
+
+The v0 suite fails to discriminate (a 9B lands within ~6 composite points of frontier SOTA; Gemini "beats" Opus by acing saturated easy axes). The benchmark fix is a content rebuild (5-domain difficulty ladders, see the suite spec). **This document is the website fix.** The current site reads like "Artificial Analysis but worse": a composite-led, frontier-flavoured leaderboard. The redesign makes the homepage lead with the one thing AA structurally cannot show — **the measured, confidence-interval-bounded cost of quantization on your own model** — and exposes the credibility moat (every weight, formula, and saturation/discrimination diagnostic) that AA and LLM-Stats keep closed.
+
+We build **on top of the existing prototype**, not from scratch. Already shipped and reused verbatim where noted:
+- Dark palette tokens in `tailwind.config.ts` (`bench.bg/panel/line/text/muted/accent/anchor`).
+- 3-level IA: `app/page.tsx` (home), `app/model/[slug]/page.tsx`, `app/run/[runId]/page.tsx`, `app/methodology/page.tsx`, `app/trust/page.tsx`.
+- Hand-rolled SVG charts (`components/model-scatter.tsx`, `components/run-axis-breakdown.tsx`) and CSS bars (`components/score-bar.tsx`) — **no chart library**; this spec keeps that constraint so it is directly buildable.
+- The persistent lane caveat copy (home header), the badges (`components/badges.tsx`), the manifest grid (`components/detail-grid.tsx`).
+
+The single largest schema change: generalize the hard-coded 3 axes (`mmlu_pro`, `ifeval`, `genmath` in `lib/schemas.ts` line 3 and `home-leaderboard.tsx` line 10 `TABLE_AXES`) to the **5 recommended domains**: Knowledge & Reasoning / Math / Instruction-Following / Agentic / Coding.
+
+---
+
+## 1. Information architecture
+
+Three depth levels (kept from the prototype) plus two trust/credibility pages and a contributor funnel:
+
+```
+HOME  (/)                       all setups ranked, ONE representative score each
+  └─ MODEL  (/model/[slug])      one base model, ALL its quants on quality-vs-VRAM + quant-delta strip
+       └─ RUN DETAIL (/run/[id]) one run: per-axis-per-rung, contamination canary, manifest, provenance
+METHODOLOGY (/methodology)      every weight + formula + saturation/discrimination diagnostics
+TRUST       (/trust)            threat model; replication is the trust unit, not "verified"
+SUBMIT      (/submit)           CLI to contribute a run; what uploads; lane/tier rules
+```
+
+**Narrative spine:** HOME asks "what fits my GPU and how good is it?"; MODEL answers "what does each quant cost me, paired and CI-bounded?"; RUN DETAIL answers "can I trust and reproduce this one number?"; METHODOLOGY/TRUST answer "why should I believe the suite at all?".
+
+---
+
+## 2. Visual language
+
+### 2.1 Palette (dark-only; hex)
+
+Inherited tokens are marked **(shipped)**; new tokens are semantic state colours for the CI/quant-delta honesty layer.
+
+| Token | Hex | Use |
+|---|---|---|
+| `bg` **(shipped)** | `#0b0e14` | page background |
+| `panel` **(shipped)** | `#11161f` | cards, tables, chart plot fill |
+| `panel-2` | `#0e131c` | nested/inset wells (depth without lighter grey) |
+| `line` **(shipped)** | `#273244` | borders, gridlines |
+| `line-strong` **(shipped)** | `#4a5568` | axis spines |
+| `text` **(shipped)** | `#eef4fb` | primary text + numbers |
+| `muted` **(shipped)** | `#99a7b8` | labels, secondary |
+| `muted-2` | `#6b7a8d` | footnotes, tertiary, `~chance` hatch |
+| `accent` **(shipped)** | `#32d2b4` | teal — community/open data, CTAs, focus, primary chart points |
+| `accent-dim` | `#1f8a76` | teal hover/pressed |
+| `anchor` **(shipped)** | `#f6b24b` | amber — **frontier anchors only** (dashed lines, anchor rows/ticks) |
+| `anchor-soft` | `#f6d08d` | amber text on dark |
+| `better` | `#46d39a` | quant-delta improves (verdict) |
+| `worse` | `#ff6b6b` | quant-delta regresses (verdict) |
+| `tied` | `#99a7b8` | within uncertainty (= `muted`) |
+| `mixed` | `#c792ea` | mixed verdict (violet) |
+| `lane-reasoning-edge` | `#7c83ff` | indigo border-only tint marking native-reasoning lane |
+| `warn` **(shipped)** | `#fbbf24` on `rgba(251,191,36,0.08)` | lane caveats, data-quality notes |
+
+**Colour discipline (the rule that makes charts honest):** magnitude is **always** position/length; verdict is **always** hue + shape. Greens/reds appear **only** as quant-delta verdicts, never as raw-magnitude fills. Verdict colours are paired with an icon (▲ better / ▼ worse / = tied / ◬ mixed) so colour is never the sole channel (deuteranopia-safe). Anchor amber is full-strength on lines but ~2.5% on row tints, so anchor rows read as *reference*, not *alert*. Contrast: text 14.8:1, muted 6.9:1, accent 7.1:1 on `bg`.
+
+### 2.2 Typography
+
+Two CSS-var families (already wired in `layout.tsx`): **Inter** (`--font-sans`) for prose/labels/headings; a **tabular-figures mono** (`--font-mono`, JetBrains Mono / `ui-monospace`) for **every number, score, CI, hash, run-id, token count**. Tabular mono is non-negotiable: score columns must align and a CI like `±1.9` must never reflow.
+
+Scale (rem): display 2.5 (home H1) · h1 2.25 (model name) · run-composite headline 3.75 (60px, shipped) · h2 1.5 · h3 1.125 (card titles) · body 1 · small 0.875 (cells/captions) · micro 0.6875 (uppercase eyebrow + badges, tracked +0.04em — the shipped label treatment). Headline metrics: mono + 600. Tabular numbers: mono + 400. Version stamps reuse the shipped `font-mono text-xs uppercase text-bench-accent` motif as `suite-v{n} · index-v{n}` on every page.
+
+### 2.3 What we borrow from AA, and how we differ
+
+**Borrowed (component-level):** 0–100 composite index; the signature quadrant **scatter** as hero; hierarchical category weighting (AA 4×25% → our 5 domains); open-vs-proprietary visual split (→ community-teal vs anchor-amber); sortable per-eval table; per-model + methodology pages; reasoning-effort in the model label; cost-to-run economics; headroom buffering so the frontier doesn't pin the ceiling.
+
+**How we differ (the anti-"AA-but-worse" moves):**
+1. **Hero is the local/quant wedge, not a frontier index.** AA's landing default is a ranked frontier table with intelligence-vs-**price** as a variant (verified Jun 2026: "28 of 538 models", "Intelligence vs Cost to Run" quadrant). Ours leads with **intelligence-vs-VRAM** — "what does Q4 cost YOUR model on YOUR GPU, measured." Price is AA's axis because their user picks an API; VRAM/quant is ours because our user picks a deployable local setup.
+2. **CIs are first-class everywhere.** AA treats its <±1% composite CI as negligible and shows visible error bars only on its preference Arena, not the Intelligence Index scatter (verified). We draw a CI on **every** score — table cells, scatter points, axis bars, and especially the paired quant-deltas.
+3. **Paired-delta honesty rule as a UI primitive.** The quant-delta is always a **paired** comparison on fixed items with its **paired** CI, scoped "on suite-v1 fixed items", rendered as a dominance verdict — never a universal percentage, never two independent CIs subtracted.
+4. **Strict reasoning lanes, never merged.** AA folds reasoning/non-reasoning into one index and footnotes token burn; we split lanes hard, keep a persistent lane caveat on every leaderboard view, and show tokens/cost **beside** accuracy.
+5. **Saturation/discrimination diagnostics published** (anchor spread, S_index, point-biserial/IRT) — the moat AA/LLM-Stats don't open.
+6. **Decomposition over composite:** the per-axis profile is the headline; the composite is only the sortable summary.
+7. **Contamination canary made visible:** the public-vs-private-sentinel gap is charted on run detail.
+
+### 2.4 Dark-mode build notes
+
+Dark is the only mode (no toggle). Depth via three stacked surfaces (`bg < panel-2 < panel`) + 1px `line` borders + the shipped soft black shadow on the primary table — never elevation via lighter grey fills (washes out on OLED). Plot areas: `panel` fill, `line` gridlines ~1px, `line-strong` spines. Glows are a focusing device only (the shipped axis-point teal glow `0 0 14px rgba(50,210,180,0.65)` is reused by the quant-delta verdict chips and the selected scatter point). `~chance` renders as a 45° hatch in `muted-2` over a **hollow** marker (visually "not a real point"), never a solid dot below the chance line.
+
+---
+
+## 3. Pages
+
+### 3.1 HOME — Local leaderboard (`/`)
+
+**Purpose:** lead with the local/quantization wedge; the quality-vs-VRAM scatter + per-axis profile are the headline, the composite is the sortable summary. Must not read as an AA frontier-index clone.
+
+```
++--------------------------------------------------------------------------------------+
+| local-bench            Leaderboard · Methodology · Trust · [Submit a run]   suite-v1  |
++--------------------------------------------------------------------------------------+
+| suite-v1 · index-v2                                                                   |
+| H1  Local AI quality leaderboard — measured, with confidence intervals               |
+| Sub  Every setup on the same frozen suite across 5 domains. The headline is the       |
+|      quant cost on YOUR model; the composite is just the sortable summary.            |
+|                                                                                       |
+| [ ! Quick = personal estimate, UNRANKED. Standard is the ranked board; ranks only     |
+|     within a reasoning lane. Rows sorted for browsing only. ]   <- LaneCaveatBanner    |
++--------------------------------------------------------------------------------------+
+| HERO: QUALITY vs VRAM                          | lane:[answer-only|native-reasoning]  |
+|  100|------------------------------------------|  - - - - Opus 4.8  82  (anchor)       |
+|     |        8  12  16   24    32      48 GB    |  - - - - GPT-5.5   80                 |
+|  80 |- - - - - - - - - - - - - - - - - - - - - -|  - - - - Gemini    78                 |
+|     |   (most attractive: top-LEFT)            |                                       |
+|  60 |        o-+   o (CI whisker)   o          |  o community run (teal, 95% CI)        |
+|     |        Q4    Q5_K_M          bf16        |  vertical bar = 95% CI                 |
+|  40 |   o                                      |  dashed amber = frontier anchor       |
+|     +------------------------------------------|  y headroom-buffered (SOTA~80)        |
+|       model memory footprint (GB) [lin|log]    |                                       |
++--------------------------------------------------------------------------------------+
+| FilterBar: [community|anchor]  lane[v]  tier[v]  VRAM<=[==24GB==]  search[__________]  |
++--------------------------------------------------------------------------------------+
+| Rank | Model            | Kind | Composite | Know | Math | IF | Agent | Code | Tier  |
+|      |                  |      |  +CI bar  | bar  | bar  |bar |  bar  | bar  | Lane  |
+|------+------------------+------+-----------+------+------+----+-------+------+-------|
+|  1   | Opus 4.8         |ANCHOR| 82 ±0.9   | 88   | 71   | 90 |  79   |  74  | Std   |
+|  --  | Qwen3.5 9B  N=3  | COMM | 71 ±1.0   | 75   | ~ch  | 83 |  66   |  61  | Quick |
+|      |  ... sortable, tokens + cost columns to the right (mono) ...                   |
++--------------------------------------------------------------------------------------+
+| Footnote: composite = domain-weighted mean of chance-corrected axes, within lane.     |
+| Tokens/cost shown beside accuracy, never folded in. See Methodology for every weight. |
++--------------------------------------------------------------------------------------+
+```
+
+**Key components:** TopNav · VersionStamp · LaneCaveatBanner · QualityVsVramScatter (hero, lane-switchable, VRAM tier guides, anchor reference lines) · FilterBar · LeaderboardTable (5 domain columns + composite + tier + lane + tokens + cost + rank-within-lane) · AxisMiniBar×5 · ScoreBar · KindBadge/TierBadge/LaneBadge/ReplicatedBadge · RankMarker.
+
+**Charts:** QualityVsVramScatter (hero); in-table composite ScoreBar + 5× AxisMiniBar.
+
+### 3.2 MODEL — one base model, all quants (`/model/[slug]`)
+
+**Purpose:** all quants on a per-model quality-vs-VRAM scatter against frontier anchors, **plus the launch hero**: the QUANT-DEGRADATION STRIP of paired deltas with paired CIs and dominance verdicts. Also the per-axis profile, the REPORTED shelf, and the runs table.
+
+```
++--------------------------------------------------------------------------------------+
+| < Back to leaderboard                                                       suite-v1  |
+| [COMMUNITY · N=7 runs]   [replicated]                                                  |
+| H1  Qwen3.5 9B                          lane:[answer-only | native-reasoning]          |
+| Sub All quants for this model vs frontier anchor reference lines.                      |
++--------------------------------------------------------------------------------------+
+| QUANT-DEGRADATION STRIP  (vs bf16 baseline, on suite-v1 fixed items)  [delta|absolute]|
+|   bf16   |================================ 0 (baseline)                                |
+|   Q8_0   |                      [--o--]  -0.4 +/- 1.1   = tied (within uncertainty)    |
+|   Q5_K_M |                 [---o---]      -1.8 +/- 1.6   v worse (within uncertainty)  |
+|   Q4_K_M |          [----o----]           -4.6 +/- 1.9   v worse                       |
+|   Q3_K_M |   [-----o-----]                -9.2 +/- 2.3   v worse  (+ -41% tokens)      |
+|          -15 ......... -5 ....... 0 ..... +5   composite delta (paired)               |
+|   [expand a quant -> its 5 per-domain paired deltas: Know = / Math v / IF = ...]       |
++--------------------------------------------------------------------------------------+
+| QUALITY vs VRAM (this model)                    | - - Opus 82  - - GPT-5.5 80  ...     |
+|  100|------------------------------------------|                                       |
+|   80|- - - - - - - - - - - - - - - - - - - - - |  o each quant w/ 95% CI whisker        |
+|   60|     o(Q3) o(Q4)  o(Q5) o(Q8) o(bf16)      |  x grows with footprint               |
+|     +------------------------------------------|                                       |
+|        4    6     8    10    16  GB                                                    |
++--------------------------------------------------------------------------------------+
+| PER-AXIS PROFILE (best run)         [bars | radar]      worst axis: Math (amber)       |
+|  Knowledge 25% |##########====| 75 +/-3                                                |
+|  Agentic   20% |########==|     66 +/-4                                                |
+|  IF        20% |###########=|   83 +/-4                                                |
+|  Math      20% |##~chance~|      ~chance                                               |
+|  Coding    15% |#######=|       61 +/-5                                                |
++--------------------------------------------------------------------------------------+
+| REPORTED ELSEWHERE (not measured here)  -- labeled, never charted on a measured axis   |
+|  SWE-bench Verified .. GPQA Diamond .. HLE .. Aider .. LiveCodeBench   [source links]  |
++--------------------------------------------------------------------------------------+
+| RUNS  (run -> /run/<id>)                                                               |
+|  run_id | quant | footprint | composite+CI | 5 axes | tier | lane | tok | tok/s | $ | hw|
++--------------------------------------------------------------------------------------+
+```
+
+**Key components:** TopNav · VersionStamp · KindBadge/ReplicatedBadge · lane segmented control · **QuantDeltaStrip** (launch hero) · QualityVsVramScatter (per-model) · PerAxisProfile (bars/radar, worst-axis highlight) · ReportedShelf · RunsTable · LaneCaveatBanner · TokenEconomicsInline.
+
+**Charts:** QuantDeltaStrip; QualityVsVramScatter (per-model); PerAxisProfile / AxisRadar.
+
+### 3.3 RUN DETAIL — one run, full provenance (`/run/[runId]`)
+
+**Purpose:** per-axis-per-rung profile, the public-vs-private contamination canary, tokens/cost/latency, conservative-ranking note for thin coverage, full manifest + provenance hashes. Everything to trust and reproduce one number.
+
+```
++--------------------------------------------------------------------------------------+
+| < Back to model                                                            suite-v1   |
+| suite-v1 · index-v2                                                                    |
+| H1  Qwen3.5 9B   run_id: qwen3-5-9b__q4-var1                                           |
+|                                                                                       |
+|   71.0   +/-1.0  95% CI     composite, chance-corrected, native-reasoning lane         |
+|   [ ! data-quality: 0 errors, 4 no-answer items ]                                      |
+|   [ conservative ranking applied: thin coverage -> mu - 3*sigma ]                      |
++--------------------------------------------------------------------------------------+
+| AXIS x RUNG BREAKDOWN                                   worst axis: Math (amber)       |
+|  Knowledge & Reasoning  75 +/-3                                                        |
+|     SuperGPQA easy   |############| 81           middle |######| 49   hard |##~ch~|     |
+|     MMLU-Pro (floor) |##########| 75             BBEH-mini (stretch) |##| ~chance       |
+|  Math  ~chance                                                                        |
+|     generated-v2 |####| 38   MathArena-fresh |#| ~ch   Olympiad |#| ~ch                 |
+|  Agentic (BFCL-AST) 66 +/-4                                                            |
+|     simple |#######| multiple|#####| parallel|####| relevance|######| irrel|#####|     |
+|  Instruction-Following 83   |  Coding (CRUXEval-O) 61                                  |
++--------------------------------------------------------------------------------------+
+| CONTAMINATION CANARY                                                                   |
+|   public set 38  vs  private sentinel 36   gap +2  [ canary clean ]                    |
+|   (a large public>>private gap = contamination / answer-lookup / gaming)               |
++--------------------------------------------------------------------------------------+
+| TOKEN ECONOMICS    median 452 tok-to-answer · p95 2387 · 302 tok/s · $-- · wall 9.4m   |
++--------------------------------------------------------------------------------------+
+| MANIFEST  (DetailGrid)                                                                 |
+|  model | quant Q4_K_M | runtime vLLM 0.x | hardware RTX 5090 31.8GB | os Win11          |
+|  lane native-reasoning | thinking_mode on | caps {mcq:4096,...} | sampling temp/min_p   |
+|  tokens prompt/compl/total | tok-to-answer med/p95 | tok/s | wall-time | est-cost       |
++--------------------------------------------------------------------------------------+
+| PROVENANCE   suite_version: suite-v1   index_version: index-v2                         |
+|   mmlu_pro      sha256: ....    supergpqa  sha256: ....   bfcl_ast sha256: ....         |
+|   ifbench       sha256: ....    cruxeval_o sha256: ....   genmath  sha256: ....         |
++--------------------------------------------------------------------------------------+
+```
+
+**Key components:** TopNav · VersionStamp (suite + index) · CompositeScoreHeadline (60px) · data-quality note (conditional) · conservative-ranking note (μ−3σ, conditional) · RunAxisBreakdown + RungBreakdown (worst-axis highlight) · ContaminationChip + public-vs-private panel · TokenEconomicsInline · ManifestCard · ProvenanceList.
+
+**Charts:** AxisRungBreakdown; public-vs-private sentinel mini-bars.
+
+### 3.4 METHODOLOGY — the credibility moat (`/methodology`)
+
+**Purpose:** publish every domain + per-bench weight (index-v2), the absolute chance-corrected normalization with each bench's chance baseline, the bootstrap CI method + three estimands, the strict lane policy, the sentinel framing, and the saturation/discrimination **diagnostics**.
+
+```
+| 1 DECOMPOSITION FIRST — per-axis profile is the headline; composite is summary.        |
+| 2 WEIGHTS (index-v2)  WeightsTable                                                      |
+|    Knowledge&Reasoning 25% = SuperGPQA 15 + MMLU-Pro 6.25 + BBEH-mini 3.75             |
+|    Math 20% = genmath-v2 10 + MathArena-fresh 7 + Omni/Olympiad 3                       |
+|    Instruction 20% = IFBench 13 + IFEval 7   Agentic 20% = BFCL-AST 20                  |
+|    Coding 15% = CRUXEval-O 15      [weight follows discrimination; saturated -> cut]    |
+| 3 NORMALIZATION  signed=(raw-c)/(1-c); c per bench (MMLU-Pro .10, SuperGPQA ~.10,      |
+|    BBEH ~0, IF/genmath 0, BFCL-AST ~0, CRUXEval-O ~0, MathArena 0). No clamp pre-agg.   |
+| 4 UNCERTAINTY  clustered bootstrap; 3 estimands (repeatability/paired-delta/general).   |
+|    '~chance' when CI crosses chance. Marketing may not outrun the paired CI.            |
+| 5 LANES  strict; composite within-lane only; tokens/cost beside accuracy.              |
+| 6 DIAGNOSTICS  anchor-spread per axis [floor|==anchors=|ceiling] · S_index · discrim.   |
+| 7 VERSIONING  suite-v{n} tags item-sets; index-v{n} tags weights; quarterly sat. gate.  |
+```
+
+**Key components:** WeightsTable (versioned) · normalization formula block (mono) · three-estimands explainer · lane-policy explainer · **DiagnosticsPanel** (anchor-spread bars, S_index gauge, discrimination strip) · versioning/saturation-gate explainer.
+
+**Charts:** DiagnosticsPanel.
+
+### 3.5 TRUST — threat model (`/trust`)
+
+**Purpose:** a transcript is never proof of identity; the trust unit is **replication**. Explains the cheat-proxy attack, what server-side signals can/can't prove, and how the private sentinel + independent replication raise trust. Defines the badge labels used everywhere.
+
+**Key components:** label-definition cards (community-reported / replicated / anchor, reusing KindBadge/ReplicatedBadge) · cheat-proxy explainer · trust-improvement explainer. **Charts:** none.
+
+### 3.6 SUBMIT — contribute a run (`/submit`)
+
+**Purpose:** contributor funnel + integrity gate. The exact CLI to run the frozen suite via an OpenAI-compatible endpoint; what uploads (manifest + per-item scores + versions + SHAs, **not** the user's prompts/data); lane/tier rules (Quick=unranked, declare your lane, footprint recommended for the VRAM scatter); the replicated path.
+
+**Key components:** copyable code block (mono) · upload-manifest explainer · tier/lane rules · ReplicatedBadge-path explainer. **Charts:** none.
+
+---
+
+## 4. Chart specifications
+
+All charts are hand-rolled SVG + Tailwind (no chart lib), matching `components/model-scatter.tsx` and `components/run-axis-breakdown.tsx`.
+
+### 4.1 QualityVsVramScatter — FLAGSHIP (home hero + per-model)
+
+- **X:** model memory footprint (GB) = weights + KV at the run's context — the *deployability* axis. Linear default with a **log** toggle on home (footprints span ~3 → 80+ GB; log keeps the 8–48 GB consumer band readable). X-domain padded 8% (the shipped `getXDomain`). On home, faint **vertical VRAM-tier guides** at 8/12/16/24/32/48 GB labeled along the top → reads "what fits my card" directly.
+- **Y:** composite (0–100), chance-corrected, **within one lane**. **Headroom-buffered for display** so current frontier-anchor SOTA maps to ~80/100 (LLM-Stats 1.25); raw chance-corrected values stay internal for delta math. Gridlines 0/25/50/75/100 (shipped `Y_TICKS`); rotated title "composite (within lane)".
+- **Most attractive quadrant = TOP-LEFT** (high quality, low VRAM) — annotated once with a faint "better →" hint (inverts AA's low-price intuition onto our axis).
+- **CIs:** every community point = filled teal circle (r6, dark stroke) with a **vertical 95% CI whisker** (capped I-bar: line hi→lo + 12px caps — the shipped construction at `model-scatter.tsx` lines 89–93). CI crossing chance → hollow hatched marker + `~chance` tag. Anchors carry no whisker on their line (references, not measured-against points); their dashed line is 1.5px; tooltip exposes the anchor's own CI.
+- **Lanes:** renders **one lane at a time** (segmented control above; active lane named in subtitle + y-title). Native-reasoning points carry the indigo lane-edge ring; answer-only are plain teal. Switching lanes re-fetches that lane's points + anchor lines — lanes never co-plot. Each point's hover card shows tokens-to-answer + est-cost. Anchor reference lines: dashed amber, right-margin-labeled `<model> <score>`, vertically de-collided (shipped `layoutAnchors`).
+
+### 4.2 PerAxisProfile — the headline decomposition (model & run)
+
+ succeeded in 169ms:
+---
+name: using-superpowers
+description: Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions
+---
+
+<SUBAGENT-STOP>
+If you were dispatched as a subagent to execute a specific task, skip this skill.
+</SUBAGENT-STOP>
+
+<EXTREMELY-IMPORTANT>
+If you think there is even a 1% chance a skill might apply to what you are doing, you ABSOLUTELY MUST invoke the skill.
+
+IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
+
+This is not negotiable. This is not optional. You cannot rationalize your way out of this.
+</EXTREMELY-IMPORTANT>
+
+## Instruction Priority
+
+Superpowers skills override default system prompt behavior, but **user instructions always take precedence**:
+
+1. **User's explicit instructions** (CLAUDE.md, GEMINI.md, AGENTS.md, direct requests) — highest priority
+2. **Superpowers skills** — override default system behavior where they conflict
+3. **Default system prompt** — lowest priority
+
+If CLAUDE.md, GEMINI.md, or AGENTS.md says "don't use TDD" and a skill says "always use TDD," follow the user's instructions. The user is in control.
+
+## How to Access Skills
+
+**In Claude Code:** Use the `Skill` tool. When you invoke a skill, its content is loaded and presented to you—follow it directly. Never use the Read tool on skill files.
+
+**In Copilot CLI:** Use the `skill` tool. Skills are auto-discovered from installed plugins. The `skill` tool works the same as Claude Code's `Skill` tool.
+
+**In Gemini CLI:** Skills activate via the `activate_skill` tool. Gemini loads skill metadata at session start and activates the full content on demand.
+
+**In other environments:** Check your platform's documentation for how skills are loaded.
+
+## Platform Adaptation
+
+Skills use Claude Code tool names. Non-CC platforms: see `references/copilot-tools.md` (Copilot CLI), `references/codex-tools.md` (Codex) for tool equivalents. Gemini CLI users get the tool mapping loaded automatically via GEMINI.md.
+
+# Using Skills
+
+## The Rule
+
+**Invoke relevant or requested skills BEFORE any response or action.** Even a 1% chance a skill might apply means that you should invoke the skill to check. If an invoked skill turns out to be wrong for the situation, you don't need to use it.
+
+```dot
+digraph skill_flow {
+    "User message received" [shape=doublecircle];
+    "About to EnterPlanMode?" [shape=doublecircle];
+    "Already brainstormed?" [shape=diamond];
+    "Invoke brainstorming skill" [shape=box];
+    "Might any skill apply?" [shape=diamond];
+    "Invoke Skill tool" [shape=box];
+    "Announce: 'Using [skill] to [purpose]'" [shape=box];
+    "Has checklist?" [shape=diamond];
+    "Create TodoWrite todo per item" [shape=box];
+    "Follow skill exactly" [shape=box];
+    "Respond (including clarifications)" [shape=doublecircle];
+
+    "About to EnterPlanMode?" -> "Already brainstormed?";
+    "Already brainstormed?" -> "Invoke brainstorming skill" [label="no"];
+    "Already brainstormed?" -> "Might any skill apply?" [label="yes"];
+    "Invoke brainstorming skill" -> "Might any skill apply?";
+
+    "User message received" -> "Might any skill apply?";
+    "Might any skill apply?" -> "Invoke Skill tool" [label="yes, even 1%"];
+    "Might any skill apply?" -> "Respond (including clarifications)" [label="definitely not"];
+    "Invoke Skill tool" -> "Announce: 'Using [skill] to [purpose]'";
+    "Announce: 'Using [skill] to [purpose]'" -> "Has checklist?";
+    "Has checklist?" -> "Create TodoWrite todo per item" [label="yes"];
+    "Has checklist?" -> "Follow skill exactly" [label="no"];
+    "Create TodoWrite todo per item" -> "Follow skill exactly";
+}
+```
+
+## Red Flags
+
+These thoughts mean STOP—you're rationalizing:
+
+| Thought | Reality |
+|---------|---------|
+| "This is just a simple question" | Questions are tasks. Check for skills. |
+| "I need more context first" | Skill check comes BEFORE clarifying questions. |
+| "Let me explore the codebase first" | Skills tell you HOW to explore. Check first. |
+| "I can check git/files quickly" | Files lack conversation context. Check for skills. |
+| "Let me gather information first" | Skills tell you HOW to gather information. |
+| "This doesn't need a formal skill" | If a skill exists, use it. |
+| "I remember this skill" | Skills evolve. Read current version. |
+| "This doesn't count as a task" | Action = task. Check for skills. |
+| "The skill is overkill" | Simple things become complex. Use it. |
+| "I'll just do this one thing first" | Check BEFORE doing anything. |
+| "This feels productive" | Undisciplined action wastes time. Skills prevent this. |
+| "I know what that means" | Knowing the concept ≠ using the skill. Invoke it. |
+
+## Skill Priority
+
+When multiple skills could apply, use this order:
+
+1. **Process skills first** (brainstorming, debugging) - these determine HOW to approach the task
+2. **Implementation skills second** (frontend-design, mcp-builder) - these guide execution
+
+"Let's build X" → brainstorming first, then implementation skills.
+"Fix this bug" → debugging first, then domain-specific skills.
+
+## Skill Types
+
+**Rigid** (TDD, debugging): Follow exactly. Don't adapt away discipline.
+
+**Flexible** (patterns): Adapt principles to context.
+
+The skill itself tells you which.
+
+## User Instructions
+
+Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
+
+ succeeded in 170ms:
+# local-bench — Project Handoff & Context Brief
+
+*Self-contained context for a new agent or collaborator. Last updated 2026-06-13.*
+
+## 1. What local-bench is
+A community **quality**-benchmark leaderboard for **LOCAL / open LLM setups**. A user runs a frozen
+benchmark suite against their own rig — **model × quantization × runtime × hardware** — with one CLI
+command pointed at any OpenAI-compatible endpoint (Ollama / vLLM / LM Studio / llama.cpp). Results are
+server-scored and placed on boards and charts **alongside frontier "anchor" models measured on the
+identical suite**. Tagline: *"Geekbench for local AI intelligence."* Repo: `C:\Users\Michael\local-bench`.
+
+## 2. The wedge (why anyone uses it)
+The launch differentiator is the **quant-degradation dataset nobody else publishes**: *"what does Q4_K_M
+actually cost YOUR model, measured, with confidence intervals."* Verified gap: Artificial Analysis does
+quality composites but **API-models only**; LocalScore does community runs but **speed only**; the HF Open
+LLM Leaderboard died on central-compute cost. **Nobody does community-run QUALITY benchmarks on your actual
+local setup, anchored to frontier.** We measure **distance-to-frontier across the local range** — the
+frontier anchors are a *reference ceiling*, not a ranking we try to resolve.
+
+## 3. The five hard constraints (every benchmark we adopt obeys ALL of them)
+1. **License-clean** to redistribute/serve (no CC-BY-NC, no gated / no-republish data).
+2. **Local-runnable** via an OpenAI-compatible endpoint on a single 16-48GB consumer GPU — **no sandbox /
+   browser / code-exec of model output** on the user's machine.
+3. **Discriminates across the local range** (1-14B → frontier) — not saturated, not floored.
+4. **Contamination-resistant** — synthetic/regenerable, date-windowed, or private-sentinel canaried.
+5. **Programmatic scoring — NO LLM judge** (deterministic + reproducible).
+
+## 4. The journey (how we got here)
+- **v0 suite** (MMLU-Pro subset + IFEval + generated-math, ⅓ each) **failed to discriminate**: a 9B scored
+  within ~6 composite pts of frontier SOTA, and Gemini "beat" Opus by acing the saturated easy axes. Root
+  cause: 2 of 3 axes saturated (everyone near ceiling); the composite averaged them, collapsing dynamic range.
+- This is a **measurement-VALIDITY** problem, not a code bug. Our tests verify we *compute* the composite
+  correctly, never that it *means* anything. P0 validated repeatability + licensing but **never discrimination**.
+- **Key external validation:** Artificial Analysis hit the SAME problem and fixed it by **REPLACING**
+  saturated benches — their Intelligence Index **v4.0** (Dec 2025) dropped MMLU-Pro / AIME / LiveCodeBench;
+  the top score fell **73 → 50**. The industry leader's answer to our exact failure is our precedent.
+- Multi-agent research → a **measure-first revised spec** (`suite-v1-REVISED.md`).
+
+## 5. The decisive rule (learned the hard way, twice)
+**Weight by MEASURED discrimination, never by leaderboard numbers** (which go stale in *weeks*). Selection
+AND weights are set by a **discrimination probe**: run the 4 frontier anchors + ≥3 local models (1-3B / 9B /
+~32B) on a sample of each candidate bench, compute floor→frontier spread, and keep/weight only what spreads
+(weight → 0 if anchors cluster within ~3 pts). Be willing to ship FEWER, genuinely-discriminating axes.
+
+**Corollary (2026-06-13):** many 2026 aggregator leaderboards carry **confabulated model names/scores** — the
+design patterns + licenses surfaced by research are trustworthy, but specific "model X scores Y%" numbers are
+NOT; trust Epoch AI / official cards / our own probe runs.
+
+## 6. Current revised suite (candidates — the probe finalizes them)
+- **Knowledge & Reasoning:** SuperGPQA (core) + MMLU-Pro (floor) + BBEH-mini (frontier stretch).
+- **Instruction-Following:** IFBench (core) + IFEval (floor).
+- **Math (license-clean ladder):** AMO-Bench-39 (MIT, newly-authored = clean) + OlymMATH-HARD (MIT) as the
+  DISCRIMINATING rung; **generated-math is the private SENTINEL only** (hardening it won't separate the frontier —
+  grade-school math is too easy a substrate). HARP/OlympiadBench have an MAA/third-party-copyright catch (packaging
+  is MIT, the problems are not). *Needs a sympy/`math_verify` scorer upgrade.* Frontier-vs-frontier math is a real
+  ceiling (final-answer format is dead at the frontier) — honest reference ceiling.
+- **Long-Context:** RULER 32k (Apache, synthetic) + LongBench v2 (MIT). VRAM-tiered.
+- **Agentic:** upgrading from BFCL-AST-only to a multi-rung axis — ToolHop (CC-BY-4.0, discriminates both
+  ends) + BFCL multi-turn (already vendored) + BFCL-AST floor.
+- **Logical/CSP (candidate add):** ZebraLogic / AutoLogi — clean, generatable, judge-free, strong spread.
+- **Coding:** reopened 2026-06-13 — a shippable **exec-free** lane exists (LiveCodeBench output-prediction,
+  CC-BY-4.0, date-windowed) + an optional **no-Docker** constrained-exec lane; Docker = opt-in hardening.
+  (The earlier "Docker-only / unmeasured" read was too pessimistic.)
+- **Calibration:** v2 (build-our-own, scored by AURC over self-consistency — see notes).
+
+## 7. The scoring stack (KEEP — it is sound; this is a CONTENT problem, not a math one)
+Absolute chance-corrected normalization; unclamp-for-inference (display-clamp only); **clustered bootstrap
+CIs**; three estimands kept distinct (**repeatability** / **paired quant-delta** / **generalization**);
+**strict reasoning lanes** (composite within a lane only; tokens/cost shown beside accuracy, never folded in);
+difficulty stratification; **private sentinel = contamination canary**; dated `suite-v{n}` / `index-v{n}`
+governance. Paired quant-deltas are reported "on suite-v{n} fixed items ± paired CI", never as a universal %.
+
+## 8. "Build our own benchmark" — RECOMMENDED to graduate to a real workstream (2026-06-13 research)
+Every existing benchmark saturates in months, carries license friction, and mostly can't separate
+frontier-vs-frontier locally. An **OWN benchmark** — procedurally generated + private hold-out — is
+contamination-/saturation-/license-proof **by construction** (verification asymmetry: the generator computes the
+gold answer, so scoring stays exact-match / poly-time even when *solving* is hard). It's **extension, not
+greenfield** — we already ship the engine (`suite/genmath_gen/`, public/private sentinel, judge-free scoring,
+169 tests). The feasibility research recommends **graduating this to a real workstream: own 2-3 procedural axes
+as the contamination-proof spine, ALONGSIDE the license-clean assembled discriminators that work (a hybrid).**
+- **Pilot first (smallest high-signal):** own compositional **instruction-following** (own IFBench) — deterministic
+  Python verifiers, frontier-hard in 2026 (IFBench <50% for Claude-4-Sonnet / Qwen3-32B), clean N-constraint
+  difficulty dial, extends existing IFEval work. Then own code-output-tracing + own logic-grids/CSP.
+- **Durable difficulty levers (these BITE the frontier):** search-space size / NP-hard optimization (most durable),
+  execution-step / state-mutation depth, compositional constraint stacking, long-context multi-hop.
+- **Defeated levers (TRAPS — do NOT use):** GSM-NoOp distractors (debunked 2026), shallow grade-school perturbation
+  (GSM-Symbolic P1/P2 — frontier shrugs it off), fixed-template small-world (bAbI). ARC-AGI grid+test-time-training
+  measures the harness, not the model — our no-sandbox rule rightly forbids that shape.
+- **Validation is the real cost center (all judge-free):** CTT item analysis (point-biserial / discrimination
+  index), input-ablated shortcut detection, convergent validity vs established benches, canary GUID + private
+  rotation, human baseline + bootstrap CIs + published generators.
+**Thesis: an original local-bench benchmark is the site's most defensible moat.** Tracked as #29 + the deep-research
+prompt (`own-benchmark-research-prompt.md`, with a required 3-model red-team).
+
+## 9. Key docs (all in `docs/foundations/`)
+- `README.md` — entry point + reconciliation. | `suite-v1-REVISED.md` — **current canonical spec** (measure-first).
+- `suite-v1-methodology.md` — original synthesis (superseded on axis/weights). | `red-team-findings.md` — the critique that drove the revision.
+- `replacement-research-notes.md` — running notes from the gap-fill research (coding/agentic/math/calibration/missing axes).
+- `website-design.md` — AA-inspired dark site design (3-level IA, quant-degradation hero). | `research-dossiers.json` — raw 9-track research.
+
+## 10. What's decided vs open
+**Decided:** the wedge; the 5 constraints; distance-to-frontier reframe; keep the scoring stack; measure-first
+weighting; SuperGPQA + IFBench as core; coding → Docker opt-in; dark AA-inspired site.
+**Open (need Michael):** final axis list; run the discrimination probe (only remaining bench step, ~$5-15 +
+GPU time); the build-our-own decision; exec-sandbox stance (lean: no exec of model output); refresh cadence.
+
+## 11. Execution model & guardrails
+Claude manages/reviews/synthesizes; research fans out to subagents; **codex GPT-5.5 xhigh** implements heavy
+code. Hardware: **RTX 5090** for local runs (mining pauses for benches, restored after); the **vast.ai host
+box (machine 105688) is EXCLUDED** from all benchmarking (revenue asset, reliability must not be risked).
+API keys live in `C:\Users\Michael\Desktop\API keys.txt` — in-process env only, **never echo or commit**.
+Work on branches, not `main`, until signed off.
+
+ succeeded in 157ms:
+# local-bench — Front-End Site Audit
+
+*Auditor: Claude (read-only, no server run) · Date: 2026-06-13*
+*Reference docs: PROJECT-HANDOFF.md §1/2/6, website-design.md (full)*
+
+---
+
+## 0. What was audited
+
+All source files under `web/` were read in full:
+
+- **Routes:** `app/page.tsx`, `app/layout.tsx`, `app/model/[slug]/page.tsx`, `app/run/[runId]/page.tsx`, `app/methodology/page.tsx`, `app/trust/page.tsx`
+- **Components:** `components/home-leaderboard.tsx`, `components/model-scatter.tsx`, `components/run-axis-breakdown.tsx`, `components/score-bar.tsx`, `components/badges.tsx`, `components/detail-grid.tsx`
+- **Lib:** `lib/schemas.ts`, `lib/data.ts`, `lib/format.ts`
+- **Config/styling:** `tailwind.config.ts`, `app/globals.css`, `next.config.mjs`
+- **Data pipeline:** `build_data.py`, `data_sources.json`, `public/data/` (output structure)
+- **Tests:** `tests/data.test.ts`, `e2e/home.spec.ts`, `e2e/model.spec.ts`
+- **Reference:** AA homepage fetched for pattern comparison
+
+---
+
+## 1. Per-dimension gap analysis
+
+### 1.1 Visual design system & polish
+
+| | Detail |
+|---|---|
+| **What exists** | Seven `bench.*` Tailwind tokens in `tailwind.config.ts`: `bg/#0b0e14`, `panel/#11161f`, `line/#273244`, `text/#eef4fb`, `muted/#99a7b8`, `accent/#32d2b4`, `anchor/#f6b24b`. Font families wired as CSS vars (`--font-sans: Aptos/Segoe UI Variable`, `--font-mono: Cascadia Mono`). Dark-only with a subtle three-stop gradient on `body`. `::selection` teal tint. |
+| **Missing / weak** | **14 tokens defined in the spec are absent from tailwind.config.ts**: `panel-2`, `line-strong`, `muted-2`, `accent-dim`, `anchor-soft`, `better/#46d39a`, `worse/#ff6b6b`, `tied`, `mixed/#c792ea`, `lane-reasoning-edge/#7c83ff`, `warn`, plus the quant-verdict semantic layer entirely. Without these tokens the QuantDeltaStrip and dominance-verdict chips cannot be built to spec without magic-stringing hex values. The chart SVGs hardcode hex values directly (`stroke="#32d2b4"`, `fill="#f6d08d"`, etc.) rather than using CSS vars — a token regression waiting to happen. No `panel-2` depth level means inset wells (methodology, run-detail nested sections) can't use the three-surface depth model without ad-hoc Tailwind opacity tricks. Typography scale from the spec (display 2.5rem → micro 0.6875rem, tabular-figures mono for every number) is partially present but not enforced via Tailwind `fontSize` config — implementers must eyeball it. The H1 on the home page uses `text-4xl` which is Tailwind default (2.25rem), not the 2.5rem display scale in the spec. No `index_version` anywhere (the spec requires `suite-v{n} · index-v{n}` on every page; only `suite_version` is shown). |
+| **Severity** | High — the incomplete token set means every new component (QuantDeltaStrip, DiagnosticsPanel, verdict chips) will accumulate hardcoded hex literals or be built using mismatched approximations. |
+| **Recommendation** | Extend `tailwind.config.ts` with all 14 missing semantic tokens before any new component work. Refactor the existing SVG hex literals to CSS vars / Tailwind `theme()` calls. Add the typography scale as named sizes. Add `index_version` to both the schema and the index JSON build step. |
+
+---
+
+### 1.2 Information architecture & navigation
+
+| | Detail |
+|---|---|
+| **What exists** | 3-level IA is structurally present: `/` → `/model/[slug]` → `/run/[runId]`, plus `/methodology` and `/trust`. Back-links exist (model → leaderboard, run → model). The `/methodology` and `/trust` links appear in the home page nav. |
+| **Missing / weak** | **`/submit` page is entirely absent** — no file, no route, no stub. The **TopNav / AppShell** described in the spec does not exist: there is no persistent navigation bar across pages. Each page has its own one-off nav link cluster. The `/methodology` and `/trust` links appear only on the home page header `<nav>` — they are invisible from model and run-detail pages. The `VersionStamp` (suite+index version, shown on every page) is only partially present: home page shows the suite version inline as a `<p>` tag, but methodology and trust pages show no version at all. The home page header shows `suite-v0 methodology` on the methodology page (line 11 — hardcoded string, wrong version label). Breadcrumb trail (`Home > Model > Run`) is missing. |
+| **Severity** | High — the missing `/submit` page is a core feature gap (the contribution funnel). The missing global TopNav means the trust/methodology pages are not reachable from any page except home. |
+| **Recommendation** | Build a persistent `AppShell` + `TopNav` used in `layout.tsx` so all pages share nav. Add `/submit` as a stub at minimum. Add breadcrumb component to model and run pages. |
+
+---
+
+### 1.3 Charts / data-viz quality
+
+| | Detail |
+|---|---|
+| **What exists** | Two hand-rolled SVG charts: `ModelScatter` (per-model quality-vs-VRAM) and `RunAxisBreakdown` (per-axis CI whisker bars). CSS-bar `ScoreBar` + `AxisMiniBar` for the table. The scatter has: correct anchor reference dashed lines with label de-collision (`layoutAnchors`), CI whiskers on community points (I-bars with caps — lines 90–96 of model-scatter.tsx), X-domain with 8% padding, Y gridlines at 0/25/50/75/100. The axis breakdown uses a teal glow point marker and translucent CI band (run-axis-breakdown.tsx lines 51–60). Both use SVG `role="img"` and `aria-label`. |
+| **Missing / weak** | **The scatter is only on the model page — it is NOT on the home page as the hero** (the spec's most important layout change). Home currently opens directly to the table with no chart above it. The VRAM-tier guide verticals (8/12/16/24/32/48 GB lines labeled "what fits my card") are absent. No **log-scale toggle** on the X axis. No **lane segmented control** on the scatter. No **tooltips** — hovering a point shows nothing (SVG only, no hover cards). Anchor points have no whiskers (correct per spec, but their hover tooltip with the anchor's own CI is also missing). The scatter X-axis shows only min/max labels with no intermediate ticks. The `~chance` hatched marker (for CI-crossing-chance points) is not implemented — scores below chance just render as regular teal dots. The `AxisMiniBar` in the table shows a score and CI text but no `~chance` substitution when CI crosses chance. No **radar toggle** on the per-axis profile. No `QuantDeltaStrip` chart exists at all (the launch hero). No `DiagnosticsPanel`. The SVG hardcodes `WIDTH=900, HEIGHT=420` with no responsive fluid sizing — it uses `min-w-[760px]` with `overflow-x-auto` which prevents true narrow-screen rendering. |
+| **Severity** | Critical — the home hero scatter is absent (home opens to raw table, not the wedge visualization); the QuantDeltaStrip (the launch differentiator) does not exist at all. |
+| **Recommendation** | (1) Promote ModelScatter (or a variant) to home as `QualityVsVramScatter` hero above the table — this is the single highest-visual-impact change. (2) Build `QuantDeltaStrip` for the model page. (3) Add tooltip/hover cards to scatter points. (4) Add VRAM-tier guide verticals. (5) Implement `~chance` hatching. |
+
+---
+
+### 1.4 Home leaderboard
+
+| | Detail |
+|---|---|
+| **What exists** | `HomeLeaderboard` component with sortable columns, `RankMarker` (shows "Unranked" for all rows since all current runs are Quick/non-ranked), `KindBadge`, `TierBadge`, `LaneBadge`. Per-axis mini-bars for the 3 current axes. Tokens/cost columns. Lane-caveat banner (amber box, correctly positioned). Anchor rows tinted amber via `bg-amber-300/[0.025]`. Correct `buildLaneRanks` logic for within-lane ranking. |
+| **Missing / weak** | Hardcoded 3 axes (`TABLE_AXES = ["mmlu_pro", "ifeval", "genmath"]` at line 10 — the primary axis-flexibility problem, addressed in §1.9). No **FilterBar** — no community/anchor toggle, no lane filter, no tier filter, no VRAM-budget slider, no search input. No **ReplicatedBadge** (the `replicated` field exists in the schema but no badge component renders it). The `~chance` substitution is missing in `AxisMiniBar` — a near-chance score renders as a number, not the `~chance` marker. The composite `ScoreBar` does not show a CI band (only point + CI text in a separate `<span>`). The `AxisMiniBar` CI display is asymmetric — it shows `±X.X` text but the mini-bar only shows the point magnitude, not a CI band over the bar. No `DominanceChip`. The description still says "MMLU-Pro, IFEval, and genmath" (home page.tsx line 24 — hardcoded to old suite). |
+| **Severity** | High — the hardcoded axes are a P0 blocker for the suite-v1 transition. The missing FilterBar is a High gap as dataset grows. The stale description text is a trust/honesty issue. |
+| **Recommendation** | See §1.9 for the axis refactor. Immediately fix the stale description copy. Add ReplicatedBadge. Plan FilterBar as a dedicated build task. |
+
+---
+
+### 1.5 Model page
+
+| | Detail |
+|---|---|
+| **What exists** | Model page renders: `KindBadge`, H1 model label, `ModelScatter` (VRAM scatter vs anchors), a runs table with quant/footprint/composite/per-axis/tier/lane/tokens/tok_s/cost/hardware columns. Back-link to leaderboard. |
+| **Missing / weak** | **`QuantDeltaStrip` is entirely absent** — this is the launch hero for the model page and the primary differentiator. The model page currently has no decomposition of quant cost at all. No **`PerAxisProfile`** section (bars or radar for the best run's per-domain profile). No **lane segmented control** on either the scatter or the profile. No **`ReportedShelf`** (reported-elsewhere benchmarks). The runs table shows per-axis scores as plain numbers (no `AxisMiniBar`, no CI bands — compare to home table which at least uses `AxisMiniBar`). The `worst_axis` field is computed in `RunDetailSchema` but not used on the model page (it's only used in `RunAxisBreakdown`). No `VersionStamp` component (model page header shows no suite version). |
+| **Severity** | Critical — the QuantDeltaStrip is the product wedge. A model page without it has no differentiation from a simple runs table. |
+| **Recommendation** | Build `QuantDeltaStrip` as the first new component for the model page. Add `PerAxisProfile` using the existing `RunAxisBreakdown` logic generalized to a model's best run. Add `ReportedShelf`. Add `VersionStamp` to header. |
+
+---
+
+### 1.6 Run detail page
+
+| | Detail |
+|---|---|
+| **What exists** | Strong implementation: 60px composite headline, CI text, `RunAxisBreakdown` with worst-axis amber highlight (the CI bar + glow marker), `ManifestCard` (DetailGrid with 14 fields covering model/quant/runtime/hardware/os/lane/thinking_mode/caps/sampling/tokens/tok-to-answer/tok_s/wall-time/cost/n_items/n_errors/n_no_answer), provenance section with SHA256 hashes per bench. Data-quality note (conditional amber box for errors/no-answer). Back-link to model. Suite version shown as `<p>` in header. |
+| **Missing / weak** | **No contamination canary section** (`{public_score, private_score, gap}` — the spec's trust primitive for run detail). **No conservative-ranking note** for thin coverage (μ−3σ display). **No `AxisRungBreakdown`** — the current `RunAxisBreakdown` shows per-axis totals but not per-rung sub-scores (e.g., SuperGPQA easy/middle/hard, BFCL simple/multiple/parallel). The `ranked: false` flag exists in `IndexModel` but there is no UI note on the run page when conservative ranking was applied. The data-quality note renders errors + no-answer items but lacks the `~chance` threshold check. `index_version` is absent from the run header (only `suite_version` shows). The sampling formatter at run-detail line 133–137 iterates `AXES` to build by-bench sampling text — this is hardcoded to 3 axes and will silently omit new benches. |
+| **Severity** | Medium — the contamination canary is a key trust primitive but requires schema additions first. The rung breakdown is High once suite-v1 data exists (rung scores don't exist in current data). |
+| **Recommendation** | Add contamination canary section (schema + UI together). Add `index_version`. Fix `formatSampling` to be axis-agnostic. Plan `AxisRungBreakdown` as a suite-v1 follow-on. |
+
+---
+
+### 1.7 Methodology / Trust pages
+
+| | Detail |
+|---|---|
+| **What exists** | Both pages exist with correct prose covering the key concepts: three estimands, chance-corrected normalization (mentions MMLU-Pro 10% baseline, IFEval/genmath zero), lanes/tiers, bootstrap CIs, editorial versioning (methodology). Trust page covers community-reported/replicated/anchor labels, cheat-proxy attack, replication as trust unit. Correct visual treatment (dark palette, `text-bench-muted` prose, `text-bench-text` headings). |
+| **Missing / weak** | **Methodology hardcodes suite-v0** ("suite-v0 methodology" at line 10 — will be wrong when suite-v1 ships). The spec's **`DiagnosticsPanel`** (anchor-spread bars, S_index gauge, discrimination strip) — the primary credibility moat vs AA — does not exist. The **`WeightsTable`** (index-v2 weights per domain/bench) does not exist. The normalization explanation mentions only 3 benches by name (MMLU-Pro, IFEval, genmath — will be stale). The **per-bench chance baseline table** is absent. The trust page's label definitions are prose-only — no `KindBadge`/`ReplicatedBadge` visual cards as the spec specifies. The "three estimands" section correctly describes them but gives no examples or data. No `index_version` on either page. Both pages are pure static text — no structured data-driven content (the weights table, diagnostics, and badge cards all need data). |
+| **Severity** | High — the DiagnosticsPanel is the credibility moat the spec identifies. Its absence means the site cannot currently make its "we publish what AA doesn't" claim credibly. The hardcoded suite-v0 string will create user confusion immediately after the suite update. |
+| **Recommendation** | Make suite/index versions dynamic (derive from the generated index). Build `WeightsTable` as a data-driven component (weights from a config, not hardcoded prose). Build `DiagnosticsPanel` once discrimination probe data exists. Update trust page to use actual badge components. |
+
+---
+
+### 1.8 Submission flow
+
+| | Detail |
+|---|---|
+| **What exists** | Nothing. No `/submit` route exists in `web/app/`. The word "submit" does not appear in any page component. |
+| **Missing / weak** | The entire contribution funnel is absent: no CLI instructions, no upload-manifest explainer, no tier/lane rules for submission, no ReplicatedBadge path explainer. There is no CTa on the home page or model pages pointing users to a submit flow. |
+| **Severity** | High — without a submission path the site is read-only and cannot grow its dataset. This is the community-run acquisition funnel. |
+| **Recommendation** | Build `/submit` as a static page (no server logic needed at launch) with: (1) copyable CLI command block, (2) what uploads vs what stays local, (3) tier/lane rules, (4) replicated path. This is a pure content page — low build cost. |
+
+---
+
+### 1.9 Axis-flexibility problem (the hardcoded-3-axes issue)
+
+This is the most technically consequential gap. The v0 3-axis set (`mmlu_pro`, `ifeval`, `genmath`) is hardcoded in **5 distinct locations**, each requiring coordinated changes to generalize:
+
+| Location | Hardcoding | Change required |
+|---|---|---|
+| `lib/schemas.ts` line 3 | `AXES = ["mmlu_pro", "ifeval", "genmath"] as const` | Replace with a dynamic axis registry driven by the data |
+| `lib/schemas.ts` lines 30–34 | `AxesSchema = z.object({ mmlu_pro, ifeval, genmath })` | Replace with `z.record(z.string(), AxisScoreSchema)` or a parameterized schema |
+| `lib/schemas.ts` line 78–82 | `SamplingSchema.by_bench` lists the 3 axes explicitly | Use `z.record()` |
+| `lib/schemas.ts` line 174 | `worst_axis: bench: AxisSchema` — `AxisSchema = z.enum(AXES)` | Must become a string with runtime validation |
+| `components/home-leaderboard.tsx` line 10 | `TABLE_AXES = ["mmlu_pro", "ifeval", "genmath"] as const` | Derive from the data's axis set |
+| `components/home-leaderboard.tsx` lines 12–21 | `SortKey` type union hardcodes the 3 axis names | Must become a dynamic string-keyed sort |
+| `components/home-leaderboard.tsx` lines 182–186 | `compareRows` switch has explicit `case "mmlu_pro": case "ifeval": case "genmath":` | Must be generalized |
+| `lib/format.ts` lines 74–85 | `axisLabel()` switch enumerates all 3 axes with `assertNever` default | Must accept arbitrary string keys or be replaced with a lookup map |
+| `app/run/[runId]/page.tsx` line 133 | `formatSampling` loops `AXES` to build sampling text | Must use axes from the data |
+| `web/build_data.py` lines 19–20 | `BENCHES = ("genmath", "ifeval", "mmlu_pro")`, `WEIGHTS = {...}` | Must become configurable (JSON config or CLI argument) |
+| `web/build_data.py` lines 74–85 | `_axes()` iterates `BENCHES` | Will automatically generalize once `BENCHES` is configurable |
+
+**Quantifying the refactor:** The schema change is the critical path. `AxesSchema` is imported and used in `IndexModelSchema`, `ModelRunSchema`, `RunDetailSchema` — changing it from a fixed object to a `z.record()` changes the TypeScript type for `model.axes[axis]` everywhere. This breaks the TypeScript type safety for axis indexing (can no longer index with a typed `Axis` key) unless a type-narrowing helper is introduced. The `SortKey` union type in `home-leaderboard.tsx` is a branded literal union — making it dynamic requires converting the sort logic from a compile-time exhaustive switch to a runtime lookup, eliminating the `assertNever` guard.
+
+**Estimated effort:** ~2 hours for a focused implementer who understands the codebase. It is a contained refactor — not a rebuild — but it touches every file in the data path and requires running the full test suite afterward. The axis-agnostic `assertNever` in `format.ts`'s `axisLabel()` will need replacement with a config-driven label map.
+
+**The practical blocker:** The `AxesSchema` change from `z.object({...})` to `z.record()` loses compile-time axis validation. The recommended approach is to keep a `DOMAIN_AXES` constant in a new `lib/axis-config.ts` file that lists valid domain keys and their display labels — this becomes the single source of truth replacing the scattered hardcodes, while still allowing runtime validation.
+
+---
+
+### 1.10 Responsiveness, performance, accessibility, and tech-debt
+
+| | Detail |
+|---|---|
+| **What exists** | Next.js 16 static export (fully static, no server). Tailwind responsive prefixes used in some places (`lg:grid-cols-[1fr_420px]`, `lg:px-8`, `sm:grid-cols-2`). SVG has `role="img"` + `aria-label`. Sort buttons use `<button type="button">` (not plain `<div>`). Zod validation on all JSON reads. Good test coverage for data access (vitest unit + Playwright e2e). |
+| **Missing / weak** | **SVG charts are fixed-width** (`WIDTH=900`, `min-w-[760px]`) — they do not reflow at all on narrow screens, only scrolling horizontally. The scatter is not fluid/responsive. No `viewBox` scaling behavior that would let SVG scale down naturally; the fixed `min-w` forces a horizontal scroll container. The `home-leaderboard` table has `min-w-[1120px]` — valid for a data table, but no column-priority hiding at mobile breakpoints. **No skip-to-content link** for keyboard navigation. **No `<html lang>` fallback** — `layout.tsx` has `lang="en"` but no locale routing. The `body` uses only `className="font-sans antialiased"` — no `bg-bench-bg` class (background is set via raw CSS in `globals.css`, not via Tailwind, which is fine but inconsistent). The `font-sans` references `Aptos` as first choice — a Windows-only font that falls back to `Segoe UI Variable` on Windows 11 but to generic `system-ui` everywhere else (macOS/Linux users will see a different font). No web font loading (no `next/font` with Inter/JetBrains Mono as the spec recommends). The methodology page hardcodes `suite-v0 methodology` as a static string (will be wrong). **Dead code:** `lib/data.ts` re-exports `AXES` from `schemas.ts` (line 95) and this re-export propagates the hardcoded 3-axis list into the run-detail sampling formatter. |
+| **Severity** | Medium (responsiveness/font), Low (dead-code), High (no web fonts — the spec requires tabular figures for number alignment, which system monospace may not provide on all platforms). |
+| **Recommendation** | Add `next/font` with Inter + JetBrains Mono (or Geist Mono) loaded via `layout.tsx`. Make SVG charts use `width="100%"` with a `viewBox` and let the container control width. Add skip-to-content link. |
+
+---
+
+## 2. Top-10 prioritized gap list
+
+Ranked by "highest leverage toward a shippable, differentiated product":
+
+| # | Gap | Severity | Files affected | Estimated effort |
+|---|---|---|---|---|
+| 1 | **Axis-flexibility refactor** — replace hardcoded 3-axis set with a dynamic axis registry | Critical | `lib/schemas.ts`, `lib/format.ts`, `components/home-leaderboard.tsx`, `app/run/[runId]/page.tsx`, `web/build_data.py` + all test fixtures | ~2 hrs focused |
+| 2 | **QuantDeltaStrip** — the launch-differentiator chart (quant-degradation paired-delta hero) is entirely absent | Critical | New component `components/quant-delta-strip.tsx`; requires schema additions (paired-delta records), model-page layout changes | ~1 day |
+| 3 | **Home hero scatter absent** — QualityVsVramScatter must sit above the table as the landing hero; currently home opens directly to the table | Critical | `app/page.tsx` (layout), `components/model-scatter.tsx` (generalize to home context) + add VRAM-tier guide verticals, log toggle, lane control | ~4 hrs |
+| 4 | **Missing token layer** — 14 semantic tokens absent from `tailwind.config.ts`; verdict/state colors needed for every new component | High | `tailwind.config.ts`, `app/globals.css`, refactor SVG hex literals | ~1 hr |
+| 5 | **No persistent AppShell/TopNav** — trust and methodology pages are unreachable from model/run pages; no global nav | High | `app/layout.tsx` (add AppShell), all page components | ~2 hrs |
+| 6 | **`/submit` page absent** — the entire community contribution funnel is missing | High | New `app/submit/page.tsx` (static content only) | ~2 hrs |
+| 7 | **DiagnosticsPanel + WeightsTable absent from methodology** — the "we publish what AA doesn't" credibility moat has no UI expression | High | New `components/diagnostics-panel.tsx`, new `components/weights-table.tsx`, `app/methodology/page.tsx` refactor; requires diagnostics data schema | ~4 hrs (after data schema) |
+| 8 | **Stale copy throughout** — home description hardcodes old axis names; methodology hardcodes `suite-v0`; no `index_version` anywhere | High | `app/page.tsx`, `app/methodology/page.tsx`, `lib/schemas.ts` (add `index_version`), `build_data.py` | ~1 hr |
+| 9 | **No web fonts** — system font stack (`Aptos`) renders differently across platforms; tabular figures for number alignment not guaranteed | Medium | `app/layout.tsx` (add `next/font`), `app/globals.css` | ~30 min |
+| 10 | **SVG charts not responsive** — fixed `WIDTH=900` with horizontal scroll only; no fluid reflow | Medium | `components/model-scatter.tsx`, `components/run-axis-breakdown.tsx` | ~2 hrs |
+
+---
+
+## 3. Detailed reference findings (AA comparison)
+
+AA's landing page leads with a scatter (intelligence vs. cost) as its primary hero visualization, which confirms the spec's design direction is well-calibrated. Key differences where local-bench should diverge:
+
+1. **AA's x-axis is API cost; local-bench's must be VRAM/footprint** — this is the correct axis swap for the local-user audience and is already specified. Not yet implemented.
+2. **AA shows CIs only on its Arena Elo, not its Intelligence Index scatter** (confirmed by the fetch). local-bench's spec mandating CIs on every point is a genuine differentiation — but the current implementation only shows CIs in the table (as text), not visually on the scatter points. The scatter CI whiskers exist but only on the model page, not the home hero.
+3. **AA has a filter/toggle UX** (provider, reasoning/non-reasoning). local-bench's FilterBar spec is more complete (VRAM budget slider, tier filter) but entirely absent from the current implementation.
+
+---
+
+## 4. Verdict
+
+**The current front-end is a solid but narrow prototype, not a launch-ready product.** The code quality is high (TypeScript strict, Zod validation, good test coverage, clean component boundaries, correct CI math), and the shipped pieces (axis breakdown, scatter, table, badges, manifest card) are well-built and reusable. The dark palette tokens and the hand-rolled SVG approach are the right foundation.
+
+However, three things make the current state pre-launch:
+
+1. **The product's differentiator does not exist.** The QuantDeltaStrip — the chart that makes local-bench distinct from every other leaderboard — has no implementation and no data schema to feed it.
+2. **The home page does not lead with the wedge.** A user landing on the site sees a table, not the VRAM scatter that tells the local-setup story. This is the single biggest first-impression gap.
+3. **The axis hardcoding is a hard blocker for suite-v1.** The 3-axis set is woven into 10+ locations including the TypeScript type system; shipping new benchmark domains requires this refactor first.
+
+**Verdict: extend, not rebuild.** The existing code is a strong base. The axis-flexibility refactor is a 2-hour surgery, not a rewrite. The missing components (QuantDeltaStrip, FilterBar, AppShell, Submit page) are additive, not replacements. The single biggest decision for the orchestrator is sequencing: the axis refactor must ship first (it breaks everything downstream), followed by the home hero scatter, followed by QuantDeltaStrip.
+
+codex
+I’ve got the core docs; `website-design.md` continues past the first read, so I’m pulling the remaining design details before writing the critique.
+mcp: git_bash/run started
+mcp: git_bash/run (failed)
+user cancelled MCP tool call
+mcp: git_bash/run started
+mcp: git_bash/run (failed)
+user cancelled MCP tool call
+codex
+The Git Bash MCP calls were cancelled, so I’m falling back to direct shell reads for the remaining local files.
+  → Read required project context and relevant skill guidance
+  • Synthesize adversarial design critique in required Section 7 format
+hook: PreToolUse
+hook: PreToolUse
+hook: PreToolUse Completed
+hook: PreToolUse Completed
+exec
+"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -lc "sed -n '281,620p' docs/foundations/website-design.md" in C:\Users\Michael\local-bench
+exec
+"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -lc "sed -n '1,240p' /c/Users/Michael/.codex/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/SKILL.md" in C:\Users\Michael\local-bench
+ succeeded in 139ms:
+
+- **Default:** five stacked horizontal 0–100 CI bars, one per domain, ordered by index-v2 domain weight (heaviest top), with the weight printed as a faint right tag (extends the shipped `AxisWhisker`). **Radar toggle:** 5 spokes 0(center)→100(rim), score polygon filled teal at low opacity + a fainter dashed-amber anchor-median polygon. Bars are default because CIs are honest on a linear track and distorted on a radar; radar is offered for "shape of capability" at a glance.
+- **CIs:** translucent teal band (left=lo, width=hi−lo) + bright 1px point marker with the shipped teal glow (`run-axis-breakdown.tsx` lines 51–60). CI crossing the axis chance baseline → hatched `~chance` segment + `~chance` numeric. Worst axis highlighted amber.
+- **Lanes:** per-lane (segmented control switches the whole profile). A compact tokens/cost micro-stat sits beside each domain score so a domain "won" only by burning tokens is visible.
+
+### 4.3 QuantDeltaStrip — the LAUNCH HERO (model page, NEW)
+
+- **Axes:** one row per quant comparison for one base model, on a shared **signed-delta axis centered on 0** (e.g. −15 … 0 … +5 composite pts). **DELTA framing default** (each quant a point at quant−baseline — the honest paired quantity); **ABSOLUTE framing toggle** (dumbbell: baseline marker → quant composite, showing both level and drop). X-title: "composite delta vs `<baseline>`, on suite-v{n} fixed items." A row expands into its 5 per-domain deltas.
+- **CIs — the central honesty object:** each delta point carries a **paired** 80/95% CI bracket from paired bootstrap / McNemar on item-level discordance (**never** two independent CIs subtracted) — the ~1.9pt paired MDE vs ~13pt unpaired is the whole reason this chart exists. Reference line at 0 solid; CI overlapping 0 → "= tied (within uncertainty)"; entirely left → "▼ worse" (coral); entirely right → "▲ better" (green-teal); per-domain rows disagreeing → parent "◬ mixed" (violet). Each row literally prints `on suite-v{n} fixed items, −X.X ± [paired CI]` — never a universal %.
+- **Lanes:** deltas computed **within a lane** (cross-lane pairs greyed out). Token/cost delta shown as a **separate** secondary dumbbell (e.g. "−2.1 pts, −38% tok"), never combined into one number.
+
+### 4.4 AxisRungBreakdown (run detail)
+
+- **Axes:** each domain's parent bar expands into child **rung** bars on the same 0–100 track, ordered easy→hard: Knowledge → SuperGPQA easy/middle/hard + MMLU-Pro(floor) + BBEH-mini(stretch); Math → genmath-v2 / MathArena-fresh / Omni-Olympiad; Agentic → BFCL simple/multiple/parallel/relevance/irrelevance; Coding → CRUXEval-O. Anchor median per rung = faint amber tick.
+- **CIs:** each rung bar has its own CI band + point; small-n rungs commonly render `~chance` (hatched). Parent bar = weighted roll-up with CI.
+- **Lanes:** the run's single lane; tokens/cost in the axis header.
+
+### 4.5 DiagnosticsPanel (methodology — NEW)
+
+- **(1) Anchor-spread per axis:** horizontal float bar local-floor→frontier-ceiling per domain (short bar = saturating → weight-cut candidate); anchors drawn as individual amber ticks so "all within ~1 pt" is literally visible as ticks bunching. **(2) S_index gauge** per axis: `S_index = exp(−R_norm²)` 0..1, green→red, with the "all anchors within ~1 pt" threshold marked. **(3) Discrimination strip:** per-axis point-biserial / IRT-α heat-bar (grey→teal), the internal 2PL early-warning surfaced read-only.
+- **Lanes:** per-lane; defaults to answer-only with a toggle.
+
+### 4.6 LeaderboardCompositeColumn + AxisMiniBars (home table)
+
+- Composite column = ScoreBar (mono score + inline CI + magnitude bar). Five domain columns = AxisMiniBar (mono score + inline CI + thin bar). Tokens/cost mono. Rank = rank-within-lane or "Unranked".
+- **CIs:** inline in every cell (`formatCi`); mini-bar shows magnitude only; `~chance` substitutes the number when a cell CI crosses chance.
+- **Lanes:** Lane column + LaneBadge; FilterBar lane selector filters to one lane for true ranking; "all lanes" is browse-only with the persistent caveat. Anchor rows tinted amber; community plain.
+
+---
+
+## 5. Component inventory (build list)
+
+**Shell/nav:** AppShell · TopNav · VersionStamp · LaneCaveatBanner · FilterBar · EmptyState · inline Footnote/Caveat.
+**Badges/chips:** KindBadge *(shipped)* · TierBadge *(shipped)* · LaneBadge *(shipped, +lane tint)* · ReplicatedBadge *(new)* · DominanceChip *(new)* · ContaminationChip *(new)*.
+**Score primitives:** ScoreCell · ScoreBar *(shipped)* · AxisMiniBar *(shipped, +inline CI)* · CompositeScoreHeadline *(shipped)* · TokenEconomicsInline.
+**Charts:** QualityVsVramScatter *(extends ModelScatter)* · AnchorReferenceLines *(extracted)* · PerAxisProfile *(new)* · AxisRadar *(new)* · QuantDeltaStrip *(new, hero)* · AxisRungBreakdown *(extends RunAxisBreakdown)* · DiagnosticsPanel *(new)*.
+**Tables:** LeaderboardTable *(generalizes HomeLeaderboard)* · SortableHeader *(shipped)* · RankMarker *(shipped)* · RunsTable *(shipped)*.
+**Detail:** ReportedShelf *(new)* · ManifestCard *(shipped)* · DetailGrid/DetailItem *(shipped)* · ProvenanceList *(shipped)* · WeightsTable *(new)*.
+
+---
+
+## 6. Data-model deltas required (for the engineering handoff)
+
+The design assumes these additions to `lib/schemas.ts` / `web/build_data.py` (out of scope to implement here, but the UI depends on them):
+1. **5-domain axes** replacing the fixed `{mmlu_pro, ifeval, genmath}` `AxesSchema` — keyed by domain (`knowledge`, `math`, `instruction`, `agentic`, `coding`) with each domain carrying its constituent **bench/rung** sub-scores (for AxisRungBreakdown) and a chance baseline `c`.
+2. **`index_version`** alongside `suite_version` on every run/model/index (VersionStamp renders both).
+3. **Paired-delta records** on the model payload: for each (quant, baseline, lane) a `{delta_point, paired_ci_lo, paired_ci_hi, verdict, per_domain[]}` object (QuantDeltaStrip). Must be computed paired on fixed items server-side — the UI never subtracts two CIs.
+4. **Contamination canary** fields on run detail: `{public_score, private_score, gap}` per applicable axis.
+5. **Reported-elsewhere** list on the model payload: `[{bench, value, source_url, as_of}]` for the ReportedShelf (rendered as text, never charted).
+6. **Diagnostics** payload for methodology: per-axis `{floor, ceiling, anchor_ticks[], s_index, discrimination}` per lane.
+7. **Lane-scoped queries:** index/model data must be filterable by lane without merging (scatter, profile, deltas all render one lane at a time).
+
+---
+
+## 7. Build order (suggested)
+
+1. Generalize schema + `TABLE_AXES` to 5 domains; ship LeaderboardTable + AxisMiniBars + VersionStamp(index) → home table is correct.
+2. Promote QualityVsVramScatter to the **home hero** with VRAM-tier guides, lane switch, headroom-buffered y.
+3. Build **QuantDeltaStrip** (launch hero) — the single highest-value differentiator; gate it behind real multi-quant data.
+4. PerAxisProfile (bars) + AxisRungBreakdown on model/run.
+5. ContaminationChip + ReportedShelf + conservative-ranking note on run detail.
+6. DiagnosticsPanel + WeightsTable on methodology; expand Trust label cards; add Submit page.
+7. FilterBar (community/anchor, lane, tier, VRAM-budget slider, search) once row count grows.
+
+**Honesty invariants the UI must never break:** (a) a quant claim is always paired + scoped "on suite-v{n} fixed items"; (b) `~chance` replaces any sub-chance point whose CI crosses chance; (c) lanes never merge and tokens/cost never fold into the capability number; (d) the per-axis profile is shown before/above the composite; (e) every score carries a visible CI.
+
+ succeeded in 109ms:
+  ✓ Read required project context and relevant skill guidance
+  → Synthesize adversarial design critique in required Section 7 format
+codex
+I’ve read the required project handoff, design spec, and audit. The key tension is clear: the written spec says “quant cost is the wedge,” but the proposed homepage still behaves like a generic leaderboard/scatter unless it becomes a decision tool.
+  ✓ Read required project context and relevant skill guidance
+  ✓ Synthesize adversarial design critique in required Section 7 format
+codex
+**VERDICT**: REVISE — make the homepage a GPU-tier decision finder first; demote the quality-vs-VRAM scatter to exploration, not the lead.
+
+**Killer homepage lead**
+
+Lead with: **“Best measured setups for my GPU”**.
+
+Default it to a common power-user case like **24 GB VRAM / answer-only lane**, with rows ranked by a conservative decision metric: model × quant × runtime, score lower bound, frontier gap, memory footprint, tokens/sec, replicate count, and a clear verdict like `best measured under 24 GB`, `statistical tie`, `needs replication`, or `not enough data`.
+
+That beats the quality-vs-VRAM scatter because the user’s real question is not “where are dots?” It is: **“What should I run on my 3090/4090/5090 tonight?”** A scatter is useful once there are dozens of points. At launch, with a handful of community runs and four anchors, it will look empty, derivative, and overdesigned. A tier finder survives sparse data because empty cells become useful: `No Q5 run for this model yet`, `needs llama.cpp replication`, `submit your 24 GB result`.
+
+The killer bookmarked view is not “all models ranked.” It is **the 24 GB board**: a living Pareto table of what fits, what quality it buys, what quantization costs, and how far it is from frontier anchors on the same suite. LocalScore owns speed vibes; Artificial Analysis owns API model ranking. local-bench should own **“what is the smartest thing I can actually fit locally?”**
+
+**Model-page hero**
+
+Keep the quant-degradation idea, but do not present it as a naked statistics strip. Reframe it as **“Which quant should I run?”**
+
+The hero should combine three things in one row per quant:
+
+`quality delta vs baseline ± paired CI`  
+`memory saved / fits which VRAM tier`  
+`speed or token-cost change`
+
+A local user does not care that Q4_K_M is `-4.6 ± 1.9` in isolation. They care whether that drop is worth fitting the model on 12 GB instead of 24 GB, or whether Q5_K_M is statistically tied while still saving enough memory. The paired CI is the moat, but the decision is the product.
+
+If there is no matched baseline or only one quant run, do not render a broken hero. Render a coverage card: `Q4 measured, Q5/Q8 missing, bf16 baseline needed for paired delta`. That is more credible than pretending a model page has a complete quant story.
+
+**Biggest risk**
+
+The biggest risk is **precision theater on sparse, messy community data**.
+
+This audience will immediately ask: Was this Ollama or vLLM? Same prompt template? Same context length? Same quant file? Same reasoning mode? N=1? Windows or Linux? If the homepage leads with a composite rank and dense CI styling before showing replication and setup comparability, skeptical users will classify it as “AA clone with fewer rows.”
+
+CIs help only if they change decisions. Replication count, run manifest comparability, lane separation, and coverage gaps must be visible in the primary views, not buried on Trust or Run Detail pages.
+
+**Cut list**
+
+- Cut **“all models ranked” as the homepage mental model**. Keep it as a secondary table, not the product promise.
+- Cut **frontier anchors as table competitors**. Show them as gap references only: `local setup is 18 pts behind GPT-5.5 anchor`, not as leaderboard rows to chase.
+- Cut **radar charts**. They distort uncertainty and add nothing a five-axis bar profile does not show better.
+- Cut **Reported Elsewhere** from model pages. It muddies the core claim: measured here, same suite, same scoring. External benchmark trivia belongs off the critical path.
+- Cut **log-scale toggles, chart mode toggles, and clever visual controls** until the dataset is dense enough to need them.
+- Cut **Quick runs from ranked surfaces**. Quick can be preview/coverage data, but the primary board should not mix unranked one-offs with serious comparisons.
+- Cut **CI maximalism in tiny table cells**. Use dominance labels, lower-bound ranking, and expandable intervals; do not turn every row into statistical confetti.
+
+**Concrete alternative IA**
+
+`/` — **GPU Tier Finder**  
+Lead view: selector for `8 / 12 / 16 / 24 / 32 / 48 GB`, lane, runtime family. Primary table shows best measured model × quant setups that fit, ranked by conservative score lower bound. Each row shows frontier gap, quant penalty, tokens/sec, replicate count, and whether the result is ranked or needs replication. Below it: compact quality-vs-VRAM scatter for exploration.
+
+`/explore` — **Quality vs VRAM Scatter**  
+Lead view: the current scatter, but as an analyst view. Filters for lane, VRAM budget, runtime, quant, replicated-only. This is where the AA-inspired chart belongs.
+
+`/model/[slug]` — **Quant Decision Page**  
+Lead view: “Which quant should I run?” matrix/strip. Rows are Q3/Q4/Q5/Q8/bf16 with paired quality delta, CI verdict, footprint, fit tier, speed delta, and best-run axis profile. Then runs table.
+
+`/tier/[vram]` — **Bookmarkable GPU Board**  
+Lead view: permanent pages like `/tier/24gb`. This is the weekly-return surface: new winners, replicated changes, missing high-interest runs, and “best current setup under this budget.”
+
+`/run/[id]` — **Evidence Page**  
+Lead view: manifest, per-axis/rung breakdown, contamination canary, prompt/runtime/hash provenance, and why this run is or is not rankable.
+
+`/methodology` — **Measurement Credibility**  
+Lead view: discrimination diagnostics, weights, chance baselines, no-LLM-judge rule, paired-delta explanation, and the published threat model. Trust should be part of methodology, not a separate marketing-ish destination.
+
+`/submit` — **Run Contribution Funnel**  
+Lead view: one CLI command, what uploads, what does not upload, how to produce a ranked run, and which missing GPU/model/quant cells are most wanted.
+hook: Stop
+hook: Stop
+hook: Stop
+hook: Stop Completed
+hook: Stop Completed
+hook: Stop Completed
+tokens used
+101,452

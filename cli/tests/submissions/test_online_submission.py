@@ -21,6 +21,7 @@ from localbench.submissions.client import (
     read_submission_envelope,
     request_submission_ticket,
     upload_submission_bundle,
+    _ticket_request_body,
 )
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import load_private_key
@@ -312,9 +313,12 @@ def test_submission_client_surfaces_disabled_unauthorized_and_private_gate_paths
             case ("POST", "/api/submissions/tickets") if "x-localbench-bypass" not in request.headers:
                 return httpx.Response(503, text="local-bench is temporarily private.\n")
             case ("POST", "/api/submissions/request-upload"):
-                return httpx.Response(503, json={"code": "r2_signing_disabled"})
+                return httpx.Response(
+                    503,
+                    json={"code": "r2_signing_disabled", "error": "R2 signing is disabled"},
+                )
             case ("POST", "/api/admin/submissions/ticket_fixture/verification"):
-                return httpx.Response(401, json={"code": "unauthorized"})
+                return httpx.Response(401, json={"code": "unauthorized", "message": "bad admin secret"})
             case unreachable:
                 raise AssertionError(f"unexpected request: {unreachable}")
 
@@ -355,6 +359,9 @@ def test_submission_client_surfaces_disabled_unauthorized_and_private_gate_paths
     assert gate_error.value.response.status_code == 503
     assert disabled_error.value.response.status_code == 503
     assert unauthorized_error.value.response.status_code == 401
+    assert "local-bench is temporarily private" in str(gate_error.value)
+    assert "r2_signing_disabled: R2 signing is disabled" in str(disabled_error.value)
+    assert "unauthorized: bad admin secret" in str(unauthorized_error.value)
 
 
 def test_admin_client_posts_verification_update_and_publish_decision() -> None:
@@ -423,20 +430,59 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
     key_path = tmp_path / "submission-key.pem"
     ticket_path = tmp_path / "ticket.json"
     bundle = tmp_path / "bundle.lbsub.zip"
-    payload_sha = "bb" * 32
+    release_id = "suite-v1-full-exec-6axis-v1"
+    manifest_sha = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468"
     with zipfile.ZipFile(bundle, "w") as archive:
-        archive.writestr("manifest.json", json.dumps({"payload_sha256": payload_sha}))
+        archive.writestr(
+            "manifest.json",
+            json.dumps(
+                {
+                    "payload": {
+                        "model": {"name": "fixture-model"},
+                        "suite": {
+                            "suite_manifest_sha256": manifest_sha,
+                            "suite_release_id": release_id,
+                        },
+                    },
+                },
+                sort_keys=True,
+            ),
+        )
 
     def fake_ticket(request: cli_mod.SubmissionTicketRequest) -> dict[str, object]:
+        bundle_sha = hashlib.sha256(bundle.read_bytes()).hexdigest()
         assert request.credentials.site == "https://local-bench.ai"
         assert len(request.public_key) == 64
-        assert request.raw_bundle_sha256 == hashlib.sha256(bundle.read_bytes()).hexdigest()
+        assert request.raw_bundle_sha256 == bundle_sha
+        assert request.declared_model_slug == "fixture-model"
+        assert request.expected_suite_release_id == release_id
+        assert request.expected_suite_manifest_sha256 == manifest_sha
+        assert request.pop is not None
+        assert request.pop.message.splitlines() == [
+            "localbench.ticket_pop.v1",
+            bundle_sha,
+            release_id,
+            manifest_sha,
+            request.pop.timestamp,
+        ]
+        assert _ticket_request_body(request) == {
+            "accepted_suite_terms": True,
+            "bundle_sha256": bundle_sha,
+            "declared_model_slug": "fixture-model",
+            "expected_suite_manifest_sha256": manifest_sha,
+            "expected_suite_release_id": release_id,
+            "pop": {
+                "signature": request.pop.signature,
+                "timestamp": request.pop.timestamp,
+            },
+            "public_key": request.public_key,
+        }
         return {
             "accepted_suite_terms": True,
             "allowed_schema": "localbench.result_bundle.v1",
             "bundle_sha256": request.raw_bundle_sha256,
-            "expected_suite_manifest_sha256": None,
-            "expected_suite_release_id": None,
+            "expected_suite_manifest_sha256": request.expected_suite_manifest_sha256,
+            "expected_suite_release_id": request.expected_suite_release_id,
             "expiry": "2026-07-01T01:00:00Z",
             "max_upload_bytes": 104_857_600,
             "one_use": True,

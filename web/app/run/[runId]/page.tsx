@@ -22,6 +22,7 @@ import {
   formatRuntime,
   formatScore,
 } from "@/lib/format";
+import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import type { RunDetail } from "@/lib/schemas";
 
 export const dynamicParams = false;
@@ -58,6 +59,10 @@ export default async function RunPage({ params }: PageProps) {
   const noAnswerCount = Object.values(run.axes).reduce((sum, axis) => sum + axis.n_no_answer, 0);
   const hasQualityNote = run.totals.n_errors > 0 || noAnswerCount > 0;
   const dataWarnings = run.data_warnings ?? [];
+  const isLegacyReceipt = run.score_status === "measured" && run.lane !== HEADLINE_LANE;
+  const visibleScore = isLegacyReceipt ? (run.diagnostic_composite ?? run.composite) : run.composite;
+  const scoreText = visibleScore === null ? "n/a" : formatScore(visibleScore.point);
+  const scoreCiText = visibleScore === null ? "CI unavailable" : `${formatCi(visibleScore)} 95% CI`;
   const scoreTitle = run.ranked ? LOCAL_INTELLIGENCE_INDEX_NAME : "Diagnostic score profile";
 
   return (
@@ -71,22 +76,49 @@ export default async function RunPage({ params }: PageProps) {
       />
       <header className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <p className="font-mono text-xs uppercase text-bench-accent">
-          {run.suite_version} | {run.index_version}
+          {isLegacyReceipt ? `${run.suite_version} | retired lane ${run.lane ?? "previous index"}` : `${run.suite_version} | ${run.index_version}`}
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-bench-text">{run.model_label}</h1>
         <p className="mt-1 break-all font-mono text-sm text-bench-muted">{run.run_id}</p>
+        {isLegacyReceipt ? (
+          <div className="mt-5 rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
+            <div className="font-semibold text-bench-text">Previous-index diagnostics</div>
+            <p className="mt-1">
+              This run was measured under a retired lane on an earlier version of the Index. It is not comparable to the
+              current {LOCAL_INTELLIGENCE_INDEX_NAME} and is excluded from ranks, charts, and comparisons.
+            </p>
+          </div>
+        ) : null}
         <div className="mt-5 flex flex-wrap items-end gap-4">
-          <div>
-            <div className="text-sm font-semibold text-bench-text">{scoreTitle}</div>
-            <div className="font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
-            <div className="font-mono text-6xl font-semibold text-bench-text">{formatScore(run.composite.point)}</div>
-            <div className="mt-1 font-mono text-lg text-bench-muted">{formatCi(run.composite)} 95% CI</div>
-          </div>
-          <div className="pb-2 text-sm text-bench-muted">
-            <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
-            <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
-            <div className="mt-1">Weighted headline profile: Agentic 40%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 15%, Math 5%.</div>
-          </div>
+          {isLegacyReceipt ? (
+            <>
+              <div className="pb-2 text-sm text-bench-muted">
+                <div className="font-mono text-xs uppercase text-bench-muted">Measured axes (retired lane)</div>
+                <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-lg text-bench-text" />
+                <div className="mt-1">Axis readings and hardware costs remain diagnostic until this variant is re-run on the current lane.</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-bench-text">Diagnostic score (retired lane)</div>
+                <div className="font-mono text-xs text-bench-accent">{run.lane ?? "previous index"}</div>
+                <div className="font-mono text-3xl font-semibold text-bench-text">{scoreText}</div>
+                <div className="mt-1 font-mono text-sm text-bench-muted">{scoreCiText}</div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <div className="text-sm font-semibold text-bench-text">{scoreTitle}</div>
+                <div className="font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
+                <div className="font-mono text-6xl font-semibold text-bench-text">{scoreText}</div>
+                <div className="mt-1 font-mono text-lg text-bench-muted">{scoreCiText}</div>
+              </div>
+              <div className="pb-2 text-sm text-bench-muted">
+                <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
+                <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
+                <div className="mt-1">Weighted headline profile: Agentic 40%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 15%, Math 5%.</div>
+              </div>
+            </>
+          )}
           <div className="pb-2 text-sm text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">Total run time</div>
             <div className="mt-1 font-mono text-lg text-bench-text">{formatDuration(run.totals.wall_time_seconds)}</div>
@@ -97,7 +129,7 @@ export default async function RunPage({ params }: PageProps) {
             Data quality note: this run has {run.totals.n_errors} error(s) and {noAnswerCount} no-answer item(s).
           </div>
         ) : null}
-        {!run.ranked ? (
+        {!run.ranked && !isLegacyReceipt ? (
           <div className="mt-5 rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
             Unranked diagnostic: this receipt is missing one or more headline axes for the current index.
             It is useful for comparing measured axes, but it does not receive a ranked Local Intelligence Index position.

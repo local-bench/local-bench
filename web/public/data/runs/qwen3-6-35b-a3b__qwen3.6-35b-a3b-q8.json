@@ -80,14 +80,7 @@
       "status": "measured"
     }
   },
-  "composite": {
-    "hi": 65.84352883630854,
-    "hi_raw": 0.6584352883630853,
-    "lo": 56.488990294552146,
-    "lo_raw": 0.5648899029455214,
-    "point": 61.19298305104673,
-    "point_raw": 0.6119298305104673
-  },
+  "composite": null,
   "composite_full": null,
   "composite_static": null,
   "conformance": {
@@ -133,6 +126,14 @@
     "coding not measured in this run; axis omitted",
     "composite point 0.611929830510 differs from stored composite 0.203411387986"
   ],
+  "diagnostic_composite": {
+    "hi": 65.84352883630854,
+    "hi_raw": 0.6584352883630853,
+    "lo": 56.488990294552146,
+    "lo_raw": 0.5648899029455214,
+    "point": 61.19298305104673,
+    "point_raw": 0.6119298305104673
+  },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
   "item_set_hashes": {
@@ -141,6 +142,7 @@
     "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
   "kind": "community",
+  "lane": "capped-thinking",
   "manifest_summary": {
     "caps": {
       "max_tokens_math": 0,
@@ -203,8 +205,9 @@
   "origin": "community",
   "ranked": false,
   "run_id": "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8",
+  "score_status": "measured",
   "scorecard": {
-    "current_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+    "current_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
     "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
     "drift": true,
     "execution_profile_id": null,

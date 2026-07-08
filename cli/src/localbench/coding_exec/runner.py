@@ -24,7 +24,11 @@ from typing import Final, Literal, TypeAlias
 
 SCHEMA = "localbench-coding-exec-runner-v2"
 SENTINEL_TAG: Final = "<SENTINEL>"
-NONCE_PLACEHOLDER: Final = "__LOCALBENCH_SENTINEL_NONCE__"
+# The trusted driver reads the per-task nonce from this env var and DELETES it before any
+# untrusted code runs, so untrusted code cannot read the nonce and forge a passing sentinel.
+# Must match localbench.coding_exec.program.NONCE_ENV_VAR (this module is standalone/stdlib-only
+# and is mounted read-only into the container, so it cannot import it — a cli test asserts equality).
+NONCE_ENV_VAR: Final = "LOCALBENCH_SENTINEL_NONCE"
 GradingIntegrity: TypeAlias = Literal[
     "sentinel_ok",
     "no_sentinel",
@@ -67,14 +71,16 @@ def run_program(program: str, *, timeout: float = 30.0, stderr_tail_bytes: int =
     with tempfile.TemporaryDirectory() as work:
         path = os.path.join(work, "prog.py")
         with open(path, "w", encoding="utf-8") as handle:
-            handle.write(_inject_nonce(program, nonce))
+            handle.write(program)  # nonce is delivered out of band (env), never written to the file
+        env = _sandbox_env(work)
+        env[NONCE_ENV_VAR] = nonce
         try:
             proc = subprocess.run(
                 [sys.executable, path],
                 capture_output=True,
                 timeout=timeout,
                 cwd=work,
-                env=_sandbox_env(work),
+                env=env,
             )
             exit_code = proc.returncode
             timed_out = False
@@ -95,14 +101,6 @@ def run_program(program: str, *, timeout: float = 30.0, stderr_tail_bytes: int =
         "stdout_tail": stdout[-stderr_tail_bytes:].decode("utf-8", "replace"),
         "stderr_tail": stderr[-stderr_tail_bytes:].decode("utf-8", "replace"),
     }
-
-
-def _inject_nonce(program: str, nonce: str) -> str:
-    index = program.rfind(NONCE_PLACEHOLDER)
-    if index < 0:
-        return program
-    end = index + len(NONCE_PLACEHOLDER)
-    return f"{program[:index]}{nonce}{program[end:]}"
 
 
 def _last_sentinel(stdout: str) -> SentinelPayload | None:

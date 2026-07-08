@@ -15,6 +15,7 @@ from urllib.parse import unquote, urljoin, urlparse
 import httpx
 
 from localbench._types import JsonObject, JsonValue
+from localbench.http_errors import raise_for_status_with_body
 from localbench.suite_errors import SuiteResolutionError
 from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
 from localbench.suite_verify import license_manifest, read_json_object, suite_hash, verify_suite_dir
@@ -161,7 +162,7 @@ def fetch_suite_from_manifest_url(config: RemoteSuiteFetch) -> SuiteRef:
             config.manifest_url,
             headers=_bypass_headers(config.bypass_token, config.manifest_url, config.manifest_url),
         )
-        manifest_response.raise_for_status()
+        raise_for_status_with_body(manifest_response)
         manifest = _remote_manifest(manifest_response.json(), base_url=config.manifest_url)
         with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
             temp_dir = Path(temp_name) / manifest.suite_id
@@ -390,7 +391,7 @@ def _download_suite_file(
         suite_file.url,
         headers=_bypass_headers(bypass_token, bypass_origin, suite_file.url),
     )
-    response.raise_for_status()
+    raise_for_status_with_body(response)
     data = response.content
     _write_verified_suite_file(suite_dir, suite_file, data)
 

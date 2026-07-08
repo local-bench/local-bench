@@ -1,0 +1,5 @@
+You are an expert Python programmer. Implement the function correctly and completely.
+
+{instruct_prompt}
+
+Write the full Python function `{entry_point}`, including every import it needs. Return ONLY the implementation inside a single ```python code block.

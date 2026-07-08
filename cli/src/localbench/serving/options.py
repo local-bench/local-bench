@@ -5,6 +5,7 @@ from pathlib import Path
 
 from localbench.bounded_final_profiles import BoundedFinalProfileChoice
 from localbench.orchestrate import LaneChoice, ReasoningActivationChoice, TierChoice
+from localbench.progress import ProgressReporter
 from localbench.suite_resolver import DEFAULT_SUITE_ID
 
 
@@ -34,5 +35,7 @@ class ServeBenchOptions:
     threads_batch: int = 8
     reasoning_activation: ReasoningActivationChoice | None = None
     hf_model_id: str | None = None
+    gguf_repo_only: bool = False
     wsl_venv_python: str = "~/appworld-harness/venv/bin/python3"
     appworld_root: str = "/home/michael/appworld-data"
+    progress_reporter: ProgressReporter | None = None

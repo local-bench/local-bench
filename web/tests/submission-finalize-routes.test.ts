@@ -157,6 +157,7 @@ describe("submission finalize route contracts", () => {
     expect(body).not.toHaveProperty("raw_bundle_r2_key");
     expect(body).not.toHaveProperty("r2_key");
     expect(body).not.toHaveProperty("bundle_sha256");
+    expect(body).not.toHaveProperty("created_at");
   });
 
   it("lists contract-v2 submissions from the admin route", async () => {
@@ -190,6 +191,33 @@ describe("submission finalize route contracts", () => {
         expires_at: null,
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         status: "pending_verification",
+        submission_id: envelope.ticket_id,
+      }),
+    ]);
+    expect(body.submissions[0]).not.toHaveProperty("raw_bundle_r2_key");
+  });
+
+  it("lists ticketed submissions with creation timestamps from the admin route", async () => {
+    // Given: one freshly issued ticketed row and an admin secret.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const envelope = await issueEnvelope(env);
+
+    // When: an admin lists ticketed rows before upload completion.
+    const response = await listAdminSubmissions({
+      env,
+      request: getRequest("/api/admin/submissions?status=ticketed", {
+        "x-localbench-admin-secret": ADMIN_SECRET,
+      }),
+    });
+
+    // Then: the admin queue row exposes an ISO creation timestamp without storage keys.
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.submissions).toEqual([
+      expect.objectContaining({
+        created_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/),
+        expires_at: expect.any(String),
+        status: "ticketed",
         submission_id: envelope.ticket_id,
       }),
     ]);

@@ -40,11 +40,32 @@ def test_extract_code_falls_back_to_unlabeled_fence_and_handles_none() -> None:
     assert extract_code("```python\n\n```") is None
 
 
-def test_assemble_program_includes_generation_tests_and_trusted_epilogue() -> None:
+def test_assemble_program_embeds_untrusted_code_as_data_not_top_level_source() -> None:
+    import ast
+    import base64
+
     program = assemble_program(_GEN_OK, _TEST, "task_func")
-    assert "def task_func(a, b):" in program
-    assert "class TestCases(unittest.TestCase):" in program
+    # The trusted driver is present and still emits the completion sentinel.
     assert "<SENTINEL>" in program
+    assert 'ModuleType("__main__")' in program
+    # The untrusted generation must NOT appear as executable plaintext at the program's top
+    # level — that was the sentinel-forgery enabler. It is carried as base64 data instead.
+    assert "def task_func(a, b):" not in program
+    solution_b64 = base64.b64encode(_GEN_OK.rstrip().encode("utf-8")).decode("ascii")
+    test_b64 = base64.b64encode(_TEST.rstrip().encode("utf-8")).decode("ascii")
+    assert solution_b64 in program
+    assert test_b64 in program
+    # ...and it round-trips back to the original generation + test.
+    assert base64.b64decode(solution_b64).decode("utf-8") == _GEN_OK.rstrip()
+    assert base64.b64decode(test_b64).decode("utf-8") == _TEST.rstrip()
+    # No top-level statement of the assembled driver is an untrusted-code construct: every
+    # top-level node is an import, a def/class, or an assignment the driver controls.
+    module = ast.parse(program)
+    for node in module.body:
+        assert isinstance(
+            node,
+            (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.ClassDef, ast.Assign, ast.If, ast.Try, ast.Expr),
+        )
 
 
 def test_run_program_passes_a_correct_solution() -> None:

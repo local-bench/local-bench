@@ -13,6 +13,7 @@ from localbench.orchestrate import (
     TierChoice,
 )
 from localbench.serving.provenance import DETERMINISM_POLICY_ID, ServingEvidence
+from localbench.progress import ProgressReporter
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +35,8 @@ class BenchRunConfig:
     retry_errored: bool = False
     reasoning_activation: ReasoningActivationChoice | None = None
     hf_model_id: str | None = None
+    gguf_repo_only: bool = False
+    progress_reporter: ProgressReporter | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +67,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         profile=config.profile,
         provider="local",
         hf_model_id=config.hf_model_id,
+        gguf_repo_only=config.gguf_repo_only,
         reasoning_activation=config.reasoning_activation or "qwen3",
         resume=config.resume,
         retry_errored=config.retry_errored,
@@ -96,6 +100,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         server_fingerprint=evidence.server_fingerprint,
         resume_identity=evidence.resume_identity,
         serve_fingerprint=_serve_fingerprint(evidence),
+        progress_reporter=config.progress_reporter,
     )
 
 

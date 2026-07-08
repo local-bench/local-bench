@@ -74,6 +74,7 @@ def test_run_record_emits_result_bundle_v1_fields(tmp_path: Path) -> None:
             "file_sha256": None,
             "tokenizer_digest": None,
             "chat_template_digest": None,
+            "identity_level": None,
         }
         assert record["manifest"]["integrity"]["publishable"] is False
         assert record["manifest"]["integrity"]["blocking_reasons"] == [
@@ -179,6 +180,7 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
                 model_family="gemma",
                 quant_label="Q4_K_M",
                 model_format="gguf",
+                hf_model_id="unsloth/gemma-4-12b-it",
                 tokenizer_file=tokenizer_file,
                 chat_template_file=chat_template_file,
                 tokenizer_digest_source="external.file",
@@ -216,6 +218,7 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
             "file_size_bytes": len(b"model-bytes"),
             "file_sha256": sha256_file(model_file),
             "format": "gguf",
+            "identity_level": "full-hf-identity-v1",
             "tokenizer_digest": sha256_file(tokenizer_file),
             "tokenizer_digest_source": "external.file",
             "chat_template_digest": sha256_file(chat_template_file),
@@ -231,6 +234,107 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
         }
         assert record["manifest"]["integrity"]["blocking_reasons"] == ["suite.not_site_released"]
         assert record["manifest"]["integrity"]["missing_required_fields"] == []
+
+    asyncio.run(scenario())
+
+
+def test_basic_gguf_identity_level_records_null_tokenizer_digests(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: a bounded-final endpoint run explicitly opts into basic GGUF repo identity.
+        output_path = tmp_path / "basic-identity-run.json"
+
+        # When: the run record is written without HF tokenizer provenance.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=1,
+                out=output_path,
+                lane="bounded-final-v2",
+                profile="answer_only_v1",
+                publishable=True,
+                sampler_temperature=0,
+                sampler_top_k=1,
+                sampler_seed=123,
+                determinism_policy="top_k_1_seeded",
+                gguf_repo_only=True,
+            ),
+            transport=httpx.MockTransport(_handler_with_reasoning),
+        )
+
+        # Then: the additive identity level is explicit and digest fields stay null.
+        manifest_model = record["manifest"]["model"]
+        assert manifest_model["identity_level"] == "basic-gguf-repo-only-v1"
+        assert manifest_model["tokenizer_digest"] is None
+        assert manifest_model["chat_template_digest"] is None
+        assert record["model"]["identity_level"] == "basic-gguf-repo-only-v1"
+        assert record["model"]["tokenizer_digest"] is None
+        assert record["model"]["chat_template_digest"] is None
+
+    asyncio.run(scenario())
+
+
+def test_endpoint_identity_files_autostamp_run_record_digests(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: endpoint-mode run identity is supplied by local tokenizer/template files only.
+        output_path = tmp_path / "endpoint-identity-run.json"
+        tokenizer_file = tmp_path / "tokenizer.json"
+        chat_template_file = tmp_path / "chat-template.jinja"
+        tokenizer_file.write_bytes(b"endpoint-tokenizer-bytes")
+        chat_template_file.write_bytes(b"endpoint-template-bytes")
+
+        # When: the run record is written without explicit digest arguments.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=1,
+                out=output_path,
+                tokenizer_file=tokenizer_file,
+                chat_template_file=chat_template_file,
+            ),
+            transport=httpx.MockTransport(_handler_with_reasoning),
+        )
+
+        # Then: both manifest and top-level model identity carry computed digests.
+        expected_tokenizer = sha256_file(tokenizer_file)
+        expected_template = sha256_file(chat_template_file)
+        manifest_model = record["manifest"]["model"]
+        assert manifest_model["tokenizer_digest"] == expected_tokenizer
+        assert manifest_model["tokenizer_digest_source"] == "external.file"
+        assert manifest_model["chat_template_digest"] == expected_template
+        assert manifest_model["chat_template_digest_source"] == "external.file"
+        assert record["model"]["tokenizer_digest"] == expected_tokenizer
+        assert record["model"]["chat_template_digest"] == expected_template
+
+    asyncio.run(scenario())
+
+
+def test_observed_context_records_in_runtime_identity(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: endpoint preflight has observed the effective per-slot context.
+        output_path = tmp_path / "observed-context-run.json"
+
+        # When: the run record is written.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=1,
+                out=output_path,
+                ctx_len_observed=32768,
+            ),
+            transport=httpx.MockTransport(_handler_with_reasoning),
+        )
+
+        # Then: the runtime identity keeps the observed context as additive provenance.
+        assert record["manifest"]["runtime"]["ctx_len_observed"] == 32768
 
     asyncio.run(scenario())
 

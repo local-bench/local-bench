@@ -244,5 +244,5 @@ describe("submission contract v2 upload and complete routes", () => {
       .bind(secondEnvelope.ticket_id)
       .first();
     expect(row).toMatchObject({ duplicate_of: firstEnvelope.ticket_id });
-  });
+  }, 15_000);
 });

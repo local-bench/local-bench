@@ -12,7 +12,7 @@ import ast
 from dataclasses import dataclass
 from typing import Final, Literal, TypeAlias
 
-AST_GATE_REV: Final = "bigcodebench-ast-gate-v1"
+AST_GATE_REV: Final = "bigcodebench-ast-gate-v2"
 
 ASTGateFailure: TypeAlias = Literal[
     "syntax_error",
@@ -82,6 +82,14 @@ def _forbidden_reference(module: ast.Module) -> str | None:
                     return f"atexit.{attr}"
             case ast.Name(id="atexit"):
                 return "atexit"
+            # Defense-in-depth: forbid the process-exit builtins and SystemExit references
+            # (a `raise SystemExit(0)` / `exit()` from a helper was the demonstrated forgery's
+            # early-exit primitive). The invert-control driver already scores any exit during
+            # untrusted execution as a failure; blocking these gives an earlier, cleaner
+            # conformance signal. Load context only, so a variable merely named `exit` may still
+            # be assigned. No canonical BigCodeBench-Hard solution references these.
+            case ast.Name(id="exit" | "quit" | "SystemExit" as name, ctx=ast.Load()):
+                return name
             case _:
                 continue
     return None

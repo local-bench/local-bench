@@ -6,6 +6,7 @@ import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
+import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 
 export const dynamicParams = false;
 
@@ -21,10 +22,19 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns, lineage, vsBaseComparisons } = await getModelPageData(slug);
-  const measuredRuns = model.runs.filter((run) => run.score_status === "measured");
-  const rankedRuns = measuredRuns.filter((run) => run.ranked);
-  const partialRuns = measuredRuns.filter((run) => !run.ranked);
+  const { model, anchorRuns, familyModels, lineage, vsBaseComparisons } = await getModelPageData(slug);
+  // Current-index (headline lane) runs drive every headline element; legacy-lane runs are
+  // diagnostics from an earlier index version and only inform the fallback copy below.
+  const headlineMeasured = model.runs.filter(
+    (run) => run.score_status === "measured" && run.lane === HEADLINE_LANE,
+  );
+  const legacyMeasured = model.runs.filter(
+    (run) => run.score_status === "measured" && run.lane !== HEADLINE_LANE,
+  );
+  const legacyReceiptRuns = legacyMeasured.filter((run) => run.run_id !== null);
+  const measuredRuns = [...headlineMeasured, ...legacyMeasured];
+  const rankedRuns = headlineMeasured.filter((run) => run.ranked);
+  const partialRuns = headlineMeasured.filter((run) => !run.ranked);
   // Headline provenance comes from the ranked (representative) run when one exists —
   // ladder/partial runs sort first in the payload and must not set the headline chip.
   const hasProvenance = (run: (typeof measuredRuns)[number]): boolean =>
@@ -33,7 +43,7 @@ export default async function ModelPage({ params }: PageProps) {
   const submitter = measuredRuns.find(
     (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
   )?.submitter_display_name;
-  const formatGate = model.runs.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
+  const formatGate = measuredRuns.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
     ?.tc_json_v1;
 
   return (
@@ -70,15 +80,42 @@ export default async function ModelPage({ params }: PageProps) {
           </p>
           {partialRuns.length > 0 && rankedRuns.length === 0 ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
-              {partialRuns.length} measured profile{partialRuns.length === 1 ? "" : "s"} are unranked because at least
-              one headline axis is missing.
+              {partialRuns.length} measured profile{partialRuns.length === 1 ? " is" : "s are"} unranked because at
+              least one headline axis is missing.
             </p>
+          ) : null}
+          {legacyMeasured.length > 0 && headlineMeasured.length === 0 ? (
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
+              All {legacyMeasured.length} measured profile{legacyMeasured.length === 1 ? "" : "s"} for this model are
+              retired-lane diagnostics from a previous index. They are excluded from current ranks and charts until a
+              current-index run lands.
+            </p>
+          ) : null}
+          {legacyReceiptRuns.length > 0 ? (
+            <div className="mt-3 max-w-3xl rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3">
+              <div className="font-mono text-xs uppercase text-bench-warn-soft">Retired-lane diagnostic receipts</div>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {legacyReceiptRuns.map((run) =>
+                  run.run_id === null ? null : (
+                    <li key={run.run_id}>
+                      <Link
+                        href={`/run/${run.run_id}`}
+                        className="inline-flex flex-wrap items-center gap-2 rounded border border-bench-line bg-bench-panel-2 px-2.5 py-1 text-xs text-bench-text hover:border-bench-accent"
+                      >
+                        <span className="font-mono">{run.quant_label ?? run.run_id.split("__").at(1) ?? run.run_id}</span>
+                        <span className="text-bench-muted">diagnostic receipt (retired lane)</span>
+                      </Link>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
           ) : null}
         </div>
       </header>
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
-      <ModelVariantBoard model={model} formatGate={formatGate} />
-      <ModelScatter model={model} anchorRuns={anchorRuns} />
+      <ModelVariantBoard model={model} familyModels={familyModels} formatGate={formatGate} />
+      <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
     </main>
   );
 }

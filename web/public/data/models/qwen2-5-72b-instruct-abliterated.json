@@ -1,0 +1,120 @@
+{
+  "base_model": "Qwen/Qwen2.5-72B-Instruct",
+  "catalog_id": "huihui-ai/Qwen2.5-72B-Instruct-abliterated",
+  "demo": false,
+  "family": "Qwen2.5",
+  "gguf_repo": "mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF",
+  "kind": "community",
+  "license": "other",
+  "model_kind": "finetune",
+  "model_label": "Qwen2.5 72B Instruct abliterated",
+  "org": "huihui-ai",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 5.22,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 47.4,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q4_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 47.4,
+      "vram_required_gb_8k": 52.0,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 4.15,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 37.7,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q3_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 37.7,
+      "vram_required_gb_8k": 42.3,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 3.28,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 29.8,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q2_K",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 29.8,
+      "vram_required_gb_8k": 34.4,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "qwen2-5-72b-instruct-abliterated"
+}

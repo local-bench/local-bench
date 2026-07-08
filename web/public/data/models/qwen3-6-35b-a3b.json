@@ -93,7 +93,10 @@
         }
       },
       "bpw": 8.5,
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 65.84352883630854,
         "hi_raw": 0.6584352883630853,
         "lo": 56.488990294552146,
@@ -101,8 +104,6 @@
         "point": 61.19298305104673,
         "point_raw": 0.6119298305104673
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 36.9,
       "hardware": {
@@ -223,7 +224,10 @@
           "status": "measured"
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 66.69807737685657,
         "hi_raw": 0.6669807737685658,
         "lo": 57.21598781469203,
@@ -231,8 +235,6 @@
         "point": 62.04753159159478,
         "point_raw": 0.6204753159159478
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {
@@ -353,7 +355,10 @@
           "status": "measured"
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 66.9636587064384,
         "hi_raw": 0.669636587064384,
         "lo": 57.48156914427385,
@@ -361,8 +366,6 @@
         "point": 62.31311292117662,
         "point_raw": 0.6231311292117662
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {

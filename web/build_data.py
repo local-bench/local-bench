@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import sys
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Final
@@ -76,10 +77,23 @@ _STATIC_WEIGHTS: Final = static_suite_web_weights()
 _APPWORLD_C_BENCH: Final = "appworld_c"
 
 
+@dataclass(frozen=True, slots=True)
+class BoardContext:
+    headline_lane: str
+    models_by_slug: dict[str, JsonObject]
+
+
+@dataclass(frozen=True, slots=True)
+class BuildDataFlags:
+    argv: list[str]
+    allow_lineage_gaps: bool
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
-        sources, out_dir, iters, benches, weights = parse_args(sys.argv[1:] if argv is None else argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
-        build_static_data(sources, out_dir, iters=iters, benches=benches, weights=weights)
+        flags = _extract_build_data_flags(sys.argv[1:] if argv is None else argv)
+        sources, out_dir, iters, benches, weights = parse_args(flags.argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
+        build_static_data(sources, out_dir, iters=iters, benches=benches, weights=weights, allow_lineage_gaps=flags.allow_lineage_gaps)
     except (DataBuildError, OSError, json.JSONDecodeError) as exc:
         print(f"build_data: {exc}", file=sys.stderr)
         return 2
@@ -90,6 +104,17 @@ def main(argv: list[str] | None = None) -> int:
     # Best-effort: a malformed agentic run must not fail the canonical index build.
     _build_agentic_column(out_dir)
     return 0
+
+
+def _extract_build_data_flags(argv: list[str]) -> BuildDataFlags:
+    filtered: list[str] = []
+    allow_lineage_gaps = False
+    for arg in argv:
+        if arg == "--allow-lineage-gaps":
+            allow_lineage_gaps = True
+            continue
+        filtered.append(arg)
+    return BuildDataFlags(argv=filtered, allow_lineage_gaps=allow_lineage_gaps)
 
 
 def _build_agentic_column(out_dir: Path) -> None:
@@ -108,17 +133,41 @@ def _build_agentic_column(out_dir: Path) -> None:
         print(f"build_data: agentic column skipped ({exc})", file=sys.stderr)
 
 
-def build_static_data(sources_path: Path, out_dir: Path, *, iters: int = DEFAULT_ITERS, benches: tuple[str, ...] = BENCHES, weights: dict[str, float] = COMPOSITE_WEIGHTS) -> None:
+def build_static_data(
+    sources_path: Path,
+    out_dir: Path,
+    *,
+    iters: int = DEFAULT_ITERS,
+    benches: tuple[str, ...] = BENCHES,
+    weights: dict[str, float] = COMPOSITE_WEIGHTS,
+    allow_lineage_gaps: bool = False,
+) -> None:
     sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
-    catalog = catalog_entries(_read_json(ROOT / "web" / CATALOG_FILENAME))
-    board = _board_models_by_slug()
+    raw_catalog = _read_json(ROOT / "web" / CATALOG_FILENAME)
+    catalog = catalog_entries(raw_catalog)
+    board = _board_context()
     runs = [_build_run(source, order=index, iters=iters, benches=benches, weights=weights, board=board) for index, source in enumerate(sources)]
+    _enforce_integrity_gates(
+        runs,
+        catalog,
+        allow_lineage_gaps=allow_lineage_gaps,
+        base_models_by_id=_catalog_base_models_by_id(raw_catalog),
+    )
     _write_outputs(out_dir, runs, catalog)
 
 
-def _board_models_by_slug() -> dict[str, JsonObject]:
+def _board_context() -> BoardContext:
     board = _object(_read_json(BOARD_PATH), str(BOARD_PATH))
-    return {slug: model for model in _list(board.get("models"), f"{BOARD_PATH}:models") for model in [_object(model, f"{BOARD_PATH}:model")] if (slug := _text(model.get("slug")))}
+    models_by_slug = {
+        slug: model
+        for model in _list(board.get("models"), f"{BOARD_PATH}:models")
+        for model in [_object(model, f"{BOARD_PATH}:model")]
+        if (slug := _text(model.get("slug")))
+    }
+    return BoardContext(
+        headline_lane=_string(board.get("lane_scope"), f"{BOARD_PATH}:lane_scope"),
+        models_by_slug=models_by_slug,
+    )
 
 
 def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_interval: JsonObject, board: dict[str, JsonObject]) -> None:
@@ -244,7 +293,7 @@ def _board_optional_interval(value: JsonValue | None) -> JsonObject | None:
     return _board_interval(value) if isinstance(value, dict) else None
 
 
-def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: dict[str, JsonObject]) -> JsonObject:
+def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: BoardContext) -> JsonObject:
     if _bool(source["demo"], "source.demo"):
         return build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
     if source.get("file") is None:
@@ -283,12 +332,13 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     # by run_id), so the leaderboard, the landing scatter, and the model-page quant ladder all
     # render the board's single agentic-led Index scale. No-op for unranked rows / unmatched
     # runs. See _apply_board_intervals.
-    _apply_board_intervals(slug, run_id, axes, _object(composite["interval"], "composite.interval"), board)
-    conformance_gates = _board_conformance_gates(slug, run_id, board)
+    composite_interval = _object(composite["interval"], "composite.interval")
+    _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
+    conformance_gates = _board_conformance_gates(slug, run_id, board.models_by_slug)
     headline_complete = all(axis in axes for axis in headline_web_axes())
     static_composite = build_composite(run, axes, _STATIC_AXES, _STATIC_WEIGHTS) if _static_complete(axes) else None
-    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(slug, run_id, board)
-    computed_composite_full = dict(_object(composite["interval"], "composite.interval")) if headline_complete else None
+    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(slug, run_id, board.models_by_slug)
+    computed_composite_full = dict(composite_interval) if headline_complete else None
     computed_composite_static = dict(_object(static_composite["interval"], "static_composite.interval")) if static_composite is not None else None
     composite_full = board_composite_full if board_composite_full is not None else computed_composite_full
     composite_static = board_composite_static if board_composite_static is not None else computed_composite_static
@@ -296,12 +346,17 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     annotations = _source_annotations(source, axes, headline_complete)
     tier = _text(suite.get("tier"))
     ranked = tier == "standard" and conformance_status == "headline-comparable" and headline_complete and not quarantined_agentic
+    score_fields = _score_fields_for_lane(lane, composite_interval, board.headline_lane)
     data_warnings = quarantined_agentic + axis_warnings + _list(composite["warnings"], "composite.warnings")
     if static_composite is not None:
         data_warnings += _list(static_composite["warnings"], "static_composite.warnings")
-    detail = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
-    model_row = {"axes": axes, "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | annotations
-    index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite": composite["interval"], "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | annotations
+    detail = {"axes": axes, "composite": composite_interval, "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
+    if lane != board.headline_lane:
+        detail.update(score_fields)
+        detail["lane"] = lane
+        detail["score_status"] = "measured"
+    model_row = {"axes": axes, "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | score_fields | annotations
+    index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | score_fields | annotations
     extra_status = _run_status_annotations(run, items)
     detail.update(extra_status)
     model_row.update(extra_status)
@@ -441,6 +496,12 @@ def _static_complete(axes: JsonObject) -> bool:
     return all(axis in axes for axis in _STATIC_AXES)
 
 
+def _score_fields_for_lane(lane: str | None, composite: JsonObject, headline_lane: str) -> JsonObject:
+    if lane == headline_lane:
+        return {"composite": composite}
+    return {"composite": None, "diagnostic_composite": composite}
+
+
 def _run_status_annotations(run: JsonObject, items: list[JsonValue]) -> JsonObject:
     annotations: JsonObject = {}
     axis_status = _object_or_empty(_object_or_empty(run.get("axis_status")).get("axes"))
@@ -476,10 +537,13 @@ def _code_verdict_source(items: list[JsonValue]) -> str | None:
             sources.add(source)
     if not sources:
         return None
-    if "verifier" in sources:
-        return "verifier"
+    # Fail closed: a single self-reported ("submitter") coding item taints the whole row's
+    # provenance, so it must win over "verifier". Otherwise a mostly-verifier run with one forged
+    # "submitter" item would aggregate to "verifier" and slip past _assert_ranked_coding_provenance.
     if "submitter" in sources:
         return "submitter"
+    if "verifier" in sources:
+        return "verifier"
     return sorted(sources)[0]
 
 
@@ -581,7 +645,218 @@ def _representative_run(group: list[JsonObject]) -> JsonObject:
     )
 
 
+def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
+    """Enforce "community/self-reported coding never ranks" IN CODE (was manual-commit discipline).
+
+    The ranked gate (_build_run) keys only on tier / conformance / headline-completeness and never
+    on coding provenance, and the in-process coding sentinel is FORGEABLE (a submitter can forge a
+    passing BigCodeBench verdict — docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). So
+    nothing structurally stops a self-reported coding run — if one were curated into
+    data_sources.json, or a future path wired community submissions into the board build — from
+    ranking with a forged coding score counted. This guard makes that a build-time failure.
+
+    Invariant: any ranked row whose COMPOSITE INCLUDES THE CODING AXIS must have MAINTAINER-attested
+    provenance — trust_label == "project_anchor" (a maintainer-controlled data_sources.json field)
+    AND verdict_source == "verifier" (coding re-executed under the maintainer sandbox verifier). The
+    submitter-controlled verdict_source string alone is NOT trusted; trust_label is the anchor.
+
+    Keyed on the scored coding AXIS, not on has_code_artifacts: the coding score derives from bench
+    aggregates / per-item correctness (build_data_axes.py), independent of any code_artifact, so a
+    forged run can score the coding axis while carrying NO code_artifact (has_code_artifacts would
+    stay false and an artifact-keyed guard would skip it). verdict_source is None when there is no
+    code_artifact, so such a forged row fails the "== verifier" check here.
+    """
+    for run in runs:
+        index_row = _object(run["index_row"], "index_row")
+        if not index_row.get("ranked"):
+            continue
+        if "coding" not in _object_or_empty(index_row.get("axes")):
+            continue  # coding axis not scored into this ranked row -> nothing to gate
+        trust_label = index_row.get("trust_label")
+        verdict_source = index_row.get("verdict_source")
+        if trust_label != "project_anchor" or verdict_source != "verifier":
+            raise DataBuildError(
+                f"REFUSING to rank {run.get('run_id')!r}: the coding axis is present but its provenance "
+                f"is not maintainer-verified (trust_label={trust_label!r}, verdict_source={verdict_source!r}). "
+                f"A self-reported / community coding verdict must never produce a ranked row — the in-process "
+                f"coding sentinel is forgeable (see docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). "
+                f"Re-execute the coding under the maintainer sandbox verifier and curate the source as "
+                f"project_anchor, or leave the row unranked."
+            )
+
+
+def _enforce_integrity_gates(
+    runs: list[JsonObject],
+    catalog: list[JsonObject],
+    *,
+    allow_lineage_gaps: bool,
+    base_models_by_id: dict[str, list[str]] | None = None,
+) -> None:
+    by_id = {catalog_key(entry): entry for entry in catalog}
+    by_slug = {catalog_slug(entry): entry for entry in catalog}
+    base_lookup = base_models_by_id or _catalog_base_models_from_entries(catalog)
+    lineage_issues = _lineage_gate_issues(runs, by_id, by_slug, base_lookup)
+    if lineage_issues:
+        if allow_lineage_gaps:
+            print("LINEAGE GATE warning (--allow-lineage-gaps):\n" + "\n".join(lineage_issues), file=sys.stderr)
+        else:
+            raise DataBuildError(
+                "LINEAGE GATE failed:\n"
+                + "\n".join(lineage_issues)
+                + "\nPass --allow-lineage-gaps to downgrade this failure to a warning."
+            )
+    size_warnings = _size_gate_warnings(runs, by_id, by_slug)
+    if size_warnings:
+        print("SIZE GATE warning:\n" + "\n".join(size_warnings), file=sys.stderr)
+
+
+def _lineage_gate_issues(
+    runs: list[JsonObject],
+    by_id: dict[str, JsonObject],
+    by_slug: dict[str, JsonObject],
+    base_models_by_id: dict[str, list[str]],
+) -> list[str]:
+    issues: list[str] = []
+    for run in runs:
+        if not _lineage_gated_run(run):
+            continue
+        entry = _catalog_entry_for_run(run, by_id, by_slug)
+        slug = _string(run["slug"], "run.slug")
+        run_id = _text(run.get("run_id")) or "<none>"
+        if entry is None:
+            issues.append(
+                f"- measured row without catalog entry: slug={slug} run_id={run_id} "
+                f"catalog_id={_text(run.get('catalog_id')) or '<none>'}"
+            )
+            continue
+        issues.extend(_base_chain_issues(slug, entry, by_id, base_models_by_id))
+    return issues
+
+
+def _lineage_gated_run(run: JsonObject) -> bool:
+    index_row = _object(run["index_row"], "run.index_row")
+    return index_row.get("score_status") == "measured" and _bool(index_row.get("ranked"), "index_row.ranked")
+
+
+def _catalog_entry_for_run(
+    run: JsonObject,
+    by_id: dict[str, JsonObject],
+    by_slug: dict[str, JsonObject],
+) -> JsonObject | None:
+    key = run_catalog_key(run)
+    if key is not None and key in by_id:
+        return by_id[key]
+    return by_slug.get(_string(run["slug"], "run.slug"))
+
+
+def _base_chain_issues(
+    slug: str,
+    entry: JsonObject,
+    by_id: dict[str, JsonObject],
+    base_models_by_id: dict[str, list[str]],
+) -> list[str]:
+    model_kind = _text(entry.get("model_kind")) or "base"
+    if model_kind == "base":
+        return []
+    catalog_id = _string(entry["id"], "catalog.id")
+    bases = base_models_by_id.get(catalog_id.lower(), _base_model_values(entry.get("base_model")))
+    if not bases:
+        return [f"- base-chain-missing: slug={slug} catalog_id={catalog_id} base_model=<missing> missing=<missing>"]
+    issues: list[str] = []
+    for base_model in bases:
+        missing = _missing_base_in_chain(base_model, by_id, base_models_by_id, visited={catalog_id.lower()})
+        if missing is not None:
+            issues.append(
+                f"- base-chain-missing: slug={slug} catalog_id={catalog_id} "
+                f"base_model={base_model} missing={missing}"
+            )
+    return issues
+
+
+def _missing_base_in_chain(
+    base_model: str,
+    by_id: dict[str, JsonObject],
+    base_models_by_id: dict[str, list[str]],
+    *,
+    visited: set[str],
+) -> str | None:
+    key = base_model.lower()
+    entry = by_id.get(key)
+    if entry is None:
+        return base_model
+    if key in visited:
+        return None
+    visited.add(key)
+    for parent in base_models_by_id.get(key, _base_model_values(entry.get("base_model"))):
+        missing = _missing_base_in_chain(parent, by_id, base_models_by_id, visited=visited)
+        if missing is not None:
+            return missing
+    return None
+
+
+def _size_gate_warnings(
+    runs: list[JsonObject],
+    by_id: dict[str, JsonObject],
+    by_slug: dict[str, JsonObject],
+) -> list[str]:
+    warnings: list[str] = []
+    for run in runs:
+        model_row = _object(run["model_row"], "run.model_row")
+        if model_row.get("score_status") != "measured":
+            continue
+        entry = _catalog_entry_for_run(run, by_id, by_slug)
+        quant_label = _text(model_row.get("quant_label"))
+        measured_gb = _number_or_none(model_row.get("vram_footprint_gb"))
+        if entry is None or quant_label is None or measured_gb is None:
+            continue
+        catalog_gb = _catalog_file_gb(entry, quant_label)
+        if catalog_gb is None or catalog_gb <= 0:
+            continue
+        delta = abs(measured_gb - catalog_gb) / catalog_gb
+        if delta > 0.10:
+            warnings.append(
+                f"- slug={_string(run['slug'], 'run.slug')} run_id={_text(run.get('run_id')) or '<none>'} "
+                f"quant={quant_label}: measured vram_footprint_gb={measured_gb:g} "
+                "(model row vram_footprint_gb from web/data_sources.json) "
+                f"vs catalog file_gb={catalog_gb:g} (web/model_catalog.json quants[].file_gb), "
+                f"delta={delta * 100:.1f}%"
+            )
+    return warnings
+
+
+def _catalog_file_gb(entry: JsonObject, quant_label: str) -> float | None:
+    for quant in _list(entry.get("quants"), "catalog.quants"):
+        quant_entry = _object(quant, "catalog.quant")
+        if _text(quant_entry.get("label")) == quant_label:
+            return _number_or_none(quant_entry.get("file_gb"))
+    return None
+
+
+def _catalog_base_models_by_id(raw_catalog: JsonValue) -> dict[str, list[str]]:
+    raw_items = raw_catalog if isinstance(raw_catalog, list) else _list(_object(raw_catalog, "model_catalog").get("models"), "model_catalog.models")
+    by_id: dict[str, list[str]] = {}
+    for item in raw_items:
+        entry = _object(item, "model_catalog.entry")
+        model_id = _text(entry.get("id"))
+        if model_id is not None:
+            by_id[model_id.lower()] = _base_model_values(entry.get("base_model"))
+    return by_id
+
+
+def _catalog_base_models_from_entries(catalog: list[JsonObject]) -> dict[str, list[str]]:
+    return {_string(entry["id"], "catalog.id").lower(): _base_model_values(entry.get("base_model")) for entry in catalog}
+
+
+def _base_model_values(value: JsonValue | None) -> list[str]:
+    if isinstance(value, str) and value:
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str) and item]
+    return []
+
+
 def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObject]) -> None:
+    _assert_ranked_coding_provenance(runs)  # fail before writing any output if the invariant is violated
     models_dir = out_dir / "models"
     runs_dir = out_dir / "runs"
     for generated_dir in (models_dir, runs_dir):

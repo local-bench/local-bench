@@ -6,7 +6,7 @@
   "gguf_repo": "lmstudio-community/Phi-4-reasoning-plus-GGUF",
   "kind": "community",
   "license": "mit",
-  "model_kind": "base",
+  "model_kind": "finetune",
   "model_label": "Phi 4 Reasoning",
   "org": "Microsoft",
   "runs": [

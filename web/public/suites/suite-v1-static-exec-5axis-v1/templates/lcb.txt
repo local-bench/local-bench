@@ -1,0 +1,17 @@
+You are a helpful programming assistant and an expert Python programmer.
+Predict the output for the provided LiveCodeBench test case. Do not run code.
+
+Problem:
+{question_content}
+
+Function:
+```
+{starter_code}
+```
+
+Test input:
+```
+{test_input}
+```
+
+Only return the predicted output.

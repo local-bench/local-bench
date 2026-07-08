@@ -117,16 +117,20 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
     models = _objects(index["models"])
     # The full model catalog is always emitted (unmeasured entries are shells with empty
     # axes / null composite); our two fixture runs attach as standalone measured entries.
-    measured = [model for model in models if model.get("composite") is not None]
+    measured = [model for model in models if model.get("score_status") == "measured"]
     assert {_string(model["model_label"]) for model in measured} >= {"Fixture KI", "Fixture Math"}
 
     # Contract: every MEASURED model's axes ⊆ AXES with the headline always present;
     # candidate axes (math/agentic) appear only when actually measured (no synthesis).
+    # Both fixture runs sit outside the board's headline lane, so their composites are
+    # structurally quarantined: `composite` is null and the score only appears as
+    # `diagnostic_composite`.
     for model in measured:
         model_axes = _object(model["axes"])
         assert set(model_axes) <= set(AXES)
         assert {"knowledge", "instruction"} <= set(model_axes)
-        _assert_interval(_object(model["composite"]))
+        assert model["composite"] is None
+        _assert_interval(_object(model["diagnostic_composite"]))
         assert (out_first / "models" / f"{_string(model['slug'])}.json").exists()
 
     # The K+I-only run carries NO fabricated math/agentic axes...
@@ -147,6 +151,10 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
             run_detail = _object(_read_json(out_first / "runs" / f"{run_id}.json"))
             assert _string(run_detail["suite_version"]) == "suite-v1"
             _assert_run_detail(run_detail)
+            assert run_detail["composite"] is None
+            _assert_interval(_object(run_detail["diagnostic_composite"]))
+            assert _string(run_detail["score_status"]) == "measured"
+            assert _string(run_detail["lane"]) in {"answer-only", "capped-thinking"}
 
 
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
@@ -187,7 +195,7 @@ def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_pa
     knowledge = _object(axes["knowledge"])
     instruction = _object(axes["instruction"])
     math = _object(axes["math"])
-    composite = _object(detail["composite"])
+    composite = _score_interval(detail)
     chance = SOURCE_CHANCE_BASELINES["mmlu_pro"]
     assert knowledge["point_raw"] == pytest.approx((0.5 - chance) / (1.0 - chance))
     assert instruction["point_raw"] == pytest.approx(0.5)
@@ -270,6 +278,197 @@ def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Pat
     )
 
 
+def test_ranked_coding_provenance_guard_blocks_self_reported_coding() -> None:
+    # Enforce "community/self-reported coding never ranks" IN CODE. A ranked row whose composite
+    # includes the CODING AXIS must be maintainer-verified (trust_label project_anchor AND
+    # verdict_source verifier); anything else is a build-time failure. Keyed on the scored axis,
+    # NOT has_code_artifacts: coding is scored from bench aggregates independent of any
+    # code_artifact, so an artifact-keyed guard is bypassable
+    # (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md).
+    builder = _build_data_module()
+
+    CODING: JsonObject = {"coding": {"n": 1}}  # a scored coding axis; contents irrelevant to the guard
+
+    def _run(run_id: str, *, axes: JsonObject = CODING, **index_row: JsonValue) -> JsonObject:
+        return {"run_id": run_id, "index_row": {"axes": axes, **index_row}}
+
+    # Legit maintainer-verified ranked coding row: must NOT raise.
+    builder._assert_ranked_coding_provenance(
+        [_run("legit", ranked=True, trust_label="project_anchor", verdict_source="verifier")]
+    )
+
+    # Ranked rows whose coding axis is scored but NOT maintainer-verified: must raise.
+    for label, row in {
+        "community_trust_label": _run("a", ranked=True, trust_label="community_re_scored", verdict_source="verifier"),
+        "forged_submitter_source": _run("b", ranked=True, trust_label="project_anchor", verdict_source="submitter"),
+        "null_source": _run("c", ranked=True, trust_label="project_anchor", verdict_source=None),
+        # The bypass this closes: coding axis scored with NO code_artifact (has_code_artifacts
+        # false, verdict_source None). The old has_code_artifacts-keyed guard skipped this.
+        "coding_scored_without_artifact": _run("d", ranked=True, has_code_artifacts=False, trust_label="community_re_scored", verdict_source=None),
+        "no_provenance_at_all": _run("e", ranked=True),
+    }.items():
+        with pytest.raises(builder.DataBuildError, match="not maintainer-verified"):
+            builder._assert_ranked_coding_provenance([row])
+
+    # Non-triggering rows must NOT raise: an unranked self-reported coding row, and a ranked row
+    # whose composite has NO coding axis (provenance is irrelevant when coding is not scored).
+    builder._assert_ranked_coding_provenance(
+        [
+            _run("unranked", ranked=False, trust_label="community_re_scored", verdict_source="submitter"),
+            _run("nocode", axes={"knowledge": {"n": 1}}, ranked=True, trust_label="community_re_scored", verdict_source=None),
+        ]
+    )
+
+
+def test_lineage_gate_blocks_ranked_measured_row_without_catalog_entry() -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("local-finetune", catalog_id=None, ranked=True)]
+    catalog = [_gate_catalog_entry("Base/Model", "base-model")]
+
+    with pytest.raises(builder.DataBuildError, match="LINEAGE GATE failed") as excinfo:
+        builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    message = str(excinfo.value)
+    assert "measured row without catalog entry: slug=local-finetune" in message
+    assert "Pass --allow-lineage-gaps to downgrade this failure to a warning." in message
+
+
+def test_lineage_gate_blocks_missing_catalog_base_chain() -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("missing-base-tune", catalog_id="Tune/Missing-Base", ranked=True)]
+    catalog = [
+        _gate_catalog_entry(
+            "Tune/Missing-Base",
+            "missing-base-tune",
+            base_model="Base/Missing",
+            model_kind="finetune",
+        )
+    ]
+
+    with pytest.raises(builder.DataBuildError, match="LINEAGE GATE failed") as excinfo:
+        builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    assert (
+        "base-chain-missing: slug=missing-base-tune catalog_id=Tune/Missing-Base "
+        "base_model=Base/Missing missing=Base/Missing"
+    ) in str(excinfo.value)
+
+
+def test_integrity_gates_pass_clean_catalogued_lineage(capsys: pytest.CaptureFixture[str]) -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("clean-tune", catalog_id="Tune/Clean", ranked=True, quant_label="Q4_K_M", vram_footprint_gb=10.2)]
+    catalog = [
+        _gate_catalog_entry("Base/Clean", "base-clean"),
+        _gate_catalog_entry(
+            "Tune/Clean",
+            "clean-tune",
+            base_model="Base/Clean",
+            model_kind="finetune",
+            quants=[{"label": "Q4_K_M", "file_gb": 10.0}],
+        ),
+    ]
+
+    builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    assert capsys.readouterr().err == ""
+
+
+def test_allow_lineage_gaps_downgrades_lineage_gate_to_warning(capsys: pytest.CaptureFixture[str]) -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("local-finetune", catalog_id=None, ranked=True)]
+
+    builder._enforce_integrity_gates(runs, [], allow_lineage_gaps=True)
+
+    captured = capsys.readouterr()
+    assert "LINEAGE GATE warning (--allow-lineage-gaps):" in captured.err
+    assert "measured row without catalog entry: slug=local-finetune" in captured.err
+
+
+def test_size_gate_warns_when_measured_artifact_size_diverges_from_catalog(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    builder = _build_data_module()
+    runs = [_gate_run("large-drift", catalog_id="Drift/Model", ranked=True, quant_label="Q4_K_M", vram_footprint_gb=12.5)]
+    catalog = [
+        _gate_catalog_entry(
+            "Drift/Model",
+            "large-drift",
+            quants=[{"label": "Q4_K_M", "file_gb": 10.0}],
+        )
+    ]
+
+    builder._enforce_integrity_gates(runs, catalog, allow_lineage_gaps=False)
+
+    captured = capsys.readouterr()
+    assert (
+        "SIZE GATE warning:\n"
+        "- slug=large-drift run_id=large-drift__run quant=Q4_K_M: "
+        "measured vram_footprint_gb=12.5 (model row vram_footprint_gb from web/data_sources.json) "
+        "vs catalog file_gb=10 (web/model_catalog.json quants[].file_gb), delta=25.0%"
+    ) in captured.err
+
+
+def test_build_data_main_passes_allow_lineage_gaps_flag(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    builder = _build_data_module()
+    sources = tmp_path / "sources.json"
+    sources.write_text("[]", encoding="utf-8")
+    out_dir = tmp_path / "generated"
+    captured_allow: list[bool] = []
+
+    def fake_build_static_data(
+        sources_path: Path,
+        output_dir: Path,
+        *,
+        iters: int = 0,
+        benches: tuple[str, ...] = (),
+        weights: dict[str, float] | None = None,
+        allow_lineage_gaps: bool = False,
+    ) -> None:
+        assert sources_path == sources
+        assert output_dir == out_dir
+        assert iters == 1
+        assert benches
+        assert weights is not None
+        captured_allow.append(allow_lineage_gaps)
+        output_dir.mkdir(parents=True)
+        (output_dir / "index.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(builder, "build_static_data", fake_build_static_data)
+    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir: None)
+
+    code = builder.main(
+        [
+            "--allow-lineage-gaps",
+            "--sources",
+            str(sources),
+            "--out",
+            str(out_dir),
+            "--iters",
+            "1",
+        ],
+    )
+
+    assert code == 0
+    assert captured_allow == [True]
+
+
+def test_code_verdict_source_fails_closed_on_mixed_provenance() -> None:
+    # A single self-reported ("submitter") coding item must taint the aggregate, so a mostly-verifier
+    # run with one forged submitter item does not aggregate to "verifier" and slip past the guard.
+    builder = _build_data_module()
+
+    def _item(source: JsonValue) -> JsonObject:
+        return {"bench": "bigcodebench_hard", "code_artifact": {"verdict_source": source}}
+
+    assert builder._code_verdict_source([_item("verifier"), _item("submitter")]) == "submitter"
+    assert builder._code_verdict_source([_item("verifier"), _item("verifier")]) == "verifier"
+    # null items (unscoreable, like the real Gemma run) don't count as string sources; verifier wins.
+    assert builder._code_verdict_source([_item("verifier"), _item(None)]) == "verifier"
+
+
 def test_build_data_quarantines_invalid_inline_appworld(tmp_path: Path) -> None:
     # Given: a run with inline appworld_c scores whose diagnostics show harness-dominated failure.
     builder = _build_data_module()
@@ -326,20 +525,23 @@ def test_build_data_carries_board_conformance_gate_to_index_and_model_rows(
     interval = {"hi": 90.0, "hi_raw": 0.9, "lo": 70.0, "lo_raw": 0.7, "point": 80.0, "point_raw": 0.8}
     monkeypatch.setattr(
         builder,
-        "_board_models_by_slug",
-        lambda: {
-            "synthetic-model": {
-                "ranked": True,
-                "systems": [
-                    {
-                        "run_id": "synthetic-model__synthetic-run",
-                        "composite": interval,
-                        "axes": {"knowledge": interval, "instruction": interval},
-                        "conformance_gates": {"tc_json_v1": gate},
-                    },
-                ],
+        "_board_context",
+        lambda: builder.BoardContext(
+            headline_lane="test",
+            models_by_slug={
+                "synthetic-model": {
+                    "ranked": True,
+                    "systems": [
+                        {
+                            "run_id": "synthetic-model__synthetic-run",
+                            "composite": interval,
+                            "axes": {"knowledge": interval, "instruction": interval},
+                            "conformance_gates": {"tc_json_v1": gate},
+                        },
+                    ],
+                },
             },
-        },
+        ),
     )
 
     # When: the static web JSON is built through the normal pipeline.
@@ -526,12 +728,14 @@ def test_build_data_main_reports_absolute_out_dir_when_outside_repo(
         iters: int = 0,
         benches: tuple[str, ...] = (),
         weights: dict[str, float] | None = None,
+        allow_lineage_gaps: bool = False,
     ) -> None:
         assert sources_path == sources
         assert output_dir == out_dir
         assert iters == 1
         assert benches
         assert weights is not None
+        assert allow_lineage_gaps is False
         output_dir.mkdir(parents=True)
         (output_dir / "index.json").write_text("{}", encoding="utf-8")
 
@@ -747,6 +951,56 @@ def _harness_dominated_agentic_run() -> JsonObject:
     }
 
 
+def _gate_run(
+    slug: str,
+    *,
+    catalog_id: str | None,
+    ranked: bool,
+    quant_label: str | None = "Q4_K_M",
+    vram_footprint_gb: float | None = 10.0,
+) -> JsonObject:
+    return {
+        "catalog_id": catalog_id,
+        "index_row": {
+            "ranked": ranked,
+            "score_status": "measured",
+            "slug": slug,
+        },
+        "model_row": {
+            "quant_label": quant_label,
+            "score_status": "measured",
+            "vram_footprint_gb": vram_footprint_gb,
+        },
+        "run_id": f"{slug}__run",
+        "slug": slug,
+    }
+
+
+def _gate_catalog_entry(
+    model_id: str,
+    slug: str,
+    *,
+    base_model: str | None = None,
+    model_kind: str = "base",
+    quants: list[JsonObject] | None = None,
+) -> JsonObject:
+    return {
+        "base_model": base_model,
+        "display_name": model_id.rsplit("/", 1)[-1],
+        "family": "Fixture",
+        "gguf_repo": None,
+        "id": model_id,
+        "is_moe": False,
+        "license": "apache-2.0",
+        "model_kind": model_kind,
+        "org": model_id.split("/", 1)[0],
+        "popularity": {},
+        "quants": quants or [],
+        "reasoning_capable": True,
+        "slug": slug,
+    }
+
+
 def _registry_weighted_composite(benches: JsonObject) -> float:
     # Mirror production: weight axes by the registry's web composite weights
     # (headline knowledge + instruction at 0.5 each; agentic + math 0.0),
@@ -848,11 +1102,12 @@ def _assert_run_detail(detail: JsonObject) -> None:
         "manifest_summary",
         "model_label",
         "run_id",
+        "score_status",
         "suite_version",
         "totals",
         "worst_axis",
     } <= set(detail)
-    _assert_interval(_object(detail["composite"]))
+    _assert_interval(_score_interval(detail))
     axes = _object(detail["axes"])
     # Contract: axes ⊆ AXES, headline always present, candidates only when measured.
     # Every emitted axis must be a real measurement (n > 0) — no synthesized n=0 axes.
@@ -863,6 +1118,12 @@ def _assert_run_detail(detail: JsonObject) -> None:
         _assert_interval(axis)
         assert {"n", "n_errors", "n_no_answer", "raw_accuracy"} <= set(axis)
         assert _number(axis["n"]) > 0
+
+
+def _score_interval(detail: JsonObject) -> JsonObject:
+    if detail["composite"] is not None:
+        return _object(detail["composite"])
+    return _object(detail["diagnostic_composite"])
 
 
 def _assert_interval(interval: JsonObject) -> None:

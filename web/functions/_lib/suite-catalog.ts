@@ -230,12 +230,12 @@ const EXEC_SUITE_FILES: readonly SuiteFile[] = [
   { path: "bfcl_multi_turn.jsonl", sha256: "c7f030d64098c4573c0c49b4d837f43b5f18047a941118bb77c8e2857e55f0f9", size: 2231316 },
   { path: "bigcodebench_hard.jsonl", sha256: "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e", size: 849460 },
   { path: "ifbench.jsonl", sha256: "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257", size: 141566 },
-  { path: "itemsets.lock.json", sha256: "ffff5567072284a3c9d8fb37bde73d281becbd379e01ba764a0b981ec1b341c7", size: 5324 },
+  { path: "itemsets.lock.json", sha256: "5ef89aa2949b8fc23da39f20c602e91fec3968d58c24b5fa3d84bb1815a8d3ff", size: 5215 },
   { path: "lcb.jsonl", sha256: "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf", size: 179626 },
   { path: "mmlu_pro.jsonl", sha256: "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4", size: 287076 },
   { path: "olymmath_hard.jsonl", sha256: "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b", size: 40716 },
   { path: "ruler_32k.jsonl", sha256: "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540", size: 50474 },
-  { path: "suite.json", sha256: "ad34b7f1463e1953f0697111ea2e837fd11008876678fb2d7e20bea49ed41f7f", size: 5940 },
+  { path: "suite.json", sha256: "809b5e2c9e8bbd24ac29b48698cfd141e2d1affa9ca847ac267ef1c6ac5de4b2", size: 5729 },
   { path: "supergpqa.jsonl", sha256: "1138cb40b4e7ab84da790e16fa44f9184220f35760e95802064a3522db1a537a", size: 264520 },
   { path: "tc_json_v1.jsonl", sha256: "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74", size: 497028 },
   { path: "templates/bfcl.txt", sha256: "db54c9aafd809974c5a1fc1663150354d34b1c76a8d8bef1d70dc7b5f4307589", size: 192 },
@@ -254,8 +254,8 @@ export const FULL_EXEC_SUITE: SuiteRecord = {
   id: "suite-v1-full-exec-6axis-v1",
   legacy: false,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "bigcodebench_hard", "olymmath_hard", "amo"],
-  suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
-  suiteManifestSha256: "3c3fd2fbfc5020c14f48fb682322e9d9043428ad04e8e0f6a459b67cb264e1af",
+  suiteHash: "02874cffae45ddcb39688a5651b335a158c4096d148d20062908a382970254cc",
+  suiteManifestSha256: "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468",
   version: "suite-v1",
 } as const;
 
@@ -264,8 +264,8 @@ export const STATIC_EXEC_SUITE: SuiteRecord = {
   id: "suite-v1-static-exec-5axis-v1",
   legacy: false,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "bigcodebench_hard", "olymmath_hard", "amo"],
-  suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
-  suiteManifestSha256: "53f5ffb159fa474877ff7777348fd2be1f543064f8e226b5733a58d08cb2a2da",
+  suiteHash: "02874cffae45ddcb39688a5651b335a158c4096d148d20062908a382970254cc",
+  suiteManifestSha256: "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
   version: "suite-v1",
 } as const;
 
@@ -274,8 +274,8 @@ export const STATIC_CORE_DIAG_SUITE: SuiteRecord = {
   id: "suite-v1-static-core-diag-v1",
   legacy: false,
   staticBenches: ["mmlu_pro", "ifbench", "tc_json_v1", "olymmath_hard", "amo"],
-  suiteHash: "68a6aab42855466e62f97c03eec686dd3a1dacd0bcbddf89c076726f1873ea0d",
-  suiteManifestSha256: "cada3dd47568ef3318b61638e87dfc8a5e9f7da9a3b5ac57f7634c8baed912bf",
+  suiteHash: "02874cffae45ddcb39688a5651b335a158c4096d148d20062908a382970254cc",
+  suiteManifestSha256: "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69",
   version: "suite-v1",
 } as const;
 

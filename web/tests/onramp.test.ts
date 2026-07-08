@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  RUNTIME_PROFILES,
-  buildRecipe,
-  isDerivativeModel,
-  listOrgs,
-  modelsForOrg,
+  bestFitForVram,
+  browseFamilies,
+  estimateBenchmarkTime,
+  listBaseLabs,
   popularModels,
   recommendedQuantForVram,
   type OnrampCatalogModel,
   type OnrampCatalogQuant,
-  type RuntimeId,
-  type RuntimeProfile,
 } from "../lib/onramp";
 import { getOnrampCatalog } from "../lib/data";
 
@@ -29,6 +26,7 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     likes: 420,
     trending: 31,
     modelKind: "base",
+    baseModelIds: [],
     baseModelId: null,
     baseModelSlug: null,
     baseModelDisplayName: null,
@@ -41,18 +39,10 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
   };
 }
 
-function runtimeProfile(id: RuntimeId): RuntimeProfile {
-  const profile = RUNTIME_PROFILES.find((candidate) => candidate.id === id);
-  if (profile === undefined) {
-    throw new Error(`Missing runtime profile: ${id}`);
-  }
-  return profile;
-}
-
-function quantAt(entry: OnrampCatalogModel, index: number): OnrampCatalogQuant {
-  const quant = entry.quants[index];
+function quantByLabel(entry: OnrampCatalogModel, label: string): OnrampCatalogQuant {
+  const quant = entry.quants.find((candidate) => candidate.label === label);
   if (quant === undefined) {
-    throw new Error(`Missing quant at index ${index}`);
+    throw new Error(`Missing quant ${label}`);
   }
   return quant;
 }
@@ -134,128 +124,159 @@ describe("popularModels", () => {
   });
 });
 
-describe("listOrgs / modelsForOrg", () => {
-  it("lists unique orgs sorted, and models per org by downloads", () => {
-    const catalog = [
-      model({ slug: "q1", org: "Qwen", downloads: 1 }),
-      model({ slug: "q2", org: "Qwen", downloads: 9 }),
-      model({ slug: "g1", org: "Google" }),
-    ];
-    expect(listOrgs(catalog)).toEqual(["Google", "Qwen"]);
-    expect(modelsForOrg(catalog, "Qwen").map((m) => m.slug)).toEqual(["q2", "q1"]);
+describe("estimateBenchmarkTime", () => {
+  it("anchors 12B and 27B Q4_K_M models to the measured RTX 5090-class wall times", () => {
+    const gemma = model({ slug: "gemma-4-12b-it", paramsB: 12 });
+    const qwen = model({ slug: "qwen3-6-27b", paramsB: 27 });
+
+    const gemmaEstimate = estimateBenchmarkTime(gemma, quantByLabel(gemma, "Q4_K_M"));
+    const qwenEstimate = estimateBenchmarkTime(qwen, quantByLabel(qwen, "Q4_K_M"));
+
+    if (gemmaEstimate.kind !== "range" || qwenEstimate.kind !== "range") {
+      throw new Error("Expected ranged estimates for catalog models with size metadata");
+    }
+    expect(gemmaEstimate.pointHours).toBe(17);
+    expect(gemmaEstimate.label).toBe("~13–21h");
+    expect(qwenEstimate.pointHours).toBe(24);
+    expect(qwenEstimate.label).toBe("~18–30h");
   });
 
-  it("filters real derivatives without treating official pretraining links as fine-tunes", () => {
-    const base = model({ slug: "qwen3-6-27b", displayName: "Qwen3.6 27B", downloads: 10 });
-    const officialInstruction = model({
-      slug: "qwen3-0-6b",
-      displayName: "Qwen3 0.6B",
-      baseModelId: "Qwen/Qwen3-0.6B-Base",
-      baseModelSlug: null,
-      baseModelDisplayName: "Qwen/Qwen3-0.6B-Base",
-      downloads: 8,
-    });
-    const fineTune = model({
-      slug: "qwopus3-6-27b-v2-mtp",
-      displayName: "Qwopus 3.6 27B v2 MTP",
-      baseModelId: "Qwen/Qwen3.6-27B",
-      baseModelSlug: "qwen3-6-27b",
-      baseModelDisplayName: "Qwen3.6 27B",
-      modelKind: "finetune",
-      downloads: 9,
-    });
-    const catalog = [base, officialInstruction, fineTune];
+  it("is monotonic as parameter count grows", () => {
+    const small = model({ paramsB: 12 });
+    const large = model({ paramsB: 27 });
 
-    expect(isDerivativeModel(fineTune)).toBe(true);
-    expect(isDerivativeModel(officialInstruction)).toBe(false);
-    expect(modelsForOrg(catalog, "Qwen", "finetune").map((m) => m.slug)).toEqual(["qwopus3-6-27b-v2-mtp"]);
-    expect(modelsForOrg(catalog, "Qwen", "base").map((m) => m.slug)).toEqual(["qwen3-6-27b", "qwen3-0-6b"]);
+    const smallEstimate = estimateBenchmarkTime(small, quantByLabel(small, "Q4_K_M"));
+    const largeEstimate = estimateBenchmarkTime(large, quantByLabel(large, "Q4_K_M"));
+
+    if (smallEstimate.kind !== "range" || largeEstimate.kind !== "range") {
+      throw new Error("Expected ranged estimates for catalog models with size metadata");
+    }
+    expect(largeEstimate.pointHours).toBeGreaterThan(smallEstimate.pointHours);
+  });
+
+  it("uses an honest generic fallback when pasted models have no size metadata", () => {
+    const pasted = model({
+      displayName: "bartowski/Unknown-GGUF",
+      paramsB: null,
+      quants: [{ label: "Q4_K_M", vramGb8k: null, fileGb: null, bpw: null }],
+    });
+
+    const estimate = estimateBenchmarkTime(pasted, quantByLabel(pasted, "Q4_K_M"));
+
+    expect(estimate).toEqual({
+      kind: "generic",
+      label: "expect a full day on a 24GB-class GPU",
+    });
   });
 });
 
-describe("RUNTIME_PROFILES", () => {
-  it("exposes three profiles with llama.cpp recommended and no Ollama", () => {
-    expect(RUNTIME_PROFILES.map((p) => p.id)).toEqual(["llamacpp", "lmstudio", "vllm"]);
-    expect(RUNTIME_PROFILES.map((p) => String(p.id))).not.toContain("ollama");
-    expect(RUNTIME_PROFILES.find((p) => p.id === "llamacpp")?.recommended).toBe(true);
-    expect(RUNTIME_PROFILES.find((p) => p.id === "llamacpp")?.endpoint).toBe("http://localhost:8080/v1");
-    expect(RUNTIME_PROFILES.find((p) => p.id === "vllm")?.endpoint).toBe("http://localhost:8000/v1");
+describe("browseFamilies", () => {
+  const qwenBase = model({
+    id: "Qwen/Qwen3.6-27B",
+    slug: "qwen3-6-27b",
+    displayName: "Qwen3.6 27B",
+    downloads: 10_000,
   });
-});
-
-describe("buildRecipe", () => {
-  const llamacpp = runtimeProfile("llamacpp");
-  const vllm = runtimeProfile("vllm");
-  const lmstudio = runtimeProfile("lmstudio");
-
-  it("emits a board-comparable bounded-final recipe for a Qwen model on llama.cpp", () => {
-    const selected = model();
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v1");
-    expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
-    expect(recipe.model).toBe(selected);
-    expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms',
-    );
-    expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
-    expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
-    expect(recipe.serveCommand).toBe("llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080");
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8080/v1");
-    expect(recipe.benchCommand).toContain("--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
-    expect(recipe.benchCommand).toContain("--hf-model-id Qwen/Qwen3-8B");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
-    expect(recipe.benchCommand).toContain("--profile auto");
-    expect(recipe.benchCommand).not.toContain("--reasoning-activation");
-    expect(recipe.benchCommand).toContain("--publishable");
-    expect(recipe.benchCommand).toContain("--sampler-seed 1234");
-    expect(recipe.benchCommand).toContain("--tier standard");
-    expect(recipe.benchCommand).toContain("--out runs/my-run.json");
-    expect(recipe.benchCommand).not.toContain("--suite-dir");
-    expect(recipe.benchCommand).toContain(" \\\n  --endpoint");
+  const llamaBase = model({
+    id: "meta-llama/Llama-3.1-8B",
+    slug: "llama-3-1-8b",
+    displayName: "Llama 3.1 8B",
+    org: "Meta",
+    downloads: 8_000,
   });
-
-  it("uses the HF model id as the served name for vLLM and warns about full weights", () => {
-    const selected = model();
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: vllm });
-    expect(recipe.servedModelName).toBe("Qwen/Qwen3-8B");
-    expect(recipe.serveCommand).toBe("vllm serve Qwen/Qwen3-8B --port 8000");
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8000/v1");
-    expect(recipe.serveNote).toContain("full-precision");
+  const outsideBaseLink = model({
+    id: "Qwen/Qwen3-0.6B",
+    slug: "qwen3-0-6b",
+    displayName: "Qwen3 0.6B",
+    baseModelIds: ["Qwen/Qwen3-0.6B-Base"],
+    baseModelId: "Qwen/Qwen3-0.6B-Base",
+    baseModelSlug: null,
+    baseModelDisplayName: "Qwen/Qwen3-0.6B-Base",
+    downloads: 500,
   });
-
-  it("renders a GUI note instead of a serve command for LM Studio", () => {
-    const selected = model();
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: lmstudio });
-    expect(recipe.serveCommand).toBe("");
-    expect(recipe.serveNote).toContain("LM Studio");
+  const qwopus = model({
+    id: "Jackrong/Qwopus3.6-27B-v2-MTP",
+    slug: "qwopus3-6-27b-v2-mtp",
+    displayName: "Qwopus3.6 27B v2 MTP",
+    org: "Jackrong",
+    baseModelIds: ["Qwen/Qwen3.6-27B"],
+    baseModelId: "Qwen/Qwen3.6-27B",
+    baseModelSlug: "qwen3-6-27b",
+    baseModelDisplayName: "Qwen3.6 27B",
+    modelKind: "finetune",
+    downloads: 2_400,
+    likes: 55,
   });
-
-  it("gives a non-reasoning model the same ranked bounded-final recipe (profile auto)", () => {
-    const selected = model({ reasoningCapable: false });
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v1");
-    expect(recipe.submitCommand).toBe("localbench submit run --run runs/my-run.json");
-    expect(recipe.benchCommand).toContain("--lane bounded-final-v1");
-    expect(recipe.benchCommand).toContain("--profile auto");
+  const officialVariant = model({
+    id: "Qwen/Qwen3.6-27B-Thinking",
+    slug: "qwen3-6-27b-thinking",
+    displayName: "Qwen3.6 27B Thinking",
+    org: "Qwen",
+    baseModelIds: ["Qwen/Qwen3.6-27B"],
+    baseModelId: "Qwen/Qwen3.6-27B",
+    baseModelSlug: "qwen3-6-27b",
+    baseModelDisplayName: "Qwen3.6 27B",
+    modelKind: "finetune",
+    downloads: 1_200,
   });
+  const merge = model({
+    id: "MergeLab/Qwen-Llama-Merge",
+    slug: "qwen-llama-merge",
+    displayName: "Qwen Llama Merge",
+    org: "MergeLab",
+    baseModelIds: ["Qwen/Qwen3.6-27B", "meta-llama/Llama-3.1-8B"],
+    baseModelId: "Qwen/Qwen3.6-27B",
+    baseModelSlug: "qwen3-6-27b",
+    baseModelDisplayName: "Qwen3.6 27B",
+    modelKind: "merge",
+    downloads: 900,
+  });
+  const catalog = [qwenBase, llamaBase, outsideBaseLink, qwopus, officialVariant, merge];
 
-  it("gives a reasoning model outside Qwen3/Gemma the same ranked bounded-final recipe", () => {
-    const selected = model({ family: "Granite 3", org: "IBM" });
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.lane).toBe("bounded-final-v1");
-    expect(recipe.benchCommand).toContain("--profile auto");
+  it("lists base labs only after grouping", () => {
+    expect(listBaseLabs(catalog)).toEqual(["Meta", "Qwen"]);
   });
 
-  it("carries fine-tune lineage through the recipe model payload", () => {
-    const selected = model({
-      baseModelId: "Qwen/Qwen3.6-27B",
-      baseModelSlug: "qwen3-6-27b",
-      baseModelDisplayName: "Qwen3.6 27B",
-      displayName: "Qwopus3.6 27B v2 MTP",
-    });
-    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
-    expect(recipe.model.baseModelDisplayName).toBe("Qwen3.6 27B");
-    expect(recipe.model.baseModelSlug).toBe("qwen3-6-27b");
+  it("nests in-catalog derivatives and leaves outside-base links as ordinary bases", () => {
+    const families = browseFamilies(catalog, { lab: "Qwen", search: "", vramGb: 24 });
+
+    expect(families.map((family) => family.base.slug)).toEqual(["qwen3-6-27b", "qwen3-0-6b"]);
+    expect(families[0]?.variants.map((variant) => variant.model.slug)).toEqual([
+      "qwopus3-6-27b-v2-mtp",
+      "qwen3-6-27b-thinking",
+      "qwen-llama-merge",
+    ]);
+    expect(families[1]?.variants).toEqual([]);
+  });
+
+  it("derives official variants and lists merges under every catalogued base", () => {
+    const families = browseFamilies(catalog, { search: "merge", vramGb: 24 });
+    const qwenMerge = families
+      .find((family) => family.base.slug === "qwen3-6-27b")
+      ?.variants.find((variant) => variant.model.slug === "qwen-llama-merge");
+    const llamaMerge = families
+      .find((family) => family.base.slug === "llama-3-1-8b")
+      ?.variants.find((variant) => variant.model.slug === "qwen-llama-merge");
+    const qwenFamily = browseFamilies(catalog, { lab: "Qwen", vramGb: 24 })[0];
+    const official = qwenFamily?.variants.find((variant) => variant.model.slug === "qwen3-6-27b-thinking");
+
+    expect(official?.official).toBe(true);
+    expect(official?.kind).toBe("finetune");
+    expect(qwenMerge?.alsoBasedOn.map((base) => base.displayName)).toEqual(["Llama 3.1 8B"]);
+    expect(llamaMerge?.alsoBasedOn.map((base) => base.displayName)).toEqual(["Qwen3.6 27B"]);
+  });
+
+  it("matches search across base and variant identity fields", () => {
+    const families = browseFamilies(catalog, { search: "jackrong", vramGb: 24 });
+
+    expect(families).toHaveLength(1);
+    expect(families[0]?.base.slug).toBe("qwen3-6-27b");
+    expect(families[0]?.variants.map((variant) => variant.model.slug)).toContain("qwopus3-6-27b-v2-mtp");
+  });
+
+  it("exposes per-row best-fit label data without inventing a fitting quant", () => {
+    expect(bestFitForVram(model(), 9).label).toBe("best fit: Q6_K");
+    expect(bestFitForVram(model(), 4)).toEqual({ quant: null, label: "no listed quant fits 4 GB" });
   });
 });
 
@@ -276,5 +297,6 @@ describe("getOnrampCatalog", () => {
     expect(qwen?.ggufRepo).toBeTruthy();
     expect(qwen?.quants.some((quant) => quant.label === "Q4_K_M")).toBe(true);
     expect(catalog.models.some((entry) => entry.baseModelId !== null)).toBe(true);
+    expect(catalog.models.every((entry) => Array.isArray(entry.baseModelIds))).toBe(true);
   });
 });

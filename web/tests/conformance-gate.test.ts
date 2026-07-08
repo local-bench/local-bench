@@ -96,8 +96,10 @@ describe("conformance gate data", () => {
     );
 
     // Then: the singleton does not get a vacuous badge, while real multi-point frontiers are explicit.
-    expect(singletonHtml).not.toContain("efficiency frontier");
-    expect(multiPointHtml).toContain("efficiency frontier");
+    // Owner copy decision 2026-07-08: user-facing tag reads "best at its size"; the precise
+    // Pareto framing lives in the tooltip + methodology page.
+    expect(singletonHtml).not.toContain("best at its size");
+    expect(multiPointHtml).toContain("best at its size");
     expect(multiPointHtml).toContain("Not a capability tier.");
   });
 });

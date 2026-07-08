@@ -1,8 +1,8 @@
 # local-bench
 
-Community quality leaderboard for local AI setups. The headline score is the **Local Intelligence Index v2.1**: a modular, repeatable benchmark suite weighted as 50% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, and 10% Coding.
+Community quality leaderboard for local AI setups. The sortable headline score is the **Local Intelligence Index** (`index-v3.0 | 40/15/15/10/15/5`): 40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math.
 
-The standard run stays practical for local hardware: MMLU-Pro, IFBench, TC-JSON v1, and the lightweight LiveCodeBench output-prediction coding proxy run through the normal HTTP path; AppWorld-C is the agentic lane. Heavier modules such as BigCodeBench-Hard, long-context, and math remain opt-in or diagnostic until their lanes are hardened.
+The ranked six-axis profile is Agentic / Knowledge / Instruction / Tool calling / Coding / Math. BigCodeBench-Hard execution is the ranked Coding axis; the LiveCodeBench proxy (`lcb`) is a legacy diagnostic only and is never pooled into the ranked score.
 
 ## Layout
 
@@ -14,27 +14,31 @@ The standard run stays practical for local hardware: MMLU-Pro, IFBench, TC-JSON 
 ## Quickstart
 
 ```bash
-pip install local-bench-ai   # installs the `localbench` command (Python 3.11+)
+pip install "local-bench-ai[hf]"   # installs the `localbench` command (Python 3.11+)
 
 localbench fetch-suite \
   --site https://local-bench.ai \
-  --suite suite-v1-text-code-agentic-5axis-v1 \
+  --suite suite-v1-full-exec-6axis-v1 \
   --accept-suite-terms
 
-# strongest provenance: the CLI launches the pinned llama.cpp server itself
-localbench bench \
-  --runtime llama.cpp --model-file <model.gguf> --model-id <model-slug> \
-  --ctx 32768 --seed 1234 --out runs/my-bench
+localbench cache-tokenizer <hf-model-id>
 
-# or bring your own OpenAI-compatible server (LM Studio, ollama, vLLM, ...)
 localbench run \
-  --endpoint http://localhost:8080/v1 --model <name-your-server-reports> \
-  --lane capped-thinking --tier standard \
-  --publishable --sampler-seed 1234 --out runs/my-run.json
+  --endpoint http://localhost:8080/v1 \
+  --model <served-model-name> \
+  --hf-model-id <hf-model-id> \
+  --ctx-len-configured 32768 \
+  --lane bounded-final-v2 \
+  --profile auto \
+  --tier standard \
+  --publishable \
+  --sampler-seed 1234 \
+  --out runs/my-run.json
 
 localbench submit run --run runs/my-run.json
-# suite auto-resolved from your fetched cache; --suite-dir to override
 ```
+
+Use `--hf-model-id` and `cache-tokenizer` when you know the exact tokenizer repo. If no exact HF tokenizer repo exists, omit `cache-tokenizer` and replace `--hf-model-id <hf-model-id>` with `--gguf-repo-only`. The site recipe pins an exact CLI version for suite-sha reproducibility; the README install stays unpinned.
 
 Submissions are identified by an Ed25519 key generated on first submit — no
 account, no email. Nothing publishes without maintainer review; see
@@ -43,4 +47,4 @@ Working from source instead: `pip install -e cli`.
 
 ## Status
 
-Pre-launch methodology work (2026-06). Active scoring source of truth: `cli/src/localbench/scoring/axes.py` plus `cli/src/localbench/scoring/benchmark_registry.py`.
+Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v3.0 on the bounded-final-v2 ranked lane; current CLI release: 0.2.6 (progress bar + ETA, submission bug fixes). The site's recipe generator pins the exact CLI version to run.

@@ -29,7 +29,7 @@ export async function handleUpdateOpsSettings(request: Request, env: SubmissionA
   if (parsed.data.value === "on" && ownerLocked(current.disabled_by) && parsed.data.actor !== "owner") {
     return jsonResponse(403, {
       code: "kill_switch_owner_only",
-      error: "auto_publish can only be re-enabled by the owner after owner/security disable",
+      error: "auto_publish can only be re-enabled by the owner after owner disable",
     });
   }
   if (parsed.data.value === "off") {
@@ -76,7 +76,7 @@ function settingRow(row: Record<string, unknown>): OpsSetting {
 }
 
 function ownerLocked(disabledBy: string | null): boolean {
-  return disabledBy === "owner" || disabledBy === "security";
+  return disabledBy === "owner";
 }
 
 function text(row: Record<string, unknown>, key: string): string {

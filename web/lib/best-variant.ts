@@ -5,12 +5,22 @@ import {
   type RigMatchCandidate,
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
-import type { AxisScore, ConformanceGates, Score } from "./schemas";
+import {
+  catalogLineageLookup,
+  catalogModelRootForCandidate,
+  catalogWeightsFamilyRootForCandidate,
+  type CatalogLineageLookup,
+  type CatalogLineageRoot,
+} from "./catalog-lineage";
+import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
   readonly modelSlug: string;
   readonly modelLabel: string;
   readonly family: string;
+  readonly weightsFamilyKey?: string;
+  readonly weightsFamilyLabel?: string;
+  readonly weightsFamilySlug?: string | null;
   readonly runId: string;
   readonly quantLabel: string | null;
   readonly score: Score;
@@ -24,12 +34,22 @@ export type BestVariantPoint = {
   readonly isFrontier: boolean;
 };
 
+export type BestVariantSelectionOptions = {
+  readonly catalogModels?: readonly CatalogModel[];
+  readonly contextTokens?: ContextLengthOption;
+};
+
+type EligibleRigMatchCandidate = RigMatchCandidate & {
+  readonly runId: string;
+  readonly score: Score;
+};
+
 // A point is eligible only if it is a real, measured LOCAL model run in the headline scope.
 // Anchors (frontier/API references) are drawn as horizontal ceilings, not scatter points;
 // demo/missing rows are excluded so the chart never implies precision the data does not have.
 // The headline is the bounded-final lane scoped view, so other lanes (legacy capped-thinking,
 // answer-only diagnostics) are excluded here too.
-function isEligible(candidate: RigMatchCandidate): boolean {
+function isEligible(candidate: RigMatchCandidate): candidate is EligibleRigMatchCandidate {
   return (
     candidate.kind === "community" &&
     !candidate.demo &&
@@ -73,24 +93,58 @@ function isDominated(point: BestVariantPoint, others: readonly BestVariantPoint[
 
 export function selectBestVariantPoints(
   candidates: readonly RigMatchCandidate[],
-  contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
+  options: BestVariantSelectionOptions = {},
 ): readonly BestVariantPoint[] {
-  const bestByModel = new Map<string, BestVariantPoint>();
+  const catalogLookup = buildCatalogLookup(options.catalogModels);
+  return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
+    catalogWeightsFamilyRootForCandidate(candidate, catalogLookup),
+  );
+}
+
+export function selectBestModelVariantPoints(
+  candidates: readonly RigMatchCandidate[],
+  options: BestVariantSelectionOptions = {},
+): readonly BestVariantPoint[] {
+  const catalogLookup = buildCatalogLookup(options.catalogModels);
+  return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
+    catalogModelRootForCandidate(candidate, catalogLookup),
+  );
+}
+
+function selectBestPoints(
+  candidates: readonly RigMatchCandidate[],
+  contextTokens: ContextLengthOption,
+  rootForCandidate: (candidate: EligibleRigMatchCandidate) => CatalogLineageRoot,
+): readonly BestVariantPoint[] {
+  const bestByRoot = new Map<string, BestVariantPoint>();
   for (const candidate of candidates) {
     if (!isEligible(candidate)) {
       continue;
     }
-    const vram = estimateVramRequirement(candidate, contextTokens);
+    // Measured rows carry the benchmarked artifact's real on-disk size (vramFootprintGb,
+    // from the run record). Catalog vram_gb_8k estimates describe whatever GGUF repo the
+    // catalog references — potentially a different build with different units — and must
+    // never outrank measured reality here: they inverted the Qwen/Qwopus frontier on
+    // 2026-07-08 (catalog said Qwopus was 1.4 GB cheaper; the measured files say the
+    // opposite). Force the measured-footprint estimate whenever a footprint exists.
+    const vram = estimateVramRequirement(
+      candidate.vramFootprintGb !== null ? { ...candidate, vramRequiredGb8k: null } : candidate,
+      contextTokens,
+    );
     if (vram === null) {
       continue;
     }
+    const weightsFamilyRoot = rootForCandidate(candidate);
     const pointBase = {
       modelSlug: candidate.modelSlug,
       modelLabel: candidate.modelLabel,
       family: candidate.family,
-      runId: candidate.runId as string,
+      weightsFamilyKey: weightsFamilyRoot.key,
+      weightsFamilyLabel: weightsFamilyRoot.label,
+      weightsFamilySlug: weightsFamilyRoot.slug,
+      runId: candidate.runId,
       quantLabel: candidate.quantLabel,
-      score: candidate.score as Score,
+      score: candidate.score,
       axes: candidate.axes,
       tokS: candidate.tokS,
       latencySMedian: candidate.latencySMedian,
@@ -103,12 +157,19 @@ export function selectBestVariantPoints(
       candidate.conformanceGates === undefined
         ? pointBase
         : { ...pointBase, conformanceGates: candidate.conformanceGates };
-    const incumbent = bestByModel.get(candidate.modelSlug);
+    const incumbent = bestByRoot.get(weightsFamilyRoot.key);
     if (incumbent === undefined || isBetterWithinModel(point, incumbent)) {
-      bestByModel.set(candidate.modelSlug, point);
+      bestByRoot.set(weightsFamilyRoot.key, point);
     }
   }
-  return markFrontier([...bestByModel.values()]);
+  return markFrontier([...bestByRoot.values()]);
+}
+
+function buildCatalogLookup(catalogModels: readonly CatalogModel[] | undefined): CatalogLineageLookup | null {
+  if (catalogModels === undefined) {
+    return null;
+  }
+  return catalogLineageLookup(catalogModels);
 }
 
 export function markFrontier(points: readonly BestVariantPoint[]): readonly BestVariantPoint[] {

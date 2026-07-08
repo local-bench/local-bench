@@ -50,7 +50,17 @@ export async function handleAdminListSubmissions(request: Request, env: Submissi
   const requestedLimit = Number(url.searchParams.get("limit") ?? "20");
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 100) : 20;
   const rows = await listSubmissionsByStatus(env, status, limit);
-  return jsonResponse(200, { submissions: rows.map((row) => publicSubmission(row)) });
+  return jsonResponse(200, { submissions: rows.map((row) => adminSubmission(row)) });
+}
+
+function adminSubmission(row: SubmissionRow): Record<string, string | number | null> {
+  return { ...publicSubmission(row), created_at: d1TimestampToIso(row.created_at) };
+}
+
+function d1TimestampToIso(value: string): string {
+  return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+    ? `${value.slice(0, 10)}T${value.slice(11)}Z`
+    : value;
 }
 
 export async function handleApplyVerificationUpdate(

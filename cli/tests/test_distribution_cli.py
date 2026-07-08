@@ -228,6 +228,33 @@ def test_run_dry_defaults_core_text_suite_to_standard_tier(tmp_path: Path, capsy
     assert "tier is not listed" not in output
 
 
+def test_run_dry_fails_when_requested_tier_selects_zero_items(tmp_path: Path, capsys) -> None:
+    # Given: a loaded suite that only publishes standard-tier itemsets.
+    source = _write_suite(tmp_path / "source")
+
+    # When: the user explicitly asks for a tier that no selected bench contains.
+    code = main(
+        [
+            "run",
+            "--suite-dir",
+            str(source),
+            "--endpoint",
+            "http://127.0.0.1:9/v1",
+            "--model",
+            "smoke-model",
+            "--tier",
+            "quick",
+            "--dry-run",
+        ],
+    )
+
+    # Then: the CLI fails closed and tells the user what tiers are actually available.
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "tier quick selected 0 items" in output
+    assert "available tiers: standard" in output
+
+
 def _write_suite(path: Path) -> Path:
     path.mkdir(parents=True)
     (path / "mmlu_pro.jsonl").write_text(

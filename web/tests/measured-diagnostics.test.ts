@@ -19,7 +19,8 @@ describe("measured diagnostics", () => {
     const html = renderToStaticMarkup(createElement(MeasuredDiagnostics, { models: diagnostics }));
 
     // Then it gives each orphaned measured row an inbound model link.
-    expect(diagnostics).toHaveLength(6);
+    // 5 as of 2026-07-08: qwen3-6-27b graduated to a ranked bounded-final-v2 row.
+    expect(diagnostics).toHaveLength(5);
     expect(html).toContain("Measured diagnostics");
     expect(html).toContain("Diagnostic only — never rank-comparable.");
     expect(html).toContain('href="/model/gemma-4-31b-it"');

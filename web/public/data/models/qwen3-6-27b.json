@@ -63,7 +63,10 @@
         }
       },
       "bpw": 8.5,
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 44.44054083900232,
         "hi_raw": 0.4444054083900232,
         "lo": 34.502574367751706,
@@ -71,8 +74,6 @@
         "point": 39.163264812607615,
         "point_raw": 0.3916326481260761
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 29.0,
       "hardware": {
@@ -164,7 +165,10 @@
         }
       },
       "bpw": 6.6,
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 46.68193098910622,
         "hi_raw": 0.4668193098910622,
         "lo": 35.28657732688101,
@@ -172,8 +176,6 @@
         "point": 40.58514881208338,
         "point_raw": 0.4058514881208338
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 22.9,
       "hardware": {
@@ -248,74 +250,179 @@
       "wall_time_seconds": null
     },
     {
+      "agentic_provenance": "project_attested",
       "axes": {
         "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.14583333333333334,
-          "empty_final_rate": null,
-          "hi": 21.875,
-          "hi_raw": 0.21875,
-          "leaked_reasoning_rate": null,
-          "lo": 8.333333333333332,
-          "lo_raw": 0.08333333333333333,
-          "measurement_truncation_rate": null,
+          "conditional_accuracy": 0.08854166666666667,
+          "hi": 14.583333333333334,
+          "hi_raw": 0.14583333333333334,
+          "lo": 3.125,
+          "lo_raw": 0.03125,
           "n": 96,
           "n_errors": 0,
           "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 14.583333333333334,
-          "point_raw": 0.14583333333333334,
-          "raw_accuracy": 0.14583333333333334,
-          "termination_rate": 1.0,
-          "truncation_rate": null
+          "point": 8.333333333333332,
+          "point_raw": 0.08333333333333333,
+          "raw_accuracy": 0.08854166666666667,
+          "termination_rate": 1.0
+        },
+        "coding": {
+          "conditional_accuracy": 0.2553191489361702,
+          "hi": 32.62411347517731,
+          "hi_raw": 0.3262411347517731,
+          "lo": 18.439716312056735,
+          "lo_raw": 0.18439716312056736,
+          "n": 141,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "n_unscoreable": 7,
+          "point": 25.53191489361702,
+          "point_raw": 0.2553191489361702,
+          "raw_accuracy": 0.2553191489361702,
+          "termination_rate": 1.0
         },
         "instruction": {
-          "conditional_accuracy": 0.7107142857142857,
-          "hi": 73.12925170068027,
-          "hi_raw": 0.7312925170068028,
-          "lo": 62.244897959183675,
-          "lo_raw": 0.6224489795918368,
+          "conditional_accuracy": 0.6797153024911032,
+          "hi": 70.40816326530613,
+          "hi_raw": 0.7040816326530612,
+          "lo": 59.523809523809526,
+          "lo_raw": 0.5952380952380952,
           "n": 294,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 67.68707482993197,
-          "point_raw": 0.6768707482993197,
-          "raw_accuracy": 0.6768707482993197,
-          "termination_rate": 0.9523809523809523
+          "point": 64.96598639455783,
+          "point_raw": 0.6496598639455783,
+          "raw_accuracy": 0.6496598639455783,
+          "termination_rate": 0.95578231292517
         },
         "knowledge": {
-          "conditional_accuracy": 0.8442211055276381,
-          "hi": 85.96794454888055,
-          "hi_raw": 0.8596794454888055,
-          "lo": 77.82935238723128,
-          "lo_raw": 0.7782935238723128,
+          "conditional_accuracy": 0.8546365914786967,
+          "hi": 87.3711500939925,
+          "hi_raw": 0.873711500939925,
+          "lo": 79.51319904136561,
+          "lo_raw": 0.7951319904136561,
           "n": 400,
           "n_errors": 0,
           "n_no_answer": 1,
-          "point": 82.0389690225671,
-          "point_raw": 0.820389690225671,
-          "raw_accuracy": 0.84,
-          "termination_rate": 0.995
+          "point": 83.44217456767905,
+          "point_raw": 0.8344217456767905,
+          "raw_accuracy": 0.8525,
+          "termination_rate": 0.9975
+        },
+        "math": {
+          "conditional_accuracy": 0.28106926223726897,
+          "hi": 33.81294964028777,
+          "hi_raw": 0.3381294964028777,
+          "lo": 19.424460431654676,
+          "lo_raw": 0.19424460431654678,
+          "n": 139,
+          "n_errors": 0,
+          "n_no_answer": 9,
+          "point": 26.618705035971225,
+          "point_raw": 0.26618705035971224,
+          "raw_accuracy": 0.26618705035971224,
+          "termination_rate": 0.935251798561151
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7333333333333333,
+          "hi": 77.87878787878788,
+          "hi_raw": 0.7787878787878788,
+          "lo": 68.48484848484848,
+          "lo_raw": 0.6848484848484848,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 73.33333333333333,
+          "point_raw": 0.7333333333333333,
+          "raw_accuracy": 0.7333333333333333,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "detail": "BigCodeBench-Hard artifacts generated; verifier verdict pending",
+          "reason": "verdict_pending",
+          "status": "generated_unverified"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
         }
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 46.16650007707849,
-        "hi_raw": 0.4616650007707849,
-        "lo": 35.282909282737805,
-        "lo_raw": 0.35282909282737807,
-        "point": 40.41748558744028,
-        "point_raw": 0.4041748558744028
+        "hi": 41.379361988127116,
+        "hi_raw": 0.41379361988127117,
+        "lo": 35.13224557301843,
+        "lo_raw": 0.3513224557301843,
+        "point": 38.08861329684331,
+        "point_raw": 0.3808861329684331
       },
-      "composite_full": null,
-      "composite_static": null,
+      "composite_full": {
+        "hi": 41.379361988127116,
+        "hi_raw": 0.41379361988127117,
+        "lo": 35.13224557301843,
+        "lo_raw": 0.3513224557301843,
+        "point": 38.08861329684331,
+        "point_raw": 0.3808861329684331
+      },
+      "composite_static": {
+        "hi": 62.03825450718023,
+        "hi_raw": 0.6203825450718022,
+        "lo": 57.04091799833226,
+        "lo_raw": 0.5704091799833226,
+        "point": 59.53696038954641,
+        "point_raw": 0.5953696038954641
+      },
+      "conformance_gates": {
+        "tc_json_v1": {
+          "band": "amber",
+          "band_reasons": [],
+          "id": "tc_json_v1",
+          "invalid_json_rate": 0.0,
+          "label": "Tool-calling",
+          "n_items": 330,
+          "pass_rate": {
+            "hi": 77.81608716866391,
+            "lo": 68.31359383141618,
+            "point": 73.33333333333333
+          },
+          "threshold_version": "tc_json_v1"
+        }
+      },
       "est_cost_usd": null,
       "file_gb": 17.1,
       "hardware": {
         "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
         "gpu": {
-          "driver": "596.36",
+          "driver": "610.62",
           "name": "NVIDIA GeForce RTX 5090",
           "vram_gb": 31.8,
           "vram_mb": 32607
@@ -323,30 +430,82 @@
         "os": "Windows-11-10.0.26200-SP0",
         "ram_gb": null
       },
-      "lane": "capped-thinking",
-      "latency_s_median": 28.383,
+      "has_code_artifacts": true,
+      "lane": "bounded-final-v2",
+      "latency_s_median": 47.571,
       "n_errors": 0,
-      "n_items": 694,
-      "origin": "community",
+      "n_items": 1407,
+      "origin": "project_anchor",
+      "perf": {
+        "decode_tps": 74.42118615506409,
+        "per_bench": {
+          "amo": {
+            "decode_tps": 76.36688948811565,
+            "n": 39,
+            "prefill_tps": 1412.0284908615217,
+            "prompt_ms_median": 171.299
+          },
+          "bigcodebench_hard": {
+            "decode_tps": 77.097969705277,
+            "n": 148,
+            "prefill_tps": 3345.5510263480946,
+            "prompt_ms_median": 1306.38
+          },
+          "ifbench": {
+            "decode_tps": 75.51544588167927,
+            "n": 294,
+            "prefill_tps": 3163.1120735096315,
+            "prompt_ms_median": 935.5419999999999
+          },
+          "mmlu_pro": {
+            "decode_tps": 72.79033049493191,
+            "n": 400,
+            "prefill_tps": 2948.9325532170956,
+            "prompt_ms_median": 572.088
+          },
+          "olymmath_hard": {
+            "decode_tps": 72.52645253738648,
+            "n": 100,
+            "prefill_tps": 874.5054778169954,
+            "prompt_ms_median": 169.215
+          },
+          "tc_json_v1": {
+            "decode_tps": 77.8138012437894,
+            "n": 330,
+            "prefill_tps": 3115.087798430785,
+            "prompt_ms_median": 566.5495000000001
+          }
+        },
+        "predicted_ms_median": 42315.115,
+        "predicted_ms_p95": 131037.655,
+        "prefill_tps": 3076.360610033247,
+        "prompt_ms_median": 621.607,
+        "prompt_ms_p95": 1966.8345,
+        "timings_coverage": 0.9317697228144989,
+        "timings_source": "llama.cpp",
+        "ttft_proxy_ms_median": 621.607
+      },
       "quant_label": "Q4_K_M",
-      "ranked": false,
-      "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q4_K_M",
+      "ranked": true,
+      "run_id": "qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2",
       "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": "unknown",
-        "name": null,
-        "parallel_slots": null,
-        "version": null
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
       },
       "score_status": "measured",
+      "static_index_version": "static-suite-v2",
       "tier": "standard",
-      "tok_s": 140.47283591642662,
-      "tokens_to_answer_median": 3987.0,
-      "tokens_to_answer_p95": 9046.7,
-      "trust_label": "community_re_scored",
-      "vram_footprint_gb": 16.55,
+      "tok_s": 66.80562926673174,
+      "tokens_to_answer_median": 3178.0,
+      "tokens_to_answer_p95": 9426.0,
+      "trust_label": "project_anchor",
+      "verdict_source": "verifier",
+      "vram_footprint_gb": 16.547398784,
       "vram_required_gb_8k": 19.5,
-      "wall_time_seconds": 24080.086216900003
+      "wall_time_seconds": 85345.68213159998
     },
     {
       "axes": {
@@ -401,7 +560,10 @@
         }
       },
       "bpw": 3.9,
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 45.21744203486752,
         "hi_raw": 0.45217442034867517,
         "lo": 34.33948646872589,
@@ -409,8 +571,6 @@
         "point": 39.381322504093944,
         "point_raw": 0.39381322504093946
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": 13.8,
       "hardware": {
@@ -501,7 +661,10 @@
           "termination_rate": 0.98
         }
       },
-      "composite": {
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "diagnostic_composite": {
         "hi": 43.4531321212635,
         "hi_raw": 0.434531321212635,
         "lo": 32.79267284394757,
@@ -509,8 +672,6 @@
         "point": 37.73043549818639,
         "point_raw": 0.3773043549818639
       },
-      "composite_full": null,
-      "composite_static": null,
       "est_cost_usd": null,
       "file_gb": null,
       "hardware": {

@@ -120,7 +120,10 @@ def load_hf_chat_template_tokenizer(
         ) from exc
     except (OSError, ValueError) as exc:
         raise PromptRenderingError(
-            f"could not load tokenizer for {hf_model_id!r} from the offline HF cache"
+            f"could not load tokenizer for {hf_model_id!r} from the offline HF cache. "
+            "Template introspection is offline-only; pre-cache the tokenizer once with:\n"
+            f'  hf download {hf_model_id} --include "*.json" --include "*.model" --include "*.jinja"\n'
+            "(gated repos need `hf auth login` after accepting the license on huggingface.co)"
         ) from exc
     finally:
         if previous_offline is None:

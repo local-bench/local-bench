@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getIndexData, getRunStaticParams } from "@/lib/data";
+import { getIndexData, getSitemapRunStaticParams } from "@/lib/data";
 
 const SITE_URL = "https://local-bench.ai";
 const STATIC_PATHS = ["/", "/leaderboard/", "/compare/", "/methodology/", "/submit/"] as const;
@@ -7,7 +7,7 @@ const STATIC_PATHS = ["/", "/leaderboard/", "/compare/", "/methodology/", "/subm
 export const dynamic = "force-static";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [index, runParams] = await Promise.all([getIndexData(), getRunStaticParams()]);
+  const [index, runParams] = await Promise.all([getIndexData(), getSitemapRunStaticParams()]);
   const paths = [
     ...STATIC_PATHS,
     ...index.models.map((model) => `/model/${model.slug}/`),

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from localbench.exit_codes import EXIT_USER_INTERRUPTED, EXIT_WATCHDOG_TIMEOUT
+from localbench.progress import BenchProgressPlan, ProgressReporter
 from localbench.monitoring import (
     MonitorDecision,
     MonitorMode,
@@ -32,6 +33,7 @@ class SupervisorConfig:
     label: str
     sample_interval_seconds: float = 30.0
     policy: MonitorPolicy | None = None
+    progress_plans: Sequence[BenchProgressPlan] = ()
 
 
 def run_supervised(config: SupervisorConfig, sample_provider: SampleProvider | None = None) -> int:
@@ -40,13 +42,29 @@ def run_supervised(config: SupervisorConfig, sample_provider: SampleProvider | N
     paths.logs_dir.mkdir(parents=True, exist_ok=True)
     policy = config.policy or MonitorPolicy(mode=MonitorMode.LOCAL, min_free_disk_gb=1.0)
     provider = sample_provider or _default_sample_provider(config.label, config.campaign_root)
+    progress = ProgressReporter() if config.progress_plans else None
+    if progress is not None:
+        progress.start(config.progress_plans)
     with (paths.logs_dir / "run.log").open("ab") as log:
         process = _start_worker(config.command, log)
         try:
-            return _watch_worker(process, paths.monitor_log, policy, provider, config.sample_interval_seconds)
+            return _watch_worker(
+                process,
+                paths.monitor_log,
+                policy,
+                provider,
+                config.sample_interval_seconds,
+                status_path=config.campaign_root / "run.status.json",
+                progress_reporter=progress,
+            )
         except KeyboardInterrupt:
+            if progress is not None:
+                progress.clear_line()
             _terminate_worker(process)
             return EXIT_USER_INTERRUPTED
+        finally:
+            if progress is not None:
+                progress.finish()
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,8 +103,14 @@ def _watch_worker(
     policy: MonitorPolicy,
     sample_provider: SampleProvider,
     interval_seconds: float,
+    *,
+    status_path: Path | None = None,
+    progress_reporter: ProgressReporter | None = None,
 ) -> int:
     next_sample_at = 0.0
+    last_completed = 0
+    last_completion_at = time.monotonic()
+    last_bench: str | None = None
     while process.poll() is None:
         now = time.monotonic()
         if now >= next_sample_at:
@@ -95,9 +119,57 @@ def _watch_worker(
                 _terminate_worker(process)
                 return EXIT_WATCHDOG_TIMEOUT
             next_sample_at = now + max(interval_seconds, 0.1)
+        if status_path is not None and progress_reporter is not None:
+            last_completed, last_completion_at, last_bench = _mirror_progress_status(
+                status_path,
+                progress_reporter,
+                last_completed=last_completed,
+                last_completion_at=last_completion_at,
+                last_bench=last_bench,
+            )
         time.sleep(0.05)
+    if status_path is not None and progress_reporter is not None:
+        _mirror_progress_status(
+            status_path,
+            progress_reporter,
+            last_completed=last_completed,
+            last_completion_at=last_completion_at,
+            last_bench=last_bench,
+        )
     _append_monitor_sample(monitor_log, sample_provider(policy), policy)
     return process.returncode or 0
+
+
+def _mirror_progress_status(
+    status_path: Path,
+    progress_reporter: ProgressReporter,
+    *,
+    last_completed: int,
+    last_completion_at: float,
+    last_bench: str | None,
+) -> tuple[int, float, str | None]:
+    status = _read_status(status_path)
+    bench = status.get("current_bench")
+    current_bench = bench if isinstance(bench, str) else last_bench
+    completed = status.get("completed_items")
+    if not isinstance(completed, int) or completed <= last_completed:
+        return last_completed, last_completion_at, current_bench
+    if current_bench is None:
+        return completed, time.monotonic(), last_bench
+    now = time.monotonic()
+    delta_items = max(1, completed - last_completed)
+    item_seconds = max(0.0, now - last_completion_at) / delta_items
+    for _ in range(delta_items):
+        progress_reporter.item_complete(bench=current_bench, item_seconds=item_seconds)
+    return completed, now, current_bench
+
+
+def _read_status(path: Path) -> dict[str, object]:
+    try:
+        parsed = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _append_monitor_sample(

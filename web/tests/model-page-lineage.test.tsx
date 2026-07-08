@@ -6,6 +6,15 @@ async function renderModel(slug: string): Promise<string> {
   return renderToStaticMarkup(await ModelPage({ params: Promise.resolve({ slug }) }));
 }
 
+function variantBoardHtml(html: string): string {
+  const start = html.indexOf('data-testid="model-variant-board"');
+  const end = html.indexOf("<section", start + 1);
+  if (start === -1 || end === -1) {
+    throw new Error("Expected model variant board before another page section");
+  }
+  return html.slice(start, end);
+}
+
 describe("ModelPage lineage chip", () => {
   it("links the fine-tune chip when the base has a board row", async () => {
     const html = await renderModel("phi-4-reasoning");
@@ -25,12 +34,53 @@ describe("ModelPage lineage chip", () => {
     expect(headerHtml).not.toContain("Fine-tune of");
   });
 
-  it("renders a base model's known derivatives with honest missing benchmark state", async () => {
+  it("renders a base model's measured fine-tune comparison with a real delta", async () => {
+    // Both halves of the Qwopus/Qwen3.6-27B pair landed ranked bounded-final-v2 rows
+    // on 2026-07-08, so the strip now shows the measured comparison instead of the
+    // honest-missing placeholder this test asserted while only legacy runs existed.
     const html = await renderModel("qwen3-6-27b");
     expect(html).toContain("vs fine-tunes");
     expect(html).toContain("Qwopus 3.6 27B v2 MTP");
-    expect(html).toContain("fine-tune not yet benchmarked");
-    expect(html).toContain('href="/compare?finetune=qwopus3-6-27b-v2-mtp"');
+    expect(html).toContain("composite -");
+    expect(html).toContain("compare to base");
+    // Other catalog derivatives (e.g. the v1 preview) may still carry the honest
+    // missing placeholder; only the measured v2 pair must show a real delta.
+  });
+
+  it("plots a base model's current-lane measured family fine-tunes with receipt links", async () => {
+    const html = await renderModel("qwen3-6-27b");
+
+    expect(html).toContain("Family fine-tunes");
+    expect(html).toContain('data-point-kind="family-finetune"');
+    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2"');
+    expect(html).toContain("Qwopus 3.6 27B v2 MTP");
+  });
+
+  it("lists a base model's measured fine-tune rows in Variant profiles with lineage and model links", async () => {
+    const html = variantBoardHtml(await renderModel("qwen3-6-27b"));
+
+    expect(html).toContain("fine-tune");
+    expect(html).toContain('href="/model/qwopus3-6-27b-v2-mtp"');
+    expect(html).toContain("Qwopus 3.6 27B v2 MTP");
+    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2"');
+  });
+
+  it("plots a fine-tune page's base model current-lane measured runs with receipt links", async () => {
+    const html = await renderModel("qwopus3-6-27b-v2-mtp");
+
+    expect(html).toContain("Base model");
+    expect(html).toContain('data-point-kind="base-model"');
+    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2"');
+    expect(html).toContain("Qwen3.6 27B");
+  });
+
+  it("lists a fine-tune page's measured base rows in Variant profiles with lineage and model links", async () => {
+    const html = variantBoardHtml(await renderModel("qwopus3-6-27b-v2-mtp"));
+
+    expect(html).toContain("base model");
+    expect(html).toContain('href="/model/qwen3-6-27b"');
+    expect(html).toContain("Qwen3.6 27B");
+    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2"');
   });
 
   it("renders derivative vs-base missing states without fake numbers", async () => {
@@ -39,5 +89,15 @@ describe("ModelPage lineage chip", () => {
     expect(html).toContain("Phi 4 Reasoning");
     expect(html).toContain("base not yet benchmarked");
     expect(html).toContain("fine-tune not yet benchmarked");
+  });
+
+  it("links retired-lane receipts on legacy-only model pages", async () => {
+    const html = await renderModel("gemma-4-31b-it");
+    expect(html).toContain("Retired-lane diagnostic receipts");
+    expect(html).toContain('href="/run/gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M"');
+    expect(html).toContain("Q4_K_M");
+    expect(html).toContain("diagnostic receipt (retired lane)");
+    expect(html).toContain("kept off this chart because the score uses a retired scale");
+    expect(html).not.toContain("They appear below as diagnostics");
   });
 });

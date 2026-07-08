@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ServingPerformanceCard } from "../app/run/[runId]/page";
+import RunPage, { ServingPerformanceCard } from "../app/run/[runId]/page";
 import { RunDetailSchema, type RunDetail } from "../lib/schemas";
 
 describe("ServingPerformanceCard", () => {
@@ -27,6 +27,28 @@ describe("ServingPerformanceCard", () => {
     const html = renderToStaticMarkup(createElement(ServingPerformanceCard, { run: runWithoutPerf }));
     expect(html).toBe("");
   });
+});
+
+describe("RunPage legacy receipts", () => {
+  it("renders previous-index diagnostics without current Index hero framing", async () => {
+    // Given a published receipt whose model-page metadata marks it as a retired-lane measurement.
+    const html = renderToStaticMarkup(
+      await RunPage({
+        params: Promise.resolve({ runId: "gemma-4-12b-it__gemma-4-12b-it-Q8_0" }),
+      }),
+    );
+
+    // When the receipt is rendered, then it keeps the original labels but with retired-lane framing.
+    expect(html).toContain("Previous-index diagnostics");
+    expect(html).toContain("retired lane");
+    expect(html).toContain("suite-v1 | retired lane capped-thinking");
+    expect(html).toContain("Diagnostic score (retired lane)");
+    expect(html).toContain("60.8");
+    expect(html).toContain("capped-thinking");
+    expect(html).not.toContain("Local Intelligence Index</div><div class=\"font-mono text-xs text-bench-accent\">index-v3.0");
+    expect(html).not.toContain("text-6xl");
+  });
+
 });
 
 function fixtureRun(): RunDetail {
@@ -88,6 +110,7 @@ function fixtureRun(): RunDetail {
     },
     ranked: true,
     run_id: "fixture-run",
+    score_status: "measured",
     suite_version: "suite-v2",
     tier: "standard",
     tokens_to_answer_median: 128,

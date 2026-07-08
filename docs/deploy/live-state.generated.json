@@ -1,0 +1,149 @@
+﻿{
+    "generated":  "2026-07-04T19:16:57.3221526+10:00",
+    "expected_mode":  "Private",
+    "detected_mode":  "Private",
+    "expires_for_decision_making":  "24h",
+    "hosts":  [
+                  "local-bench.ai",
+                  "www.local-bench.ai",
+                  "local-bench.pages.dev"
+              ],
+    "suite":  {
+                  "suite_id":  "core-text-v1",
+                  "suite_hash":  "6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179",
+                  "expected_file_count":  15
+              },
+    "production_deployment":  {
+                                  "id":  "f0d7b5a2-e5ad-48d8-8910-0fd86f40379a",
+                                  "commit":  "a0e4d20",
+                                  "branch":  "main",
+                                  "as_of":  "2026-07-04"
+                              },
+    "submission_admin_probe":  "not probed by smoke (state-mutating: tickets create D1 rows); verified out-of-band 2026-07-03 with secrets present - see docs/deploy/live-state.md",
+    "deployment_aliases_checked":  [
+                                       "049f238e",
+                                       "5a325e77",
+                                       "494f03cd",
+                                       "ccedf382",
+                                       "f0d7b5a2",
+                                       "bb941f99",
+                                       "6f96b0d5",
+                                       "f260bf31",
+                                       "8866e34d",
+                                       "bf4ef55f",
+                                       "3fd3f57b",
+                                       "13e7f1a9"
+                                   ],
+    "checks":  [
+                   {
+                       "status":  "PASS",
+                       "name":  "Apex health",
+                       "message":  "private signature present (HTTP 503, cache-control:no-store, x-robots-tag:noindex)"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Pages health",
+                       "message":  "private signature present (HTTP 503, cache-control:no-store, x-robots-tag:noindex)"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Core-text-v1 manifest",
+                       "message":  "private signature present (HTTP 503, cache-control:no-store, x-robots-tag:noindex)"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Root page",
+                       "message":  "private signature present (HTTP 503, cache-control:no-store, x-robots-tag:noindex)"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "DNS local-bench.ai",
+                       "message":  "default resolver and 1.1.1.1 resolve"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "DNS www.local-bench.ai",
+                       "message":  "default resolver and 1.1.1.1 resolve"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Cloudflare deployment enumeration",
+                       "message":  "wrangler returned 10 deployment alias id(s)"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 049f238e",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 5a325e77",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 494f03cd",
+                       "message":  "unauthenticated request returned HTTP 404, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias ccedf382",
+                       "message":  "unauthenticated request returned HTTP 404, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias f0d7b5a2",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias bb941f99",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 6f96b0d5",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias f260bf31",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 8866e34d",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias bf4ef55f",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 3fd3f57b",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Deployment alias 13e7f1a9",
+                       "message":  "unauthenticated request returned HTTP 503, not 200"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Owner bypass health",
+                       "message":  "health payload matches service/status/storage expectations"
+                   },
+                   {
+                       "status":  "PASS",
+                       "name":  "Owner bypass manifest",
+                       "message":  "manifest matches suite_id=core-text-v1, files=15, suite_hash=6b7b80de59bee3e7098ba82e994c1d90954929554486fe8504654bc524f3d179"
+                   },
+                   {
+                       "status":  "WARN",
+                       "name":  "Submission/admin legs",
+                       "message":  "not probed by smoke (state-mutating: tickets create D1 rows); verified out-of-band 2026-07-03 with secrets present - see docs/deploy/live-state.md"
+                   }
+               ]
+}

@@ -4,14 +4,13 @@ import subprocess
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import PureWindowsPath
 from typing import Protocol
 
 
 class ProcessLike(Protocol):
     pid: int
     returncode: int | None
-
-    def terminate(self) -> None: ...
 
     def wait(self, timeout: float | None = None) -> int: ...
 
@@ -31,6 +30,20 @@ class TeardownEvidence:
     teardown_uncertain: bool
 
 
+@dataclass(frozen=True, slots=True)
+class RecordedProcessIdentity:
+    pid: int
+    executable_path: str
+    commandline_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class LiveProcessIdentity:
+    pid: int
+    executable_path: str
+    commandline_sha256: str
+
+
 def teardown_owned_server(
     *,
     process: ProcessLike,
@@ -40,20 +53,24 @@ def teardown_owned_server(
     poll_interval_seconds: float = 1.0,
     timeout_seconds: float = 30.0,
 ) -> TeardownEvidence:
-    process.terminate()
+    job_terminated = True
+    try:
+        controller.terminate_job()
+    except OSError:
+        job_terminated = False
+    finally:
+        controller.close()
     try:
         exit_code = process.wait(timeout=5.0)
-    except subprocess.TimeoutExpired:
+    except (OSError, subprocess.TimeoutExpired):
         exit_code = process.returncode
-    controller.terminate_job()
-    controller.close()
     remaining = _wait_for_gpu_release(
         set(owned_pids),
         gpu_pid_probe or nvidia_smi_gpu_pids,
         poll_interval_seconds=poll_interval_seconds,
         timeout_seconds=timeout_seconds,
     )
-    terminated = remaining == []
+    terminated = job_terminated and remaining == []
     return TeardownEvidence(
         owned_process_tree=[str(pid) for pid in owned_pids],
         terminated=terminated,
@@ -61,6 +78,23 @@ def teardown_owned_server(
         gpu_pids_after=remaining,
         teardown_uncertain=not terminated,
     )
+
+
+def terminate_recorded_pid(
+    recorded: RecordedProcessIdentity,
+    *,
+    live_probe: Callable[[int], LiveProcessIdentity | None],
+    terminate_pid: Callable[[int], None],
+) -> bool:
+    live = live_probe(recorded.pid)
+    if live is None or live.pid != recorded.pid:
+        return False
+    if _normalized_executable(live.executable_path) != _normalized_executable(recorded.executable_path):
+        return False
+    if live.commandline_sha256 != recorded.commandline_sha256:
+        return False
+    terminate_pid(recorded.pid)
+    return True
 
 
 def nvidia_smi_gpu_pids() -> list[int]:
@@ -105,3 +139,7 @@ def _wait_for_gpu_release(
         if remaining == [] or time.monotonic() >= deadline:
             return remaining
         time.sleep(poll_interval_seconds)
+
+
+def _normalized_executable(path: str) -> str:
+    return PureWindowsPath(path).as_posix().casefold()

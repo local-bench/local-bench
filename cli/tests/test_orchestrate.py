@@ -13,7 +13,12 @@ from pathlib import Path
 import httpx
 import pytest
 
-from localbench.cli import EndpointPreflightError, _preflight_endpoint, _preflight_smoke
+from localbench.cli import (
+    EndpointPreflightError,
+    _preflight_endpoint,
+    _preflight_server_context,
+    _preflight_smoke,
+)
 from localbench.orchestrate import OrchestrateConfig, run_localbench
 from localbench.suite_resolver import SuiteResolutionError
 
@@ -265,6 +270,247 @@ def test_preflight_endpoint_requires_claimed_model() -> None:
             )
 
     asyncio.run(scenario())
+
+
+def test_preflight_server_context_reads_llama_props_at_server_root() -> None:
+    async def scenario() -> None:
+        # Given: llama.cpp exposes total context and two parallel slots at server-root /props.
+        seen_paths: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_paths.append(request.url.path)
+            return httpx.Response(
+                200,
+                json={
+                    "default_generation_settings": {"n_ctx": 65536},
+                    "total_slots": 2,
+                },
+            )
+
+        # When: a publishable bounded-final endpoint preflight probes context.
+        observed = await _preflight_server_context(
+            "http://local/v1",
+            lane="bounded-final-v2",
+            publishable=True,
+            ctx_len_configured=None,
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: /v1 is stripped, and the per-slot context is derived from total/slots.
+        assert seen_paths == ["/props"]
+        assert observed == 32768
+
+    asyncio.run(scenario())
+
+
+def test_preflight_server_context_rejects_small_llama_context() -> None:
+    async def scenario() -> None:
+        # Given: llama.cpp reports less than the ranked bounded-final context floor.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "default_generation_settings": {"n_ctx": 16384},
+                    "total_slots": 1,
+                },
+            )
+
+        # When / Then: preflight fails with the observed value and corrected llama-server flag.
+        with pytest.raises(
+            EndpointPreflightError,
+            match=r"probed server context 16384.*required 32768.*--ctx-size 32768",
+        ):
+            await _preflight_server_context(
+                "http://local/v1",
+                lane="bounded-final-v2",
+                publishable=True,
+                ctx_len_configured=None,
+                transport=httpx.MockTransport(handler),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_preflight_server_context_requires_configured_ctx_when_unverified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def scenario() -> None:
+        # Given: a non-llama.cpp endpoint does not expose a recognizable /props payload.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"error": "not found"})
+
+        # When / Then: publishable bounded-final requires explicit user-declared context.
+        with pytest.raises(EndpointPreflightError, match="--ctx-len-configured"):
+            await _preflight_server_context(
+                "http://local/v1",
+                lane="bounded-final-v2",
+                publishable=True,
+                ctx_len_configured=None,
+                transport=httpx.MockTransport(handler),
+            )
+
+    asyncio.run(scenario())
+    output = capsys.readouterr().out
+    assert "warning    server context could not be verified; ensure >= 32768" in output
+
+
+def test_preflight_server_context_rejects_small_configured_ctx_when_unverified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def scenario() -> None:
+        # Given: a non-llama.cpp endpoint does not expose a /props context.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"error": "not found"})
+
+        # When / Then: an undersized user-declared context fails closed.
+        with pytest.raises(
+            EndpointPreflightError,
+            match=(
+                r"declared context 8192 is too small for publishable bounded-final-v2; "
+                r"restart the server with a >= 32768 context and pass the true value"
+            ),
+        ):
+            await _preflight_server_context(
+                "http://local/v1",
+                lane="bounded-final-v2",
+                publishable=True,
+                ctx_len_configured=8192,
+                transport=httpx.MockTransport(handler),
+            )
+
+    asyncio.run(scenario())
+    output = capsys.readouterr().out
+    assert "warning    server context could not be verified; ensure >= 32768" in output
+
+
+def test_preflight_server_context_accepts_floor_configured_ctx_when_unverified(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def scenario() -> None:
+        # Given: a non-llama.cpp endpoint does not expose a /props context.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(404, json={"error": "not found"})
+
+        # When: the declared context satisfies the publishable bounded-final floor.
+        observed = await _preflight_server_context(
+            "http://local/v1",
+            lane="bounded-final-v2",
+            publishable=True,
+            ctx_len_configured=32768,
+            transport=httpx.MockTransport(handler),
+        )
+
+        # Then: preflight allows the run while leaving observed context unknown.
+        assert observed is None
+
+    asyncio.run(scenario())
+    output = capsys.readouterr().out
+    assert "warning    server context could not be verified; ensure >= 32768" in output
+
+
+def test_preflight_server_context_skips_probe_when_not_publishable() -> None:
+    async def scenario() -> None:
+        # Given: a non-publishable bounded-final run.
+        def unexpected_request(request: httpx.Request) -> httpx.Response:
+            raise AssertionError(f"unexpected probe to {request.url}")
+
+        # When: server context preflight runs.
+        observed = await _preflight_server_context(
+            "http://local/v1",
+            lane="bounded-final-v2",
+            publishable=False,
+            ctx_len_configured=8192,
+            transport=httpx.MockTransport(unexpected_request),
+        )
+
+        # Then: it does not probe /props or enforce publishable-only context rules.
+        assert observed is None
+
+    asyncio.run(scenario())
+
+
+def test_preflight_server_context_rejects_configured_ctx_mismatch() -> None:
+    async def scenario() -> None:
+        # Given: the declared context is more than five percent above the probed context.
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "default_generation_settings": {"n_ctx": 32768},
+                    "total_slots": 1,
+                },
+            )
+
+        # When / Then: preflight refuses the mismatch.
+        with pytest.raises(
+            EndpointPreflightError,
+            match=r"--ctx-len-configured 40960 disagrees with probed server context 32768",
+        ):
+            await _preflight_server_context(
+                "http://local/v1",
+                lane="bounded-final-v2",
+                publishable=True,
+                ctx_len_configured=40960,
+                transport=httpx.MockTransport(handler),
+            )
+
+    asyncio.run(scenario())
+
+
+def test_run_threads_observed_context_to_orchestrate_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: endpoint preflight observes a 32768-token context.
+    import localbench.cli as cli_mod
+
+    captured_configs: list[OrchestrateConfig] = []
+
+    async def fake_preflight_endpoint(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def fake_preflight_smoke(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def fake_preflight_context(*_args: object, **_kwargs: object) -> int:
+        return 32768
+
+    async def fake_run_localbench(config: OrchestrateConfig, **_kwargs: object) -> dict[str, object]:
+        captured_configs.append(config)
+        return {"benches": {}, "totals": {}, "warnings": []}
+
+    monkeypatch.setattr(cli_mod, "_preflight_endpoint", fake_preflight_endpoint)
+    monkeypatch.setattr(cli_mod, "_preflight_smoke", fake_preflight_smoke)
+    monkeypatch.setattr(cli_mod, "_preflight_server_context", fake_preflight_context)
+    monkeypatch.setattr(cli_mod, "run_localbench", fake_run_localbench)
+    monkeypatch.setattr(cli_mod, "_print_summary", lambda record, out=None: None)
+
+    # When: a publishable bounded-final endpoint run passes preflight.
+    code = cli_mod.main(
+        [
+            "run",
+            "--endpoint",
+            "http://local/v1",
+            "--model",
+            "demo-model",
+            "--suite-dir",
+            str(FIXTURE_SUITE),
+            "--bench",
+            "mmlu_pro",
+            "--lane",
+            "bounded-final-v2",
+            "--publishable",
+            "--sampler-seed",
+            "1234",
+            "--gguf-repo-only",
+            "--ctx-len-configured",
+            "32768",
+            "--no-supervisor",
+        ],
+    )
+
+    # Then: the observed context reaches the final run record writer.
+    assert code == 0
+    assert captured_configs[-1].ctx_len_observed == 32768
 
 
 def test_preflight_smoke_runs_one_item_per_bench_without_real_output(tmp_path: Path) -> None:

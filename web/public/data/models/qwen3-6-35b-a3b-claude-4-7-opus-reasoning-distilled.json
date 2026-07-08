@@ -1,0 +1,120 @@
+{
+  "base_model": "Qwen/Qwen3.6-35B-A3B",
+  "catalog_id": "lordx64/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled",
+  "demo": false,
+  "family": "Qwen3.6",
+  "gguf_repo": "huihui-ai/Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-MTP-GGUF",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "finetune",
+  "model_label": "Qwen3.6 35B A3B Claude 4.7 Opus Reasoning Distilled",
+  "org": "lordx64",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 8.52,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 37.8,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q8_0",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 37.8,
+      "vram_required_gb_8k": 40.6,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 6.58,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 29.2,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q6_K",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 29.2,
+      "vram_required_gb_8k": 32.0,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 2.97,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 13.2,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q2_K",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 13.2,
+      "vram_required_gb_8k": 16.0,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "qwen3-6-35b-a3b-claude-4-7-opus-reasoning-distilled"
+}

@@ -6,7 +6,12 @@ import pytest
 
 from localbench.serving import process as process_mod
 from localbench.serving.job_object import JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, WindowsJobObject
-from localbench.serving.teardown import teardown_owned_server
+from localbench.serving.teardown import (
+    LiveProcessIdentity,
+    RecordedProcessIdentity,
+    teardown_owned_server,
+    terminate_recorded_pid,
+)
 from serving_helpers import FakeKernel32, FakeProcess, FakeTeardownController
 
 
@@ -26,11 +31,67 @@ def test_teardown_marks_uncertain_when_owned_gpu_pid_remains() -> None:
     )
 
     # Then: teardown is marked uncertain and the residual PID is recorded.
-    assert process.terminated is True
+    assert process.terminated is False
     assert controller.terminated_job is True
     assert evidence.terminated is False
     assert evidence.gpu_pids_after == [1234]
     assert evidence.teardown_uncertain is True
+
+
+def test_recorded_pid_cleanup_requires_exe_and_commandline_fingerprint_match() -> None:
+    recorded = RecordedProcessIdentity(
+        pid=1234,
+        executable_path="C:/tools/llama-server.exe",
+        commandline_sha256="a" * 64,
+    )
+    killed: list[int] = []
+
+    terminated = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/tools/llama-server.exe",
+            commandline_sha256="a" * 64,
+        ),
+        terminate_pid=killed.append,
+    )
+
+    assert terminated is True
+    assert killed == [1234]
+
+
+def test_recorded_pid_cleanup_refuses_pid_reuse_or_commandline_drift() -> None:
+    recorded = RecordedProcessIdentity(
+        pid=1234,
+        executable_path="C:/tools/llama-server.exe",
+        commandline_sha256="a" * 64,
+    )
+    killed: list[int] = []
+
+    exe_drift = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/Windows/System32/notepad.exe",
+            commandline_sha256="a" * 64,
+        ),
+        terminate_pid=killed.append,
+    )
+    commandline_drift = terminate_recorded_pid(
+        recorded,
+        live_probe=lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path="C:/tools/llama-server.exe",
+            commandline_sha256="b" * 64,
+        ),
+        terminate_pid=killed.append,
+    )
+    exited = terminate_recorded_pid(recorded, live_probe=lambda _pid: None, terminate_pid=killed.append)
+
+    assert exe_drift is False
+    assert commandline_drift is False
+    assert exited is False
+    assert killed == []
 
 
 def test_job_object_wrapper_marshals_kill_on_close_and_assigns_process() -> None:
@@ -84,12 +145,70 @@ def test_launch_llama_cpp_cleans_spawned_process_when_job_assignment_fails(
     monkeypatch.setattr(Path, "open", fake_open)
     monkeypatch.setattr(process_mod.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(process_mod, "WindowsJobObject", lambda: job)
+    monkeypatch.setattr(
+        process_mod,
+        "probe_process_identity",
+        lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path=str(Path("llama-server.exe").resolve()),
+            commandline_sha256=process_mod.commandline_sha256(["llama-server.exe"]),
+        ),
+    )
 
     # When / Then: launch re-raises the assignment error after cleaning owned handles.
     with pytest.raises(OSError, match="AssignProcessToJobObject failed"):
         process_mod.launch_llama_cpp(["llama-server.exe"], cwd=tmp_path, log_path=log_path)
     assert spawned.terminated is True
     assert spawned.wait_timeout == 5.0
+    assert job.closed == [111]
+    assert log_handle.closed is True
+
+
+def test_launch_llama_cpp_refuses_failed_launch_pid_reuse_cleanup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: Job Object assignment fails, but the live PID no longer matches the recorded command line.
+    spawned = _SpawnedProcess()
+    job = _RaisingAssignJob()
+    log_path = tmp_path / "serve.log"
+    log_handle = _FakeLogHandle()
+
+    def fake_open(path: Path, mode: str = "r", encoding: str | None = None):
+        if path == log_path:
+            return log_handle
+        return original_open(path, mode, encoding=encoding)
+
+    def fake_popen(
+        argv,
+        *,
+        cwd,
+        stdout,
+        stderr,
+        text,
+        env,
+    ) -> _SpawnedProcess:
+        return spawned
+
+    original_open = Path.open
+    monkeypatch.setattr(Path, "open", fake_open)
+    monkeypatch.setattr(process_mod.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(process_mod, "WindowsJobObject", lambda: job)
+    monkeypatch.setattr(
+        process_mod,
+        "probe_process_identity",
+        lambda pid: LiveProcessIdentity(
+            pid=pid,
+            executable_path=str(Path("notepad.exe").resolve()),
+            commandline_sha256=process_mod.commandline_sha256(["notepad.exe"]),
+        ),
+    )
+
+    # When / Then: cleanup refuses to terminate a reused PID but still closes owned handles.
+    with pytest.raises(OSError, match="AssignProcessToJobObject failed"):
+        process_mod.launch_llama_cpp(["llama-server.exe"], cwd=tmp_path, log_path=log_path)
+    assert spawned.terminated is False
+    assert spawned.wait_timeout is None
     assert job.closed == [111]
     assert log_handle.closed is True
 

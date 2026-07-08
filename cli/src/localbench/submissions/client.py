@@ -9,6 +9,7 @@ from typing import Literal, NotRequired, TypedDict
 import httpx
 
 from localbench._types import JsonObject, JsonValue
+from localbench.http_errors import raise_for_status_with_body
 from localbench.submissions.origin import normalize_origin
 from localbench.submissions.validate import SubmissionValidationError
 
@@ -113,7 +114,7 @@ def request_submission_ticket(
             headers=_site_headers(request.credentials),
             json=_ticket_request_body(request),
         )
-        response.raise_for_status()
+        raise_for_status_with_body(response)
         return _envelope(response.json())
 
 
@@ -130,7 +131,7 @@ def upload_submission_bundle(
             headers=_site_headers(request.credentials),
             json={"raw_bundle_sha256": bundle_sha, "ticket_id": request.envelope["ticket_id"]},
         )
-        target_response.raise_for_status()
+        raise_for_status_with_body(target_response)
         target = _upload_target(target_response.json())
         if target["content_sha256"] != bundle_sha:
             raise SubmissionValidationError("upload target content_sha256 does not match bundle")
@@ -141,7 +142,7 @@ def upload_submission_bundle(
             content=bundle,
             headers={"content-type": "application/json"},
         )
-        upload_response.raise_for_status()
+        raise_for_status_with_body(upload_response)
         complete_response = client.post(
             _site_url(
                 request.credentials.site,
@@ -150,7 +151,7 @@ def upload_submission_bundle(
             headers=_site_headers(request.credentials),
             json={"raw_bundle_sha256": bundle_sha, "size_bytes": len(bundle)},
         )
-        complete_response.raise_for_status()
+        raise_for_status_with_body(complete_response)
         return _json_object(complete_response.json())
 
 
@@ -163,7 +164,7 @@ def get_submission_status(
             _site_url(request.credentials.site, f"/api/submissions/{request.ticket_id}"),
             headers=_site_headers(request.credentials),
         )
-        response.raise_for_status()
+        raise_for_status_with_body(response)
         return _json_object(response.json())
 
 
@@ -180,7 +181,7 @@ def post_admin_verification(
             headers=_site_headers(request.credentials),
             json=request.status_update,
         )
-        response.raise_for_status()
+        raise_for_status_with_body(response)
         return _json_object(response.json())
 
 
@@ -197,7 +198,7 @@ def post_admin_decision(
             headers=_site_headers(request.credentials),
             json={"publish_state": request.publish_state},
         )
-        response.raise_for_status()
+        raise_for_status_with_body(response)
         return _json_object(response.json())
 
 

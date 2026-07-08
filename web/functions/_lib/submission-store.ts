@@ -363,7 +363,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
 }
 
 function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "run_payload_sha256" | "status"): string {
-  return `select submission_id, ticket_id, status, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
+  return `select submission_id, ticket_id, status, created_at, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
     raw_bundle_size_bytes, projection_sha256, publish_state, suite_release_id, suite_manifest_sha256,
     origin, submitter_id, submitter_display_name, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason
     from submissions where ${column} = ?`;

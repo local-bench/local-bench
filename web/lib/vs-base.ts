@@ -1,10 +1,14 @@
 import { AXIS_KEYS, type AxisKey } from "./axis-config";
+import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 
 export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
   readonly bestRunId: string | null;
   readonly composite: Score | null;
+  readonly diagnosticComposite: Score | null;
+  readonly lane: string | null;
+  readonly ranked: boolean;
   readonly scoreStatus: ScoreStatus;
 };
 
@@ -67,23 +71,55 @@ export function buildVsBaseComparison({
         ? null
         : measuredDerivative.composite.point - measuredBase.composite.point,
     derivative,
-    missing: [
-      ...(measuredBase === null ? ["base not yet benchmarked"] : []),
-      ...(measuredDerivative === null ? ["fine-tune not yet benchmarked"] : []),
-    ],
+    missing: [...missingMessages("base", base), ...missingMessages("fine-tune", derivative)],
   };
 }
 
+function missingMessages(side: "base" | "fine-tune", { row }: VsBaseSide): readonly string[] {
+  if (measuredRow(row) !== null) {
+    return [];
+  }
+  // A measured row that fails the gate is legacy-lane/unranked data — comparing composites across
+  // index versions would manufacture a delta, so we say why the number is withheld instead.
+  if (row !== null && row.scoreStatus === "measured" && (row.composite !== null || row.diagnosticComposite !== null)) {
+    return [`${side} has only previous-index runs — awaiting a current-index rerun`];
+  }
+  return [`${side} not yet benchmarked`];
+}
+
+// Deltas are only honest within the current ranked index: both sides must be measured, ranked, and
+// on the headline lane. Legacy-lane composites (previous index versions) never enter a comparison.
 function measuredRow(row: VsBaseBoardRow | null): (VsBaseBoardRow & { readonly composite: Score }) | null {
   if (row === null || row.scoreStatus !== "measured" || row.composite === null) {
+    return null;
+  }
+  if (!row.ranked || row.lane !== HEADLINE_LANE) {
     return null;
   }
   return row as VsBaseBoardRow & { readonly composite: Score };
 }
 
+export function currentIndexRunId(row: VsBaseBoardRow | null): string | null {
+  return measuredRow(row)?.bestRunId ?? null;
+}
+
 function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
-  if (base.row?.bestRunId !== null && base.row?.bestRunId !== undefined && derivative.row?.bestRunId !== null && derivative.row?.bestRunId !== undefined) {
-    return `/compare?left=${encodeURIComponent(derivative.row.bestRunId)}&right=${encodeURIComponent(base.row.bestRunId)}`;
+  const baseRunId = currentIndexRunId(base.row);
+  const derivativeRunId = currentIndexRunId(derivative.row);
+  if (baseRunId !== null && derivativeRunId !== null) {
+    return `/compare?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
+  }
+  if (hasPreviousIndexDiagnostics(base.row) || hasPreviousIndexDiagnostics(derivative.row)) {
+    return `/model/${encodeURIComponent(derivative.slug)}`;
   }
   return `/compare?finetune=${encodeURIComponent(derivative.slug)}`;
+}
+
+function hasPreviousIndexDiagnostics(row: VsBaseBoardRow | null): boolean {
+  return (
+    row !== null &&
+    row.scoreStatus === "measured" &&
+    (row.composite !== null || row.diagnosticComposite !== null) &&
+    (!row.ranked || row.lane !== HEADLINE_LANE)
+  );
 }

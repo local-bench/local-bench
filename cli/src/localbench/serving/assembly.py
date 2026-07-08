@@ -100,6 +100,8 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         retry_errored=options.retry_errored,
         reasoning_activation=options.reasoning_activation,
         hf_model_id=options.hf_model_id,
+        gguf_repo_only=options.gguf_repo_only,
+        progress_reporter=options.progress_reporter,
     )
 
 

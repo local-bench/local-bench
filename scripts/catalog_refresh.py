@@ -48,11 +48,49 @@ import httpx
 API_BASE = "https://huggingface.co/api"
 USER_AGENT = "local-bench-catalog-refresh/0.1 (public metadata only; https://local-bench.ai)"
 MAX_CHANGED_ENTRIES = 250
-MAX_NEW_FINETUNE_PROMOTIONS = 12
+MAX_NEW_FINETUNE_PROMOTIONS = 24
 MAX_FINETUNES_PER_BASE = 2
 MIN_FINETUNE_DOWNLOADS = 2_000
 MIN_FINETUNE_LIKES = 50
 RECIPE_GRADE_QUANTS = ("FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K")
+CATALOG_DISCOVERY_CAPS_PATH = Path(__file__).resolve().with_name("catalog_discovery_caps.json")
+CATALOG_DISCOVERY_DENYLIST_PATH = Path(__file__).resolve().with_name("catalog_discovery_denylist.json")
+_DISCOVERY_DENYLIST_CACHE: dict[str, Any] | None = None
+FULL_WEIGHT_BASE_RELATIONS = ("", "finetune", "merge", "distill")
+PACKAGING_BASE_RELATIONS = ("adapter", "quantized")
+
+
+def _discovery_denylist_entries() -> dict[str, Any]:
+    global _DISCOVERY_DENYLIST_CACHE
+    if _DISCOVERY_DENYLIST_CACHE is None:
+        try:
+            raw = json.loads(CATALOG_DISCOVERY_DENYLIST_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raw = {}
+        if isinstance(raw, dict):
+            _DISCOVERY_DENYLIST_CACHE = {str(key).lower(): value for key, value in raw.items()}
+        elif isinstance(raw, list):
+            _DISCOVERY_DENYLIST_CACHE = {str(item).lower(): True for item in raw}
+        else:
+            _DISCOVERY_DENYLIST_CACHE = {}
+    return _DISCOVERY_DENYLIST_CACHE
+
+
+def _discovery_denylist() -> set[str]:
+    return set(_discovery_denylist_entries())
+
+
+def _lineage_override(repo_id: str) -> tuple[bool, str | None]:
+    entry = _discovery_denylist_entries().get(repo_id.lower())
+    if not isinstance(entry, dict) or "base_model" not in entry:
+        return False, None
+    base_model = entry.get("base_model")
+    if isinstance(base_model, str) and base_model.strip():
+        return True, base_model.strip()
+    return True, None
+
+
+FINETUNE_PROBE_KINDS = ("finetune", "merge", "adapter")
 
 # Canonical-model detail fields (expand[] cannot be combined with blobs=true, so the
 # GGUF-repo fetch uses ?blobs=true and the canonical fetch uses expand[]).
@@ -327,21 +365,65 @@ def license_from_meta(meta: dict[str, Any]) -> str | None:
     return lic
 
 
-def declared_base_model(meta: dict[str, Any]) -> str | list[str] | None:
+def _base_model_values(value: Any) -> list[str]:
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    if isinstance(value, list):
+        return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+    return []
+
+
+def _base_model_value_relation(value: str) -> tuple[str, str]:
+    if value.startswith("base_model:"):
+        rels = base_model_relations([value])
+        return rels[0] if rels else ("", "")
+    for kind in (*FULL_WEIGHT_BASE_RELATIONS[1:], *PACKAGING_BASE_RELATIONS):
+        prefix = f"{kind}:"
+        if value.startswith(prefix):
+            return kind, value[len(prefix) :].strip()
+    return "", value
+
+
+def _first_full_weight_base(values: list[str]) -> str | None:
+    for value in values:
+        kind, base_id = _base_model_value_relation(value)
+        if kind in PACKAGING_BASE_RELATIONS:
+            continue
+        if base_id:
+            return base_id
+    return None
+
+
+def declared_base_model(meta: dict[str, Any]) -> str | None:
     card = meta.get("cardData") or {}
-    base = card.get("base_model")
-    if isinstance(base, list):
-        base = [b for b in base if isinstance(b, str) and b.strip()]
-        if not base:
-            return None
-        return base[0] if len(base) == 1 else base
-    if isinstance(base, str) and base.strip():
-        return base.strip()
+    if isinstance(card, dict):
+        base = _first_full_weight_base(_base_model_values(card.get("base_model")))
+        if base is not None:
+            return base
     rels = base_model_relations(meta.get("tags") or [])
-    bases = sorted({b for _, b in rels})
-    if not bases:
-        return None
-    return bases[0] if len(bases) == 1 else bases
+    for relation_kind in FULL_WEIGHT_BASE_RELATIONS:
+        for kind, base_id in rels:
+            if kind == relation_kind and base_id.strip():
+                return base_id.strip()
+    return None
+
+
+def _auto_stamped_base_model_result(repo_ids: tuple[str, ...], meta: dict[str, Any]) -> tuple[bool, str | None]:
+    for repo_id in repo_ids:
+        overridden, base_model = _lineage_override(repo_id)
+        if overridden:
+            return True, base_model
+    meta_id = meta.get("id")
+    if isinstance(meta_id, str) and meta_id not in repo_ids:
+        overridden, base_model = _lineage_override(meta_id)
+        if overridden:
+            return True, base_model
+    base_model = declared_base_model(meta)
+    return (base_model is not None), base_model
+
+
+def auto_stamped_base_model(repo_id: str, meta: dict[str, Any]) -> str | None:
+    return _auto_stamped_base_model_result((repo_id,), meta)[1]
 
 
 def _name_tokens(repo_or_id: str) -> list[str]:
@@ -438,11 +520,13 @@ def verify_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, An
             res.license_change = (entry["license"], hf_license)
             proposed["license"] = hf_license
 
-        base = declared_base_model(meta)
-        if base:
+        has_base, base = _auto_stamped_base_model_result((entry["id"],), meta)
+        if has_base:
             res.base_model = base
             rebuilt = {}
             for k, v in proposed.items():
+                if k == "base_model":
+                    continue
                 rebuilt[k] = v
                 if k == "license":
                     rebuilt["base_model"] = base
@@ -655,12 +739,11 @@ def discover(
             if isinstance(total, (int, float)) and total > 0:
                 c.params_b = round(total / 1e9, 1)
                 c.params_src = "gguf"
-            base = declared_base_model(meta)
-            if base and not c.base_id:
-                first = base[0] if isinstance(base, list) else base
-                c.base_id = first
-                c.relation = f"derived of {first}"
-                c.base_in_catalog = first.lower() in catalog_ids
+            has_base, base = _auto_stamped_base_model_result((c.repo_id,), meta)
+            if has_base and base and not c.base_id:
+                c.base_id = base
+                c.relation = f"derived of {base}"
+                c.base_in_catalog = base.lower() in catalog_ids
 
     # for the top safetensors fine-tunes, probe whether someone published a GGUF of them
     probed = 0
@@ -701,6 +784,8 @@ class FineTuneCandidate:
     trending: int
     source: str
     relation_kind: str = "finetune"
+    gguf_repo: str = ""
+    pipeline_tag: str | None = None
 
 
 @dataclass
@@ -724,7 +809,7 @@ def is_derivative_entry(entry: dict[str, Any], catalog_ids: set[str]) -> bool:
     return isinstance(base, str) and base.lower() in catalog_ids
 
 
-def gather_finetune_candidates(catalog: list[dict[str, Any]]) -> list[FineTuneCandidate]:
+def gather_finetune_candidates(client: HfClient, catalog: list[dict[str, Any]]) -> list[FineTuneCandidate]:
     catalog_ids = {str(entry.get("id", "")).lower() for entry in catalog}
     candidates: list[FineTuneCandidate] = []
     for entry in catalog:
@@ -755,17 +840,98 @@ def gather_finetune_candidates(catalog: list[dict[str, Any]]) -> list[FineTuneCa
                     likes=int(popularity.get("likes") or 0),
                     trending=int(popularity.get("trending") or 0),
                     source="catalog distills[]",
+                    relation_kind="distill",
                 )
             )
+        candidates.extend(probe_finetune_candidates(client, entry, base_id))
     return dedupe_finetune_candidates(candidates)
+
+
+def probe_finetune_candidates(client: HfClient, entry: dict[str, Any], base_id: str) -> list[FineTuneCandidate]:
+    candidates: list[FineTuneCandidate] = []
+    for kind in FINETUNE_PROBE_KINDS:
+        status, items = client.get_json(
+            "/models",
+            [("filter", f"base_model:{kind}:{base_id}"), ("sort", "downloads"), ("direction", "-1"), ("limit", "10")],
+        )
+        if status != 200 or not isinstance(items, list):
+            continue
+        for item in items:
+            candidate = finetune_candidate_from_probe_item(client, entry, base_id, item, kind)
+            if candidate is not None:
+                candidates.append(candidate)
+    return candidates
+
+
+def finetune_candidate_from_probe_item(
+    client: HfClient,
+    entry: dict[str, Any],
+    base_id: str,
+    item: Any,
+    probe_kind: str,
+) -> FineTuneCandidate | None:
+    if not isinstance(item, dict):
+        return None
+    repo_id = item.get("id") or item.get("modelId")
+    if not isinstance(repo_id, str) or not repo_id:
+        return None
+    tags = item.get("tags") if isinstance(item.get("tags"), list) else []
+    gguf_repo = "" if any(str(tag).lower() == "gguf" for tag in tags) else resolve_candidate_gguf_repo(client, repo_id)
+    return FineTuneCandidate(
+        repo_id=repo_id,
+        base_id=base_id,
+        base_slug=str(entry.get("slug") or ""),
+        base_display_name=str(entry.get("display_name") or base_id),
+        base_entry=entry,
+        display_name=display_name_from_repo(repo_id),
+        org=repo_id.split("/", 1)[0],
+        downloads=int(item.get("downloads") or 0),
+        likes=int(item.get("likes") or 0),
+        trending=int(item.get("trendingScore") or item.get("trending") or 0),
+        pipeline_tag=item.get("pipeline_tag") if isinstance(item.get("pipeline_tag"), str) else None,
+        source=f"HF base_model:{probe_kind} probe",
+        relation_kind="finetune",
+        gguf_repo=gguf_repo,
+    )
+
+
+def resolve_candidate_gguf_repo(client: HfClient, repo_id: str) -> str:
+    status, items = client.get_json(
+        "/models",
+        [("filter", f"base_model:quantized:{repo_id}"), ("sort", "downloads"), ("direction", "-1"), ("limit", "3")],
+    )
+    if status != 200 or not isinstance(items, list):
+        return ""
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        tags = item.get("tags") if isinstance(item.get("tags"), list) else []
+        if not any(str(tag).lower() == "gguf" for tag in tags):
+            continue
+        gguf_repo = item.get("id") or item.get("modelId")
+        if isinstance(gguf_repo, str) and gguf_repo:
+            return gguf_repo
+    return ""
 
 
 def dedupe_finetune_candidates(candidates: list[FineTuneCandidate]) -> list[FineTuneCandidate]:
     by_repo: dict[str, FineTuneCandidate] = {}
     for candidate in candidates:
-        key = candidate.repo_id.lower()
+        key = (candidate.gguf_repo or candidate.repo_id).lower()
         current = by_repo.get(key)
-        if current is None or (candidate.downloads, candidate.likes) > (current.downloads, current.likes):
+        if current is None:
+            by_repo[key] = candidate
+            continue
+        if candidate.source not in current.source:
+            current.source = f"{current.source}; {candidate.source}"
+        current.downloads = max(current.downloads, candidate.downloads)
+        current.likes = max(current.likes, candidate.likes)
+        current.trending = max(current.trending, candidate.trending)
+        if current.relation_kind != "distill" and candidate.relation_kind == "distill":
+            candidate.source = current.source
+            candidate.downloads = current.downloads
+            candidate.likes = current.likes
+            candidate.trending = current.trending
             by_repo[key] = candidate
     return sorted(by_repo.values(), key=lambda candidate: (candidate.base_id.lower(), -candidate.downloads, -candidate.likes, candidate.repo_id.lower()))
 
@@ -808,8 +974,21 @@ def base_lineage_matches(meta: dict[str, Any], candidate: FineTuneCandidate) -> 
     base = declared_base_model(meta)
     if base is None:
         return True
-    bases = base if isinstance(base, list) else [base]
-    return candidate.base_id in bases
+    bases = [base]
+    accepted = {candidate.base_id}
+    if candidate.gguf_repo:
+        accepted.add(candidate.repo_id)
+    return any(value in accepted for value in bases)
+
+
+def candidate_model_id(candidate: FineTuneCandidate) -> str:
+    if candidate.gguf_repo:
+        return candidate.repo_id
+    return canonical_model_id_from_gguf(candidate.repo_id)
+
+
+def candidate_gguf_repo(candidate: FineTuneCandidate) -> str:
+    return candidate.gguf_repo or candidate.repo_id
 
 
 def quant_sort_key(label: str) -> tuple[int, str]:
@@ -838,18 +1017,74 @@ def recipe_grade_quants(quants: dict[str, dict[str, Any]], params_b: float, revi
     return rows
 
 
+def load_catalog_discovery_caps(path: Path | None = None) -> dict[str, int]:
+    cap_path = path or CATALOG_DISCOVERY_CAPS_PATH
+    try:
+        raw = json.loads(cap_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    caps: dict[str, int] = {}
+    for base_id, cap in raw.items():
+        if isinstance(base_id, str) and isinstance(cap, int) and cap > 0:
+            caps[base_id] = cap
+    return caps
+
+
+def _name_segment(repo_id: str) -> str:
+    segment = re.sub(r"[^a-z0-9]+", "", repo_id.rsplit("/", 1)[-1].lower())
+    # Strip packaging/precision suffixes so "X-GGUF" / "X-BF16" mirrors match "X".
+    while True:
+        stripped = re.sub(r"(gguf|bf16|fp16|fp8|f16|f32|awq|gptq|mlx)$", "", segment)
+        if stripped == segment:
+            return segment
+        segment = stripped
+
+
+def _is_base_mirror(candidate_repo: str, base_id: str) -> bool:
+    candidate_segment = _name_segment(candidate_repo)
+    base_segment = _name_segment(base_id)
+    if candidate_segment == "" or base_segment == "":
+        return False
+    # endswith covers org-prefixed re-uploads ("Meta-Llama-3.1-8B" vs "Llama-3.1-8B");
+    # startswith is deliberately NOT used ("<base>-abliterated" is a real fine-tune).
+    return candidate_segment == base_segment or candidate_segment.endswith(base_segment) or base_segment.endswith(candidate_segment)
+
+
 def verify_finetune_candidate(
     client: HfClient,
     candidate: FineTuneCandidate,
     known: set[str],
+    min_downloads: int = MIN_FINETUNE_DOWNLOADS,
+    min_likes: int = MIN_FINETUNE_LIKES,
+    floor_mode: str = "any",
 ) -> FineTunePromotion | FineTuneRejection:
-    canonical_id = canonical_model_id_from_gguf(candidate.repo_id)
-    if candidate.repo_id.lower() in known or canonical_id.lower() in known:
+    canonical_id = candidate_model_id(candidate)
+    gguf_repo = candidate_gguf_repo(candidate)
+    if candidate.repo_id.lower() in known or gguf_repo.lower() in known or canonical_id.lower() in known:
         return FineTuneRejection(candidate, "already in catalog")
-    if candidate.downloads < MIN_FINETUNE_DOWNLOADS and candidate.likes < MIN_FINETUNE_LIKES:
+    # HF lineage tags cover every downstream artifact kind; the board only benchmarks
+    # chat/text-generation models, so rerankers/embedders/ASR/VLMs must not promote.
+    if candidate.pipeline_tag is not None and candidate.pipeline_tag != "text-generation":
+        return FineTuneRejection(candidate, f"non-text-generation pipeline ({candidate.pipeline_tag})")
+    if candidate.repo_id.lower() in _discovery_denylist() or canonical_id.lower() in _discovery_denylist():
+        return FineTuneRejection(candidate, "on curated denylist (scripts/catalog_discovery_denylist.json)")
+    # A re-upload of the base under another org (unsloth/... mirrors) is not a fine-tune;
+    # promoting it would duplicate the base as a fake variant row.
+    if _is_base_mirror(candidate.repo_id, candidate.base_id):
+        return FineTuneRejection(candidate, "same-name mirror of the base, not a fine-tune")
+    if floor_mode == "all":
+        # Depth-wave conviction floor: BOTH signals required. Wave 1 established that the
+        # either/or floor admits a long tail of sub-10-like rows once flagship slots fill.
+        if candidate.downloads < min_downloads or candidate.likes < min_likes:
+            return FineTuneRejection(candidate, "below popularity floor (all-mode)")
+    elif candidate.downloads < min_downloads and candidate.likes < min_likes:
         return FineTuneRejection(candidate, "below popularity floor")
+    if not gguf_repo:
+        return FineTuneRejection(candidate, "GGUF repo did not resolve")
 
-    status, meta = client.get_json(f"/models/{candidate.repo_id}", [("blobs", "true")])
+    status, meta = client.get_json(f"/models/{gguf_repo}", [("blobs", "true")])
     if status != 200 or not isinstance(meta, dict):
         return FineTuneRejection(candidate, f"GGUF repo did not resolve (HTTP {status})")
     if meta.get("disabled"):
@@ -877,6 +1112,7 @@ def verify_finetune_candidate(
     if not recipe_quants:
         return FineTuneRejection(candidate, "no recipe-grade GGUF quant with real file size")
 
+    has_stamped_base, stamped_base = _auto_stamped_base_model_result((canonical_id, candidate.repo_id, gguf_repo), meta)
     entry = {
         "id": canonical_id,
         "slug": slugify_model(canonical_id.rsplit("/", 1)[-1]),
@@ -887,10 +1123,10 @@ def verify_finetune_candidate(
         "is_moe": bool(candidate.base_entry.get("is_moe")),
         "reasoning_capable": bool(candidate.base_entry.get("reasoning_capable")),
         "license": license_id,
-        "base_model": candidate.base_id,
+        "base_model": stamped_base if has_stamped_base else candidate.base_id,
         "model_kind": candidate.relation_kind if candidate.relation_kind in ("distill", "merge") else "finetune",
         "popularity": {"downloads": candidate.downloads, "likes": candidate.likes, "trending": candidate.trending},
-        "gguf_repo": candidate.repo_id,
+        "gguf_repo": gguf_repo,
         "quants": recipe_quants,
         "distills": [],
     }
@@ -904,8 +1140,13 @@ def verify_finetune_candidate(
 def curate_finetune_promotions(
     client: HfClient,
     catalog: list[dict[str, Any]],
+    per_base_caps: dict[str, int],
+    wave_cap: int,
+    min_downloads: int = MIN_FINETUNE_DOWNLOADS,
+    min_likes: int = MIN_FINETUNE_LIKES,
+    floor_mode: str = "any",
 ) -> tuple[list[FineTunePromotion], list[FineTuneRejection], int]:
-    candidates = gather_finetune_candidates(catalog)
+    candidates = gather_finetune_candidates(client, catalog)
     known = known_catalog_repos(catalog)
     accepted_by_base: dict[str, list[FineTunePromotion]] = {}
     rejected: list[FineTuneRejection] = []
@@ -916,26 +1157,26 @@ def curate_finetune_promotions(
 
     for base_id in sorted(grouped):
         base_promotions = accepted_by_base.setdefault(base_id, [])
+        per_base_cap = per_base_caps.get(base_id, MAX_FINETUNES_PER_BASE)
         for candidate in sorted(grouped[base_id], key=lambda item: (-item.downloads, -item.likes, item.repo_id.lower())):
-            result = verify_finetune_candidate(client, candidate, known)
+            result = verify_finetune_candidate(client, candidate, known, min_downloads, min_likes, floor_mode)
             if isinstance(result, FineTuneRejection):
                 rejected.append(result)
                 continue
-            if len(base_promotions) >= MAX_FINETUNES_PER_BASE:
+            if len(base_promotions) >= per_base_cap:
                 rejected.append(FineTuneRejection(candidate, "per-base promotion cap reached"))
                 continue
             base_promotions.append(result)
             known.add(result.entry["id"].lower())
             known.add(result.entry["gguf_repo"].lower())
 
-    selected: list[FineTunePromotion] = []
-    overflow: list[FineTunePromotion] = []
-    for base_id in sorted(accepted_by_base):
-        for promotion in accepted_by_base[base_id]:
-            if len(selected) < MAX_NEW_FINETUNE_PROMOTIONS:
-                selected.append(promotion)
-            else:
-                overflow.append(promotion)
+    # Wave cap picks globally by popularity, NOT base-alphabetically: with per-base
+    # caps already applied, alphabetical selection starved late-sorting flagship bases
+    # (Qwen3.6-27B got zero slots in wave 1 despite its cap override).
+    accepted = [promotion for base_id in sorted(accepted_by_base) for promotion in accepted_by_base[base_id]]
+    accepted.sort(key=lambda p: (-p.candidate.downloads, -p.candidate.likes, p.candidate.repo_id.lower()))
+    selected = accepted[:wave_cap]
+    overflow = accepted[wave_cap:]
     rejected.extend(FineTuneRejection(promotion.candidate, "wave cap reached") for promotion in overflow)
     return selected, rejected, len(candidates)
 
@@ -946,6 +1187,8 @@ def finetune_report(
     candidate_count: int,
     client: HfClient,
     args: argparse.Namespace,
+    per_base_caps: dict[str, int],
+    wave_cap: int,
 ) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     lines = [
@@ -954,12 +1197,16 @@ def finetune_report(
         "- mode: discover-finetunes",
         f"- generated: {now}",
         f"- catalog: `{args.catalog}`",
-        "- candidate source: nested catalog `distills[]` arrays (HF lineage list query intentionally deferred for v1)",
+        "- candidate source: nested catalog `distills[]` arrays and HF `base_model` probes",
         f"- candidates gathered: {candidate_count}",
         f"- promotions: {len(promotions)}",
         f"- rejections: {len(rejections)}",
-        f"- caps: top {MAX_FINETUNES_PER_BASE} per base, {MAX_NEW_FINETUNE_PROMOTIONS} total new entries",
-        f"- popularity floor: downloads_last_month >= {MIN_FINETUNE_DOWNLOADS:,} OR likes >= {MIN_FINETUNE_LIKES:,}",
+        f"- caps: default top {MAX_FINETUNES_PER_BASE} per base, overrides {len(per_base_caps)} base(s), {wave_cap} total new entries",
+        "- popularity floor: downloads_last_month >= {:,} {} likes >= {:,}".format(
+            int(getattr(args, "min_downloads", MIN_FINETUNE_DOWNLOADS) or MIN_FINETUNE_DOWNLOADS),
+            "AND" if str(getattr(args, "floor_mode", "any") or "any") == "all" else "OR",
+            int(getattr(args, "min_likes", MIN_FINETUNE_LIKES) or MIN_FINETUNE_LIKES),
+        ),
         f"- HTTP: {client.network_hits} network requests, {client.cache_hits} cache hits, {len(client.errors)} transport errors",
         "",
         "The proposal appends verified fine-tunes only. Existing entries are left byte-for-byte unchanged and the live catalog is not updated.",
@@ -1006,8 +1253,15 @@ def refresh_finetunes_mode(
     out_dir.mkdir(parents=True, exist_ok=True)
     own_client = client is None
     hf = client or HfClient(out_dir / "cache", args.throttle_ms, args.cache_max_age_hours, args.refresh)
+    per_base_caps = load_catalog_discovery_caps()
+    wave_cap = int(getattr(args, "wave_cap", MAX_NEW_FINETUNE_PROMOTIONS) or MAX_NEW_FINETUNE_PROMOTIONS)
+    min_downloads = int(getattr(args, "min_downloads", MIN_FINETUNE_DOWNLOADS) or MIN_FINETUNE_DOWNLOADS)
+    min_likes = int(getattr(args, "min_likes", MIN_FINETUNE_LIKES) or MIN_FINETUNE_LIKES)
+    floor_mode = str(getattr(args, "floor_mode", "any") or "any")
     try:
-        promotions, rejections, candidate_count = curate_finetune_promotions(hf, catalog)
+        promotions, rejections, candidate_count = curate_finetune_promotions(
+            hf, catalog, per_base_caps, wave_cap, min_downloads, min_likes, floor_mode
+        )
     finally:
         if own_client:
             hf.close()
@@ -1018,7 +1272,7 @@ def refresh_finetunes_mode(
     proposed_path = out_dir / "model_catalog.proposed.json"
     proposed_path.write_text(json.dumps(proposed_catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
 
-    report = finetune_report(promotions, rejections, candidate_count, hf, args)
+    report = finetune_report(promotions, rejections, candidate_count, hf, args, per_base_caps, wave_cap)
     report_path = out_dir / "catalog-refresh-report.md"
     report_path.write_text(report, encoding="utf-8", newline="\n")
 
@@ -1410,6 +1664,15 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="only process the first N entries (testing)")
     ap.add_argument("--no-discover", action="store_true", help="skip new-candidate discovery")
     ap.add_argument("--discover-detail-top", type=int, default=40, help="fetch full detail for top-N GGUF candidates")
+    ap.add_argument("--wave-cap", type=int, default=MAX_NEW_FINETUNE_PROMOTIONS, help="max discover-finetunes promotions per run")
+    ap.add_argument("--min-downloads", type=int, default=MIN_FINETUNE_DOWNLOADS, help="popularity floor: monthly downloads")
+    ap.add_argument("--min-likes", type=int, default=MIN_FINETUNE_LIKES, help="popularity floor: likes")
+    ap.add_argument(
+        "--floor-mode",
+        choices=("any", "all"),
+        default="any",
+        help="popularity floor combinator: any = downloads OR likes (default), all = downloads AND likes (depth waves)",
+    )
     args = ap.parse_args()
 
     catalog_path = Path(args.catalog)

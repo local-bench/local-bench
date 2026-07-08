@@ -50,7 +50,7 @@ export function BestVariantVramScatter({
   const legend = [
     ...new Map(
       points.map((point) => {
-        const style = familyStyle(point.family);
+        const style = familyStyle(weightsFamilyLabel(point));
         return [style.label, style.color] as const;
       }),
     ),
@@ -63,7 +63,8 @@ export function BestVariantVramScatter({
   for (const candidate of [...points].sort((a, b) => b.score.point - a.score.point)) {
     const cx = scaleVramLogX(candidate.effectiveVramGb, domain, VRAM_SCALE_LAYOUT);
     const cy = scaleY(candidate.score.point);
-    const width = candidate.modelLabel.length * 6.6 + 6;
+    const qualifier = weightsFamilyQualifier(candidate);
+    const width = Math.max(candidate.modelLabel.length, qualifier?.length ?? 0) * 6.6 + 6;
     const boxFor = (slot: LabelSlot) => {
       const x1 = slot.anchor === "end" ? cx + slot.dx - width : cx + slot.dx;
       const top = cy + slot.dy - 13;
@@ -88,24 +89,24 @@ export function BestVariantVramScatter({
     >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Best variant per model</p>
+          <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Best variant per weights family</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">Quality vs the VRAM to run it</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-bench-muted">
-            Each point is a model at its best-scoring quant. Up = smarter; left = fits a smaller card.
+            Each point is a weights family at its best-scoring measured variant. Up = smarter; left = fits a smaller card.
             {/* The frontier line renders only at >=3 frontier points, so only describe it then. */}
             {frontier.length >= 3
-              ? " The dotted line is the point-estimate efficiency frontier — no measured model is both higher-scoring and smaller on current point estimates."
+              ? " The dotted line connects the models that are best at their size — nothing measured is both higher-scoring and smaller on current point estimates."
               : ""}{" "}
             Hover any point for details.
           </p>
           {points.length < 4 ? (
             <p className="mt-1.5 font-mono text-[11px] text-bench-muted-2">
-              Only {points.length} model{points.length === 1 ? "" : "s"} ranked so far — the size-vs-score frontier
+              Only {points.length} famil{points.length === 1 ? "y" : "ies"} ranked so far — the size-vs-score frontier
               line appears once enough variants land.
             </p>
           ) : null}
         </div>
-        <div className="font-mono text-xs text-bench-muted">{points.length} model{points.length === 1 ? "" : "s"}</div>
+        <div className="font-mono text-xs text-bench-muted">{points.length} famil{points.length === 1 ? "y" : "ies"}</div>
       </div>
       <div className="overflow-x-auto">
         <svg
@@ -179,26 +180,32 @@ export function BestVariantVramScatter({
           {points.map((point) => {
             const cx = scaleVramLogX(point.effectiveVramGb, domain, VRAM_SCALE_LAYOUT);
             const cy = scaleY(point.score.point);
-            const color = familyStyle(point.family).color;
+            const color = familyStyle(weightsFamilyLabel(point)).color;
             const slot = labelPlacements.get(point.runId);
+            const qualifier = weightsFamilyQualifier(point);
             const tipLine1 = `${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""} — ${formatScore(point.score.point)}`;
             // What a visitor weighs before running it themselves: how long the suite took on this
             // rig and the VRAM to hold it — not a repeat of the axis bars shown above the chart.
-            const tipLine2 = `${
+            const runCostLine = `${
               point.wallTimeSeconds !== null ? `benched in ${formatDuration(point.wallTimeSeconds)} · ` : ""
             }~${formatGb(point.effectiveVramGb)} to run`;
-            const tipWidth = Math.max(tipLine1.length, tipLine2.length) * 6.6 + 20;
+            const tipLine2 = qualifier ?? runCostLine;
+            const tipLine3 = qualifier === null ? null : runCostLine;
+            const tipWidth = Math.max(tipLine1.length, tipLine2.length, tipLine3?.length ?? 0) * 6.6 + 20;
+            const tipHeight = tipLine3 === null ? 38 : 52;
             // Clamp the tooltip inside the plot; flip below the dot when it would clip the top.
             const tipX = Math.min(Math.max(cx - tipWidth / 2, 6), WIDTH - tipWidth - 6);
-            const tipAbove = cy - 52 > 4;
-            const tipY = tipAbove ? cy - 52 : cy + 14;
+            const tipAbove = cy - tipHeight - 14 > 4;
+            const tipY = tipAbove ? cy - tipHeight - 14 : cy + 14;
             return (
               // CSS-only hover: this is a server component, so the tooltip is an SVG group toggled
               // by group-hover — no client JS. The transparent r=14 circle is the hit target (the
               // visible 6px dot was too small to hover reliably).
-              <g key={point.runId} className="group">
+              <a key={point.runId} href={`/model/${point.modelSlug}`} className="group">
                 <title>
                   {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${
+                    qualifier === null ? "" : `${qualifier} — `
+                  }${
                     point.wallTimeSeconds !== null ? `benched in ${formatDuration(point.wallTimeSeconds)} — ` : ""
                   }~${formatGb(point.effectiveVramGb)} to run`}
                 </title>
@@ -212,7 +219,12 @@ export function BestVariantVramScatter({
                     className="fill-bench-text"
                     fontSize="12"
                   >
-                    {point.modelLabel}
+                    <tspan x={cx + slot.dx}>{point.modelLabel}</tspan>
+                    {qualifier === null ? null : (
+                      <tspan x={cx + slot.dx} dy="12" className="fill-bench-muted" fontSize="10">
+                        {qualifier}
+                      </tspan>
+                    )}
                   </text>
                 ) : null}
                 <g className="pointer-events-none opacity-0 transition-opacity duration-100 group-hover:opacity-100">
@@ -220,7 +232,7 @@ export function BestVariantVramScatter({
                     x={tipX}
                     y={tipY}
                     width={tipWidth}
-                    height={38}
+                    height={tipHeight}
                     rx={4}
                     className="fill-bench-bg stroke-bench-line-strong"
                   />
@@ -230,8 +242,13 @@ export function BestVariantVramScatter({
                   <text x={tipX + 10} y={tipY + 30} className="fill-bench-muted" fontSize="11" fontFamily="var(--font-mono)">
                     {tipLine2}
                   </text>
+                  {tipLine3 === null ? null : (
+                    <text x={tipX + 10} y={tipY + 44} className="fill-bench-muted" fontSize="11" fontFamily="var(--font-mono)">
+                      {tipLine3}
+                    </text>
+                  )}
                 </g>
-              </g>
+              </a>
             );
           })}
           {points.length === 0 ? (
@@ -302,5 +319,17 @@ function describe(points: readonly BestVariantPoint[]): string {
     return "Scatter of local model quality versus VRAM; no ranked current-index local rows yet.";
   }
   const best = points.reduce((top, point) => (point.score.point > top.score.point ? point : top));
-  return `Scatter of ${points.length} local models: Local Intelligence Index versus effective VRAM to run. Best: ${best.modelLabel} at ${formatScore(best.score.point)}.`;
+  return `Scatter of ${points.length} local weights families: Local Intelligence Index versus effective VRAM to run. Best: ${best.modelLabel} at ${formatScore(best.score.point)}.`;
+}
+
+function weightsFamilyLabel(point: BestVariantPoint): string {
+  return point.weightsFamilyLabel ?? point.family;
+}
+
+function weightsFamilyQualifier(point: BestVariantPoint): string | null {
+  const label = point.weightsFamilyLabel;
+  if (label === undefined || label === point.modelLabel) {
+    return null;
+  }
+  return `${label} family`;
 }

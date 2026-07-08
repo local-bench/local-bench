@@ -15,7 +15,10 @@ describe("buildVsBaseComparison", () => {
         row: {
           bestRunId: "base-run",
           composite: { point: 37, lo: 36, hi: 38 },
+          diagnosticComposite: null,
           axes: { knowledge: score(83), instruction: score(67), coding: score(20) },
+          lane: "bounded-final-v2",
+          ranked: true,
           scoreStatus: "measured",
         },
       },
@@ -26,7 +29,10 @@ describe("buildVsBaseComparison", () => {
         row: {
           bestRunId: "fine-run",
           composite: { point: 41, lo: 40, hi: 42 },
+          diagnosticComposite: null,
           axes: { knowledge: score(86), instruction: score(64), tool_calling: score(50) },
+          lane: "bounded-final-v2",
+          ranked: true,
           scoreStatus: "measured",
         },
       },
@@ -61,5 +67,43 @@ describe("buildVsBaseComparison", () => {
     expect(comparison.axes).toEqual([]);
     expect(comparison.compareHref).toBe("/compare?finetune=phi-4-reasoning");
     expect(comparison.missing).toEqual(["base not yet benchmarked", "fine-tune not yet benchmarked"]);
+  });
+
+  it("withholds deltas when a side has only previous-index (legacy lane) runs", () => {
+    const comparison = buildVsBaseComparison({
+      base: {
+        catalogId: "google/gemma-4-12b-it",
+        displayName: "Gemma 4 12B IT",
+        slug: "gemma-4-12b-it",
+        row: {
+          bestRunId: "base-run",
+          composite: { point: 35.2, lo: 33, hi: 38 },
+          diagnosticComposite: null,
+          axes: { knowledge: score(76) },
+          lane: "bounded-final-v2",
+          ranked: true,
+          scoreStatus: "measured",
+        },
+      },
+      derivative: {
+        catalogId: "example/gemma-4-12b-coder",
+        displayName: "Gemma 4 12B Coder",
+        slug: "gemma-4-12b-coder-fable5",
+        row: {
+          bestRunId: "legacy-run",
+          composite: null,
+          diagnosticComposite: { point: 52.9, lo: 51, hi: 54 },
+          axes: { knowledge: score(80) },
+          lane: "capped-thinking",
+          ranked: false,
+          scoreStatus: "measured",
+        },
+      },
+    });
+
+    expect(comparison.compositeDelta).toBeNull();
+    expect(comparison.axes).toEqual([]);
+    expect(comparison.compareHref).toBe("/model/gemma-4-12b-coder-fable5");
+    expect(comparison.missing).toEqual(["fine-tune has only previous-index runs — awaiting a current-index rerun"]);
   });
 });
