@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 29.0,
+      "file_sha256": "9408dcb356cc061a05c139e5647cbde0698ff980c6a69f7fc214e9989f86cfa8",
+      "file_size_bytes": 29047084160,
+      "filename": "Qwen3.6-27B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
+      "revision": "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
+      "vram_gb_8k": 31.4
+    },
+    {
+      "file_gb": 22.9,
+      "file_sha256": "773f1bf0be0589d056ce05476a8a135b50494a3f2ecc3f8f0c4f2c3594bba02e",
+      "file_size_bytes": 22884406400,
+      "filename": "Qwen3.6-27B-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
+      "revision": "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
+      "vram_gb_8k": 25.2
+    },
+    {
+      "file_gb": 19.8,
+      "file_sha256": "ffb9a0f8b459086f8befd964f6c0ed9f9caafba410b76f9688b91c4678cc0fe4",
+      "file_size_bytes": 19834053760,
+      "filename": "Qwen3.6-27B-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
+      "revision": "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
+      "vram_gb_8k": 22.2
+    },
+    {
+      "file_gb": 17.1,
+      "file_sha256": "a7cbd3ecc0e3f9b333edee61ae66bc87ed713c5d49587a8355814722ed329e0f",
+      "file_size_bytes": 17106773120,
+      "filename": "Qwen3.6-27B-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
+      "revision": "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
+      "vram_gb_8k": 19.5
+    },
+    {
+      "file_gb": 13.8,
+      "file_sha256": "f8a9329b78446254200d5cd387c3d8c8f374a2b824696d4b550f42461b970310",
+      "file_size_bytes": 13818688640,
+      "filename": "Qwen3.6-27B-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
+      "revision": "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
+      "vram_gb_8k": 16.2
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3.6-27B",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "unsloth/Qwen3.6-27B-MTP-GGUF",
+  "hf_model_id": "Qwen/Qwen3.6-27B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 3.3,
+      "file_sha256": "a13fb9aa78c28691876046979149d5b1081de92241d802565ad6b12a31c5683d",
+      "file_size_bytes": 3306260960,
+      "filename": "Qwen3-4B-Thinking-2507.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+      "revision": "e13719faf6685a3d74d70e2b41e64d7db945d1c9",
+      "vram_gb_8k": 4.5
+    },
+    {
+      "file_gb": 2.9,
+      "file_sha256": "42e35b7a8e82b0702d18a389fbcf3f5092bae2567d1c303f69f52887de559720",
+      "file_size_bytes": 2889513440,
+      "filename": "Qwen3-4B-Thinking-2507.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+      "revision": "e13719faf6685a3d74d70e2b41e64d7db945d1c9",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "cc43ab3247c79bdf3a71eb441b39421943bbcbdb08f91851310c9971a1c7d37a",
+      "file_size_bytes": 2497280480,
+      "filename": "Qwen3-4B-Thinking-2507.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+      "revision": "e13719faf6685a3d74d70e2b41e64d7db945d1c9",
+      "vram_gb_8k": 3.7
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "1cb35b83e847e3c02fabedb6679892cbe2021e08a7c1f9d0476812ba7c29ed68",
+      "file_size_bytes": 2075617760,
+      "filename": "Qwen3-4B-Thinking-2507.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+      "revision": "e13719faf6685a3d74d70e2b41e64d7db945d1c9",
+      "vram_gb_8k": 3.3
+    },
+    {
+      "file_gb": 1.7,
+      "file_sha256": "bd79c43d494d53fd2eb2bd8dbb274984dd9e1eaf070b82d375cee7791db91fc9",
+      "file_size_bytes": 1669499360,
+      "filename": "Qwen3-4B-Thinking-2507.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+      "revision": "e13719faf6685a3d74d70e2b41e64d7db945d1c9",
+      "vram_gb_8k": 2.9
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-4B-Thinking-2507",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "MaziyarPanahi/Qwen3-4B-Thinking-2507-GGUF",
+  "hf_model_id": "Qwen/Qwen3-4B-Thinking-2507",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

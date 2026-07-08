@@ -4,6 +4,7 @@
   "demo": false,
   "family": "GLM 5",
   "gguf_repo": "unsloth/GLM-5.2-GGUF",
+  "hf_model_id": "zai-org/GLM-5.2",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 36.9,
+      "file_sha256": "d1a395809f65a43a13ad119eb4e7acdef1ac6d68120f39902c8ab96e72794a59",
+      "file_size_bytes": 36903140320,
+      "filename": "Qwen3.6-35B-A3B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Qwen3.6-35B-A3B-GGUF",
+      "revision": "a483e9e6cbd595906af30beda3187c2663a1118c",
+      "vram_gb_8k": 39.6
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3.6-35B-A3B",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+  "hf_model_id": "Qwen/Qwen3.6-35B-A3B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "516104073e05d64321dc168566364c0cf0142f644208f71f38a1ca4093da6d68",
+      "file_size_bytes": 25054786624,
+      "filename": "Devstral-Small-2505-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Devstral-Small-2505-GGUF",
+      "revision": "099dd7ee959e17c68c0f47fe060e5b46cc41f82c",
+      "vram_gb_8k": 27.3
+    },
+    {
+      "file_gb": 19.3,
+      "file_sha256": "5868991237628f6430bf34dc22249bc6840c48414cfcda1f85d15ef0f815a21b",
+      "file_size_bytes": 19345945664,
+      "filename": "Devstral-Small-2505-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Devstral-Small-2505-GGUF",
+      "revision": "099dd7ee959e17c68c0f47fe060e5b46cc41f82c",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.8,
+      "file_sha256": "2776a60f837e933517736e6713209a344d257a9755146cf39eba2309376e825f",
+      "file_size_bytes": 16763991104,
+      "filename": "Devstral-Small-2505-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Devstral-Small-2505-GGUF",
+      "revision": "099dd7ee959e17c68c0f47fe060e5b46cc41f82c",
+      "vram_gb_8k": 19.0
+    },
+    {
+      "file_gb": 14.3,
+      "file_sha256": "d98d8300f6907baf284ac8d81c190bf9390cd9e55a0d8dee93693da1cd4e656b",
+      "file_size_bytes": 14333916224,
+      "filename": "Devstral-Small-2505-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Devstral-Small-2505-GGUF",
+      "revision": "099dd7ee959e17c68c0f47fe060e5b46cc41f82c",
+      "vram_gb_8k": 16.5
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "1f8fad245983b7fb7697d02f0c67b6cd45d1d422f01daf74c487467cd35a0e81",
+      "file_size_bytes": 11474089024,
+      "filename": "Devstral-Small-2505-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Devstral-Small-2505-GGUF",
+      "revision": "099dd7ee959e17c68c0f47fe060e5b46cc41f82c",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 8.9,
+      "file_sha256": "2f632ede5e616a6f2efa1c31fa803f03d782b565ef24ca8fd4f342c575cd38d6",
+      "file_size_bytes": 8890332224,
+      "filename": "Devstral-Small-2505-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Devstral-Small-2505-GGUF",
+      "revision": "099dd7ee959e17c68c0f47fe060e5b46cc41f82c",
+      "vram_gb_8k": 11.1
+    }
+  ],
   "base_model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
   "catalog_id": "mistralai/Devstral-Small-2505",
   "demo": false,
   "family": "Mistral Small",
   "gguf_repo": "unsloth/Devstral-Small-2505-GGUF",
+  "hf_model_id": "mistralai/Devstral-Small-2505",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

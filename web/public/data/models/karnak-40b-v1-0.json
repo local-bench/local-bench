@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 43.3,
+      "file_sha256": "e8c88967d9ec3b334889a6464b53b713d87380d4ed7bbf1704514d6cc8bab645",
+      "file_size_bytes": 43269742848,
+      "filename": "Karnak.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/Karnak-GGUF",
+      "revision": "2816e4c3321005e82c54d7cfa73787c425bc3b57",
+      "vram_gb_8k": 46.3
+    },
+    {
+      "file_gb": 33.4,
+      "file_sha256": "9b5d1a55c6b53cd47bec49db76dacf606354be394a0add478419bc64f76f6d68",
+      "file_size_bytes": 33424317440,
+      "filename": "Karnak.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Karnak-GGUF",
+      "revision": "2816e4c3321005e82c54d7cfa73787c425bc3b57",
+      "vram_gb_8k": 36.4
+    },
+    {
+      "file_gb": 28.9,
+      "file_sha256": "61dda46b9abc1f5dd3fdf131536d8fbafbf261e8a449a1e2798820ae1b21874c",
+      "file_size_bytes": 28937729664,
+      "filename": "Karnak.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Karnak-GGUF",
+      "revision": "2816e4c3321005e82c54d7cfa73787c425bc3b57",
+      "vram_gb_8k": 31.9
+    },
+    {
+      "file_gb": 24.7,
+      "file_sha256": "b74700a6a9e769835b87ac6be54c6a83e5a5d2664f880a0aa870567cf22abb34",
+      "file_size_bytes": 24715058816,
+      "filename": "Karnak.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Karnak-GGUF",
+      "revision": "2816e4c3321005e82c54d7cfa73787c425bc3b57",
+      "vram_gb_8k": 27.7
+    },
+    {
+      "file_gb": 19.6,
+      "file_sha256": "8bda5be045f2878cda4c024b55ff7e1ce53a0695142b8e4b6077b79613886be6",
+      "file_size_bytes": 19591198976,
+      "filename": "Karnak.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Karnak-GGUF",
+      "revision": "2816e4c3321005e82c54d7cfa73787c425bc3b57",
+      "vram_gb_8k": 22.6
+    },
+    {
+      "file_gb": 15.0,
+      "file_sha256": "7df8e307816b4c16787689b3d7c61087036ff6de7714f97159309517d8fa7d55",
+      "file_size_bytes": 14989019520,
+      "filename": "Karnak.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Karnak-GGUF",
+      "revision": "2816e4c3321005e82c54d7cfa73787c425bc3b57",
+      "vram_gb_8k": 18.0
+    }
+  ],
   "base_model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
   "catalog_id": "Applied-Innovation-Center/Karnak-40B-v1.0",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Karnak-GGUF",
+  "hf_model_id": "Applied-Innovation-Center/Karnak-40B-v1.0",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

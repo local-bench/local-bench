@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 36.5,
+      "file_sha256": "e927156d04ba1bc1b2977f5eca44ef1b942381a7e3b213fdd806292f6225ea9f",
+      "file_size_bytes": 36542282560,
+      "filename": "Yi-1.5-34B-Chat-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/Yi-1.5-34B-Chat-GGUF",
+      "revision": "59233c9087897681405676cb27f83d2b86314f39",
+      "vram_gb_8k": 39.2
+    },
+    {
+      "file_gb": 28.2,
+      "file_sha256": "18da4911c336fba4fecc2f8fcb65e78aab4dabdbfcd75343d886e85f4df40021",
+      "file_size_bytes": 28213926720,
+      "filename": "Yi-1.5-34B-Chat-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/Yi-1.5-34B-Chat-GGUF",
+      "revision": "59233c9087897681405676cb27f83d2b86314f39",
+      "vram_gb_8k": 30.9
+    },
+    {
+      "file_gb": 24.3,
+      "file_sha256": "962ad51bab7e0db2b4a1f7331f673cf289c9382dcee6af8f29e93bee9a646875",
+      "file_size_bytes": 24321846080,
+      "filename": "Yi-1.5-34B-Chat-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/Yi-1.5-34B-Chat-GGUF",
+      "revision": "59233c9087897681405676cb27f83d2b86314f39",
+      "vram_gb_8k": 27.0
+    },
+    {
+      "file_gb": 20.7,
+      "file_sha256": "c6351951b911ff0da022921d66d3413f155e58d27eb9aa99875213eac5b7bacb",
+      "file_size_bytes": 20658711360,
+      "filename": "Yi-1.5-34B-Chat-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Yi-1.5-34B-Chat-GGUF",
+      "revision": "59233c9087897681405676cb27f83d2b86314f39",
+      "vram_gb_8k": 23.4
+    },
+    {
+      "file_gb": 16.7,
+      "file_sha256": "723529d558af7f6a72710574d3cc1b1c4b6fda00d75ff16d92fbae6fcbb1440d",
+      "file_size_bytes": 16654924608,
+      "filename": "Yi-1.5-34B-Chat-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Yi-1.5-34B-Chat-GGUF",
+      "revision": "59233c9087897681405676cb27f83d2b86314f39",
+      "vram_gb_8k": 19.4
+    },
+    {
+      "file_gb": 12.8,
+      "file_sha256": "78be4cc3e6e5c8722a7a9f0cc5daf5d041f5396a74e177abfe4f7bb5819e0c7c",
+      "file_size_bytes": 12825234240,
+      "filename": "Yi-1.5-34B-Chat-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Yi-1.5-34B-Chat-GGUF",
+      "revision": "59233c9087897681405676cb27f83d2b86314f39",
+      "vram_gb_8k": 15.5
+    }
+  ],
   "base_model": null,
   "catalog_id": "01-ai/Yi-1.5-34B-Chat",
   "demo": false,
   "family": "Yi 1.5",
   "gguf_repo": "bartowski/Yi-1.5-34B-Chat-GGUF",
+  "hf_model_id": "01-ai/Yi-1.5-34B-Chat",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

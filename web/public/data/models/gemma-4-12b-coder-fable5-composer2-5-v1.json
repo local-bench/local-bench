@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 12.7,
+      "file_sha256": "18629e26f7b800357fe95ae3804c9be49af58ebc73e80754c301ebe997e29fbb",
+      "file_size_bytes": 12669645344,
+      "filename": "gemma4-coding-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+      "revision": "1380be1796e559fca96b4107599285cab3ddbb92",
+      "vram_gb_8k": 14.3
+    },
+    {
+      "file_gb": 9.8,
+      "file_sha256": "9a4aa42ef5c540afedaeec47194c39abc9268745662dc44b8351f658e979b4b1",
+      "file_size_bytes": 9786020384,
+      "filename": "gemma4-coding-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+      "revision": "1380be1796e559fca96b4107599285cab3ddbb92",
+      "vram_gb_8k": 11.4
+    },
+    {
+      "file_gb": 7.4,
+      "file_sha256": "1fe90b72e105d7bc71650aa59883edece3e84751af489075217a7ae717b1fe8d",
+      "file_size_bytes": 7381381664,
+      "filename": "gemma4-coding-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+      "revision": "1380be1796e559fca96b4107599285cab3ddbb92",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 6.1,
+      "file_sha256": "b2d2ca4e1fc592a7ba77225032224938b9f159ef6431f57e1db1b5e612f50b54",
+      "file_size_bytes": 6087086624,
+      "filename": "gemma4-coding-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+      "revision": "1380be1796e559fca96b4107599285cab3ddbb92",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 4.8,
+      "file_sha256": "adbd331a74121b78f223b40b3a51f4418aa6f55122c1fa3711b0615f56bf8729",
+      "file_size_bytes": 4830147104,
+      "filename": "gemma4-coding-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+      "revision": "1380be1796e559fca96b4107599285cab3ddbb92",
+      "vram_gb_8k": 6.4
+    }
+  ],
   "base_model": "google/gemma-4-12B-it",
   "catalog_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF",
+  "hf_model_id": "yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "distill",

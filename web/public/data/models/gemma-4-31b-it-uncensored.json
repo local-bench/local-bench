@@ -1,9 +1,32 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 32.6,
+      "file_sha256": "682fdd418adb31386dc7809d4966ec88e33bd1b9bafcb30971a90eb3675f4805",
+      "file_size_bytes": 32635670112,
+      "filename": "gemma-4-31B-it-uncensored-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
+      "revision": "9df23c751dcd4810ad1626386e6e78d8e43a04dc",
+      "vram_gb_8k": 35.1
+    },
+    {
+      "file_gb": 18.7,
+      "file_sha256": "14a465017c087e60f77ebf2cb7d10622794a6b9112fe977aa3df43486079ae81",
+      "file_size_bytes": 18687057504,
+      "filename": "gemma-4-31B-it-uncensored-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
+      "revision": "9df23c751dcd4810ad1626386e6e78d8e43a04dc",
+      "vram_gb_8k": 21.2
+    }
+  ],
   "base_model": "google/gemma-4-31B-it",
   "catalog_id": "TrevorJS/gemma-4-31B-it-uncensored",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "TrevorJS/gemma-4-31B-it-uncensored-GGUF",
+  "hf_model_id": "TrevorJS/gemma-4-31B-it-uncensored",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

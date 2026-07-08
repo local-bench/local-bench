@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.0,
+      "file_sha256": "274af0544e684bc25f1816a021cb462aa1e006c0f1915c362dc6df879a9f2e2b",
+      "file_size_bytes": 8031240128,
+      "filename": "gemma-4-E4B-it-OBLITERATED-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
+      "revision": "d8678bbb9e0d4f5729c115087485a4e25ba89d65",
+      "vram_gb_8k": 9.4
+    },
+    {
+      "file_gb": 5.8,
+      "file_sha256": "ba74917dd2724710edf83342a696c1500b3d0e7b39f97d36371f071f7663c01c",
+      "file_size_bytes": 5762912192,
+      "filename": "gemma-4-E4B-it-OBLITERATED-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
+      "revision": "d8678bbb9e0d4f5729c115087485a4e25ba89d65",
+      "vram_gb_8k": 7.2
+    },
+    {
+      "file_gb": 5.3,
+      "file_sha256": "819372c2cd9e5aa62950f07db6c5e849769a2fd17f2f25d4932b6f2dd567d4e2",
+      "file_size_bytes": 5335289792,
+      "filename": "gemma-4-E4B-it-OBLITERATED-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
+      "revision": "d8678bbb9e0d4f5729c115087485a4e25ba89d65",
+      "vram_gb_8k": 6.7
+    }
+  ],
   "base_model": "google/gemma-4-E4B-it",
   "catalog_id": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
+  "hf_model_id": "OBLITERATUS/gemma-4-E4B-it-OBLITERATED",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "distill",

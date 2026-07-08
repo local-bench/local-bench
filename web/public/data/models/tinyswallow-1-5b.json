@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.3,
+      "file_sha256": "502ad0e912c0850a111a38dcb53ee74aca8513e500e934dc73f3f0e697818cb7",
+      "file_size_bytes": 1272740448,
+      "filename": "TinySwallow-1.5B.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+      "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6",
+      "vram_gb_8k": 2.4
+    },
+    {
+      "file_gb": 1.1,
+      "file_sha256": "65226580798ac99ea7902e57da6792769213902a1f89c5382e8bfd7d511fa2fd",
+      "file_size_bytes": 1125050976,
+      "filename": "TinySwallow-1.5B.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+      "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6",
+      "vram_gb_8k": 2.2
+    },
+    {
+      "file_gb": 1.0,
+      "file_sha256": "13f109c4d36bf0a3b9168cf0b44d3b8f45e55cd60ba8f8eb6c2a11d06cc3c025",
+      "file_size_bytes": 986049120,
+      "filename": "TinySwallow-1.5B.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+      "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6",
+      "vram_gb_8k": 2.1
+    },
+    {
+      "file_gb": 0.8,
+      "file_sha256": "276ce3fd6cfd25c10d5b2f59f1fe04a38ce9277848fa7de64815d6b26c1c1011",
+      "file_size_bytes": 824179296,
+      "filename": "TinySwallow-1.5B.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+      "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6",
+      "vram_gb_8k": 1.9
+    },
+    {
+      "file_gb": 0.7,
+      "file_sha256": "61e4c0c149a03c648a21375ec221bb5968885e73cb29ba288ca4fc279de69154",
+      "file_size_bytes": 676305504,
+      "filename": "TinySwallow-1.5B.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+      "revision": "ec3bdf8b7f381fbc5b17dec51d91a169c3a46de6",
+      "vram_gb_8k": 1.8
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
   "catalog_id": "SakanaAI/TinySwallow-1.5B",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "mradermacher/TinySwallow-1.5B-i1-GGUF",
+  "hf_model_id": "SakanaAI/TinySwallow-1.5B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

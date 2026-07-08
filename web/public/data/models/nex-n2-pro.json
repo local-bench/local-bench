@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Nex N2",
   "gguf_repo": null,
+  "hf_model_id": "nex-agi/Nex-N2-Pro",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

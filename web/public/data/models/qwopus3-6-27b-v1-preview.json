@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 28.6,
+      "file_sha256": "cb59db2ac5df8f84c2ff80eb6bef3fc8a0ad1aeea8c0e41877488544e245d483",
+      "file_size_bytes": 28595758944,
+      "filename": "Qwopus3.6-27B-v1-preview-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+      "revision": "65a0afe424234406a6b733039b15a00c2fbb4271",
+      "vram_gb_8k": 30.9
+    },
+    {
+      "file_gb": 22.1,
+      "file_sha256": "4758e79d34dbbacf8fa96f46373839e6a66553a1e55c6f128cadca1c03fb3e4b",
+      "file_size_bytes": 22082525024,
+      "filename": "Qwopus3.6-27B-v1-preview-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+      "revision": "65a0afe424234406a6b733039b15a00c2fbb4271",
+      "vram_gb_8k": 24.4
+    },
+    {
+      "file_gb": 19.2,
+      "file_sha256": "4caa72bb2138c1d00d2850e9db28f212d3a1047ffa05e5aeccc12b03d8b3e77d",
+      "file_size_bytes": 19231094624,
+      "filename": "Qwopus3.6-27B-v1-preview-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+      "revision": "65a0afe424234406a6b733039b15a00c2fbb4271",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.5,
+      "file_sha256": "5966748c91ce5f53a4ca5162c12060196a55abec8234bf055bdd6984f8ec59a3",
+      "file_size_bytes": 16547395424,
+      "filename": "Qwopus3.6-27B-v1-preview-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+      "revision": "65a0afe424234406a6b733039b15a00c2fbb4271",
+      "vram_gb_8k": 18.8
+    },
+    {
+      "file_gb": 10.7,
+      "file_sha256": "d5610adbf2ba7168135f5097eebdc6e5225a9ab777f88b304b2d7e8dc2a00925",
+      "file_size_bytes": 10711660384,
+      "filename": "Qwopus3.6-27B-v1-preview-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+      "revision": "65a0afe424234406a6b733039b15a00c2fbb4271",
+      "vram_gb_8k": 13.0
+    }
+  ],
   "base_model": "Qwen/Qwen3.6-27B",
   "catalog_id": "Jackrong/Qwopus3.6-27B-v1-preview",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "Jackrong/Qwopus3.6-27B-v1-preview-GGUF",
+  "hf_model_id": "Jackrong/Qwopus3.6-27B-v1-preview",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "distill",

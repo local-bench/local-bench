@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 7.7,
+      "file_sha256": "f326f5f4f137f3ad30f8c9cc21d4d39e54476583e8306ee2931d5a022cb85b06",
+      "file_size_bytes": 7695857952,
+      "filename": "mistral-7b-instruct-v0.2.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+      "revision": "3a6fbf4a41a1d52e415a4958cde6856d34b2db93",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 5.9,
+      "file_sha256": "a4643671c92f47eb6027d0eff50b9875562e8e172128a4b10b2be250bb4264de",
+      "file_size_bytes": 5942065440,
+      "filename": "mistral-7b-instruct-v0.2.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+      "revision": "3a6fbf4a41a1d52e415a4958cde6856d34b2db93",
+      "vram_gb_8k": 7.2
+    },
+    {
+      "file_gb": 5.1,
+      "file_sha256": "b85cdd596ddd76f3194047b9108a73c74d77ba04bef49255a50fc0cfbda83d32",
+      "file_size_bytes": 5131409696,
+      "filename": "mistral-7b-instruct-v0.2.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+      "revision": "3a6fbf4a41a1d52e415a4958cde6856d34b2db93",
+      "vram_gb_8k": 6.4
+    },
+    {
+      "file_gb": 4.4,
+      "file_sha256": "3e0039fd0273fcbebb49228943b17831aadd55cbcbf56f0af00499be2040ccf9",
+      "file_size_bytes": 4368439584,
+      "filename": "mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+      "revision": "3a6fbf4a41a1d52e415a4958cde6856d34b2db93",
+      "vram_gb_8k": 5.8
+    },
+    {
+      "file_gb": 3.5,
+      "file_sha256": "a9d5cdce059f6e091f4dc664b28e6e21204a91794207b934a8308f2f37500043",
+      "file_size_bytes": 3518986528,
+      "filename": "mistral-7b-instruct-v0.2.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+      "revision": "3a6fbf4a41a1d52e415a4958cde6856d34b2db93",
+      "vram_gb_8k": 4.8
+    },
+    {
+      "file_gb": 3.1,
+      "file_sha256": "6d52a37032d25bc879691b0e870da12ffd5788e6f4dd2eea1b5d9a7020091f71",
+      "file_size_bytes": 3083098400,
+      "filename": "mistral-7b-instruct-v0.2.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+      "revision": "3a6fbf4a41a1d52e415a4958cde6856d34b2db93",
+      "vram_gb_8k": 4.4
+    }
+  ],
   "base_model": null,
   "catalog_id": "mistralai/Mistral-7B-Instruct-v0.2",
   "demo": false,
   "family": "Mistral",
   "gguf_repo": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+  "hf_model_id": "mistralai/Mistral-7B-Instruct-v0.2",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

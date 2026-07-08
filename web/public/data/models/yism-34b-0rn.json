@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 28.2,
+      "file_sha256": "1d3b0b218f573e209de79cc8f68cecccfb7f3cddbd0039669dbc072c6a34ae2f",
+      "file_size_bytes": 28213927904,
+      "filename": "YiSM-34B-0rn.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/YiSM-34B-0rn-i1-GGUF",
+      "revision": "8a2e45800491a5ec525ca56ac2c2ee6eec3c008d",
+      "vram_gb_8k": 30.9
+    },
+    {
+      "file_gb": 24.3,
+      "file_sha256": "78ee82b3752836734a2c4809ce3de96b6825d110edd77789545d1e51fa136ff6",
+      "file_size_bytes": 24321847264,
+      "filename": "YiSM-34B-0rn.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/YiSM-34B-0rn-i1-GGUF",
+      "revision": "8a2e45800491a5ec525ca56ac2c2ee6eec3c008d",
+      "vram_gb_8k": 27.0
+    },
+    {
+      "file_gb": 20.7,
+      "file_sha256": "e711001e3e515215a32d88a45014f619f7314e28377123b2acb7d04671add25a",
+      "file_size_bytes": 20658712544,
+      "filename": "YiSM-34B-0rn.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/YiSM-34B-0rn-i1-GGUF",
+      "revision": "8a2e45800491a5ec525ca56ac2c2ee6eec3c008d",
+      "vram_gb_8k": 23.4
+    },
+    {
+      "file_gb": 16.7,
+      "file_sha256": "c28951ab00998ebdac22625a6f987875f6b3633d674c18dffe2b6d6821d538ac",
+      "file_size_bytes": 16654925792,
+      "filename": "YiSM-34B-0rn.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/YiSM-34B-0rn-i1-GGUF",
+      "revision": "8a2e45800491a5ec525ca56ac2c2ee6eec3c008d",
+      "vram_gb_8k": 19.4
+    },
+    {
+      "file_gb": 12.8,
+      "file_sha256": "ac35ac2e7001b1acb54a4d74bfa3d1c5456a5ac4caa7ba35a9ca384dc0b1666f",
+      "file_size_bytes": 12825235424,
+      "filename": "YiSM-34B-0rn.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/YiSM-34B-0rn-i1-GGUF",
+      "revision": "8a2e45800491a5ec525ca56ac2c2ee6eec3c008d",
+      "vram_gb_8k": 15.5
+    }
+  ],
   "base_model": "01-ai/Yi-1.5-34B-Chat",
   "catalog_id": "altomek/YiSM-34B-0rn",
   "demo": false,
   "family": "Yi 1.5",
   "gguf_repo": "mradermacher/YiSM-34B-0rn-i1-GGUF",
+  "hf_model_id": "altomek/YiSM-34B-0rn",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

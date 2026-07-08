@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.9,
+      "file_sha256": "f92f8b9027aeb8f3a4bcbba662779861132d930024bbf251fb61a5e39f69ff29",
+      "file_size_bytes": 1894532640,
+      "filename": "nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574",
+      "vram_gb_8k": 3.0
+    },
+    {
+      "file_gb": 1.5,
+      "file_sha256": "a938f813ed95f4dd5921878695e6a5364a59d36605e11116063a7eccc23c6e57",
+      "file_size_bytes": 1464179232,
+      "filename": "nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574",
+      "vram_gb_8k": 2.6
+    },
+    {
+      "file_gb": 1.3,
+      "file_sha256": "48477599b6c88cf77e4f30f502122e57b45b26ba302e3f4636fd3a5f8caedc44",
+      "file_size_bytes": 1285494816,
+      "filename": "nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574",
+      "vram_gb_8k": 2.4
+    },
+    {
+      "file_gb": 1.1,
+      "file_sha256": "3685e223b41b39cef92aaa283d9cc943e27208eab942edfd1967059d6a98aa7a",
+      "file_size_bytes": 1117321248,
+      "filename": "nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574",
+      "vram_gb_8k": 2.2
+    },
+    {
+      "file_gb": 0.9,
+      "file_sha256": "92b6f2bb5d6fc669490594d61db2c64783e56277d377ee02ad11b89a20d95e13",
+      "file_size_bytes": 924456480,
+      "filename": "nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574",
+      "vram_gb_8k": 2.0
+    },
+    {
+      "file_gb": 0.8,
+      "file_sha256": "4c98414ece3304476be25af005794867da977607afd9f61320fbf653b625d9e6",
+      "file_size_bytes": 752880672,
+      "filename": "nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+      "revision": "311be9402b1b28ee0ce0fbad09459a7df6c49574",
+      "vram_gb_8k": 1.9
+    }
+  ],
   "base_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
   "catalog_id": "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B",
   "demo": false,
   "family": "DeepSeek R1 Distill",
   "gguf_repo": "bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF",
+  "hf_model_id": "nvidia/Nemotron-Research-Reasoning-Qwen-1.5B",
   "kind": "community",
   "license": "cc-by-nc-4.0",
   "model_kind": "finetune",

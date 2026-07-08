@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.7,
+      "file_sha256": "c7323c58f8eba924cb61fa422426f9c4f806ff335a10b98727b42d7d9717630c",
+      "file_size_bytes": 1673007232,
+      "filename": "Qwen3-1.7B.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+      "revision": "57a69d3bba4c7254d3466a3bb96d909b988f8fbd",
+      "vram_gb_8k": 2.8
+    },
+    {
+      "file_gb": 1.5,
+      "file_sha256": "99d6379819c997cc82185107e33d6c254b8041351b0b1de4b12b9342478d2f46",
+      "file_size_bytes": 1471805568,
+      "filename": "Qwen3-1.7B.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+      "revision": "57a69d3bba4c7254d3466a3bb96d909b988f8fbd",
+      "vram_gb_8k": 2.6
+    },
+    {
+      "file_gb": 1.3,
+      "file_sha256": "ea2aa5f1cce3c8df81ae5fd292a6ed265b8393cc89534dc21fc5327cc974116a",
+      "file_size_bytes": 1282439296,
+      "filename": "Qwen3-1.7B.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+      "revision": "57a69d3bba4c7254d3466a3bb96d909b988f8fbd",
+      "vram_gb_8k": 2.4
+    },
+    {
+      "file_gb": 1.1,
+      "file_sha256": "438821279d9ae8bdedc1f9d19aa22c23b8f4cc450cb334565e92422f96025c68",
+      "file_size_bytes": 1073242240,
+      "filename": "Qwen3-1.7B.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+      "revision": "57a69d3bba4c7254d3466a3bb96d909b988f8fbd",
+      "vram_gb_8k": 2.2
+    },
+    {
+      "file_gb": 0.9,
+      "file_sha256": "af4f7b9a02f1212c974abd179c2c7083ff8351964ec224f3b4adaba37fca3416",
+      "file_size_bytes": 879896704,
+      "filename": "Qwen3-1.7B.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+      "revision": "57a69d3bba4c7254d3466a3bb96d909b988f8fbd",
+      "vram_gb_8k": 2.0
+    }
+  ],
   "base_model": "Qwen/Qwen3-1.7B-Base",
   "catalog_id": "Qwen/Qwen3-1.7B",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "MaziyarPanahi/Qwen3-1.7B-GGUF",
+  "hf_model_id": "Qwen/Qwen3-1.7B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

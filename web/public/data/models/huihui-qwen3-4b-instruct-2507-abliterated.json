@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.3,
+      "file_sha256": "f3b6a790d226efadd863152415713d4d177a22e80eb37bc54537dab110062f31",
+      "file_size_bytes": 4280405792,
+      "filename": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+      "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+      "vram_gb_8k": 5.5
+    },
+    {
+      "file_gb": 3.3,
+      "file_sha256": "af2b42201062d26bb4f22bd589a2fe206ea6c470be091609ce01c790af840ea2",
+      "file_size_bytes": 3306261792,
+      "filename": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+      "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+      "vram_gb_8k": 4.5
+    },
+    {
+      "file_gb": 2.9,
+      "file_sha256": "3b50bafc887098d7112b065f0d3c87ad093b779d438a7378a10676230383e6e8",
+      "file_size_bytes": 2889514272,
+      "filename": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+      "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "b1324e2f1bd2e0610d591f54f93e38d90b187f69d1f215f4cace349eade678d7",
+      "file_size_bytes": 2497281312,
+      "filename": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+      "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+      "vram_gb_8k": 3.7
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "99b57b42c71c47ba1322b86b57ecf76c25794161aab10f9de7ab3960de506602",
+      "file_size_bytes": 2075618592,
+      "filename": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+      "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+      "vram_gb_8k": 3.3
+    },
+    {
+      "file_gb": 1.7,
+      "file_sha256": "f68f240d7bda40c722f4d480a54e5b2b2fcff7dbc3f24f701d38babc523a401b",
+      "file_size_bytes": 1669500192,
+      "filename": "Huihui-Qwen3-4B-Instruct-2507-abliterated.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+      "revision": "c9e90669eeb205d5af35c28a3e9983fc9293c2ec",
+      "vram_gb_8k": 2.9
+    }
+  ],
   "base_model": "Qwen/Qwen3-4B-Instruct-2507",
   "catalog_id": "huihui-ai/Huihui-Qwen3-4B-Instruct-2507-abliterated",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF",
+  "hf_model_id": "huihui-ai/Huihui-Qwen3-4B-Instruct-2507-abliterated",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.5,
+      "file_sha256": "9da71c45c90a821809821244d4971e5e5dfad7eb091f0b8ff0546392393b6283",
+      "file_size_bytes": 8540775840,
+      "filename": "Meta-Llama-3.1-8B-Instruct-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+      "vram_gb_8k": 9.9
+    },
+    {
+      "file_gb": 6.6,
+      "file_sha256": "33981adf6bae52c503fb5c24f72539010632f7ed290a56c1315a8cd50adca587",
+      "file_size_bytes": 6596011424,
+      "filename": "Meta-Llama-3.1-8B-Instruct-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+      "vram_gb_8k": 8.0
+    },
+    {
+      "file_gb": 5.7,
+      "file_sha256": "14e10feba0c82a55da198dcd69d137206ad22d116a809926d27fa5f2398c69c7",
+      "file_size_bytes": 5732992416,
+      "filename": "Meta-Llama-3.1-8B-Instruct-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+      "vram_gb_8k": 7.1
+    },
+    {
+      "file_gb": 4.9,
+      "file_sha256": "7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c",
+      "file_size_bytes": 4920739232,
+      "filename": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+      "vram_gb_8k": 6.3
+    },
+    {
+      "file_gb": 4.0,
+      "file_sha256": "6be122b5c8f2a33974953e58e0ffd2be505661acc6f4caf733e4bca130e89fea",
+      "file_size_bytes": 4018922912,
+      "filename": "Meta-Llama-3.1-8B-Instruct-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+      "vram_gb_8k": 5.4
+    },
+    {
+      "file_gb": 3.2,
+      "file_sha256": "3f7f9265554ac91f1fb31c1b63b9cada4362533dfaa3f6e8dfc33c48d36909ce",
+      "file_size_bytes": 3179136416,
+      "filename": "Meta-Llama-3.1-8B-Instruct-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+      "revision": "bf5b95e96dac0462e2a09145ec66cae9a3f12067",
+      "vram_gb_8k": 4.6
+    }
+  ],
   "base_model": "meta-llama/Meta-Llama-3.1-8B",
   "catalog_id": "meta-llama/Llama-3.1-8B-Instruct",
   "demo": false,
   "family": "Llama 3.1",
   "gguf_repo": "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF",
+  "hf_model_id": "meta-llama/Llama-3.1-8B-Instruct",
   "kind": "community",
   "license": "llama3.1",
   "model_kind": "base",

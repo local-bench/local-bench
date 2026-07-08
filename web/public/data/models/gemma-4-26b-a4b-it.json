@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 26.9,
+      "file_sha256": "b26c56ea4bf724b4efa0161bb4615e974847ec64450a4dd49da8712614a128c7",
+      "file_size_bytes": 26859859744,
+      "filename": "gemma-4-26B-A4B-it-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/gemma-4-26B-A4B-it-GGUF",
+      "revision": "3bb10d594514ef4edb7f3a65d41a7e4eb8c5767a",
+      "vram_gb_8k": 29.2
+    }
+  ],
   "base_model": "google/gemma-4-26B-A4B",
   "catalog_id": "google/gemma-4-26B-A4B-it",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "unsloth/gemma-4-26B-A4B-it-GGUF",
+  "hf_model_id": "google/gemma-4-26B-A4B-it",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

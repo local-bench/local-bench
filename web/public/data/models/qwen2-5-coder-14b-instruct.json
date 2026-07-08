@@ -1,9 +1,32 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 7.3,
+      "file_sha256": "93b69ebf2883dcd4d8fa0ebd4b4589ae0f3eedc721ac391a46d36d90762f4640",
+      "file_size_bytes": 7339203968,
+      "filename": "qwen2.5-coder-14b-instruct-q3_k_m.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
+      "revision": "d0a692ef765eefbf2fabb130b3cb2e8917e3d225",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 5.8,
+      "file_sha256": "4542a8bb0c0ae6fb3dafeb305c61a8d6b2f894e96bb667d60cda105a1f313176",
+      "file_size_bytes": 5770497408,
+      "filename": "qwen2.5-coder-14b-instruct-q2_k.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
+      "revision": "d0a692ef765eefbf2fabb130b3cb2e8917e3d225",
+      "vram_gb_8k": 7.5
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-Coder-14B",
   "catalog_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
   "demo": false,
   "family": "Qwen2.5 Coder",
   "gguf_repo": "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-Coder-14B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

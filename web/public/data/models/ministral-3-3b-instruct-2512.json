@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 3.7,
+      "file_sha256": "29a9ca7269b37dd83ce6244d11f2f90a17a432a29ce096b51c4049fe0ca9adf4",
+      "file_size_bytes": 3651679936,
+      "filename": "Ministral-3-3B-Instruct-2512-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF",
+      "revision": "94b49547f1931930f002226bc0a68b5f10a4ee25",
+      "vram_gb_8k": 4.9
+    },
+    {
+      "file_gb": 2.8,
+      "file_sha256": "db6b5c3b7bcb33d152dfa3b8373f7c42d0dbdeaac31ddd5496cf5d6ade9279fa",
+      "file_size_bytes": 2821256896,
+      "filename": "Ministral-3-3B-Instruct-2512-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF",
+      "revision": "94b49547f1931930f002226bc0a68b5f10a4ee25",
+      "vram_gb_8k": 3.9
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "ee46f8f2cc4acf15e89699563e23b4a3919dce2e9ce7c44b53778d6590318e96",
+      "file_size_bytes": 2146498240,
+      "filename": "Ministral-3-3B-Instruct-2512-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF",
+      "revision": "94b49547f1931930f002226bc0a68b5f10a4ee25",
+      "vram_gb_8k": 3.2
+    }
+  ],
   "base_model": "mistralai/Ministral-3-3B-Base-2512",
   "catalog_id": "mistralai/Ministral-3-3B-Instruct-2512",
   "demo": false,
   "family": "Ministral",
   "gguf_repo": "lmstudio-community/Ministral-3-3B-Instruct-2512-GGUF",
+  "hf_model_id": "mistralai/Ministral-3-3B-Instruct-2512",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

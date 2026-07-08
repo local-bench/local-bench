@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 32.5,
+      "file_sha256": "6326967c7bad05e9820421a593d48e315416b214cef56f1ca3c1f9d9a6e0f1c6",
+      "file_size_bytes": 32483932576,
+      "filename": "Qwen3-30B-A3B-Thinking-2507-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+      "revision": "a9b37aaac12b2bd0098783a443429543dd76a14d",
+      "vram_gb_8k": 35.0
+    },
+    {
+      "file_gb": 25.1,
+      "file_sha256": "081d05bb6b1f1eab06e3fe9d0b8b17931243df9ebd93de964144d4e86ef1b4c9",
+      "file_size_bytes": 25092532640,
+      "filename": "Qwen3-30B-A3B-Thinking-2507-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+      "revision": "a9b37aaac12b2bd0098783a443429543dd76a14d",
+      "vram_gb_8k": 27.6
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "f8613e46b7a038797f7ed671876fe9ae2b891f6fa5f54437b4356e8270fac22c",
+      "file_size_bytes": 21725581728,
+      "filename": "Qwen3-30B-A3B-Thinking-2507-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+      "revision": "a9b37aaac12b2bd0098783a443429543dd76a14d",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.6,
+      "file_sha256": "b7380c816fca5a03b746be3d42773fb9a1c4b3bb4b3a1f3d9c2aeb10a720cba6",
+      "file_size_bytes": 18556686752,
+      "filename": "Qwen3-30B-A3B-Thinking-2507-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+      "revision": "a9b37aaac12b2bd0098783a443429543dd76a14d",
+      "vram_gb_8k": 21.1
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "e1f6de07ca20c1491f6a4128cf8bd9aa3ea198e28b47e739b90fdced86ad4ff1",
+      "file_size_bytes": 14711847328,
+      "filename": "Qwen3-30B-A3B-Thinking-2507-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+      "revision": "a9b37aaac12b2bd0098783a443429543dd76a14d",
+      "vram_gb_8k": 17.2
+    },
+    {
+      "file_gb": 11.3,
+      "file_sha256": "1a0eb6ae4d09ae4debb78471739d6755977d3b7f9041767581e4092ed9eeed6f",
+      "file_size_bytes": 11258610080,
+      "filename": "Qwen3-30B-A3B-Thinking-2507-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+      "revision": "a9b37aaac12b2bd0098783a443429543dd76a14d",
+      "vram_gb_8k": 13.8
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-30B-A3B-Thinking-2507",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "unsloth/Qwen3-30B-A3B-Thinking-2507-GGUF",
+  "hf_model_id": "Qwen/Qwen3-30B-A3B-Thinking-2507",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

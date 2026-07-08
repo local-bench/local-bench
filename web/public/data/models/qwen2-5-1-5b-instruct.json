@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.9,
+      "file_sha256": "d7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8",
+      "file_size_bytes": 1894532128,
+      "filename": "qwen2.5-1.5b-instruct-q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+      "vram_gb_8k": 3.0
+    },
+    {
+      "file_gb": 1.5,
+      "file_sha256": "e16d94f3b1eb243f6f6be9eee51090ef5dfd741324394fd5b6e0e425c33df5c7",
+      "file_size_bytes": 1464178720,
+      "filename": "qwen2.5-1.5b-instruct-q6_k.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+      "vram_gb_8k": 2.6
+    },
+    {
+      "file_gb": 1.3,
+      "file_sha256": "b46661073c18e5b56a41fa320975f866a00def1ff08feef4718e013258896f8c",
+      "file_size_bytes": 1285494304,
+      "filename": "qwen2.5-1.5b-instruct-q5_k_m.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+      "vram_gb_8k": 2.4
+    },
+    {
+      "file_gb": 1.1,
+      "file_sha256": "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
+      "file_size_bytes": 1117320736,
+      "filename": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+      "vram_gb_8k": 2.2
+    },
+    {
+      "file_gb": 0.9,
+      "file_sha256": "58cb5c05ecef48e82961f1a2be6544145ea26136f69dddda4bbbd092f0e4b993",
+      "file_size_bytes": 924455968,
+      "filename": "qwen2.5-1.5b-instruct-q3_k_m.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+      "vram_gb_8k": 2.0
+    },
+    {
+      "file_gb": 0.8,
+      "file_sha256": "5ede348e91ce1e7a330926ec5b202c27b864d065149dc463257fde1f98865b3a",
+      "file_size_bytes": 752880160,
+      "filename": "qwen2.5-1.5b-instruct-q2_k.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+      "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+      "vram_gb_8k": 1.9
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-1.5B",
   "catalog_id": "Qwen/Qwen2.5-1.5B-Instruct",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-1.5B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

@@ -62,12 +62,13 @@ def catalog_model_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObje
         for run in runs
         if text_value(object_value(run["model_row"], "run.model_row").get("quant_label")) not in catalog_labels
     ]
-    return {
+    payload = {
         "catalog_id": entry["id"],
         "base_model": entry["base_model"],
         "demo": False,
         "family": entry["family"],
         "gguf_repo": entry["gguf_repo"],
+        "hf_model_id": entry["id"],
         "kind": SHELL_KIND,
         "license": entry["license"],
         "model_kind": entry["model_kind"],
@@ -76,6 +77,35 @@ def catalog_model_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObje
         "runs": quant_rows + extra_rows,
         "slug": entry["slug"],
     }
+    artifacts = catalog_artifact_rows(entry)
+    if artifacts:
+        payload["artifacts"] = artifacts
+    return payload
+
+
+# The one-shot CLI resolves models from this served payload and refuses to download
+# anything without an immutable pin (repo, filename, 40-char revision, sha256). Only
+# fully pinned quants are exposed; unpinned quants stay out so the CLI fails closed
+# with its own clear message instead of a partial pin.
+def catalog_artifact_rows(entry: JsonObject) -> list[JsonObject]:
+    rows: list[JsonObject] = []
+    for quant in list_value(entry["quants"], "catalog.quants"):
+        quant_entry = object_value(quant, "catalog.quant")
+        if not all(text_value(quant_entry.get(key)) for key in ("filename", "revision", "file_sha256")):
+            continue
+        rows.append(
+            {
+                "quant_label": string_value(quant_entry.get("label"), "catalog.quant.label"),
+                "repo_id": text_value(quant_entry.get("gguf_repo")) or entry["gguf_repo"],
+                "filename": quant_entry["filename"],
+                "revision": quant_entry["revision"],
+                "file_sha256": quant_entry["file_sha256"],
+                "file_size_bytes": _int_or_none(quant_entry.get("file_size_bytes")),
+                "vram_gb_8k": number_or_none(quant_entry.get("vram_gb_8k")),
+                "file_gb": number_or_none(quant_entry.get("file_gb")),
+            }
+        )
+    return rows
 
 
 def catalog_quant_row(entry: JsonObject, quant: JsonValue, runs: list[JsonObject]) -> JsonObject:
@@ -119,6 +149,11 @@ def catalog_quant_row(entry: JsonObject, quant: JsonValue, runs: list[JsonObject
         "vram_required_gb_8k": number_or_none(quant_entry.get("vram_gb_8k")),
         "wall_time_seconds": None,
     }
+
+
+def _int_or_none(value: JsonValue | None) -> int | None:
+    number = number_or_none(value)
+    return None if number is None else int(round(number))
 
 
 def catalog_key(entry: JsonObject) -> str:

@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Llama 3.1",
   "gguf_repo": "MaziyarPanahi/Meta-Llama-3.1-405B-Instruct-GGUF",
+  "hf_model_id": "meta-llama/Llama-3.1-405B-Instruct",
   "kind": "community",
   "license": "llama3.1",
   "model_kind": "base",

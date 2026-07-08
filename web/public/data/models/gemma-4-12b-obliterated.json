@@ -1,9 +1,32 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 12.7,
+      "file_sha256": "54ac8a7b39cf617a9980cf32c5c943e2688745e03d451e70f3b5e2846a589fda",
+      "file_size_bytes": 12669645888,
+      "filename": "Gemma-4-12B-OBLITERATED-v2-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "OBLITERATUS/Gemma-4-12B-OBLITERATED",
+      "revision": "f81b0cbd28a3650138635823bc101adb56a0bc4a",
+      "vram_gb_8k": 14.3
+    },
+    {
+      "file_gb": 7.4,
+      "file_sha256": "f5b01d65562305cad661d9ec83bd63220c101fec5355fa78fb6a27ba85116eb4",
+      "file_size_bytes": 7381382208,
+      "filename": "Gemma-4-12B-OBLITERATED-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "OBLITERATUS/Gemma-4-12B-OBLITERATED",
+      "revision": "f81b0cbd28a3650138635823bc101adb56a0bc4a",
+      "vram_gb_8k": 9.0
+    }
+  ],
   "base_model": "google/gemma-4-12B-it",
   "catalog_id": "OBLITERATUS/Gemma-4-12B-OBLITERATED",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "OBLITERATUS/Gemma-4-12B-OBLITERATED",
+  "hf_model_id": "OBLITERATUS/Gemma-4-12B-OBLITERATED",
   "kind": "community",
   "license": "gemma",
   "model_kind": "distill",

@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 48.5,
+      "file_sha256": "9e6032d2f3b50a60f17ce8bf5a1d85c71af9b53b89c7978020ae7c660f29b090",
+      "file_size_bytes": 48528320544,
+      "filename": "Qwen3-Coder-Next-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Qwen3-Coder-Next-GGUF",
+      "revision": "ce09c67b53bc8739eef83fe67b2f5d293c270632",
+      "vram_gb_8k": 53.5
+    },
+    {
+      "file_gb": 38.3,
+      "file_sha256": "b12ec74934e548b3e9cb80d05660a9a6a5af1a2aec6fbf5f9e9b4a36626aee75",
+      "file_size_bytes": 38322487328,
+      "filename": "Qwen3-Coder-Next-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Qwen3-Coder-Next-GGUF",
+      "revision": "ce09c67b53bc8739eef83fe67b2f5d293c270632",
+      "vram_gb_8k": 43.3
+    },
+    {
+      "file_gb": 29.2,
+      "file_sha256": "2ac738bc947bc3470e37962c2ee0ab390fa953740e9873575695276980abad87",
+      "file_size_bytes": 29224450080,
+      "filename": "Qwen3-Coder-Next-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Qwen3-Coder-Next-GGUF",
+      "revision": "ce09c67b53bc8739eef83fe67b2f5d293c270632",
+      "vram_gb_8k": 34.2
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-Coder-Next",
   "demo": false,
   "family": "Qwen3 Coder",
   "gguf_repo": "unsloth/Qwen3-Coder-Next-GGUF",
+  "hf_model_id": "Qwen/Qwen3-Coder-Next",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

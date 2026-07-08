@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 3.3,
+      "file_sha256": "e1a9d2d729a0bc6110264fe98ec647a0a593c68a9ea7f0ac628fb2571d5cc590",
+      "file_size_bytes": 3306261824,
+      "filename": "Rio-3.0-Open-Mini.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Rio-3.0-Open-Mini-i1-GGUF",
+      "revision": "cfb11beed3e86753d971580e1ca45314c407d1d1",
+      "vram_gb_8k": 4.5
+    },
+    {
+      "file_gb": 2.9,
+      "file_sha256": "4a16d30e07d3e3ce3b2b86152d017e4d100b7c44d59ac0d6bdb4646d4145482d",
+      "file_size_bytes": 2889514304,
+      "filename": "Rio-3.0-Open-Mini.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Rio-3.0-Open-Mini-i1-GGUF",
+      "revision": "cfb11beed3e86753d971580e1ca45314c407d1d1",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "a893adae7185a7709818e74d8d5d1efe6cda604d9fdce129cc878e4c44d43aef",
+      "file_size_bytes": 2497281344,
+      "filename": "Rio-3.0-Open-Mini.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Rio-3.0-Open-Mini-i1-GGUF",
+      "revision": "cfb11beed3e86753d971580e1ca45314c407d1d1",
+      "vram_gb_8k": 3.7
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "09924dcba04cc57484f1840014f29959c62499954bdb1bd15771bcef242c0536",
+      "file_size_bytes": 2075618624,
+      "filename": "Rio-3.0-Open-Mini.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Rio-3.0-Open-Mini-i1-GGUF",
+      "revision": "cfb11beed3e86753d971580e1ca45314c407d1d1",
+      "vram_gb_8k": 3.3
+    },
+    {
+      "file_gb": 1.7,
+      "file_sha256": "61fbe509d06b7b76ec9cb6ae8961fd778d5f7a6924d0db81e7e16e286a8bbd6e",
+      "file_size_bytes": 1669500224,
+      "filename": "Rio-3.0-Open-Mini.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Rio-3.0-Open-Mini-i1-GGUF",
+      "revision": "cfb11beed3e86753d971580e1ca45314c407d1d1",
+      "vram_gb_8k": 2.9
+    }
+  ],
   "base_model": "Qwen/Qwen3-4B-Thinking-2507",
   "catalog_id": "prefeitura-rio/Rio-3.0-Open-Mini",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Rio-3.0-Open-Mini-i1-GGUF",
+  "hf_model_id": "prefeitura-rio/Rio-3.0-Open-Mini",
   "kind": "community",
   "license": "mit",
   "model_kind": "finetune",

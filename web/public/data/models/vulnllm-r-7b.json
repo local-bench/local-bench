@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.1,
+      "file_sha256": "fb8932e1d85a74cc97cff63fc98eacf0b3206780aa71e59f42a1735977601011",
+      "file_size_bytes": 8098526112,
+      "filename": "VulnLLM-R-7B.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/VulnLLM-R-7B-GGUF",
+      "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63",
+      "vram_gb_8k": 9.5
+    },
+    {
+      "file_gb": 6.3,
+      "file_sha256": "c926f5eb1276ed36f3a2221294c38269b84fdfefdaf514cf31d1f9fffd043394",
+      "file_size_bytes": 6254199712,
+      "filename": "VulnLLM-R-7B.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/VulnLLM-R-7B-GGUF",
+      "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 5.4,
+      "file_sha256": "987452d4b09ead07c488f500ee1f8970e6ce47b76a1d7dd72991c76caccfa8cb",
+      "file_size_bytes": 5444832160,
+      "filename": "VulnLLM-R-7B.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/VulnLLM-R-7B-GGUF",
+      "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63",
+      "vram_gb_8k": 6.8
+    },
+    {
+      "file_gb": 4.7,
+      "file_sha256": "22ef4df3a60aa194d85b88808d54b258631aa920d9926a89a3fb353190143817",
+      "file_size_bytes": 4683074464,
+      "filename": "VulnLLM-R-7B.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/VulnLLM-R-7B-GGUF",
+      "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63",
+      "vram_gb_8k": 6.1
+    },
+    {
+      "file_gb": 3.8,
+      "file_sha256": "e77e7fb01db8fb4fef44a55493e890829b5a85578575d3140711c41d89c8b825",
+      "file_size_bytes": 3808392096,
+      "filename": "VulnLLM-R-7B.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/VulnLLM-R-7B-GGUF",
+      "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63",
+      "vram_gb_8k": 5.2
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "a666f1872f1e876899517252857c7a39234f8d3dd008fc8901d3010f8e09b5a2",
+      "file_size_bytes": 3015941024,
+      "filename": "VulnLLM-R-7B.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/VulnLLM-R-7B-GGUF",
+      "revision": "6ce5015efa4210be17c1c3034ba5dd5ca36d0d63",
+      "vram_gb_8k": 4.4
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-7B-Instruct",
   "catalog_id": "Virtue-AI-HUB/VulnLLM-R-7B",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "mradermacher/VulnLLM-R-7B-GGUF",
+  "hf_model_id": "Virtue-AI-HUB/VulnLLM-R-7B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

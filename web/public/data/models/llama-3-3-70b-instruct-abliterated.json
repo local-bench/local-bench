@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 42.5,
+      "file_sha256": "5804f6de5403d0a5e446a811dc15f992fb13b67bf28ccaf089f1d3ab3780e47b",
+      "file_size_bytes": 42520398912,
+      "filename": "Llama-3.3-70B-Instruct-abliterated-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Llama-3.3-70B-Instruct-abliterated-GGUF",
+      "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e",
+      "vram_gb_8k": 47.0
+    },
+    {
+      "file_gb": 34.3,
+      "file_sha256": "ed69c9692702b3c9bde1c5aca0996327e19a2420a6ced9f3bb0e03c58311cc33",
+      "file_size_bytes": 34267499584,
+      "filename": "Llama-3.3-70B-Instruct-abliterated-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Llama-3.3-70B-Instruct-abliterated-GGUF",
+      "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e",
+      "vram_gb_8k": 38.8
+    },
+    {
+      "file_gb": 26.4,
+      "file_sha256": "d9a1fc1ec3494dbdd0742f34327b7dc964e31c7c6d6d87a5a9fbe6299e25fc29",
+      "file_size_bytes": 26375113792,
+      "filename": "Llama-3.3-70B-Instruct-abliterated-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Llama-3.3-70B-Instruct-abliterated-GGUF",
+      "revision": "ce37d99d465fbb80616839022c4ae8304e606b4e",
+      "vram_gb_8k": 30.9
+    }
+  ],
   "base_model": "meta-llama/Llama-3.3-70B-Instruct",
   "catalog_id": "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
   "demo": false,
   "family": "Llama 3.3",
   "gguf_repo": "bartowski/Llama-3.3-70B-Instruct-abliterated-GGUF",
+  "hf_model_id": "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
   "kind": "community",
   "license": "llama3.3",
   "model_kind": "finetune",

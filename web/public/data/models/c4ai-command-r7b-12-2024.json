@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.5,
+      "file_sha256": "482fd879878216e3dfa2181f06c9cfbfd0885be09b7bc2adb67aabd8ae5f7811",
+      "file_size_bytes": 8541100704,
+      "filename": "c4ai-command-r7b-12-2024-abliterated-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+      "revision": "2520a9e118ea8affb6eb076424ae17491b287ccb",
+      "vram_gb_8k": 9.8
+    },
+    {
+      "file_gb": 6.6,
+      "file_sha256": "e199bd24d43aead1786c0dc2c2a3d8889ad379ebbee02c03d3866a31e86e9588",
+      "file_size_bytes": 6596844192,
+      "filename": "c4ai-command-r7b-12-2024-abliterated-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+      "revision": "2520a9e118ea8affb6eb076424ae17491b287ccb",
+      "vram_gb_8k": 7.9
+    },
+    {
+      "file_gb": 5.8,
+      "file_sha256": "8116d94984685e2f57bc47ed99d93f46222743ebcd54e774e2c2fda2b4af3c00",
+      "file_size_bytes": 5803596448,
+      "filename": "c4ai-command-r7b-12-2024-abliterated-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+      "revision": "2520a9e118ea8affb6eb076424ae17491b287ccb",
+      "vram_gb_8k": 7.1
+    },
+    {
+      "file_gb": 5.1,
+      "file_sha256": "bd6f8ba106b2d47624b9eb43cd6aba7917e40ff67ec190424f0fe5460524e3b4",
+      "file_size_bytes": 5057010336,
+      "filename": "c4ai-command-r7b-12-2024-abliterated-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+      "revision": "2520a9e118ea8affb6eb076424ae17491b287ccb",
+      "vram_gb_8k": 6.4
+    },
+    {
+      "file_gb": 4.2,
+      "file_sha256": "d54524c7b854a18284b5c5787efe3d8750bf6d3655b9550770b4e904d9cecfc7",
+      "file_size_bytes": 4224965280,
+      "filename": "c4ai-command-r7b-12-2024-abliterated-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+      "revision": "2520a9e118ea8affb6eb076424ae17491b287ccb",
+      "vram_gb_8k": 5.5
+    },
+    {
+      "file_gb": 3.4,
+      "file_sha256": "f4956f7a1fad51e663712447d41feb41da16c3669b95d9c7aee59796b63b203d",
+      "file_size_bytes": 3438533280,
+      "filename": "c4ai-command-r7b-12-2024-abliterated-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+      "revision": "2520a9e118ea8affb6eb076424ae17491b287ccb",
+      "vram_gb_8k": 4.8
+    }
+  ],
   "base_model": null,
   "catalog_id": "CohereLabs/c4ai-command-r7b-12-2024",
   "demo": false,
   "family": "Command R",
   "gguf_repo": "bartowski/c4ai-command-r7b-12-2024-abliterated-GGUF",
+  "hf_model_id": "CohereLabs/c4ai-command-r7b-12-2024",
   "kind": "community",
   "license": "cc-by-nc-4.0",
   "model_kind": "base",

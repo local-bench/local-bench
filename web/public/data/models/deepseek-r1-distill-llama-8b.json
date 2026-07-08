@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.5,
+      "file_sha256": "8c6e3924d662d3f24a96b228a5c317510c27e91c587e71e78877ed18a875ec82",
+      "file_size_bytes": 8540773088,
+      "filename": "DeepSeek-R1-Distill-Llama-8B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+      "revision": "615f8936e16dfde29dcc00be71145d4d5ce8ed53",
+      "vram_gb_8k": 9.9
+    },
+    {
+      "file_gb": 6.6,
+      "file_sha256": "403a545b2dce6dfbc3022c9613c06ce1dd80a9288ba4259bfe495e42ec015ec7",
+      "file_size_bytes": 6596009408,
+      "filename": "DeepSeek-R1-Distill-Llama-8B-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+      "revision": "615f8936e16dfde29dcc00be71145d4d5ce8ed53",
+      "vram_gb_8k": 8.0
+    },
+    {
+      "file_gb": 5.7,
+      "file_sha256": "dcf118abe847f21160cb87a3d44ee500f370be7f9f6d347da7e8405a9294a214",
+      "file_size_bytes": 5732990400,
+      "filename": "DeepSeek-R1-Distill-Llama-8B-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+      "revision": "615f8936e16dfde29dcc00be71145d4d5ce8ed53",
+      "vram_gb_8k": 7.1
+    },
+    {
+      "file_gb": 4.9,
+      "file_sha256": "0addb1339a82385bcd973186cd80d18dcc71885d45eabd899781a118d03827d9",
+      "file_size_bytes": 4920737216,
+      "filename": "DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+      "revision": "615f8936e16dfde29dcc00be71145d4d5ce8ed53",
+      "vram_gb_8k": 6.3
+    },
+    {
+      "file_gb": 4.0,
+      "file_sha256": "b472323613ea8fd028c72ff2c85bde9ca6f162379d5651d3fe77393bb7dd1747",
+      "file_size_bytes": 4018920896,
+      "filename": "DeepSeek-R1-Distill-Llama-8B-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+      "revision": "615f8936e16dfde29dcc00be71145d4d5ce8ed53",
+      "vram_gb_8k": 5.4
+    },
+    {
+      "file_gb": 3.2,
+      "file_sha256": "4fc8724925a93a74bd8b858ad47fa5e8c8d0a2740ec257c0a93267a12073d67b",
+      "file_size_bytes": 3179134400,
+      "filename": "DeepSeek-R1-Distill-Llama-8B-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+      "revision": "615f8936e16dfde29dcc00be71145d4d5ce8ed53",
+      "vram_gb_8k": 4.6
+    }
+  ],
   "base_model": null,
   "catalog_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
   "demo": false,
   "family": "DeepSeek R1 Distill",
   "gguf_repo": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

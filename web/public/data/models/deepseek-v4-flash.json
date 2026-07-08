@@ -4,6 +4,7 @@
   "demo": false,
   "family": "DeepSeek V4",
   "gguf_repo": null,
+  "hf_model_id": "deepseek-ai/DeepSeek-V4-Flash",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

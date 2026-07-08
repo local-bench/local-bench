@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 36.9,
+      "file_sha256": "5918e4c9b1bec8e8535306f65a9da57f2e7c6c69943eb6f2707e100bcc9723e9",
+      "file_size_bytes": 36903139072,
+      "filename": "gguf/SIQ-1-35B.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "AlexWortega/SIQ-1-35B",
+      "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b",
+      "vram_gb_8k": 39.6
+    },
+    {
+      "file_gb": 30.2,
+      "file_sha256": "43374cac0434e46666c2b53b6e918911f736eb3fc2d00354be8194985896a1f0",
+      "file_size_bytes": 30203435008,
+      "filename": "gguf/SIQ-1-35B-MTP.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "AlexWortega/SIQ-1-35B",
+      "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b",
+      "vram_gb_8k": 32.9
+    },
+    {
+      "file_gb": 24.7,
+      "file_sha256": "248a1b097e6a654f2b221995b31848c812110e327ae52797c4dd905ae1e1452a",
+      "file_size_bytes": 24729130752,
+      "filename": "gguf/SIQ-1-35B.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "AlexWortega/SIQ-1-35B",
+      "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b",
+      "vram_gb_8k": 27.4
+    },
+    {
+      "file_gb": 21.2,
+      "file_sha256": "60061272a7e5bad172c25c5bb1e92a361107baf9fe7c1bf99c6f740a3abc07b2",
+      "file_size_bytes": 21166757632,
+      "filename": "gguf/SIQ-1-35B.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "AlexWortega/SIQ-1-35B",
+      "revision": "623ed3a96ed451b9e7da77bd083f52f8c685316b",
+      "vram_gb_8k": 23.9
+    }
+  ],
   "base_model": "Qwen/Qwen3.6-35B-A3B",
   "catalog_id": "AlexWortega/SIQ-1-35B",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "AlexWortega/SIQ-1-35B",
+  "hf_model_id": "AlexWortega/SIQ-1-35B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

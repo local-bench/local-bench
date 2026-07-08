@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "aa5fd7eff278de98232bf62973bc6c7d8a516eea7af0942bca55609c338fc52c",
+      "file_size_bytes": 25054781280,
+      "filename": "mistralai_Magistral-Small-2506-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+      "revision": "dbf2f0bcf878662f61035a89542d10bc8fdca801",
+      "vram_gb_8k": 27.3
+    },
+    {
+      "file_gb": 19.3,
+      "file_sha256": "f60c3ce30b4c045fe0fbd6762072f258217a857fd995ce559386c6e1aa240802",
+      "file_size_bytes": 19345940320,
+      "filename": "mistralai_Magistral-Small-2506-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+      "revision": "dbf2f0bcf878662f61035a89542d10bc8fdca801",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.8,
+      "file_sha256": "b74dfcdf9e46eaf0bc47d43d0c88314a1e7e5ecf2fd0cf74be7f9882b5ee9b70",
+      "file_size_bytes": 16763985760,
+      "filename": "mistralai_Magistral-Small-2506-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+      "revision": "dbf2f0bcf878662f61035a89542d10bc8fdca801",
+      "vram_gb_8k": 19.0
+    },
+    {
+      "file_gb": 14.3,
+      "file_sha256": "b681b81ba30238b7654db77b4b3afa7b0f6226c84d8bbd5a5dfb1a5a3cb95816",
+      "file_size_bytes": 14333910880,
+      "filename": "mistralai_Magistral-Small-2506-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+      "revision": "dbf2f0bcf878662f61035a89542d10bc8fdca801",
+      "vram_gb_8k": 16.5
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "fab714d82031342823b38dfa4f33ca3b8d53a87f88802bc46dd99f66308067a1",
+      "file_size_bytes": 11474083680,
+      "filename": "mistralai_Magistral-Small-2506-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+      "revision": "dbf2f0bcf878662f61035a89542d10bc8fdca801",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 8.9,
+      "file_sha256": "426f545ad0508b675994e7b96326c48f6180be918957923ce81e8f1fd7301f50",
+      "file_size_bytes": 8890326880,
+      "filename": "mistralai_Magistral-Small-2506-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+      "revision": "dbf2f0bcf878662f61035a89542d10bc8fdca801",
+      "vram_gb_8k": 11.1
+    }
+  ],
   "base_model": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
   "catalog_id": "mistralai/Magistral-Small-2506",
   "demo": false,
   "family": "Mistral Small",
   "gguf_repo": "bartowski/mistralai_Magistral-Small-2506-GGUF",
+  "hf_model_id": "mistralai/Magistral-Small-2506",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

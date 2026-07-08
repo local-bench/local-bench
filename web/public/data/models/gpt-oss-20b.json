@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 12.1,
+      "file_sha256": "bcd455d4034ec02f71a875b46cb17df44a97911d7258291973be4d21f98329f3",
+      "file_size_bytes": 12109567168,
+      "filename": "gpt-oss-20b-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/gpt-oss-20b-GGUF",
+      "revision": "d449b42d93e1c2c7bda5312f5c25c8fb91dfa9b4",
+      "vram_gb_8k": 14.2
+    },
+    {
+      "file_gb": 12.0,
+      "file_sha256": "f2ead52a7842a556ea10d5edd91a88e5af974856d2485ecaad3aade679832935",
+      "file_size_bytes": 12041000128,
+      "filename": "gpt-oss-20b-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/gpt-oss-20b-GGUF",
+      "revision": "d449b42d93e1c2c7bda5312f5c25c8fb91dfa9b4",
+      "vram_gb_8k": 14.1
+    },
+    {
+      "file_gb": 11.7,
+      "file_sha256": "9c3814533c5b4c84d42b5dce4376bbdfd7227e990b8733a3a1c4f741355b3e75",
+      "file_size_bytes": 11717357248,
+      "filename": "gpt-oss-20b-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/gpt-oss-20b-GGUF",
+      "revision": "d449b42d93e1c2c7bda5312f5c25c8fb91dfa9b4",
+      "vram_gb_8k": 13.8
+    },
+    {
+      "file_gb": 11.6,
+      "file_sha256": "c27536640e410032865dc68781d80a08b98f8db5e93575919af8ccc0568aeb4f",
+      "file_size_bytes": 11624759488,
+      "filename": "gpt-oss-20b-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/gpt-oss-20b-GGUF",
+      "revision": "d449b42d93e1c2c7bda5312f5c25c8fb91dfa9b4",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "bc02b57e05cfef36b1f6f4a952666a76b26838f8cf431412cb0cd19f41cf8040",
+      "file_size_bytes": 11506103488,
+      "filename": "gpt-oss-20b-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/gpt-oss-20b-GGUF",
+      "revision": "d449b42d93e1c2c7bda5312f5c25c8fb91dfa9b4",
+      "vram_gb_8k": 13.6
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "129b8e3865517cbba55bbb7d4f0cc2444a014e73a619eafbac247ef6573a19ee",
+      "file_size_bytes": 11468317888,
+      "filename": "gpt-oss-20b-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/gpt-oss-20b-GGUF",
+      "revision": "d449b42d93e1c2c7bda5312f5c25c8fb91dfa9b4",
+      "vram_gb_8k": 13.6
+    }
+  ],
   "base_model": null,
   "catalog_id": "openai/gpt-oss-20b",
   "demo": false,
   "family": "GPT OSS",
   "gguf_repo": "unsloth/gpt-oss-20b-GGUF",
+  "hf_model_id": "openai/gpt-oss-20b",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

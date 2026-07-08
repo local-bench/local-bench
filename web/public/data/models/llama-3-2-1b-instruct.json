@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.3,
+      "file_sha256": "ba345c83bf5cc679c653b853c46517eea5a34f03ed2205449db77184d9ae62a9",
+      "file_size_bytes": 1321079200,
+      "filename": "llama-3.2-1b-instruct-q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF",
+      "revision": "8790ecfe0c6c7a20f2a532acdfc1b5d98e1bfa8b",
+      "vram_gb_8k": 2.3
+    }
+  ],
   "base_model": null,
   "catalog_id": "meta-llama/Llama-3.2-1B-Instruct",
   "demo": false,
   "family": "Llama 3.2",
   "gguf_repo": "hugging-quants/Llama-3.2-1B-Instruct-Q8_0-GGUF",
+  "hf_model_id": "meta-llama/Llama-3.2-1B-Instruct",
   "kind": "community",
   "license": "llama3.2",
   "model_kind": "base",

@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 19.8,
+      "file_sha256": "a27a92cf139a68efcbb267c6af6d20bb8f3feddc700f3b03cd8d41f4dc443348",
+      "file_size_bytes": 19762149504,
+      "filename": "qwen3-32b-abliterated-q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "RoadToNowhere/Qwen3-32B-abliterated-Q4_K_M-GGUF",
+      "revision": "36a6a1be225e6728acaec150ae944cf24491f684",
+      "vram_gb_8k": 22.4
+    }
+  ],
   "base_model": "Qwen/Qwen3-32B",
   "catalog_id": "huihui-ai/Qwen3-32B-abliterated",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "RoadToNowhere/Qwen3-32B-abliterated-Q4_K_M-GGUF",
+  "hf_model_id": "huihui-ai/Qwen3-32B-abliterated",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

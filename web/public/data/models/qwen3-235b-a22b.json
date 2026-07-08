@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "unsloth/Qwen3-235B-A22B-GGUF",
+  "hf_model_id": "Qwen/Qwen3-235B-A22B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

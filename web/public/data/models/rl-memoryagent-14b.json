@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 15.7,
+      "file_sha256": "bdab5a745684c77874430b45de702b1b6bc5e94f072a22615f6761057f5e2ad0",
+      "file_size_bytes": 15701598016,
+      "filename": "RL-MemoryAgent-14B.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e",
+      "vram_gb_8k": 17.4
+    },
+    {
+      "file_gb": 12.1,
+      "file_sha256": "e5bc9d56f1267a21a0cef3eb98676cb04ee53ff6b635277f6aed63babf675756",
+      "file_size_bytes": 12124684096,
+      "filename": "RL-MemoryAgent-14B.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e",
+      "vram_gb_8k": 13.8
+    },
+    {
+      "file_gb": 10.5,
+      "file_sha256": "615bedc678d7fe739ba0e732da1c541a893c948d4f12b12a5f7f0a889dd0a04c",
+      "file_size_bytes": 10508873536,
+      "filename": "RL-MemoryAgent-14B.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e",
+      "vram_gb_8k": 12.2
+    },
+    {
+      "file_gb": 9.0,
+      "file_sha256": "e542361d2c2fc3cb24e8503dad37d9d7f7f47c5afe7d5aaac8955b0970a663fb",
+      "file_size_bytes": 8988110656,
+      "filename": "RL-MemoryAgent-14B.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e",
+      "vram_gb_8k": 10.7
+    },
+    {
+      "file_gb": 7.3,
+      "file_sha256": "b33ea5acd74209fdfb447331f806416cfebf978fde5c667c8df4c00348bbb8de",
+      "file_size_bytes": 7339204416,
+      "filename": "RL-MemoryAgent-14B.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 5.8,
+      "file_sha256": "045df34097bf5948403f91c6d0af87b1fd64fbf97b57f4532cb52763342f9f21",
+      "file_size_bytes": 5770497856,
+      "filename": "RL-MemoryAgent-14B.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/RL-MemoryAgent-14B-GGUF",
+      "revision": "34eb38be2efa679b35cc8185e5654a4b2f573f6e",
+      "vram_gb_8k": 7.5
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-14B-Instruct",
   "catalog_id": "BytedTsinghua-SIA/RL-MemoryAgent-14B",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "mradermacher/RL-MemoryAgent-14B-GGUF",
+  "hf_model_id": "BytedTsinghua-SIA/RL-MemoryAgent-14B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

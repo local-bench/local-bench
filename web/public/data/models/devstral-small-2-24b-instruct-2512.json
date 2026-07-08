@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "0760502e9228234f6cfa843f8870b8fc91c46a13664cf766c639229cccc80866",
+      "file_size_bytes": 25055317152,
+      "filename": "Devstral-Small-2-24B-Instruct-2512-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+      "revision": "6e458b8add42681bfd023de5eab93637694aaf82",
+      "vram_gb_8k": 27.3
+    },
+    {
+      "file_gb": 19.3,
+      "file_sha256": "b04b3e19730d7a1e19530f40b947b69c028b090cb7c58c1515cf1fc2ece5f821",
+      "file_size_bytes": 19346476192,
+      "filename": "Devstral-Small-2-24B-Instruct-2512-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+      "revision": "6e458b8add42681bfd023de5eab93637694aaf82",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.8,
+      "file_sha256": "2da6ca6c4ae387aa7f3f2f4a67bb3e1ca570ce0c69c21e26b8695e75172443b0",
+      "file_size_bytes": 16764521632,
+      "filename": "Devstral-Small-2-24B-Instruct-2512-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+      "revision": "6e458b8add42681bfd023de5eab93637694aaf82",
+      "vram_gb_8k": 19.0
+    },
+    {
+      "file_gb": 14.3,
+      "file_sha256": "d14ba9edee1bb4c4996a726deb81e49ae81800a3216f0774634238c380aee496",
+      "file_size_bytes": 14334446752,
+      "filename": "Devstral-Small-2-24B-Instruct-2512-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+      "revision": "6e458b8add42681bfd023de5eab93637694aaf82",
+      "vram_gb_8k": 16.5
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "53466aa3e486e6f0068c2593d12aeb15fb079c1dfe443ab922c468c39761bd16",
+      "file_size_bytes": 11474619552,
+      "filename": "Devstral-Small-2-24B-Instruct-2512-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+      "revision": "6e458b8add42681bfd023de5eab93637694aaf82",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 8.9,
+      "file_sha256": "408a61e7dcc0eb7fda7d70979395f974fe17310b4f38f977c95d9b98095fe1aa",
+      "file_size_bytes": 8890862752,
+      "filename": "Devstral-Small-2-24B-Instruct-2512-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+      "revision": "6e458b8add42681bfd023de5eab93637694aaf82",
+      "vram_gb_8k": 11.1
+    }
+  ],
   "base_model": "mistralai/Mistral-Small-3.1-24B-Base-2503",
   "catalog_id": "mistralai/Devstral-Small-2-24B-Instruct-2512",
   "demo": false,
   "family": "Mistral Small",
   "gguf_repo": "unsloth/Devstral-Small-2-24B-Instruct-2512-GGUF",
+  "hf_model_id": "mistralai/Devstral-Small-2-24B-Instruct-2512",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

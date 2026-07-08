@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 26.9,
+      "file_sha256": "ecf03bfca9e3a3f01c6998585fc98b7db2cb7d76332b31bf3332935a62665ee2",
+      "file_size_bytes": 26859859392,
+      "filename": "Dark-Scarlett-v0.3-26B-A4B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF",
+      "revision": "b076da94ae47dd6f270dad74caa5094d6e505266",
+      "vram_gb_8k": 29.2
+    },
+    {
+      "file_gb": 22.6,
+      "file_sha256": "2a0c30c18f847baa58cf62fe82c20630121415d722f876f82bc7d3dfcc39a580",
+      "file_size_bytes": 22638399712,
+      "filename": "Dark-Scarlett-v0.3-26B-A4B-i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF",
+      "revision": "b076da94ae47dd6f270dad74caa5094d6e505266",
+      "vram_gb_8k": 24.9
+    },
+    {
+      "file_gb": 19.1,
+      "file_sha256": "b333742ced5fe5ef22975fdaf847a257c345eda1d3be91f63359e21e970611d5",
+      "file_size_bytes": 19132890848,
+      "filename": "Dark-Scarlett-v0.3-26B-A4B-i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF",
+      "revision": "b076da94ae47dd6f270dad74caa5094d6e505266",
+      "vram_gb_8k": 21.4
+    },
+    {
+      "file_gb": 16.8,
+      "file_sha256": "05da77c91bd68ff771fa2d0d5fee0884bbac438c17df2805373f2767bf518133",
+      "file_size_bytes": 16796016352,
+      "filename": "Dark-Scarlett-v0.3-26B-A4B-i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF",
+      "revision": "b076da94ae47dd6f270dad74caa5094d6e505266",
+      "vram_gb_8k": 19.1
+    }
+  ],
   "base_model": "google/gemma-4-26B-A4B-it",
   "catalog_id": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B-GGUF",
+  "hf_model_id": "ReadyArt/Dark-Scarlett-v0.3-26B-A4B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

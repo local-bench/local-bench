@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 15.6,
+      "file_sha256": "0956c5c89fa3363a8d6163bc06dbf9eee8d29457c07f469bae16b86bb0c768c8",
+      "file_size_bytes": 15580501728,
+      "filename": "Phi-4-reasoning-plus-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "lmstudio-community/Phi-4-reasoning-plus-GGUF",
+      "revision": "32a07ec573ed9a856f7f75c26a558bc8f23cca55",
+      "vram_gb_8k": 17.3
+    },
+    {
+      "file_gb": 12.0,
+      "file_sha256": "725622f0fe065ec10c5a65255781df9c7dac3b12abaae9ec66d147bd99e46bf0",
+      "file_size_bytes": 12030252768,
+      "filename": "Phi-4-reasoning-plus-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "lmstudio-community/Phi-4-reasoning-plus-GGUF",
+      "revision": "32a07ec573ed9a856f7f75c26a558bc8f23cca55",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 9.1,
+      "file_sha256": "6f10ded0197863aa0641e2451688ac8025c95ff7c948e23f1089d173e6834768",
+      "file_size_bytes": 9053116128,
+      "filename": "Phi-4-reasoning-plus-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "lmstudio-community/Phi-4-reasoning-plus-GGUF",
+      "revision": "32a07ec573ed9a856f7f75c26a558bc8f23cca55",
+      "vram_gb_8k": 10.8
+    }
+  ],
   "base_model": "microsoft/phi-4",
   "catalog_id": "microsoft/Phi-4-reasoning",
   "demo": false,
   "family": "Phi 4",
   "gguf_repo": "lmstudio-community/Phi-4-reasoning-plus-GGUF",
+  "hf_model_id": "microsoft/Phi-4-reasoning",
   "kind": "community",
   "license": "mit",
   "model_kind": "finetune",

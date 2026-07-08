@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 34.8,
+      "file_sha256": "12d161dffd0bf853e8b3ea7c6e4f8937b3fadd7484b7de2a15bccfa64c502a42",
+      "file_size_bytes": 34821493792,
+      "filename": "QwQ-32B.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "MaziyarPanahi/QwQ-32B-GGUF",
+      "revision": "c289541240c414b14fc9a8b2d48fac949dc16012",
+      "vram_gb_8k": 37.4
+    },
+    {
+      "file_gb": 26.9,
+      "file_sha256": "bc468b35d4350a30c32ec9975063b5a9fd1103ebd036e2b7a4864b0f5b0ba32a",
+      "file_size_bytes": 26886763552,
+      "filename": "QwQ-32B.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/QwQ-32B-GGUF",
+      "revision": "c289541240c414b14fc9a8b2d48fac949dc16012",
+      "vram_gb_8k": 29.5
+    },
+    {
+      "file_gb": 23.3,
+      "file_sha256": "6d6d4d69cc099c50a5dd0f4a1235e0733b3b48ae9e53b6c749c580b9865860d9",
+      "file_size_bytes": 23262766112,
+      "filename": "QwQ-32B.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/QwQ-32B-GGUF",
+      "revision": "c289541240c414b14fc9a8b2d48fac949dc16012",
+      "vram_gb_8k": 25.9
+    },
+    {
+      "file_gb": 19.9,
+      "file_sha256": "ec4b3d17087af8d8414c1de85269d5fbc396277a99d949f75ca42ff52e7d09d4",
+      "file_size_bytes": 19851944992,
+      "filename": "QwQ-32B.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/QwQ-32B-GGUF",
+      "revision": "c289541240c414b14fc9a8b2d48fac949dc16012",
+      "vram_gb_8k": 22.5
+    },
+    {
+      "file_gb": 15.9,
+      "file_sha256": "052024e951e1251e53ba8e71ff5597a6a31fc125a51eeeec5262b5b4f976f299",
+      "file_size_bytes": 15935656992,
+      "filename": "QwQ-32B.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/QwQ-32B-GGUF",
+      "revision": "c289541240c414b14fc9a8b2d48fac949dc16012",
+      "vram_gb_8k": 18.5
+    },
+    {
+      "file_gb": 12.3,
+      "file_sha256": "2f4715a1a39e6f6127b30e371a97f545b42d4ba5cc01739ac69395f5a14e1f7d",
+      "file_size_bytes": 12313707552,
+      "filename": "QwQ-32B.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/QwQ-32B-GGUF",
+      "revision": "c289541240c414b14fc9a8b2d48fac949dc16012",
+      "vram_gb_8k": 14.9
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-32B",
   "catalog_id": "Qwen/QwQ-32B",
   "demo": false,
   "family": "QwQ",
   "gguf_repo": "MaziyarPanahi/QwQ-32B-GGUF",
+  "hf_model_id": "Qwen/QwQ-32B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

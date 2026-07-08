@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 34.8,
+      "file_sha256": "9b77a7cd17195264056d2f4cd3238b4abd17217027da64c0834c17aae9c7d4d9",
+      "file_size_bytes": 34820885472,
+      "filename": "open-thoughts_OpenThinker2-32B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f",
+      "vram_gb_8k": 37.4
+    },
+    {
+      "file_gb": 26.9,
+      "file_sha256": "aec7764a0b5140c0c2b096af47e0a299a32b24c1cea470810d70814fdf6cdd2e",
+      "file_size_bytes": 26886155232,
+      "filename": "open-thoughts_OpenThinker2-32B-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f",
+      "vram_gb_8k": 29.5
+    },
+    {
+      "file_gb": 23.3,
+      "file_sha256": "8684483d954e819d99cb57a0be9303d96ca57ebbad793d59c927283a5fc1ec3b",
+      "file_size_bytes": 23262157792,
+      "filename": "open-thoughts_OpenThinker2-32B-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f",
+      "vram_gb_8k": 25.9
+    },
+    {
+      "file_gb": 19.9,
+      "file_sha256": "e9c7bf7cb349cfe07b4550759a3b4d7005834d0fa7580b23e483cbfeecd7a982",
+      "file_size_bytes": 19851336672,
+      "filename": "open-thoughts_OpenThinker2-32B-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f",
+      "vram_gb_8k": 22.5
+    },
+    {
+      "file_gb": 15.9,
+      "file_sha256": "f55d1fcc8dd5b913c4451d50bad278aa2bc8cf3fe4e733375634fc0606da8f94",
+      "file_size_bytes": 15935048672,
+      "filename": "open-thoughts_OpenThinker2-32B-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f",
+      "vram_gb_8k": 18.5
+    },
+    {
+      "file_gb": 12.3,
+      "file_sha256": "42bcc4ada7b47fe1dd699a8b170ab1524da83f3e504a1770ba9c49a07fc98fce",
+      "file_size_bytes": 12313099232,
+      "filename": "open-thoughts_OpenThinker2-32B-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+      "revision": "9c8fcd712b1f1e38d6076ea9fe3acdbdf93a975f",
+      "vram_gb_8k": 14.9
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-32B-Instruct",
   "catalog_id": "open-thoughts/OpenThinker2-32B",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "bartowski/open-thoughts_OpenThinker2-32B-GGUF",
+  "hf_model_id": "open-thoughts/OpenThinker2-32B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

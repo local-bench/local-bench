@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 13.0,
+      "file_sha256": "e0796699c1270b7f58142392c6c6632b59046204925ca7eaa7ce23b0ab237be0",
+      "file_size_bytes": 13022369728,
+      "filename": "Mistral-Nemo-Instruct-2407.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+      "revision": "eba4e7492de28b8ab2ff44b0bb819004181b3db4",
+      "vram_gb_8k": 14.6
+    },
+    {
+      "file_gb": 10.1,
+      "file_sha256": "6c997910afab0c76acc8ca1f47e15959f97ef90458e9f936d15d232fb5442b5c",
+      "file_size_bytes": 10056210368,
+      "filename": "Mistral-Nemo-Instruct-2407.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+      "revision": "eba4e7492de28b8ab2ff44b0bb819004181b3db4",
+      "vram_gb_8k": 11.7
+    },
+    {
+      "file_gb": 8.7,
+      "file_sha256": "8d6c5971ffe8d3c1f28f94e81f7ff856cecb8fba9b581e3dee418b6ab43b8b2e",
+      "file_size_bytes": 8727631808,
+      "filename": "Mistral-Nemo-Instruct-2407.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+      "revision": "eba4e7492de28b8ab2ff44b0bb819004181b3db4",
+      "vram_gb_8k": 10.3
+    },
+    {
+      "file_gb": 7.5,
+      "file_sha256": "5964f3e6d9c17b99e3d2174022048f3ec58b12ee8fefa987888e0562d070d52e",
+      "file_size_bytes": 7477204928,
+      "filename": "Mistral-Nemo-Instruct-2407.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+      "revision": "eba4e7492de28b8ab2ff44b0bb819004181b3db4",
+      "vram_gb_8k": 9.1
+    },
+    {
+      "file_gb": 6.1,
+      "file_sha256": "f5e70e2aa7cf63b355b14733c61aa9f547ad12aa666c2cd283e9c10eab586601",
+      "file_size_bytes": 6083090368,
+      "filename": "Mistral-Nemo-Instruct-2407.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+      "revision": "eba4e7492de28b8ab2ff44b0bb819004181b3db4",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 4.8,
+      "file_sha256": "a535f77becf44ad00ddef531e7988390383ee0068ec87126a189f0a7ee107224",
+      "file_size_bytes": 4791048128,
+      "filename": "Mistral-Nemo-Instruct-2407.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+      "revision": "eba4e7492de28b8ab2ff44b0bb819004181b3db4",
+      "vram_gb_8k": 6.4
+    }
+  ],
   "base_model": "mistralai/Mistral-Nemo-Base-2407",
   "catalog_id": "mistralai/Mistral-Nemo-Instruct-2407",
   "demo": false,
   "family": "Mistral Nemo",
   "gguf_repo": "MaziyarPanahi/Mistral-Nemo-Instruct-2407-GGUF",
+  "hf_model_id": "mistralai/Mistral-Nemo-Instruct-2407",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

@@ -4,6 +4,7 @@
   "demo": false,
   "family": "DeepSeek V4",
   "gguf_repo": "teamblobfish/DeepSeek-V4-Pro-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-V4-Pro",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

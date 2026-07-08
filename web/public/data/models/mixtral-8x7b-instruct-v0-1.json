@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 49.6,
+      "file_sha256": "cdca4a8c09dfd722702f781d479695cda0d45e1bd1cd602ba1b6085ad921fc5f",
+      "file_size_bytes": 49624262592,
+      "filename": "mixtral-8x7b-instruct-v0.1.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+      "revision": "fa1d3835c5d45a3a74c0b68805fcdc133dba2b6a",
+      "vram_gb_8k": 53.0
+    },
+    {
+      "file_gb": 38.4,
+      "file_sha256": "56638f9853b8fff80ac1fd4a91434a1c15c21d4c910811c5458df9ef092615fd",
+      "file_size_bytes": 38378760128,
+      "filename": "mixtral-8x7b-instruct-v0.1.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+      "revision": "fa1d3835c5d45a3a74c0b68805fcdc133dba2b6a",
+      "vram_gb_8k": 41.7
+    },
+    {
+      "file_gb": 32.2,
+      "file_sha256": "af12961e014037ee8c5c9f3bf7cf9fd99cadc9dabd50f528a4248c4a8ee8fe77",
+      "file_size_bytes": 32229279680,
+      "filename": "mixtral-8x7b-instruct-v0.1.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+      "revision": "fa1d3835c5d45a3a74c0b68805fcdc133dba2b6a",
+      "vram_gb_8k": 35.5
+    },
+    {
+      "file_gb": 26.4,
+      "file_sha256": "9193684683657e90707087bd1ed19fd0b277ab66358d19edeadc26d6fdec4f53",
+      "file_size_bytes": 26441533376,
+      "filename": "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+      "revision": "fa1d3835c5d45a3a74c0b68805fcdc133dba2b6a",
+      "vram_gb_8k": 29.7
+    },
+    {
+      "file_gb": 20.4,
+      "file_sha256": "bd2e1499e68195f1a6ff151e6fa5c6632acc150b80cca4a3772cbb7ca59d44cd",
+      "file_size_bytes": 20363356096,
+      "filename": "mixtral-8x7b-instruct-v0.1.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+      "revision": "fa1d3835c5d45a3a74c0b68805fcdc133dba2b6a",
+      "vram_gb_8k": 23.7
+    },
+    {
+      "file_gb": 15.6,
+      "file_sha256": "d54b4f4ec06dbae558d25b2d1542417cdf9547907342db85eecd05b6e96e88f8",
+      "file_size_bytes": 15644035008,
+      "filename": "mixtral-8x7b-instruct-v0.1.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+      "revision": "fa1d3835c5d45a3a74c0b68805fcdc133dba2b6a",
+      "vram_gb_8k": 18.9
+    }
+  ],
   "base_model": "mistralai/Mixtral-8x7B-v0.1",
   "catalog_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
   "demo": false,
   "family": "Mixtral",
   "gguf_repo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+  "hf_model_id": "mistralai/Mixtral-8x7B-Instruct-v0.1",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

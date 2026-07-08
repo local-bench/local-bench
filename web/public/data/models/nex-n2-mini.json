@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 36.9,
+      "file_sha256": "2a0c4eaf6b875a5ea0a38dc931be6e36a9903aaec050b1ca9f8e7f9e4829ad98",
+      "file_size_bytes": 36914690048,
+      "filename": "nex-agi_Nex-N2-mini-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+      "revision": "dd97f3699eb8774503bb2d3661d54fc1c20d44d2",
+      "vram_gb_8k": 39.6
+    },
+    {
+      "file_gb": 30.1,
+      "file_sha256": "db5a19d15327471c1f2f04594c3da5bd978fa24fdd8c92aaa2df2c475f733b72",
+      "file_size_bytes": 30053414912,
+      "filename": "nex-agi_Nex-N2-mini-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+      "revision": "dd97f3699eb8774503bb2d3661d54fc1c20d44d2",
+      "vram_gb_8k": 32.9
+    },
+    {
+      "file_gb": 25.0,
+      "file_sha256": "4743a17c1f5a6b5cbff045d3030dfa7cc83c8aba8170202995d5d4105e84b87b",
+      "file_size_bytes": 25017456640,
+      "filename": "nex-agi_Nex-N2-mini-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+      "revision": "dd97f3699eb8774503bb2d3661d54fc1c20d44d2",
+      "vram_gb_8k": 27.8
+    },
+    {
+      "file_gb": 21.4,
+      "file_sha256": "b158f66ba0bea9a4cc10864777abb9d345c00f0f2f886dc147032e4aa4a86340",
+      "file_size_bytes": 21391448064,
+      "filename": "nex-agi_Nex-N2-mini-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+      "revision": "dd97f3699eb8774503bb2d3661d54fc1c20d44d2",
+      "vram_gb_8k": 24.1
+    },
+    {
+      "file_gb": 16.2,
+      "file_sha256": "8b05a0a21746793c0be111b4dce0318a98f6468f315669fb5e13651245f7ee58",
+      "file_size_bytes": 16226547712,
+      "filename": "nex-agi_Nex-N2-mini-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+      "revision": "dd97f3699eb8774503bb2d3661d54fc1c20d44d2",
+      "vram_gb_8k": 18.9
+    },
+    {
+      "file_gb": 12.6,
+      "file_sha256": "e10cce842939950dc0d9723e29006dde0ae6c6dbf2914c8fd66cd8bac65e3d16",
+      "file_size_bytes": 12617078784,
+      "filename": "nex-agi_Nex-N2-mini-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+      "revision": "dd97f3699eb8774503bb2d3661d54fc1c20d44d2",
+      "vram_gb_8k": 15.3
+    }
+  ],
   "base_model": null,
   "catalog_id": "nex-agi/Nex-N2-mini",
   "demo": false,
   "family": "Nex N2",
   "gguf_repo": "bartowski/nex-agi_Nex-N2-mini-GGUF",
+  "hf_model_id": "nex-agi/Nex-N2-mini",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

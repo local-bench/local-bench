@@ -4,6 +4,7 @@
   "demo": false,
   "family": "GPT OSS",
   "gguf_repo": "unsloth/gpt-oss-120b-GGUF",
+  "hf_model_id": "openai/gpt-oss-120b",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

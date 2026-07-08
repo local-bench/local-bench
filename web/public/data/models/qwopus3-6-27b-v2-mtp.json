@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "Jackrong/Qwopus3.6-27B-v2-MTP-GGUF",
+  "hf_model_id": "Jackrong/Qwopus3.6-27B-v2-MTP",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

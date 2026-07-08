@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "b2a40e5ef4eab8837d0462c303e8147ec754e2963e41916b551107d2b0ca6527",
+      "file_size_bytes": 25054793248,
+      "filename": "Mistral-Small-3.2-24B-Instruct-2506-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "revision": "b750ec2299225e492f1bd27cab88a0a595fa848f",
+      "vram_gb_8k": 27.3
+    },
+    {
+      "file_gb": 19.3,
+      "file_sha256": "e92f341791f7da41021d9ae7fac00a1c02aa007a09cb2ecabea748f73a206217",
+      "file_size_bytes": 19345952288,
+      "filename": "Mistral-Small-3.2-24B-Instruct-2506-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "revision": "b750ec2299225e492f1bd27cab88a0a595fa848f",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.8,
+      "file_sha256": "423446013d1d9a63eb09d84f9d4fe0a1a81b57b6530260afd07a070b4e74845a",
+      "file_size_bytes": 16763997728,
+      "filename": "Mistral-Small-3.2-24B-Instruct-2506-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "revision": "b750ec2299225e492f1bd27cab88a0a595fa848f",
+      "vram_gb_8k": 19.0
+    },
+    {
+      "file_gb": 14.3,
+      "file_sha256": "a3cc56310807ed0d145eaf9f018ccda9ae7ad8edb41ec870aa2454b0d4700b3c",
+      "file_size_bytes": 14333922848,
+      "filename": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "revision": "b750ec2299225e492f1bd27cab88a0a595fa848f",
+      "vram_gb_8k": 16.5
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "830d8937494e80e64b0ab03ed69a7f29b80dbe5c4d0656517be6620f231a3fdd",
+      "file_size_bytes": 11474095648,
+      "filename": "Mistral-Small-3.2-24B-Instruct-2506-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "revision": "b750ec2299225e492f1bd27cab88a0a595fa848f",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 8.9,
+      "file_sha256": "c53491f0f90f4cd6d54dac92f0942441fa79e40149d3e3b573f66fb0d7df34e7",
+      "file_size_bytes": 8890338848,
+      "filename": "Mistral-Small-3.2-24B-Instruct-2506-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+      "revision": "b750ec2299225e492f1bd27cab88a0a595fa848f",
+      "vram_gb_8k": 11.1
+    }
+  ],
   "base_model": "mistralai/Mistral-Small-3.1-24B-Base-2503",
   "catalog_id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
   "demo": false,
   "family": "Mistral Small",
   "gguf_repo": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+  "hf_model_id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

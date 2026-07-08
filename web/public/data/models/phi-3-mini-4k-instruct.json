@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Phi 3",
   "gguf_repo": null,
+  "hf_model_id": "microsoft/Phi-3-mini-4k-instruct",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

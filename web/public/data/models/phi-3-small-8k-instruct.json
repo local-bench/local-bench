@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Phi 3",
   "gguf_repo": "LiteLLMs/Phi-3-small-8k-instruct-GGUF",
+  "hf_model_id": "microsoft/Phi-3-small-8k-instruct",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

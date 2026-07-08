@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 75.0,
+      "file_sha256": "19adc44f49ccade105840567c5c79d563414e0ac02209575fd6a0f306fb5d7cf",
+      "file_size_bytes": 74975052480,
+      "filename": "DeepSeek-R1-Distill-Llama-70B-heretic.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+      "revision": "da155bafbb4c97050f6ddbfa5a8fe7ad361a6a5b",
+      "vram_gb_8k": 79.5
+    },
+    {
+      "file_gb": 57.9,
+      "file_sha256": "712fec58d84838e1b345cc1153c98fd5652cdbe33f80f84fd4a2aa45e606baf6",
+      "file_size_bytes": 57888146112,
+      "filename": "DeepSeek-R1-Distill-Llama-70B-heretic.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+      "revision": "da155bafbb4c97050f6ddbfa5a8fe7ad361a6a5b",
+      "vram_gb_8k": 62.4
+    },
+    {
+      "file_gb": 49.9,
+      "file_sha256": "ccd7cb3bbd96eb43be1fe81d010af3bac921dbea94ecbdf52fb85caf15da5b25",
+      "file_size_bytes": 49949819584,
+      "filename": "DeepSeek-R1-Distill-Llama-70B-heretic.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+      "revision": "da155bafbb4c97050f6ddbfa5a8fe7ad361a6a5b",
+      "vram_gb_8k": 54.4
+    },
+    {
+      "file_gb": 42.5,
+      "file_sha256": "bfc18c140d32d18ab95a98a5b931e0f8d9f4d9275d40e21a71fc43ac369a9ffe",
+      "file_size_bytes": 42520396480,
+      "filename": "DeepSeek-R1-Distill-Llama-70B-heretic.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+      "revision": "da155bafbb4c97050f6ddbfa5a8fe7ad361a6a5b",
+      "vram_gb_8k": 47.0
+    },
+    {
+      "file_gb": 34.3,
+      "file_sha256": "9764ccfa9915612dc60389fff8ef0da5a9f6729c0c3b1d34fe6335d1f0380253",
+      "file_size_bytes": 34267497152,
+      "filename": "DeepSeek-R1-Distill-Llama-70B-heretic.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+      "revision": "da155bafbb4c97050f6ddbfa5a8fe7ad361a6a5b",
+      "vram_gb_8k": 38.8
+    },
+    {
+      "file_gb": 26.4,
+      "file_sha256": "c55c3e05d06c05dd10ed2e22fdff0d949e03310d0cf3a093ce1e141001a8cae6",
+      "file_size_bytes": 26375111360,
+      "filename": "DeepSeek-R1-Distill-Llama-70B-heretic.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+      "revision": "da155bafbb4c97050f6ddbfa5a8fe7ad361a6a5b",
+      "vram_gb_8k": 30.9
+    }
+  ],
   "base_model": null,
   "catalog_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
   "demo": false,
   "family": "DeepSeek R1 Distill",
   "gguf_repo": "mradermacher/DeepSeek-R1-Distill-Llama-70B-heretic-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

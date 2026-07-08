@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.3,
+      "file_sha256": "43f69f1c6655d286e7c7717f4184a310eaddd457c6bb3e3f56b286432ca9cae6",
+      "file_size_bytes": 4280405216,
+      "filename": "Qwen3-4B-SafeRL-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87",
+      "vram_gb_8k": 5.5
+    },
+    {
+      "file_gb": 3.3,
+      "file_sha256": "548985775f1b72a9f4bf3a3d8e57229ff4453ac22029965efeca2103abfcd345",
+      "file_size_bytes": 3306261216,
+      "filename": "Qwen3-4B-SafeRL-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87",
+      "vram_gb_8k": 4.5
+    },
+    {
+      "file_gb": 2.9,
+      "file_sha256": "861c9f57cb2734edef9429c41509e7a512b6557f9aeb1b724757c140bf79409b",
+      "file_size_bytes": 2889513696,
+      "filename": "Qwen3-4B-SafeRL-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "0516355c88a0407a0e55735b9b6fd806a3698930bd58d164e7b48ee4f613e8ac",
+      "file_size_bytes": 2497280736,
+      "filename": "Qwen3-4B-SafeRL-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87",
+      "vram_gb_8k": 3.7
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "ba8f80eebdf322d04d8ce853222ab6a568a6898efcc0c9f530e108a97d7597f6",
+      "file_size_bytes": 2075618016,
+      "filename": "Qwen3-4B-SafeRL-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87",
+      "vram_gb_8k": 3.3
+    },
+    {
+      "file_gb": 1.7,
+      "file_sha256": "4892c05bac5eb9fa96249f91bb9e431b3b5d3a2c6a33e43f2b6eb14e42cc4406",
+      "file_size_bytes": 1669499616,
+      "filename": "Qwen3-4B-SafeRL-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+      "revision": "53bf6a4a6891d646f5844554376ebe3bc73d6a87",
+      "vram_gb_8k": 2.9
+    }
+  ],
   "base_model": "Qwen/Qwen3-4B",
   "catalog_id": "Qwen/Qwen3-4B-SafeRL",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "ShahzebKhoso/Qwen3-4B-SafeRL-GGUF",
+  "hf_model_id": "Qwen/Qwen3-4B-SafeRL",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

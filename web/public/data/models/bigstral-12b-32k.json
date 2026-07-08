@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 10.2,
+      "file_sha256": "a1115e7f80422ac45830e8b7456c1b0b2102ea4d01ebbb244f6ced25898e1bb2",
+      "file_size_bytes": 10236784832,
+      "filename": "bigstral-12b-32k.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/bigstral-12b-32k-i1-GGUF",
+      "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8",
+      "vram_gb_8k": 11.8
+    },
+    {
+      "file_gb": 8.8,
+      "file_sha256": "1696bae605b9fe8be86212613f4c374673a53fddb7d13d13e393d830e6701923",
+      "file_size_bytes": 8831193280,
+      "filename": "bigstral-12b-32k.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/bigstral-12b-32k-i1-GGUF",
+      "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8",
+      "vram_gb_8k": 10.4
+    },
+    {
+      "file_gb": 7.5,
+      "file_sha256": "55e34fa69d656e358ffa7ae45c05df8ce4fbf56ac5d2b4ea738cb7bc612a45bf",
+      "file_size_bytes": 7508283584,
+      "filename": "bigstral-12b-32k.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/bigstral-12b-32k-i1-GGUF",
+      "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8",
+      "vram_gb_8k": 9.1
+    },
+    {
+      "file_gb": 6.0,
+      "file_sha256": "205a8aa2324d4d2e632cd352894d883d498b341fb7a57f3bbd1da568984d03c0",
+      "file_size_bytes": 6030340288,
+      "filename": "bigstral-12b-32k.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/bigstral-12b-32k-i1-GGUF",
+      "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8",
+      "vram_gb_8k": 7.6
+    },
+    {
+      "file_gb": 4.6,
+      "file_sha256": "f8de0ab122ceb16bb2bd8177a6c3fed62c7407ad65423ef846632813ad49141a",
+      "file_size_bytes": 4645228736,
+      "filename": "bigstral-12b-32k.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/bigstral-12b-32k-i1-GGUF",
+      "revision": "2ebd6d8d0f448809d4e5eba3e6db285baba9d0b8",
+      "vram_gb_8k": 6.2
+    }
+  ],
   "base_model": "mistralai/Mistral-7B-Instruct-v0.2",
   "catalog_id": "abacusai/bigstral-12b-32k",
   "demo": false,
   "family": "Mistral",
   "gguf_repo": "mradermacher/bigstral-12b-32k-i1-GGUF",
+  "hf_model_id": "abacusai/bigstral-12b-32k",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

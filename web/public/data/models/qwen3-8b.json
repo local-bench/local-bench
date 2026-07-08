@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 6.7,
+      "file_sha256": "613921c3b57c7d80fe3563addb65bf066eac8aa659635bf6a58ba7c43db483b2",
+      "file_size_bytes": 6725899488,
+      "filename": "Qwen3-8B.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Qwen3-8B-GGUF",
+      "revision": "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+      "vram_gb_8k": 8.1
+    },
+    {
+      "file_gb": 5.9,
+      "file_sha256": "53dde959fb9900465b2853dd1e2ea2a12b0bf59678ad016951883da93262fa44",
+      "file_size_bytes": 5851112672,
+      "filename": "Qwen3-8B.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-8B-GGUF",
+      "revision": "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+      "vram_gb_8k": 7.3
+    },
+    {
+      "file_gb": 5.0,
+      "file_sha256": "376902d50612ecfc5bd8b268f376c04d10ad7e480f99a1483b833f04344a549e",
+      "file_size_bytes": 5027783904,
+      "filename": "Qwen3-8B.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-8B-GGUF",
+      "revision": "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+      "vram_gb_8k": 6.4
+    },
+    {
+      "file_gb": 4.1,
+      "file_sha256": "d71ec37a9420e6eb4a751f113e39a42f186f22a1365b95e864a88eab45701731",
+      "file_size_bytes": 4124161248,
+      "filename": "Qwen3-8B.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-8B-GGUF",
+      "revision": "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+      "vram_gb_8k": 5.5
+    },
+    {
+      "file_gb": 3.3,
+      "file_sha256": "a075639b8c4f04d5d1243d10285001fe932233cf2c06ee23863c3bfb4b5e3a26",
+      "file_size_bytes": 3281732832,
+      "filename": "Qwen3-8B.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Qwen3-8B-GGUF",
+      "revision": "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+      "vram_gb_8k": 4.7
+    }
+  ],
   "base_model": "Qwen/Qwen3-8B-Base",
   "catalog_id": "Qwen/Qwen3-8B",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "MaziyarPanahi/Qwen3-8B-GGUF",
+  "hf_model_id": "Qwen/Qwen3-8B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

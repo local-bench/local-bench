@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 3.3,
+      "file_sha256": "100ffda6934d783b9489baeb129c7efebbfade50cd0d32246931b5d2bf955aa8",
+      "file_size_bytes": 3306260928,
+      "filename": "Qwen3-4B-Instruct-2507.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+      "revision": "aec29f0e8c31130ba811bec2c774c2ef44888f55",
+      "vram_gb_8k": 4.5
+    },
+    {
+      "file_gb": 2.9,
+      "file_sha256": "84ee66e2bf1ac90174222c1bbf3d5331c61f82ecf28a50f1e3b50a3807cb0470",
+      "file_size_bytes": 2889513408,
+      "filename": "Qwen3-4B-Instruct-2507.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+      "revision": "aec29f0e8c31130ba811bec2c774c2ef44888f55",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "953ba5b5511fbb2ec9bcb4e588b1e72cedef19b908dba1da0fb3fb340cfb1c3e",
+      "file_size_bytes": 2497280448,
+      "filename": "Qwen3-4B-Instruct-2507.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+      "revision": "aec29f0e8c31130ba811bec2c774c2ef44888f55",
+      "vram_gb_8k": 3.7
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "42fd3a1a10a371d1a926ac7dee7e33d4b4389ddde7a0282f788849a0b979f8f8",
+      "file_size_bytes": 2075617728,
+      "filename": "Qwen3-4B-Instruct-2507.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+      "revision": "aec29f0e8c31130ba811bec2c774c2ef44888f55",
+      "vram_gb_8k": 3.3
+    },
+    {
+      "file_gb": 1.7,
+      "file_sha256": "8d0eb319f05cdd6ce88e308cbcdfa9a8c1f7e99416cc7d34b80f158a7f514411",
+      "file_size_bytes": 1669499328,
+      "filename": "Qwen3-4B-Instruct-2507.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+      "revision": "aec29f0e8c31130ba811bec2c774c2ef44888f55",
+      "vram_gb_8k": 2.9
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-4B-Instruct-2507",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "MaziyarPanahi/Qwen3-4B-Instruct-2507-GGUF",
+  "hf_model_id": "Qwen/Qwen3-4B-Instruct-2507",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

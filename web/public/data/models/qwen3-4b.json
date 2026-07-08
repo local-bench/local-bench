@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.3,
+      "file_sha256": "8c2f07f26af9747e41988551106f149b03eb9b5cb6df636027b6bf6278473300",
+      "file_size_bytes": 4280404704,
+      "filename": "Qwen3-4B-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "Qwen/Qwen3-4B-GGUF",
+      "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "vram_gb_8k": 5.5
+    },
+    {
+      "file_gb": 3.3,
+      "file_sha256": "8a08533841623c2a689763b9318d8e27b3e052ad5b38015d4be4c04fa96f68a3",
+      "file_size_bytes": 3306260704,
+      "filename": "Qwen3-4B-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "Qwen/Qwen3-4B-GGUF",
+      "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "vram_gb_8k": 4.5
+    },
+    {
+      "file_gb": 2.9,
+      "file_sha256": "aca596860e8cb40af6539e3f2ea40df305f42515deac56d49c08d39a02e6533f",
+      "file_size_bytes": 2889513184,
+      "filename": "Qwen3-4B-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "Qwen/Qwen3-4B-GGUF",
+      "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+      "file_size_bytes": 2497280256,
+      "filename": "Qwen3-4B-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Qwen/Qwen3-4B-GGUF",
+      "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+      "vram_gb_8k": 3.7
+    }
+  ],
   "base_model": "Qwen/Qwen3-4B-Base",
   "catalog_id": "Qwen/Qwen3-4B",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "Qwen/Qwen3-4B-GGUF",
+  "hf_model_id": "Qwen/Qwen3-4B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

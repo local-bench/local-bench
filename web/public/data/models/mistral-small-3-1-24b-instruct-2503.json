@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "de6ba96525b26716a311e05f6a5f6813e57a0d77ada7583a6850a1f04c3e0016",
+      "file_size_bytes": 25054779936,
+      "filename": "mistral-small-3.1-24b-instruct-2503-hf.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+      "revision": "69f1da83040e31989aa85ae485e3dff329d954ee",
+      "vram_gb_8k": 27.3
+    },
+    {
+      "file_gb": 19.3,
+      "file_sha256": "620934e2cd7db317d61ca9f5226a0dfa6a73245a6bed20f50b73a5f28bf8786f",
+      "file_size_bytes": 19345938976,
+      "filename": "mistral-small-3.1-24b-instruct-2503-hf.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+      "revision": "69f1da83040e31989aa85ae485e3dff329d954ee",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.8,
+      "file_sha256": "24da7f077f2960cde033edca454ece3de16ceedd632dd358246318879d8ded74",
+      "file_size_bytes": 16763984416,
+      "filename": "mistral-small-3.1-24b-instruct-2503-hf.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+      "revision": "69f1da83040e31989aa85ae485e3dff329d954ee",
+      "vram_gb_8k": 19.0
+    },
+    {
+      "file_gb": 14.3,
+      "file_sha256": "d8d62479516a51a666cb1fb1cc44c4137d9f9dc59092cbe06efb0c4969d41cbf",
+      "file_size_bytes": 14333909536,
+      "filename": "mistral-small-3.1-24b-instruct-2503-hf.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+      "revision": "69f1da83040e31989aa85ae485e3dff329d954ee",
+      "vram_gb_8k": 16.5
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "14c346af05dcb134295c3269493a582593d594856eb722b434fd4413142195ba",
+      "file_size_bytes": 11474082336,
+      "filename": "mistral-small-3.1-24b-instruct-2503-hf.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+      "revision": "69f1da83040e31989aa85ae485e3dff329d954ee",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 8.9,
+      "file_sha256": "3fd6ac1e6cd9b1d86a3e8aa49b52274d1d7c4c7da9cb7ccf2cd465d1f732d847",
+      "file_size_bytes": 8890325536,
+      "filename": "mistral-small-3.1-24b-instruct-2503-hf.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+      "revision": "69f1da83040e31989aa85ae485e3dff329d954ee",
+      "vram_gb_8k": 11.1
+    }
+  ],
   "base_model": "mistralai/Mistral-Small-3.1-24B-Base-2503",
   "catalog_id": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
   "demo": false,
   "family": "Mistral Small",
   "gguf_repo": "MaziyarPanahi/mistral-small-3.1-24b-instruct-2503-hf-GGUF",
+  "hf_model_id": "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.1,
+      "file_sha256": "e79cc0c6129132f4b1d873548b5d46ddce6295309019b1998467aa9d4364026a",
+      "file_size_bytes": 8098524896,
+      "filename": "VL-1-Coder-heretic_Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "haffner/VL-1-Coder-Heretic",
+      "revision": "0bbfb590b32bd6829c05a2bdff1d43a01c3e0c8d",
+      "vram_gb_8k": 9.5
+    },
+    {
+      "file_gb": 6.3,
+      "file_sha256": "e525058b79a78da12656dfca06d68d51466d5d0b7963ebad346fc08bc7ddac63",
+      "file_size_bytes": 6254198496,
+      "filename": "VL-1-Coder-heretic_Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "haffner/VL-1-Coder-Heretic",
+      "revision": "0bbfb590b32bd6829c05a2bdff1d43a01c3e0c8d",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 5.4,
+      "file_sha256": "6b45d3a9ce96aec010f2797ac2cbc79423d841e33614828d5d788a5483a7a383",
+      "file_size_bytes": 5444830944,
+      "filename": "VL-1-Coder-heretic_Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "haffner/VL-1-Coder-Heretic",
+      "revision": "0bbfb590b32bd6829c05a2bdff1d43a01c3e0c8d",
+      "vram_gb_8k": 6.8
+    },
+    {
+      "file_gb": 3.8,
+      "file_sha256": "03294f59f1f392d958d69f78a747a9ca7b652e62e02c783531205efa01e7daa3",
+      "file_size_bytes": 3808390880,
+      "filename": "VL-1-Coder-heretic_Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "haffner/VL-1-Coder-Heretic",
+      "revision": "0bbfb590b32bd6829c05a2bdff1d43a01c3e0c8d",
+      "vram_gb_8k": 5.2
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "38beaca1c0080932bc020f3d263bbbda20bd0b24f4f3f83cdf117aaf6872db1c",
+      "file_size_bytes": 3015939808,
+      "filename": "VL-1-Coder-heretic_Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "haffner/VL-1-Coder-Heretic",
+      "revision": "0bbfb590b32bd6829c05a2bdff1d43a01c3e0c8d",
+      "vram_gb_8k": 4.4
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
   "catalog_id": "vectionlabs/VL-1-Coder",
   "demo": false,
   "family": "Qwen2.5 Coder",
   "gguf_repo": "haffner/VL-1-Coder-Heretic",
+  "hf_model_id": "vectionlabs/VL-1-Coder",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

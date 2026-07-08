@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 28.6,
+      "file_sha256": "b8c3e4d540e93d30e95e6ae8a40bda054fe47111eed7f097283b000d9321726b",
+      "file_size_bytes": 28595763584,
+      "filename": "Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+      "revision": "3aaaec2bc89e4e04b440373279fd0b0f803854cc",
+      "vram_gb_8k": 30.9
+    },
+    {
+      "file_gb": 22.1,
+      "file_sha256": "dc1da5fdf948c9fc1ee531dbae4b7cf25a424174d24d4d017fb3043aae939c83",
+      "file_size_bytes": 22082529664,
+      "filename": "Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+      "revision": "3aaaec2bc89e4e04b440373279fd0b0f803854cc",
+      "vram_gb_8k": 24.4
+    },
+    {
+      "file_gb": 19.2,
+      "file_sha256": "7d17547eb4187bd02e845c8a8d429cd85f37fa5b244ef89d5985ccb632867dde",
+      "file_size_bytes": 19231099264,
+      "filename": "Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+      "revision": "3aaaec2bc89e4e04b440373279fd0b0f803854cc",
+      "vram_gb_8k": 21.5
+    },
+    {
+      "file_gb": 16.5,
+      "file_sha256": "4e38275d66f352cdf80c8e992ec6e8fd207158e388149bc16adeb546f8614c6c",
+      "file_size_bytes": 16547400064,
+      "filename": "Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+      "revision": "3aaaec2bc89e4e04b440373279fd0b0f803854cc",
+      "vram_gb_8k": 18.8
+    },
+    {
+      "file_gb": 13.3,
+      "file_sha256": "f2fc9a13eda99316cbf18d074e1008f53cf32b2b6494daadf7ea077b7e1dd010",
+      "file_size_bytes": 13301442944,
+      "filename": "Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+      "revision": "3aaaec2bc89e4e04b440373279fd0b0f803854cc",
+      "vram_gb_8k": 15.6
+    },
+    {
+      "file_gb": 10.7,
+      "file_sha256": "d60ff80a9a94753b1f86b013c23c342c95a14c35c839787757051e5f46e91ee0",
+      "file_size_bytes": 10711665024,
+      "filename": "Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+      "revision": "3aaaec2bc89e4e04b440373279fd0b0f803854cc",
+      "vram_gb_8k": 13.0
+    }
+  ],
   "base_model": "Qwen/Qwen3.6-27B",
   "catalog_id": "AEON-7/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "mradermacher/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16-GGUF",
+  "hf_model_id": "AEON-7/Qwen3.6-27B-AEON-Ultimate-Uncensored-BF16",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

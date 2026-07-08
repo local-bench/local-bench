@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Qwen2.5 Coder",
   "gguf_repo": "Qwen/Qwen2.5-Coder-32B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-Coder-32B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

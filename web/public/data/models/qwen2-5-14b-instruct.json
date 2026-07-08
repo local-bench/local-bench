@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "Qwen/Qwen2.5-14B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-14B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

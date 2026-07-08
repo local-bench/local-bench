@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 12.7,
+      "file_sha256": "17abd96b30c11eb015b181763cd497e8f6acb46d6dffbd51ad3718cd59de9f34",
+      "file_size_bytes": 12669647200,
+      "filename": "Gemma-4-12B-it-AEON-Abliterated-K4-BF16.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f",
+      "vram_gb_8k": 14.3
+    },
+    {
+      "file_gb": 9.8,
+      "file_sha256": "307c8fcadbd45eac87ece2a991f9e756b837dbba9a8e0ba9b9a2c16340a315ea",
+      "file_size_bytes": 9786022240,
+      "filename": "Gemma-4-12B-it-AEON-Abliterated-K4-BF16.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f",
+      "vram_gb_8k": 11.4
+    },
+    {
+      "file_gb": 8.5,
+      "file_sha256": "1c1afb7a836e33e41d3fd870d32e4f158a82d5950aa2d304c293565ef1ca2d68",
+      "file_size_bytes": 8547268960,
+      "filename": "Gemma-4-12B-it-AEON-Abliterated-K4-BF16.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f",
+      "vram_gb_8k": 10.1
+    },
+    {
+      "file_gb": 7.4,
+      "file_sha256": "71546fbad104854166b7b4f5781fe8aedad46d6f9db2a489f8753beaf7ef3f69",
+      "file_size_bytes": 7381383520,
+      "filename": "Gemma-4-12B-it-AEON-Abliterated-K4-BF16.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 6.1,
+      "file_sha256": "2e270fed1885f7a08ed1e22f9cd5bb2185a475784f7cceefa7b346e6b9f3d42e",
+      "file_size_bytes": 6087088480,
+      "filename": "Gemma-4-12B-it-AEON-Abliterated-K4-BF16.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 4.8,
+      "file_sha256": "8c0574f8ae43b32aab4ed08b7ce9ddb3a16b66d550230e0ed7222af540deb0df",
+      "file_size_bytes": 4830148960,
+      "filename": "Gemma-4-12B-it-AEON-Abliterated-K4-BF16.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+      "revision": "515bdcf5688253f253a3b96446e7acd84f0d795f",
+      "vram_gb_8k": 6.4
+    }
+  ],
   "base_model": "google/gemma-4-12B-it",
   "catalog_id": "AEON-7/Gemma-4-12B-it-AEON-Abliterated-K4-BF16",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "mradermacher/Gemma-4-12B-it-AEON-Abliterated-K4-BF16-GGUF",
+  "hf_model_id": "AEON-7/Gemma-4-12B-it-AEON-Abliterated-K4-BF16",
   "kind": "community",
   "license": "gemma",
   "model_kind": "finetune",

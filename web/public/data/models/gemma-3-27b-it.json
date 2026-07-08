@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 28.7,
+      "file_sha256": "2e7efe7e07dc1414dc46eb00e7185aeba7a7c782620809c3ca7463c4e89d632c",
+      "file_size_bytes": 28707604896,
+      "filename": "gemma-3-27b-it.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+      "revision": "f1a115f273da292b54e6ef203f5c4f8645f87d5f",
+      "vram_gb_8k": 31.0
+    },
+    {
+      "file_gb": 22.2,
+      "file_sha256": "9df681310f43dd600cd4b2cede5d8352b5745e49d088c91fa36b2b6711ec8b93",
+      "file_size_bytes": 22166690208,
+      "filename": "gemma-3-27b-it.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+      "revision": "f1a115f273da292b54e6ef203f5c4f8645f87d5f",
+      "vram_gb_8k": 24.6
+    },
+    {
+      "file_gb": 19.3,
+      "file_sha256": "cbe3e25ca35cb5241d9daf7a12f2d6a5dd714a3c1bb064c3c29ad18de3236cfa",
+      "file_size_bytes": 19271391648,
+      "filename": "gemma-3-27b-it.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+      "revision": "f1a115f273da292b54e6ef203f5c4f8645f87d5f",
+      "vram_gb_8k": 21.7
+    },
+    {
+      "file_gb": 16.5,
+      "file_sha256": "632100a555f6208329e73d8a36c9ebb022829365e61018eddf60fad85c0a2934",
+      "file_size_bytes": 16546404768,
+      "filename": "gemma-3-27b-it.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+      "revision": "f1a115f273da292b54e6ef203f5c4f8645f87d5f",
+      "vram_gb_8k": 18.9
+    },
+    {
+      "file_gb": 13.4,
+      "file_sha256": "f31f7d9d824ba33431eae2b68873178e61782d7175a9403d20afcb5e36513600",
+      "file_size_bytes": 13437356448,
+      "filename": "gemma-3-27b-it.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+      "revision": "f1a115f273da292b54e6ef203f5c4f8645f87d5f",
+      "vram_gb_8k": 15.8
+    },
+    {
+      "file_gb": 10.5,
+      "file_sha256": "e6aaa0f158a03cba0e1aae34dc3ac4237949a4627746ccbdadce240c36b68f07",
+      "file_size_bytes": 10503436704,
+      "filename": "gemma-3-27b-it.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+      "revision": "f1a115f273da292b54e6ef203f5c4f8645f87d5f",
+      "vram_gb_8k": 12.8
+    }
+  ],
   "base_model": "google/gemma-3-27b-pt",
   "catalog_id": "google/gemma-3-27b-it",
   "demo": false,
   "family": "Gemma 3",
   "gguf_repo": "MaziyarPanahi/gemma-3-27b-it-GGUF",
+  "hf_model_id": "google/gemma-3-27b-it",
   "kind": "community",
   "license": "gemma",
   "model_kind": "base",

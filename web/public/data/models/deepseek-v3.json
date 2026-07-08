@@ -4,6 +4,7 @@
   "demo": false,
   "family": "DeepSeek V3",
   "gguf_repo": "MaziyarPanahi/DeepSeek-V3-0324-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-V3",
   "kind": "community",
   "license": null,
   "model_kind": "base",

@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 13.0,
+      "file_sha256": "2297a8fe56fde0010c97e25bf6caf84209bda143d45b932ed72458ebbdb7cf4a",
+      "file_size_bytes": 13022391040,
+      "filename": "vikhr-nemo-12b-instruct-r-21-09-24-q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "VlSav/Vikhr-Nemo-12B-Instruct-R-21-09-24-Q8_0-GGUF",
+      "revision": "6a36ecf1d5586f8ce0d4a29d4c95ef2f3ad7f0e1",
+      "vram_gb_8k": 14.6
+    }
+  ],
   "base_model": "mistralai/Mistral-Nemo-Instruct-2407",
   "catalog_id": "Vikhrmodels/Vikhr-Nemo-12B-Instruct-R-21-09-24",
   "demo": false,
   "family": "Mistral Nemo",
   "gguf_repo": "VlSav/Vikhr-Nemo-12B-Instruct-R-21-09-24-Q8_0-GGUF",
+  "hf_model_id": "Vikhrmodels/Vikhr-Nemo-12B-Instruct-R-21-09-24",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

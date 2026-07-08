@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 34.8,
+      "file_sha256": "8bf3da7f50b4d11689a6397c737faa3673ba6ac7e63d0e6b1dfb90abfe1bec5b",
+      "file_size_bytes": 34817719744,
+      "filename": "agentica-org_DeepSWE-Preview-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "revision": "1a8015681b46c4767c27a588a253a5a225d01b69",
+      "vram_gb_8k": 37.4
+    },
+    {
+      "file_gb": 26.9,
+      "file_sha256": "12f26cfe1d3b21592f4da31cd9472206022d871c28cc7c05b03ebb64facb6e0e",
+      "file_size_bytes": 26883306944,
+      "filename": "agentica-org_DeepSWE-Preview-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "revision": "1a8015681b46c4767c27a588a253a5a225d01b69",
+      "vram_gb_8k": 29.5
+    },
+    {
+      "file_gb": 23.2,
+      "file_sha256": "0024bef9ba0a451b0e25de8af2bbeb8de7b94cc2998ec4e4f515bb0241c55add",
+      "file_size_bytes": 23214832064,
+      "filename": "agentica-org_DeepSWE-Preview-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "revision": "1a8015681b46c4767c27a588a253a5a225d01b69",
+      "vram_gb_8k": 25.8
+    },
+    {
+      "file_gb": 19.8,
+      "file_sha256": "196a7128d3b7a59f1647792bb72c17db306f773e78d5a47feeeea92e672d761b",
+      "file_size_bytes": 19762149824,
+      "filename": "agentica-org_DeepSWE-Preview-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "revision": "1a8015681b46c4767c27a588a253a5a225d01b69",
+      "vram_gb_8k": 22.4
+    },
+    {
+      "file_gb": 16.0,
+      "file_sha256": "7d91b5d0e8eb67ca4963a59470f2b48b26e55e7cac7c61faadb08c45a368a0e0",
+      "file_size_bytes": 15971777984,
+      "filename": "agentica-org_DeepSWE-Preview-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "revision": "1a8015681b46c4767c27a588a253a5a225d01b69",
+      "vram_gb_8k": 18.6
+    },
+    {
+      "file_gb": 12.3,
+      "file_sha256": "94fc6a9adccd1bc1777819a13d3cbb7fe7d1fc48dfe94b81c65b18a7eea59670",
+      "file_size_bytes": 12344652224,
+      "filename": "agentica-org_DeepSWE-Preview-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+      "revision": "1a8015681b46c4767c27a588a253a5a225d01b69",
+      "vram_gb_8k": 14.9
+    }
+  ],
   "base_model": "Qwen/Qwen3-32B",
   "catalog_id": "agentica-org/DeepSWE-Preview",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "bartowski/agentica-org_DeepSWE-Preview-GGUF",
+  "hf_model_id": "agentica-org/DeepSWE-Preview",
   "kind": "community",
   "license": "mit",
   "model_kind": "finetune",

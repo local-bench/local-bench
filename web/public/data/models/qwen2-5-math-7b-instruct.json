@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 8.1,
+      "file_sha256": "dae82a819f3e5adeb728a2d2bb176f201550232ccd9c6c1cda57d01368fc5df3",
+      "file_size_bytes": 8098525920,
+      "filename": "Qwen2.5-Math-7B-Instruct-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+      "revision": "22e2c9c42470193b2b643636564765c84bcb06cb",
+      "vram_gb_8k": 9.4
+    },
+    {
+      "file_gb": 6.3,
+      "file_sha256": "fe5e95013e5bb0ed91d17c11efa62b25193903f09a4183e7c23ad61a78ed92bd",
+      "file_size_bytes": 6254199520,
+      "filename": "Qwen2.5-Math-7B-Instruct-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+      "revision": "22e2c9c42470193b2b643636564765c84bcb06cb",
+      "vram_gb_8k": 7.6
+    },
+    {
+      "file_gb": 5.4,
+      "file_sha256": "a3c8efe05de997108416af32eb932f87c3443c56e02a3886d9c8bc65fe93b737",
+      "file_size_bytes": 5444831968,
+      "filename": "Qwen2.5-Math-7B-Instruct-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+      "revision": "22e2c9c42470193b2b643636564765c84bcb06cb",
+      "vram_gb_8k": 6.8
+    },
+    {
+      "file_gb": 4.7,
+      "file_sha256": "7e03cee8c65b9ebf9ca14ddb010aca27b6b18e6c70f2779e94e7451d9529c091",
+      "file_size_bytes": 4683074272,
+      "filename": "Qwen2.5-Math-7B-Instruct-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+      "revision": "22e2c9c42470193b2b643636564765c84bcb06cb",
+      "vram_gb_8k": 6.0
+    },
+    {
+      "file_gb": 3.8,
+      "file_sha256": "0bc08f52c9ba982030edc3dc23f4050b87195a4509b14ec15e2809d5f745c904",
+      "file_size_bytes": 3808391904,
+      "filename": "Qwen2.5-Math-7B-Instruct-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+      "revision": "22e2c9c42470193b2b643636564765c84bcb06cb",
+      "vram_gb_8k": 5.1
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "f1d98d482486703829968c104019ccb13a535a6de579fe8d1bb115f23f1e3987",
+      "file_size_bytes": 3015940832,
+      "filename": "Qwen2.5-Math-7B-Instruct-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+      "revision": "22e2c9c42470193b2b643636564765c84bcb06cb",
+      "vram_gb_8k": 4.3
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-Math-7B",
   "catalog_id": "Qwen/Qwen2.5-Math-7B-Instruct",
   "demo": false,
   "family": "Qwen2.5 Math",
   "gguf_repo": "bartowski/Qwen2.5-Math-7B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-Math-7B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

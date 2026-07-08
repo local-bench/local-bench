@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "1e91af2ec67b5fa1f6a30eec7e30b8c8634054b294a6a5ede0dea4b6f4edb82a",
+      "file_size_bytes": 25092533216,
+      "filename": "Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+      "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463",
+      "vram_gb_8k": 27.6
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "ed1ff7b30f4830d311840e6cb86cbe9d5b896c4248e17b65d25c670b29bf5ee1",
+      "file_size_bytes": 21725582304,
+      "filename": "Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+      "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.6,
+      "file_sha256": "084c9f58de30daea3f8ace4f66fbd77017d80381daf01e30fcef07de444eb82e",
+      "file_size_bytes": 18556687328,
+      "filename": "Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+      "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463",
+      "vram_gb_8k": 21.1
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "88c81f2e7b9a0692a6a85bc7d2f84691ee3bccc0ac9a10f2de9a6be221c7ade7",
+      "file_size_bytes": 14711847904,
+      "filename": "Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+      "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463",
+      "vram_gb_8k": 17.2
+    },
+    {
+      "file_gb": 11.3,
+      "file_sha256": "d76d0097b72d17490b408e0030d336d51cd1cd398bf2e79529495a4eedcb5233",
+      "file_size_bytes": 11258610656,
+      "filename": "Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+      "revision": "a88392e129fbddff2f0a71e5399e93a1d9c99463",
+      "vram_gb_8k": 13.8
+    }
+  ],
   "base_model": "Qwen/Qwen3-30B-A3B-Thinking-2507",
   "catalog_id": "huihui-ai/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated-i1-GGUF",
+  "hf_model_id": "huihui-ai/Huihui-Qwen3-30B-A3B-Thinking-2507-abliterated",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.1,
+      "file_sha256": "56cccfeba1168a4fdd07197d8b5cdfb765eea720bdb4bad59211449687b82000",
+      "file_size_bytes": 4084611392,
+      "filename": "Phi-4-mini-instruct.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+      "revision": "177ca4b8b568a3f865c34e21e914aeb553da19cc",
+      "vram_gb_8k": 5.3
+    },
+    {
+      "file_gb": 3.2,
+      "file_sha256": "264ee581a593b13007d93cbb9bc8003f9c049edb7f757eed134c08e1bc8a87cf",
+      "file_size_bytes": 3155623232,
+      "filename": "Phi-4-mini-instruct.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+      "revision": "177ca4b8b568a3f865c34e21e914aeb553da19cc",
+      "vram_gb_8k": 4.4
+    },
+    {
+      "file_gb": 2.8,
+      "file_sha256": "247fa3c3949fb90240d9b46797181145f8a7e09760cdbb525c663b250ac26db5",
+      "file_size_bytes": 2848128320,
+      "filename": "Phi-4-mini-instruct.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+      "revision": "177ca4b8b568a3f865c34e21e914aeb553da19cc",
+      "vram_gb_8k": 4.0
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "855cf60f7f8108713fb0e739cab72fd9dbf6c6d4160bd7ff0358142c74ae3287",
+      "file_size_bytes": 2491874624,
+      "filename": "Phi-4-mini-instruct.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+      "revision": "177ca4b8b568a3f865c34e21e914aeb553da19cc",
+      "vram_gb_8k": 3.7
+    },
+    {
+      "file_gb": 2.1,
+      "file_sha256": "131973dea3be6b7d1b9c6e47f6fdf6c18251a20668e13c80bf42dd1f2fcbf346",
+      "file_size_bytes": 2117532992,
+      "filename": "Phi-4-mini-instruct.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+      "revision": "177ca4b8b568a3f865c34e21e914aeb553da19cc",
+      "vram_gb_8k": 3.3
+    },
+    {
+      "file_gb": 1.7,
+      "file_sha256": "de544be3e9f6c9ed1a6fe95f27685d638a350efa068783eca13d5c207f5d3c0c",
+      "file_size_bytes": 1682636096,
+      "filename": "Phi-4-mini-instruct.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+      "revision": "177ca4b8b568a3f865c34e21e914aeb553da19cc",
+      "vram_gb_8k": 2.9
+    }
+  ],
   "base_model": null,
   "catalog_id": "microsoft/Phi-4-mini-instruct",
   "demo": false,
   "family": "Phi 4",
   "gguf_repo": "MaziyarPanahi/Phi-4-mini-instruct-GGUF",
+  "hf_model_id": "microsoft/Phi-4-mini-instruct",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 39.6,
+      "file_sha256": "bcb64ced7a5acabf1a153e438bba41132f52fa721a1af7e6fe148768d98f461e",
+      "file_size_bytes": 39563317760,
+      "filename": "Llama-4-Scout-17B-16E-Instruct-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF",
+      "revision": "72a6853f56a66dc13a3a4b6bdc9cf7ee4c364b47",
+      "vram_gb_8k": 46.1
+    }
+  ],
   "base_model": "meta-llama/Llama-4-Scout-17B-16E",
   "catalog_id": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
   "demo": false,
   "family": "Llama 4",
   "gguf_repo": "unsloth/Llama-4-Scout-17B-16E-Instruct-GGUF",
+  "hf_model_id": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
   "kind": "community",
   "license": "other",
   "model_kind": "base",

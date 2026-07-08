@@ -4,6 +4,7 @@
   "demo": false,
   "family": "DeepSeek R1",
   "gguf_repo": "unsloth/DeepSeek-R1-0528-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-R1-0528",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

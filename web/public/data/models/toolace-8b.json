@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.9,
+      "file_sha256": "6d9c02ebef5d8edbab58cb6bf45c788d37acf0b464961ae5d09eebaf9d00f0b4",
+      "file_size_bytes": 4920735168,
+      "filename": "toolace-8b-q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Nekuromento/ToolACE-8B-Q4_K_M-GGUF",
+      "revision": "15b132f1f53ec0b297c44770ef021c6da7b837af",
+      "vram_gb_8k": 6.3
+    }
+  ],
   "base_model": "meta-llama/Llama-3.1-8B-Instruct",
   "catalog_id": "Team-ACE/ToolACE-8B",
   "demo": false,
   "family": "Llama 3.1",
   "gguf_repo": "Nekuromento/ToolACE-8B-Q4_K_M-GGUF",
+  "hf_model_id": "Team-ACE/ToolACE-8B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

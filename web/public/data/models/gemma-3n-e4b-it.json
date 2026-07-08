@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 7.4,
+      "file_sha256": "80e3a8cff3f29b2d2a6f580d8aaaf9269fff767c48eacf4306294718a76eb262",
+      "file_size_bytes": 7353292928,
+      "filename": "gemma-3n-E4B-it-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/gemma-3n-E4B-it-GGUF",
+      "revision": "90fa8b0e431faeae50c305828bc260d6f71720e1",
+      "vram_gb_8k": 8.6
+    },
+    {
+      "file_gb": 6.3,
+      "file_sha256": "1f84a8d37d33a4f457d5bf89fcebf3f47eb7a4b799945ff0472b77a25c5a3593",
+      "file_size_bytes": 6272219264,
+      "filename": "gemma-3n-E4B-it-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/gemma-3n-E4B-it-GGUF",
+      "revision": "90fa8b0e431faeae50c305828bc260d6f71720e1",
+      "vram_gb_8k": 7.5
+    },
+    {
+      "file_gb": 5.0,
+      "file_sha256": "88a7552ad06665791aed6c3f71ebc011f7669bc5dd062607d875bd0f6f22e437",
+      "file_size_bytes": 5023496320,
+      "filename": "gemma-3n-E4B-it-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/gemma-3n-E4B-it-GGUF",
+      "revision": "90fa8b0e431faeae50c305828bc260d6f71720e1",
+      "vram_gb_8k": 6.2
+    },
+    {
+      "file_gb": 4.5,
+      "file_sha256": "43b489bb77a81bda85180e7c490d40ad7f1d5c2ce654c9b05e15e104bd3c777e",
+      "file_size_bytes": 4539054208,
+      "filename": "gemma-3n-E4B-it-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/gemma-3n-E4B-it-GGUF",
+      "revision": "90fa8b0e431faeae50c305828bc260d6f71720e1",
+      "vram_gb_8k": 5.7
+    },
+    {
+      "file_gb": 3.7,
+      "file_sha256": "078ade06a346a4f960db1ea06cf1279697d44cf0ffdf3d170e25278ea40bcc70",
+      "file_size_bytes": 3689945216,
+      "filename": "gemma-3n-E4B-it-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/gemma-3n-E4B-it-GGUF",
+      "revision": "90fa8b0e431faeae50c305828bc260d6f71720e1",
+      "vram_gb_8k": 4.9
+    },
+    {
+      "file_gb": 3.2,
+      "file_sha256": "c9778114c6f488806ba371b195f13fb1cf4fa2a863cddffe0d3da10377ce2799",
+      "file_size_bytes": 3190380672,
+      "filename": "gemma-3n-E4B-it-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/gemma-3n-E4B-it-GGUF",
+      "revision": "90fa8b0e431faeae50c305828bc260d6f71720e1",
+      "vram_gb_8k": 4.4
+    }
+  ],
   "base_model": "google/gemma-3n-E4B",
   "catalog_id": "google/gemma-3n-E4B-it",
   "demo": false,
   "family": "Gemma 3n",
   "gguf_repo": "unsloth/gemma-3n-E4B-it-GGUF",
+  "hf_model_id": "google/gemma-3n-E4B-it",
   "kind": "community",
   "license": "gemma",
   "model_kind": "base",

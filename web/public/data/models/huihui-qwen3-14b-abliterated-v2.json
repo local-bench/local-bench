@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 12.1,
+      "file_sha256": "8e4f4d59194e75829b985aef473a934215880786a9a0bf3bac2ce6ec92cc0917",
+      "file_size_bytes": 12121934368,
+      "filename": "Huihui-Qwen3-14B-abliterated-v2.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+      "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32",
+      "vram_gb_8k": 13.8
+    },
+    {
+      "file_gb": 10.5,
+      "file_sha256": "4830c1d36a0e31d446b59f3550f810c5fa7a019066eee6527ec2ea2d071ce244",
+      "file_size_bytes": 10514566688,
+      "filename": "Huihui-Qwen3-14B-abliterated-v2.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+      "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32",
+      "vram_gb_8k": 12.2
+    },
+    {
+      "file_gb": 9.0,
+      "file_sha256": "84673b0c0c239db87f2aa67b919e0ef920301ca85b50cc1a8b7b2a21ef997183",
+      "file_size_bytes": 9001750048,
+      "filename": "Huihui-Qwen3-14B-abliterated-v2.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+      "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32",
+      "vram_gb_8k": 10.7
+    },
+    {
+      "file_gb": 7.3,
+      "file_sha256": "38c3ccf7523e0e22f4f1a093636814568cd80abdcadd672c6f9ea76a1026e39e",
+      "file_size_bytes": 7321309728,
+      "filename": "Huihui-Qwen3-14B-abliterated-v2.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+      "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 5.8,
+      "file_sha256": "f11d4b0540318fdc500edaa2ca3e2fd6c409d9fee9ca6a7c0043e7742751932f",
+      "file_size_bytes": 5753980448,
+      "filename": "Huihui-Qwen3-14B-abliterated-v2.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+      "revision": "3b8a04ff1a8677b253421f999a281c0bf7b4cb32",
+      "vram_gb_8k": 7.5
+    }
+  ],
   "base_model": "Qwen/Qwen3-14B",
   "catalog_id": "huihui-ai/Huihui-Qwen3-14B-abliterated-v2",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Huihui-Qwen3-14B-abliterated-v2-i1-GGUF",
+  "hf_model_id": "huihui-ai/Huihui-Qwen3-14B-abliterated-v2",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 9.0,
+      "file_sha256": "bd0ca58473b64618df4d08c1410cc25c910ca84e647833ebaf099e0fc0523b45",
+      "file_size_bytes": 9029392800,
+      "filename": "Ministral-3-8B-Instruct-2512-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mistralai/Ministral-3-8B-Instruct-2512-GGUF",
+      "revision": "0102285ad796bd99af90f58de616092e5630e970",
+      "vram_gb_8k": 10.4
+    },
+    {
+      "file_gb": 6.1,
+      "file_sha256": "7a5454127ec772e2389f0e71a77fedb88b83d4366d8a69facd0cfd0898f04d35",
+      "file_size_bytes": 6059268512,
+      "filename": "Ministral-3-8B-Instruct-2512-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mistralai/Ministral-3-8B-Instruct-2512-GGUF",
+      "revision": "0102285ad796bd99af90f58de616092e5630e970",
+      "vram_gb_8k": 7.5
+    },
+    {
+      "file_gb": 5.2,
+      "file_sha256": "33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761",
+      "file_size_bytes": 5198911904,
+      "filename": "Ministral-3-8B-Instruct-2512-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mistralai/Ministral-3-8B-Instruct-2512-GGUF",
+      "revision": "0102285ad796bd99af90f58de616092e5630e970",
+      "vram_gb_8k": 6.6
+    }
+  ],
   "base_model": "mistralai/Ministral-3-8B-Base-2512",
   "catalog_id": "mistralai/Ministral-3-8B-Instruct-2512",
   "demo": false,
   "family": "Ministral",
   "gguf_repo": "mistralai/Ministral-3-8B-Instruct-2512-GGUF",
+  "hf_model_id": "mistralai/Ministral-3-8B-Instruct-2512",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

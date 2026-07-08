@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "72aafefc45be8afad7503211fe0de4c2bc9c6258dd92fa97ecbfe5a7c7cf8e32",
+      "file_size_bytes": 25092535808,
+      "filename": "Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+      "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556",
+      "vram_gb_8k": 27.6
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "1ebc1d7463cf2c57ecf6dff01a86b7f449592ff082878126e571298dc8c6e837",
+      "file_size_bytes": 21725584896,
+      "filename": "Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+      "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.6,
+      "file_sha256": "bf6c1462967444b5be32b103b793d93b9174c7b589300f9f279c390c7fb59036",
+      "file_size_bytes": 18556689920,
+      "filename": "Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+      "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556",
+      "vram_gb_8k": 21.1
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "00e4bd529eb749e8eb3397fb9b20d3fedcc63ac82fbed238c7c7ef22c23facd7",
+      "file_size_bytes": 14711850496,
+      "filename": "Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+      "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556",
+      "vram_gb_8k": 17.2
+    },
+    {
+      "file_gb": 11.3,
+      "file_sha256": "030560ef2b6d05bffd6110a1354494ffc7ec83c3c8e5c2acd0e06bc5ca38cbea",
+      "file_size_bytes": 11258613248,
+      "filename": "Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+      "revision": "1fa96afc8a651d0ec8fa85087caa753cd0ab9556",
+      "vram_gb_8k": 13.8
+    }
+  ],
   "base_model": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
   "catalog_id": "huihui-ai/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated",
   "demo": false,
   "family": "Qwen3 Coder",
   "gguf_repo": "mradermacher/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated-i1-GGUF",
+  "hf_model_id": "huihui-ai/Huihui-Qwen3-Coder-30B-A3B-Instruct-abliterated",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

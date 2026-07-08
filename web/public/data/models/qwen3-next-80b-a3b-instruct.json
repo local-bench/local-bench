@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 48.7,
+      "file_sha256": "0823a763fca050fce52e7b9180449bf1c2cc25778eabc501dd3fcf4a799f83d2",
+      "file_size_bytes": 48727677408,
+      "filename": "Qwen_Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF",
+      "revision": "c07b9268d97d8ba09d0529980627f3bd70f5f90a",
+      "vram_gb_8k": 53.7
+    },
+    {
+      "file_gb": 36.7,
+      "file_sha256": "cccbf853c0fb42180b4e71778924d54eff56d0e983f0a16a6bbe820411fbf535",
+      "file_size_bytes": 36655710688,
+      "filename": "Qwen_Qwen3-Next-80B-A3B-Instruct-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF",
+      "revision": "c07b9268d97d8ba09d0529980627f3bd70f5f90a",
+      "vram_gb_8k": 41.7
+    },
+    {
+      "file_gb": 28.2,
+      "file_sha256": "85c91f47bc1e29d00ee9d1ecc56fa936636c9ceb7993787162ed3df01a3eb236",
+      "file_size_bytes": 28167604704,
+      "filename": "Qwen_Qwen3-Next-80B-A3B-Instruct-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF",
+      "revision": "c07b9268d97d8ba09d0529980627f3bd70f5f90a",
+      "vram_gb_8k": 33.2
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
   "demo": false,
   "family": "Qwen3 Next",
   "gguf_repo": "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen3-Next-80B-A3B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

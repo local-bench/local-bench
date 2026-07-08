@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 26.4,
+      "file_sha256": "677c56725ad72903acc0d4706cefd2e6c08823f597a614f1f33bf2288d24be4f",
+      "file_size_bytes": 26436405056,
+      "filename": "M-MOE-4X7B-Dark-MultiVerse-UC-E32-24B-max-D_AU-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2",
+      "vram_gb_8k": 28.6
+    },
+    {
+      "file_gb": 20.7,
+      "file_sha256": "fbb3855e67f253e06478e9729ee149e737d9643dc0b3d741b4df1e8f3973e60a",
+      "file_size_bytes": 20650362688,
+      "filename": "M-MOE-4X7B-Dark-MultiVerse-UC-E32-24B-max-D_AU-Q6_k.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2",
+      "vram_gb_8k": 22.9
+    },
+    {
+      "file_gb": 17.2,
+      "file_sha256": "0fe63a01d71ad26834dab9efaad9afafc6c7a5c90bafc584ded31fdaff86139c",
+      "file_size_bytes": 17183614784,
+      "filename": "M-MOE-4X7B-Dark-MultiVerse-UC-E32-24B-D_AU-q5_k_m.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2",
+      "vram_gb_8k": 19.4
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "a534fde2005365bd37c592a41c7a90ba0858801bb9d133277929ae10d75247ed",
+      "file_size_bytes": 14658012992,
+      "filename": "M-MOE-4X7B-Dark-MultiVerse-UC-E32-24B-D_AU-Q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2",
+      "vram_gb_8k": 16.9
+    },
+    {
+      "file_gb": 11.6,
+      "file_sha256": "6ecc81b8d2427df3052f9a976924ab9713d668a5486f2fce5e1b26acdf03e2df",
+      "file_size_bytes": 11629594432,
+      "filename": "M-MOE-4X7B-Dark-MultiVerse-UC-E32-24B-D_AU-Q3_k_m.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2",
+      "vram_gb_8k": 13.8
+    },
+    {
+      "file_gb": 9.7,
+      "file_sha256": "fd00dbfc6f589adafb17a5107309cb4cbd1f4cc7f634519fa6e41c206893f172",
+      "file_size_bytes": 9740977984,
+      "filename": "M-MOE-4X7B-Dark-MultiVerse-UC-E32-24B-max-D_AU-Q2_k.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+      "revision": "122565e6f0946649b22c82ab06c7009fd2318ac2",
+      "vram_gb_8k": 11.9
+    }
+  ],
   "base_model": "mistralai/Mistral-7B-Instruct-v0.3",
   "catalog_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B",
   "demo": false,
   "family": "Mistral",
   "gguf_repo": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B-gguf",
+  "hf_model_id": "DavidAU/Mistral-MOE-4X7B-Dark-MultiVerse-Uncensored-Enhanced32-24B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

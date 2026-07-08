@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.9,
+      "file_sha256": "f528d0d2ad49bef774743725f3249b202208472863c13adf947df44151f28d59",
+      "file_size_bytes": 4920735008,
+      "filename": "vikhr-llama3.1-8b-instruct-r-21-09-24-q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Neurogen/Vikhr-Llama3.1-8B-Instruct-R-21-09-24-Q4_K_M-GGUF",
+      "revision": "f307c4e30133eab06d861b19adc19ff6e1693971",
+      "vram_gb_8k": 6.3
+    }
+  ],
   "base_model": "meta-llama/Llama-3.1-8B-Instruct",
   "catalog_id": "Vikhrmodels/Vikhr-Llama3.1-8B-Instruct-R-21-09-24",
   "demo": false,
   "family": "Llama 3.1",
   "gguf_repo": "Neurogen/Vikhr-Llama3.1-8B-Instruct-R-21-09-24-Q4_K_M-GGUF",
+  "hf_model_id": "Vikhrmodels/Vikhr-Llama3.1-8B-Instruct-R-21-09-24",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

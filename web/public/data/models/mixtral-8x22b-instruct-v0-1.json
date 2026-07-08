@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Mixtral",
   "gguf_repo": "MaziyarPanahi/Mixtral-8x22B-Instruct-v0.1-GGUF",
+  "hf_model_id": "mistralai/Mixtral-8x22B-Instruct-v0.1",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 6.3,
+      "file_sha256": "d2aa6d16f5ccf6b15455239aef27acaf5f733cbed8108023c993826f53ba7c0b",
+      "file_size_bytes": 6254199616,
+      "filename": "Arctic-Text2SQL-R1-7B.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+      "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 5.4,
+      "file_sha256": "9bfb165a58a61776822c4a32d679f9b4ce082c47db710a0a15331641b1670798",
+      "file_size_bytes": 5444832064,
+      "filename": "Arctic-Text2SQL-R1-7B.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+      "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75",
+      "vram_gb_8k": 6.8
+    },
+    {
+      "file_gb": 4.7,
+      "file_sha256": "698b7d04509b88a259aec65034ae99ea4fc55937e459b0f1899f6765039b5b2d",
+      "file_size_bytes": 4683074368,
+      "filename": "Arctic-Text2SQL-R1-7B.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+      "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75",
+      "vram_gb_8k": 6.1
+    },
+    {
+      "file_gb": 3.8,
+      "file_sha256": "bc1053f0f3ee66eb4352edc908b77fae02e4e2667d3b62fae4a67616f8825a68",
+      "file_size_bytes": 3808392000,
+      "filename": "Arctic-Text2SQL-R1-7B.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+      "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75",
+      "vram_gb_8k": 5.2
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "bd0d34b834c02aeff35e0bdb1f566ce151ff9d10f18bcccb51f1174f1a305918",
+      "file_size_bytes": 3015940928,
+      "filename": "Arctic-Text2SQL-R1-7B.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+      "revision": "25daefb4801f3e3ac86ba10b86aab11ac1c43e75",
+      "vram_gb_8k": 4.4
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
   "catalog_id": "Snowflake/Arctic-Text2SQL-R1-7B",
   "demo": false,
   "family": "Qwen2.5 Coder",
   "gguf_repo": "mradermacher/Arctic-Text2SQL-R1-7B-i1-GGUF",
+  "hf_model_id": "Snowflake/Arctic-Text2SQL-R1-7B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

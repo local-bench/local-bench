@@ -4,6 +4,7 @@
   "demo": false,
   "family": "DeepSeek V3",
   "gguf_repo": "MaziyarPanahi/DeepSeek-V3-0324-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-V3-0324",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

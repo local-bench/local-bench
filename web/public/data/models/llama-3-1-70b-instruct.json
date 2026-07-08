@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 49.9,
+      "file_sha256": "6973a51ab0535ff2b2ab3bc5d1e68f1ac3b7e10ad0c2a6f9a8437005518503ec",
+      "file_size_bytes": 49949816960,
+      "filename": "Meta-Llama-3.1-70B-Instruct.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
+      "revision": "c1c0c3d88f2fca6f18de9063917f9bc49a33365a",
+      "vram_gb_8k": 54.4
+    },
+    {
+      "file_gb": 42.5,
+      "file_sha256": "3f16ab17da4521fe3ed7c5d7beed960d3fe7b5b64421ee9650aa53d6b649ccab",
+      "file_size_bytes": 42520393856,
+      "filename": "Meta-Llama-3.1-70B-Instruct.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
+      "revision": "c1c0c3d88f2fca6f18de9063917f9bc49a33365a",
+      "vram_gb_8k": 47.0
+    },
+    {
+      "file_gb": 34.3,
+      "file_sha256": "edaa3775e4f3599a9e3ff576492f9da11e18c10ccbbc1b52b67eb90660a1b0a9",
+      "file_size_bytes": 34267494528,
+      "filename": "Meta-Llama-3.1-70B-Instruct.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
+      "revision": "c1c0c3d88f2fca6f18de9063917f9bc49a33365a",
+      "vram_gb_8k": 38.8
+    },
+    {
+      "file_gb": 26.4,
+      "file_sha256": "08b70ba58c9bd0da4ec7c725cee05c7795565f2a142fff33c4c5612dfe8493b1",
+      "file_size_bytes": 26375108736,
+      "filename": "Meta-Llama-3.1-70B-Instruct.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
+      "revision": "c1c0c3d88f2fca6f18de9063917f9bc49a33365a",
+      "vram_gb_8k": 30.9
+    }
+  ],
   "base_model": "meta-llama/Meta-Llama-3.1-70B",
   "catalog_id": "meta-llama/Llama-3.1-70B-Instruct",
   "demo": false,
   "family": "Llama 3.1",
   "gguf_repo": "MaziyarPanahi/Meta-Llama-3.1-70B-Instruct-GGUF",
+  "hf_model_id": "meta-llama/Llama-3.1-70B-Instruct",
   "kind": "community",
   "license": "llama3.1",
   "model_kind": "base",

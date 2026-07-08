@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 26.9,
+      "file_sha256": "3a6927b7e047f2f609595f6a524d24a0d89648d191a41d6a104bbd9edb13cc8e",
+      "file_size_bytes": 26883307136,
+      "filename": "Goedel-Prover-V2-32B.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+      "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df",
+      "vram_gb_8k": 29.5
+    },
+    {
+      "file_gb": 23.2,
+      "file_sha256": "16084f154122ac5abf644395e416bd4378f7cec0b0ac6fb31db4bc3731f21f37",
+      "file_size_bytes": 23214832256,
+      "filename": "Goedel-Prover-V2-32B.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+      "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df",
+      "vram_gb_8k": 25.8
+    },
+    {
+      "file_gb": 19.8,
+      "file_sha256": "25119afbf14f22b352df90d2142aca40f5034898ce4350764466502940308590",
+      "file_size_bytes": 19762150016,
+      "filename": "Goedel-Prover-V2-32B.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+      "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df",
+      "vram_gb_8k": 22.4
+    },
+    {
+      "file_gb": 16.0,
+      "file_sha256": "c493e71e8af9c84e75fe1e900513a920c0259cc63dad64d82e01e2a86abd8a41",
+      "file_size_bytes": 15971778176,
+      "filename": "Goedel-Prover-V2-32B.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+      "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df",
+      "vram_gb_8k": 18.6
+    },
+    {
+      "file_gb": 12.3,
+      "file_sha256": "b3714f65fd6b6753b40a579a69bcde4f0cf82488e9b641b5f08f0be750b02784",
+      "file_size_bytes": 12344652416,
+      "filename": "Goedel-Prover-V2-32B.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+      "revision": "2601de8ffefb6912fd87e8d6a3dcdc8c871a78df",
+      "vram_gb_8k": 14.9
+    }
+  ],
   "base_model": "Qwen/Qwen3-32B",
   "catalog_id": "Goedel-LM/Goedel-Prover-V2-32B",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Goedel-Prover-V2-32B-i1-GGUF",
+  "hf_model_id": "Goedel-LM/Goedel-Prover-V2-32B",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

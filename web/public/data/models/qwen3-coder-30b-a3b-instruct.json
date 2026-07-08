@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 32.5,
+      "file_sha256": "4ff1cff607804037bf6d2168249c570baa4e1621292b159c0e06591e0d7c3066",
+      "file_size_bytes": 32483935392,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+      "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350",
+      "vram_gb_8k": 35.0
+    },
+    {
+      "file_gb": 25.1,
+      "file_sha256": "100b5121d09553fb1af3b873b21fb3ec3da5c306fc5cb09bd338c48e21b10875",
+      "file_size_bytes": 25092535456,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+      "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350",
+      "vram_gb_8k": 27.6
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "4b78837bbec5ee248e4a5642bf608b6793721af41b92589e40c8da0bce58b907",
+      "file_size_bytes": 21725584544,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+      "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.6,
+      "file_sha256": "fadc3e5f8d42bf7e894a785b05082e47daee4df26680389817e2093056f088ad",
+      "file_size_bytes": 18556689568,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+      "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350",
+      "vram_gb_8k": 21.1
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "30c83da425db2324444b6a6cecaf4c410038a2ec73a78de2436879dc0316a371",
+      "file_size_bytes": 14711850144,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+      "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350",
+      "vram_gb_8k": 17.2
+    },
+    {
+      "file_gb": 11.3,
+      "file_sha256": "6db9853d31fdb928a731666c9d44e8cdebf52f62f4810cb0908c6c677e6c84b5",
+      "file_size_bytes": 11258612896,
+      "filename": "Qwen3-Coder-30B-A3B-Instruct-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+      "revision": "b17cb02dd882d5b6ab62fc777ad2995f19668350",
+      "vram_gb_8k": 13.8
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
   "demo": false,
   "family": "Qwen3 Coder",
   "gguf_repo": "unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

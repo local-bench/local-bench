@@ -4,6 +4,7 @@
   "demo": false,
   "family": "DeepSeek V3",
   "gguf_repo": "unsloth/DeepSeek-V3.1-Terminus-GGUF",
+  "hf_model_id": "deepseek-ai/DeepSeek-V3.1-Terminus",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

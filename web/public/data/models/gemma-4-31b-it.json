@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 32.6,
+      "file_sha256": "85c623b5383e5b462e3d49490990a3cdfd0abf6b09f8f5e6c5881903d7de67cc",
+      "file_size_bytes": 32635675648,
+      "filename": "gemma-4-31B-it-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/gemma-4-31B-it-GGUF",
+      "revision": "8906b3db2e669a0b1d6293c315d3f9fbf934a86d",
+      "vram_gb_8k": 35.1
+    },
+    {
+      "file_gb": 25.2,
+      "file_sha256": "abd0be03a2bc3f3c9d8e018cbb4ff5b553c340c65d49b6b346c48be5a1efde28",
+      "file_size_bytes": 25201484800,
+      "filename": "gemma-4-31B-it-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/gemma-4-31B-it-GGUF",
+      "revision": "8906b3db2e669a0b1d6293c315d3f9fbf934a86d",
+      "vram_gb_8k": 27.8
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "a67da2acb852c31eed0325ddb5158070b70b025a601b2f7b8ed4ee7abde673e9",
+      "file_size_bytes": 21658399744,
+      "filename": "gemma-4-31B-it-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/gemma-4-31B-it-GGUF",
+      "revision": "8906b3db2e669a0b1d6293c315d3f9fbf934a86d",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.3,
+      "file_sha256": "9fdf3dc8b0384830b4402d151388c140bd8eb2abf8d60588d8224231198254a1",
+      "file_size_bytes": 18323731456,
+      "filename": "gemma-4-31B-it-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/gemma-4-31B-it-GGUF",
+      "revision": "8906b3db2e669a0b1d6293c315d3f9fbf934a86d",
+      "vram_gb_8k": 20.9
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "40dfaa7900e55f52a1f8416193294b88117f803e2b546248d7644fe1236557e7",
+      "file_size_bytes": 14736606208,
+      "filename": "gemma-4-31B-it-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/gemma-4-31B-it-GGUF",
+      "revision": "8906b3db2e669a0b1d6293c315d3f9fbf934a86d",
+      "vram_gb_8k": 17.2
+    }
+  ],
   "base_model": "google/gemma-4-31B",
   "catalog_id": "google/gemma-4-31B-it",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "unsloth/gemma-4-31B-it-GGUF",
+  "hf_model_id": "google/gemma-4-31B-it",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

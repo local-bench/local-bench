@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 7.7,
+      "file_sha256": "24df553dc0e725196fe8a3c7be1edfe6ff17a0fe855f508b3f4a0e444e2e4281",
+      "file_size_bytes": 7702565024,
+      "filename": "Mistral-7B-Instruct-v0.3.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+      "revision": "ce89f595755a4bf2e2e05d155cc43cb847c78978",
+      "vram_gb_8k": 9.0
+    },
+    {
+      "file_gb": 5.9,
+      "file_sha256": "d58a20f828bca2e163342d43324f953f2edf9bdd5886bfe15c4b81b5b70a3b7b",
+      "file_size_bytes": 5947248800,
+      "filename": "Mistral-7B-Instruct-v0.3.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+      "revision": "ce89f595755a4bf2e2e05d155cc43cb847c78978",
+      "vram_gb_8k": 7.2
+    },
+    {
+      "file_gb": 5.1,
+      "file_sha256": "16617265368ffaa5f0c67b320a1df4b40b0c8e990a91cf5722fc2159e65f559f",
+      "file_size_bytes": 5136175264,
+      "filename": "Mistral-7B-Instruct-v0.3.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+      "revision": "ce89f595755a4bf2e2e05d155cc43cb847c78978",
+      "vram_gb_8k": 6.4
+    },
+    {
+      "file_gb": 4.4,
+      "file_sha256": "14850c84ff9f06e9b51d505d64815d5cc0cea0257380353ac0b3d21b21f6e024",
+      "file_size_bytes": 4372811936,
+      "filename": "Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+      "revision": "ce89f595755a4bf2e2e05d155cc43cb847c78978",
+      "vram_gb_8k": 5.8
+    },
+    {
+      "file_gb": 3.5,
+      "file_sha256": "b982905e4fccdf5894b4c597426fa71f7b528a4534719568a3ee806fe33a961f",
+      "file_size_bytes": 3522941088,
+      "filename": "Mistral-7B-Instruct-v0.3.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+      "revision": "ce89f595755a4bf2e2e05d155cc43cb847c78978",
+      "vram_gb_8k": 4.8
+    },
+    {
+      "file_gb": 2.7,
+      "file_sha256": "f1e535fb88726ab341bbd2896041fe72d376ac3670d343caad7c2991ecb5b82f",
+      "file_size_bytes": 2722877600,
+      "filename": "Mistral-7B-Instruct-v0.3.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+      "revision": "ce89f595755a4bf2e2e05d155cc43cb847c78978",
+      "vram_gb_8k": 4.0
+    }
+  ],
   "base_model": "mistralai/Mistral-7B-v0.3",
   "catalog_id": "mistralai/Mistral-7B-Instruct-v0.3",
   "demo": false,
   "family": "Mistral",
   "gguf_repo": "MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF",
+  "hf_model_id": "mistralai/Mistral-7B-Instruct-v0.3",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

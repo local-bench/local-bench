@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 47.4,
+      "file_sha256": "00eff346eb2a6411a2d17c3ef920701eed1192ea1dd4f217e918669e32ba2119",
+      "file_size_bytes": 47415715776,
+      "filename": "Qwen2.5-72B-Instruct-abliterated.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF",
+      "revision": "e4ddd01130c63983ecb92aea60d0e896bf58e98f",
+      "vram_gb_8k": 52.0
+    },
+    {
+      "file_gb": 37.7,
+      "file_sha256": "dbdb067b47f4eebdc90ca6686e404dc8337f6962265da9ac3d3385f955315333",
+      "file_size_bytes": 37698725824,
+      "filename": "Qwen2.5-72B-Instruct-abliterated.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF",
+      "revision": "e4ddd01130c63983ecb92aea60d0e896bf58e98f",
+      "vram_gb_8k": 42.3
+    },
+    {
+      "file_gb": 29.8,
+      "file_sha256": "04028084a3a7123c0aff9d7ee87dccc48b70f7545b94be6b8bdbf8167dec395a",
+      "file_size_bytes": 29811763136,
+      "filename": "Qwen2.5-72B-Instruct-abliterated.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF",
+      "revision": "e4ddd01130c63983ecb92aea60d0e896bf58e98f",
+      "vram_gb_8k": 34.4
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-72B-Instruct",
   "catalog_id": "huihui-ai/Qwen2.5-72B-Instruct-abliterated",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "mradermacher/Qwen2.5-72B-Instruct-abliterated-GGUF",
+  "hf_model_id": "huihui-ai/Qwen2.5-72B-Instruct-abliterated",
   "kind": "community",
   "license": "other",
   "model_kind": "finetune",

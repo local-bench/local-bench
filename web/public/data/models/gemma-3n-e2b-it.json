@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 4.8,
+      "file_sha256": "cc1a031fe99ebb066f61f3b94dd1ae324f1648f9ebdcfbfa3f97214054b68e15",
+      "file_size_bytes": 4788112736,
+      "filename": "gemma-3n-E2B-it-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/gemma-3n-E2B-it-GGUF",
+      "revision": "d7bd20d510eff26f3f95260c50f032fee8931a35",
+      "vram_gb_8k": 5.9
+    },
+    {
+      "file_gb": 4.2,
+      "file_sha256": "d2422a66532f23c21c0ffd05d21ec05200c33009fad61402bb99125be34983c6",
+      "file_size_bytes": 4208594272,
+      "filename": "gemma-3n-E2B-it-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/gemma-3n-E2B-it-GGUF",
+      "revision": "d7bd20d510eff26f3f95260c50f032fee8931a35",
+      "vram_gb_8k": 5.3
+    },
+    {
+      "file_gb": 3.3,
+      "file_sha256": "9141adf2b415304baa5db82d2a4aa4fbab77bef1d4e78e83d9be0644b8c85ea9",
+      "file_size_bytes": 3294793056,
+      "filename": "gemma-3n-E2B-it-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/gemma-3n-E2B-it-GGUF",
+      "revision": "d7bd20d510eff26f3f95260c50f032fee8931a35",
+      "vram_gb_8k": 4.4
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "189d42b4303cb1078ea8d00963f437cd6d884069b7ba2ba80b38cd09585dc415",
+      "file_size_bytes": 3026881888,
+      "filename": "gemma-3n-E2B-it-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/gemma-3n-E2B-it-GGUF",
+      "revision": "d7bd20d510eff26f3f95260c50f032fee8931a35",
+      "vram_gb_8k": 4.1
+    },
+    {
+      "file_gb": 2.5,
+      "file_sha256": "2d982a5ed5f94c188e9c4dc3ddcc93c6d3f4383aba2ce8e2024e5652fa5bc86e",
+      "file_size_bytes": 2483178848,
+      "filename": "gemma-3n-E2B-it-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/gemma-3n-E2B-it-GGUF",
+      "revision": "d7bd20d510eff26f3f95260c50f032fee8931a35",
+      "vram_gb_8k": 3.6
+    },
+    {
+      "file_gb": 2.2,
+      "file_sha256": "6a1ef5f92cd368a63c126e212762ae8d9b569f096b75e51e9558458e7a2428ff",
+      "file_size_bytes": 2221329760,
+      "filename": "gemma-3n-E2B-it-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/gemma-3n-E2B-it-GGUF",
+      "revision": "d7bd20d510eff26f3f95260c50f032fee8931a35",
+      "vram_gb_8k": 3.3
+    }
+  ],
   "base_model": "google/gemma-3n-E4B-it",
   "catalog_id": "google/gemma-3n-E2B-it",
   "demo": false,
   "family": "Gemma 3n",
   "gguf_repo": "unsloth/gemma-3n-E2B-it-GGUF",
+  "hf_model_id": "google/gemma-3n-E2B-it",
   "kind": "community",
   "license": "gemma",
   "model_kind": "finetune",

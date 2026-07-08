@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 32.5,
+      "file_sha256": "d2fdf51d426930ebe792c6124e231d74d1149f446ff00467e86bde6ef1bdbf2f",
+      "file_size_bytes": 32483932128,
+      "filename": "Qwen3-30B-A3B-abliterated.Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+      "revision": "5eed9fdfc8dd2a614fa0f344befbb68d9e049978",
+      "vram_gb_8k": 35.0
+    },
+    {
+      "file_gb": 25.1,
+      "file_sha256": "ad6cb1385aa0ba346eb7d858d14ec86350064d781516a59984c53deded620dc5",
+      "file_size_bytes": 25092532192,
+      "filename": "Qwen3-30B-A3B-abliterated.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+      "revision": "5eed9fdfc8dd2a614fa0f344befbb68d9e049978",
+      "vram_gb_8k": 27.6
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "abb8a6f02775e316417ed605f04db30e9286f699c19ec2d1fe71f50dacc3e183",
+      "file_size_bytes": 21725581280,
+      "filename": "Qwen3-30B-A3B-abliterated.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+      "revision": "5eed9fdfc8dd2a614fa0f344befbb68d9e049978",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.6,
+      "file_sha256": "60549f0232ed856dd0268e006e8f764620ea3eeaac3239ff0843e647dd9ae128",
+      "file_size_bytes": 18556686304,
+      "filename": "Qwen3-30B-A3B-abliterated.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+      "revision": "5eed9fdfc8dd2a614fa0f344befbb68d9e049978",
+      "vram_gb_8k": 21.1
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "bf47fd3ea844fe5e753f44e5b755dbad6adf5ef14af3d75fc8a914cf3f6f00e4",
+      "file_size_bytes": 14711846880,
+      "filename": "Qwen3-30B-A3B-abliterated.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+      "revision": "5eed9fdfc8dd2a614fa0f344befbb68d9e049978",
+      "vram_gb_8k": 17.2
+    },
+    {
+      "file_gb": 11.3,
+      "file_sha256": "6d9d4b6d1c240d94fff68d348c91cc51058c8ca9b4a8f2482e09d95be24fbaeb",
+      "file_size_bytes": 11258609632,
+      "filename": "Qwen3-30B-A3B-abliterated.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+      "revision": "5eed9fdfc8dd2a614fa0f344befbb68d9e049978",
+      "vram_gb_8k": 13.8
+    }
+  ],
   "base_model": "Qwen/Qwen3-30B-A3B",
   "catalog_id": "mlabonne/Qwen3-30B-A3B-abliterated",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/Qwen3-30B-A3B-abliterated-GGUF",
+  "hf_model_id": "mlabonne/Qwen3-30B-A3B-abliterated",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

@@ -1,9 +1,32 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 3.8,
+      "file_sha256": "ff5c64615cf8a44651d208e9d8da1f753feefc21605e6c1ee67957aa77257c3c",
+      "file_size_bytes": 3808391104,
+      "filename": "qwen2.5-coder-7b-instruct-q3_k_m.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+      "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a",
+      "vram_gb_8k": 5.1
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "6ce2630974b0ef631e2b29064cd10a9cb16b278d001961d72bfd86987392c8d9",
+      "file_size_bytes": 3015940032,
+      "filename": "qwen2.5-coder-7b-instruct-q2_k.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+      "revision": "13fb94bfda8c8cf22497dc57b78f391a9acb426a",
+      "vram_gb_8k": 4.3
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-Coder-7B",
   "catalog_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
   "demo": false,
   "family": "Qwen2.5 Coder",
   "gguf_repo": "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-Coder-7B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

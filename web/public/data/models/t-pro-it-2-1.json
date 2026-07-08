@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 34.8,
+      "file_sha256": "af2b3a761473a95ca31ab9b8647b9dc4288604a4a71f795ffd9402d2938c7621",
+      "file_size_bytes": 34816397344,
+      "filename": "T-pro-it-2.1-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "t-tech/T-pro-it-2.1-GGUF",
+      "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a",
+      "vram_gb_8k": 37.4
+    },
+    {
+      "file_gb": 26.9,
+      "file_sha256": "4e6d7215efe7c0c9f62a8c4f35e11987c41301459d1888225f96b0e0c626ffb1",
+      "file_size_bytes": 26882597152,
+      "filename": "T-pro-it-2.1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "t-tech/T-pro-it-2.1-GGUF",
+      "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a",
+      "vram_gb_8k": 29.5
+    },
+    {
+      "file_gb": 23.2,
+      "file_sha256": "5c93325a18deb28e9842c877fdb7f453e63829bae57b0603157fdc82afbfd659",
+      "file_size_bytes": 23214290208,
+      "filename": "T-pro-it-2.1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "t-tech/T-pro-it-2.1-GGUF",
+      "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a",
+      "vram_gb_8k": 25.8
+    },
+    {
+      "file_gb": 19.8,
+      "file_sha256": "b19e88cc1154b4b0c99f09bc7b57b8e5f3a6af4135581a3bfd31a2518ed58714",
+      "file_size_bytes": 19761766048,
+      "filename": "T-pro-it-2.1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "t-tech/T-pro-it-2.1-GGUF",
+      "revision": "cf18787d8901c26ca9334812e7ff8070f2ddab4a",
+      "vram_gb_8k": 22.4
+    }
+  ],
   "base_model": "Qwen/Qwen3-32B",
   "catalog_id": "t-tech/T-pro-it-2.1",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "t-tech/T-pro-it-2.1-GGUF",
+  "hf_model_id": "t-tech/T-pro-it-2.1",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

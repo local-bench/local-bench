@@ -4,6 +4,7 @@
   "demo": false,
   "family": "Llama 4",
   "gguf_repo": "unsloth/Llama-4-Maverick-17B-128E-Instruct-GGUF",
+  "hf_model_id": "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
   "kind": "community",
   "license": "other",
   "model_kind": "base",

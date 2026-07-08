@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 84.8,
+      "file_sha256": "7733b5285b43f26af3fe6ddd51a60e52bb992e706bc66c5967a4e7ead0bf114a",
+      "file_size_bytes": 84812053760,
+      "filename": "Qwen3-Next-80B-A3B-Thinking-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF",
+      "revision": "de5795cd9a4f5538d1dd5c9823fdd73eacfae3fe",
+      "vram_gb_8k": 89.8
+    },
+    {
+      "file_gb": 65.5,
+      "file_sha256": "c7e3f469746d7695b6464f1bbaaded9811a299954edfd6f3e3294af75a7f3f9f",
+      "file_size_bytes": 65528462592,
+      "filename": "Qwen3-Next-80B-A3B-Thinking-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF",
+      "revision": "de5795cd9a4f5538d1dd5c9823fdd73eacfae3fe",
+      "vram_gb_8k": 70.5
+    },
+    {
+      "file_gb": 56.7,
+      "file_sha256": "f536dfa578d16b7cfebc9b568c84999127d83e3206a4ae5b2d61f60cd060d984",
+      "file_size_bytes": 56710370560,
+      "filename": "Qwen3-Next-80B-A3B-Thinking-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF",
+      "revision": "de5795cd9a4f5538d1dd5c9823fdd73eacfae3fe",
+      "vram_gb_8k": 61.7
+    },
+    {
+      "file_gb": 48.4,
+      "file_sha256": "7fcd39df10cab070eb7d868cc48ccb274f421158e365452f01be3597b8df8d27",
+      "file_size_bytes": 48410989824,
+      "filename": "Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF",
+      "revision": "de5795cd9a4f5538d1dd5c9823fdd73eacfae3fe",
+      "vram_gb_8k": 53.4
+    }
+  ],
   "base_model": null,
   "catalog_id": "Qwen/Qwen3-Next-80B-A3B-Thinking",
   "demo": false,
   "family": "Qwen3 Next",
   "gguf_repo": "Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF",
+  "hf_model_id": "Qwen/Qwen3-Next-80B-A3B-Thinking",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

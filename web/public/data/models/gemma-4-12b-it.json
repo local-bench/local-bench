@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 12.7,
+      "file_sha256": "74d2d4f0b5b08ca8589d1a5f50e689c0984469f3cedbdc7d67458c6e9e35496a",
+      "file_size_bytes": 12669646240,
+      "filename": "gemma-4-12b-it-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/gemma-4-12b-it-GGUF",
+      "revision": "3249fa54d5efa384afc552cc6700ad091efd5c39",
+      "vram_gb_8k": 14.3
+    },
+    {
+      "file_gb": 9.8,
+      "file_sha256": "e1602ddc224c159584eb4c7d6a6c8d682fc6afb2efb8f76c10bfd63ba71436a2",
+      "file_size_bytes": 9786021280,
+      "filename": "gemma-4-12b-it-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/gemma-4-12b-it-GGUF",
+      "revision": "3249fa54d5efa384afc552cc6700ad091efd5c39",
+      "vram_gb_8k": 11.4
+    },
+    {
+      "file_gb": 8.4,
+      "file_sha256": "1bc633ec98817858bec10f73fa026481c9662449aae4b80a05dfb28ef784c278",
+      "file_size_bytes": 8413574560,
+      "filename": "gemma-4-12b-it-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/gemma-4-12b-it-GGUF",
+      "revision": "3249fa54d5efa384afc552cc6700ad091efd5c39",
+      "vram_gb_8k": 10.0
+    },
+    {
+      "file_gb": 7.1,
+      "file_sha256": "43fec98c5102b1c446b4ddd0a9439f1db3a2e1f2e0b8cd143ce1ea619a9403d6",
+      "file_size_bytes": 7121860000,
+      "filename": "gemma-4-12b-it-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/gemma-4-12b-it-GGUF",
+      "revision": "3249fa54d5efa384afc552cc6700ad091efd5c39",
+      "vram_gb_8k": 8.7
+    },
+    {
+      "file_gb": 5.7,
+      "file_sha256": "abb9ab6b27d577fab0c93b46c8d5e01b77559b5521fc965ca55f17e4322b155b",
+      "file_size_bytes": 5693871520,
+      "filename": "gemma-4-12b-it-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/gemma-4-12b-it-GGUF",
+      "revision": "3249fa54d5efa384afc552cc6700ad091efd5c39",
+      "vram_gb_8k": 7.3
+    }
+  ],
   "base_model": "google/gemma-4-12B",
   "catalog_id": "google/gemma-4-12B-it",
   "demo": false,
   "family": "Gemma 4",
   "gguf_repo": "unsloth/gemma-4-12b-it-GGUF",
+  "hf_model_id": "google/gemma-4-12B-it",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

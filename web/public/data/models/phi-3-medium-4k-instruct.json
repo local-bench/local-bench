@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 14.8,
+      "file_sha256": "665037dac21915fdd9584082487b7882922799c130f8591cf6e7b7796f40d194",
+      "file_size_bytes": 14834712448,
+      "filename": "Phi-3-medium-4k-instruct-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+      "revision": "2e478770bcb73c17668a4f9fa028e8c8228f6fb4",
+      "vram_gb_8k": 16.5
+    },
+    {
+      "file_gb": 11.5,
+      "file_sha256": "0240650c79af4944a3aabfefdab382e0b25210ddfcfa72ea6914c6ca76f321fd",
+      "file_size_bytes": 11453817728,
+      "filename": "Phi-3-medium-4k-instruct-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+      "revision": "2e478770bcb73c17668a4f9fa028e8c8228f6fb4",
+      "vram_gb_8k": 13.2
+    },
+    {
+      "file_gb": 10.1,
+      "file_sha256": "25874bc0da2469d366bdd3328530008b8de65a9c57d64a3ba0d5b3d9f9c406a4",
+      "file_size_bytes": 10074190208,
+      "filename": "Phi-3-medium-4k-instruct-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+      "revision": "2e478770bcb73c17668a4f9fa028e8c8228f6fb4",
+      "vram_gb_8k": 11.8
+    },
+    {
+      "file_gb": 8.6,
+      "file_sha256": "6f05c97bc676dd1ec8d58e9a8795b4f5c809db771f6fc7bf48634c805face82c",
+      "file_size_bytes": 8566821248,
+      "filename": "Phi-3-medium-4k-instruct-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+      "revision": "2e478770bcb73c17668a4f9fa028e8c8228f6fb4",
+      "vram_gb_8k": 10.3
+    },
+    {
+      "file_gb": 6.9,
+      "file_sha256": "413b3b0599e92fdc8f111a7afeddbf9341bd61e81b900f51a508bb9287e56bfa",
+      "file_size_bytes": 6923411328,
+      "filename": "Phi-3-medium-4k-instruct-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+      "revision": "2e478770bcb73c17668a4f9fa028e8c8228f6fb4",
+      "vram_gb_8k": 8.6
+    },
+    {
+      "file_gb": 5.1,
+      "file_sha256": "fe457bf0e1ed12c8d525a9faba454015d127a9547221318686591b1f8598b224",
+      "file_size_bytes": 5143000448,
+      "filename": "Phi-3-medium-4k-instruct-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+      "revision": "2e478770bcb73c17668a4f9fa028e8c8228f6fb4",
+      "vram_gb_8k": 6.8
+    }
+  ],
   "base_model": null,
   "catalog_id": "microsoft/Phi-3-medium-4k-instruct",
   "demo": false,
   "family": "Phi 3",
   "gguf_repo": "bartowski/Phi-3-medium-4k-instruct-GGUF",
+  "hf_model_id": "microsoft/Phi-3-medium-4k-instruct",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

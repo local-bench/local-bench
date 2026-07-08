@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 5.0,
+      "file_sha256": "fb0672b7bc855280059d0ddeef83b3c43e1e791e67ff34122f03d1d9d43e3442",
+      "file_size_bytes": 4974284672,
+      "filename": "Yi-1.5-6B-Chat.Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+      "revision": "5eeb4c393e2a235fd5dce7f6007dd5ea96577592",
+      "vram_gb_8k": 6.3
+    },
+    {
+      "file_gb": 4.3,
+      "file_sha256": "7ee1af9e1242b79f668465c78bf42f5b66607f4fdab4fe4a3f57cae9fc5a57b6",
+      "file_size_bytes": 4304424832,
+      "filename": "Yi-1.5-6B-Chat.Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+      "revision": "5eeb4c393e2a235fd5dce7f6007dd5ea96577592",
+      "vram_gb_8k": 5.6
+    },
+    {
+      "file_gb": 3.7,
+      "file_sha256": "7a0f853dbd8d38bad71ada1933fd067f45f928b2cd978aba1dfd7d5dec2953db",
+      "file_size_bytes": 3673968512,
+      "filename": "Yi-1.5-6B-Chat.Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+      "revision": "5eeb4c393e2a235fd5dce7f6007dd5ea96577592",
+      "vram_gb_8k": 5.0
+    },
+    {
+      "file_gb": 3.0,
+      "file_sha256": "17e27684338d0e2aa75944e6e84d6cf9ea2ad869e4d0f44c673c32dbc73fe406",
+      "file_size_bytes": 2992836480,
+      "filename": "Yi-1.5-6B-Chat.Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+      "revision": "5eeb4c393e2a235fd5dce7f6007dd5ea96577592",
+      "vram_gb_8k": 4.3
+    },
+    {
+      "file_gb": 2.3,
+      "file_sha256": "b06cd22229726943567698f001d4aeceb3f03cae69aae66e3c59176b870f698c",
+      "file_size_bytes": 2337066880,
+      "filename": "Yi-1.5-6B-Chat.Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+      "revision": "5eeb4c393e2a235fd5dce7f6007dd5ea96577592",
+      "vram_gb_8k": 3.6
+    }
+  ],
   "base_model": null,
   "catalog_id": "01-ai/Yi-1.5-6B-Chat",
   "demo": false,
   "family": "Yi 1.5",
   "gguf_repo": "MaziyarPanahi/Yi-1.5-6B-Chat-GGUF",
+  "hf_model_id": "01-ai/Yi-1.5-6B-Chat",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

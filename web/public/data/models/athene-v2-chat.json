@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 47.4,
+      "file_sha256": "bda8b784ad55982891e5aa69b08ce4030c91a2e28ad9c4c35284d45d3c7aeb16",
+      "file_size_bytes": 47415715136,
+      "filename": "Athene-V2-Chat-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Athene-V2-Chat-GGUF",
+      "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f",
+      "vram_gb_8k": 52.0
+    },
+    {
+      "file_gb": 37.7,
+      "file_sha256": "c414d9dcc9ab86f87b24208386c1f6542047040ab51f150d2cccf0958a79c4d1",
+      "file_size_bytes": 37698725184,
+      "filename": "Athene-V2-Chat-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "bartowski/Athene-V2-Chat-GGUF",
+      "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f",
+      "vram_gb_8k": 42.3
+    },
+    {
+      "file_gb": 29.8,
+      "file_sha256": "01af4662945f4d1621a861b54179c1c61878a428d6dc1a4d3dc99bd6ca673cb8",
+      "file_size_bytes": 29811762496,
+      "filename": "Athene-V2-Chat-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/Athene-V2-Chat-GGUF",
+      "revision": "bd5b7957b76ba259ef6f6569d4643107adf4022f",
+      "vram_gb_8k": 34.4
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-72B-Instruct",
   "catalog_id": "Nexusflow/Athene-V2-Chat",
   "demo": false,
   "family": "Qwen2.5",
   "gguf_repo": "bartowski/Athene-V2-Chat-GGUF",
+  "hf_model_id": "Nexusflow/Athene-V2-Chat",
   "kind": "community",
   "license": "other",
   "model_kind": "finetune",

@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 39.5,
+      "file_sha256": "199dba3a40a071ebaf49abaa190c2eada3999ad17b758407b51a401869ed7c74",
+      "file_size_bytes": 39497386816,
+      "filename": "c4ai-command-r-plus-08-2024-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "bartowski/c4ai-command-r-plus-08-2024-GGUF",
+      "revision": "4cb2af9f9be9b2753915e67aa8d658cd031b8a21",
+      "vram_gb_8k": 45.7
+    }
+  ],
   "base_model": null,
   "catalog_id": "CohereLabs/c4ai-command-r-plus",
   "demo": false,
   "family": "Command R",
   "gguf_repo": "bartowski/c4ai-command-r-plus-08-2024-GGUF",
+  "hf_model_id": "CohereLabs/c4ai-command-r-plus",
   "kind": "community",
   "license": "cc-by-nc-4.0",
   "model_kind": "base",

@@ -1,9 +1,52 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.6,
+      "file_sha256": "bd9840d52eb4a7ae0c4098a82e11d2e5ddafb56e25498b0a99e48cedf6b49f67",
+      "file_size_bytes": 1646573376,
+      "filename": "Qwen2.5-Math-1.5B-Instruct-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "bartowski/Qwen2.5-Math-1.5B-Instruct-GGUF",
+      "revision": "951ed2aea09c43e331c612e74d83e4a23ca98e3b",
+      "vram_gb_8k": 2.7
+    },
+    {
+      "file_gb": 1.3,
+      "file_sha256": "aee6fad97dd645ae4b73f086f18ab4b4b0848aa4a9ec3ba2c767c81c7e3cf860",
+      "file_size_bytes": 1272740160,
+      "filename": "Qwen2.5-Math-1.5B-Instruct-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "bartowski/Qwen2.5-Math-1.5B-Instruct-GGUF",
+      "revision": "951ed2aea09c43e331c612e74d83e4a23ca98e3b",
+      "vram_gb_8k": 2.4
+    },
+    {
+      "file_gb": 1.1,
+      "file_sha256": "38c754ec7bea256954a72d7e900a587dbfb9727a0ffeec0a009b47fef48eb987",
+      "file_size_bytes": 1125050688,
+      "filename": "Qwen2.5-Math-1.5B-Instruct-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "bartowski/Qwen2.5-Math-1.5B-Instruct-GGUF",
+      "revision": "951ed2aea09c43e331c612e74d83e4a23ca98e3b",
+      "vram_gb_8k": 2.1
+    },
+    {
+      "file_gb": 1.0,
+      "file_sha256": "9614a50f03c897028920ca0dc4365da570bf587f9ee7768261216fe370b37e8e",
+      "file_size_bytes": 986048832,
+      "filename": "Qwen2.5-Math-1.5B-Instruct-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "bartowski/Qwen2.5-Math-1.5B-Instruct-GGUF",
+      "revision": "951ed2aea09c43e331c612e74d83e4a23ca98e3b",
+      "vram_gb_8k": 2.1
+    }
+  ],
   "base_model": "Qwen/Qwen2.5-Math-1.5B",
   "catalog_id": "Qwen/Qwen2.5-Math-1.5B-Instruct",
   "demo": false,
   "family": "Qwen2.5 Math",
   "gguf_repo": "bartowski/Qwen2.5-Math-1.5B-Instruct-GGUF",
+  "hf_model_id": "Qwen/Qwen2.5-Math-1.5B-Instruct",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

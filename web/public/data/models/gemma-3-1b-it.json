@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 1.1,
+      "file_sha256": "f8bb055bcb4041682b6488370a9567c668c43877b450c7a54ea7c8f6c49ce662",
+      "file_size_bytes": 1069307488,
+      "filename": "Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+      "revision": "38eaddc2791eb42fafd4fd54205653c6cde70c86",
+      "vram_gb_8k": 2.1
+    },
+    {
+      "file_gb": 1.0,
+      "file_sha256": "12f37c642bf99c8e94856ff4dc6ccbbb698106508584579cab1dc9c1d4fa6be4",
+      "file_size_bytes": 1011739744,
+      "filename": "Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_Q6_k.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+      "revision": "38eaddc2791eb42fafd4fd54205653c6cde70c86",
+      "vram_gb_8k": 2.0
+    },
+    {
+      "file_gb": 0.9,
+      "file_sha256": "ffd5366ab8ad7367f9a0ceedf62e779ccb788080a2b4f7e9b751ed0ee1d5c8f7",
+      "file_size_bytes": 851346784,
+      "filename": "Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_Q5_k_m.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+      "revision": "38eaddc2791eb42fafd4fd54205653c6cde70c86",
+      "vram_gb_8k": 1.9
+    },
+    {
+      "file_gb": 0.8,
+      "file_sha256": "fcd05a80d8f617383259bf674729d35392664829ff9e467600b5392e11212d8c",
+      "file_size_bytes": 806059360,
+      "filename": "Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_Q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+      "revision": "38eaddc2791eb42fafd4fd54205653c6cde70c86",
+      "vram_gb_8k": 1.9
+    },
+    {
+      "file_gb": 0.7,
+      "file_sha256": "2586c2c40703931aedac52fdd69d28b60b1027aaa0871468e0aee8908c6edd9b",
+      "file_size_bytes": 722417248,
+      "filename": "Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_Q3_k_m.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+      "revision": "38eaddc2791eb42fafd4fd54205653c6cde70c86",
+      "vram_gb_8k": 1.8
+    },
+    {
+      "file_gb": 0.7,
+      "file_sha256": "6008b2f2537e2624eb6b9ed9e72f70cf1e11afb87e39383bd9acb7d10374960f",
+      "file_size_bytes": 689815648,
+      "filename": "Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_Q2_k.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+      "revision": "38eaddc2791eb42fafd4fd54205653c6cde70c86",
+      "vram_gb_8k": 1.8
+    }
+  ],
   "base_model": "google/gemma-3-1b-pt",
   "catalog_id": "google/gemma-3-1b-it",
   "demo": false,
   "family": "Gemma 3",
   "gguf_repo": "Andycurrent/Gemma-3-1B-it-GLM-4.7-Flash-Heretic-Uncensored-Thinking_GGUF",
+  "hf_model_id": "google/gemma-3-1b-it",
   "kind": "community",
   "license": "gemma",
   "model_kind": "base",

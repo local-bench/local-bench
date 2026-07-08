@@ -1,9 +1,72 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 14.4,
+      "file_sha256": "29b33688b32cd953d330554b1ef36e84ed1d37043d6ac805c842c43bfbd0f0da",
+      "file_size_bytes": 14359311040,
+      "filename": "Ministral-3-14B-Instruct-2512-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+      "revision": "9b948841b705cc11285ff274b84ba6c885908b19",
+      "vram_gb_8k": 16.1
+    },
+    {
+      "file_gb": 11.1,
+      "file_sha256": "4052c1aa81dee9151efc51ccdc90de584e926bac487b5098f296fb440d990c73",
+      "file_size_bytes": 11088409280,
+      "filename": "Ministral-3-14B-Instruct-2512-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+      "revision": "9b948841b705cc11285ff274b84ba6c885908b19",
+      "vram_gb_8k": 12.8
+    },
+    {
+      "file_gb": 9.6,
+      "file_sha256": "4b97b4b19859f3959e9f80367bcb0ec31a3ab27ace99e37d9220dbebf09f3da9",
+      "file_size_bytes": 9620566720,
+      "filename": "Ministral-3-14B-Instruct-2512-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+      "revision": "9b948841b705cc11285ff274b84ba6c885908b19",
+      "vram_gb_8k": 11.3
+    },
+    {
+      "file_gb": 8.2,
+      "file_sha256": "76ce697c065f2e40f1e8e958118b02cab38e2c10a6015f7d7908036a292dc8c8",
+      "file_size_bytes": 8239067840,
+      "filename": "Ministral-3-14B-Instruct-2512-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+      "revision": "9b948841b705cc11285ff274b84ba6c885908b19",
+      "vram_gb_8k": 9.9
+    },
+    {
+      "file_gb": 6.7,
+      "file_sha256": "a7f595fd4a6923b59249ae4c83c2fd19fd92405538b571533dfd3c056fb565cc",
+      "file_size_bytes": 6682096320,
+      "filename": "Ministral-3-14B-Instruct-2512-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+      "revision": "9b948841b705cc11285ff274b84ba6c885908b19",
+      "vram_gb_8k": 8.4
+    },
+    {
+      "file_gb": 5.2,
+      "file_sha256": "9d6e05c52926fac920e0f13d9378f9dff3a6e6f7a09574636561d25b93ab0dc0",
+      "file_size_bytes": 5246530240,
+      "filename": "Ministral-3-14B-Instruct-2512-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+      "revision": "9b948841b705cc11285ff274b84ba6c885908b19",
+      "vram_gb_8k": 6.9
+    }
+  ],
   "base_model": "mistralai/Ministral-3-14B-Base-2512",
   "catalog_id": "mistralai/Ministral-3-14B-Instruct-2512",
   "demo": false,
   "family": "Ministral",
   "gguf_repo": "unsloth/Ministral-3-14B-Instruct-2512-GGUF",
+  "hf_model_id": "mistralai/Ministral-3-14B-Instruct-2512",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "base",

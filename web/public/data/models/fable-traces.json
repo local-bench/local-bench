@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 2.5,
+      "file_sha256": "6193dbd35982ad4c9901dc3faf7ddc4e500f4eb9dcde2591f677bc71ee68368c",
+      "file_size_bytes": 2497276608,
+      "filename": "fable-traces-q4_k_m.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "Anonymouse123/fable-traces-Q4_K_M-GGUF",
+      "revision": "465814adb85bd753243836b71eff8a67447edfe2",
+      "vram_gb_8k": 3.7
+    }
+  ],
   "base_model": "Qwen/Qwen3-4B-Instruct-2507",
   "catalog_id": "AliesTaha/fable-traces",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "Anonymouse123/fable-traces-Q4_K_M-GGUF",
+  "hf_model_id": "AliesTaha/fable-traces",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

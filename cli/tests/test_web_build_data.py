@@ -1001,6 +1001,49 @@ def _gate_catalog_entry(
     }
 
 
+def test_catalog_model_payload_exposes_pins_the_one_shot_resolver_accepts() -> None:
+    # Given: a catalog entry with one fully pinned quant and one unpinned quant.
+    # 2026-07-09 regression: pins existed in model_catalog.json but the served
+    # models/<slug>.json projection dropped them, so `localbench bench <slug>`
+    # refused every catalog model. The contract under test is projection -> resolver.
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from web.build_data_catalog import catalog_model_payload
+
+    from localbench.one_shot.catalog import resolve_one_shot_model
+
+    entry = _gate_catalog_entry(
+        "Fixture/Pinned",
+        "pinned-fixture",
+        quants=[
+            {
+                "label": "Q4_K_M",
+                "file_gb": 0.5,
+                "vram_gb_8k": 1.5,
+                "gguf_repo": "Fixture/Pinned-GGUF",
+                "filename": "pinned.Q4_K_M.gguf",
+                "revision": "a" * 40,
+                "file_size_bytes": 484220032,
+                "file_sha256": "b" * 64,
+            },
+            {"label": "Q2_K", "file_gb": 0.3, "vram_gb_8k": 1.0},
+        ],
+    )
+
+    payload = catalog_model_payload(entry, [])
+
+    # Then: only the pinned quant is exposed, and the CLI resolver accepts it as publishable.
+    assert [row["quant_label"] for row in payload["artifacts"]] == ["Q4_K_M"]
+    assert payload["hf_model_id"] == "Fixture/Pinned"
+    resolved = resolve_one_shot_model("pinned-fixture", {"models": [payload]}, quant="Q4_K_M", vram_gb=None)
+    assert resolved.publishable is True
+    assert resolved.tokenizer_repo == "Fixture/Pinned"
+    assert resolved.artifact.repo_id == "Fixture/Pinned-GGUF"
+    assert resolved.artifact.filename == "pinned.Q4_K_M.gguf"
+    assert resolved.artifact.sha256 == "b" * 64
+    assert resolved.artifact.size_bytes == 484220032
+
+
 def _registry_weighted_composite(benches: JsonObject) -> float:
     # Mirror production: weight axes by the registry's web composite weights
     # (headline knowledge + instruction at 0.5 each; agentic + math 0.0),

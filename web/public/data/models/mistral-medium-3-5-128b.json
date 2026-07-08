@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 46.6,
+      "file_sha256": "4063bb10565d4910d23646587477629251a666bb0b33dac391a0cb31358177fd",
+      "file_size_bytes": 46590698592,
+      "filename": "Mistral-Medium-3.5-128B-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "unsloth/Mistral-Medium-3.5-128B-GGUF",
+      "revision": "c8f5b1477e1b22cd2d819157d450f001f7047298",
+      "vram_gb_8k": 54.0
+    }
+  ],
   "base_model": null,
   "catalog_id": "mistralai/Mistral-Medium-3.5-128B",
   "demo": false,
   "family": "Mistral Medium",
   "gguf_repo": "unsloth/Mistral-Medium-3.5-128B-GGUF",
+  "hf_model_id": "mistralai/Mistral-Medium-3.5-128B",
   "kind": "community",
   "license": "other",
   "model_kind": "base",

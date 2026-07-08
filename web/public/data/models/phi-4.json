@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 15.6,
+      "file_sha256": "f68df5d3a22a01ea9ec547741f42ee7fedbf949bf42ef526fb1944fa0cfaa110",
+      "file_size_bytes": 15580500160,
+      "filename": "phi-4-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "microsoft/phi-4-gguf",
+      "revision": "6edc2ef6664b739a8e11e62f2672ff6afe0c15ac",
+      "vram_gb_8k": 17.3
+    },
+    {
+      "file_gb": 12.0,
+      "file_sha256": "a70147a8a8adb24d62a28e5038aca78c4c145a1c3043a38e8634738a9e6bbd93",
+      "file_size_bytes": 12030251200,
+      "filename": "phi-4-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "microsoft/phi-4-gguf",
+      "revision": "6edc2ef6664b739a8e11e62f2672ff6afe0c15ac",
+      "vram_gb_8k": 13.7
+    },
+    {
+      "file_gb": 5.5,
+      "file_sha256": "7ff048b61e9d6fc49bdd11affdb5e0d3365c08e55eb17ffd0f159f6e0de6f53e",
+      "file_size_bytes": 5547348160,
+      "filename": "phi-4-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "microsoft/phi-4-gguf",
+      "revision": "6edc2ef6664b739a8e11e62f2672ff6afe0c15ac",
+      "vram_gb_8k": 7.2
+    }
+  ],
   "base_model": null,
   "catalog_id": "microsoft/phi-4",
   "demo": false,
   "family": "Phi 4",
   "gguf_repo": "microsoft/phi-4-gguf",
+  "hf_model_id": "microsoft/phi-4",
   "kind": "community",
   "license": "mit",
   "model_kind": "base",

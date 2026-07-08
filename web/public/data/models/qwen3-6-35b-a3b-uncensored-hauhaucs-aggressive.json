@@ -1,9 +1,22 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 21.2,
+      "file_sha256": "bbef58c37ce88820be9d98b6437f1cf4bac890c947bd55fc7b68e22098574231",
+      "file_size_bytes": 21166758016,
+      "filename": "Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
+      "revision": "f12a584fecbeb5f20001130d8ecd66c9327ae685",
+      "vram_gb_8k": 23.9
+    }
+  ],
   "base_model": "Qwen/Qwen3.6-35B-A3B",
   "catalog_id": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
+  "hf_model_id": "HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "distill",

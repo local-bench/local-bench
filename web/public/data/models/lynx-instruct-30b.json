@@ -1,9 +1,62 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 25.1,
+      "file_sha256": "84d214ee4a18b25a7d8461448dda0a88b36b3efcdc9b02e91619754e7d35c523",
+      "file_size_bytes": 25092533216,
+      "filename": "lynx-instruct-30b-qwen3.i1-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "mradermacher/lynx-instruct-30b-qwen3-i1-GGUF",
+      "revision": "85fc8c9f25e19f235ac0e9843c085311c615ef68",
+      "vram_gb_8k": 27.6
+    },
+    {
+      "file_gb": 21.7,
+      "file_sha256": "4de24b94be710f04c29aa417cf3a68fa5f8371d7ba3aa3e614c21280292bca93",
+      "file_size_bytes": 21725582304,
+      "filename": "lynx-instruct-30b-qwen3.i1-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "mradermacher/lynx-instruct-30b-qwen3-i1-GGUF",
+      "revision": "85fc8c9f25e19f235ac0e9843c085311c615ef68",
+      "vram_gb_8k": 24.2
+    },
+    {
+      "file_gb": 18.6,
+      "file_sha256": "52da324d74d913da8cb1a29a63cf46ad6cd9403423ae6cf053720093eda82d76",
+      "file_size_bytes": 18556687328,
+      "filename": "lynx-instruct-30b-qwen3.i1-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "mradermacher/lynx-instruct-30b-qwen3-i1-GGUF",
+      "revision": "85fc8c9f25e19f235ac0e9843c085311c615ef68",
+      "vram_gb_8k": 21.1
+    },
+    {
+      "file_gb": 14.7,
+      "file_sha256": "152082d4aca4690435cda9289ec752b9be6c2321fec78763d137203393acfe5d",
+      "file_size_bytes": 14711847904,
+      "filename": "lynx-instruct-30b-qwen3.i1-Q3_K_M.gguf",
+      "quant_label": "Q3_K_M",
+      "repo_id": "mradermacher/lynx-instruct-30b-qwen3-i1-GGUF",
+      "revision": "85fc8c9f25e19f235ac0e9843c085311c615ef68",
+      "vram_gb_8k": 17.2
+    },
+    {
+      "file_gb": 11.3,
+      "file_sha256": "8dc7b9e1883c8770506cf8b9fc8f826bcacc640ead2b5c080f48a3439a198a11",
+      "file_size_bytes": 11258610656,
+      "filename": "lynx-instruct-30b-qwen3.i1-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "mradermacher/lynx-instruct-30b-qwen3-i1-GGUF",
+      "revision": "85fc8c9f25e19f235ac0e9843c085311c615ef68",
+      "vram_gb_8k": 13.8
+    }
+  ],
   "base_model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
   "catalog_id": "bineric/lynx-instruct-30b",
   "demo": false,
   "family": "Qwen3",
   "gguf_repo": "mradermacher/lynx-instruct-30b-qwen3-i1-GGUF",
+  "hf_model_id": "bineric/lynx-instruct-30b",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",

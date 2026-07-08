@@ -1,9 +1,42 @@
 {
+  "artifacts": [
+    {
+      "file_gb": 37.8,
+      "file_sha256": "40a6af1867dad47ca06bc5b1d0979dcbf918937ebd1d34e6e856f90dec4bcbb1",
+      "file_size_bytes": 37801096608,
+      "filename": "Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-ggml-model-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "huihui-ai/Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-MTP-GGUF",
+      "revision": "a7e3b416f83559fb234f3f1f6b31c8d2367a7af2",
+      "vram_gb_8k": 40.6
+    },
+    {
+      "file_gb": 29.2,
+      "file_sha256": "cbbd82e6072ee3410097f71261bb24b1a7711ec6bde7aa14aa754f4dbd1d4f41",
+      "file_size_bytes": 29207678368,
+      "filename": "Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-ggml-model-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "huihui-ai/Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-MTP-GGUF",
+      "revision": "a7e3b416f83559fb234f3f1f6b31c8d2367a7af2",
+      "vram_gb_8k": 32.0
+    },
+    {
+      "file_gb": 13.2,
+      "file_sha256": "87f0ff4beae8cba4e5efae96024b9d1a9d3dbda5a54e0da5bc63329a3634591b",
+      "file_size_bytes": 13246129568,
+      "filename": "Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-ggml-model-Q2_K.gguf",
+      "quant_label": "Q2_K",
+      "repo_id": "huihui-ai/Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-MTP-GGUF",
+      "revision": "a7e3b416f83559fb234f3f1f6b31c8d2367a7af2",
+      "vram_gb_8k": 16.0
+    }
+  ],
   "base_model": "Qwen/Qwen3.6-35B-A3B",
   "catalog_id": "lordx64/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled",
   "demo": false,
   "family": "Qwen3.6",
   "gguf_repo": "huihui-ai/Huihui-Qwen3.6-35B-A3B-Claude-4.7-Opus-abliterated-MTP-GGUF",
+  "hf_model_id": "lordx64/Qwen3.6-35B-A3B-Claude-4.7-Opus-Reasoning-Distilled",
   "kind": "community",
   "license": "apache-2.0",
   "model_kind": "finetune",
