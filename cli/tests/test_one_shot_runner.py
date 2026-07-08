@@ -15,7 +15,7 @@ from localbench.one_shot.runner import (
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
 from localbench.submissions.submit_run import SubmitRunOptions
-from one_shot_fixtures import REV_A
+from one_shot_fixtures import REV_A, TOKENIZER_REV_A
 from one_shot_runner_fakes import _args, _deps
 
 
@@ -77,6 +77,7 @@ def test_one_shot_runner_prompts_submit_default_no_and_builds_bounded_final_opti
     assert options.model_file == tmp_path / "models" / "model-q4.gguf"
     assert options.model_ref is None
     assert options.hf_model_id == "owner/base-model"
+    assert options.hf_revision == TOKENIZER_REV_A
     assert options.gguf_repo_only is False
     lock = json.loads((tmp_path / "plan.lock.json").read_text(encoding="utf-8"))
     assert lock["artifact_revision"] == REV_A

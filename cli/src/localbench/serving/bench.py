@@ -35,6 +35,7 @@ class BenchRunConfig:
     retry_errored: bool = False
     reasoning_activation: ReasoningActivationChoice | None = None
     hf_model_id: str | None = None
+    hf_revision: str | None = None
     gguf_repo_only: bool = False
     progress_reporter: ProgressReporter | None = None
 
@@ -71,6 +72,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         reasoning_activation=config.reasoning_activation or "qwen3",
         resume=config.resume,
         retry_errored=config.retry_errored,
+        hf_revision=config.hf_revision,
         max_items=config.max_items,
         publishable=True,
         sampler_temperature=0.0,

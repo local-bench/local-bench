@@ -231,6 +231,7 @@ class OrchestrateConfig:
     provider: str = "local"
     reasoning_effort: ReasoningEffortChoice | None = None
     hf_model_id: str | None = None
+    hf_revision: str | None = None
     gguf_repo_only: bool = False
     reasoning_activation: ReasoningActivationChoice = "qwen3"
     max_tokens: int | None = None
@@ -333,6 +334,7 @@ async def run_localbench(
             BoundedFinalProfileRequest(
                 profile=config.profile,
                 hf_model_id=config.hf_model_id,
+                hf_revision=config.hf_revision,
             ),
         )
         if provider.name != "local" and bounded_profile.entry is not ANSWER_ONLY_PROFILE:

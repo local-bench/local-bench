@@ -65,6 +65,7 @@ class BoundedFinalProfileRuntime:
 class BoundedFinalProfileRequest:
     profile: BoundedFinalProfileChoice
     hf_model_id: str | None
+    hf_revision: str | None = None
 
 
 def resolve_bounded_final_profile(
@@ -80,7 +81,11 @@ def resolve_bounded_final_profile(
             "no --hf-model-id was supplied, so the canonical chat template cannot be inspected",
         )
     activation = "gemma4" if request.profile == "gemma4_channel_8192_v1" else None
-    tokenizer = load_hf_chat_template_tokenizer(request.hf_model_id, activation)
+    tokenizer = load_hf_chat_template_tokenizer(
+        request.hf_model_id,
+        activation,
+        revision=request.hf_revision,
+    )
     introspection = derive_template_introspection(tokenizer)
     resolved = resolve_bounded_final_profile_from_introspection(
         request.profile,

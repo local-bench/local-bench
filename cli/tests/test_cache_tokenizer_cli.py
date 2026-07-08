@@ -33,10 +33,10 @@ def test_cache_tokenizer_downloads_allowed_files_and_verifies_offline(
         calls.append((repo_id, tuple(allow_patterns)))
         return str(snapshot_path)
 
-    loaded_repos: list[str] = []
+    loaded_repos: list[tuple[str, str | None]] = []
 
-    def fake_load(repo: str) -> FakeTokenizer:
-        loaded_repos.append(repo)
+    def fake_load(repo: str, revision: str | None = None) -> FakeTokenizer:
+        loaded_repos.append((repo, revision))
         return FakeTokenizer()
 
     monkeypatch.setattr(cli_mod, "_hf_snapshot_download", fake_snapshot_download, raising=False)
@@ -55,7 +55,7 @@ def test_cache_tokenizer_downloads_allowed_files_and_verifies_offline(
             ("*.json", "*.model", "*.jinja", "*.txt", "*.tiktoken"),
         ),
     ]
-    assert loaded_repos == ["unsloth/gemma-4-12b-it"]
+    assert loaded_repos == [("unsloth/gemma-4-12b-it", None)]
     assert "cached    repo unsloth/gemma-4-12b-it" in output
     assert "revision  abc123" in output
     assert f"template  sha256:{expected_sha}" in output

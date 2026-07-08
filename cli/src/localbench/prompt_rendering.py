@@ -28,6 +28,13 @@ _GEMMA4_HF_MODEL_ID: Final = "unsloth/gemma-4-31B-it"
 _GEMMA4_REVISION: Final = "a1c85d1c2db7dcd15c41ad4082955240a9465743"
 
 
+@dataclass(frozen=True, slots=True)
+class _OfflineTokenizerRequest:
+    hf_model_id: str
+    activation: ReasoningActivation | None
+    revision: str | None
+
+
 class PromptRenderingError(RuntimeError):
     """A chat-template renderer could not be constructed or applied."""
 
@@ -106,23 +113,35 @@ def load_hf_chat_prompt_renderer(
 def load_hf_chat_template_tokenizer(
     hf_model_id: str,
     activation: ReasoningActivation | None = None,
-):
+    *,
+    revision: str | None = None,
+) -> ChatTemplateTokenizer:
     previous_offline = os.environ.get("HF_HUB_OFFLINE")
     os.environ["HF_HUB_OFFLINE"] = "1"
     try:
         from transformers import AutoTokenizer
 
-        tokenizer = _load_offline_tokenizer(AutoTokenizer, hf_model_id, activation)
+        tokenizer = _load_offline_tokenizer(
+            AutoTokenizer,
+            _OfflineTokenizerRequest(
+                hf_model_id=hf_model_id,
+                activation=activation,
+                revision=revision,
+            ),
+        )
     except ImportError as exc:
         raise PromptRenderingError(
             "transformers is required when --hf-model-id is set; "
             "install localbench[hf] to enable Hugging Face chat-template rendering"
         ) from exc
     except (OSError, ValueError) as exc:
+        tokenizer_ref = _tokenizer_ref(hf_model_id, revision)
         raise PromptRenderingError(
-            f"could not load tokenizer for {hf_model_id!r} from the offline HF cache. "
+            f"could not load tokenizer for {tokenizer_ref!r} from the offline HF cache. "
             "Template introspection is offline-only; pre-cache the tokenizer once with:\n"
-            f'  hf download {hf_model_id} --include "*.json" --include "*.model" --include "*.jinja"\n'
+            f'  hf download {hf_model_id} --include "*.json" '
+            '--include "*.model" --include "*.jinja"\n'
+            f"{_revision_cache_hint(revision)}"
             "(gated repos need `hf auth login` after accepting the license on huggingface.co)"
         ) from exc
     finally:
@@ -135,18 +154,24 @@ def load_hf_chat_template_tokenizer(
 
 def _load_offline_tokenizer(
     auto_tokenizer,
-    hf_model_id: str,
-    activation: ReasoningActivation | None,
-):
-    if activation != "gemma4" or hf_model_id != _GEMMA4_HF_MODEL_ID:
-        return auto_tokenizer.from_pretrained(hf_model_id, local_files_only=True)
+    request: _OfflineTokenizerRequest,
+) -> ChatTemplateTokenizer:
+    if request.activation != "gemma4" or request.hf_model_id != _GEMMA4_HF_MODEL_ID:
+        return auto_tokenizer.from_pretrained(
+            request.hf_model_id,
+            local_files_only=True,
+            revision=request.revision,
+        )
+    resolved_revision = request.revision or _GEMMA4_REVISION
     try:
         return auto_tokenizer.from_pretrained(
-            hf_model_id,
+            request.hf_model_id,
             local_files_only=True,
-            revision=_GEMMA4_REVISION,
+            revision=resolved_revision,
         )
     except OSError:
+        if request.revision is not None:
+            raise
         snapshot = (
             Path.home()
             / ".cache"
@@ -157,6 +182,18 @@ def _load_offline_tokenizer(
             / _GEMMA4_REVISION
         )
         return auto_tokenizer.from_pretrained(snapshot, local_files_only=True)
+
+
+def _tokenizer_ref(hf_model_id: str, revision: str | None) -> str:
+    if revision is None:
+        return hf_model_id
+    return f"{hf_model_id}@{revision}"
+
+
+def _revision_cache_hint(revision: str | None) -> str:
+    if revision is None:
+        return ""
+    return "A pinned revision was requested; ensure that exact repo@revision snapshot is cached.\n"
 
 
 def render_hf_chat_prompt(

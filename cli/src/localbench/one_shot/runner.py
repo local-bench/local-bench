@@ -160,6 +160,7 @@ def run_one_shot_bench(
             threads_batch=int(getattr(args, "threads_batch", 8)),
             reasoning_activation=None,
             hf_model_id=resolved.tokenizer_repo,
+            hf_revision=tokenizer_plan.revision,
             gguf_repo_only=resolved.tokenizer_repo is None,
             wsl_venv_python=str(getattr(args, "wsl_venv_python", "~/appworld-harness/venv/bin/python3")),
             appworld_root=str(getattr(args, "appworld_root", "/home/michael/appworld-data")),

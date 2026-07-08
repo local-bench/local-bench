@@ -100,6 +100,7 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         retry_errored=options.retry_errored,
         reasoning_activation=options.reasoning_activation,
         hf_model_id=options.hf_model_id,
+        hf_revision=options.hf_revision,
         gguf_repo_only=options.gguf_repo_only,
         progress_reporter=options.progress_reporter,
     )
@@ -114,6 +115,7 @@ def effective_serving_profile(options: ServeBenchOptions) -> BoundedFinalProfile
         BoundedFinalProfileRequest(
             profile=options.profile,
             hf_model_id=options.hf_model_id,
+            hf_revision=options.hf_revision,
         ),
     )
     return cast(BoundedFinalProfileChoice, resolved.entry.id)
