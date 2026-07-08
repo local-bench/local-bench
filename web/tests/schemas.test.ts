@@ -38,6 +38,50 @@ describe("CatalogSchema", () => {
 
     expect(Array.isArray(parsed) ? null : parsed.models[0]?.model_kind).toBe("finetune");
   });
+
+  it("parses optional catalog artifact pins and rejects malformed digests", () => {
+    const sha = "a".repeat(64);
+    const parsed = CatalogSchema.parse([
+      {
+        ...catalogModel,
+        quants: [
+          {
+            label: "Q4_K_M",
+            bpw: 4.85,
+            file_gb: 17.1,
+            vram_gb_8k: 19.5,
+            gguf_repo: "unsloth/Qwen3.6-27B-MTP-GGUF",
+            filename: "qwen3-q4.gguf",
+            revision: "b".repeat(40),
+            file_size_bytes: 17_100,
+            file_sha256: sha,
+            artifact_files: [
+              {
+                filename: "qwen3-q4-00001-of-00002.gguf",
+                file_size_bytes: 8_000,
+                file_sha256: sha,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const firstModel = Array.isArray(parsed) ? parsed[0] : null;
+    expect(firstModel?.quants[0]).toMatchObject({
+      filename: "qwen3-q4.gguf",
+      file_sha256: sha,
+      artifact_files: [{ filename: "qwen3-q4-00001-of-00002.gguf", file_sha256: sha }],
+    });
+    expect(() =>
+      CatalogSchema.parse([
+        {
+          ...catalogModel,
+          quants: [{ label: "Q4_K_M", file_sha256: "not-a-sha" }],
+        },
+      ]),
+    ).toThrow();
+  });
 });
 
 describe("diagnostic composite schemas", () => {

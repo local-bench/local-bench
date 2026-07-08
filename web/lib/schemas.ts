@@ -364,12 +364,28 @@ export type Perf = z.infer<typeof PerfSchema>;
 
 // Raw shape of model_catalog.json (the on-ramp picker source). Tolerant by design — the catalog is
 // large and varied, so unknown keys pass through and most fields are optional/nullable.
+const FullShaSchema = z.string().regex(/^[0-9a-fA-F]{40}$/);
+const FullSha256Schema = z.string().regex(/^[0-9a-fA-F]{64}$/);
+const CatalogArtifactFileSchema = z
+  .object({
+    filename: z.string(),
+    file_size_bytes: z.number().int().nonnegative(),
+    file_sha256: FullSha256Schema,
+  })
+  .passthrough();
+
 const CatalogQuantSchema = z
   .object({
     label: z.string(),
     bpw: z.number().nullable().optional(),
     file_gb: z.number().nullable().optional(),
     vram_gb_8k: z.number().nullable().optional(),
+    gguf_repo: z.string().nullable().optional(),
+    filename: z.string().nullable().optional(),
+    revision: FullShaSchema.nullable().optional(),
+    file_size_bytes: z.number().int().nonnegative().nullable().optional(),
+    file_sha256: FullSha256Schema.nullable().optional(),
+    artifact_files: z.array(CatalogArtifactFileSchema).optional(),
   })
   .passthrough();
 
