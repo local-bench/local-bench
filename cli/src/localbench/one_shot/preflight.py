@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Protocol
 
 import httpx
 
-from localbench._types import JsonObject, JsonValue
+from localbench._types import JsonObject
 from localbench.one_shot.catalog import CatalogResolutionError
 from localbench.one_shot.types import (
     FULL_EXEC_SUITE_MANIFEST_SHA256,
@@ -21,7 +21,7 @@ from localbench.persistence import atomic_write_json
 
 
 class JsonPostClient(Protocol):
-    def post_json(self, url: str, payload: dict[str, object]) -> dict[str, object]: ...
+    def post_json(self, url: str, payload: JsonObject) -> JsonObject: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,13 +80,13 @@ def validate_one_shot_choices(
     )
 
 
-def write_plan_lock(lock_path: Path, plan: dict[str, object]) -> None:
+def write_plan_lock(lock_path: Path, plan: JsonObject) -> None:
     if plan.get("schema_version") != ONE_SHOT_PLAN_SCHEMA_VERSION:
         raise PlanLockMismatch("plan.lock.json schema_version is not localbench.one_shot_plan.v1")
-    atomic_write_json(cast(JsonValue, plan), lock_path)
+    atomic_write_json(plan, lock_path)
 
 
-def validate_resume_plan_lock(lock_path: Path, expected: dict[str, object]) -> dict[str, object]:
+def validate_resume_plan_lock(lock_path: Path, expected: JsonObject) -> JsonObject:
     try:
         loaded = json.loads(lock_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -141,7 +141,7 @@ def prevalidate_identity_envelope(envelope: JsonObject) -> None:
         raise CatalogResolutionError("identity envelope requires pinned artifact sha256")
 
 
-def build_publishability_preflight_payload(resolved: ResolvedOneShotModel, *, cli_version: str) -> dict[str, object]:
+def build_publishability_preflight_payload(resolved: ResolvedOneShotModel, *, cli_version: str) -> JsonObject:
     envelope = build_identity_envelope(resolved, cli_version=cli_version)
     prevalidate_identity_envelope(envelope)
     return {
@@ -152,24 +152,24 @@ def build_publishability_preflight_payload(resolved: ResolvedOneShotModel, *, cl
         "cli_version": cli_version,
         "catalog_model_id": resolved.catalog_model_id,
         "quant_label": resolved.artifact.quant_label,
-        "artifact": dict(cast(dict[str, object], envelope["artifact"])),
+        "artifact": _artifact_payload(envelope),
         "identity_envelope": envelope,
     }
 
 
 def request_publishability_preflight(
     site: str,
-    payload: dict[str, object],
+    payload: JsonObject,
     *,
     http: JsonPostClient | None = None,
-) -> dict[str, object]:
+) -> JsonObject:
     client = http or _HttpJsonClient()
     url = f"{site.rstrip('/')}/api/submissions/preflight"
     return client.post_json(url, payload)
 
 
 class _HttpJsonClient:
-    def post_json(self, url: str, payload: dict[str, object]) -> dict[str, object]:
+    def post_json(self, url: str, payload: JsonObject) -> JsonObject:
         with httpx.Client(timeout=10.0, follow_redirects=True) as client:
             response = client.post(url, json=payload)
             response.raise_for_status()
@@ -189,3 +189,10 @@ def _sha256(value: object) -> bool:
 
 def _non_empty_text(value: object) -> bool:
     return isinstance(value, str) and value != ""
+
+
+def _artifact_payload(envelope: JsonObject) -> JsonObject:
+    artifact = envelope.get("artifact")
+    if not isinstance(artifact, dict):
+        raise CatalogResolutionError("identity envelope artifact is missing")
+    return {str(key): item for key, item in artifact.items()}
