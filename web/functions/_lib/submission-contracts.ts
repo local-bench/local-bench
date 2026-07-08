@@ -73,6 +73,8 @@ export const RESULT_BUNDLE_SCHEMA_VERSION = "localbench.result_bundle.v1";
 export const SUBMISSION_ENVELOPE_SCHEMA_VERSION = "localbench.submission_envelope.v2";
 export const STATUS_UPDATE_SCHEMA_VERSION = "localbench.submission_status_update.v1";
 export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v1";
+export const ONE_SHOT_IDENTITY_SCHEMA_VERSION = "localbench.one_shot_identity.v1";
+export const PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION = "localbench.publishability_preflight.v1";
 export const MAX_UPLOAD_BYTES = 67_108_864;
 export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
 export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -80,6 +82,7 @@ export const DEFAULT_SUITE_MANIFEST_SHA256 = "c4098df81440c4489ee8c6d6967f3a5d6f
 export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+const HfRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
 const Ed25519SignatureSchema = z.string().regex(/^[0-9a-f]{128}$/);
 // Display-only submitter credit: 2-40 chars, alphanumeric at both ends, interior may
@@ -91,6 +94,30 @@ const PopSchema = z.object({
   signature: Ed25519SignatureSchema,
   timestamp: z.string().min(1),
 });
+
+const OneShotArtifactSchema = z.object({
+  filename: z.string().min(1),
+  quant_label: z.string().min(1),
+  repo_id: z.string().min(1),
+  revision: HfRevisionSchema,
+  sha256: Sha256Schema,
+  size_bytes: z.number().int().positive().nullable().optional(),
+});
+
+const OneShotIdentityEnvelopeSchema = z
+  .object({
+    artifact: OneShotArtifactSchema,
+    catalog_model_id: z.string().min(1).nullable().optional(),
+    cli_version: z.string().min(1),
+    local_only: z.boolean(),
+    publishable: z.boolean(),
+    requested_model: z.string().min(1),
+    schema_version: z.literal(ONE_SHOT_IDENTITY_SCHEMA_VERSION),
+    source: z.literal("one_shot"),
+    suite_manifest_sha256: Sha256Schema,
+    suite_release_id: z.string().min(1),
+  })
+  .passthrough();
 
 export const TicketRequestSchema = z.object({
   accepted_suite_terms: z.literal(true),
@@ -202,6 +229,44 @@ export const ResultBundleSchema = z
     }
   });
 
+export const PublishabilityPreflightRequestSchema = z
+  .object({
+    artifact: OneShotArtifactSchema,
+    catalog_model_id: z.string().min(1).nullable().optional(),
+    cli_version: z.string().min(1),
+    identity_envelope: OneShotIdentityEnvelopeSchema,
+    quant_label: z.string().min(1),
+    result_bundle: ResultBundleSchema.optional(),
+    schema_version: z.literal(PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION),
+    source: z.literal("one_shot"),
+    suite_manifest_sha256: Sha256Schema,
+    suite_release_id: z.string().min(1),
+  })
+  .passthrough()
+  .superRefine((preflight, context) => {
+    if (preflight.identity_envelope.suite_release_id !== preflight.suite_release_id) {
+      context.addIssue({ code: "custom", message: "identity envelope suite_release_id mismatch" });
+    }
+    if (preflight.identity_envelope.suite_manifest_sha256 !== preflight.suite_manifest_sha256) {
+      context.addIssue({ code: "custom", message: "identity envelope suite_manifest_sha256 mismatch" });
+    }
+    if (preflight.identity_envelope.artifact.revision !== preflight.artifact.revision) {
+      context.addIssue({ code: "custom", message: "identity envelope artifact revision mismatch" });
+    }
+    if (preflight.identity_envelope.artifact.sha256 !== preflight.artifact.sha256) {
+      context.addIssue({ code: "custom", message: "identity envelope artifact sha256 mismatch" });
+    }
+    if (preflight.result_bundle !== undefined) {
+      const suite = preflight.result_bundle.manifest.suite;
+      if (suite.suite_release_id !== preflight.suite_release_id) {
+        context.addIssue({ code: "custom", message: "result bundle suite_release_id mismatch" });
+      }
+      if (suite.suite_manifest_sha256 !== preflight.suite_manifest_sha256) {
+        context.addIssue({ code: "custom", message: "result bundle suite_manifest_sha256 mismatch" });
+      }
+    }
+  });
+
 export const SubmissionRowSchema = z.object({
   bundle_schema_version: z.string().nullable(),
   created_at: z.string(),
@@ -226,6 +291,7 @@ export const SubmissionRowSchema = z.object({
 });
 
 export type TicketRequest = z.infer<typeof TicketRequestSchema>;
+export type PublishabilityPreflightRequest = z.infer<typeof PublishabilityPreflightRequestSchema>;
 export type ResultBundle = z.infer<typeof ResultBundleSchema>;
 export type StatusUpdate = z.infer<typeof StatusUpdateSchema>;
 export type SubmissionRow = z.infer<typeof SubmissionRowSchema>;
