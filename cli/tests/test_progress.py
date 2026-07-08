@@ -5,6 +5,7 @@ from localbench.progress import (
     NonTtyProgressCadence,
     ProgressEstimator,
     ProgressLineFormatter,
+    _segment_widths,
 )
 
 
@@ -100,6 +101,63 @@ def test_progress_bar_falls_back_to_ascii_for_legacy_encodings() -> None:
     formatter = ProgressLineFormatter(width=200, bar_width=10, bar_chars=("#", "-"))
 
     assert formatter._bar(50.0) == "[#####-----] "
+
+
+def test_progress_segmented_bar_allocates_width_by_bench_share() -> None:
+    formatter = ProgressLineFormatter(width=200, bar_width=20)
+    estimator = ProgressEstimator(
+        [BenchProgressPlan("mmlu_pro", 50), BenchProgressPlan("ifbench", 50)],
+        min_samples=1,
+    )
+    for _ in range(50):
+        estimator.record_completion("mmlu_pro", 1.0)
+
+    line = formatter.status_line(
+        estimator.snapshot(current_bench="ifbench", current_bench_done=0, elapsed_seconds=50.0),
+    )
+
+    # Given equal item counts: mmlu_pro's half is fully filled, ifbench's half fully empty.
+    assert "[██████████░░░░░░░░░░]" in line
+
+
+def test_progress_segmented_bar_colors_segments_per_bench() -> None:
+    formatter = ProgressLineFormatter(width=400, bar_width=10, use_color=True)
+    estimator = ProgressEstimator(
+        [BenchProgressPlan("mmlu_pro", 5), BenchProgressPlan("bigcodebench_hard", 5)],
+        min_samples=1,
+    )
+    estimator.record_completion("mmlu_pro", 1.0)
+
+    line = formatter.status_line(
+        estimator.snapshot(current_bench="mmlu_pro", current_bench_done=1, elapsed_seconds=1.0),
+    )
+
+    # Knowledge (mmlu_pro) and coding (bigcodebench_hard) axis colors from the site palette.
+    assert "\x1b[38;2;124;159;255m" in line
+    assert "\x1b[38;2;255;95;168m" in line
+    assert line.count("\x1b[0m") == 2
+
+
+def test_progress_segmented_bar_gives_tiny_benches_a_visible_cell() -> None:
+    widths = _segment_widths([397, 2, 1], 20)
+
+    assert sum(widths) == 20
+    assert widths[1] >= 1
+    assert widths[2] >= 1
+
+
+def test_progress_color_lines_drop_bar_by_visible_width_not_raw_length() -> None:
+    formatter = ProgressLineFormatter(width=72, bar_width=20, use_color=True)
+    estimator = ProgressEstimator([BenchProgressPlan("bigcodebench_hard", 10)], min_samples=1)
+    estimator.record_completion("bigcodebench_hard", 5.0)
+
+    line = formatter.status_line(
+        estimator.snapshot(current_bench="bigcodebench_hard", current_bench_done=1, elapsed_seconds=15.0),
+    )
+
+    assert "\x1b[" not in line
+    assert len(line) <= 72
+    assert "1/10 bench" in line
 
 
 def test_progress_prerun_total_line_reports_estimating_before_samples() -> None:
