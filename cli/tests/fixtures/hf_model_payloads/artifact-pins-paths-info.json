@@ -1,0 +1,41 @@
+[
+  {
+    "type": "file",
+    "oid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "size": 4200,
+    "lfs": {
+      "oid": "1111111111111111111111111111111111111111111111111111111111111111",
+      "size": 4200,
+      "pointerSize": 133
+    },
+    "path": "model-Q4_K_M.gguf"
+  },
+  {
+    "type": "file",
+    "oid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "size": 3000,
+    "lfs": {
+      "oid": "2222222222222222222222222222222222222222222222222222222222222222",
+      "size": 3000,
+      "pointerSize": 133
+    },
+    "path": "Q5_K_M/model-Q5_K_M-00001-of-00002.gguf"
+  },
+  {
+    "type": "file",
+    "oid": "cccccccccccccccccccccccccccccccccccccccc",
+    "size": 2400,
+    "lfs": {
+      "oid": "3333333333333333333333333333333333333333333333333333333333333333",
+      "size": 2400,
+      "pointerSize": 133
+    },
+    "path": "Q5_K_M/model-Q5_K_M-00002-of-00002.gguf"
+  },
+  {
+    "type": "file",
+    "oid": "dddddddddddddddddddddddddddddddddddddddd",
+    "size": 3300,
+    "path": "model-Q3_K_M.gguf"
+  }
+]

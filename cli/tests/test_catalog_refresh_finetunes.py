@@ -9,6 +9,7 @@ from types import ModuleType
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 ResponseMap = dict[tuple[str, tuple[tuple[str, str], ...]], tuple[int, JsonValue]]
+PostResponseMap = dict[tuple[str, str], tuple[int, JsonValue]]
 HF_PAYLOAD_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "hf_model_payloads"
 
 
@@ -26,8 +27,10 @@ def load_catalog_refresh() -> ModuleType:
 
 
 class FakeClient:
-    def __init__(self, responses: ResponseMap):
+    def __init__(self, responses: ResponseMap, post_responses: PostResponseMap | None = None):
         self.responses = responses
+        self.post_responses = post_responses or {}
+        self.post_calls: list[tuple[str, JsonValue]] = []
         self.network_hits = 0
         self.cache_hits = 0
         self.errors: list[str] = []
@@ -36,6 +39,12 @@ class FakeClient:
     def get_json(self, path: str, params: list[tuple[str, str]] | None = None) -> tuple[int, JsonValue]:
         self.network_hits += 1
         return self.responses.get((path, tuple(params or [])), (404, None))
+
+    def post_json(self, path: str, payload: dict[str, JsonValue]) -> tuple[int, JsonValue]:
+        self.network_hits += 1
+        self.post_calls.append((path, payload))
+        cache_key = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return self.post_responses.get((path, cache_key), (404, None))
 
     def close(self) -> None:
         self.closed = True
@@ -478,8 +487,105 @@ def test_verify_entry_honors_denylist_null_lineage_override(tmp_path: Path) -> N
     assert proposed["base_model"] is None
 
 
-def hf_payload(name: str) -> dict[str, JsonValue]:
+def test_artifact_pins_mode_stamps_single_file_and_split_quant_pins(tmp_path: Path) -> None:
+    catalog_refresh = load_catalog_refresh()
+    catalog_path = tmp_path / "model_catalog.json"
+    out_dir = tmp_path / "out"
+    repo_id = "Fixture/Artifact-Pins-GGUF"
+    revision = "a" * 40
+    entry: dict[str, JsonValue] = {
+        "id": "Fixture/Artifact-Pins",
+        "slug": "artifact-pins",
+        "display_name": "Artifact Pins",
+        "family": "Fixture",
+        "org": "Fixture",
+        "params_b": 7,
+        "is_moe": False,
+        "reasoning_capable": True,
+        "license": "apache-2.0",
+        "popularity": {},
+        "gguf_repo": repo_id,
+        "quants": [
+            {"label": "Q4_K_M", "bpw": 4.8, "file_gb": 4.2, "vram_gb_8k": 5.6},
+            {"label": "Q5_K_M", "bpw": 5.7, "file_gb": 5.4, "vram_gb_8k": 6.8},
+            {"label": "Q3_K_M", "bpw": 3.9, "file_gb": 3.3, "vram_gb_8k": 4.7},
+        ],
+        "distills": [],
+    }
+    raw_catalog = {"models": [entry]}
+    catalog_path.write_text(json.dumps(raw_catalog) + "\n", encoding="utf-8")
+    paths_payload = hf_json_payload("artifact-pins-paths-info.json")
+    paths_request = {
+        "paths": [
+            "model-Q4_K_M.gguf",
+            "Q5_K_M/model-Q5_K_M-00001-of-00002.gguf",
+            "Q5_K_M/model-Q5_K_M-00002-of-00002.gguf",
+            "model-Q3_K_M.gguf",
+        ],
+        "expand": False,
+    }
+    client = FakeClient(
+        {
+            (f"/models/{repo_id}", (("blobs", "true"),)): (200, hf_payload("artifact-pins-gguf-repo.json")),
+        },
+        {
+            (
+                f"/models/{repo_id}/paths-info/{revision}",
+                json.dumps(paths_request, sort_keys=True, separators=(",", ":")),
+            ): (200, paths_payload),
+        },
+    )
+    namespace = args(catalog_path)
+    namespace.apply = False
+
+    exit_code = catalog_refresh.refresh_artifact_pins_mode(namespace, catalog_path, out_dir, raw_catalog, [entry], client)
+
+    assert exit_code == 0
+    proposal = catalog_refresh.load_catalog(out_dir / "model_catalog.proposed.json")[0]
+    quants = {quant["label"]: quant for quant in proposal["models"][0]["quants"]}
+    assert quants["Q4_K_M"] == {
+        "label": "Q4_K_M",
+        "bpw": 4.8,
+        "file_gb": 4.2,
+        "vram_gb_8k": 5.6,
+        "gguf_repo": repo_id,
+        "filename": "model-Q4_K_M.gguf",
+        "revision": revision,
+        "file_size_bytes": 4_200,
+        "file_sha256": "1" * 64,
+    }
+    assert quants["Q5_K_M"]["gguf_repo"] == repo_id
+    assert quants["Q5_K_M"]["revision"] == revision
+    assert "filename" not in quants["Q5_K_M"]
+    assert "file_sha256" not in quants["Q5_K_M"]
+    assert quants["Q5_K_M"]["artifact_files"] == [
+        {
+            "filename": "Q5_K_M/model-Q5_K_M-00001-of-00002.gguf",
+            "file_size_bytes": 3_000,
+            "file_sha256": "2" * 64,
+        },
+        {
+            "filename": "Q5_K_M/model-Q5_K_M-00002-of-00002.gguf",
+            "file_size_bytes": 2_400,
+            "file_sha256": "3" * 64,
+        },
+    ]
+    assert "filename" not in quants["Q3_K_M"]
+    assert "file_sha256" not in quants["Q3_K_M"]
+    assert client.post_calls == [(f"/models/{repo_id}/paths-info/{revision}", paths_request)]
+    report = (out_dir / "catalog-refresh-report.md").read_text(encoding="utf-8")
+    assert "| Quant rows with full artifact pins | 2 |" in report
+    assert "| missing_lfs_metadata | 1 |" in report
+    assert "| Models with every catalog quant pinned | 0 |" in report
+
+
+def hf_json_payload(name: str) -> JsonValue:
     with (HF_PAYLOAD_FIXTURES / name).open(encoding="utf-8") as handle:
         payload = json.load(handle)
+    return payload
+
+
+def hf_payload(name: str) -> dict[str, JsonValue]:
+    payload = hf_json_payload(name)
     assert isinstance(payload, dict)
     return payload

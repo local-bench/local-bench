@@ -38,6 +38,7 @@ import os
 import re
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,6 +53,7 @@ MAX_NEW_FINETUNE_PROMOTIONS = 24
 MAX_FINETUNES_PER_BASE = 2
 MIN_FINETUNE_DOWNLOADS = 2_000
 MIN_FINETUNE_LIKES = 50
+PATHS_INFO_BATCH_SIZE = 2_000
 RECIPE_GRADE_QUANTS = ("FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q4_K_M", "Q3_K_M", "Q2_K")
 CATALOG_DISCOVERY_CAPS_PATH = Path(__file__).resolve().with_name("catalog_discovery_caps.json")
 CATALOG_DISCOVERY_DENYLIST_PATH = Path(__file__).resolve().with_name("catalog_discovery_denylist.json")
@@ -112,6 +114,8 @@ QUANT_RE = re.compile(
     r"(?<![A-Za-z0-9])((?:UD[-_])?(?:I?Q\d+(?:_[A-Za-z0-9]{1,4}){1,3}|TQ\d+_\d+|MXFP4(?:_MOE)?|BF16|FP16|F16|FP32|F32))(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
+FULL_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+FULL_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
 SPLIT_SUFFIX_RE = re.compile(r"[-.]\d{5}-of-\d{5}$")
 PARAMS_X_RE = re.compile(r"(\d+)\s*x\s*(\d+(?:\.\d+)?)\s*[bB](?![A-Za-z0-9])")
 PARAMS_RE = re.compile(r"(?<![aA])(?<![aA]\d)(\d+(?:\.\d+)?)\s*[bB](?![A-Za-z0-9])")
@@ -204,6 +208,63 @@ class HfClient:
             if resp.status_code in (200, 401, 403, 404):
                 cpath.write_text(
                     json.dumps({"url": url, "fetched_at": time.time(), "status": resp.status_code, "body": body}),
+                    encoding="utf-8",
+                )
+            return resp.status_code, body
+
+        return -1, None
+
+    def post_json(self, path: str, payload: dict[str, Any]) -> tuple[int, Any]:
+        url = API_BASE + path
+        cache_key = url + "\n" + json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        cpath = self._cache_path(cache_key)
+        if not self.refresh and cpath.exists():
+            try:
+                entry = json.loads(cpath.read_text(encoding="utf-8"))
+                if time.time() - entry["fetched_at"] <= self.cache_max_age_s:
+                    self.cache_hits += 1
+                    return entry["status"], entry["body"]
+            except (json.JSONDecodeError, KeyError, OSError):
+                pass
+
+        for attempt in range(5):
+            wait = self.throttle_s - (time.monotonic() - self._last_request)
+            if wait > 0:
+                time.sleep(wait)
+            try:
+                resp = self._client.post(url, json=payload)
+                self._last_request = time.monotonic()
+                self.network_hits += 1
+            except httpx.HTTPError as exc:
+                self._last_request = time.monotonic()
+                if attempt == 4:
+                    self.errors.append(f"{url}: {exc!r}")
+                    return -1, None
+                time.sleep(2.0 * (attempt + 1))
+                continue
+
+            if resp.status_code == 429:
+                retry_after = resp.headers.get("retry-after")
+                delay = float(retry_after) if retry_after and retry_after.isdigit() else 5.0 * (attempt + 1)
+                log(f"    429 rate-limited, sleeping {delay:.0f}s ...")
+                time.sleep(delay)
+                continue
+            if resp.status_code >= 500:
+                if attempt == 4:
+                    self.errors.append(f"{url}: HTTP {resp.status_code}")
+                    return resp.status_code, None
+                time.sleep(2.0 * (attempt + 1))
+                continue
+
+            try:
+                body = resp.json() if resp.content else None
+            except json.JSONDecodeError:
+                body = None
+            if resp.status_code in (200, 401, 403, 404):
+                cpath.write_text(
+                    json.dumps(
+                        {"url": url, "payload": payload, "fetched_at": time.time(), "status": resp.status_code, "body": body}
+                    ),
                     encoding="utf-8",
                 )
             return resp.status_code, body
@@ -314,16 +375,193 @@ def parse_gguf_quants(siblings: list[dict[str, Any]]) -> dict[str, dict[str, Any
         if not label:
             continue
         key = (directory, stem)
-        art = artifacts.setdefault(key, {"label": label, "size_bytes": 0, "n_files": 0, "example": rfile})
-        art["size_bytes"] += int(sib.get("size") or 0)
+        size_bytes = int(sib.get("size") or 0)
+        art = artifacts.setdefault(key, {"label": label, "size_bytes": 0, "n_files": 0, "example": rfile, "files": []})
+        art["size_bytes"] += size_bytes
         art["n_files"] += 1
+        art["files"].append({"filename": rfile, "size_bytes": size_bytes})
 
     by_label: dict[str, dict[str, Any]] = {}
     for art in artifacts.values():
+        art["files"].sort(key=lambda item: item["filename"])
         cur = by_label.get(art["label"])
         if cur is None or art["size_bytes"] > cur["size_bytes"]:
             by_label[art["label"]] = art
     return by_label
+
+
+def catalog_quant_labels(entry: dict[str, Any]) -> list[str]:
+    labels: list[str] = []
+    for quant in entry.get("quants") or []:
+        if not isinstance(quant, dict):
+            continue
+        label = quant.get("label")
+        if isinstance(label, str) and label:
+            labels.append(label.upper())
+    return labels
+
+
+def mark_all_artifact_unpinnable(res: EntryResult, entry: dict[str, Any], reason: str) -> None:
+    for label in catalog_quant_labels(entry):
+        res.artifact_unpinnable.setdefault(label, reason)
+
+
+def repo_revision(repo: dict[str, Any]) -> str | None:
+    revision = repo.get("sha")
+    return revision.lower() if isinstance(revision, str) and FULL_SHA_RE.fullmatch(revision) is not None else None
+
+
+def stamp_catalog_quant_artifact_pins(
+    client: HfClient,
+    entry: dict[str, Any],
+    proposed: dict[str, Any],
+    res: EntryResult,
+    repo: dict[str, Any],
+    quants: dict[str, dict[str, Any]],
+) -> None:
+    if res.repo_status == "gated":
+        mark_all_artifact_unpinnable(res, entry, "gated_repo")
+        return
+    revision = repo_revision(repo)
+    if revision is None:
+        mark_all_artifact_unpinnable(res, entry, "other")
+        return
+    proposed_quants = [quant for quant in proposed.get("quants") or [] if isinstance(quant, dict)]
+    paths: list[str] = []
+    labels_with_files: list[str] = []
+    for quant in proposed_quants:
+        label = quant.get("label")
+        if not isinstance(label, str) or not label:
+            continue
+        hit = quants.get(label.upper())
+        if hit is None:
+            res.artifact_unpinnable.setdefault(label.upper(), "other")
+            continue
+        files = gguf_artifact_files(hit)
+        if not files:
+            res.artifact_unpinnable.setdefault(label.upper(), "other")
+            continue
+        labels_with_files.append(label.upper())
+        paths.extend(file["filename"] for file in files)
+    if not paths:
+        return
+    paths_info, failure_reason = fetch_paths_info(client, res.gguf_repo, revision, paths)
+    if failure_reason is not None:
+        for label in labels_with_files:
+            res.artifact_unpinnable.setdefault(label, failure_reason)
+        return
+    for quant in proposed_quants:
+        label = quant.get("label")
+        if not isinstance(label, str) or not label:
+            continue
+        hit = quants.get(label.upper())
+        if hit is None:
+            continue
+        pin = quant_artifact_pin(res.gguf_repo, revision, hit, paths_info)
+        if isinstance(pin, QuantArtifactPinFailure):
+            res.artifact_unpinnable.setdefault(label.upper(), pin.reason)
+            continue
+        apply_quant_artifact_pin(quant, pin)
+        res.artifact_pinned.append(label.upper())
+        if len(pin.files) > 1:
+            res.artifact_split_pinned.append(label.upper())
+
+
+def gguf_artifact_files(artifact: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_files = artifact.get("files")
+    if not isinstance(raw_files, list):
+        return []
+    files: list[dict[str, Any]] = []
+    for raw_file in raw_files:
+        if not isinstance(raw_file, dict):
+            continue
+        filename = raw_file.get("filename")
+        size_bytes = raw_file.get("size_bytes")
+        if isinstance(filename, str) and filename and isinstance(size_bytes, int) and not isinstance(size_bytes, bool):
+            files.append({"filename": filename, "size_bytes": size_bytes})
+    return files
+
+
+def fetch_paths_info(
+    client: HfClient,
+    repo_id: str,
+    revision: str,
+    paths: list[str],
+) -> tuple[dict[str, dict[str, Any]], str | None]:
+    results: dict[str, dict[str, Any]] = {}
+    unique_paths = list(dict.fromkeys(paths))
+    for index in range(0, len(unique_paths), PATHS_INFO_BATCH_SIZE):
+        batch = unique_paths[index : index + PATHS_INFO_BATCH_SIZE]
+        payload = {"paths": batch, "expand": False}
+        status, body = client.post_json(f"/models/{repo_id}/paths-info/{revision}", payload)
+        if status == 403:
+            return {}, "gated_repo"
+        if status != 200 or not isinstance(body, list):
+            return {}, "other"
+        for item in body:
+            if not isinstance(item, dict):
+                continue
+            path = item.get("path")
+            if isinstance(path, str) and path:
+                results[path] = item
+    return results, None
+
+
+def quant_artifact_pin(
+    repo_id: str,
+    revision: str,
+    artifact: dict[str, Any],
+    paths_info: dict[str, dict[str, Any]],
+) -> QuantArtifactPin | QuantArtifactPinFailure:
+    files = gguf_artifact_files(artifact)
+    if not files:
+        return QuantArtifactPinFailure("other")
+    file_pins: list[ArtifactFilePin] = []
+    for file in files:
+        pin = artifact_file_pin(file, paths_info.get(file["filename"]))
+        if isinstance(pin, QuantArtifactPinFailure):
+            if len(files) > 1 and pin.reason != "missing_lfs_metadata":
+                return QuantArtifactPinFailure("split_files")
+            return pin
+        file_pins.append(pin)
+    return QuantArtifactPin(gguf_repo=repo_id, revision=revision, files=tuple(file_pins))
+
+
+def artifact_file_pin(file: dict[str, Any], info: dict[str, Any] | None) -> ArtifactFilePin | QuantArtifactPinFailure:
+    if info is None or info.get("type") != "file":
+        return QuantArtifactPinFailure("other")
+    lfs = info.get("lfs")
+    if not isinstance(lfs, dict):
+        return QuantArtifactPinFailure("missing_lfs_metadata")
+    sha256 = lfs.get("sha256") or lfs.get("oid")
+    size_bytes = lfs.get("size")
+    if not isinstance(sha256, str) or FULL_SHA256_RE.fullmatch(sha256) is None:
+        return QuantArtifactPinFailure("missing_lfs_metadata")
+    if not isinstance(size_bytes, int) or isinstance(size_bytes, bool) or size_bytes <= 0:
+        return QuantArtifactPinFailure("missing_lfs_metadata")
+    expected_size = file["size_bytes"]
+    if size_bytes != expected_size:
+        return QuantArtifactPinFailure("other")
+    return ArtifactFilePin(filename=file["filename"], file_size_bytes=size_bytes, file_sha256=sha256.lower())
+
+
+def apply_quant_artifact_pin(quant: dict[str, Any], pin: QuantArtifactPin) -> None:
+    quant["gguf_repo"] = pin.gguf_repo
+    quant["revision"] = pin.revision
+    if len(pin.files) == 1:
+        file = pin.files[0]
+        quant["filename"] = file.filename
+        quant["file_size_bytes"] = file.file_size_bytes
+        quant["file_sha256"] = file.file_sha256
+        quant.pop("artifact_files", None)
+        return
+    quant["artifact_files"] = [
+        {"filename": file.filename, "file_size_bytes": file.file_size_bytes, "file_sha256": file.file_sha256}
+        for file in pin.files
+    ]
+    quant.pop("filename", None)
+    quant.pop("file_size_bytes", None)
+    quant.pop("file_sha256", None)
 
 
 def params_from_name(name: str) -> float | None:
@@ -465,6 +703,25 @@ def fmt_int(x: Any) -> str:
 # --------------------------------------------------------------------------- verification
 
 
+@dataclass(frozen=True, slots=True)
+class ArtifactFilePin:
+    filename: str
+    file_size_bytes: int
+    file_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class QuantArtifactPin:
+    gguf_repo: str
+    revision: str
+    files: tuple[ArtifactFilePin, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class QuantArtifactPinFailure:
+    reason: str
+
+
 @dataclass
 class EntryResult:
     entry_id: str
@@ -484,6 +741,9 @@ class EntryResult:
     popularity_old: dict[str, Any] = field(default_factory=dict)
     popularity_new: dict[str, Any] = field(default_factory=dict)
     canonical_missing: bool = False
+    artifact_pinned: list[str] = field(default_factory=list)
+    artifact_split_pinned: list[str] = field(default_factory=list)
+    artifact_unpinnable: dict[str, str] = field(default_factory=dict)
 
     @property
     def clean(self) -> bool:
@@ -495,6 +755,14 @@ class EntryResult:
             and self.base_mismatch is None
             and not self.wrong_scale
         )
+
+    @property
+    def artifact_quant_count(self) -> int:
+        return len(self.artifact_pinned) + len(self.artifact_unpinnable)
+
+    @property
+    def artifact_fully_pinned(self) -> bool:
+        return self.artifact_quant_count > 0 and not self.artifact_unpinnable
 
 
 def verify_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, Any]) -> EntryResult:
@@ -541,29 +809,35 @@ def verify_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, An
     if not res.gguf_repo:
         res.repo_status = "error"
         res.repo_note = "no gguf_repo in catalog"
+        mark_all_artifact_unpinnable(res, entry, "other")
         return res
     status, repo = client.get_json(f"/models/{res.gguf_repo}", [("blobs", "true")])
     if status in (401, 404) or (status == 200 and not isinstance(repo, dict)):
         res.repo_status = "dead"
         res.repo_note = f"HTTP {status} (missing or private; unauthenticated HF returns 401 for both)"
+        mark_all_artifact_unpinnable(res, entry, "other")
         return res
     if status == 403:
         res.repo_status = "gated"
         res.repo_note = "HTTP 403 (gated; files not listable anonymously)"
+        mark_all_artifact_unpinnable(res, entry, "gated_repo")
         return res
     if status != 200:
         res.repo_status = "error"
         res.repo_note = f"HTTP {status}"
+        mark_all_artifact_unpinnable(res, entry, "other")
         return res
 
     if repo.get("disabled"):
         res.repo_status = "dead"
         res.repo_note = "repo disabled"
+        mark_all_artifact_unpinnable(res, entry, "other")
         return res
     gated = repo.get("gated")
     if gated:
         res.repo_status = "gated"
         res.repo_note = f"gated={gated!r}"
+        mark_all_artifact_unpinnable(res, entry, "gated_repo")
 
     # lineage declared by the GGUF repo itself; catches repo pointing at a different base
     gguf_base = declared_base_model(repo)
@@ -593,6 +867,7 @@ def verify_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, An
                         f"repo GGUF is ~{res.repo_params_b}B vs entry {entry_total}B; "
                         "file sizes NOT applied"
                     )
+                    mark_all_artifact_unpinnable(res, entry, "other")
                     return res
                 res.params_note = True
 
@@ -601,7 +876,9 @@ def verify_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, An
         if res.repo_status == "ok":
             res.repo_status = "error"
             res.repo_note = "no parsable .gguf files in repo listing"
+        mark_all_artifact_unpinnable(res, entry, "other")
         return res
+    stamp_catalog_quant_artifact_pins(client, entry, proposed, res, repo, quants)
 
     catalog_labels = set()
     for q_orig, q_prop in zip(entry.get("quants") or [], proposed.get("quants") or []):
@@ -1287,6 +1564,55 @@ def refresh_finetunes_mode(
 # --------------------------------------------------------------------------- report
 
 
+def artifact_pin_stats(results: list[EntryResult]) -> dict[str, Any]:
+    reasons = Counter(reason for result in results for reason in result.artifact_unpinnable.values())
+    return {
+        "models_total": sum(1 for result in results if result.artifact_quant_count > 0),
+        "models_fully_pinned": sum(1 for result in results if result.artifact_fully_pinned),
+        "models_with_unpinnable": sum(1 for result in results if result.artifact_unpinnable),
+        "quant_rows_total": sum(result.artifact_quant_count for result in results),
+        "quant_rows_pinned": sum(len(result.artifact_pinned) for result in results),
+        "quant_rows_split_pinned": sum(len(result.artifact_split_pinned) for result in results),
+        "quant_rows_unpinnable": sum(len(result.artifact_unpinnable) for result in results),
+        "reasons": reasons,
+    }
+
+
+def append_artifact_pin_summary(lines: list[str], results: list[EntryResult]) -> None:
+    stats = artifact_pin_stats(results)
+    lines.append("## Artifact pin coverage")
+    lines.append("")
+    lines.append("| Metric | Count |")
+    lines.append("| --- | ---: |")
+    lines.append(f"| Models checked for artifact pins | {stats['models_total']} |")
+    lines.append(f"| Models with every catalog quant pinned | {stats['models_fully_pinned']} |")
+    lines.append(f"| Models with at least one unpinnable quant | {stats['models_with_unpinnable']} |")
+    lines.append(f"| Quant rows checked | {stats['quant_rows_total']} |")
+    lines.append(f"| Quant rows with full artifact pins | {stats['quant_rows_pinned']} |")
+    lines.append(f"| ... split-shard quant rows pinned via `artifact_files` | {stats['quant_rows_split_pinned']} |")
+    lines.append(f"| Quant rows unpinnable | {stats['quant_rows_unpinnable']} |")
+    lines.append("")
+    reasons = stats["reasons"]
+    if reasons:
+        lines.append("### Unpinnable reasons")
+        lines.append("")
+        lines.append("| Reason | Quant rows |")
+        lines.append("| --- | ---: |")
+        for reason, count in sorted(reasons.items()):
+            lines.append(f"| {reason} | {count} |")
+        lines.append("")
+    unpinnable = [result for result in results if result.artifact_unpinnable]
+    if unpinnable:
+        lines.append("### Unpinnable quant rows")
+        lines.append("")
+        lines.append("| Entry | gguf_repo | Quant | Reason |")
+        lines.append("| --- | --- | --- | --- |")
+        for result in unpinnable:
+            for label, reason in sorted(result.artifact_unpinnable.items()):
+                lines.append(f"| {result.entry_id} | {result.gguf_repo} | {label} | {reason} |")
+        lines.append("")
+
+
 def build_report(
     results: list[EntryResult],
     candidates: list[Candidate],
@@ -1337,6 +1663,7 @@ def build_report(
     L.append("")
     L.append(f"HTTP: {client.network_hits} network requests, {client.cache_hits} cache hits, {len(client.errors)} transport errors.")
     L.append("")
+    append_artifact_pin_summary(L, results)
 
     if dead or errored:
         L.append("## Dead or unreadable GGUF repos")
@@ -1648,6 +1975,135 @@ def metadata_report(
     return "\n".join(lines)
 
 
+def refresh_artifact_pins_entry(client: HfClient, entry: dict[str, Any], proposed: dict[str, Any]) -> EntryResult:
+    res = EntryResult(entry_id=entry["id"], gguf_repo=entry.get("gguf_repo") or "")
+    if not res.gguf_repo:
+        res.repo_status = "error"
+        res.repo_note = "no gguf_repo in catalog"
+        mark_all_artifact_unpinnable(res, entry, "other")
+        return res
+    status, repo = client.get_json(f"/models/{res.gguf_repo}", [("blobs", "true")])
+    if status in (401, 404) or (status == 200 and not isinstance(repo, dict)):
+        res.repo_status = "dead"
+        res.repo_note = f"HTTP {status} (missing or private; unauthenticated HF returns 401 for both)"
+        mark_all_artifact_unpinnable(res, entry, "other")
+        return res
+    if status == 403:
+        res.repo_status = "gated"
+        res.repo_note = "HTTP 403 (gated; files not listable anonymously)"
+        mark_all_artifact_unpinnable(res, entry, "gated_repo")
+        return res
+    if status != 200:
+        res.repo_status = "error"
+        res.repo_note = f"HTTP {status}"
+        mark_all_artifact_unpinnable(res, entry, "other")
+        return res
+    if repo.get("disabled"):
+        res.repo_status = "dead"
+        res.repo_note = "repo disabled"
+        mark_all_artifact_unpinnable(res, entry, "other")
+        return res
+    gated = repo.get("gated")
+    if gated:
+        res.repo_status = "gated"
+        res.repo_note = f"gated={gated!r}"
+        mark_all_artifact_unpinnable(res, entry, "gated_repo")
+        return res
+    gguf_base = declared_base_model(repo)
+    gguf_bases = [gguf_base] if gguf_base else []
+    if gguf_bases and entry["id"] not in gguf_bases:
+        res.base_mismatch = ", ".join(gguf_bases)
+    repo_total = (repo.get("gguf") or {}).get("total")
+    entry_total = entry_total_params(entry)
+    res.entry_params_b = entry_total or None
+    if isinstance(repo_total, (int, float)) and repo_total > 0:
+        res.repo_params_b = round(repo_total / 1e9, 1)
+        if entry_total > 0:
+            ratio = (repo_total / 1e9) / entry_total
+            if not (0.5 <= ratio <= 2.0) and (res.base_mismatch or not names_equivalent(entry["id"], res.gguf_repo)):
+                res.wrong_scale = True
+                res.repo_note = (
+                    f"repo GGUF is ~{res.repo_params_b}B vs entry {entry_total}B; "
+                    "artifact pins NOT applied"
+                )
+                mark_all_artifact_unpinnable(res, entry, "other")
+                return res
+    quants = parse_gguf_quants(repo.get("siblings") or [])
+    if not quants:
+        res.repo_status = "error"
+        res.repo_note = "no parsable .gguf files in repo listing"
+        mark_all_artifact_unpinnable(res, entry, "other")
+        return res
+    stamp_catalog_quant_artifact_pins(client, entry, proposed, res, repo, quants)
+    return res
+
+
+def artifact_pins_report(results: list[EntryResult], client: HfClient, args: argparse.Namespace) -> str:
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    lines = [
+        "# Catalog artifact pins refresh",
+        "",
+        "- mode: artifact-pins",
+        f"- generated: {now}",
+        f"- catalog: `{args.catalog}`",
+        f"- cache hits: {client.cache_hits}",
+        f"- network hits: {client.network_hits}",
+        f"- apply requested: {bool(args.apply)}",
+        "",
+    ]
+    append_artifact_pin_summary(lines, results)
+    if client.errors:
+        lines.append("## Fetch errors")
+        lines.append("")
+        for error in client.errors[:50]:
+            lines.append(f"- {error}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def refresh_artifact_pins_mode(
+    args: argparse.Namespace,
+    catalog_path: Path,
+    out_dir: Path,
+    raw_catalog: Any,
+    catalog: list[dict[str, Any]],
+    client: HfClient | None = None,
+) -> int:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    proposed = copy.deepcopy(catalog)
+    work_count = min(args.limit, len(catalog)) if getattr(args, "limit", 0) else len(catalog)
+    own_client = client is None
+    hf = client or HfClient(out_dir / "cache", args.throttle_ms, args.cache_max_age_hours, args.refresh)
+    results: list[EntryResult] = []
+    try:
+        log(f"Refreshing artifact pins for {work_count} catalog entries ...")
+        for index, entry in enumerate(catalog[:work_count]):
+            log(f"  [{index + 1}/{work_count}] {entry['id']}  (gguf: {entry.get('gguf_repo')})")
+            results.append(refresh_artifact_pins_entry(hf, entry, proposed[index]))
+    finally:
+        if own_client:
+            hf.close()
+    proposed_catalog = catalog_with_models(raw_catalog, proposed)
+    proposed_path = out_dir / "model_catalog.proposed.json"
+    proposed_path.write_text(json.dumps(proposed_catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    report = artifact_pins_report(results, hf, args)
+    report_path = out_dir / "catalog-refresh-report.md"
+    report_path.write_text(report, encoding="utf-8", newline="\n")
+    if args.apply:
+        catalog_path.write_text(json.dumps(proposed_catalog, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+        applied = "applied"
+    else:
+        applied = "report_only"
+    stats = artifact_pin_stats(results)
+    print(
+        f"mode=artifact-pins entries={work_count} quant_pinned={stats['quant_rows_pinned']} "
+        f"quant_unpinnable={stats['quant_rows_unpinnable']} {applied}"
+    )
+    print(f"report: {report_path}")
+    print(f"proposal: {proposed_path}")
+    return 0
+
+
 # --------------------------------------------------------------------------- main
 
 
@@ -1656,8 +2112,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Verify/refresh web/model_catalog.json against the public HF API.")
     ap.add_argument("--catalog", default=str(repo_root / "web" / "model_catalog.json"))
     ap.add_argument("--out-dir", default=str(repo_root / "catalog-refresh-out"))
-    ap.add_argument("--mode", choices=("full", "metadata", "discover-finetunes"), default="full")
-    ap.add_argument("--apply", action="store_true", help="apply metadata mode only when guards pass")
+    ap.add_argument("--mode", choices=("full", "metadata", "discover-finetunes", "artifact-pins"), default="full")
+    ap.add_argument("--apply", action="store_true", help="apply metadata mode when guarded, or artifact-pins mode directly")
     ap.add_argument("--throttle-ms", type=int, default=250, help="min spacing between network requests (floor 200)")
     ap.add_argument("--cache-max-age-hours", type=float, default=24.0)
     ap.add_argument("--refresh", action="store_true", help="ignore the response cache")
@@ -1684,6 +2140,8 @@ def main() -> int:
         return refresh_metadata_mode(args, catalog_path, out_dir, raw_catalog, catalog)
     if args.mode == "discover-finetunes":
         return refresh_finetunes_mode(args, catalog_path, out_dir, raw_catalog, catalog)
+    if args.mode == "artifact-pins":
+        return refresh_artifact_pins_mode(args, catalog_path, out_dir, raw_catalog, catalog)
 
     if args.limit:
         work = catalog[: args.limit]
