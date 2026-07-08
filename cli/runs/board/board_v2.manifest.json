@@ -1,5 +1,5 @@
 {
-  "board_sha256": "a1115302f2139b0a6ea51a3ad39bdd86451207e25f7f84f9162b24ba176f7c61",
+  "board_sha256": "f46719d6854e0860ef1e2eafd6e866dcdf97b74f508a9eccc19dd549445d8957",
   "ci_method": "stratified-nonparametric-bootstrap-percentile",
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
   "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
@@ -7,7 +7,7 @@
   "execution_profile_id": null,
   "extractor_version": null,
   "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-  "generated_at": "2026-07-06T00:00:00+00:00",
+  "generated_at": "2026-07-08T06:05:25.444784+00:00",
   "index_version": "index-v3.0",
   "item_set_hashes": {
     "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
@@ -30,15 +30,15 @@
     "top_k": null,
     "top_p": null
   },
-  "scorecard_id": "e7d971ba8e296f2e9000752ae70ca229a90e95ce7d4681e039baa7d95f593ca2",
+  "scorecard_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
   "scorecard_version": "3",
-  "scorer_git_commit": "0e49e2bee20b32a3388dbf9f7a979035ed2c6808",
+  "scorer_git_commit": "2d9772624cb11b9ad8a1b8783f3a2624b22ab22c",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",
     "bfcl": "1",
     "bfcl_multi_turn": "1",
-    "bigcodebench_hard": "1+bcbh-scoreable-v1+bigcodebench-ast-gate-v1+bigcodebench-unittest-sentinel-v1",
+    "bigcodebench_hard": "1+bcbh-scoreable-v1+bigcodebench-ast-gate-v2+bigcodebench-invert-control-sentinel-v2",
     "genmath": "1",
     "ifbench": "1",
     "ifeval": "1",

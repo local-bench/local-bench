@@ -149,14 +149,11 @@ describe("static data access", () => {
     expect(qwenComparison).toMatchObject({
       base: { catalogId: "Qwen/Qwen3.6-27B", displayName: "Qwen3.6 27B" },
       derivative: { displayName: "Qwopus 3.6 27B v2 MTP" },
-      // The base's only measured rows are legacy capped-thinking (previous index), so the
-      // comparison must withhold its composite rather than fake a cross-index delta.
-      missing: [
-        "base has only previous-index runs — awaiting a current-index rerun",
-        "fine-tune not yet benchmarked",
-      ],
+      // Both halves landed ranked bounded-final-v2 rows on 2026-07-08, so the comparison
+      // now carries real same-index axes instead of the withheld placeholder state.
+      missing: [],
     });
-    expect(qwenComparison?.axes).toEqual([]);
+    expect(qwenComparison?.axes.length).toBeGreaterThan(0);
 
     const phi = await getModelPageData("phi-4-reasoning");
     expect(phi.vsBaseComparisons[0]).toMatchObject({

@@ -81,7 +81,9 @@ describe("public/data integrity — ranked measured rows", () => {
     const rowsWithStandardComposite = legacyMeasured.filter((model) => model.composite !== null);
 
     // Then every retired-lane score is quarantined under diagnostic_composite.
-    expect(legacyMeasured).toHaveLength(6);
+    // 5 as of 2026-07-08: qwen3-6-27b graduated to a ranked bounded-final-v2 row,
+    // so its model row now carries the current-lane composite instead.
+    expect(legacyMeasured).toHaveLength(5);
     expect(rowsWithStandardComposite).toEqual([]);
     expect(legacyMeasured.every((model) => model.diagnostic_composite !== null)).toBe(true);
     expect(legacyMeasured.every((model) => model.diagnostic_composite !== undefined)).toBe(true);

@@ -11,39 +11,262 @@
   "org": "Jackrong",
   "runs": [
     {
-      "axes": {},
+      "agentic_provenance": "project_attested",
+      "axes": {
+        "agentic": {
+          "conditional_accuracy": 0.09375,
+          "hi": 15.625,
+          "hi_raw": 0.15625,
+          "lo": 4.166666666666666,
+          "lo_raw": 0.041666666666666664,
+          "n": 96,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 9.375,
+          "point_raw": 0.09375,
+          "raw_accuracy": 0.09375,
+          "termination_rate": 1.0
+        },
+        "coding": {
+          "conditional_accuracy": 0.3,
+          "hi": 37.5886524822695,
+          "hi_raw": 0.375886524822695,
+          "lo": 22.69503546099291,
+          "lo_raw": 0.22695035460992907,
+          "n": 141,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "n_unscoreable": 7,
+          "point": 29.78723404255319,
+          "point_raw": 0.2978723404255319,
+          "raw_accuracy": 0.2978723404255319,
+          "termination_rate": 0.9929078014184397
+        },
+        "instruction": {
+          "conditional_accuracy": 0.6159420289855072,
+          "hi": 63.26530612244898,
+          "hi_raw": 0.6326530612244898,
+          "lo": 52.04081632653062,
+          "lo_raw": 0.5204081632653061,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 57.82312925170068,
+          "point_raw": 0.5782312925170068,
+          "raw_accuracy": 0.5782312925170068,
+          "termination_rate": 0.9387755102040817
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8505154639175259,
+          "hi": 84.28409789474622,
+          "hi_raw": 0.8428409789474622,
+          "lo": 76.14550573309694,
+          "lo_raw": 0.7614550573309694,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 12,
+          "point": 80.35512236843277,
+          "point_raw": 0.8035512236843277,
+          "raw_accuracy": 0.825,
+          "termination_rate": 0.97
+        },
+        "math": {
+          "conditional_accuracy": 0.3543609556799005,
+          "hi": 33.093525179856115,
+          "hi_raw": 0.33093525179856115,
+          "lo": 18.705035971223023,
+          "lo_raw": 0.18705035971223022,
+          "n": 139,
+          "n_errors": 0,
+          "n_no_answer": 37,
+          "point": 25.899280575539567,
+          "point_raw": 0.2589928057553957,
+          "raw_accuracy": 0.2589928057553957,
+          "termination_rate": 0.697841726618705
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7393939393939394,
+          "hi": 78.48484848484848,
+          "hi_raw": 0.7848484848484848,
+          "lo": 69.0909090909091,
+          "lo_raw": 0.6909090909090909,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 1,
+          "point": 73.93939393939394,
+          "point_raw": 0.7393939393939394,
+          "raw_accuracy": 0.7393939393939394,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "detail": "BigCodeBench-Hard artifacts generated; verifier verdict pending",
+          "reason": "verdict_pending",
+          "status": "generated_unverified"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
       "bpw": 4.85,
-      "composite": null,
-      "demo": false,
+      "composite": {
+        "hi": 41.12525207486963,
+        "hi_raw": 0.4112525207486963,
+        "lo": 34.5812850455642,
+        "lo_raw": 0.345812850455642,
+        "point": 37.63372627211937,
+        "point_raw": 0.37633726272119367
+      },
+      "composite_full": {
+        "hi": 41.12525207486963,
+        "hi_raw": 0.4112525207486963,
+        "lo": 34.5812850455642,
+        "lo_raw": 0.345812850455642,
+        "point": 37.63372627211937,
+        "point_raw": 0.37633726272119367
+      },
+      "composite_static": {
+        "hi": 60.46794452321442,
+        "hi_raw": 0.6046794452321442,
+        "lo": 55.32769198284592,
+        "lo_raw": 0.5532769198284592,
+        "point": 57.87981655897675,
+        "point_raw": 0.5787981655897675
+      },
+      "conformance_gates": {
+        "tc_json_v1": {
+          "band": "amber",
+          "band_reasons": [],
+          "id": "tc_json_v1",
+          "invalid_json_rate": 0.30303030303030304,
+          "label": "Tool-calling",
+          "n_items": 330,
+          "pass_rate": {
+            "hi": 78.38075522205723,
+            "lo": 68.94709931049248,
+            "point": 73.93939393939394
+          },
+          "threshold_version": "tc_json_v1"
+        }
+      },
       "est_cost_usd": null,
       "file_gb": 15.7,
       "hardware": {
-        "cpu": null,
-        "gpu": null,
-        "os": null,
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "610.62",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
         "ram_gb": null
       },
-      "lane": "answer-only",
+      "has_code_artifacts": true,
+      "lane": "bounded-final-v2",
+      "latency_s_median": 25.154,
       "n_errors": 0,
-      "n_items": 0,
-      "quant_label": "Q4_K_M",
-      "ranked": false,
-      "run_id": null,
-      "runtime": {
-        "ctx_len_configured": null,
-        "kv_cache_quant": null,
-        "name": null,
-        "parallel_slots": null,
-        "version": null
+      "n_items": 1407,
+      "origin": "project_anchor",
+      "perf": {
+        "decode_tps": 70.90706508036625,
+        "per_bench": {
+          "amo": {
+            "decode_tps": 66.76249535930448,
+            "n": 39,
+            "prefill_tps": 1250.5872772764988,
+            "prompt_ms_median": 197.14
+          },
+          "bigcodebench_hard": {
+            "decode_tps": 66.60187042597204,
+            "n": 148,
+            "prefill_tps": 2711.9455048536147,
+            "prompt_ms_median": 209.6635
+          },
+          "ifbench": {
+            "decode_tps": 76.36291276956096,
+            "n": 294,
+            "prefill_tps": 2881.618544029568,
+            "prompt_ms_median": 381.7155
+          },
+          "mmlu_pro": {
+            "decode_tps": 69.46172128728033,
+            "n": 400,
+            "prefill_tps": 2582.7600465212877,
+            "prompt_ms_median": 362.3935
+          },
+          "olymmath_hard": {
+            "decode_tps": 71.59718451032138,
+            "n": 100,
+            "prefill_tps": 945.653846156212,
+            "prompt_ms_median": 161.41049999999998
+          },
+          "tc_json_v1": {
+            "decode_tps": 68.65748878300043,
+            "n": 330,
+            "prefill_tps": 2657.526640841186,
+            "prompt_ms_median": 471.4035
+          }
+        },
+        "predicted_ms_median": 21552.966,
+        "predicted_ms_p95": 216506.34600000002,
+        "prefill_tps": 2641.8000022474116,
+        "prompt_ms_median": 386.3,
+        "prompt_ms_p95": 1392.9825,
+        "timings_coverage": 0.9317697228144989,
+        "timings_source": "llama.cpp",
+        "ttft_proxy_ms_median": 386.3
       },
-      "score_status": "missing",
-      "tier": null,
-      "tok_s": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null,
-      "vram_footprint_gb": 15.7,
+      "quant_label": "Q4_K_M",
+      "ranked": true,
+      "run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "runtime": {
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
+      },
+      "score_status": "measured",
+      "static_index_version": "static-suite-v2",
+      "tier": "standard",
+      "tok_s": 61.661321407775176,
+      "tokens_to_answer_median": 1551.0,
+      "tokens_to_answer_p95": 16384.0,
+      "trust_label": "project_anchor",
+      "verdict_source": "verifier",
+      "vram_footprint_gb": 16.810713312,
       "vram_required_gb_8k": 18.1,
-      "wall_time_seconds": null
+      "wall_time_seconds": 85136.51475749997
     }
   ],
   "slug": "qwopus3-6-27b-v2-mtp"
