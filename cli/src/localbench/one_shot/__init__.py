@@ -4,5 +4,6 @@ __all__ = [
     "catalog",
     "download",
     "preflight",
+    "runner",
     "types",
 ]

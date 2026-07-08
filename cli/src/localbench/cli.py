@@ -59,6 +59,7 @@ from localbench.campaign_checkpoints import CheckpointCorruptionError, completed
 from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import lane_spec_id_for_lane
+from localbench.one_shot.runner import run_one_shot_bench
 from localbench.persistence import atomic_write_json
 from localbench.progress import BenchProgressPlan, ProgressReporter, plans_from_bench_counts
 from localbench.prompt_rendering import (
@@ -337,13 +338,14 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--cuda-version")
     run_parser.add_argument("--runner-build-id")
     bench_parser = subparsers.add_parser("bench", help="launch a pinned local server and run a suite")
-    bench_parser.add_argument("--runtime", choices=("llama.cpp", "vllm"), required=True)
-    model_input = bench_parser.add_mutually_exclusive_group(required=True)
+    bench_parser.add_argument("one_shot_model", nargs="?", help="catalog slug or HF repo for one-shot bench")
+    bench_parser.add_argument("--runtime", choices=("llama.cpp", "vllm"))
+    model_input = bench_parser.add_mutually_exclusive_group()
     model_input.add_argument("--model-file", type=Path)
     model_input.add_argument("--model-ref")
-    bench_parser.add_argument("--model-id", required=True)
+    bench_parser.add_argument("--model-id")
     bench_parser.add_argument("--server-bin", type=Path)
-    bench_parser.add_argument("--ctx", type=int, required=True)
+    bench_parser.add_argument("--ctx", type=int)
     bench_parser.add_argument("--determinism", choices=("strict", "throughput"), default="strict")
     bench_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
     bench_parser.add_argument(
@@ -379,7 +381,7 @@ def _parser() -> argparse.ArgumentParser:
         default="auto",
         help="bounded-final execution profile",
     )
-    bench_parser.add_argument("--seed", type=int, required=True)
+    bench_parser.add_argument("--seed", type=int)
     bench_parser.add_argument("--max-items", type=int)
     bench_parser.add_argument(
         "--wsl-venv-python",
@@ -400,6 +402,21 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--cache-dir", type=Path)
     bench_parser.add_argument("--threads", type=int, default=8)
     bench_parser.add_argument("--threads-batch", type=int, default=8)
+    bench_parser.add_argument("--yes", action="store_true", help="accept non-submission one-shot prompts")
+    submit_choice = bench_parser.add_mutually_exclusive_group()
+    submit_choice.add_argument("--submit", dest="one_shot_submit", action="store_true", default=None)
+    submit_choice.add_argument("--no-submit", dest="one_shot_submit", action="store_false")
+    bench_parser.add_argument("--quant", help="one-shot quant label, e.g. Q4_K_M")
+    bench_parser.add_argument("--vram-gb", type=float, help="usable VRAM budget for one-shot quant selection")
+    bench_parser.add_argument("--llama-server-path", type=Path, help="llama-server binary for one-shot mode")
+    bench_parser.add_argument("--offline", action="store_true", help="run one-shot local-only without site preflight")
+    bench_parser.add_argument("--allow-sleep-risk", action="store_true")
+    bench_parser.add_argument("--purge-model", action="store_true")
+    bench_parser.add_argument("--accept-suite-terms", action="store_true")
+    bench_parser.add_argument("--site", default=DEFAULT_SITE)
+    bench_parser.add_argument("--signing-key", type=Path)
+    bench_parser.add_argument("--display-name")
+    _add_bypass_args(bench_parser)
     cache_tokenizer_parser = subparsers.add_parser(
         "cache-tokenizer",
         help="download HF tokenizer/template files for offline introspection",
@@ -920,7 +937,11 @@ def _append_optional(command: list[str], flag: str, value: object | None) -> Non
 
 
 def _bench(args: argparse.Namespace) -> int:
-    usage_error = _bench_reasoning_usage_error(args)
+    if getattr(args, "one_shot_model", None) is not None:
+        return run_one_shot_bench(args, cli_version=_package_version())
+    usage_error = _advanced_bench_usage_error(args)
+    if usage_error is None:
+        usage_error = _bench_reasoning_usage_error(args)
     if usage_error is None:
         usage_error = _bounded_final_identity_usage_error(args, publishable=True)
     if usage_error is None and args.retry_errored and args.resume is None:
@@ -992,6 +1013,23 @@ def _bench(args: argparse.Namespace) -> int:
     progress_reporter.finish()
     _print_summary(record, _bench_output_path(options))
     return EXIT_COMPLETE
+
+
+def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
+    missing: list[str] = []
+    if getattr(args, "runtime", None) is None:
+        missing.append("--runtime")
+    if getattr(args, "model_file", None) is None and getattr(args, "model_ref", None) is None:
+        missing.append("--model-file or --model-ref")
+    if getattr(args, "model_id", None) is None:
+        missing.append("--model-id")
+    if getattr(args, "ctx", None) is None:
+        missing.append("--ctx")
+    if getattr(args, "seed", None) is None:
+        missing.append("--seed")
+    if missing:
+        return "bench advanced mode requires " + ", ".join(missing)
+    return None
 
 
 def _cache_tokenizer(args: argparse.Namespace) -> int:
