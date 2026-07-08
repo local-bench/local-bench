@@ -61,10 +61,13 @@ describe("selectBestVariantPoints", () => {
   });
 
   it("marks the efficiency frontier (non-dominated points)", () => {
+    // Measured points differentiate on vramFootprintGb (the benchmarked artifact's real
+    // size) — catalog vramRequiredGb8k must NOT drive the frontier for measured rows
+    // (2026-07-08: mismatched catalog estimates inverted the Qwen/Qwopus dominance).
     const points = selectBestVariantPoints([
-      candidate({ modelSlug: "small", runId: "s", score: { point: 40, lo: 35, hi: 45 }, vramRequiredGb8k: 6 }),
-      candidate({ modelSlug: "big", runId: "b", score: { point: 70, lo: 65, hi: 75 }, vramRequiredGb8k: 40 }),
-      candidate({ modelSlug: "dominated", runId: "d", score: { point: 30, lo: 25, hi: 35 }, vramRequiredGb8k: 40 }),
+      candidate({ modelSlug: "small", runId: "s", score: { point: 40, lo: 35, hi: 45 }, vramFootprintGb: 5, vramRequiredGb8k: 6 }),
+      candidate({ modelSlug: "big", runId: "b", score: { point: 70, lo: 65, hi: 75 }, vramFootprintGb: 36, vramRequiredGb8k: 40 }),
+      candidate({ modelSlug: "dominated", runId: "d", score: { point: 30, lo: 25, hi: 35 }, vramFootprintGb: 36, vramRequiredGb8k: 40 }),
     ]);
     const frontier = points
       .filter((point) => point.isFrontier)

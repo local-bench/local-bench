@@ -80,7 +80,16 @@ export function selectBestVariantPoints(
     if (!isEligible(candidate)) {
       continue;
     }
-    const vram = estimateVramRequirement(candidate, contextTokens);
+    // Measured rows carry the benchmarked artifact's real on-disk size (vramFootprintGb,
+    // from the run record). Catalog vram_gb_8k estimates describe whatever GGUF repo the
+    // catalog references — potentially a different build with different units — and must
+    // never outrank measured reality here: they inverted the Qwen/Qwopus frontier on
+    // 2026-07-08 (catalog said Qwopus was 1.4 GB cheaper; the measured files say the
+    // opposite). Force the measured-footprint estimate whenever a footprint exists.
+    const vram = estimateVramRequirement(
+      candidate.vramFootprintGb !== null ? { ...candidate, vramRequiredGb8k: null } : candidate,
+      contextTokens,
+    );
     if (vram === null) {
       continue;
     }
