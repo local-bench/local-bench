@@ -1,5 +1,5 @@
 {
-  "board_sha256": "f46719d6854e0860ef1e2eafd6e866dcdf97b74f508a9eccc19dd549445d8957",
+  "board_sha256": "d6ff9040048ffcbac310720596d642147cc80d52527e93c63e1de80aab99cc0d",
   "ci_method": "stratified-nonparametric-bootstrap-percentile",
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
   "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
@@ -7,7 +7,7 @@
   "execution_profile_id": null,
   "extractor_version": null,
   "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-  "generated_at": "2026-07-08T06:05:25.444784+00:00",
+  "generated_at": "2026-07-08T06:27:16.732173+00:00",
   "index_version": "index-v3.0",
   "item_set_hashes": {
     "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
@@ -32,7 +32,7 @@
   },
   "scorecard_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
   "scorecard_version": "3",
-  "scorer_git_commit": "2d9772624cb11b9ad8a1b8783f3a2624b22ab22c",
+  "scorer_git_commit": "208add8133dafe70a102aeb4a39a0e21158ab003",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",

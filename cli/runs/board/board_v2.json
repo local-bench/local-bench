@@ -1,6 +1,6 @@
 {
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
-  "generated_at": "2026-07-08T06:05:25.444784+00:00",
+  "generated_at": "2026-07-08T06:27:16.732173+00:00",
   "generated_note": "Produced by localbench board from scorer-side scores; board-v2 folds AppWorld-C into the headline composite.",
   "index_version": "index-v3.0",
   "lane_scope": "bounded-final-v2",
@@ -12,7 +12,7 @@
     "execution_profile_id": null,
     "extractor_version": null,
     "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-    "generated_at": "2026-07-08T06:05:25.444784+00:00",
+    "generated_at": "2026-07-08T06:27:16.732173+00:00",
     "index_version": "index-v3.0",
     "item_set_hashes": {
       "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
@@ -37,7 +37,7 @@
     },
     "scorecard_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
     "scorecard_version": "3",
-    "scorer_git_commit": "2d9772624cb11b9ad8a1b8783f3a2624b22ab22c",
+    "scorer_git_commit": "208add8133dafe70a102aeb4a39a0e21158ab003",
     "scorer_versions": {
       "amo": "1",
       "appworld_c": "1",
@@ -1396,8 +1396,8 @@
           "truncation_rate": 0.0
         }
       },
-      "best_run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
-      "best_system_run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "best_run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "best_system_run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
       "catalog_id": "Jackrong/Qwopus3.6-27B-v2-MTP",
       "composite": {
         "hi": 41.12525207486963,
@@ -1446,14 +1446,14 @@
       "kind": "community",
       "lane": "bounded-final-v2",
       "latency_s_median": 25.154,
-      "model_label": "Qwopus 3.6 27B v2 MTP",
+      "model_label": "Qwopus3.6 27B v2 MTP",
       "n_runs": 1,
       "publisher": "Jackrong",
       "ranked": true,
-      "recommended_system_run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "recommended_system_run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
       "replicated": false,
       "score_status": "measured",
-      "slug": "qwopus-3-6-27b-v2-mtp",
+      "slug": "qwopus3-6-27b-v2-mtp",
       "static_index_version": "static-suite-v2",
       "systems": [
         {
@@ -1621,7 +1621,7 @@
           "quant_label": "Q4_K_M",
           "ranked": true,
           "replicated": false,
-          "run_id": "qwopus-3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+          "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
           "score_status": "measured",
           "tier": "standard",
           "tokens_to_answer_median": 1551.0,
