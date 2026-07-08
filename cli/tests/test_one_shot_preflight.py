@@ -95,6 +95,42 @@ def test_catalog_resolve_selects_best_pinned_quant_that_fits_vram_budget() -> No
     assert resolved.publishable is True
 
 
+def test_catalog_resolve_consumes_quant_level_artifact_pins() -> None:
+    catalog = {
+        "models": [
+            {
+                "slug": "qwen3-6-27b",
+                "catalog_id": "Qwen/Qwen3.6-27B",
+                "display_name": "Qwen3.6 27B",
+                "family": "Qwen3.6",
+                "tokenizer_repo": "Qwen/Qwen3.6-27B",
+                "gguf_repo": "unsloth/Qwen3.6-27B-MTP-GGUF",
+                "quants": [
+                    {
+                        "label": "Q4_K_M",
+                        "gguf_repo": "unsloth/Qwen3.6-27B-MTP-GGUF",
+                        "filename": "qwen3-q4.gguf",
+                        "revision": REV_A,
+                        "file_sha256": SHA_A,
+                        "file_size_bytes": 2048,
+                        "vram_gb_8k": 19.5,
+                    },
+                ],
+            },
+        ],
+    }
+
+    resolved = resolve_one_shot_model("qwen3-6-27b", catalog, quant="Q4_K_M", vram_gb=24.0)
+
+    assert resolved.artifact.repo_id == "unsloth/Qwen3.6-27B-MTP-GGUF"
+    assert resolved.artifact.filename == "qwen3-q4.gguf"
+    assert resolved.artifact.revision == REV_A
+    assert resolved.artifact.sha256 == SHA_A
+    assert resolved.artifact.size_bytes == 2048
+    assert resolved.artifact.quant_label == "Q4_K_M"
+    assert resolved.publishable is True
+
+
 def test_raw_hf_repo_resolves_local_only_for_0_3_0_scope() -> None:
     resolved = resolve_one_shot_model("owner/raw-gguf-repo", {"models": []}, quant="Q4_K_M", vram_gb=24.0)
 

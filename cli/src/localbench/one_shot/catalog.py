@@ -68,7 +68,10 @@ def resolve_one_shot_model(
             publishable=False,
             blocking_reasons=("raw HF repos are LOCAL-ONLY in localbench 0.3.0",),
         )
-    artifacts = [_artifact_from(entry, item) for item in _object_list(entry.get("artifacts"))]
+    artifact_rows = _object_list(entry.get("artifacts"))
+    artifacts = [_artifact_from(entry, item) for item in artifact_rows]
+    if not artifacts:
+        artifacts = [_artifact_from(entry, item) for item in _pinned_quant_rows(entry)]
     if not artifacts:
         raise CatalogResolutionError(
             f"catalog model {requested_model!r} lacks immutable HF artifact pins; "
@@ -113,7 +116,7 @@ def _artifact_from(entry: dict[str, object], raw: dict[str, object]) -> OneShotA
     repo_id = _text(raw, "repo_id") or _text(raw, "gguf_repo") or _text(entry, "gguf_repo")
     filename = _text(raw, "filename") or _text(raw, "file")
     revision = _text(raw, "revision") or _text(raw, "hf_revision")
-    quant_label = _text(raw, "quant_label") or _text(raw, "quant")
+    quant_label = _text(raw, "quant_label") or _text(raw, "quant") or _text(raw, "label")
     sha256 = _text(raw, "sha256") or _text(raw, "file_sha256")
     if repo_id is None or filename is None or quant_label is None:
         raise CatalogResolutionError("immutable HF artifact entries require repo_id, filename, and quant_label")
@@ -121,6 +124,9 @@ def _artifact_from(entry: dict[str, object], raw: dict[str, object]) -> OneShotA
         raise CatalogResolutionError("immutable HF artifact entries require a full 40-character revision")
     if sha256 is None or _FULL_SHA256_RE.fullmatch(sha256) is None:
         raise CatalogResolutionError("immutable HF artifact entries require a sha256 digest")
+    vram_required_gb_8k = _float(raw, "vram_required_gb_8k")
+    if vram_required_gb_8k is None:
+        vram_required_gb_8k = _float(raw, "vram_gb_8k")
     return OneShotArtifact(
         repo_id=repo_id,
         filename=filename,
@@ -128,9 +134,24 @@ def _artifact_from(entry: dict[str, object], raw: dict[str, object]) -> OneShotA
         quant_label=quant_label,
         sha256=sha256.lower(),
         size_bytes=_int(raw, "size_bytes") or _int(raw, "file_size_bytes"),
-        vram_required_gb_8k=_float(raw, "vram_required_gb_8k"),
+        vram_required_gb_8k=vram_required_gb_8k,
         vram_required_gb_32k=_float(raw, "vram_required_gb_32k"),
     )
+
+
+def _pinned_quant_rows(entry: dict[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for quant in _object_list(entry.get("quants")):
+        if _text(quant, "filename") is None:
+            continue
+        if _text(quant, "revision") is None:
+            continue
+        if _text(quant, "file_sha256") is None:
+            continue
+        if _text(quant, "repo_id") is None and _text(quant, "gguf_repo") is None and _text(entry, "gguf_repo") is None:
+            continue
+        rows.append(quant)
+    return rows
 
 
 def _assert_artifact_catalog_consistency(entry: dict[str, object], artifacts: list[OneShotArtifact]) -> None:
