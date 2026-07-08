@@ -74,6 +74,7 @@ from localbench.lane_spec import (
 )
 from localbench.manifest import ManifestContext, ModelIdentityLevel, collect_manifest
 from localbench.perf import perf_summary
+from localbench.progress import BenchProgressPlan, ProgressReporter
 from localbench.prompt_rendering import (
     PromptRenderer,
     ReasoningActivation,
@@ -265,6 +266,7 @@ class OrchestrateConfig:
     resume_identity: str | None = None
     serve_fingerprint: JsonObject | None = None
     retry_errored: bool = False
+    progress_reporter: ProgressReporter | None = None
 
 
 async def run_localbench(
@@ -366,6 +368,14 @@ async def run_localbench(
     session_segment_id = "segment-1" if config.resume is None else next_segment_id(paths)
     segment_completed_item_ids: list[str] = []
     total_items = sum(len(bench.benchmark_items) for bench in scorable_benches)
+    if config.progress_reporter is not None:
+        config.progress_reporter.start(
+            tuple(
+                BenchProgressPlan(bench.name, len(bench.benchmark_items))
+                for bench in scorable_benches
+                if bench.benchmark_items
+            ),
+        )
     campaign_config = CampaignConfig(
         endpoint=config.endpoint,
         model=config.model,
@@ -531,6 +541,12 @@ async def run_localbench(
                     started_at=started_at,
                 ),
             )
+            if config.progress_reporter is not None:
+                config.progress_reporter.item_complete(
+                    bench=bench.name,
+                    item_seconds=float(result.get("latency_seconds", 0.0) or 0.0),
+                    bench_done=len(streamed_scored),
+                )
             if _is_connection_failure(result):
                 consecutive_connection_failures += 1
             else:
@@ -825,6 +841,8 @@ async def run_localbench(
             exit_code=0,
         ),
     )
+    if config.progress_reporter is not None:
+        config.progress_reporter.finish()
     return run_record
 
 

@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 
 from localbench._types import JsonObject, JsonValue
+from localbench.http_errors import response_error_detail
 from localbench.submissions.client import (
     SiteCredentials,
     SubmissionStatusRequest,
@@ -248,13 +249,17 @@ def _mapped_http_error(error: httpx.HTTPStatusError, leg: str) -> Exception:
     if code == "pop_stale":
         return SubmitRunError("check your system clock (server allows ±10 minutes)")
     if code == "invalid_ticket_request":
+        detail = response_error_detail(error.response)
+        prefix = "ticket failed: invalid_ticket_request"
+        if detail and detail != "invalid_ticket_request":
+            prefix = f"{prefix}: {detail.removeprefix('invalid_ticket_request: ')}"
         return SubmitRunError(
-            "ticket failed: invalid_ticket_request — the server rejected a request field. "
+            f"{prefix} — the server rejected a request field. "
             "The most common cause is --display-name: 2-40 chars, ASCII letters/digits at the "
             "start and end, only spaces . _ ' - in between (no accents, parentheses, or URLs). "
             "Retry with a simpler name, or omit --display-name entirely."
         )
-    return SubmitRunError(f"{leg} failed: {code or error.response.status_code}")
+    return SubmitRunError(f"{leg} failed: {response_error_detail(error.response) or error.response.status_code}")
 
 
 def _response_json(response: httpx.Response) -> JsonObject:

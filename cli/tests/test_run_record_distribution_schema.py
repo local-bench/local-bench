@@ -276,6 +276,44 @@ def test_basic_gguf_identity_level_records_null_tokenizer_digests(tmp_path: Path
     asyncio.run(scenario())
 
 
+def test_endpoint_identity_files_autostamp_run_record_digests(tmp_path: Path) -> None:
+    async def scenario() -> None:
+        # Given: endpoint-mode run identity is supplied by local tokenizer/template files only.
+        output_path = tmp_path / "endpoint-identity-run.json"
+        tokenizer_file = tmp_path / "tokenizer.json"
+        chat_template_file = tmp_path / "chat-template.jinja"
+        tokenizer_file.write_bytes(b"endpoint-tokenizer-bytes")
+        chat_template_file.write_bytes(b"endpoint-template-bytes")
+
+        # When: the run record is written without explicit digest arguments.
+        record = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=1,
+                out=output_path,
+                tokenizer_file=tokenizer_file,
+                chat_template_file=chat_template_file,
+            ),
+            transport=httpx.MockTransport(_handler_with_reasoning),
+        )
+
+        # Then: both manifest and top-level model identity carry computed digests.
+        expected_tokenizer = sha256_file(tokenizer_file)
+        expected_template = sha256_file(chat_template_file)
+        manifest_model = record["manifest"]["model"]
+        assert manifest_model["tokenizer_digest"] == expected_tokenizer
+        assert manifest_model["tokenizer_digest_source"] == "external.file"
+        assert manifest_model["chat_template_digest"] == expected_template
+        assert manifest_model["chat_template_digest_source"] == "external.file"
+        assert record["model"]["tokenizer_digest"] == expected_tokenizer
+        assert record["model"]["chat_template_digest"] == expected_template
+
+    asyncio.run(scenario())
+
+
 def test_observed_context_records_in_runtime_identity(tmp_path: Path) -> None:
     async def scenario() -> None:
         # Given: endpoint preflight has observed the effective per-slot context.

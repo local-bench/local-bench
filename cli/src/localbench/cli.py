@@ -12,6 +12,7 @@ import shutil
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final, TypeAlias
 
@@ -59,6 +60,7 @@ from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.persistence import atomic_write_json
+from localbench.progress import BenchProgressPlan, ProgressReporter, plans_from_bench_counts
 from localbench.prompt_rendering import (
     REASONING_ACTIVATIONS,
     PromptRenderingError,
@@ -92,15 +94,15 @@ from localbench.submissions.client import (
     SubmissionStatusRequest,
     SubmissionTicketRequest,
     SubmissionUploadRequest,
+    TicketProofOfPossession,
     get_submission_status,
     post_admin_decision,
     post_admin_verification,
-    raw_bundle_sha256,
     read_submission_envelope,
     request_submission_ticket,
     upload_submission_bundle,
 )
-from localbench.submissions.crypto import load_private_key
+from localbench.submissions.crypto import load_private_key, sign_bytes
 from localbench.submissions.keys import Ed25519SeedError, write_private_key
 from localbench.submissions.submit_run import (
     DEFAULT_SITE,
@@ -109,6 +111,7 @@ from localbench.submissions.submit_run import (
     default_signing_key_path,
     submit_finished_run,
 )
+from localbench.submissions.submit_run_inputs import BundleInfo, SubmitInputError, bundle_info
 from localbench.submissions.foundation import (
     rescore_bundle as rescore_result_bundle,
     validate_submission_bundle as validate_result_bundle_file,
@@ -685,8 +688,13 @@ def _run(args: argparse.Namespace) -> int:
     tier = _resolved_run_tier(args.suite, args.tier)
     if args.dry_run:
         return _run_dry(args, tier)
-    out = args.out or default_output_path(args.model, tier)
+    out = _run_output_path(args.out, args.model, tier)
+    progress_reporter: ProgressReporter | None = None
     try:
+        tier_error = _tier_selection_error_for_args(args, tier) if args.tier is not None else None
+        if tier_error is not None:
+            print(f"error      {tier_error}")
+            return 2
         bench_choice, scorer_gates, suite_axis_map = _scorer_gates(args, tier)
         ctx_len_observed = getattr(args, "ctx_len_observed", None)
         if not args.skip_preflight:
@@ -704,7 +712,8 @@ def _run(args: argparse.Namespace) -> int:
             print("preflight ok")
             return 0
         if not args.no_supervisor:
-            return _run_supervised(args, tier, out)
+            return _run_supervised(args, tier, out, bench_choice)
+        progress_reporter = ProgressReporter()
         record = anyio.run(
             run_localbench,
             OrchestrateConfig(
@@ -757,23 +766,36 @@ def _run(args: argparse.Namespace) -> int:
                 runtime_backend=args.runtime_backend,
                 cuda_version=args.cuda_version,
                 runner_build_id=args.runner_build_id,
+                progress_reporter=progress_reporter,
             ),
         )
     except SuiteResolutionError as error:
+        if progress_reporter is not None:
+            progress_reporter.clear_line()
         _print_suite_resolution_error(error, args.suite)
         return 2
     except EndpointPreflightError as error:
+        if progress_reporter is not None:
+            progress_reporter.clear_line()
         print(f"error      {error}")
         return EXIT_PREFLIGHT_FAILED
     except UnsafeResumeError as error:
+        if progress_reporter is not None:
+            progress_reporter.clear_line()
         print(f"error      {error}")
         return EXIT_UNSAFE_RESUME
     except CheckpointCorruptionError as error:
+        if progress_reporter is not None:
+            progress_reporter.clear_line()
         print(f"error      {error}")
         return EXIT_CHECKPOINT_CORRUPTION
     except (RuntimeError, OSError) as error:
+        if progress_reporter is not None:
+            progress_reporter.clear_line()
         print(f"error      {error}")
         return EXIT_INTERNAL_RUNNER_BUG
+    if progress_reporter is not None:
+        progress_reporter.finish()
     if scorer_gates:
         _append_scorer_gated_benches(record, scorer_gates, suite_axis_map)
         _rewrite_run_record(record, out)
@@ -805,15 +827,17 @@ def _populate_resume_args(args: argparse.Namespace) -> None:
         args.lane = campaign["lane"]
 
 
-def _run_supervised(args: argparse.Namespace, tier: str, out: Path) -> int:
+def _run_supervised(args: argparse.Namespace, tier: str, out: Path, bench_choice: str) -> int:
     paths = campaign_paths(out, args.resume)
     command = _worker_command(args, tier, out)
+    progress_plans = _progress_plans_for_args(args, tier, bench_choice)
     return run_supervised(
         SupervisorConfig(
             command=command,
             campaign_root=paths.root,
             label=f"localbench:{args.model}",
             sample_interval_seconds=5.0,
+            progress_plans=progress_plans,
         )
     )
 
@@ -905,6 +929,7 @@ def _bench(args: argparse.Namespace) -> int:
         print(f"error      {usage_error}", file=sys.stderr)
         return 2
     _print_identity_guidance(args, publishable=True)
+    progress_reporter = ProgressReporter()
     options = ServeBenchOptions(
         runtime=args.runtime,
         model_file=args.model_file,
@@ -931,6 +956,7 @@ def _bench(args: argparse.Namespace) -> int:
         reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
         hf_model_id=args.hf_model_id,
         gguf_repo_only=args.gguf_repo_only,
+        progress_reporter=progress_reporter,
         wsl_venv_python=getattr(
             args,
             "wsl_venv_python",
@@ -944,20 +970,26 @@ def _bench(args: argparse.Namespace) -> int:
             options,
         )
     except SuiteResolutionError as error:
+        progress_reporter.clear_line()
         _print_suite_resolution_error(error, args.suite)
         return 2
     except NotImplementedError as error:
+        progress_reporter.clear_line()
         print(f"error      {error}", file=sys.stderr)
         return 2
     except UnsafeResumeError as error:
+        progress_reporter.clear_line()
         print(f"error      {error}", file=sys.stderr)
         return EXIT_UNSAFE_RESUME
     except CheckpointCorruptionError as error:
+        progress_reporter.clear_line()
         print(f"error      {error}", file=sys.stderr)
         return EXIT_CHECKPOINT_CORRUPTION
     except (RuntimeError, OSError) as error:
+        progress_reporter.clear_line()
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG
+    progress_reporter.finish()
     _print_summary(record, _bench_output_path(options))
     return EXIT_COMPLETE
 
@@ -1100,6 +1132,69 @@ def _print_identity_guidance(args: argparse.Namespace, *, publishable: bool) -> 
 def _bench_output_path(options: ServeBenchOptions) -> Path:
     root = options.resume or options.out or Path("runs") / "bench" / options.model_id
     return root / "localbench-run.json"
+
+
+def _run_output_path(path: Path | None, model: str, tier: str) -> Path:
+    if path is None:
+        return default_output_path(model, tier)
+    if path.suffix:
+        return path
+    return path / "localbench-run.json"
+
+
+def _progress_plans_for_args(
+    args: argparse.Namespace,
+    tier: str,
+    bench_choice: str | None = None,
+) -> tuple[BenchProgressPlan, ...]:
+    ref = resolve_suite_dir(
+        suite_id=args.suite,
+        suite_dir=args.suite_dir,
+        accept_suite_terms=args.accept_suite_terms,
+        source=args.suite_source,
+        cache_root=args.cache_dir,
+    )
+    suite = read_json_object(ref.path / "suite.json")
+    choice = bench_choice or ",".join(resolve_run_benches(args.bench, suite))
+    warnings: list[str] = []
+    rendered = render_benches(choice, tier, args.max_items, ref.path, suite, warnings)
+    return plans_from_bench_counts((bench.name, len(bench.benchmark_items)) for bench in rendered)
+
+
+def _tier_selection_error_for_args(args: argparse.Namespace, tier: str) -> str | None:
+    ref = resolve_suite_dir(
+        suite_id=args.suite,
+        suite_dir=args.suite_dir,
+        accept_suite_terms=args.accept_suite_terms,
+        source=args.suite_source,
+        cache_root=args.cache_dir,
+    )
+    suite = read_json_object(ref.path / "suite.json")
+    resolved = resolve_run_benches(args.bench, suite)
+    warnings: list[str] = []
+    rendered = render_benches(",".join(resolved), tier, args.max_items, ref.path, suite, warnings)
+    if sum(len(bench.benchmark_items) for bench in rendered) > 0:
+        return None
+    available = _available_tiers(suite, resolved)
+    if not available or tier in available:
+        return None
+    return f"tier {tier} selected 0 items; available tiers: {', '.join(available)}"
+
+
+def _available_tiers(suite: JsonObject, bench_names: Sequence[str]) -> tuple[str, ...]:
+    benches = suite.get("benches")
+    if not isinstance(benches, dict):
+        return ()
+    tiers: set[str] = set()
+    for name in bench_names:
+        bench = benches.get(name)
+        if not isinstance(bench, dict):
+            continue
+        itemsets = bench.get("itemsets")
+        if not isinstance(itemsets, dict):
+            continue
+        tiers.update(tier for tier in itemsets if isinstance(tier, str))
+    return tuple(sorted(tiers))
 
 
 def _joined_flags(flags: list[str]) -> str:
@@ -1690,7 +1785,7 @@ def _fetch_suite(args: argparse.Namespace) -> int:
         return 2
     except httpx.HTTPStatusError as error:
         print(
-            f"error      suite download failed: HTTP {error.response.status_code} for {error.request.url}\n"
+            f"error      suite download failed: {error}\n"
             "           the site is not serving this suite's files; check the suite id against\n"
             "           the releases listed on https://local-bench.ai/submit and retry"
         )
@@ -1763,17 +1858,22 @@ def _submit_keygen(args: argparse.Namespace) -> int:
 
 def _submit_ticket(args: argparse.Namespace) -> int:
     try:
+        bundle = bundle_info(args.bundle, None)
         public_key = args.public_key
+        pop = None
         if args.signing_key is not None:
             public_key = load_private_key(args.signing_key).public_key.hex()
+            pop = _submission_ticket_pop(bundle, args.signing_key)
         submitter_id = args.submitter_id
-        bundle_sha = raw_bundle_sha256(args.bundle)
         ticket = request_submission_ticket(
             SubmissionTicketRequest(
                 credentials=_site_credentials(args, admin_secret=_optional_admin_secret(args)),
-                declared_model_slug=args.declared_model_slug,
+                declared_model_slug=args.declared_model_slug or bundle.declared_model_slug,
+                expected_suite_manifest_sha256=bundle.suite_manifest_sha256,
+                expected_suite_release_id=bundle.suite_release_id,
+                pop=pop,
                 public_key=public_key,
-                raw_bundle_sha256=bundle_sha,
+                raw_bundle_sha256=bundle.sha256,
                 submitter_id=submitter_id,
             ),
         )
@@ -1781,15 +1881,40 @@ def _submit_ticket(args: argparse.Namespace) -> int:
         with args.out.open("w", encoding="utf-8") as handle:
             json.dump(ticket, handle, indent=2, sort_keys=True)
             handle.write("\n")
-    except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError, ValueError) as error:
+    except (
+        SubmitInputError,
+        SubmissionValidationError,
+        OSError,
+        json.JSONDecodeError,
+        httpx.HTTPError,
+        ValueError,
+    ) as error:
         print(f"error      {error}")
         return 2
     if public_key is not None:
         print(f"public_key {public_key}")
     print(f"ticket_id  {ticket['ticket_id']}")
-    print(f"bundle    {bundle_sha}")
+    print(f"bundle    {bundle.sha256}")
     print(f"ticket     {args.out}")
     return 0
+
+
+def _submission_ticket_pop(bundle: BundleInfo, signing_key: Path) -> TicketProofOfPossession:
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    message = "\n".join(
+        (
+            "localbench.ticket_pop.v1",
+            bundle.sha256,
+            bundle.suite_release_id,
+            bundle.suite_manifest_sha256,
+            timestamp,
+        ),
+    )
+    return TicketProofOfPossession(
+        timestamp=timestamp,
+        signature=sign_bytes(message.encode("utf-8"), signing_key),
+        message=message,
+    )
 
 
 def _submit_pack(args: argparse.Namespace) -> int:
@@ -2003,9 +2128,14 @@ def _run_dry(args: argparse.Namespace, tier: str) -> int:
         return 2
     suite = read_json_object(ref.path / "suite.json")
     warnings: list[str] = []
-    bench_choice = ",".join(resolve_run_benches(args.bench, suite))
+    resolved = resolve_run_benches(args.bench, suite)
+    bench_choice = ",".join(resolved)
     benches = render_benches(bench_choice, tier, args.max_items, ref.path, suite, warnings)
     n_items = sum(len(bench.benchmark_items) for bench in benches)
+    available = _available_tiers(suite, resolved)
+    if args.tier is not None and n_items == 0 and available and tier not in available:
+        print(f"error      tier {tier} selected 0 items; available tiers: {', '.join(available)}")
+        return 2
     print("dry-run   no endpoint calls made")
     print(f"suite_id  {ref.suite_id}")
     print(f"hash      {ref.suite_hash}")

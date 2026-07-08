@@ -130,6 +130,18 @@ def test_suite_release_manifest_hashes_canonical_serialization() -> None:
     assert manifest["coverage_profile_id"] == "partial-text-code-4axis-v1"
 
 
+def test_full_exec_6axis_release_manifest_sha_is_frozen() -> None:
+    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="full-exec-6axis-v1")
+
+    assert manifest["suite_release_id"] == "suite-v1-full-exec-6axis-v1"
+    assert manifest["suite_manifest_sha256"] == (
+        "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468"
+    )
+    assert suite_manifest_sha256(manifest) == (
+        "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468"
+    )
+
+
 def test_suite_release_membership_is_generated_from_axes_registry() -> None:
     # Given / When: the release manifest is generated.
     manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="full-exec-6axis-v1")

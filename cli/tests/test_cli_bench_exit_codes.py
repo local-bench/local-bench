@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import pytest
@@ -172,6 +173,88 @@ def test_bench_retry_errored_requires_resume(
     assert "--retry-errored requires --resume" in stderr
 
 
+def test_run_normalizes_extensionless_out_path_before_launch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suite = _write_minimal_suite(tmp_path / "suite")
+    out_root = tmp_path / "run-output"
+    captured_options = None
+
+    def fake_anyio_run(function, options):
+        nonlocal captured_options
+        captured_options = options
+        return {"benches": {}, "totals": {}, "warnings": []}
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+    monkeypatch.setattr(cli_mod, "_print_summary", lambda record, out=None: None)
+
+    code = cli_mod.main(
+        [
+            "run",
+            "--suite-dir",
+            str(suite),
+            "--endpoint",
+            "http://127.0.0.1:9/v1",
+            "--model",
+            "smoke-model",
+            "--skip-preflight",
+            "--no-supervisor",
+            "--out",
+            str(out_root),
+        ],
+    )
+
+    assert code == 0
+    assert captured_options is not None
+    assert captured_options.out == out_root / "localbench-run.json"
+
+
+def test_run_with_endpoint_identity_files_passes_digest_inputs_to_orchestrator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    suite = _write_minimal_suite(tmp_path / "suite")
+    tokenizer = tmp_path / "tokenizer.json"
+    chat_template = tmp_path / "chat_template.jinja"
+    tokenizer.write_text('{"model":"fixture"}\n', encoding="utf-8")
+    chat_template.write_text("{{ messages }}\n", encoding="utf-8")
+    captured_options = None
+
+    def fake_anyio_run(function, options):
+        nonlocal captured_options
+        captured_options = options
+        return {"benches": {}, "totals": {}, "warnings": []}
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+    monkeypatch.setattr(cli_mod, "_print_summary", lambda record, out=None: None)
+
+    code = cli_mod.main(
+        [
+            "run",
+            "--suite-dir",
+            str(suite),
+            "--endpoint",
+            "http://127.0.0.1:9/v1",
+            "--model",
+            "smoke-model",
+            "--skip-preflight",
+            "--no-supervisor",
+            "--tokenizer-file",
+            str(tokenizer),
+            "--chat-template-file",
+            str(chat_template),
+        ],
+    )
+
+    assert code == 0
+    assert captured_options is not None
+    assert captured_options.tokenizer_file == tokenizer
+    assert captured_options.chat_template_file == chat_template
+    assert captured_options.tokenizer_digest is None
+    assert captured_options.chat_template_digest is None
+
+
 def _bench_args(
     *,
     lane: str = "answer-only",
@@ -206,3 +289,39 @@ def _bench_args(
         reasoning_activation=reasoning_activation,
         gguf_repo_only=gguf_repo_only,
     )
+
+
+def _write_minimal_suite(path: Path) -> Path:
+    path.mkdir(parents=True)
+    item_path = path / "mmlu_pro.jsonl"
+    item_path.write_text(
+        '{"id":"1","question":"Pick A","options":["A","B"],"answer":"A"}\n',
+        encoding="utf-8",
+    )
+    item_hash = __import__("hashlib").sha256(item_path.read_bytes()).hexdigest()
+    (path / "suite.json").write_text(
+        json.dumps(
+            {
+                "id": "core-text-v1",
+                "version": "core-text-v1",
+                "benches": {
+                    "mmlu_pro": {
+                        "chance_correction_baseline": 0.5,
+                        "decoding": {"max_tokens": 16, "temperature": 0},
+                        "itemsets": {"standard": {"file": "mmlu_pro.jsonl", "item_count": 1, "sha256": item_hash}},
+                        "template_text": "{question}\n{options}",
+                    },
+                },
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    (path / "itemsets.lock.json").write_text(
+        json.dumps(
+            {"files": {"mmlu_pro.jsonl": {"item_count": 1, "sha256": item_hash}}},
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return path

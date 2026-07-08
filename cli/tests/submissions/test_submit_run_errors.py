@@ -118,6 +118,38 @@ def test_submit_run_maps_ticket_errors_to_human_lines(
     assert "Traceback" not in output
 
 
+def test_submit_run_surfaces_unmapped_server_error_code_and_message(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: the ticket leg returns an unrecognized typed backend error.
+    import localbench.submissions.submit_run as submit_mod
+
+    bundle = _bundle(tmp_path)
+    key = _key(tmp_path)
+
+    def fake_ticket(request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
+        raise _http_error(
+            400,
+            {
+                "code": "unknown_suite_release",
+                "error": "suite release pair is not registered",
+            },
+        )
+
+    monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)
+
+    # When: submit run requests a ticket.
+    code = main(["submit", "run", "--bundle", str(bundle), "--signing-key", str(key)])
+
+    # Then: both the machine code and server message reach the user.
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "ticket failed: unknown_suite_release: suite release pair is not registered" in output
+    assert "Traceback" not in output
+
+
 def test_submit_run_rejects_zip_archives_with_remediation(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
