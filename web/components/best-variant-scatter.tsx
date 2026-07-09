@@ -1,3 +1,4 @@
+import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { formatDuration, formatGb, formatScore } from "@/lib/format";
 import { familyStyle } from "@/lib/family-color";
 import {
@@ -288,6 +289,7 @@ export function BestVariantVramScatter({
           {legend.map(([label, color]) => (
             <span key={label} className="inline-flex items-center gap-1.5">
               <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+              <FamilyLogoMark modelLabel={label} size={14} />
               {label}
             </span>
           ))}

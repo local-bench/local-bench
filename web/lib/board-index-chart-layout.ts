@@ -18,7 +18,7 @@ export const PLOT = {
 export const SVG_HEIGHT = 300;
 const PLOT_HEIGHT = SVG_HEIGHT - PLOT.top - PLOT.bottom;
 export const SLOT_WIDTH = 88;
-export const BAR_WIDTH = 56;
+export const BAR_WIDTH = 40;
 export const TICKS = [0, 20, 40, 60, 80, 100] as const;
 
 type ScoredModel = {
@@ -49,8 +49,6 @@ export type ChartRow = ScoredModel & {
   readonly renderedSegments: readonly RenderedSegment[];
   readonly scorePoint: number;
   readonly tooltipLines: readonly string[];
-  readonly whiskerBottom: number;
-  readonly whiskerTop: number;
 };
 
 export function toChartRows(models: readonly IndexModel[]): readonly ChartRow[] {
@@ -79,7 +77,6 @@ function toChartRow(input: ScoredModel, index: number): ChartRow {
   const barCenter = PLOT.left + index * SLOT_WIDTH + SLOT_WIDTH / 2;
   const renderedSegments = toRenderedSegments(toStackSegments({ contributions, missingLabels, scorePoint }));
   const barTop = scaleY(scorePoint);
-  const whisker = whiskerBounds(input.score);
   return {
     ...input,
     barCenter,
@@ -97,8 +94,6 @@ function toChartRow(input: ScoredModel, index: number): ChartRow {
       score: input.score,
       segments: renderedSegments,
     }),
-    whiskerBottom: whisker.bottom,
-    whiskerTop: whisker.top,
   };
 }
 
@@ -161,7 +156,11 @@ function tooltipLines(input: {
   readonly segments: readonly StackSegment[];
 }): readonly string[] {
   const unallocated = input.segments.find((segment) => segment.key === "unallocated");
-  const base = `${input.modelLabel} — ${formatScore(input.score.point)}`;
+  // The uncertainty range lives here in the tooltip now that the chart no longer draws
+  // whiskers (owner call 2026-07-09).
+  const base = `${input.modelLabel} — ${formatScore(input.score.point)} (${formatScore(input.score.lo)}–${formatScore(
+    input.score.hi,
+  )})`;
   if (input.missingLabels.length === 0) {
     return [base, indexContributionTitle(input.contributions)];
   }
@@ -170,15 +169,6 @@ function tooltipLines(input: {
     `${indexContributionTitle(input.contributions)}; Unallocated ${(unallocated?.value ?? 0).toFixed(1)}`,
     `Missing: ${input.missingLabels.join(", ")}`,
   ];
-}
-
-function whiskerBounds(score: Score): { readonly top: number; readonly bottom: number } {
-  const lo = sanitizeScaleInput(score.lo);
-  const hi = sanitizeScaleInput(score.hi);
-  return {
-    bottom: roundForAttribute(scaleY(Math.min(lo, hi))),
-    top: roundForAttribute(scaleY(Math.max(lo, hi))),
-  };
 }
 
 function sanitizeScaleInput(value: number): number {

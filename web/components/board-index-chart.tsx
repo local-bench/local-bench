@@ -38,8 +38,8 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Full board</p>
         <h2 className="mt-1 text-2xl font-semibold text-bench-text">Local Intelligence Index — ranked</h2>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
-          Each bar is one ranked variant, colored by model family. Hover or focus a bar for its six-axis breakdown;
-          the thin line is the score&apos;s uncertainty.
+          Each bar is one ranked variant, colored by model family. Hover or focus a bar for its six-axis breakdown
+          and the score&apos;s uncertainty range.
         </p>
         <p className="sr-only">The ranked table below lists the same data in sortable text.</p>
       </div>
@@ -93,37 +93,12 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
                   fill={familyStyle(row.model.family).color}
                   fillOpacity="0.88"
                 />
-                <line
-                  x1={row.barCenter}
-                  x2={row.barCenter}
-                  y1={row.whiskerTop}
-                  y2={row.whiskerBottom}
-                  data-whisker-y1={row.whiskerTop}
-                  data-whisker-y2={row.whiskerBottom}
-                  className="stroke-bench-muted"
-                  strokeWidth="1.5"
-                />
-                <line
-                  x1={row.barCenter - 6}
-                  x2={row.barCenter + 6}
-                  y1={row.whiskerTop}
-                  y2={row.whiskerTop}
-                  className="stroke-bench-muted"
-                  strokeWidth="1.5"
-                />
-                <line
-                  x1={row.barCenter - 6}
-                  x2={row.barCenter + 6}
-                  y1={row.whiskerBottom}
-                  y2={row.whiskerBottom}
-                  className="stroke-bench-muted"
-                  strokeWidth="1.5"
-                />
                 <text
                   x={row.barCenter}
-                  y={Math.max(14, row.barTop - 8)}
-                  className="fill-bench-text"
+                  y={valueLabelY(row.barTop, scaleY(0))}
+                  className={scaleY(0) - row.barTop < 24 ? "fill-bench-text" : "fill-bench-bg"}
                   fontSize="12"
+                  fontWeight="600"
                   fontFamily="var(--font-mono)"
                   textAnchor="middle"
                 >
@@ -179,6 +154,12 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
       </div>
     </section>
   );
+}
+
+// Score sits centered inside the bar (the AA layout); a bar too short to hold the text
+// gets the label just above its top instead.
+function valueLabelY(barTop: number, baseline: number): number {
+  return baseline - barTop < 24 ? Math.max(14, barTop - 8) : (barTop + baseline) / 2 + 4;
 }
 
 // Rounded-top bar outline (top corners only — the base sits flush on the axis line).

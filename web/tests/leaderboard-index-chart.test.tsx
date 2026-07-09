@@ -116,11 +116,12 @@ describe("BoardIndexChart", () => {
     }
   });
 
-  it("maps confidence whiskers to the fixed zero-to-one-hundred y scale", () => {
+  it("puts the uncertainty range in the tooltip instead of drawing whiskers", () => {
     const html = render([rankedModel({ slug: "ci-row", composite: score(50, 20, 80) })]);
 
-    expect(html).toContain(`data-whisker-y1="${yFor(80)}"`);
-    expect(html).toContain(`data-whisker-y2="${yFor(20)}"`);
+    // Whiskers are gone (owner call 2026-07-09); the uncertainty range lives in the tooltip.
+    expect(html).not.toContain("data-whisker-y1=");
+    expect(html).toContain("50.0 (20.0–80.0)");
   });
 
   it("clamps bar geometry to the one-hundred gridline", () => {
@@ -160,7 +161,6 @@ describe("BoardIndexChart", () => {
 
     expect(html).not.toContain("NaN");
     expect(html).toContain("45.0");
-    expect(html).toContain("data-whisker-y1=");
   });
 
   it("fills each bar with its family color", () => {
