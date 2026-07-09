@@ -44,8 +44,11 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
           <span className="font-mono">
             0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool + 0.15 Coding + 0.05 Math
           </span>
-          ).
-          See the full leaderboard for every quant, hardware, and run provenance.
+          ).{" "}
+          <Link href="/leaderboard" className="text-bench-accent underline hover:text-bench-text">
+            See the full leaderboard
+          </Link>{" "}
+          for every quant, hardware, and run provenance.
         </p>
         <p className="mt-1 font-mono text-[11px] text-bench-muted-2">
           {rows.length} ranked model{rows.length === 1 ? "" : "s"} so far
