@@ -1,0 +1,49 @@
+# CI v1 for the public repo: web unit suite + typecheck, CLI pytest.
+# Held from the public repo until Michael approves the sync (prepared 2026-07-08).
+#
+# Deliberately excluded from the CLI job (local-only artifacts, gitignored):
+#   - cli/tests/test_site_parity.py + tests/submissions/test_wave2_static_composite.py
+#     (need the built cli/runs/board/board_v1.json board artifact)
+#   - cli/tests/test_bfcl.py + test_bfcl_multi_turn.py
+#     (need the pinned BFCL evaluator checkout at cli/.venv/bfcl-eval-ref)
+# Playwright e2e is also out of scope for v1 (needs a built site + browsers).
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npx vitest run
+      - run: npx tsc --noEmit
+
+  cli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e "./cli[hf]" pytest
+      - run: >
+          python -m pytest cli/tests -q
+          --ignore=cli/tests/test_site_parity.py
+          --ignore=cli/tests/submissions/test_wave2_static_composite.py
+          --ignore=cli/tests/test_bfcl.py
+          --ignore=cli/tests/test_bfcl_multi_turn.py
