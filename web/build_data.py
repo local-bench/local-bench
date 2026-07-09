@@ -75,6 +75,10 @@ _BOARD_AXES: Final = headline_web_axes()
 _STATIC_AXES: Final = tuple(static_suite_web_weights())
 _STATIC_WEIGHTS: Final = static_suite_web_weights()
 _APPWORLD_C_BENCH: Final = "appworld_c"
+_AGENTIC_INFRA_TIMEOUT_RATE_LIMIT: Final = 0.05
+# Watchdog per_task_timeout_s=1800 as of CLI commit 5fe9186; this gate protects
+# hardware-independence of the agentic axis by keeping time-starved runs unranked.
+_AGENTIC_INFRA_TIMEOUT_REASON: Final = "agentic-infra-timeout-rate"
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,6 +243,30 @@ def _valid_inline_appworld(agentic_run: JsonValue | None) -> bool:
     return not any(not isinstance(run, dict) or _agentic_summary_is_harness_dominated(run) for run in runs)
 
 
+def _agentic_infra_timeout_warnings(agentic_run: JsonValue | None) -> list[JsonValue]:
+    if not isinstance(agentic_run, dict):
+        return []
+    diagnostics = agentic_run.get("diagnostics")
+    if isinstance(diagnostics, dict) and _infra_timeout_rate_exceeds(diagnostics):
+        return [_AGENTIC_INFRA_TIMEOUT_REASON]
+    runs = agentic_run.get("runs")
+    if isinstance(runs, list) and any(
+        isinstance(run, dict) and _infra_timeout_rate_exceeds(run)
+        for run in runs
+    ):
+        return [_AGENTIC_INFRA_TIMEOUT_REASON]
+    return []
+
+
+def _infra_timeout_rate_exceeds(summary: JsonObject) -> bool:
+    value = summary.get("infra_timeout_rate")
+    return (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and value > _AGENTIC_INFRA_TIMEOUT_RATE_LIMIT
+    )
+
+
 def _agentic_summary_is_harness_dominated(summary: JsonObject) -> bool:
     tasks_total = summary.get("tasks_total")
     tasks_succeeded = summary.get("tasks_succeeded")
@@ -310,6 +338,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     source_benches = dict(_object(run.get("benches"), f"{path}:benches"))
     items = list(_list(run.get("items"), f"{path}:items"))
     quarantined_agentic = _quarantine_invalid_inline_appworld(run, source_benches, items)
+    agentic_infra_warnings = _agentic_infra_timeout_warnings(run.get("agentic_run"))
     totals = _object(run.get("totals"), f"{path}:totals")
     perf = _object_or_empty(run.get("perf"))
     model_label = _model_label(source, manifest)
@@ -345,9 +374,15 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     static_index_version = (board_static_index_version or STATIC_SUITE_INDEX_VERSION) if composite_static is not None else None
     annotations = _source_annotations(source, axes, headline_complete)
     tier = _text(suite.get("tier"))
-    ranked = tier == "standard" and conformance_status == "headline-comparable" and headline_complete and not quarantined_agentic
+    ranked = (
+        tier == "standard"
+        and conformance_status == "headline-comparable"
+        and headline_complete
+        and not quarantined_agentic
+        and not agentic_infra_warnings
+    )
     score_fields = _score_fields_for_lane(lane, composite_interval, board.headline_lane)
-    data_warnings = quarantined_agentic + axis_warnings + _list(composite["warnings"], "composite.warnings")
+    data_warnings = quarantined_agentic + agentic_infra_warnings + axis_warnings + _list(composite["warnings"], "composite.warnings")
     if static_composite is not None:
         data_warnings += _list(static_composite["warnings"], "static_composite.warnings")
     detail = {"axes": axes, "composite": composite_interval, "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations

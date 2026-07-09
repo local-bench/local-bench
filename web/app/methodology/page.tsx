@@ -132,6 +132,10 @@ export default async function MethodologyPage() {
           than their agentic score here suggests.
         </p>
         <p>
+          Rows whose agentic phase shows an elevated infrastructure timeout rate (over 5 percent) do not rank until
+          re-run on hardware that clears it.
+        </p>
+        <p>
           <span className="text-bench-text">Tool calling scope note.</span> The tool-calling axis measures structural
           JSON tool selection and argument construction (tc_json_v1), not full real-world tool-use competence. The
           first ranked rows show low spread on this axis; a harder versioned itemset is planned, and v1 history will
