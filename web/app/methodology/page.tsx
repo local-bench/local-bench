@@ -109,6 +109,26 @@ export default async function MethodologyPage() {
           Knowledge, Instruction, Tool calling, and Math; it has no sandbox, no Agentic, and no verified Coding, so it is
           an unranked diagnostic release and is not comparable to ranked static.
         </p>
+        <h3 className="text-lg font-semibold text-bench-text">Why the Index is not a parameter-count score</h3>
+        <p>
+          The Local Intelligence Index is a fixed, published weighted average of six local-use capabilities measured
+          under the same generated-token budget — not a proxy for model size. Larger models often gain on knowledge,
+          math, and agentic tasks, but smaller instruction-tuned models can legitimately close the headline gap by
+          following instructions better, producing stronger executable code, or tying on tool-call structure. A 12B
+          model landing within a few points of a 27B is expected behavior on this index, and the per-axis columns show
+          exactly where each model earns or loses its score.
+        </p>
+        <p>
+          <span className="text-bench-text">Agentic headroom is deliberate.</span> Low agentic scores on today&apos;s
+          board are expected: this axis is not rescaled upward to make current models look more spread out, so future
+          local models that are genuinely capable agents have room to separate rather than saturating the benchmark.
+        </p>
+        <p>
+          <span className="text-bench-text">Tool calling scope note.</span> The tool-calling axis measures structural
+          JSON tool selection and argument construction (tc_json_v1), not full real-world tool-use competence. The
+          first ranked rows show low spread on this axis; a harder versioned itemset is planned, and v1 history will
+          be preserved when it lands.
+        </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
