@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BoardIndexChart } from "@/components/board-index-chart";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { MeasuredDiagnostics } from "@/components/measured-diagnostics";
@@ -63,6 +64,7 @@ export default async function LeaderboardPage() {
             .
           </div>
         </div>
+        <BoardIndexChart models={ranked} />
         <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
         {/* The no-agentic lane renders only once it has rows — an empty second ranking
             table reads as a competing benchmark instead of a fallback lane. */}

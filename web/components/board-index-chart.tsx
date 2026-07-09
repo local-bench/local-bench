@@ -1,0 +1,219 @@
+import Link from "next/link";
+import { AXIS_CONFIG } from "@/lib/axis-config";
+import {
+  BAR_WIDTH,
+  PLOT,
+  SLOT_WIDTH,
+  SVG_HEIGHT,
+  TICKS,
+  roundForAttribute,
+  scaleY,
+  toChartRows,
+} from "@/lib/board-index-chart-layout";
+import { formatScore } from "@/lib/format";
+import type { IndexModel } from "@/lib/schemas";
+
+export function BoardIndexChart({ models }: { readonly models: readonly IndexModel[] }) {
+  const rows = toChartRows(models);
+  if (rows.length === 0) {
+    return null;
+  }
+
+  const width = PLOT.left + PLOT.right + rows.length * SLOT_WIDTH;
+  const first = rows[0];
+  const last = rows.at(-1);
+  const ariaLabel =
+    first === undefined || last === undefined
+      ? "Bar chart of ranked variants by Local Intelligence Index"
+      : `Bar chart of ${rows.length} ranked variants by Local Intelligence Index, highest ${formatScore(
+          first.score.point,
+        )} lowest ${formatScore(last.score.point)}`;
+
+  return (
+    <section
+      data-testid="leaderboard-index-chart"
+      className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82"
+    >
+      <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
+        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Full board</p>
+        <h2 className="mt-1 text-2xl font-semibold text-bench-text">Local Intelligence Index — ranked</h2>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
+          Each bar is one ranked variant. Colored sections show how the six scores add up, and the thin line shows
+          uncertainty.
+        </p>
+        <p className="sr-only">The ranked table below lists the same data in sortable text.</p>
+      </div>
+      <div className="border-b border-bench-line bg-white/[0.015] px-3 py-2">
+        <div className="flex flex-wrap gap-3 text-xs text-bench-muted">
+          {AXIS_CONFIG.map((axis) => (
+            <span key={axis.key} className="inline-flex items-center gap-1.5">
+              <AxisDot axis={axis} />
+              {axis.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto px-3 pb-4 pt-4">
+        <div className="relative" style={{ width }}>
+          <svg
+            role="group"
+            aria-label={ariaLabel}
+            viewBox={`0 0 ${width} ${SVG_HEIGHT}`}
+            className="block h-[300px] max-w-none"
+            style={{ width }}
+          >
+            <rect width={width} height={SVG_HEIGHT} className="fill-bench-panel" />
+            {TICKS.map((tick) => {
+              const y = scaleY(tick);
+              return (
+                <g key={tick}>
+                  <line x1={PLOT.left} x2={width - PLOT.right} y1={y} y2={y} className="stroke-bench-line" />
+                  <text x={PLOT.left - 10} y={y + 4} className="fill-bench-muted" fontSize="11" textAnchor="end">
+                    {tick}
+                  </text>
+                </g>
+              );
+            })}
+            <line
+              x1={PLOT.left}
+              x2={width - PLOT.right}
+              y1={scaleY(0)}
+              y2={scaleY(0)}
+              className="stroke-bench-line-strong"
+            />
+            <line
+              x1={PLOT.left}
+              x2={PLOT.left}
+              y1={PLOT.top}
+              y2={scaleY(0)}
+              className="stroke-bench-line-strong"
+            />
+            {rows.map((row) => (
+              <g
+                key={row.model.slug}
+                aria-hidden="true"
+                data-bar-center={row.barCenter}
+                data-bar-top={row.barTop}
+                data-chart-bar={row.model.slug}
+              >
+                <title>{row.tooltipLines.join(" | ")}</title>
+                {row.renderedSegments.map((segment) => (
+                  <rect
+                    key={`${row.model.slug}-${segment.key}`}
+                    data-segment-key={segment.key}
+                    data-segment-value={roundForAttribute(segment.value)}
+                    x={row.barLeft}
+                    y={segment.y}
+                    width={BAR_WIDTH}
+                    height={segment.height}
+                    rx="3"
+                    className={segment.muted ? "fill-bench-muted opacity-25" : undefined}
+                    fill={segment.muted ? undefined : segment.color}
+                  />
+                ))}
+                <line
+                  x1={row.barCenter}
+                  x2={row.barCenter}
+                  y1={row.whiskerTop}
+                  y2={row.whiskerBottom}
+                  data-whisker-y1={row.whiskerTop}
+                  data-whisker-y2={row.whiskerBottom}
+                  className="stroke-bench-muted"
+                  strokeWidth="1.5"
+                />
+                <line
+                  x1={row.barCenter - 6}
+                  x2={row.barCenter + 6}
+                  y1={row.whiskerTop}
+                  y2={row.whiskerTop}
+                  className="stroke-bench-muted"
+                  strokeWidth="1.5"
+                />
+                <line
+                  x1={row.barCenter - 6}
+                  x2={row.barCenter + 6}
+                  y1={row.whiskerBottom}
+                  y2={row.whiskerBottom}
+                  className="stroke-bench-muted"
+                  strokeWidth="1.5"
+                />
+                <text
+                  x={row.barCenter}
+                  y={Math.max(14, row.barTop - 8)}
+                  className="fill-bench-text"
+                  fontSize="12"
+                  fontFamily="var(--font-mono)"
+                  textAnchor="middle"
+                >
+                  {formatScore(row.score.point)}
+                </text>
+              </g>
+            ))}
+          </svg>
+          <div
+            className="grid"
+            style={{
+              gridTemplateColumns: `repeat(${rows.length}, ${SLOT_WIDTH}px)`,
+              marginLeft: PLOT.left,
+              marginRight: PLOT.right,
+            }}
+          >
+            {rows.map((row, index) => (
+              <div
+                key={row.model.slug}
+                data-chart-label={row.model.slug}
+                data-label-center={row.labelCenter}
+                className="group relative min-w-0 px-2 pt-2 text-center"
+              >
+                <span
+                  data-tooltip-hit-target={row.model.slug}
+                  aria-hidden="true"
+                  className="absolute bottom-full left-1/2 h-[252px] w-20 -translate-x-1/2"
+                />
+                <span
+                  role="tooltip"
+                  className={`pointer-events-none absolute bottom-[calc(100%+8px)] z-10 w-[260px] rounded border border-bench-line-strong bg-bench-bg px-2 py-1.5 text-left font-mono text-[11px] leading-4 text-bench-muted opacity-0 shadow-2xl shadow-black/30 transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPositionClass(index, rows.length)}`}
+                >
+                  {row.tooltipLines.map((line, index) => (
+                    <span key={line} className={index === 0 ? "block text-bench-text" : "block"}>
+                      {line}
+                    </span>
+                  ))}
+                </span>
+                <Link
+                  href={`/model/${row.model.slug}`}
+                  className="block max-h-10 overflow-hidden text-sm font-semibold leading-5 text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bench-accent"
+                >
+                  {row.model.model_label}
+                </Link>
+                {row.model.tier === null ? null : (
+                  <div className="mt-1 font-mono text-[11px] leading-4 text-bench-muted">{row.model.tier}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function AxisDot({ axis }: { readonly axis: (typeof AXIS_CONFIG)[number] }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block h-2 w-2 rounded-full align-middle"
+      style={{ backgroundColor: axis.color }}
+    />
+  );
+}
+
+function tooltipPositionClass(index: number, total: number): string {
+  if (index === 0) {
+    return "left-0";
+  }
+  if (index === total - 1) {
+    return "right-0";
+  }
+  return "left-1/2 -translate-x-1/2";
+}
