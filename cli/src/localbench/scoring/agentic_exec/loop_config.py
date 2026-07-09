@@ -51,8 +51,12 @@ class LoopConfig:
     model_call_timeout_s: float = 120.0
 
     # Hard wall-clock watchdog for one complete task attempt: sandbox setup, model loop, finalize,
-    # and teardown. This bounds hangs outside the per-block sandbox wall timeout.
-    per_task_timeout_s: float = 360.0
+    # and teardown. This bounds hangs outside the per-block sandbox wall timeout. Must stay well
+    # above the sum of the internal safety nets it wraps (ready 120s + block wall 300s + finalize
+    # 120s can legally exceed 540s on ONE slow block), so that max_turns/token budgets decide task
+    # outcomes on any reasonable hardware and this net only catches true orchestration deadlocks.
+    # 360s was under-sized and silently became the binding limit for token-heavy models.
+    per_task_timeout_s: float = 1800.0
     attester_key_path: Path | None = field(default_factory=lambda: _env_path("LOCALBENCH_ATTESTER_KEY_FILE"))
     attestation_run_id: str = "appworld_c"
 
