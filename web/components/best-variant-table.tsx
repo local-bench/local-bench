@@ -56,7 +56,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1080px] border-collapse text-sm">
           <caption className="sr-only">Best ranked variant per model, by the Local Intelligence Index</caption>
-          <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
+          <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
               <th className="w-10 px-3 py-3">#</th>
               <th className="px-3 py-3">Model</th>

@@ -81,7 +81,7 @@ export function ModelVariantBoard({
       </div>
       <div className="overflow-x-auto">
         <table data-testid="model-variant-table" className="min-w-[1360px] border-collapse text-sm">
-          <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
+          <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
               <th className="px-3 py-3 font-semibold">Rank</th>
               <th className="px-3 py-3 font-semibold">Variant</th>

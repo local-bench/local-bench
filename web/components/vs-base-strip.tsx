@@ -70,7 +70,7 @@ export function VsBaseStrip({
             {comparison.axes.length > 0 ? (
               <div className="mt-4 overflow-x-auto">
                 <table className="min-w-[640px] border-collapse text-sm">
-                  <thead className="text-left text-[11px] uppercase text-bench-muted">
+                  <thead className="text-left text-xs uppercase tracking-wider text-bench-text/85">
                     <tr>
                       <th className="border-b border-bench-line px-3 py-2">Axis</th>
                       <th className="border-b border-bench-line px-3 py-2">Fine-tune</th>

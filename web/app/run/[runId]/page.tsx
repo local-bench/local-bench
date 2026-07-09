@@ -258,7 +258,7 @@ export function ServingPerformanceCard({ run }: { readonly run: RunDetail }) {
       </div>
       <div className="mt-5 overflow-x-auto">
         <table className="min-w-full border-collapse text-sm">
-          <thead className="text-left font-mono text-[10px] uppercase text-bench-muted">
+          <thead className="text-left font-mono text-[11px] uppercase tracking-wider text-bench-text/80">
             <tr>
               <th className="border-b border-bench-line px-2 py-2 font-semibold">bench</th>
               <th className="border-b border-bench-line px-2 py-2 font-semibold">prefill</th>

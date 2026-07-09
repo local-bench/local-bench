@@ -12,7 +12,7 @@ export function BoardScopeHeader({ mode = "full" }: { readonly mode?: Leaderboar
   const subtitle = mode === "static" ? STATIC_SCOPE_SUBTITLE : BOARD_SCOPE_SUBTITLE;
   return (
     <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
-      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">{title}</p>
+      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-muted">{title}</p>
       <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">{subtitle}</p>
     </div>
   );

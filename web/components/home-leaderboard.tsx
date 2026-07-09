@@ -55,7 +55,7 @@ export function HomeLeaderboard({
         <caption className="sr-only">
           Rank cells are populated only for ranked Standard rows within the same reasoning lane.
         </caption>
-        <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
+        <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
           <tr>
             <th className="px-3 py-3 font-semibold">Rank</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />

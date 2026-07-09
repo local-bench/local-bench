@@ -103,7 +103,7 @@ export function ComparePicker({
 
       <section className="overflow-x-auto rounded border border-bench-line bg-bench-panel-2/70">
         <table data-testid="compare-axis-deltas" className="min-w-[820px] border-collapse text-sm">
-          <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
+          <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
               <th className="px-3 py-3">Axis</th>
               <th className="px-3 py-3">Left</th>
