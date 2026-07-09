@@ -55,8 +55,8 @@ export default async function LeaderboardPage() {
           </div>
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
-            Ranked rows are complete current-index runs under the bounded-final lane. Partial or unscored entries are
-            listed separately below and never mix into the rank — see{" "}
+            Ranked rows are complete runs on the current index. Partial or unscored entries are listed separately
+            below and never mix into the rank — see{" "}
             <Link href="/methodology" className="text-bench-accent hover:underline">
               methodology
             </Link>

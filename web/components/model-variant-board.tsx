@@ -74,10 +74,9 @@ export function ModelVariantBoard({
       <div className="border-b border-bench-line px-4 py-3">
         <h2 className="text-lg font-semibold text-bench-text">Variant profiles</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
-            Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
-            (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Partial rows show measured
-            diagnostic axes but do not receive a rank until the current ranked profile is complete. The VRAM/Fits columns (
-            {formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you what your card needs.
+            Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}; partial rows show their measured axes but
+            are not ranked. The VRAM/Fits columns ({formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you
+            what your card needs.
           </p>
       </div>
       <div className="overflow-x-auto">

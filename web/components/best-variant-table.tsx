@@ -18,8 +18,8 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">No ranked variants yet</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
-            Partial benchmark profiles are available on model pages, but the Local Intelligence Index ranks only rows
-            with the current ranked profile complete under the bounded-final lane.
+            Partial benchmark profiles are available on model pages; the Local Intelligence Index ranks only complete
+            measured profiles.
           </p>
         </div>
       </section>
@@ -39,12 +39,8 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
         <h2 className="mt-1 text-2xl font-semibold text-bench-text">Best ranked variant per model</h2>
         <p className="mt-1 text-xs leading-5 text-bench-muted">
-          Best local model variants ranked so far, by the Local Intelligence Index
-          (
-          <span className="font-mono">
-            0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool + 0.15 Coding + 0.05 Math
-          </span>
-          ).{" "}
+          Each model&apos;s best ranked variant, scored by the Local Intelligence Index — axis weights are in the
+          column headers.{" "}
           <Link href="/leaderboard" className="text-bench-accent underline hover:text-bench-text">
             See the full leaderboard
           </Link>{" "}
@@ -57,7 +53,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1080px] border-collapse text-sm">
-          <caption className="sr-only">Best complete current-index variant per model, ranked by the Local Intelligence Index</caption>
+          <caption className="sr-only">Best ranked variant per model, by the Local Intelligence Index</caption>
           <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
             <tr>
               <th className="w-10 px-3 py-3">#</th>
@@ -128,10 +124,6 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
           </tbody>
         </table>
       </div>
-      <p className="border-t border-bench-line px-3 py-2 text-xs leading-5 text-bench-muted">
-        Tool calling uses tc_json_v1 plaintext tool-call tasks. Coding ranks only after BigCodeBench-Hard project
-        re-execution in the hardened sandbox; legacy lcb output-prediction data is diagnostic only.
-      </p>
     </section>
   );
 }

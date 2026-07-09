@@ -5,10 +5,6 @@ import { useMemo, useState } from "react";
 import { ModelPicker, type PickMode } from "@/components/benchmark-model-picker";
 import { BenchmarkRecipe } from "@/components/benchmark-recipe";
 import {
-  LOCAL_INTELLIGENCE_INDEX_NAME,
-  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
-} from "@/components/local-intelligence-index";
-import {
   RUNTIME_PROFILES,
   browseFamilies,
   buildRecipe,
@@ -146,9 +142,6 @@ export function BenchmarkOnramp({
         <div className="min-w-0">
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Benchmark a model</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">Pick a model, get the exact commands</h2>
-          <p className="mt-1 font-mono text-xs text-bench-muted">
-            {LOCAL_INTELLIGENCE_INDEX_NAME} · {LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
-          </p>
         </div>
       </div>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
