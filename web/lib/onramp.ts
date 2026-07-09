@@ -5,6 +5,15 @@ export type OnrampCatalogQuant = {
   readonly vramGb8k: number | null;
   readonly fileGb: number | null;
   readonly bpw: number | null;
+  readonly filename?: string | null;
+  readonly revision?: string | null;
+  readonly fileSha256?: string | null;
+  readonly artifactFiles?: readonly OnrampCatalogArtifactFile[];
+};
+
+export type OnrampCatalogArtifactFile = {
+  readonly filename: string;
+  readonly fileSha256: string;
 };
 
 export type OnrampCatalogModel = {
@@ -107,6 +116,8 @@ export type BenchmarkTimeEstimate =
     };
 
 export type BenchmarkRecipe = {
+  readonly installCommand: string;
+  readonly lead: BenchmarkRecipeLead;
   readonly setupCommand: string;
   readonly serveCommand: string;
   readonly serveNote: string | null;
@@ -119,6 +130,22 @@ export type BenchmarkRecipe = {
   readonly model: OnrampCatalogModel;
 };
 
+export type BenchmarkRecipeLead =
+  | {
+      readonly kind: "publishable";
+      readonly command: string;
+    }
+  | {
+      readonly kind: "local-only";
+      readonly command: string;
+    }
+  | {
+      readonly kind: "unavailable";
+      readonly reason: string;
+    };
+
+export type BenchmarkRecipeSource = "catalog" | "paste";
+
 // Best-to-worst quality order is the order of QUANT_OPTIONS (FP16 first, Q2_K last).
 const QUANT_RANK = new Map<string, number>(QUANT_OPTIONS.map((label, index) => [label, index]));
 const BENCH_TIME_SMALL_ANCHOR_PARAMS_B = 12;
@@ -128,6 +155,9 @@ const BENCH_TIME_LARGE_ANCHOR_HOURS = 24;
 const BENCH_TIME_MIN_HOURS = 2;
 const BENCH_TIME_MAX_HOURS = 96;
 const Q4_FILE_GB_TO_PARAMS_B = 1.8;
+const LOCALBENCH_INSTALL_COMMAND = 'pip install "local-bench-ai[hf]==0.3.0"';
+const UNPINNED_ONE_COMMAND_REASON =
+  "This catalog quant is missing artifact pins, so the one-command flow fails closed.";
 
 function quantRank(label: string): number {
   return QUANT_RANK.get(label) ?? Number.MAX_SAFE_INTEGER;
@@ -366,6 +396,43 @@ function runOutputPath(model: OnrampCatalogModel, quant: OnrampCatalogQuant): st
   return `runs/${sanitizeRunPart(model.slug)}-${sanitizeRunPart(quant.label)}.json`;
 }
 
+function hasText(value: string | null | undefined): boolean {
+  return value !== undefined && value !== null && value.trim() !== "";
+}
+
+export function quantHasArtifactPins(quant: OnrampCatalogQuant): boolean {
+  if (!hasText(quant.revision)) {
+    return false;
+  }
+  if (hasText(quant.filename) && hasText(quant.fileSha256)) {
+    return true;
+  }
+  const artifactFiles = quant.artifactFiles ?? [];
+  return (
+    artifactFiles.length > 0 &&
+    artifactFiles.every((file) => hasText(file.filename) && hasText(file.fileSha256))
+  );
+}
+
+function oneCommandTarget(model: OnrampCatalogModel, source: BenchmarkRecipeSource): string {
+  return source === "paste" ? model.id : model.slug;
+}
+
+function buildOneCommandLead(
+  model: OnrampCatalogModel,
+  quant: OnrampCatalogQuant,
+  source: BenchmarkRecipeSource,
+): BenchmarkRecipeLead {
+  const command = `localbench bench ${shellArg(oneCommandTarget(model, source))} --quant ${shellArg(quant.label)}`;
+  if (source === "paste") {
+    return { kind: "local-only", command };
+  }
+  if (quantHasArtifactPins(quant)) {
+    return { kind: "publishable", command };
+  }
+  return { kind: "unavailable", reason: UNPINNED_ONE_COMMAND_REASON };
+}
+
 const RUNTIME_IDENTITY_NAMES: Record<RuntimeId, string> = {
   llamacpp: "llama.cpp",
   lmstudio: "lmstudio",
@@ -401,9 +468,11 @@ export function buildRecipe(input: {
   quant: OnrampCatalogQuant;
   runtime: RuntimeProfile;
   hfModelId?: string | null;
+  source?: BenchmarkRecipeSource;
 }): BenchmarkRecipe {
   const { model, quant, runtime } = input;
   const hfModelId = "hfModelId" in input ? normalizeIdentityRepo(input.hfModelId) : normalizeIdentityRepo(model.id);
+  const source = input.source ?? "catalog";
   const runtimeInput = { model, quant, hfModelId };
   const servedModelName = runtime.servedModelName(runtimeInput);
   const outputPath = runOutputPath(model, quant);
@@ -411,18 +480,13 @@ export function buildRecipe(input: {
   // bounded-final-v2: every model runs the ONE ranked lane. --profile auto introspects the
   // model's own chat template and applies the allowlisted execution profile; no family gate.
   // The [hf] extra ships the template introspection dependency.
-  // Pin ==0.2.6: that release carries the bounded-final-v2 lane + the final coding harness (a
-  // run reproduces the registered suite sha the submit gate checks; older releases compute a
-  // different sha and are rejected) PLUS the identity gate: publishable bounded-final runs
-  // require exactly one of --hf-model-id / --gguf-repo-only, so the basic recipe MUST emit
-  // --gguf-repo-only (0.2.2 tolerated omission; 0.2.3 fails fast).
   // `cache-tokenizer` pre-caches the tokenizer AND verifies it loads offline: --hf-model-id
   // template introspection is OFFLINE-only (HF_HUB_OFFLINE=1), so a fresh machine fails the
   // run's first seconds without it (clean-room user-journey pass, 2026-07-07).
   // The publishable run recipe must also declare model, runtime, and deterministic sampler identity:
   // the verifier rejects under-declared Option B submissions as model.identity_missing/runtime.identity_missing.
   const setupCommand = [
-    'pip install "local-bench-ai[hf]==0.2.6"',
+    LOCALBENCH_INSTALL_COMMAND,
     "localbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms",
     ...(hfModelId === null ? [] : [`localbench cache-tokenizer ${hfModelId}`]),
   ].join("\n");
@@ -458,6 +522,8 @@ export function buildRecipe(input: {
   ].join(" \\\n  ");
 
   return {
+    installCommand: LOCALBENCH_INSTALL_COMMAND,
+    lead: buildOneCommandLead(model, quant, source),
     setupCommand,
     serveCommand: runtime.serveCommand(runtimeInput),
     serveNote: runtime.serveNote(runtimeInput),

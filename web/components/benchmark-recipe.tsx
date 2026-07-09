@@ -51,22 +51,27 @@ function lineageLine(model: Recipe["model"]): string {
   return `Benchmarking ${model.displayName} — ${kind} of ${model.baseModelDisplayName} · by ${model.org}`;
 }
 
-export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
+function RequirementsLine() {
   return (
-    <div className="mt-5 flex flex-col gap-3" data-testid="benchmark-recipe">
-      <p className="font-mono text-xs text-bench-muted">
-        localbench does not download or run the model. First start a local server, then localbench sends the benchmark to
-        that endpoint.
-      </p>
+    <p className="font-mono text-[11px] leading-5 text-bench-muted">
+      Requires Python 3.11+ and llama-server on PATH; install llama.cpp from{" "}
+      <a
+        href="https://github.com/ggerganov/llama.cpp/releases"
+        target="_blank"
+        rel="noreferrer"
+        className="text-bench-accent underline"
+      >
+        github.com/ggerganov/llama.cpp/releases
+      </a>{" "}
+      or pass <span className="font-mono text-bench-text">--llama-server-path</span>.
+    </p>
+  );
+}
+
+function RecipeMetadata({ recipe }: { readonly recipe: Recipe }) {
+  return (
+    <>
       <p className="font-mono text-xs text-bench-accent">{lineageLine(recipe.model)}</p>
-      <p className="font-mono text-xs text-bench-muted">
-        Strongest provenance: let the CLI launch the pinned server itself with{" "}
-        <span className="font-mono text-bench-text">localbench bench</span> — see{" "}
-        <Link href="/submit" className="text-bench-accent underline">
-          how to submit
-        </Link>
-        .
-      </p>
       <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
         <span>Board-ranked · {recipe.lane} · profile auto · suite-v1-full-exec-6axis-v1</span>
         {recipe.ggufRepo !== null ? (
@@ -96,6 +101,51 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
           Fine-tune of <span className="text-bench-text">{recipe.model.baseModelDisplayName}</span>
         </p>
       ) : null}
+    </>
+  );
+}
+
+function OneCommandLead({
+  recipe,
+  lead,
+}: {
+  readonly recipe: Recipe;
+  readonly lead: Extract<Recipe["lead"], { readonly command: string }>;
+}) {
+  const localOnly = lead.kind === "local-only";
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
+        <span className="rounded border border-bench-accent/40 px-2 py-1">{localOnly ? "LOCAL-ONLY" : "Recommended"}</span>
+        <span>{localOnly ? "raw Hugging Face repo run" : "catalog-pinned one-command flow"}</span>
+      </p>
+      <CommandBlock title="Step 1 · install" command={recipe.installCommand} />
+      <CommandBlock title="Step 2 · bench, score, and optional submit" command={lead.command} />
+      <RequirementsLine />
+      {localOnly ? (
+        <p className="font-mono text-[11px] leading-5 text-bench-warn">
+          Raw Hugging Face repos run local-only in localbench 0.3.0. Classic path below is the publishable route when you
+          can provide the model file and identity metadata.
+        </p>
+      ) : (
+        <p className="font-mono text-[11px] leading-5 text-bench-muted">
+          The command verifies downloads against pinned hashes, checks publishability before starting, and asks before
+          submitting.
+        </p>
+      )}
+      <p className="font-mono text-[11px] leading-5 text-bench-muted">
+        Non-TTY runs must pass explicit <span className="font-mono text-bench-text">--yes</span>,{" "}
+        <span className="font-mono text-bench-text">--accept-suite-terms</span>, and either{" "}
+        <span className="font-mono text-bench-text">--no-submit</span> or{" "}
+        <span className="font-mono text-bench-text">--submit</span>.
+      </p>
+    </div>
+  );
+}
+
+function ClassicRecipeBody({ recipe }: { readonly recipe: Recipe }) {
+  return (
+    <div className="flex flex-col gap-3">
       <CommandBlock title="Step 1 · one-time setup" command={recipe.setupCommand} />
       <p className="font-mono text-[11px] text-bench-muted">
         Python 3.11+. fetch-suite verifies the sha256-pinned item sets and caches them locally.
@@ -129,6 +179,50 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
         Do not change sampling, context, or prompt-template settings unless the recipe says so. VRAM values are
         8k-context estimates; the ranked recipe pins 32k context — you may need one quant tier smaller. Close other GPU
         workloads.
+      </p>
+    </div>
+  );
+}
+
+function AdvancedClassicRecipe({ recipe }: { readonly recipe: Recipe }) {
+  return (
+    <details className="rounded border border-bench-line bg-bench-panel-2/40 p-3">
+      <summary className="cursor-pointer font-mono text-xs font-semibold text-bench-accent">
+        Advanced: bring your own server (vLLM, custom rigs)
+      </summary>
+      <div className="mt-3">
+        <p className="mb-3 font-mono text-[11px] leading-5 text-bench-muted">
+          Use the classic path when you run your own OpenAI-compatible server or need explicit publishable metadata.
+        </p>
+        <ClassicRecipeBody recipe={recipe} />
+      </div>
+    </details>
+  );
+}
+
+export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
+  return (
+    <div className="mt-5 flex flex-col gap-3" data-testid="benchmark-recipe">
+      <RecipeMetadata recipe={recipe} />
+      {recipe.lead.kind === "unavailable" ? (
+        <>
+          <p className="rounded border border-bench-warn/50 bg-bench-warn/10 px-3 py-2 font-mono text-[11px] leading-5 text-bench-warn">
+            {recipe.lead.reason}
+          </p>
+          <ClassicRecipeBody recipe={recipe} />
+        </>
+      ) : (
+        <>
+          <OneCommandLead recipe={recipe} lead={recipe.lead} />
+          <AdvancedClassicRecipe recipe={recipe} />
+        </>
+      )}
+      <p className="font-mono text-xs text-bench-muted">
+        See{" "}
+        <Link href="/submit" className="text-bench-accent underline">
+          how to submit
+        </Link>{" "}
+        for the full loop and trust labels.
       </p>
     </div>
   );

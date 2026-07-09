@@ -135,7 +135,7 @@ export function BenchmarkOnramp({
   const recipe =
     selection && runtime
       ? "hfModelId" in selection
-        ? buildRecipe({ model: selection.model, quant: selection.quant, runtime, hfModelId: selection.hfModelId })
+        ? buildRecipe({ model: selection.model, quant: selection.quant, runtime, hfModelId: selection.hfModelId, source: "paste" })
         : buildRecipe({ model: selection.model, quant: selection.quant, runtime })
       : null;
   const timeEstimate = selection === null ? null : estimateBenchmarkTime(selection.model, selection.quant);

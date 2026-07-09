@@ -27,8 +27,13 @@ const baseModel: OnrampCatalogModel = {
 
 function recipe(overrides: Partial<Recipe> = {}): Recipe {
   return {
+    installCommand: 'pip install "local-bench-ai[hf]==0.3.0"',
+    lead: {
+      kind: "publishable",
+      command: "localbench bench qwen3-8b --quant Q4_K_M",
+    },
     setupCommand:
-      'pip install "local-bench-ai[hf]==0.2.6"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
+      'pip install "local-bench-ai[hf]==0.3.0"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
     serveCommand:
       "llama-server -hf MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --ctx-size 32768 --parallel 1 --alias MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M --port 8080",
     serveNote: null,
@@ -45,9 +50,18 @@ function recipe(overrides: Partial<Recipe> = {}): Recipe {
 }
 
 describe("BenchmarkRecipe", () => {
-  it("shows the full identity badge, gated repo note, cost warning, and single-line copy caption", () => {
+  it("leads pinned catalog models with the one-command flow and keeps classic commands collapsed", () => {
     const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe() }));
 
+    expect(html).toContain('pip install &quot;local-bench-ai[hf]==0.3.0&quot;');
+    expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M");
+    expect(html).toContain("Python 3.11+");
+    expect(html).toContain("llama-server on PATH");
+    expect(html).toContain("github.com/ggerganov/llama.cpp/releases");
+    expect(html).toContain("verifies downloads against pinned hashes");
+    expect(html).toContain("checks publishability before starting");
+    expect(html).toContain("asks before submitting");
+    expect(html).toContain("Advanced: bring your own server (vLLM, custom rigs)");
     expect(html).toContain("Identity: full");
     expect(html).toContain("HF tokenizer/template cached");
     expect(html).toContain("Gated repo");
@@ -56,6 +70,41 @@ describe("BenchmarkRecipe", () => {
     expect(html).toContain("This is a full ranked run");
     expect(html).toContain("Preflight fails fast");
     expect(html).toContain("copies as one line");
+  });
+
+  it("leads with the classic recipe when artifact pins are missing", () => {
+    const html = renderToStaticMarkup(
+      createElement(BenchmarkRecipe, {
+        recipe: recipe({
+          lead: {
+            kind: "unavailable",
+            reason: "This catalog quant is missing artifact pins, so the one-command flow fails closed.",
+          },
+        }),
+      }),
+    );
+
+    expect(html).toContain("This catalog quant is missing artifact pins");
+    expect(html).toContain("localbench run");
+    expect(html).not.toContain("localbench bench qwen3-8b --quant Q4_K_M");
+    expect(html).not.toContain("Advanced: bring your own server");
+  });
+
+  it("labels pasted HF repo one-command recipes as local-only", () => {
+    const html = renderToStaticMarkup(
+      createElement(BenchmarkRecipe, {
+        recipe: recipe({
+          lead: {
+            kind: "local-only",
+            command: "localbench bench bartowski/QwQ-32B-GGUF --quant Q5_K_M",
+          },
+        }),
+      }),
+    );
+
+    expect(html).toContain("LOCAL-ONLY");
+    expect(html).toContain("localbench bench bartowski/QwQ-32B-GGUF --quant Q5_K_M");
+    expect(html).toContain("Classic path below is the publishable route");
   });
 
   it("states original-release lineage in the recipe header", () => {

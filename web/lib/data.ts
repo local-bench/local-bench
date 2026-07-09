@@ -216,6 +216,14 @@ function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel
       vramGb8k: quant.vram_gb_8k ?? null,
       fileGb: quant.file_gb ?? null,
       bpw: quant.bpw ?? null,
+      filename: quant.filename ?? null,
+      revision: quant.revision ?? null,
+      fileSha256: quant.file_sha256 ?? null,
+      artifactFiles:
+        quant.artifact_files?.map((artifact) => ({
+          filename: artifact.filename,
+          fileSha256: artifact.file_sha256,
+        })) ?? [],
     })),
   };
 }

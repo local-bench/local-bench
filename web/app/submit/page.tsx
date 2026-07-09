@@ -41,9 +41,21 @@ export default function SubmitPage() {
         <h2 className="text-xl font-semibold text-bench-text">The loop</h2>
 
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
-        <p>Python 3.11+ required:</p>
+        <p>
+          Python 3.11+ required. For the one-command path, put{" "}
+          <code className="font-mono text-bench-text">llama-server</code> on PATH from{" "}
+          <a
+            href="https://github.com/ggerganov/llama.cpp/releases"
+            className="text-bench-accent hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            llama.cpp releases
+          </a>{" "}
+          or pass <code className="font-mono text-bench-text">--llama-server-path</code>.
+        </p>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`pip install "local-bench-ai[hf]==0.2.6"`}
+          {`pip install "local-bench-ai[hf]==0.3.0"`}
         </pre>
         <p className="text-sm">
           Installs the <code className="font-mono text-bench-text">localbench</code> command. Working
@@ -52,72 +64,85 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">pip install -e cli</code>.
         </p>
 
-        <h3 className="text-base font-semibold text-bench-text">2. Fetch the frozen suite</h3>
+        <h3 className="text-base font-semibold text-bench-text">2. Bench the catalog model</h3>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench fetch-suite \\
+          {`localbench bench qwen3-8b --quant Q4_K_M`}
+        </pre>
+        <p>
+          <code className="font-mono text-bench-text">bench</code> resolves the catalog slug and quant,
+          checks publishability before downloading, verifies pinned GGUF hashes, starts llama-server
+          with the deterministic config, shows progress and ETA, prints the scorecard, and offers
+          submission at the end. The submission prompt defaults to No, and accepted rows still require
+          maintainer review.
+        </p>
+        <p className="text-sm">
+          Non-interactive shells must be explicit: add{" "}
+          <code className="font-mono text-bench-text">--yes</code>,{" "}
+          <code className="font-mono text-bench-text">--accept-suite-terms</code>, and either{" "}
+          <code className="font-mono text-bench-text">--no-submit</code> or{" "}
+          <code className="font-mono text-bench-text">--submit</code>.
+        </p>
+
+        <details className="rounded-lg border border-bench-line bg-bench-panel p-5">
+          <summary className="cursor-pointer text-base font-semibold text-bench-text">
+            Advanced route: bring your own server
+          </summary>
+          <div className="mt-4 space-y-4">
+            <p>
+              Use this manual route for vLLM, LM Studio, custom llama.cpp rigs, or any server you
+              already launched yourself. It is the publishable fallback when the catalog quant lacks
+              artifact pins or a pasted repo run is local-only.
+            </p>
+            <h3 className="text-base font-semibold text-bench-text">A. Fetch the frozen suite</h3>
+            <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+              {`localbench fetch-suite \\
   --site https://local-bench.ai \\
   --suite suite-v1-full-exec-6axis-v1 \\
   --accept-suite-terms`}
-        </pre>
-        <p>
-          This downloads the sha256-pinned item sets, verifies them against the release manifest, and
-          caches them locally.{" "}
-          <code className="font-mono text-bench-text">--accept-suite-terms</code> acknowledges the
-          upstream benchmark licenses listed under{" "}
-          <Link href="/methodology#licenses" className="text-bench-accent hover:underline">
-            benchmark sources &amp; licenses
-          </Link>{" "}
-          on the methodology page.
-        </p>
+            </pre>
+            <p>
+              This downloads the sha256-pinned item sets, verifies them against the release manifest,
+              and caches them locally.{" "}
+              <code className="font-mono text-bench-text">--accept-suite-terms</code> acknowledges the
+              upstream benchmark licenses listed under{" "}
+              <Link href="/methodology#licenses" className="text-bench-accent hover:underline">
+                benchmark sources &amp; licenses
+              </Link>
+              .
+            </p>
 
-        <h3 className="text-base font-semibold text-bench-text">3. Cache your model&apos;s tokenizer</h3>
-        <p>
-          Ranked runs pass <code className="font-mono text-bench-text">--hf-model-id</code> so the
-          harness can introspect your model&apos;s chat template. That introspection is deliberately
-          offline (the run never phones home mid-benchmark), so the tokenizer files must already be
-          in your Hugging Face cache before you start:
-        </p>
-        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench cache-tokenizer <the-model's-HF-repo>`}
-        </pre>
-        <p className="text-sm">
-          Downloads exactly what introspection needs, verifies the tokenizer loads offline, and
-          prints the resolved revision and chat-template hash. Use the tokenizer and
-          tokenizer_config files from that Hugging Face snapshot in step 4. Use the original
-          model&apos;s repo (the transformers-format one), not the GGUF repo. Gated repos (for example{" "}
-          <code className="font-mono text-bench-text">google/gemma-*</code>) additionally need a
-          one-time <code className="font-mono text-bench-text">hf auth login</code> after accepting
-          the license on huggingface.co — or use an ungated mirror such as the{" "}
-          <code className="font-mono text-bench-text">unsloth/</code> upload of the same model. No
-          exact non-GGUF repo exists for your model? Skip this step and pass{" "}
-          <code className="font-mono text-bench-text">--gguf-repo-only</code> instead of{" "}
-          <code className="font-mono text-bench-text">--hf-model-id</code> in step 4 — the run is
-          then labeled basic identity (tokenizer/template digests null).
-        </p>
+            <h3 className="text-base font-semibold text-bench-text">B. Cache your model&apos;s tokenizer</h3>
+            <p>
+              Ranked runs pass <code className="font-mono text-bench-text">--hf-model-id</code> so the
+              harness can introspect your model&apos;s chat template. That introspection is deliberately
+              offline (the run never phones home mid-benchmark), so the tokenizer files must already be
+              in your Hugging Face cache before you start:
+            </p>
+            <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+              {`localbench cache-tokenizer <the-model's-HF-repo>`}
+            </pre>
+            <p className="text-sm">
+              Downloads exactly what introspection needs, verifies the tokenizer loads offline, and
+              prints the resolved revision and chat-template hash. Use the tokenizer and
+              tokenizer_config files from that Hugging Face snapshot in step 4. Use the original
+              model&apos;s repo (the transformers-format one), not the GGUF repo. Gated repos (for example{" "}
+              <code className="font-mono text-bench-text">google/gemma-*</code>) additionally need a
+              one-time <code className="font-mono text-bench-text">hf auth login</code> after accepting
+              the license on huggingface.co — or use an ungated mirror such as the{" "}
+              <code className="font-mono text-bench-text">unsloth/</code> upload of the same model. No
+              exact non-GGUF repo exists for your model? Skip this step and pass{" "}
+              <code className="font-mono text-bench-text">--gguf-repo-only</code> instead of{" "}
+              <code className="font-mono text-bench-text">--hf-model-id</code> in step 4 — the run is
+              then labeled basic identity (tokenizer/template digests null).
+            </p>
 
-        <h3 className="text-base font-semibold text-bench-text">4. Run the benchmark</h3>
-        <p>
-          The strongest-provenance path is <code className="font-mono text-bench-text">bench</code>:
-          the CLI launches the llama.cpp server itself with pinned serving flags.
-        </p>
-        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench bench \\
-  --runtime llama.cpp \\
-  --model-file <model.gguf> \\
-  --model-id <model-slug> \\
-  --hf-model-id <the-model's-HF-repo> \\
-  --lane bounded-final-v2 \\
-  --profile auto \\
-  --ctx 32768 \\
-  --seed 1234 \\
-  --out runs/my-bench`}
-        </pre>
-        <p>
-          Already serving the model yourself (LM Studio, ollama, vLLM, anything OpenAI-compatible)?
-          Use <code className="font-mono text-bench-text">run</code> instead:
-        </p>
-        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench run \\
+            <h3 className="text-base font-semibold text-bench-text">C. Run against your server</h3>
+            <p>
+              Already serving the model yourself (LM Studio, ollama, vLLM, anything OpenAI-compatible)?
+              Use <code className="font-mono text-bench-text">run</code> instead:
+            </p>
+            <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+              {`localbench run \\
   --endpoint http://localhost:8080/v1 \\
   --model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M \\
   --hf-model-id Qwen/Qwen3-8B \\
@@ -141,59 +166,61 @@ export default function SubmitPage() {
   --ctx-len-configured 32768 \\
   --parallel-slots 1 \\
   --out runs/qwen3-8b-q4-k-m.json`}
-        </pre>
-        <p>
-          The ranked board is the bounded-final lane at standard tier: every model gets the same
-          generated-token budget per item, and <code className="font-mono text-bench-text">--profile auto</code>{" "}
-          reads your model&apos;s own chat template to decide whether it thinks (bounded) or answers directly.
-          A run must pin its sampler settings to be publishable (
-          <code className="font-mono text-bench-text">--publishable</code>{" "}
-          requires temperature 0, top-k 1, and a seed); the CLI warns up
-          front — before any GPU time is spent — if your flags make the run unpublishable. Keep the{" "}
-          <code className="font-mono text-bench-text">.json</code> extension on{" "}
-          <code className="font-mono text-bench-text">--out</code> — the campaign directory is derived
-          from it. Want these pre-filled for your VRAM and model? The{" "}
-          <Link href="/" className="text-bench-accent hover:underline">
-            recipe builder on the home page
-          </Link>{" "}
-          generates this exact sequence.
-        </p>
-        <p>
-          The full ranked release is <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>.
-          Static-only submitters can use{" "}
-          <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code> and need no Docker:
-          coding artifacts are packed by the CLI and the ranked coding score is produced later by project
-          re-execution. <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> is
-          unranked diagnostic only.
-        </p>
+            </pre>
+            <p>
+              The ranked board is the bounded-final lane at standard tier: every model gets the same
+              generated-token budget per item, and <code className="font-mono text-bench-text">--profile auto</code>{" "}
+              reads your model&apos;s own chat template to decide whether it thinks (bounded) or answers directly.
+              A run must pin its sampler settings to be publishable (
+              <code className="font-mono text-bench-text">--publishable</code>{" "}
+              requires temperature 0, top-k 1, and a seed); the CLI warns up
+              front — before any GPU time is spent — if your flags make the run unpublishable. Keep the{" "}
+              <code className="font-mono text-bench-text">.json</code> extension on{" "}
+              <code className="font-mono text-bench-text">--out</code> — the campaign directory is derived
+              from it. Want these pre-filled for your VRAM and model? The{" "}
+              <Link href="/" className="text-bench-accent hover:underline">
+                recipe builder on the home page
+              </Link>{" "}
+              generates this exact sequence.
+            </p>
+            <p>
+              The full ranked release is <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>.
+              Static-only submitters can use{" "}
+              <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code> and need no Docker:
+              coding artifacts are packed by the CLI and the ranked coding score is produced later by project
+              re-execution. <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> is
+              unranked diagnostic only.
+            </p>
 
-        <h3 className="text-base font-semibold text-bench-text">5. Submit</h3>
-        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench submit run --run runs/qwen3-8b-q4-k-m.json`}
-        </pre>
-        <p>
-          One command takes a finished run all the way in: it packs the signed bundle, requests a
-          submission ticket (signing a proof-of-possession challenge with your key), uploads the
-          bundle, completes the submission, and prints your submission id and status. The suite is
-          auto-resolved from your <code className="font-mono text-bench-text">fetch-suite</code> cache;
-          <code className="font-mono text-bench-text"> --suite-dir</code> overrides it.{" "}
-          <code className="font-mono text-bench-text">--run</code> accepts the run JSON or its campaign
-          directory; add <code className="font-mono text-bench-text">--display-name</code> once to set
-          your credit line (remembered in{" "}
-          <code className="font-mono text-bench-text">~/.localbench/submit.json</code>).
-        </p>
-        <p>
-          Bundles are content-addressed by sha256, so duplicates are detected: re-running{" "}
-          <code className="font-mono text-bench-text">submit run</code> with a bundle that is already
-          in tells you its existing submission id instead of creating a new row, and a bundle whose
-          payload matches an earlier submission is flagged for the reviewer. If a ticket expires
-          mid-flight, a fresh one is minted automatically. The public status page is{" "}
-          <code className="font-mono text-bench-text">local-bench.ai/submission?id=&lt;submission_id&gt;</code>.
-          You can also check from the CLI:
-        </p>
-        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench submit status <submission_id> --site https://local-bench.ai`}
-        </pre>
+            <h3 className="text-base font-semibold text-bench-text">D. Submit manually</h3>
+            <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+              {`localbench submit run --run runs/qwen3-8b-q4-k-m.json`}
+            </pre>
+            <p>
+              One command takes a finished run all the way in: it packs the signed bundle, requests a
+              submission ticket (signing a proof-of-possession challenge with your key), uploads the
+              bundle, completes the submission, and prints your submission id and status. The suite is
+              auto-resolved from your <code className="font-mono text-bench-text">fetch-suite</code> cache;
+              <code className="font-mono text-bench-text"> --suite-dir</code> overrides it.{" "}
+              <code className="font-mono text-bench-text">--run</code> accepts the run JSON or its campaign
+              directory; add <code className="font-mono text-bench-text">--display-name</code> once to set
+              your credit line (remembered in{" "}
+              <code className="font-mono text-bench-text">~/.localbench/submit.json</code>).
+            </p>
+            <p>
+              Bundles are content-addressed by sha256, so duplicates are detected: re-running{" "}
+              <code className="font-mono text-bench-text">submit run</code> with a bundle that is already
+              in tells you its existing submission id instead of creating a new row, and a bundle whose
+              payload matches an earlier submission is flagged for the reviewer. If a ticket expires
+              mid-flight, a fresh one is minted automatically. The public status page is{" "}
+              <code className="font-mono text-bench-text">local-bench.ai/submission?id=&lt;submission_id&gt;</code>.
+              You can also check from the CLI:
+            </p>
+            <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+              {`localbench submit status <submission_id> --site https://local-bench.ai`}
+            </pre>
+          </div>
+        </details>
       </section>
 
       <section className="space-y-4 text-bench-muted">

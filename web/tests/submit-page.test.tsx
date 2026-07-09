@@ -30,7 +30,7 @@ describe("SubmitPage", () => {
     const full = suiteResolverConstant("DEFAULT_SUITE_ID");
     const staticExec = suiteResolverConstant("STATIC_EXEC_SUITE_ID");
     const staticCore = suiteResolverConstant("STATIC_CORE_DIAG_SUITE_ID");
-    const optionBRunCommand = [
+    const advancedRunCommand = [
       "localbench run",
       "--endpoint http://localhost:8080/v1",
       "--model MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M",
@@ -66,7 +66,11 @@ describe("SubmitPage", () => {
     expect(html).toContain("local-bench.ai/submission?id=");
     expect(html).toContain("signed bundle");
     expect(html).toContain("Nothing auto-publishes");
-    expect(html).toContain(htmlEscapedText(optionBRunCommand));
+    expect(html).toContain('pip install &quot;local-bench-ai[hf]==0.3.0&quot;');
+    expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M");
+    expect(html).toContain("offers submission at the end");
+    expect(html).toContain("Advanced route: bring your own server");
+    expect(html).toContain(htmlEscapedText(advancedRunCommand));
     expect(html).toContain("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
   });
 });

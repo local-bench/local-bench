@@ -21,9 +21,33 @@ function model(overrides: Partial<OnrampCatalogModel> = {}): OnrampCatalogModel 
     baseModelSlug: null,
     baseModelDisplayName: null,
     quants: [
-      { label: "Q8_0", vramGb8k: 10.1, fileGb: 8.7, bpw: 8.5 },
-      { label: "Q6_K", vramGb8k: 8.2, fileGb: 6.8, bpw: 6.6 },
-      { label: "Q4_K_M", vramGb8k: 6.0, fileGb: 5.0, bpw: 4.8 },
+      {
+        label: "Q8_0",
+        vramGb8k: 10.1,
+        fileGb: 8.7,
+        bpw: 8.5,
+        filename: "Qwen3-8B.Q8_0.gguf",
+        revision: "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+        fileSha256: "a".repeat(64),
+      },
+      {
+        label: "Q6_K",
+        vramGb8k: 8.2,
+        fileGb: 6.8,
+        bpw: 6.6,
+        filename: "Qwen3-8B.Q6_K.gguf",
+        revision: "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+        fileSha256: "b".repeat(64),
+      },
+      {
+        label: "Q4_K_M",
+        vramGb8k: 6.0,
+        fileGb: 5.0,
+        bpw: 4.8,
+        filename: "Qwen3-8B.Q4_K_M.gguf",
+        revision: "ac6dd95cf227fe9138362c0536fe3c3802008ccf",
+        fileSha256: "c".repeat(64),
+      },
     ],
     ...overrides,
   };
@@ -54,10 +78,14 @@ describe("buildRecipe", () => {
     const selected = model();
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
     expect(recipe.lane).toBe("bounded-final-v2");
+    expect(recipe.lead).toEqual({
+      kind: "publishable",
+      command: "localbench bench qwen3-8b --quant Q4_K_M",
+    });
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
     expect(recipe.model).toBe(selected);
     expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]==0.2.6"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
+      'pip install "local-bench-ai[hf]==0.3.0"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -107,8 +135,12 @@ describe("buildRecipe", () => {
       ggufRepo: "bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF",
       quants: [{ label: "Q4_K_M", vramGb8k: null, fileGb: null, bpw: null }],
     });
-    const recipe = buildRecipe({ model: pasted, quant: quantAt(pasted, 0), runtime: llamacpp, hfModelId: null });
+    const recipe = buildRecipe({ model: pasted, quant: quantAt(pasted, 0), runtime: llamacpp, hfModelId: null, source: "paste" });
 
+    expect(recipe.lead).toEqual({
+      kind: "local-only",
+      command: "localbench bench bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF --quant Q4_K_M",
+    });
     expect(recipe.identityMode).toBe("basic");
     expect(recipe.setupCommand).not.toContain("cache-tokenizer");
     expect(recipe.benchCommand).not.toContain("--hf-model-id");
@@ -152,8 +184,12 @@ describe("buildRecipe", () => {
       ggufRepo: "bartowski/QwQ-32B-GGUF",
       quants: [{ label: "Q5_K_M", vramGb8k: null, fileGb: null, bpw: null }],
     });
-    const recipe = buildRecipe({ model: pasted, quant: quantAt(pasted, 0), runtime: llamacpp, hfModelId: "Qwen/QwQ-32B" });
+    const recipe = buildRecipe({ model: pasted, quant: quantAt(pasted, 0), runtime: llamacpp, hfModelId: "Qwen/QwQ-32B", source: "paste" });
 
+    expect(recipe.lead).toEqual({
+      kind: "local-only",
+      command: "localbench bench bartowski/QwQ-32B-GGUF --quant Q5_K_M",
+    });
     expect(recipe.identityMode).toBe("full");
     expect(recipe.setupCommand).toContain("localbench cache-tokenizer Qwen/QwQ-32B");
     expect(recipe.benchCommand).not.toContain("--gguf-repo-only");
@@ -212,5 +248,20 @@ describe("buildRecipe", () => {
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: llamacpp });
     expect(recipe.model.baseModelDisplayName).toBe("Qwen3.6 27B");
     expect(recipe.model.baseModelSlug).toBe("qwen3-6-27b");
+  });
+
+  it("falls back to the classic recipe when the selected catalog quant has no artifact pin", () => {
+    const selected = model({
+      quants: [{ label: "Q4_K_M", vramGb8k: 6.0, fileGb: 5.0, bpw: 4.8 }],
+    });
+
+    const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 0), runtime: llamacpp });
+
+    expect(recipe.lead).toEqual({
+      kind: "unavailable",
+      reason: "This catalog quant is missing artifact pins, so the one-command flow fails closed.",
+    });
+    expect(recipe.benchCommand).toContain("localbench run");
+    expect(recipe.setupCommand).toContain('local-bench-ai[hf]==0.3.0');
   });
 });
