@@ -1,4 +1,4 @@
-# Leaderboard Index bar chart — spec v1 (2026-07-09)
+# Leaderboard Index bar chart — spec v2 (2026-07-09, post-red-team; amendments at bottom are BINDING)
 
 Owner ask (Michael): the /leaderboard page should open with a bar chart ranking ranked rows by
 Local Intelligence Index, highest → lowest, inspired by artificialanalysis.ai/#intelligence but
@@ -94,3 +94,41 @@ Owner decisions (AskUserQuestion, 2026-07-09):
 - Animations.
 - Family grouping/coloring (axis stacking already encodes composition; family color would fight
   the palette).
+
+## v2 AMENDMENTS — GPT-5.5 xhigh red-team 2026-07-09, ALL BINDING
+
+1. **(HIGH) Score source = `scoreForMode(model, "full")`, not `composite`.** `splitLeaderboard`'s
+   ranked rows are admitted via `isFullIndexRow`, which accepts `composite_full ?? composite`;
+   the table renders through `scoreForMode`. The chart must compute
+   `const score = scoreForMode(model, "full")` once per row and use it for sorting, bar height,
+   value label, CI whisker, and tooltip. Test fixture required: `composite` null +
+   `composite_full` non-null renders correctly and matches table order.
+2. **(MED) Incomplete canonical axes must not be silently rescaled to look complete.** Only
+   rescale contribution segments to the score when ALL six canonical axes are present. If any
+   canonical axis is missing, render the measured contributions at their raw weighted heights
+   plus a neutral "unallocated" remainder segment (bench-muted at low opacity) up to the score,
+   with the tooltip naming the missing axes. Never inflate measured segments.
+3. **(MED) Geometry sanitization.** All contribution inputs: non-finite → 0, negative → 0.
+   Clamp all y-scale inputs (score point, lo, hi, segment tops) to [0,100] (use/extend
+   `clampScore`). If contribution total <= 0: no division — render an empty stack (no segments)
+   with the score still shown as text and whisker still drawn from clamped lo/hi.
+4. **(MED) Exactly ONE focusable link per row.** The HTML label under the bar is the anchor to
+   `/model/<slug>`; SVG bars are non-focusable (`aria-hidden` on the bar rect group is fine
+   given the sr-only table pointer). Render test asserts exactly one `/model/<slug>` anchor per
+   ranked row.
+5. **(MED) Tooltip must match the site's CSS-only pattern, not bare `<title>`.** Reuse the
+   `group`/`group-hover` (+ focus-within) visible tooltip approach from
+   quality-vram-scatter/best-variant-scatter for the per-bar contribution breakdown, with an
+   enlarged hover hit target. `<title>` may exist in addition, never alone.
+6. **(LOW) One inner scroller surface.** A single explicit-width inner element inside the
+   `overflow-x-auto` scroller contains BOTH the SVG and the HTML label row, laid out on the same
+   slot grid (`slotWidth` for spacing, `barWidth` <= slotWidth for the rect) so alignment cannot
+   drift. Fixtures at 1, 3, and 40 rows must keep bar centers and label centers within the same
+   slot.
+7. **(LOW) Test conventions.** `web/tests/leaderboard-index-chart.test.tsx` using
+   `renderToStaticMarkup` + schema-parsed fixtures (`IndexModelSchema.parse`), covering: the
+   `scoreForMode` fallback fixture, zero/negative contribution totals, partial canonical axes
+   (amendment 2 behavior), one-anchor-per-row, 1/3/40-row slot-width invariants, tooltip +
+   focus markup presence, desc ordering, and null-on-empty. Contribution-helper unit tests:
+   weights sum to 1 and match `IndexContributionRail`'s historical output (title string
+   byte-identical on a fixed fixture).
