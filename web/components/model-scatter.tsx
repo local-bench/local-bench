@@ -63,7 +63,7 @@ export function ModelScatter({
             ? `The scatter appears after this model's first current-index run lands. ${legacyCount} retired-lane diagnostic receipt${
                 legacyCount === 1 ? " is" : "s are"
               } linked above but kept off this chart because the score uses a retired scale.`
-            : "Intelligence Index scatter appears after the first measured run attaches to this catalog model. Use the quant ladder above for current file size and VRAM requirements."}
+            : "Intelligence Index scatter appears after the first measured run attaches to this catalog model. Use the quant ladder below for current file size and VRAM requirements."}
         </p>
       </section>
     );
