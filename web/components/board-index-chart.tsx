@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { AXIS_CONFIG } from "@/lib/axis-config";
 import {
   BAR_WIDTH,
   PLOT,
   SLOT_WIDTH,
   SVG_HEIGHT,
   TICKS,
-  roundForAttribute,
   scaleY,
   toChartRows,
 } from "@/lib/board-index-chart-layout";
+import { familyStyle } from "@/lib/family-color";
 import { formatScore } from "@/lib/format";
 import type { IndexModel } from "@/lib/schemas";
 
@@ -38,20 +37,10 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Full board</p>
         <h2 className="mt-1 text-2xl font-semibold text-bench-text">Local Intelligence Index — ranked</h2>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
-          Each bar is one ranked variant. Colored sections show how the six scores add up, and the thin line shows
-          uncertainty.
+          Each bar is one ranked variant, colored by model family. Hover or focus a bar for its six-axis breakdown;
+          the thin line is the score&apos;s uncertainty.
         </p>
         <p className="sr-only">The ranked table below lists the same data in sortable text.</p>
-      </div>
-      <div className="border-b border-bench-line bg-white/[0.015] px-3 py-2">
-        <div className="flex flex-wrap gap-3 text-xs text-bench-muted">
-          {AXIS_CONFIG.map((axis) => (
-            <span key={axis.key} className="inline-flex items-center gap-1.5">
-              <AxisDot axis={axis} />
-              {axis.label}
-            </span>
-          ))}
-        </div>
       </div>
       <div className="overflow-x-auto px-3 pb-4 pt-4">
         <div className="relative" style={{ width }}>
@@ -97,20 +86,12 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
                 data-chart-bar={row.model.slug}
               >
                 <title>{row.tooltipLines.join(" | ")}</title>
-                {row.renderedSegments.map((segment) => (
-                  <rect
-                    key={`${row.model.slug}-${segment.key}`}
-                    data-segment-key={segment.key}
-                    data-segment-value={roundForAttribute(segment.value)}
-                    x={row.barLeft}
-                    y={segment.y}
-                    width={BAR_WIDTH}
-                    height={segment.height}
-                    rx="3"
-                    className={segment.muted ? "fill-bench-muted opacity-25" : undefined}
-                    fill={segment.muted ? undefined : segment.color}
-                  />
-                ))}
+                <path
+                  d={barPath(row.barLeft, row.barTop, BAR_WIDTH, scaleY(0))}
+                  data-bar-fill={familyStyle(row.model.family).color}
+                  fill={familyStyle(row.model.family).color}
+                  fillOpacity="0.88"
+                />
                 <line
                   x1={row.barCenter}
                   x2={row.barCenter}
@@ -163,7 +144,7 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
                 key={row.model.slug}
                 data-chart-label={row.model.slug}
                 data-label-center={row.labelCenter}
-                className="group relative min-w-0 px-2 pt-2 text-center"
+                className="group relative h-[96px] min-w-0"
               >
                 <span
                   data-tooltip-hit-target={row.model.slug}
@@ -180,15 +161,15 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
                     </span>
                   ))}
                 </span>
-                <Link
-                  href={`/model/${row.model.slug}`}
-                  className="block max-h-10 overflow-hidden text-sm font-semibold leading-5 text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bench-accent"
-                >
-                  {row.model.model_label}
-                </Link>
-                {row.model.tier === null ? null : (
-                  <div className="mt-1 font-mono text-[11px] leading-4 text-bench-muted">{row.model.tier}</div>
-                )}
+                {/* Angled label, top-right corner anchored under the bar center (the AA layout). */}
+                <div className="absolute right-1/2 top-1.5 origin-top-right -rotate-[36deg]">
+                  <Link
+                    href={`/model/${row.model.slug}`}
+                    className="block whitespace-nowrap text-xs font-semibold leading-4 text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bench-accent"
+                  >
+                    {row.model.model_label}
+                  </Link>
+                </div>
               </div>
             ))}
           </div>
@@ -198,14 +179,19 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
   );
 }
 
-function AxisDot({ axis }: { readonly axis: (typeof AXIS_CONFIG)[number] }) {
-  return (
-    <span
-      aria-hidden
-      className="inline-block h-2 w-2 rounded-full align-middle"
-      style={{ backgroundColor: axis.color }}
-    />
-  );
+// Rounded-top bar outline (top corners only — the base sits flush on the axis line).
+function barPath(left: number, top: number, width: number, baseline: number): string {
+  const radius = Math.min(5, Math.max(0, baseline - top), width / 2);
+  const right = left + width;
+  return [
+    `M ${left} ${baseline}`,
+    `L ${left} ${top + radius}`,
+    `Q ${left} ${top} ${left + radius} ${top}`,
+    `L ${right - radius} ${top}`,
+    `Q ${right} ${top} ${right} ${top + radius}`,
+    `L ${right} ${baseline}`,
+    "Z",
+  ].join(" ");
 }
 
 function tooltipPositionClass(index: number, total: number): string {

@@ -141,16 +141,15 @@ describe("BoardIndexChart", () => {
       }),
     ]);
 
-    expect(html).toContain('data-segment-key="agentic"');
-    expect(html).toContain('data-segment-value="20"');
-    expect(html).toContain('data-segment-key="coding"');
-    expect(html).toContain('data-segment-value="6"');
-    expect(html).toContain('data-segment-key="unallocated"');
-    expect(html).toContain('data-segment-value="34"');
+    // Solid bars carry the breakdown in the tooltip: measured contributions stay uninflated
+    // and the gap is named, never painted into the measured numbers.
+    expect(html).toContain("Agentic 20.0");
+    expect(html).toContain("Coding 6.0");
+    expect(html).toContain("Unallocated 34.0");
     expect(html).toContain("Missing: Knowledge, Instruction, Tool calling, Math");
   });
 
-  it("renders an empty stack without division when contributions sum to zero", () => {
+  it("renders the score bar and whisker without NaN geometry when contributions sum to zero", () => {
     const html = render([
       rankedModel({
         slug: "zero-stack",
@@ -159,9 +158,15 @@ describe("BoardIndexChart", () => {
       }),
     ]);
 
-    expect(html).not.toContain("data-segment-key=");
+    expect(html).not.toContain("NaN");
     expect(html).toContain("45.0");
     expect(html).toContain("data-whisker-y1=");
+  });
+
+  it("fills each bar with its family color", () => {
+    const html = render([rankedModel({ slug: "family-row", label: "Family Row" })]);
+
+    expect(html).toMatch(/data-bar-fill="#[0-9a-fA-F]{6}"/);
   });
 
   it.each([1, 3, 20, 40])("keeps bar and label centers aligned for %i row(s)", (count) => {
