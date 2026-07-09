@@ -54,13 +54,7 @@ export function AppShell({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-2xl space-y-1.5">
               <p className="font-mono text-[11px] uppercase tracking-wide text-bench-accent">
-                Board frozen {LAUNCH_FREEZE.asOfDate} · {suiteVersion ?? "suite"}/{indexVersion}
-              </p>
-              <p className="text-sm leading-6 text-bench-muted">
-                Ranked rows use index-v3.0: Agentic, Knowledge, Instruction, Tool calling, Coding, and Math.
-              </p>
-              <p className="text-xs leading-5 text-bench-muted/80">
-                Static ranked rows remove Agentic; Static-Core is an unranked diagnostic profile.
+                Board data as of {LAUNCH_FREEZE.asOfDate}
               </p>
             </div>
             <div className="space-y-1 font-mono text-[11px] text-bench-muted">
