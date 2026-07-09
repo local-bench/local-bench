@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import sys
 from dataclasses import dataclass
@@ -244,27 +245,32 @@ def _valid_inline_appworld(agentic_run: JsonValue | None) -> bool:
 
 
 def _agentic_infra_timeout_warnings(agentic_run: JsonValue | None) -> list[JsonValue]:
+    """Fail closed: an inline AppWorld record must PROVE a healthy timeout rate to rank.
+
+    A missing, malformed, non-finite, or out-of-range ``infra_timeout_rate`` — in the
+    aggregate diagnostics or in any scored run — earns the same warning as an elevated
+    rate, so a submitter cannot rank by omitting or mangling the field.
+    """
     if not isinstance(agentic_run, dict):
         return []
-    diagnostics = agentic_run.get("diagnostics")
-    if isinstance(diagnostics, dict) and _infra_timeout_rate_exceeds(diagnostics):
-        return [_AGENTIC_INFRA_TIMEOUT_REASON]
+    summaries: list[JsonValue] = [agentic_run.get("diagnostics")]
     runs = agentic_run.get("runs")
-    if isinstance(runs, list) and any(
-        isinstance(run, dict) and _infra_timeout_rate_exceeds(run)
-        for run in runs
-    ):
+    if isinstance(runs, list):
+        summaries.extend(runs)
+    elif runs is not None:
+        return [_AGENTIC_INFRA_TIMEOUT_REASON]
+    if any(not isinstance(summary, dict) or not _infra_timeout_rate_healthy(summary) for summary in summaries):
         return [_AGENTIC_INFRA_TIMEOUT_REASON]
     return []
 
 
-def _infra_timeout_rate_exceeds(summary: JsonObject) -> bool:
+def _infra_timeout_rate_healthy(summary: JsonObject) -> bool:
     value = summary.get("infra_timeout_rate")
-    return (
-        isinstance(value, int | float)
-        and not isinstance(value, bool)
-        and value > _AGENTIC_INFRA_TIMEOUT_RATE_LIMIT
-    )
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    if not math.isfinite(value) or value < 0.0 or value > 1.0:
+        return False
+    return value <= _AGENTIC_INFRA_TIMEOUT_RATE_LIMIT
 
 
 def _agentic_summary_is_harness_dominated(summary: JsonObject) -> bool:
@@ -374,15 +380,19 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     static_index_version = (board_static_index_version or STATIC_SUITE_INDEX_VERSION) if composite_static is not None else None
     annotations = _source_annotations(source, axes, headline_complete)
     tier = _text(suite.get("tier"))
-    ranked = (
+    rank_eligible_before_infra = (
         tier == "standard"
         and conformance_status == "headline-comparable"
         and headline_complete
         and not quarantined_agentic
-        and not agentic_infra_warnings
     )
+    # The fail-closed infra-timeout warning decides RANKING only; it surfaces in
+    # data_warnings solely for rows that were otherwise rank-eligible, so demo and
+    # diagnostic rows (which often predate the field) keep clean detail pages.
+    ranked = rank_eligible_before_infra and not agentic_infra_warnings
+    surfaced_infra_warnings = agentic_infra_warnings if rank_eligible_before_infra else []
     score_fields = _score_fields_for_lane(lane, composite_interval, board.headline_lane)
-    data_warnings = quarantined_agentic + agentic_infra_warnings + axis_warnings + _list(composite["warnings"], "composite.warnings")
+    data_warnings = quarantined_agentic + surfaced_infra_warnings + axis_warnings + _list(composite["warnings"], "composite.warnings")
     if static_composite is not None:
         data_warnings += _list(static_composite["warnings"], "static_composite.warnings")
     detail = {"axes": axes, "composite": composite_interval, "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations

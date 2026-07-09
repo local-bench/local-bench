@@ -131,8 +131,9 @@ export default async function RunPage({ params }: PageProps) {
         ) : null}
         {!run.ranked && !isLegacyReceipt ? (
           <div className="mt-5 rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3 text-sm leading-6 text-bench-warn-soft">
-            Unranked diagnostic: this receipt is missing one or more headline axes for the current index.
-            It is useful for comparing measured axes, but it does not receive a ranked Local Intelligence Index position.
+            {dataWarnings.includes("agentic-infra-timeout-rate")
+              ? "Unranked diagnostic: the agentic phase of this run shows an elevated or unverifiable infrastructure timeout rate, so its measured axes stay visible but it does not receive a ranked Local Intelligence Index position until re-run on hardware that clears it."
+              : "Unranked diagnostic: this receipt is missing one or more headline axes for the current index. It is useful for comparing measured axes, but it does not receive a ranked Local Intelligence Index position."}
           </div>
         ) : null}
         {dataWarnings.length > 0 ? (

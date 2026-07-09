@@ -78,8 +78,8 @@ export default async function ModelPage({ params }: PageProps) {
           </p>
           {partialRuns.length > 0 && rankedRuns.length === 0 ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
-              {partialRuns.length} measured profile{partialRuns.length === 1 ? " is" : "s are"} unranked because at
-              least one headline axis is missing.
+              {partialRuns.length} measured profile{partialRuns.length === 1 ? " is" : "s are"} unranked — each run
+              receipt states the reason (a missing headline axis or a data-quality gate).
             </p>
           ) : null}
         </div>

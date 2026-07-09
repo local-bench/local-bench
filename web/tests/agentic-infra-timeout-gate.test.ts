@@ -8,8 +8,11 @@ type JsonObject = Record<string, unknown>;
 
 const REPO_ROOT = join(__dirname, "..", "..");
 const WEB_ROOT = join(REPO_ROOT, "web");
-const SOURCE_INDEX = 1;
+// Stable fixture selection by file path (not array index): the Gemma bounded-final run.
+const FIXTURE_FILE_FRAGMENT = "gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2";
 const WARNING_REASON = "agentic-infra-timeout-rate";
+// Sentinel: remove infra_timeout_rate from the summary instead of assigning a value.
+const OMIT: unknown = Symbol("omit-infra-timeout-rate");
 
 function readJson(path: string): JsonObject {
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
@@ -34,7 +37,15 @@ function requireJsonObjectArray(value: unknown, context: string): JsonObject[] {
   return value;
 }
 
-function buildWithInfraTimeoutRates(aggregateRate: number, runRates: readonly number[]) {
+function setRate(summary: JsonObject, rate: unknown): void {
+  if (rate === OMIT) {
+    delete summary["infra_timeout_rate"];
+    return;
+  }
+  summary["infra_timeout_rate"] = rate;
+}
+
+function buildWithInfraTimeoutRates(aggregateRate: unknown, runRates: readonly unknown[]) {
   const workspace = mkdtempSync(join(tmpdir(), "local-bench-agentic-infra-"));
   const outDir = join(workspace, "out");
   try {
@@ -42,20 +53,23 @@ function buildWithInfraTimeoutRates(aggregateRate: number, runRates: readonly nu
       JSON.parse(readFileSync(join(WEB_ROOT, "data_sources.json"), "utf8")),
       "data_sources.json",
     );
-    const source = { ...sources[SOURCE_INDEX] };
-    const sourceFile = source["file"];
-    if (typeof sourceFile !== "string") {
-      throw new Error("bounded-final fixture source is missing a file path");
+    const fixture = sources.find(
+      (entry) => typeof entry["file"] === "string" && entry["file"].includes(FIXTURE_FILE_FRAGMENT),
+    );
+    if (!fixture) {
+      throw new Error(`no data source file matches ${FIXTURE_FILE_FRAGMENT}`);
     }
+    const source = { ...fixture };
+    const sourceFile = source["file"] as string;
 
     const run = readJson(join(REPO_ROOT, sourceFile));
     const agenticRun = requireJsonObject(run["agentic_run"], "bounded-final fixture agentic_run");
     const diagnostics = requireJsonObject(agenticRun["diagnostics"], "bounded-final fixture agentic_run.diagnostics");
     const runs = requireJsonObjectArray(agenticRun["runs"], "bounded-final fixture agentic_run.runs");
 
-    diagnostics["infra_timeout_rate"] = aggregateRate;
+    setRate(diagnostics, aggregateRate);
     runs.forEach((runEntry, index) => {
-      runEntry["infra_timeout_rate"] = runRates[index] ?? 0.0;
+      setRate(runEntry, index < runRates.length ? runRates[index] : 0.0);
     });
 
     const runPath = join(workspace, "bounded-final-run.json");
@@ -86,48 +100,62 @@ function buildWithInfraTimeoutRates(aggregateRate: number, runRates: readonly nu
   }
 }
 
+function expectRanked({ detail, row }: { detail: JsonObject; row: JsonObject }): void {
+  expect(row["ranked"]).toBe(true);
+  expect(detail["ranked"]).toBe(true);
+  expect(detail["data_warnings"]).not.toContain(WARNING_REASON);
+}
+
+function expectDeranked({ detail, row }: { detail: JsonObject; row: JsonObject }): void {
+  expect(row).toMatchObject({ ranked: false, score_status: "measured" });
+  expect(detail).toMatchObject({ ranked: false });
+  expect(detail["data_warnings"]).toContain(WARNING_REASON);
+}
+
 describe("agentic infrastructure timeout ranking gate", () => {
   it("keeps zero-rate agentic rows ranked", () => {
     // Given a bounded-final row whose aggregate and scored runs have no infrastructure timeouts.
-    // When the real data builder projects the row.
-    const { detail, row } = buildWithInfraTimeoutRates(0.0, [0.0, 0.0]);
-
-    // Then it remains eligible for the ranked leaderboard.
-    expect(row["ranked"]).toBe(true);
-    expect(detail["ranked"]).toBe(true);
-    expect(detail["data_warnings"]).not.toContain(WARNING_REASON);
+    expectRanked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0]));
   });
 
   it("keeps the strict 5 percent boundary ranked", () => {
-    // Given a bounded-final row exactly at the infrastructure timeout threshold.
-    // When the real data builder projects the row.
-    const { detail, row } = buildWithInfraTimeoutRates(0.05, [0.05, 0.0]);
-
-    // Then it remains ranked because only rates strictly above the threshold are excluded.
-    expect(row["ranked"]).toBe(true);
-    expect(detail["ranked"]).toBe(true);
-    expect(detail["data_warnings"]).not.toContain(WARNING_REASON);
+    // Only rates strictly above the threshold are excluded.
+    expectRanked(buildWithInfraTimeoutRates(0.05, [0.05, 0.0]));
   });
 
   it("excludes elevated aggregate infrastructure timeouts from ranked rows", () => {
-    // Given a bounded-final row with an elevated aggregate agentic infrastructure timeout rate.
-    // When the real data builder projects the row.
-    const { detail, row } = buildWithInfraTimeoutRates(0.1, [0.0, 0.0]);
-
-    // Then the row keeps measured diagnostics but is quarantined from ranked output.
-    expect(row).toMatchObject({ ranked: false, score_status: "measured" });
-    expect(detail).toMatchObject({ ranked: false });
-    expect(detail["data_warnings"]).toContain(WARNING_REASON);
+    expectDeranked(buildWithInfraTimeoutRates(0.1, [0.0, 0.0]));
   });
 
   it("excludes elevated individual scored-run infrastructure timeouts from ranked rows", () => {
-    // Given a bounded-final row whose aggregate rate is acceptable but one scored run is elevated.
-    // When the real data builder projects the row.
-    const { detail, row } = buildWithInfraTimeoutRates(0.02, [0.08, 0.0]);
+    // Aggregate acceptable but one scored run elevated: still quarantined from ranking.
+    expectDeranked(buildWithInfraTimeoutRates(0.02, [0.08, 0.0]));
+  });
 
-    // Then the individual scored-run timeout is enough to quarantine the row from ranking.
-    expect(row).toMatchObject({ ranked: false, score_status: "measured" });
-    expect(detail).toMatchObject({ ranked: false });
-    expect(detail["data_warnings"]).toContain(WARNING_REASON);
+  it("fails closed when the aggregate rate is omitted", () => {
+    // A rank-eligible row must PROVE a healthy rate; omitting the field cannot rank.
+    expectDeranked(buildWithInfraTimeoutRates(OMIT, [0.0, 0.0]));
+  });
+
+  it("fails closed when any scored run omits its rate", () => {
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [OMIT, 0.0]));
+  });
+
+  it("fails closed on a string rate", () => {
+    expectDeranked(buildWithInfraTimeoutRates("0.99", [0.0, 0.0]));
+  });
+
+  it("fails closed on a null rate", () => {
+    expectDeranked(buildWithInfraTimeoutRates(null, [0.0, 0.0]));
+  });
+
+  it("fails closed on a boolean rate", () => {
+    // JSON true would satisfy a naive numeric check in Python (bool subclasses int).
+    expectDeranked(buildWithInfraTimeoutRates(true, [0.0, 0.0]));
+  });
+
+  it("fails closed on an out-of-range rate", () => {
+    // Rates are proportions; anything outside [0, 1] is malformed, not merely high.
+    expectDeranked(buildWithInfraTimeoutRates(1.5, [0.0, 0.0]));
   });
 });
