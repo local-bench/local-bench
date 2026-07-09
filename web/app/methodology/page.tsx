@@ -124,6 +124,14 @@ export default async function MethodologyPage() {
           local models that are genuinely capable agents have room to separate rather than saturating the benchmark.
         </p>
         <p>
+          <span className="text-bench-text">The agentic budget cap is a benchmark restriction, not a usage claim.</span>{" "}
+          Agentic tasks run under the same bounded token budget and per-task time limit as every other axis. That is a
+          constraint we impose for comparability and feasible run times, not a claim that local agents need to be
+          token-efficient — at home, letting a model think longer is essentially free. A model cut off by the budget
+          scores the same as one that had no idea, so thinking-heavy models may perform better in unbounded local use
+          than their agentic score here suggests.
+        </p>
+        <p>
           <span className="text-bench-text">Tool calling scope note.</span> The tool-calling axis measures structural
           JSON tool selection and argument construction (tc_json_v1), not full real-world tool-use competence. The
           first ranked rows show low spread on this axis; a harder versioned itemset is planned, and v1 history will
