@@ -1,7 +1,7 @@
 import { rankedCurrentModels, readIndexData, retiredDiagnosticModels } from "./data";
 import { expect, test, visitRoute } from "./fixtures";
 
-test("renders exactly the current-lane ranked rows and quarantines retired diagnostics", async ({ page }) => {
+test("renders exactly the current-lane ranked rows and keeps retired diagnostics off the page", async ({ page }) => {
   const index = await readIndexData();
   const rankedRows = rankedCurrentModels(index.models);
   const retiredRows = retiredDiagnosticModels(index.models);
@@ -14,7 +14,7 @@ test("renders exactly the current-lane ranked rows and quarantines retired diagn
   await expect(leaderboard).toBeVisible();
   await expect(leaderboard.locator("tbody tr")).toHaveCount(rankedRows.length);
   await expect(leaderboard.getByRole("button", { name: "Time/answer" })).toBeVisible();
-  await expect(page.getByText(/Ranked rows are complete current-index runs under the bounded-final lane/i)).toBeVisible();
+  await expect(page.getByText(/Ranked rows are complete runs on the current index/i)).toBeVisible();
 
   for (const row of rankedRows) {
     const modelRow = leaderboard.locator("tbody tr").filter({ hasText: row.model_label });
@@ -22,11 +22,10 @@ test("renders exactly the current-lane ranked rows and quarantines retired diagn
     await expect(modelRow).toContainText(row.composite?.point.toFixed(1) ?? "");
   }
 
-  const diagnostics = page.getByTestId("measured-diagnostics");
-  await expect(diagnostics.locator("tbody tr")).toHaveCount(retiredRows.length);
+  // Retired-lane diagnostics have no section on the leaderboard (owner call 2026-07-09);
+  // their receipts stay reachable by direct /run URL only.
+  await expect(page.getByTestId("measured-diagnostics")).toHaveCount(0);
   for (const row of retiredRows) {
     await expect(leaderboard.getByRole("link", { name: row.model_label, exact: true })).toHaveCount(0);
-    await expect(diagnostics.getByRole("link", { name: row.model_label, exact: true })).toBeVisible();
-    await expect(diagnostics.locator("tbody tr").filter({ hasText: row.model_label })).toContainText(row.lane ?? "n/a");
   }
 });

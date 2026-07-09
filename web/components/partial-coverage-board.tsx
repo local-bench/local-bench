@@ -67,6 +67,12 @@ function PartialBadge({ children, title }: { readonly children: string; readonly
 }
 
 export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEntryRow[] }) {
+  // The section exists for community submissions mid-profile; an empty shell with explainer
+  // copy is clutter, so it renders nothing until the first partial row lands (owner call
+  // 2026-07-09).
+  if (rows.length === 0) {
+    return null;
+  }
   const axisKeys = presentAxisColumns(rows);
   return (
     <section
@@ -81,13 +87,7 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
           are not comparable to complete current-index rows. Each carries its coverage profile and the headline weight it covers.
         </p>
       </div>
-      {rows.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-bench-muted">
-          No partial-coverage submissions published yet. The first appears here once a run is pulled from the site,
-          run locally, and submitted through the verify → publish path.
-        </p>
-      ) : (
-        <div className="overflow-x-auto">
+      <div className="overflow-x-auto">
           <table data-testid="partial-coverage-table" className="min-w-[1140px] border-collapse text-sm">
             <thead className="bg-white/[0.03] text-left text-[11px] uppercase text-bench-muted">
               <tr>
@@ -175,7 +175,6 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
             </tbody>
           </table>
         </div>
-      )}
     </section>
   );
 }

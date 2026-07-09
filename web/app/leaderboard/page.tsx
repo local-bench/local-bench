@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BoardIndexChart } from "@/components/board-index-chart";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
-import { MeasuredDiagnostics } from "@/components/measured-diagnostics";
 import { PartialCoverageBoard } from "@/components/partial-coverage-board";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -20,10 +19,6 @@ export default async function LeaderboardPage() {
     getPartialCoverageBoard(),
   ]);
   const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
-  const displayedMeasuredSlugs = new Set([...ranked, ...staticComposite].map((model) => model.slug));
-  const measuredDiagnostics = index.models.filter(
-    (model) => model.score_status === "measured" && !displayedMeasuredSlugs.has(model.slug),
-  );
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
@@ -70,7 +65,6 @@ export default async function LeaderboardPage() {
             table reads as a competing benchmark instead of a fallback lane. */}
         {staticComposite.length > 0 ? <HomeLeaderboard models={staticComposite} scoreMode="static" /> : null}
         <PartialCoverageBoard rows={partialCoverage} />
-        <MeasuredDiagnostics models={measuredDiagnostics} />
         <CatalogShells models={catalog} />
       </section>
     </main>

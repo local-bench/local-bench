@@ -95,8 +95,8 @@ describe("partial-coverage board", () => {
     expect(html).toContain("—");
   });
 
-  it("shows an empty-state when no partial submissions are published", () => {
+  it("renders nothing when no partial submissions are published", () => {
     const html = renderToStaticMarkup(createElement(PartialCoverageBoard, { rows: [] }));
-    expect(html).toContain("No partial-coverage submissions published yet");
+    expect(html).toBe("");
   });
 });
