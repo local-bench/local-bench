@@ -35,25 +35,17 @@ for (const modelCase of MODEL_CASES) {
       await expect(page.getByTestId("model-variant-table").locator(`a[href^="/run/${runId}"]`)).toHaveCount(0);
     }
 
-    if (legacyRunIds.length === 0) {
-      await expect(page.getByText("Retired-lane diagnostic receipts", { exact: true })).toHaveCount(0);
-    } else {
-      await expect(page.getByText("Retired-lane diagnostic receipts", { exact: true })).toBeVisible();
-      for (const runId of legacyRunIds) {
-        const receipt = page.locator(`a[href*="${runId}"]`);
-        await expect(receipt).toHaveCount(1);
-        await expect(receipt).toContainText("diagnostic receipt (retired lane)");
-      }
+    // Retired-lane runs are invisible on model pages: no receipts box, no links.
+    await expect(page.getByText("Retired-lane diagnostic receipts", { exact: true })).toHaveCount(0);
+    for (const runId of legacyRunIds) {
+      await expect(page.locator(`a[href*="${runId}"]`)).toHaveCount(0);
     }
 
     if (modelCase.slug === "qwen3-6-27b") {
-      // A legacy-only model: no rank or "best" badge in the variant board (its catalog shells
-      // stay pending with benchmark CTAs), and the measured quant ladder survives as diagnostics.
+      // A legacy-only model: no rank or "best" badge in the variant board; its catalog shells
+      // stay pending with benchmark CTAs and the retired runs do not appear at all.
       await expect(page.getByTestId("model-variant-table")).not.toContainText("best");
       await expect(page.getByTestId("model-variant-table")).toContainText("benchmark it");
-      await expect(page.locator("header div").filter({ hasText: "Retired-lane diagnostic receipts" }).first()).toContainText(
-        "Q6_K",
-      );
     }
 
     if (modelCase.slug === "gemma-4-12b-it") {
@@ -62,7 +54,7 @@ for (const modelCase of MODEL_CASES) {
       await expect(rows.first()).toContainText("QAT Q4_K_XL");
       await expect(rows.first()).toContainText("best");
       await expect(
-        page.getByRole("img", { name: new RegExp(`${escapeRegExp(model.model_label)} Local Intelligence Index`) }),
+        page.getByRole("group", { name: new RegExp(`${escapeRegExp(model.model_label)} Local Intelligence Index`) }),
       ).toBeVisible();
     }
 

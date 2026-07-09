@@ -23,35 +23,29 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
   const { model, anchorRuns, familyModels, lineage, vsBaseComparisons } = await getModelPageData(slug);
-  // Current-index (headline lane) runs drive every headline element; legacy-lane runs are
-  // diagnostics from an earlier index version and only inform the fallback copy below.
+  // Only current-index (headline lane) runs inform this page. Retired-lane runs stay
+  // reachable by direct /run URL but are not surfaced here (owner call, 2026-07-09 —
+  // migration bookkeeping reads as noise to visitors who never saw the old index).
   const headlineMeasured = model.runs.filter(
     (run) => run.score_status === "measured" && run.lane === HEADLINE_LANE,
   );
-  const legacyMeasured = model.runs.filter(
-    (run) => run.score_status === "measured" && run.lane !== HEADLINE_LANE,
-  );
-  const legacyReceiptRuns = legacyMeasured.filter((run) => run.run_id !== null);
-  const measuredRuns = [...headlineMeasured, ...legacyMeasured];
   const rankedRuns = headlineMeasured.filter((run) => run.ranked);
   const partialRuns = headlineMeasured.filter((run) => !run.ranked);
   // Headline provenance comes from the ranked (representative) run when one exists —
   // ladder/partial runs sort first in the payload and must not set the headline chip.
-  const hasProvenance = (run: (typeof measuredRuns)[number]): boolean =>
+  const hasProvenance = (run: (typeof headlineMeasured)[number]): boolean =>
     run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined;
-  const provenanceRun = rankedRuns.find(hasProvenance) ?? measuredRuns.find(hasProvenance);
-  const submitter = measuredRuns.find(
+  const provenanceRun = rankedRuns.find(hasProvenance) ?? headlineMeasured.find(hasProvenance);
+  const submitter = headlineMeasured.find(
     (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
   )?.submitter_display_name;
-  const formatGate = measuredRuns.find((run) => run.conformance_gates?.tc_json_v1 !== undefined)?.conformance_gates
-    ?.tc_json_v1;
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
-          {measuredRuns.length > 0 ? (
+          {headlineMeasured.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               <RunByBadge submitter={submitter} />
             </div>
@@ -75,8 +69,8 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
           {provenanceRun === undefined ? null : <ProvenanceLabels model={provenanceRun} />}
           <p className="mt-2 max-w-3xl text-bench-muted">
-            This model&apos;s quants and distills, with ranks assigned only to complete current-index Local Intelligence
-            rows. Partial profiles remain useful diagnostics; the VRAM and speed columns show what each rung costs.
+            Every measured variant of this model: how much quality each quant keeps, and the VRAM and speed it costs
+            to run.
           </p>
           {partialRuns.length > 0 && rankedRuns.length === 0 ? (
             <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
@@ -84,37 +78,10 @@ export default async function ModelPage({ params }: PageProps) {
               least one headline axis is missing.
             </p>
           ) : null}
-          {legacyMeasured.length > 0 && headlineMeasured.length === 0 ? (
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-warn-soft">
-              All {legacyMeasured.length} measured profile{legacyMeasured.length === 1 ? "" : "s"} for this model are
-              retired-lane diagnostics from a previous index. They are excluded from current ranks and charts until a
-              current-index run lands.
-            </p>
-          ) : null}
-          {legacyReceiptRuns.length > 0 ? (
-            <div className="mt-3 max-w-3xl rounded-md border border-bench-warn/35 bg-bench-warn/[0.08] p-3">
-              <div className="font-mono text-xs uppercase text-bench-warn-soft">Retired-lane diagnostic receipts</div>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {legacyReceiptRuns.map((run) =>
-                  run.run_id === null ? null : (
-                    <li key={run.run_id}>
-                      <Link
-                        href={`/run/${run.run_id}`}
-                        className="inline-flex flex-wrap items-center gap-2 rounded border border-bench-line bg-bench-panel-2 px-2.5 py-1 text-xs text-bench-text hover:border-bench-accent"
-                      >
-                        <span className="font-mono">{run.quant_label ?? run.run_id.split("__").at(1) ?? run.run_id}</span>
-                        <span className="text-bench-muted">diagnostic receipt (retired lane)</span>
-                      </Link>
-                    </li>
-                  ),
-                )}
-              </ul>
-            </div>
-          ) : null}
         </div>
       </header>
       <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
-      <ModelVariantBoard model={model} familyModels={familyModels} formatGate={formatGate} />
+      <ModelVariantBoard model={model} familyModels={familyModels} />
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
     </main>
   );

@@ -45,25 +45,14 @@ export function ModelScatter({
   if (familyRuns.some((run) => run.point_kind === "base-model")) {
     pointLegend.push({ kind: "base-model", label: "Base model" });
   }
-  const legacyCount = model.runs.filter(
-    (run) =>
-      run.score_status === "measured" &&
-      run.lane !== HEADLINE_LANE &&
-      run.diagnostic_composite !== null &&
-      run.diagnostic_composite !== undefined,
-  ).length;
-
   if (runs.length === 0) {
     return (
       <section data-testid="model-scatter" className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <h2 className="text-lg font-semibold text-bench-text">VRAM footprint vs {LOCAL_INTELLIGENCE_INDEX_NAME}</h2>
         <p className="mt-1 font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</p>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
-          {legacyCount > 0
-            ? `The scatter appears after this model's first current-index run lands. ${legacyCount} retired-lane diagnostic receipt${
-                legacyCount === 1 ? " is" : "s are"
-              } linked above but kept off this chart because the score uses a retired scale.`
-            : "Intelligence Index scatter appears after the first measured run attaches to this catalog model. Use the quant ladder below for current file size and VRAM requirements."}
+          This chart appears after the model&apos;s first measured run lands. Use the quant ladder below for file size
+          and VRAM requirements.
         </p>
       </section>
     );

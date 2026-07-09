@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ConformancePill } from "@/components/conformance-pill";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
@@ -13,7 +12,6 @@ import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decisio
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
-import type { ConformanceGate } from "@/lib/schemas";
 
 type VariantRun = ModelData["runs"][number];
 type OwnVariantRow = {
@@ -31,14 +29,9 @@ type VariantRow = OwnVariantRow | FamilyVariantRow;
 export function ModelVariantBoard({
   familyModels = [],
   model,
-  formatGate,
 }: {
   readonly familyModels?: readonly ModelFamilyScatterModel[];
   readonly model: ModelData;
-  // tc_json tool-call format gate for this model's measured runs — shown with the variant
-  // measurements it qualifies (it is a diagnostic, not a score, so it lives here rather than
-  // as its own page section).
-  readonly formatGate?: ConformanceGate | undefined;
 }) {
   // Only headline-lane (current-index) measurements render here. Runs measured under retired
   // lanes are on an earlier index version's scale: they are omitted from the model page
@@ -79,15 +72,7 @@ export function ModelVariantBoard({
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
       <div className="border-b border-bench-line px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-bench-text">Variant profiles</h2>
-          {formatGate === undefined ? null : (
-            <span className="flex items-center gap-2 text-xs text-bench-muted">
-              <span className="font-mono">tc_json_v1 format gate</span>
-              <ConformancePill gate={formatGate} showReason compact />
-            </span>
-          )}
-        </div>
+        <h2 className="text-lg font-semibold text-bench-text">Variant profiles</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
             Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}{" "}
             (<span className="font-mono text-xs">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>). Partial rows show measured
