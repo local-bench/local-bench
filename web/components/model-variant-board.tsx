@@ -98,18 +98,36 @@ export function ModelVariantBoard({
                   {axisLabel(axis)}
                 </th>
               ))}
-              <th className="px-3 py-3 font-semibold">VRAM @8k</th>
+              <th className="px-3 py-3 font-semibold" title="Model weights + KV cache at 8k context — what your card actually needs">
+                VRAM @8k
+              </th>
               <th className="px-3 py-3 font-semibold">Fits</th>
-              <th className="px-3 py-3 font-semibold">tok/s</th>
-              {hasPerf ? <th className="px-3 py-3 font-semibold">decode tok/s</th> : null}
-              <th className="px-3 py-3 font-semibold">Footprint</th>
+              {hasPerf ? (
+                <th className="px-3 py-3 font-semibold" title="Prompt processing speed, from llama.cpp timings">
+                  Prefill tok/s
+                </th>
+              ) : null}
+              {hasPerf ? (
+                <th className="px-3 py-3 font-semibold" title="Generation speed once the prompt is processed, from llama.cpp timings">
+                  Decode tok/s
+                </th>
+              ) : null}
+              <th
+                className="px-3 py-3 font-semibold"
+                title="Completion tokens per second across the whole benchmark run, including prompt processing"
+              >
+                Overall tok/s
+              </th>
+              <th className="px-3 py-3 font-semibold" title="GGUF file size on disk">
+                File size
+              </th>
               <th className="px-3 py-3 font-semibold">Run</th>
             </tr>
           </thead>
           <tbody>
             {ranked.length + partial.length + pending.length === 0 ? (
               <tr className="border-t border-bench-line/75">
-                <td colSpan={9 + axisKeys.length + (hasPerf ? 1 : 0)} className="px-3 py-5 text-sm text-bench-muted">
+                <td colSpan={9 + axisKeys.length + (hasPerf ? 2 : 0)} className="px-3 py-5 text-sm text-bench-muted">
                   No current-index measurements yet.{" "}
                   <Link
                     href={`/submit?model=${encodeURIComponent(model.slug)}`}
@@ -154,8 +172,13 @@ export function ModelVariantBoard({
                   ))}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatFitTier(decision)}</td>
+                  {hasPerf ? (
+                    <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.prefill_tps)}</td>
+                  ) : null}
+                  {hasPerf ? (
+                    <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.decode_tps)}</td>
+                  ) : null}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
-                  {hasPerf ? <td className="px-3 py-3 font-mono text-bench-text">{formatDecodeTps(run)}</td> : null}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3">
                     {run.run_id === null ? (
@@ -199,8 +222,13 @@ export function ModelVariantBoard({
                 ))}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
                 <td className="px-3 py-3 font-mono text-bench-text">n/a</td>
+                {hasPerf ? (
+                  <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.prefill_tps)}</td>
+                ) : null}
+                {hasPerf ? (
+                  <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.decode_tps)}</td>
+                ) : null}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
-                {hasPerf ? <td className="px-3 py-3 font-mono text-bench-text">{formatDecodeTps(run)}</td> : null}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                 <td className="px-3 py-3">
                   {run.run_id === null ? (
@@ -234,8 +262,9 @@ export function ModelVariantBoard({
                   ))}
                   <td className="px-3 py-3 font-mono">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3 font-mono">{formatFitTier(decision)}</td>
-                  <td className="px-3 py-3">—</td>
                   {hasPerf ? <td className="px-3 py-3" /> : null}
+                  {hasPerf ? <td className="px-3 py-3" /> : null}
+                  <td className="px-3 py-3">—</td>
                   <td className="px-3 py-3 font-mono">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3">
                     <Link href={`/submit?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
@@ -353,8 +382,8 @@ function RuntimeCell({ run }: { readonly run: VariantRun }) {
   );
 }
 
-function formatDecodeTps(run: VariantRun): string {
-  return run.perf?.decode_tps === null || run.perf?.decode_tps === undefined ? "" : formatCompactNumber(run.perf.decode_tps);
+function formatPerfTps(value: number | null | undefined): string {
+  return value === null || value === undefined ? "" : formatCompactNumber(value);
 }
 
 // "Fits" = the smallest GPU VRAM tier a variant runs on at the displayed context (from the

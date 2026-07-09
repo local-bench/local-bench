@@ -60,7 +60,7 @@ describe("model variant board runtime display", () => {
     expect(html).not.toContain("Previous-index diagnostics");
   });
 
-  it("shows the compact decode tok/s column only when a run has serving perf", () => {
+  it("shows the prefill and decode tok/s columns only when a run has serving perf", () => {
     const base = fixtureModel();
     const run = base.runs[0];
     if (run === undefined) {
@@ -88,8 +88,13 @@ describe("model variant board runtime display", () => {
     };
     const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model }));
 
-    expect(html).toContain("decode tok/s");
+    expect(html).toContain("Prefill tok/s");
+    expect(html).toContain("812.3");
+    expect(html).toContain("Decode tok/s");
     expect(html).toContain("42.4");
+    expect(html).toContain("Overall tok/s");
+    expect(html).toContain("File size");
+    expect(html).not.toContain("Footprint");
   });
 
   it("renders family rows without letting them become this model's sweet spot", () => {
