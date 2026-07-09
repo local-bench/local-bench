@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FamilyLogoMark } from "@/components/family-logo-mark";
 import {
   BAR_WIDTH,
   PLOT,
@@ -165,8 +166,9 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
                 <div className="absolute right-1/2 top-1.5 origin-top-right -rotate-[36deg]">
                   <Link
                     href={`/model/${row.model.slug}`}
-                    className="block whitespace-nowrap text-xs font-semibold leading-4 text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bench-accent"
+                    className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold leading-4 text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bench-accent"
                   >
+                    <FamilyLogoMark modelLabel={row.model.model_label} size={14} />
                     {row.model.model_label}
                   </Link>
                 </div>

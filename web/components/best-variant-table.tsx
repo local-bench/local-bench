@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { AxisMiniBar, IndexContributionRail } from "@/components/score-bar";
 import { axisColor } from "@/lib/axis-config";
 import { familyStyle } from "@/lib/family-color";
+import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
 import type { BestVariantPoint } from "@/lib/best-variant";
@@ -79,11 +81,15 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                   <td className="px-3 py-3 font-mono text-bench-muted">{index + 1}</td>
                   <td className="px-3 py-3">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span
-                        aria-hidden
-                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: style.color }}
-                      />
+                      {orgLogoForModelLabel(point.modelLabel) !== null ? (
+                        <FamilyLogoMark modelLabel={point.modelLabel} size={16} />
+                      ) : (
+                        <span
+                          aria-hidden
+                          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: style.color }}
+                        />
+                      )}
                       <Link href={`/model/${point.modelSlug}`} className="font-semibold text-bench-text hover:text-bench-accent">
                         {point.modelLabel}
                       </Link>

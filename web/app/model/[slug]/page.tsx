@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
@@ -50,7 +51,10 @@ export default async function ModelPage({ params }: PageProps) {
               <RunByBadge submitter={submitter} />
             </div>
           ) : null}
-          <h1 className="mt-3 text-4xl font-semibold text-bench-text">{model.model_label}</h1>
+          <h1 className="mt-3 flex items-center gap-3 text-4xl font-semibold text-bench-text">
+            <FamilyLogoMark modelLabel={model.model_label} size={32} className="rounded" />
+            {model.model_label}
+          </h1>
           {lineage !== null ? (
             <div className="mt-3">
               {lineage.baseSlug !== null ? (

@@ -5,6 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AgenticCell, AgenticHeaderLabel } from "@/components/agentic-column";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { DemoBadge } from "@/components/badges";
+import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ProvenanceLabels, RunByCell } from "@/components/leaderboard-provenance";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
@@ -85,10 +86,13 @@ export function HomeLeaderboard({
                 <RankMarker rank={laneRanks.get(model.slug)} />
               </td>
               <td className="px-3 py-3">
-                <Link href={`/model/${model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
-                  {model.model_label}
-                </Link>
-                {model.demo ? <span className="ml-2"><DemoBadge /></span> : null}
+                <span className="flex items-center gap-2">
+                  <FamilyLogoMark modelLabel={model.model_label} size={16} />
+                  <Link href={`/model/${model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
+                    {model.model_label}
+                  </Link>
+                  {model.demo ? <DemoBadge /> : null}
+                </span>
                 <div className="text-xs text-bench-muted">{model.family}</div>
                 <ProvenanceLabels model={model} />
               </td>
