@@ -86,7 +86,6 @@ export function ModelVariantBoard({
             <tr>
               <th className="px-3 py-3 font-semibold">Rank</th>
               <th className="px-3 py-3 font-semibold">Variant</th>
-              <th className="px-3 py-3 font-semibold">Runtime</th>
               <th className="px-3 py-3 font-semibold">
                 <span className="flex flex-col gap-0.5 leading-tight">
                   <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
@@ -121,6 +120,7 @@ export function ModelVariantBoard({
               <th className="px-3 py-3 font-semibold" title="GGUF file size on disk">
                 File size
               </th>
+              <th className="px-3 py-3 font-semibold">Runtime</th>
               <th className="px-3 py-3 font-semibold">Run</th>
             </tr>
           </thead>
@@ -156,9 +156,6 @@ export function ModelVariantBoard({
                     </VariantCell>
                   </td>
                   <td className="px-3 py-3">
-                    <RuntimeCell run={run} />
-                  </td>
-                  <td className="px-3 py-3">
                     {run.composite === null ? (
                       <span className="text-bench-muted">no data</span>
                     ) : (
@@ -181,6 +178,9 @@ export function ModelVariantBoard({
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                   <td className="px-3 py-3">
+                    <RuntimeCell run={run} />
+                  </td>
+                  <td className="px-3 py-3">
                     {run.run_id === null ? (
                       <span className="font-mono text-xs text-bench-muted">—</span>
                     ) : (
@@ -201,9 +201,6 @@ export function ModelVariantBoard({
                   <VariantCell row={row}>
                     <Badge tone="muted" title="Partial measurement; missing one or more headline modules">partial headline</Badge>
                   </VariantCell>
-                </td>
-                <td className="px-3 py-3">
-                  <RuntimeCell run={run} />
                 </td>
                 <td className="px-3 py-3">
                   {run.composite === null ? (
@@ -231,6 +228,9 @@ export function ModelVariantBoard({
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
                 <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
                 <td className="px-3 py-3">
+                  <RuntimeCell run={run} />
+                </td>
+                <td className="px-3 py-3">
                   {run.run_id === null ? (
                     <span className="font-mono text-xs text-bench-muted">—</span>
                   ) : (
@@ -251,9 +251,6 @@ export function ModelVariantBoard({
                   <td className="px-3 py-3">
                     <VariantCell row={row} />
                   </td>
-                  <td className="px-3 py-3">
-                    <RuntimeCell run={run} />
-                  </td>
                   <td className="px-3 py-3">no run yet</td>
                   {axisKeys.map((axis) => (
                     <td key={axis} className="px-3 py-3">
@@ -266,6 +263,9 @@ export function ModelVariantBoard({
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   <td className="px-3 py-3">—</td>
                   <td className="px-3 py-3 font-mono">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3">
+                    <RuntimeCell run={run} />
+                  </td>
                   <td className="px-3 py-3">
                     <Link href={`/submit?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
                       benchmark it
