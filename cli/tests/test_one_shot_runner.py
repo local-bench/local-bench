@@ -25,7 +25,8 @@ def test_cli_bench_positional_model_dispatches_one_shot(monkeypatch: pytest.Monk
     def fake_run(args: argparse.Namespace, *, cli_version: str) -> int:
         nonlocal captured
         captured = args
-        assert cli_version != "0.3.0"
+        # The dispatched version must be the real installed package version, not a literal.
+        assert cli_version == cli_mod._package_version()
         return EXIT_COMPLETE
 
     monkeypatch.setattr(cli_mod, "run_one_shot_bench", fake_run)
