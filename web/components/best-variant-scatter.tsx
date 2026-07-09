@@ -90,7 +90,7 @@ export function BestVariantVramScatter({
     >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Best variant per weights family</p>
+          <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Board at a glance</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">Quality vs the VRAM to run it</h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-bench-muted">
             Each point is a weights family at its best-scoring measured variant. Up = smarter; left = fits a smaller card.
