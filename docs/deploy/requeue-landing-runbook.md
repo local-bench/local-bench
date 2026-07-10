@@ -40,7 +40,7 @@ wsl -d Ubuntu -u michael -- sh -lc "~/lb-verify/bin/pip install -q -e /mnt/c/Use
 
 # per model (run for qwopus-v2-full, then qwen3-6-27b-v2-full):
 $img='bigcodebench/bigcodebench-evaluate@sha256:a3cd34ec3840a49d6b7afb240f4bdd47c350bc5991043fd0a91773830f7cd405'
-wsl -d Ubuntu -u michael -- sh -lc "export DOCKER_HOST=unix:///run/user/1000/docker.sock; cd /mnt/c/Users/Michael/local-bench; ~/lb-verify/bin/localbench code --pending-run 'C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\localbench-run.json' --suite-dir suite/v1 --image $img --per-task-timeout 60 --out 'C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\coding-verified.json'"
+wsl -d Ubuntu -u michael -- sh -lc "export DOCKER_HOST=unix:///run/user/1000/docker.sock; cd /mnt/c/Users/Michael/local-bench; ~/lb-verify/bin/localbench code --pending-run 'C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\localbench-run.json' --suite-dir suite/v1 --image $img --per-task-timeout 60 --receipt-signing-key ~/.localbench/maintainer-verifier.pem --out 'C:\Users\Michael\lb-user-runs\runs\qwopus-v2-full\coding-verified.json'"
 ```
 Sanity: coding shows ~141 scoreable, a REAL pass rate (not 0%, not 100%). The 7 unscoreable ids
 (bcbh-006/007/014/035/074/096/104) are auto-excluded. AST-rejected gens show as conformance
@@ -63,17 +63,18 @@ use `--coding-verified` only when the verifier output has a different name.
 ```powershell
 # Preflight all scorer, exact-GGUF, coding, agentic, curation, board, and web-data gates.
 # This writes nothing.
-uv run --project cli localbench land-run --run C:\path\to\finished-run --dry-run
+uv run --project cli localbench land-run --run C:\path\to\finished-run --gguf C:\path\to\exact-model.gguf --verifier-public-key <64-hex-maintainer-key> --dry-run
 
 # Apply the same checked plan. Deployment is deliberately not part of this command.
-uv run --project cli localbench land-run --run C:\path\to\finished-run
+uv run --project cli localbench land-run --run C:\path\to\finished-run --gguf C:\path\to\exact-model.gguf --verifier-public-key <64-hex-maintainer-key>
 ```
 
 The command writes the rescored canonical record under `runs/bench/landed/`, appends its
 maintainer-controlled entry to `web/data_sources.json`, invokes the existing board builder,
 rebuilds `web/public/data`, and re-pins `web/components/launch-freeze.ts`. It refuses before
-writing if the candidate board changes any existing ranked model object, if coding verdicts are
-not verifier-backed, if the exact GGUF identity moves, or if the two-run agentic campaign fails an
+writing if the candidate board changes any existing ranked model object, if the signed verifier
+receipt is not bound to the current harness/suite and original run, if the actual GGUF bytes do not
+match the claimed SHA-256, or if the two-run agentic campaign fails an
 infrastructure gate. Its final checklist always leaves deploy + live smoke marked **MANUAL**.
 
 ## 3. Board rebuild (adds both rows; Gemma already present)
@@ -87,7 +88,7 @@ Curation: **Qwopus = its own model row** (`qwopus3-6-27b-v2-mtp`, catalog entry 
 c136ce4), fine-tune of Qwen3.6-27B, base_model lineage chip. **Qwen3.6-27B base = its own row**
 = the vs-base comparator. Do NOT merge Qwopus into Qwen. If a model lacks a catalog entry, add it
 to `web/model_catalog.json` (see the Qwopus entry as a template) before build_data.
-Re-pin LAUNCH_FREEZE as the board pipeline requires (`git hash-object cli/runs/board/board_v1.json`
+Re-pin LAUNCH_FREEZE as the board pipeline requires (`sha256sum cli/runs/board/board_v1.json`
 must stay `3d058e6074bd781cc488c03255904b5f9599e37e`).
 
 ## 4. Deploy + smoke
@@ -111,7 +112,8 @@ file is missing/reverted, re-run `scratchpad/rescore_gemma_v42.py` (session badb
 So the requeue board rebuild re-derives ALL THREE rows (Gemma + Qwopus + Qwen-base) uniformly
 under the post-#42 harness — which is exactly why folding Gemma here (one rebuild) beat rebuilding
 twice. Update `web/components/launch-freeze.ts` `boardSha256` to the freshly built board sha
-(`git hash-object cli/runs/board/board_v2.json` after the build) as part of step 3.
+(`sha256sum cli/runs/board/board_v2.json` after the build) as part of step 3. `boardSha256`
+is always the board writer's 64-hex SHA-256, never a Git blob object ID.
 
 ## 5. Notes / gotchas
 - One Docker verifier pass at a time (single WSL rootless daemon). ~10-15 min/model.

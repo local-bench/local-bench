@@ -206,6 +206,7 @@ def _envelope(bundle_sha: str, public_key: str, ticket_id: str) -> dict[str, obj
         "schema_version": "localbench.submission_envelope.v2",
         "submitter_id": "public_key:" + public_key,
         "ticket_id": ticket_id,
+        "upload_capability": "upload_" + ("1" * 32),
     }
 
 

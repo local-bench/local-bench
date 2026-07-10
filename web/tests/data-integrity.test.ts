@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { LAUNCH_FREEZE } from "../components/launch-freeze";
 
 // Reads the generated static data directly and enforces the launch invariants. On the scoreless
 // catalog these pass vacuously (no ranked-measured rows); the moment the campaign ladder is wired
@@ -34,6 +36,12 @@ const index = readJson<{ readonly models: readonly IndexModel[] }>("index.json")
 const rankedMeasured = index.models.filter(
   (model) => model.score_status === "measured" && model.ranked && model.demo !== true && model.composite !== null,
 );
+
+it("pins the board writer's real SHA-256 rather than a Git blob id", () => {
+  const board = readFileSync(join(process.cwd(), "..", "cli", "runs", "board", "board_v2.json"));
+  expect(LAUNCH_FREEZE.boardSha256).toMatch(/^[0-9a-f]{64}$/);
+  expect(LAUNCH_FREEZE.boardSha256).toBe(createHash("sha256").update(board).digest("hex"));
+});
 
 describe("public/data integrity — ranked measured rows", () => {
   it("every ranked measured model has a best_run_id that resolves to a non-null-composite run", () => {

@@ -37,10 +37,15 @@ def test_land_run_subcommand_parses_maintainer_inputs() -> None:
     from localbench.cli import _parser
 
     args = _parser().parse_args(
-        ["land-run", "--run", "incoming", "--coding-verified", "verified.json", "--dry-run"],
+        [
+            "land-run", "--run", "incoming", "--coding-verified", "verified.json",
+            "--gguf", "model.gguf", "--verifier-public-key", "ab" * 32, "--dry-run",
+        ],
     )
 
     assert args.command == "land-run"
     assert args.run == Path("incoming")
     assert args.coding_verified == Path("verified.json")
+    assert args.gguf == Path("model.gguf")
+    assert args.verifier_public_key == "ab" * 32
     assert args.dry_run is True

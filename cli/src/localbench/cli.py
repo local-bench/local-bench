@@ -499,6 +499,11 @@ def _parser() -> argparse.ArgumentParser:
     admin_verify_parser.add_argument("--out", type=Path)
     admin_verify_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
     admin_verify_parser.add_argument("--validator-commit")
+    admin_verify_parser.add_argument(
+        "--override",
+        action="store_true",
+        help="explicitly bypass server FIFO/cohort verification policy (audited maintainer exception)",
+    )
     _add_bypass_args(admin_verify_parser)
     _add_admin_secret_args(admin_verify_parser)
     admin_decision_parser = submit_subparsers.add_parser(
@@ -618,6 +623,11 @@ def _parser() -> argparse.ArgumentParser:
     code_parser.add_argument("--api-key-env")
     code_parser.add_argument("--max-items", type=int)
     code_parser.add_argument("--out", type=Path)
+    code_parser.add_argument(
+        "--receipt-signing-key",
+        type=Path,
+        help="maintainer Ed25519 key used to sign a landing verifier receipt (required for land-run)",
+    )
     code_parser.add_argument("--reasoning-effort", choices=_REASONING_EFFORT_CHOICES, default=None)
     code_parser.add_argument("--per-task-timeout", type=int, default=30,
                              help="per-task wall-clock seconds inside the sandbox")
@@ -647,6 +657,12 @@ def _parser() -> argparse.ArgumentParser:
         "--coding-verified",
         type=Path,
         help="verifier output (defaults to <run>/coding-verified.json)",
+    )
+    land_parser.add_argument("--gguf", type=Path, required=True, help="exact GGUF file whose bytes produced the run")
+    land_parser.add_argument(
+        "--verifier-public-key",
+        required=True,
+        help="64-hex Ed25519 public key trusted to sign the coding verifier receipt",
     )
     land_parser.add_argument("--dry-run", action="store_true", help="run every preflight without writing")
     tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 Tool-calling axis")
@@ -2075,6 +2091,7 @@ def _submit_admin_verify(args: argparse.Namespace) -> int:
                 credentials=_site_credentials(args, admin_secret=admin_secret),
                 status_update=status_update,
                 submission_id=args.submission_id,
+                override=args.override,
             ),
         )
         _write_or_print_result(status_update, args.out)
@@ -2086,8 +2103,12 @@ def _submit_admin_verify(args: argparse.Namespace) -> int:
             actor="maintainer",
             action="admin_verify",
             submission_id=args.submission_id,
-            reason=_json_text(status_update.get("reason")) or "verification posted",
-            extra={"status": _json_text(status_update.get("status")) or "unknown"},
+            reason=("FIFO/cohort override: " if args.override else "")
+            + (_json_text(status_update.get("reason")) or "verification posted"),
+            extra={
+                "status": _json_text(status_update.get("status")) or "unknown",
+                "fifo_cohort_override": bool(args.override),
+            },
         )
     except (DecisionLogError, OSError, ValueError) as error:
         print(f"error      server call succeeded but decision log write failed: {error}")
@@ -2296,6 +2317,7 @@ def _code(args: argparse.Namespace) -> int:
         per_task_timeout=args.per_task_timeout,
         runtime=args.runtime,
         allow_unsafe_sandbox=args.allow_unsafe_sandbox,
+        receipt_signing_key=args.receipt_signing_key,
     )
     try:
         if args.pending_run is not None:
@@ -2350,6 +2372,8 @@ def _land_run(args: argparse.Namespace) -> int:
         result = land_run(
             args.run,
             coding_verified_path=args.coding_verified,
+            gguf_path=args.gguf,
+            verifier_public_key=args.verifier_public_key,
             dry_run=args.dry_run,
         )
     except (LandingError, OSError, json.JSONDecodeError, ValueError) as error:

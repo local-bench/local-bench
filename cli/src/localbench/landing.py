@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,17 +16,43 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
-from localbench.orchestrate import _budget_audit
+from localbench._scoring import aggregate, run_totals
+from localbench._suite import item_hashes, read_json_object, render_benches, suite_version
+from localbench.coding_exec.artifacts import ASSEMBLY_RECIPE_ID, HARNESS_REV, code_artifact_for_generation
+from localbench.coding_exec.ast_gate import AST_GATE_REV
+from localbench.coding_exec.extract import EXTRACTOR_REV
+from localbench.coding_exec.program import SENTINEL_SCHEME_REV
+from localbench.coding_exec.receipt import (
+    RECEIPT_SCHEMA_VERSION,
+    coding_patch_sha256,
+    verify_signed_verifier_receipt,
+)
+from localbench.coding_exec.score import BENCH as CODING_BENCH
+from localbench.lane_conformance import assess_run_conformance
+from localbench.lane_spec import lane_spec_id_for_lane
+from localbench.orchestrate import _budget_audit, _suite_coverage
+from localbench.perf import perf_summary
 from localbench.persistence import atomic_write_bytes, atomic_write_json
-from localbench.scoring.board import build_board, write_board
+from localbench.reasoning_leaks import registry_leak_regexes
+from localbench.reasoning_registry import execution_profile_for_id
+from localbench.scoring.axis_status import axis_status_for_benches
+from localbench.scoring.board import build_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR, REPO_ROOT, read_json, slugify, write_json
 from localbench.scoring.scorecard import scorecard_identity
+from localbench.submissions.foundation_scores import score_summary
 
 DATA_SOURCES_PATH: Final = REPO_ROOT / "web" / "data_sources.json"
 MODEL_CATALOG_PATH: Final = REPO_ROOT / "web" / "model_catalog.json"
 LANDED_RUNS_DIR: Final = REPO_ROOT / "runs" / "bench" / "landed"
 LAUNCH_FREEZE_PATH: Final = REPO_ROOT / "web" / "components" / "launch-freeze.ts"
 BOARD_MANIFEST_PATH: Final = DEFAULT_OUT_V2.with_name("board_v2.manifest.json")
+PUBLIC_DATA_PATH: Final = REPO_ROOT / "web" / "public" / "data"
+SUITE_DIR: Final = REPO_ROOT / "suite" / "v1"
+LANDING_LOCK_PATH: Final = REPO_ROOT / ".localbench-land.lock"
+LANDING_JOURNAL_PATH: Final = REPO_ROOT / ".localbench-land-journal.json"
+_PROTECTED_PUBLIC_RUNS: Final = (
+    ("gemma-4-12b-it", "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2"),
+)
 
 
 class LandingError(RuntimeError):
@@ -46,6 +74,8 @@ def land_run(
     run_dir: Path,
     *,
     coding_verified_path: Path | None = None,
+    gguf_path: Path,
+    verifier_public_key: str,
     dry_run: bool = False,
 ) -> LandingResult:
     """Stage, gate, and optionally apply the documented maintainer landing pipeline."""
@@ -56,12 +86,28 @@ def land_run(
     verified_path = _resolve_verified_path(resolved_run_dir, coding_verified_path)
     original = _read_object(original_path, "original run")
     verified = _read_object(verified_path, "coding-verified run")
+    _assert_campaign_complete(resolved_run_dir, original)
     _assert_generations_untouched(original, verified)
-    _assert_coding_verified(verified)
-    _assert_agentic_verification(verified)
-
-    rescored = _rescore(verified, original_path=original_path, verified_path=verified_path)
-    model_sha = _model_sha(rescored)
+    patched = _strict_coding_patch(original, verified)
+    _assert_coding_verified(patched)
+    _assert_agentic_verification(patched)
+    receipt_hash = _assert_verifier_receipt(
+        original_path,
+        verified,
+        patched,
+        verifier_public_key=verifier_public_key,
+    )
+    model_sha = _hash_actual_gguf(
+        gguf_path,
+        claimed_sha256=_model_sha(patched),
+        claimed_size_bytes=_model_size(patched),
+    )
+    rescored = _rescore(
+        patched,
+        original_path=original_path,
+        verified_path=verified_path,
+        verifier_receipt_sha256=receipt_hash,
+    )
     catalog_entry = _catalog_entry(rescored, resolved_run_dir)
     sources = _read_sources()
     source_template = _existing_source_template(sources, _required_text(catalog_entry, "id"))
@@ -82,9 +128,9 @@ def land_run(
     current_board = _read_object(DEFAULT_OUT_V2, "current board")
     _validate_launch_freeze()
     frozen_timestamp = _generated_at(current_board)
-    with tempfile.TemporaryDirectory(prefix="localbench-land-") as temp_name:
+    with tempfile.TemporaryDirectory(prefix=".localbench-land-", dir=REPO_ROOT) as temp_name:
         temp_dir = Path(temp_name)
-        staged_run = temp_dir / canonical_path.name
+        staged_run = temp_dir / "canonical" / canonical_path.name
         atomic_write_json(rescored, staged_run)
         staged_sources = copy.deepcopy(sources)
         if source_added:
@@ -96,11 +142,11 @@ def land_run(
                 if item.get("file") == relative_canonical:
                     item["file"] = str(staged_run)
                     break
-        staged_curation = temp_dir / "data_sources.json"
-        atomic_write_json(staged_sources, staged_curation)
+        build_curation = temp_dir / "build-data_sources.json"
+        atomic_write_json(staged_sources, build_curation)
         candidate_board = build_board(
             runs_dir=DEFAULT_RUNS_DIR,
-            curation_path=staged_curation,
+            curation_path=build_curation,
             generated_at=frozen_timestamp,
         )
         candidate_system = _candidate_system(candidate_board, canonical_path.stem, source)
@@ -113,62 +159,56 @@ def land_run(
             )
         staged_board = temp_dir / "board_v2.json"
         write_json(staged_board, candidate_board)
-        _preflight_web_build(staged_curation, staged_board, temp_dir / "site-data")
+        staged_site_data = temp_dir / "site-data"
+        _preflight_web_build(build_curation, staged_board, staged_site_data)
+        _assert_protected_public_runs_unchanged(PUBLIC_DATA_PATH, staged_site_data)
         candidate_board_sha = _sha256_file(staged_board)
+        staged_final_sources = temp_dir / "data_sources.json"
+        original_sources_bytes = DATA_SOURCES_PATH.read_bytes()
+        atomic_write_bytes(
+            _append_json_array_item(original_sources_bytes, source) if source_added else original_sources_bytes,
+            staged_final_sources,
+        )
+        staged_manifest = temp_dir / "board_v2.manifest.json"
+        atomic_write_json(
+            _object(candidate_board.get("manifest"), "candidate board manifest")
+            | {"board_sha256": candidate_board_sha},
+            staged_manifest,
+        )
+        staged_freeze = temp_dir / "launch-freeze.ts"
+        _write_launch_freeze(LAUNCH_FREEZE_PATH, staged_freeze, candidate_board_sha)
 
-    if dry_run:
+        if dry_run:
+            return LandingResult(
+                board_sha256=candidate_board_sha,
+                canonical_path=canonical_path,
+                dry_run=True,
+                launch_freeze_hash=None,
+                model_label=_required_text(source, "model_label"),
+                model_sha256=model_sha,
+                source_added=source_added,
+            )
+
+        _apply_staged_outputs(
+            temp_dir,
+            (
+                (staged_run, canonical_path),
+                (staged_final_sources, DATA_SOURCES_PATH),
+                (staged_board, DEFAULT_OUT_V2),
+                (staged_manifest, BOARD_MANIFEST_PATH),
+                (staged_site_data, PUBLIC_DATA_PATH),
+                (staged_freeze, LAUNCH_FREEZE_PATH),
+            ),
+        )
         return LandingResult(
             board_sha256=candidate_board_sha,
             canonical_path=canonical_path,
-            dry_run=True,
-            launch_freeze_hash=None,
+            dry_run=False,
+            launch_freeze_hash=candidate_board_sha,
             model_label=_required_text(source, "model_label"),
             model_sha256=model_sha,
             source_added=source_added,
         )
-
-    original_sources_bytes = DATA_SOURCES_PATH.read_bytes()
-    prior_canonical_bytes = canonical_path.read_bytes() if canonical_path.exists() else None
-    board_bytes = DEFAULT_OUT_V2.read_bytes()
-    board_manifest_bytes = BOARD_MANIFEST_PATH.read_bytes() if BOARD_MANIFEST_PATH.exists() else None
-    try:
-        atomic_write_json(rescored, canonical_path)
-        if source_added:
-            atomic_write_bytes(_append_json_array_item(original_sources_bytes, source), DATA_SOURCES_PATH)
-        result = write_board(
-            runs_dir=DEFAULT_RUNS_DIR,
-            out=DEFAULT_OUT_V2,
-            curation_path=DATA_SOURCES_PATH,
-            check_parity=False,
-        )
-        rebuilt_board = _read_object(DEFAULT_OUT_V2, "rebuilt board")
-        changed = changed_existing_ranked_rows(current_board, rebuilt_board)
-        if changed:
-            raise LandingError(
-                "rebuilt board changed existing ranked row(s): " + ", ".join(changed)
-            )
-        _run_web_build()
-        launch_hash = _git_object_hash(DEFAULT_OUT_V2)
-        _update_launch_freeze(launch_hash)
-    except Exception:
-        atomic_write_bytes(original_sources_bytes, DATA_SOURCES_PATH)
-        atomic_write_bytes(board_bytes, DEFAULT_OUT_V2)
-        if board_manifest_bytes is not None:
-            atomic_write_bytes(board_manifest_bytes, BOARD_MANIFEST_PATH)
-        if prior_canonical_bytes is None:
-            canonical_path.unlink(missing_ok=True)
-        else:
-            atomic_write_bytes(prior_canonical_bytes, canonical_path)
-        raise
-    return LandingResult(
-        board_sha256=result.board_sha256,
-        canonical_path=canonical_path,
-        dry_run=False,
-        launch_freeze_hash=launch_hash,
-        model_label=_required_text(source, "model_label"),
-        model_sha256=model_sha,
-        source_added=source_added,
-    )
 
 
 def changed_existing_ranked_rows(current: JsonObject, candidate: JsonObject) -> tuple[str, ...]:
@@ -229,17 +269,36 @@ def _read_sources() -> list[JsonObject]:
 
 
 def _assert_generations_untouched(original: JsonObject, verified: JsonObject) -> None:
-    if original.get("model") != verified.get("model"):
-        raise LandingError("coding verification changed the top-level model identity")
-    original_manifest_model = _object(_object(original.get("manifest"), "original manifest").get("model"), "original manifest.model")
-    verified_manifest_model = _object(_object(verified.get("manifest"), "verified manifest").get("model"), "verified manifest.model")
-    if original_manifest_model != verified_manifest_model:
-        raise LandingError("coding verification changed manifest.model")
+    stable_original = {key: value for key, value in original.items() if key != "items"}
+    stable_verified = {
+        key: value
+        for key, value in verified.items()
+        if key not in {"items", "coding_verifier_receipt"}
+    }
+    if stable_original != stable_verified:
+        changed = sorted(
+            key
+            for key in set(stable_original) | set(stable_verified)
+            if stable_original.get(key) != stable_verified.get(key)
+        )
+        raise LandingError(
+            "coding verification changed non-coding top-level field(s): " + ", ".join(changed)
+        )
     original_items = _object_list(original.get("items"), "original items")
     verified_items = _object_list(verified.get("items"), "verified items")
     if len(original_items) != len(verified_items):
         raise LandingError("coding verification changed the item count")
     mutable = {"code_artifact", "correct", "extracted", "failure_kind"}
+    mutable_artifact = {
+        "verdict",
+        "verdict_source",
+        "image_digest",
+        "conformance_status",
+        "extraction_status",
+        "ast_gate_rev",
+        "sentinel_scheme_rev",
+        "assembled_program_sha256",
+    }
     for before, after in zip(original_items, verified_items, strict=True):
         identity = (before.get("bench"), before.get("id"))
         if identity != (after.get("bench"), after.get("id")):
@@ -252,6 +311,45 @@ def _assert_generations_untouched(original: JsonObject, verified: JsonObject) ->
         stable_after = {key: value for key, value in after.items() if key not in mutable}
         if stable_before != stable_after:
             raise LandingError(f"coding verification changed generation data for {identity[1]}")
+        before_artifact = _object(before.get("code_artifact"), f"original coding artifact {identity[1]}")
+        after_artifact = _object(after.get("code_artifact"), f"verified coding artifact {identity[1]}")
+        artifact_before = {key: value for key, value in before_artifact.items() if key not in mutable_artifact}
+        artifact_after = {key: value for key, value in after_artifact.items() if key not in mutable_artifact}
+        if artifact_before != artifact_after:
+            raise LandingError(f"coding verification changed immutable artifact data for {identity[1]}")
+
+
+def _strict_coding_patch(original: JsonObject, verified: JsonObject) -> JsonObject:
+    """Create the landed record from the original plus an explicit coding-only patch."""
+    patched = copy.deepcopy(original)
+    original_items = _object_list(patched.get("items"), "original items")
+    verified_items = _object_list(verified.get("items"), "verified items")
+    for before, after in zip(original_items, verified_items, strict=True):
+        if before.get("bench") != CODING_BENCH:
+            continue
+        before_artifact = _object(before.get("code_artifact"), f"original coding artifact {before.get('id')}")
+        after_artifact = _object(after.get("code_artifact"), f"verified coding artifact {after.get('id')}")
+        for key in (
+            "verdict",
+            "verdict_source",
+            "image_digest",
+            "conformance_status",
+            "extraction_status",
+            "ast_gate_rev",
+            "sentinel_scheme_rev",
+            "assembled_program_sha256",
+        ):
+            if key in after_artifact:
+                before_artifact[key] = copy.deepcopy(after_artifact[key])
+            else:
+                before_artifact.pop(key, None)
+        before["code_artifact"] = before_artifact
+        for key in ("correct", "extracted", "failure_kind"):
+            if key in after:
+                before[key] = copy.deepcopy(after[key])
+            else:
+                before.pop(key, None)
+    return patched
 
 
 def _assert_coding_verified(run: JsonObject) -> None:
@@ -279,12 +377,152 @@ def _assert_agentic_verification(run: JsonObject) -> None:
                 raise LandingError(f"agentic run {index} failed infrastructure gate {gate}={value!r}")
 
 
+def _assert_campaign_complete(run_dir: Path, run: JsonObject) -> None:
+    status = _read_object(run_dir / "run.status.json", "campaign status")
+    if status.get("state") != "complete":
+        raise LandingError("campaign status must be complete before landing")
+    completed = status.get("completed_items")
+    total = status.get("total_items")
+    if (
+        not isinstance(completed, int)
+        or isinstance(completed, bool)
+        or not isinstance(total, int)
+        or isinstance(total, bool)
+        or completed != total
+    ):
+        raise LandingError("campaign status must report every item complete")
+    campaign = _read_object(run_dir / "campaign.json", "campaign")
+    campaign_items = _object(campaign.get("items"), "campaign.items")
+    if campaign_items.get("total") != total or len(_object_list(run.get("items"), "original items")) < total:
+        raise LandingError("campaign completed-item count does not match the final run")
+    campaign_suite = _object(campaign.get("suite"), "campaign.suite")
+    run_suite = _object(_object(run.get("manifest"), "manifest").get("suite"), "manifest.suite")
+    for campaign_key, run_key in (("suite_version", "suite_version"), ("suite_hash", "suite_hash")):
+        campaign_value = campaign_suite.get(campaign_key)
+        run_value = run_suite.get(run_key)
+        if campaign_value is not None and campaign_value != run_value:
+            raise LandingError(f"campaign {campaign_key} does not match the final run")
+
+
+def _assert_verifier_receipt(
+    original_path: Path,
+    verified: JsonObject,
+    patched: JsonObject,
+    *,
+    verifier_public_key: str,
+) -> str:
+    if re.fullmatch(r"[0-9a-f]{64}", verifier_public_key) is None:
+        raise LandingError("--verifier-public-key must be a 64-hex Ed25519 public key")
+    receipt = _object(verified.get("coding_verifier_receipt"), "coding_verifier_receipt")
+    try:
+        payload = verify_signed_verifier_receipt(receipt, verifier_public_key)
+    except ValueError as error:
+        raise LandingError(str(error)) from error
+    if payload.get("schema_version") != RECEIPT_SCHEMA_VERSION or payload.get("complete") is not True:
+        raise LandingError("coding verifier receipt is incomplete or uses an unsupported schema")
+    if payload.get("source_run_sha256") != _sha256_file(original_path):
+        raise LandingError("coding verifier receipt is not bound to the original run bytes")
+    if payload.get("coding_patch_sha256") != coding_patch_sha256(patched):
+        raise LandingError("coding verifier receipt does not cover the accepted coding patch")
+    image = payload.get("image_digest")
+    if not isinstance(image, str) or re.fullmatch(r"[^\s@]+@sha256:[0-9a-f]{64}", image) is None:
+        raise LandingError("coding verifier receipt image must be digest-pinned")
+
+    suite = read_json_object(SUITE_DIR / "suite.json")
+    expected_hashes = item_hashes(SUITE_DIR, [f"{CODING_BENCH}.jsonl"])
+    expected_constants = {
+        "suite_version": suite_version(suite),
+        "item_set_hashes": expected_hashes,
+        "runner_sha256": HARNESS_REV,
+        "artifact_harness_rev": HARNESS_REV,
+        "assembly_recipe_id": ASSEMBLY_RECIPE_ID,
+        "ast_gate_rev": AST_GATE_REV,
+        "extractor_rev": EXTRACTOR_REV,
+        "sentinel_scheme_rev": SENTINEL_SCHEME_REV,
+    }
+    for key, expected in expected_constants.items():
+        if payload.get(key) != expected:
+            raise LandingError(f"coding verifier receipt {key} is not current")
+    coding_items = [item for item in _object_list(patched.get("items"), "items") if item.get("bench") == CODING_BENCH]
+    if payload.get("coding_item_count") != len(coding_items) or payload.get("verified_item_count") != len(coding_items):
+        raise LandingError("coding verifier receipt does not cover every coding item")
+    _assert_current_coding_artifacts(patched, image)
+    return hashlib.sha256(
+        json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+
+
+def _assert_current_coding_artifacts(run: JsonObject, image_digest: str) -> None:
+    suite = read_json_object(SUITE_DIR / "suite.json")
+    rendered = render_benches(CODING_BENCH, "standard", None, SUITE_DIR, suite, [])
+    if len(rendered) != 1:
+        raise LandingError("current coding suite cannot be rendered")
+    bench = rendered[0]
+    expected_by_id = {
+        str(benchmark["id"]): (source, benchmark)
+        for source, benchmark in zip(bench.source_items, bench.benchmark_items, strict=True)
+    }
+    for item in _object_list(run.get("items"), "items"):
+        if item.get("bench") != CODING_BENCH:
+            continue
+        item_id = str(item.get("id"))
+        expected_pair = expected_by_id.get(item_id)
+        if expected_pair is None:
+            raise LandingError(f"coding item {item_id} is absent from the current frozen suite")
+        source, benchmark = expected_pair
+        expected = code_artifact_for_generation(source, benchmark, item)
+        actual = _object(item.get("code_artifact"), f"coding artifact {item_id}")
+        for key in (
+            "raw_text_sha256",
+            "extracted_code",
+            "sanitized_code",
+            "assembly_recipe_id",
+            "assembled_program_sha256",
+            "item_record_sha",
+            "prompt_content_sha",
+            "test_sha",
+            "ast_gate_rev",
+            "sentinel_scheme_rev",
+            "extractor_rev",
+            "harness_rev",
+        ):
+            if actual.get(key) != expected.get(key):
+                raise LandingError(f"coding item {item_id} has stale or mismatched {key}")
+        if actual.get("image_digest") != image_digest:
+            raise LandingError(f"coding item {item_id} is not tied to the receipt image digest")
+
+
+def _hash_actual_gguf(path: Path, *, claimed_sha256: str, claimed_size_bytes: int) -> str:
+    resolved = path.expanduser().resolve()
+    if not resolved.is_file():
+        raise LandingError(f"--gguf must be the actual model file: {resolved}")
+    if resolved.stat().st_size != claimed_size_bytes:
+        raise LandingError(
+            f"actual GGUF size {resolved.stat().st_size} does not match manifest size {claimed_size_bytes}"
+        )
+    digest = _sha256_file(resolved)
+    if digest != claimed_sha256:
+        raise LandingError(
+            f"actual GGUF SHA-256 {digest} does not match the run identity {claimed_sha256}"
+        )
+    return digest
+
+
 def _trusted_coding_disposition(item: JsonObject) -> bool:
     artifact = item.get("code_artifact")
     if not isinstance(artifact, dict):
         return False
     if artifact.get("verdict_source") == "verifier":
-        return True
+        verdict = artifact.get("verdict")
+        return (
+            isinstance(verdict, dict)
+            and isinstance(verdict.get("passed"), bool)
+            and item.get("correct") is verdict.get("passed")
+            and not (
+                verdict.get("passed") is True
+                and (verdict.get("timeout") is True or verdict.get("oom") is True)
+            )
+        )
     if item.get("correct") is not False:
         return False
     conformance = artifact.get("conformance_status")
@@ -294,7 +532,13 @@ def _trusted_coding_disposition(item: JsonObject) -> bool:
     return isinstance(extraction, dict) and extraction.get("status") not in (None, "ok")
 
 
-def _rescore(run: JsonObject, *, original_path: Path, verified_path: Path) -> JsonObject:
+def _rescore(
+    run: JsonObject,
+    *,
+    original_path: Path,
+    verified_path: Path,
+    verifier_receipt_sha256: str,
+) -> JsonObject:
     result = copy.deepcopy(run)
     manifest = _object(result.get("manifest"), "manifest")
     recorded = _object(manifest.get("scorecard"), "manifest.scorecard")
@@ -303,6 +547,7 @@ def _rescore(run: JsonObject, *, original_path: Path, verified_path: Path) -> Js
     prior_scorecard_id = _required_text(recorded, "scorecard_id")
     current = scorecard_identity(profile_id, lane_spec_id=lane_spec_id)
     items = _object_list(result.get("items"), "items")
+    _recompute_derived_record(result, items)
     budget = _budget_audit(items)  # type: ignore[arg-type]
     manifest["scorecard"] = current
     result["budget_audit"] = budget
@@ -318,8 +563,87 @@ def _rescore(run: JsonObject, *, original_path: Path, verified_path: Path) -> Js
         "rescored_scorecard_id": current["scorecard_id"],
         "generations_untouched": True,
         "coding_reverified": True,
+        "verifier_receipt_sha256": verifier_receipt_sha256,
     }
     return result
+
+
+def _recompute_derived_record(result: JsonObject, items: list[JsonObject]) -> None:
+    suite = read_json_object(SUITE_DIR / "suite.json")
+    manifest = _object(result.get("manifest"), "manifest")
+    suite_manifest = _object(manifest.get("suite"), "manifest.suite")
+    tier = _required_text(suite_manifest, "tier")
+    bench_names = sorted(
+        {
+            str(item.get("bench"))
+            for item in items
+            if isinstance(item.get("bench"), str) and item.get("bench") in _object(suite.get("benches"), "suite.benches")
+        }
+    )
+    rendered = render_benches(",".join(bench_names), tier, None, SUITE_DIR, suite, [])
+    baselines = {bench.name: bench.baseline for bench in rendered}
+    grouped: dict[str, list[JsonObject]] = {}
+    for item in items:
+        bench = item.get("bench")
+        if isinstance(bench, str):
+            grouped.setdefault(bench, []).append(item)
+    benches: JsonObject = {}
+    for bench, bench_items in grouped.items():
+        benches[bench] = aggregate(bench, bench_items, baselines.get(bench, 0.0))  # type: ignore[arg-type]
+    result["benches"] = benches
+
+    prior_totals = _object(result.get("totals"), "totals")
+    wall_time = prior_totals.get("wall_time_seconds")
+    if not isinstance(wall_time, int | float) or isinstance(wall_time, bool) or wall_time < 0:
+        raise LandingError("totals.wall_time_seconds must be a non-negative number")
+    result["totals"] = run_totals(items, float(wall_time))  # type: ignore[arg-type]
+    result["perf"] = perf_summary(items)
+
+    suite_axes = suite.get("axes") if isinstance(suite.get("axes"), dict) else None
+    axis_status = axis_status_for_benches(benches, suite_axes)
+    result["axis_status"] = axis_status
+    scores = score_summary(benches, axis_status, suite_axes=suite_axes)  # type: ignore[arg-type]
+    result["scores"] = scores
+    result["headline_complete"] = scores.get("headline_score") is not None
+
+    scorecard = _object(manifest.get("scorecard"), "manifest.scorecard")
+    profile_id = _required_text(scorecard, "execution_profile_id")
+    profile = execution_profile_for_id(profile_id)
+    leak_regexes = () if profile is None else registry_leak_regexes(profile.conformance)
+    lane = _required_text(suite_manifest, "lane")
+    forced = profile is not None and profile.forcing is not None
+    result["conformance"] = assess_run_conformance(
+        grouped,  # type: ignore[arg-type]
+        forced=forced,
+        lane_spec_id=lane_spec_id_for_lane(lane),
+        leak_regexes_by_bench={bench: leak_regexes for bench in grouped},
+    )
+    result["budget_audit"] = _budget_audit(items)  # type: ignore[arg-type]
+
+    sampling = _object(manifest.get("sampling"), "manifest.sampling")
+    temperature = sampling.get("temperature")
+    top_k = sampling.get("top_k")
+    seed = sampling.get("seed")
+    deterministic = temperature == 0 and top_k == 1 and isinstance(seed, int) and not isinstance(seed, bool)
+    result["sampler_audit"] = {
+        "status": "deterministic" if deterministic else "unverified",
+        "temperature": temperature,
+        "top_k": top_k,
+        "seed": seed,
+        "determinism_policy": sampling.get("determinism_policy"),
+    }
+    result["prompt_audit"] = {
+        "status": "canonical",
+        "execution_profile_id": profile_id,
+        "user_supplied_stops_removed": False,
+    }
+    result["suite_coverage"] = _suite_coverage(
+        rendered,
+        items,  # type: ignore[arg-type]
+        suite=suite,
+        tier=tier,
+        max_items=None,
+    )
 
 
 def _catalog_entry(run: JsonObject, run_dir: Path) -> JsonObject:
@@ -413,6 +737,13 @@ def _model_sha(run: JsonObject) -> str:
     return top
 
 
+def _model_size(run: JsonObject) -> int:
+    size = _object(_object(run.get("manifest"), "manifest").get("model"), "manifest.model").get("file_size_bytes")
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise LandingError("manifest.model.file_size_bytes must be a positive integer")
+    return size
+
+
 def _source_for_artifact(sources: list[JsonObject], model_sha: str) -> JsonObject | None:
     for source in sources:
         raw_path = source.get("file")
@@ -457,10 +788,6 @@ def _preflight_web_build(sources: Path, board: Path, out_dir: Path) -> None:
     _checked(command, cwd=REPO_ROOT / "web", env=env, label="candidate web data build")
 
 
-def _run_web_build() -> None:
-    _checked([sys.executable, "build_data.py"], cwd=REPO_ROOT / "web", env=None, label="web data build")
-
-
 def _checked(
     command: list[str],
     *,
@@ -474,22 +801,10 @@ def _checked(
         raise LandingError(f"{label} failed: {detail}")
 
 
-def _git_object_hash(path: Path) -> str:
-    result = subprocess.run(
-        ["git", "hash-object", str(path)],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    value = result.stdout.strip()
-    if result.returncode != 0 or re.fullmatch(r"[0-9a-f]{40}", value) is None:
-        raise LandingError(f"git hash-object failed for {path}: {result.stderr.strip()}")
-    return value
-
-
-def _update_launch_freeze(board_hash: str) -> None:
-    original = LAUNCH_FREEZE_PATH.read_text(encoding="utf-8")
+def _write_launch_freeze(source: Path, out: Path, board_hash: str) -> None:
+    if re.fullmatch(r"[0-9a-f]{64}", board_hash) is None:
+        raise LandingError("boardSha256 must be a 64-hex SHA-256 digest")
+    original = source.read_text(encoding="utf-8")
     updated, count = re.subn(
         r'(boardSha256:\s*")[0-9a-f]+(")',
         rf"\g<1>{board_hash}\g<2>",
@@ -497,14 +812,95 @@ def _update_launch_freeze(board_hash: str) -> None:
         count=1,
     )
     if count != 1:
-        raise LandingError(f"could not locate boardSha256 in {LAUNCH_FREEZE_PATH}")
-    atomic_write_bytes(updated.encode("utf-8"), LAUNCH_FREEZE_PATH)
+        raise LandingError(f"could not locate boardSha256 in {source}")
+    atomic_write_bytes(updated.encode("utf-8"), out)
 
 
 def _validate_launch_freeze() -> None:
     value = LAUNCH_FREEZE_PATH.read_text(encoding="utf-8")
-    if re.search(r'boardSha256:\s*"[0-9a-f]+"', value) is None:
+    if re.search(r'boardSha256:\s*"[0-9a-f]{64}"', value) is None:
         raise LandingError(f"could not locate boardSha256 in {LAUNCH_FREEZE_PATH}")
+
+
+def _assert_protected_public_runs_unchanged(before_dir: Path, after_dir: Path) -> None:
+    for model_slug, run_id in _PROTECTED_PUBLIC_RUNS:
+        before = _public_run_bytes(before_dir / "models" / f"{model_slug}.json", run_id)
+        after = _public_run_bytes(after_dir / "models" / f"{model_slug}.json", run_id)
+        if before != after:
+            raise LandingError(f"candidate web build changed protected public run {run_id}")
+
+
+def _public_run_bytes(path: Path, run_id: str) -> bytes:
+    payload = _read_object(path, f"public model {path.name}")
+    runs = _object_list(payload.get("runs"), f"{path.name}.runs")
+    run = next((item for item in runs if item.get("run_id") == run_id), None)
+    if run is None:
+        raise LandingError(f"protected public run is missing: {run_id}")
+    return (json.dumps(run, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+
+
+def _apply_staged_outputs(
+    temp_dir: Path,
+    staged_targets: tuple[tuple[Path, Path], ...],
+) -> None:
+    """Swap a completely validated output set, restoring every target on any failure."""
+    _acquire_landing_lock()
+    backups_dir = temp_dir / "backups"
+    backups_dir.mkdir()
+    journal: JsonObject = {"schema_version": "localbench.landing-journal.v1", "entries": []}
+    swapped: list[tuple[Path, Path | None]] = []
+    try:
+        for index, (staged, target) in enumerate(staged_targets):
+            if not staged.exists():
+                raise LandingError(f"staged landing output is missing: {staged}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            backup = backups_dir / f"{index}-{target.name}"
+            existed = target.exists()
+            entry: JsonObject = {
+                "target": str(target),
+                "backup": str(backup) if existed else None,
+                "staged": str(staged),
+                "swapped": False,
+            }
+            entries = journal["entries"]
+            if isinstance(entries, list):
+                entries.append(entry)
+            atomic_write_json(journal, LANDING_JOURNAL_PATH)
+            if existed:
+                os.replace(target, backup)
+            try:
+                os.replace(staged, target)
+            except Exception:
+                if existed and backup.exists():
+                    os.replace(backup, target)
+                raise
+            entry["swapped"] = True
+            swapped.append((target, backup if existed else None))
+            atomic_write_json(journal, LANDING_JOURNAL_PATH)
+    except Exception:
+        for target, backup in reversed(swapped):
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink(missing_ok=True)
+            if backup is not None and backup.exists():
+                os.replace(backup, target)
+        raise
+    finally:
+        LANDING_JOURNAL_PATH.unlink(missing_ok=True)
+        LANDING_LOCK_PATH.unlink(missing_ok=True)
+
+
+def _acquire_landing_lock() -> None:
+    try:
+        descriptor = os.open(LANDING_LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as error:
+        raise LandingError(
+            f"landing lock already exists: {LANDING_LOCK_PATH}; inspect the crash journal before retrying"
+        ) from error
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(str(os.getpid()))
+        handle.write("\n")
 
 
 def _append_json_array_item(original: bytes, item: JsonObject) -> bytes:

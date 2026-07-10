@@ -78,6 +78,7 @@ class CodingExecConfig:
     limits: SandboxLimits = SandboxLimits()
     runtime: str | None = None
     allow_unsafe_sandbox: bool = False  # explicit override for the rootful-bare-Linux fail-closed gate
+    receipt_signing_key: Path | None = None
 
 
 class CodingExecRun(TypedDict):
@@ -168,6 +169,7 @@ def execute_pending_artifacts(
             + " (override with allow_unsafe_sandbox if you accept the risk)"
         )
     config = replace(config, runtime=config.runtime or preflight.runtime)
+    source_bytes = run_path.read_bytes()
     run = read_json_object(run_path)
     suite = read_json_object(config.suite_dir / "suite.json")
     warnings: list[str] = []
@@ -209,6 +211,7 @@ def execute_pending_artifacts(
     if not tasks:
         if rejected_any:
             _refresh_bigcodebench_aggregate(run)
+        _attach_receipt_if_requested(run, source_bytes=source_bytes, config=config)
         write_json(run, config.out or run_path)
         return run
     verdicts = {str(result["id"]): result for result in _execute(tasks, config, sandbox_runner)}
@@ -226,9 +229,26 @@ def execute_pending_artifacts(
             )
             item["correct"] = bool(result.get("passed"))
     _refresh_bigcodebench_aggregate(run)
+    _attach_receipt_if_requested(run, source_bytes=source_bytes, config=config)
     output_path = config.out or run_path
     write_json(run, output_path)
     return run
+
+
+def _attach_receipt_if_requested(run: JsonObject, *, source_bytes: bytes, config: CodingExecConfig) -> None:
+    if config.receipt_signing_key is None:
+        return
+    from localbench.coding_exec.receipt import attach_signed_verifier_receipt
+
+    if "@sha256:" not in config.image:
+        raise CodingExecError("signed verifier receipts require a digest-pinned --image")
+    attach_signed_verifier_receipt(
+        run,
+        source_bytes=source_bytes,
+        suite_dir=config.suite_dir,
+        image_digest=config.image,
+        signing_key=config.receipt_signing_key,
+    )
 
 
 def _assemble_tasks(

@@ -60,6 +60,7 @@ def test_submission_envelope_normalizes_legacy_community_origin(tmp_path: Path) 
         "schema_version": "localbench.submission_envelope.v1",
         "submitter_id": "submitter",
         "ticket_id": "ticket_fixture",
+        "upload_capability": "upload_" + ("1" * 32),
     }
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
 
@@ -83,6 +84,7 @@ def test_submission_envelope_rejects_unknown_origin(tmp_path: Path) -> None:
         "schema_version": "localbench.submission_envelope.v1",
         "submitter_id": "submitter",
         "ticket_id": "ticket_fixture",
+        "upload_capability": "upload_" + ("1" * 32),
     }
     envelope_path.write_text(json.dumps(envelope), encoding="utf-8")
 
@@ -205,6 +207,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                         "schema_version": "localbench.submission_envelope.v1",
                         "submitter_id": "public_key:" + ("ab" * 32),
                         "ticket_id": "ticket_fixture",
+                        "upload_capability": "upload_" + ("1" * 32),
                     },
                 )
             case ("POST", "https://local-bench.ai/api/submissions/request-upload"):
@@ -212,6 +215,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                 assert json.loads(request.content) == {
                     "raw_bundle_sha256": bundle_sha,
                     "ticket_id": "ticket_fixture",
+                    "upload_capability": "upload_" + ("1" * 32),
                 }
                 return httpx.Response(
                     200,
@@ -306,6 +310,7 @@ def test_submission_client_surfaces_disabled_unauthorized_and_private_gate_paths
         "schema_version": "localbench.submission_envelope.v1",
         "submitter_id": "owner",
         "ticket_id": "ticket_fixture",
+        "upload_capability": "upload_" + ("1" * 32),
     }
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -490,6 +495,7 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
             "schema_version": "localbench.submission_envelope.v1",
             "submitter_id": "public_key:" + request.public_key,
             "ticket_id": "ticket_fixture",
+            "upload_capability": "upload_" + ("1" * 32),
         }
 
     def fake_upload(request: cli_mod.SubmissionUploadRequest) -> dict[str, str]:

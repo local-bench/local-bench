@@ -29,6 +29,7 @@ class SubmissionEnvelope(TypedDict):
     schema_version: str
     submitter_id: str
     ticket_id: str
+    upload_capability: str
     declared_model_slug: NotRequired[str]
     submitter_display_name: NotRequired[str]
 
@@ -40,6 +41,7 @@ class UploadTarget(TypedDict):
     method: str
     r2_key: str
     upload_url: str
+    upload_headers: NotRequired[dict[str, str]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +89,7 @@ class AdminVerificationRequest:
     credentials: SiteCredentials
     submission_id: str
     status_update: JsonObject
+    override: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +132,11 @@ def upload_submission_bundle(
         target_response = client.post(
             _site_url(request.credentials.site, "/api/submissions/request-upload"),
             headers=_site_headers(request.credentials),
-            json={"raw_bundle_sha256": bundle_sha, "ticket_id": request.envelope["ticket_id"]},
+            json={
+                "raw_bundle_sha256": bundle_sha,
+                "ticket_id": request.envelope["ticket_id"],
+                "upload_capability": request.envelope["upload_capability"],
+            },
         )
         raise_for_status_with_body(target_response)
         target = _upload_target(target_response.json())
@@ -140,7 +147,7 @@ def upload_submission_bundle(
         upload_response = client.put(
             target["upload_url"],
             content=bundle,
-            headers={"content-type": "application/json"},
+            headers={"content-type": "application/json", **target.get("upload_headers", {})},
         )
         raise_for_status_with_body(upload_response)
         complete_response = client.post(
@@ -176,7 +183,8 @@ def post_admin_verification(
         response = client.post(
             _site_url(
                 request.credentials.site,
-                f"/api/admin/submissions/{request.submission_id}/verification",
+                f"/api/admin/submissions/{request.submission_id}/verification"
+                + ("?override=true" if request.override else ""),
             ),
             headers=_site_headers(request.credentials),
             json=request.status_update,
@@ -273,6 +281,7 @@ def _envelope(value: JsonValue) -> SubmissionEnvelope:
         "schema_version": _required_text(data, "schema_version"),
         "submitter_id": _required_text(data, "submitter_id"),
         "ticket_id": _required_text(data, "ticket_id"),
+        "upload_capability": _required_text(data, "upload_capability"),
     }
     declared_model_slug = _nullable_text(data.get("declared_model_slug"))
     if declared_model_slug is not None:
@@ -285,7 +294,7 @@ def _envelope(value: JsonValue) -> SubmissionEnvelope:
 
 def _upload_target(value: JsonValue) -> UploadTarget:
     data = _json_object(value)
-    return {
+    target: UploadTarget = {
         "bucket": _required_text(data, "bucket"),
         "content_sha256": _required_text(data, "content_sha256"),
         "expires_seconds": _required_int(data, "expires_seconds"),
@@ -293,6 +302,12 @@ def _upload_target(value: JsonValue) -> UploadTarget:
         "r2_key": _required_text(data, "r2_key"),
         "upload_url": _required_text(data, "upload_url"),
     }
+    headers = data.get("upload_headers")
+    if headers is not None:
+        if not isinstance(headers, dict) or not all(isinstance(key, str) and isinstance(item, str) for key, item in headers.items()):
+            raise SubmissionValidationError("API response field upload_headers must map strings to strings")
+        target["upload_headers"] = dict(headers)
+    return target
 
 
 def _json_object(value: JsonValue) -> JsonObject:
