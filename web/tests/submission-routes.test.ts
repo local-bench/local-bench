@@ -110,10 +110,32 @@ describe("submission route contracts", () => {
     });
     expect(target.upload_url).toContain("X-Amz-Signature=");
     expect(target.upload_url).toContain(`/localbench-submissions/submissions/raw/${RAW_BUNDLE_SHA}.json`);
-    expect(target.upload_headers).toMatchObject({
+    expect(target.upload_headers).toEqual({
       "if-none-match": "*",
-      "x-amz-checksum-sha256": expect.any(String),
     });
+    expect(target.upload_url).not.toContain("x-amz-checksum");
+  });
+
+  it("verifies the declared bundle SHA from uploaded bytes before admission", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const envelope = await issueEnvelope(env);
+    await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, "attacker-authored bytes");
+
+    const response = await completeSubmission({
+      env,
+      params: { submissionId: envelope.ticket_id },
+      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: 23,
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "raw_bundle_sha_mismatch" });
+    const row = await env.DB.prepare("select status, uploaded_at from submissions where submission_id = ?")
+      .bind(envelope.ticket_id)
+      .first();
+    expect(row).toMatchObject({ status: "ticketed", uploaded_at: null });
   });
 
   it("keeps public ticket ids from authorizing upload overwrite", async () => {

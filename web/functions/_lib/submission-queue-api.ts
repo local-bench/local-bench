@@ -1,5 +1,6 @@
 import type { SubmissionApiEnv } from "./submission-contracts";
 import { clientIp } from "./submission-api-common";
+import { publicPendingModelLabel } from "./submission-catalog-label";
 import { rateLimited } from "./submission-rate-limit";
 import { listPendingVerificationQueue } from "./submission-store";
 
@@ -24,7 +25,7 @@ export async function handlePendingVerificationQueue(request: Request, env: Subm
     cohort_cap: PENDING_VERIFICATION_COHORT_CAP,
     policy: "fifo_exact_gguf_maintainer_agentic_verification",
     submissions: queue.rows.map((row, index) => ({
-      declared_model_slug: catalogSlugOrNull(row.declared_model_slug),
+      model_label: publicPendingModelLabel(row.declared_model_slug, row.submission_id),
       position: index + 1,
       queued_at: d1TimestampToIso(row.queued_at),
       submission_id: row.submission_id,
@@ -39,10 +40,6 @@ export async function handlePendingVerificationQueue(request: Request, env: Subm
 function edgeCache(): Cache | null {
   const value = (globalThis as typeof globalThis & { readonly caches?: CacheStorage & { readonly default?: Cache } }).caches;
   return value?.default ?? null;
-}
-
-function catalogSlugOrNull(value: string | null): string | null {
-  return value !== null && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length <= 120 ? value : null;
 }
 
 function d1TimestampToIso(value: string): string {

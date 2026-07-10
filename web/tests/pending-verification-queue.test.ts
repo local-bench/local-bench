@@ -20,7 +20,7 @@ describe("pending verification queue", () => {
           `ticket_${suffix}`,
           suffix.repeat(32),
           suffix.repeat(32),
-          index === 0 ? "Vendor / Fake" : `model-${suffix}`,
+          index === 0 ? "Vendor / Fake" : index === 1 ? "qwen3-0-6b" : `model-${suffix}`,
           `2026-07-10 00:00:${suffix}`,
           `2026-07-10 00:00:${suffix}`,
         )
@@ -35,14 +35,15 @@ describe("pending verification queue", () => {
     expect(payload.cohort_cap).toBe(5);
     expect(payload.total_pending).toBe(7);
     expect(payload.submissions.map((ticket) => ticket.position)).toEqual([1, 2, 3, 4, 5]);
-    expect(payload.submissions.map((ticket) => ticket.declared_model_slug)).toEqual([
-      null,
-      "model-01",
-      "model-02",
-      "model-03",
-      "model-04",
+    expect(payload.submissions.map((ticket) => ticket.model_label)).toEqual([
+      "Pending submission · ticket00",
+      "Qwen3 0.6B",
+      "Pending submission · ticket02",
+      "Pending submission · ticket03",
+      "Pending submission · ticket04",
     ]);
     expect(payload.submissions[0]).not.toHaveProperty("submitter_display_name");
+    expect(payload.submissions[0]).not.toHaveProperty("declared_model_slug");
   });
 
   it("rejects malformed client payloads instead of rendering invented queue data", () => {

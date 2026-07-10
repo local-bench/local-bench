@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type PendingTicket = {
-  readonly declared_model_slug: string | null;
+  readonly model_label: string;
   readonly position: number;
   readonly queued_at: string;
   readonly submission_id: string;
@@ -92,7 +92,7 @@ function QueueBody({ state }: { readonly state: QueueState }) {
               <td className="px-4 py-3 font-mono text-bench-text">#{ticket.position}</td>
               <td className="px-4 py-3">
                 <Link href={`/submission?id=${encodeURIComponent(ticket.submission_id)}`} className="font-semibold text-bench-text hover:text-bench-accent">
-                  {ticket.declared_model_slug ?? "Model pending moderation"}
+                  {ticket.model_label}
                 </Link>
               </td>
               <td className="px-4 py-3 font-mono text-xs text-bench-muted">{ticket.suite_release_id ?? "suite pending"}</td>
@@ -124,13 +124,14 @@ export function parseQueue(value: unknown): QueuePayload {
     if (
       !isRecord(item) ||
       !Number.isInteger(item["position"]) ||
+      typeof item["model_label"] !== "string" ||
       typeof item["queued_at"] !== "string" ||
       typeof item["submission_id"] !== "string"
     ) {
       throw new Error("invalid pending queue ticket");
     }
     return {
-      declared_model_slug: catalogSlugOrNull(item["declared_model_slug"]),
+      model_label: item["model_label"],
       position: item["position"] as number,
       queued_at: item["queued_at"],
       submission_id: item["submission_id"],
@@ -147,11 +148,6 @@ function nullableString(value: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function catalogSlugOrNull(value: unknown): string | null {
-  const slug = nullableString(value);
-  return slug !== null && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 120 ? slug : null;
 }
 
 function formatQueuedAt(value: string): string {

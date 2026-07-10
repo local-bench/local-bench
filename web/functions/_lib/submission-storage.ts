@@ -53,9 +53,10 @@ export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: st
     return { kind: "disabled" };
   }
   const r2Key = rawBundleKey(rawBundleSha256);
+  // R2's PutObject compatibility supports this conditional create header, but
+  // not x-amz-checksum-sha256. Finalization hashes the uploaded object bytes.
   const uploadHeaders = {
     "if-none-match": "*",
-    "x-amz-checksum-sha256": hexSha256ToBase64(rawBundleSha256),
   };
   const uploadUrl = await signedR2Url(signing, r2Key, uploadHeaders);
   return { bucketName: signing.bucketName, kind: "ok", r2Key, uploadHeaders, uploadUrl };
@@ -87,16 +88,6 @@ async function signedR2Url(config: R2SigningConfig, key: string, headers: Readon
   url.searchParams.set("X-Amz-Expires", "3600");
   const signed = await r2.sign(new Request(url, { headers, method: "PUT" }), { aws: { signQuery: true } });
   return signed.url;
-}
-
-function hexSha256ToBase64(hex: string): string {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let index = 0; index < bytes.length; index += 1) {
-    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
-  }
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
 }
 
 async function objectBytes(object: { readonly arrayBuffer?: () => Promise<ArrayBuffer>; text(): Promise<string> }): Promise<Uint8Array> {
