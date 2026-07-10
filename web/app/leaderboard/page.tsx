@@ -3,6 +3,7 @@ import { BoardIndexChart } from "@/components/board-index-chart";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { PartialCoverageBoard } from "@/components/partial-coverage-board";
+import { PendingVerificationQueue } from "@/components/pending-verification-queue";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
@@ -64,6 +65,7 @@ export default async function LeaderboardPage() {
         {/* The no-agentic lane renders only once it has rows — an empty second ranking
             table reads as a competing benchmark instead of a fallback lane. */}
         {staticComposite.length > 0 ? <HomeLeaderboard models={staticComposite} scoreMode="static" /> : null}
+        <PendingVerificationQueue />
         <PartialCoverageBoard rows={partialCoverage} />
         <CatalogShells models={catalog} />
       </section>

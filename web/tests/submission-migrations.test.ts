@@ -4,6 +4,7 @@ import {
   MIGRATION_0002,
   MIGRATION_0003,
   MIGRATION_0004,
+  MIGRATION_0009,
   applyMigration,
   columnCount,
   createEnv,
@@ -39,5 +40,15 @@ describe("submission D1 migrations", () => {
     expect(await tableExists(env.DB, "admin_decisions")).toBe(false);
     expect(await tableExists(env.DB, "suites")).toBe(false);
     expect(await tableExists(env.DB, "board_entries")).toBe(true);
+  });
+
+  it("adds the public queue model label without exposing bundle contents", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
+    await applyMigration(env.DB, MIGRATION_0002);
+    await applyMigration(env.DB, MIGRATION_0004);
+
+    await applyMigration(env.DB, MIGRATION_0009);
+
+    expect(await columnCount(env.DB, "submissions", "declared_model_slug")).toBe(1);
   });
 });

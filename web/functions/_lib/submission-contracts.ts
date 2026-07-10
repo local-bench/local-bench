@@ -270,6 +270,7 @@ export const PublishabilityPreflightRequestSchema = z
 export const SubmissionRowSchema = z.object({
   bundle_schema_version: z.string().nullable(),
   created_at: z.string(),
+  declared_model_slug: z.string().nullable().optional().default(null),
   duplicate_of: z.string().nullable(),
   expires_at: z.string().nullable(),
   origin: z.enum(["project_anchor", "community"]),

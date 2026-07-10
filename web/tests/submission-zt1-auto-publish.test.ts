@@ -12,6 +12,7 @@ import {
   MIGRATION_0006,
   MIGRATION_0007,
   MIGRATION_0008,
+  MIGRATION_0009,
   PROJECTION_SHA,
   applyMigration,
   columnCount,
@@ -582,7 +583,7 @@ describe("ZT-1 automatic publish decisions", () => {
   it("adds the ZT-1 columns additively after older rows already exist", async () => {
     // Given: the feedback migration already owns 0007 in this repository.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
-    for (const migration of [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007]) {
+    for (const migration of [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0009]) {
       await applyMigration(env.DB, migration);
     }
     await issueEnvelope(env);
@@ -603,7 +604,7 @@ async function createZt1Env(): Promise<SubmissionApiEnv> {
   const env = await createEnv({
     includeAdminSecret: true,
     includeR2Secrets: true,
-    migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008],
+    migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008, MIGRATION_0009],
   });
   return Object.assign(env, {
     ZT1_KNOWN_ARTIFACTS_JSON: JSON.stringify({ [KNOWN_HASH]: "qwen3-4b" }),

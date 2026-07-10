@@ -13,6 +13,7 @@ export const MIGRATION_0005 = readFileSync(new URL("../migrations/0005_submitter
 export const MIGRATION_0006 = readFileSync(new URL("../migrations/0006_zt0_foundation.sql", import.meta.url), "utf-8");
 export const MIGRATION_0007 = readFileSync(new URL("../migrations/0007_feedback.sql", import.meta.url), "utf-8");
 export const MIGRATION_0008 = readFileSync(new URL("../migrations/0008_zt1_zero_touch.sql", import.meta.url), "utf-8");
+export const MIGRATION_0009 = readFileSync(new URL("../migrations/0009_pending_verification_queue.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -53,7 +54,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006]) {
+  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009]) {
     await applyMigration(bindings.DB, migration);
   }
   return {
@@ -145,7 +146,7 @@ export function migrationContractV2WithoutTier(): string {
     "  model_identity_digest, model_display_name, lane_id, tier, validator_version, validator_commit,\n",
     "  model_identity_digest, model_display_name, lane_id, validator_version, validator_commit,\n",
   );
-  return `${migration0002}\n${migration0004}\n${MIGRATION_0005}`;
+  return `${migration0002}\n${migration0004}\n${MIGRATION_0005}\n${MIGRATION_0009}`;
 }
 
 export function ticketRequest(rawBundleSha = RAW_BUNDLE_SHA, overrides: Record<string, unknown> = {}): Record<string, unknown> {
