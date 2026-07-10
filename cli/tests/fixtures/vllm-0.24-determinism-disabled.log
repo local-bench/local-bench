@@ -1,0 +1,1 @@
+WARNING 07-11 08:31:14 [compressed_tensors.py:419] VLLM_BATCH_INVARIANT disabled: deterministic CUTLASS NVFP4 kernel unavailable; using fallback

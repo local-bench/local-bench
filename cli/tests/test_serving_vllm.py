@@ -52,6 +52,7 @@ def _launch_config(tmp_path: Path) -> vllm.VllmLaunchConfig:
         gpu_memory_utilization="0.92",
         chat_template="/mnt/c/model/chat_template.jinja",
         run_token="abc123",
+        expected_executable="/opt/vllm/bin/python",
     )
 
 
@@ -225,8 +226,14 @@ async def test_snapshot_directory_flows_through_manifest_writer_and_completed_pr
         runtime_identity_sha256="r" * 64,
         applied_chat_template_sha256=artifact.chat_template_digest,
         deterministic_kernel_evidence=("deterministic NVFP4 kernel",),
+        deterministic_kernel_enabled=True,
+        live_batch_invariant="1",
         determinism_canary_passed=True,
-        memory_allocations={"weights": {"value": 22.1, "unit": "GiB"}},
+        memory_allocations={
+            "weights": {"value": 22.1, "unit": "GiB"},
+            "kv_cache": {"value": 0.7, "unit": "GiB"},
+        },
+        computed_memory_fit={"fits": True},
         device_name="NVIDIA RTX",
         driver_version="600.1",
         dtype="bfloat16",
@@ -243,18 +250,33 @@ async def test_snapshot_directory_flows_through_manifest_writer_and_completed_pr
 
 def test_vllm_startup_log_records_determinism_memory_and_fit_failure(tmp_path: Path) -> None:
     log = tmp_path / "serve.log"
+    # These startup lines are captured vLLM 0.24 fixtures, not parser-generated text.
+    enabled = (Path(__file__).parent / "fixtures" / "vllm-0.24-determinism-enabled.log").read_text(
+        encoding="utf-8"
+    )
     log.write_text(
-        "VLLM_BATCH_INVARIANT: deterministic NVFP4 CUTLASS kernel selected\n"
-        "model weights 22.1 GiB\nKV cache size 0.7 GiB\nCUDA graph memory 0.3 GiB\n",
+        enabled + "model weights 22.1 GiB\nKV cache size 0.7 GiB\nCUDA graph memory 0.3 GiB\n",
         encoding="utf-8",
     )
     evidence = vllm.parse_vllm_startup_log(log)
     assert evidence.deterministic_kernel_evidence
+    assert evidence.deterministic_kernel_enabled is True
     assert set(evidence.memory_allocations) == {"weights", "kv_cache", "cuda_graph"}
     assert evidence.fit_failure is None
 
     log.write_text("CUDA out of memory while allocating KV cache\n", encoding="utf-8")
     assert "out of memory" in (vllm.parse_vllm_startup_log(log).fit_failure or "")
+
+
+def test_vllm_startup_log_rejects_negative_determinism_semantics(tmp_path: Path) -> None:
+    log = tmp_path / "serve.log"
+    disabled = (
+        Path(__file__).parent / "fixtures" / "vllm-0.24-determinism-disabled.log"
+    ).read_text(encoding="utf-8")
+    log.write_text(disabled, encoding="utf-8")
+    evidence = vllm.parse_vllm_startup_log(log)
+    assert evidence.deterministic_kernel_enabled is False
+    assert evidence.deterministic_kernel_evidence == ()
 
 
 def test_vllm_readiness_failure_is_rewritten_as_clear_memory_fit_error(
@@ -266,6 +288,46 @@ def test_vllm_readiness_failure_is_rewritten_as_clear_memory_fit_error(
         serving_runner._raise_memory_fit_error_if_present(
             log,
             ReadinessError("server never became ready"),
+        )
+
+
+def test_vllm_prelaunch_vram_fit_uses_snapshot_weights_and_config(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "model.safetensors").write_bytes(b"w" * 1024)
+    (snapshot / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "qwen3_5_moe",
+                "layer_types": ["linear_attention", "full_attention", "full_attention"],
+                "num_key_value_heads": 2,
+                "head_dim": 256,
+                "torch_dtype": "bfloat16",
+                "quantization_config": {"format": "nvfp4"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (snapshot / "chat_template.jinja").write_text("{{ messages }}", encoding="utf-8")
+    artifact = snapshot_artifact(snapshot, run_dir=tmp_path / "run")
+
+    fit = vllm.compute_vllm_memory_fit(
+        artifact,
+        max_model_len=8192,
+        total_vram_bytes=4 * 1024**3,
+        gpu_memory_utilization="0.92",
+    )
+    assert fit.weights_bytes == 1024
+    assert fit.kv_bytes == 2 * 2 * 256 * 2 * 2 * 8192
+    assert fit.required_bytes == fit.weights_bytes + fit.kv_bytes + 2 * 1024**3
+    assert fit.fits is True
+
+    with pytest.raises(RuntimeError, match=r"weights_bytes=1024.*kv_bytes=.*budget_bytes="):
+        vllm.compute_vllm_memory_fit(
+            artifact,
+            max_model_len=8192,
+            total_vram_bytes=2 * 1024**3,
+            gpu_memory_utilization="0.92",
         )
 
 
@@ -288,6 +350,19 @@ def test_vllm_argv_pins_single_request_batch_invariant_engine_profile(tmp_path: 
     assert "auto" not in argv
 
 
+def test_vllm_flag_validation_exact_matches_help_options(tmp_path: Path) -> None:
+    argv = vllm.vllm_serve_argv(_launch_config(tmp_path))
+    # Captured from `vllm serve --help` in the pinned vLLM 0.24 maintainer venv.
+    fixture = (Path(__file__).parent / "fixtures" / "vllm-0.24-serve-help.txt").read_text(
+        encoding="utf-8"
+    )
+    without_dtype = "\n".join(
+        line for line in fixture.splitlines() if not line.lstrip().startswith("--dtype ")
+    )
+    with pytest.raises(RuntimeError, match=r"required flags: --dtype"):
+        vllm.validate_vllm_argv(argv, without_dtype)
+
+
 def test_collect_vllm_build_identity_is_stable_and_complete(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_run(_distro: str, argv: list[str], *, check: bool = True):
         if argv[-1] == "--version":
@@ -295,7 +370,8 @@ def test_collect_vllm_build_identity_is_stable_and_complete(monkeypatch: pytest.
         if argv[-2:] == ["serve", "--help"]:
             return _completed("--max-num-seqs\n--dtype\n")
         if argv[0] == "readlink":
-            return _completed("/opt/vllm/bin/vllm\n")
+            resolved = "/opt/vllm/bin/python" if argv[-1].endswith("/python") else "/opt/vllm/bin/vllm"
+            return _completed(resolved + "\n")
         if argv[0] == "sha256sum":
             return _completed("b" * 64 + "  /opt/vllm/bin/vllm\n")
         if argv[-2:] == ["freeze", "--all"]:
@@ -303,7 +379,7 @@ def test_collect_vllm_build_identity_is_stable_and_complete(monkeypatch: pytest.
         if argv[0].endswith("/python"):
             return _completed("0.24.0\n")
         if argv[0] == "nvidia-smi" and len(argv) > 1:
-            return _completed("NVIDIA RTX, 600.1\n")
+            return _completed("NVIDIA RTX, 600.1, 32768\n")
         return _completed("NVIDIA-SMI 600.1 CUDA Version: 13.0 |\n")
 
     monkeypatch.setattr(vllm, "_run_wsl", fake_run)
@@ -321,6 +397,8 @@ def test_collect_vllm_build_identity_is_stable_and_complete(monkeypatch: pytest.
     assert first.driver_version == "600.1"
     assert first.cuda_version == "13.0"
     assert first.package_version == "0.24.0"
+    assert first.expected_executable == "/opt/vllm/bin/python"
+    assert first.total_vram_bytes == 32768 * 1024 * 1024
     assert len(first.dependency_lock_sha256) == 64
 
 
@@ -354,6 +432,8 @@ def test_launch_vllm_exports_batch_invariance_inside_pid_scoped_session(
 
     monkeypatch.setattr(vllm.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(vllm, "_wait_for_server_pid", lambda *_args: 111)
+    monkeypatch.setattr(vllm, "_read_process_pin", lambda *_args: vllm.ProcessPin(111, 1, 111, 10))
+    monkeypatch.setattr(vllm, "_process_identity_matches", lambda *_args, **_kwargs: True)
 
     launched = vllm.launch_vllm(_launch_config(tmp_path), log_path=tmp_path / "serve.log")
     launched.close_log()
@@ -372,7 +452,7 @@ async def test_vllm_readiness_timeout_is_fail_closed() -> None:
         await verify_vllm_readiness(
             base_url="http://127.0.0.1:49152",
             model_id="demo",
-            expected_chat_template="{{ messages }}",
+            pinned_chat_template_sha256="a" * 64,
             api_key="secret",
             seed=1234,
             transport=transport,
@@ -383,6 +463,8 @@ async def test_vllm_readiness_timeout_is_fail_closed() -> None:
 
 @pytest.mark.anyio
 async def test_vllm_readiness_verifies_openai_model_version_and_smoke_request() -> None:
+    tokenize_payloads: list[dict] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/health":
             return httpx.Response(200)
@@ -391,13 +473,17 @@ async def test_vllm_readiness_verifies_openai_model_version_and_smoke_request() 
         if request.url.path == "/version":
             return httpx.Response(200, json={"version": "0.24.0"})
         if request.url.path == "/tokenize":
+            payload = json.loads(request.content)
+            tokenize_payloads.append(payload)
+            if "chat_template" in payload:
+                return httpx.Response(400, json={"error": "request-level chat_template rejected"})
             return httpx.Response(200, json={"tokens": [1, 2]})
         return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
 
     evidence = await verify_vllm_readiness(
         base_url="http://127.0.0.1:49152",
         model_id="demo",
-        expected_chat_template="{{ messages }}",
+        pinned_chat_template_sha256="a" * 64,
         api_key="secret",
         seed=1234,
         transport=httpx.MockTransport(handler),
@@ -409,8 +495,10 @@ async def test_vllm_readiness_verifies_openai_model_version_and_smoke_request() 
     assert evidence.build_info == "0.24.0"
     assert evidence.total_slots is None
     assert evidence.model_path == "/mnt/c/model"
-    assert len(evidence.apply_template_sha256) == 64
+    assert evidence.apply_template_sha256 == "a" * 64
     assert len(evidence.smoke_chat_sha256) == 64
+    assert len(tokenize_payloads) == 1
+    assert "chat_template" not in tokenize_payloads[0]
 
 
 @pytest.mark.anyio
@@ -426,7 +514,7 @@ async def test_vllm_readiness_requires_server_reported_0_24_or_newer() -> None:
         await verify_vllm_readiness(
             base_url="http://127.0.0.1:49152",
             model_id="demo",
-            expected_chat_template="{{ messages }}",
+            pinned_chat_template_sha256="a" * 64,
             api_key="secret",
             seed=1234,
             transport=httpx.MockTransport(handler),
@@ -464,12 +552,49 @@ def _launched_server(process) -> vllm.LaunchedVllmServer:
         "/tmp/lb.pid",
         None,  # type: ignore[arg-type]
         "abc123",
-        "/opt/vllm/bin/vllm",
+        "/opt/vllm/bin/python",
         "/tmp/localbench-vllm-abc123",
+        vllm.ProcessPin(111, 1, 111, 100),
     )
 
 
-def test_teardown_vllm_refreshes_owned_tree_and_signals_only_verified_token_pids(
+def _proc_stat(pid: int, ppid: int, pgid: int, start_time: int) -> str:
+    fields = ["S", str(ppid), str(pgid), "0"] + ["0"] * 15 + [str(start_time)] + ["0"] * 20
+    return f"{pid} (vllm worker) " + " ".join(fields) + "\n"
+
+
+def _synthetic_proc(
+    monkeypatch: pytest.MonkeyPatch,
+    entries: dict[int, tuple[int, int, int, str, str]],
+    commands: list[list[str]],
+) -> None:
+    def fake_run(_distro: str, argv: list[str], *, check: bool = True):
+        commands.append(argv)
+        if argv[:3] == ["ps", "-e", "-o"]:
+            return _completed("\n".join(str(pid) for pid in entries) + "\n")
+        if argv[0] == "cat" and argv[1].endswith("/stat"):
+            pid = int(argv[1].split("/")[2])
+            row = entries.get(pid)
+            return _completed(
+                _proc_stat(pid, row[0], row[1], row[2]) if row is not None else "",
+                returncode=0 if row is not None else 1,
+            )
+        if argv[0] == "bash" and "/cmdline" in argv[-1]:
+            pid = int(argv[-1].split("/proc/", 1)[1].split("/", 1)[0])
+            row = entries.get(pid)
+            if row is None:
+                return _completed(returncode=1)
+            return _completed(f"{row[3]}\n{row[4]}\n")
+        if argv[0] == "readlink":
+            return _completed("/opt/vllm/bin/python\n")
+        if argv[0] == "pgrep":
+            return _completed("\n".join(str(pid) for pid, row in entries.items() if "abc123" in row[3]))
+        return _completed()
+
+    monkeypatch.setattr(vllm, "_run_wsl", fake_run)
+
+
+def test_console_script_identity_and_group_teardown_use_interpreter_proc_exe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class Process:
@@ -485,15 +610,14 @@ def test_teardown_vllm_refreshes_owned_tree_and_signals_only_verified_token_pids
             raise AssertionError("Windows fallback kill should not be needed")
 
     commands: list[list[str]] = []
-    refreshed = iter(([111, 222], [111, 222, 333], [111, 222, 333]))
-    monkeypatch.setattr(vllm, "_refreshed_owned_pids", lambda _server: list(next(refreshed)))
-    monkeypatch.setattr(vllm, "_verified_token_pids", lambda *_args: [111])
+    entries = {
+        111: (1, 111, 100, "/tmp/localbench-vllm-abc123 serve", "/opt/vllm/bin/python"),
+        222: (111, 111, 200, "engine worker", "/opt/vllm/bin/python"),
+        # Reparented after launch, but still a member of the pinned process group.
+        333: (1, 111, 300, "reparented worker", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
     monkeypatch.setattr(vllm, "_gpu_pids", lambda _distro: [])
-    monkeypatch.setattr(
-        vllm,
-        "_run_wsl",
-        lambda _distro, argv, **_kwargs: (commands.append(argv), _completed())[1],
-    )
     server = _launched_server(Process())
 
     evidence = vllm.teardown_vllm(server, timeout_seconds=0.2)
@@ -501,7 +625,9 @@ def test_teardown_vllm_refreshes_owned_tree_and_signals_only_verified_token_pids
     assert evidence["owned_process_tree"] == ["111", "222", "333"]
     assert evidence["terminated"] is True
     assert evidence["gpu_pids_after"] == []
-    assert [command for command in commands if command[0] == "kill"] == [["kill", "-TERM", "111"]]
+    assert [command for command in commands if command[0] == "kill"] == [
+        ["kill", "-TERM", "--", "-111"]
+    ]
 
 
 def test_teardown_vllm_marks_persistent_worker_as_uncertain(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -511,10 +637,13 @@ def test_teardown_vllm_marks_persistent_worker_as_uncertain(monkeypatch: pytest.
         def poll(self):
             return 0
 
-    monkeypatch.setattr(vllm, "_refreshed_owned_pids", lambda _server: [111, 222])
-    monkeypatch.setattr(vllm, "_verified_token_pids", lambda *_args: [])
+    commands: list[list[str]] = []
+    entries = {
+        111: (1, 111, 100, "/tmp/localbench-vllm-abc123 serve", "/opt/vllm/bin/python"),
+        222: (111, 111, 200, "engine worker", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
     monkeypatch.setattr(vllm, "_gpu_pids", lambda _distro: [222])
-    monkeypatch.setattr(vllm, "_run_wsl", lambda *_args, **_kwargs: _completed())
     server = _launched_server(Process())
 
     evidence = vllm.teardown_vllm(server, timeout_seconds=0)
@@ -541,6 +670,7 @@ def test_launch_pid_file_failure_locates_and_kills_only_run_token(
 
     cleaned: list[tuple[str, str]] = []
     monkeypatch.setattr(vllm.subprocess, "Popen", lambda *_args, **_kwargs: Process())
+    monkeypatch.setattr(vllm, "_run_wsl", lambda *_args, **_kwargs: _completed("/opt/vllm/bin/python\n"))
     monkeypatch.setattr(
         vllm,
         "_wait_for_server_pid",
@@ -554,7 +684,7 @@ def test_launch_pid_file_failure_locates_and_kills_only_run_token(
 
     with pytest.raises(RuntimeError, match="pid missing"):
         vllm.launch_vllm(_launch_config(tmp_path), log_path=tmp_path / "serve.log")
-    assert cleaned == [("abc123", "/opt/vllm/bin/vllm")]
+    assert cleaned == [("abc123", "/opt/vllm/bin/python")]
 
 
 def test_leader_pid_reuse_is_not_signaled(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -563,24 +693,82 @@ def test_leader_pid_reuse_is_not_signaled(monkeypatch: pytest.MonkeyPatch) -> No
             return 0
 
     commands: list[list[str]] = []
-    monkeypatch.setattr(vllm, "_verified_token_pids", lambda *_args: [])
-    monkeypatch.setattr(vllm, "_refreshed_owned_pids", lambda _server: [])
+    entries = {
+        # Same PID/token/interpreter, but field 22 no longer matches the captured start time.
+        111: (1, 111, 101, "/tmp/localbench-vllm-abc123 serve", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
     monkeypatch.setattr(vllm, "_gpu_pids", lambda _distro: [])
-    monkeypatch.setattr(
-        vllm,
-        "_run_wsl",
-        lambda _distro, argv, **_kwargs: (commands.append(argv), _completed())[1],
-    )
     evidence = vllm.teardown_vllm(_launched_server(Process()), timeout_seconds=0)
     assert not any(command[0] == "kill" for command in commands)
     assert evidence["teardown_uncertain"] is True
 
 
-def test_refreshed_tree_includes_reparented_token_child(monkeypatch: pytest.MonkeyPatch) -> None:
-    server = _launched_server(object())
-    monkeypatch.setattr(vllm, "_verified_token_pids", lambda *_args: [444])
-    monkeypatch.setattr(vllm, "_process_tree_pids", lambda _distro, pid: [pid, 555])
-    assert vllm._refreshed_owned_pids(server) == [444, 555]
+def test_descendant_in_separate_group_is_start_time_verified_and_signaled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[list[str]] = []
+    entries = {
+        111: (1, 111, 100, "/tmp/localbench-vllm-abc123 serve", "/opt/vllm/bin/python"),
+        444: (111, 444, 400, "separate group worker", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
+    monkeypatch.setattr(vllm, "_gpu_pids", lambda _distro: [])
+
+    class Process:
+        def poll(self):
+            return 0
+
+    evidence = vllm.teardown_vllm(_launched_server(Process()), timeout_seconds=0)
+    assert evidence["owned_process_tree"] == ["111", "444"]
+    assert [command for command in commands if command[0] == "kill"] == [
+        ["kill", "-TERM", "--", "-111"],
+        ["kill", "-TERM", "444"],
+    ]
+
+
+def test_captured_reparented_worker_is_killed_after_leader_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[list[str]] = []
+    entries = {
+        333: (1, 111, 300, "reparented worker", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
+    monkeypatch.setattr(vllm, "_gpu_pids", lambda _distro: [])
+
+    class Process:
+        def poll(self):
+            return 0
+
+    server = _launched_server(Process())
+    server.captured_processes[333] = vllm.ProcessPin(333, 111, 111, 300)
+    evidence = vllm.teardown_vllm(server, timeout_seconds=0)
+    assert evidence["owned_process_tree"] == ["333"]
+    assert [command for command in commands if command[0] == "kill"] == [
+        ["kill", "-TERM", "--", "-111"]
+    ]
+
+
+def test_live_batch_invariant_is_read_from_verified_process_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[list[str]] = []
+    entries = {
+        111: (1, 111, 100, "/tmp/localbench-vllm-abc123 serve", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
+    original = vllm._run_wsl
+
+    def with_environment(distro: str, argv: list[str], *, check: bool = True):
+        if argv[0] == "bash" and "/environ" in argv[-1]:
+            return _completed("CUDA_VISIBLE_DEVICES=0\nVLLM_BATCH_INVARIANT=1\n")
+        return original(distro, argv, check=check)
+
+    monkeypatch.setattr(vllm, "_run_wsl", with_environment)
+    assert vllm.read_live_process_environment(
+        _launched_server(object()), "VLLM_BATCH_INVARIANT"
+    ) == "1"
 
 
 def test_cli_vllm_flags_reach_serve_options(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

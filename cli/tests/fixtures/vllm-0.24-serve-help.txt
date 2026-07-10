@@ -1,24 +1,187 @@
-usage: vllm serve MODEL [options]
+usage: vllm serve [model_tag] [options]
 
-Pinned supported option surface from the vLLM 0.24 maintainer environment:
---served-model-name
---host
---port
---api-key
---max-model-len
---max-num-seqs
---seed
---dtype
---kv-cache-dtype
---mamba-cache-dtype
---mamba-ssm-cache-dtype
---quantization
---gpu-memory-utilization
---load-format
---tokenizer
---chat-template
---no-enable-prefix-caching
---no-enable-chunked-prefill
---generation-config
---tensor-parallel-size
---disable-log-requests
+Start the vLLM OpenAI Compatible API server.
+
+positional arguments:
+  model_tag             The model tag to serve (optional if specified in config)
+
+options:
+  -h, --help            show this help message and exit
+  --headless
+  --api-server-count API_SERVER_COUNT
+  --config CONFIG
+  --host HOST
+  --port PORT
+  --uds UDS
+  --uvicorn-log-level {debug,info,warning,error,critical,trace}
+  --disable-uvicorn-access-log
+  --allow-credentials
+  --allowed-origins ALLOWED_ORIGINS [ALLOWED_ORIGINS ...]
+  --allowed-methods ALLOWED_METHODS [ALLOWED_METHODS ...]
+  --allowed-headers ALLOWED_HEADERS [ALLOWED_HEADERS ...]
+  --api-key API_KEY [API_KEY ...]
+  --lora-modules LORA_MODULES [LORA_MODULES ...]
+  --prompt-adapters PROMPT_ADAPTERS [PROMPT_ADAPTERS ...]
+  --chat-template CHAT_TEMPLATE
+  --chat-template-content-format {auto,string,openai}
+  --response-role RESPONSE_ROLE
+  --ssl-keyfile SSL_KEYFILE
+  --ssl-certfile SSL_CERTFILE
+  --ssl-ca-certs SSL_CA_CERTS
+  --enable-ssl-refresh
+  --ssl-cert-reqs SSL_CERT_REQS
+  --root-path ROOT_PATH
+  --middleware MIDDLEWARE
+  --return-tokens-as-token-ids
+  --disable-frontend-multiprocessing
+  --enable-request-id-headers
+  --enable-auto-tool-choice
+  --exclude-tools-when-tool-choice-none
+  --tool-call-parser TOOL_CALL_PARSER
+  --tool-parser-plugin TOOL_PARSER_PLUGIN
+  --log-config-file LOG_CONFIG_FILE
+  --max-log-len MAX_LOG_LEN
+  --disable-log-requests
+  --enable-log-outputs
+  --h11-max-incomplete-event-size H11_MAX_INCOMPLETE_EVENT_SIZE
+  --h11-max-header-count H11_MAX_HEADER_COUNT
+  --enable-server-load-tracking
+  --enable-force-include-usage
+  --enable-tokenizer-info-endpoint
+  --enable-log-token-usage
+  --enable-prompt-tokens-details
+  --model-loader-extra-config MODEL_LOADER_EXTRA_CONFIG
+  --served-model-name SERVED_MODEL_NAME [SERVED_MODEL_NAME ...]
+  --disable-fastapi-docs
+  --enable-prompt-embeds
+
+ModelConfig:
+  --model MODEL
+  --runner {auto,generate,pooling,draft,transcription}
+  --convert {auto,none,embed,classify,reward}
+  --task TASK
+  --tokenizer TOKENIZER
+  --tokenizer-mode {auto,slow,mistral,custom}
+  --trust-remote-code
+  --allowed-local-media-path ALLOWED_LOCAL_MEDIA_PATH
+  --allowed-media-domains ALLOWED_MEDIA_DOMAINS [ALLOWED_MEDIA_DOMAINS ...]
+  --revision REVISION
+  --code-revision CODE_REVISION
+  --tokenizer-revision TOKENIZER_REVISION
+  --max-model-len MAX_MODEL_LEN
+  --speculative-config SPECULATIVE_CONFIG
+  --quantization QUANTIZATION
+  --rope-scaling ROPE_SCALING
+  --rope-theta ROPE_THETA
+  --hf-token HF_TOKEN
+  --hf-overrides HF_OVERRIDES
+  --enforce-eager
+  --max-seq-len-to-capture MAX_SEQ_LEN_TO_CAPTURE
+  --max-logprobs MAX_LOGPROBS
+  --logprobs-mode {raw,raw_logprobs,processed,processed_logprobs}
+  --disable-sliding-window
+  --disable-cascade-attn
+  --skip-tokenizer-init
+  --enable-prompt-embeds
+  --served-model-name SERVED_MODEL_NAME [SERVED_MODEL_NAME ...]
+  --generation-config GENERATION_CONFIG
+  --override-generation-config OVERRIDE_GENERATION_CONFIG
+  --enable-sleep-mode
+  --model-impl {auto,vllm,transformers,terratorch}
+  --override-attention-dtype OVERRIDE_ATTENTION_DTYPE
+  --logits-processor-pattern LOGITS_PROCESSOR_PATTERN
+  --io-processor-plugin IO_PROCESSOR_PLUGIN
+  --config-format {auto,hf,mistral}
+  --load-format {auto,pt,safetensors,npcache,dummy,tensorizer,sharded_state,bitsandbytes,gguf,runai_streamer,fastsafetensors}
+  --download-dir DOWNLOAD_DIR
+  --model-loader-extra-config MODEL_LOADER_EXTRA_CONFIG
+  --ignore-patterns IGNORE_PATTERNS [IGNORE_PATTERNS ...]
+  --use-tqdm-on-load
+  --pt-load-map-location PT_LOAD_MAP_LOCATION
+  --seed SEED
+  --dtype {auto,bfloat16,float16,float32,half}
+
+CacheConfig:
+  --block-size {1,8,16,32,64,128}
+  --gpu-memory-utilization GPU_MEMORY_UTILIZATION
+  --kv-cache-memory-bytes KV_CACHE_MEMORY_BYTES
+  --swap-space SWAP_SPACE
+  --kv-cache-dtype {auto,bfloat16,fp8,fp8_e4m3,fp8_e5m2,fp8_inc,float16}
+  --num-gpu-blocks-override NUM_GPU_BLOCKS_OVERRIDE
+  --enable-prefix-caching
+  --no-enable-prefix-caching
+  --prefix-caching-hash-algo {builtin,sha256,sha256_cbor,xxhash,xxhash_cbor}
+  --calculate-kv-scales
+  --kv-sharing-fast-prefill
+  --mamba-cache-dtype {auto,bfloat16,float16,float32}
+  --mamba-ssm-cache-dtype {auto,bfloat16,float16,float32}
+  --mamba-block-size MAMBA_BLOCK_SIZE
+  --mamba-cache-mode {align,all,none}
+  --kv-offloading-size KV_OFFLOADING_SIZE
+  --kv-offloading-backend {native,lmcache}
+  --offload-backend OFFLOAD_BACKEND
+  --cpu-offload-gb CPU_OFFLOAD_GB
+
+ParallelConfig:
+  --pipeline-parallel-size PIPELINE_PARALLEL_SIZE
+  --tensor-parallel-size TENSOR_PARALLEL_SIZE
+  --data-parallel-size DATA_PARALLEL_SIZE
+  --data-parallel-rank DATA_PARALLEL_RANK
+  --data-parallel-start-rank DATA_PARALLEL_START_RANK
+  --data-parallel-size-local DATA_PARALLEL_SIZE_LOCAL
+  --data-parallel-address DATA_PARALLEL_ADDRESS
+  --data-parallel-rpc-port DATA_PARALLEL_RPC_PORT
+  --data-parallel-backend {mp,ray}
+  --data-parallel-hybrid-lb
+  --enable-expert-parallel
+  --expert-placement-strategy {linear,round_robin}
+  --enable-eplb
+  --eplb-config EPLB_CONFIG
+  --max-parallel-loading-workers MAX_PARALLEL_LOADING_WORKERS
+  --disable-custom-all-reduce
+  --worker-cls WORKER_CLS
+  --worker-extension-cls WORKER_EXTENSION_CLS
+  --enable-multimodal-encoder-data-parallel
+
+SchedulerConfig:
+  --max-num-batched-tokens MAX_NUM_BATCHED_TOKENS
+  --max-num-seqs MAX_NUM_SEQS
+  --max-num-partial-prefills MAX_NUM_PARTIAL_PREFILLS
+  --max-long-partial-prefills MAX_LONG_PARTIAL_PREFILLS
+  --long-prefill-token-threshold LONG_PREFILL_TOKEN_THRESHOLD
+  --num-lookahead-slots NUM_LOOKAHEAD_SLOTS
+  --scheduler-delay-factor SCHEDULER_DELAY_FACTOR
+  --preemption-mode {recompute,swap}
+  --num-scheduler-steps NUM_SCHEDULER_STEPS
+  --multi-step-stream-outputs
+  --scheduling-policy {fcfs,priority}
+  --scheduler-cls SCHEDULER_CLS
+  --disable-chunked-prefill
+  --no-enable-chunked-prefill
+  --disable-hybrid-kv-cache-manager
+  --async-scheduling
+
+CompilationConfig:
+  --compilation-config COMPILATION_CONFIG
+  --additional-config ADDITIONAL_CONFIG
+  --enable-lora
+  --max-loras MAX_LORAS
+  --max-lora-rank MAX_LORA_RANK
+  --lora-dtype {auto,float16,bfloat16,float32}
+  --long-lora-scaling-factors LONG_LORA_SCALING_FACTORS
+  --max-cpu-loras MAX_CPU_LORAS
+  --fully-sharded-loras
+  --enable-prompt-adapter
+  --max-prompt-adapters MAX_PROMPT_ADAPTERS
+  --max-prompt-adapter-token MAX_PROMPT_ADAPTER_TOKEN
+  --device {auto,cuda,rocm,cpu,tpu,xpu,hpu,neuron}
+  --ray-workers-use-nsight
+  --disable-log-stats
+  --aggregate-engine-logging
+  --enable-chunked-prefill
+  --enable-prefix-caching
+  --otlp-traces-endpoint OTLP_TRACES_ENDPOINT
+  --collect-detailed-traces COLLECT_DETAILED_TRACES [COLLECT_DETAILED_TRACES ...]
+  --show-hidden-metrics-for-version SHOW_HIDDEN_METRICS_FOR_VERSION
+  --enable-cache-aware-lb
+  --enable-pd-disaggregation
