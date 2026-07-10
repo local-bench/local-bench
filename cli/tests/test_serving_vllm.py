@@ -257,6 +257,18 @@ def test_vllm_startup_log_records_determinism_memory_and_fit_failure(tmp_path: P
     assert "out of memory" in (vllm.parse_vllm_startup_log(log).fit_failure or "")
 
 
+def test_vllm_readiness_failure_is_rewritten_as_clear_memory_fit_error(
+    tmp_path: Path,
+) -> None:
+    log = tmp_path / "serve.log"
+    log.write_text("CUDA out of memory while allocating KV cache\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="startup memory fit failed: CUDA out of memory"):
+        serving_runner._raise_memory_fit_error_if_present(
+            log,
+            ReadinessError("server never became ready"),
+        )
+
+
 def test_vllm_argv_pins_single_request_batch_invariant_engine_profile(tmp_path: Path) -> None:
     argv = vllm.vllm_serve_argv(_launch_config(tmp_path))
     help_text = (Path(__file__).parent / "fixtures" / "vllm-0.24-serve-help.txt").read_text(

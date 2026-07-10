@@ -354,13 +354,17 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     teardown: TeardownEvidence | None = None
     try:
         launched = adapter.launch(launch_config, log_path=root / "serve.log")
-        readiness = await adapter.readiness(
-            base_url=f"http://127.0.0.1:{port}",
-            model_id=options.model_id,
-            expected_chat_template=chat_template_text,
-            api_key=api_key,
-            seed=options.seed,
-        )
+        try:
+            readiness = await adapter.readiness(
+                base_url=f"http://127.0.0.1:{port}",
+                model_id=options.model_id,
+                expected_chat_template=chat_template_text,
+                api_key=api_key,
+                seed=options.seed,
+            )
+        except BaseException as error:
+            _raise_memory_fit_error_if_present(root / "serve.log", error)
+            raise
         if readiness.build_info != build.package_version:
             raise RuntimeError(
                 "vLLM endpoint version does not match the pinned venv package: "
@@ -551,6 +555,14 @@ async def _run_vllm_determinism_canary(
                 launched.close_log()
     if len(outputs) != 2 or outputs[0] != outputs[1]:
         raise RuntimeError("vLLM determinism canary failed: outputs differ across two server starts")
+
+
+def _raise_memory_fit_error_if_present(log_path: Path, cause: BaseException) -> None:
+    failed_startup = parse_vllm_startup_log(log_path)
+    if failed_startup.fit_failure is not None:
+        raise RuntimeError(
+            f"vLLM startup memory fit failed: {failed_startup.fit_failure}"
+        ) from cause
 
 
 def _vllm_serving_evidence(
