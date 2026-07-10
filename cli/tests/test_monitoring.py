@@ -132,6 +132,8 @@ def test_monitor_cli_once_writes_jsonl_record_from_captured_local_sample(
             str(nvidia_sample),
             "--disk-path",
             str(tmp_path),
+            "--min-free-disk-gb",
+            "1",
             "--out",
             str(out),
             "--once",
