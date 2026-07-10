@@ -42,6 +42,9 @@ localbench submit run --run runs/my-bench
 
 Full six-axis execution currently requires managed AppWorld configuration. Until the managed
 runtime is public, use one-shot `--static-only` to run the other five axes without agentic setup.
+Safetensors/vLLM execution is a separate maintainer-operated lane documented in
+[`docs/benchmark-build/vllm-maintainer-runbook.md`](../docs/benchmark-build/vllm-maintainer-runbook.md);
+it does not change the public llama.cpp/GGUF path.
 
 The site's [submit page](https://local-bench.ai/submit) generates these commands for your
 exact model and runtime, including the full identity flag set for bring-your-own-server
