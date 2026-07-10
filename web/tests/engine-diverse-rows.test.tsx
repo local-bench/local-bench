@@ -63,9 +63,25 @@ describe("engine-diverse build projection", () => {
     expect(detail.manifest_summary.model.format).toBe("safetensors");
     expect(detail.manifest_summary.quant).toBe("NVFP4");
     expect(detail.perf?.timings_source).toBeNull();
-    expect(detail.serving_provenance?.snapshot).toMatchObject({
-      repo: "unsloth/Qwen3.6-35B-A3B-NVFP4-Fast",
-      revision: "a".repeat(40),
+    expect(detail.serving_provenance).toMatchObject({
+      runtime: "vllm",
+      engine_version: "0.24.0",
+      engine_executable_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      dependency_lock_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      runtime_identity_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      snapshot: {
+        repo: "unsloth/Qwen3.6-35B-A3B-NVFP4-Fast",
+        revision: "a".repeat(40),
+        merkle_sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
+      determinism: {
+        engine_log_semantic_verdict: true,
+        two_start_canary_passed: true,
+      },
+      numerics: {
+        mamba_ssm_cache_dtype: "float32",
+        model_config_mamba_ssm_dtype: "float32",
+      },
     });
     const malformedIndex = structuredClone(readJson(path.join(acceptedOut, "index.json"))) as Record<string, any>;
     delete malformedIndex["models"].find((row: any) => row.slug === "gemma-4-12b-it").serving_provenance;
@@ -79,11 +95,13 @@ describe("engine-diverse build projection", () => {
     const provenanceHtml = renderToStaticMarkup(createElement(EngineProvenance, { provenance: detail.serving_provenance }));
     const performanceHtml = renderToStaticMarkup(createElement(ServingPerformanceCard, { run: detail }));
     expect(variantHtml).toContain("NVFP4");
-    expect(variantHtml).toContain("vLLM");
+    expectRuntimeBadge(variantHtml, "vLLM", "0.24.0");
     expect(variantHtml).toContain("--model-id &lt;model-id&gt;");
     expect(variantHtml).toContain("--wsl-distro &lt;wsl-distro&gt;");
     expect(variantHtml).toContain("--vllm-venv &lt;absolute-wsl-vllm-venv&gt;");
-    expect(boardHtml).toContain("vLLM");
+    expect(variantHtml).toContain("--wsl-venv-python &lt;absolute-wsl-appworld-python&gt;");
+    expect(variantHtml).toContain("--appworld-root &lt;absolute-wsl-appworld-root&gt;");
+    expectRuntimeBadge(boardHtml, "vLLM", "0.24.0");
     expect(provenanceHtml).toContain("determinism canary: passed");
     expect(provenanceHtml).toContain("SSM cache: float32");
     expect(provenanceHtml).toContain(detail.serving_provenance?.snapshot?.merkle_sha256);
@@ -130,10 +148,27 @@ describe("engine-diverse build projection", () => {
     const out = path.join(work, "data");
     buildData(work, [baseSource], out, ["--benches", "knowledge"]);
     const receiptName = path.basename(baseRunPath, path.extname(baseRunPath));
+    const index = IndexDataSchema.parse(readJson(path.join(out, "index.json")));
+    const model = ModelDataSchema.parse(readJson(path.join(out, "models", "gemma-4-12b-it.json")));
     const detail = RunDetailSchema.parse(readJson(path.join(out, "runs", `gemma-4-12b-it__${receiptName}.json`)));
+    const indexRow = index.models.find((row) => row.slug === "gemma-4-12b-it");
+    const modelRow = model.runs.find((row) => row.run_id === detail.run_id);
+    expect(indexRow).toBeDefined();
+    expect(modelRow).toBeDefined();
     expect(detail.manifest_summary.runtime.name).toBe("llama.cpp");
-    expect(detail.serving_provenance).toBeUndefined();
-    expect(renderToStaticMarkup(createElement(EngineProvenance, { provenance: detail.serving_provenance }))).toBe("");
+    for (const row of [indexRow, modelRow, detail]) expectNoVllmProvenanceFields(row);
+
+    const variantHtml = renderToStaticMarkup(createElement(ModelVariantBoard, { model }));
+    const boardHtml = renderToStaticMarkup(createElement(HomeLeaderboard, { models: index.models }));
+    const provenanceHtml = renderToStaticMarkup(createElement(EngineProvenance, { provenance: detail.serving_provenance }));
+    expectRuntimeBadge(variantHtml, "llama.cpp", detail.manifest_summary.runtime.version);
+    expectRuntimeBadge(boardHtml, "llama.cpp", detail.manifest_summary.runtime.version);
+    expect(provenanceHtml).toBe("");
+    for (const html of [variantHtml, boardHtml, provenanceHtml]) {
+      expect(html).not.toContain("determinism canary");
+      expect(html).not.toContain("SSM cache");
+      expect(html).not.toContain("snapshot:");
+    }
   }, 30_000);
 
   it("rejects unknown runtime literals", () => {
@@ -188,6 +223,20 @@ function temporaryDirectory(prefix: string): string {
   const directory = mkdtempSync(path.join(tmpdir(), prefix));
   temporaryDirectories.push(directory);
   return directory;
+}
+
+function expectNoVllmProvenanceFields(row: unknown): void {
+  expect(row).not.toHaveProperty("serving_provenance.determinism.two_start_canary_passed");
+  expect(row).not.toHaveProperty("serving_provenance.numerics.mamba_ssm_cache_dtype");
+  expect(row).not.toHaveProperty("serving_provenance.numerics.model_config_mamba_ssm_dtype");
+  expect(row).not.toHaveProperty("serving_provenance.snapshot");
+}
+
+function expectRuntimeBadge(html: string, label: "llama.cpp" | "vLLM", version: string | null): void {
+  const title = version === null ? `Serving engine: ${label}` : `Serving engine: ${label} ${version}`;
+  const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  expect(html).toMatch(new RegExp(`title="${escapedTitle}"[^>]*>${escapedLabel}</span>`));
 }
 
 function readJson(file: string): unknown {

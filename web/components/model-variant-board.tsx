@@ -325,6 +325,8 @@ function VllmReproduction({ run }: { readonly run: VariantRun }) {
     "--seed 1234",
     "--wsl-distro <wsl-distro>",
     "--vllm-venv <absolute-wsl-vllm-venv>",
+    "--wsl-venv-python <absolute-wsl-appworld-python>",
+    "--appworld-root <absolute-wsl-appworld-root>",
   ].join(" ");
   return (
     <details className="mt-1 font-mono text-[10px] text-bench-muted">
