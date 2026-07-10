@@ -5,7 +5,7 @@ import json
 import os
 import re
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import IntEnum, unique
 from pathlib import Path
 from typing import BinaryIO, Final, assert_never
@@ -55,6 +55,8 @@ class ModelArtifact:
     model_format: str = "GGUF"
     snapshot_merkle_sha256: str | None = None
     snapshot_files: tuple[JsonObject, ...] = ()
+    requested_repo: str | None = None
+    requested_revision: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,7 +149,12 @@ def resolve_snapshot_reference(ref: str, *, cache_dir: Path, run_dir: Path) -> M
             local_dir=snapshot_dir,
         ),
     ).resolve()
-    return snapshot_artifact(snapshot, run_dir=run_dir)
+    artifact = snapshot_artifact(snapshot, run_dir=run_dir)
+    return replace(
+        artifact,
+        requested_repo=parsed.repo_id,
+        requested_revision=parsed.revision,
+    )
 
 
 def parse_snapshot_reference(ref: str) -> SnapshotReference:

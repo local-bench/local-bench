@@ -3,6 +3,7 @@ from __future__ import annotations
 import secrets
 import subprocess
 import uuid
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from localbench._types import JsonObject
@@ -22,6 +23,7 @@ from localbench.serving.assembly import (
     run_dir,
     server_bin,
     serving_evidence,
+    thread_vllm_model_identity,
     validate_capped_thinking_context,
 )
 from localbench.serving.agentic_support import (
@@ -250,9 +252,20 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         raise RuntimeError("vLLM requires --model-ref and does not accept --model-file")
     if options.wsl_distro in {None, ""}:
         raise RuntimeError("vLLM requires --wsl-distro")
+    options = thread_vllm_model_identity(options)
     distro = options.wsl_distro
     vllm_bin = _vllm_binary(options)
     effective_profile = effective_serving_profile(options)
+    if (
+        options.lane == "bounded-final-v2"
+        and options.profile == "auto"
+        and effective_profile != "generic_think_tags_8192_v1"
+    ):
+        raise VllmExecutionProfileMismatchError(
+            resolved=effective_profile,
+            expected="generic_think_tags_8192_v1",
+        )
+    options = replace(options, profile=effective_profile, ctx=_vllm_max_model_len(options, effective_profile))
     validate_capped_thinking_context(options, effective_profile)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
@@ -440,6 +453,32 @@ def _vllm_binary(options: ServeBenchOptions) -> str:
     if not value.startswith("/"):
         raise RuntimeError("vLLM binary and virtualenv paths must be absolute WSL paths")
     return value
+
+
+@dataclass(frozen=True, slots=True)
+class VllmExecutionProfileMismatchError(RuntimeError):
+    resolved: str
+    expected: str
+
+    def __str__(self) -> str:
+        return (
+            "vLLM bounded-final-v2 execution profile mismatch: "
+            f"resolved={self.resolved!r}, expected={self.expected!r}"
+        )
+
+
+def _vllm_max_model_len(options: ServeBenchOptions, profile: str) -> int:
+    if options.ctx is not None and options.vllm_max_model_len is not None:
+        if options.ctx != options.vllm_max_model_len:
+            raise RuntimeError("--ctx and --vllm-max-model-len must match when both are supplied")
+    override = options.vllm_max_model_len if options.vllm_max_model_len is not None else options.ctx
+    if override is not None:
+        if override <= 0:
+            raise RuntimeError("vLLM max model length must be positive")
+        return override
+    if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1", "answer_only_v1"}:
+        return 8192
+    raise RuntimeError(f"no vLLM context requirement is defined for execution profile {profile!r}")
 
 
 def _vllm_serving_evidence(

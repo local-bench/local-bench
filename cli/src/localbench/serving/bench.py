@@ -89,6 +89,8 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         sampler_seed=config.seed,
         determinism_policy=DETERMINISM_POLICY_ID,
         model_file=evidence.artifact.model_file,
+        model_file_sha256=evidence.artifact.file_sha256,
+        model_file_size_bytes=evidence.artifact.file_size_bytes,
         model_family=evidence.artifact.model_family,
         quant_label=evidence.artifact.quant_label,
         model_format=evidence.artifact.model_format,

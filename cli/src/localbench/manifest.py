@@ -65,6 +65,8 @@ class ManifestContext:
     execution_profile_id: str | None = None
     prompt_renderer: JsonObject | None = None
     model_file: Path | None = None
+    model_file_sha256: str | None = None
+    model_file_size_bytes: int | None = None
     model_family: str | None = None
     quant_label: str | None = None
     model_format: str | None = None
@@ -234,8 +236,16 @@ def _model_identity(context: ManifestContext) -> JsonObject:
         "family": context.model_family,
         "quant_label": context.quant_label,
         "file_name": None if model_file is None else model_file.name,
-        "file_size_bytes": None if model_file is None else model_file.stat().st_size,
-        "file_sha256": None if model_file is None else sha256_file(model_file),
+        "file_size_bytes": (
+            context.model_file_size_bytes
+            if context.model_file_size_bytes is not None
+            else None if model_file is None or model_file.is_dir() else model_file.stat().st_size
+        ),
+        "file_sha256": (
+            context.model_file_sha256
+            if context.model_file_sha256 is not None
+            else None if model_file is None or model_file.is_dir() else sha256_file(model_file)
+        ),
         "format": context.model_format,
         "identity_level": context.model_identity_level,
         "tokenizer_digest": tokenizer_digest,

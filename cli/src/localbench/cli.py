@@ -369,6 +369,16 @@ def _parser() -> argparse.ArgumentParser:
         help="pinned vLLM model and KV-cache dtype",
     )
     bench_parser.add_argument("--ctx", type=int)
+    bench_parser.add_argument(
+        "--vllm-max-model-len",
+        type=int,
+        help="explicit vLLM context override (defaults to the execution profile requirement)",
+    )
+    bench_parser.add_argument(
+        "--determinism-canary",
+        action="store_true",
+        help="run the required two-start byte-for-byte vLLM canary before the suite",
+    )
     bench_parser.add_argument("--determinism", choices=("strict", "throughput"), default="strict")
     bench_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
     bench_parser.add_argument(
@@ -392,6 +402,11 @@ def _parser() -> argparse.ArgumentParser:
         "--hf-model-id",
         default=None,
         help="served model HF repo for local capped-thinking chat-template rendering",
+    )
+    bench_parser.add_argument(
+        "--hf-revision",
+        default=None,
+        help="exact HF revision; with vLLM this must match --model-ref",
     )
     bench_identity.add_argument(
         "--gguf-repo-only",
@@ -1034,6 +1049,7 @@ def _bench(args: argparse.Namespace) -> int:
         threads_batch=args.threads_batch,
         reasoning_activation=_optional_reasoning_activation(args.reasoning_activation),
         hf_model_id=args.hf_model_id,
+        hf_revision=getattr(args, "hf_revision", None),
         gguf_repo_only=args.gguf_repo_only,
         progress_reporter=progress_reporter,
         wsl_venv_python=getattr(args, "wsl_venv_python", None),
@@ -1042,6 +1058,8 @@ def _bench(args: argparse.Namespace) -> int:
         vllm_venv=getattr(args, "vllm_venv", None),
         vllm_bin=getattr(args, "vllm_bin", None),
         vllm_dtype=getattr(args, "vllm_dtype", "bfloat16"),
+        vllm_max_model_len=getattr(args, "vllm_max_model_len", None),
+        determinism_canary=getattr(args, "determinism_canary", False),
     )
     try:
         record = anyio.run(
@@ -1087,7 +1105,7 @@ def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
         missing.append("--model-file or --model-ref")
     if getattr(args, "model_id", None) is None:
         missing.append("--model-id")
-    if getattr(args, "ctx", None) is None:
+    if getattr(args, "ctx", None) is None and getattr(args, "runtime", None) != "vllm":
         missing.append("--ctx")
     if getattr(args, "seed", None) is None:
         missing.append("--seed")

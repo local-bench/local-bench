@@ -17,7 +17,7 @@ class ServeBenchOptions:
     model_ref: str | None
     model_id: str
     server_bin: Path | None
-    ctx: int
+    ctx: int | None
     determinism: str
     tier: TierChoice
     bench: str
@@ -46,3 +46,5 @@ class ServeBenchOptions:
     vllm_venv: str | None = None
     vllm_bin: str | None = None
     vllm_dtype: str = "bfloat16"
+    vllm_max_model_len: int | None = None
+    determinism_canary: bool = False

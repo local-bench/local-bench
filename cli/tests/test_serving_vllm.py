@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
@@ -9,6 +10,12 @@ import pytest
 import localbench.cli as cli_mod
 import localbench.serving.runner as serving_runner
 import localbench.serving.vllm as vllm
+from localbench.manifest import ManifestContext, collect_manifest
+from localbench.persistence import atomic_write_json
+from localbench.serving.assembly import (
+    VllmModelIdentityMismatchError,
+    thread_vllm_model_identity,
+)
 from localbench.serving.model_artifact import (
     ModelArtifactError,
     parse_snapshot_reference,
@@ -76,6 +83,92 @@ def test_snapshot_reference_requires_immutable_full_sha() -> None:
         parse_snapshot_reference("hf://owner/model@main")
     with pytest.raises(ModelArtifactError, match="snapshot, not a #file"):
         parse_snapshot_reference("hf://owner/model@" + "a" * 40 + "#model.safetensors")
+
+
+def test_vllm_model_ref_threads_hf_identity_and_rejects_mismatched_override(tmp_path: Path) -> None:
+    revision = "a" * 40
+    options = ServeBenchOptions(
+        runtime="vllm",
+        model_file=None,
+        model_ref=f"hf://owner/model@{revision}",
+        model_id="demo",
+        server_bin=None,
+        ctx=None,
+        determinism="strict",
+        tier="quick",
+        bench="all",
+        lane="bounded-final-v2",
+        seed=1234,
+        out=tmp_path / "run",
+    )
+    threaded = thread_vllm_model_identity(options)
+    assert threaded.hf_model_id == "owner/model"
+    assert threaded.hf_revision == revision
+
+    with pytest.raises(VllmModelIdentityMismatchError, match="hf_model_id"):
+        thread_vllm_model_identity(replace(options, hf_model_id="other/model"))
+
+
+@pytest.mark.anyio
+async def test_snapshot_directory_flows_through_manifest_writer_and_completed_provenance(
+    tmp_path: Path,
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    snapshot.mkdir()
+    (snapshot / "model.safetensors").write_bytes(b"weights")
+    (snapshot / "config.json").write_text(
+        '{"model_type":"qwen3_5_moe","quantization_config":{"format":"nvfp4"}}',
+        encoding="utf-8",
+    )
+    (snapshot / "tokenizer.json").write_text("{}", encoding="utf-8")
+    (snapshot / "chat_template.jinja").write_text("{{ messages }}", encoding="utf-8")
+    artifact = snapshot_artifact(snapshot, run_dir=tmp_path / "run")
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(200, json={"data": [{"id": "demo"}]})
+    )
+    manifest = await collect_manifest(
+        ManifestContext(
+            endpoint="http://local/v1",
+            requested_model="demo",
+            suite_version="test",
+            tier="quick",
+            lane="bounded-final-v2",
+            item_set_hashes={},
+            sampling_by_bench={},
+            concurrency=1,
+            started_at="2026-01-01T00:00:00Z",
+            finished_at="2026-01-01T00:00:01Z",
+            wall_clock_s=1.0,
+            totals={
+                "items": 0,
+                "errors": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+                "active_wall_seconds": 1.0,
+                "completion_tokens_per_second": 0.0,
+            },
+            rendered_prompt_sample=None,
+            model_file=artifact.model_file,
+            model_file_sha256=artifact.file_sha256,
+            model_file_size_bytes=artifact.file_size_bytes,
+            model_family=artifact.model_family,
+            quant_label=artifact.quant_label,
+            model_format=artifact.model_format,
+            tokenizer_digest=artifact.tokenizer_digest,
+            chat_template_digest=artifact.chat_template_digest,
+            runtime_name="vllm",
+            runtime_version="0.24.0",
+            kv_cache_quant="bfloat16",
+            ctx_len_configured=8192,
+            parallel_slots=1,
+        ),
+        transport=transport,
+    )
+    assert manifest["model"]["file_sha256"] == artifact.snapshot_merkle_sha256
+    output = tmp_path / "run" / "localbench-run.json"
+    atomic_write_json({"manifest": manifest}, output)
+    assert output.is_file()
 
 
 def test_vllm_argv_pins_single_request_batch_invariant_engine_profile(tmp_path: Path) -> None:

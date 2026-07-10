@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, cast, assert_never
 
@@ -28,6 +28,7 @@ from localbench.serving.model_artifact import (
     ModelArtifact,
     resolve_model_file_artifact,
     resolve_model_reference,
+    parse_snapshot_reference,
 )
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.provenance import ServingEvidence, api_key_sha256
@@ -106,8 +107,32 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
     )
 
 
+@dataclass(frozen=True, slots=True)
+class VllmModelIdentityMismatchError(RuntimeError):
+    field: str
+    resolved: str
+    expected: str
+
+    def __str__(self) -> str:
+        return (
+            f"vLLM model identity mismatch for {self.field}: "
+            f"override={self.resolved!r}, model-ref={self.expected!r}"
+        )
+
+
+def thread_vllm_model_identity(options: ServeBenchOptions) -> ServeBenchOptions:
+    if options.model_ref is None:
+        return options
+    ref = parse_snapshot_reference(options.model_ref)
+    if options.hf_model_id is not None and options.hf_model_id != ref.repo_id:
+        raise VllmModelIdentityMismatchError("hf_model_id", options.hf_model_id, ref.repo_id)
+    if options.hf_revision is not None and options.hf_revision.lower() != ref.revision:
+        raise VllmModelIdentityMismatchError("hf_revision", options.hf_revision, ref.revision)
+    return replace(options, hf_model_id=ref.repo_id, hf_revision=ref.revision)
+
+
 def effective_serving_profile(options: ServeBenchOptions) -> BoundedFinalProfileChoice:
-    if options.lane != "bounded-final-v1":
+    if options.lane not in {"bounded-final-v1", "bounded-final-v2"}:
         return options.profile
     if options.profile == "answer_only_v1":
         return options.profile

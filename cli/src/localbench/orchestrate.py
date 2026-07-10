@@ -244,6 +244,8 @@ class OrchestrateConfig:
     sampler_seed: int | None = None
     determinism_policy: str | None = None
     model_file: Path | None = None
+    model_file_sha256: str | None = None
+    model_file_size_bytes: int | None = None
     model_family: str | None = None
     quant_label: str | None = None
     model_format: str | None = None
@@ -728,6 +730,8 @@ async def run_localbench(
             execution_profile_id=execution_profile_id,
             prompt_renderer=prompt_renderer_manifest,
             model_file=config.model_file,
+            model_file_sha256=config.model_file_sha256,
+            model_file_size_bytes=config.model_file_size_bytes,
             model_family=config.model_family,
             quant_label=config.quant_label,
             model_format=config.model_format,
