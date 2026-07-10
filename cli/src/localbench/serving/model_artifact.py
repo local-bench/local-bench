@@ -57,6 +57,7 @@ class ModelArtifact:
     snapshot_files: tuple[JsonObject, ...] = ()
     requested_repo: str | None = None
     requested_revision: str | None = None
+    mamba_ssm_dtype: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,6 +230,7 @@ def snapshot_artifact(snapshot: Path, *, run_dir: Path) -> ModelArtifact:
         model_format="safetensors",
         snapshot_merkle_sha256=merkle,
         snapshot_files=tuple(files),
+        mamba_ssm_dtype=_metadata_text(config.get("mamba_ssm_dtype")),
     )
 
 

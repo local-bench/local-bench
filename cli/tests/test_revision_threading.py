@@ -92,6 +92,7 @@ def test_serving_bench_config_threads_hf_revision_to_inner_orchestrate_config(
         tier="standard",
         bench="ifbench",
         lane="bounded-final-v2",
+        profile="answer_only_v1",
         seed=1234,
         out=tmp_path / "run",
         reasoning_activation="gemma4",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,8 +32,8 @@ class ReadinessEvidence:
     smoke_chat_sha256: str
     tokenize_sha256: str
     apply_template_sha256: str
-    total_slots: int
-    model_path: str
+    total_slots: int | None
+    model_path: str | None
     chat_template: str | None
     build_info: str | None
 
@@ -104,7 +106,7 @@ async def verify_vllm_readiness(
     *,
     base_url: str,
     model_id: str,
-    model_path: str,
+    expected_chat_template: str,
     api_key: str,
     seed: int,
     transport: httpx.AsyncBaseTransport | None = None,
@@ -126,6 +128,11 @@ async def verify_vllm_readiness(
         if reported_model != model_id:
             raise ReadinessError(f"/v1/models did not report requested model {model_id}")
         version = await _get_json(client, f"{root}/version")
+        engine_version = _optional_text(version.get("version"))
+        if engine_version is None or _version_tuple(engine_version) < (0, 24):
+            raise ReadinessError(
+                f"vLLM server version must be >= 0.24, got {engine_version or 'unreported'}"
+            )
         smoke = await _post_json(
             client,
             f"{root}/v1/chat/completions",
@@ -138,11 +145,27 @@ async def verify_vllm_readiness(
                 "seed": seed,
             },
         )
+        probe_messages: list[JsonObject] = [
+            {"role": "system", "content": "localbench template identity"},
+            {"role": "user", "content": "probe"},
+        ]
         tokenized = await _post_json(
             client,
             f"{root}/tokenize",
-            {"model": model_id, "prompt": "localbench readiness"},
+            {"model": model_id, "messages": probe_messages},
         )
+        expected_tokenized = await _post_json(
+            client,
+            f"{root}/tokenize",
+            {
+                "model": model_id,
+                "messages": probe_messages,
+                "chat_template": expected_chat_template,
+            },
+        )
+        if tokenized != expected_tokenized:
+            raise ReadinessError("vLLM served chat template does not match the pinned snapshot template")
+        model_path = _vllm_model_path(models, model_id)
         return ReadinessEvidence(
             health_200_at=health_200_at,
             models_response_sha256=canonical_sha256(models),
@@ -150,11 +173,11 @@ async def verify_vllm_readiness(
             reported_model=reported_model,
             smoke_chat_sha256=canonical_sha256(smoke),
             tokenize_sha256=canonical_sha256(tokenized),
-            apply_template_sha256="",
-            total_slots=1,
+            apply_template_sha256=hashlib.sha256(expected_chat_template.encode("utf-8")).hexdigest(),
+            total_slots=None,
             model_path=model_path,
             chat_template=None,
-            build_info=_optional_text(version.get("version")),
+            build_info=engine_version,
         )
 
 
@@ -237,3 +260,22 @@ def _text_field(data: JsonObject, key: str) -> str:
 
 def _optional_text(value: JsonValue | None) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _vllm_model_path(data: JsonObject, requested: str) -> str | None:
+    models = data.get("data")
+    if not isinstance(models, list):
+        return None
+    for row in models:
+        if isinstance(row, dict) and row.get("id") == requested:
+            for key in ("root", "model_path"):
+                if isinstance(row.get(key), str):
+                    return str(row[key])
+    return None
+
+
+def _version_tuple(value: str) -> tuple[int, ...]:
+    match = re.search(r"(\d+)\.(\d+)(?:\.(\d+))?", value)
+    if match is None:
+        return ()
+    return tuple(int(part) for part in match.groups(default="0"))

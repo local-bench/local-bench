@@ -2557,6 +2557,11 @@ def _optional_reasoning_activation(value: str | None) -> ReasoningActivationChoi
 
 
 def _print_summary(record: LocalbenchRun, output_path: Path | None = None) -> None:
+    integrity = _json_object(_json_object(record.get("manifest")).get("integrity"))
+    if integrity.get("publishable") is False:
+        reasons = integrity.get("blocking_reasons")
+        rendered = ", ".join(str(value) for value in reasons) if isinstance(reasons, list) else "unknown"
+        print(f"NOT PUBLISHABLE: {rendered}", file=sys.stderr)
     print("bench             raw  corrected     term     cond    n   fail  err")
     for name, bench_aggregate in record["benches"].items():
         print(

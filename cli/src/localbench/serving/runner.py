@@ -3,8 +3,11 @@ from __future__ import annotations
 import secrets
 import subprocess
 import uuid
+import json
 from dataclasses import dataclass, replace
 from pathlib import Path
+
+import httpx
 
 from localbench._types import JsonObject
 from localbench._suite import read_json_object
@@ -62,6 +65,7 @@ from localbench.serving.vllm import (
     VllmBuildIdentity,
     VllmLaunchConfig,
     quantization_config,
+    parse_vllm_startup_log,
     validate_vllm_argv,
     vllm_serve_argv,
     wsl_path,
@@ -282,6 +286,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     if not template_path.is_file() or artifact.chat_template_digest is None:
         raise RuntimeError("vLLM snapshot must contain chat_template.jinja")
     chat_template = wsl_path(template_path, distro=distro)
+    chat_template_text = template_path.read_text(encoding="utf-8")
     build = adapter.build_identity(distro=distro, vllm_bin=vllm_bin)
     port = allocate_port()
     api_key = secrets.token_urlsafe(32)
@@ -297,6 +302,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         seed=options.seed,
         dtype=options.vllm_dtype,
         kv_cache_dtype=options.vllm_dtype,
+        mamba_ssm_cache_dtype=artifact.mamba_ssm_dtype or "float32",
         quantization=quantization,
         gpu_memory_utilization="0.92",
         chat_template=chat_template,
@@ -308,7 +314,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     safe_argv = redacted_argv(argv)
     fingerprint = server_fingerprint(
         model_file_sha256=artifact.file_sha256,
-        executable_sha256=build.executable_sha256,
+        executable_sha256=build.runtime_identity_sha256,
         argv=safe_argv,
         env_allowlist=env_allowlist,
         ctx=options.ctx,
@@ -319,7 +325,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     )
     identity = resume_identity(
         model_file_sha256=artifact.file_sha256,
-        executable_sha256=build.executable_sha256,
+        executable_sha256=build.runtime_identity_sha256,
         argv=safe_argv,
         env_allowlist=env_allowlist,
         ctx=options.ctx,
@@ -337,6 +343,13 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         parallel_slots=1,
         flash_attention="batch-invariant",
     )
+    if options.determinism_canary:
+        await _run_vllm_determinism_canary(
+            adapter,
+            launch_config,
+            expected_chat_template=chat_template_text,
+            root=root,
+        )
     launched = None
     teardown: TeardownEvidence | None = None
     try:
@@ -344,12 +357,18 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         readiness = await adapter.readiness(
             base_url=f"http://127.0.0.1:{port}",
             model_id=options.model_id,
-            model_path=model_path,
+            expected_chat_template=chat_template_text,
             api_key=api_key,
             seed=options.seed,
         )
-        if readiness.build_info is None or readiness.build_info not in build.version_stdout:
-            raise RuntimeError("vLLM endpoint version does not match the launched binary")
+        if readiness.build_info != build.package_version:
+            raise RuntimeError(
+                "vLLM endpoint version does not match the pinned venv package: "
+                f"server={readiness.build_info!r}, venv={build.package_version!r}"
+            )
+        startup_log = parse_vllm_startup_log(root / "serve.log")
+        if startup_log.fit_failure is not None:
+            raise RuntimeError(f"vLLM startup memory fit failed: {startup_log.fit_failure}")
         evidence = _vllm_serving_evidence(
             options=options,
             artifact=artifact,
@@ -481,6 +500,59 @@ def _vllm_max_model_len(options: ServeBenchOptions, profile: str) -> int:
     raise RuntimeError(f"no vLLM context requirement is defined for execution profile {profile!r}")
 
 
+async def _run_vllm_determinism_canary(
+    adapter: VllmAdapter,
+    config: VllmLaunchConfig,
+    *,
+    expected_chat_template: str,
+    root: Path,
+) -> None:
+    outputs: list[bytes] = []
+    prompts = ("Reply with exactly: alpha", "What is 2+2? Reply with one digit.")
+    for start in (1, 2):
+        launched = adapter.launch(
+            replace(config, run_token=uuid.uuid4().hex),
+            log_path=root / f"determinism-canary-start-{start}.log",
+        )
+        try:
+            await adapter.readiness(
+                base_url=f"http://127.0.0.1:{config.port}",
+                model_id=config.model_id,
+                expected_chat_template=expected_chat_template,
+                api_key=config.api_key,
+                seed=config.seed,
+            )
+            async with httpx.AsyncClient(
+                base_url=f"http://127.0.0.1:{config.port}/v1",
+                headers={"Authorization": f"Bearer {config.api_key}"},
+                timeout=60.0,
+            ) as client:
+                rendered: list[str] = []
+                for prompt in prompts:
+                    response = await client.post(
+                        "/chat/completions",
+                        json={
+                            "model": config.model_id,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 16,
+                            "temperature": 0,
+                            "top_k": 1,
+                            "seed": config.seed,
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    rendered.append(str(payload["choices"][0]["message"]["content"]))
+                outputs.append(json.dumps(rendered, ensure_ascii=False, separators=(",", ":")).encode())
+        finally:
+            try:
+                adapter.teardown(launched)
+            finally:
+                launched.close_log()
+    if len(outputs) != 2 or outputs[0] != outputs[1]:
+        raise RuntimeError("vLLM determinism canary failed: outputs differ across two server starts")
+
+
 def _vllm_serving_evidence(
     *,
     options: ServeBenchOptions,
@@ -508,17 +580,18 @@ def _vllm_serving_evidence(
         artifact=artifact,
         executable_sha256=build.executable_sha256,
         dll_or_so_hashes={},
-        version_stdout=build.version_stdout,
+        version_stdout=readiness.build_info,
         source_repo="vllm-project/vllm",
         source_commit=None,
         source_tag=None,
         build_flags=(
             f"dtype={launch_config.dtype} kv_cache_dtype={launch_config.kv_cache_dtype} "
+            f"mamba_ssm_cache_dtype={launch_config.mamba_ssm_cache_dtype} "
             f"quantization={launch_config.quantization} max_num_seqs=1 batch_invariant=1"
         ),
         help_text_sha256=build.help_text_sha256,
         ctx_len_configured=launch_config.ctx,
-        parallel_slots=readiness.total_slots,
+        parallel_slots=1,
         continuous_batching=False,
         kv_cache_quant=launch_config.kv_cache_dtype,
         flash_attention="batch-invariant",
@@ -544,6 +617,32 @@ def _vllm_serving_evidence(
         cuda_version=build.cuda_version,
         dtype=launch_config.dtype,
         quantization=launch_config.quantization,
+        tokenize_sha256=readiness.tokenize_sha256,
+        applied_chat_template_sha256=readiness.apply_template_sha256,
+        engine_version=readiness.build_info,
+        dependency_lock_sha256=build.dependency_lock_sha256,
+        mamba_ssm_cache_dtype=launch_config.mamba_ssm_cache_dtype,
+        model_config_mamba_ssm_dtype=artifact.mamba_ssm_dtype,
+        numeric_deviations=tuple(
+            deviation
+            for deviation in (
+                "kv_cache_dtype=bfloat16 differs from llama.cpp f16"
+                if launch_config.kv_cache_dtype == "bfloat16"
+                else None,
+                (
+                    f"mamba_ssm_cache_dtype={launch_config.mamba_ssm_cache_dtype} "
+                    f"differs from model config {artifact.mamba_ssm_dtype}"
+                    if artifact.mamba_ssm_dtype is not None
+                    and launch_config.mamba_ssm_cache_dtype != artifact.mamba_ssm_dtype
+                    else None
+                ),
+            )
+            if deviation is not None
+        ),
+        deterministic_kernel_evidence=parse_vllm_startup_log(root / "serve.log").deterministic_kernel_evidence,
+        memory_allocations=parse_vllm_startup_log(root / "serve.log").memory_allocations,
+        runtime_identity_sha256=build.runtime_identity_sha256,
+        determinism_canary_passed=options.determinism_canary,
     )
 
 

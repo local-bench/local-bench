@@ -58,6 +58,17 @@ class ServingEvidence:
     cuda_version: str | None = None
     dtype: str | None = None
     quantization: str | None = None
+    tokenize_sha256: str | None = None
+    applied_chat_template_sha256: str | None = None
+    engine_version: str | None = None
+    dependency_lock_sha256: str | None = None
+    mamba_ssm_cache_dtype: str | None = None
+    model_config_mamba_ssm_dtype: str | None = None
+    numeric_deviations: tuple[str, ...] = ()
+    deterministic_kernel_evidence: tuple[str, ...] = ()
+    memory_allocations: JsonObject | None = None
+    runtime_identity_sha256: str | None = None
+    determinism_canary_passed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,12 +183,18 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "source_tag": evidence.source_tag,
             "build_flags": evidence.build_flags,
             "help_text_sha256": evidence.help_text_sha256,
+            "server_reported_package_version": evidence.engine_version,
+            "venv_dependency_lock_sha256": evidence.dependency_lock_sha256,
+            "runtime_identity_sha256": evidence.runtime_identity_sha256,
         },
         "resolved_runtime": {
             "ctx_len_configured": evidence.ctx_len_configured,
             "parallel_slots": evidence.parallel_slots,
             "continuous_batching": evidence.continuous_batching,
             "kv_cache_quant": evidence.kv_cache_quant,
+            "mamba_ssm_cache_dtype": evidence.mamba_ssm_cache_dtype,
+            "model_config_mamba_ssm_dtype": evidence.model_config_mamba_ssm_dtype,
+            "numeric_deviations": list(evidence.numeric_deviations),
             "flash_attention": evidence.flash_attention,
             "rope_scaling": evidence.rope_scaling,
             "reasoning": {
@@ -198,6 +215,8 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "props_response_sha256": evidence.props_response_sha256,
             "reported_model": evidence.reported_model,
             "smoke_chat_sha256": evidence.smoke_chat_sha256,
+            "tokenize_sha256": evidence.tokenize_sha256,
+            "applied_chat_template_sha256": evidence.applied_chat_template_sha256,
         },
         "teardown_evidence": {
             "owned_process_tree": evidence.owned_process_tree,
@@ -206,10 +225,17 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "gpu_pids_after": evidence.gpu_pids_after,
         },
         "model_snapshot": {
+            "requested_repo": evidence.artifact.requested_repo,
+            "requested_revision": evidence.artifact.requested_revision,
             "snapshot_merkle_sha256": evidence.artifact.snapshot_merkle_sha256,
             "files": list(evidence.artifact.snapshot_files),
         },
         "serve_log_sha256": _path_sha256(evidence.serve_log_path),
+        "determinism": {
+            "engine_log_evidence": list(evidence.deterministic_kernel_evidence),
+            "two_start_canary_passed": evidence.determinism_canary_passed,
+        },
+        "startup_memory_report": evidence.memory_allocations or {},
         "server_fingerprint": evidence.server_fingerprint,
         "resume_identity": evidence.resume_identity,
     }
@@ -233,17 +259,36 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
         reasons.append("runtime.auto_knob_unresolved")
     if not evidence.teardown_terminated or evidence.gpu_pids_after != []:
         reasons.append("serving.teardown_uncertain")
-    if evidence.serve_log_path == "":
+    if evidence.runtime == "vllm" and _path_sha256(evidence.serve_log_path) in {None, ""}:
         reasons.append("serving.log_missing")
     if evidence.runtime == "vllm":
         if evidence.artifact.snapshot_merkle_sha256 in {None, ""} or not evidence.artifact.snapshot_files:
             reasons.append("model.snapshot_identity_missing")
+        if evidence.artifact.requested_repo in {None, ""}:
+            reasons.append("model.snapshot_repo_missing")
+        revision = evidence.artifact.requested_revision
+        if not isinstance(revision, str) or len(revision) != 40:
+            reasons.append("model.snapshot_revision_missing")
         if evidence.device_name in {None, ""} or evidence.driver_version in {None, ""}:
             reasons.append("runtime.device_identity_missing")
         if evidence.dtype in {None, ""} or evidence.quantization in {None, ""}:
             reasons.append("runtime.engine_config_missing")
         if evidence.env_allowlist.get("VLLM_BATCH_INVARIANT") != "1":
             reasons.append("runtime.batch_invariance_missing")
+        if evidence.engine_version in {None, ""}:
+            reasons.append("runtime.server_version_missing")
+        if evidence.dependency_lock_sha256 in {None, ""}:
+            reasons.append("runtime.dependency_lock_missing")
+        if evidence.runtime_identity_sha256 in {None, ""}:
+            reasons.append("runtime.identity_missing")
+        if evidence.applied_chat_template_sha256 in {None, ""}:
+            reasons.append("runtime.chat_template_unverified")
+        if not evidence.deterministic_kernel_evidence:
+            reasons.append("runtime.deterministic_kernel_unverified")
+        if not evidence.determinism_canary_passed:
+            reasons.append("runtime.two_start_canary_missing")
+        if not evidence.memory_allocations:
+            reasons.append("runtime.memory_report_unverified")
     return reasons
 
 

@@ -1,0 +1,24 @@
+usage: vllm serve MODEL [options]
+
+Pinned supported option surface from the vLLM 0.24 maintainer environment:
+--served-model-name
+--host
+--port
+--api-key
+--max-model-len
+--max-num-seqs
+--seed
+--dtype
+--kv-cache-dtype
+--mamba-cache-dtype
+--mamba-ssm-cache-dtype
+--quantization
+--gpu-memory-utilization
+--load-format
+--tokenizer
+--chat-template
+--no-enable-prefix-caching
+--no-enable-chunked-prefill
+--generation-config
+--tensor-parallel-size
+--disable-log-requests
