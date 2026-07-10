@@ -37,10 +37,15 @@ export function HomeLeaderboard({
   );
   const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
   const showAgenticColumn = scoreMode === "full";
-  const showStaticIndexColumn = scoreMode === "full" && models.some((model) => model.composite_static != null);
+  const showStaticIndexColumn = false;
 
   return (
-    <div data-testid="full-leaderboard" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
+    <div
+      data-testid={scoreMode === "static" ? "static-leaderboard" : "full-leaderboard"}
+      className={scoreMode === "static"
+        ? "overflow-hidden rounded-lg border border-bench-line/70 bg-bench-panel/45 opacity-90"
+        : "overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20"}
+    >
       <BoardScopeHeader mode={scoreMode} />
       {sortedModels.length === 0 ? (
         <div className="px-4 py-8 text-sm leading-6 text-bench-muted">
@@ -159,7 +164,7 @@ function StaticIndexHeaderLabel() {
   return (
     <span className="flex flex-col gap-0.5 leading-tight">
       <span>Static Index</span>
-      <span className="font-mono text-[10px] normal-case text-bench-muted">static-exec-5axis-v1 · secondary track</span>
+      <span className="font-mono text-[10px] normal-case text-bench-muted">static-suite-v2 · secondary track</span>
     </span>
   );
 }
@@ -247,7 +252,7 @@ function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardSc
     return (
       <span className="flex flex-col gap-0.5 leading-tight">
         <span>Static Index</span>
-        <span className="font-mono text-[10px] normal-case text-bench-muted">static-exec-5axis-v1 · provisional, not a headline rank</span>
+        <span className="font-mono text-[10px] normal-case text-bench-muted">static-suite-v2 · provisional, not a headline rank</span>
       </span>
     );
   }

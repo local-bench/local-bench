@@ -306,6 +306,16 @@ def test_ranked_coding_provenance_guard_blocks_self_reported_coding() -> None:
         # false, verdict_source None). The old has_code_artifacts-keyed guard skipped this.
         "coding_scored_without_artifact": _run("d", ranked=True, has_code_artifacts=False, trust_label="community_re_scored", verdict_source=None),
         "no_provenance_at_all": _run("e", ranked=True),
+        "untrusted_static_index": _run(
+            "static",
+            ranked=False,
+            composite_static={"point": 50.0},
+            static_index_version="static-suite-v2",
+            tier="standard",
+            conformance_status="headline-comparable",
+            trust_label="community_re_scored",
+            verdict_source="submitter",
+        ),
     }.items():
         with pytest.raises(builder.DataBuildError, match="not maintainer-verified"):
             builder._assert_ranked_coding_provenance([row])

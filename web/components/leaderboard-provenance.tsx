@@ -4,14 +4,32 @@ import type { AgenticProvenance, IndexModel } from "@/lib/schemas";
 type ProvenanceModel = {
   readonly agentic_provenance?: AgenticProvenance | undefined;
   readonly axes: IndexModel["axes"];
+  readonly composite_static?: IndexModel["composite_static"];
+  readonly trust_label?: string | undefined;
+  readonly verdict_source?: string | null | undefined;
 };
 
 export function ProvenanceLabels({ model }: { readonly model: ProvenanceModel }) {
   const agentic = agenticChip(model);
-  if (agentic === null) {
+  const staticTrust = staticTrustChip(model);
+  if (agentic === null && staticTrust === null) {
     return null;
   }
-  return <div className="mt-2 flex flex-wrap gap-1.5">{agentic}</div>;
+  return <div className="mt-2 flex flex-wrap gap-1.5">{agentic}{staticTrust}</div>;
+}
+
+function staticTrustChip(model: ProvenanceModel) {
+  if (model.axes["agentic"] !== undefined || model.composite_static == null) return null;
+  const verified = model.trust_label === "project_anchor" && model.verdict_source === "verifier";
+  return (
+    <Link
+      href="/methodology"
+      className="inline-flex rounded border border-bench-line bg-white/[0.025] px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-muted hover:text-bench-text"
+      title="Static Index provenance; methodology explains the maintainer verification gate"
+    >
+      {verified ? "maintainer-verified" : "provenance pending"}
+    </Link>
+  );
 }
 
 // Who ran the benchmark: community submissions carry the submitter's credit line; every other

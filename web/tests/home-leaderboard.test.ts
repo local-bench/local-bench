@@ -152,7 +152,7 @@ describe("home leaderboard provenance labels", () => {
     expect(sorted.map((row) => row.slug)).toEqual(["static-high", "full-high"]);
   });
 
-  it("renders Static Index as a verified secondary track on six-axis rows", () => {
+  it("does not render a competing Static Index column inside the headline board", () => {
     const html = renderToStaticMarkup(
       createElement(HomeLeaderboard, {
         models: [
@@ -167,9 +167,7 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).toContain("Static Index");
-    expect(html).toContain("static-exec-5axis-v1");
-    expect(html).toContain("verified");
+    expect(html).not.toContain("static-suite-v2");
     expect(html).toContain("Local Intelligence Index");
   });
 });

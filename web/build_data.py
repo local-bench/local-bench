@@ -770,7 +770,13 @@ def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
     """
     for run in runs:
         index_row = _object(run["index_row"], "index_row")
-        if not index_row.get("ranked"):
+        static_candidate = (
+            index_row.get("composite_static") is not None
+            and index_row.get("static_index_version") == STATIC_SUITE_INDEX_VERSION
+            and index_row.get("tier") == "standard"
+            and index_row.get("conformance_status") == "headline-comparable"
+        )
+        if not index_row.get("ranked") and not static_candidate:
             continue
         if "coding" not in _object_or_empty(index_row.get("axes")):
             continue  # coding axis not scored into this ranked row -> nothing to gate
@@ -778,7 +784,7 @@ def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
         verdict_source = index_row.get("verdict_source")
         if trust_label != "project_anchor" or verdict_source != "verifier":
             raise DataBuildError(
-                f"REFUSING to rank {run.get('run_id')!r}: the coding axis is present but its provenance "
+                f"REFUSING to publish a ranked/static Index score for {run.get('run_id')!r}: the coding axis is present but its provenance "
                 f"is not maintainer-verified (trust_label={trust_label!r}, verdict_source={verdict_source!r}). "
                 f"A self-reported / community coding verdict must never produce a ranked row — the in-process "
                 f"coding sentinel is forgeable (see docs/reports/coding-exec-framewalk-forgery-2026-07-07.md). "

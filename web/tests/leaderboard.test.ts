@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { splitLeaderboard } from "../lib/leaderboard";
-import { HEADLINE_LANE } from "../lib/leaderboard-score";
+import { HEADLINE_LANE, staticIndexStatus } from "../lib/leaderboard-score";
 import { IndexModelSchema } from "../lib/schemas";
 
 const SCORE = { hi: 90, lo: 80, point: 85 } as const;
@@ -21,6 +21,7 @@ describe("leaderboard scope splitting", () => {
         coding: AXIS_SCORE,
         instruction: AXIS_SCORE,
         knowledge: AXIS_SCORE,
+        math: AXIS_SCORE,
         tool_calling: AXIS_SCORE,
       },
       composite_full: SCORE,
@@ -33,6 +34,7 @@ describe("leaderboard scope splitting", () => {
         coding: AXIS_SCORE,
         instruction: AXIS_SCORE,
         knowledge: AXIS_SCORE,
+        math: AXIS_SCORE,
         tool_calling: AXIS_SCORE,
       },
       composite: null,
@@ -40,6 +42,9 @@ describe("leaderboard scope splitting", () => {
       composite_static: SCORE,
       ranked: false,
       static_index_version: "static-suite-v2",
+      conformance_status: "headline-comparable",
+      trust_label: "project_anchor",
+      verdict_source: "verifier",
     });
     const catalog = IndexModelSchema.parse({
       ...row("catalog", "Catalog"),
@@ -54,6 +59,30 @@ describe("leaderboard scope splitting", () => {
     expect(split.ranked.map((model) => model.slug)).toEqual(["full-index"]);
     expect(split.staticComposite.map((model) => model.slug)).toEqual(["static-only"]);
     expect(split.catalog.map((model) => model.slug)).toEqual(["catalog"]);
+  });
+
+  it("requires real trust evidence before a static score can be verified or listed", () => {
+    const untrusted = IndexModelSchema.parse({
+      ...row("untrusted-static", "Untrusted Static"),
+      axes: {
+        coding: AXIS_SCORE,
+        instruction: AXIS_SCORE,
+        knowledge: AXIS_SCORE,
+        math: AXIS_SCORE,
+        tool_calling: AXIS_SCORE,
+      },
+      composite: null,
+      composite_full: null,
+      composite_static: SCORE,
+      conformance_status: "headline-comparable",
+      ranked: false,
+      static_index_version: "static-suite-v2",
+      trust_label: "community_re_scored",
+      verdict_source: "submitter",
+    });
+
+    expect(splitLeaderboard([untrusted]).staticComposite).toEqual([]);
+    expect(staticIndexStatus(untrusted)).toBeNull();
   });
 });
 

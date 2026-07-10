@@ -167,6 +167,7 @@ export const IndexModelSchema = z.object({
   diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
+  conformance_status: z.string().nullable().optional(),
   axes: AxesSchema,
   axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),

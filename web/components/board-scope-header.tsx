@@ -3,7 +3,7 @@ import type { LeaderboardScoreMode } from "@/lib/leaderboard-score";
 export const BOARD_SCOPE_TITLE = "Local Intelligence Index | index-v3.0";
 export const BOARD_SCOPE_SUBTITLE =
   "Headline = 0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool calling + 0.15 Coding + 0.05 Math. Ranks require all headline axes in this scope.";
-export const STATIC_SCOPE_TITLE = "Static Index | static-exec-5axis-v1";
+export const STATIC_SCOPE_TITLE = "Static Index | static-suite-v2";
 export const STATIC_SCOPE_SUBTITLE =
   "Secondary, provisional track while agentic verification is pending: Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. It never competes with the six-axis Local Intelligence Index.";
 
