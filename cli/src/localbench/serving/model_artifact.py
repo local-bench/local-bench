@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import struct
 from dataclasses import dataclass
 from enum import IntEnum, unique
-from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO, Final, assert_never
 
@@ -64,6 +64,12 @@ class ModelReference:
     filename: str
 
 
+@dataclass(frozen=True, slots=True)
+class SnapshotReference:
+    repo_id: str
+    revision: str
+
+
 def resolve_model_file_artifact(model_file: Path, *, run_dir: Path) -> ModelArtifact:
     resolved = model_file.resolve()
     if not resolved.exists():
@@ -119,6 +125,131 @@ def parse_model_reference(ref: str) -> ModelReference:
     if repo_id == "":
         raise ModelArtifactError("--model-ref is missing the HF repo id")
     return ModelReference(repo_id=repo_id, revision=revision, filename=filename)
+
+
+def resolve_snapshot_reference(ref: str, *, cache_dir: Path, run_dir: Path) -> ModelArtifact:
+    parsed = parse_snapshot_reference(ref)
+    # huggingface_hub reads this setting during import on some releases.  The maintainer
+    # lane deliberately materializes a Windows-native snapshot, not a symlink farm whose
+    # behavior depends on Developer Mode.
+    os.environ["HF_HUB_DISABLE_SYMLINKS"] = "1"
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as error:
+        raise ModelArtifactError(
+            "install the cli hf extra to use the vLLM --model-ref lane",
+        ) from error
+    snapshot_dir = cache_dir / parsed.repo_id.replace("/", "--") / parsed.revision
+    snapshot = Path(
+        snapshot_download(
+            repo_id=parsed.repo_id,
+            revision=parsed.revision,
+            local_dir=snapshot_dir,
+        ),
+    ).resolve()
+    return snapshot_artifact(snapshot, run_dir=run_dir)
+
+
+def parse_snapshot_reference(ref: str) -> SnapshotReference:
+    if not ref.startswith("hf://"):
+        raise ModelArtifactError("--model-ref must start with hf://")
+    body = ref.removeprefix("hf://")
+    if "#" in body:
+        raise ModelArtifactError("vLLM --model-ref names a snapshot, not a #file")
+    repo_id, separator, revision = body.partition("@")
+    if not separator or not repo_id:
+        raise ModelArtifactError("--model-ref must be hf://<repo>@<full-40-character-sha>")
+    if repo_id.count("/") != 1 or any(part == "" for part in repo_id.split("/")) or "@" in revision:
+        raise ModelArtifactError("--model-ref must contain one Hugging Face namespace/repo id")
+    if len(revision) != 40 or not all(char in "0123456789abcdefABCDEF" for char in revision):
+        raise ModelArtifactError("--model-ref revision must be a full 40-character SHA")
+    return SnapshotReference(repo_id=repo_id, revision=revision.lower())
+
+
+def snapshot_artifact(snapshot: Path, *, run_dir: Path) -> ModelArtifact:
+    resolved = snapshot.resolve()
+    if not resolved.is_dir():
+        raise ModelArtifactError(f"model snapshot does not exist: {resolved}")
+    files: list[JsonObject] = []
+    for path in sorted(
+        item
+        for item in resolved.rglob("*")
+        if item.is_file() and ".cache" not in item.relative_to(resolved).parts
+    ):
+        relative = path.relative_to(resolved).as_posix()
+        files.append(
+            {"path": relative, "sha256": sha256_file(path), "size_bytes": path.stat().st_size},
+        )
+    if not files or not any(str(row["path"]).endswith(".safetensors") for row in files):
+        raise ModelArtifactError("vLLM snapshot contains no safetensors files")
+    canonical = json.dumps(files, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    merkle = hashlib.sha256(canonical).hexdigest()
+    run_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = run_dir / "snapshot_metadata.json"
+    metadata_path.write_bytes(
+        json.dumps(
+            {"snapshot_merkle_sha256": merkle, "files": files},
+            sort_keys=True,
+            indent=2,
+            ensure_ascii=False,
+        ).encode("utf-8"),
+    )
+    config = _read_optional_object(resolved / "config.json")
+    quant = _read_optional_object(resolved / "quantization_config.json")
+    if not quant and isinstance(config.get("quantization_config"), dict):
+        quant = dict(config["quantization_config"])
+    template = resolved / "chat_template.jinja"
+    tokenizer_names = (
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "added_tokens.json",
+        "vocab.json",
+        "merges.txt",
+        "tokenizer.model",
+    )
+    tokenizer_files = [resolved / name for name in tokenizer_names if (resolved / name).is_file()]
+    return ModelArtifact(
+        model_file=resolved,
+        file_sha256=merkle,
+        file_size_bytes=sum(int(row["size_bytes"]) for row in files),
+        gguf_metadata_sha256=merkle,
+        tokenizer_digest=_files_digest(tokenizer_files),
+        chat_template_digest=sha256_file(template) if template.is_file() else None,
+        gguf_metadata_path=metadata_path,
+        model_family=_metadata_text(config.get("model_type")),
+        quant_label=_snapshot_quant_label(quant),
+        model_format="safetensors",
+        snapshot_merkle_sha256=merkle,
+        snapshot_files=tuple(files),
+    )
+
+
+def _read_optional_object(path: Path) -> JsonObject:
+    if not path.is_file():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ModelArtifactError(f"invalid snapshot metadata: {path.name}") from error
+    return value if isinstance(value, dict) else {}
+
+
+def _files_digest(paths: list[Path]) -> str | None:
+    if not paths:
+        return None
+    rows = [{"name": path.name, "sha256": sha256_file(path)} for path in paths]
+    return hashlib.sha256(
+        json.dumps(rows, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+    ).hexdigest()
+
+
+def _snapshot_quant_label(config: JsonObject) -> str | None:
+    rendered = json.dumps(config, sort_keys=True).lower()
+    if "nvfp4" in rendered:
+        return "NVFP4"
+    method = config.get("quant_method")
+    return method.upper() if isinstance(method, str) and method else None
 
 
 def parse_gguf_metadata(path: Path) -> JsonObject:

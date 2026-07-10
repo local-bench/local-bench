@@ -268,6 +268,7 @@ def serving_evidence(
         resume_identity=identity,
         model_id=options.model_id,
         serve_log_path=str(root / "serve.log"),
+        cuda_version=build.cuda_version,
     )
 
 

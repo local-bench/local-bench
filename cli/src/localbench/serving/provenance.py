@@ -53,6 +53,11 @@ class ServingEvidence:
     resume_identity: str
     model_id: str
     serve_log_path: str
+    device_name: str | None = None
+    driver_version: str | None = None
+    cuda_version: str | None = None
+    dtype: str | None = None
+    quantization: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,7 +133,8 @@ def apply_serving_context(record: JsonObject, context: ServingRunContext) -> Jso
     integrity["publishable"] = integrity["blocking_reasons"] == []
     updated["manifest"] = manifest
     updated["serving"] = context.block
-    updated["serving_mode"] = "orchestrated_llama_cpp"
+    runtime = str(context.block.get("runtime", "unknown")).replace(".", "_")
+    updated["serving_mode"] = f"orchestrated_{runtime}"
     return updated
 
 
@@ -180,6 +186,11 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
                 "format": evidence.reasoning_format,
             },
             "chat_template_digest": evidence.artifact.chat_template_digest,
+            "dtype": evidence.dtype,
+            "quantization": evidence.quantization,
+            "device_name": evidence.device_name,
+            "driver_version": evidence.driver_version,
+            "cuda_version": evidence.cuda_version,
         },
         "readiness_evidence": {
             "health_200_at": evidence.health_200_at,
@@ -224,6 +235,15 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
         reasons.append("serving.teardown_uncertain")
     if evidence.serve_log_path == "":
         reasons.append("serving.log_missing")
+    if evidence.runtime == "vllm":
+        if evidence.artifact.snapshot_merkle_sha256 in {None, ""} or not evidence.artifact.snapshot_files:
+            reasons.append("model.snapshot_identity_missing")
+        if evidence.device_name in {None, ""} or evidence.driver_version in {None, ""}:
+            reasons.append("runtime.device_identity_missing")
+        if evidence.dtype in {None, ""} or evidence.quantization in {None, ""}:
+            reasons.append("runtime.engine_config_missing")
+        if evidence.env_allowlist.get("VLLM_BATCH_INVARIANT") != "1":
+            reasons.append("runtime.batch_invariance_missing")
     return reasons
 
 

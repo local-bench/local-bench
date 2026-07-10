@@ -100,12 +100,71 @@ async def verify_llama_cpp_readiness(
         )
 
 
+async def verify_vllm_readiness(
+    *,
+    base_url: str,
+    model_id: str,
+    model_path: str,
+    api_key: str,
+    seed: int,
+    transport: httpx.AsyncBaseTransport | None = None,
+    startup_timeout_seconds: float = 180.0,
+    poll_interval_seconds: float = 0.25,
+) -> ReadinessEvidence:
+    root = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(timeout=10.0, transport=transport, headers=headers) as client:
+        health_200_at = await _wait_for_health(
+            client,
+            root,
+            startup_timeout_seconds=startup_timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            runtime="vLLM",
+        )
+        models = await _get_json(client, f"{root}/v1/models")
+        reported_model = _reported_model(models, model_id)
+        if reported_model != model_id:
+            raise ReadinessError(f"/v1/models did not report requested model {model_id}")
+        version = await _get_json(client, f"{root}/version")
+        smoke = await _post_json(
+            client,
+            f"{root}/v1/chat/completions",
+            {
+                "model": model_id,
+                "messages": [{"role": "user", "content": "localbench readiness"}],
+                "max_tokens": 1,
+                "temperature": 0,
+                "top_k": 1,
+                "seed": seed,
+            },
+        )
+        tokenized = await _post_json(
+            client,
+            f"{root}/tokenize",
+            {"model": model_id, "prompt": "localbench readiness"},
+        )
+        return ReadinessEvidence(
+            health_200_at=health_200_at,
+            models_response_sha256=canonical_sha256(models),
+            props_response_sha256=canonical_sha256(version),
+            reported_model=reported_model,
+            smoke_chat_sha256=canonical_sha256(smoke),
+            tokenize_sha256=canonical_sha256(tokenized),
+            apply_template_sha256="",
+            total_slots=1,
+            model_path=model_path,
+            chat_template=None,
+            build_info=_optional_text(version.get("version")),
+        )
+
+
 async def _wait_for_health(
     client: httpx.AsyncClient,
     root: str,
     *,
     startup_timeout_seconds: float,
     poll_interval_seconds: float,
+    runtime: str = "llama.cpp",
 ) -> str:
     deadline = time.monotonic() + startup_timeout_seconds
     while time.monotonic() <= deadline:
@@ -115,7 +174,7 @@ async def _wait_for_health(
         if response.status_code != 503:
             raise ReadinessError(f"/health returned {response.status_code}")
         await anyio.sleep(poll_interval_seconds)
-    raise ReadinessError("llama.cpp readiness timed out")
+    raise ReadinessError(f"{runtime} readiness timed out")
 
 
 async def _get_json(client: httpx.AsyncClient, url: str) -> JsonObject:

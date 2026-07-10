@@ -42,3 +42,7 @@ class ServeBenchOptions:
     appworld_root: str | None = None
     agentic_preflight: WslPreflightResult | None = None
     progress_reporter: ProgressReporter | None = None
+    wsl_distro: str | None = None
+    vllm_venv: str | None = None
+    vllm_bin: str | None = None
+    vllm_dtype: str = "bfloat16"

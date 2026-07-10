@@ -350,6 +350,24 @@ def _parser() -> argparse.ArgumentParser:
     model_input.add_argument("--model-ref")
     bench_parser.add_argument("--model-id")
     bench_parser.add_argument("--server-bin", type=Path)
+    bench_parser.add_argument(
+        "--wsl-distro",
+        help="WSL2 distribution containing the maintainer vLLM environment",
+    )
+    bench_parser.add_argument(
+        "--vllm-venv",
+        help="absolute WSL path to the vLLM virtual environment",
+    )
+    bench_parser.add_argument(
+        "--vllm-bin",
+        help="absolute WSL path to the pinned vLLM executable (overrides --vllm-venv)",
+    )
+    bench_parser.add_argument(
+        "--vllm-dtype",
+        choices=("bfloat16", "float16"),
+        default="bfloat16",
+        help="pinned vLLM model and KV-cache dtype",
+    )
     bench_parser.add_argument("--ctx", type=int)
     bench_parser.add_argument("--determinism", choices=("strict", "throughput"), default="strict")
     bench_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
@@ -1020,6 +1038,10 @@ def _bench(args: argparse.Namespace) -> int:
         progress_reporter=progress_reporter,
         wsl_venv_python=getattr(args, "wsl_venv_python", None),
         appworld_root=getattr(args, "appworld_root", None),
+        wsl_distro=getattr(args, "wsl_distro", None),
+        vllm_venv=getattr(args, "vllm_venv", None),
+        vllm_bin=getattr(args, "vllm_bin", None),
+        vllm_dtype=getattr(args, "vllm_dtype", "bfloat16"),
     )
     try:
         record = anyio.run(
@@ -1071,6 +1093,13 @@ def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
         missing.append("--seed")
     if missing:
         return "bench advanced mode requires " + ", ".join(missing)
+    if args.runtime == "vllm":
+        if args.model_file is not None:
+            return "--runtime vllm requires --model-ref, not --model-file"
+        if not args.wsl_distro:
+            return "--runtime vllm requires --wsl-distro"
+        if not args.vllm_bin and not args.vllm_venv:
+            return "--runtime vllm requires --vllm-bin or --vllm-venv"
     return None
 
 

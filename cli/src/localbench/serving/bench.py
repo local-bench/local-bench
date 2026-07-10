@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol
 
 from localbench._types import JsonObject
 from localbench.bounded_final_profiles import BoundedFinalProfileChoice
@@ -12,7 +12,14 @@ from localbench.orchestrate import (
     ReasoningActivationChoice,
     TierChoice,
 )
-from localbench.serving.provenance import DETERMINISM_POLICY_ID, ServingEvidence
+from localbench.serving.provenance import (
+    DETERMINISM_POLICY_ID,
+    ServingEvidence,
+    sanitize_launch_argv,
+)
+from localbench.serving.model_artifact import ModelArtifact
+from localbench.serving.readiness import ReadinessEvidence
+from localbench.serving.teardown import TeardownEvidence
 from localbench.progress import ProgressReporter
 
 
@@ -40,16 +47,18 @@ class BenchRunConfig:
     progress_reporter: ProgressReporter | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class RuntimeAdapter:
+class RuntimeAdapter(Protocol):
     runtime: Literal["llama.cpp", "vllm"]
 
+    def resolve_model(self, ref: str, *, cache_dir: Path, run_dir: Path) -> ModelArtifact: ...
 
-class VllmAdapter:
-    runtime: Literal["vllm"] = "vllm"
+    def build_identity(self, **kwargs: object) -> object: ...
 
-    def resolve_model(self) -> None:
-        raise NotImplementedError("vLLM lane deferred -- see spec section 9")
+    def launch(self, config: object, *, log_path: Path) -> object: ...
+
+    async def readiness(self, **kwargs: object) -> ReadinessEvidence: ...
+
+    def teardown(self, server: object) -> TeardownEvidence: ...
 
 
 def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) -> OrchestrateConfig:
@@ -84,21 +93,17 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         quant_label=evidence.artifact.quant_label,
         model_format=evidence.artifact.model_format,
         tokenizer_digest=evidence.artifact.tokenizer_digest,
-        tokenizer_digest_source=(
-            "gguf.embedded" if evidence.artifact.tokenizer_digest is not None else None
-        ),
+        tokenizer_digest_source=_model_digest_source(evidence, evidence.artifact.tokenizer_digest),
         chat_template_digest=evidence.artifact.chat_template_digest,
-        chat_template_digest_source=(
-            "gguf.embedded" if evidence.artifact.chat_template_digest is not None else None
-        ),
-        runtime_name="llama.cpp",
+        chat_template_digest_source=_model_digest_source(evidence, evidence.artifact.chat_template_digest),
+        runtime_name=evidence.runtime,
         runtime_version=_runtime_version(evidence),
         kv_cache_quant=evidence.kv_cache_quant,
         ctx_len_configured=evidence.ctx_len_configured,
         parallel_slots=evidence.parallel_slots,
         build_flags=evidence.build_flags,
         runtime_backend="cuda",
-        cuda_version=None,
+        cuda_version=evidence.cuda_version,
         server_fingerprint=evidence.server_fingerprint,
         resume_identity=evidence.resume_identity,
         serve_fingerprint=_serve_fingerprint(evidence),
@@ -114,16 +119,16 @@ def _runtime_version(evidence: ServingEvidence) -> str | None:
 
 def _serve_fingerprint(evidence: ServingEvidence) -> JsonObject:
     return {
-        "serve_mode": "llama.cpp",
+        "serve_mode": evidence.runtime,
         "server_fingerprint": evidence.server_fingerprint,
         "resume_identity": evidence.resume_identity,
         "server_binary_hash": evidence.executable_sha256,
         "server_build": evidence.version_stdout,
-        "server_command_redacted": _redacted_argv(evidence.argv),
+        "server_command_redacted": sanitize_launch_argv(_redacted_argv(evidence.argv)),
         "model_artifact_hash": evidence.artifact.file_sha256,
         "sampler_flags": {"temperature": 0, "top_k": 1},
         "context_length": evidence.ctx_len_configured,
-        "gpu_layers": 999,
+        "gpu_layers": 999 if evidence.runtime == "llama.cpp" else None,
         "reasoning": {
             "mode": evidence.reasoning,
             "budget": evidence.reasoning_budget,
@@ -131,6 +136,12 @@ def _serve_fingerprint(evidence: ServingEvidence) -> JsonObject:
         },
         "seed_policy": f"seed={evidence.server_fingerprint}",
     }
+
+
+def _model_digest_source(evidence: ServingEvidence, digest: str | None) -> str | None:
+    if digest is None:
+        return None
+    return "snapshot.files" if evidence.artifact.snapshot_merkle_sha256 is not None else "gguf.embedded"
 
 
 def _redacted_argv(argv: list[str]) -> list[str]:

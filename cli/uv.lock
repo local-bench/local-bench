@@ -647,6 +647,7 @@ dev = [
     { name = "pytest" },
 ]
 hf = [
+    { name = "huggingface-hub" },
     { name = "jinja2" },
     { name = "transformers" },
 ]
@@ -656,6 +657,7 @@ requires-dist = [
     { name = "anyio", specifier = ">=4" },
     { name = "datasets", marker = "extra == 'build'", specifier = ">=2.20" },
     { name = "httpx", specifier = ">=0.27" },
+    { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.30" },
     { name = "jinja2", marker = "extra == 'dev'", specifier = ">=3.1" },
     { name = "jinja2", marker = "extra == 'hf'", specifier = ">=3.1" },
     { name = "langdetect", specifier = ">=1.0.9" },

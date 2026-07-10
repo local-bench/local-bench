@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import subprocess
+import uuid
 from pathlib import Path
 
 from localbench._types import JsonObject
@@ -28,7 +29,7 @@ from localbench.serving.agentic_support import (
     agentic_chat_template_kwargs,
     configured_agentic_paths,
 )
-from localbench.serving.bench import VllmAdapter, build_orchestrate_config
+from localbench.serving.bench import build_orchestrate_config
 from localbench.serving.fingerprint import resume_identity, server_fingerprint
 from localbench.serving.llama_cpp import (
     LlamaCppLaunchConfig,
@@ -36,13 +37,16 @@ from localbench.serving.llama_cpp import (
     strict_llama_cpp_argv,
     validate_strict_argv_supported,
 )
+from localbench.serving.model_artifact import ModelArtifact
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.process import JobController, LaunchedServer, allocate_port, launch_llama_cpp
 from localbench.serving.provenance import (
+    ServingEvidence,
     apply_serving_context,
+    api_key_sha256,
     serving_context,
 )
-from localbench.serving.readiness import verify_llama_cpp_readiness
+from localbench.serving.readiness import ReadinessEvidence, verify_llama_cpp_readiness
 from localbench.serving.teardown import TeardownEvidence, teardown_owned_server
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslPreflightResult,
@@ -51,11 +55,20 @@ from localbench.scoring.agentic_exec.wsl_bridge import (
 )
 from localbench.scoring.agentic_exec.sandbox import SandboxError, WorkerSetupError
 from localbench.submissions.foundation import normalize_result_bundle
+from localbench.serving.vllm import (
+    VllmAdapter,
+    VllmBuildIdentity,
+    VllmLaunchConfig,
+    quantization_config,
+    validate_vllm_argv,
+    vllm_serve_argv,
+    wsl_path,
+)
 
 
 async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     if options.runtime == "vllm":
-        VllmAdapter().resolve_model()
+        return await _run_orchestrated_vllm_bench(options)
     if options.runtime != "llama.cpp":
         raise RuntimeError(f"unsupported runtime: {options.runtime}")
     if options.determinism != "strict":
@@ -230,6 +243,271 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     return updated
 
 
+async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject:
+    if options.determinism != "strict":
+        raise RuntimeError("--determinism throughput is deferred and non-publishable")
+    if options.model_file is not None or options.model_ref is None:
+        raise RuntimeError("vLLM requires --model-ref and does not accept --model-file")
+    if options.wsl_distro in {None, ""}:
+        raise RuntimeError("vLLM requires --wsl-distro")
+    distro = options.wsl_distro
+    vllm_bin = _vllm_binary(options)
+    effective_profile = effective_serving_profile(options)
+    validate_capped_thinking_context(options, effective_profile)
+    root = run_dir(options)
+    output_path = root / "localbench-run.json"
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(options, root)
+    adapter = VllmAdapter()
+    artifact = adapter.resolve_model(
+        options.model_ref,
+        cache_dir=options.cache_dir or root / "hf-cache",
+        run_dir=root,
+    )
+    quantization = quantization_config(artifact)
+    model_path = wsl_path(artifact.model_file, distro=distro)
+    template_path = artifact.model_file / "chat_template.jinja"
+    if not template_path.is_file() or artifact.chat_template_digest is None:
+        raise RuntimeError("vLLM snapshot must contain chat_template.jinja")
+    chat_template = wsl_path(template_path, distro=distro)
+    build = adapter.build_identity(distro=distro, vllm_bin=vllm_bin)
+    port = allocate_port()
+    api_key = secrets.token_urlsafe(32)
+    launch_config = VllmLaunchConfig(
+        distro=distro,
+        vllm_bin=vllm_bin,
+        model_path=model_path,
+        model_id=options.model_id,
+        host="127.0.0.1",
+        port=port,
+        api_key=api_key,
+        ctx=options.ctx,
+        seed=options.seed,
+        dtype=options.vllm_dtype,
+        kv_cache_dtype=options.vllm_dtype,
+        quantization=quantization,
+        gpu_memory_utilization="0.92",
+        chat_template=chat_template,
+        run_token=uuid.uuid4().hex,
+    )
+    argv = vllm_serve_argv(launch_config)
+    validate_vllm_argv(argv, build.help_text)
+    env_allowlist = {"CUDA_VISIBLE_DEVICES": "0", "VLLM_BATCH_INVARIANT": "1"}
+    safe_argv = redacted_argv(argv)
+    fingerprint = server_fingerprint(
+        model_file_sha256=artifact.file_sha256,
+        executable_sha256=build.executable_sha256,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        ctx=options.ctx,
+        kv_cache_quant=options.vllm_dtype,
+        parallel_slots=1,
+        flash_attention="batch-invariant",
+        chat_template_digest=artifact.chat_template_digest,
+    )
+    identity = resume_identity(
+        model_file_sha256=artifact.file_sha256,
+        executable_sha256=build.executable_sha256,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        ctx=options.ctx,
+        kv_cache_quant=options.vllm_dtype,
+        parallel_slots=1,
+        flash_attention="batch-invariant",
+        chat_template_digest=artifact.chat_template_digest,
+    )
+    precheck_resume_identity(
+        options.resume,
+        identity,
+        chat_template_digest=artifact.chat_template_digest,
+        env_allowlist=env_allowlist,
+        kv_cache_quant=options.vllm_dtype,
+        parallel_slots=1,
+        flash_attention="batch-invariant",
+    )
+    launched = None
+    teardown: TeardownEvidence | None = None
+    try:
+        launched = adapter.launch(launch_config, log_path=root / "serve.log")
+        readiness = await adapter.readiness(
+            base_url=f"http://127.0.0.1:{port}",
+            model_id=options.model_id,
+            model_path=model_path,
+            api_key=api_key,
+            seed=options.seed,
+        )
+        if readiness.build_info is None or readiness.build_info not in build.version_stdout:
+            raise RuntimeError("vLLM endpoint version does not match the launched binary")
+        evidence = _vllm_serving_evidence(
+            options=options,
+            artifact=artifact,
+            build=build,
+            readiness=readiness,
+            teardown=pending_teardown(launched.server_pid),
+            launch_config=launch_config,
+            argv=safe_argv,
+            env_allowlist=env_allowlist,
+            api_key=api_key,
+            port=port,
+            fingerprint=fingerprint,
+            identity=identity,
+            root=root,
+        )
+        agentic_sandbox_factory = None
+        agentic_model_factory = None
+        agentic_task_ids = None
+        agentic_canonical_task_ids = None
+        agentic_provenance_extra = None
+        if agentic_preflight is not None:
+            from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
+
+            log_dir = root / "agentic" / "wsl-worker-logs"
+            wsl_venv_python, appworld_root = configured_agentic_paths(
+                options.wsl_venv_python,
+                options.appworld_root,
+            )
+            agentic_sandbox_factory = wsl_sandbox_factory(
+                "",
+                wsl_venv_python,
+                appworld_root,
+                log_dir=log_dir,
+                expected_identity=agentic_preflight.identity,
+            )
+            agentic_model_factory = chat_client_factory(
+                f"http://127.0.0.1:{port}/v1",
+                options.model_id,
+                api_key=api_key,
+                chat_template_kwargs=agentic_chat_template_kwargs(options.lane, effective_profile),
+            )
+            agentic_task_ids = list(agentic_preflight.task_ids)
+            agentic_canonical_task_ids = list(
+                agentic_preflight.canonical_task_ids or agentic_preflight.task_ids
+            )
+            agentic_provenance_extra = agentic_preflight.provenance()
+        try:
+            await run_localbench(
+                build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence),
+                agentic_sandbox_factory=agentic_sandbox_factory,
+                agentic_model_factory=agentic_model_factory,
+                agentic_task_ids=agentic_task_ids,
+                agentic_canonical_task_ids=agentic_canonical_task_ids,
+                agentic_provenance_extra=agentic_provenance_extra,
+            )
+        except WorkerSetupError as error:
+            raise AgenticSetupError(
+                detail=str(error),
+                model_download_started=True,
+                benchmark_started=True,
+            ) from error
+    finally:
+        if launched is not None:
+            try:
+                teardown = adapter.teardown(launched)
+            finally:
+                launched.close_log()
+    if teardown is None:
+        raise RuntimeError("server teardown evidence was not collected")
+    record = read_json_object(output_path)
+    completed_evidence = _vllm_serving_evidence(
+        options=options,
+        artifact=artifact,
+        build=build,
+        readiness=readiness,
+        teardown=teardown,
+        launch_config=launch_config,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        api_key=api_key,
+        port=port,
+        fingerprint=fingerprint,
+        identity=identity,
+        root=root,
+    )
+    updated = normalize_result_bundle(
+        apply_serving_context(record, serving_context(completed_evidence)),
+        suite_dir=options.suite_dir,
+    )
+    atomic_write_json(updated, output_path)
+    return updated
+
+
+def _vllm_binary(options: ServeBenchOptions) -> str:
+    if options.vllm_bin not in {None, ""}:
+        value = options.vllm_bin
+    elif options.vllm_venv not in {None, ""}:
+        value = f"{options.vllm_venv.rstrip('/')}/bin/vllm"
+    else:
+        raise RuntimeError("vLLM requires --vllm-bin or --vllm-venv")
+    if not value.startswith("/"):
+        raise RuntimeError("vLLM binary and virtualenv paths must be absolute WSL paths")
+    return value
+
+
+def _vllm_serving_evidence(
+    *,
+    options: ServeBenchOptions,
+    artifact: ModelArtifact,
+    build: VllmBuildIdentity,
+    readiness: ReadinessEvidence,
+    teardown: TeardownEvidence,
+    launch_config: VllmLaunchConfig,
+    argv: list[str],
+    env_allowlist: dict[str, str],
+    api_key: str,
+    port: int,
+    fingerprint: str,
+    identity: str,
+    root: Path,
+) -> ServingEvidence:
+    return ServingEvidence(
+        runtime="vllm",
+        argv=argv,
+        cwd=str(Path.cwd()),
+        env_allowlist=env_allowlist,
+        host="127.0.0.1",
+        port=port,
+        api_key_sha256=api_key_sha256(api_key),
+        artifact=artifact,
+        executable_sha256=build.executable_sha256,
+        dll_or_so_hashes={},
+        version_stdout=build.version_stdout,
+        source_repo="vllm-project/vllm",
+        source_commit=None,
+        source_tag=None,
+        build_flags=(
+            f"dtype={launch_config.dtype} kv_cache_dtype={launch_config.kv_cache_dtype} "
+            f"quantization={launch_config.quantization} max_num_seqs=1 batch_invariant=1"
+        ),
+        help_text_sha256=build.help_text_sha256,
+        ctx_len_configured=launch_config.ctx,
+        parallel_slots=readiness.total_slots,
+        continuous_batching=False,
+        kv_cache_quant=launch_config.kv_cache_dtype,
+        flash_attention="batch-invariant",
+        rope_scaling="model-default",
+        reasoning="client-controlled",
+        reasoning_budget=None,
+        reasoning_format="snapshot-chat-template",
+        health_200_at=readiness.health_200_at,
+        models_response_sha256=readiness.models_response_sha256,
+        props_response_sha256=readiness.props_response_sha256,
+        reported_model=readiness.reported_model,
+        smoke_chat_sha256=readiness.smoke_chat_sha256,
+        owned_process_tree=teardown.owned_process_tree,
+        teardown_terminated=teardown.terminated,
+        exit_code=teardown.exit_code,
+        gpu_pids_after=teardown.gpu_pids_after,
+        server_fingerprint=fingerprint,
+        resume_identity=identity,
+        model_id=options.model_id,
+        serve_log_path=str(root / "serve.log"),
+        device_name=build.device_name,
+        driver_version=build.driver_version,
+        cuda_version=build.cuda_version,
+        dtype=launch_config.dtype,
+        quantization=launch_config.quantization,
+    )
+
+
 def preflight_agentic_if_needed(
     options: ServeBenchOptions,
     root: Path,
@@ -260,7 +538,7 @@ def preflight_agentic_if_needed(
 
 
 def needs_wsl_agentic(options: ServeBenchOptions) -> bool:
-    if options.runtime != "llama.cpp":
+    if options.runtime not in {"llama.cpp", "vllm"}:
         return False
     if options.suite == STATIC_EXEC_SUITE_ID:
         return False
