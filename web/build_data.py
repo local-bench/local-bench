@@ -438,11 +438,13 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     static_index_version = (board_static_index_version or STATIC_SUITE_INDEX_VERSION) if composite_static is not None else None
     annotations = _source_annotations(source, axes, headline_complete)
     tier = _text(suite.get("tier"))
+    orchestrated_serving_eligible = _orchestrated_serving_rank_eligible(run, manifest)
     rank_eligible_before_infra = (
         tier == "standard"
         and conformance_status == "headline-comparable"
         and headline_complete
         and not quarantined_agentic
+        and orchestrated_serving_eligible
     )
     # The fail-closed infra-timeout warning decides RANKING only; it surfaces in
     # data_warnings solely for rows that were otherwise rank-eligible, so demo and
@@ -1041,7 +1043,9 @@ def _runtime(runtime: JsonObject) -> JsonObject:
 def _serving_provenance(run: JsonObject) -> JsonObject | None:
     serving = _object_or_empty(run.get("serving"))
     runtime = _text(serving.get("runtime"))
-    if runtime is None:
+    # Engine provenance is currently a vLLM web feature. Projecting this block for
+    # llama.cpp changes established row payloads and adds vLLM-only null fields.
+    if runtime != "vllm":
         return None
     artifact = _object_or_empty(serving.get("artifact"))
     resolved = _object_or_empty(serving.get("resolved_runtime"))
@@ -1063,6 +1067,7 @@ def _serving_provenance(run: JsonObject) -> JsonObject | None:
     return {
         "runtime": runtime,
         "engine_version": _text(artifact.get("server_reported_package_version")) or _text(artifact.get("version_stdout")),
+        "engine_executable_sha256": _text(artifact.get("executable_sha256")),
         "dependency_lock_sha256": _text(artifact.get("venv_dependency_lock_sha256")),
         "runtime_identity_sha256": _text(artifact.get("runtime_identity_sha256")),
         "snapshot": snapshot,
@@ -1079,6 +1084,15 @@ def _serving_provenance(run: JsonObject) -> JsonObject | None:
             "quantization": _text(resolved.get("quantization")),
         },
     }
+
+
+def _orchestrated_serving_rank_eligible(run: JsonObject, manifest: JsonObject) -> bool:
+    serving_mode = _text(run.get("serving_mode"))
+    if serving_mode is None or not serving_mode.startswith("orchestrated_"):
+        return True
+    integrity = _object_or_empty(manifest.get("integrity"))
+    blockers = integrity.get("blocking_reasons")
+    return integrity.get("publishable") is True and isinstance(blockers, list) and blockers == []
 
 
 def _completion_token_stats(items: list[JsonValue]) -> JsonObject:

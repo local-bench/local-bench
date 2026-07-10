@@ -119,6 +119,14 @@ function buildWithInfraTimeoutRates(
         { cwd: WEB_ROOT, encoding: "utf8" },
       );
       expect(normalized.status, `${normalized.stdout}\n${normalized.stderr}`).toBe(0);
+      // Isolate the infrastructure gate: normalization may conservatively revoke
+      // publishability, but this fixture needs to reach the later infra warning path.
+      const normalizedRun = readJson(runPath);
+      const normalizedManifest = requireJsonObject(normalizedRun["manifest"], "normalized fixture manifest");
+      const normalizedIntegrity = requireJsonObject(normalizedManifest["integrity"], "normalized fixture integrity");
+      normalizedIntegrity["publishable"] = true;
+      normalizedIntegrity["blocking_reasons"] = [];
+      writeFileSync(runPath, JSON.stringify(normalizedRun), "utf8");
     }
     writeFileSync(sourcesPath, JSON.stringify([{ ...source, file: runPath }]), "utf8");
 

@@ -54,12 +54,17 @@ describe("BenchmarkRecipe", () => {
   it("renders the vLLM maintainer recipe and community-lane caveat", () => {
     const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe({
       runtimeId: "vllm",
-      lead: { kind: "maintainer", command: "localbench bench --runtime vllm --model-ref hf://Qwen/Qwen3-8B@<full-40-character-revision>" },
+      lead: { kind: "maintainer", command: "localbench bench --runtime vllm --model-ref hf://Qwen/Qwen3-8B@<full-40-character-revision> --model-id qwen3-8b --seed 1234 --wsl-distro <wsl-distro> --vllm-venv <absolute-wsl-vllm-venv> --wsl-venv-python <absolute-wsl-appworld-python> --appworld-root <absolute-wsl-appworld-root>" },
     }) }));
 
     expect(html).toContain("vLLM maintainer lane");
     expect(html).toContain("--runtime vllm --model-ref hf://Qwen/Qwen3-8B@");
     expect(html).toContain("community path remains llama.cpp/GGUF until the appliance ships");
+    expect(html).toContain("--wsl-distro &lt;wsl-distro&gt;");
+    expect(html).toContain("--vllm-venv &lt;absolute-wsl-vllm-venv&gt;");
+    expect(html).toContain("--wsl-venv-python &lt;absolute-wsl-appworld-python&gt;");
+    expect(html).toContain("--appworld-root &lt;absolute-wsl-appworld-root&gt;");
+    expect(html).toContain("Replace every &lt;placeholder&gt;");
   });
 
   it("leads pinned catalog models with the one-command flow and keeps classic commands collapsed", () => {

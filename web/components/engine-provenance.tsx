@@ -1,7 +1,7 @@
 import type { ServingProvenance } from "@/lib/schemas";
 
 export function EngineProvenance({ provenance }: { readonly provenance: ServingProvenance | undefined }) {
-  if (provenance === undefined) return null;
+  if (provenance === undefined || provenance.runtime !== "vllm") return null;
   const snapshot = provenance.snapshot;
   const deterministic = provenance.determinism;
   const numerics = provenance.numerics;
@@ -11,6 +11,7 @@ export function EngineProvenance({ provenance }: { readonly provenance: ServingP
       <p className="mt-1 font-mono text-bench-text">
         {provenance.runtime} {provenance.engine_version ?? "version n/a"}
       </p>
+      {provenance.engine_executable_sha256 === null ? null : <p className="mt-1 break-all font-mono text-xs">engine executable: {provenance.engine_executable_sha256}</p>}
       {provenance.runtime_identity_sha256 === null ? null : <p className="mt-1 break-all font-mono text-xs">runtime identity: {provenance.runtime_identity_sha256}</p>}
       {provenance.dependency_lock_sha256 === null ? null : <p className="mt-1 break-all font-mono text-xs">dependency lock: {provenance.dependency_lock_sha256}</p>}
       <p className="mt-1 font-mono text-xs">

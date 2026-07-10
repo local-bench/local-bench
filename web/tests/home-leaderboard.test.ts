@@ -206,5 +206,34 @@ function rawModel(
     tier: "standard",
     tokens_to_answer_median: 128,
   };
-  return runtime === undefined ? row : { ...row, runtime };
+  if (runtime === undefined) return row;
+  return runtime.name === "vllm" ? { ...row, runtime, serving_provenance: vllmProvenance() } : { ...row, runtime };
+}
+
+function vllmProvenance(): Record<string, unknown> {
+  return {
+    runtime: "vllm",
+    engine_version: "0.24.0",
+    engine_executable_sha256: "f".repeat(64),
+    dependency_lock_sha256: "a".repeat(64),
+    runtime_identity_sha256: "b".repeat(64),
+    snapshot: {
+      repo: "org/model",
+      revision: "c".repeat(40),
+      merkle_sha256: "d".repeat(64),
+      files: [{ path: "model.safetensors", sha256: "e".repeat(64), size_bytes: 1 }],
+    },
+    determinism: {
+      engine_log_evidence: ["verified"],
+      engine_log_semantic_verdict: true,
+      two_start_canary_passed: true,
+    },
+    numerics: {
+      dtype: "bfloat16",
+      kv_cache_quant: "bfloat16",
+      mamba_ssm_cache_dtype: null,
+      model_config_mamba_ssm_dtype: null,
+      quantization: "compressed-tensors",
+    },
+  };
 }

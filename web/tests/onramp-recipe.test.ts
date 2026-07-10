@@ -217,6 +217,12 @@ describe("buildRecipe", () => {
       ),
     });
     expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--determinism-canary") });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--model-id qwen3-8b") });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--seed 1234") });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--wsl-distro <wsl-distro>") });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--vllm-venv <absolute-wsl-vllm-venv>") });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--wsl-venv-python <absolute-wsl-appworld-python>") });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--appworld-root <absolute-wsl-appworld-root>") });
     expect(recipe.serveNote).toContain("full-precision");
     expect(recipe.serveNote).not.toContain("pass --generation-config vllm");
   });

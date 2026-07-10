@@ -221,6 +221,9 @@ function MaintainerVllmRecipe({ recipe }: { readonly recipe: Recipe }) {
         managed AppWorld paths, and the two-start determinism canary. The community path remains llama.cpp/GGUF until the
         appliance ships.
       </p>
+      <p className="font-mono text-[11px] leading-5 text-bench-muted">
+        Replace every &lt;placeholder&gt; with the corresponding pinned WSL distro, vLLM environment, and managed AppWorld path.
+      </p>
     </div>
   );
 }

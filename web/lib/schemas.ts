@@ -147,7 +147,8 @@ const PerfBenchSchema = z
 
 export const PerfSchema = z
   .object({
-    timings_source: RuntimeNameSchema.nullable(),
+    // cli/src/localbench/perf.py emits llama.cpp when server timings exist, else null.
+    timings_source: z.literal("llama.cpp").nullable(),
     timings_coverage: z.number(),
     prefill_tps: z.number().nullable(),
     decode_tps: z.number().nullable(),
@@ -169,6 +170,7 @@ const SnapshotFileSchema = z.object({
 export const ServingProvenanceSchema = z.object({
   runtime: RuntimeNameSchema,
   engine_version: z.string().nullable(),
+  engine_executable_sha256: FullSha256Schema.nullable(),
   dependency_lock_sha256: FullSha256Schema.nullable(),
   runtime_identity_sha256: FullSha256Schema.nullable(),
   snapshot: z
@@ -192,6 +194,45 @@ export const ServingProvenanceSchema = z.object({
     quantization: z.string().nullable(),
   }),
 });
+
+type RuntimeBearingRow = {
+  readonly runtime?: { readonly name?: "llama.cpp" | "vllm" | null | undefined } | undefined;
+  readonly serving_provenance?: z.infer<typeof ServingProvenanceSchema> | undefined;
+};
+
+function requireValidVllmProvenance(row: RuntimeBearingRow, ctx: z.RefinementCtx): void {
+  const manifestRuntime = row.runtime?.name;
+  const provenance = row.serving_provenance;
+  if (manifestRuntime !== "vllm" && provenance?.runtime !== "vllm") return;
+  if (manifestRuntime !== "vllm") {
+    ctx.addIssue({ code: "custom", message: "vLLM provenance requires manifest runtime vllm", path: ["runtime", "name"] });
+  }
+  if (provenance === undefined) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires serving provenance", path: ["serving_provenance"] });
+    return;
+  }
+  if (provenance.runtime !== manifestRuntime) {
+    ctx.addIssue({ code: "custom", message: "manifest and provenance runtimes must match", path: ["serving_provenance", "runtime"] });
+  }
+  if (provenance.snapshot === null) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires immutable snapshot identity", path: ["serving_provenance", "snapshot"] });
+  }
+  if (provenance.engine_version === null) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires engine version identity", path: ["serving_provenance", "engine_version"] });
+  }
+  if (provenance.engine_executable_sha256 === null) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires engine executable identity", path: ["serving_provenance", "engine_executable_sha256"] });
+  }
+  if (provenance.dependency_lock_sha256 === null) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires dependency lock identity", path: ["serving_provenance", "dependency_lock_sha256"] });
+  }
+  if (provenance.runtime_identity_sha256 === null) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires runtime identity", path: ["serving_provenance", "runtime_identity_sha256"] });
+  }
+  if (provenance.determinism.engine_log_evidence.length === 0 || !provenance.determinism.engine_log_semantic_verdict || !provenance.determinism.two_start_canary_passed) {
+    ctx.addIssue({ code: "custom", message: "vLLM runtime requires successful determinism evidence", path: ["serving_provenance", "determinism"] });
+  }
+}
 
 export const IndexModelSchema = z.object({
   slug: ModelSlugSchema,
@@ -236,7 +277,7 @@ export const IndexModelSchema = z.object({
   verdict_source: z.string().nullable().optional(),
   conformance_gates: ConformanceGatesSchema.optional(),
   demo: DemoFlagSchema,
-});
+}).superRefine((row, ctx) => requireValidVllmProvenance(row, ctx));
 
 export const IndexDataSchema = z.object({
   generated_note: z.string(),
@@ -302,7 +343,7 @@ export const ModelRunSchema = z.object({
   provenance_notes: z.array(z.string()).optional(),
   static_index_version: z.string().optional(),
   demo: DemoFlagSchema,
-});
+}).superRefine((row, ctx) => requireValidVllmProvenance(row, ctx));
 
 export const ModelDataSchema = z.object({
   slug: ModelSlugSchema,
@@ -378,7 +419,7 @@ export const RunDetailSchema = z.object({
   lane: z.string().nullable().optional(),
   score_status: ScoreStatusSchema.optional().default("measured"),
   demo: DemoFlagSchema,
-});
+}).superRefine((row, ctx) => requireValidVllmProvenance({ runtime: row.manifest_summary.runtime, serving_provenance: row.serving_provenance }, ctx));
 
 export type Axis = string;
 export type Score = z.infer<typeof ScoreSchema>;

@@ -283,7 +283,9 @@ export function ServingPerformanceCard({ run }: { readonly run: RunDetail }) {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 font-mono text-[11px] text-bench-muted">Source: {perf.timings_source ?? "unknown"} server timings.</p>
+      <p className="mt-3 font-mono text-[11px] text-bench-muted">
+        {perf.timings_source === null ? "Server timings: not measured." : `Source: ${perf.timings_source} server timings.`}
+      </p>
     </section>
   );
 }

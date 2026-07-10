@@ -317,11 +317,20 @@ function VariantCell({ row, children }: { readonly row: VariantRow; readonly chi
 function VllmReproduction({ run }: { readonly run: VariantRun }) {
   const snapshot = run.serving_provenance?.snapshot;
   if (run.runtime.name !== "vllm" || snapshot === null || snapshot === undefined) return null;
-  const command = `localbench bench --runtime vllm --model-ref hf://${snapshot.repo}@${snapshot.revision}`;
+  const command = [
+    "localbench bench",
+    "--runtime vllm",
+    `--model-ref hf://${snapshot.repo}@${snapshot.revision}`,
+    "--model-id <model-id>",
+    "--seed 1234",
+    "--wsl-distro <wsl-distro>",
+    "--vllm-venv <absolute-wsl-vllm-venv>",
+  ].join(" ");
   return (
     <details className="mt-1 font-mono text-[10px] text-bench-muted">
       <summary className="cursor-pointer text-bench-accent">reproduce</summary>
       <code className="mt-1 block max-w-[360px] whitespace-normal break-all">{command}</code>
+      <span className="mt-1 block">Replace each &lt;placeholder&gt; with the pinned maintainer environment value.</span>
       <span className="mt-1 block text-bench-warn-soft">Maintainer lane; community path remains llama.cpp/GGUF until the appliance ships.</span>
     </details>
   );
