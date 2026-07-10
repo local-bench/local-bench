@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import shutil
 import tempfile
-import hashlib
-import json
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final, Literal
@@ -17,8 +17,13 @@ import httpx
 from localbench._types import JsonObject, JsonValue
 from localbench.http_errors import raise_for_status_with_body
 from localbench.suite_errors import SuiteResolutionError
-from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
+from localbench.suite_release import (
+    SUITE_RELEASE_MANIFEST_FILE,
+    suite_manifest_sha256,
+    verify_suite_release_files,
+)
 from localbench.suite_verify import license_manifest, read_json_object, suite_hash, verify_suite_dir
+from localbench.submissions.foundation import site_released_suite_pairs
 
 DEFAULT_SUITE_ID: Final = "suite-v1-full-exec-6axis-v1"
 CORE_TEXT_SUITE_ID: Final = "core-text-v1"
@@ -167,7 +172,17 @@ def fetch_suite_from_manifest_url(config: RemoteSuiteFetch) -> SuiteRef:
         with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
             temp_dir = Path(temp_name) / manifest.suite_id
             temp_dir.mkdir()
+            _download_release_manifest(
+                client,
+                temp_dir,
+                manifest,
+                manifest_response.content,
+                bypass_origin=config.manifest_url,
+                bypass_token=config.bypass_token,
+            )
             for suite_file in manifest.files:
+                if suite_file.path == SUITE_RELEASE_MANIFEST_FILE:
+                    continue
                 _download_suite_file(
                     client,
                     temp_dir,
@@ -175,19 +190,16 @@ def fetch_suite_from_manifest_url(config: RemoteSuiteFetch) -> SuiteRef:
                     bypass_origin=config.manifest_url,
                     bypass_token=config.bypass_token,
                 )
-            if manifest.suite_manifest_sha256 is not None:
-                _write_release_manifest_copy(temp_dir, manifest_response.json())
+            verify_suite_release_files(
+                temp_dir,
+                read_json_object(temp_dir / SUITE_RELEASE_MANIFEST_FILE),
+            )
             ref = _verified_ref(manifest.suite_id, temp_dir, "remote-manifest")
             if manifest.suite_hash is not None and ref.suite_hash != manifest.suite_hash:
                 raise SuiteResolutionError(
                     f"suite hash mismatch: {ref.suite_hash} != {manifest.suite_hash}",
                 )
-            target = suite_cache_root(config.cache_root) / manifest.suite_id / ref.suite_hash
-            if target.exists():
-                return _verified_ref(manifest.suite_id, target, "remote-manifest")
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(temp_dir, target)
-            return _verified_ref(manifest.suite_id, target, "remote-manifest")
+            return _cache_fetched_suite(config, manifest, ref, temp_dir)
 
 
 def suite_cache_root(cache_root: Path | None = None) -> Path:
@@ -285,20 +297,21 @@ def _fetch_suite_from_local_manifest(config: RemoteSuiteFetch, manifest_path: Pa
     with tempfile.TemporaryDirectory(prefix="localbench-suite-") as temp_name:
         temp_dir = Path(temp_name) / manifest.suite_id
         temp_dir.mkdir()
+        _copy_release_manifest(manifest_path, temp_dir, manifest)
         for suite_file in manifest.files:
+            if suite_file.path == SUITE_RELEASE_MANIFEST_FILE:
+                continue
             _copy_suite_file(manifest_path.parent, temp_dir, suite_file)
-        _write_release_manifest_copy(temp_dir, manifest_value)
+        verify_suite_release_files(
+            temp_dir,
+            read_json_object(temp_dir / SUITE_RELEASE_MANIFEST_FILE),
+        )
         ref = _verified_ref(manifest.suite_id, temp_dir, "remote-manifest")
         if manifest.suite_hash is not None and ref.suite_hash != manifest.suite_hash:
             raise SuiteResolutionError(
                 f"suite hash mismatch: {ref.suite_hash} != {manifest.suite_hash}",
             )
-        target = suite_cache_root(config.cache_root) / manifest.suite_id / ref.suite_hash
-        if target.exists():
-            return _verified_ref(manifest.suite_id, target, "remote-manifest")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(temp_dir, target)
-        return _verified_ref(manifest.suite_id, target, "remote-manifest")
+        return _cache_fetched_suite(config, manifest, ref, temp_dir)
 
 
 def _remote_manifest(value: JsonValue, *, base_url: str | None) -> RemoteSuiteManifest:
@@ -406,6 +419,79 @@ def _copy_suite_file(source_dir: Path, suite_dir: Path, suite_file: RemoteSuiteF
 
 
 def _write_verified_suite_file(suite_dir: Path, suite_file: RemoteSuiteFile, data: bytes) -> None:
+    _verify_suite_file_data(suite_file, data)
+    target = suite_dir / suite_file.path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+
+
+def _download_release_manifest(
+    client: httpx.Client,
+    suite_dir: Path,
+    manifest: RemoteSuiteManifest,
+    fetch_manifest_data: bytes,
+    *,
+    bypass_origin: str,
+    bypass_token: str | None,
+) -> None:
+    if manifest.suite_manifest_sha256 is not None:
+        data = fetch_manifest_data
+    else:
+        release_file = _release_manifest_file(manifest)
+        release_url = _release_manifest_url(manifest, release_file)
+        response = client.get(
+            release_url,
+            headers=_bypass_headers(bypass_token, bypass_origin, release_url),
+        )
+        if response.status_code == 404:
+            raise _stale_release_manifest_error(manifest.suite_id)
+        raise_for_status_with_body(response)
+        data = response.content
+        if release_file is not None:
+            _verify_suite_file_data(release_file, data)
+    _write_verified_release_manifest(suite_dir, manifest.suite_id, data)
+
+
+def _copy_release_manifest(
+    manifest_path: Path,
+    suite_dir: Path,
+    manifest: RemoteSuiteManifest,
+) -> None:
+    if manifest.suite_manifest_sha256 is not None:
+        source = manifest_path
+        release_file = None
+    else:
+        source = manifest_path.parent / SUITE_RELEASE_MANIFEST_FILE
+        release_file = _release_manifest_file(manifest)
+    try:
+        data = source.read_bytes()
+    except FileNotFoundError as error:
+        raise _stale_release_manifest_error(manifest.suite_id) from error
+    if release_file is not None:
+        _verify_suite_file_data(release_file, data)
+    _write_verified_release_manifest(suite_dir, manifest.suite_id, data)
+
+
+def _release_manifest_file(manifest: RemoteSuiteManifest) -> RemoteSuiteFile | None:
+    return next(
+        (suite_file for suite_file in manifest.files if suite_file.path == SUITE_RELEASE_MANIFEST_FILE),
+        None,
+    )
+
+
+def _release_manifest_url(
+    manifest: RemoteSuiteManifest,
+    release_file: RemoteSuiteFile | None,
+) -> str:
+    if release_file is not None and release_file.url is not None:
+        return release_file.url
+    suite_file = next((suite_file for suite_file in manifest.files if suite_file.path == "suite.json"), None)
+    if suite_file is None or suite_file.url is None:
+        raise _stale_release_manifest_error(manifest.suite_id)
+    return urljoin(suite_file.url, SUITE_RELEASE_MANIFEST_FILE)
+
+
+def _verify_suite_file_data(suite_file: RemoteSuiteFile, data: bytes) -> None:
     if len(data) != suite_file.size:
         raise SuiteResolutionError(
             f"suite file size mismatch for {suite_file.path}: {len(data)} != {suite_file.size}",
@@ -415,19 +501,64 @@ def _write_verified_suite_file(suite_dir: Path, suite_file: RemoteSuiteFile, dat
         raise SuiteResolutionError(
             f"suite file sha256 mismatch for {suite_file.path}: {digest} != {suite_file.sha256}",
         )
-    target = suite_dir / suite_file.path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(data)
 
 
-def _write_release_manifest_copy(suite_dir: Path, manifest: JsonValue) -> None:
-    if not isinstance(manifest, dict):
-        return
-    target = suite_dir / SUITE_RELEASE_MANIFEST_FILE
-    target.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
+def _write_verified_release_manifest(suite_dir: Path, suite_id: str, data: bytes) -> None:
+    try:
+        value = json.loads(data)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SuiteResolutionError(
+            f"suite {suite_id!r} is stale: {SUITE_RELEASE_MANIFEST_FILE} is not valid JSON",
+        ) from error
+    if not isinstance(value, dict) or value.get("schema_version") != "localbench.suite_release_manifest.v1":
+        raise SuiteResolutionError(
+            f"suite {suite_id!r} is stale: {SUITE_RELEASE_MANIFEST_FILE} is not a release manifest",
+        )
+    release_id = value.get("suite_release_id")
+    expected = site_released_suite_pairs().get(suite_id)
+    declared = value.get("suite_manifest_sha256")
+    actual = suite_manifest_sha256(value)
+    if release_id != suite_id:
+        raise SuiteResolutionError(
+            f"suite release mismatch: {release_id!r} != {suite_id!r}",
+        )
+    if expected is None:
+        raise SuiteResolutionError(
+            f"suite {suite_id!r} is stale: no trusted release manifest hash is pinned",
+        )
+    if declared != expected or actual != expected:
+        raise SuiteResolutionError(
+            "suite release manifest sha256 mismatch: "
+            f"declared={declared!r} actual={actual!r} expected={expected!r}",
+        )
+    (suite_dir / SUITE_RELEASE_MANIFEST_FILE).write_bytes(data)
+
+
+def _stale_release_manifest_error(suite_id: str) -> SuiteResolutionError:
+    return SuiteResolutionError(
+        f"suite {suite_id!r} is stale: site does not serve {SUITE_RELEASE_MANIFEST_FILE}; "
+        "publish the pinned release manifest and retry fetch-suite",
     )
+
+
+def _cache_fetched_suite(
+    config: RemoteSuiteFetch,
+    manifest: RemoteSuiteManifest,
+    ref: SuiteRef,
+    temp_dir: Path,
+) -> SuiteRef:
+    target = suite_cache_root(config.cache_root) / manifest.suite_id / ref.suite_hash
+    if target.exists():
+        cached_ref = _verified_ref(manifest.suite_id, target, "remote-manifest")
+        release_manifest = read_json_object(temp_dir / SUITE_RELEASE_MANIFEST_FILE)
+        verify_suite_release_files(target, release_manifest)
+        (target / SUITE_RELEASE_MANIFEST_FILE).write_bytes(
+            (temp_dir / SUITE_RELEASE_MANIFEST_FILE).read_bytes(),
+        )
+        return cached_ref
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(temp_dir, target)
+    return _verified_ref(manifest.suite_id, target, "remote-manifest")
 
 
 def _bypass_headers(token: str | None, origin_url: str, request_url: str) -> dict[str, str]:

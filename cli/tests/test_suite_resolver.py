@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -23,6 +24,7 @@ from localbench.suite_resolver import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SITE_4AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-partial-text-code-4axis-v1"
+_SITE_FULL = _REPO_ROOT / "web" / "public" / "suites" / DEFAULT_SUITE_ID
 
 
 def test_resolve_suite_dir_when_explicit_path_is_given_wins_over_env_and_cache(
@@ -164,8 +166,54 @@ def test_fetch_suite_from_local_suite_release_manifest_verifies_manifest_hash(tm
     assert resolved.suite_id == "suite-v1-partial-text-code-4axis-v1"
     assert resolved.source == "remote-manifest"
     assert (resolved.path / "lcb.jsonl").exists()
-    assert (resolved.path / "suite_release_manifest.json").exists()
+    assert (resolved.path / "suite_release_manifest.json").read_bytes() == manifest_path.read_bytes()
     assert resolved.suite_hash == suite_hash(resolved.path)
+
+
+def test_fetch_suite_from_local_legacy_manifest_copies_pinned_release_manifest(tmp_path: Path) -> None:
+    # Given: a local copy of the live-site shape, where the legacy fetch manifest
+    # sits beside a separately served release manifest.
+    source = tmp_path / "source"
+    shutil.copytree(_SITE_FULL, source)
+    release = json.loads((source / "suite_release_manifest.json").read_text(encoding="utf-8"))
+    files = release["files"]
+    assert isinstance(files, list)
+    fetch_manifest = source / "fetch-manifest.json"
+    fetch_manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "localbench.suite-manifest.v1",
+                "suite_hash": suite_hash(source),
+                "suite_id": DEFAULT_SUITE_ID,
+                "version": "suite-v1",
+                "files": [
+                    {
+                        "path": file["path"],
+                        "sha256": file["sha256"],
+                        "size": file["size"],
+                        "url": f"https://local-bench.ai/suites/{DEFAULT_SUITE_ID}/{file['path']}",
+                    }
+                    for file in files
+                    if isinstance(file, dict)
+                ],
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    # When: the local legacy manifest is fetched into an empty cache.
+    resolved = fetch_suite_from_manifest_url(
+        RemoteSuiteFetch(
+            accept_suite_terms=True,
+            manifest_url=str(fetch_manifest),
+            cache_root=tmp_path / "cache",
+        ),
+    )
+
+    # Then: the separately stored release manifest is copied byte-for-byte.
+    assert (resolved.path / "suite_release_manifest.json").read_bytes() == (
+        source / "suite_release_manifest.json"
+    ).read_bytes()
 
 
 def test_fetch_suite_from_local_suite_release_manifest_rejects_manifest_hash_mismatch(
@@ -189,41 +237,39 @@ def test_fetch_suite_from_local_suite_release_manifest_rejects_manifest_hash_mis
 
 
 def test_fetch_suite_from_manifest_url_sends_bypass_header_to_site_requests(tmp_path: Path) -> None:
-    # Given: a suite manifest and files served by the private-gated site.
-    source = _write_suite(tmp_path / "source", version="source-suite")
-    manifest_url = "https://local-bench.ai/api/suites/core-text-v1/manifest"
-    suite_files = {
-        "suite.json": source.joinpath("suite.json").read_bytes(),
-        "itemsets.lock.json": source.joinpath("itemsets.lock.json").read_bytes(),
-        "mmlu_pro.jsonl": source.joinpath("mmlu_pro.jsonl").read_bytes(),
-        "ifbench.jsonl": source.joinpath("ifbench.jsonl").read_bytes(),
-    }
+    # Given: the pinned full suite and its separately served release manifest.
+    release = json.loads((_SITE_FULL / "suite_release_manifest.json").read_text(encoding="utf-8"))
+    files = release["files"]
+    assert isinstance(files, list)
+    manifest_url = f"https://local-bench.ai/api/suites/{DEFAULT_SUITE_ID}/manifest"
+    suite_prefix = f"/suites/{DEFAULT_SUITE_ID}/"
     seen_paths: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen_paths.append(request.url.path)
         assert request.headers["x-localbench-bypass"] == "private-token"
-        if request.url.path == "/api/suites/core-text-v1/manifest":
+        if request.url.path == f"/api/suites/{DEFAULT_SUITE_ID}/manifest":
             return httpx.Response(
                 200,
                 json={
                     "schema_version": "localbench.suite-manifest.v1",
-                    "suite_hash": suite_hash(source),
+                    "suite_hash": suite_hash(_SITE_FULL),
                     "suite_id": DEFAULT_SUITE_ID,
-                    "version": "source-suite",
+                    "version": "suite-v1",
                     "files": [
                         {
-                            "path": path,
-                            "sha256": hashlib.sha256(data).hexdigest(),
-                            "size": len(data),
-                            "url": f"https://local-bench.ai/suites/core-text-v1/{path}",
+                            "path": file["path"],
+                            "sha256": file["sha256"],
+                            "size": file["size"],
+                            "url": f"https://local-bench.ai{suite_prefix}{file['path']}",
                         }
-                        for path, data in sorted(suite_files.items())
+                        for file in files
+                        if isinstance(file, dict)
                     ],
                 },
             )
-        name = request.url.path.rsplit("/", maxsplit=1)[-1]
-        return httpx.Response(200, content=suite_files[name])
+        relative = request.url.path.removeprefix(suite_prefix)
+        return httpx.Response(200, content=(_SITE_FULL / relative).read_bytes())
 
     # When: the remote fetcher pulls the suite through the site surface.
     resolved = fetch_suite_from_manifest_url(
@@ -239,11 +285,9 @@ def test_fetch_suite_from_manifest_url_sends_bypass_header_to_site_requests(tmp_
     # Then: both manifest and file calls carried the private-gate bypass header.
     assert resolved.source == "remote-manifest"
     assert seen_paths == [
-        "/api/suites/core-text-v1/manifest",
-        "/suites/core-text-v1/ifbench.jsonl",
-        "/suites/core-text-v1/itemsets.lock.json",
-        "/suites/core-text-v1/mmlu_pro.jsonl",
-        "/suites/core-text-v1/suite.json",
+        f"/api/suites/{DEFAULT_SUITE_ID}/manifest",
+        f"{suite_prefix}suite_release_manifest.json",
+        *(f"{suite_prefix}{file['path']}" for file in files if isinstance(file, dict)),
     ]
 
 
