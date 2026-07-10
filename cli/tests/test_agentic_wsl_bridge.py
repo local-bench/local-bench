@@ -5,7 +5,7 @@ import subprocess
 import sys
 import textwrap
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import cast
 
 import pytest
@@ -16,10 +16,12 @@ from localbench.scoring.agentic_exec.sandbox import SandboxError, SandboxTimeout
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslSandboxProxy,
     WslWorkerConfig,
+    default_wsl_repo_path,
     provenance_from_identity,
     wsl_list_scored_task_ids,
     wsl_sandbox_factory,
 )
+from localbench.scoring.agentic_exec.wsl_process import worker_argv
 from localbench.scoring.agentic_exec.wsl_worker import (
     FrameTooLargeError,
     decode_worker_frame,
@@ -108,7 +110,7 @@ def test_proxy_timeout_maps_to_infra_timeout(tmp_path: Path) -> None:
     assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
 
 
-def test_proxy_close_timeout_propagates_as_infra_timeout(
+def test_proxy_close_timeout_is_recorded_without_discarding_task_result(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -129,13 +131,12 @@ def test_proxy_close_timeout_propagates_as_infra_timeout(
 
     monkeypatch.setattr(proxy, "_request", timeout_close)
 
-    with pytest.raises(SandboxTimeoutError) as error:
-        proxy.close()
+    proxy.close()
 
-    assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
+    assert "close timed out" in (proxy.teardown_failure or "")
 
 
-def test_proxy_close_process_exit_timeout_propagates_as_infra_timeout(
+def test_proxy_close_process_exit_timeout_is_recorded_additively(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -168,11 +169,10 @@ def test_proxy_close_process_exit_timeout_propagates_as_infra_timeout(
     monkeypatch.setattr(proxy, "_request", acknowledge_close)
     monkeypatch.setattr(proxy, "force_kill", record_kill)
 
-    with pytest.raises(SandboxTimeoutError) as error:
-        proxy.close()
+    proxy.close()
 
     assert killed is True
-    assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
+    assert "did not exit" in (proxy.teardown_failure or "")
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="taskkill process-tree assertion is Windows-only")
@@ -410,10 +410,46 @@ def test_proxy_finalization_provenance_is_the_shared_direct_finalize_descriptor(
 
 def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
     # Given / When: run-level provenance built from a worker identity.
-    prov = provenance_from_identity({"bwrap_path": "/x/bwrap", "bwrap_version": "bwrap 0.9.0"})
+    prov = provenance_from_identity({
+        "venv_path": "/x/venv",
+        "venv_path_sha256": "1" * 64,
+        "bwrap_path": "/x/bwrap",
+        "bwrap_sha256": "2" * 64,
+        "bwrap_version": "bwrap 0.9.0",
+        "appworld_root": "/x/appworld",
+        "appworld_root_sha256": "3" * 64,
+    })
 
     # Then: the agentic verdict-channel trust note is present and host-derived.
     channel = prov["agentic_verdict_channel"]
     assert channel["path"] == "orchestrator-direct-envhost-stdin-v1"
     assert channel["runner_in_verdict_path"] is False
     assert channel["trust_note"] == "host-derived+direct-finalize-v1"
+    assert "venv_path" not in prov["wsl_identity"]
+    assert "bwrap_path" not in prov["wsl_identity"]
+    assert "appworld_root" not in prov["wsl_identity"]
+    assert prov["agentic_sandbox_identity"]["bubblewrap_sha256"] == "2" * 64
+    assert prov["agentic_sandbox_identity"]["appworld_root_sha256"] == "3" * 64
+
+
+def test_managed_worker_argv_uses_installed_package_without_source_checkout() -> None:
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/private/source-checkout",
+        venv_python="/managed/venv/bin/python3",
+        appworld_root="/managed/appworld",
+    )
+
+    command = worker_argv(config)[-1]
+
+    assert "/mnt/c/private/source-checkout" not in command
+    assert "PYTHONPATH=" not in command
+    assert "-m localbench.scoring.agentic_exec.wsl_worker" in command
+
+
+def test_default_wsl_repo_path_rejects_non_drive_colon_paths() -> None:
+    class _NonDrivePath:
+        def resolve(self) -> PurePosixPath:
+            return PurePosixPath("/srv/localbench")
+
+    with pytest.raises(SandboxError, match="non-drive-colon"):
+        default_wsl_repo_path(cast(Path, _NonDrivePath()))

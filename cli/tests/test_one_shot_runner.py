@@ -98,6 +98,62 @@ def test_one_shot_missing_agentic_harness_fails_before_model_download(
     assert "No model download or benchmark work has started" in error
 
 
+@pytest.mark.parametrize("static_only", [False, True])
+def test_one_shot_resolves_selected_suite_before_any_model_asset_download(
+    tmp_path: Path,
+    static_only: bool,
+) -> None:
+    deps = _deps(tmp_path)
+    args = _args(tmp_path, static_only=static_only)
+    args.suite_dir = tmp_path / "missing-suite"
+
+    code = run_one_shot_bench(
+        args,
+        cli_version="0.3.1",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == 2
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+
+
+def test_one_shot_revalidates_agentic_setup_after_download_before_serving(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    deps = _deps(tmp_path)
+    calls = 0
+
+    def changing_preflight(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise one_shot_runner.AgenticSetupError(detail="managed harness changed")
+        return one_shot_runner.WslPreflightResult(identity={}, task_ids=("task",))
+
+    deps.agentic_preflight = changing_preflight
+
+    code = run_one_shot_bench(
+        _args(tmp_path),
+        cli_version="0.3.1",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == exit_codes.EXIT_AGENTIC_SETUP_REQUIRED
+    assert calls == 2
+    assert deps.hf_client.snapshot_calls
+    assert (tmp_path / "models" / "model-q4.gguf").is_file()
+    error = capsys.readouterr().err
+    assert "may already have been downloaded" in error
+    assert "No model download or benchmark work has started" not in error
+
+
 def test_one_shot_static_only_uses_five_axis_identity_without_agentic_preflight(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -124,6 +180,9 @@ def test_one_shot_static_only_uses_five_axis_identity_without_agentic_preflight(
     assert code == EXIT_COMPLETE
     assert deps.bench_runner.options is not None
     assert deps.bench_runner.options.suite == STATIC_EXEC_SUITE_ID
+    assert deps.bench_runner.options.bench == (
+        "mmlu_pro,ifbench,tc_json_v1,bigcodebench_hard,olymmath_hard,amo"
+    )
     lock = json.loads((tmp_path / "plan.lock.json").read_text(encoding="utf-8"))
     assert lock["suite_release_id"] == STATIC_EXEC_SUITE_ID
     assert lock["suite_manifest_sha256"] == "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64"
@@ -182,7 +241,13 @@ def test_one_shot_submit_true_uses_existing_submit_finished_run_path(
             site="https://local-bench.ai",
             run=tmp_path / "localbench-run.json",
             bundle=None,
-            suite_dir=None,
+            suite_dir=(
+                Path(__file__).resolve().parents[2]
+                / "web"
+                / "public"
+                / "suites"
+                / "suite-v1-full-exec-6axis-v1"
+            ),
             signing_key=None,
             display_name=None,
             bypass_token=None,
@@ -191,6 +256,45 @@ def test_one_shot_submit_true_uses_existing_submit_finished_run_path(
         ),
     ]
     assert "submission sub_fake" in capsys.readouterr().out
+
+
+def test_static_one_shot_submission_fails_closed_on_identity_or_coverage_drift(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    deps = _deps(tmp_path)
+
+    def invalid_static_record(options) -> dict[str, object]:
+        record: dict[str, object] = {
+            "manifest": {
+                "suite": {
+                    "coverage_profile_id": "full-exec-6axis-v1",
+                    "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
+                    "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
+                },
+            },
+            "benches": {"appworld_c": {}},
+            "scores": {"headline_score": 0.0},
+            "warnings": [],
+        }
+        (tmp_path / "localbench-run.json").write_text(json.dumps(record), encoding="utf-8")
+        return record
+
+    deps.bench_runner = invalid_static_record
+
+    code = run_one_shot_bench(
+        _args(tmp_path, one_shot_submit=True, static_only=True),
+        cli_version="0.3.1",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == 2
+    assert deps.submitter.calls == []
+    error = capsys.readouterr().err
+    assert "static submission identity mismatch" in error
+    assert "appworld_c must be absent" in error
 
 
 def test_one_shot_offline_forces_local_only_and_skips_publishability_preflight(

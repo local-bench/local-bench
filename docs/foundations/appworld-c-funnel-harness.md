@@ -74,7 +74,7 @@ repeat calls).
 Run inside the WSL appworld venv (it needs `load_task_ids` + metadata; no GPU, no server):
 
 ```bash
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
+wsl bash -lc 'cd /mnt/c/path/to/local-bench \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && <wsl-python> cli/tools/appworld_c_funnel.py --stage scored --print-subset'
 ```
@@ -150,7 +150,7 @@ determinism env, exactly like the scripted loop proof:
 
 ```bash
 # common WSL prefix (reused below):
-WSLPRE='cd /mnt/c/Users/Michael/local-bench \
+WSLPRE='cd /mnt/c/path/to/local-bench \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
   && <wsl-python> cli/tools/appworld_c_funnel.py'
@@ -206,7 +206,7 @@ instead — `cli/runs/` is only written when actually run.
 #   (expect 31 passed)
 
 # freeze/verify the 96-task manifest with NO GPU (WSL, needs appworld for ids):
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
+wsl bash -lc 'cd /mnt/c/path/to/local-bench \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && <wsl-python> cli/tools/appworld_c_funnel.py --stage scored --print-subset'
 #   (prints the 96 ids + manifest_hash; re-run → identical hash)

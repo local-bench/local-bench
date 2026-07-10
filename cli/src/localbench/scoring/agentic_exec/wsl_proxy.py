@@ -54,6 +54,11 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         self._proc: subprocess.Popen[bytes] | None = None
         self._stderr_handle: BinaryIO | None = None
         self._closed = False
+        self._teardown_failure: str | None = None
+
+    @property
+    def teardown_failure(self) -> str | None:
+        return self._teardown_failure
 
     def __enter__(self) -> WslSandboxProxy:
         self._start()
@@ -126,14 +131,17 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
                     proc.wait(timeout=self.config.close_timeout_s)
                 except SandboxTimeoutError:
                     self.force_kill()
-                    raise
-                except subprocess.TimeoutExpired as exc:
+                    self._teardown_failure = (
+                        f"wsl worker close timed out after {self.config.close_timeout_s}s"
+                    )
+                except subprocess.TimeoutExpired:
                     self.force_kill()
-                    raise SandboxTimeoutError(
+                    self._teardown_failure = str(SandboxTimeoutError(
                         f"wsl worker did not exit within {self.config.close_timeout_s}s after close",
-                    ) from exc
-                except SandboxError:
+                    ))
+                except SandboxError as error:
                     self.force_kill()
+                    self._teardown_failure = f"{type(error).__name__}: {error}"
         finally:
             self._close_log()
 

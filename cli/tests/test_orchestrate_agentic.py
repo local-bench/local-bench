@@ -60,8 +60,8 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
                 },
                 "wsl_identity": {"worker_git_commit": "abc123", "worker_dirty_tree": False},
                 "agentic_sandbox_identity": {
-                    "bubblewrap_path": "/home/michael/.local/bin/bwrap",
-                    "appworld_root": "/home/michael/appworld-data",
+                    "bubblewrap_sha256": "1" * 64,
+                    "appworld_root_sha256": "2" * 64,
                 },
                 "single_campaign_integrity": {"merge_step_used": False},
             },
@@ -125,9 +125,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             "model_call_location": "windows_campaign_process",
         }
         assert agentic_run["wsl_identity"]["worker_git_commit"] == "abc123"
-        assert agentic_run["agentic_sandbox_identity"]["appworld_root"] == (
-            "/home/michael/appworld-data"
-        )
+        assert agentic_run["agentic_sandbox_identity"]["appworld_root_sha256"] == "2" * 64
         assert agentic_run["single_campaign_integrity"] == {"merge_step_used": False}
         agentic_runs = agentic_run["runs"]
         assert isinstance(agentic_runs, list)
@@ -138,6 +136,10 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             assert run_summary["agentic_success_rate"] == pytest.approx(1.0)
             assert run_summary["tasks_total"] == 2
             assert run_summary["tasks_succeeded"] == 2
+            assert run_summary["infra_failure_rate"] == 0.0
+            assert run_summary["transport_failure_count"] == 0
+            assert run_summary["transport_attempt_count"] == 0
+            assert run_summary["transport_failure_rate"] == 0.0
             outcome_counts = run_summary["outcome_counts"]
             assert isinstance(outcome_counts, dict)
             assert outcome_counts["success"] == 2
@@ -157,6 +159,10 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
         assert diagnostics["tasks_total"] == 2
         assert diagnostics["tasks_succeeded"] == 2
         assert diagnostics["agentic_success_rate"] == pytest.approx(1.0)
+        assert diagnostics["infra_failure_rate"] == 0.0
+        assert diagnostics["transport_failure_count"] == 0
+        assert diagnostics["transport_attempt_count"] == 0
+        assert diagnostics["transport_failure_rate"] == 0.0
         assert diagnostics["outcome_counts"]["success"] == 2
         ki_only = {
             "mmlu_pro": record["benches"]["mmlu_pro"],

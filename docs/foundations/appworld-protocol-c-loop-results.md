@@ -224,14 +224,14 @@ is the separate follow-up gated on the 5090 and explicit go-ahead.)
 #    (expect 26 passed)
 
 # 2) Scripted agent THROUGH the loop on the REAL sandbox (GPU-free, model-free). WSL only.
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
+wsl bash -lc 'cd /mnt/c/path/to/local-bench \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
   && <wsl-python> cli/tools/appworld_protocol_c_scripted.py --json'
 #    (expect: 2/2 success: True, ASR 1.000)
 
 # 3) Both as pytest under WSL (real sandbox acceptance + the 26 units):
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
+wsl bash -lc 'cd /mnt/c/path/to/local-bench \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
   && <wsl-python> -m pytest cli/tests/test_appworld_protocol_c_acceptance.py \

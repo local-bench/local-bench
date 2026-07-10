@@ -8,6 +8,15 @@ from localbench.one_shot.types import OneShotSuiteIdentity, ResolvedOneShotModel
 from localbench.progress import ProgressReporter
 from localbench.serving.options import ServeBenchOptions
 
+STATIC_EXEC_BENCHES = (
+    "mmlu_pro",
+    "ifbench",
+    "tc_json_v1",
+    "bigcodebench_hard",
+    "olymmath_hard",
+    "amo",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class OneShotServeRequest:
@@ -29,7 +38,11 @@ def build_serve_options(request: OneShotServeRequest) -> ServeBenchOptions:
         ctx=32768,
         determinism="strict",
         tier="standard",
-        bench="all",
+        bench=(
+            ",".join(STATIC_EXEC_BENCHES)
+            if request.suite_identity.release_id == "suite-v1-static-exec-5axis-v1"
+            else "all"
+        ),
         lane="bounded-final-v2",
         profile="auto",
         seed=1234,

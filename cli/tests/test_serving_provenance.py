@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from pathlib import Path
 
 import httpx
@@ -37,6 +38,9 @@ FLASH_ATTENTION = "on"
 def test_serving_context_applies_block_policy_and_trust_tier(tmp_path: Path) -> None:
     # Given: complete pinned serving evidence and a normalized result bundle.
     evidence = serving_evidence(tmp_path, teardown_terminated=True)
+    serve_log = Path(evidence.serve_log_path)
+    serve_log.parent.mkdir(parents=True, exist_ok=True)
+    serve_log.write_bytes(b"local-only server log")
     context = serving_context(evidence)
     record = normalized_record()
 
@@ -55,6 +59,10 @@ def test_serving_context_applies_block_policy_and_trust_tier(tmp_path: Path) -> 
         "budget": None,
         "format": "deepseek",
     }
+    assert "serve_log_path" not in updated["serving"]
+    assert updated["serving"]["serve_log_sha256"] == hashlib.sha256(
+        b"local-only server log",
+    ).hexdigest()
 
 
 def test_serving_context_degrades_when_teardown_is_uncertain(tmp_path: Path) -> None:

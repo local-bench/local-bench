@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import http.client
 import json
-import urllib.error
+import socket
+import threading
+import time
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
+from urllib.parse import urlsplit
 
 from localbench._response import parse_server_timings
 from localbench._types import ChatMessage
@@ -23,6 +27,9 @@ ERROR_FINISH_REASON = "error"
 _MAX_TRANSPORT_ATTEMPTS: Final = 2
 _MIN_REQUEST_TIMEOUT_S: Final = 600.0
 _MIN_GENERATION_TOKENS_PER_SECOND: Final = 2.0
+_TASK_WATCHDOG_S: Final = 1800.0
+_FINALIZE_TEARDOWN_RESERVE_S: Final = 180.0
+_DEFAULT_TASK_TRANSPORT_BUDGET_S: Final = _TASK_WATCHDOG_S - _FINALIZE_TEARDOWN_RESERVE_S
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +89,11 @@ class ChatCompletionsClient:
             chat_path=resolved_chat_path,
             chat_template_kwargs=chat_template_kwargs,
         )
+        self._deadline: float | None = None
+        self._attempt_timeout_s: float | None = None
+        self._cancelled = threading.Event()
+        self._connection_lock = threading.Lock()
+        self._active_connection: http.client.HTTPConnection | None = None
 
     @property
     def config(self) -> ChatClientConfig:
@@ -127,6 +139,22 @@ class ChatCompletionsClient:
             self.endpoint, data=data, headers=headers, method="POST"
         )
 
+    def set_task_deadline(self, deadline: float) -> None:
+        """Pin one monotonic transport deadline shared by every attempt and loop turn."""
+        self._deadline = deadline
+
+    def cancel(self) -> None:
+        """Cancel the live task request; safe to call from the watchdog thread."""
+        self._cancelled.set()
+        with self._connection_lock:
+            connection = self._active_connection
+            if connection is not None and connection.sock is not None:
+                try:
+                    connection.sock.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                connection.close()
+
     # -- transport (overridable for tests) ------------------------------------------------------
     def _post(self, payload: dict[str, object]) -> tuple[int, str]:
         """POST the payload; return ``(status_code, body_text)``.
@@ -135,36 +163,60 @@ class ChatCompletionsClient:
         endpoint). Connection-level failures raise a typed transport exception; HTTP failures
         return their status and body so ``complete`` can apply the same retry policy.
         """
-        req = self._build_request(payload)
+        endpoint = urlsplit(self.endpoint)
+        if endpoint.scheme not in {"http", "https"} or endpoint.hostname is None:
+            raise ModelTransportError(detail=f"unsupported chat endpoint: {self.endpoint!r}")
+        path = endpoint.path or "/"
+        if endpoint.query:
+            path = f"{path}?{endpoint.query}"
+        port = endpoint.port or (443 if endpoint.scheme == "https" else 80)
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self._config.api_key:
+            headers["Authorization"] = f"Bearer {self._config.api_key}"
+        connection_type = (
+            http.client.HTTPSConnection
+            if endpoint.scheme == "https"
+            else http.client.HTTPConnection
+        )
+        timeout_s = self._attempt_timeout_s or self._request_timeout_s(payload)
+        connection = connection_type(endpoint.hostname, port, timeout=timeout_s)
+        with self._connection_lock:
+            if self._cancelled.is_set():
+                raise ModelTransportTimeout(detail="task transport cancelled")
+            self._active_connection = connection
         try:
-            with urllib.request.urlopen(req, timeout=self._request_timeout_s(payload)) as resp:  # noqa: S310
-                status = int(getattr(resp, "status", 200) or 200)
-                body = resp.read().decode("utf-8", errors="replace")
-                return status, body
-        except urllib.error.HTTPError as exc:  # 4xx/5xx with a body
-            body = ""
-            try:
-                body = exc.read().decode("utf-8", errors="replace")
-            except (OSError, ValueError):
-                body = str(exc)
-            return int(exc.code), body
-        except TimeoutError as exc:
+            connection.request(
+                "POST",
+                path,
+                body=json.dumps(payload).encode("utf-8"),
+                headers=headers,
+            )
+            response = connection.getresponse()
+            return int(response.status), response.read().decode("utf-8", errors="replace")
+        except (TimeoutError, socket.timeout) as exc:
             raise ModelTransportTimeout(detail=f"{type(exc).__name__}: {exc}") from exc
-        except urllib.error.URLError as exc:
-            detail = f"{type(exc).__name__}: {exc}"
-            if isinstance(exc.reason, TimeoutError):
-                raise ModelTransportTimeout(detail=detail) from exc
-            raise ModelTransportError(detail=detail) from exc
-        except OSError as exc:
+        except (OSError, http.client.HTTPException) as exc:
+            if self._cancelled.is_set():
+                raise ModelTransportTimeout(detail="task transport cancelled") from exc
             raise ModelTransportError(detail=f"{type(exc).__name__}: {exc}") from exc
+        finally:
+            with self._connection_lock:
+                if self._active_connection is connection:
+                    self._active_connection = None
+            connection.close()
 
     def _request_timeout_s(self, payload: dict[str, object]) -> float:
         max_tokens = payload.get("max_tokens")
         output_tokens = max_tokens if isinstance(max_tokens, int) and not isinstance(max_tokens, bool) else 0
-        # At the conservative 2 tok/s floor, 1024 tokens / 2 tok/s = 512s, so the 600s minimum
-        # applies. Two full attempts use at most 1200s, leaving 600s inside the 1800s task watchdog.
+        # Fidelity fix: keep the raised 600s floor. Rows whose calls completed before the old
+        # 120s timeout reproduce identically; only calls that crossed that old boundary change.
         generation_s = max(0, output_tokens) / _MIN_GENERATION_TOKENS_PER_SECOND
         return max(self._config.timeout_s, _MIN_REQUEST_TIMEOUT_S, generation_s)
+
+    def _remaining_transport_s(self) -> float:
+        if self._deadline is None:
+            self._deadline = time.monotonic() + _DEFAULT_TASK_TRANSPORT_BUDGET_S
+        return max(0.0, self._deadline - time.monotonic())
 
     # -- ModelClient.complete -------------------------------------------------------------------
     def complete(
@@ -172,28 +224,61 @@ class ChatCompletionsClient:
     ) -> ModelResponse:
         """POST one turn; parse the reply into a :class:`ModelResponse`.
 
-        Transport and HTTP failures retry once, then raise typed infrastructure errors. Response
-        parse problems remain recoverable protocol-format failures.
+        Transport and HTTP failures retry once when the task deadline permits, then become the
+        same recoverable empty turn used by 0.3.0. Response parse problems remain recoverable
+        protocol-format failures and are not counted as transport failures.
         """
         payload = self._build_payload(messages, params)
         body = ""
+        status = 0
+        transport_errors: list[str] = []
+        attempts_made = 0
         for attempt in range(1, _MAX_TRANSPORT_ATTEMPTS + 1):
+            attempts_left = _MAX_TRANSPORT_ATTEMPTS - attempt + 1
+            remaining_s = self._remaining_transport_s()
+            if remaining_s <= 0 or self._cancelled.is_set():
+                attempts_made += 1
+                transport_errors.append("task transport deadline exhausted")
+                break
+            desired_s = self._request_timeout_s(payload)
+            self._attempt_timeout_s = min(desired_s, remaining_s / attempts_left)
+            attempts_made += 1
             try:
                 status, body = self._post(payload)
-            except ModelTransportError:
-                if attempt == _MAX_TRANSPORT_ATTEMPTS:
-                    raise
-                continue
+            except ModelTransportError as error:
+                status = 0
+                transport_errors.append(str(error))
+            finally:
+                self._attempt_timeout_s = None
             if status == 200:
                 break
-            error = ModelTransportError(detail=f"http_status={status}: {_clip(body)}")
+            if status != 0:
+                transport_errors.append(f"http_status={status}: {_clip(body)}")
             if attempt == _MAX_TRANSPORT_ATTEMPTS:
-                raise error
+                break
+            # A retry must still have the fidelity floor available. Otherwise return the
+            # recoverable failure now instead of starting an attempt that can overrun reserve.
+            if self._remaining_transport_s() < _MIN_REQUEST_TIMEOUT_S:
+                break
+        if status != 200:
+            return self._error_response(
+                "; ".join(transport_errors) or "transport failure",
+                transport_failure=True,
+                transport_failure_count=len(transport_errors),
+                transport_attempt_count=attempts_made,
+            )
         try:
             data = json.loads(body)
         except (ValueError, TypeError) as exc:
-            return self._error_response(f"non_json_body: {exc}: {_clip(body)}")
-        return self._parse_response(data)
+            response = self._error_response(f"non_json_body: {exc}: {_clip(body)}")
+        else:
+            response = self._parse_response(data)
+        return replace(
+            response,
+            transport_failure=bool(transport_errors),
+            transport_failure_count=len(transport_errors),
+            transport_attempt_count=attempts_made,
+        )
 
     # -- response parsing -----------------------------------------------------------------------
     def _parse_response(self, data: object) -> ModelResponse:
@@ -235,7 +320,14 @@ class ChatCompletionsClient:
             server_timings=parse_server_timings(data.get("timings")),
         )
 
-    def _error_response(self, detail: str) -> ModelResponse:
+    def _error_response(
+        self,
+        detail: str,
+        *,
+        transport_failure: bool = False,
+        transport_failure_count: int = 0,
+        transport_attempt_count: int = 0,
+    ) -> ModelResponse:
         """A turn the loop will treat as a (recoverable) format failure.
 
         Empty text → block_parser yields a ``no_block`` format error → the loop injects a
@@ -248,6 +340,9 @@ class ChatCompletionsClient:
             finish_reason=ERROR_FINISH_REASON,
             output_tokens=0,
             error_detail=detail,
+            transport_failure=transport_failure,
+            transport_failure_count=transport_failure_count,
+            transport_attempt_count=transport_attempt_count,
         )
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 import httpx
@@ -12,6 +13,7 @@ from localbench._types import JsonObject
 from localbench.orchestrate import OrchestrateConfig
 from localbench.serving import assembly
 from localbench.serving import runner as serving_runner
+from localbench.serving.agentic_support import AgenticSetupError
 from localbench.serving.bench import BenchRunConfig, build_orchestrate_config
 from localbench.serving.llama_cpp import (
     BuildIdentity,
@@ -942,3 +944,70 @@ def test_orchestrated_agentic_preflight_runs_before_server_launch(
         assert calls == ["preflight"]
 
     asyncio.run(scenario())
+
+
+def test_advanced_model_ref_agentic_preflight_runs_before_model_resolution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        options = ServeBenchOptions(
+            runtime="llama.cpp",
+            model_file=None,
+            model_ref="hf://owner/model@" + "a" * 40 + "#model.gguf",
+            model_id="gemma",
+            server_bin=tmp_path / "llama-server.exe",
+            ctx=32768,
+            determinism="strict",
+            tier="standard",
+            bench="appworld_c",
+            lane="bounded-final-v2",
+            seed=1234,
+            suite_dir=SUITE_V1,
+            out=tmp_path / "run",
+        )
+        artifact_resolved = False
+
+        def unexpected_artifact(*_args, **_kwargs):
+            nonlocal artifact_resolved
+            artifact_resolved = True
+            raise AssertionError("model resolution/download ran before agentic preflight")
+
+        monkeypatch.setattr(serving_runner, "resolve_artifact", unexpected_artifact)
+
+        with pytest.raises(AgenticSetupError):
+            await run_orchestrated_bench(options)
+        assert artifact_resolved is False
+
+    asyncio.run(scenario())
+
+
+def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=32768,
+        determinism="strict",
+        tier="standard",
+        bench="appworld_c",
+        lane="bounded-final-v2",
+        seed=1234,
+        suite_dir=SUITE_V1,
+        out=tmp_path / "run",
+        wsl_venv_python="/managed/venv/bin/python3",
+        appworld_root="/managed/appworld",
+    )
+
+    def timeout(**_kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(cmd="git", timeout=30)
+
+    monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", timeout)
+
+    with pytest.raises(AgenticSetupError, match="timed out"):
+        serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")

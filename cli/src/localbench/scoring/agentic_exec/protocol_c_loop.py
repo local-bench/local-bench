@@ -71,16 +71,6 @@ _READBACK_CODE = (
 _ANCHOR_MESSAGE_COUNT = 2
 _HISTORY_ANCHOR_RESERVE_TOKENS = 2_048
 _HISTORY_TURN_OVERHEAD_TOKENS = 256
-# Abort a task once its FIRST N turns are all client transport/protocol errors (endpoint never
-# answered): burning the remaining cap can only produce a silent 0. Mid-task transients (any
-# earlier successful turn) never trigger this — they keep the per-turn degradation contract.
-_ENDPOINT_DEAD_ABORT_TURNS = 6
-
-
-class ModelEndpointError(RuntimeError):
-    """The model endpoint produced only transport/protocol errors from the first turn on."""
-
-
 class SandboxLike(Protocol):
     """The minimal sandbox surface the loop needs (satisfied by ``AppWorldSandbox``)."""
 
@@ -193,6 +183,8 @@ def run_task(
     api_docs_uses = 0
     observation_truncations = 0
     total_output_tokens = 0
+    transport_failure_count = 0
+    transport_attempt_count = 0
 
     outcome: TaskOutcome = TaskOutcome.NO_FINAL_ANSWER
     verdict = _Verdict(success=False, collateral_damage=False, failures=())
@@ -201,21 +193,10 @@ def run_task(
     finalization: dict[str, Any] | None = None
     failure_class = FailureClass.NONE
 
-    client_error_streak_from_start = 0
     for turn_index in range(1, cfg.max_turns + 1):
         response = model.complete(messages, params)
-        # Endpoint-dead guard: if the FIRST N turns are ALL client transport/protocol errors
-        # (the endpoint never answered once), the task can only burn the whole turn cap as
-        # empty turns and score a silent 0. Abort as a harness failure instead. A mid-task
-        # transient (some turn succeeded earlier) keeps the documented per-turn degradation.
-        if response.finish_reason == "error":
-            client_error_streak_from_start += 1
-            if turn_index == client_error_streak_from_start == _ENDPOINT_DEAD_ABORT_TURNS:
-                detail = getattr(response, "error_detail", None)
-                raise ModelEndpointError(
-                    f"model endpoint returned errors for the first {turn_index} turns "
-                    f"(last detail: {detail!r}); aborting task instead of burning the turn cap"
-                )
+        transport_failure_count += response.transport_failure_count
+        transport_attempt_count += response.transport_attempt_count
         out_tokens = (
             response.output_tokens
             if response.output_tokens is not None
@@ -408,6 +389,13 @@ def run_task(
         observation_truncations=observation_truncations,
         total_output_tokens=total_output_tokens,
         failure_class=failure_class,
+        transport_failure_count=transport_failure_count,
+        transport_attempt_count=transport_attempt_count,
+        transport_failure_rate=(
+            transport_failure_count / transport_attempt_count
+            if transport_attempt_count
+            else 0.0
+        ),
         finalize_error=finalize_error,
         finalization=finalization,
         turns=turns,

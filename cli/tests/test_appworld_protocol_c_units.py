@@ -30,7 +30,6 @@ from localbench.scoring.agentic_exec import benchmark as bench  # noqa: E402
 from localbench.scoring.agentic_exec import block_introspect as bi  # noqa: E402
 from localbench.scoring.agentic_exec import block_parser as bp  # noqa: E402
 from localbench.scoring.agentic_exec import prompt as prompt_mod  # noqa: E402
-from localbench.scoring.agentic_exec import protocol_c_loop as pcl  # noqa: E402
 from localbench.scoring.agentic_exec import sandbox as sandbox_mod  # noqa: E402
 from localbench.scoring.agentic_exec import scripted_agent as sa  # noqa: E402
 from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: E402
@@ -751,6 +750,7 @@ def test_benchmark_classifies_sandbox_setup_error_as_infra_sandbox() -> None:
 
 def test_benchmark_watchdog_records_infra_timeout_and_continues() -> None:
     release_hung_model = threading.Event()
+    cancelled_model = threading.Event()
     forced_cleanup = threading.Event()
 
     class _BlockingModel:
@@ -758,10 +758,13 @@ def test_benchmark_watchdog_records_infra_timeout_and_continues() -> None:
             release_hung_model.wait(timeout=5.0)
             return ModelResponse("```python\nanswer = 5\n```\nFINAL_ANSWER", "stop")
 
+        def cancel(self) -> None:
+            cancelled_model.set()
+            release_hung_model.set()
+
     class _KillableSandbox(FakeSandbox):
         def force_kill(self) -> None:
             forced_cleanup.set()
-            release_hung_model.set()
 
     def sandbox_factory(task_id: str) -> FakeSandbox:
         if task_id == "hang":
@@ -785,6 +788,7 @@ def test_benchmark_watchdog_records_infra_timeout_and_continues() -> None:
     )
 
     assert forced_cleanup.wait(timeout=1.0)
+    assert cancelled_model.wait(timeout=1.0)
     assert report.tasks_total == 2
     assert report.tasks_succeeded == 1
     assert report.infra_timeout_rate == pytest.approx(0.5)
@@ -793,6 +797,33 @@ def test_benchmark_watchdog_records_infra_timeout_and_continues() -> None:
     assert report.results[0].diagnostics.failure_class == FailureClass.INFRA_TIMEOUT
     assert report.results[1].task_id == "fac291d_1"
     assert report.results[1].success is True
+
+
+def test_successful_task_keeps_result_when_teardown_fails_additively() -> None:
+    class _TeardownDiagnosticSandbox(FakeSandbox):
+        teardown_failure: str | None = None
+
+        def __exit__(self, *exc: object) -> None:
+            self.teardown_failure = "SandboxTimeoutError: teardown timed out"
+
+    report = bench.run_appworld_c_benchmark(
+        task_ids=["fac291d_1"],
+        model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
+        sandbox_factory=lambda _task_id: _TeardownDiagnosticSandbox(
+            gold_answer=5,
+            instruction=_FAC_INSTR,
+            supervisor_email="b@x.com",
+        ),
+    )
+
+    assert report.results[0].success is True
+    assert report.results[0].diagnostics.teardown_failure_count == 1
+    assert "teardown timed out" in (
+        report.results[0].diagnostics.teardown_failure_detail or ""
+    )
+    assert report.teardown_failure_count == 1
+    assert report.teardown_failure_rate == 1.0
+    assert report.infra_failure_rate == 1.0
 
 
 def test_terminate_escalates_to_process_group_sigkill(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -989,7 +1020,7 @@ def test_loop_finalization_provenance_is_none_for_plain_sandboxes() -> None:
 
 
 # ==============================================================================================
-# endpoint-dead abort: a task whose FIRST turns are all client errors must not burn the cap
+# endpoint transport failures retain the frozen recoverable-turn semantics
 # ==============================================================================================
 
 
@@ -1007,16 +1038,14 @@ class _DeadEndpointModel:
         )
 
 
-def test_loop_aborts_task_when_endpoint_is_dead_from_turn_one() -> None:
+def test_loop_keeps_endpoint_failures_recoverable_through_turn_cap() -> None:
     # Given: a sandbox that bootstraps fine but a model endpoint that never answers.
     sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com")
     model = _DeadEndpointModel()
 
-    # When / Then: the loop raises after the abort streak instead of burning all 24 turns,
-    # and the benchmark surface records it as a HARNESS_ERROR row (not a silent 0 ASR).
-    with pytest.raises(pcl.ModelEndpointError):
-        run_task(sandbox, model, "fac291d_1")
-    assert model.calls == pcl._ENDPOINT_DEAD_ABORT_TURNS
+    direct_result = run_task(sandbox, model, "fac291d_1")
+    assert model.calls == LoopConfig().max_turns
+    assert direct_result.outcome == TaskOutcome.CAP_EXCEEDED
 
     result = bench.run_appworld_c_benchmark(
         ["fac291d_1"],
@@ -1025,8 +1054,7 @@ def test_loop_aborts_task_when_endpoint_is_dead_from_turn_one() -> None:
             gold_answer=5, instruction=_FAC_INSTR, supervisor_email="b@x.com"
         ),
     ).results[0]
-    assert result.outcome == TaskOutcome.HARNESS_ERROR
-    assert "model endpoint returned errors" in (result.diagnostics.finalize_error or "")
+    assert result.outcome == TaskOutcome.CAP_EXCEEDED
 
 
 def test_loop_does_not_abort_on_midtask_client_errors() -> None:

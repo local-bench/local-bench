@@ -6,6 +6,8 @@ from pathlib import Path
 
 from localbench.one_shot.download import DownloadError
 from localbench.one_shot.runner import OneShotRunnerDeps
+from localbench.one_shot.serve_plan import STATIC_EXEC_BENCHES
+from localbench.one_shot.types import STATIC_EXEC_SUITE_IDENTITY
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.submissions.submit_run import SubmitRunOptions, SubmitRunResult
 from one_shot_fixtures import (
@@ -93,8 +95,20 @@ class _BenchRunner:
             raise KeyboardInterrupt
         self.options = options
         run_path = self._run_dir / "localbench-run.json"
-        run_path.write_text(json.dumps({"scores": {"headline_score": 0.73}}), encoding="utf-8")
-        return {"scores": {"headline_score": 0.73}, "warnings": []}
+        record: dict[str, object] = {"scores": {"headline_score": 0.73}, "warnings": []}
+        if options.suite == STATIC_EXEC_SUITE_IDENTITY.release_id:
+            record.update({
+                "manifest": {
+                    "suite": {
+                        "coverage_profile_id": "static-exec-5axis-v1",
+                        "suite_release_id": STATIC_EXEC_SUITE_IDENTITY.release_id,
+                        "suite_manifest_sha256": STATIC_EXEC_SUITE_IDENTITY.manifest_sha256,
+                    },
+                },
+                "benches": {bench: {} for bench in STATIC_EXEC_BENCHES},
+            })
+        run_path.write_text(json.dumps(record), encoding="utf-8")
+        return record
 
 
 class _Submitter:
@@ -162,7 +176,17 @@ def _args(
         out=None if resume is not None else tmp_path,
         resume=resume,
         cache_dir=None,
-        suite_dir=None,
+        suite_dir=(
+            Path(__file__).resolve().parents[2]
+            / "web"
+            / "public"
+            / "suites"
+            / (
+                "suite-v1-static-exec-5axis-v1"
+                if static_only
+                else "suite-v1-full-exec-6axis-v1"
+            )
+        ),
         suite_source=None,
         max_items=None,
         threads=8,

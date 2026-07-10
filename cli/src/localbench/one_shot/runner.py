@@ -50,6 +50,10 @@ from localbench.serving.runner import (
     run_orchestrated_bench,
 )
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
+from localbench.suite_errors import SuiteResolutionError
+from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
+from localbench.suite_resolver import resolve_suite_dir
+from localbench.suite_verify import read_json_object
 from localbench.submissions.submit_run import DEFAULT_SITE
 
 
@@ -101,6 +105,14 @@ def run_one_shot_bench(
                 "This run will NOT be eligible for the full six-axis index; "
                 "it can appear as a measured/static row.",
             )
+        suite_ref = resolve_suite_dir(
+            suite_id=suite_identity.release_id,
+            suite_dir=getattr(args, "suite_dir", None),
+            accept_suite_terms=bool(getattr(args, "accept_suite_terms", False)),
+            source=getattr(args, "suite_source", None),
+            cache_root=getattr(args, "cache_dir", None),
+        )
+        _verify_suite_identity(suite_ref.path, suite_identity)
         resolved = resolve_one_shot(
             args,
             choices.vram_gb,
@@ -138,6 +150,7 @@ def run_one_shot_bench(
                 suite_identity=suite_identity,
             ),
         )
+        options = replace(options, suite_dir=suite_ref.path)
         if needs_wsl_agentic(options):
             agentic_preflight = dependencies.agentic_preflight or preflight_agentic_if_needed
             options = replace(options, agentic_preflight=agentic_preflight(options, root))
@@ -167,6 +180,15 @@ def run_one_shot_bench(
                 tokenizer_snapshot_sha256=tokenizer.snapshot_sha256,
             ),
         )
+        if needs_wsl_agentic(options):
+            agentic_preflight = dependencies.agentic_preflight or preflight_agentic_if_needed
+            try:
+                options = replace(options, agentic_preflight=agentic_preflight(options, root))
+            except AgenticSetupError as error:
+                raise AgenticSetupError(
+                    detail=error.detail,
+                    model_download_started=True,
+                ) from error
         monitor = dependencies.sleep_monitor or SleepGapMonitor(
             allow_sleep_risk=bool(getattr(args, "allow_sleep_risk", False)),
         )
@@ -188,6 +210,8 @@ def run_one_shot_bench(
                 resolved=resolved,
                 submitter=dependencies.submitter,
                 input_fn=input_fn,
+                record=record,
+                suite_identity=suite_identity,
             ),
         )
     except KeyboardInterrupt:
@@ -199,7 +223,13 @@ def run_one_shot_bench(
     except AgenticSetupError as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_AGENTIC_SETUP_REQUIRED
-    except (CatalogResolutionError, OneShotChoiceError, PlanLockMismatch, DownloadError) as error:
+    except (
+        CatalogResolutionError,
+        OneShotChoiceError,
+        PlanLockMismatch,
+        DownloadError,
+        SuiteResolutionError,
+    ) as error:
         print(f"error      {error}", file=sys.stderr)
         return 2
     except Exception as error:
@@ -221,3 +251,26 @@ def _suite_identity(args: argparse.Namespace) -> OneShotSuiteIdentity:
     if bool(getattr(args, "static_only", False)):
         return STATIC_EXEC_SUITE_IDENTITY
     return FULL_EXEC_SUITE_IDENTITY
+
+
+def _verify_suite_identity(suite_dir: Path, expected: OneShotSuiteIdentity) -> None:
+    manifest_path = suite_dir / SUITE_RELEASE_MANIFEST_FILE
+    try:
+        manifest = read_json_object(manifest_path)
+    except (OSError, ValueError) as error:
+        raise SuiteResolutionError(
+            f"suite {expected.release_id!r} is missing a valid release manifest: {error}",
+        ) from error
+    release_id = manifest.get("suite_release_id")
+    declared_sha = manifest.get("suite_manifest_sha256")
+    actual_sha = suite_manifest_sha256(manifest)
+    if release_id != expected.release_id:
+        raise SuiteResolutionError(
+            f"suite release mismatch: {release_id!r} != {expected.release_id!r}",
+        )
+    if declared_sha != expected.manifest_sha256 or actual_sha != expected.manifest_sha256:
+        raise SuiteResolutionError(
+            "suite release manifest sha256 mismatch: "
+            f"declared={declared_sha!r} actual={actual_sha!r} "
+            f"expected={expected.manifest_sha256!r}",
+        )

@@ -76,16 +76,21 @@ def preflight_wsl_agentic(
 
 
 def provenance_from_identity(identity: JsonObject) -> JsonObject:
+    published_identity = {
+        key: value
+        for key, value in identity.items()
+        if key not in {"venv_path", "bwrap_path", "appworld_root"}
+    }
     return {
         "topology": {
             "scorecard_assembly": "single-campaign-no-merge",
             "model_call_location": "windows_campaign_process",
         },
-        "wsl_identity": dict(identity),
+        "wsl_identity": published_identity,
         "agentic_sandbox_identity": {
-            "bubblewrap_path": _string(identity.get("bwrap_path")),
+            "bubblewrap_sha256": _string(identity.get("bwrap_sha256")),
             "bubblewrap_version": _string(identity.get("bwrap_version")),
-            "appworld_root": _string(identity.get("appworld_root")),
+            "appworld_root_sha256": _string(identity.get("appworld_root_sha256")),
             "appworld_root_filesystem": _string(identity.get("appworld_root_filesystem")),
         },
         "single_campaign_integrity": {
@@ -102,8 +107,13 @@ def provenance_from_identity(identity: JsonObject) -> JsonObject:
 
 def default_wsl_repo_path(windows_repo_root: Path) -> str:
     resolved = windows_repo_root.resolve()
-    drive = resolved.drive.rstrip(":").lower()
-    rest = resolved.as_posix().split(":", 1)[1].lstrip("/")
+    drive_value = resolved.drive
+    if len(drive_value) != 2 or drive_value[1] != ":" or not drive_value[0].isalpha():
+        raise SandboxError(
+            f"cannot map non-drive-colon checkout path into WSL: {resolved}",
+        )
+    drive = drive_value[0].lower()
+    rest = resolved.as_posix()[2:].lstrip("/")
     return f"/mnt/{drive}/{rest}"
 
 

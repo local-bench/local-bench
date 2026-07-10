@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.metadata as metadata
+import hashlib
 import json
 import os
 import platform
@@ -183,17 +184,32 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
         "wsl_os_release": os_release.get("PRETTY_NAME", ""),
         "python_version": platform.python_version(),
         "venv_path": sys.prefix,
+        "venv_path_sha256": _text_sha256(sys.prefix),
         "worker_entrypoint": "localbench.scoring.agentic_exec.wsl_worker",
         "worker_git_commit": _git_output("rev-parse", "HEAD"),
         "worker_dirty_tree": bool(_git_output("status", "--porcelain")),
         "bwrap_path": bwrap,
+        "bwrap_sha256": _file_sha256(bwrap),
         "bwrap_version": _command_output([bwrap, "--version"]),
         "appworld_root": root_posix,
+        "appworld_root_sha256": _text_sha256(root_posix),
         "appworld_root_under_mnt": root_under_mnt,
         "appworld_root_filesystem": _filesystem_type(root_posix),
         "appworld_version": appworld_version,
         "env_pins": dict(_PIN_ENV),
     }
+
+
+def _text_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main() -> int:

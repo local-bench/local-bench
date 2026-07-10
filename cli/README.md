@@ -11,9 +11,9 @@ and packs signed, reproducible result bundles you can submit for maintainer revi
 ```bash
 pip install "local-bench-ai[hf]"   # Python 3.11+
 
-# 1. Fetch the ranked suite from the site (hash-verified)
+# 1. Fetch the static suite used by the public path below (hash-verified)
 localbench fetch-suite --site https://local-bench.ai \
-  --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms
+  --suite suite-v1-static-exec-5axis-v1 --accept-suite-terms
 
 # 2. Cache the tokenizer/chat template for offline identity
 localbench cache-tokenizer <hf-model-id>
@@ -22,12 +22,15 @@ localbench cache-tokenizer <hf-model-id>
 localbench bench <catalog-model-or-hf-repo> --static-only \
   --llama-server-path <path-to-llama-server>
 
-# 4. Managed-harness path: the CLI launches the pinned llama.cpp server itself
+# 4. Managed-harness path: fetch the full suite, then launch the pinned server
+localbench fetch-suite --site https://local-bench.ai \
+  --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms
+
 localbench bench \
   --runtime llama.cpp --server-bin <path-to-llama-server> \
   --model-file <model.gguf> --model-id <model-slug> \
   --hf-model-id <hf-model-id> \
-  --suite full-exec-6axis-v1 --bench all \
+  --suite suite-v1-full-exec-6axis-v1 --bench all \
   --wsl-venv-python <managed-wsl-python> \
   --appworld-root <managed-appworld-root> \
   --lane bounded-final-v2 --profile auto --tier standard \

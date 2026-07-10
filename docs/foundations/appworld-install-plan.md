@@ -166,11 +166,11 @@ appworld install
 The localbench harness package must be importable in this same venv. Two clean options
 **[Decision M3]**:
 - **(recommended) editable install of the CLI into the AppWorld venv**:
-  `pip install -e /mnt/c/Users/Michael/local-bench/cli` — but this drags the CLI's own deps
+  `pip install -e /mnt/c/path/to/local-bench/cli` — but this drags the CLI's own deps
   (transformers, httpx, …) into the AppWorld venv; verify no version conflict with AppWorld's pins
   (httpx/anyio overlap — check after install). OR
 - **(lighter) `PYTHONPATH`**: run the agentic entrypoint with
-  `PYTHONPATH=/mnt/c/Users/Michael/local-bench/cli/src` so `import localbench.scoring.agentic_exec`
+  `PYTHONPATH=/mnt/c/path/to/local-bench/cli/src` so `import localbench.scoring.agentic_exec`
   resolves without installing the whole CLI. Preferred if the CLI's transformers pin fights
   AppWorld's. (The harness module itself imports only stdlib + `localbench._types`; it does not need
   transformers.)
@@ -179,7 +179,7 @@ The localbench harness package must be importable in this same venv. Two clean o
 
 **`APPWORLD_ROOT` = `~/appworld-data` in the WSL user home** (i.e.
 `/home/<wsluser>/appworld-data`). This satisfies every trap:
-- **Outside the repo:** WSL `$HOME` is not under `/mnt/c/Users/Michael/local-bench`.
+- **Outside the repo:** WSL `$HOME` is not under `/mnt/c/path/to/local-bench`.
 - **Outside any path the model/tool layer can read:** the model only ever sees our JSON tool
   protocol + canonicalized observations; the harness exposes ONLY `api_docs.search`,
   `api_docs.get`, whitelisted `<app>.<api>`, `final_answer`. The filesystem path of the data tree

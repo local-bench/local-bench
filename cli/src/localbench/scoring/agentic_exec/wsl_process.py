@@ -29,11 +29,9 @@ def worker_argv(config: WslWorkerConfig) -> tuple[str, ...]:
         return config.worker_argv
     command = " && ".join(
         [
-            f"cd {shlex.quote(config.repo_root_wsl_path)}",
             f"export APPWORLD_ROOT={shlex.quote(config.appworld_root)}",
             "export PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8",
             'export PATH="$HOME/.local/bin:$PATH"',
-            f"export PYTHONPATH={shlex.quote(config.repo_root_wsl_path + '/cli/src')}:$PYTHONPATH",
             f"{quote_wsl_executable(config.venv_python)} -m localbench.scoring.agentic_exec.wsl_worker",
         ],
     )

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.serving.model_artifact import ModelArtifact
@@ -187,7 +188,7 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "snapshot_merkle_sha256": evidence.artifact.snapshot_merkle_sha256,
             "files": list(evidence.artifact.snapshot_files),
         },
-        "serve_log_path": evidence.serve_log_path,
+        "serve_log_sha256": _path_sha256(evidence.serve_log_path),
         "server_fingerprint": evidence.server_fingerprint,
         "resume_identity": evidence.resume_identity,
     }
@@ -218,6 +219,19 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
 
 def api_key_sha256(api_key: str) -> str:
     return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+
+
+def _path_sha256(path_value: str) -> str | None:
+    if not path_value:
+        return None
+    path = Path(path_value)
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _repo_blocking_reasons(manifest: JsonObject) -> list[str]:

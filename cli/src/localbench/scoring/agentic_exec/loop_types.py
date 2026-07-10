@@ -89,6 +89,11 @@ class TaskDiagnostics:
     finalization: dict[str, Any] | None = None
     turns: list[TurnRecord] = field(default_factory=list)
     failure_class: FailureClass = FailureClass.NONE
+    transport_failure_count: int = 0
+    transport_attempt_count: int = 0
+    transport_failure_rate: float = 0.0
+    teardown_failure_count: int = 0
+    teardown_failure_detail: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -146,6 +151,12 @@ class BenchmarkReport:
     asr_excluding_infra: float = 0.0
     infra_timeout_rate: float = 0.0
     infra_sandbox_rate: float = 0.0
+    infra_failure_rate: float = 0.0
+    transport_failure_count: int = 0
+    transport_attempt_count: int = 0
+    transport_failure_rate: float = 0.0
+    teardown_failure_count: int = 0
+    teardown_failure_rate: float = 0.0
     model_failure_rate: float = 0.0
     model_no_progress_rate: float = 0.0
     harness_error_subclass_rate: float = 0.0
@@ -162,6 +173,12 @@ class BenchmarkReport:
             "harness_error_rate": self.harness_error_rate,
             "infra_timeout_rate": self.infra_timeout_rate,
             "infra_sandbox_rate": self.infra_sandbox_rate,
+            "infra_failure_rate": self.infra_failure_rate,
+            "transport_failure_count": self.transport_failure_count,
+            "transport_attempt_count": self.transport_attempt_count,
+            "transport_failure_rate": self.transport_failure_rate,
+            "teardown_failure_count": self.teardown_failure_count,
+            "teardown_failure_rate": self.teardown_failure_rate,
             "model_failure_rate": self.model_failure_rate,
             "model_no_progress_rate": self.model_no_progress_rate,
             "harness_error_subclass_rate": self.harness_error_subclass_rate,

@@ -16,6 +16,8 @@ from pathlib import Path
 
 from localbench.scoring.agentic_exec.model_client import GenerationParams
 
+TASK_FINALIZE_TEARDOWN_RESERVE_S = 180.0
+
 
 @dataclass(frozen=True, slots=True)
 class LoopConfig:

@@ -6,7 +6,7 @@ Date: 2026-06-23. GPU-free, endpoint-free, NON-LLM. No model loaded, no `llama-s
 
 Re-run command (reproduces every number below):
 ```bash
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source <wsl-venv>/bin/activate \
+wsl bash -lc 'cd /mnt/c/path/to/local-bench && source <wsl-venv>/bin/activate \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && python cli/tools/appworld_feasibility_probe.py'
 ```

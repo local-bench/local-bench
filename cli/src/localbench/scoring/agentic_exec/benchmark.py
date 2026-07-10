@@ -27,11 +27,15 @@ from __future__ import annotations
 
 import queue
 import threading
+import time
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Callable, Protocol, assert_never, runtime_checkable
 
-from localbench.scoring.agentic_exec.loop_config import LoopConfig
+from localbench.scoring.agentic_exec.loop_config import (
+    TASK_FINALIZE_TEARDOWN_RESERVE_S,
+    LoopConfig,
+)
 from localbench.scoring.agentic_exec.loop_types import (
     BenchmarkReport,
     FailureClass,
@@ -63,6 +67,25 @@ class _ForceKillable(Protocol):
         ...
 
 
+@runtime_checkable
+class _TaskDeadlineAware(Protocol):
+    def set_task_deadline(self, deadline: float) -> None:
+        ...
+
+
+@runtime_checkable
+class _Cancellable(Protocol):
+    def cancel(self) -> None:
+        ...
+
+
+@runtime_checkable
+class _TeardownDiagnostic(Protocol):
+    @property
+    def teardown_failure(self) -> str | None:
+        ...
+
+
 def run_appworld_c_benchmark(
     task_ids: list[str],
     model_factory: ModelFactory,
@@ -90,13 +113,23 @@ def _run_task_with_watchdog(
 ) -> TaskRunResult:
     result_slot: queue.Queue[TaskRunResult | Exception] = queue.Queue(maxsize=1)
     cleanup_slot: queue.Queue[SandboxLike] = queue.Queue(maxsize=1)
+    model_slot: queue.Queue[ModelClient] = queue.Queue(maxsize=1)
+    task_started = time.monotonic()
+    transport_deadline = task_started + max(
+        0.0,
+        cfg.per_task_timeout_s - TASK_FINALIZE_TEARDOWN_RESERVE_S,
+    )
 
     def _worker() -> None:
         try:
             with factories.sandbox(task_id) as sandbox:
                 cleanup_slot.put(sandbox)
                 model = factories.model(task_id)
+                model_slot.put(model)
+                if isinstance(model, _TaskDeadlineAware):
+                    model.set_task_deadline(transport_deadline)
                 task_result = run_task(sandbox, model, task_id, cfg)
+            _record_teardown_diagnostic(task_result, sandbox)
             result_slot.put(task_result)
         except Exception as exc:  # noqa: BLE001 — isolate per-task setup/teardown failures.
             result_slot.put(exc)
@@ -105,7 +138,11 @@ def _run_task_with_watchdog(
     worker.start()
     worker.join(cfg.per_task_timeout_s)
     if worker.is_alive():
+        _cancel_model(_model_handle(model_slot))
         _force_kill_sandbox(_cleanup_handle(cleanup_slot))
+        # Never advance while a timed-out generation is still using llama-server. The task-wide
+        # transport deadline leaves teardown reserve, and cancel closes the active HTTP socket.
+        worker.join()
         return _task_timeout_result(task_id, cfg.per_task_timeout_s)
 
     try:
@@ -129,9 +166,28 @@ def _cleanup_handle(cleanup_slot: queue.Queue[SandboxLike]) -> SandboxLike | Non
         return None
 
 
+def _model_handle(model_slot: queue.Queue[ModelClient]) -> ModelClient | None:
+    try:
+        return model_slot.get_nowait()
+    except queue.Empty:
+        return None
+
+
+def _cancel_model(model: ModelClient | None) -> None:
+    if isinstance(model, _Cancellable):
+        model.cancel()
+
+
 def _force_kill_sandbox(sandbox: SandboxLike | None) -> None:
     if isinstance(sandbox, _ForceKillable):
         sandbox.force_kill()
+
+
+def _record_teardown_diagnostic(result: TaskRunResult, sandbox: SandboxLike) -> None:
+    if not isinstance(sandbox, _TeardownDiagnostic) or sandbox.teardown_failure is None:
+        return
+    result.diagnostics.teardown_failure_count += 1
+    result.diagnostics.teardown_failure_detail = sandbox.teardown_failure
 
 
 def _task_timeout_result(task_id: str, timeout_s: float) -> TaskRunResult:
@@ -150,6 +206,17 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
     infra_timeout = _count_failure_class(results, FailureClass.INFRA_TIMEOUT)
     infra_sandbox = _count_failure_class(results, FailureClass.INFRA_SANDBOX)
     infra_failures = infra_timeout + infra_sandbox
+    transport_failures = sum(r.diagnostics.transport_failure_count for r in results)
+    transport_attempts = sum(r.diagnostics.transport_attempt_count for r in results)
+    teardown_failures = sum(r.diagnostics.teardown_failure_count for r in results)
+    tasks_with_infra = sum(
+        1
+        for result in results
+        if result.diagnostics.failure_class
+        in {FailureClass.INFRA_TIMEOUT, FailureClass.INFRA_SANDBOX}
+        or result.diagnostics.transport_failure_count > 0
+        or result.diagnostics.teardown_failure_count > 0
+    )
 
     # Per-block / per-turn denominators for the rate diagnostics.
     total_turns = sum(r.diagnostics.turns_used for r in results)
@@ -179,6 +246,12 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
         harness_error_rate=_safe_div(outcome_counts[TaskOutcome.HARNESS_ERROR.value], n),
         infra_timeout_rate=_safe_div(infra_timeout, n),
         infra_sandbox_rate=_safe_div(infra_sandbox, n),
+        infra_failure_rate=_safe_div(tasks_with_infra, n),
+        transport_failure_count=transport_failures,
+        transport_attempt_count=transport_attempts,
+        transport_failure_rate=_safe_div(transport_failures, transport_attempts),
+        teardown_failure_count=teardown_failures,
+        teardown_failure_rate=_safe_div(teardown_failures, n),
         model_failure_rate=_safe_div(_count_failure_class(results, FailureClass.MODEL_FAILURE), n),
         model_no_progress_rate=_safe_div(
             _count_failure_class(results, FailureClass.MODEL_NO_PROGRESS),

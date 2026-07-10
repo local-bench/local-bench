@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import localbench.cli as cli_mod
@@ -34,6 +35,7 @@ def test_agentic_personal_path_defaults_are_absent_from_source_and_help(
     assert help_exit.value.code == 0
     assert "/home/michael" not in source
     assert "appworld-harness" not in source
+    assert re.search(r"(?i)(?:[a-z]:[\\/]|/mnt/[a-z]/)users[\\/][^\\/\s]+", source) is None
     assert "/home/michael" not in docs
     assert "appworld-harness" not in docs
     assert "/home/michael" not in help_text

@@ -245,11 +245,12 @@ def _valid_inline_appworld(agentic_run: JsonValue | None) -> bool:
 
 
 def _agentic_infra_timeout_warnings(agentic_run: JsonValue | None) -> list[JsonValue]:
-    """Fail closed: an inline AppWorld record must PROVE a healthy timeout rate to rank.
+    """Fail closed: an inline AppWorld record must prove healthy infrastructure rates.
 
     A missing, malformed, non-finite, or out-of-range ``infra_timeout_rate`` — in the
-    aggregate diagnostics or in any scored run — earns the same warning as an elevated
-    rate, so a submitter cannot rank by omitting or mangling the field.
+    aggregate diagnostics or in any scored run — earns the same warning as an elevated rate.
+    New records also gate canonical ``infra_failure_rate`` (timeout + sandbox + transport).
+    Older records without the additive canonical field retain the timeout-only gate.
     """
     if not isinstance(agentic_run, dict):
         return []
@@ -259,13 +260,35 @@ def _agentic_infra_timeout_warnings(agentic_run: JsonValue | None) -> list[JsonV
         summaries.extend(runs)
     elif runs is not None:
         return [_AGENTIC_INFRA_TIMEOUT_REASON]
-    if any(not isinstance(summary, dict) or not _infra_timeout_rate_healthy(summary) for summary in summaries):
+    if any(not isinstance(summary, dict) or not _infra_rates_healthy(summary) for summary in summaries):
         return [_AGENTIC_INFRA_TIMEOUT_REASON]
     return []
 
 
 def _infra_timeout_rate_healthy(summary: JsonObject) -> bool:
-    value = summary.get("infra_timeout_rate")
+    return _rate_healthy(summary.get("infra_timeout_rate"))
+
+
+def _infra_rates_healthy(summary: JsonObject) -> bool:
+    if not _infra_timeout_rate_healthy(summary):
+        return False
+    if "infra_failure_rate" not in summary:
+        # Backward compatibility is limited to genuinely older summaries. Once any additive
+        # 0.3.1 transport/teardown diagnostic is present, omitting the canonical rate fails closed.
+        return not any(
+            field in summary
+            for field in (
+                "transport_failure_count",
+                "transport_attempt_count",
+                "transport_failure_rate",
+                "teardown_failure_count",
+                "teardown_failure_rate",
+            )
+        )
+    return _rate_healthy(summary.get("infra_failure_rate"))
+
+
+def _rate_healthy(value: JsonValue | None) -> bool:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return False
     if not math.isfinite(value) or value < 0.0 or value > 1.0:

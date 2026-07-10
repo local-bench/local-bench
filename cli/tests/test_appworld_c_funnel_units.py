@@ -203,7 +203,7 @@ def test_chat_client_ignores_deepseek_reasoning_content_and_forwards_kwargs(
     assert captured["payload"]["chat_template_kwargs"] == {"enable_thinking": True}  # type: ignore[index]
 
 
-def test_chat_client_http_error_retries_twice_then_raises_typed_infra(
+def test_chat_client_http_error_retries_twice_then_returns_recoverable_typed_turn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
@@ -215,11 +215,12 @@ def test_chat_client_http_error_retries_twice_then_raises_typed_infra(
 
     monkeypatch.setattr(client, "_post", fail)
 
-    with pytest.raises(model_client_mod.ModelTransportError):
-        client.complete([{"role": "user", "content": "go"}], GenerationParams())
+    response = client.complete([{"role": "user", "content": "go"}], GenerationParams())
 
     assert len(attempts) == 2
     assert attempts[0] == attempts[1]
+    assert response.finish_reason == ERROR_FINISH_REASON
+    assert response.transport_failure is True
 
 
 def test_chat_client_timeout_retries_identical_request_without_empty_turn(
@@ -240,6 +241,8 @@ def test_chat_client_timeout_retries_identical_request_without_empty_turn(
 
     assert response.text == "```python\nprint(1)\n```"
     assert response.finish_reason == "stop"
+    assert response.transport_failure_count == 1
+    assert response.transport_attempt_count == 2
     assert len(attempts) == 2
     assert attempts[0] == attempts[1]
 
@@ -279,8 +282,7 @@ def test_chat_client_no_auth_header_when_keyless() -> None:
     assert "Authorization" not in req.headers
 
 
-def test_chat_client_post_uses_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
-    """_post returns (status, body) by reading urlopen — exercised via a fake urlopen (no socket)."""
+def test_chat_client_post_uses_cancellable_http_connection(monkeypatch: pytest.MonkeyPatch) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
 
     class _Resp:
@@ -289,49 +291,59 @@ def test_chat_client_post_uses_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
         def read(self) -> bytes:
             return _ok_body("hello").encode("utf-8")
 
-        def __enter__(self) -> "_Resp":
-            return self
+    timeouts: list[float] = []
+    requests: list[tuple[str, str]] = []
 
-        def __exit__(self, *exc: object) -> None:
+    class _Connection:
+        sock = None
+
+        def __init__(self, host: str, port: int, timeout: float) -> None:
+            assert (host, port) == ("127.0.0.1", 8000)
+            timeouts.append(timeout)
+
+        def request(self, method: str, path: str, **_kwargs: object) -> None:
+            requests.append((method, path))
+
+        def getresponse(self) -> _Resp:
+            return _Resp()
+
+        def close(self) -> None:
             return None
 
-    import urllib.request as _u
-
-    timeouts: list[float] = []
-
-    def fake_urlopen(req, timeout: float = 0) -> _Resp:
-        timeouts.append(timeout)
-        return _Resp()
-
-    monkeypatch.setattr(_u, "urlopen", fake_urlopen)
+    monkeypatch.setattr("http.client.HTTPConnection", _Connection)
     status, body = client._post(client._build_payload([], GenerationParams()))
     assert status == 200
     assert "hello" in body
     assert timeouts == [600.0]
+    assert requests == [("POST", "/v1/chat/completions")]
 
 
-def test_chat_client_retry_timeout_budget_stays_below_task_watchdog(
+def test_chat_client_official_3072_token_deadline_stays_below_task_watchdog(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
     timeouts: list[float] = []
+    clock = [100.0]
 
-    def timeout(_req, timeout: float = 0) -> None:
-        timeouts.append(timeout)
-        raise TimeoutError("timed out")
+    def timeout(_payload: dict[str, object]) -> tuple[int, str]:
+        attempt_timeout = client._attempt_timeout_s
+        assert attempt_timeout is not None
+        timeouts.append(attempt_timeout)
+        clock[0] += attempt_timeout
+        raise model_client_mod.ModelTransportTimeout(detail="timed out")
 
-    import urllib.request as _u
+    monkeypatch.setattr("time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(client, "_post", timeout)
 
-    monkeypatch.setattr(_u, "urlopen", timeout)
+    response = client.complete(
+        [{"role": "user", "content": "go"}],
+        GenerationParams(max_output_tokens=3072),
+    )
 
-    with pytest.raises(model_client_mod.ModelTransportTimeout):
-        client.complete(
-            [{"role": "user", "content": "go"}],
-            GenerationParams(max_output_tokens=1024),
-        )
-
-    assert timeouts == [600.0, 600.0]
-    assert sum(timeouts) < LoopConfig().per_task_timeout_s
+    assert len(timeouts) == 2
+    assert sum(timeouts) <= 1620.0
+    assert sum(timeouts) + 120.0 + 5.0 < LoopConfig().per_task_timeout_s
+    assert response.transport_failure is True
 
 
 def test_chat_client_drives_loop_through_fakesandbox(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -717,7 +729,7 @@ def test_chat_client_custom_chat_path_is_never_rewritten() -> None:
     assert client.endpoint == "http://gw.example/v1/custom/chat"
 
 
-def test_persistent_chat_timeout_is_task_level_infra_without_model_turns(
+def test_persistent_chat_timeout_remains_recoverable_with_typed_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: a transport that times out on both allowed attempts.
@@ -742,12 +754,16 @@ def test_persistent_chat_timeout_is_task_level_infra_without_model_turns(
         ),
     )
 
-    # Then: retry exhaustion is typed infra and consumes no model turn or format failure.
+    # Then: every failed call remains a recoverable empty turn through the frozen turn cap.
     result = report.results[0]
-    assert attempts == 2
-    assert result.diagnostics.failure_class.value == "infra_timeout"
-    assert result.diagnostics.turns_used == 0
-    assert result.diagnostics.format_failures == 0
-    assert result.diagnostics.turns == []
-    assert report.infra_timeout_rate == 1.0
-    assert report.asr_excluding_infra == 0.0
+    assert attempts == 2 * LoopConfig().max_turns
+    assert result.outcome == TaskOutcome.CAP_EXCEEDED
+    assert result.diagnostics.turns_used == LoopConfig().max_turns
+    assert result.diagnostics.format_failures == LoopConfig().max_turns
+    assert result.diagnostics.transport_failure_count == 2 * LoopConfig().max_turns
+    assert result.diagnostics.transport_attempt_count == 2 * LoopConfig().max_turns
+    assert result.diagnostics.transport_failure_rate == 1.0
+    assert report.transport_failure_count == 2 * LoopConfig().max_turns
+    assert report.transport_attempt_count == 2 * LoopConfig().max_turns
+    assert report.transport_failure_rate == 1.0
+    assert report.infra_failure_rate == 1.0

@@ -37,15 +37,21 @@ function requireJsonObjectArray(value: unknown, context: string): JsonObject[] {
   return value;
 }
 
-function setRate(summary: JsonObject, rate: unknown): void {
+function setRate(summary: JsonObject, field: "infra_timeout_rate" | "infra_failure_rate", rate: unknown): void {
   if (rate === OMIT) {
-    delete summary["infra_timeout_rate"];
+    delete summary[field];
     return;
   }
-  summary["infra_timeout_rate"] = rate;
+  summary[field] = rate;
 }
 
-function buildWithInfraTimeoutRates(aggregateRate: unknown, runRates: readonly unknown[]) {
+function buildWithInfraTimeoutRates(
+  aggregateRate: unknown,
+  runRates: readonly unknown[],
+  aggregateFailureRate: unknown = OMIT,
+  runFailureRates: readonly unknown[] = [],
+  markNewFormat = false,
+) {
   const workspace = mkdtempSync(join(tmpdir(), "local-bench-agentic-infra-"));
   const outDir = join(workspace, "out");
   try {
@@ -67,9 +73,13 @@ function buildWithInfraTimeoutRates(aggregateRate: unknown, runRates: readonly u
     const diagnostics = requireJsonObject(agenticRun["diagnostics"], "bounded-final fixture agentic_run.diagnostics");
     const runs = requireJsonObjectArray(agenticRun["runs"], "bounded-final fixture agentic_run.runs");
 
-    setRate(diagnostics, aggregateRate);
+    setRate(diagnostics, "infra_timeout_rate", aggregateRate);
+    setRate(diagnostics, "infra_failure_rate", aggregateFailureRate);
+    if (markNewFormat) diagnostics["transport_failure_count"] = 0;
     runs.forEach((runEntry, index) => {
-      setRate(runEntry, index < runRates.length ? runRates[index] : 0.0);
+      setRate(runEntry, "infra_timeout_rate", index < runRates.length ? runRates[index] : 0.0);
+      setRate(runEntry, "infra_failure_rate", index < runFailureRates.length ? runFailureRates[index] : aggregateFailureRate);
+      if (markNewFormat) runEntry["transport_failure_count"] = 0;
     });
 
     const runPath = join(workspace, "bounded-final-run.json");
@@ -77,7 +87,7 @@ function buildWithInfraTimeoutRates(aggregateRate: unknown, runRates: readonly u
     writeFileSync(runPath, JSON.stringify(run), "utf8");
     writeFileSync(sourcesPath, JSON.stringify([{ ...source, file: runPath }]), "utf8");
 
-    const result = spawnSync("python", ["build_data.py", "--sources", sourcesPath, "--out", outDir, "--iters", "1", "--allow-lineage-gaps"], {
+    const result = spawnSync("uv", ["run", "--project", join(REPO_ROOT, "cli"), "python", "build_data.py", "--sources", sourcesPath, "--out", outDir, "--iters", "1", "--allow-lineage-gaps"], {
       cwd: WEB_ROOT,
       encoding: "utf8",
     });
@@ -113,6 +123,25 @@ function expectDeranked({ detail, row }: { detail: JsonObject; row: JsonObject }
 }
 
 describe("agentic infrastructure timeout ranking gate", () => {
+  it("gates canonical aggregate and scored-run infrastructure failure rates", () => {
+    expectRanked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], 0.05, [0.05, 0.0]));
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], 0.06, [0.0, 0.0]));
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], 0.0, [0.06, 0.0]));
+  });
+
+  it("fails closed on malformed canonical infrastructure failure rates", () => {
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], "0.01", [0.0, 0.0]));
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], 0.0, [null, 0.0]));
+  });
+
+  it("retains timeout-only gating for older records without the canonical field", () => {
+    expectRanked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0]));
+  });
+
+  it("fails closed when a new-format record omits the canonical field", () => {
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], true));
+  });
+
   it("keeps zero-rate agentic rows ranked", () => {
     // Given a bounded-final row whose aggregate and scored runs have no infrastructure timeouts.
     expectRanked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0]));

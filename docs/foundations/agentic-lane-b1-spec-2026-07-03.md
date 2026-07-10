@@ -35,7 +35,7 @@ second runtime. Branch: `agentic-lane-b1` (worktree; the main checkout is runnin
 - WSL env: venv `<wsl-venv>`, data `APPWORLD_ROOT=<appworld-root>` (native ext4),
   pins `PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8`,
   `PATH="$HOME/.local/bin:$PATH"` (bwrap 0.9.0). Repo reachable at
-  `/mnt/c/Users/Michael/local-bench-wt-agentic` (this worktree) — the worker must run
+  `/mnt/c/path/to/local-bench-wt-agentic` (this worktree) — the worker must run
   from the SAME tree as the Windows side so code identity matches.
 - SCORED subset = 96 tasks (`task_pool.build_subset(Stage.SCORED, ...)`); task_ids come
   from the appworld package, so subset construction happens WSL-side (or is passed in).

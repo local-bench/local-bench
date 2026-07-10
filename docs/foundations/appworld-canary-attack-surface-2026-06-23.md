@@ -28,7 +28,7 @@ string surfaced is the single short truncated proof needed to demonstrate each l
 
 **Re-run command (reproduces the table below; deterministic — 31/24/0 across 3 runs):**
 ```bash
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source <wsl-venv>/bin/activate \
+wsl bash -lc 'cd /mnt/c/path/to/local-bench && source <wsl-venv>/bin/activate \
   && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && python cli/tools/appworld_canary_suite.py'
 ```
@@ -105,7 +105,7 @@ Proofs are truncated to ≤64 chars. (Full live output: re-run the suite.)
 | **L2** | experiment-outputs/logs | read **another task's** `logs/api_calls.jsonl` (call/eval trace) | `OTHER-TASK CALL TRACE: {"method":"get","url":"/supervisor/pro…` |
 | **L3** | experiment-outputs/logs | read **another task's** mutated `dbs/supervisor.jsonl` (post-state) | `OTHER-TASK DB STATE: ["INSERT INTO supervisors…` |
 | **P1** | process/env | `os.environ['APPWORLD_ROOT']` | `PATH/ENV LEAK: <appworld-root>` |
-| **P2** | process/env | `os.getcwd()` | `ABS-PATH LEAK: /mnt/c/Users/Michael/local-bench` |
+| **P2** | process/env | `os.getcwd()` | `ABS-PATH LEAK: /mnt/c/path/to/local-bench` |
 | **P3** | process/env | `/proc/self/environ` via `pathlib.read_text` | `PROC ENVIRON: SHELL=/bin/bash WSL_DISTRO…` |
 | **P4** | process/env | `/proc/self/cmdline` via `pathlib.read_text` | `CMD=python cli/tools/appworld_canary_suite.py` |
 | **P5** | process/env | full `os.environ` key dump | `ENV KEYS: SHELL\|WSL2_GUI_APPS_ENABLED\|…` |
@@ -121,7 +121,7 @@ Proofs are truncated to ≤64 chars. (Full live output: re-run the suite.)
 | **O1** | object-graph | `().__class__.__base__.__subclasses__()` reaches a concrete file/io **type** (`FileIO`) | `OBJ-GRAPH REACHES IO TYPE: FileIO,FileIOFolderMixin` |
 | **O5** | object-graph | traceback-frame walk: `except…__traceback__.tb_frame.f_globals` exposes `open,apis,requester,os` | `FRAME_GLOBALS=open,apis,requester,os` |
 | **M_breakpoint** | dangerous-modules | `breakpoint()` returns (no PYTHONBREAKPOINT guard) | `BP_RETURNED` |
-| **M_dunder_import** | dangerous-modules | `__import__('os').getcwd()` — builtin `__import__` **bypasses the import allow-list parser** | `ABS-PATH LEAK: DUNDER=/mnt/c/Users/Michael/local-bench` |
+| **M_dunder_import** | dangerous-modules | `__import__('os').getcwd()` — builtin `__import__` **bypasses the import allow-list parser** | `ABS-PATH LEAK: DUNDER=/mnt/c/path/to/local-bench` |
 | **F_os_stat** | fs/net-modules | `os.stat(answer.json)` (not blocked) — size/mtime oracle on gold files | `STAT_SIZE=72` |
 
 ### BLOCKED (24) — guard or exception denied the attempt

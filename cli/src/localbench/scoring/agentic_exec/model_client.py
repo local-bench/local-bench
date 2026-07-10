@@ -81,6 +81,10 @@ class ModelResponse:
     # Populated ONLY on client-degraded turns (finish_reason="error"): the transport/parse
     # cause (e.g. "http_status=404: ...", "URLError: refused") for per-turn diagnostics.
     error_detail: str | None = None
+    # True only when an HTTP/status/connection failure became the frozen recoverable empty turn.
+    transport_failure: bool = False
+    transport_failure_count: int = 0
+    transport_attempt_count: int = 0
     server_timings: JsonObject | None = None
 
 

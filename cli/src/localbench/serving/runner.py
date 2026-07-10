@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+import subprocess
 from pathlib import Path
 
 from localbench._types import JsonObject
@@ -26,8 +27,6 @@ from localbench.serving.agentic_support import (
     AgenticSetupError,
     agentic_chat_template_kwargs,
     configured_agentic_paths,
-    git_head,
-    repo_root,
 )
 from localbench.serving.bench import VllmAdapter, build_orchestrate_config
 from localbench.serving.fingerprint import resume_identity, server_fingerprint
@@ -47,7 +46,6 @@ from localbench.serving.readiness import verify_llama_cpp_readiness
 from localbench.serving.teardown import TeardownEvidence, teardown_owned_server
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslPreflightResult,
-    default_wsl_repo_path,
     preflight_wsl_agentic,
     wsl_sandbox_factory,
 )
@@ -67,6 +65,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     validate_capped_thinking_context(options, effective_profile)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
+    # Advanced --model-ref runs must prove the agentic setup before resolving/downloading
+    # the model. One-shot runs inject a freshly repeated post-download preflight here.
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(options, root)
     artifact = resolve_artifact(options, root)
     binary = server_bin(options)
     build = collect_build_identity(binary)
@@ -123,7 +124,6 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         parallel_slots=1,
         flash_attention=launch_config.flash_attn,
     )
-    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(options, root)
     launched: LaunchedServer | None = None
     teardown: TeardownEvidence | None = None
     try:
@@ -157,15 +157,13 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-            root_repo = repo_root()
-            repo_root_wsl = default_wsl_repo_path(root_repo)
             log_dir = root / "agentic" / "wsl-worker-logs"
             wsl_venv_python, appworld_root = configured_agentic_paths(
                 options.wsl_venv_python,
                 options.appworld_root,
             )
             agentic_sandbox_factory = wsl_sandbox_factory(
-                repo_root_wsl,
+                "",
                 wsl_venv_python,
                 appworld_root,
                 log_dir=log_dir,
@@ -229,17 +227,23 @@ def preflight_agentic_if_needed(
         options.wsl_venv_python,
         options.appworld_root,
     )
-    root_repo = repo_root()
     try:
         return preflight_wsl_agentic(
-            repo_root_wsl_path=default_wsl_repo_path(root_repo),
+            repo_root_wsl_path="",
             venv_python=wsl_venv_python,
             appworld_root=appworld_root,
             log_dir=root / "agentic" / "wsl-worker-logs",
-            expected_git_commit=git_head(root_repo),
+            expected_git_commit=None,
             max_items=options.max_items,
         )
-    except (SandboxError, OSError) as error:
+    except AgenticSetupError:
+        raise
+    except (
+        SandboxError,
+        OSError,
+        subprocess.TimeoutExpired,
+        IndexError,
+    ) as error:
         raise AgenticSetupError(detail=str(error)) from error
 
 

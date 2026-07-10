@@ -10,16 +10,21 @@ from localbench._types import JsonObject
 AGENTIC_SETUP_MESSAGE: Final = (
     "The agentic axis needs the AppWorld harness, which is not yet publicly installable; "
     "a managed runtime is coming. Re-run with --static-only to run the other five axes now. "
-    "No model download or benchmark work has started."
 )
 
 
 @dataclass(slots=True)
 class AgenticSetupError(Exception):
     detail: str
+    model_download_started: bool = False
 
     def __str__(self) -> str:
-        return f"{AGENTIC_SETUP_MESSAGE} Setup detail: {self.detail}"
+        work_state = (
+            "Model assets may already have been downloaded; no benchmark work has started."
+            if self.model_download_started
+            else "No model download or benchmark work has started."
+        )
+        return f"{AGENTIC_SETUP_MESSAGE} {work_state} Setup detail: {self.detail}"
 
 
 def configured_agentic_paths(
@@ -50,7 +55,12 @@ def repo_root() -> Path:
     for parent in start.parents:
         if (parent / ".git").exists():
             return parent
-    return start.parents[4]
+    raise AgenticSetupError(
+        detail=(
+            "the installed worker has no source checkout; install the WSL worker package "
+            "in the managed environment"
+        ),
+    )
 
 
 def git_head(root: Path) -> str | None:
