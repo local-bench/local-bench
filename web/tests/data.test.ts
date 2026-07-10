@@ -172,28 +172,38 @@ describe("static data access", () => {
 
     // The entity merged with the ranked bounded-final-v2 QAT run (model → variants): it is
     // represented by that ranked run; the v1 capped-thinking anchor keeps its agentic as an
-    // unranked diagnostic, while the seven ladder runs keep their quarantined agentic.
+    // unranked diagnostic, while the legacy ladder runs and bounded-final Q2 collapse row
+    // keep their quarantined agentic.
     const RANKED_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2";
+    const Q2_RUNG_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2";
     const V1_ANCHOR_RUN_ID = "gemma-4-12b-it__localbench-run";
     expect(gemmaIndex).toMatchObject({
-      n_runs: 9,
+      n_runs: 10,
       ranked: true,
       score_status: "measured",
     });
     expect(gemmaIndex?.axes["agentic"]).toBeDefined();
-    expect(gemma.runs).toHaveLength(9);
+    expect(gemma.runs).toHaveLength(10);
     const rankedRun = gemma.runs.find((run) => run.run_id === RANKED_RUN_ID);
     expect(rankedRun?.ranked).toBe(true);
+    const q2Rung = gemma.runs.find((run) => run.run_id === Q2_RUNG_RUN_ID);
+    expect(q2Rung).toMatchObject({
+      quant_label: "QAT Q2_K_XL",
+      ranked: false,
+      score_status: "measured",
+    });
+    expect(q2Rung?.axes["agentic"]).toBeUndefined();
     const v1Anchor = gemma.runs.find((run) => run.run_id === V1_ANCHOR_RUN_ID);
     expect(v1Anchor?.ranked).toBe(false);
     expect(v1Anchor?.axes["agentic"]).toBeDefined();
     const ladderRuns = gemma.runs.filter((run) => run.run_id !== RANKED_RUN_ID && run.run_id !== V1_ANCHOR_RUN_ID);
-    expect(ladderRuns).toHaveLength(7);
+    expect(ladderRuns).toHaveLength(8);
     expect(ladderRuns.every((run) => run.axes["agentic"] === undefined)).toBe(true);
     expect(ladderRuns.every((run) => run.ranked === false)).toBe(true);
     expect(gemma.runs.map((run) => run.run_id)).toEqual(
       expect.arrayContaining([
         RANKED_RUN_ID,
+        Q2_RUNG_RUN_ID,
         V1_ANCHOR_RUN_ID,
         "gemma-4-12b-it__gemma-4-12b-it-Q8_0",
         "gemma-4-12b-it__gemma-4-12b-it-Q6_K",
