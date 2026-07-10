@@ -14,11 +14,12 @@ export const MIGRATION_0006 = readFileSync(new URL("../migrations/0006_zt0_found
 export const MIGRATION_0007 = readFileSync(new URL("../migrations/0007_feedback.sql", import.meta.url), "utf-8");
 export const MIGRATION_0008 = readFileSync(new URL("../migrations/0008_zt1_zero_touch.sql", import.meta.url), "utf-8");
 export const MIGRATION_0009 = readFileSync(new URL("../migrations/0009_pending_verification_queue.sql", import.meta.url), "utf-8");
+export const MIGRATION_0010 = readFileSync(new URL("../migrations/0010_submission_admission_security.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const PROJECTION_SHA = "b".repeat(64);
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 export const SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
-export const RESULT_BUNDLE = resultBundle();
+export const RESULT_BUNDLE = resultBundle({ semanticFull: true });
 export const RESULT_BUNDLE_JSON = JSON.stringify(RESULT_BUNDLE);
 export const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
 
@@ -35,7 +36,7 @@ export type TestEnvOptions = {
   readonly migrations?: readonly string[];
 };
 
-export type IssuedEnvelope = { readonly ticket_id: string };
+export type IssuedEnvelope = { readonly ticket_id: string; readonly upload_capability: string };
 
 export type MigrationError = {
   readonly message: string;
@@ -54,7 +55,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009]) {
+  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010]) {
     await applyMigration(bindings.DB, migration);
   }
   return {
@@ -146,7 +147,7 @@ export function migrationContractV2WithoutTier(): string {
     "  model_identity_digest, model_display_name, lane_id, tier, validator_version, validator_commit,\n",
     "  model_identity_digest, model_display_name, lane_id, validator_version, validator_commit,\n",
   );
-  return `${migration0002}\n${migration0004}\n${MIGRATION_0005}\n${MIGRATION_0009}`;
+  return `${migration0002}\n${migration0004}\n${MIGRATION_0005}\n${MIGRATION_0009}\n${MIGRATION_0010}`;
 }
 
 export function ticketRequest(rawBundleSha = RAW_BUNDLE_SHA, overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -174,17 +175,36 @@ export function jsonRequest(path: string, body: unknown, headers: Record<string,
   });
 }
 
-export type ResultBundleOptions = { readonly suiteManifestSha?: string; readonly suiteReleaseId?: string };
+export type ResultBundleOptions = { readonly semanticFull?: boolean; readonly suiteManifestSha?: string; readonly suiteReleaseId?: string };
 
 export function resultBundle(options: ResultBundleOptions = {}): Record<string, unknown> {
+  const fullBenchCounts = {
+    amo: 39,
+    appworld_c: 96,
+    bigcodebench_hard: 148,
+    ifbench: 294,
+    mmlu_pro: 400,
+    olymmath_hard: 100,
+    tc_json_v1: 330,
+  } as const;
+  const benchCounts: Readonly<Record<string, number>> = options.semanticFull === true ? fullBenchCounts : {};
+  const items = Object.entries(benchCounts).flatMap(([bench, count]) =>
+    Array.from({ length: count }, (_, index) => ({ bench, id: `${bench}-${index + 1}` })),
+  );
   return {
-    axis_status: {},
-    benches: {},
+    axis_status: {
+      axes: Object.fromEntries(
+        (options.semanticFull === true ? ["agentic", "coding", "instruction_following", "knowledge", "math", "tool_calling"] : [])
+          .map((axis) => [axis, { axis, reason: "ok", status: "measured" }]),
+      ),
+      schema_version: "localbench.axis-status.v1",
+    },
+    benches: Object.fromEntries(Object.entries(benchCounts).map(([bench, n]) => [bench, { n }])),
     conformance: {},
-    headline_complete: false,
-    items: [],
+    headline_complete: options.semanticFull === true,
     manifest: {
-      integrity: { publishable: true },
+      integrity: { blocking_reasons: [], missing_required_fields: [], publishable: true },
+      ...(options.semanticFull === true ? { model: { file_sha256: "a".repeat(64) } } : {}),
       provenance: { localbench_repo_commit: "440f540" },
       suite: {
         coverage_profile_id: "full-exec-6axis-v1",
@@ -192,7 +212,7 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
         suite_release_id: options.suiteReleaseId ?? SUITE_RELEASE_ID,
       },
     },
-    model: {},
+    model: options.semanticFull === true ? { file_sha256: "a".repeat(64) } : {},
     producer: "localbench-cli",
     run_finished_at: "2026-06-30T00:00:01Z",
     run_started_at: "2026-06-30T00:00:00Z",
@@ -208,8 +228,17 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
     },
     serving_mode: "external_openai_compatible_endpoint",
     tier: "standard",
-    totals: {},
+    ...(options.semanticFull === true ? {
+      suite_coverage: {
+        expected_items: 1311,
+        missing_items: [],
+        observed_items: 1311,
+        status: "complete",
+      },
+    } : {}),
+    totals: options.semanticFull === true ? { n_items: items.length } : {},
     warnings: [],
+    items,
   };
 }
 
@@ -271,6 +300,8 @@ function isIssuedEnvelope(value: unknown): value is IssuedEnvelope {
     typeof value === "object" &&
     value !== null &&
     "ticket_id" in value &&
-    typeof value.ticket_id === "string"
+    typeof value.ticket_id === "string" &&
+    "upload_capability" in value &&
+    typeof value.upload_capability === "string"
   );
 }

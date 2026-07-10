@@ -6,7 +6,7 @@ export type D1PreparedStatement = {
   all(): Promise<{ readonly results: readonly Record<string, unknown>[] }> | { readonly results: readonly Record<string, unknown>[] };
   bind(...values: readonly SqlValue[]): D1PreparedStatement;
   first(): Promise<Record<string, unknown> | null> | Record<string, unknown> | null;
-  run(): Promise<{ readonly success: boolean }> | { readonly success: boolean };
+  run(): Promise<{ readonly success: boolean; readonly meta?: { readonly changes?: number } }> | { readonly success: boolean; readonly meta?: { readonly changes?: number } };
 };
 
 export type D1DatabaseBinding = {
@@ -67,6 +67,7 @@ export type SubmissionEnvelope = {
   readonly submitter_display_name?: string;
   readonly submitter_id: string;
   readonly ticket_id: string;
+  readonly upload_capability: string;
 };
 
 export const RESULT_BUNDLE_SCHEMA_VERSION = "localbench.result_bundle.v1";
@@ -94,6 +95,8 @@ const PopSchema = z.object({
   signature: Ed25519SignatureSchema,
   timestamp: z.string().min(1),
 });
+const CatalogSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
+const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
 
 const OneShotArtifactSchema = z.object({
   filename: z.string().min(1),
@@ -122,7 +125,7 @@ const OneShotIdentityEnvelopeSchema = z
 export const TicketRequestSchema = z.object({
   accepted_suite_terms: z.literal(true),
   bundle_sha256: Sha256Schema,
-  declared_model_slug: z.string().min(1).max(200).optional(),
+  declared_model_slug: CatalogSlugSchema.optional(),
   expected_suite_manifest_sha256: Sha256Schema.nullable().optional(),
   expected_suite_release_id: z.string().min(1).nullable().optional(),
   max_upload_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
@@ -135,6 +138,7 @@ export const TicketRequestSchema = z.object({
 export const UploadTargetRequestSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
   ticket_id: z.string().min(1),
+  upload_capability: UploadCapabilitySchema,
 });
 
 export const CompleteRequestSchema = z.object({
@@ -289,6 +293,7 @@ export const SubmissionRowSchema = z.object({
   suite_release_id: z.string().nullable(),
   ticket_id: z.string().nullable(),
   uploaded_at: z.string().nullable(),
+  upload_capability_sha256: Sha256Schema.nullable().optional().default(null),
 });
 
 export type TicketRequest = z.infer<typeof TicketRequestSchema>;

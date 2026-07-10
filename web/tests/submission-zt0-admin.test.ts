@@ -172,8 +172,16 @@ describe("ZT-0 admin operations", () => {
       status: "accepted",
       uploadedAt: "2000-01-01T00:00:00Z",
     });
+    await insertSubmission(env, {
+      id: "pending-old",
+      rawKey: "submissions/raw/pending-old.json",
+      rawSha: `${"4".repeat(64)}`,
+      status: "pending_verification",
+      uploadedAt: "2000-01-01T00:00:00Z",
+    });
     await env.SUBMISSIONS.put("submissions/raw/rejected-old.json", "raw rejected");
     await env.SUBMISSIONS.put("submissions/raw/accepted-old.json", "raw accepted");
+    await env.SUBMISSIONS.put("submissions/raw/pending-old.json", "raw pending");
     await env.SUBMISSIONS.put("projections/accepted-old/projection.json", "projection");
 
     // When: GC is first dry-run and then applied.
@@ -187,13 +195,16 @@ describe("ZT-0 admin operations", () => {
       accepted_raw_deleted: { count: 1, submission_ids: ["accepted-old"] },
       expired_tickets: { count: 1, submission_ids: ["ticket-old"] },
       rejected_raw_deleted: { count: 1, submission_ids: ["rejected-old"] },
+      stale_pending_expired: { count: 1, submission_ids: ["pending-old"] },
     });
     expect(applied.status).toBe(200);
     await expectSubmissionRow(env, "ticket-old", { status: "expired" });
     await expectSubmissionRow(env, "rejected-old", { raw_bundle_r2_key: null, status: "rejected" });
     await expectSubmissionRow(env, "accepted-old", { raw_bundle_r2_key: null, status: "accepted" });
+    await expectSubmissionRow(env, "pending-old", { raw_bundle_r2_key: null, status: "expired" });
     expect(await env.SUBMISSIONS.get("submissions/raw/rejected-old.json")).toBeNull();
     expect(await env.SUBMISSIONS.get("submissions/raw/accepted-old.json")).toBeNull();
+    expect(await env.SUBMISSIONS.get("submissions/raw/pending-old.json")).toBeNull();
     expect(await env.SUBMISSIONS.get("projections/accepted-old/projection.json")).not.toBeNull();
     await expectTransition(env, "ticket-old", { actor: "gc", from_status: "ticketed", to_status: "expired" });
     await expectTransition(env, "accepted-old", { actor: "gc", from_status: "accepted", to_status: "accepted" });

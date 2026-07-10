@@ -38,6 +38,7 @@ describe("submission contract v2 upload and complete routes", () => {
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         ticket_id: envelope.ticket_id,
+        upload_capability: envelope.upload_capability,
       }),
     });
     const completeResponse = await completeSubmission({
@@ -103,9 +104,7 @@ describe("submission contract v2 upload and complete routes", () => {
     // labeled self-reported at rescore and rows only publish after manual admin acceptance.)
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
-    const bundle = signedResultBundle(key.publicKeyHex, {
-      items: [{ bench: "appworld_c", id: "dynamic-1" }],
-    });
+    const bundle = signedResultBundle(key);
     const bundleJson = JSON.stringify(bundle);
     const bundleSha = sha256Hex(bundleJson);
     const ticket = await issueTicket({
@@ -140,7 +139,7 @@ describe("submission contract v2 upload and complete routes", () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const ticketKey = testKeyPair();
     const bundleKey = testKeyPair();
-    const bundleJson = JSON.stringify(signedResultBundle(bundleKey.publicKeyHex));
+    const bundleJson = JSON.stringify(signedResultBundle(bundleKey));
     const bundleSha = sha256Hex(bundleJson);
     const ticket = await issueTicket({
       env,
@@ -166,6 +165,35 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).toMatchObject({ code: "key_mismatch" });
   });
 
+  it("cryptographically rejects a bundle whose signed payload was tampered", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+    const bundle = signedResultBundle(key);
+    bundle["run_finished_at"] = "2026-07-01T00:00:00Z";
+    const bundleJson = JSON.stringify(bundle);
+    const bundleSha = sha256Hex(bundleJson);
+    const ticket = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(bundleSha, key), {
+        "CF-Connecting-IP": TEST_IP,
+      }),
+    });
+    const envelope = await ticket.json();
+    await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
+
+    const response = await completeSubmission({
+      env,
+      params: { submissionId: envelope.ticket_id },
+      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        raw_bundle_sha256: bundleSha,
+        size_bytes: bundleJson.length,
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "bundle_signature_invalid" });
+  });
+
   it("does not return another row for a cross-id complete probe", async () => {
     // Given: one raw bundle is already pending under its real submission id.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
@@ -189,13 +217,13 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).not.toMatchObject({ submission_id: envelope.ticket_id });
   });
 
-  it("sets duplicate_of for the second key that submits the same canonical payload", async () => {
+  it("rejects a second pending admission for the same exact GGUF identity", async () => {
     // Given: two signed bundles differ only by their top-level signature public key.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const firstKey = testKeyPair();
     const secondKey = testKeyPair();
-    const firstJson = JSON.stringify(signedResultBundle(firstKey.publicKeyHex));
-    const secondJson = JSON.stringify(signedResultBundle(secondKey.publicKeyHex));
+    const firstJson = JSON.stringify(signedResultBundle(firstKey));
+    const secondJson = JSON.stringify(signedResultBundle(secondKey));
     const firstSha = sha256Hex(firstJson);
     const secondSha = sha256Hex(secondJson);
     const firstTicket = await issueTicket({
@@ -233,16 +261,77 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    // Then: the second row proceeds but is marked as a duplicate of the first.
-    expect(secondResponse.status).toBe(200);
+    // Then: exact GGUF identity dedupe refuses a second pending row.
+    expect(secondResponse.status).toBe(409);
     expect(await secondResponse.json()).toMatchObject({
-      duplicate_of: firstEnvelope.ticket_id,
-      status: "pending_verification",
-      submission_id: secondEnvelope.ticket_id,
+      code: "model_already_pending",
     });
     const row = await env.DB.prepare("select duplicate_of from submissions where submission_id = ?")
       .bind(secondEnvelope.ticket_id)
       .first();
-    expect(row).toMatchObject({ duplicate_of: firstEnvelope.ticket_id });
+    expect(row).toMatchObject({ duplicate_of: null });
+  }, 15_000);
+
+  it("enforces the per-key pending cap atomically at finalization after tickets are pre-minted", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+    const pending: Array<{ bundleJson: string; bundleSha: string; ticketId: string }> = [];
+    for (let index = 0; index < 6; index += 1) {
+      const modelSha = index.toString(16).padStart(64, "0");
+      const bundleJson = JSON.stringify(signedResultBundle(key, {}, modelSha));
+      const bundleSha = sha256Hex(bundleJson);
+      const ticket = await issueTicket({
+        env,
+        request: jsonRequest("/api/submissions/tickets", communityTicketBody(bundleSha, key), {
+          "CF-Connecting-IP": TEST_IP,
+        }),
+      });
+      const envelope = await ticket.json();
+      await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
+      pending.push({ bundleJson, bundleSha, ticketId: envelope.ticket_id });
+    }
+
+    const responses: Response[] = [];
+    for (const item of pending) {
+      responses.push(await completeSubmission({
+        env,
+        params: { submissionId: item.ticketId },
+        request: jsonRequest(`/api/submissions/${item.ticketId}/complete`, {
+          raw_bundle_sha256: item.bundleSha,
+          size_bytes: item.bundleJson.length,
+        }),
+      }));
+    }
+
+    expect(responses.slice(0, 5).every((response) => response.status === 200)).toBe(true);
+    expect(responses[5]?.status).toBe(429);
+    expect(await responses[5]?.json()).toMatchObject({ code: "pending_review_limit" });
+  }, 30_000);
+
+  it("enforces the global pending admission cap at finalization", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    for (let index = 0; index < 20; index += 1) {
+      const sha = index.toString(16).padStart(64, "0");
+      await env.DB.prepare(
+        `insert into submissions (
+          submission_id, origin, submitter_id, ticket_id, status, raw_bundle_sha256,
+          idempotency_key, publish_state, uploaded_at, model_identity_digest
+        ) values (?, 'community', ?, ?, 'pending_verification', ?, ?, 'hidden', datetime('now'), ?)`,
+      ).bind(`pending_${index}`, `public_key:${sha}`, `pending_${index}`, sha, sha, sha).run();
+    }
+    const envelope = await issueEnvelope(env);
+    await env.SUBMISSIONS.put(rawBundleKey(RAW_BUNDLE_SHA), RESULT_BUNDLE_JSON);
+
+    const response = await completeSubmission({
+      env,
+      params: { submissionId: envelope.ticket_id },
+      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
+      }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ code: "global_pending_limit" });
   }, 15_000);
 });

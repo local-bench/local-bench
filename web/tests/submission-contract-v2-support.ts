@@ -1,6 +1,7 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv } from "../functions/_lib/submission-contracts";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
+import { canonicalJson } from "../functions/_lib/submission-canonical";
 import { RAW_BUNDLE_SHA, resultBundle } from "./submission-test-support";
 
 export const FIVE_AXIS_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -38,18 +39,30 @@ export function communityTicketBody(
   return { ...base, ...rest };
 }
 
-export function signedResultBundle(publicKey: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    ...resultBundle({
+export function signedResultBundle(
+  key: TestKeyPair,
+  overrides: Record<string, unknown> = {},
+  modelSha256 = "a".repeat(64),
+): Record<string, unknown> {
+    const base = resultBundle({
+      semanticFull: true,
       suiteManifestSha: FIVE_AXIS_SUITE_MANIFEST_SHA,
       suiteReleaseId: FIVE_AXIS_SUITE_RELEASE_ID,
-    }),
+    });
+  const manifest = base["manifest"] as Record<string, unknown>;
+  const payload = {
+    ...base,
+    manifest: { ...manifest, model: { file_sha256: modelSha256 } },
+    model: { file_sha256: modelSha256 },
+    ...overrides,
+  };
+  return {
+    ...payload,
     signature: {
       algorithm: "Ed25519",
-      public_key: publicKey,
-      signature: "1".repeat(128),
+      public_key: key.publicKeyHex,
+      signature: key.signMessage(canonicalJson(payload)),
     },
-    ...overrides,
   };
 }
 

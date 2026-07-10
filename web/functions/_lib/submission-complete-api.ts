@@ -9,6 +9,7 @@ import { canonicalPayloadSha256 } from "./submission-canonical";
 import { jsonResponse, logSubmissionError, routeRow, suiteMismatches } from "./submission-api-support";
 import { isRecord, isSyntaxError, parseJson, reject, ticketExpired } from "./submission-api-common";
 import { readRawBundle, rawBundleMetadata } from "./submission-storage";
+import { validatePendingAdmission } from "./submission-semantic";
 import { markPendingVerification, publicSubmission, rowByPayloadSha, rowBySubmissionId } from "./submission-store";
 
 export async function handleFinalizeSubmission(
@@ -38,6 +39,9 @@ export async function handleFinalizeSubmission(
   }
   if (row.value.status === "pending_verification") {
     return jsonResponse(200, publicSubmission(row.value));
+  }
+  if (row.value.status !== "ticketed" || row.value.uploaded_at !== null) {
+    return jsonResponse(409, { code: "submission_not_ticketed", error: "submission ticket is already consumed" });
   }
   if (ticketExpired(row.value.status, row.value.expires_at)) {
     return reject(410, "ticket_expired", row.value.origin, "POST /api/submissions/:submissionId/complete", {
@@ -78,19 +82,34 @@ export async function handleFinalizeSubmission(
         error: "uploaded bundle public key does not match submission ticket",
       }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
     }
+    const semantic = await validatePendingAdmission(row.value, rawBundle, bundle.data);
+    if (semantic.kind === "error") {
+      return reject(400, semantic.code, row.value.origin, "POST /api/submissions/:submissionId/complete", {
+        code: semantic.code,
+        error: semantic.error,
+      }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
+    }
     const payloadSha256 = await canonicalPayloadSha256(rawBundle);
     const duplicate = await rowByPayloadSha(env, payloadSha256);
     const duplicateOf = duplicate !== null && duplicate.submission_id !== row.value.submission_id
       ? duplicate.submission_id
       : null;
-    await markPendingVerification(
+    const admission = await markPendingVerification(
       env,
       row.value.submission_id,
       bundle.data,
       parsed.data.size_bytes ?? metadata.size ?? bundleRead.text.length,
       payloadSha256,
       duplicateOf,
+      semantic.modelFileSha256,
     );
+    if (admission.kind === "error") {
+      const status = admission.code === "model_already_pending" || admission.code === "submission_not_ticketed" ? 409 : 429;
+      return reject(status, admission.code, row.value.origin, "POST /api/submissions/:submissionId/complete", {
+        code: admission.code,
+        error: admissionError(admission.code),
+      }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
+    }
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     return jsonResponse(200, publicSubmission(updated ?? row.value));
   } catch (error) {
@@ -101,6 +120,15 @@ export async function handleFinalizeSubmission(
       submission_id: row.value.submission_id,
     });
     return jsonResponse(500, { code: "submission_finalize_failed", error: "submission finalization failed" });
+  }
+}
+
+function admissionError(code: string): string {
+  switch (code) {
+    case "pending_review_limit": return "submitter pending-review admission limit reached";
+    case "global_pending_limit": return "global pending-review admission limit reached";
+    case "model_already_pending": return "this exact GGUF identity is already pending or accepted";
+    default: return "submission ticket is already consumed";
   }
 }
 

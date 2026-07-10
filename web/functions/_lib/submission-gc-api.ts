@@ -32,10 +32,12 @@ export async function handleGcSubmissions(request: Request, env: SubmissionApiEn
   const plan = {
     acceptedRaw: await acceptedRawRows(env),
     expiredTickets: await expiredTicketRows(env),
+    stalePending: await stalePendingRows(env),
     rejectedRaw: await rejectedRawRows(env),
   };
   if (parsed.data.apply) {
     await applyExpiredTickets(env, plan.expiredTickets);
+    await applyStalePending(env, plan.stalePending);
     await applyRawDeletes(env, plan.rejectedRaw, "gc: rejected raw bundle deleted");
     await applyRawDeletes(env, plan.acceptedRaw, "gc: accepted raw bundle retention elapsed");
   }
@@ -43,8 +45,22 @@ export async function handleGcSubmissions(request: Request, env: SubmissionApiEn
     accepted_raw_deleted: bucket(plan.acceptedRaw),
     apply: parsed.data.apply,
     expired_tickets: bucket(plan.expiredTickets),
+    stale_pending_expired: bucket(plan.stalePending),
     rejected_raw_deleted: bucket(plan.rejectedRaw),
   });
+}
+
+async function stalePendingRows(env: SubmissionApiEnv): Promise<readonly GcRow[]> {
+  return gcRows(
+    await env.DB.prepare(
+      `select submission_id, status, publish_state, raw_bundle_r2_key
+       from submissions
+       where status = 'pending_verification'
+         and uploaded_at is not null
+         and uploaded_at < datetime('now', '-14 days')
+       order by submission_id`,
+    ).all(),
+  );
 }
 
 async function requestJsonOrEmptyObject(request: Request): Promise<unknown> {
@@ -107,6 +123,25 @@ async function applyExpiredTickets(env: SubmissionApiEnv, rows: readonly GcRow[]
       fromStatus: row.status,
       publishState: "hidden",
       reason: "gc: ticket expired without upload",
+      submissionId: row.submission_id,
+      toStatus: "expired",
+    });
+  }
+}
+
+async function applyStalePending(env: SubmissionApiEnv, rows: readonly GcRow[]): Promise<void> {
+  for (const row of rows) {
+    if (row.raw_bundle_r2_key !== null) await env.SUBMISSIONS.delete(row.raw_bundle_r2_key);
+    await env.DB.prepare(
+      "update submissions set status = 'expired', status_reason = ?, publish_state = 'hidden', raw_bundle_r2_key = null where submission_id = ? and status = 'pending_verification'",
+    )
+      .bind("pending verification expired after 14 days", row.submission_id)
+      .run();
+    await recordSubmissionTransition(env, {
+      actor: "gc",
+      fromStatus: row.status,
+      publishState: "hidden",
+      reason: "gc: stale pending submission expired and raw bundle deleted",
       submissionId: row.submission_id,
       toStatus: "expired",
     });

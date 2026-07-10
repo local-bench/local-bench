@@ -168,6 +168,7 @@ function adminTicketRejection(body: TicketRequest, origin: SubmissionOrigin): Re
 
 function ticketEnvelope(request: TicketRequest, origin: SubmissionOrigin): SubmissionEnvelope {
   const ticketId = `ticket_${crypto.randomUUID().replaceAll("-", "")}`;
+  const uploadCapability = `upload_${crypto.randomUUID().replaceAll("-", "")}`;
   const expiresAt = new Date(Date.now() + TICKET_TTL_MILLISECONDS).toISOString();
   const envelope = {
     accepted_suite_terms: true,
@@ -187,6 +188,7 @@ function ticketEnvelope(request: TicketRequest, origin: SubmissionOrigin): Submi
     schema_version: SUBMISSION_ENVELOPE_SCHEMA_VERSION,
     submitter_id: request.submitter_id ?? `public_key:${request.public_key ?? ""}`,
     ticket_id: ticketId,
+    upload_capability: uploadCapability,
   } satisfies SubmissionEnvelope;
   return {
     ...envelope,

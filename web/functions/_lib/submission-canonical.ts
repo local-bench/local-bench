@@ -4,7 +4,11 @@ const EXCLUDED_TOP_LEVEL_FIELDS = new Set<string>(PAYLOAD_HASH_EXCLUDED_TOP_LEVE
 type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
 export async function canonicalPayloadSha256(value: unknown): Promise<string> {
-  return sha256Hex(canonicalJson(stripSubmissionMetadata(value)));
+  return sha256Hex(canonicalPayloadJson(value));
+}
+
+export function canonicalPayloadJson(value: unknown): string {
+  return canonicalJson(stripSubmissionMetadata(value));
 }
 
 export function canonicalJson(value: unknown): string {

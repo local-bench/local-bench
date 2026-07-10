@@ -18,6 +18,7 @@ import {
 import {
   applyStatusUpdate,
   listSubmissionsByStatus,
+  pendingVerificationPosition,
   publicTransitionHistory,
   publicSubmission,
   rowBySubmissionId,
@@ -54,7 +55,12 @@ export async function handleAdminListSubmissions(request: Request, env: Submissi
 }
 
 function adminSubmission(row: SubmissionRow): Record<string, string | number | null> {
-  return { ...publicSubmission(row), created_at: d1TimestampToIso(row.created_at) };
+  return {
+    ...publicSubmission(row),
+    created_at: d1TimestampToIso(row.created_at),
+    raw_bundle_sha256: row.raw_bundle_sha256,
+    submitter_display_name: row.submitter_display_name,
+  };
 }
 
 function d1TimestampToIso(value: string): string {
@@ -82,6 +88,16 @@ export async function handleApplyVerificationUpdate(
   }
   if (row.value.raw_bundle_sha256 !== parsed.data.raw_bundle_sha256) {
     return jsonResponse(409, { code: "bundle_sha_mismatch", error: "status update does not match submission bundle" });
+  }
+  const override = new URL(request.url).searchParams.get("override") === "true";
+  const position = await pendingVerificationPosition(env, row.value.submission_id);
+  if (!override && (position === null || position.position !== 1 || position.position > 5)) {
+    return jsonResponse(409, {
+      code: "fifo_policy_violation",
+      error: "verification must process the oldest ticket inside the five-item cohort; retry with explicit override authority",
+      position: position?.position ?? null,
+      cohort_cap: 5,
+    });
   }
   try {
     await applyStatusUpdate(env, row.value.submission_id, parsed.data);

@@ -20,27 +20,29 @@ describe("pending verification queue", () => {
           `ticket_${suffix}`,
           suffix.repeat(32),
           suffix.repeat(32),
-          `model-${suffix}`,
+          index === 0 ? "Vendor / Fake" : `model-${suffix}`,
           `2026-07-10 00:00:${suffix}`,
           `2026-07-10 00:00:${suffix}`,
         )
         .run();
     }
 
-    const response = await onRequestGet({ env });
+    const response = await onRequestGet({ env, request: new Request("https://local-bench.ai/api/submissions/queue") });
     const payload = parseQueue(await response.json());
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=0, s-maxage=60");
     expect(payload.cohort_cap).toBe(5);
     expect(payload.total_pending).toBe(7);
     expect(payload.submissions.map((ticket) => ticket.position)).toEqual([1, 2, 3, 4, 5]);
     expect(payload.submissions.map((ticket) => ticket.declared_model_slug)).toEqual([
-      "model-00",
+      null,
       "model-01",
       "model-02",
       "model-03",
       "model-04",
     ]);
+    expect(payload.submissions[0]).not.toHaveProperty("submitter_display_name");
   });
 
   it("rejects malformed client payloads instead of rendering invented queue data", () => {

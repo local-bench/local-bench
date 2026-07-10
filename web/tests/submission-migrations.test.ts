@@ -4,6 +4,10 @@ import {
   MIGRATION_0002,
   MIGRATION_0003,
   MIGRATION_0004,
+  MIGRATION_0005,
+  MIGRATION_0006,
+  MIGRATION_0007,
+  MIGRATION_0008,
   MIGRATION_0009,
   applyMigration,
   columnCount,
@@ -51,4 +55,42 @@ describe("submission D1 migrations", () => {
 
     expect(await columnCount(env.DB, "submissions", "declared_model_slug")).toBe(1);
   });
+
+  it("applies the complete 0002 through 0009 sequence once under Wrangler ledger replay semantics", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
+    const migrations = [
+      ["0002_submission_slice_index.sql", MIGRATION_0002],
+      ["0003_submission_reconcile.sql", MIGRATION_0003],
+      ["0004_submission_contract_v2.sql", MIGRATION_0004],
+      ["0005_submitter_display_name.sql", MIGRATION_0005],
+      ["0006_zt0_foundation.sql", MIGRATION_0006],
+      ["0007_feedback.sql", MIGRATION_0007],
+      ["0008_zt1_zero_touch.sql", MIGRATION_0008],
+      ["0009_pending_verification_queue.sql", MIGRATION_0009],
+    ] as const;
+
+    await applyWithWranglerLedger(env.DB, migrations);
+    await applyWithWranglerLedger(env.DB, migrations);
+
+    expect(await columnCount(env.DB, "submissions", "declared_model_slug")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "submitter_display_name")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "zt1_decision")).toBe(1);
+    const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
+    expect(applied?.["count"]).toBe(8);
+  }, 15_000);
 });
+
+async function applyWithWranglerLedger(
+  db: import("../functions/_lib/submission-contracts").D1DatabaseBinding,
+  migrations: readonly (readonly [string, string])[],
+): Promise<void> {
+  await db.prepare(
+    "create table if not exists d1_migrations (id integer primary key autoincrement, name text not null unique, applied_at text not null default (datetime('now')))",
+  ).run();
+  for (const [name, sql] of migrations) {
+    const recorded = await db.prepare("select name from d1_migrations where name = ?").bind(name).first();
+    if (recorded !== null) continue;
+    await applyMigration(db, sql);
+    await db.prepare("insert into d1_migrations (name) values (?)").bind(name).run();
+  }
+}

@@ -7,6 +7,7 @@ import {
   MIGRATION_0004,
   MIGRATION_0005,
   MIGRATION_0009,
+  MIGRATION_0010,
   PROJECTION_SHA,
   RAW_BUNDLE_SHA,
   applyMigration,
@@ -22,7 +23,7 @@ const MIGRATION_0006 = readFileSync(new URL("../migrations/0006_zt0_foundation.s
 
 export async function createZt0Env(): Promise<SubmissionApiEnv> {
   const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
-  for (const migration of [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009]) {
+  for (const migration of [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010]) {
     await applyMigration(env.DB, migration);
   }
   return env;

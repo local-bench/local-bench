@@ -46,7 +46,6 @@ describe("submission finalize route contracts", () => {
     const firstBody = await first.json();
     const secondBody = await second.json();
     expect(firstBody).toMatchObject({
-      raw_bundle_sha256: RAW_BUNDLE_SHA,
       status: "pending_verification",
       submission_id: envelope.ticket_id,
     });
@@ -116,7 +115,6 @@ describe("submission finalize route contracts", () => {
     // Then: the legacy/null expectation path preserves the existing successful behavior.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      raw_bundle_sha256: RAW_BUNDLE_SHA,
       status: "pending_verification",
       submission_id: envelope.ticket_id,
     });
@@ -150,11 +148,11 @@ describe("submission finalize route contracts", () => {
       duplicate_of: null,
       expires_at: null,
       publish_state: "hidden",
-      raw_bundle_sha256: RAW_BUNDLE_SHA,
       status: "pending_verification",
       submission_id: envelope.ticket_id,
     });
     expect(body).not.toHaveProperty("raw_bundle_r2_key");
+    expect(body).not.toHaveProperty("raw_bundle_sha256");
     expect(body).not.toHaveProperty("r2_key");
     expect(body).not.toHaveProperty("bundle_sha256");
     expect(body).not.toHaveProperty("created_at");

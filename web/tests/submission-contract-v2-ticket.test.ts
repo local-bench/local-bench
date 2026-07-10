@@ -77,6 +77,21 @@ describe("submission contract v2 ticket route", () => {
     expect(await response.json()).toMatchObject({ code: "invalid_ticket_request" });
   });
 
+  it("rejects declared model labels that are not catalog slugs", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const response = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", ticketRequest(RAW_BUNDLE_SHA, {
+        declared_model_slug: "Vendor / Fake Model",
+      }), {
+        "x-localbench-admin-secret": ADMIN_SECRET,
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "invalid_ticket_request" });
+  });
+
   it("rejects a community ticket with missing proof of possession", async () => {
     // Given: a public-key submitter omits the required PoP object.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
@@ -255,6 +270,7 @@ describe("submission contract v2 ticket route", () => {
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         ticket_id: rotatedBody.ticket_id,
+        upload_capability: rotatedBody.upload_capability,
       }),
     });
     expect(rotatedUpload.status).toBe(200);
@@ -263,6 +279,7 @@ describe("submission contract v2 ticket route", () => {
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         ticket_id: firstBody.ticket_id,
+        upload_capability: firstBody.upload_capability,
       }),
     });
     expect(staleUpload.status).toBe(404);

@@ -3,11 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { handleFinalizeSubmission } from "../functions/_lib/submission-api";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv } from "../functions/_lib/submission-contracts";
+import { resultBundle as fullResultBundle } from "./submission-test-support";
 
 const TICKET_ID = "ticket_unit_finalize";
-const SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
-const SUITE_MANIFEST_SHA = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7";
-const RESULT_BUNDLE_JSON = JSON.stringify(resultBundle());
+const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
+const SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
+const RESULT_BUNDLE_JSON = JSON.stringify(fullResultBundle({ semanticFull: true }));
 const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
 
 describe("handleFinalizeSubmission", () => {

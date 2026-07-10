@@ -45,7 +45,7 @@ export async function readRawBundle(env: SubmissionApiEnv, rawBundleSha256: stri
 }
 
 export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: string): Promise<
-  | { readonly kind: "ok"; readonly bucketName: string; readonly r2Key: string; readonly uploadUrl: string }
+  | { readonly kind: "ok"; readonly bucketName: string; readonly r2Key: string; readonly uploadHeaders: Readonly<Record<string, string>>; readonly uploadUrl: string }
   | { readonly kind: "disabled" }
 > {
   const signing = r2SigningConfig(env);
@@ -53,8 +53,12 @@ export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: st
     return { kind: "disabled" };
   }
   const r2Key = rawBundleKey(rawBundleSha256);
-  const uploadUrl = await signedR2Url(signing, r2Key);
-  return { bucketName: signing.bucketName, kind: "ok", r2Key, uploadUrl };
+  const uploadHeaders = {
+    "if-none-match": "*",
+    "x-amz-checksum-sha256": hexSha256ToBase64(rawBundleSha256),
+  };
+  const uploadUrl = await signedR2Url(signing, r2Key, uploadHeaders);
+  return { bucketName: signing.bucketName, kind: "ok", r2Key, uploadHeaders, uploadUrl };
 }
 
 export function rawBundleKey(rawBundleSha256: string): string {
@@ -77,12 +81,22 @@ function r2SigningConfig(env: SubmissionApiEnv): R2SigningConfig | null {
   };
 }
 
-async function signedR2Url(config: R2SigningConfig, key: string): Promise<string> {
+async function signedR2Url(config: R2SigningConfig, key: string, headers: Readonly<Record<string, string>>): Promise<string> {
   const r2 = new AwsClient({ accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey });
   const url = new URL(`https://${config.accountId}.r2.cloudflarestorage.com/${config.bucketName}/${key}`);
   url.searchParams.set("X-Amz-Expires", "3600");
-  const signed = await r2.sign(new Request(url, { method: "PUT" }), { aws: { signQuery: true } });
+  const signed = await r2.sign(new Request(url, { headers, method: "PUT" }), { aws: { signQuery: true } });
   return signed.url;
+}
+
+function hexSha256ToBase64(hex: string): string {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 async function objectBytes(object: { readonly arrayBuffer?: () => Promise<ArrayBuffer>; text(): Promise<string> }): Promise<Uint8Array> {
