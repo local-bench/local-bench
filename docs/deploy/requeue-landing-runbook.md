@@ -66,6 +66,14 @@ drift; they do **not** cryptographically authenticate that evidence and are not 
 boundary. The maintainer must establish the authenticity of the input run directory. The coding
 receipt and exact-GGUF checks do not extend that guarantee to non-coding evidence.
 
+The public queue is intentionally an intake boundary, not a semantic validator. Worker admission
+accepts only a size-capped blob whose R2 bytes match its declared content address and whose ticket
+has a valid Ed25519 proof of possession; it does not decode, parse, canonicalize, or trust bundle
+claims. Semantic truth - schema, suite coverage, model identity, result integrity, and any evidence
+needed for acceptance - is established here on maintainer hardware in the `land-run` / verification
+flow, consistent with the U1 trust boundary. Invalid pending blobs must be rejected through the
+authenticated verification endpoint below.
+
 ```powershell
 # Preflight all scorer, exact-GGUF, coding, agentic, curation, board, and web-data gates.
 # This writes nothing.
@@ -156,10 +164,11 @@ is always the board writer's 64-hex SHA-256, never a Git blob object ID.
 
 ## 5. Notes / gotchas
 - One Docker verifier pass at a time (single WSL rootless daemon). ~10-15 min/model.
-- The server advertises and enforces a 12 MiB raw-JSON submission cap so finalize stays below the
-  Workers isolate memory limit. The shipped 0.3.1 CLI still has a separate 64 MiB archive-member
-  extraction constant; the ticket's lower server cap is authoritative, and oversized uploads get
-  `413 {"code":"bundle_too_large",...}`. Existing rung-1 submission bundles are below 10 MiB.
+- The server advertises and enforces a 67,108,864-byte (64 MiB) raw-bundle cap; oversized uploads
+  get `413 {"code":"bundle_too_large",...}`. Measured real bundles are 20,219,268 bytes for the
+  5-axis anchor, 27,858,532 bytes for 6-axis Q4, and 44,417,038 bytes for rung-1 Q2. The cap covers
+  the largest measured bundle with the policy's ~44% headroom target. Finalize streams R2 chunks
+  directly into `crypto.DigestStream`, so admission peak memory is O(chunk), independent of the cap.
 - If a coding re-verify shows a pass count wildly different from a sane range, STOP — a harness/
   image drift is more likely than a real model regression; check the image sha + lb-verify revs.
 - The requeue rows use the CURRENT scorer, so no sha churn — they slot into the existing v2 board.

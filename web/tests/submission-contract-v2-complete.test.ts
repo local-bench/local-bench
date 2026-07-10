@@ -75,7 +75,7 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).toMatchObject({ code: "bundle_too_large" });
   });
 
-  it("rejects a zip or binary body as an invalid bundle after hash verification", async () => {
+  it("admits content-addressed binary bytes for maintainer-side semantic rejection", async () => {
     // Given: R2 contains non-JSON bytes at the content-addressed key.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const binary = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
@@ -93,9 +93,9 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    // Then: binary uploads do not get parsed or accepted as result bundles.
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ code: "invalid_result_bundle" });
+    // Then: the Worker does not parse the bytes; maintainer verification owns semantics.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "pending_verification" });
   });
 
   it("accepts community bundles containing dynamic benches with a community-origin row", async () => {
@@ -134,7 +134,7 @@ describe("submission contract v2 upload and complete routes", () => {
     });
   });
 
-  it("rejects key mismatch at complete", async () => {
+  it("does not require a bundle signature the shipped client does not produce", async () => {
     // Given: the ticket key differs from the signed bundle public key.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const ticketKey = testKeyPair();
@@ -150,7 +150,7 @@ describe("submission contract v2 upload and complete routes", () => {
     const envelope = await ticket.json();
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
-    // When: finalization checks the signature public key binding.
+    // When: finalization checks only the ticket-bound content address.
     const response = await completeSubmission({
       env,
       params: { submissionId: envelope.ticket_id },
@@ -160,12 +160,12 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    // Then: the ticket cannot be completed under a different key.
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ code: "key_mismatch" });
+    // Then: ticket-time proof of possession remains the only admission signature check.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "pending_verification" });
   });
 
-  it("cryptographically rejects a bundle whose signed payload was tampered", async () => {
+  it("defers bundle payload signature semantics to maintainer verification", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
     const bundle = signedResultBundle(key);
@@ -190,8 +190,8 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ code: "bundle_signature_invalid" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "pending_verification" });
   });
 
   it("does not return another row for a cross-id complete probe", async () => {
@@ -217,7 +217,7 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).not.toMatchObject({ submission_id: envelope.ticket_id });
   });
 
-  it("rejects a second pending admission for the same exact GGUF identity", async () => {
+  it("defers exact GGUF identity dedupe to maintainer verification", async () => {
     // Given: two signed bundles differ only by their top-level signature public key.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const firstKey = testKeyPair();
@@ -261,15 +261,13 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    // Then: exact GGUF identity dedupe refuses a second pending row.
-    expect(secondResponse.status).toBe(409);
-    expect(await secondResponse.json()).toMatchObject({
-      code: "model_already_pending",
-    });
-    const row = await env.DB.prepare("select duplicate_of from submissions where submission_id = ?")
+    // Then: both content-addressed blobs enter the capped queue without parsing model identity.
+    expect(secondResponse.status).toBe(200);
+    expect(await secondResponse.json()).toMatchObject({ status: "pending_verification" });
+    const row = await env.DB.prepare("select duplicate_of, model_identity_digest from submissions where submission_id = ?")
       .bind(secondEnvelope.ticket_id)
       .first();
-    expect(row).toMatchObject({ duplicate_of: null });
+    expect(row).toMatchObject({ duplicate_of: null, model_identity_digest: null });
   }, 15_000);
 
   it("enforces the per-key pending cap atomically at finalization after tickets are pre-minted", async () => {

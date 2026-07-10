@@ -3,7 +3,7 @@ import { isRecord, parseJson } from "./submission-api-common";
 import { canonicalJson, sha256Hex as canonicalSha256Hex } from "./submission-canonical";
 import { ResultBundleSchema, type ResultBundle, type SubmissionApiEnv, type SubmissionRow } from "./submission-contracts";
 import { verifyEd25519 } from "./submission-pop";
-import { readRawBundle } from "./submission-storage";
+import { rawBundleKey } from "./submission-storage";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -115,11 +115,13 @@ export async function zt1DecisionForAcceptedSubmission(
 }
 
 async function acceptedBundle(env: SubmissionApiEnv, rawBundleSha256: string): Promise<ResultBundle | null> {
-  const read = await readRawBundle(env, rawBundleSha256);
-  if (read.kind !== "ok") {
+  // This runs only after the authenticated maintainer verification update has accepted
+  // the row. Public admission/finalize never materializes or parses the raw bundle.
+  const object = await env.SUBMISSIONS.get(rawBundleKey(rawBundleSha256));
+  if (object === null) {
     return null;
   }
-  const parsed = parseJson(read.text);
+  const parsed = parseJson(await new Response(object.body).text());
   if (!isRecord(parsed)) {
     return null;
   }

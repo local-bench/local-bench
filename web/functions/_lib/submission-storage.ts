@@ -1,6 +1,6 @@
 import { AwsClient } from "aws4fetch";
 import {
-  MAX_BUNDLE_JSON_STRUCTURAL_TOKENS,
+  MAX_UPLOAD_BYTES,
   SUBMISSIONS_BUCKET_NAME,
   type SubmissionApiEnv,
 } from "./submission-contracts";
@@ -13,8 +13,8 @@ type R2SigningConfig = {
   readonly secretAccessKey: string;
 };
 
-export type RawBundleRead =
-  | { readonly kind: "ok"; readonly sizeBytes: number; readonly text: string }
+export type RawBundleVerification =
+  | { readonly kind: "ok"; readonly sizeBytes: number }
   | { readonly kind: "error"; readonly code: string; readonly error: string; readonly status: number };
 
 export type RawBundleMetadata =
@@ -36,33 +36,43 @@ export async function rawBundleMetadata(env: SubmissionApiEnv, rawBundleSha256: 
   return { kind: "ok", size: object.size ?? null };
 }
 
-export async function readRawBundle(env: SubmissionApiEnv, rawBundleSha256: string): Promise<RawBundleRead> {
-  const key = rawBundleKey(rawBundleSha256);
-  const hashObject = await env.SUBMISSIONS.get(key);
-  if (hashObject === null) {
+export async function verifyRawBundle(env: SubmissionApiEnv, rawBundleSha256: string): Promise<RawBundleVerification> {
+  const object = await env.SUBMISSIONS.get(rawBundleKey(rawBundleSha256));
+  if (object === null) {
     return { code: "raw_bundle_missing", error: "raw bundle is not present in R2", kind: "error", status: 404 };
   }
   const digest = sha256DigestStream();
-  const complexity = new JsonComplexityTransform();
+  const reader = object.body.getReader();
+  const writer = digest.getWriter();
+  let sizeBytes = 0;
   try {
-    await hashObject.body.pipeThrough(complexity.stream).pipeTo(digest);
-  } catch (error) {
-    if (error instanceof JsonComplexityError) {
-      await digest.digest.catch(() => undefined);
-      return { code: "invalid_result_bundle", error: error.message, kind: "error", status: 400 };
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      sizeBytes += chunk.value.byteLength;
+      if (sizeBytes > MAX_UPLOAD_BYTES) {
+        await reader.cancel("bundle_too_large").catch(() => undefined);
+        await writer.abort("bundle_too_large").catch(() => undefined);
+        await digest.digest.catch(() => undefined);
+        return {
+          code: "bundle_too_large",
+          error: "uploaded bundle exceeds the server upload limit",
+          kind: "error",
+          status: 413,
+        };
+      }
+      await writer.write(chunk.value);
     }
+    await writer.close();
+  } catch (error) {
+    await writer.abort(error).catch(() => undefined);
+    await digest.digest.catch(() => undefined);
     throw error;
   }
   if (digestHex(await digest.digest) !== rawBundleSha256) {
     return { code: "raw_bundle_sha_mismatch", error: "raw bundle bytes do not match raw_bundle_sha256", kind: "error", status: 400 };
   }
-  // The hash stream is consumed. A fresh content-addressed GET avoids tee buffering while
-  // preserving the official if-none-match upload invariant that makes the key immutable.
-  const textObject = await env.SUBMISSIONS.get(key);
-  if (textObject === null) {
-    return { code: "raw_bundle_missing", error: "raw bundle is not present in R2", kind: "error", status: 404 };
-  }
-  return { kind: "ok", sizeBytes: complexity.sizeBytes, text: await textObject.text() };
+  return { kind: "ok", sizeBytes };
 }
 
 export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: string): Promise<
@@ -109,58 +119,4 @@ async function signedR2Url(config: R2SigningConfig, key: string, headers: Readon
   url.searchParams.set("X-Amz-Expires", "3600");
   const signed = await r2.sign(new Request(url, { headers, method: "PUT" }), { aws: { signQuery: true } });
   return signed.url;
-}
-
-class JsonComplexityError extends Error {}
-
-class JsonComplexityTransform {
-  private structuralTokens = 0;
-  private depth = 0;
-  private escaped = false;
-  private inString = false;
-  sizeBytes = 0;
-
-  readonly stream = new TransformStream<Uint8Array, Uint8Array>({
-    transform: (chunk, controller) => {
-      this.accept(chunk);
-      controller.enqueue(chunk);
-    },
-  });
-
-  private accept(chunk: Uint8Array): void {
-    this.sizeBytes += chunk.byteLength;
-    for (const byte of chunk) {
-      if (this.inString) {
-        if (this.escaped) {
-          this.escaped = false;
-        } else if (byte === 0x5c) {
-          this.escaped = true;
-        } else if (byte === 0x22) {
-          this.inString = false;
-        }
-        continue;
-      }
-      if (byte === 0x22) {
-        this.inString = true;
-      } else if (byte === 0x7b || byte === 0x5b) {
-        this.countStructuralToken();
-        this.depth += 1;
-        if (this.depth > 128) {
-          throw new JsonComplexityError("uploaded bundle exceeds the JSON nesting limit");
-        }
-      } else if (byte === 0x7d || byte === 0x5d) {
-        this.countStructuralToken();
-        this.depth -= 1;
-      } else if (byte === 0x2c || byte === 0x3a) {
-        this.countStructuralToken();
-      }
-    }
-  }
-
-  private countStructuralToken(): void {
-    this.structuralTokens += 1;
-    if (this.structuralTokens > MAX_BUNDLE_JSON_STRUCTURAL_TOKENS) {
-      throw new JsonComplexityError("uploaded bundle exceeds the JSON structural complexity limit");
-    }
-  }
 }

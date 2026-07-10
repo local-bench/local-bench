@@ -134,22 +134,6 @@ export async function tableExists(db: SubmissionApiEnv["DB"], tableName: string)
   return numericCount(row) === 1;
 }
 
-export function migrationContractV2WithoutTier(): string {
-  const migration0002 = replaceOnce(MIGRATION_0002, "  tier text,\n", "");
-  let migration0004 = replaceOnce(MIGRATION_0004, "  tier text,\n", "");
-  migration0004 = replaceOnce(
-    migration0004,
-    "  suite_manifest_sha256, scorecard_id, model_identity_digest, model_display_name, lane_id, tier,\n",
-    "  suite_manifest_sha256, scorecard_id, model_identity_digest, model_display_name, lane_id,\n",
-  );
-  migration0004 = replaceOnce(
-    migration0004,
-    "  model_identity_digest, model_display_name, lane_id, tier, validator_version, validator_commit,\n",
-    "  model_identity_digest, model_display_name, lane_id, validator_version, validator_commit,\n",
-  );
-  return `${migration0002}\n${migration0004}\n${MIGRATION_0005}\n${MIGRATION_0009}\n${MIGRATION_0010}`;
-}
-
 export function ticketRequest(rawBundleSha = RAW_BUNDLE_SHA, overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     accepted_suite_terms: true,
@@ -285,14 +269,6 @@ function errorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
-}
-
-function replaceOnce(value: string, search: string, replacement: string): string {
-  const replaced = value.replace(search, replacement);
-  if (replaced === value) {
-    throw new Error(`test fixture replacement did not match: ${search.trim()}`);
-  }
-  return replaced;
 }
 
 function isIssuedEnvelope(value: unknown): value is IssuedEnvelope {

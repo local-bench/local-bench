@@ -17,7 +17,6 @@ export type D1DatabaseBinding = {
 export type R2ObjectBodyBinding = {
   readonly body: ReadableStream<Uint8Array>;
   readonly size?: number;
-  text(): Promise<string>;
 };
 
 export type R2ObjectMetadataBinding = {
@@ -76,10 +75,9 @@ export const STATUS_UPDATE_SCHEMA_VERSION = "localbench.submission_status_update
 export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v1";
 export const ONE_SHOT_IDENTITY_SCHEMA_VERSION = "localbench.one_shot_identity.v1";
 export const PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION = "localbench.publishability_preflight.v1";
-// 12 MiB cap: streamed hash + bounded JSON shape keeps decode/parse/canonical peaks at ~55 MiB (<50% of 128 MiB).
-// The shipped 0.3.1 CLI's 64 MiB archive-member limit is separate; this advertised server cap is authoritative.
-export const MAX_UPLOAD_BYTES = 12_582_912;
-export const MAX_BUNDLE_JSON_STRUCTURAL_TOKENS = 75_000;
+// Admission streams bounded R2 chunks into DigestStream, so peak memory is O(chunk)
+// in bundle size and is independent of this 64 MiB storage/abuse cap.
+export const MAX_UPLOAD_BYTES = 67_108_864;
 export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
 export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 export const DEFAULT_SUITE_MANIFEST_SHA256 = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";

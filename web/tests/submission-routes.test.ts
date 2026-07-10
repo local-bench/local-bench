@@ -60,7 +60,7 @@ describe("submission route contracts", () => {
       bundle_sha256: RAW_BUNDLE_SHA,
       expected_suite_manifest_sha256: SUITE_MANIFEST_SHA,
       expected_suite_release_id: SUITE_RELEASE_ID,
-      max_upload_bytes: 12_582_912,
+      max_upload_bytes: 67_108_864,
       one_use: true,
       origin: "project_anchor",
       schema_version: "localbench.submission_envelope.v2",

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { onRequestGet as listAdminSubmissions } from "../functions/api/admin/submissions";
 import { onRequestGet as getSubmissionStatus } from "../functions/api/submissions/[submissionId]";
 import { onRequestPost as completeSubmission } from "../functions/api/submissions/[submissionId]/complete";
@@ -6,11 +6,11 @@ import {
   ADMIN_SECRET,
   RAW_BUNDLE_SHA,
   RESULT_BUNDLE_JSON,
+  SUITE_RELEASE_ID,
   createEnv,
   getRequest,
   issueEnvelope,
   jsonRequest,
-  migrationContractV2WithoutTier,
   resultBundle,
   sha256Hex,
 } from "./submission-test-support";
@@ -56,7 +56,7 @@ describe("submission finalize route contracts", () => {
     expect(count).toMatchObject({ count: 1 });
   });
 
-  it("rejects uploaded bundles whose suite release does not match the ticket expectation", async () => {
+  it("defers uploaded bundle suite semantics to maintainer verification", async () => {
     // Given: a ticket expects the released 4-axis suite, but the uploaded bundle names a different suite.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const mismatchedBundle = resultBundle({ suiteReleaseId: "suite-v1-other-release" });
@@ -65,7 +65,7 @@ describe("submission finalize route contracts", () => {
     const envelope = await issueEnvelope(env, mismatchedBundleSha);
     await env.SUBMISSIONS.put(`submissions/raw/${mismatchedBundleSha}.json`, mismatchedBundleJson);
 
-    // When: the complete route validates the uploaded bundle against the ticket row.
+    // When: the complete route verifies only the content address and admission caps.
     const response = await completeSubmission({
       env,
       params: { submissionId: envelope.ticket_id },
@@ -75,16 +75,14 @@ describe("submission finalize route contracts", () => {
       }),
     });
 
-    // Then: finalization rejects the wrong suite before the pending-verification update.
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      code: "suite_mismatch",
-      error: "uploaded bundle suite does not match submission ticket",
-    });
-    const row = await env.DB.prepare("select status from submissions where submission_id = ?")
+    // Then: admission succeeds without parsing attacker-authored suite claims, while the
+    // catalog-resolved ticket suite remains the queue authority.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "pending_verification" });
+    const row = await env.DB.prepare("select status, suite_release_id from submissions where submission_id = ?")
       .bind(envelope.ticket_id)
       .first();
-    expect(row).toMatchObject({ status: "ticketed" });
+    expect(row).toMatchObject({ status: "pending_verification", suite_release_id: SUITE_RELEASE_ID });
   });
 
   it("allows finalize when the ticket intentionally carries no suite expectation", async () => {
@@ -222,47 +220,4 @@ describe("submission finalize route contracts", () => {
     expect(body.submissions[0]).not.toHaveProperty("raw_bundle_r2_key");
   });
 
-  it("logs and returns a structured 500 when finalize hits a drifted D1 schema", async () => {
-    // Given: local D1 has the contract-v2 shape except for the tier column used by markPendingVerification.
-    const env = await createEnv({
-      includeAdminSecret: true,
-      includeR2Secrets: true,
-      migrations: [migrationContractV2WithoutTier()],
-    });
-    const envelope = await issueEnvelope(env);
-    await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-    try {
-      // When: finalization reaches the exact pending-verification update.
-      const response = await completeSubmission({
-        env,
-        params: { submissionId: envelope.ticket_id },
-        request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
-          raw_bundle_sha256: RAW_BUNDLE_SHA,
-          size_bytes: RESULT_BUNDLE_JSON.length,
-        }),
-      });
-
-      // Then: the route keeps the CLI response contract and emits a structured breadcrumb.
-      expect(response.status).toBe(500);
-      expect(await response.json()).toMatchObject({
-        code: "submission_finalize_failed",
-        error: "submission finalization failed",
-      });
-      expect(errorSpy).toHaveBeenCalledWith(
-        "submission_finalize_failed",
-        expect.objectContaining({
-          leg: "mark_pending_verification",
-          route: "POST /api/submissions/:submissionId/complete",
-          submission_id: envelope.ticket_id,
-          error: expect.objectContaining({
-            message: expect.stringContaining("tier"),
-          }),
-        }),
-      );
-    } finally {
-      errorSpy.mockRestore();
-    }
-  });
 });

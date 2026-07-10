@@ -1,4 +1,4 @@
-import type { ResultBundle, RouteParams, SubmissionApiEnv, SubmissionRow } from "./submission-contracts";
+import type { RouteParams, SubmissionApiEnv, SubmissionRow } from "./submission-contracts";
 import { rowBySubmissionId } from "./submission-store";
 
 export type RouteRowResult =
@@ -33,14 +33,6 @@ export function hasValidAdminSecret(request: Request, env: { readonly ADMIN_API_
   const expected = (env.ADMIN_API_SECRET ?? "").trim();
   const provided = (request.headers.get("x-localbench-admin-secret") ?? "").trim();
   return expected.length > 0 && provided === expected;
-}
-
-export function suiteMismatches(row: SubmissionRow, bundle: ResultBundle): boolean {
-  const suite = bundle.manifest.suite;
-  if (row.suite_release_id !== null && row.suite_release_id !== suite.suite_release_id) {
-    return true;
-  }
-  return row.suite_manifest_sha256 !== null && row.suite_manifest_sha256 !== suite.suite_manifest_sha256;
 }
 
 export type ErrorLogContext = {

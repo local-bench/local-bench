@@ -2,7 +2,6 @@ import {
   ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
   RESULT_BUNDLE_SCHEMA_VERSION,
   SubmissionRowSchema,
-  type ResultBundle,
   type StatusUpdate,
   type SubmissionApiEnv,
   type SubmissionEnvelope,
@@ -57,7 +56,7 @@ export const PENDING_VERIFICATION_PER_SUBMITTER_LIMIT = 5;
 
 export type PendingAdmissionResult =
   | { readonly kind: "ok" }
-  | { readonly kind: "error"; readonly code: "global_pending_limit" | "model_already_pending" | "pending_review_limit" | "submission_not_ticketed" };
+  | { readonly kind: "error"; readonly code: "global_pending_limit" | "pending_review_limit" | "submission_not_ticketed" };
 
 export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: SubmissionEnvelope): Promise<void> {
   const uploadCapabilitySha256 = await sha256Hex(ticket.upload_capability);
@@ -123,48 +122,28 @@ export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSub
 export async function markPendingVerification(
   env: SubmissionApiEnv,
   submissionId: string,
-  bundle: ResultBundle,
   sizeBytes: number,
-  runPayloadSha256: string,
-  duplicateOf: string | null,
-  modelIdentityDigest: string,
 ): Promise<PendingAdmissionResult> {
   const current = await requiredRow(env, submissionId);
   assertTransition(current.status, "pending_verification");
   const update = await env.DB.prepare(
     `update submissions set
       uploaded_at = datetime('now'), status = 'pending_verification', raw_bundle_size_bytes = ?,
-      bundle_schema_version = ?, suite_release_id = ?, suite_manifest_sha256 = ?, tier = ?,
-      run_payload_sha256 = ?, duplicate_of = ?, model_identity_digest = ?, upload_capability_sha256 = null
+      upload_capability_sha256 = null
       where submission_id = ? and status = 'ticketed' and uploaded_at is null
         and (select count(*) from submissions where submitter_id = ? and status = 'pending_verification') < ?
-        and (select count(*) from submissions where status = 'pending_verification') < ?
-        and not exists (
-          select 1 from submissions
-          where model_identity_digest = ?
-            and submission_id <> ?
-            and status in ('pending_verification', 'validating', 'accepted', 'published')
-        )`,
+        and (select count(*) from submissions where status = 'pending_verification') < ?`,
   )
     .bind(
       sizeBytes,
-      RESULT_BUNDLE_SCHEMA_VERSION,
-      bundle.manifest.suite.suite_release_id,
-      bundle.manifest.suite.suite_manifest_sha256,
-      bundle.tier,
-      runPayloadSha256,
-      duplicateOf,
-      modelIdentityDigest,
       submissionId,
       current.submitter_id,
       PENDING_VERIFICATION_PER_SUBMITTER_LIMIT,
       PENDING_VERIFICATION_GLOBAL_LIMIT,
-      modelIdentityDigest,
-      submissionId,
     )
     .run();
   if (update.meta?.changes === 0) {
-    return diagnosePendingAdmissionFailure(env, current, modelIdentityDigest);
+    return diagnosePendingAdmissionFailure(env, current);
   }
   await recordSubmissionTransition(env, {
     actor: "system",
@@ -180,7 +159,6 @@ export async function markPendingVerification(
 async function diagnosePendingAdmissionFailure(
   env: SubmissionApiEnv,
   current: SubmissionRow,
-  modelIdentityDigest: string,
 ): Promise<PendingAdmissionResult> {
   const refreshed = await rowBySubmissionId(env, current.submission_id);
   if (refreshed === null || refreshed.status !== "ticketed" || refreshed.uploaded_at !== null) {
@@ -191,14 +169,6 @@ async function diagnosePendingAdmissionFailure(
   }
   if (await countPendingVerification(env) >= PENDING_VERIFICATION_GLOBAL_LIMIT) {
     return { code: "global_pending_limit", kind: "error" };
-  }
-  const duplicate = await env.DB.prepare(
-    `select count(*) as count from submissions
-     where model_identity_digest = ? and submission_id <> ?
-       and status in ('pending_verification', 'validating', 'accepted', 'published')`,
-  ).bind(modelIdentityDigest, current.submission_id).first();
-  if (duplicate?.["count"] === 1 || (typeof duplicate?.["count"] === "number" && duplicate["count"] > 0)) {
-    return { code: "model_already_pending", kind: "error" };
   }
   return { code: "submission_not_ticketed", kind: "error" };
 }
@@ -296,14 +266,6 @@ export async function rowByRawBundleSha(env: SubmissionApiEnv, rawBundleSha256: 
   return parseRow(
     await env.DB.prepare(rowSelectSql("raw_bundle_sha256"))
       .bind(rawBundleSha256)
-      .first(),
-  );
-}
-
-export async function rowByPayloadSha(env: SubmissionApiEnv, runPayloadSha256: string): Promise<SubmissionRow | null> {
-  return parseRow(
-    await env.DB.prepare(rowSelectSql("run_payload_sha256"))
-      .bind(runPayloadSha256)
       .first(),
   );
 }
@@ -487,7 +449,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
   return result;
 }
 
-function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "run_payload_sha256" | "status"): string {
+function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "status"): string {
   return `select submission_id, ticket_id, status, created_at, declared_model_slug, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
     raw_bundle_size_bytes, projection_sha256, publish_state, suite_release_id, suite_manifest_sha256,
     origin, submitter_id, submitter_display_name, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason,

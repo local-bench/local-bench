@@ -106,7 +106,7 @@ export function oversizeEnv(): SubmissionApiEnv {
         throw new Error("body should not be read");
       },
     }),
-    head: async () => ({ size: 12_582_913 }),
+    head: async () => ({ size: 67_108_865 }),
     put: async () => undefined,
   };
   return {

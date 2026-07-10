@@ -1,37 +1,10 @@
 import { digestHex, sha256DigestStream } from "./submission-digest";
 
-export const PAYLOAD_HASH_EXCLUDED_TOP_LEVEL_FIELDS = ["envelope", "signature", "submission_envelope"] as const;
-const EXCLUDED_TOP_LEVEL_FIELDS = new Set<string>(PAYLOAD_HASH_EXCLUDED_TOP_LEVEL_FIELDS);
-
-export async function canonicalPayloadSha256(value: unknown): Promise<string> {
-  return sha256FragmentsHex(canonicalFragments(value, true));
-}
-
-export function canonicalPayloadJson(value: unknown): string {
-  return Array.from(canonicalFragments(value, true)).join("");
-}
-
-export function canonicalPayloadBytes(value: unknown): Uint8Array<ArrayBuffer> {
-  const chunks: Uint8Array<ArrayBuffer>[] = [];
-  let length = 0;
-  for (const chunk of encodedChunks(canonicalFragments(value, true))) {
-    chunks.push(chunk);
-    length += chunk.byteLength;
-  }
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
-
 export function canonicalJson(value: unknown): string {
-  return Array.from(canonicalFragments(value, false)).join("");
+  return Array.from(canonicalFragments(value)).join("");
 }
 
-function* canonicalFragments(value: unknown, stripSubmissionMetadata: boolean, depth = 0): Generator<string> {
+function* canonicalFragments(value: unknown): Generator<string> {
   if (value === null || typeof value === "string" || typeof value === "boolean") {
     yield JSON.stringify(value);
     return;
@@ -47,7 +20,7 @@ function* canonicalFragments(value: unknown, stripSubmissionMetadata: boolean, d
     yield "[";
     for (let index = 0; index < value.length; index += 1) {
       if (index > 0) yield ",";
-      yield* canonicalFragments(value[index], false, depth + 1);
+      yield* canonicalFragments(value[index]);
     }
     yield "]";
     return;
@@ -57,12 +30,12 @@ function* canonicalFragments(value: unknown, stripSubmissionMetadata: boolean, d
     let emitted = false;
     for (const key of Object.keys(value).sort()) {
       const item = value[key];
-      if (item === undefined || (stripSubmissionMetadata && depth === 0 && EXCLUDED_TOP_LEVEL_FIELDS.has(key))) continue;
+      if (item === undefined) continue;
       if (emitted) yield ",";
       emitted = true;
       yield JSON.stringify(key);
       yield ":";
-      yield* canonicalFragments(item, false, depth + 1);
+      yield* canonicalFragments(item);
     }
     yield "}";
     return;
