@@ -192,7 +192,7 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
         "bwrap_sha256": _file_sha256(bwrap),
         "bwrap_version": _command_output([bwrap, "--version"]),
         "appworld_root": root_posix,
-        "appworld_root_sha256": _text_sha256(root_posix),
+        "appworld_root_path_sha256": _text_sha256(root_posix),
         "appworld_root_under_mnt": root_under_mnt,
         "appworld_root_filesystem": _filesystem_type(root_posix),
         "appworld_version": appworld_version,

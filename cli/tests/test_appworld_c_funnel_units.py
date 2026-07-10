@@ -245,6 +245,27 @@ def test_chat_client_timeout_does_not_retry_and_returns_empty_turn(
     assert len(attempts) == 1
 
 
+def test_chat_client_exhausted_deadline_counts_failed_turn_without_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
+    client.set_task_deadline(100.0)
+    monkeypatch.setattr("time.monotonic", lambda: 100.0)
+    monkeypatch.setattr(
+        client,
+        "_post",
+        lambda _payload: pytest.fail("deadline-exhausted turn must not issue HTTP"),
+    )
+
+    response = client.complete([{"role": "user", "content": "go"}], GenerationParams())
+
+    assert response.text == ""
+    assert response.finish_reason == ERROR_FINISH_REASON
+    assert response.transport_failure_count == 1
+    assert response.transport_attempt_count == 1
+    assert response.transport_failure_count / response.transport_attempt_count == 1.0
+
+
 def test_chat_client_malformed_json_is_format_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
     monkeypatch.setattr(client, "_post", lambda p: (200, "not json {"))

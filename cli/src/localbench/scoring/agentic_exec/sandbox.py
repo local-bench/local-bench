@@ -68,6 +68,10 @@ class SandboxError(RuntimeError):
     """Raised when the sandbox cannot be constructed or a broker step fails irrecoverably."""
 
 
+class WorkerSetupError(SandboxError):
+    """A managed worker no longer matches the identity accepted during preflight."""
+
+
 class SandboxTimeoutError(SandboxError):
     """Raised only when the per-block wall-clock infrastructure safety net fires."""
 

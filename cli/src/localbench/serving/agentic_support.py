@@ -17,13 +17,15 @@ AGENTIC_SETUP_MESSAGE: Final = (
 class AgenticSetupError(Exception):
     detail: str
     model_download_started: bool = False
+    benchmark_started: bool = False
 
     def __str__(self) -> str:
-        work_state = (
-            "Model assets may already have been downloaded; no benchmark work has started."
-            if self.model_download_started
-            else "No model download or benchmark work has started."
-        )
+        if self.benchmark_started:
+            work_state = "Model assets were downloaded and benchmark work may already have started."
+        elif self.model_download_started:
+            work_state = "Model assets may already have been downloaded; no benchmark work has started."
+        else:
+            work_state = "No model download or benchmark work has started."
         return f"{AGENTIC_SETUP_MESSAGE} {work_state} Setup detail: {self.detail}"
 
 

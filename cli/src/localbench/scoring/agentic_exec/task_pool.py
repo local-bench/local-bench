@@ -88,7 +88,19 @@ def build_subset(
     )
 
 
-def subset_from_task_ids(task_ids: list[str]) -> funnel.SubsetSpec:
+def subset_from_task_ids(
+    task_ids: list[str],
+    *,
+    canonical_task_ids: list[str],
+) -> funnel.SubsetSpec:
+    if len(task_ids) != len(set(task_ids)):
+        raise ValueError("supplied agentic task IDs must be unique")
+    if len(canonical_task_ids) != len(set(canonical_task_ids)):
+        raise ValueError("canonical scored task IDs must be unique")
+    canonical = set(canonical_task_ids)
+    unknown = [task_id for task_id in task_ids if task_id not in canonical]
+    if unknown:
+        raise ValueError(f"supplied agentic task IDs are outside the canonical scored set: {unknown}")
     return funnel.SubsetSpec(
         name="injected",
         split="injected",

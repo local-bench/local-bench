@@ -48,6 +48,7 @@ def test_inline_agentic_loop_config_uses_campaign_run_identifier(
                 agentic_sandbox_factory=_fake_appworld_sandbox_factory,
                 agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
                 agentic_task_ids=["fac291d_1"],
+                agentic_canonical_task_ids=["fac291d_1"],
             )
 
     # When: the orchestrator constructs LoopConfig for the agentic campaign.

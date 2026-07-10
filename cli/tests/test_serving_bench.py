@@ -319,6 +319,7 @@ async def _write_publishable_record(
     agentic_sandbox_factory: object | None = None,
     agentic_model_factory: object | None = None,
     agentic_task_ids: object | None = None,
+    agentic_canonical_task_ids: object | None = None,
     agentic_provenance_extra: object | None = None,
 ) -> JsonObject:
     record = _publishable_result_bundle(config)

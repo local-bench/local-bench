@@ -15,6 +15,7 @@ from localbench.scoring.agentic_exec.sandbox import (
     FINALIZATION_PROVENANCE,
     SandboxError,
     SandboxTimeoutError,
+    WorkerSetupError,
 )
 from localbench.scoring.agentic_exec.wsl_process import (
     WslWorkerConfig,
@@ -47,9 +48,16 @@ class WslVerdict:
 
 
 class WslSandboxProxy(AbstractContextManager[SandboxLike]):
-    def __init__(self, task_id: str | None, config: WslWorkerConfig) -> None:
+    def __init__(
+        self,
+        task_id: str | None,
+        config: WslWorkerConfig,
+        *,
+        expected_identity: JsonObject | None = None,
+    ) -> None:
         self.task_id = task_id
         self.config = config
+        self.expected_identity = expected_identity
         self.identity: JsonObject | None = None
         self._proc: subprocess.Popen[bytes] | None = None
         self._stderr_handle: BinaryIO | None = None
@@ -68,6 +76,8 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             if not isinstance(identity, dict):
                 raise SandboxError("wsl worker hello returned no identity")
             self.identity = identity
+            if self.expected_identity is not None:
+                _assert_preflight_identity(identity, self.expected_identity)
             if self.task_id is not None:
                 self._request(
                     {"op": "open_task", "task_id": self.task_id},
@@ -263,3 +273,27 @@ def _string_tuple(value: JsonValue | None, *, fallback_count: int) -> tuple[str,
     if isinstance(value, list):
         return tuple(item for item in value if isinstance(item, str))
     return tuple("" for _ in range(fallback_count))
+
+
+def _assert_preflight_identity(actual: JsonObject, expected: JsonObject) -> None:
+    for field, label in (
+        ("localbench_distribution_version", "distribution version"),
+        ("worker_content_sha256", "worker content digest"),
+    ):
+        expected_value = expected.get(field)
+        actual_value = actual.get(field)
+        if not isinstance(expected_value, str) or not expected_value:
+            raise WorkerSetupError(f"wsl worker setup failed: preflight {label} is unavailable")
+        if actual_value != expected_value:
+            raise WorkerSetupError(
+                f"wsl worker setup failed: per-task {label} mismatch: "
+                f"worker={actual_value!r} preflight={expected_value!r}",
+            )
+    if actual != expected:
+        differing = sorted(
+            key for key in set(actual) | set(expected) if actual.get(key) != expected.get(key)
+        )
+        raise WorkerSetupError(
+            "wsl worker setup failed: per-task identity differs from preflight: "
+            f"fields={differing}",
+        )

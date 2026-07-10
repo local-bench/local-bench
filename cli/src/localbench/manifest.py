@@ -17,6 +17,7 @@ from localbench._types import BenchmarkItem, JsonObject, JsonValue, Totals
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.canon import sha256_file
+from localbench.version import installed_package_version
 
 _MODEL_FIELDS: Final = (
     "model.family", "model.quant_label", "model.file_name", "model.file_size_bytes",
@@ -290,7 +291,7 @@ def _provenance(context: ManifestContext, scorecard: JsonObject) -> JsonObject:
     return {
         "localbench_repo_commit": _git_text("rev-parse", "HEAD"),
         "dirty_tree": _git_text("status", "--short") not in {None, ""},
-        "cli_version": "0.1.0",
+        "cli_version": installed_package_version(),
         "python_version": sys.version.split()[0],
         "dependency_lock_hash": _dependency_lock_hash(),
         "scorer_package_version": scorecard.get("scorecard_version"),

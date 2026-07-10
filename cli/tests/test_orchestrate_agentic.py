@@ -53,6 +53,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             agentic_sandbox_factory=_fake_appworld_sandbox_factory,
             agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
             agentic_task_ids=["fac291d_1", "50e1ac9_1"],
+            agentic_canonical_task_ids=["fac291d_1", "50e1ac9_1"],
             agentic_provenance_extra={
                 "topology": {
                     "scorecard_assembly": "single-campaign-no-merge",
@@ -64,7 +65,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
                 },
                 "agentic_sandbox_identity": {
                     "bubblewrap_sha256": "1" * 64,
-                    "appworld_root_sha256": "2" * 64,
+                    "appworld_root_path_sha256": "2" * 64,
                 },
                 "single_campaign_integrity": {"merge_step_used": False},
             },
@@ -129,7 +130,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
         }
         assert agentic_run["wsl_identity"]["localbench_distribution_version"] == "0.3.1"
         assert agentic_run["wsl_identity"]["worker_content_sha256"] == "3" * 64
-        assert agentic_run["agentic_sandbox_identity"]["appworld_root_sha256"] == "2" * 64
+        assert agentic_run["agentic_sandbox_identity"]["appworld_root_path_sha256"] == "2" * 64
         assert agentic_run["single_campaign_integrity"] == {"merge_step_used": False}
         agentic_runs = agentic_run["runs"]
         assert isinstance(agentic_runs, list)
@@ -257,6 +258,7 @@ def test_inline_agentic_campaign_uses_frozen_scored_output_token_cap(
                 agentic_sandbox_factory=_fake_appworld_sandbox_factory,
                 agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
                 agentic_task_ids=["fac291d_1", "50e1ac9_1"],
+                agentic_canonical_task_ids=["fac291d_1", "50e1ac9_1"],
             )
 
     asyncio.run(scenario())

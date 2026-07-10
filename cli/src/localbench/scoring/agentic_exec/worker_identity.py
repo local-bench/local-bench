@@ -12,7 +12,11 @@ from localbench._types import JsonObject
 
 _DISTRIBUTION_NAME: Final = "local-bench-ai"
 _WORKER_MODULES: Final = (
+    "localbench.scoring.agentic_exec.worker_identity",
     "localbench.scoring.agentic_exec.wsl_worker",
+    "localbench.scoring.agentic_exec.runner_bootstrap",
+    "localbench.scoring.agentic_exec.task_pool",
+    "localbench.scoring.agentic_exec.funnel",
     "localbench.scoring.agentic_exec.protocol_c_loop",
     "localbench.scoring.agentic_exec.sandbox",
     "localbench.scoring.agentic_exec.sandbox_protocol",

@@ -49,7 +49,7 @@ from localbench.scoring.agentic_exec.wsl_bridge import (
     preflight_wsl_agentic,
     wsl_sandbox_factory,
 )
-from localbench.scoring.agentic_exec.sandbox import SandboxError
+from localbench.scoring.agentic_exec.sandbox import SandboxError, WorkerSetupError
 from localbench.submissions.foundation import normalize_result_bundle
 
 
@@ -153,6 +153,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         agentic_sandbox_factory = None
         agentic_model_factory = None
         agentic_task_ids = None
+        agentic_canonical_task_ids = None
         agentic_provenance_extra = None
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
@@ -167,6 +168,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 wsl_venv_python,
                 appworld_root,
                 log_dir=log_dir,
+                expected_identity=agentic_preflight.identity,
             )
             agentic_model_factory = chat_client_factory(
                 f"http://127.0.0.1:{port}/v1",
@@ -175,14 +177,25 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 chat_template_kwargs=agentic_chat_template_kwargs(options.lane, effective_profile),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
+            agentic_canonical_task_ids = list(
+                agentic_preflight.canonical_task_ids or agentic_preflight.task_ids
+            )
             agentic_provenance_extra = agentic_preflight.provenance()
-        await run_localbench(
-            build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence),
-            agentic_sandbox_factory=agentic_sandbox_factory,
-            agentic_model_factory=agentic_model_factory,
-            agentic_task_ids=agentic_task_ids,
-            agentic_provenance_extra=agentic_provenance_extra,
-        )
+        try:
+            await run_localbench(
+                build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence),
+                agentic_sandbox_factory=agentic_sandbox_factory,
+                agentic_model_factory=agentic_model_factory,
+                agentic_task_ids=agentic_task_ids,
+                agentic_canonical_task_ids=agentic_canonical_task_ids,
+                agentic_provenance_extra=agentic_provenance_extra,
+            )
+        except WorkerSetupError as error:
+            raise AgenticSetupError(
+                detail=str(error),
+                model_download_started=True,
+                benchmark_started=True,
+            ) from error
     finally:
         if launched is not None:
             teardown = teardown_owned_server(

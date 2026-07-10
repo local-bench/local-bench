@@ -300,14 +300,31 @@ def test_normalized_published_record_contains_no_absolute_local_paths() -> None:
                 "results_path": "/mnt/c/Users/Michael/run/agentic/results.json",
             },
         ],
+        "agentic_sandbox_identity": {
+            "appworld_root": "/HOME/OtherOperator/appworld-data",
+        },
     }
+    record["items"] = [
+        {
+            "id": "nested-paths",
+            "debug": {
+                "windows": r"failed at c:/uSeRs/Alice/private/file.txt",
+                "mounted": r"failed at \\MNT\\C\\USERS\\Bob\\private\\file.txt",
+                "sandbox": "failed at /tmp/localbench-task/prog.py",
+            },
+        },
+    ]
 
     bundle = normalize_result_bundle(record)
     serialized = json.dumps(bundle, sort_keys=True).replace("\\\\", "/")
 
     assert "C:/Users/" not in serialized
     assert "/home/" not in serialized
-    assert "/mnt/c/" not in serialized
+    assert "/mnt/c/Users/" not in serialized
+    assert "Alice" not in serialized
+    assert "Bob" not in serialized
+    assert "OtherOperator" not in serialized
+    assert "/tmp/localbench-task/prog.py" in serialized
     assert bundle["serving"]["launch"]["argv"] == [
         "llama-server.exe",
         "--model",
@@ -317,6 +334,14 @@ def test_normalized_published_record_contains_no_absolute_local_paths() -> None:
     assert bundle["serving"]["artifact"]["executable_sha256"] == "a" * 64
     assert bundle["agentic_run"]["wsl_identity"]["worker_content_sha256"] == "b" * 64
     assert "results_path" not in bundle["agentic_run"]["runs"][0]
+
+
+def test_missing_manifest_version_normalizes_to_installed_version_not_legacy_default() -> None:
+    record = _synthetic_result_bundle(identity=True)
+
+    bundle = normalize_result_bundle(record)
+
+    assert bundle["manifest"]["provenance"]["cli_version"] == "0.3.1"
 
 
 @_REQUIRES_PILOT

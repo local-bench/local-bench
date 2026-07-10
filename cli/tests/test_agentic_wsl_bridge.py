@@ -12,7 +12,11 @@ import pytest
 
 from localbench.scoring.agentic_exec import benchmark as appworld_bench
 from localbench.scoring.agentic_exec.loop_types import FailureClass
-from localbench.scoring.agentic_exec.sandbox import SandboxError, SandboxTimeoutError
+from localbench.scoring.agentic_exec.sandbox import (
+    SandboxError,
+    SandboxTimeoutError,
+    WorkerSetupError,
+)
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslSandboxProxy,
     WslWorkerConfig,
@@ -56,6 +60,33 @@ def test_local_worker_implementation_identity_hashes_installed_sources() -> None
     assert isinstance(module_hashes, dict)
     assert "localbench.scoring.agentic_exec.wsl_worker" in module_hashes
     assert "localbench.scoring.agentic_exec.sandbox" in module_hashes
+    assert "localbench.scoring.agentic_exec.worker_identity" in module_hashes
+    assert "localbench.scoring.agentic_exec.runner_bootstrap" in module_hashes
+    assert "localbench.scoring.agentic_exec.task_pool" in module_hashes
+    assert "localbench.scoring.agentic_exec.funnel" in module_hashes
+
+
+def test_per_task_worker_identity_must_match_preflight(tmp_path: Path) -> None:
+    script = _write_fake_worker(tmp_path)
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/private/source",
+        venv_python="/managed/venv/bin/python3",
+        appworld_root="/managed/appworld",
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, str(script)),
+        op_timeout_s=2.0,
+    )
+
+    with pytest.raises(WorkerSetupError, match="per-task distribution version mismatch"):
+        with WslSandboxProxy(
+            "fac291d_1",
+            config,
+            expected_identity={
+                "localbench_distribution_version": "0.3.1",
+                "worker_content_sha256": "a" * 64,
+            },
+        ):
+            pass
 
 
 def test_worker_malformed_op_returns_protocol_error() -> None:
@@ -280,6 +311,8 @@ def _write_fake_worker(tmp_path: Path) -> Path:
                     emit({
                         "kind": "ok",
                         "identity": {
+                            "localbench_distribution_version": "0.3.0",
+                            "worker_content_sha256": "f" * 64,
                             "worker_git_commit": "abc123",
                             "worker_dirty_tree": False,
                             "appworld_root": "/home/michael/appworld-data",
@@ -430,7 +463,7 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
         "bwrap_sha256": "2" * 64,
         "bwrap_version": "bwrap 0.9.0",
         "appworld_root": "/x/appworld",
-        "appworld_root_sha256": "3" * 64,
+        "appworld_root_path_sha256": "3" * 64,
         "localbench_distribution_version": "0.3.1",
         "worker_content_sha256": "4" * 64,
     })
@@ -444,7 +477,7 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
     assert "bwrap_path" not in prov["wsl_identity"]
     assert "appworld_root" not in prov["wsl_identity"]
     assert prov["agentic_sandbox_identity"]["bubblewrap_sha256"] == "2" * 64
-    assert prov["agentic_sandbox_identity"]["appworld_root_sha256"] == "3" * 64
+    assert prov["agentic_sandbox_identity"]["appworld_root_path_sha256"] == "3" * 64
     assert prov["wsl_identity"]["localbench_distribution_version"] == "0.3.1"
     assert prov["wsl_identity"]["worker_content_sha256"] == "4" * 64
 

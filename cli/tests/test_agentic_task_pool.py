@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from localbench.scoring.agentic_exec import task_pool
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -16,8 +18,9 @@ def test_subset_from_task_ids_returns_stable_synthetic_subset() -> None:
     task_ids = ["fac291d_1", "50e1ac9_1"]
 
     # When building the synthetic subset twice.
-    first = task_pool.subset_from_task_ids(task_ids)
-    second = task_pool.subset_from_task_ids(list(task_ids))
+    canonical = [*task_ids, "other_1"]
+    first = task_pool.subset_from_task_ids(task_ids, canonical_task_ids=canonical)
+    second = task_pool.subset_from_task_ids(list(task_ids), canonical_task_ids=canonical)
 
     # Then the ids, size, and manifest hash are stable without AppWorld.
     assert first.name == "injected"
@@ -26,6 +29,18 @@ def test_subset_from_task_ids_returns_stable_synthetic_subset() -> None:
     assert first.seed == 0
     assert first.task_ids == tuple(task_ids)
     assert first.manifest_hash == second.manifest_hash
+
+
+def test_subset_from_task_ids_rejects_duplicates_and_noncanonical_ids() -> None:
+    canonical = ["fac291d_1", "50e1ac9_1"]
+
+    with pytest.raises(ValueError, match="must be unique"):
+        task_pool.subset_from_task_ids(
+            ["fac291d_1", "fac291d_1"],
+            canonical_task_ids=canonical,
+        )
+    with pytest.raises(ValueError, match="outside the canonical scored set"):
+        task_pool.subset_from_task_ids(["unknown_1"], canonical_task_ids=canonical)
 
 
 def test_load_metadata_reads_fake_appworld_root_without_importing_appworld(

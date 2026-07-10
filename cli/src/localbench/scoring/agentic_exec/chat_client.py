@@ -223,9 +223,10 @@ class ChatCompletionsClient:
     ) -> ModelResponse:
         """POST one turn; parse the reply into a :class:`ModelResponse`.
 
-        Exactly one transport attempt is made per protocol turn. Transport and HTTP failures
-        become the same recoverable empty turn used by 0.3.0. Response parse problems remain
-        recoverable protocol-format failures and are not counted as transport failures.
+        At most one HTTP request is made per protocol turn. A turn reached after the shared
+        deadline is exhausted is still counted as a failed transport attempt, although it returns
+        before issuing HTTP. Transport and HTTP failures become the same recoverable empty turn
+        used by 0.3.0. Response parse problems remain recoverable protocol-format failures.
         """
         payload = self._build_payload(messages, params)
         remaining_s = self._remaining_transport_s()
@@ -234,7 +235,7 @@ class ChatCompletionsClient:
                 "task transport deadline exhausted",
                 transport_failure=True,
                 transport_failure_count=1,
-                transport_attempt_count=0,
+                transport_attempt_count=1,
             )
         body = ""
         status = 0

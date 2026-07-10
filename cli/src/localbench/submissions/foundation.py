@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -26,6 +27,7 @@ from localbench.suite_release import (
     build_suite_release_manifest,
     coverage_profile_for_benches,
 )
+from localbench.version import installed_package_version
 
 VALIDATION_SCHEMA_VERSION: Final = "localbench.submission_validation.v1"
 VALIDATOR_VERSION: Final = "localbench.submission-validator.v1"
@@ -364,10 +366,13 @@ def _field_missing(manifest: JsonObject, dotted: str) -> bool:
 
 
 def _provenance(existing: JsonObject) -> JsonObject:
+    cli_version = existing.get("cli_version")
+    if not isinstance(cli_version, str) or not cli_version.strip():
+        cli_version = installed_package_version()
     return {
         "localbench_repo_commit": existing.get("localbench_repo_commit"),
         "dirty_tree": bool(existing.get("dirty_tree", True)),
-        "cli_version": existing.get("cli_version") or "0.1.0",
+        "cli_version": cli_version,
         "python_version": existing.get("python_version"),
         "dependency_lock_hash": existing.get("dependency_lock_hash"),
         "scorer_package_version": existing.get("scorer_package_version") or SCORECARD_VERSION,
@@ -411,7 +416,26 @@ def _sanitize_published_paths(bundle: JsonObject) -> JsonObject:
         agentic_run["wsl_identity"] = wsl_identity
     if agentic_run:
         bundle["agentic_run"] = agentic_run
-    return bundle
+    return _redact_user_paths(bundle)
+
+
+_USER_PATH_PREFIX: Final = re.compile(
+    r"(?i)(?<![a-z0-9])(?:"
+    r"c:[\\/]+users[\\/]+[^\\/\s\"'<>:]+"
+    r"|[\\/]+mnt[\\/]+c[\\/]+users[\\/]+[^\\/\s\"'<>:]+"
+    r"|[\\/]+home[\\/]+[^\\/\s\"'<>:]+"
+    r")",
+)
+
+
+def _redact_user_paths(value: JsonValue) -> JsonValue:
+    if isinstance(value, dict):
+        return {key: _redact_user_paths(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_user_paths(item) for item in value]
+    if isinstance(value, str):
+        return _USER_PATH_PREFIX.sub("<user-path>", value)
+    return value
 
 
 def _unsafe_relative_path(value: str) -> bool:

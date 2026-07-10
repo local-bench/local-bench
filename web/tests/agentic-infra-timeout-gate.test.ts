@@ -13,6 +13,7 @@ const FIXTURE_FILE_FRAGMENT = "gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2";
 const WARNING_REASON = "agentic-infra-timeout-rate";
 // Sentinel: remove infra_timeout_rate from the summary instead of assigning a value.
 const OMIT: unknown = Symbol("omit-infra-timeout-rate");
+const PRODUCTION_NORMALIZATION: unknown = Symbol("production-normalization");
 
 function readJson(path: string): JsonObject {
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
@@ -79,7 +80,7 @@ function buildWithInfraTimeoutRates(
     const manifest = requireJsonObject(run["manifest"], "bounded-final fixture manifest");
     const provenance = requireJsonObject(manifest["provenance"], "bounded-final fixture manifest.provenance");
 
-    if (cliVersion === OMIT) delete provenance["cli_version"];
+    if (cliVersion === OMIT || cliVersion === PRODUCTION_NORMALIZATION) delete provenance["cli_version"];
     else if (cliVersion !== undefined) provenance["cli_version"] = cliVersion;
 
     setRate(diagnostics, "infra_timeout_rate", aggregateRate);
@@ -103,6 +104,22 @@ function buildWithInfraTimeoutRates(
     const runPath = join(workspace, "bounded-final-run.json");
     const sourcesPath = join(workspace, "sources.json");
     writeFileSync(runPath, JSON.stringify(run), "utf8");
+    if (cliVersion === PRODUCTION_NORMALIZATION) {
+      const normalized = spawnSync(
+        "uv",
+        [
+          "run",
+          "--project",
+          join(REPO_ROOT, "cli"),
+          "python",
+          "-c",
+          "import json,sys; from pathlib import Path; from localbench.submissions.foundation import normalize_result_bundle; p=Path(sys.argv[1]); p.write_text(json.dumps(normalize_result_bundle(json.loads(p.read_text(encoding='utf-8')))), encoding='utf-8')",
+          runPath,
+        ],
+        { cwd: WEB_ROOT, encoding: "utf8" },
+      );
+      expect(normalized.status, `${normalized.stdout}\n${normalized.stderr}`).toBe(0);
+    }
     writeFileSync(sourcesPath, JSON.stringify([{ ...source, file: runPath }]), "utf8");
 
     const result = spawnSync("uv", ["run", "--project", join(REPO_ROOT, "cli"), "python", "build_data.py", "--sources", sourcesPath, "--out", outDir, "--iters", "1", "--allow-lineage-gaps"], {
@@ -169,7 +186,9 @@ describe("agentic infrastructure timeout ranking gate", () => {
   });
 
   it("does not let a 0.3.1 record stripped of new fields masquerade as legacy", () => {
-    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], false, "0.3.1"));
+    expectDeranked(
+      buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], false, PRODUCTION_NORMALIZATION),
+    );
   });
 
   it("fails closed when the legacy receipt version is missing or unparseable", () => {

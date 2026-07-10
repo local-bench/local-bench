@@ -154,6 +154,10 @@ def _run_task_with_watchdog(
         case TaskRunResult():
             return published
         case Exception():
+            from localbench.scoring.agentic_exec.sandbox import WorkerSetupError  # noqa: PLC0415
+
+            if isinstance(published, WorkerSetupError):
+                raise published
             return _harness_error_result(task_id, published)
         case unreachable:
             assert_never(unreachable)

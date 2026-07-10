@@ -17,6 +17,7 @@ from localbench.scoring.agentic_exec.worker_identity import worker_implementatio
 class WslPreflightResult:
     identity: JsonObject
     task_ids: tuple[str, ...]
+    canonical_task_ids: tuple[str, ...] = ()
 
     def provenance(self) -> JsonObject:
         return provenance_from_identity(self.identity)
@@ -29,6 +30,7 @@ def wsl_sandbox_factory(
     *,
     log_dir: Path | None = None,
     worker_argv: tuple[str, ...] | None = None,
+    expected_identity: JsonObject | None = None,
 ) -> Callable[[str], AbstractContextManager[SandboxLike]]:
     config = WslWorkerConfig(
         repo_root_wsl_path=repo_root_wsl_path,
@@ -39,7 +41,7 @@ def wsl_sandbox_factory(
     )
 
     def _factory(task_id: str) -> WslSandboxProxy:
-        return WslSandboxProxy(task_id, config)
+        return WslSandboxProxy(task_id, config, expected_identity=expected_identity)
 
     return _factory
 
@@ -72,7 +74,11 @@ def preflight_wsl_agentic(
     if not task_ids:
         raise SandboxError("wsl preflight list_tasks returned no scored tasks")
     selected = task_ids[:max_items] if max_items is not None else task_ids
-    return WslPreflightResult(identity=identity, task_ids=tuple(selected))
+    return WslPreflightResult(
+        identity=identity,
+        task_ids=tuple(selected),
+        canonical_task_ids=task_ids,
+    )
 
 
 def provenance_from_identity(identity: JsonObject) -> JsonObject:
@@ -90,7 +96,7 @@ def provenance_from_identity(identity: JsonObject) -> JsonObject:
         "agentic_sandbox_identity": {
             "bubblewrap_sha256": _string(identity.get("bwrap_sha256")),
             "bubblewrap_version": _string(identity.get("bwrap_version")),
-            "appworld_root_sha256": _string(identity.get("appworld_root_sha256")),
+            "appworld_root_path_sha256": _string(identity.get("appworld_root_path_sha256")),
             "appworld_root_filesystem": _string(identity.get("appworld_root_filesystem")),
         },
         "single_campaign_integrity": {

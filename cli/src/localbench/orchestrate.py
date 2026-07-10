@@ -277,6 +277,7 @@ async def run_localbench(
     agentic_sandbox_factory: SandboxFactory | None = None,
     agentic_model_factory: ModelFactory | None = None,
     agentic_task_ids: list[str] | None = None,
+    agentic_canonical_task_ids: list[str] | None = None,
     agentic_provenance_extra: JsonObject | None = None,
 ) -> LocalbenchRun:
     """Run selected suite benches, score responses, write JSON, and return the record."""
@@ -643,6 +644,7 @@ async def run_localbench(
             sandbox_factory=agentic_sandbox_factory,
             model_factory=agentic_model_factory,
             task_ids=agentic_task_ids,
+            canonical_task_ids=agentic_canonical_task_ids,
             results_dir=_agentic_results_dir(output_path),
             provenance_extra=agentic_provenance_extra,
             execution_profile_id=execution_profile_id,
@@ -1605,6 +1607,7 @@ def _run_agentic_axis(
     sandbox_factory: SandboxFactory | None = None,
     model_factory: ModelFactory | None = None,
     task_ids: list[str] | None = None,
+    canonical_task_ids: list[str] | None = None,
     results_dir: Path | None = None,
     provenance_extra: JsonObject | None = None,
     execution_profile_id: str | None = None,
@@ -1657,10 +1660,18 @@ def _run_agentic_axis(
                 "appworld sandbox unavailable: agentic task subset not configured for inline run",
             )
             return None
+        if canonical_task_ids is None:
+            warnings.append(
+                "appworld sandbox unavailable: canonical agentic task set not configured for inline run",
+            )
+            return None
         injected_task_ids = list(task_ids)
         if config.tier == "quick" and config.max_items is not None:
             injected_task_ids = injected_task_ids[: config.max_items]
-        subset = task_pool.subset_from_task_ids(injected_task_ids)
+        subset = task_pool.subset_from_task_ids(
+            injected_task_ids,
+            canonical_task_ids=list(canonical_task_ids),
+        )
         provenance_stage = "injected"
     else:
         subset = task_pool.build_subset(Stage.SCORED, wide_smoke=False, with_metadata=True)

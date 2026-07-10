@@ -154,6 +154,12 @@ I would add these fields, without changing the existing manifest identity fields
 
 The key point is that the WSL worker’s code identity must be tied back to the same localbench commit/dirty tree story, not treated as an opaque external script.
 
+The installed distribution version, aggregate worker-source digest, and per-module source hashes
+are drift-detection receipts for honest workers. They detect accidental mismatch between the host,
+preflight worker, and per-task workers. Because the identity is self-reported over the worker pipe,
+it is **not** anti-spoof attestation against a compromised or lying WSL environment. Ranked trust
+still comes from maintainer verification and the project verdict-attestation process.
+
 ## `cross_boundary_model_endpoint`
 
 ```json
@@ -203,7 +209,7 @@ This is the anti-A2 proof: the agentic axis did not use a second hidden llama.cp
 
 ```json
 {
-  "appworld_root": "<appworld-root>",
+  "appworld_root_path_sha256": "<sha256-of-path-string>",
   "appworld_root_filesystem": "wsl2-ext4",
   "appworld_data_digest_or_release_id": "...",
   "bubblewrap_version": "0.9.0",
