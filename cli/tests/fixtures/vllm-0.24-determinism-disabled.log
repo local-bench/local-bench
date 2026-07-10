@@ -1,1 +1,4 @@
-WARNING 07-11 08:31:14 [compressed_tensors.py:419] VLLM_BATCH_INVARIANT disabled: deterministic CUTLASS NVFP4 kernel unavailable; using fallback
+# Source: https://docs.vllm.ai/en/v0.24.0/api/vllm/model_executor/kernels/linear/
+# Module: vllm.model_executor.kernels.linear, init_nvfp4_linear_kernel
+VLLM_BATCH_INVARIANT overrides --linear-backend=%s; using the emulation backend for deterministic execution.
+VLLM_BATCH_INVARIANT is set but the batch-invariant NVFP4 kernel is not supported on this platform; falling back to emulation for deterministic execution. Reason: %s

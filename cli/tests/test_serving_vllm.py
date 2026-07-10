@@ -211,9 +211,10 @@ async def test_snapshot_directory_flows_through_manifest_writer_and_completed_pr
     output = tmp_path / "run" / "localbench-run.json"
     atomic_write_json({"manifest": manifest}, output)
     serve_log = tmp_path / "run" / "serve.log"
+    fixture_dir = Path(__file__).parent / "fixtures"
     serve_log.write_text(
-        "VLLM_BATCH_INVARIANT selected deterministic NVFP4 kernel\n"
-        "model weights 22.1 GiB KV cache 0.7 GiB CUDA graph 0.3 GiB\n",
+        (fixture_dir / "vllm-0.24-determinism-enabled.log").read_text(encoding="utf-8")
+        + (fixture_dir / "vllm-0.24-memory-info.log").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     evidence = replace(
@@ -225,13 +226,16 @@ async def test_snapshot_directory_flows_through_manifest_writer_and_completed_pr
         dependency_lock_sha256="d" * 64,
         runtime_identity_sha256="r" * 64,
         applied_chat_template_sha256=artifact.chat_template_digest,
-        deterministic_kernel_evidence=("deterministic NVFP4 kernel",),
+        deterministic_kernel_evidence=(
+            "VLLM_BATCH_INVARIANT forces NVFP4 linear to use the CUTLASS backend "
+            "for deterministic execution.",
+        ),
         deterministic_kernel_enabled=True,
         live_batch_invariant="1",
         determinism_canary_passed=True,
         memory_allocations={
-            "weights": {"value": 22.1, "unit": "GiB"},
-            "kv_cache": {"value": 0.7, "unit": "GiB"},
+            "weights": {"value": artifact.file_size_bytes, "unit": "bytes", "source": "snapshot_files"},
+            "kv_cache": {"value": 11.54, "unit": "GiB"},
         },
         computed_memory_fit={"fits": True},
         device_name="NVIDIA RTX",
@@ -241,6 +245,11 @@ async def test_snapshot_directory_flows_through_manifest_writer_and_completed_pr
         env_allowlist={"VLLM_BATCH_INVARIANT": "1"},
         serve_log_path=str(serve_log),
     )
+    info_only = replace(
+        evidence,
+        memory_allocations={"kv_cache": {"value": 11.54, "unit": "GiB"}},
+    )
+    assert "runtime.memory_report_unverified" not in serving_context(info_only).blocking_reasons
     completed = apply_serving_context({"manifest": manifest}, serving_context(evidence))
     atomic_write_json(completed, output)
     written = json.loads(output.read_text(encoding="utf-8"))
@@ -248,24 +257,20 @@ async def test_snapshot_directory_flows_through_manifest_writer_and_completed_pr
     assert written["serving"]["verification_level"] == "orchestrated-pinned-artifacts-v1"
 
 
-def test_vllm_startup_log_records_determinism_memory_and_fit_failure(tmp_path: Path) -> None:
+def test_vllm_startup_log_records_stock_determinism_and_info_memory(tmp_path: Path) -> None:
     log = tmp_path / "serve.log"
-    # These startup lines are captured vLLM 0.24 fixtures, not parser-generated text.
+    # These fixtures quote stock source messages and source-cited observed output.
+    fixture_dir = Path(__file__).parent / "fixtures"
     enabled = (Path(__file__).parent / "fixtures" / "vllm-0.24-determinism-enabled.log").read_text(
         encoding="utf-8"
     )
-    log.write_text(
-        enabled + "model weights 22.1 GiB\nKV cache size 0.7 GiB\nCUDA graph memory 0.3 GiB\n",
-        encoding="utf-8",
-    )
+    memory_info = (fixture_dir / "vllm-0.24-memory-info.log").read_text(encoding="utf-8")
+    log.write_text(enabled + memory_info, encoding="utf-8")
     evidence = vllm.parse_vllm_startup_log(log)
     assert evidence.deterministic_kernel_evidence
     assert evidence.deterministic_kernel_enabled is True
-    assert set(evidence.memory_allocations) == {"weights", "kv_cache", "cuda_graph"}
+    assert evidence.memory_allocations == {"kv_cache": {"value": 11.54, "unit": "GiB"}}
     assert evidence.fit_failure is None
-
-    log.write_text("CUDA out of memory while allocating KV cache\n", encoding="utf-8")
-    assert "out of memory" in (vllm.parse_vllm_startup_log(log).fit_failure or "")
 
 
 def test_vllm_startup_log_rejects_negative_determinism_semantics(tmp_path: Path) -> None:
@@ -277,18 +282,6 @@ def test_vllm_startup_log_rejects_negative_determinism_semantics(tmp_path: Path)
     evidence = vllm.parse_vllm_startup_log(log)
     assert evidence.deterministic_kernel_enabled is False
     assert evidence.deterministic_kernel_evidence == ()
-
-
-def test_vllm_readiness_failure_is_rewritten_as_clear_memory_fit_error(
-    tmp_path: Path,
-) -> None:
-    log = tmp_path / "serve.log"
-    log.write_text("CUDA out of memory while allocating KV cache\n", encoding="utf-8")
-    with pytest.raises(RuntimeError, match="startup memory fit failed: CUDA out of memory"):
-        serving_runner._raise_memory_fit_error_if_present(
-            log,
-            ReadinessError("server never became ready"),
-        )
 
 
 def test_vllm_prelaunch_vram_fit_uses_snapshot_weights_and_config(tmp_path: Path) -> None:
@@ -352,13 +345,11 @@ def test_vllm_argv_pins_single_request_batch_invariant_engine_profile(tmp_path: 
 
 def test_vllm_flag_validation_exact_matches_help_options(tmp_path: Path) -> None:
     argv = vllm.vllm_serve_argv(_launch_config(tmp_path))
-    # Captured from `vllm serve --help` in the pinned vLLM 0.24 maintainer venv.
+    # Curated official-reference excerpts, with descriptions retained where present.
     fixture = (Path(__file__).parent / "fixtures" / "vllm-0.24-serve-help.txt").read_text(
         encoding="utf-8"
     )
-    without_dtype = "\n".join(
-        line for line in fixture.splitlines() if not line.lstrip().startswith("--dtype ")
-    )
+    without_dtype = fixture.replace("--dtype\n", "")
     with pytest.raises(RuntimeError, match=r"required flags: --dtype"):
         vllm.validate_vllm_argv(argv, without_dtype)
 

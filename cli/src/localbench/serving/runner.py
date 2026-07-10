@@ -600,6 +600,12 @@ def _vllm_serving_evidence(
     live_batch_invariant: str | None,
 ) -> ServingEvidence:
     startup_log = parse_vllm_startup_log(root / "serve.log")
+    memory_allocations = dict(startup_log.memory_allocations)
+    memory_allocations["weights"] = {
+        "value": memory_fit.weights_bytes,
+        "unit": "bytes",
+        "source": "snapshot_files",
+    }
     return ServingEvidence(
         runtime="vllm",
         argv=argv,
@@ -673,7 +679,7 @@ def _vllm_serving_evidence(
         deterministic_kernel_evidence=startup_log.deterministic_kernel_evidence,
         deterministic_kernel_enabled=startup_log.deterministic_kernel_enabled,
         live_batch_invariant=live_batch_invariant,
-        memory_allocations=startup_log.memory_allocations,
+        memory_allocations=memory_allocations,
         computed_memory_fit=memory_fit.provenance(),
         runtime_identity_sha256=build.runtime_identity_sha256,
         determinism_canary_passed=options.determinism_canary,

@@ -214,7 +214,7 @@ def vllm_serve_argv(config: VllmLaunchConfig) -> list[str]:
         "vllm",
         "--tensor-parallel-size",
         "1",
-        "--disable-log-requests",
+        "--no-enable-log-requests",
     ]
 
 
@@ -240,7 +240,7 @@ def validate_vllm_argv(argv: list[str], help_text: str) -> None:
         "--no-enable-chunked-prefill",
         "--generation-config",
         "--tensor-parallel-size",
-        "--disable-log-requests",
+        "--no-enable-log-requests",
     }
     missing_argv = sorted(flag for flag in required if flag not in argv)
     supported = set(re.findall(r"(?<![\w-])--[a-z0-9][a-z0-9-]*", help_text, re.IGNORECASE))
@@ -815,19 +815,15 @@ def parse_vllm_startup_log(path: Path) -> VllmLogEvidence:
         if _affirmative_determinism_line(line)
     )
     allocations: JsonObject = {}
-    patterns = {
-        "weights": r"(?:model\s+weights|weights)[^\n]*?([0-9]+(?:\.[0-9]+)?)\s*(GiB|MiB)",
-        "kv_cache": r"(?:KV\s+cache|cache\s+size)[^\n]*?([0-9]+(?:\.[0-9]+)?)\s*(GiB|MiB)",
-        "cuda_graph": r"(?:CUDA\s+graph|graph\s+memory)[^\n]*?([0-9]+(?:\.[0-9]+)?)\s*(GiB|MiB)",
-    }
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match is not None:
-            allocations[key] = {"value": float(match.group(1)), "unit": match.group(2)}
-    failure_match = re.search(
-        r"([^\n]*(?:out of memory|insufficient memory|no available memory for the cache)[^\n]*)",
+    kv_cache_match = re.search(
+        r"Available KV cache memory:\s*([0-9]+(?:\.[0-9]+)?) GiB",
         text,
-        re.IGNORECASE,
+    )
+    if kv_cache_match is not None:
+        allocations["kv_cache"] = {"value": float(kv_cache_match.group(1)), "unit": "GiB"}
+    failure_match = re.search(
+        r"([^\n]*KV cache is needed, which is larger than the available KV cache memory[^\n]*)",
+        text,
     )
     return VllmLogEvidence(
         deterministic_kernel_evidence=deterministic,
@@ -838,23 +834,16 @@ def parse_vllm_startup_log(path: Path) -> VllmLogEvidence:
 
 
 def _affirmative_determinism_line(line: str) -> bool:
-    relevant = re.search(
-        r"batch[ _-]?invariant|deterministic.{0,60}(?:kernel|cutlass|nvfp4)",
-        line,
-        re.IGNORECASE,
+    forced_cutlass = (
+        "VLLM_BATCH_INVARIANT forces NVFP4 linear to use the "
+        "CUTLASS backend for deterministic execution."
     )
-    affirmative = re.search(
-        r"\b(?:enabled|active|activated|selected|using)\b.{0,50}\b(?:kernel|cutlass|nvfp4|mode)\b|"
-        r"\b(?:kernel|cutlass|nvfp4|mode)\b.{0,50}\b(?:enabled|active|activated|selected|using)\b",
+    overridden_to_cutlass = re.search(
+        r"VLLM_BATCH_INVARIANT overrides --linear-backend=[^;\s]+; "
+        r"using the CUTLASS backend for deterministic execution\.",
         line,
-        re.IGNORECASE,
     )
-    negative = re.search(
-        r"\b(?:disabled|unavailable|fallback|warning|warn|failed|failure|cannot|unsupported|not enabled)\b",
-        line,
-        re.IGNORECASE,
-    )
-    return relevant is not None and affirmative is not None and negative is None
+    return forced_cutlass in line or overridden_to_cutlass is not None
 
 
 def _cuda_version(output: str) -> str | None:

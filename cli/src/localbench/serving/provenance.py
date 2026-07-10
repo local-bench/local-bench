@@ -302,7 +302,7 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
         if evidence.computed_memory_fit is None or evidence.computed_memory_fit.get("fits") is not True:
             reasons.append("runtime.memory_fit_unverified")
         allocations = evidence.memory_allocations or {}
-        if "weights" not in allocations or "kv_cache" not in allocations:
+        if "kv_cache" not in allocations:
             reasons.append("runtime.memory_report_unverified")
     return reasons
 

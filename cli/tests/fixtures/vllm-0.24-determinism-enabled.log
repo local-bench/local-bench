@@ -1,1 +1,4 @@
-INFO 07-11 08:31:14 [compressed_tensors.py:412] VLLM_BATCH_INVARIANT active: using selected deterministic CUTLASS NVFP4 kernel
+# Source: https://docs.vllm.ai/en/v0.24.0/api/vllm/model_executor/kernels/linear/
+# Module: vllm.model_executor.kernels.linear, init_nvfp4_linear_kernel
+VLLM_BATCH_INVARIANT forces NVFP4 linear to use the CUTLASS backend for deterministic execution.
+VLLM_BATCH_INVARIANT overrides --linear-backend=%s; using the CUTLASS backend for deterministic execution.

@@ -1,0 +1,4 @@
+# Message source: https://docs.vllm.ai/en/v0.24.0/api/vllm/v1/worker/gpu_worker/
+# Module: vllm.v1.worker.gpu_worker, determine_available_memory
+# Verbatim observed output: https://github.com/vllm-project/vllm/issues/39133
+INFO [gpu_worker.py:436]  Available KV cache memory: 11.54 GiB
