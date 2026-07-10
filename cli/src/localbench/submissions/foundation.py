@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,7 @@ from localbench._scoring import BenchAggregate
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
 from localbench.scoring.scorecard import SCORECARD_VERSION
+from localbench.serving.provenance import sanitize_launch_argv
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import sha256_file
 from localbench.submissions.contracts import (
@@ -113,7 +115,7 @@ def normalize_result_bundle(
     ):
         bundle = _copy_object(record)
         bundle["manifest"] = _normalize_manifest(_object(bundle.get("manifest")), bundle, suite_dir)
-        return _sanitize_output_path(bundle)
+        return _sanitize_published_paths(_sanitize_output_path(bundle))
     manifest = _normalize_manifest(_object(record.get("manifest")), record, suite_dir)
     perf = _object(record.get("perf")) if "perf" in record else None
     bundle: JsonObject = {
@@ -149,7 +151,7 @@ def normalize_result_bundle(
     _copy_optional(record, bundle, "sampler_audit")
     _copy_optional(record, bundle, "suite_coverage")
     _copy_optional(record, bundle, "index_version")
-    return bundle
+    return _sanitize_published_paths(bundle)
 
 
 def validate_result_bundle(bundle: JsonObject) -> ResultBundleValidation:
@@ -377,6 +379,48 @@ def _provenance(existing: JsonObject) -> JsonObject:
 def _sanitize_output_path(bundle: JsonObject) -> JsonObject:
     bundle.pop("output_path", None)
     return bundle
+
+
+def _sanitize_published_paths(bundle: JsonObject) -> JsonObject:
+    serving = _object(bundle.get("serving"))
+    launch = _object(serving.get("launch"))
+    cwd = launch.pop("cwd", None)
+    if isinstance(cwd, str) and cwd:
+        launch["cwd_sha256"] = hashlib.sha256(cwd.encode("utf-8")).hexdigest()
+    argv = launch.get("argv")
+    if isinstance(argv, list) and all(isinstance(item, str) for item in argv):
+        launch["argv"] = sanitize_launch_argv(argv)
+    if launch:
+        serving["launch"] = launch
+    if serving:
+        bundle["serving"] = serving
+
+    agentic_run = _object(bundle.get("agentic_run"))
+    runs = agentic_run.get("runs")
+    if isinstance(runs, list):
+        for raw in runs:
+            if not isinstance(raw, dict):
+                continue
+            results_path = raw.get("results_path")
+            if isinstance(results_path, str) and _unsafe_relative_path(results_path):
+                raw.pop("results_path", None)
+    wsl_identity = _object(agentic_run.get("wsl_identity"))
+    for field in ("venv_path", "bwrap_path", "appworld_root"):
+        wsl_identity.pop(field, None)
+    if wsl_identity:
+        agentic_run["wsl_identity"] = wsl_identity
+    if agentic_run:
+        bundle["agentic_run"] = agentic_run
+    return bundle
+
+
+def _unsafe_relative_path(value: str) -> bool:
+    normalized = value.replace("\\", "/")
+    return (
+        normalized.startswith("/")
+        or (len(normalized) >= 3 and normalized[0].isalpha() and normalized[1:3] == ":/")
+        or ".." in normalized.split("/")
+    )
 
 
 def _read_json(path: Path) -> JsonObject:

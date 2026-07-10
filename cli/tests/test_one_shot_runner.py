@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -106,6 +107,31 @@ def test_one_shot_resolves_selected_suite_before_any_model_asset_download(
     deps = _deps(tmp_path)
     args = _args(tmp_path, static_only=static_only)
     args.suite_dir = tmp_path / "missing-suite"
+
+    code = run_one_shot_bench(
+        args,
+        cli_version="0.3.1",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == 2
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+
+
+def test_one_shot_rejects_release_manifest_file_drift_before_download(tmp_path: Path) -> None:
+    deps = _deps(tmp_path)
+    args = _args(tmp_path)
+    canonical = args.suite_dir
+    tampered = tmp_path / "tampered-suite"
+    shutil.copytree(canonical, tampered)
+    # Template content is not covered by itemsets.lock.json, so the suite remains internally
+    # consistent while diverging from the canonical release manifest's files[] identity.
+    (tampered / "templates" / "math.txt").write_text("tampered\n", encoding="utf-8")
+    args.suite_dir = tampered
 
     code = run_one_shot_bench(
         args,

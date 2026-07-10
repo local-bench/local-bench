@@ -63,7 +63,9 @@ def test_worker_hello_identity_sanity() -> None:
     assert identity["appworld_root_under_mnt"] is False
     assert identity["bwrap_path"]
     assert identity["appworld_version"]
-    assert identity["worker_git_commit"]
+    assert identity["localbench_distribution_version"] == "0.3.1"
+    assert len(identity["worker_content_sha256"]) == 64
+    assert identity["worker_module_sha256"]
 
 
 def test_proxy_round_trip_on_one_real_task_from_wsl_side() -> None:

@@ -24,7 +24,6 @@ from localbench.scoring.agentic_exec.model_client import (
 # model token-cap hit. The loop treats any turn it cannot parse a block from as a format
 # failure regardless of this string; the string is for human-readable diagnostics.
 ERROR_FINISH_REASON = "error"
-_MAX_TRANSPORT_ATTEMPTS: Final = 2
 _MIN_REQUEST_TIMEOUT_S: Final = 600.0
 _MIN_GENERATION_TOKENS_PER_SECOND: Final = 2.0
 _TASK_WATCHDOG_S: Final = 1800.0
@@ -161,7 +160,7 @@ class ChatCompletionsClient:
 
         Isolated so a unit test can monkeypatch THIS method with a mock transport (no live
         endpoint). Connection-level failures raise a typed transport exception; HTTP failures
-        return their status and body so ``complete`` can apply the same retry policy.
+        return their status and body for the recoverable-turn diagnostic.
         """
         endpoint = urlsplit(self.endpoint)
         if endpoint.scheme not in {"http", "https"} or endpoint.hostname is None:
@@ -224,48 +223,37 @@ class ChatCompletionsClient:
     ) -> ModelResponse:
         """POST one turn; parse the reply into a :class:`ModelResponse`.
 
-        Transport and HTTP failures retry once when the task deadline permits, then become the
-        same recoverable empty turn used by 0.3.0. Response parse problems remain recoverable
-        protocol-format failures and are not counted as transport failures.
+        Exactly one transport attempt is made per protocol turn. Transport and HTTP failures
+        become the same recoverable empty turn used by 0.3.0. Response parse problems remain
+        recoverable protocol-format failures and are not counted as transport failures.
         """
         payload = self._build_payload(messages, params)
+        remaining_s = self._remaining_transport_s()
+        if remaining_s <= 0 or self._cancelled.is_set():
+            return self._error_response(
+                "task transport deadline exhausted",
+                transport_failure=True,
+                transport_failure_count=1,
+                transport_attempt_count=0,
+            )
         body = ""
         status = 0
         transport_errors: list[str] = []
-        attempts_made = 0
-        for attempt in range(1, _MAX_TRANSPORT_ATTEMPTS + 1):
-            attempts_left = _MAX_TRANSPORT_ATTEMPTS - attempt + 1
-            remaining_s = self._remaining_transport_s()
-            if remaining_s <= 0 or self._cancelled.is_set():
-                attempts_made += 1
-                transport_errors.append("task transport deadline exhausted")
-                break
-            desired_s = self._request_timeout_s(payload)
-            self._attempt_timeout_s = min(desired_s, remaining_s / attempts_left)
-            attempts_made += 1
-            try:
-                status, body = self._post(payload)
-            except ModelTransportError as error:
-                status = 0
-                transport_errors.append(str(error))
-            finally:
-                self._attempt_timeout_s = None
-            if status == 200:
-                break
-            if status != 0:
-                transport_errors.append(f"http_status={status}: {_clip(body)}")
-            if attempt == _MAX_TRANSPORT_ATTEMPTS:
-                break
-            # A retry must still have the fidelity floor available. Otherwise return the
-            # recoverable failure now instead of starting an attempt that can overrun reserve.
-            if self._remaining_transport_s() < _MIN_REQUEST_TIMEOUT_S:
-                break
+        self._attempt_timeout_s = min(self._request_timeout_s(payload), remaining_s)
+        try:
+            status, body = self._post(payload)
+        except ModelTransportError as error:
+            transport_errors.append(str(error))
+        finally:
+            self._attempt_timeout_s = None
+        if status != 200 and status != 0:
+            transport_errors.append(f"http_status={status}: {_clip(body)}")
         if status != 200:
             return self._error_response(
                 "; ".join(transport_errors) or "transport failure",
                 transport_failure=True,
                 transport_failure_count=len(transport_errors),
-                transport_attempt_count=attempts_made,
+                transport_attempt_count=1,
             )
         try:
             data = json.loads(body)
@@ -277,7 +265,7 @@ class ChatCompletionsClient:
             response,
             transport_failure=bool(transport_errors),
             transport_failure_count=len(transport_errors),
-            transport_attempt_count=attempts_made,
+            transport_attempt_count=1,
         )
 
     # -- response parsing -----------------------------------------------------------------------

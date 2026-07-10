@@ -138,8 +138,18 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
         "verification_level": verification_level,
         "trust_tier": verification_level,
         "launch": {
-            "argv": evidence.argv,
-            "cwd": evidence.cwd,
+            "argv": sanitize_launch_argv(evidence.argv),
+            "cwd_sha256": _text_sha256(evidence.cwd),
+            "path_identities": {
+                "server": {
+                    "basename": _path_basename(evidence.argv[0]) if evidence.argv else "",
+                    "sha256": evidence.executable_sha256,
+                },
+                "model": {
+                    "basename": evidence.artifact.model_file.name,
+                    "sha256": evidence.artifact.file_sha256,
+                },
+            },
             "env_allowlist": evidence.env_allowlist,
             "host": evidence.host,
             "port": evidence.port,
@@ -219,6 +229,37 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
 
 def api_key_sha256(api_key: str) -> str:
     return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
+
+
+def sanitize_launch_argv(argv: list[str]) -> list[str]:
+    """Replace absolute local argv paths with non-identifying basenames."""
+    sanitized: list[str] = []
+    for token in argv:
+        prefix, separator, value = token.partition("=")
+        if separator and _is_absolute_local_path(value):
+            sanitized.append(f"{prefix}={_path_basename(value)}")
+        elif _is_absolute_local_path(token):
+            sanitized.append(_path_basename(token))
+        else:
+            sanitized.append(token)
+    return sanitized
+
+
+def _is_absolute_local_path(value: str) -> bool:
+    normalized = value.replace("\\", "/")
+    return normalized.startswith("/") or (
+        len(normalized) >= 3
+        and normalized[0].isalpha()
+        and normalized[1:3] == ":/"
+    )
+
+
+def _path_basename(value: str) -> str:
+    return value.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+
+
+def _text_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _path_sha256(path_value: str) -> str | None:

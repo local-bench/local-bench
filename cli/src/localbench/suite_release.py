@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Final
 
 from localbench._types import JsonObject
@@ -155,6 +155,57 @@ def build_suite_release_manifest(
 def suite_manifest_sha256(manifest: JsonObject) -> str:
     hashed = {key: value for key, value in manifest.items() if key != "suite_manifest_sha256"}
     return canonical_json_hash(hashed)
+
+
+def verify_suite_release_files(suite_dir: Path, manifest: JsonObject) -> None:
+    """Bind every file in a release manifest to the selected suite directory."""
+    files = manifest.get("files")
+    if not isinstance(files, list) or not files:
+        raise SuiteResolutionError("suite release manifest must contain a non-empty files array")
+    suite_root = suite_dir.resolve()
+    seen: set[str] = set()
+    for index, raw in enumerate(files):
+        if not isinstance(raw, dict):
+            raise SuiteResolutionError(f"suite release manifest files[{index}] must be an object")
+        relative = raw.get("path")
+        expected_sha = raw.get("sha256")
+        expected_size = raw.get("size")
+        if not isinstance(relative, str) or not relative:
+            raise SuiteResolutionError(f"suite release manifest files[{index}] has invalid path")
+        posix_path = PurePosixPath(relative)
+        if posix_path.is_absolute() or ".." in posix_path.parts or "\\" in relative:
+            raise SuiteResolutionError(f"unsafe suite release manifest path: {relative}")
+        if relative in seen:
+            raise SuiteResolutionError(f"duplicate suite release manifest path: {relative}")
+        seen.add(relative)
+        if not isinstance(expected_sha, str) or len(expected_sha) != 64:
+            raise SuiteResolutionError(f"{relative}: invalid release manifest sha256")
+        if not isinstance(expected_size, int) or isinstance(expected_size, bool) or expected_size < 0:
+            raise SuiteResolutionError(f"{relative}: invalid release manifest size")
+        path = suite_dir.joinpath(*posix_path.parts)
+        try:
+            resolved_path = path.resolve(strict=True)
+            if not resolved_path.is_relative_to(suite_root):
+                raise SuiteResolutionError(f"release-manifest path escapes suite directory: {relative}")
+            if not resolved_path.is_file():
+                raise SuiteResolutionError(f"release-manifest path is not a file: {path}")
+            actual_size = resolved_path.stat().st_size
+        except FileNotFoundError as error:
+            raise SuiteResolutionError(f"missing release-manifest file: {path}") from error
+        except OSError as error:
+            raise SuiteResolutionError(f"cannot inspect release-manifest file {path}: {error}") from error
+        if actual_size != expected_size:
+            raise SuiteResolutionError(
+                f"{relative}: release manifest size mismatch {actual_size} != {expected_size}",
+            )
+        try:
+            actual_sha = sha256_file(resolved_path)
+        except OSError as error:
+            raise SuiteResolutionError(f"cannot hash release-manifest file {path}: {error}") from error
+        if actual_sha != expected_sha:
+            raise SuiteResolutionError(
+                f"{relative}: release manifest sha256 mismatch {actual_sha} != {expected_sha}",
+            )
 
 
 def coverage_profile_for_benches(benches: set[str]) -> CoverageProfile:

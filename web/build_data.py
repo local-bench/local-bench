@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import shutil
 import sys
 from dataclasses import dataclass
@@ -80,6 +81,15 @@ _AGENTIC_INFRA_TIMEOUT_RATE_LIMIT: Final = 0.05
 # Watchdog per_task_timeout_s=1800 as of CLI commit 5fe9186; this gate protects
 # hardware-independence of the agentic axis by keeping time-starved runs unranked.
 _AGENTIC_INFRA_TIMEOUT_REASON: Final = "agentic-infra-timeout-rate"
+_NEW_AGENTIC_INFRA_FIELDS: Final = (
+    "infra_failure_rate",
+    "transport_failure_count",
+    "transport_attempt_count",
+    "transport_failure_rate",
+    "teardown_failure_count",
+    "teardown_failure_rate",
+)
+_LEGACY_AGENTIC_VERSION_CUTOFF: Final = (0, 3, 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,13 +254,18 @@ def _valid_inline_appworld(agentic_run: JsonValue | None) -> bool:
     return not any(not isinstance(run, dict) or _agentic_summary_is_harness_dominated(run) for run in runs)
 
 
-def _agentic_infra_timeout_warnings(agentic_run: JsonValue | None) -> list[JsonValue]:
+def _agentic_infra_timeout_warnings(
+    agentic_run: JsonValue | None,
+    *,
+    cli_version: JsonValue | None,
+) -> list[JsonValue]:
     """Fail closed: an inline AppWorld record must prove healthy infrastructure rates.
 
     A missing, malformed, non-finite, or out-of-range ``infra_timeout_rate`` — in the
     aggregate diagnostics or in any scored run — earns the same warning as an elevated rate.
-    New records also gate canonical ``infra_failure_rate`` (timeout + sandbox + transport).
-    Older records without the additive canonical field retain the timeout-only gate.
+    New records also require canonical ``infra_failure_rate`` (timeout + sandbox + transport).
+    The legacy branch is available only to receipts proving a CLI version before 0.3.1 and
+    carrying none of the new-format fields. Every infrastructure rate present is gated.
     """
     if not isinstance(agentic_run, dict):
         return []
@@ -260,32 +275,47 @@ def _agentic_infra_timeout_warnings(agentic_run: JsonValue | None) -> list[JsonV
         summaries.extend(runs)
     elif runs is not None:
         return [_AGENTIC_INFRA_TIMEOUT_REASON]
-    if any(not isinstance(summary, dict) or not _infra_rates_healthy(summary) for summary in summaries):
+    if any(not isinstance(summary, dict) for summary in summaries):
+        return [_AGENTIC_INFRA_TIMEOUT_REASON]
+    typed_summaries = [summary for summary in summaries if isinstance(summary, dict)]
+    carries_new_fields = any(
+        any(field in summary for field in _NEW_AGENTIC_INFRA_FIELDS)
+        for summary in typed_summaries
+    )
+    legacy_allowed = (
+        not carries_new_fields
+        and _cli_version_before(cli_version, _LEGACY_AGENTIC_VERSION_CUTOFF)
+    )
+    if not carries_new_fields and not legacy_allowed:
+        return [_AGENTIC_INFRA_TIMEOUT_REASON]
+    if any(
+        not _infra_rates_healthy(summary, legacy_allowed=legacy_allowed)
+        for summary in typed_summaries
+    ):
         return [_AGENTIC_INFRA_TIMEOUT_REASON]
     return []
 
 
-def _infra_timeout_rate_healthy(summary: JsonObject) -> bool:
-    return _rate_healthy(summary.get("infra_timeout_rate"))
-
-
-def _infra_rates_healthy(summary: JsonObject) -> bool:
-    if not _infra_timeout_rate_healthy(summary):
+def _infra_rates_healthy(summary: JsonObject, *, legacy_allowed: bool) -> bool:
+    infra_rates = {
+        key: value
+        for key, value in summary.items()
+        if key.startswith("infra_") and key.endswith("_rate")
+    }
+    if "infra_timeout_rate" not in infra_rates or not infra_rates:
         return False
-    if "infra_failure_rate" not in summary:
-        # Backward compatibility is limited to genuinely older summaries. Once any additive
-        # 0.3.1 transport/teardown diagnostic is present, omitting the canonical rate fails closed.
-        return not any(
-            field in summary
-            for field in (
-                "transport_failure_count",
-                "transport_attempt_count",
-                "transport_failure_rate",
-                "teardown_failure_count",
-                "teardown_failure_rate",
-            )
-        )
-    return _rate_healthy(summary.get("infra_failure_rate"))
+    if any(not _rate_healthy(value) for value in infra_rates.values()):
+        return False
+    return legacy_allowed or "infra_failure_rate" in infra_rates
+
+
+def _cli_version_before(value: JsonValue | None, cutoff: tuple[int, int, int]) -> bool:
+    if not isinstance(value, str):
+        return False
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.-]+)?", value.strip())
+    if match is None:
+        return False
+    return tuple(int(part) for part in match.groups()) < cutoff
 
 
 def _rate_healthy(value: JsonValue | None) -> bool:
@@ -367,7 +397,10 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     source_benches = dict(_object(run.get("benches"), f"{path}:benches"))
     items = list(_list(run.get("items"), f"{path}:items"))
     quarantined_agentic = _quarantine_invalid_inline_appworld(run, source_benches, items)
-    agentic_infra_warnings = _agentic_infra_timeout_warnings(run.get("agentic_run"))
+    agentic_infra_warnings = _agentic_infra_timeout_warnings(
+        run.get("agentic_run"),
+        cli_version=_object_or_empty(manifest.get("provenance")).get("cli_version"),
+    )
     totals = _object(run.get("totals"), f"{path}:totals")
     perf = _object_or_empty(run.get("perf"))
     model_label = _model_label(source, manifest)

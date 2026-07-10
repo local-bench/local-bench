@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+from dataclasses import replace
 from pathlib import Path
 
 import httpx
@@ -37,7 +39,15 @@ FLASH_ATTENTION = "on"
 
 def test_serving_context_applies_block_policy_and_trust_tier(tmp_path: Path) -> None:
     # Given: complete pinned serving evidence and a normalized result bundle.
-    evidence = serving_evidence(tmp_path, teardown_terminated=True)
+    evidence = replace(
+        serving_evidence(tmp_path, teardown_terminated=True),
+        argv=[
+            r"C:\Users\Michael\llama.cpp\llama-server.exe",
+            "--model",
+            r"C:\Users\Michael\models\Gemma-12B-Q4_K_M.gguf",
+        ],
+        cwd=r"C:\Users\Michael\local-bench",
+    )
     serve_log = Path(evidence.serve_log_path)
     serve_log.parent.mkdir(parents=True, exist_ok=True)
     serve_log.write_bytes(b"local-only server log")
@@ -63,6 +73,13 @@ def test_serving_context_applies_block_policy_and_trust_tier(tmp_path: Path) -> 
     assert updated["serving"]["serve_log_sha256"] == hashlib.sha256(
         b"local-only server log",
     ).hexdigest()
+    launch = updated["serving"]["launch"]
+    assert "cwd" not in launch
+    assert len(launch["cwd_sha256"]) == 64
+    assert launch["argv"] == ["llama-server.exe", "--model", "Gemma-12B-Q4_K_M.gguf"]
+    assert launch["path_identities"]["server"]["sha256"] == "e" * 64
+    assert launch["path_identities"]["model"]["sha256"] == evidence.artifact.file_sha256
+    assert "C:\\Users\\" not in json.dumps(updated)
 
 
 def test_serving_context_degrades_when_teardown_is_uncertain(tmp_path: Path) -> None:

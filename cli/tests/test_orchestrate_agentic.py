@@ -58,7 +58,10 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
                     "scorecard_assembly": "single-campaign-no-merge",
                     "model_call_location": "windows_campaign_process",
                 },
-                "wsl_identity": {"worker_git_commit": "abc123", "worker_dirty_tree": False},
+                "wsl_identity": {
+                    "localbench_distribution_version": "0.3.1",
+                    "worker_content_sha256": "3" * 64,
+                },
                 "agentic_sandbox_identity": {
                     "bubblewrap_sha256": "1" * 64,
                     "appworld_root_sha256": "2" * 64,
@@ -124,7 +127,8 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             "scorecard_assembly": "single-campaign-no-merge",
             "model_call_location": "windows_campaign_process",
         }
-        assert agentic_run["wsl_identity"]["worker_git_commit"] == "abc123"
+        assert agentic_run["wsl_identity"]["localbench_distribution_version"] == "0.3.1"
+        assert agentic_run["wsl_identity"]["worker_content_sha256"] == "3" * 64
         assert agentic_run["agentic_sandbox_identity"]["appworld_root_sha256"] == "2" * 64
         assert agentic_run["single_campaign_integrity"] == {"merge_step_used": False}
         agentic_runs = agentic_run["runs"]
@@ -145,7 +149,8 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_pa
             assert outcome_counts["success"] == 2
             results_path = run_summary["results_path"]
             assert isinstance(results_path, str)
-            sidecar_path = Path(results_path)
+            assert not Path(results_path).is_absolute()
+            sidecar_path = output_path.parent / results_path
             assert sidecar_path.exists()
             sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
             assert sidecar["schema"] == "appworld-c-funnel-run/v1"

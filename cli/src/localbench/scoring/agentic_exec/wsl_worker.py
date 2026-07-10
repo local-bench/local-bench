@@ -23,6 +23,7 @@ from localbench.scoring.agentic_exec.sandbox import (
     resolve_bwrap,
 )
 from localbench.scoring.agentic_exec.sandbox_protocol import _MAX_FRAME_BYTES
+from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 
 WorkerReply: TypeAlias = tuple[JsonObject, bool]
 SandboxFactory: TypeAlias = Callable[[str], AbstractContextManager[SandboxLike]]
@@ -179,6 +180,7 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
         raise WorkerPreflightError("appworld package not importable")
     os_release = _os_release()
     return {
+        **worker_implementation_identity(),
         "wsl_kernel": platform.release(),
         "wsl_distro": os.environ.get("WSL_DISTRO_NAME", os_release.get("ID", "")),
         "wsl_os_release": os_release.get("PRETTY_NAME", ""),
@@ -186,8 +188,6 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
         "venv_path": sys.prefix,
         "venv_path_sha256": _text_sha256(sys.prefix),
         "worker_entrypoint": "localbench.scoring.agentic_exec.wsl_worker",
-        "worker_git_commit": _git_output("rev-parse", "HEAD"),
-        "worker_dirty_tree": bool(_git_output("status", "--porcelain")),
         "bwrap_path": bwrap,
         "bwrap_sha256": _file_sha256(bwrap),
         "bwrap_version": _command_output([bwrap, "--version"]),
@@ -321,42 +321,6 @@ def _package_version(package: str) -> str:
         return metadata.version(package)
     except metadata.PackageNotFoundError:
         return ""
-
-
-def _git_output(*args: str) -> str:
-    direct = _command_output(["git", *args])
-    if direct:
-        return direct
-    git_paths = _gitdir_work_tree()
-    if git_paths is None:
-        return ""
-    git_dir, work_tree = git_paths
-    return _command_output(["git", "--git-dir", git_dir, "--work-tree", work_tree, *args])
-
-
-def _gitdir_work_tree() -> tuple[str, str] | None:
-    dot_git = Path.cwd() / ".git"
-    if not dot_git.is_file():
-        return None
-    try:
-        raw = dot_git.read_text(encoding="utf-8", errors="replace").strip()
-    except OSError:
-        return None
-    prefix = "gitdir:"
-    if not raw.startswith(prefix):
-        return None
-    git_dir = _worktree_path_for_current_os(raw.removeprefix(prefix).strip())
-    return git_dir, Path.cwd().as_posix()
-
-
-def _worktree_path_for_current_os(path: str) -> str:
-    normalized = path.replace("\\", "/")
-    if len(normalized) >= 3 and normalized[1] == ":" and normalized[2] == "/":
-        drive = normalized[0].lower()
-        return f"/mnt/{drive}/{normalized[3:]}"
-    if normalized.startswith("/"):
-        return normalized
-    return (Path.cwd() / normalized).resolve().as_posix()
 
 
 def _filesystem_type(path: str) -> str:

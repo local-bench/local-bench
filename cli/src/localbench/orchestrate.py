@@ -1697,7 +1697,13 @@ def _run_agentic_axis(
         "stateless_request_semantics": "full_visible_conversation_per_turn",
         "chat_template_kwargs": resolved_chat_template_kwargs,
         "diagnostics": _appworld_report_summary(last_report),
-        "runs": [_appworld_stage_run_summary(run) for run in agg.runs],
+        "runs": [
+            _appworld_stage_run_summary(
+                run,
+                run_dir=results_dir.parent.parent if results_dir is not None else Path.cwd(),
+            )
+            for run in agg.runs
+        ],
     }
     attestations = _appworld_report_attestations(last_report)
     if attestations:
@@ -1813,12 +1819,19 @@ def _appworld_report_summary(report: BenchmarkReport) -> JsonObject:
     }
 
 
-def _appworld_stage_run_summary(run: StageRunResult) -> JsonObject:
+def _appworld_stage_run_summary(run: StageRunResult, *, run_dir: Path) -> JsonObject:
     summary = _appworld_report_summary(run.report)
     summary["run_index"] = run.run_index
     summary["stage"] = run.stage
     summary["subset_hash"] = run.subset_hash
-    summary["results_path"] = run.results_path
+    if run.results_path is not None:
+        path = Path(run.results_path)
+        try:
+            summary["results_path"] = path.resolve().relative_to(run_dir.resolve()).as_posix()
+        except ValueError:
+            # A rerun artifact outside the benchmark run directory is local-only and must not
+            # leak into the normalized/published receipt.
+            pass
     return summary
 
 

@@ -233,7 +233,6 @@ def preflight_agentic_if_needed(
             venv_python=wsl_venv_python,
             appworld_root=appworld_root,
             log_dir=root / "agentic" / "wsl-worker-logs",
-            expected_git_commit=None,
             max_items=options.max_items,
         )
     except AgenticSetupError:

@@ -10,6 +10,7 @@ from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike
 from localbench.scoring.agentic_exec.sandbox import FINALIZATION_PROVENANCE, SandboxError
 from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.scoring.agentic_exec.wsl_proxy import WslSandboxProxy, WslVerdict as WslVerdict
+from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,7 +55,6 @@ def preflight_wsl_agentic(
     venv_python: str,
     appworld_root: str,
     log_dir: Path,
-    expected_git_commit: str | None = None,
     max_items: int | None = None,
 ) -> WslPreflightResult:
     config = WslWorkerConfig(
@@ -67,7 +67,7 @@ def preflight_wsl_agentic(
         identity = worker.identity
         if identity is None:
             raise SandboxError("wsl preflight did not collect worker identity")
-        _assert_identity(identity, expected_git_commit)
+        _assert_identity(identity, worker_implementation_identity())
         task_ids = tuple(worker.list_tasks("scored"))
     if not task_ids:
         raise SandboxError("wsl preflight list_tasks returned no scored tasks")
@@ -117,15 +117,28 @@ def default_wsl_repo_path(windows_repo_root: Path) -> str:
     return f"/mnt/{drive}/{rest}"
 
 
-def _assert_identity(identity: JsonObject, expected_git_commit: str | None) -> None:
+def _assert_identity(identity: JsonObject, expected: JsonObject) -> None:
     if identity.get("appworld_root_under_mnt") is True:
         raise SandboxError("wsl preflight failed: APPWORLD_ROOT is under /mnt")
     if not identity.get("bwrap_path"):
         raise SandboxError("wsl preflight failed: bwrap is missing")
-    if expected_git_commit is not None and identity.get("worker_git_commit") != expected_git_commit:
+    expected_version = expected.get("localbench_distribution_version")
+    actual_version = identity.get("localbench_distribution_version")
+    if not isinstance(expected_version, str) or not expected_version:
+        raise SandboxError("wsl preflight failed: host localbench distribution version is unavailable")
+    if actual_version != expected_version:
         raise SandboxError(
-            "wsl preflight failed: worker git commit "
-            f"{identity.get('worker_git_commit')!r} != Windows HEAD {expected_git_commit!r}",
+            "wsl preflight failed: localbench distribution version mismatch: "
+            f"worker={actual_version!r} host={expected_version!r}",
+        )
+    expected_digest = expected.get("worker_content_sha256")
+    actual_digest = identity.get("worker_content_sha256")
+    if not isinstance(expected_digest, str) or len(expected_digest) != 64:
+        raise SandboxError("wsl preflight failed: host worker content digest is unavailable")
+    if actual_digest != expected_digest:
+        raise SandboxError(
+            "wsl preflight failed: worker content digest mismatch: "
+            f"worker={actual_digest!r} host={expected_digest!r}",
         )
 
 

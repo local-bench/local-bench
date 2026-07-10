@@ -273,6 +273,52 @@ def test_result_bundle_normalization_preserves_optional_perf_and_item_timings() 
     assert bundle["items"] == [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
 
 
+def test_normalized_published_record_contains_no_absolute_local_paths() -> None:
+    record = _synthetic_result_bundle(identity=True)
+    record["serving"] = {
+        "launch": {
+            "argv": [
+                r"C:\Users\Michael\llama.cpp\llama-server.exe",
+                "--model",
+                r"C:\Users\Michael\models\model.gguf",
+            ],
+            "cwd": r"C:\Users\Michael\local-bench",
+        },
+        "artifact": {"executable_sha256": "a" * 64},
+    }
+    record["agentic_run"] = {
+        "wsl_identity": {
+            "localbench_distribution_version": "0.3.1",
+            "worker_content_sha256": "b" * 64,
+            "venv_path": "/home/michael/venv",
+            "bwrap_path": "/home/michael/bin/bwrap",
+            "appworld_root": "/mnt/c/Users/Michael/appworld",
+        },
+        "runs": [
+            {
+                "run_index": 1,
+                "results_path": "/mnt/c/Users/Michael/run/agentic/results.json",
+            },
+        ],
+    }
+
+    bundle = normalize_result_bundle(record)
+    serialized = json.dumps(bundle, sort_keys=True).replace("\\\\", "/")
+
+    assert "C:/Users/" not in serialized
+    assert "/home/" not in serialized
+    assert "/mnt/c/" not in serialized
+    assert bundle["serving"]["launch"]["argv"] == [
+        "llama-server.exe",
+        "--model",
+        "model.gguf",
+    ]
+    assert len(bundle["serving"]["launch"]["cwd_sha256"]) == 64
+    assert bundle["serving"]["artifact"]["executable_sha256"] == "a" * 64
+    assert bundle["agentic_run"]["wsl_identity"]["worker_content_sha256"] == "b" * 64
+    assert "results_path" not in bundle["agentic_run"]["runs"][0]
+
+
 @_REQUIRES_PILOT
 def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None:
     from localbench.cli import main

@@ -16,12 +16,14 @@ from localbench.scoring.agentic_exec.sandbox import SandboxError, SandboxTimeout
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslSandboxProxy,
     WslWorkerConfig,
+    _assert_identity,
     default_wsl_repo_path,
     provenance_from_identity,
     wsl_list_scored_task_ids,
     wsl_sandbox_factory,
 )
 from localbench.scoring.agentic_exec.wsl_process import worker_argv
+from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 from localbench.scoring.agentic_exec.wsl_worker import (
     FrameTooLargeError,
     decode_worker_frame,
@@ -43,6 +45,17 @@ def test_worker_frame_round_trip_and_oversized_rejection() -> None:
     assert decoded == message
     with pytest.raises(FrameTooLargeError):
         encode_worker_frame({"op": "run_block", "code": "x" * (9 * 1024 * 1024)})
+
+
+def test_local_worker_implementation_identity_hashes_installed_sources() -> None:
+    identity = worker_implementation_identity()
+
+    assert identity["localbench_distribution_version"] == "0.3.1"
+    assert len(identity["worker_content_sha256"]) == 64
+    module_hashes = identity["worker_module_sha256"]
+    assert isinstance(module_hashes, dict)
+    assert "localbench.scoring.agentic_exec.wsl_worker" in module_hashes
+    assert "localbench.scoring.agentic_exec.sandbox" in module_hashes
 
 
 def test_worker_malformed_op_returns_protocol_error() -> None:
@@ -98,7 +111,7 @@ def test_proxy_timeout_maps_to_infra_timeout(tmp_path: Path) -> None:
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
-        op_timeout_s=0.1,
+        op_timeout_s=1.0,
     )
 
     # When: the proxy op times out.
@@ -418,6 +431,8 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
         "bwrap_version": "bwrap 0.9.0",
         "appworld_root": "/x/appworld",
         "appworld_root_sha256": "3" * 64,
+        "localbench_distribution_version": "0.3.1",
+        "worker_content_sha256": "4" * 64,
     })
 
     # Then: the agentic verdict-channel trust note is present and host-derived.
@@ -430,6 +445,26 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
     assert "appworld_root" not in prov["wsl_identity"]
     assert prov["agentic_sandbox_identity"]["bubblewrap_sha256"] == "2" * 64
     assert prov["agentic_sandbox_identity"]["appworld_root_sha256"] == "3" * 64
+    assert prov["wsl_identity"]["localbench_distribution_version"] == "0.3.1"
+    assert prov["wsl_identity"]["worker_content_sha256"] == "4" * 64
+
+
+def test_worker_identity_gate_compares_distribution_version_and_content_digest() -> None:
+    expected = {
+        "localbench_distribution_version": "0.3.1",
+        "worker_content_sha256": "a" * 64,
+    }
+    base = {
+        "appworld_root_under_mnt": False,
+        "bwrap_path": "/managed/bwrap",
+        **expected,
+    }
+
+    _assert_identity(base, expected)
+    with pytest.raises(SandboxError, match="distribution version mismatch"):
+        _assert_identity({**base, "localbench_distribution_version": "0.3.0"}, expected)
+    with pytest.raises(SandboxError, match="worker content digest mismatch"):
+        _assert_identity({**base, "worker_content_sha256": "b" * 64}, expected)
 
 
 def test_managed_worker_argv_uses_installed_package_without_source_checkout() -> None:

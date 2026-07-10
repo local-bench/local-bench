@@ -203,7 +203,7 @@ def test_chat_client_ignores_deepseek_reasoning_content_and_forwards_kwargs(
     assert captured["payload"]["chat_template_kwargs"] == {"enable_thinking": True}  # type: ignore[index]
 
 
-def test_chat_client_http_error_retries_twice_then_returns_recoverable_typed_turn(
+def test_chat_client_http_error_attempts_once_then_returns_recoverable_typed_turn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
@@ -217,13 +217,14 @@ def test_chat_client_http_error_retries_twice_then_returns_recoverable_typed_tur
 
     response = client.complete([{"role": "user", "content": "go"}], GenerationParams())
 
-    assert len(attempts) == 2
-    assert attempts[0] == attempts[1]
+    assert len(attempts) == 1
     assert response.finish_reason == ERROR_FINISH_REASON
     assert response.transport_failure is True
+    assert response.transport_failure_count == 1
+    assert response.transport_attempt_count == 1
 
 
-def test_chat_client_timeout_retries_identical_request_without_empty_turn(
+def test_chat_client_timeout_does_not_retry_and_returns_empty_turn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
@@ -231,20 +232,17 @@ def test_chat_client_timeout_retries_identical_request_without_empty_turn(
 
     def flaky(payload: dict[str, object]) -> tuple[int, str]:
         attempts.append(dict(payload))
-        if len(attempts) == 1:
-            raise model_client_mod.ModelTransportTimeout(detail="timed out")
-        return 200, _ok_body("```python\nprint(1)\n```")
+        raise model_client_mod.ModelTransportTimeout(detail="timed out")
 
     monkeypatch.setattr(client, "_post", flaky)
 
     response = client.complete([{"role": "user", "content": "go"}], GenerationParams())
 
-    assert response.text == "```python\nprint(1)\n```"
-    assert response.finish_reason == "stop"
+    assert response.text == ""
+    assert response.finish_reason == ERROR_FINISH_REASON
     assert response.transport_failure_count == 1
-    assert response.transport_attempt_count == 2
-    assert len(attempts) == 2
-    assert attempts[0] == attempts[1]
+    assert response.transport_attempt_count == 1
+    assert len(attempts) == 1
 
 
 def test_chat_client_malformed_json_is_format_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -340,7 +338,7 @@ def test_chat_client_official_3072_token_deadline_stays_below_task_watchdog(
         GenerationParams(max_output_tokens=3072),
     )
 
-    assert len(timeouts) == 2
+    assert len(timeouts) == 1
     assert sum(timeouts) <= 1620.0
     assert sum(timeouts) + 120.0 + 5.0 < LoopConfig().per_task_timeout_s
     assert response.transport_failure is True
@@ -732,7 +730,7 @@ def test_chat_client_custom_chat_path_is_never_rewritten() -> None:
 def test_persistent_chat_timeout_remains_recoverable_with_typed_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Given: a transport that times out on both allowed attempts.
+    # Given: a transport that times out on the single allowed attempt.
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
     attempts = 0
 
@@ -756,14 +754,14 @@ def test_persistent_chat_timeout_remains_recoverable_with_typed_diagnostics(
 
     # Then: every failed call remains a recoverable empty turn through the frozen turn cap.
     result = report.results[0]
-    assert attempts == 2 * LoopConfig().max_turns
+    assert attempts == LoopConfig().max_turns
     assert result.outcome == TaskOutcome.CAP_EXCEEDED
     assert result.diagnostics.turns_used == LoopConfig().max_turns
     assert result.diagnostics.format_failures == LoopConfig().max_turns
-    assert result.diagnostics.transport_failure_count == 2 * LoopConfig().max_turns
-    assert result.diagnostics.transport_attempt_count == 2 * LoopConfig().max_turns
+    assert result.diagnostics.transport_failure_count == LoopConfig().max_turns
+    assert result.diagnostics.transport_attempt_count == LoopConfig().max_turns
     assert result.diagnostics.transport_failure_rate == 1.0
-    assert report.transport_failure_count == 2 * LoopConfig().max_turns
-    assert report.transport_attempt_count == 2 * LoopConfig().max_turns
+    assert report.transport_failure_count == LoopConfig().max_turns
+    assert report.transport_attempt_count == LoopConfig().max_turns
     assert report.transport_failure_rate == 1.0
     assert report.infra_failure_rate == 1.0

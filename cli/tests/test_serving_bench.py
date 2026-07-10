@@ -27,6 +27,7 @@ from localbench.serving.readiness import ReadinessEvidence, verify_llama_cpp_rea
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import run_orchestrated_bench
 from localbench.serving.teardown import TeardownEvidence
+from localbench.scoring.agentic_exec.sandbox import SandboxError
 from localbench.cli import _parser
 from localbench.persistence import atomic_write_json
 from localbench.submissions.canon import sha256_file
@@ -1010,4 +1011,38 @@ def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
     monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", timeout)
 
     with pytest.raises(AgenticSetupError, match="timed out"):
+        serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
+
+
+def test_agentic_worker_identity_mismatch_maps_to_honest_setup_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=32768,
+        determinism="strict",
+        tier="standard",
+        bench="appworld_c",
+        lane="bounded-final-v2",
+        seed=1234,
+        suite_dir=SUITE_V1,
+        out=tmp_path / "run",
+        wsl_venv_python="/managed/venv/bin/python3",
+        appworld_root="/managed/appworld",
+    )
+
+    def mismatch(**_kwargs: object) -> object:
+        raise SandboxError(
+            "wsl preflight failed: localbench distribution version mismatch: "
+            "worker='0.3.0' host='0.3.1'",
+        )
+
+    monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", mismatch)
+
+    with pytest.raises(AgenticSetupError, match="distribution version mismatch"):
         serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")

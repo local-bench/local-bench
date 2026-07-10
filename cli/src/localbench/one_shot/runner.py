@@ -51,7 +51,11 @@ from localbench.serving.runner import (
 )
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.suite_errors import SuiteResolutionError
-from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE, suite_manifest_sha256
+from localbench.suite_release import (
+    SUITE_RELEASE_MANIFEST_FILE,
+    suite_manifest_sha256,
+    verify_suite_release_files,
+)
 from localbench.suite_resolver import resolve_suite_dir
 from localbench.suite_verify import read_json_object
 from localbench.submissions.submit_run import DEFAULT_SITE
@@ -274,3 +278,4 @@ def _verify_suite_identity(suite_dir: Path, expected: OneShotSuiteIdentity) -> N
             f"declared={declared_sha!r} actual={actual_sha!r} "
             f"expected={expected.manifest_sha256!r}",
         )
+    verify_suite_release_files(suite_dir, manifest)

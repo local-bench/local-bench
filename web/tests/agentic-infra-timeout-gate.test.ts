@@ -51,6 +51,10 @@ function buildWithInfraTimeoutRates(
   aggregateFailureRate: unknown = OMIT,
   runFailureRates: readonly unknown[] = [],
   markNewFormat = false,
+  cliVersion: unknown = undefined,
+  aggregateSandboxRate: unknown = undefined,
+  runSandboxRates: readonly unknown[] = [],
+  stripAllInfraRates = false,
 ) {
   const workspace = mkdtempSync(join(tmpdir(), "local-bench-agentic-infra-"));
   const outDir = join(workspace, "out");
@@ -72,15 +76,29 @@ function buildWithInfraTimeoutRates(
     const agenticRun = requireJsonObject(run["agentic_run"], "bounded-final fixture agentic_run");
     const diagnostics = requireJsonObject(agenticRun["diagnostics"], "bounded-final fixture agentic_run.diagnostics");
     const runs = requireJsonObjectArray(agenticRun["runs"], "bounded-final fixture agentic_run.runs");
+    const manifest = requireJsonObject(run["manifest"], "bounded-final fixture manifest");
+    const provenance = requireJsonObject(manifest["provenance"], "bounded-final fixture manifest.provenance");
+
+    if (cliVersion === OMIT) delete provenance["cli_version"];
+    else if (cliVersion !== undefined) provenance["cli_version"] = cliVersion;
 
     setRate(diagnostics, "infra_timeout_rate", aggregateRate);
     setRate(diagnostics, "infra_failure_rate", aggregateFailureRate);
+    if (aggregateSandboxRate !== undefined) diagnostics["infra_sandbox_rate"] = aggregateSandboxRate;
     if (markNewFormat) diagnostics["transport_failure_count"] = 0;
     runs.forEach((runEntry, index) => {
       setRate(runEntry, "infra_timeout_rate", index < runRates.length ? runRates[index] : 0.0);
       setRate(runEntry, "infra_failure_rate", index < runFailureRates.length ? runFailureRates[index] : aggregateFailureRate);
+      if (aggregateSandboxRate !== undefined) {
+        runEntry["infra_sandbox_rate"] = index < runSandboxRates.length ? runSandboxRates[index] : aggregateSandboxRate;
+      }
       if (markNewFormat) runEntry["transport_failure_count"] = 0;
     });
+    if (stripAllInfraRates) {
+      [diagnostics, ...runs].forEach((summary) => {
+        Object.keys(summary).filter((field) => field.startsWith("infra_") && field.endsWith("_rate")).forEach((field) => delete summary[field]);
+      });
+    }
 
     const runPath = join(workspace, "bounded-final-run.json");
     const sourcesPath = join(workspace, "sources.json");
@@ -138,8 +156,25 @@ describe("agentic infrastructure timeout ranking gate", () => {
     expectRanked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0]));
   });
 
+  it("gates every legacy infrastructure rate including sandbox failures", () => {
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], false, "0.1.0", 0.06, [0.0, 0.0]));
+  });
+
+  it("rejects legacy summaries with no infrastructure rate field", () => {
+    expectDeranked(buildWithInfraTimeoutRates(OMIT, [OMIT, OMIT], OMIT, [], false, "0.1.0", undefined, [], true));
+  });
+
   it("fails closed when a new-format record omits the canonical field", () => {
     expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], true));
+  });
+
+  it("does not let a 0.3.1 record stripped of new fields masquerade as legacy", () => {
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], false, "0.3.1"));
+  });
+
+  it("fails closed when the legacy receipt version is missing or unparseable", () => {
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], false, OMIT));
+    expectDeranked(buildWithInfraTimeoutRates(0.0, [0.0, 0.0], OMIT, [], false, "not-a-version"));
   });
 
   it("keeps zero-rate agentic rows ranked", () => {
