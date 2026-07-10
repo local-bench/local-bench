@@ -155,7 +155,7 @@ const BENCH_TIME_LARGE_ANCHOR_HOURS = 24;
 const BENCH_TIME_MIN_HOURS = 2;
 const BENCH_TIME_MAX_HOURS = 96;
 const Q4_FILE_GB_TO_PARAMS_B = 1.8;
-const LOCALBENCH_INSTALL_COMMAND = 'pip install "local-bench-ai[hf]==0.3.0"';
+const LOCALBENCH_INSTALL_COMMAND = 'pip install "local-bench-ai[hf]==0.3.1"';
 const UNPINNED_ONE_COMMAND_REASON =
   "This catalog quant is missing artifact pins, so the one-command flow fails closed.";
 
@@ -423,7 +423,7 @@ function buildOneCommandLead(
   quant: OnrampCatalogQuant,
   source: BenchmarkRecipeSource,
 ): BenchmarkRecipeLead {
-  const command = `localbench bench ${shellArg(oneCommandTarget(model, source))} --quant ${shellArg(quant.label)}`;
+  const command = `localbench bench ${shellArg(oneCommandTarget(model, source))} --quant ${shellArg(quant.label)} --static-only`;
   if (source === "paste") {
     return { kind: "local-only", command };
   }

@@ -73,7 +73,11 @@ function RecipeMetadata({ recipe }: { readonly recipe: Recipe }) {
     <>
       <p className="font-mono text-xs text-bench-accent">{lineageLine(recipe.model)}</p>
       <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
-        <span>Board-ranked · {recipe.lane} · profile auto · suite-v1-full-exec-6axis-v1</span>
+        <span>
+          {recipe.lead.kind === "unavailable"
+            ? `Managed full path · ${recipe.lane} · suite-v1-full-exec-6axis-v1`
+            : "Public path · measured/static · suite-v1-static-exec-5axis-v1"}
+        </span>
         {recipe.ggufRepo !== null ? (
           <a
             href={`https://huggingface.co/${recipe.ggufRepo}`}
@@ -124,7 +128,7 @@ function OneCommandLead({
       <RequirementsLine />
       {localOnly ? (
         <p className="font-mono text-[11px] leading-5 text-bench-warn">
-          Raw Hugging Face repos run local-only in localbench 0.3.0. Classic path below is the publishable route when you
+          Raw Hugging Face repos run local-only in localbench 0.3.1. The managed path below is publishable when you
           can provide the model file and identity metadata.
         </p>
       ) : (
@@ -133,6 +137,12 @@ function OneCommandLead({
           submitting.
         </p>
       )}
+      <p className="font-mono text-[11px] leading-5 text-bench-warn">
+        Public path: <span className="font-mono text-bench-text">--static-only</span> runs the five non-agentic axes and
+        is not eligible for the full six-axis index. Full execution fails fast before model download unless both
+        <span className="font-mono text-bench-text"> --wsl-venv-python</span> and
+        <span className="font-mono text-bench-text"> --appworld-root</span> configure the managed AppWorld harness.
+      </p>
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         Non-TTY runs must pass explicit <span className="font-mono text-bench-text">--yes</span>,{" "}
         <span className="font-mono text-bench-text">--accept-suite-terms</span>, and either{" "}

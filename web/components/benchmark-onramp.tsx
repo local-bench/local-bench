@@ -145,9 +145,9 @@ export function BenchmarkOnramp({
         </div>
       </div>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-        Choose your VRAM, model, and runtime — the recipe is the exact pinned command sequence for a run you can submit to
-        this board. Every model runs the same ranked lane: the CLI reads the model&apos;s own chat template, gives
-        reasoning models a fixed thinking budget inside the shared token cap, and keeps final-answer scoring consistent.
+        Choose your VRAM, model, and runtime. The public command runs the five non-agentic axes with
+        <code className="font-mono text-bench-text"> --static-only</code>; full six-axis execution currently requires a
+        managed AppWorld harness.
       </p>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
@@ -247,8 +247,8 @@ export function BenchmarkOnramp({
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
-          Every command is pinned to the current 6-axis ranked suite. Submissions are signed with a key generated on your
-          machine and reviewed before anything publishes —{" "}
+          Public recipes use the measured/static suite. Full six-axis runs fail fast unless the managed AppWorld flags are
+          configured. Submissions are signed and reviewed before anything publishes —{" "}
           <Link href="/submit" className="text-bench-accent underline">
             how to submit
           </Link>{" "}
