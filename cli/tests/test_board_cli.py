@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -49,3 +50,12 @@ def test_land_run_subcommand_parses_maintainer_inputs() -> None:
     assert args.gguf == Path("model.gguf")
     assert args.verifier_public_key == "ab" * 32
     assert args.dry_run is True
+
+
+def test_land_run_help_states_campaign_evidence_trust_boundary() -> None:
+    from localbench.cli import _parser
+
+    help_text = _parser()._subparsers._group_actions[0].choices["land-run"].format_help()
+
+    assert "maintainer's own harness" in help_text
+    assert re.search(r"not\s+cryptographic authentication", help_text)

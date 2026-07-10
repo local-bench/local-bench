@@ -9,6 +9,7 @@ from localbench.landing import (
     LandingError,
     _append_json_array_item,
     _assert_generations_untouched,
+    _assert_protected_public_runs_unchanged,
     changed_existing_ranked_rows,
     land_run,
 )
@@ -51,6 +52,28 @@ def test_append_json_array_item_preserves_existing_text() -> None:
 
     assert b'"value": 1.00' in updated
     assert json.loads(updated) == [{"value": 1.0}, {"value": 2}]
+
+
+def test_protected_public_run_guard_covers_model_and_standalone_detail(tmp_path: Path) -> None:
+    run_id = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2"
+    before = tmp_path / "before"
+    after = tmp_path / "after"
+    for root in (before, after):
+        (root / "models").mkdir(parents=True)
+        (root / "runs").mkdir()
+        _write(root / "models" / "gemma-4-12b-it.json", {"runs": [{"run_id": run_id, "score": 1}]})
+        _write(root / "runs" / f"{run_id}.json", {"run_id": run_id, "items": [1]})
+
+    _assert_protected_public_runs_unchanged(before, after)
+
+    _write(after / "runs" / f"{run_id}.json", {"run_id": run_id, "items": [2]})
+    with pytest.raises(LandingError, match="protected public run detail"):
+        _assert_protected_public_runs_unchanged(before, after)
+
+    _write(after / "runs" / f"{run_id}.json", {"run_id": run_id, "items": [1]})
+    _write(after / "models" / "gemma-4-12b-it.json", {"runs": [{"run_id": run_id, "score": 2}]})
+    with pytest.raises(LandingError, match="protected public run"):
+        _assert_protected_public_runs_unchanged(before, after)
 
 
 def test_verifier_receipt_signature_covers_the_coding_patch(tmp_path: Path) -> None:
@@ -190,6 +213,7 @@ def test_staged_output_failure_restores_directories_and_removes_created_targets(
 
     monkeypatch.setattr(landing, "LANDING_LOCK_PATH", tmp_path / ".lock")
     monkeypatch.setattr(landing, "LANDING_JOURNAL_PATH", tmp_path / ".journal.json")
+    monkeypatch.setattr(landing, "LANDING_BACKUPS_PATH", tmp_path / ".backups")
     real_replace = landing.os.replace
 
     def failing_replace(source: Path | str, target: Path | str) -> None:
@@ -216,6 +240,56 @@ def test_staged_output_failure_restores_directories_and_removes_created_targets(
     assert freeze.read_text(encoding="utf-8") == "old-freeze"
     assert not landing.LANDING_LOCK_PATH.exists()
     assert not landing.LANDING_JOURNAL_PATH.exists()
+    assert not landing.LANDING_BACKUPS_PATH.exists()
+
+
+def test_rollback_failure_preserves_journal_lock_and_backups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench import landing
+
+    temp_dir = tmp_path / "stage"
+    temp_dir.mkdir()
+    staged_board = temp_dir / "board.json"
+    staged_board.write_text("new-board", encoding="utf-8")
+    staged_freeze = temp_dir / "freeze.ts"
+    staged_freeze.write_text("new-freeze", encoding="utf-8")
+    board = tmp_path / "live" / "board.json"
+    board.parent.mkdir()
+    board.write_text("old-board", encoding="utf-8")
+    freeze = tmp_path / "live" / "freeze.ts"
+    freeze.write_text("old-freeze", encoding="utf-8")
+
+    monkeypatch.setattr(landing, "LANDING_LOCK_PATH", tmp_path / ".lock")
+    monkeypatch.setattr(landing, "LANDING_JOURNAL_PATH", tmp_path / ".journal.json")
+    monkeypatch.setattr(landing, "LANDING_BACKUPS_PATH", tmp_path / ".backups")
+    real_replace = landing.os.replace
+
+    def failing_replace(source: Path | str, target: Path | str) -> None:
+        source_path = Path(source)
+        target_path = Path(target)
+        if source_path == staged_freeze:
+            raise OSError("simulated final swap failure")
+        if source_path == landing.LANDING_BACKUPS_PATH / "1-freeze.ts" and target_path == freeze:
+            raise OSError("simulated rollback restoration failure")
+        real_replace(source, target)
+
+    monkeypatch.setattr(landing.os, "replace", failing_replace)
+
+    with pytest.raises(LandingError, match="rollback was incomplete") as error:
+        landing._apply_staged_outputs(
+            temp_dir,
+            ((staged_board, board), (staged_freeze, freeze)),
+        )
+
+    assert str(landing.LANDING_JOURNAL_PATH) in str(error.value)
+    assert str(landing.LANDING_BACKUPS_PATH) in str(error.value)
+    assert landing.LANDING_LOCK_PATH.exists()
+    assert landing.LANDING_JOURNAL_PATH.exists()
+    assert landing.LANDING_BACKUPS_PATH.is_dir()
+    assert (landing.LANDING_BACKUPS_PATH / "1-freeze.ts").read_text(encoding="utf-8") == "old-freeze"
+    assert board.read_text(encoding="utf-8") == "old-board"
 
 
 def _run_record(*, verified: bool = False) -> dict[str, object]:

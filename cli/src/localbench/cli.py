@@ -650,7 +650,10 @@ def _parser() -> argparse.ArgumentParser:
     board_parser.add_argument("--no-check-parity", dest="check_parity", action="store_false")
     land_parser = subparsers.add_parser(
         "land-run",
-        help="maintainer-only: land a coding-verified run and rebuild board/site data",
+        help="maintainer-only: land a trusted-harness run and rebuild board/site data",
+        description="Maintainer-only landing for records produced by the maintainer's own harness. "
+        "Campaign and agentic evidence receive structural/drift checks, not cryptographic "
+        "authentication or anti-spoof guarantees.",
     )
     land_parser.add_argument("--run", type=Path, required=True, help="finished benchmark run directory")
     land_parser.add_argument(

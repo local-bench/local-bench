@@ -1,4 +1,10 @@
-"""Maintainer-only landing automation for verified benchmark runs."""
+"""Maintainer-only landing automation for verified benchmark runs.
+
+Trust boundary: ``land-run`` operates only on run records produced by the
+maintainer's own harness.  Campaign and agentic evidence receive structural and
+drift checks, not cryptographic authentication or anti-spoof guarantees.  The
+maintainer is responsible for the authenticity of those input records.
+"""
 
 from __future__ import annotations
 
@@ -50,6 +56,7 @@ PUBLIC_DATA_PATH: Final = REPO_ROOT / "web" / "public" / "data"
 SUITE_DIR: Final = REPO_ROOT / "suite" / "v1"
 LANDING_LOCK_PATH: Final = REPO_ROOT / ".localbench-land.lock"
 LANDING_JOURNAL_PATH: Final = REPO_ROOT / ".localbench-land-journal.json"
+LANDING_BACKUPS_PATH: Final = REPO_ROOT / ".localbench-land-backups"
 _PROTECTED_PUBLIC_RUNS: Final = (
     ("gemma-4-12b-it", "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2"),
 )
@@ -828,6 +835,10 @@ def _assert_protected_public_runs_unchanged(before_dir: Path, after_dir: Path) -
         after = _public_run_bytes(after_dir / "models" / f"{model_slug}.json", run_id)
         if before != after:
             raise LandingError(f"candidate web build changed protected public run {run_id}")
+        before_detail = _required_file_bytes(before_dir / "runs" / f"{run_id}.json", run_id)
+        after_detail = _required_file_bytes(after_dir / "runs" / f"{run_id}.json", run_id)
+        if before_detail != after_detail:
+            raise LandingError(f"candidate web build changed protected public run detail {run_id}")
 
 
 def _public_run_bytes(path: Path, run_id: str) -> bytes:
@@ -839,16 +850,26 @@ def _public_run_bytes(path: Path, run_id: str) -> bytes:
     return (json.dumps(run, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
 
 
+def _required_file_bytes(path: Path, run_id: str) -> bytes:
+    if not path.is_file():
+        raise LandingError(f"protected public run detail is missing: {run_id}")
+    return path.read_bytes()
+
+
 def _apply_staged_outputs(
     temp_dir: Path,
     staged_targets: tuple[tuple[Path, Path], ...],
 ) -> None:
     """Swap a completely validated output set, restoring every target on any failure."""
     _acquire_landing_lock()
-    backups_dir = temp_dir / "backups"
-    backups_dir.mkdir()
+    backups_dir = LANDING_BACKUPS_PATH
+    try:
+        backups_dir.mkdir()
+    except Exception:
+        LANDING_LOCK_PATH.unlink(missing_ok=True)
+        raise
     journal: JsonObject = {"schema_version": "localbench.landing-journal.v1", "entries": []}
-    swapped: list[tuple[Path, Path | None]] = []
+    attempted: list[tuple[Path, Path | None, JsonObject]] = []
     try:
         for index, (staged, target) in enumerate(staged_targets):
             if not staged.exists():
@@ -860,35 +881,65 @@ def _apply_staged_outputs(
                 "target": str(target),
                 "backup": str(backup) if existed else None,
                 "staged": str(staged),
+                "backed_up": False,
                 "swapped": False,
             }
+            attempted.append((target, backup if existed else None, entry))
             entries = journal["entries"]
             if isinstance(entries, list):
                 entries.append(entry)
             atomic_write_json(journal, LANDING_JOURNAL_PATH)
             if existed:
                 os.replace(target, backup)
-            try:
-                os.replace(staged, target)
-            except Exception:
-                if existed and backup.exists():
-                    os.replace(backup, target)
-                raise
+                entry["backed_up"] = True
+                atomic_write_json(journal, LANDING_JOURNAL_PATH)
+            os.replace(staged, target)
             entry["swapped"] = True
-            swapped.append((target, backup if existed else None))
             atomic_write_json(journal, LANDING_JOURNAL_PATH)
-    except Exception:
-        for target, backup in reversed(swapped):
-            if target.is_dir():
-                shutil.rmtree(target)
-            else:
-                target.unlink(missing_ok=True)
-            if backup is not None and backup.exists():
-                os.replace(backup, target)
+    except Exception as apply_error:
+        rollback_errors = _rollback_staged_outputs(attempted)
+        if rollback_errors:
+            journal["recovery_required"] = True
+            journal["rollback_errors"] = rollback_errors
+            try:
+                atomic_write_json(journal, LANDING_JOURNAL_PATH)
+            except Exception:
+                pass
+            detail = "; ".join(rollback_errors)
+            raise LandingError(
+                "landing apply failed and rollback was incomplete; "
+                f"recovery journal: {LANDING_JOURNAL_PATH}; backups: {backups_dir}; "
+                f"lock retained: {LANDING_LOCK_PATH}; rollback errors: {detail}"
+            ) from apply_error
+        _clear_landing_recovery_state(backups_dir)
         raise
-    finally:
-        LANDING_JOURNAL_PATH.unlink(missing_ok=True)
-        LANDING_LOCK_PATH.unlink(missing_ok=True)
+    _clear_landing_recovery_state(backups_dir)
+
+
+def _rollback_staged_outputs(
+    attempted: list[tuple[Path, Path | None, JsonObject]],
+) -> list[str]:
+    errors: list[str] = []
+    for target, backup, entry in reversed(attempted):
+        try:
+            if entry.get("swapped") is True:
+                if target.is_dir():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink(missing_ok=True)
+            if entry.get("backed_up") is True:
+                if backup is None or not backup.exists():
+                    raise OSError(f"backup is missing for {target}")
+                os.replace(backup, target)
+        except Exception as error:
+            errors.append(f"{target}: {error}")
+    return errors
+
+
+def _clear_landing_recovery_state(backups_dir: Path) -> None:
+    shutil.rmtree(backups_dir)
+    LANDING_JOURNAL_PATH.unlink(missing_ok=True)
+    LANDING_LOCK_PATH.unlink(missing_ok=True)
 
 
 def _acquire_landing_lock() -> None:
