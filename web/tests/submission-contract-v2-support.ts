@@ -99,11 +99,14 @@ export function oversizeEnv(): SubmissionApiEnv {
   const bucket = {
     delete: async () => undefined,
     get: async () => ({
+      body: new ReadableStream<Uint8Array>({
+        start: (controller) => controller.error(new Error("body should not be read")),
+      }),
       text: async () => {
         throw new Error("body should not be read");
       },
     }),
-    head: async () => ({ size: 67_108_865 }),
+    head: async () => ({ size: 12_582_913 }),
     put: async () => undefined,
   };
   return {

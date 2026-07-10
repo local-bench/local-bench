@@ -1,4 +1,4 @@
-import { canonicalPayloadJson } from "./submission-canonical";
+import { canonicalPayloadBytes } from "./submission-canonical";
 import type { ResultBundle, SubmissionRow } from "./submission-contracts";
 import { verifyEd25519 } from "./submission-pop";
 import { suiteByReleasePair } from "./suite-catalog";
@@ -92,7 +92,7 @@ async function validBundleSignature(rawBundle: unknown, expectedPublicKey: strin
     typeof signature["signature"] !== "string" ||
     !/^[0-9a-f]{128}$/.test(signature["signature"])
   ) return false;
-  return verifyEd25519(expectedPublicKey, signature["signature"], canonicalPayloadJson(rawBundle));
+  return verifyEd25519(expectedPublicKey, signature["signature"], canonicalPayloadBytes(rawBundle));
 }
 
 function modelSha256(bundle: ResultBundle): string | null {

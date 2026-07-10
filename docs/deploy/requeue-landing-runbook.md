@@ -156,6 +156,10 @@ is always the board writer's 64-hex SHA-256, never a Git blob object ID.
 
 ## 5. Notes / gotchas
 - One Docker verifier pass at a time (single WSL rootless daemon). ~10-15 min/model.
+- The server advertises and enforces a 12 MiB raw-JSON submission cap so finalize stays below the
+  Workers isolate memory limit. The shipped 0.3.1 CLI still has a separate 64 MiB archive-member
+  extraction constant; the ticket's lower server cap is authoritative, and oversized uploads get
+  `413 {"code":"bundle_too_large",...}`. Existing rung-1 submission bundles are below 10 MiB.
 - If a coding re-verify shows a pass count wildly different from a sane range, STOP — a harness/
   image drift is more likely than a real model regression; check the image sha + lb-verify revs.
 - The requeue rows use the CURRENT scorer, so no sha churn — they slot into the existing v2 board.

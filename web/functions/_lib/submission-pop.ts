@@ -34,14 +34,14 @@ export async function verifyTicketPop(
   return await verifyEd25519(publicKeyHex, pop.signature, message) ? "ok" : "invalid";
 }
 
-export async function verifyEd25519(publicKeyHex: string, signatureHex: string, message: string): Promise<boolean> {
+export async function verifyEd25519(publicKeyHex: string, signatureHex: string, message: string | Uint8Array<ArrayBuffer>): Promise<boolean> {
   try {
-    const publicKey = await crypto.subtle.importKey("raw", arrayBufferFromBytes(hexBytes(publicKeyHex)), "Ed25519", false, ["verify"]);
+    const publicKey = await crypto.subtle.importKey("raw", hexBytes(publicKeyHex), "Ed25519", false, ["verify"]);
     return await crypto.subtle.verify(
       "Ed25519",
       publicKey,
-      arrayBufferFromBytes(hexBytes(signatureHex)),
-      arrayBufferFromBytes(new TextEncoder().encode(message)),
+      hexBytes(signatureHex),
+      typeof message === "string" ? new TextEncoder().encode(message) : message,
     );
   } catch (error) {
     if (error instanceof Error) {
@@ -51,17 +51,11 @@ export async function verifyEd25519(publicKeyHex: string, signatureHex: string, 
   }
 }
 
-function hexBytes(hex: string): Uint8Array {
+function hexBytes(hex: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(hex.length / 2);
   for (let index = 0; index < bytes.length; index += 1) {
     const parsed = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
     bytes[index] = parsed;
   }
   return bytes;
-}
-
-function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  return copy.buffer;
 }

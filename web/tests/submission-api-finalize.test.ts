@@ -74,6 +74,7 @@ type FakeEnvOptions = {
 };
 
 function fakeEnv(options: FakeEnvOptions): SubmissionApiEnv {
+  const bundleBytes = new TextEncoder().encode(RESULT_BUNDLE_JSON);
   return {
     DB: new FakeD1Database(options),
     SUBMISSIONS: {
@@ -82,7 +83,10 @@ function fakeEnv(options: FakeEnvOptions): SubmissionApiEnv {
         if (key !== rawBundleKey(RAW_BUNDLE_SHA)) {
           return null;
         }
-        return { text: async () => RESULT_BUNDLE_JSON };
+        return {
+          body: new ReadableStream({ start: (controller) => { controller.enqueue(bundleBytes); controller.close(); } }),
+          text: async () => RESULT_BUNDLE_JSON,
+        };
       },
       put: async () => undefined,
     },

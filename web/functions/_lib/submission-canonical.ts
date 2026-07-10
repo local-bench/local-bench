@@ -1,55 +1,71 @@
+import { digestHex, sha256DigestStream } from "./submission-digest";
+
 export const PAYLOAD_HASH_EXCLUDED_TOP_LEVEL_FIELDS = ["envelope", "signature", "submission_envelope"] as const;
 const EXCLUDED_TOP_LEVEL_FIELDS = new Set<string>(PAYLOAD_HASH_EXCLUDED_TOP_LEVEL_FIELDS);
 
-type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
-
 export async function canonicalPayloadSha256(value: unknown): Promise<string> {
-  return sha256Hex(canonicalPayloadJson(value));
+  return sha256FragmentsHex(canonicalFragments(value, true));
 }
 
 export function canonicalPayloadJson(value: unknown): string {
-  return canonicalJson(stripSubmissionMetadata(value));
+  return Array.from(canonicalFragments(value, true)).join("");
+}
+
+export function canonicalPayloadBytes(value: unknown): Uint8Array<ArrayBuffer> {
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let length = 0;
+  for (const chunk of encodedChunks(canonicalFragments(value, true))) {
+    chunks.push(chunk);
+    length += chunk.byteLength;
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 export function canonicalJson(value: unknown): string {
-  return JSON.stringify(normalizeJsonValue(value));
+  return Array.from(canonicalFragments(value, false)).join("");
 }
 
-function stripSubmissionMetadata(value: unknown): unknown {
-  if (!isRecord(value)) {
-    return value;
-  }
-  const stripped: Record<string, unknown> = {};
-  for (const key of Object.keys(value).sort()) {
-    if (!EXCLUDED_TOP_LEVEL_FIELDS.has(key)) {
-      stripped[key] = value[key];
-    }
-  }
-  return stripped;
-}
-
-function normalizeJsonValue(value: unknown): JsonValue {
+function* canonicalFragments(value: unknown, stripSubmissionMetadata: boolean, depth = 0): Generator<string> {
   if (value === null || typeof value === "string" || typeof value === "boolean") {
-    return value;
+    yield JSON.stringify(value);
+    return;
   }
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
       throw new TypeError("canonical JSON only supports finite numbers");
     }
-    return value;
+    yield JSON.stringify(value);
+    return;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => normalizeJsonValue(item));
+    yield "[";
+    for (let index = 0; index < value.length; index += 1) {
+      if (index > 0) yield ",";
+      yield* canonicalFragments(value[index], false, depth + 1);
+    }
+    yield "]";
+    return;
   }
   if (isRecord(value)) {
-    const normalized: Record<string, JsonValue> = {};
+    yield "{";
+    let emitted = false;
     for (const key of Object.keys(value).sort()) {
       const item = value[key];
-      if (item !== undefined) {
-        normalized[key] = normalizeJsonValue(item);
-      }
+      if (item === undefined || (stripSubmissionMetadata && depth === 0 && EXCLUDED_TOP_LEVEL_FIELDS.has(key))) continue;
+      if (emitted) yield ",";
+      emitted = true;
+      yield JSON.stringify(key);
+      yield ":";
+      yield* canonicalFragments(item, false, depth + 1);
     }
-    return normalized;
+    yield "}";
+    return;
   }
   throw new TypeError("canonical JSON only supports JSON values");
 }
@@ -59,6 +75,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return sha256FragmentsHex([value]);
+}
+
+async function sha256FragmentsHex(fragments: Iterable<string>): Promise<string> {
+  const digest = sha256DigestStream();
+  const writer = digest.getWriter();
+  for (const chunk of encodedChunks(fragments)) await writer.write(chunk);
+  await writer.close();
+  return digestHex(await digest.digest);
+}
+
+function* encodedChunks(fragments: Iterable<string>): Generator<Uint8Array<ArrayBuffer>> {
+  const encoder = new TextEncoder();
+  let pending = "";
+  for (const fragment of fragments) {
+    pending += fragment;
+    if (pending.length >= 65_536) {
+      yield encoder.encode(pending);
+      pending = "";
+    }
+  }
+  if (pending.length > 0) yield encoder.encode(pending);
 }

@@ -64,6 +64,7 @@ export async function handleFinalizeSubmission(
     if (bundleRead.kind !== "ok") {
       return jsonResponse(bundleRead.status, { code: bundleRead.code, error: bundleRead.error });
     }
+    const rawBundleSizeBytes = bundleRead.sizeBytes;
     const rawBundle = parseJson(bundleRead.text);
     const bundle = rawBundle === null ? null : ResultBundleSchema.safeParse(rawBundle);
     if (bundle === null || !bundle.success) {
@@ -98,7 +99,7 @@ export async function handleFinalizeSubmission(
       env,
       row.value.submission_id,
       bundle.data,
-      parsed.data.size_bytes ?? metadata.size ?? bundleRead.text.length,
+      rawBundleSizeBytes,
       payloadSha256,
       duplicateOf,
       semantic.modelFileSha256,

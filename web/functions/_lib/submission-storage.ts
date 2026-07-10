@@ -1,5 +1,10 @@
 import { AwsClient } from "aws4fetch";
-import { SUBMISSIONS_BUCKET_NAME, type SubmissionApiEnv } from "./submission-contracts";
+import {
+  MAX_BUNDLE_JSON_STRUCTURAL_TOKENS,
+  SUBMISSIONS_BUCKET_NAME,
+  type SubmissionApiEnv,
+} from "./submission-contracts";
+import { digestHex, sha256DigestStream } from "./submission-digest";
 
 type R2SigningConfig = {
   readonly accessKeyId: string;
@@ -9,7 +14,7 @@ type R2SigningConfig = {
 };
 
 export type RawBundleRead =
-  | { readonly kind: "ok"; readonly text: string }
+  | { readonly kind: "ok"; readonly sizeBytes: number; readonly text: string }
   | { readonly kind: "error"; readonly code: string; readonly error: string; readonly status: number };
 
 export type RawBundleMetadata =
@@ -32,16 +37,32 @@ export async function rawBundleMetadata(env: SubmissionApiEnv, rawBundleSha256: 
 }
 
 export async function readRawBundle(env: SubmissionApiEnv, rawBundleSha256: string): Promise<RawBundleRead> {
-  const object = await env.SUBMISSIONS.get(rawBundleKey(rawBundleSha256));
-  if (object === null) {
+  const key = rawBundleKey(rawBundleSha256);
+  const hashObject = await env.SUBMISSIONS.get(key);
+  if (hashObject === null) {
     return { code: "raw_bundle_missing", error: "raw bundle is not present in R2", kind: "error", status: 404 };
   }
-  const bytes = await objectBytes(object);
-  if ((await sha256BytesHex(bytes)) !== rawBundleSha256) {
+  const digest = sha256DigestStream();
+  const complexity = new JsonComplexityTransform();
+  try {
+    await hashObject.body.pipeThrough(complexity.stream).pipeTo(digest);
+  } catch (error) {
+    if (error instanceof JsonComplexityError) {
+      await digest.digest.catch(() => undefined);
+      return { code: "invalid_result_bundle", error: error.message, kind: "error", status: 400 };
+    }
+    throw error;
+  }
+  if (digestHex(await digest.digest) !== rawBundleSha256) {
     return { code: "raw_bundle_sha_mismatch", error: "raw bundle bytes do not match raw_bundle_sha256", kind: "error", status: 400 };
   }
-  const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-  return { kind: "ok", text };
+  // The hash stream is consumed. A fresh content-addressed GET avoids tee buffering while
+  // preserving the official if-none-match upload invariant that makes the key immutable.
+  const textObject = await env.SUBMISSIONS.get(key);
+  if (textObject === null) {
+    return { code: "raw_bundle_missing", error: "raw bundle is not present in R2", kind: "error", status: 404 };
+  }
+  return { kind: "ok", sizeBytes: complexity.sizeBytes, text: await textObject.text() };
 }
 
 export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: string): Promise<
@@ -90,20 +111,56 @@ async function signedR2Url(config: R2SigningConfig, key: string, headers: Readon
   return signed.url;
 }
 
-async function objectBytes(object: { readonly arrayBuffer?: () => Promise<ArrayBuffer>; text(): Promise<string> }): Promise<Uint8Array> {
-  if (object.arrayBuffer !== undefined) {
-    return new Uint8Array(await object.arrayBuffer());
+class JsonComplexityError extends Error {}
+
+class JsonComplexityTransform {
+  private structuralTokens = 0;
+  private depth = 0;
+  private escaped = false;
+  private inString = false;
+  sizeBytes = 0;
+
+  readonly stream = new TransformStream<Uint8Array, Uint8Array>({
+    transform: (chunk, controller) => {
+      this.accept(chunk);
+      controller.enqueue(chunk);
+    },
+  });
+
+  private accept(chunk: Uint8Array): void {
+    this.sizeBytes += chunk.byteLength;
+    for (const byte of chunk) {
+      if (this.inString) {
+        if (this.escaped) {
+          this.escaped = false;
+        } else if (byte === 0x5c) {
+          this.escaped = true;
+        } else if (byte === 0x22) {
+          this.inString = false;
+        }
+        continue;
+      }
+      if (byte === 0x22) {
+        this.inString = true;
+      } else if (byte === 0x7b || byte === 0x5b) {
+        this.countStructuralToken();
+        this.depth += 1;
+        if (this.depth > 128) {
+          throw new JsonComplexityError("uploaded bundle exceeds the JSON nesting limit");
+        }
+      } else if (byte === 0x7d || byte === 0x5d) {
+        this.countStructuralToken();
+        this.depth -= 1;
+      } else if (byte === 0x2c || byte === 0x3a) {
+        this.countStructuralToken();
+      }
+    }
   }
-  return new TextEncoder().encode(await object.text());
-}
 
-async function sha256BytesHex(value: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", arrayBufferFromBytes(value));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
-  const copy = new Uint8Array(bytes.byteLength);
-  copy.set(bytes);
-  return copy.buffer;
+  private countStructuralToken(): void {
+    this.structuralTokens += 1;
+    if (this.structuralTokens > MAX_BUNDLE_JSON_STRUCTURAL_TOKENS) {
+      throw new JsonComplexityError("uploaded bundle exceeds the JSON structural complexity limit");
+    }
+  }
 }
