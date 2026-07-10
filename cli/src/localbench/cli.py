@@ -49,6 +49,7 @@ from localbench.coding_exec.orchestrate import (
     run_coding_exec,
 )
 from localbench.exit_codes import (
+    EXIT_AGENTIC_SETUP_REQUIRED,
     EXIT_CHECKPOINT_CORRUPTION,
     EXIT_COMPLETE,
     EXIT_INTERNAL_RUNNER_BUG,
@@ -133,6 +134,7 @@ from localbench.suite_resolver import (
     suite_cache_root,
 )
 from localbench.supervisor import SupervisorConfig, run_supervised
+from localbench.serving.agentic_support import AgenticSetupError
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import run_orchestrated_bench
 
@@ -385,12 +387,12 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--max-items", type=int)
     bench_parser.add_argument(
         "--wsl-venv-python",
-        default="~/appworld-harness/venv/bin/python3",
+        default=None,
         help="WSL Python used for the AppWorld-C worker",
     )
     bench_parser.add_argument(
         "--appworld-root",
-        default="/home/michael/appworld-data",
+        default=None,
         help="WSL-native APPWORLD_ROOT for AppWorld-C",
     )
     bench_parser.add_argument("--suite", default=DEFAULT_SUITE_ID)
@@ -410,6 +412,11 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--vram-gb", type=float, help="usable VRAM budget for one-shot quant selection")
     bench_parser.add_argument("--llama-server-path", type=Path, help="llama-server binary for one-shot mode")
     bench_parser.add_argument("--offline", action="store_true", help="run one-shot local-only without site preflight")
+    bench_parser.add_argument(
+        "--static-only",
+        action="store_true",
+        help="run the five non-agentic axes; not eligible for the full six-axis index",
+    )
     bench_parser.add_argument("--allow-sleep-risk", action="store_true")
     bench_parser.add_argument("--purge-model", action="store_true")
     bench_parser.add_argument("--accept-suite-terms", action="store_true")
@@ -978,12 +985,8 @@ def _bench(args: argparse.Namespace) -> int:
         hf_model_id=args.hf_model_id,
         gguf_repo_only=args.gguf_repo_only,
         progress_reporter=progress_reporter,
-        wsl_venv_python=getattr(
-            args,
-            "wsl_venv_python",
-            "~/appworld-harness/venv/bin/python3",
-        ),
-        appworld_root=getattr(args, "appworld_root", "/home/michael/appworld-data"),
+        wsl_venv_python=getattr(args, "wsl_venv_python", None),
+        appworld_root=getattr(args, "appworld_root", None),
     )
     try:
         record = anyio.run(
@@ -1006,6 +1009,10 @@ def _bench(args: argparse.Namespace) -> int:
         progress_reporter.clear_line()
         print(f"error      {error}", file=sys.stderr)
         return EXIT_CHECKPOINT_CORRUPTION
+    except AgenticSetupError as error:
+        progress_reporter.clear_line()
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_AGENTIC_SETUP_REQUIRED
     except (RuntimeError, OSError) as error:
         progress_reporter.clear_line()
         print(f"error      {error}", file=sys.stderr)
@@ -1016,6 +1023,8 @@ def _bench(args: argparse.Namespace) -> int:
 
 
 def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
+    if bool(getattr(args, "static_only", False)):
+        return "--static-only requires a one-shot model positional argument"
     missing: list[str] = []
     if getattr(args, "runtime", None) is None:
         missing.append("--runtime")

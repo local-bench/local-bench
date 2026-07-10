@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -8,52 +9,56 @@ from typing import Protocol
 import anyio
 
 from localbench._types import JsonObject
-from localbench.exit_codes import EXIT_INTERNAL_RUNNER_BUG, EXIT_USER_INTERRUPTED
-from localbench.one_shot.catalog import CatalogResolutionError, resolve_one_shot_model
-from localbench.one_shot.catalog_loader import HttpCatalogLoader
+from localbench.exit_codes import (
+    EXIT_AGENTIC_SETUP_REQUIRED,
+    EXIT_INTERNAL_RUNNER_BUG,
+    EXIT_USER_INTERRUPTED,
+)
+from localbench.one_shot.catalog import CatalogResolutionError
 from localbench.one_shot.download import (
     DownloadError,
     HfDownloadClient,
     download_artifact_atomic,
     download_tokenizer_snapshot,
 )
-from localbench.one_shot.preflight import (
-    JsonPostClient,
-    OneShotChoiceError,
-    PlanLockMismatch,
-    build_publishability_preflight_payload,
-    request_publishability_preflight,
-    validate_one_shot_choices,
-)
+from localbench.one_shot.preflight import JsonPostClient, OneShotChoiceError, PlanLockMismatch, validate_one_shot_choices
 from localbench.one_shot.plan_lock import (
     OneShotDownloadLockFacts,
     write_download_plan_lock,
 )
-from localbench.one_shot.raw_hf import HuggingFaceRawArtifactResolver
+from localbench.one_shot.resolution import (
+    CatalogLoader,
+    RawArtifactResolver,
+    resolve_one_shot,
+    server_publishability_preflight,
+)
+from localbench.one_shot.runtime import print_scorecard, run_root
+from localbench.one_shot.serve_plan import OneShotServeRequest, build_serve_options
 from localbench.one_shot.sleep import SleepGapMonitor, SleepWakeClockGap
 from localbench.one_shot.submission import OneShotSubmitContext, Submitter, maybe_submit
 from localbench.one_shot.tokenizer_pin import TokenizerPlanRequest, prepare_tokenizer_plan
 from localbench.one_shot.types import (
-    FULL_EXEC_SUITE_RELEASE_ID,
-    OneShotArtifact,
-    ResolvedOneShotModel,
+    FULL_EXEC_SUITE_IDENTITY,
+    OneShotSuiteIdentity,
+    STATIC_EXEC_SUITE_IDENTITY,
 )
-from localbench.progress import ProgressReporter
 from localbench.serving.options import ServeBenchOptions
-from localbench.serving.runner import run_orchestrated_bench
+from localbench.serving.runner import (
+    AgenticSetupError,
+    needs_wsl_agentic,
+    preflight_agentic_if_needed,
+    run_orchestrated_bench,
+)
+from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.submissions.submit_run import DEFAULT_SITE
-
-
-class CatalogLoader(Protocol):
-    def load(self, *, requested_model: str, site: str) -> dict[str, object]: ...
 
 
 class BenchRunner(Protocol):
     def __call__(self, options: ServeBenchOptions) -> JsonObject: ...
 
 
-class RawArtifactResolver(Protocol):
-    def resolve_raw_artifact(self, *, repo_id: str, quant: str | None) -> OneShotArtifact: ...
+class AgenticPreflight(Protocol):
+    def __call__(self, options: ServeBenchOptions, root: Path) -> WslPreflightResult | None: ...
 
 
 @dataclass(slots=True)
@@ -65,6 +70,7 @@ class OneShotRunnerDeps:
     submitter: Submitter | None = None
     raw_artifact_resolver: RawArtifactResolver | None = None
     sleep_monitor: "SleepGapMonitor | None" = None
+    agentic_preflight: AgenticPreflight | None = None
 
 
 def run_one_shot_bench(
@@ -77,7 +83,7 @@ def run_one_shot_bench(
 ) -> int:
     dependencies = deps or OneShotRunnerDeps()
     site = str(getattr(args, "site", None) or DEFAULT_SITE)
-    run_root = _run_root(args)
+    root = run_root(args)
     try:
         choices = validate_one_shot_choices(
             is_tty=sys.stdin.isatty() if is_tty is None else is_tty,
@@ -89,7 +95,13 @@ def run_one_shot_bench(
             vram_detected=getattr(args, "vram_gb", None) is not None,
             offline=bool(getattr(args, "offline", False)),
         )
-        resolved = _resolve(
+        suite_identity = _suite_identity(args)
+        if suite_identity == STATIC_EXEC_SUITE_IDENTITY:
+            print(
+                "This run will NOT be eligible for the full six-axis index; "
+                "it can appear as a measured/static row.",
+            )
+        resolved = resolve_one_shot(
             args,
             choices.vram_gb,
             dependencies.catalog_loader,
@@ -105,22 +117,46 @@ def run_one_shot_bench(
             )
             print("preflight offline local-only")
         elif not resolved.local_only:
-            _server_publishability_preflight(resolved, cli_version, site, dependencies.preflight_http)
+            server_publishability_preflight(
+                resolved,
+                cli_version,
+                site,
+                dependencies.preflight_http,
+                suite_identity,
+            )
         else:
             for reason in resolved.blocking_reasons:
                 print(f"preflight {reason}")
         if choices.submit is True and (choices.offline or resolved.local_only):
             print("error      one-shot run is local-only and cannot be submitted", file=sys.stderr)
             return 2
+        options = build_serve_options(
+            OneShotServeRequest(
+                args=args,
+                resolved=resolved,
+                root=root,
+                suite_identity=suite_identity,
+            ),
+        )
+        if needs_wsl_agentic(options):
+            agentic_preflight = dependencies.agentic_preflight or preflight_agentic_if_needed
+            options = replace(options, agentic_preflight=agentic_preflight(options, root))
         tokenizer_plan = prepare_tokenizer_plan(
-            TokenizerPlanRequest(resolved, run_root, getattr(args, "resume", None), cli_version, dependencies.hf_client),
+            TokenizerPlanRequest(
+                resolved,
+                root,
+                getattr(args, "resume", None),
+                cli_version,
+                dependencies.hf_client,
+                suite_identity,
+            ),
         )
         resolved = tokenizer_plan.resolved
-        downloaded = download_artifact_atomic(resolved.artifact, run_root / "models", hf_client=dependencies.hf_client)
+        downloaded = download_artifact_atomic(resolved.artifact, root / "models", hf_client=dependencies.hf_client)
         tokenizer = download_tokenizer_snapshot(
             repo_id=tokenizer_plan.repo_id,
             revision=tokenizer_plan.revision,
-            destination_dir=run_root / "tokenizer",
+            destination_dir=root / "tokenizer",
             hf_client=dependencies.hf_client,
         )
         write_download_plan_lock(
@@ -135,43 +171,19 @@ def run_one_shot_bench(
             allow_sleep_risk=bool(getattr(args, "allow_sleep_risk", False)),
         )
         monitor.checkpoint()
-        record = _bench_runner(dependencies)(ServeBenchOptions(
-            runtime="llama.cpp",
+        record = _bench_runner(dependencies)(replace(
+            options,
             model_file=downloaded.path,
-            model_ref=None,
-            model_id=resolved.model_id,
-            server_bin=_server_bin(args),
-            ctx=32768,
-            determinism="strict",
-            tier="standard",
-            bench="all",
-            lane="bounded-final-v2",
-            profile="auto",
-            seed=1234,
-            max_items=getattr(args, "max_items", None),
-            suite=FULL_EXEC_SUITE_RELEASE_ID,
-            suite_source=getattr(args, "suite_source", None),
-            suite_dir=getattr(args, "suite_dir", None),
-            out=run_root,
-            resume=getattr(args, "resume", None),
-            retry_errored=False,
-            cache_dir=getattr(args, "cache_dir", None),
-            threads=int(getattr(args, "threads", 8)),
-            threads_batch=int(getattr(args, "threads_batch", 8)),
-            reasoning_activation=None,
             hf_model_id=resolved.tokenizer_repo,
             hf_revision=tokenizer_plan.revision,
             gguf_repo_only=resolved.tokenizer_repo is None,
-            wsl_venv_python=str(getattr(args, "wsl_venv_python", "~/appworld-harness/venv/bin/python3")),
-            appworld_root=str(getattr(args, "appworld_root", "/home/michael/appworld-data")),
-            progress_reporter=ProgressReporter(),
         ))
         monitor.checkpoint()
-        _print_scorecard(record)
+        print_scorecard(record)
         return maybe_submit(
             OneShotSubmitContext(
                 args=args,
-                run_root=run_root,
+                run_root=root,
                 submit_choice=choices.submit,
                 resolved=resolved,
                 submitter=dependencies.submitter,
@@ -184,62 +196,15 @@ def run_one_shot_bench(
     except SleepWakeClockGap as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_USER_INTERRUPTED
+    except AgenticSetupError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_AGENTIC_SETUP_REQUIRED
     except (CatalogResolutionError, OneShotChoiceError, PlanLockMismatch, DownloadError) as error:
         print(f"error      {error}", file=sys.stderr)
         return 2
     except Exception as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG
-
-
-def _resolve(
-    args,
-    vram_gb: float | None,
-    catalog_loader: CatalogLoader | None,
-    raw_artifact_resolver: RawArtifactResolver | None,
-    site: str,
-) -> ResolvedOneShotModel:
-    requested_model = str(getattr(args, "one_shot_model"))
-    catalog = {"models": []} if "/" in requested_model else (catalog_loader or HttpCatalogLoader()).load(
-        requested_model=requested_model,
-        site=site,
-    )
-    resolved = resolve_one_shot_model(
-        requested_model,
-        catalog,
-        quant=getattr(args, "quant", None),
-        vram_gb=vram_gb,
-    )
-    if resolved.local_only and resolved.artifact.filename == "":
-        resolver = raw_artifact_resolver or HuggingFaceRawArtifactResolver()
-        artifact = resolver.resolve_raw_artifact(
-            repo_id=requested_model,
-            quant=getattr(args, "quant", None),
-        )
-        resolved = replace(
-            resolved,
-            model_id=Path(artifact.filename).stem,
-            tokenizer_repo=requested_model,
-            tokenizer_revision=artifact.revision,
-            artifact=artifact,
-        )
-    print(f"resolve   {resolved.display_name} {resolved.artifact.quant_label}")
-    return resolved
-
-
-def _server_publishability_preflight(
-    resolved: ResolvedOneShotModel,
-    cli_version: str,
-    site: str,
-    http: JsonPostClient | None,
-) -> None:
-    payload = build_publishability_preflight_payload(resolved, cli_version=cli_version)
-    response = request_publishability_preflight(site, payload, http=http)
-    if response.get("publishable") is not True:
-        reasons = response.get("reasons")
-        detail = ", ".join(str(item) for item in reasons) if isinstance(reasons, list) else "preflight rejected"
-        raise CatalogResolutionError(f"publishability preflight rejected one-shot run: {detail}")
-    print("preflight publishable")
 
 
 def _bench_runner(deps: OneShotRunnerDeps) -> BenchRunner:
@@ -252,25 +217,7 @@ def _default_bench_runner(options: ServeBenchOptions) -> JsonObject:
     return anyio.run(run_orchestrated_bench, options)
 
 
-def _print_scorecard(record: JsonObject) -> None:
-    scores = record.get("scores")
-    if isinstance(scores, dict) and isinstance(scores.get("headline_score"), int | float):
-        print(f"scorecard headline {float(scores['headline_score']):.3f}")
-    else:
-        print("scorecard written")
-
-
-def _run_root(args) -> Path:
-    resume = getattr(args, "resume", None)
-    if isinstance(resume, Path):
-        return resume
-    out = getattr(args, "out", None)
-    if isinstance(out, Path):
-        return out
-    requested_model = str(getattr(args, "one_shot_model", "model"))
-    return Path("runs") / "bench" / requested_model.replace("/", "__")
-
-
-def _server_bin(args) -> Path | None:
-    value = getattr(args, "llama_server_path", None) or getattr(args, "server_bin", None)
-    return value if isinstance(value, Path) else None
+def _suite_identity(args: argparse.Namespace) -> OneShotSuiteIdentity:
+    if bool(getattr(args, "static_only", False)):
+        return STATIC_EXEC_SUITE_IDENTITY
+    return FULL_EXEC_SUITE_IDENTITY

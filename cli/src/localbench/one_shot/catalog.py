@@ -66,7 +66,7 @@ def resolve_one_shot_model(
             ),
             local_only=True,
             publishable=False,
-            blocking_reasons=("raw HF repos are LOCAL-ONLY in localbench 0.3.0",),
+            blocking_reasons=("raw HF repos are LOCAL-ONLY in localbench 0.3.1",),
         )
     artifact_rows = _object_list(entry.get("artifacts"))
     artifacts = [_artifact_from(entry, item) for item in artifact_rows]

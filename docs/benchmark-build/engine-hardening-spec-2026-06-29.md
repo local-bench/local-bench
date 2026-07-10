@@ -180,7 +180,8 @@ existing control flow.
   must validate PID/server identity (no hardcoded campaign ids).
 
 ### 6. Contracts, exit codes, CLI surface (P0)
-- **Exit-code taxonomy** (machine-readable): `0` complete; `10` preflight failed; `20`
+- **Exit-code taxonomy** (machine-readable): `0` complete; `10` preflight failed; `15` agentic
+  setup required; `20`
   endpoint/server failed; `30` watchdog timeout; `40` unsafe resume refused; `50` checkpoint
   corruption; `60` user interrupted (resumable); `70` internal runner bug; `80` submission/upload
   failed after local run complete.

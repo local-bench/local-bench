@@ -1,53 +1,28 @@
-"""OpenAI-compatible chat-completions client implementing the ``ModelClient`` seam.
-
-This is the ONLY new code the GPU run needs to swap the scripted agent for a real model: a
-thin :class:`ChatCompletionsClient` that POSTs the Protocol C chat history to an
-OpenAI-compatible ``/v1/chat/completions`` endpoint (e.g. a local ``llama-server`` on
-``http://127.0.0.1:8000``) and parses the reply back into a :class:`ModelResponse` the loop
-already understands. The loop, sandbox, diagnostics, and finalize seam are all unchanged
-between the scripted run and the real run — only the ``model_factory`` swaps to build one of
-these.
-
-Design constraints (kept deliberately small):
-
-  * **Stdlib only.** Uses ``urllib.request`` + ``json`` so the module is import-safe on every
-    host (Windows 3.14, WSL 3.12, no httpx/openai SDK required). No heavy client, no async, no
-    streaming — Protocol C turns are short and the loop is sequential.
-  * **Determinism passthrough.** ``complete`` maps :class:`GenerationParams` onto the request
-    body (``temperature``/``top_p``/``seed``/``max_tokens``) so a real server honours the LOCKED
-    greedy + fixed-seed contract. (``seed`` support is server-dependent; llama-server honours it.)
-  * **Graceful degradation (documented contract).** A network/timeout error, a non-200 status,
-    or a malformed/missing-field response is NEVER raised out of ``complete``. Instead it is
-    surfaced to the loop as a **format failure for that turn**: an empty-text
-    ``ModelResponse(text="", finish_reason="error")``. The loop already treats a turn with no
-    parseable code block as a (recoverable) format failure and injects a corrective observation,
-    so a transient blip costs one turn rather than aborting the whole task. This keeps a single
-    bad response from sinking a 96-task scored run, and the elevated ``format_failure_rate``
-    diagnostic makes any endpoint flakiness visible after the fact. (Rationale: the LOCKED design
-    has no per-call retry inside the loop; the funnel handles run-level reruns instead.)
-
-Nothing here imports AppWorld, the sandbox, or a model SDK.
-"""
-
 from __future__ import annotations
 
 import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from typing import Final
 
 from localbench._response import parse_server_timings
 from localbench._types import ChatMessage
 from localbench.scoring.agentic_exec.model_client import (
     GenerationParams,
+    ModelTransportError,
+    ModelTransportTimeout,
     ModelResponse,
 )
 
-# finish_reason the client stamps on a degraded (network/parse) turn. Distinct from the
+# finish_reason the client stamps on a malformed response turn. Distinct from the
 # server's own "length"/"stop" so the diagnostic can tell a CLIENT-side failure apart from a
 # model token-cap hit. The loop treats any turn it cannot parse a block from as a format
 # failure regardless of this string; the string is for human-readable diagnostics.
 ERROR_FINISH_REASON = "error"
+_MAX_TRANSPORT_ATTEMPTS: Final = 2
+_MIN_REQUEST_TIMEOUT_S: Final = 600.0
+_MIN_GENERATION_TOKENS_PER_SECOND: Final = 2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +37,7 @@ class ChatClientConfig:
     base_url: str
     model: str
     api_key: str = ""
-    timeout_s: float = 120.0
+    timeout_s: float = _MIN_REQUEST_TIMEOUT_S
     # Appended to base_url. Standard OpenAI path; overridable for non-standard gateways.
     chat_path: str = "/v1/chat/completions"
     # Extra chat-template kwargs forwarded VERBATIM in the request body (llama-server reads
@@ -85,7 +60,7 @@ class ChatCompletionsClient:
         base_url: str,
         model: str,
         api_key: str = "",
-        timeout_s: float = 120.0,
+        timeout_s: float = _MIN_REQUEST_TIMEOUT_S,
         *,
         chat_path: str = "/v1/chat/completions",
         chat_template_kwargs: dict[str, object] | None = None,
@@ -157,13 +132,12 @@ class ChatCompletionsClient:
         """POST the payload; return ``(status_code, body_text)``.
 
         Isolated so a unit test can monkeypatch THIS method with a mock transport (no live
-        endpoint). On a transport-level failure (timeout, DNS, connection refused, HTTP error)
-        it returns a non-200 status with the error text rather than raising — ``complete``
-        converts that into a format-failure ``ModelResponse``.
+        endpoint). Connection-level failures raise a typed transport exception; HTTP failures
+        return their status and body so ``complete`` can apply the same retry policy.
         """
         req = self._build_request(payload)
         try:
-            with urllib.request.urlopen(req, timeout=self._config.timeout_s) as resp:  # noqa: S310
+            with urllib.request.urlopen(req, timeout=self._request_timeout_s(payload)) as resp:  # noqa: S310
                 status = int(getattr(resp, "status", 200) or 200)
                 body = resp.read().decode("utf-8", errors="replace")
                 return status, body
@@ -171,12 +145,26 @@ class ChatCompletionsClient:
             body = ""
             try:
                 body = exc.read().decode("utf-8", errors="replace")
-            except Exception:  # noqa: BLE001 — best-effort error body.
+            except (OSError, ValueError):
                 body = str(exc)
             return int(exc.code), body
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            # No HTTP status at all (timeout / refused / DNS). Use 0 as a sentinel "no response".
-            return 0, f"{type(exc).__name__}: {exc}"
+        except TimeoutError as exc:
+            raise ModelTransportTimeout(detail=f"{type(exc).__name__}: {exc}") from exc
+        except urllib.error.URLError as exc:
+            detail = f"{type(exc).__name__}: {exc}"
+            if isinstance(exc.reason, TimeoutError):
+                raise ModelTransportTimeout(detail=detail) from exc
+            raise ModelTransportError(detail=detail) from exc
+        except OSError as exc:
+            raise ModelTransportError(detail=f"{type(exc).__name__}: {exc}") from exc
+
+    def _request_timeout_s(self, payload: dict[str, object]) -> float:
+        max_tokens = payload.get("max_tokens")
+        output_tokens = max_tokens if isinstance(max_tokens, int) and not isinstance(max_tokens, bool) else 0
+        # At the conservative 2 tok/s floor, 1024 tokens / 2 tok/s = 512s, so the 600s minimum
+        # applies. Two full attempts use at most 1200s, leaving 600s inside the 1800s task watchdog.
+        generation_s = max(0, output_tokens) / _MIN_GENERATION_TOKENS_PER_SECOND
+        return max(self._config.timeout_s, _MIN_REQUEST_TIMEOUT_S, generation_s)
 
     # -- ModelClient.complete -------------------------------------------------------------------
     def complete(
@@ -184,13 +172,23 @@ class ChatCompletionsClient:
     ) -> ModelResponse:
         """POST one turn; parse the reply into a :class:`ModelResponse`.
 
-        Never raises: any transport/status/parse problem becomes an empty-text format-failure
-        response (``finish_reason="error"``) the loop treats as a recoverable bad turn.
+        Transport and HTTP failures retry once, then raise typed infrastructure errors. Response
+        parse problems remain recoverable protocol-format failures.
         """
         payload = self._build_payload(messages, params)
-        status, body = self._post(payload)
-        if status != 200:
-            return self._error_response(f"http_status={status}: {_clip(body)}")
+        body = ""
+        for attempt in range(1, _MAX_TRANSPORT_ATTEMPTS + 1):
+            try:
+                status, body = self._post(payload)
+            except ModelTransportError:
+                if attempt == _MAX_TRANSPORT_ATTEMPTS:
+                    raise
+                continue
+            if status == 200:
+                break
+            error = ModelTransportError(detail=f"http_status={status}: {_clip(body)}")
+            if attempt == _MAX_TRANSPORT_ATTEMPTS:
+                raise error
         try:
             data = json.loads(body)
         except (ValueError, TypeError) as exc:

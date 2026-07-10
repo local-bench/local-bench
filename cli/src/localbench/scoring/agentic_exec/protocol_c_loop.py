@@ -365,6 +365,11 @@ def run_task(
             finalization = _finalization_record(sandbox, answer)
             try:
                 verdict = _coerce_verdict(sandbox.finalize(answer))
+            except SandboxError as exc:
+                finalize_error = f"{type(exc).__name__}: {exc}"
+                outcome = TaskOutcome.HARNESS_ERROR
+                failure_class = _failure_class_for_sandbox_exception(exc)
+                break
             except Exception as exc:  # noqa: BLE001 — finalize failure is a reported outcome.
                 finalize_error = f"{type(exc).__name__}: {exc}"
                 outcome = TaskOutcome.HARNESS_ERROR

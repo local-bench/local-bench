@@ -104,7 +104,7 @@ That is real work, but it extends the existing campaign model.
 | Campaign resumes into a mixed or corrupt state.                                        | **`FiveAxis_Checkpoint_Resume_FailClosed`** | Resume from checkpoints preserves one run identity and one config. Changing lane, endpoint, WSL identity, suite, sampler pins, or model artifact causes fail-closed resume rejection.         |
 | WSL worker drifts from required determinism env.                                       | **`WSL_Determinism_EnvPins`**               | Worker and sandbox record and enforce `PYTHONHASHSEED=0`, `TZ=UTC`, `LC_ALL=C.UTF-8`; no Windows locale/timezone leakage.                                                                     |
 | AppWorld sandbox regresses under the B1 invocation path.                               | **`AppWorld_Sandbox_Gates_Under_B1`**       | The same B1-launched WSL worker passes the 55-canary gate with `SUCCEEDED=0 / BLOCKED=55 / ERROR=0` and the scripted 2-task solve with `2/2 success`.                                         |
-| AppWorld data accidentally runs from `/mnt/c` or the wrong tree.                       | **`AppWorld_DataPath_Ext4_Assertion`**      | `APPWORLD_ROOT` is `/home/michael/appworld-data`, filesystem is WSL ext4, and the data tree digest/version is recorded.                                                                       |
+| AppWorld data accidentally runs from `/mnt/c` or the wrong tree.                       | **`AppWorld_DataPath_Ext4_Assertion`**      | `APPWORLD_ROOT` is `<appworld-root>`, filesystem is WSL ext4, and the data tree digest/version is recorded.                                                                                   |
 | WSL model client does not enforce capped-thinking exactly like the Windows text axes.  | **`Agentic_CappedThinking_ClientParity`**   | The AppWorld model client uses the same HF tokenizer/chat-template digest, `gemma4` reasoning activation, stop tokens, 8192 thinking cap, sampler pins, and raw `/v1/completions` path.       |
 | Network bridge latency causes false task failures.                                     | **`A1_Bridge_Soak_With_ModelCalls`**        | A representative AppWorld shakeout with many model calls records no connection resets, no unexplained HTTP failures, and latency within the configured per-event budget.                      |
 | Validator cannot rescore the agentic transcripts.                                      | **`Agentic_Transcript_Rescore_RoundTrip`**  | Tiny 5-axis bundle packs in the normal shape; validator can read agentic transcripts/per-task records and recompute ASR/Wilson inputs.                                                        |
@@ -203,7 +203,7 @@ This is the anti-A2 proof: the agentic axis did not use a second hidden llama.cp
 
 ```json
 {
-  "appworld_root": "/home/michael/appworld-data",
+  "appworld_root": "<appworld-root>",
   "appworld_root_filesystem": "wsl2-ext4",
   "appworld_data_digest_or_release_id": "...",
   "bubblewrap_version": "0.9.0",

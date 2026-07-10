@@ -96,8 +96,6 @@ class Verdict:
 
 @dataclass(frozen=True, slots=True)
 class SandboxConfig:
-    """Resource + path knobs. Defaults match the WSL appworld-harness layout."""
-
     # Interpreter for the UNTRUSTED runner inside the jail. Must be self-contained against the
     # mounted /usr stdlib only (no venv site-packages mounted) — the system python is ideal.
     runner_python_exe: str = "/usr/bin/python3"
@@ -142,7 +140,6 @@ def resolve_host_python(explicit: str = "") -> str:
     venv = os.environ.get("VIRTUAL_ENV", "")
     if venv:
         candidates.append(os.path.join(venv, "bin", "python3"))
-    candidates.append(os.path.expanduser("~/appworld-harness/venv/bin/python3"))
     seen: set[str] = set()
     for cand in candidates:
         if not cand or cand in seen:

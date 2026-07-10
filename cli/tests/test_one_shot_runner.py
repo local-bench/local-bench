@@ -7,6 +7,8 @@ from pathlib import Path
 import pytest
 
 import localbench.cli as cli_mod
+import localbench.exit_codes as exit_codes
+import localbench.one_shot.runner as one_shot_runner
 from localbench.exit_codes import EXIT_COMPLETE, EXIT_USER_INTERRUPTED
 from localbench.one_shot.runner import (
     SleepGapMonitor,
@@ -14,6 +16,7 @@ from localbench.one_shot.runner import (
     run_one_shot_bench,
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
+from localbench.suite_resolver import STATIC_EXEC_SUITE_ID
 from localbench.submissions.submit_run import SubmitRunOptions
 from one_shot_fixtures import REV_A, TOKENIZER_REV_A
 from one_shot_runner_fakes import _args, _deps
@@ -57,6 +60,77 @@ def test_advanced_bench_still_requires_manual_model_inputs(capsys: pytest.Captur
 
     assert code == 2
     assert "--model-file or --model-ref" in capsys.readouterr().err
+
+
+def test_one_shot_missing_agentic_harness_fails_before_model_download(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given a full six-axis one-shot run whose agentic harness preflight fails.
+    deps = _deps(tmp_path)
+
+    def fail_agentic_preflight(*_args, **_kwargs):
+        raise one_shot_runner.AgenticSetupError(detail="configured harness is unavailable")
+
+    deps.agentic_preflight = fail_agentic_preflight
+
+    # When the one-shot path starts.
+    code = run_one_shot_bench(
+        _args(tmp_path),
+        cli_version="0.3.1",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    # Then setup gets its dedicated exit before tokenizer/GGUF network work.
+    assert code == exit_codes.EXIT_AGENTIC_SETUP_REQUIRED
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert not (tmp_path / "models").exists()
+    assert deps.bench_runner.options is None
+    error = capsys.readouterr().err
+    assert "AppWorld harness" in error
+    assert "not yet publicly installable" in error
+    assert "managed runtime" in error
+    assert "--static-only" in error
+    assert "No model download or benchmark work has started" in error
+
+
+def test_one_shot_static_only_uses_five_axis_identity_without_agentic_preflight(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given an explicit partial-run request and an agentic preflight that must never be called.
+    deps = _deps(tmp_path)
+
+    def unexpected_agentic_preflight(*_args, **_kwargs):
+        raise AssertionError("static-only attempted agentic preflight")
+
+    deps.agentic_preflight = unexpected_agentic_preflight
+
+    # When the one-shot run executes in static-only mode.
+    code = run_one_shot_bench(
+        _args(tmp_path, static_only=True),
+        cli_version="0.3.1",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    # Then the established five-axis suite identity is used and the consequence is upfront.
+    assert code == EXIT_COMPLETE
+    assert deps.bench_runner.options is not None
+    assert deps.bench_runner.options.suite == STATIC_EXEC_SUITE_ID
+    lock = json.loads((tmp_path / "plan.lock.json").read_text(encoding="utf-8"))
+    assert lock["suite_release_id"] == STATIC_EXEC_SUITE_ID
+    assert lock["suite_manifest_sha256"] == "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64"
+    output = capsys.readouterr().out
+    banner = "This run will NOT be eligible for the full six-axis index; it can appear as a measured/static row."
+    assert banner in output
+    assert output.index(banner) < output.index("resolve")
 
 
 def test_one_shot_runner_prompts_submit_default_no_and_builds_bounded_final_options(

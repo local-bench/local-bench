@@ -15,13 +15,13 @@ so code-as-action is only safe if **the harness adds its own sandbox** around `w
 Date: 2026-06-23. GPU-free, endpoint-free, NON-LLM. No model loaded, `llama-server`/port 8000
 untouched, no `git` commit/push, no edits to `web/`, the scorer, `axes.py`, scorecard, or
 `agentic_exec/`. All numbers are from a hand-scripted deterministic driver of **real** AppWorld
-(`appworld==0.1.3.post1`, WSL Python 3.12, `APPWORLD_ROOT=/home/michael/appworld-data`, determinism
+(`appworld==0.1.3.post1`, WSL Python 3.12, `APPWORLD_ROOT=<appworld-root>`, determinism
 trio set), identical trust boundary to the prior feasibility probe.
 
 **Re-run command (reproduces every number below):**
 ```bash
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source ~/appworld-harness/venv/bin/activate \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source <wsl-venv>/bin/activate \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && python cli/tools/appworld_viability_probe.py'
 ```
 Probe script: `cli/tools/appworld_viability_probe.py` (self-contained; imports only `appworld` +

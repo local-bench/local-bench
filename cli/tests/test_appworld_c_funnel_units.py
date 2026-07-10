@@ -4,8 +4,8 @@ These prove the whole staged-campaign orchestration end-to-end with NO model, NO
 and NO bwrap/appworld:
 
   * **ChatCompletionsClient** — request shape (against a MOCK transport), response parsing, and the
-    documented graceful-degradation contract (timeout / non-200 / malformed -> empty format-failure
-    ModelResponse). The transport is monkeypatched; there is NO live endpoint.
+    transport retry/infra contract and malformed-response format failures. The transport is
+    monkeypatched; there is NO live endpoint.
   * **Frozen subset selection** — determinism (same inputs -> same ids + same manifest hash),
     stratified coverage, seed sensitivity, size clamping, and the freeze-hash stability.
   * **Funnel orchestration** — run + persist a stage (JSON shape on disk via tmp_path), the LOCKED
@@ -29,6 +29,8 @@ sys.path.insert(0, str(_REPO / "cli" / "src"))
 
 from localbench._types import ChatMessage  # noqa: E402
 from localbench.scoring.agentic_exec import funnel as fn  # noqa: E402
+from localbench.scoring.agentic_exec import benchmark as bench  # noqa: E402
+from localbench.scoring.agentic_exec import model_client as model_client_mod  # noqa: E402
 from localbench.scoring.agentic_exec import scripted_agent as sa  # noqa: E402
 from localbench.scoring.agentic_exec.chat_client import (  # noqa: E402
     ERROR_FINISH_REASON,
@@ -201,22 +203,45 @@ def test_chat_client_ignores_deepseek_reasoning_content_and_forwards_kwargs(
     assert captured["payload"]["chat_template_kwargs"] == {"enable_thinking": True}  # type: ignore[index]
 
 
-def test_chat_client_non_200_is_format_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_chat_client_http_error_retries_twice_then_raises_typed_infra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
-    monkeypatch.setattr(client, "_post", lambda p: (500, "internal error"))
-    resp = client.complete([{"role": "user", "content": "go"}], GenerationParams())
-    assert resp.text == ""
-    assert resp.finish_reason == ERROR_FINISH_REASON
-    assert resp.output_tokens == 0
+    attempts: list[dict[str, object]] = []
+
+    def fail(payload: dict[str, object]) -> tuple[int, str]:
+        attempts.append(dict(payload))
+        return 503, "temporarily unavailable"
+
+    monkeypatch.setattr(client, "_post", fail)
+
+    with pytest.raises(model_client_mod.ModelTransportError):
+        client.complete([{"role": "user", "content": "go"}], GenerationParams())
+
+    assert len(attempts) == 2
+    assert attempts[0] == attempts[1]
 
 
-def test_chat_client_timeout_sentinel_is_format_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_chat_client_timeout_retries_identical_request_without_empty_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
-    # status 0 == no response at all (timeout / connection refused)
-    monkeypatch.setattr(client, "_post", lambda p: (0, "TimeoutError: timed out"))
-    resp = client.complete([{"role": "user", "content": "go"}], GenerationParams())
-    assert resp.text == ""
-    assert resp.finish_reason == ERROR_FINISH_REASON
+    attempts: list[dict[str, object]] = []
+
+    def flaky(payload: dict[str, object]) -> tuple[int, str]:
+        attempts.append(dict(payload))
+        if len(attempts) == 1:
+            raise model_client_mod.ModelTransportTimeout(detail="timed out")
+        return 200, _ok_body("```python\nprint(1)\n```")
+
+    monkeypatch.setattr(client, "_post", flaky)
+
+    response = client.complete([{"role": "user", "content": "go"}], GenerationParams())
+
+    assert response.text == "```python\nprint(1)\n```"
+    assert response.finish_reason == "stop"
+    assert len(attempts) == 2
+    assert attempts[0] == attempts[1]
 
 
 def test_chat_client_malformed_json_is_format_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -272,10 +297,41 @@ def test_chat_client_post_uses_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
 
     import urllib.request as _u
 
-    monkeypatch.setattr(_u, "urlopen", lambda req, timeout=0: _Resp())
+    timeouts: list[float] = []
+
+    def fake_urlopen(req, timeout: float = 0) -> _Resp:
+        timeouts.append(timeout)
+        return _Resp()
+
+    monkeypatch.setattr(_u, "urlopen", fake_urlopen)
     status, body = client._post(client._build_payload([], GenerationParams()))
     assert status == 200
     assert "hello" in body
+    assert timeouts == [600.0]
+
+
+def test_chat_client_retry_timeout_budget_stays_below_task_watchdog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
+    timeouts: list[float] = []
+
+    def timeout(_req, timeout: float = 0) -> None:
+        timeouts.append(timeout)
+        raise TimeoutError("timed out")
+
+    import urllib.request as _u
+
+    monkeypatch.setattr(_u, "urlopen", timeout)
+
+    with pytest.raises(model_client_mod.ModelTransportTimeout):
+        client.complete(
+            [{"role": "user", "content": "go"}],
+            GenerationParams(max_output_tokens=1024),
+        )
+
+    assert timeouts == [600.0, 600.0]
+    assert sum(timeouts) < LoopConfig().per_task_timeout_s
 
 
 def test_chat_client_drives_loop_through_fakesandbox(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -661,16 +717,37 @@ def test_chat_client_custom_chat_path_is_never_rewritten() -> None:
     assert client.endpoint == "http://gw.example/v1/custom/chat"
 
 
-def test_chat_client_error_response_carries_detail(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Given: a transport that fails with a connection-level error (status 0 sentinel).
+def test_persistent_chat_timeout_is_task_level_infra_without_model_turns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a transport that times out on both allowed attempts.
     client = ChatCompletionsClient("http://127.0.0.1:8000", "m")
-    monkeypatch.setattr(client, "_post", lambda p: (0, "URLError: [Errno 111] refused"))
+    attempts = 0
 
-    # When: completing a turn.
-    response = client.complete([{"role": "user", "content": "hi"}], GenerationParams())
+    def timeout(_payload: dict[str, object]) -> tuple[int, str]:
+        nonlocal attempts
+        attempts += 1
+        raise model_client_mod.ModelTransportTimeout(detail="timed out")
 
-    # Then: the degraded turn carries the cause for per-turn diagnostics (it used to be dropped).
-    assert response.finish_reason == "error"
-    assert response.text == ""
-    assert response.error_detail is not None
-    assert "URLError" in response.error_detail
+    monkeypatch.setattr(client, "_post", timeout)
+
+    # When: the benchmark runs one task.
+    report = bench.run_appworld_c_benchmark(
+        ["fac291d_1"],
+        model_factory=lambda _task_id: client,
+        sandbox_factory=lambda _task_id: FakeSandbox(
+            gold_answer=5,
+            instruction=_FAC_INSTR,
+            supervisor_email="b@x.com",
+        ),
+    )
+
+    # Then: retry exhaustion is typed infra and consumes no model turn or format failure.
+    result = report.results[0]
+    assert attempts == 2
+    assert result.diagnostics.failure_class.value == "infra_timeout"
+    assert result.diagnostics.turns_used == 0
+    assert result.diagnostics.format_failures == 0
+    assert result.diagnostics.turns == []
+    assert report.infra_timeout_rate == 1.0
+    assert report.asr_excluding_infra == 0.0

@@ -153,30 +153,30 @@ Prereq once: extract bwrap to `~/.local/bin/bwrap` (block above). Then:
 # NOTE: invoke the venv python by ABSOLUTE PATH — `activate` does not shadow python3 on this box,
 # and the host side must import appworld + seed the L1-L3 cross-task tree.
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
-  && ~/appworld-harness/venv/bin/python3 cli/tools/appworld_canary_suite_sandboxed.py --json'
+  && <wsl-python> cli/tools/appworld_canary_suite_sandboxed.py --json'
 
 # GATE 2 — scripted NON-LLM 2-task solve THROUGH the sandbox (expect 2/2 success: True).
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
-  && ~/appworld-harness/venv/bin/python3 cli/tools/appworld_scripted_solve_sandboxed.py --json'
+  && <wsl-python> cli/tools/appworld_scripted_solve_sandboxed.py --json'
 
 # BOTH GATES as pytest (skips cleanly if appworld/bwrap/APPWORLD_ROOT are absent):
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
-  && ~/appworld-harness/venv/bin/python3 -m pytest cli/tests/test_appworld_sandbox_acceptance.py -v -s'
+  && <wsl-python> -m pytest cli/tests/test_appworld_sandbox_acceptance.py -v -s'
 
 # Host-agnostic unit tests for the proxy/import-allow-list/wire-protocol (no bwrap needed):
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && ~/appworld-harness/venv/bin/python3 -m pytest cli/tests/test_appworld_sandbox_units.py -q'
+  && <wsl-python> -m pytest cli/tests/test_appworld_sandbox_units.py -q'
 
 # Baseline (raw world.execute, for the 31 number):
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
-  && ~/appworld-harness/venv/bin/python3 cli/tools/appworld_canary_suite.py'
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && <wsl-python> cli/tools/appworld_canary_suite.py'
 ```
 
 ---

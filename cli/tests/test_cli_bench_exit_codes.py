@@ -8,8 +8,13 @@ import pytest
 
 import localbench.cli as cli_mod
 from localbench.campaign_checkpoints import CheckpointCorruptionError
-from localbench.exit_codes import EXIT_CHECKPOINT_CORRUPTION, EXIT_UNSAFE_RESUME
+from localbench.exit_codes import (
+    EXIT_AGENTIC_SETUP_REQUIRED,
+    EXIT_CHECKPOINT_CORRUPTION,
+    EXIT_UNSAFE_RESUME,
+)
 from localbench.orchestrate import UnsafeResumeError
+from localbench.serving.agentic_support import AgenticSetupError
 
 
 @pytest.mark.parametrize(
@@ -32,6 +37,24 @@ def test_bench_returns_dedicated_exit_code_for_resume_and_checkpoint_errors(
 
     # When / Then: _bench preserves the same exit-code contract as _run.
     assert cli_mod._bench(_bench_args()) == expected_exit
+
+
+def test_bench_returns_dedicated_exit_for_missing_agentic_setup(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fake_anyio_run(function, options) -> None:
+        raise AgenticSetupError(detail="managed harness paths are unset")
+
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    code = cli_mod._bench(_bench_args())
+
+    assert code == EXIT_AGENTIC_SETUP_REQUIRED
+    error = capsys.readouterr().err
+    assert "AppWorld harness" in error
+    assert "--static-only" in error
+    assert "No model download or benchmark work has started" in error
 
 
 def test_bench_capped_thinking_requires_reasoning_flags(

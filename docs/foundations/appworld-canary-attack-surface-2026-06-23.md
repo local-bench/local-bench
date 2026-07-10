@@ -24,12 +24,12 @@ this doc. DEV tasks only (`50e1ac9_1` primary, `fac291d_1` seed). The only groun
 string surfaced is the single short truncated proof needed to demonstrate each leak.
 
 **Environment.** `appworld==0.1.3.post1`, WSL Ubuntu 24.04 Python 3.12,
-`APPWORLD_ROOT=/home/michael/appworld-data` (per `appworld-install-results.md`).
+`APPWORLD_ROOT=<appworld-root>` (per `appworld-install-results.md`).
 
 **Re-run command (reproduces the table below; deterministic — 31/24/0 across 3 runs):**
 ```bash
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source ~/appworld-harness/venv/bin/activate \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source <wsl-venv>/bin/activate \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && python cli/tools/appworld_canary_suite.py'
 ```
 Suite: `cli/tools/appworld_canary_suite.py` (self-contained; imports only `appworld` + stdlib).
@@ -104,7 +104,7 @@ Proofs are truncated to ≤64 chars. (Full live output: re-run the suite.)
 | **L1** | experiment-outputs/logs | read **another task's** `logs/environment_io.md` (prior transcript) | `OTHER-TASK IO LOG: ### Environment Interaction 1…` |
 | **L2** | experiment-outputs/logs | read **another task's** `logs/api_calls.jsonl` (call/eval trace) | `OTHER-TASK CALL TRACE: {"method":"get","url":"/supervisor/pro…` |
 | **L3** | experiment-outputs/logs | read **another task's** mutated `dbs/supervisor.jsonl` (post-state) | `OTHER-TASK DB STATE: ["INSERT INTO supervisors…` |
-| **P1** | process/env | `os.environ['APPWORLD_ROOT']` | `PATH/ENV LEAK: /home/michael/appworld-data` |
+| **P1** | process/env | `os.environ['APPWORLD_ROOT']` | `PATH/ENV LEAK: <appworld-root>` |
 | **P2** | process/env | `os.getcwd()` | `ABS-PATH LEAK: /mnt/c/Users/Michael/local-bench` |
 | **P3** | process/env | `/proc/self/environ` via `pathlib.read_text` | `PROC ENVIRON: SHELL=/bin/bash WSL_DISTRO…` |
 | **P4** | process/env | `/proc/self/cmdline` via `pathlib.read_text` | `CMD=python cli/tools/appworld_canary_suite.py` |

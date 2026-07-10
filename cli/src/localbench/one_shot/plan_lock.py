@@ -6,9 +6,8 @@ from pathlib import Path
 from localbench._types import JsonObject
 from localbench.one_shot.preflight import validate_resume_plan_lock, write_plan_lock
 from localbench.one_shot.types import (
-    FULL_EXEC_SUITE_MANIFEST_SHA256,
-    FULL_EXEC_SUITE_RELEASE_ID,
     ONE_SHOT_PLAN_SCHEMA_VERSION,
+    OneShotSuiteIdentity,
     ResolvedOneShotModel,
 )
 
@@ -20,6 +19,7 @@ class OneShotPlanLockContext:
     cli_version: str
     tokenizer_repo: str
     tokenizer_revision: str
+    suite_identity: OneShotSuiteIdentity
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,8 +60,8 @@ def plan_lock_document(
         "artifact_filename": context.resolved.artifact.filename,
         "tokenizer_repo": context.tokenizer_repo,
         "tokenizer_revision": context.tokenizer_revision,
-        "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
-        "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
+        "suite_release_id": context.suite_identity.release_id,
+        "suite_manifest_sha256": context.suite_identity.manifest_sha256,
         "cli_version": context.cli_version,
     }
     if download is not None:

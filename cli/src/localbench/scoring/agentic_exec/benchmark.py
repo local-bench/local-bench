@@ -39,7 +39,11 @@ from localbench.scoring.agentic_exec.loop_types import (
     TaskOutcome,
     TaskRunResult,
 )
-from localbench.scoring.agentic_exec.model_client import ModelClient
+from localbench.scoring.agentic_exec.model_client import (
+    ModelClient,
+    ModelTransportError,
+    ModelTransportTimeout,
+)
 from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike, run_task
 
 # A sandbox factory yields a context manager that, on __enter__, returns a live SandboxLike.
@@ -268,6 +272,10 @@ def _classify_harness_exception(exc: Exception) -> FailureClass:
     )
 
     match exc:
+        case ModelTransportTimeout():
+            return FailureClass.INFRA_TIMEOUT
+        case ModelTransportError():
+            return FailureClass.INFRA_SANDBOX
         case SandboxTimeoutError():
             return FailureClass.INFRA_TIMEOUT
         case SandboxError():

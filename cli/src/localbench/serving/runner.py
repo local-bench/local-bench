@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 import secrets
 from pathlib import Path
 
@@ -9,7 +8,7 @@ from localbench._suite import read_json_object
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
 from localbench.run_plan import resolve_run_benches
-from localbench.suite_resolver import resolve_suite_dir
+from localbench.suite_resolver import STATIC_EXEC_SUITE_ID, resolve_suite_dir
 from localbench.serving.assembly import (
     bench_config,
     effective_serving_profile,
@@ -22,6 +21,13 @@ from localbench.serving.assembly import (
     server_bin,
     serving_evidence,
     validate_capped_thinking_context,
+)
+from localbench.serving.agentic_support import (
+    AgenticSetupError,
+    agentic_chat_template_kwargs,
+    configured_agentic_paths,
+    git_head,
+    repo_root,
 )
 from localbench.serving.bench import VllmAdapter, build_orchestrate_config
 from localbench.serving.fingerprint import resume_identity, server_fingerprint
@@ -45,6 +51,7 @@ from localbench.scoring.agentic_exec.wsl_bridge import (
     preflight_wsl_agentic,
     wsl_sandbox_factory,
 )
+from localbench.scoring.agentic_exec.sandbox import SandboxError
 from localbench.submissions.foundation import normalize_result_bundle
 
 
@@ -116,7 +123,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         parallel_slots=1,
         flash_attention=launch_config.flash_attn,
     )
-    agentic_preflight = _preflight_agentic_if_needed(options, root)
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(options, root)
     launched: LaunchedServer | None = None
     teardown: TeardownEvidence | None = None
     try:
@@ -150,20 +157,24 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-            repo_root = _repo_root()
-            repo_root_wsl = default_wsl_repo_path(repo_root)
+            root_repo = repo_root()
+            repo_root_wsl = default_wsl_repo_path(root_repo)
             log_dir = root / "agentic" / "wsl-worker-logs"
-            agentic_sandbox_factory = wsl_sandbox_factory(
-                repo_root_wsl,
+            wsl_venv_python, appworld_root = configured_agentic_paths(
                 options.wsl_venv_python,
                 options.appworld_root,
+            )
+            agentic_sandbox_factory = wsl_sandbox_factory(
+                repo_root_wsl,
+                wsl_venv_python,
+                appworld_root,
                 log_dir=log_dir,
             )
             agentic_model_factory = chat_client_factory(
                 f"http://127.0.0.1:{port}/v1",
                 options.model_id,
                 api_key=api_key,
-                chat_template_kwargs=_agentic_chat_template_kwargs(options.lane, effective_profile),
+                chat_template_kwargs=agentic_chat_template_kwargs(options.lane, effective_profile),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
             agentic_provenance_extra = agentic_preflight.provenance()
@@ -208,25 +219,34 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     return updated
 
 
-def _preflight_agentic_if_needed(
+def preflight_agentic_if_needed(
     options: ServeBenchOptions,
     root: Path,
 ) -> WslPreflightResult | None:
-    if not _needs_wsl_agentic(options):
+    if not needs_wsl_agentic(options):
         return None
-    repo_root = _repo_root()
-    return preflight_wsl_agentic(
-        repo_root_wsl_path=default_wsl_repo_path(repo_root),
-        venv_python=options.wsl_venv_python,
-        appworld_root=options.appworld_root,
-        log_dir=root / "agentic" / "wsl-worker-logs",
-        expected_git_commit=_git_head(repo_root),
-        max_items=options.max_items,
+    wsl_venv_python, appworld_root = configured_agentic_paths(
+        options.wsl_venv_python,
+        options.appworld_root,
     )
+    root_repo = repo_root()
+    try:
+        return preflight_wsl_agentic(
+            repo_root_wsl_path=default_wsl_repo_path(root_repo),
+            venv_python=wsl_venv_python,
+            appworld_root=appworld_root,
+            log_dir=root / "agentic" / "wsl-worker-logs",
+            expected_git_commit=git_head(root_repo),
+            max_items=options.max_items,
+        )
+    except (SandboxError, OSError) as error:
+        raise AgenticSetupError(detail=str(error)) from error
 
 
-def _needs_wsl_agentic(options: ServeBenchOptions) -> bool:
+def needs_wsl_agentic(options: ServeBenchOptions) -> bool:
     if options.runtime != "llama.cpp":
+        return False
+    if options.suite == STATIC_EXEC_SUITE_ID:
         return False
     suite_ref = resolve_suite_dir(
         suite_id=options.suite,
@@ -237,36 +257,3 @@ def _needs_wsl_agentic(options: ServeBenchOptions) -> bool:
     )
     suite = read_json_object(suite_ref.path / "suite.json")
     return "appworld_c" in resolve_run_benches(options.bench, suite)
-
-
-def _agentic_chat_template_kwargs(lane: str, profile: str) -> JsonObject:
-    if lane in {"bounded-final-v1", "bounded-final-v2"}:
-        return (
-            {"enable_thinking": True}
-            if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}
-            else {"enable_thinking": False}
-        )
-    if lane == "answer-only":
-        return {"enable_thinking": False}
-    return {"enable_thinking": True}
-
-
-def _repo_root() -> Path:
-    start = Path(__file__).resolve()
-    for parent in start.parents:
-        if (parent / ".git").exists():
-            return parent
-    return start.parents[4]
-
-
-def _git_head(repo_root: Path) -> str | None:
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip()

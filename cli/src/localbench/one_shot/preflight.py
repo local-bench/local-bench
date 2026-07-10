@@ -10,9 +10,10 @@ import httpx
 from localbench._types import JsonObject
 from localbench.one_shot.catalog import CatalogResolutionError
 from localbench.one_shot.types import (
-    FULL_EXEC_SUITE_MANIFEST_SHA256,
-    FULL_EXEC_SUITE_RELEASE_ID,
+    FULL_EXEC_SUITE_IDENTITY,
     IDENTITY_ENVELOPE_SCHEMA_VERSION,
+    ONE_SHOT_SUITE_MANIFESTS,
+    OneShotSuiteIdentity,
     ONE_SHOT_PLAN_SCHEMA_VERSION,
     PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION,
     ResolvedOneShotModel,
@@ -99,12 +100,17 @@ def validate_resume_plan_lock(lock_path: Path, expected: JsonObject) -> JsonObje
     return {str(key): value for key, value in loaded.items()}
 
 
-def build_identity_envelope(resolved: ResolvedOneShotModel, *, cli_version: str) -> JsonObject:
+def build_identity_envelope(
+    resolved: ResolvedOneShotModel,
+    *,
+    cli_version: str,
+    suite_identity: OneShotSuiteIdentity = FULL_EXEC_SUITE_IDENTITY,
+) -> JsonObject:
     return {
         "schema_version": IDENTITY_ENVELOPE_SCHEMA_VERSION,
         "source": "one_shot",
-        "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
-        "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
+        "suite_release_id": suite_identity.release_id,
+        "suite_manifest_sha256": suite_identity.manifest_sha256,
         "cli_version": cli_version,
         "requested_model": resolved.requested,
         "catalog_model_id": resolved.catalog_model_id,
@@ -126,9 +132,10 @@ def build_identity_envelope(resolved: ResolvedOneShotModel, *, cli_version: str)
 def prevalidate_identity_envelope(envelope: JsonObject) -> None:
     if envelope.get("schema_version") != IDENTITY_ENVELOPE_SCHEMA_VERSION:
         raise CatalogResolutionError("identity envelope schema_version is not supported")
-    if envelope.get("suite_release_id") != FULL_EXEC_SUITE_RELEASE_ID:
+    suite_release_id = envelope.get("suite_release_id")
+    if not isinstance(suite_release_id, str) or suite_release_id not in ONE_SHOT_SUITE_MANIFESTS:
         raise CatalogResolutionError("identity envelope suite_release_id is not publishable")
-    if envelope.get("suite_manifest_sha256") != FULL_EXEC_SUITE_MANIFEST_SHA256:
+    if envelope.get("suite_manifest_sha256") != ONE_SHOT_SUITE_MANIFESTS[suite_release_id]:
         raise CatalogResolutionError("identity envelope suite_manifest_sha256 is not publishable")
     artifact = envelope.get("artifact")
     if not isinstance(artifact, dict):
@@ -141,14 +148,23 @@ def prevalidate_identity_envelope(envelope: JsonObject) -> None:
         raise CatalogResolutionError("identity envelope requires pinned artifact sha256")
 
 
-def build_publishability_preflight_payload(resolved: ResolvedOneShotModel, *, cli_version: str) -> JsonObject:
-    envelope = build_identity_envelope(resolved, cli_version=cli_version)
+def build_publishability_preflight_payload(
+    resolved: ResolvedOneShotModel,
+    *,
+    cli_version: str,
+    suite_identity: OneShotSuiteIdentity = FULL_EXEC_SUITE_IDENTITY,
+) -> JsonObject:
+    envelope = build_identity_envelope(
+        resolved,
+        cli_version=cli_version,
+        suite_identity=suite_identity,
+    )
     prevalidate_identity_envelope(envelope)
     return {
         "schema_version": PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION,
         "source": "one_shot",
-        "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
-        "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
+        "suite_release_id": suite_identity.release_id,
+        "suite_manifest_sha256": suite_identity.manifest_sha256,
         "cli_version": cli_version,
         "catalog_model_id": resolved.catalog_model_id,
         "quant_label": resolved.artifact.quant_label,

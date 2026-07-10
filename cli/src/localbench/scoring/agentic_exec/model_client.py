@@ -27,6 +27,18 @@ from typing import Protocol, runtime_checkable
 from localbench._types import ChatMessage, JsonObject
 
 
+@dataclass(slots=True)
+class ModelTransportError(Exception):
+    detail: str
+
+    def __str__(self) -> str:
+        return self.detail
+
+
+class ModelTransportTimeout(ModelTransportError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class GenerationParams:
     """Decoding intent the loop hands to the model client for one turn.

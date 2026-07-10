@@ -6,6 +6,7 @@ from pathlib import Path
 
 from localbench.one_shot.download import DownloadError
 from localbench.one_shot.runner import OneShotRunnerDeps
+from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.submissions.submit_run import SubmitRunOptions, SubmitRunResult
 from one_shot_fixtures import (
     MODEL_BYTES,
@@ -121,6 +122,10 @@ class _RawArtifactResolver:
         )
 
 
+def _agentic_preflight(_options, _root: Path) -> WslPreflightResult:
+    return WslPreflightResult(identity={"fixture": True}, task_ids=("fixture_task",))
+
+
 def _deps(tmp_path: Path) -> OneShotRunnerDeps:
     return OneShotRunnerDeps(
         catalog_loader=_CatalogLoader(),
@@ -129,6 +134,7 @@ def _deps(tmp_path: Path) -> OneShotRunnerDeps:
         bench_runner=_BenchRunner(tmp_path),
         submitter=_Submitter(),
         raw_artifact_resolver=_RawArtifactResolver(),
+        agentic_preflight=_agentic_preflight,
     )
 
 
@@ -138,6 +144,7 @@ def _args(
     one_shot_submit: bool | None = False,
     offline: bool = False,
     resume: Path | None = None,
+    static_only: bool = False,
 ) -> argparse.Namespace:
     return argparse.Namespace(
         one_shot_model="qwen3-6-27b",
@@ -147,6 +154,7 @@ def _args(
         quant="Q4_K_M",
         vram_gb=24.0,
         offline=offline,
+        static_only=static_only,
         allow_sleep_risk=False,
         purge_model=False,
         llama_server_path=Path("llama-server.exe"),
@@ -159,8 +167,8 @@ def _args(
         max_items=None,
         threads=8,
         threads_batch=8,
-        wsl_venv_python="~/appworld-harness/venv/bin/python3",
-        appworld_root="/home/michael/appworld-data",
+        wsl_venv_python="/opt/localbench/bin/python3",
+        appworld_root="/srv/appworld",
         site="https://local-bench.ai",
         signing_key=None,
         display_name=None,

@@ -549,6 +549,34 @@ def test_loop_classifies_block_wall_timeout_as_infra_without_retry() -> None:
     assert sandbox.model_block_attempts == 1
 
 
+def test_loop_preserves_finalize_timeout_as_infra_timeout() -> None:
+    class _FinalizeTimeoutSandbox(FakeSandbox):
+        def finalize(self, answer: object) -> _FakeVerdict:
+            raise SandboxTimeoutError("finalize timed out")
+
+    class _FinalAnswer:
+        def complete(
+            self,
+            messages: list[ChatMessage],
+            params: GenerationParams,
+        ) -> ModelResponse:
+            return ModelResponse("```python\nanswer = 1\n```\nFINAL_ANSWER", "stop")
+
+    result = run_task(
+        _FinalizeTimeoutSandbox(
+            gold_answer=1,
+            instruction=_FAC_INSTR,
+            supervisor_email="b@x.com",
+        ),
+        _FinalAnswer(),
+        "fac291d_1",
+    )
+
+    assert result.outcome == TaskOutcome.HARNESS_ERROR
+    assert result.diagnostics.failure_class == FailureClass.INFRA_TIMEOUT
+    assert "SandboxTimeoutError" in (result.diagnostics.finalize_error or "")
+
+
 def test_loop_classifies_model_failure_no_progress_and_harness_error() -> None:
     class _WrongFinal:
         def complete(self, messages: list[ChatMessage], params: GenerationParams) -> ModelResponse:

@@ -18,18 +18,27 @@ localbench fetch-suite --site https://local-bench.ai \
 # 2. Cache the tokenizer/chat template for offline identity
 localbench cache-tokenizer <hf-model-id>
 
-# 3. Strongest provenance: the CLI launches the pinned llama.cpp server itself
+# 3. Public path today: run the five non-agentic axes (measured/static, not full-index eligible)
+localbench bench <catalog-model-or-hf-repo> --static-only \
+  --llama-server-path <path-to-llama-server>
+
+# 4. Managed-harness path: the CLI launches the pinned llama.cpp server itself
 localbench bench \
   --runtime llama.cpp --server-bin <path-to-llama-server> \
   --model-file <model.gguf> --model-id <model-slug> \
   --hf-model-id <hf-model-id> \
   --suite full-exec-6axis-v1 --bench all \
+  --wsl-venv-python <managed-wsl-python> \
+  --appworld-root <managed-appworld-root> \
   --lane bounded-final-v2 --profile auto --tier standard \
   --ctx 32768 --seed 1234 --out runs/my-bench
 
-# 4. Submit for maintainer review (nothing auto-publishes)
+# 5. Submit for maintainer review (nothing auto-publishes)
 localbench submit run --run runs/my-bench
 ```
+
+Full six-axis execution currently requires managed AppWorld configuration. Until the managed
+runtime is public, use one-shot `--static-only` to run the other five axes without agentic setup.
 
 The site's [submit page](https://local-bench.ai/submit) generates these commands for your
 exact model and runtime, including the full identity flag set for bring-your-own-server

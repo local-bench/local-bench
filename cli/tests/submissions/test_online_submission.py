@@ -585,6 +585,7 @@ async def test_cli_admin_verify_downloads_rescores_and_marks_needs_review(
         return {"status": str(request.status_update["status"]), "submission_id": request.submission_id}
 
     monkeypatch.setenv("LOCALBENCH_ADMIN_SECRET", "admin-secret")
+    monkeypatch.setenv("LOCALBENCH_HOME", str(tmp_path / "localbench-home"))
     monkeypatch.setattr(cli_mod, "get_submission_status", fake_get)
     monkeypatch.setattr(cli_mod, "post_admin_verification", fake_post)
 

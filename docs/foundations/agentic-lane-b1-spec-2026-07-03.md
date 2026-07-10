@@ -32,8 +32,8 @@ second runtime. Branch: `agentic-lane-b1` (worktree; the main checkout is runnin
   bwrap runner over a private AF_UNIX socket. Its internals are FROZEN — do not modify
   anything under `scoring/agentic_exec/{sandbox,env_host,runner_bootstrap,
   sandbox_protocol}.py` beyond what a new caller needs.
-- WSL env: venv `~/appworld-harness/venv`, data `APPWORLD_ROOT=/home/michael/
-  appworld-data` (native ext4), pins `PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8`,
+- WSL env: venv `<wsl-venv>`, data `APPWORLD_ROOT=<appworld-root>` (native ext4),
+  pins `PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8`,
   `PATH="$HOME/.local/bin:$PATH"` (bwrap 0.9.0). Repo reachable at
   `/mnt/c/Users/Michael/local-bench-wt-agentic` (this worktree) — the worker must run
   from the SAME tree as the Windows side so code identity matches.
@@ -93,9 +93,8 @@ New module `cli/src/localbench/scoring/agentic_exec/wsl_bridge.py`:
 - In the serve orchestrator path (`serving/` + `_bench`), when the resolved bench set
   includes `appworld_c` and runtime is llama.cpp: build the factories from work item 2
   and pass them (+ task_ids from `list_tasks`, honoring `--max-items` for shakeouts)
-  into the orchestrate call. New bench CLI knobs, all optional with sane defaults:
-  `--wsl-venv-python` (default `~/appworld-harness/venv/bin/python3` expressed for WSL),
-  `--appworld-root` (default `/home/michael/appworld-data`).
+  into the orchestrate call. Bench CLI knobs require explicit managed-harness paths:
+  `--wsl-venv-python <wsl-python>` and `--appworld-root <appworld-root>`.
 - PREFLIGHT (before the llama-server launches): spawn a worker, `hello`, assert identity
   sanity (ext4 appworld root, bwrap present, git commit matches the Windows-side HEAD,
   clean/dirty recorded), `list_tasks` non-empty. Any failure -> clear RuntimeError, no

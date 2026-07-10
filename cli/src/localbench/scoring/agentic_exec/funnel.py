@@ -649,7 +649,7 @@ def chat_client_factory(
     base_url: str,
     model: str,
     api_key: str = "",
-    timeout_s: float = 120.0,
+    timeout_s: float = 600.0,
     chat_template_kwargs: dict[str, object] | None = None,
 ) -> ModelFactory:
     """``task_id -> ChatCompletionsClient(base_url, model)`` for the GPU run's ``model_factory``.

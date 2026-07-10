@@ -6,6 +6,7 @@ from pathlib import Path
 from localbench.bounded_final_profiles import BoundedFinalProfileChoice
 from localbench.orchestrate import LaneChoice, ReasoningActivationChoice, TierChoice
 from localbench.progress import ProgressReporter
+from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.suite_resolver import DEFAULT_SUITE_ID
 
 
@@ -37,6 +38,7 @@ class ServeBenchOptions:
     hf_model_id: str | None = None
     hf_revision: str | None = None
     gguf_repo_only: bool = False
-    wsl_venv_python: str = "~/appworld-harness/venv/bin/python3"
-    appworld_root: str = "/home/michael/appworld-data"
+    wsl_venv_python: str | None = None
+    appworld_root: str | None = None
+    agentic_preflight: WslPreflightResult | None = None
     progress_reporter: ProgressReporter | None = None

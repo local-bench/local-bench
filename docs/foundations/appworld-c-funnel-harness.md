@@ -75,8 +75,8 @@ Run inside the WSL appworld venv (it needs `load_task_ids` + metadata; no GPU, n
 
 ```bash
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
-  && ~/appworld-harness/venv/bin/python3 cli/tools/appworld_c_funnel.py --stage scored --print-subset'
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && <wsl-python> cli/tools/appworld_c_funnel.py --stage scored --print-subset'
 ```
 
 This prints the 96 task ids (in run order) + the `manifest_hash`. Record that hash in the
@@ -151,9 +151,9 @@ determinism env, exactly like the scripted loop proof:
 ```bash
 # common WSL prefix (reused below):
 WSLPRE='cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && export PATH="$HOME/.local/bin:$PATH" \
-  && ~/appworld-harness/venv/bin/python3 cli/tools/appworld_c_funnel.py'
+  && <wsl-python> cli/tools/appworld_c_funnel.py'
 ```
 
 **3.1 smoke** (1 system, find loop bugs, no score — 1 task, or `--wide-smoke` for 6):
@@ -207,8 +207,8 @@ instead — `cli/runs/` is only written when actually run.
 
 # freeze/verify the 96-task manifest with NO GPU (WSL, needs appworld for ids):
 wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
-  && ~/appworld-harness/venv/bin/python3 cli/tools/appworld_c_funnel.py --stage scored --print-subset'
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+  && <wsl-python> cli/tools/appworld_c_funnel.py --stage scored --print-subset'
 #   (prints the 96 ids + manifest_hash; re-run → identical hash)
 ```
 

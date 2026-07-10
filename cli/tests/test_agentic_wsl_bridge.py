@@ -6,12 +6,13 @@ import sys
 import textwrap
 import time
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from localbench.scoring.agentic_exec import benchmark as appworld_bench
 from localbench.scoring.agentic_exec.loop_types import FailureClass
-from localbench.scoring.agentic_exec.sandbox import SandboxError
+from localbench.scoring.agentic_exec.sandbox import SandboxError, SandboxTimeoutError
 from localbench.scoring.agentic_exec.wsl_bridge import (
     WslSandboxProxy,
     WslWorkerConfig,
@@ -86,7 +87,7 @@ def test_proxy_round_trip_and_list_tasks_through_fake_worker(tmp_path: Path) -> 
     assert any(path.name.endswith(".stderr.log") for path in tmp_path.iterdir())
 
 
-def test_proxy_timeout_maps_to_infra_sandbox(tmp_path: Path) -> None:
+def test_proxy_timeout_maps_to_infra_timeout(tmp_path: Path) -> None:
     # Given: a fake worker that accepts the task but hangs on one run_block request.
     script = _write_fake_worker(tmp_path)
     config = WslWorkerConfig(
@@ -100,11 +101,78 @@ def test_proxy_timeout_maps_to_infra_sandbox(tmp_path: Path) -> None:
 
     # When: the proxy op times out.
     with WslSandboxProxy("fac291d_1", config) as sandbox:
-        with pytest.raises(SandboxError) as error:
+        with pytest.raises(SandboxTimeoutError) as error:
             sandbox.run_block("hang")
 
-    # Then: benchmark classification sees an INFRA_SANDBOX harness failure, not model failure.
-    assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_SANDBOX
+    # Then: benchmark classification exposes the timeout through infra_timeout_rate diagnostics.
+    assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
+
+
+def test_proxy_close_timeout_propagates_as_infra_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = _write_fake_worker(tmp_path)
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/repo",
+        venv_python="/managed/venv/bin/python3",
+        appworld_root="/managed/appworld",
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, str(script)),
+        op_timeout_s=2.0,
+    )
+    proxy = WslSandboxProxy("fac291d_1", config)
+    proxy.__enter__()
+
+    def timeout_close(message, *, timeout_s: float):
+        raise SandboxTimeoutError(f"close timed out after {timeout_s}s")
+
+    monkeypatch.setattr(proxy, "_request", timeout_close)
+
+    with pytest.raises(SandboxTimeoutError) as error:
+        proxy.close()
+
+    assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
+
+
+def test_proxy_close_process_exit_timeout_propagates_as_infra_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _StuckProcess:
+        def poll(self) -> None:
+            return None
+
+        def wait(self, timeout: float) -> None:
+            raise subprocess.TimeoutExpired(cmd="wsl-worker", timeout=timeout)
+
+    proxy = WslSandboxProxy(
+        "fac291d_1",
+        WslWorkerConfig(
+            repo_root_wsl_path="/mnt/c/repo",
+            venv_python="/managed/venv/bin/python3",
+            appworld_root="/managed/appworld",
+            log_dir=tmp_path,
+        ),
+    )
+    proxy._proc = cast(subprocess.Popen[bytes], _StuckProcess())
+    killed = False
+
+    def acknowledge_close(message, *, timeout_s: float) -> dict[str, str]:
+        return {"kind": "ok"}
+
+    def record_kill() -> None:
+        nonlocal killed
+        killed = True
+
+    monkeypatch.setattr(proxy, "_request", acknowledge_close)
+    monkeypatch.setattr(proxy, "force_kill", record_kill)
+
+    with pytest.raises(SandboxTimeoutError) as error:
+        proxy.close()
+
+    assert killed is True
+    assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="taskkill process-tree assertion is Windows-only")

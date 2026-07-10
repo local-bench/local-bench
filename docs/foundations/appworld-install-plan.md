@@ -149,15 +149,15 @@ never the floating branch.
 
 ```bash
 # Use a dedicated venv OUTSIDE the repo (keeps AppWorld deps off the localbench CLI venv and the
-# repo tree). ~/appworld-harness is in WSL $HOME, not under /mnt/c/.../local-bench.
-python3.12 -m venv ~/appworld-harness/venv
-source ~/appworld-harness/venv/bin/activate
+# repo tree). The managed venv is in WSL $HOME, not under /mnt/c/.../local-bench.
+python3.12 -m venv <wsl-venv>
+source <wsl-venv>/bin/activate
 python -m pip install --upgrade pip
 pip install "appworld==0.1.3.post1"
 
 # Record the EXACT resolved dependency set for reproducibility (commit this lock OUTSIDE the data
 # tree — e.g. paste into the scorecard provenance, not into APPWORLD_ROOT):
-pip freeze > ~/appworld-harness/appworld-0.1.3.post1.lock.txt
+pip freeze > <managed-runtime-dir>/appworld-0.1.3.post1.lock.txt
 
 # Unpack the encrypted app/code bundles into site-packages:
 appworld install
@@ -199,17 +199,17 @@ appworld download data --root "$APPWORLD_ROOT"
 ```bash
 # Deterministic content hash of the whole data tree (sorted; excludes nothing under data/):
 ( cd "$APPWORLD_ROOT" && find data -type f -print0 | sort -z | xargs -0 sha256sum \
-    | sha256sum | awk '{print $1}' ) | tee ~/appworld-harness/appworld-data-tree.sha256
+    | sha256sum | awk '{print $1}' ) | tee <managed-runtime-dir>/appworld-data-tree.sha256
 
 # Record the dataset/task IDs actually present (these become the manifest's selection universe):
-source ~/appworld-harness/venv/bin/activate
+source <wsl-venv>/bin/activate
 python - <<'PY'
 from appworld import load_task_ids
 for split in ("train","dev","test_normal","test_challenge"):
     ids = load_task_ids(split)
     print(split, len(ids))
     # write the full ID lists OUTSIDE the repo for the deterministic selection step (§7)
-    open(f"/home/{__import__('os').environ['USER']}/appworld-harness/ids_{split}.txt","w")\
+    open(f"/home/{__import__('os').environ['USER']}/.local/share/localbench/appworld/ids_{split}.txt","w")\
         .write("\n".join(ids))
 PY
 ```
@@ -225,7 +225,7 @@ commit the data tree itself, decrypted bundles, task text, or ID-to-groundtruth 
 Run AppWorld's own validators **in the exact harness venv + env** (a stub passing is NOT evidence):
 
 ```bash
-source ~/appworld-harness/venv/bin/activate
+source <wsl-venv>/bin/activate
 export APPWORLD_ROOT=~/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8
 
 appworld verify tests   --root "$APPWORLD_ROOT"   # subset of unit tests, ~2–3 min

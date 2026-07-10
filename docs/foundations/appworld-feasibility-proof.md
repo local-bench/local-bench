@@ -2,12 +2,12 @@
 
 # VERDICT: **NO-GO** for the agentic axis at the configured budget. De-scope agentic from the v1 launch (keep as a CANDIDATE/parallel track only). The harness mechanics are sound and proven against real AppWorld; the **tool-call budget is the blocker** — `max_tool_calls=11` is incompatible with real AppWorld dev tasks (median gold path = **34** calls, p90 = **132**, max = **214**; only **9 of 57 (15.8%)** dev tasks can ever fit 11 single-call turns). This is exactly risk **R4** (the "single most likely thing to invalidate v0") firing on real data. A clean, narrow GO is possible only by re-scoping the protocol/budget (see "What to do next"); that change is a NEW scorecard identity, not a v1 ship.
 
-Date: 2026-06-23. GPU-free, endpoint-free, NON-LLM. No model loaded, no `llama-server` touched, no `git` commit/push. Evidence below is from a hand-scripted deterministic agent driving **real** AppWorld (`appworld==0.1.3.post1`) in WSL Python 3.12, `APPWORLD_ROOT=/home/michael/appworld-data`, determinism trio set.
+Date: 2026-06-23. GPU-free, endpoint-free, NON-LLM. No model loaded, no `llama-server` touched, no `git` commit/push. Evidence below is from a hand-scripted deterministic agent driving **real** AppWorld (`appworld==0.1.3.post1`) in WSL Python 3.12, `APPWORLD_ROOT=<appworld-root>`, determinism trio set.
 
 Re-run command (reproduces every number below):
 ```bash
-wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source ~/appworld-harness/venv/bin/activate \
-  && export APPWORLD_ROOT=/home/michael/appworld-data PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
+wsl bash -lc 'cd /mnt/c/Users/Michael/local-bench && source <wsl-venv>/bin/activate \
+  && export APPWORLD_ROOT=<appworld-root> PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 \
   && python cli/tools/appworld_feasibility_probe.py'
 ```
 Probe script: `cli/tools/appworld_feasibility_probe.py` (self-contained; imports only `appworld` + stdlib).

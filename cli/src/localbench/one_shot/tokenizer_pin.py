@@ -7,7 +7,7 @@ from localbench._types import JsonObject
 from localbench.one_shot.download import HfDownloadClient, HuggingFaceDownloadClient
 from localbench.one_shot.plan_lock import OneShotPlanLockContext, read_resume_plan_lock, validate_or_write_plan_lock
 from localbench.one_shot.preflight import PlanLockMismatch
-from localbench.one_shot.types import ResolvedOneShotModel
+from localbench.one_shot.types import OneShotSuiteIdentity, ResolvedOneShotModel
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +17,7 @@ class TokenizerPlanRequest:
     resume: Path | None
     cli_version: str
     hf_client: HfDownloadClient | None
+    suite_identity: OneShotSuiteIdentity
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,7 @@ def prepare_tokenizer_plan(request: TokenizerPlanRequest) -> TokenizerPlan:
         cli_version=request.cli_version,
         tokenizer_repo=pin.repo_id,
         tokenizer_revision=pin.revision,
+        suite_identity=request.suite_identity,
     )
     validate_or_write_plan_lock(context, resume=request.resume)
     return TokenizerPlan(resolved=resolved, context=context, repo_id=pin.repo_id, revision=pin.revision)
