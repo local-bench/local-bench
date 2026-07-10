@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 
 
 def test_board_subcommand_defaults_to_live_v2_artifact() -> None:
@@ -30,3 +31,16 @@ def test_board_subcommand_is_available_from_module_entrypoint() -> None:
     # Then: the module entrypoint reaches the board parser instead of silently no-oping.
     assert result.returncode == 0
     assert "--no-check-parity" in result.stdout
+
+
+def test_land_run_subcommand_parses_maintainer_inputs() -> None:
+    from localbench.cli import _parser
+
+    args = _parser().parse_args(
+        ["land-run", "--run", "incoming", "--coding-verified", "verified.json", "--dry-run"],
+    )
+
+    assert args.command == "land-run"
+    assert args.run == Path("incoming")
+    assert args.coding_verified == Path("verified.json")
+    assert args.dry_run is True

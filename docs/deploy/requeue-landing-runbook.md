@@ -55,6 +55,27 @@ Adapt `scratchpad/rescore_gemma.py` (from session 6fd61c59) — point SRC at eac
 `rescore_provenance` block. Confirm the new `scorecard_id` matches the post-#42 profileless/
 profile ids in `cli/tests/test_bounded_final_profiles.py` (the v2 pins updated in commit 41dbe8d).
 
+### Automated maintainer path
+
+Steps 2 and 3 are now one guarded command. It defaults to `<run-dir>/coding-verified.json`;
+use `--coding-verified` only when the verifier output has a different name.
+
+```powershell
+# Preflight all scorer, exact-GGUF, coding, agentic, curation, board, and web-data gates.
+# This writes nothing.
+uv run --project cli localbench land-run --run C:\path\to\finished-run --dry-run
+
+# Apply the same checked plan. Deployment is deliberately not part of this command.
+uv run --project cli localbench land-run --run C:\path\to\finished-run
+```
+
+The command writes the rescored canonical record under `runs/bench/landed/`, appends its
+maintainer-controlled entry to `web/data_sources.json`, invokes the existing board builder,
+rebuilds `web/public/data`, and re-pins `web/components/launch-freeze.ts`. It refuses before
+writing if the candidate board changes any existing ranked model object, if coding verdicts are
+not verifier-backed, if the exact GGUF identity moves, or if the two-run agentic campaign fails an
+infrastructure gate. Its final checklist always leaves deploy + live smoke marked **MANUAL**.
+
 ## 3. Board rebuild (adds both rows; Gemma already present)
 The board is a maintainer-built static artifact — community submits never produce ranked rows.
 ```

@@ -60,6 +60,7 @@ from localbench.campaign_checkpoints import CheckpointCorruptionError, completed
 from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import lane_spec_id_for_lane
+from localbench.landing import LandingError, land_run, print_landing_checklist
 from localbench.one_shot.runner import run_one_shot_bench
 from localbench.persistence import atomic_write_json
 from localbench.progress import BenchProgressPlan, ProgressReporter, plans_from_bench_counts
@@ -229,6 +230,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _code(args)
     if args.command == "board":
         return _board(args)
+    if args.command == "land-run":
+        return _land_run(args)
     if args.command == "tc-json":
         return _tc_json(args)
     parser.print_help()
@@ -635,6 +638,17 @@ def _parser() -> argparse.ArgumentParser:
     board_parser.add_argument("--frozen-timestamp")
     board_parser.add_argument("--check-parity", dest="check_parity", action="store_true", default=True)
     board_parser.add_argument("--no-check-parity", dest="check_parity", action="store_false")
+    land_parser = subparsers.add_parser(
+        "land-run",
+        help="maintainer-only: land a coding-verified run and rebuild board/site data",
+    )
+    land_parser.add_argument("--run", type=Path, required=True, help="finished benchmark run directory")
+    land_parser.add_argument(
+        "--coding-verified",
+        type=Path,
+        help="verifier output (defaults to <run>/coding-verified.json)",
+    )
+    land_parser.add_argument("--dry-run", action="store_true", help="run every preflight without writing")
     tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 Tool-calling axis")
     tc_json_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
     tc_json_parser.add_argument("--model", required=True, help="model name to send in requests")
@@ -2328,6 +2342,22 @@ def _board(args: argparse.Namespace) -> int:
             )
         return 1
     print("parity    ok")
+    return 0
+
+
+def _land_run(args: argparse.Namespace) -> int:
+    try:
+        result = land_run(
+            args.run,
+            coding_verified_path=args.coding_verified,
+            dry_run=args.dry_run,
+        )
+    except (LandingError, OSError, json.JSONDecodeError, ValueError) as error:
+        print(f"error      {error}")
+        return 2
+    print(f"model      {result.model_label}")
+    print(f"mode       {'dry-run' if result.dry_run else 'applied'}")
+    print_landing_checklist(result)
     return 0
 
 

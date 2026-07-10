@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import shutil
 import sys
@@ -68,7 +69,7 @@ INDEX_VERSION: Final = "index-v3.0"
 # The immutable scorer artifact whose Index/axis intervals the site RENDERS verbatim
 # for ranked rows (see _apply_board_intervals). Path relative to the repo ROOT, like
 # the other reads in this module.
-BOARD_PATH: Final = ROOT / "cli" / "runs" / "board" / "board_v2.json"
+BOARD_PATH: Final = Path(os.environ.get("LOCALBENCH_BOARD_PATH", ROOT / "cli" / "runs" / "board" / "board_v2.json"))
 
 # The six interval fields the site renders straight from the board for ranked rows.
 _INTERVAL_FIELDS: Final = ("point", "lo", "hi", "point_raw", "lo_raw", "hi_raw")
