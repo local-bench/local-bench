@@ -438,16 +438,30 @@ def _signal_verified(
     captured: dict[int, ProcessPin],
     signal: str,
 ) -> bool:
+    return _signal_pinned_tree(
+        server.distro,
+        server.leader_pin,
+        captured,
+        signal,
+    )
+
+
+def _signal_pinned_tree(
+    distro: str,
+    leader_pin: ProcessPin,
+    captured: dict[int, ProcessPin],
+    signal: str,
+) -> bool:
     signaled = False
     group_signaled = False
-    group_members = _current_group_members(server.distro, server.leader_pin.pgid)
+    group_members = _current_group_members(distro, leader_pin.pgid)
     if group_members and all(
         pin.pid in captured and captured[pin.pid].start_time == pin.start_time
         for pin in group_members
     ):
         _run_wsl(
-            server.distro,
-            ["kill", f"-{signal}", "--", f"-{server.leader_pin.pgid}"],
+            distro,
+            ["kill", f"-{signal}", "--", f"-{leader_pin.pgid}"],
             check=False,
         )
         signaled = True
@@ -455,28 +469,46 @@ def _signal_verified(
     elif group_members:
         _LOGGER.warning(
             "refusing to signal vLLM process group %s: a PID/start-time identity changed",
-            server.leader_pin.pgid,
+            leader_pin.pgid,
         )
     # A descendant may create a new process group. It is signalled individually only
     # when its PID/start-time pair is still the one captured in the teardown walk.
     for pin in captured.values():
-        if group_signaled and pin.pgid == server.leader_pin.pgid:
+        if group_signaled and pin.pgid == leader_pin.pgid:
             continue
-        if not _pin_still_matches(server.distro, pin):
+        if not _pin_still_matches(distro, pin):
             _LOGGER.warning(
                 "refusing to signal vLLM descendant PID %s: start-time identity changed",
                 pin.pid,
             )
             continue
-        _run_wsl(server.distro, ["kill", f"-{signal}", str(pin.pid)], check=False)
+        _run_wsl(distro, ["kill", f"-{signal}", str(pin.pid)], check=False)
         signaled = True
     return signaled
 
 
 def _cleanup_by_token(distro: str, run_token: str, expected_executable: str) -> None:
-    for pin in _verified_token_processes(distro, run_token, expected_executable):
-        if _pin_still_matches(distro, pin):
-            _run_wsl(distro, ["kill", "-KILL", str(pin.pid)], check=False)
+    verified = _verified_token_processes(distro, run_token, expected_executable)
+    pins = {pin.pid: pin for pin in _all_process_pins(distro)}
+    handled_groups: set[int] = set()
+    handled_pids: set[int] = set()
+    for leader_pin in verified:
+        if leader_pin.pgid in handled_groups or leader_pin.pid in handled_pids:
+            continue
+        if not _process_identity_matches(
+            distro,
+            leader_pin.pid,
+            run_token,
+            expected_executable,
+            expected_start_time=leader_pin.start_time,
+        ):
+            continue
+        owned_ids = set(_descendant_ids(pins, leader_pin.pid))
+        owned_ids.update(pin.pid for pin in pins.values() if pin.pgid == leader_pin.pgid)
+        captured = {pid: pins[pid] for pid in owned_ids if pid in pins}
+        _signal_pinned_tree(distro, leader_pin, captured, "KILL")
+        handled_groups.add(leader_pin.pgid)
+        handled_pids.update(captured)
 
 
 def _verified_token_pids(distro: str, run_token: str, expected_executable: str) -> list[int]:

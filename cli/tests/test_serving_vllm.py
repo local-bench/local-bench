@@ -653,7 +653,7 @@ def test_teardown_vllm_marks_persistent_worker_as_uncertain(monkeypatch: pytest.
     assert evidence["gpu_pids_after"] == [222]
 
 
-def test_launch_pid_file_failure_locates_and_kills_only_run_token(
+def test_launch_pid_file_failure_kills_verified_group_and_out_of_group_descendants(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     class Process:
@@ -668,23 +668,27 @@ def test_launch_pid_file_failure_locates_and_kills_only_run_token(
         def wait(self, timeout=None):
             return 0
 
-    cleaned: list[tuple[str, str]] = []
+    commands: list[list[str]] = []
+    entries = {
+        111: (1, 111, 100, "/tmp/localbench-vllm-abc123 serve", "/opt/vllm/bin/python"),
+        222: (111, 111, 200, "engine worker", "/opt/vllm/bin/python"),
+        333: (111, 333, 300, "out-of-group worker", "/opt/vllm/bin/python"),
+        444: (1, 444, 400, "/tmp/localbench-vllm-other serve", "/opt/vllm/bin/python"),
+    }
+    _synthetic_proc(monkeypatch, entries, commands)
     monkeypatch.setattr(vllm.subprocess, "Popen", lambda *_args, **_kwargs: Process())
-    monkeypatch.setattr(vllm, "_run_wsl", lambda *_args, **_kwargs: _completed("/opt/vllm/bin/python\n"))
     monkeypatch.setattr(
         vllm,
         "_wait_for_server_pid",
         lambda *_args: (_ for _ in ()).throw(RuntimeError("pid missing")),
     )
-    monkeypatch.setattr(
-        vllm,
-        "_cleanup_by_token",
-        lambda _distro, token, executable: cleaned.append((token, executable)),
-    )
 
     with pytest.raises(RuntimeError, match="pid missing"):
         vllm.launch_vllm(_launch_config(tmp_path), log_path=tmp_path / "serve.log")
-    assert cleaned == [("abc123", "/opt/vllm/bin/python")]
+    assert [command for command in commands if command[0] == "kill"] == [
+        ["kill", "-KILL", "--", "-111"],
+        ["kill", "-KILL", "333"],
+    ]
 
 
 def test_leader_pid_reuse_is_not_signaled(monkeypatch: pytest.MonkeyPatch) -> None:
