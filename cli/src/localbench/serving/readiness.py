@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import hashlib
 import re
 import time
 from dataclasses import dataclass
@@ -106,7 +105,7 @@ async def verify_vllm_readiness(
     *,
     base_url: str,
     model_id: str,
-    expected_chat_template: str,
+    pinned_chat_template_sha256: str,
     api_key: str,
     seed: int,
     transport: httpx.AsyncBaseTransport | None = None,
@@ -154,17 +153,6 @@ async def verify_vllm_readiness(
             f"{root}/tokenize",
             {"model": model_id, "messages": probe_messages},
         )
-        expected_tokenized = await _post_json(
-            client,
-            f"{root}/tokenize",
-            {
-                "model": model_id,
-                "messages": probe_messages,
-                "chat_template": expected_chat_template,
-            },
-        )
-        if tokenized != expected_tokenized:
-            raise ReadinessError("vLLM served chat template does not match the pinned snapshot template")
         model_path = _vllm_model_path(models, model_id)
         return ReadinessEvidence(
             health_200_at=health_200_at,
@@ -173,7 +161,9 @@ async def verify_vllm_readiness(
             reported_model=reported_model,
             smoke_chat_sha256=canonical_sha256(smoke),
             tokenize_sha256=canonical_sha256(tokenized),
-            apply_template_sha256=hashlib.sha256(expected_chat_template.encode("utf-8")).hexdigest(),
+            # vLLM 0.24 rejects request-level templates by default. The served template is
+            # pinned at launch with --chat-template; this digest is the Merkle-covered file.
+            apply_template_sha256=pinned_chat_template_sha256,
             total_slots=None,
             model_path=model_path,
             chat_template=None,

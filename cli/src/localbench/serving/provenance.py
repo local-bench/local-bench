@@ -66,7 +66,10 @@ class ServingEvidence:
     model_config_mamba_ssm_dtype: str | None = None
     numeric_deviations: tuple[str, ...] = ()
     deterministic_kernel_evidence: tuple[str, ...] = ()
+    deterministic_kernel_enabled: bool = False
+    live_batch_invariant: str | None = None
     memory_allocations: JsonObject | None = None
+    computed_memory_fit: JsonObject | None = None
     runtime_identity_sha256: str | None = None
     determinism_canary_passed: bool = False
 
@@ -233,9 +236,16 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
         "serve_log_sha256": _path_sha256(evidence.serve_log_path),
         "determinism": {
             "engine_log_evidence": list(evidence.deterministic_kernel_evidence),
+            "engine_log_semantic_verdict": evidence.deterministic_kernel_enabled,
+            "live_process_environment": {
+                "VLLM_BATCH_INVARIANT": evidence.live_batch_invariant,
+            },
             "two_start_canary_passed": evidence.determinism_canary_passed,
         },
-        "startup_memory_report": evidence.memory_allocations or {},
+        "startup_memory_report": {
+            "computed_fit": evidence.computed_memory_fit or {},
+            "observed_allocations": evidence.memory_allocations or {},
+        },
         "server_fingerprint": evidence.server_fingerprint,
         "resume_identity": evidence.resume_identity,
     }
@@ -283,11 +293,16 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
             reasons.append("runtime.identity_missing")
         if evidence.applied_chat_template_sha256 in {None, ""}:
             reasons.append("runtime.chat_template_unverified")
-        if not evidence.deterministic_kernel_evidence:
+        if not evidence.deterministic_kernel_enabled:
             reasons.append("runtime.deterministic_kernel_unverified")
+        if evidence.live_batch_invariant != "1":
+            reasons.append("runtime.live_batch_invariance_unverified")
         if not evidence.determinism_canary_passed:
             reasons.append("runtime.two_start_canary_missing")
-        if not evidence.memory_allocations:
+        if evidence.computed_memory_fit is None or evidence.computed_memory_fit.get("fits") is not True:
+            reasons.append("runtime.memory_fit_unverified")
+        allocations = evidence.memory_allocations or {}
+        if "weights" not in allocations or "kv_cache" not in allocations:
             reasons.append("runtime.memory_report_unverified")
     return reasons
 

@@ -64,8 +64,12 @@ from localbench.serving.vllm import (
     VllmAdapter,
     VllmBuildIdentity,
     VllmLaunchConfig,
+    VllmMemoryFit,
+    compute_vllm_memory_fit,
     quantization_config,
     parse_vllm_startup_log,
+    read_live_process_environment,
+    refresh_vllm_process_ownership,
     validate_vllm_argv,
     vllm_serve_argv,
     wsl_path,
@@ -286,7 +290,6 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     if not template_path.is_file() or artifact.chat_template_digest is None:
         raise RuntimeError("vLLM snapshot must contain chat_template.jinja")
     chat_template = wsl_path(template_path, distro=distro)
-    chat_template_text = template_path.read_text(encoding="utf-8")
     build = adapter.build_identity(distro=distro, vllm_bin=vllm_bin)
     port = allocate_port()
     api_key = secrets.token_urlsafe(32)
@@ -307,9 +310,16 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         gpu_memory_utilization="0.92",
         chat_template=chat_template,
         run_token=uuid.uuid4().hex,
+        expected_executable=build.expected_executable,
     )
     argv = vllm_serve_argv(launch_config)
     validate_vllm_argv(argv, build.help_text)
+    memory_fit = compute_vllm_memory_fit(
+        artifact,
+        max_model_len=options.ctx,
+        total_vram_bytes=build.total_vram_bytes,
+        gpu_memory_utilization=launch_config.gpu_memory_utilization,
+    )
     env_allowlist = {"CUDA_VISIBLE_DEVICES": "0", "VLLM_BATCH_INVARIANT": "1"}
     safe_argv = redacted_argv(argv)
     fingerprint = server_fingerprint(
@@ -347,7 +357,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         await _run_vllm_determinism_canary(
             adapter,
             launch_config,
-            expected_chat_template=chat_template_text,
+            pinned_chat_template_sha256=artifact.chat_template_digest,
             root=root,
         )
     launched = None
@@ -358,7 +368,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             readiness = await adapter.readiness(
                 base_url=f"http://127.0.0.1:{port}",
                 model_id=options.model_id,
-                expected_chat_template=chat_template_text,
+                pinned_chat_template_sha256=artifact.chat_template_digest,
                 api_key=api_key,
                 seed=options.seed,
             )
@@ -373,6 +383,8 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         startup_log = parse_vllm_startup_log(root / "serve.log")
         if startup_log.fit_failure is not None:
             raise RuntimeError(f"vLLM startup memory fit failed: {startup_log.fit_failure}")
+        live_batch_invariant = read_live_process_environment(launched, "VLLM_BATCH_INVARIANT")
+        refresh_vllm_process_ownership(launched)
         evidence = _vllm_serving_evidence(
             options=options,
             artifact=artifact,
@@ -387,6 +399,8 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             fingerprint=fingerprint,
             identity=identity,
             root=root,
+            memory_fit=memory_fit,
+            live_batch_invariant=live_batch_invariant,
         )
         agentic_sandbox_factory = None
         agentic_model_factory = None
@@ -457,6 +471,8 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         fingerprint=fingerprint,
         identity=identity,
         root=root,
+        memory_fit=memory_fit,
+        live_batch_invariant=live_batch_invariant,
     )
     updated = normalize_result_bundle(
         apply_serving_context(record, serving_context(completed_evidence)),
@@ -508,7 +524,7 @@ async def _run_vllm_determinism_canary(
     adapter: VllmAdapter,
     config: VllmLaunchConfig,
     *,
-    expected_chat_template: str,
+    pinned_chat_template_sha256: str,
     root: Path,
 ) -> None:
     outputs: list[bytes] = []
@@ -522,7 +538,7 @@ async def _run_vllm_determinism_canary(
             await adapter.readiness(
                 base_url=f"http://127.0.0.1:{config.port}",
                 model_id=config.model_id,
-                expected_chat_template=expected_chat_template,
+                pinned_chat_template_sha256=pinned_chat_template_sha256,
                 api_key=config.api_key,
                 seed=config.seed,
             )
@@ -580,7 +596,10 @@ def _vllm_serving_evidence(
     fingerprint: str,
     identity: str,
     root: Path,
+    memory_fit: VllmMemoryFit,
+    live_batch_invariant: str | None,
 ) -> ServingEvidence:
+    startup_log = parse_vllm_startup_log(root / "serve.log")
     return ServingEvidence(
         runtime="vllm",
         argv=argv,
@@ -651,8 +670,11 @@ def _vllm_serving_evidence(
             )
             if deviation is not None
         ),
-        deterministic_kernel_evidence=parse_vllm_startup_log(root / "serve.log").deterministic_kernel_evidence,
-        memory_allocations=parse_vllm_startup_log(root / "serve.log").memory_allocations,
+        deterministic_kernel_evidence=startup_log.deterministic_kernel_evidence,
+        deterministic_kernel_enabled=startup_log.deterministic_kernel_enabled,
+        live_batch_invariant=live_batch_invariant,
+        memory_allocations=startup_log.memory_allocations,
+        computed_memory_fit=memory_fit.provenance(),
         runtime_identity_sha256=build.runtime_identity_sha256,
         determinism_canary_passed=options.determinism_canary,
     )
