@@ -822,7 +822,10 @@ def parse_vllm_startup_log(path: Path) -> VllmLogEvidence:
     if kv_cache_match is not None:
         allocations["kv_cache"] = {"value": float(kv_cache_match.group(1)), "unit": "GiB"}
     failure_match = re.search(
-        r"([^\n]*KV cache is needed, which is larger than the available KV cache memory[^\n]*)",
+        r"([^\n]*(?:"
+        r"KV cache is needed, which is larger than the available KV cache memory"
+        r"|CUDA out of memory\. Tried to allocate"
+        r")[^\n]*)",
         text,
     )
     return VllmLogEvidence(

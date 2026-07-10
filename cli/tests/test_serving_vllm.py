@@ -284,6 +284,20 @@ def test_vllm_startup_log_rejects_negative_determinism_semantics(tmp_path: Path)
     assert evidence.deterministic_kernel_evidence == ()
 
 
+def test_vllm_startup_log_rewrites_stock_cuda_oom_as_fit_failure(tmp_path: Path) -> None:
+    log = tmp_path / "serve.log"
+    fixture = (Path(__file__).parent / "fixtures" / "vllm-cuda-oom.log").read_text(
+        encoding="utf-8"
+    )
+    log.write_text(fixture, encoding="utf-8")
+
+    evidence = vllm.parse_vllm_startup_log(log)
+
+    assert evidence.fit_failure is not None
+    assert evidence.fit_failure.startswith("torch.OutOfMemoryError: CUDA out of memory.")
+    assert "Tried to allocate 462.00 MiB" in evidence.fit_failure
+
+
 def test_vllm_prelaunch_vram_fit_uses_snapshot_weights_and_config(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot"
     snapshot.mkdir()
