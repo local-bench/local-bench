@@ -60,6 +60,12 @@ profile ids in `cli/tests/test_bounded_final_profiles.py` (the v2 pins updated i
 Steps 2 and 3 are now one guarded command. It defaults to `<run-dir>/coding-verified.json`;
 use `--coding-verified` only when the verifier output has a different name.
 
+**Trust boundary:** `land-run` is maintainer-only automation over records produced by the
+maintainer's own harness. Its campaign and agentic gates check structure, completeness, and
+drift; they do **not** cryptographically authenticate that evidence and are not an anti-spoof
+boundary. The maintainer must establish the authenticity of the input run directory. The coding
+receipt and exact-GGUF checks do not extend that guarantee to non-coding evidence.
+
 ```powershell
 # Preflight all scorer, exact-GGUF, coding, agentic, curation, board, and web-data gates.
 # This writes nothing.
@@ -76,6 +82,39 @@ writing if the candidate board changes any existing ranked model object, if the 
 receipt is not bound to the current harness/suite and original run, if the actual GGUF bytes do not
 match the claimed SHA-256, or if the two-run agentic campaign fails an
 infrastructure gate. Its final checklist always leaves deploy + live smoke marked **MANUAL**.
+
+### Pending-cohort rejection / purge path
+
+Community admission deliberately does not recompute attacker-authored results. Per-key/global
+caps and the 14-day pending GC limit occupation, but a bad bundle can still occupy one of the five
+visible FIFO slots until it is rejected. The public queue never displays its declared slug. To
+release a slot, use the existing authenticated admin verification endpoint and mark the row
+`rejected` (the rejected raw object is removed by the existing 14-day rejected-object GC):
+
+```powershell
+$site = 'https://local-bench.ai'
+$submissionId = '<ticket_id>'
+$rawBundleSha256 = '<raw_bundle_sha256 from GET /api/admin/submissions?status=pending_verification>'
+$headers = @{ 'x-localbench-admin-secret' = $env:LOCALBENCH_ADMIN_SECRET }
+$body = @{
+  accepted = $false
+  blocking_reasons = @('attacker-authored or invalid pending bundle')
+  projection_path = 'rejected/no-public-projection.json'
+  projection_sha256 = ('0' * 64)
+  raw_bundle_sha256 = $rawBundleSha256
+  reason = 'maintainer queue purge'
+  schema_version = 'localbench.submission_status_update.v1'
+  status = 'rejected'
+  validated_at = (Get-Date).ToUniversalTime().ToString('o')
+  validator_commit = $null
+  validator_version = 'maintainer-manual-reject.v1'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$site/api/admin/submissions/$submissionId/verification?override=true" -Headers $headers -ContentType 'application/json' -Body $body
+```
+
+Use `override=true` only to evict a known bad row out of FIFO order; omit it when rejecting the
+oldest visible row. The admin secret is mandatory. Rejection immediately removes the row from the
+pending cohort; it does not publish any submitted content.
 
 ## 3. Board rebuild (adds both rows; Gemma already present)
 The board is a maintainer-built static artifact — community submits never produce ranked rows.
