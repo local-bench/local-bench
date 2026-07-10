@@ -97,7 +97,10 @@ def test_decision_log_detects_signature_tampering(tmp_path: Path, monkeypatch: p
     # When: only the signature is changed.
     path = decision_log_path()
     line = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
-    line["sig"] = "00" + line["sig"][2:]
+    # Always change the signature. Replacing the first byte with 00 was a
+    # 1-in-256 no-op when the real signature already began with 00.
+    first_byte = int(line["sig"][:2], 16)
+    line["sig"] = f"{first_byte ^ 0x01:02x}" + line["sig"][2:]
     path.write_text(json.dumps(line, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
 
     # Then: signature verification fails.
