@@ -273,15 +273,28 @@ function isScatterPoint(point: ScatterPoint | null): point is ScatterPoint {
   return point !== null;
 }
 
+// Axis bounds snap outward to these canonical GPU sizes so every model page's
+// x-axis starts and ends on a hardware number and the tier lines are shared landmarks.
+const X_BREAKPOINTS = [0, 4, ...VRAM_TIERS] as const;
+
 function getXDomain(points: readonly ScatterPoint[]): { readonly min: number; readonly max: number } {
   if (points.length === 0) {
-    return { min: 0, max: 1 };
+    return { min: 0, max: 8 };
   }
   const values = points.map((point) => point.x);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const pad = Math.max(0.5, (max - min) * 0.08);
-  return { min: Math.max(0, min - pad), max: max + pad };
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  let min = 0;
+  for (const breakpoint of X_BREAKPOINTS) {
+    if (breakpoint <= lo) {
+      min = breakpoint;
+    }
+  }
+  let max = X_BREAKPOINTS.find((breakpoint) => breakpoint >= hi) ?? Math.ceil(hi);
+  if (max <= min) {
+    max = X_BREAKPOINTS.find((breakpoint) => breakpoint > min) ?? min + 4;
+  }
+  return { min, max };
 }
 
 function scaleX(value: number, domain: { readonly min: number; readonly max: number }): number {

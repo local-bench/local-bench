@@ -28,6 +28,31 @@ function render(runs: readonly QualityVramRun[]): string {
   );
 }
 
+describe("QualityVramScatter x-axis domain", () => {
+  it("snaps the domain outward to canonical GPU-tier breakpoints", () => {
+    // Single point at 21.6 GB → domain [16, 24], so both boundary tier lines render.
+    const html = render([run({})]);
+    expect(html).toContain(">16GB<");
+    expect(html).toContain(">24GB<");
+    expect(html).not.toContain(">32GB<");
+  });
+
+  it("keeps identical bounds for pages whose data spans the same tiers", () => {
+    const pageA = render([run({ vram_footprint_gb: 17.1 }), run({ vram_footprint_gb: 21.6 })]);
+    const pageB = render([run({ vram_footprint_gb: 16.4 }), run({ vram_footprint_gb: 23.9 })]);
+    for (const tier of ["16GB", "24GB"]) {
+      expect(pageA).toContain(`>${tier}<`);
+      expect(pageB).toContain(`>${tier}<`);
+    }
+  });
+
+  it("widens a degenerate domain when every point sits on one breakpoint", () => {
+    const html = render([run({ vram_footprint_gb: 16 })]);
+    expect(html).toContain(">16GB<");
+    expect(html).toContain(">24GB<");
+  });
+});
+
 describe("QualityVramScatter hover tooltip", () => {
   it("renders a CSS hover tooltip with measured bench time and RAM", () => {
     const html = render([run({})]);
