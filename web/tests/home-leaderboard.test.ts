@@ -136,13 +136,13 @@ describe("home leaderboard provenance labels", () => {
           ...rawModel("full-high", "Full High", undefined),
           composite: { hi: 95, lo: 85, point: 90 },
           composite_static: { hi: 18, lo: 12, point: 15 },
-          static_index_version: "static-suite-v1",
+          static_index_version: "static-suite-v2",
         }),
         IndexModelSchema.parse({
           ...rawModel("static-high", "Static High", undefined),
           composite: { hi: 25, lo: 15, point: 20 },
           composite_static: { hi: 83, lo: 77, point: 80 },
-          static_index_version: "static-suite-v1",
+          static_index_version: "static-suite-v2",
         }),
       ],
       { key: "composite", direction: "desc" },
@@ -150,6 +150,27 @@ describe("home leaderboard provenance labels", () => {
     );
 
     expect(sorted.map((row) => row.slug)).toEqual(["static-high", "full-high"]);
+  });
+
+  it("renders Static Index as a verified secondary track on six-axis rows", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeLeaderboard, {
+        models: [
+          IndexModelSchema.parse({
+            ...rawModel("static-track", "Static Track", undefined),
+            composite_full: { hi: 45, lo: 35, point: 40 },
+            composite_static: { hi: 65, lo: 55, point: 60 },
+            lane: "bounded-final-v2",
+            static_index_version: "static-suite-v2",
+          }),
+        ],
+      }),
+    );
+
+    expect(html).toContain("Static Index");
+    expect(html).toContain("static-exec-5axis-v1");
+    expect(html).toContain("verified");
+    expect(html).toContain("Local Intelligence Index");
   });
 });
 

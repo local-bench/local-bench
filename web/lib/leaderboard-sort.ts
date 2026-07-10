@@ -3,6 +3,7 @@ import { scoreForMode, type LeaderboardScoreMode } from "./leaderboard-score";
 import type { AgenticModel, IndexModel } from "./schemas";
 
 export const AGENTIC_SORT_KEY = "agentic_experimental";
+export const STATIC_INDEX_SORT_KEY = "static_index";
 
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 
@@ -69,6 +70,8 @@ function compareRows(left: IndexModel, right: IndexModel, context: CompareContex
       return left.model_label.localeCompare(right.model_label);
     case "composite":
       return nullableNumber(scoreForMode(left, context.scoreMode)?.point ?? null) - nullableNumber(scoreForMode(right, context.scoreMode)?.point ?? null);
+    case STATIC_INDEX_SORT_KEY:
+      return nullableNumber(left.composite_static?.point ?? null) - nullableNumber(right.composite_static?.point ?? null);
     case AGENTIC_SORT_KEY:
       return nullableNumber(context.agenticBySlug.get(left.slug)?.asr_pct ?? null) - nullableNumber(context.agenticBySlug.get(right.slug)?.asr_pct ?? null);
     case "tokens":

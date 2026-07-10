@@ -11,8 +11,8 @@ import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } fro
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatDuration, formatGpuShort, formatInteger, formatLatencySeconds } from "@/lib/format";
-import { scoreForMode, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
-import { AGENTIC_SORT_KEY, buildLaneRanks, sortLeaderboardRows, type SortKey, type SortState } from "@/lib/leaderboard-sort";
+import { scoreForMode, staticIndexStatus, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
+import { AGENTIC_SORT_KEY, STATIC_INDEX_SORT_KEY, buildLaneRanks, sortLeaderboardRows, type SortKey, type SortState } from "@/lib/leaderboard-sort";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 
@@ -37,6 +37,7 @@ export function HomeLeaderboard({
   );
   const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
   const showAgenticColumn = scoreMode === "full";
+  const showStaticIndexColumn = scoreMode === "full" && models.some((model) => model.composite_static != null);
 
   return (
     <div data-testid="full-leaderboard" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20">
@@ -57,9 +58,12 @@ export function HomeLeaderboard({
         </caption>
         <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
           <tr>
-            <th className="px-3 py-3 font-semibold">Rank</th>
+            <th className="px-3 py-3 font-semibold">{scoreMode === "static" ? "Status" : "Rank"}</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
             <SortableHeader label={<CompositeHeaderLabel scoreMode={scoreMode} />} sortKey="composite" sort={sort} onSort={setSort} />
+            {showStaticIndexColumn ? (
+              <SortableHeader label={<StaticIndexHeaderLabel />} sortKey={STATIC_INDEX_SORT_KEY} sort={sort} onSort={setSort} />
+            ) : null}
             {axisKeys.map((axis) => (
               <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
             ))}
@@ -83,7 +87,7 @@ export function HomeLeaderboard({
               className="border-t border-bench-line/75 align-middle transition-colors hover:bg-white/[0.035]"
             >
               <td className="px-3 py-3 font-mono text-bench-muted">
-                <RankMarker rank={laneRanks.get(model.slug)} />
+                <RankMarker rank={laneRanks.get(model.slug)} provisional={scoreMode === "static"} />
               </td>
               <td className="px-3 py-3">
                 <span className="flex items-center gap-2">
@@ -103,6 +107,11 @@ export function HomeLeaderboard({
                   <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} rail={scoreMode === "full"} />
                 )}
               </td>
+              {showStaticIndexColumn ? (
+                <td className="px-3 py-3">
+                  <StaticIndexCell model={model} />
+                </td>
+              ) : null}
               {axisKeys.map((axisKey) => (
                 <td key={axisKey} className="px-3 py-3">
                   <AxisMiniBar score={model.axes[axisKey]} axis={axisKey} />
@@ -136,11 +145,42 @@ export function HomeLeaderboard({
   );
 }
 
-function RankMarker({ rank }: { readonly rank: number | undefined }) {
+function RankMarker({ rank, provisional = false }: { readonly rank: number | undefined; readonly provisional?: boolean }) {
+  if (provisional) {
+    return <span className="text-[11px] font-semibold uppercase text-bench-warn">Provisional</span>;
+  }
   if (rank === undefined) {
     return <span className="text-[11px] uppercase">Unranked</span>;
   }
   return formatInteger(rank);
+}
+
+function StaticIndexHeaderLabel() {
+  return (
+    <span className="flex flex-col gap-0.5 leading-tight">
+      <span>Static Index</span>
+      <span className="font-mono text-[10px] normal-case text-bench-muted">static-exec-5axis-v1 · secondary track</span>
+    </span>
+  );
+}
+
+function StaticIndexCell({ model }: { readonly model: IndexModel }) {
+  const score = model.composite_static;
+  const status = staticIndexStatus(model);
+  if (score === null || score === undefined || status === null) {
+    return <span className="font-mono text-xs text-bench-muted">n/a</span>;
+  }
+  return (
+    <div className="min-w-[132px]">
+      <ScoreBar score={score} tone="muted" />
+      <span className={status === "verified"
+        ? "mt-1 inline-flex rounded-full border border-bench-accent/30 bg-bench-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-accent"
+        : "mt-1 inline-flex rounded-full border border-bench-warn/40 bg-bench-warn/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-warn"}
+      >
+        {status}
+      </span>
+    </div>
+  );
 }
 
 function NoScoreCell() {
@@ -206,8 +246,8 @@ function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardSc
   if (scoreMode === "static") {
     return (
       <span className="flex flex-col gap-0.5 leading-tight">
-        <span>Static composite</span>
-        <span className="font-mono text-[10px] normal-case text-bench-muted">no-agentic lane · not comparable with the main index</span>
+        <span>Static Index</span>
+        <span className="font-mono text-[10px] normal-case text-bench-muted">static-exec-5axis-v1 · provisional, not a headline rank</span>
       </span>
     );
   }

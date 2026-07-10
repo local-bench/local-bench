@@ -39,7 +39,7 @@ describe("leaderboard scope splitting", () => {
       composite_full: null,
       composite_static: SCORE,
       ranked: false,
-      static_index_version: "static-suite-v1",
+      static_index_version: "static-suite-v2",
     });
     const catalog = IndexModelSchema.parse({
       ...row("catalog", "Catalog"),

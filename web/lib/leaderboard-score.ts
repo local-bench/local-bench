@@ -42,8 +42,15 @@ export function isStaticCompositeRow(model: IndexModel): boolean {
     model.composite_full == null &&
     model.composite_static !== null &&
     model.composite_static !== undefined &&
-    model.static_index_version === "static-suite-v1"
+    model.static_index_version === "static-suite-v2"
   );
+}
+
+export function staticIndexStatus(model: IndexModel): "verified" | "provisional" | null {
+  if (model.composite_static === null || model.composite_static === undefined) {
+    return null;
+  }
+  return isFullIndexRow(model) ? "verified" : "provisional";
 }
 
 function assertNever(value: never): never {
