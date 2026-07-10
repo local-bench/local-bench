@@ -36,7 +36,7 @@ describe("home leaderboard runtime column", () => {
   it("sorts rows by runtime label", () => {
     const sorted = sortLeaderboardRows(
       [
-        model("vllm", "VLLM Row", { name: "vLLM", version: "0.9.0" }),
+        model("vllm", "VLLM Row", { name: "vllm", version: "0.24.0" }),
         model("llama", "Llama Row", { name: "llama.cpp", version: "b1234" }),
       ],
       { key: "runtime", direction: "asc" },

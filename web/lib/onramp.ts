@@ -128,6 +128,7 @@ export type BenchmarkRecipe = {
   readonly ggufRepo: string | null;
   readonly identityMode: "full" | "basic";
   readonly model: OnrampCatalogModel;
+  readonly runtimeId: RuntimeId;
 };
 
 export type BenchmarkRecipeLead =
@@ -142,6 +143,10 @@ export type BenchmarkRecipeLead =
   | {
       readonly kind: "unavailable";
       readonly reason: string;
+    }
+  | {
+      readonly kind: "maintainer";
+      readonly command: string;
     };
 
 export type BenchmarkRecipeSource = "catalog" | "paste";
@@ -476,6 +481,21 @@ export function buildRecipe(input: {
   const runtimeInput = { model, quant, hfModelId };
   const servedModelName = runtime.servedModelName(runtimeInput);
   const outputPath = runOutputPath(model, quant);
+  const vllmRepo = hfModelId ?? model.id;
+  const vllmCommand = [
+    "localbench bench",
+    "--runtime vllm",
+    `--model-ref hf://${vllmRepo}@<full-40-character-revision>`,
+    `--model-id ${model.slug}`,
+    "--suite suite-v1-full-exec-6axis-v1",
+    "--bench all",
+    "--lane bounded-final-v2",
+    "--profile auto",
+    "--tier standard",
+    "--determinism-canary",
+    "--seed 1234",
+    `--out runs/${sanitizeRunPart(model.slug)}-nvfp4`,
+  ].join(" \\\n  ");
 
   // bounded-final-v2: every model runs the ONE ranked lane. --profile auto introspects the
   // model's own chat template and applies the allowlisted execution profile; no family gate.
@@ -523,7 +543,7 @@ export function buildRecipe(input: {
 
   return {
     installCommand: LOCALBENCH_INSTALL_COMMAND,
-    lead: buildOneCommandLead(model, quant, source),
+    lead: runtime.id === "vllm" ? { kind: "maintainer", command: vllmCommand } : buildOneCommandLead(model, quant, source),
     setupCommand,
     serveCommand: runtime.serveCommand(runtimeInput),
     serveNote: runtime.serveNote(runtimeInput),
@@ -534,5 +554,6 @@ export function buildRecipe(input: {
     ggufRepo: model.ggufRepo,
     identityMode: hfModelId === null ? "basic" : "full",
     model,
+    runtimeId: runtime.id,
   };
 }

@@ -96,6 +96,10 @@ describe("MethodologyPage", () => {
     expect(text).toContain("lcb, the old LiveCodeBench output-prediction proxy, is legacy diagnostic data");
     expect(text).toContain("Static-Core");
     expect(text).toContain("unranked diagnostic release");
+    expect(text).toContain("Serving engine lanes");
+    expect(text).toContain("snapshot Merkle identity and per-file hashes");
+    expect(text).toContain("localbench bench --runtime vllm --model-ref hf://");
+    expect(text).toContain("&lt;repo&gt;@&lt;revision&gt;");
   });
 
   it("does not retain the old Qwen/Gemma-only eligibility sentence anywhere under web", () => {

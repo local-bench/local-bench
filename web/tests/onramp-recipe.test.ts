@@ -204,12 +204,19 @@ describe("buildRecipe", () => {
     expect(recipe.benchCommand).toContain("--out runs/qwq-32b-gguf-q5-k-m.json");
   });
 
-  it("uses the HF model id as the served name for vLLM and warns about full weights", () => {
+  it("uses the documented immutable-snapshot command for the vLLM maintainer lane", () => {
     const selected = model();
     const recipe = buildRecipe({ model: selected, quant: quantAt(selected, 2), runtime: vllm });
     expect(recipe.servedModelName).toBe("Qwen/Qwen3-8B");
     expect(recipe.serveCommand).toBe("vllm serve Qwen/Qwen3-8B --port 8000 --generation-config vllm");
-    expect(recipe.benchCommand).toContain("--endpoint http://localhost:8000/v1");
+    expect(recipe.runtimeId).toBe("vllm");
+    expect(recipe.lead).toEqual({
+      kind: "maintainer",
+      command: expect.stringContaining(
+        "localbench bench \\\n  --runtime vllm \\\n  --model-ref hf://Qwen/Qwen3-8B@<full-40-character-revision>",
+      ),
+    });
+    expect(recipe.lead).toEqual({ kind: "maintainer", command: expect.stringContaining("--determinism-canary") });
     expect(recipe.serveNote).toContain("full-precision");
     expect(recipe.serveNote).not.toContain("pass --generation-config vllm");
   });

@@ -5,6 +5,7 @@ import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import { ProvenanceLabels } from "@/components/leaderboard-provenance";
+import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
@@ -72,6 +73,11 @@ export default async function ModelPage({ params }: PageProps) {
             </div>
           ) : null}
           {provenanceRun === undefined ? null : <ProvenanceLabels model={provenanceRun} />}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {[...new Map(headlineMeasured.map((run) => [run.runtime.name, run.runtime])).values()].map((runtime) => (
+              <RuntimeBadge key={runtime.name ?? "unknown"} runtime={runtime} />
+            ))}
+          </div>
           <p className="mt-2 max-w-3xl text-bench-muted">
             Every measured variant of this model: how much quality each quant keeps, and the VRAM and speed it costs
             to run.

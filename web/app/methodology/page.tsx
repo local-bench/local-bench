@@ -252,6 +252,21 @@ export default async function MethodologyPage() {
       </section>
 
       <section className="space-y-4 text-bench-muted">
+        <h2 className="text-xl font-semibold text-bench-text">Serving engine lanes</h2>
+        <p>
+          Rows identify the serving engine as well as the model format. The community lane remains llama.cpp over a
+          pinned GGUF artifact. Safetensors/NVFP4 rows use the maintainer-operated vLLM lane in WSL2; that lane is not
+          yet a supported community provisioning path and remains so until the appliance ships.
+        </p>
+        <p>
+          A vLLM receipt pins the Hugging Face repository and full 40-character revision, the snapshot Merkle identity
+          and per-file hashes, the server-reported engine version and dependency identity, a two-start determinism
+          canary with engine-log evidence, and the declared model, KV-cache, and Mamba SSM-state dtypes. Its reproduction
+          form is <span className="font-mono text-bench-text">localbench bench --runtime vllm --model-ref hf://&lt;repo&gt;@&lt;revision&gt;</span>.
+        </p>
+      </section>
+
+      <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Contamination and public items</h2>
         <p>
           Several inputs are public benchmarks, so local-bench does not pretend contamination is impossible. The

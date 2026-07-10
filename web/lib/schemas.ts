@@ -5,6 +5,10 @@ export const RunIdSchema = z.string().min(1).brand<"RunId">();
 
 const JsonPrimitiveSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const PrimitiveRecordSchema = z.record(z.string(), JsonPrimitiveSchema);
+const FullShaSchema = z.string().regex(/^[0-9a-fA-F]{40}$/);
+const FullSha256Schema = z.string().regex(/^[0-9a-fA-F]{64}$/);
+
+export const RuntimeNameSchema = z.enum(["llama.cpp", "vllm"]);
 
 export const ScoreSchema = z
   .object({
@@ -94,7 +98,7 @@ export const HardwareSchema = z.object({
 });
 
 export const RuntimeSchema = z.object({
-  name: z.string().nullable(),
+  name: RuntimeNameSchema.nullable(),
   version: z.string().nullable(),
   kv_cache_quant: z.string().nullable(),
   ctx_len_configured: z.number().nullable(),
@@ -143,7 +147,7 @@ const PerfBenchSchema = z
 
 export const PerfSchema = z
   .object({
-    timings_source: z.literal("llama.cpp").nullable(),
+    timings_source: RuntimeNameSchema.nullable(),
     timings_coverage: z.number(),
     prefill_tps: z.number().nullable(),
     decode_tps: z.number().nullable(),
@@ -155,6 +159,39 @@ export const PerfSchema = z
     per_bench: z.record(z.string(), PerfBenchSchema),
   })
   .passthrough();
+
+const SnapshotFileSchema = z.object({
+  path: z.string().min(1),
+  sha256: FullSha256Schema,
+  size_bytes: z.number().int().nonnegative(),
+});
+
+export const ServingProvenanceSchema = z.object({
+  runtime: RuntimeNameSchema,
+  engine_version: z.string().nullable(),
+  dependency_lock_sha256: FullSha256Schema.nullable(),
+  runtime_identity_sha256: FullSha256Schema.nullable(),
+  snapshot: z
+    .object({
+      repo: z.string().min(1),
+      revision: FullShaSchema,
+      merkle_sha256: FullSha256Schema,
+      files: z.array(SnapshotFileSchema).min(1),
+    })
+    .nullable(),
+  determinism: z.object({
+    engine_log_evidence: z.array(z.string()),
+    engine_log_semantic_verdict: z.boolean(),
+    two_start_canary_passed: z.boolean(),
+  }),
+  numerics: z.object({
+    dtype: z.string().nullable(),
+    kv_cache_quant: z.string().nullable(),
+    mamba_ssm_cache_dtype: z.string().nullable(),
+    model_config_mamba_ssm_dtype: z.string().nullable(),
+    quantization: z.string().nullable(),
+  }),
+});
 
 export const IndexModelSchema = z.object({
   slug: ModelSlugSchema,
@@ -183,6 +220,7 @@ export const IndexModelSchema = z.object({
   // catalog shells / API anchors. Only the compact name + VRAM are shown in the Hardware column.
   gpu: GpuSchema.nullable().optional(),
   runtime: IndexRuntimeSchema.optional(),
+  serving_provenance: ServingProvenanceSchema.optional(),
   // V2 stub: who submitted the top run (community submissions). Absent in v1 (maintainer-only,
   // anonymous), so the User column renders a neutral placeholder.
   submitted_by: z.string().nullable().optional(),
@@ -247,6 +285,7 @@ export const ModelRunSchema = z.object({
   est_cost_usd: z.number().nullable(),
   hardware: HardwareSchema,
   runtime: RuntimeSchema,
+  serving_provenance: ServingProvenanceSchema.optional(),
   n_items: z.number(),
   n_errors: z.number(),
   perf: PerfSchema.optional(),
@@ -318,6 +357,7 @@ export const RunDetailSchema = z.object({
   manifest_summary: ManifestSummarySchema,
   ranked: z.boolean().optional().default(false),
   scorecard: ScorecardSummarySchema.optional(),
+  serving_provenance: ServingProvenanceSchema.optional(),
   has_code_artifacts: z.boolean().optional(),
   verdict_source: z.string().nullable().optional(),
   totals: TotalsSchema,
@@ -362,11 +402,10 @@ export type RuntimeSummary = z.infer<typeof RuntimeSchema>;
 export type HardwareSummary = z.infer<typeof HardwareSchema>;
 export type PrimitiveRecord = z.infer<typeof PrimitiveRecordSchema>;
 export type Perf = z.infer<typeof PerfSchema>;
+export type ServingProvenance = z.infer<typeof ServingProvenanceSchema>;
 
 // Raw shape of model_catalog.json (the on-ramp picker source). Tolerant by design — the catalog is
 // large and varied, so unknown keys pass through and most fields are optional/nullable.
-const FullShaSchema = z.string().regex(/^[0-9a-fA-F]{40}$/);
-const FullSha256Schema = z.string().regex(/^[0-9a-fA-F]{64}$/);
 const CatalogArtifactFileSchema = z
   .object({
     filename: z.string(),

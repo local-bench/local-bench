@@ -14,6 +14,7 @@ import { axisLabel, formatDuration, formatGpuShort, formatInteger, formatLatency
 import { scoreForMode, staticIndexStatus, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { AGENTIC_SORT_KEY, STATIC_INDEX_SORT_KEY, buildLaneRanks, sortLeaderboardRows, type SortKey, type SortState } from "@/lib/leaderboard-sort";
 import { runtimeDisplay } from "@/lib/runtime-display";
+import { RuntimeBadge } from "@/components/runtime-badge";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
@@ -239,7 +240,7 @@ function RuntimeCell({ runtime }: { readonly runtime: IndexModel["runtime"] }) {
   }
   return (
     <span className="flex min-w-[96px] flex-col gap-0.5 leading-tight">
-      <span className="font-mono text-xs text-bench-text">{display.label}</span>
+      <RuntimeBadge runtime={runtime} />
       {display.version === null ? null : (
         <span className="font-mono text-[10px] text-bench-muted">{display.version}</span>
       )}

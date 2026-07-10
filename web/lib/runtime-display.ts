@@ -14,7 +14,11 @@ export function runtimeDisplay(runtime: RuntimeDisplayInput | null | undefined):
   if (name === null && version === null) {
     return null;
   }
-  return { label: name ?? "unknown", version };
+  return { label: canonicalRuntimeLabel(name) ?? "unknown", version };
+}
+
+function canonicalRuntimeLabel(name: string | null): string | null {
+  return name?.toLowerCase() === "vllm" ? "vLLM" : name;
 }
 
 export function runtimeSortLabel(runtime: RuntimeDisplayInput | null | undefined): string {

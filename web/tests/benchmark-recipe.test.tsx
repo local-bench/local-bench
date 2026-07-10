@@ -45,11 +45,23 @@ function recipe(overrides: Partial<Recipe> = {}): Recipe {
     ggufRepo: "MaziyarPanahi/Qwen3-8B-GGUF",
     identityMode: "full",
     model: baseModel,
+    runtimeId: "llamacpp",
     ...overrides,
   };
 }
 
 describe("BenchmarkRecipe", () => {
+  it("renders the vLLM maintainer recipe and community-lane caveat", () => {
+    const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe({
+      runtimeId: "vllm",
+      lead: { kind: "maintainer", command: "localbench bench --runtime vllm --model-ref hf://Qwen/Qwen3-8B@<full-40-character-revision>" },
+    }) }));
+
+    expect(html).toContain("vLLM maintainer lane");
+    expect(html).toContain("--runtime vllm --model-ref hf://Qwen/Qwen3-8B@");
+    expect(html).toContain("community path remains llama.cpp/GGUF until the appliance ships");
+  });
+
   it("leads pinned catalog models with the one-command flow and keeps classic commands collapsed", () => {
     const html = renderToStaticMarkup(createElement(BenchmarkRecipe, { recipe: recipe() }));
 

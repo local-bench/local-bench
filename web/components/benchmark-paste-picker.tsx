@@ -2,6 +2,8 @@
 
 import { QUANT_OPTIONS } from "@/lib/quant";
 
+const PASTE_QUANT_OPTIONS = [...QUANT_OPTIONS, "NVFP4"] as const;
+
 export function PasteModelPicker(props: {
   readonly pasteRepo: string;
   readonly onPasteRepo: (value: string) => void;
@@ -40,7 +42,7 @@ export function PasteModelPicker(props: {
       <label className="flex flex-col gap-1 font-mono text-[11px] uppercase text-bench-muted">
         Quant
         <select className={selectClass} aria-label="Quant" value={props.pasteQuant} onChange={(event) => props.onPasteQuant(event.currentTarget.value)}>
-          {QUANT_OPTIONS.map((label) => (
+          {PASTE_QUANT_OPTIONS.map((label) => (
             <option key={label} value={label}>
               {label}
             </option>
@@ -53,6 +55,10 @@ export function PasteModelPicker(props: {
       <p className="font-mono text-[11px] text-bench-muted md:col-span-3">
         Pick the quant label that exists in the GGUF repo — if llama-server reports no matching file, use the exact quant
         shown on Hugging Face.
+      </p>
+      <p className="font-mono text-[11px] text-bench-warn md:col-span-3">
+        NVFP4/safetensors reproduction uses the maintainer-only vLLM lane with an immutable 40-character snapshot revision;
+        community reproduction remains llama.cpp/GGUF until the appliance ships.
       </p>
     </div>
   );

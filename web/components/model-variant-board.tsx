@@ -11,6 +11,7 @@ import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decision";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { runtimeDisplay } from "@/lib/runtime-display";
+import { RuntimeBadge } from "@/components/runtime-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
 
 type VariantRun = ModelData["runs"][number];
@@ -116,7 +117,7 @@ export function ModelVariantBoard({
               >
                 Overall tok/s
               </th>
-              <th className="px-3 py-3 font-semibold" title="GGUF file size on disk">
+              <th className="px-3 py-3 font-semibold" title="Benchmarked model artifact size on disk">
                 File size
               </th>
               <th className="px-3 py-3 font-semibold">Runtime</th>
@@ -286,7 +287,9 @@ function VariantCell({ row, children }: { readonly row: VariantRow; readonly chi
     return (
       <>
         {quantLabel}
+        <span className="ml-2 align-middle"><RuntimeBadge runtime={row.run.runtime} /></span>
         {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
+        <VllmReproduction run={row.run} />
       </>
     );
   }
@@ -303,9 +306,24 @@ function VariantCell({ row, children }: { readonly row: VariantRow; readonly chi
       </span>
       <span>
         {quantLabel}
+        <span className="ml-2 align-middle"><RuntimeBadge runtime={row.run.runtime} /></span>
         {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
       </span>
+      <VllmReproduction run={row.run} />
     </div>
+  );
+}
+
+function VllmReproduction({ run }: { readonly run: VariantRun }) {
+  const snapshot = run.serving_provenance?.snapshot;
+  if (run.runtime.name !== "vllm" || snapshot === null || snapshot === undefined) return null;
+  const command = `localbench bench --runtime vllm --model-ref hf://${snapshot.repo}@${snapshot.revision}`;
+  return (
+    <details className="mt-1 font-mono text-[10px] text-bench-muted">
+      <summary className="cursor-pointer text-bench-accent">reproduce</summary>
+      <code className="mt-1 block max-w-[360px] whitespace-normal break-all">{command}</code>
+      <span className="mt-1 block text-bench-warn-soft">Maintainer lane; community path remains llama.cpp/GGUF until the appliance ships.</span>
+    </details>
   );
 }
 
@@ -373,7 +391,7 @@ function RuntimeCell({ run }: { readonly run: VariantRun }) {
   }
   return (
     <span className="flex min-w-[96px] flex-col gap-0.5 leading-tight">
-      <span className="font-mono text-xs text-bench-text">{display.label}</span>
+      <RuntimeBadge runtime={run.runtime} />
       {display.version === null ? null : (
         <span className="font-mono text-[10px] text-bench-muted">{display.version}</span>
       )}

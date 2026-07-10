@@ -1,4 +1,5 @@
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { EngineProvenance } from "@/components/engine-provenance";
 import { DetailGrid, DetailItem } from "@/components/detail-grid";
 import {
   ModularAxisProfile,
@@ -174,6 +175,7 @@ export default async function RunPage({ params }: PageProps) {
             ) : null}
           </div>
         )}
+        <EngineProvenance provenance={run.serving_provenance} />
         <div className="mt-4 grid gap-2">
           {Object.entries(run.item_set_hashes).map(([name, hash]) => (
             <div key={name} className="grid gap-1 rounded-md border border-bench-line bg-white/[0.025] p-3 md:grid-cols-[220px_1fr]">
@@ -281,7 +283,7 @@ export function ServingPerformanceCard({ run }: { readonly run: RunDetail }) {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 font-mono text-[11px] text-bench-muted">Source: llama.cpp server timings.</p>
+      <p className="mt-3 font-mono text-[11px] text-bench-muted">Source: {perf.timings_source ?? "unknown"} server timings.</p>
     </section>
   );
 }

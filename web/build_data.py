@@ -417,6 +417,7 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     tok_s = _number_or_none(totals.get("completion_tokens_per_second"))
     latency_s_median = round(tokens["median"] / tok_s, 3) if tokens["median"] is not None and tok_s and tok_s > 0 else None
     summary = _manifest_summary(source, manifest, lane, quant)
+    serving_provenance = _serving_provenance(run)
     axes, axis_warnings = build_axes(source_benches, values, strata, no_answer, iters, benches)
     composite = build_composite(run, axes, benches, weights)
     # Pure-renderer override: for EVERY quant of a board-ranked model, swap the re-bootstrapped
@@ -459,6 +460,10 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
         detail["score_status"] = "measured"
     model_row = {"axes": axes, "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | score_fields | annotations
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | score_fields | annotations
+    if serving_provenance is not None:
+        detail["serving_provenance"] = serving_provenance
+        model_row["serving_provenance"] = serving_provenance
+        index_row["serving_provenance"] = serving_provenance
     extra_status = _run_status_annotations(run, items)
     detail.update(extra_status)
     model_row.update(extra_status)
@@ -1031,6 +1036,49 @@ def _hardware(hardware: JsonObject) -> JsonObject:
 
 def _runtime(runtime: JsonObject) -> JsonObject:
     return {"ctx_len_configured": _int_or_none(runtime.get("ctx_len_configured")), "kv_cache_quant": _text(runtime.get("kv_cache_quant")), "name": _text(runtime.get("name")), "parallel_slots": _int_or_none(runtime.get("parallel_slots")), "version": _text(runtime.get("version"))}
+
+
+def _serving_provenance(run: JsonObject) -> JsonObject | None:
+    serving = _object_or_empty(run.get("serving"))
+    runtime = _text(serving.get("runtime"))
+    if runtime is None:
+        return None
+    artifact = _object_or_empty(serving.get("artifact"))
+    resolved = _object_or_empty(serving.get("resolved_runtime"))
+    determinism = _object_or_empty(serving.get("determinism"))
+    snapshot_source = _object_or_empty(serving.get("model_snapshot"))
+    repo = _text(snapshot_source.get("requested_repo"))
+    revision = _text(snapshot_source.get("requested_revision"))
+    merkle = _text(snapshot_source.get("snapshot_merkle_sha256"))
+    files = snapshot_source.get("files")
+    snapshot = None
+    if repo is not None or revision is not None or merkle is not None or files:
+        snapshot = {
+            "repo": repo,
+            "revision": revision,
+            "merkle_sha256": merkle,
+            "files": files if isinstance(files, list) else [],
+        }
+    evidence = determinism.get("engine_log_evidence")
+    return {
+        "runtime": runtime,
+        "engine_version": _text(artifact.get("server_reported_package_version")) or _text(artifact.get("version_stdout")),
+        "dependency_lock_sha256": _text(artifact.get("venv_dependency_lock_sha256")),
+        "runtime_identity_sha256": _text(artifact.get("runtime_identity_sha256")),
+        "snapshot": snapshot,
+        "determinism": {
+            "engine_log_evidence": evidence if isinstance(evidence, list) else [],
+            "engine_log_semantic_verdict": bool(determinism.get("engine_log_semantic_verdict")),
+            "two_start_canary_passed": bool(determinism.get("two_start_canary_passed")),
+        },
+        "numerics": {
+            "dtype": _text(resolved.get("dtype")),
+            "kv_cache_quant": _text(resolved.get("kv_cache_quant")),
+            "mamba_ssm_cache_dtype": _text(resolved.get("mamba_ssm_cache_dtype")),
+            "model_config_mamba_ssm_dtype": _text(resolved.get("model_config_mamba_ssm_dtype")),
+            "quantization": _text(resolved.get("quantization")),
+        },
+    }
 
 
 def _completion_token_stats(items: list[JsonValue]) -> JsonObject:

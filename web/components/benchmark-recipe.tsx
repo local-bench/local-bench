@@ -78,7 +78,7 @@ function RecipeMetadata({ recipe }: { readonly recipe: Recipe }) {
             ? `Managed full path · ${recipe.lane} · suite-v1-full-exec-6axis-v1`
             : "Public path · measured/static · suite-v1-static-exec-5axis-v1"}
         </span>
-        {recipe.ggufRepo !== null ? (
+        {recipe.runtimeId !== "vllm" && recipe.ggufRepo !== null ? (
           <a
             href={`https://huggingface.co/${recipe.ggufRepo}`}
             target="_blank"
@@ -210,11 +210,28 @@ function AdvancedClassicRecipe({ recipe }: { readonly recipe: Recipe }) {
   );
 }
 
+function MaintainerVllmRecipe({ recipe }: { readonly recipe: Recipe }) {
+  if (recipe.lead.kind !== "maintainer") return null;
+  return (
+    <div className="flex flex-col gap-3 rounded border border-bench-warn/50 bg-bench-warn/10 p-3">
+      <p className="font-mono text-[11px] font-semibold uppercase text-bench-warn">vLLM maintainer lane</p>
+      <CommandBlock title="Pinned safetensors / NVFP4 run" command={recipe.lead.command} />
+      <p className="font-mono text-[11px] leading-5 text-bench-warn-soft">
+        This is a maintainer-operated WSL2 lane for immutable safetensors snapshots. It requires the pinned vLLM environment,
+        managed AppWorld paths, and the two-start determinism canary. The community path remains llama.cpp/GGUF until the
+        appliance ships.
+      </p>
+    </div>
+  );
+}
+
 export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
   return (
     <div className="mt-5 flex flex-col gap-3" data-testid="benchmark-recipe">
       <RecipeMetadata recipe={recipe} />
-      {recipe.lead.kind === "unavailable" ? (
+      {recipe.lead.kind === "maintainer" ? (
+        <MaintainerVllmRecipe recipe={recipe} />
+      ) : recipe.lead.kind === "unavailable" ? (
         <>
           <p className="rounded border border-bench-warn/50 bg-bench-warn/10 px-3 py-2 font-mono text-[11px] leading-5 text-bench-warn">
             {recipe.lead.reason}
