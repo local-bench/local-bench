@@ -339,12 +339,12 @@ def run_stage(
 ) -> StageRunResult:
     """Run one funnel stage over ``subset`` and (optionally) persist the BenchmarkReport.
 
-    The report JSON written to ``<results_dir>/<label>.<stage>.run<k>.json`` is self-describing:
-    it embeds the model label/endpoint, the loop config, the frozen subset (ids + manifest hash),
-    a UTC timestamp, and the full ``BenchmarkReport.as_dict()`` (ASR + all diagnostic rates + every
-    per-task row). That is exactly the shape the launch plan's "persist the BenchmarkReport ...
-    per-task rows" requires, and what the rerun-delta + early-stop steps read back.
+    The persisted report embeds model, config, frozen subset, UTC timestamp, diagnostics, and every
+    per-task row required by the launch plan and rerun/early-stop processing.
     """
+    from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
+
+    assert_execution_contract()
     stage_val = stage.value if isinstance(stage, Stage) else str(stage)
     cfg = config or LoopConfig()
 

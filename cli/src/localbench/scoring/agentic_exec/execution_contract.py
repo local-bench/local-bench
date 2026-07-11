@@ -302,10 +302,10 @@ def assert_execution_contract(path: Path | None = None) -> str:
     payload = _object(contract["payload"])
     expected_behavior = _object(payload["covered_behavior"])
     actual_behavior, _provenance = _extract_covered_behavior()
-    expected = canonical_json_hash(expected_behavior)
-    actual = canonical_json_hash(actual_behavior)
+    expected, actual = canonical_json_hash(expected_behavior), canonical_json_hash(actual_behavior)
     if expected != actual:
         raise ExecutionContractDriftError(expected, actual)
+    assert_packaging_correctness_gate(path)
     return str(contract["payload_sha256"])
 
 
