@@ -9,6 +9,7 @@ import json
 import lzma
 import re
 import sqlite3
+import struct
 import tarfile
 import tempfile
 import subprocess
@@ -23,16 +24,6 @@ ARCHIVE_SUFFIXES = (".zip", ".whl", ".tar", ".tar.gz", ".tgz", ".tar.xz", ".txz"
 MAX_DEPTH = 5
 MAX_MEMBERS = 500_000
 MAX_EMBEDDED_BYTES = 512 * 1024 * 1024
-DEFAULT_ROOTFS_PATH_PREFIXES = (
-    "bin", "bin.usr-is-merged", "boot", "dev", "etc", "home/lbworker",
-    "lib", "lib.usr-is-merged", "lib64", "media", "mnt", "opt/localbench",
-    "proc", "root", "run", "sbin", "sbin.usr-is-merged", "snap", "srv",
-    "sys", "tmp", "usr/bin", "usr/include", "usr/lib", "usr/lib64",
-    "usr/libexec", "usr/local", "usr/sbin", "usr/share", "var/cache/apt",
-    "var/lib/apt", "var/lib/dpkg", "var/lib/localbench", "var/log", "var/tmp",
-)
-
-
 class ScanError(RuntimeError):
     pass
 
@@ -41,14 +32,15 @@ def scan_release(
     archive: Path,
     *,
     allowed_top_levels: set[str],
-    allowed_path_prefixes: tuple[str, ...] | None = None,
     expected_packages: set[str] | None = None,
+    exact_digest_allowlist: dict[str, dict[str, str]] | None = None,
     sandbox_wsl_distro: str | None = None,
 ) -> dict[str, object]:
     inventory: list[dict[str, object]] = []
-    path_allowlist = allowed_path_prefixes or tuple(sorted(allowed_top_levels))
+    digest_allowlist = exact_digest_allowlist or {}
     with tarfile.open(archive, "r:xz") as package_archive:
         observed_packages = _dpkg_packages(package_archive)
+        packaged_files = _dpkg_manifest_files(package_archive, observed_packages)
     if expected_packages is not None and observed_packages != expected_packages:
         unexpected = sorted(observed_packages - expected_packages)
         missing = sorted(expected_packages - observed_packages)
@@ -58,13 +50,14 @@ def scan_release(
     if sandbox_wsl_distro is not None:
         _wsl_sandbox_extract(archive, sandbox_wsl_distro)
         with tarfile.open(archive, "r:xz") as outer:
-            _inventory_archive(outer, inventory, allowed_top_levels, path_allowlist)
+            _inventory_archive(
+                outer, inventory, allowed_top_levels, packaged_files, digest_allowlist
+            )
         canonical = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
         return _report(
             inventory,
             canonical,
             allowed_top_levels,
-            path_allowlist,
             observed_packages,
             expected_packages is not None,
         )
@@ -74,11 +67,16 @@ def scan_release(
             inventory.extend(_safe_extract(outer, sandbox))
         for path in sorted(sandbox.rglob("*")):
             relative = path.relative_to(sandbox).as_posix()
-            _validate_path(relative, allowed_top_levels, path_allowlist, outer=True)
+            _validate_path(relative, allowed_top_levels, outer=True)
             if path.is_file():
                 data = path.read_bytes()
+                exact_allowlisted = _justify_regular_file(
+                    relative, data, packaged_files, digest_allowlist
+                )
                 inventory.append(_entry(relative, data))
-                _inspect(relative, data, inventory, depth=0)
+                _inspect(
+                    relative, data, inventory, depth=0, exact_allowlisted=exact_allowlisted
+                )
             elif path.is_symlink():
                 target = path.readlink().as_posix()
                 inventory.append(_metadata_entry(relative, "symlink", target=target))
@@ -89,7 +87,6 @@ def scan_release(
         inventory,
         canonical,
         allowed_top_levels,
-        path_allowlist,
         observed_packages,
         expected_packages is not None,
     )
@@ -99,7 +96,6 @@ def _report(
     inventory: list[dict[str, object]],
     canonical: bytes,
     allowed_top_levels: set[str],
-    path_allowlist: tuple[str, ...],
     observed_packages: set[str],
     package_allowlist_enforced: bool,
 ) -> dict[str, object]:
@@ -119,7 +115,7 @@ def _report(
         "total_member_bytes": total_bytes,
         "content_type_counts": dict(sorted(content_types.items())),
         "allowed_top_levels": sorted(allowed_top_levels),
-        "allowed_path_prefixes": list(path_allowlist),
+        "regular_file_admission": "dpkg-manifest-or-exact-digest-v1",
         "package_allowlist_enforced": package_allowlist_enforced,
         "installed_packages": sorted(observed_packages),
     }
@@ -129,7 +125,8 @@ def _inventory_archive(
     archive: tarfile.TarFile,
     inventory: list[dict[str, object]],
     allowed_top_levels: set[str],
-    path_allowlist: tuple[str, ...],
+    packaged_files: dict[str, str | None],
+    digest_allowlist: dict[str, dict[str, str]],
 ) -> None:
     members = archive.getmembers()
     if len(members) > MAX_MEMBERS:
@@ -139,14 +136,19 @@ def _inventory_archive(
         path = PurePosixPath(name)
         if path.is_absolute() or ".." in path.parts:
             raise ScanError(f"unsafe archive member: {name}")
-        _validate_path(name, allowed_top_levels, path_allowlist, outer=True)
+        _validate_path(name, allowed_top_levels, outer=True)
         if member.isfile():
             stream = archive.extractfile(member)
             if stream is None:
                 raise ScanError(f"unreadable archive member: {name}")
             data = stream.read()
+            exact_allowlisted = _justify_regular_file(
+                name, data, packaged_files, digest_allowlist
+            )
             inventory.append(_entry(name, data))
-            _inspect(name, data, inventory, depth=0)
+            _inspect(
+                name, data, inventory, depth=0, exact_allowlisted=exact_allowlisted
+            )
         elif member.issym() or member.islnk():
             if not _safe_link_target(name, member.linkname):
                 raise ScanError(f"unsafe archive link: {name}")
@@ -228,7 +230,6 @@ def _safe_extract(archive: tarfile.TarFile, root: Path) -> list[dict[str, object
 def _validate_path(
     name: str,
     allowed_top_levels: set[str],
-    path_allowlist: tuple[str, ...] = (),
     *,
     outer: bool,
 ) -> None:
@@ -239,16 +240,16 @@ def _validate_path(
         top = normalized.split("/", 1)[0]
         if top not in allowed_top_levels:
             raise ScanError(f"rootfs path outside explicit allowlist: {name}")
-        if path_allowlist and not any(
-            normalized == prefix
-            or normalized.startswith(prefix.rstrip("/") + "/")
-            or prefix.startswith(normalized.rstrip("/") + "/")
-            for prefix in path_allowlist
-        ):
-            raise ScanError(f"rootfs path outside positive path allowlist: {name}")
 
 
-def _inspect(name: str, data: bytes, inventory: list[dict[str, object]], *, depth: int) -> None:
+def _inspect(
+    name: str,
+    data: bytes,
+    inventory: list[dict[str, object]],
+    *,
+    depth: int,
+    exact_allowlisted: bool = False,
+) -> None:
     if depth >= MAX_DEPTH:
         raise ScanError(f"container recursion limit exceeded: {name}")
     lower = name.lower()
@@ -305,19 +306,44 @@ def _inspect(name: str, data: bytes, inventory: list[dict[str, object]], *, dept
     if lower.endswith(ARCHIVE_SUFFIXES):
         raise ScanError(f"unrecognized or malformed embedded archive: {name}")
     if data.startswith(b"SQLite format 3\x00"):
+        # SQLite's authoritative file-format document fixes bytes 0..15 to this header:
+        # https://www.sqlite.org/fileformat.html#the_database_header
         inventory[-1]["content_type"] = "application/vnd.sqlite3"
-        inventory[-1]["sqlite"] = _sqlite_inventory(name, data)
+        inventory[-1]["sqlite"] = (
+            "exact-digest-allowlisted"
+            if exact_allowlisted
+            else _sqlite_inventory(name, data)
+        )
         return
     if data.startswith(b"\x7fELF"):
+        # ELF magic and layout: System V ABI, "Object Files", ELF Header/Program
+        # Header/Section Header (the same 0x7f,'E','L','F' identity documented by elf(5)).
+        # https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html
+        if not exact_allowlisted:
+            _reject_elf_appended_data(name, data)
         inventory[-1]["content_type"] = "application/x-elf"
         return
     stripped = data.lstrip()
+    if lower.endswith((".jsonl", ".ndjson")):
+        try:
+            values = [
+                json.loads(line)
+                for line in data.decode("utf-8").splitlines()
+                if line.strip()
+            ]
+        except (UnicodeError, json.JSONDecodeError) as error:
+            raise ScanError(f"malformed NDJSON content: {name}") from error
+        if not exact_allowlisted:
+            _reject_protected_json(name, values)
+        inventory[-1]["content_type"] = "application/x-ndjson"
+        return
     if lower.endswith(".json") or stripped.startswith(b"{"):
         try:
             value = json.loads(data.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as error:
             raise ScanError(f"malformed JSON content: {name}") from error
-        _reject_protected_json(name, value)
+        if not exact_allowlisted:
+            _reject_protected_json(name, value)
         inventory[-1]["content_type"] = "application/json"
         return
     if b"\x00" not in data[:8192]:
@@ -383,6 +409,8 @@ def _dpkg_packages(archive: tarfile.TarFile) -> set[str]:
             for line in paragraph.splitlines()
             if ": " in line
         )
+        # dpkg-query Status-Abbrev/Status field semantics are captured verbatim in
+        # tests/fixtures/dpkg-query-status-installed.txt from the builder distro.
         if fields.get("Status") == "install ok installed":
             name, version = fields.get("Package"), fields.get("Version")
             if name and version:
@@ -390,10 +418,79 @@ def _dpkg_packages(archive: tarfile.TarFile) -> set[str]:
     return packages
 
 
+def _dpkg_manifest_files(
+    archive: tarfile.TarFile, installed_packages: set[str]
+) -> dict[str, str | None]:
+    installed_names = {item.rsplit("=", 1)[0] for item in installed_packages}
+    members = {member.name.removeprefix("./"): member for member in archive.getmembers()}
+    result: dict[str, str | None] = {}
+    for path, member in members.items():
+        match = re.fullmatch(r"var/lib/dpkg/info/(.+)\.list", path)
+        if match is None or not member.isfile():
+            continue
+        package = match.group(1).removesuffix(":amd64")
+        if package not in installed_names:
+            continue
+        stream = archive.extractfile(member)
+        if stream is None:
+            raise ScanError(f"dpkg list is unreadable: {path}")
+        listed = {
+            line.removeprefix("./").removeprefix("/")
+            for line in stream.read().decode("utf-8", errors="strict").splitlines()
+            if line not in {"", ".", "/"}
+        }
+        md5_path = path[:-5] + ".md5sums"
+        md5: dict[str, str] = {}
+        md5_member = members.get(md5_path)
+        if md5_member is not None and md5_member.isfile():
+            md5_stream = archive.extractfile(md5_member)
+            if md5_stream is None:
+                raise ScanError(f"dpkg md5sums is unreadable: {md5_path}")
+            for line in md5_stream.read().decode("utf-8", errors="strict").splitlines():
+                digest, separator, filename = line.partition("  ")
+                if not separator or not re.fullmatch(r"[0-9a-f]{32}", digest):
+                    raise ScanError(f"malformed dpkg md5sums entry: {md5_path}")
+                md5[filename.removeprefix("/")] = digest
+        for filename in listed:
+            expected = md5.get(filename)
+            previous = result.setdefault(filename, expected)
+            if previous is not None and expected is not None and previous != expected:
+                raise ScanError(f"conflicting dpkg manifests for regular file: {filename}")
+    return result
+
+
+def _justify_regular_file(
+    name: str,
+    data: bytes,
+    packaged_files: dict[str, str | None],
+    digest_allowlist: dict[str, dict[str, str]],
+) -> bool:
+    normalized = name.removeprefix("./").removeprefix("/")
+    package_digest = packaged_files.get(normalized)
+    package_admitted = normalized in packaged_files
+    if package_digest is not None and hashlib.md5(data, usedforsecurity=False).hexdigest() != package_digest:
+        raise ScanError(f"dpkg manifest digest mismatch: {normalized}")
+    exact = digest_allowlist.get(normalized)
+    exact_admitted = exact is not None
+    if exact_admitted:
+        assert exact is not None
+        justification = exact.get("justification")
+        expected = exact.get("sha256")
+        if not justification or not isinstance(justification, str):
+            raise ScanError(f"exact-digest allowlist lacks justification: {normalized}")
+        if expected != hashlib.sha256(data).hexdigest():
+            raise ScanError(f"exact-digest allowlist mismatch: {normalized}")
+    if package_admitted == exact_admitted:
+        classification = "both classes" if package_admitted else "no class"
+        raise ScanError(f"regular file is not justified by exactly one content class ({classification}): {normalized}")
+    return exact_admitted
+
+
 def _sqlite_inventory(name: str, data: bytes) -> list[dict[str, object]]:
     with tempfile.TemporaryDirectory(prefix="localbench-sqlite-scan-") as temporary:
         database = Path(temporary) / "content.sqlite"
         database.write_bytes(data)
+        connection: sqlite3.Connection | None = None
         try:
             connection = sqlite3.connect(f"file:{database.as_posix()}?mode=ro", uri=True)
             rows = connection.execute(
@@ -405,11 +502,19 @@ def _sqlite_inventory(name: str, data: bytes) -> list[dict[str, object]]:
                     raise ScanError(f"protected SQLite table in {name}: {table}")
                 quoted = '"' + str(table).replace('"', '""') + '"'
                 count = connection.execute(f"SELECT count(*) FROM {quoted}").fetchone()[0]
+                for row in connection.execute(f"SELECT * FROM {quoted}"):
+                    for value in row:
+                        if isinstance(value, str) and PROTECTED_PATH.search(value):
+                            raise ScanError(
+                                f"protected SQLite row value in {name}/{table}: {value}"
+                            )
                 result.append({"table": str(table), "row_count": int(count)})
-            connection.close()
             return result
         except sqlite3.DatabaseError as error:
             raise ScanError(f"unreadable SQLite database: {name}") from error
+        finally:
+            if connection is not None:
+                connection.close()
 
 
 def _reject_protected_json(name: str, value: object) -> None:
@@ -423,3 +528,55 @@ def _reject_protected_json(name: str, value: object) -> None:
                 pending.append(child)
         elif isinstance(item, list):
             pending.extend(item)
+        elif isinstance(item, str) and PROTECTED_PATH.search(item):
+            raise ScanError(f"protected JSON scalar value in {name}: {item}")
+
+
+def _reject_elf_appended_data(name: str, data: bytes) -> None:
+    if len(data) < 16 or data[4] not in (1, 2) or data[5] not in (1, 2):
+        raise ScanError(f"malformed ELF identity: {name}")
+    endian = "<" if data[5] == 1 else ">"
+    elf64 = data[4] == 2
+    try:
+        if elf64:
+            header = struct.unpack_from(endian + "HHIQQQIHHHHHH", data, 16)
+            phoff, shoff, ehsize, phentsize, phnum, shentsize, shnum = (
+                header[4], header[5], header[7], header[8], header[9], header[10], header[11]
+            )
+        else:
+            header = struct.unpack_from(endian + "HHIIIIIHHHHHH", data, 16)
+            phoff, shoff, ehsize, phentsize, phnum, shentsize, shnum = (
+                header[4], header[5], header[7], header[8], header[9], header[10], header[11]
+            )
+        computed_end = max(ehsize, phoff + phentsize * phnum, shoff + shentsize * shnum)
+        for index in range(phnum):
+            offset = phoff + index * phentsize
+            if elf64:
+                _type, _flags, file_offset, _vaddr, _paddr, file_size = struct.unpack_from(
+                    endian + "IIQQQQ", data, offset
+                )
+            else:
+                _type, file_offset, _vaddr, _paddr, file_size = struct.unpack_from(
+                    endian + "IIIII", data, offset
+                )
+            computed_end = max(computed_end, file_offset + file_size)
+        for index in range(shnum):
+            offset = shoff + index * shentsize
+            if elf64:
+                _name, _type, _flags, _addr, file_offset, file_size = struct.unpack_from(
+                    endian + "IIQQQQ", data, offset
+                )
+            else:
+                _name, _type, _flags, _addr, file_offset, file_size = struct.unpack_from(
+                    endian + "IIIIII", data, offset
+                )
+            # SHT_NOBITS (8), e.g. .bss, occupies no bytes in the object file.
+            if _type != 8:
+                computed_end = max(computed_end, file_offset + file_size)
+    except (struct.error, IndexError) as error:
+        raise ScanError(f"malformed ELF structure: {name}") from error
+    if computed_end != len(data):
+        disposition = "appended data" if computed_end < len(data) else "truncated image"
+        raise ScanError(
+            f"ELF {disposition}: {name} computed_end={computed_end} size={len(data)}"
+        )

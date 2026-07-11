@@ -24,7 +24,7 @@ from localbench.appliance.manifest import (
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
 from localbench.submissions.canon import canonical_json_hash, write_json_file
-from release_scanner import DEFAULT_ROOTFS_PATH_PREFIXES, scan_release
+from release_scanner import scan_release
 
 
 def main() -> int:
@@ -65,7 +65,6 @@ def main() -> int:
         scan_report = scan_release(
             first,
             allowed_top_levels={"bin", "bin.usr-is-merged", "boot", "dev", "etc", "home", "lib", "lib.usr-is-merged", "lib64", "media", "mnt", "opt", "proc", "root", "run", "sbin", "sbin.usr-is-merged", "snap", "srv", "sys", "tmp", "usr", "var"},
-            allowed_path_prefixes=DEFAULT_ROOTFS_PATH_PREFIXES,
             expected_packages=set(
                 json.loads(
                     (
@@ -75,6 +74,11 @@ def main() -> int:
                     ).read_text(encoding="utf-8")
                 )["packages"]
             ),
+            exact_digest_allowlist=_read_object(
+                Path(__file__).parents[1]
+                / "runtime"
+                / "rootfs-exact-file-allowlist-v1.json"
+            )["files"],
             sandbox_wsl_distro=str(config["builder_wsl_distro"]),
         )
         final_artifact = args.out / f"localbench-agentic-runtime-{PINNED_RUNTIME_ID}.tar.xz"
