@@ -330,7 +330,15 @@ async def _wait_for_health(
 ) -> str:
     deadline = time.monotonic() + startup_timeout_seconds
     while time.monotonic() <= deadline:
-        response = await client.get(f"{root}/health")
+        try:
+            response = await client.get(f"{root}/health")
+        except httpx.TransportError:
+            # SGLang writes its launcher PID before the engine subprocesses finish
+            # loading and Uvicorn begins listening. Connection refusals/timeouts are
+            # therefore expected during startup and consume the same readiness window
+            # as HTTP 503 responses.
+            await anyio.sleep(poll_interval_seconds)
+            continue
         if response.status_code == 200:
             return utc_now()
         if response.status_code != 503:

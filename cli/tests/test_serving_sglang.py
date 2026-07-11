@@ -244,6 +244,29 @@ async def test_sglang_readiness_uses_server_reported_config_and_capacity() -> No
 
 
 @pytest.mark.anyio
+async def test_sglang_readiness_polls_after_connection_refusal() -> None:
+    attempts = 0
+
+    def refused_then_healthy(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        if request.url.path == "/health":
+            attempts += 1
+            if attempts == 1:
+                raise httpx.ConnectError("connection refused", request=request)
+        return _readiness_handler(_server_info())(request)
+
+    evidence = await verify_sglang_readiness(
+        **{
+            **_readiness_kwargs(_server_info()),
+            "transport": httpx.MockTransport(refused_then_healthy),
+        }
+    )
+
+    assert attempts == 2
+    assert evidence.build_info == "0.5.13"
+
+
+@pytest.mark.anyio
 async def test_sglang_readiness_rejects_silent_determinism_fallback() -> None:
     with pytest.raises(ReadinessError, match="enable_deterministic_inference=False"):
         await verify_sglang_readiness(
