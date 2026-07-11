@@ -72,6 +72,7 @@ class ServingEvidence:
     computed_memory_fit: JsonObject | None = None
     runtime_identity_sha256: str | None = None
     determinism_canary_passed: bool = False
+    resolved_server_config: JsonObject | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +96,7 @@ def determinism_policy(*, seed: int = 1234) -> JsonObject:
             "continuous_batching": False,
             "vllm_max_num_seqs": 1,
             "vllm_batch_invariant": True,
+            "sglang_deterministic_inference": True,
             "llama_cont_batching": False,
         },
         "scope": [
@@ -162,7 +164,9 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "cwd_sha256": _text_sha256(evidence.cwd),
             "path_identities": {
                 "server": {
-                    "basename": _path_basename(evidence.argv[0]) if evidence.argv else "",
+                    "basename": _path_basename(evidence.argv[0])
+                    if evidence.argv
+                    else "",
                     "sha256": evidence.executable_sha256,
                 },
                 "model": {
@@ -211,6 +215,7 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "device_name": evidence.device_name,
             "driver_version": evidence.driver_version,
             "cuda_version": evidence.cuda_version,
+            "server_reported_config": evidence.resolved_server_config or {},
         },
         "readiness_evidence": {
             "health_200_at": evidence.health_200_at,
@@ -269,10 +274,15 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
         reasons.append("runtime.auto_knob_unresolved")
     if not evidence.teardown_terminated or evidence.gpu_pids_after != []:
         reasons.append("serving.teardown_uncertain")
-    if evidence.runtime == "vllm" and _path_sha256(evidence.serve_log_path) in {None, ""}:
+    if evidence.runtime in {"vllm", "sglang"} and _path_sha256(
+        evidence.serve_log_path
+    ) in {None, ""}:
         reasons.append("serving.log_missing")
-    if evidence.runtime == "vllm":
-        if evidence.artifact.snapshot_merkle_sha256 in {None, ""} or not evidence.artifact.snapshot_files:
+    if evidence.runtime in {"vllm", "sglang"}:
+        if (
+            evidence.artifact.snapshot_merkle_sha256 in {None, ""}
+            or not evidence.artifact.snapshot_files
+        ):
             reasons.append("model.snapshot_identity_missing")
         if evidence.artifact.requested_repo in {None, ""}:
             reasons.append("model.snapshot_repo_missing")
@@ -283,8 +293,6 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
             reasons.append("runtime.device_identity_missing")
         if evidence.dtype in {None, ""} or evidence.quantization in {None, ""}:
             reasons.append("runtime.engine_config_missing")
-        if evidence.env_allowlist.get("VLLM_BATCH_INVARIANT") != "1":
-            reasons.append("runtime.batch_invariance_missing")
         if evidence.engine_version in {None, ""}:
             reasons.append("runtime.server_version_missing")
         if evidence.dependency_lock_sha256 in {None, ""}:
@@ -293,17 +301,33 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
             reasons.append("runtime.identity_missing")
         if evidence.applied_chat_template_sha256 in {None, ""}:
             reasons.append("runtime.chat_template_unverified")
-        if not evidence.deterministic_kernel_enabled:
-            reasons.append("runtime.deterministic_kernel_unverified")
-        if evidence.live_batch_invariant != "1":
-            reasons.append("runtime.live_batch_invariance_unverified")
         if not evidence.determinism_canary_passed:
             reasons.append("runtime.two_start_canary_missing")
-        if evidence.computed_memory_fit is None or evidence.computed_memory_fit.get("fits") is not True:
+        if (
+            evidence.computed_memory_fit is None
+            or evidence.computed_memory_fit.get("fits") is not True
+        ):
             reasons.append("runtime.memory_fit_unverified")
         allocations = evidence.memory_allocations or {}
         if "kv_cache" not in allocations:
             reasons.append("runtime.memory_report_unverified")
+    if evidence.runtime == "vllm":
+        if evidence.env_allowlist.get("VLLM_BATCH_INVARIANT") != "1":
+            reasons.append("runtime.batch_invariance_missing")
+        if not evidence.deterministic_kernel_enabled:
+            reasons.append("runtime.deterministic_kernel_unverified")
+        if evidence.live_batch_invariant != "1":
+            reasons.append("runtime.live_batch_invariance_unverified")
+    if evidence.runtime == "sglang":
+        resolved = evidence.resolved_server_config or {}
+        if resolved.get("version") != "0.5.13":
+            reasons.append("runtime.server_version_unverified")
+        if resolved.get("enable_deterministic_inference") is not True:
+            reasons.append("runtime.deterministic_inference_unverified")
+        if resolved.get("attention_backend") not in {"flashinfer", "fa3", "triton"}:
+            reasons.append("runtime.deterministic_attention_backend_unverified")
+        if resolved.get("max_running_requests") != 1:
+            reasons.append("runtime.max_running_requests_not_one")
     return reasons
 
 
@@ -328,9 +352,7 @@ def sanitize_launch_argv(argv: list[str]) -> list[str]:
 def _is_absolute_local_path(value: str) -> bool:
     normalized = value.replace("\\", "/")
     return normalized.startswith("/") or (
-        len(normalized) >= 3
-        and normalized[0].isalpha()
-        and normalized[1:3] == ":/"
+        len(normalized) >= 3 and normalized[0].isalpha() and normalized[1:3] == ":/"
     )
 
 

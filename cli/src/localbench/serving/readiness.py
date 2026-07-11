@@ -35,6 +35,7 @@ class ReadinessEvidence:
     model_path: str | None
     chat_template: str | None
     build_info: str | None
+    resolved_runtime: JsonObject | None = None
 
 
 async def verify_llama_cpp_readiness(
@@ -50,7 +51,9 @@ async def verify_llama_cpp_readiness(
 ) -> ReadinessEvidence:
     root = base_url.rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}"}
-    async with httpx.AsyncClient(timeout=10.0, transport=transport, headers=headers) as client:
+    async with httpx.AsyncClient(
+        timeout=10.0, transport=transport, headers=headers
+    ) as client:
         health_200_at = await _wait_for_health(
             client,
             root,
@@ -60,7 +63,9 @@ async def verify_llama_cpp_readiness(
         models = await _get_json(client, f"{root}/v1/models")
         reported_model = _reported_model(models, model_id)
         if reported_model != model_id:
-            raise ReadinessError(f"/v1/models did not report requested model {model_id}")
+            raise ReadinessError(
+                f"/v1/models did not report requested model {model_id}"
+            )
         props = await _get_json(client, f"{root}/props")
         total_slots = _int_field(props, "total_slots")
         if total_slots != 1:
@@ -80,7 +85,9 @@ async def verify_llama_cpp_readiness(
                 "seed": seed,
             },
         )
-        tokenized = await _post_json(client, f"{root}/tokenize", {"content": "localbench readiness"})
+        tokenized = await _post_json(
+            client, f"{root}/tokenize", {"content": "localbench readiness"}
+        )
         templated = await _post_json(
             client,
             f"{root}/apply-template",
@@ -114,7 +121,9 @@ async def verify_vllm_readiness(
 ) -> ReadinessEvidence:
     root = base_url.rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}"}
-    async with httpx.AsyncClient(timeout=10.0, transport=transport, headers=headers) as client:
+    async with httpx.AsyncClient(
+        timeout=10.0, transport=transport, headers=headers
+    ) as client:
         health_200_at = await _wait_for_health(
             client,
             root,
@@ -125,7 +134,9 @@ async def verify_vllm_readiness(
         models = await _get_json(client, f"{root}/v1/models")
         reported_model = _reported_model(models, model_id)
         if reported_model != model_id:
-            raise ReadinessError(f"/v1/models did not report requested model {model_id}")
+            raise ReadinessError(
+                f"/v1/models did not report requested model {model_id}"
+            )
         version = await _get_json(client, f"{root}/version")
         engine_version = _optional_text(version.get("version"))
         if engine_version is None or _version_tuple(engine_version) < (0, 24):
@@ -171,6 +182,144 @@ async def verify_vllm_readiness(
         )
 
 
+async def verify_sglang_readiness(
+    *,
+    base_url: str,
+    model_id: str,
+    model_path: str,
+    chat_template: str,
+    pinned_chat_template_sha256: str,
+    api_key: str,
+    seed: int,
+    ctx: int,
+    dtype: str,
+    kv_cache_dtype: str,
+    mamba_ssm_dtype: str,
+    quantization: str,
+    mem_fraction_static: str,
+    transport: httpx.AsyncBaseTransport | None = None,
+    startup_timeout_seconds: float = 180.0,
+    poll_interval_seconds: float = 0.25,
+) -> ReadinessEvidence:
+    """Verify only facts exposed by stock SGLang v0.5.13 endpoints.
+
+    Endpoint contracts are defined by the pinned source at:
+    https://github.com/sgl-project/sglang/blob/v0.5.13/python/sglang/srt/entrypoints/http_server.py
+    """
+    root = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(
+        timeout=10.0, transport=transport, headers=headers
+    ) as client:
+        health_200_at = await _wait_for_health(
+            client,
+            root,
+            startup_timeout_seconds=startup_timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            runtime="SGLang",
+        )
+        models = await _get_json(client, f"{root}/v1/models")
+        reported_model = _reported_model(models, model_id)
+        if reported_model != model_id:
+            raise ReadinessError(
+                f"/v1/models did not report requested model {model_id}"
+            )
+        model_info = await _get_json(client, f"{root}/model_info")
+        server_info = await _get_json(client, f"{root}/server_info")
+        reported_path = _optional_text(model_info.get("model_path"))
+        if reported_path != model_path:
+            raise ReadinessError(
+                f"SGLang /model_info model_path mismatch: {reported_path or 'unreported'}"
+            )
+        expected: JsonObject = {
+            "model_path": model_path,
+            "tokenizer_path": model_path,
+            "served_model_name": model_id,
+            "chat_template": chat_template,
+            "context_length": ctx,
+            "max_running_requests": 1,
+            "random_seed": seed,
+            "dtype": dtype,
+            "kv_cache_dtype": kv_cache_dtype,
+            "mamba_ssm_dtype": mamba_ssm_dtype,
+            "quantization": quantization,
+            "mem_fraction_static": float(mem_fraction_static),
+            "load_format": "safetensors",
+            "sampling_defaults": "openai",
+            "device": "cuda",
+            "tp_size": 1,
+            "dp_size": 1,
+            "chunked_prefill_size": -1,
+            "disable_radix_cache": True,
+            "disable_overlap_schedule": True,
+            "cuda_graph_max_bs": 1,
+            "attention_backend": "triton",
+            "enable_deterministic_inference": True,
+        }
+        mismatches = [
+            f"{key}={server_info.get(key)!r} (expected {value!r})"
+            for key, value in expected.items()
+            if server_info.get(key) != value
+        ]
+        if mismatches:
+            raise ReadinessError(
+                "SGLang /server_info resolved-config mismatch: " + "; ".join(mismatches)
+            )
+        engine_version = _optional_text(server_info.get("version"))
+        if engine_version != "0.5.13":
+            raise ReadinessError(
+                f"SGLang server version must be 0.5.13, got {engine_version or 'unreported'}"
+            )
+        max_total_num_tokens = server_info.get("max_total_num_tokens")
+        if (
+            not isinstance(max_total_num_tokens, int)
+            or isinstance(max_total_num_tokens, bool)
+            or max_total_num_tokens < ctx
+        ):
+            raise ReadinessError(
+                "SGLang /server_info max_total_num_tokens must cover the configured context: "
+                f"got {max_total_num_tokens!r}, need at least {ctx}"
+            )
+        smoke = await _post_json(
+            client,
+            f"{root}/v1/chat/completions",
+            {
+                "model": model_id,
+                "messages": [{"role": "user", "content": "localbench readiness"}],
+                "max_tokens": 1,
+                "temperature": 0,
+                "top_k": 1,
+                "seed": seed,
+            },
+        )
+        probe_messages: list[JsonObject] = [
+            {"role": "system", "content": "localbench template identity"},
+            {"role": "user", "content": "probe"},
+        ]
+        tokenized = await _post_json(
+            client,
+            f"{root}/v1/tokenize",
+            {"model": model_id, "messages": probe_messages},
+        )
+        resolved = {key: server_info[key] for key in expected}
+        resolved["version"] = engine_version
+        resolved["max_total_num_tokens"] = max_total_num_tokens
+        return ReadinessEvidence(
+            health_200_at=health_200_at,
+            models_response_sha256=canonical_sha256(models),
+            props_response_sha256=canonical_sha256(server_info),
+            reported_model=reported_model,
+            smoke_chat_sha256=canonical_sha256(smoke),
+            tokenize_sha256=canonical_sha256(tokenized),
+            apply_template_sha256=pinned_chat_template_sha256,
+            total_slots=1,
+            model_path=reported_path,
+            chat_template=chat_template,
+            build_info=engine_version,
+            resolved_runtime=resolved,
+        )
+
+
 async def _wait_for_health(
     client: httpx.AsyncClient,
     root: str,
@@ -197,7 +346,9 @@ async def _get_json(client: httpx.AsyncClient, url: str) -> JsonObject:
     return _response_object(response)
 
 
-async def _post_json(client: httpx.AsyncClient, url: str, payload: JsonObject) -> JsonObject:
+async def _post_json(
+    client: httpx.AsyncClient, url: str, payload: JsonObject
+) -> JsonObject:
     response = await client.post(url, json=payload)
     if response.status_code >= 400:
         raise ReadinessError(f"{url} returned {response.status_code}")

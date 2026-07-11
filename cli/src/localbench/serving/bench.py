@@ -48,7 +48,7 @@ class BenchRunConfig:
 
 
 class RuntimeAdapter(Protocol):
-    runtime: Literal["llama.cpp", "vllm"]
+    runtime: Literal["llama.cpp", "vllm", "sglang"]
 
     def resolve_model(self, ref: str, *, cache_dir: Path, run_dir: Path) -> ModelArtifact: ...
 

@@ -344,7 +344,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--runner-build-id")
     bench_parser = subparsers.add_parser("bench", help="launch a pinned local server and run a suite")
     bench_parser.add_argument("one_shot_model", nargs="?", help="catalog slug or HF repo for one-shot bench")
-    bench_parser.add_argument("--runtime", choices=("llama.cpp", "vllm"))
+    bench_parser.add_argument("--runtime", choices=("llama.cpp", "vllm", "sglang"))
     model_input = bench_parser.add_mutually_exclusive_group()
     model_input.add_argument("--model-file", type=Path)
     model_input.add_argument("--model-ref")
@@ -352,7 +352,7 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--server-bin", type=Path)
     bench_parser.add_argument(
         "--wsl-distro",
-        help="WSL2 distribution containing the maintainer vLLM environment",
+        help="WSL2 distribution containing the maintainer engine environment",
     )
     bench_parser.add_argument(
         "--vllm-venv",
@@ -368,6 +368,20 @@ def _parser() -> argparse.ArgumentParser:
         default="bfloat16",
         help="pinned vLLM model and KV-cache dtype",
     )
+    bench_parser.add_argument(
+        "--sglang-venv",
+        help="absolute WSL path to the pinned SGLang virtual environment",
+    )
+    bench_parser.add_argument(
+        "--sglang-python",
+        help="absolute WSL path to the pinned SGLang Python interpreter (overrides --sglang-venv)",
+    )
+    bench_parser.add_argument(
+        "--sglang-dtype",
+        choices=("bfloat16", "float16"),
+        default="bfloat16",
+        help="pinned SGLang model and KV-cache dtype",
+    )
     bench_parser.add_argument("--ctx", type=int)
     bench_parser.add_argument(
         "--vllm-max-model-len",
@@ -375,9 +389,14 @@ def _parser() -> argparse.ArgumentParser:
         help="explicit vLLM context override (defaults to the execution profile requirement)",
     )
     bench_parser.add_argument(
+        "--sglang-max-model-len",
+        type=int,
+        help="explicit SGLang context override (defaults to the execution profile requirement)",
+    )
+    bench_parser.add_argument(
         "--determinism-canary",
         action="store_true",
-        help="run the required two-start byte-for-byte vLLM canary before the suite",
+        help="run the required two-start byte-for-byte engine canary before the suite",
     )
     bench_parser.add_argument("--determinism", choices=("strict", "throughput"), default="strict")
     bench_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
@@ -1059,6 +1078,10 @@ def _bench(args: argparse.Namespace) -> int:
         vllm_bin=getattr(args, "vllm_bin", None),
         vllm_dtype=getattr(args, "vllm_dtype", "bfloat16"),
         vllm_max_model_len=getattr(args, "vllm_max_model_len", None),
+        sglang_venv=getattr(args, "sglang_venv", None),
+        sglang_python=getattr(args, "sglang_python", None),
+        sglang_dtype=getattr(args, "sglang_dtype", "bfloat16"),
+        sglang_max_model_len=getattr(args, "sglang_max_model_len", None),
         determinism_canary=getattr(args, "determinism_canary", False),
     )
     try:
@@ -1105,7 +1128,7 @@ def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
         missing.append("--model-file or --model-ref")
     if getattr(args, "model_id", None) is None:
         missing.append("--model-id")
-    if getattr(args, "ctx", None) is None and getattr(args, "runtime", None) != "vllm":
+    if getattr(args, "ctx", None) is None and getattr(args, "runtime", None) not in {"vllm", "sglang"}:
         missing.append("--ctx")
     if getattr(args, "seed", None) is None:
         missing.append("--seed")
@@ -1118,6 +1141,13 @@ def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
             return "--runtime vllm requires --wsl-distro"
         if not args.vllm_bin and not args.vllm_venv:
             return "--runtime vllm requires --vllm-bin or --vllm-venv"
+    if args.runtime == "sglang":
+        if args.model_file is not None:
+            return "--runtime sglang requires --model-ref, not --model-file"
+        if not args.wsl_distro:
+            return "--runtime sglang requires --wsl-distro"
+        if not args.sglang_python and not args.sglang_venv:
+            return "--runtime sglang requires --sglang-python or --sglang-venv"
     return None
 
 

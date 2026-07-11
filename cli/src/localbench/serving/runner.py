@@ -44,7 +44,12 @@ from localbench.serving.llama_cpp import (
 )
 from localbench.serving.model_artifact import ModelArtifact
 from localbench.serving.options import ServeBenchOptions
-from localbench.serving.process import JobController, LaunchedServer, allocate_port, launch_llama_cpp
+from localbench.serving.process import (
+    JobController,
+    LaunchedServer,
+    allocate_port,
+    launch_llama_cpp,
+)
 from localbench.serving.provenance import (
     ServingEvidence,
     apply_serving_context,
@@ -74,11 +79,24 @@ from localbench.serving.vllm import (
     vllm_serve_argv,
     wsl_path,
 )
+from localbench.serving.sglang import (
+    SglangAdapter,
+    SglangBuildIdentity,
+    SglangLaunchConfig,
+    SglangMemoryFit,
+    compute_sglang_memory_fit,
+    quantization_config as sglang_quantization_config,
+    refresh_sglang_process_ownership,
+    sglang_serve_argv,
+    validate_sglang_argv,
+)
 
 
 async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     if options.runtime == "vllm":
         return await _run_orchestrated_vllm_bench(options)
+    if options.runtime == "sglang":
+        return await _run_orchestrated_sglang_bench(options)
     if options.runtime != "llama.cpp":
         raise RuntimeError(f"unsupported runtime: {options.runtime}")
     if options.determinism != "strict":
@@ -90,7 +108,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     output_path = root / "localbench-run.json"
     # Advanced --model-ref runs must prove the agentic setup before resolving/downloading
     # the model. One-shot runs inject a freshly repeated post-download preflight here.
-    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(options, root)
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
+        options, root
+    )
     artifact = resolve_artifact(options, root)
     binary = server_bin(options)
     build = collect_build_identity(binary)
@@ -150,7 +170,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     launched: LaunchedServer | None = None
     teardown: TeardownEvidence | None = None
     try:
-        launched = launch_llama_cpp(argv, cwd=binary.parent, log_path=root / "serve.log")
+        launched = launch_llama_cpp(
+            argv, cwd=binary.parent, log_path=root / "serve.log"
+        )
         readiness = await verify_llama_cpp_readiness(
             base_url=f"http://127.0.0.1:{port}",
             model_id=options.model_id,
@@ -197,7 +219,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 f"http://127.0.0.1:{port}/v1",
                 options.model_id,
                 api_key=api_key,
-                chat_template_kwargs=agentic_chat_template_kwargs(options.lane, effective_profile),
+                chat_template_kwargs=agentic_chat_template_kwargs(
+                    options.lane, effective_profile
+                ),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
             agentic_canonical_task_ids = list(
@@ -206,7 +230,9 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             agentic_provenance_extra = agentic_preflight.provenance()
         try:
             await run_localbench(
-                build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence),
+                build_orchestrate_config(
+                    bench_config(options, output_path, api_key, port), evidence
+                ),
                 agentic_sandbox_factory=agentic_sandbox_factory,
                 agentic_model_factory=agentic_model_factory,
                 agentic_task_ids=agentic_task_ids,
@@ -273,11 +299,17 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             resolved=effective_profile,
             expected="generic_think_tags_8192_v1",
         )
-    options = replace(options, profile=effective_profile, ctx=_vllm_max_model_len(options, effective_profile))
+    options = replace(
+        options,
+        profile=effective_profile,
+        ctx=_vllm_max_model_len(options, effective_profile),
+    )
     validate_capped_thinking_context(options, effective_profile)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
-    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(options, root)
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
+        options, root
+    )
     adapter = VllmAdapter()
     artifact = adapter.resolve_model(
         options.model_ref,
@@ -382,8 +414,12 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             )
         startup_log = parse_vllm_startup_log(root / "serve.log")
         if startup_log.fit_failure is not None:
-            raise RuntimeError(f"vLLM startup memory fit failed: {startup_log.fit_failure}")
-        live_batch_invariant = read_live_process_environment(launched, "VLLM_BATCH_INVARIANT")
+            raise RuntimeError(
+                f"vLLM startup memory fit failed: {startup_log.fit_failure}"
+            )
+        live_batch_invariant = read_live_process_environment(
+            launched, "VLLM_BATCH_INVARIANT"
+        )
         refresh_vllm_process_ownership(launched)
         evidence = _vllm_serving_evidence(
             options=options,
@@ -426,7 +462,9 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
                 f"http://127.0.0.1:{port}/v1",
                 options.model_id,
                 api_key=api_key,
-                chat_template_kwargs=agentic_chat_template_kwargs(options.lane, effective_profile),
+                chat_template_kwargs=agentic_chat_template_kwargs(
+                    options.lane, effective_profile
+                ),
             )
             agentic_task_ids = list(agentic_preflight.task_ids)
             agentic_canonical_task_ids = list(
@@ -435,7 +473,9 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             agentic_provenance_extra = agentic_preflight.provenance()
         try:
             await run_localbench(
-                build_orchestrate_config(bench_config(options, output_path, api_key, port), evidence),
+                build_orchestrate_config(
+                    bench_config(options, output_path, api_key, port), evidence
+                ),
                 agentic_sandbox_factory=agentic_sandbox_factory,
                 agentic_model_factory=agentic_model_factory,
                 agentic_task_ids=agentic_task_ids,
@@ -482,6 +522,248 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     return updated
 
 
+async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObject:
+    if options.determinism != "strict":
+        raise RuntimeError("--determinism throughput is deferred and non-publishable")
+    if options.model_file is not None or options.model_ref is None:
+        raise RuntimeError(
+            "SGLang requires --model-ref and does not accept --model-file"
+        )
+    if options.wsl_distro in {None, ""}:
+        raise RuntimeError("SGLang requires --wsl-distro")
+    options = thread_vllm_model_identity(options)
+    distro = options.wsl_distro
+    python_bin = _sglang_python(options)
+    effective_profile = effective_serving_profile(options)
+    if (
+        options.lane == "bounded-final-v2"
+        and options.profile == "auto"
+        and effective_profile != "generic_think_tags_8192_v1"
+    ):
+        raise SglangExecutionProfileMismatchError(
+            resolved=effective_profile,
+            expected="generic_think_tags_8192_v1",
+        )
+    options = replace(
+        options,
+        profile=effective_profile,
+        ctx=_sglang_max_model_len(options, effective_profile),
+    )
+    validate_capped_thinking_context(options, effective_profile)
+    root = run_dir(options)
+    output_path = root / "localbench-run.json"
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
+        options, root
+    )
+    adapter = SglangAdapter()
+    artifact = adapter.resolve_model(
+        options.model_ref,
+        cache_dir=options.cache_dir or root / "hf-cache",
+        run_dir=root,
+    )
+    quantization = sglang_quantization_config(artifact)
+    model_path = wsl_path(artifact.model_file, distro=distro)
+    template_path = artifact.model_file / "chat_template.jinja"
+    if not template_path.is_file() or artifact.chat_template_digest is None:
+        raise RuntimeError("SGLang snapshot must contain chat_template.jinja")
+    chat_template = wsl_path(template_path, distro=distro)
+    build = adapter.build_identity(distro=distro, python_bin=python_bin)
+    port = allocate_port()
+    api_key = secrets.token_urlsafe(32)
+    launch_config = SglangLaunchConfig(
+        distro=distro,
+        python_bin=python_bin,
+        model_path=model_path,
+        model_id=options.model_id,
+        host="127.0.0.1",
+        port=port,
+        api_key=api_key,
+        ctx=options.ctx,
+        seed=options.seed,
+        dtype=options.sglang_dtype,
+        kv_cache_dtype=options.sglang_dtype,
+        mamba_ssm_dtype=artifact.mamba_ssm_dtype or "float32",
+        quantization=quantization,
+        mem_fraction_static="0.92",
+        chat_template=chat_template,
+        run_token=uuid.uuid4().hex,
+        expected_executable=build.expected_executable,
+    )
+    argv = sglang_serve_argv(launch_config)
+    validate_sglang_argv(argv, build.help_text)
+    memory_fit = compute_sglang_memory_fit(
+        artifact,
+        max_model_len=options.ctx,
+        total_vram_bytes=build.total_vram_bytes,
+        mem_fraction_static=launch_config.mem_fraction_static,
+    )
+    env_allowlist = {"CUDA_VISIBLE_DEVICES": "0"}
+    safe_argv = redacted_argv(argv)
+    fingerprint = server_fingerprint(
+        model_file_sha256=artifact.file_sha256,
+        executable_sha256=build.runtime_identity_sha256,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        ctx=options.ctx,
+        kv_cache_quant=options.sglang_dtype,
+        parallel_slots=1,
+        flash_attention="triton-batch-invariant",
+        chat_template_digest=artifact.chat_template_digest,
+    )
+    identity = resume_identity(
+        model_file_sha256=artifact.file_sha256,
+        executable_sha256=build.runtime_identity_sha256,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        ctx=options.ctx,
+        kv_cache_quant=options.sglang_dtype,
+        parallel_slots=1,
+        flash_attention="triton-batch-invariant",
+        chat_template_digest=artifact.chat_template_digest,
+    )
+    precheck_resume_identity(
+        options.resume,
+        identity,
+        chat_template_digest=artifact.chat_template_digest,
+        env_allowlist=env_allowlist,
+        kv_cache_quant=options.sglang_dtype,
+        parallel_slots=1,
+        flash_attention="triton-batch-invariant",
+    )
+    if options.determinism_canary:
+        await _run_sglang_determinism_canary(
+            adapter,
+            launch_config,
+            pinned_chat_template_sha256=artifact.chat_template_digest,
+            root=root,
+        )
+    launched = None
+    teardown: TeardownEvidence | None = None
+    try:
+        launched = adapter.launch(launch_config, log_path=root / "serve.log")
+        try:
+            readiness = await adapter.readiness(
+                base_url=f"http://127.0.0.1:{port}",
+                model_id=options.model_id,
+                model_path=model_path,
+                chat_template=chat_template,
+                pinned_chat_template_sha256=artifact.chat_template_digest,
+                api_key=api_key,
+                seed=options.seed,
+                ctx=options.ctx,
+                dtype=options.sglang_dtype,
+                kv_cache_dtype=options.sglang_dtype,
+                mamba_ssm_dtype=launch_config.mamba_ssm_dtype,
+                quantization=quantization,
+                mem_fraction_static=launch_config.mem_fraction_static,
+            )
+        except BaseException:
+            raise
+        if readiness.build_info != build.package_version:
+            raise RuntimeError(
+                "SGLang endpoint version does not match the pinned venv package: "
+                f"server={readiness.build_info!r}, venv={build.package_version!r}"
+            )
+        refresh_sglang_process_ownership(launched)
+        evidence = _sglang_serving_evidence(
+            options=options,
+            artifact=artifact,
+            build=build,
+            readiness=readiness,
+            teardown=pending_teardown(launched.server_pid),
+            launch_config=launch_config,
+            argv=safe_argv,
+            env_allowlist=env_allowlist,
+            api_key=api_key,
+            port=port,
+            fingerprint=fingerprint,
+            identity=identity,
+            root=root,
+            memory_fit=memory_fit,
+        )
+        agentic_sandbox_factory = None
+        agentic_model_factory = None
+        agentic_task_ids = None
+        agentic_canonical_task_ids = None
+        agentic_provenance_extra = None
+        if agentic_preflight is not None:
+            from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
+
+            log_dir = root / "agentic" / "wsl-worker-logs"
+            wsl_venv_python, appworld_root = configured_agentic_paths(
+                options.wsl_venv_python,
+                options.appworld_root,
+            )
+            agentic_sandbox_factory = wsl_sandbox_factory(
+                "",
+                wsl_venv_python,
+                appworld_root,
+                log_dir=log_dir,
+                expected_identity=agentic_preflight.identity,
+            )
+            agentic_model_factory = chat_client_factory(
+                f"http://127.0.0.1:{port}/v1",
+                options.model_id,
+                api_key=api_key,
+                chat_template_kwargs=agentic_chat_template_kwargs(
+                    options.lane, effective_profile
+                ),
+            )
+            agentic_task_ids = list(agentic_preflight.task_ids)
+            agentic_canonical_task_ids = list(
+                agentic_preflight.canonical_task_ids or agentic_preflight.task_ids
+            )
+            agentic_provenance_extra = agentic_preflight.provenance()
+        try:
+            await run_localbench(
+                build_orchestrate_config(
+                    bench_config(options, output_path, api_key, port), evidence
+                ),
+                agentic_sandbox_factory=agentic_sandbox_factory,
+                agentic_model_factory=agentic_model_factory,
+                agentic_task_ids=agentic_task_ids,
+                agentic_canonical_task_ids=agentic_canonical_task_ids,
+                agentic_provenance_extra=agentic_provenance_extra,
+            )
+        except WorkerSetupError as error:
+            raise AgenticSetupError(
+                detail=str(error),
+                model_download_started=True,
+                benchmark_started=True,
+            ) from error
+    finally:
+        if launched is not None:
+            try:
+                teardown = adapter.teardown(launched)
+            finally:
+                launched.close_log()
+    if teardown is None:
+        raise RuntimeError("server teardown evidence was not collected")
+    record = read_json_object(output_path)
+    completed_evidence = _sglang_serving_evidence(
+        options=options,
+        artifact=artifact,
+        build=build,
+        readiness=readiness,
+        teardown=teardown,
+        launch_config=launch_config,
+        argv=safe_argv,
+        env_allowlist=env_allowlist,
+        api_key=api_key,
+        port=port,
+        fingerprint=fingerprint,
+        identity=identity,
+        root=root,
+        memory_fit=memory_fit,
+    )
+    updated = normalize_result_bundle(
+        apply_serving_context(record, serving_context(completed_evidence)),
+        suite_dir=options.suite_dir,
+    )
+    atomic_write_json(updated, output_path)
+    return updated
+
+
 def _vllm_binary(options: ServeBenchOptions) -> str:
     if options.vllm_bin not in {None, ""}:
         value = options.vllm_bin
@@ -490,7 +772,9 @@ def _vllm_binary(options: ServeBenchOptions) -> str:
     else:
         raise RuntimeError("vLLM requires --vllm-bin or --vllm-venv")
     if not value.startswith("/"):
-        raise RuntimeError("vLLM binary and virtualenv paths must be absolute WSL paths")
+        raise RuntimeError(
+            "vLLM binary and virtualenv paths must be absolute WSL paths"
+        )
     return value
 
 
@@ -509,15 +793,79 @@ class VllmExecutionProfileMismatchError(RuntimeError):
 def _vllm_max_model_len(options: ServeBenchOptions, profile: str) -> int:
     if options.ctx is not None and options.vllm_max_model_len is not None:
         if options.ctx != options.vllm_max_model_len:
-            raise RuntimeError("--ctx and --vllm-max-model-len must match when both are supplied")
-    override = options.vllm_max_model_len if options.vllm_max_model_len is not None else options.ctx
+            raise RuntimeError(
+                "--ctx and --vllm-max-model-len must match when both are supplied"
+            )
+    override = (
+        options.vllm_max_model_len
+        if options.vllm_max_model_len is not None
+        else options.ctx
+    )
     if override is not None:
         if override <= 0:
             raise RuntimeError("vLLM max model length must be positive")
         return override
-    if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1", "answer_only_v1"}:
+    if profile in {
+        "generic_think_tags_8192_v1",
+        "gemma4_channel_8192_v1",
+        "answer_only_v1",
+    }:
         return 8192
-    raise RuntimeError(f"no vLLM context requirement is defined for execution profile {profile!r}")
+    raise RuntimeError(
+        f"no vLLM context requirement is defined for execution profile {profile!r}"
+    )
+
+
+def _sglang_python(options: ServeBenchOptions) -> str:
+    if options.sglang_python not in {None, ""}:
+        value = options.sglang_python
+    elif options.sglang_venv not in {None, ""}:
+        value = f"{options.sglang_venv.rstrip('/')}/bin/python"
+    else:
+        raise RuntimeError("SGLang requires --sglang-python or --sglang-venv")
+    if not value.startswith("/"):
+        raise RuntimeError(
+            "SGLang Python and virtualenv paths must be absolute WSL paths"
+        )
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class SglangExecutionProfileMismatchError(RuntimeError):
+    resolved: str
+    expected: str
+
+    def __str__(self) -> str:
+        return (
+            "SGLang bounded-final-v2 execution profile mismatch: "
+            f"resolved={self.resolved!r}, expected={self.expected!r}"
+        )
+
+
+def _sglang_max_model_len(options: ServeBenchOptions, profile: str) -> int:
+    if options.ctx is not None and options.sglang_max_model_len is not None:
+        if options.ctx != options.sglang_max_model_len:
+            raise RuntimeError(
+                "--ctx and --sglang-max-model-len must match when both are supplied"
+            )
+    override = (
+        options.sglang_max_model_len
+        if options.sglang_max_model_len is not None
+        else options.ctx
+    )
+    if override is not None:
+        if override <= 0:
+            raise RuntimeError("SGLang max model length must be positive")
+        return override
+    if profile in {
+        "generic_think_tags_8192_v1",
+        "gemma4_channel_8192_v1",
+        "answer_only_v1",
+    }:
+        return 8192
+    raise RuntimeError(
+        f"no SGLang context requirement is defined for execution profile {profile!r}"
+    )
 
 
 async def _run_vllm_determinism_canary(
@@ -563,14 +911,87 @@ async def _run_vllm_determinism_canary(
                     response.raise_for_status()
                     payload = response.json()
                     rendered.append(str(payload["choices"][0]["message"]["content"]))
-                outputs.append(json.dumps(rendered, ensure_ascii=False, separators=(",", ":")).encode())
+                outputs.append(
+                    json.dumps(
+                        rendered, ensure_ascii=False, separators=(",", ":")
+                    ).encode()
+                )
         finally:
             try:
                 adapter.teardown(launched)
             finally:
                 launched.close_log()
     if len(outputs) != 2 or outputs[0] != outputs[1]:
-        raise RuntimeError("vLLM determinism canary failed: outputs differ across two server starts")
+        raise RuntimeError(
+            "vLLM determinism canary failed: outputs differ across two server starts"
+        )
+
+
+async def _run_sglang_determinism_canary(
+    adapter: SglangAdapter,
+    config: SglangLaunchConfig,
+    *,
+    pinned_chat_template_sha256: str,
+    root: Path,
+) -> None:
+    outputs: list[bytes] = []
+    prompts = ("Reply with exactly: alpha", "What is 2+2? Reply with one digit.")
+    for start in (1, 2):
+        launched = adapter.launch(
+            replace(config, run_token=uuid.uuid4().hex),
+            log_path=root / f"determinism-canary-start-{start}.log",
+        )
+        try:
+            await adapter.readiness(
+                base_url=f"http://127.0.0.1:{config.port}",
+                model_id=config.model_id,
+                model_path=config.model_path,
+                chat_template=config.chat_template,
+                pinned_chat_template_sha256=pinned_chat_template_sha256,
+                api_key=config.api_key,
+                seed=config.seed,
+                ctx=config.ctx,
+                dtype=config.dtype,
+                kv_cache_dtype=config.kv_cache_dtype,
+                mamba_ssm_dtype=config.mamba_ssm_dtype,
+                quantization=config.quantization,
+                mem_fraction_static=config.mem_fraction_static,
+            )
+            async with httpx.AsyncClient(
+                base_url=f"http://127.0.0.1:{config.port}/v1",
+                headers={"Authorization": f"Bearer {config.api_key}"},
+                timeout=60.0,
+            ) as client:
+                rendered: list[str] = []
+                for prompt in prompts:
+                    response = await client.post(
+                        "/chat/completions",
+                        json={
+                            "model": config.model_id,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 16,
+                            "temperature": 0,
+                            "top_k": 1,
+                            "seed": config.seed,
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    rendered.append(str(payload["choices"][0]["message"]["content"]))
+                outputs.append(
+                    json.dumps(
+                        rendered, ensure_ascii=False, separators=(",", ":")
+                    ).encode()
+                )
+        finally:
+            try:
+                adapter.teardown(launched)
+            finally:
+                launched.close_log()
+    if len(outputs) != 2 or outputs[0] != outputs[1]:
+        raise RuntimeError(
+            "SGLang determinism canary failed: outputs differ across two server starts"
+        )
 
 
 def _raise_memory_fit_error_if_present(log_path: Path, cause: BaseException) -> None:
@@ -686,6 +1107,115 @@ def _vllm_serving_evidence(
     )
 
 
+def _sglang_serving_evidence(
+    *,
+    options: ServeBenchOptions,
+    artifact: ModelArtifact,
+    build: SglangBuildIdentity,
+    readiness: ReadinessEvidence,
+    teardown: TeardownEvidence,
+    launch_config: SglangLaunchConfig,
+    argv: list[str],
+    env_allowlist: dict[str, str],
+    api_key: str,
+    port: int,
+    fingerprint: str,
+    identity: str,
+    root: Path,
+    memory_fit: SglangMemoryFit,
+) -> ServingEvidence:
+    resolved = readiness.resolved_runtime or {}
+    memory_allocations: JsonObject = {
+        "kv_cache": {
+            "value": resolved.get("max_total_num_tokens"),
+            "unit": "tokens",
+            "source": "/server_info.max_total_num_tokens",
+        },
+        "weights": {
+            "value": memory_fit.weights_bytes,
+            "unit": "bytes",
+            "source": "snapshot_files",
+        },
+    }
+    return ServingEvidence(
+        runtime="sglang",
+        argv=argv,
+        cwd=str(Path.cwd()),
+        env_allowlist=env_allowlist,
+        host="127.0.0.1",
+        port=port,
+        api_key_sha256=api_key_sha256(api_key),
+        artifact=artifact,
+        executable_sha256=build.executable_sha256,
+        dll_or_so_hashes={},
+        version_stdout=readiness.build_info,
+        source_repo="sgl-project/sglang",
+        source_commit="cba18f4d8090d23e9273e663db2a0b3b2e39f117",
+        source_tag="v0.5.13",
+        build_flags=(
+            f"dtype={launch_config.dtype} kv_cache_dtype={launch_config.kv_cache_dtype} "
+            f"mamba_ssm_dtype={launch_config.mamba_ssm_dtype} "
+            f"quantization={launch_config.quantization} max_running_requests=1 "
+            "attention_backend=triton deterministic_inference=1"
+        ),
+        help_text_sha256=build.help_text_sha256,
+        ctx_len_configured=launch_config.ctx,
+        parallel_slots=1,
+        continuous_batching=False,
+        kv_cache_quant=launch_config.kv_cache_dtype,
+        flash_attention="triton-batch-invariant",
+        rope_scaling="model-default",
+        reasoning="client-controlled",
+        reasoning_budget=None,
+        reasoning_format="snapshot-chat-template",
+        health_200_at=readiness.health_200_at,
+        models_response_sha256=readiness.models_response_sha256,
+        props_response_sha256=readiness.props_response_sha256,
+        reported_model=readiness.reported_model,
+        smoke_chat_sha256=readiness.smoke_chat_sha256,
+        owned_process_tree=teardown.owned_process_tree,
+        teardown_terminated=teardown.terminated,
+        exit_code=teardown.exit_code,
+        gpu_pids_after=teardown.gpu_pids_after,
+        server_fingerprint=fingerprint,
+        resume_identity=identity,
+        model_id=options.model_id,
+        serve_log_path=str(root / "serve.log"),
+        device_name=build.device_name,
+        driver_version=build.driver_version,
+        cuda_version=build.cuda_version,
+        dtype=launch_config.dtype,
+        quantization=launch_config.quantization,
+        tokenize_sha256=readiness.tokenize_sha256,
+        applied_chat_template_sha256=readiness.apply_template_sha256,
+        engine_version=readiness.build_info,
+        dependency_lock_sha256=build.dependency_lock_sha256,
+        mamba_ssm_cache_dtype=launch_config.mamba_ssm_dtype,
+        model_config_mamba_ssm_dtype=artifact.mamba_ssm_dtype,
+        numeric_deviations=tuple(
+            deviation
+            for deviation in (
+                "kv_cache_dtype=bfloat16 differs from llama.cpp f16"
+                if launch_config.kv_cache_dtype == "bfloat16"
+                else None,
+                (
+                    f"mamba_ssm_dtype={launch_config.mamba_ssm_dtype} "
+                    f"differs from model config {artifact.mamba_ssm_dtype}"
+                    if artifact.mamba_ssm_dtype is not None
+                    and launch_config.mamba_ssm_dtype != artifact.mamba_ssm_dtype
+                    else None
+                ),
+            )
+            if deviation is not None
+        ),
+        memory_allocations=memory_allocations,
+        computed_memory_fit=memory_fit.provenance(),
+        runtime_identity_sha256=build.runtime_identity_sha256,
+        determinism_canary_passed=options.determinism_canary,
+        resolved_server_config=readiness.resolved_runtime,
+    )
+
+
 def preflight_agentic_if_needed(
     options: ServeBenchOptions,
     root: Path,
@@ -716,7 +1246,7 @@ def preflight_agentic_if_needed(
 
 
 def needs_wsl_agentic(options: ServeBenchOptions) -> bool:
-    if options.runtime not in {"llama.cpp", "vllm"}:
+    if options.runtime not in {"llama.cpp", "vllm", "sglang"}:
         return False
     if options.suite == STATIC_EXEC_SUITE_ID:
         return False

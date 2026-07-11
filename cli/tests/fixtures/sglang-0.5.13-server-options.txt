@@ -1,0 +1,58 @@
+# CURATED SGLang v0.5.13 server-option reference excerpts; not captured --help output.
+# Sources:
+# https://github.com/sgl-project/sglang/blob/v0.5.13/docs/advanced_features/server_arguments.md
+# https://github.com/sgl-project/sglang/blob/v0.5.13/docs/advanced_features/deterministic_inference.md
+# Retrieval: option names and adjacent descriptions, retrieved 2026-07-11.
+
+--model-path
+The path of the model weights. This can be a local folder or a Hugging Face repo ID.
+--tokenizer-path
+The path of the tokenizer.
+--served-model-name
+Override the model name returned by the v1/models endpoint in OpenAI API server.
+--host
+The host of the HTTP server.
+--port
+The port of the HTTP server.
+--api-key
+Set API key of the server. It is also used in the OpenAI API compatible server.
+--context-length
+The model's maximum context length.
+--max-running-requests
+The maximum number of running requests.
+--random-seed
+The random seed.
+--dtype
+Data type for model weights and activations.
+--kv-cache-dtype
+Data type for kv cache storage.
+--mamba-ssm-dtype
+The data type of the SSM states in mamba cache.
+--quantization
+The quantization method.
+--mem-fraction-static
+The fraction of the memory used for static allocation (model weights and KV cache memory pool).
+--load-format
+The format of the model weights to load.
+--chat-template
+The builtin chat template name or the path of the chat template file.
+--sampling-defaults
+Where to get default sampling parameters.
+--device
+The device to use ('cuda', 'xpu', 'hpu', 'npu', 'cpu').
+--tp-size
+The tensor parallelism size.
+--dp-size
+The data parallelism size.
+--chunked-prefill-size
+The maximum number of tokens in a chunk for the chunked prefill. Setting this to -1 means disabling chunked prefill.
+--disable-radix-cache
+Disable RadixAttention for prefix caching.
+--disable-overlap-schedule
+Disable the overlap scheduler.
+--cuda-graph-max-bs
+The maximum batch size to capture by CUDA Graph.
+--attention-backend
+Choose attention backend (flashinfer, fa3, or triton).
+--enable-deterministic-inference
+Enable deterministic inference with batch-invariant operations.

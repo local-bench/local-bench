@@ -47,4 +47,8 @@ class ServeBenchOptions:
     vllm_bin: str | None = None
     vllm_dtype: str = "bfloat16"
     vllm_max_model_len: int | None = None
+    sglang_venv: str | None = None
+    sglang_python: str | None = None
+    sglang_dtype: str = "bfloat16"
+    sglang_max_model_len: int | None = None
     determinism_canary: bool = False
