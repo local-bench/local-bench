@@ -17,6 +17,7 @@ from localbench.appliance.provisioner import (
     CommandResult,
     ProvisioningError,
 )
+from localbench.appliance.manifest import RuntimeManifestError, verify_manifest_bytes
 from localbench.submissions.canon import write_json_file
 
 
@@ -159,8 +160,7 @@ def main() -> int:
     parser.add_argument("--root", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
-    document = json.loads(args.manifest.read_text(encoding="utf-8"))
-    manifest = document["payload"]
+    manifest = _verified_manifest(args.manifest)
     runtime_id = str(manifest["runtime_id"])
     compressed_sha = _sha(args.archive)
     if compressed_sha != manifest["rootfs"]["sha256"]:
@@ -252,6 +252,14 @@ def _expect_fault(
         checkpoints.append(expected)
         return
     raise RuntimeError(f"expected rehearsal fault did not occur: {expected}")
+
+
+def _verified_manifest(path: Path) -> dict[str, object]:
+    """Use the production verifier for canonical bytes, hash, signature, trust, and pin."""
+    try:
+        return verify_manifest_bytes(path.read_bytes())
+    except RuntimeManifestError as error:
+        raise RuntimeError(f"rehearsal manifest verification failed: {error}") from error
 
 
 def _sha(path: Path) -> str:
