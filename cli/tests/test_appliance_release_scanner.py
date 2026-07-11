@@ -338,3 +338,44 @@ def test_elf_attacker_chosen_ehsize_zero_tables_and_payload_fails_closed(
             expected_packages={"dpkg=1.22.6ubuntu6.6"},
             exact_digest_allowlist=allowlist,
         )
+
+
+@pytest.mark.parametrize("offset_field", ["program", "section"])
+def test_elf_zero_count_table_offset_at_eof_fails_closed(
+    tmp_path: Path, offset_field: str
+) -> None:
+    import struct
+
+    payload = b"smuggled"
+    header = bytearray(64)
+    header[:16] = b"\x7fELF\x02\x01\x01" + b"\x00" * 9
+    eof = len(header) + len(payload)
+    phoff = eof if offset_field == "program" else 0
+    shoff = eof if offset_field == "section" else 0
+    struct.pack_into(
+        "<HHIQQQIHHHHHH",
+        header,
+        16,
+        2,
+        62,
+        1,
+        0,
+        phoff,
+        shoff,
+        0,
+        64,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+    files, allowlist = dpkg_admission({"usr/bin/tool": bytes(header) + payload})
+
+    with pytest.raises(scanner.ScanError, match=f"ELF {offset_field}-header table"):
+        scanner.scan_release(
+            archive(tmp_path, files),
+            allowed_top_levels={"usr", "var"},
+            expected_packages={"dpkg=1.22.6ubuntu6.6"},
+            exact_digest_allowlist=allowlist,
+        )

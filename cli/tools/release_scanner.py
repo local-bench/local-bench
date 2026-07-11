@@ -773,15 +773,23 @@ def _reject_elf_appended_data(name: str, data: bytes) -> None:
             raise ScanError(
                 f"ELF header size is invalid: {name} expected={required_ehsize} observed={ehsize}"
             )
-        if phnum and phentsize != required_phentsize:
+        # System V gABI, ELF Header: e_phoff/e_shoff hold zero when the corresponding table is
+        # absent. We also require a zero entry size so a zero-count table contributes no extent.
+        if phnum == 0:
+            if phoff != 0 or phentsize != 0:
+                raise ScanError(f"ELF program-header table is absent but metadata is nonzero: {name}")
+        elif phentsize != required_phentsize:
             raise ScanError(f"ELF program-header entry size is invalid: {name}")
-        if shnum and shentsize != required_shentsize:
+        if shnum == 0:
+            if shoff != 0 or shentsize != 0:
+                raise ScanError(f"ELF section-header table is absent but metadata is nonzero: {name}")
+        elif shentsize != required_shentsize:
             raise ScanError(f"ELF section-header entry size is invalid: {name}")
-        computed_end = max(
-            required_ehsize,
-            phoff + phentsize * phnum,
-            shoff + shentsize * shnum,
-        )
+        computed_end = required_ehsize
+        if phnum:
+            computed_end = max(computed_end, phoff + phentsize * phnum)
+        if shnum:
+            computed_end = max(computed_end, shoff + shentsize * shnum)
         for index in range(phnum):
             offset = phoff + index * phentsize
             if elf64:
