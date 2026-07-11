@@ -1026,21 +1026,21 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
         if generated_dir.exists():
             shutil.rmtree(generated_dir)
         generated_dir.mkdir(parents=True, exist_ok=True)
-    trusted_ranked_runs = [run for run in runs if _trusted_ranked_run(run)]
+    trusted_runs = [run for run in runs if _trusted_run(run)]
     for run in runs:
         # Catalog identities and their run receipts are protected publication payloads.
         # A community row that merely claims a catalog id must never enter that tree.
-        if run["detail"] is not None and (run_catalog_key(run) is None or _trusted_ranked_run(run)):
+        if run["detail"] is not None and _trusted_run(run):
             _write_json(runs_dir / f"{_string(run['run_id'], 'run_id')}.json", run["detail"])
-    groups = _group_runs(runs)
-    catalog_run_groups = _catalog_run_groups(trusted_ranked_runs)
+    groups = _group_runs(trusted_runs)
+    catalog_run_groups = _catalog_run_groups(trusted_runs)
     catalog_slugs = {catalog_slug(entry) for entry in catalog}
     models: list[JsonValue] = []
     for entry in sorted(catalog, key=catalog_slug):
         slug = catalog_slug(entry)
         group = catalog_run_groups.get(
             catalog_key(entry),
-            [run for run in groups.get(slug, []) if _trusted_ranked_run(run)],
+            groups.get(slug, []),
         )
         if group:
             best = _representative_run(group)
@@ -1070,7 +1070,7 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
             model_payload["demo"] = True
         _write_json(models_dir / f"{slug}.json", model_payload)
     index_models = [without_scoreless_conformance_status(_object(model, "index.model")) for model in models]
-    _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "index_version": INDEX_VERSION, "models": index_models, "suite_version": _suite_version(trusted_ranked_runs)})
+    _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "index_version": INDEX_VERSION, "models": index_models, "suite_version": _suite_version(trusted_runs)})
 
 
 def _manifest_summary(source: JsonObject, manifest: JsonObject, lane: str | None, quant: str | None) -> JsonObject:
@@ -1219,7 +1219,7 @@ def _group_runs(runs: list[JsonObject]) -> dict[str, list[JsonObject]]:
 def _catalog_run_groups(runs: list[JsonObject]) -> dict[str, list[JsonObject]]:
     groups: dict[str, list[JsonObject]] = {}
     for run in runs:
-        if not _trusted_ranked_run(run):
+        if not _trusted_run(run):
             continue
         key = run_catalog_key(run)
         if key is not None:
