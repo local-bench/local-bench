@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import base64
+import csv
 import json
 import os
 import platform
@@ -17,7 +19,7 @@ from localbench.appliance.manifest import REQUIRED_CRITICAL_HASHES
 from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
 from localbench.scoring.agentic_exec.task_pool import selection_recipe_sha256
 from localbench.scoring.agentic_exec.wsl_worker import collect_identity
-from localbench.scoring.agentic_exec.wsl_worker import _distribution_tree_sha256
+from localbench.scoring.agentic_exec.wsl_worker import _verified_appworld_tree_sha256
 from localbench.submissions.canon import canonical_json_bytes
 
 APPWORLD_ROOT = Path("/home/lbworker/appworld")
@@ -107,7 +109,7 @@ def provision(manifest: JsonObject) -> None:
         raise RuntimeError("installed AppWorld version differs from signed manifest")
     expected_installed = str(appworld["installed_tree_sha256"])
     expected_data = str(appworld["data_tree_sha256"])
-    if _distribution_tree_sha256("appworld") != expected_installed:
+    if _verified_appworld_tree_sha256() != expected_installed:
         raise RuntimeError("AppWorld installed-tree digest mismatch")
     if _tree_sha(APPWORLD_ROOT / "data") != expected_data:
         raise RuntimeError("AppWorld data-tree digest mismatch")
@@ -127,9 +129,9 @@ def handshake() -> JsonObject:
         "worker_entrypoint_sha256": _file_sha(
             Path("/opt/localbench/bin/localbench-worker")
         ),
-        "worker_wheel_tree_sha256": _tree_sha(_localbench_dist_info()),
+        "worker_wheel_tree_sha256": _localbench_record_tree_sha256(),
         "bubblewrap_sha256": _file_sha(Path("/usr/bin/bwrap")),
-        "appworld_installed_tree_sha256": _distribution_tree_sha256("appworld"),
+        "appworld_installed_tree_sha256": _verified_appworld_tree_sha256(),
         "appworld_data_tree_sha256": _tree_sha(APPWORLD_ROOT / "data"),
         "wsl_conf_sha256": _file_sha(Path("/etc/wsl.conf")),
     }
@@ -173,50 +175,66 @@ def run_canaries() -> None:
         )
         if mount.returncode == 0:
             raise RuntimeError("DrvFs negative canary failed")
-    code = (
-        "import socket,sys; s=socket.socket()"
-        "\ntry:s.connect(('1.1.1.1',53))"
-        "\nexcept OSError:print('LOCALBENCH_NETWORK_BLOCKED')"
-        "\nelse:sys.exit(91)"
-    )
-    bwrap_base = [
-        "bwrap",
-        "--unshare-user",
-        "--unshare-pid",
-        "--unshare-net",
-        "--ro-bind",
-        "/usr",
-        "/usr",
-        "--ro-bind",
-        "/lib",
-        "/lib",
-        "--proc",
-        "/proc",
-        "--dev",
-        "/dev",
-        "--dir",
-        "/tmp",
-    ]
-    if Path("/lib64").exists():
-        bwrap_base.extend(["--ro-bind", "/lib64", "/lib64"])
-    network = subprocess.run(
-        [*bwrap_base, "/usr/bin/python3", "-c", code],
-        capture_output=True,
-    )
-    if (
-        network.returncode != 0
-        or network.stdout.strip() != b"LOCALBENCH_NETWORK_BLOCKED"
-    ):
-        raise RuntimeError("generated-code network negative canary failed")
-    ground_truth = subprocess.run(
-        [*bwrap_base, "/usr/bin/test", "!", "-e", str(APPWORLD_ROOT)],
-        capture_output=True,
-    )
-    if ground_truth.returncode != 0:
-        raise RuntimeError("ground-truth path negative canary failed")
-    if _has_listening_socket():
+    listening_before = _listening_sockets()
+    _run_real_ndjson_canary()
+    if not _listening_sockets().issubset(listening_before):
         raise RuntimeError("listening-socket negative canary failed")
     handshake()
+
+
+def _run_real_ndjson_canary() -> None:
+    """Exercise production framing, worker session, AppWorldSandbox, and generated code."""
+    from localbench.scoring.agentic_exec.execution_contract import contract_task_ids
+    from localbench.scoring.agentic_exec.wsl_worker import WorkerSession
+
+    env = _clean_env()
+    env["APPWORLD_ROOT"] = str(APPWORLD_ROOT)
+    process = subprocess.Popen(
+        [str(VENV / "bin/python"), "-m", "localbench.scoring.agentic_exec.wsl_worker"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+    assert process.stdin is not None and process.stdout is not None
+    requests = [
+        {"op": "hello"},
+        {"op": "open_task", "task_id": contract_task_ids()[0]},
+        {"op": "run_block", "code": "print('generated-code-ok')"},
+        {"op": "run_block", "code": "import socket\nsocket.create_connection(('1.1.1.1',53),0.2)\nprint('NETWORK-ESCAPE')"},
+        {"op": "run_block", "code": f"print(open({str(APPWORLD_ROOT / 'data')!r}).read(1))"},
+        {"op": "close"},
+    ]
+    replies = []
+    for request in requests:
+        process.stdin.write(json.dumps(request, separators=(",", ":")).encode() + b"\n")
+        process.stdin.flush()
+        line = process.stdout.readline()
+        if not line:
+            stderr = process.communicate(timeout=30)[1]
+            raise RuntimeError(
+                "NDJSON worker exited before canary response: "
+                + stderr.decode(errors="replace")[-1000:]
+            )
+        replies.append(json.loads(line))
+    stderr = process.communicate(timeout=30)[1]
+    if process.returncode != 0 or any(reply.get("kind") != "ok" for reply in replies):
+        raise RuntimeError(f"NDJSON worker canary failed: {stderr.decode(errors='replace')[-1000:]}")
+    generated, network, ground_truth = replies[2:5]
+    if str(generated.get("stdout")) != "generated-code-ok\n" or generated.get("error") is not None:
+        raise RuntimeError("production generated-code canary failed")
+    if network.get("error") is None or "NETWORK-ESCAPE" in str(network.get("stdout")):
+        raise RuntimeError("production generated-code network canary failed")
+    if ground_truth.get("error") is None or ground_truth.get("stdout"):
+        raise RuntimeError("production ground-truth path canary failed")
+    direct = WorkerSession()
+    try:
+        direct.open_task(contract_task_ids()[0])
+        direct_replies = [direct.run_block(str(item["code"])) for item in requests[2:5]]
+    finally:
+        direct.close()
+    if direct_replies != replies[2:5]:
+        raise RuntimeError("direct-session versus NDJSON packaging differential failed")
 
 
 def _download(url: str, path: Path, expected_sha: str, maximum: int) -> None:
@@ -314,6 +332,41 @@ def _localbench_dist_info() -> Path:
     raise RuntimeError("localbench dist-info missing")
 
 
+def _localbench_record_tree_sha256() -> str:
+    """Verify every installed wheel file against RECORD and hash the full set."""
+    import importlib.metadata
+
+    dist = importlib.metadata.distribution("local-bench-ai")
+    files = list(dist.files or ())
+    record_item = next(
+        (item for item in files if item.parts and item.parts[-1] == "RECORD"), None
+    )
+    if record_item is None:
+        raise RuntimeError("localbench RECORD missing")
+    record = Path(dist.locate_file(record_item))
+    entries: list[list[object]] = []
+    with record.open(newline="", encoding="utf-8") as stream:
+        for relative, recorded_hash, recorded_size in csv.reader(stream):
+            normalized = relative.replace("\\", "/")
+            if normalized.endswith((".pyc", ".pyo")) or "/__pycache__/" in normalized:
+                continue
+            path = Path(dist.locate_file(relative))
+            if not path.is_file():
+                raise RuntimeError(f"localbench installed file missing: {relative}")
+            digest = hashlib.sha256(path.read_bytes()).digest()
+            size = path.stat().st_size
+            if recorded_hash:
+                algorithm, encoded = recorded_hash.split("=", 1)
+                expected = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+                if algorithm != "sha256" or digest != expected:
+                    raise RuntimeError(f"localbench RECORD hash mismatch: {relative}")
+            if recorded_size and size != int(recorded_size):
+                raise RuntimeError(f"localbench RECORD size mismatch: {relative}")
+            entries.append([normalized, digest.hex(), size])
+    entries.sort()
+    return hashlib.sha256(canonical_json_bytes(entries)).hexdigest()
+
+
 def _owner_marker() -> JsonObject:
     return _object(
         json.loads(
@@ -326,12 +379,14 @@ def _name(flag: str) -> str:
     return subprocess.check_output(["id", flag], text=True).strip()
 
 
-def _has_listening_socket() -> bool:
+def _listening_sockets() -> frozenset[tuple[str, str]]:
+    sockets: set[tuple[str, str]] = set()
     for filename in ("/proc/net/tcp", "/proc/net/tcp6"):
         for line in Path(filename).read_text(encoding="ascii").splitlines()[1:]:
-            if line.split()[3] == "0A":
-                return True
-    return False
+            fields = line.split()
+            if fields[3] == "0A":
+                sockets.add((fields[1], fields[7]))
+    return frozenset(sockets)
 
 
 def _can_set_root() -> bool:

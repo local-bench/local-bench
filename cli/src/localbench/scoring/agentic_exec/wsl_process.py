@@ -27,13 +27,11 @@ class WslWorkerConfig:
 def worker_argv(config: WslWorkerConfig) -> tuple[str, ...]:
     if config.worker_argv is not None:
         return config.worker_argv
-    command = " && ".join(
-        [
-            f"export APPWORLD_ROOT={shlex.quote(config.appworld_root)}",
-            "export PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8",
-            'export PATH="$HOME/.local/bin:$PATH"',
-            f"{quote_wsl_executable(config.venv_python)} -m localbench.scoring.agentic_exec.wsl_worker",
-        ],
+    command = (
+        "/usr/bin/env -i "
+        f"HOME=\"$HOME\" APPWORLD_ROOT={shlex.quote(config.appworld_root)} "
+        "PYTHONHASHSEED=0 TZ=UTC LC_ALL=C.UTF-8 PATH=\"$HOME/.local/bin:/usr/bin:/bin\" "
+        f"{quote_wsl_executable(config.venv_python)} -m localbench.scoring.agentic_exec.wsl_worker"
     )
     return ("wsl.exe", "bash", "-lc", command)
 
@@ -45,15 +43,12 @@ def quote_wsl_executable(path: str) -> str:
 
 
 def worker_env(config: WslWorkerConfig) -> dict[str, str]:
-    env = dict(os.environ)
-    env.update(
-        {
-            "APPWORLD_ROOT": config.appworld_root,
-            "PYTHONHASHSEED": "0",
-            "TZ": "UTC",
-            "LC_ALL": "C.UTF-8",
-        },
-    )
+    env = {
+        key: os.environ[key]
+        for key in ("SYSTEMROOT", "WINDIR", "PATH", "PATHEXT", "COMSPEC", "TEMP", "TMP")
+        if key in os.environ
+    }
+    env.update({"APPWORLD_ROOT": config.appworld_root, "PYTHONHASHSEED": "0", "TZ": "UTC", "LC_ALL": "C.UTF-8"})
     if config.worker_env is not None:
         env.update(dict(config.worker_env))
     return env

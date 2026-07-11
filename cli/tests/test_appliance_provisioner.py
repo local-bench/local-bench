@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+import base64
 import json
 import lzma
 from pathlib import Path
+import threading
 
 import pytest
 
+import localbench.appliance.provisioner as provisioner_module
 from localbench.appliance.manifest import PINNED_RUNTIME_ID, REQUIRED_CRITICAL_HASHES
 from localbench.appliance.provisioner import (
     ApplianceProvisioner,
@@ -16,6 +19,7 @@ from localbench.appliance.provisioner import (
     WSL_CONF,
     _decode,
     _parse_wsl_version,
+    _parse_wsl_verbose,
     validate_storage_root,
 )
 
@@ -32,7 +36,7 @@ def manifest(archive: bytes) -> dict[str, object]:
             "size_bytes": len(archive),
             "uncompressed_size_bytes": len(lzma.decompress(archive)),
         },
-        "disk_requirements": {"peak_free_bytes": 1},
+        "disk_requirements": {"peak_free_bytes": 3, "steady_free_bytes": 1, "download_bytes": 1, "import_bytes": 1, "provision_growth_bytes": 1},
         "appworld": {},
         "worker": {"protocol_version": "localbench.agentic-worker.v1"},
         "task_identity": {
@@ -68,9 +72,16 @@ def test_state_machine_order_is_normative() -> None:
 
 
 def test_wsl_version_parser_uses_probed_verbatim_label_and_utf16() -> None:
-    text = "WSL version: 2.6.3.0\r\nKernel version: 6.6.87.2-1\r\n"
+    fixture = json.loads((Path(__file__).parent / "fixtures" / "wsl-2.6.3.0-win26200-raw.json").read_text(encoding="utf-8"))
+    by_args = {tuple(item["arguments"]): item for item in fixture["commands"]}
+    version_raw = base64.b64decode(by_args[("--version",)]["stdout_base64"])
+    text = _decode(version_raw)
     assert _parse_wsl_version(text) == (2, 6, 3, 0)
-    assert _decode(text.encode("utf-16-le")).startswith("WSL version:")
+    assert _decode(version_raw).startswith("WSL version:")
+    verbose = _decode(base64.b64decode(by_args[("--list", "--verbose")]["stdout_base64"]))
+    assert _parse_wsl_verbose(verbose) == {"Ubuntu": 2}
+    quiet = _decode(base64.b64decode(by_args[("--list", "--quiet")]["stdout_base64"]))
+    assert quiet.splitlines() == ["Ubuntu"]
     with pytest.raises(ProvisioningError, match="wsl_version_unparseable"):
         _parse_wsl_version("invented localized fixture")
 
@@ -176,8 +187,9 @@ def test_active_remove_requires_explicit_confirmation_before_wsl_call(
     runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
     runtime_dir.mkdir(parents=True)
     provisioner._write_state(
-        runtime_dir, PINNED_RUNTIME_ID, "active", distro_name="LocalBench-Agentic-test"
+        runtime_dir, PINNED_RUNTIME_ID, "canary-green", distro_name="LocalBench-Agentic-test"
     )
+    (tmp_path / "active.json").write_text(json.dumps({"runtime_id": PINNED_RUNTIME_ID}), encoding="utf-8")
     with pytest.raises(ProvisioningError) as caught:
         provisioner.remove(PINNED_RUNTIME_ID)
     assert caught.value.code == "active_runtime_confirmation_required"
@@ -362,3 +374,193 @@ def test_import_flow_uses_only_probed_wsl_flags(
         "--version",
         "2",
     ] in calls
+
+
+def test_partial_registration_without_marker_is_journaled_and_never_unregistered(
+    tmp_path: Path,
+) -> None:
+    staging = f"LocalBench-Staging-{PINNED_RUNTIME_ID}"
+    calls: list[list[str]] = []
+    listed = 0
+
+    def runner(argv, timeout=None):
+        nonlocal listed
+        calls.append(list(argv))
+        if argv[1:] == ["--list", "--quiet"]:
+            listed += 1
+            return CommandResult(0, (staging + "\n").encode() if listed > 1 else b"")
+        if "--import" in argv:
+            return CommandResult(1, b"", b"interrupted import")
+        if "/bin/cat" in argv:
+            return CommandResult(1, b"", b"marker unavailable")
+        return CommandResult(0)
+
+    provisioner = ApplianceProvisioner(
+        root=tmp_path, runner=runner, downloader=BytesDownloader(b""), environ={}
+    )
+    tar_path = tmp_path / "rootfs.tar"
+    tar_path.write_bytes(b"tar")
+    with pytest.raises(ProvisioningError) as caught:
+        provisioner._import_hardened(tmp_path, PINNED_RUNTIME_ID, tar_path)
+    assert caught.value.code == "partial_registration_unowned"
+    journal = json.loads(
+        (tmp_path / "partial-registration.json").read_text(encoding="utf-8")
+    )
+    assert journal["distro_name"] == staging
+    assert not any("--unregister" in call for call in calls)
+
+
+def test_wsl_disk_full_is_a_typed_disk_error(tmp_path: Path) -> None:
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=lambda argv, timeout=None: CommandResult(
+            1, b"", b"write failed: No space left on device"
+        ),
+        downloader=BytesDownloader(b""),
+        environ={},
+    )
+    with pytest.raises(ProvisioningError) as caught:
+        provisioner._wsl(["--list", "--quiet"], timeout=1)
+    assert caught.value.code == "disk_space_exhausted"
+
+
+def test_disk_math_checks_peak_and_steady_before_download(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=lambda argv, timeout=None: CommandResult(0),
+        downloader=BytesDownloader(b""),
+        environ={},
+    )
+    monkeypatch.setattr(
+        provisioner_module.shutil,
+        "disk_usage",
+        lambda path: provisioner_module.shutil._ntuple_diskusage(100, 98, 2),
+    )
+    with pytest.raises(ProvisioningError) as caught:
+        provisioner._require_disk(
+            tmp_path,
+            {
+                "peak_free_bytes": 3,
+                "steady_free_bytes": 4,
+                "download_bytes": 1,
+                "import_bytes": 1,
+                "provision_growth_bytes": 1,
+            },
+        )
+    assert caught.value.code == "disk_space_insufficient"
+
+
+def test_ca_bundle_is_copied_and_only_linux_path_reaches_worker(tmp_path: Path) -> None:
+    ca = tmp_path / "corporate-ca.pem"
+    ca.write_bytes(b"test corporate CA bytes")
+    digest = hashlib.sha256(ca.read_bytes()).hexdigest()
+    calls: list[list[str]] = []
+
+    def runner(argv, timeout=None):
+        calls.append(list(argv))
+        if "/usr/bin/sha256sum" in argv:
+            return CommandResult(0, f"{digest}  /opt/localbench/ca/corporate-ca.pem\n".encode())
+        return CommandResult(0)
+
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=runner,
+        downloader=BytesDownloader(b""),
+        environ={"LOCALBENCH_CA_BUNDLE": str(ca)},
+    )
+    provisioner._provision_appworld("LocalBench-Agentic-test", {"appworld": {}})
+    worker_call = next(call for call in calls if "/opt/localbench/bin/provision-appworld" in call)
+    assert "-i" in worker_call
+    assert "SSL_CERT_FILE=/opt/localbench/ca/corporate-ca.pem" in worker_call
+    assert all(str(ca) not in item for item in worker_call)
+
+
+def test_global_inventory_lock_serializes_different_runtime_ids(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entered = 0
+    entered_first = threading.Event()
+    release_first = threading.Event()
+    guard = threading.Lock()
+
+    def preflight(self) -> None:
+        nonlocal entered
+        with guard:
+            entered += 1
+            position = entered
+        if position == 1:
+            entered_first.set()
+            assert release_first.wait(5)
+
+    monkeypatch.setattr(ApplianceProvisioner, "_feature_preflight", preflight)
+    monkeypatch.setattr(
+        ApplianceProvisioner,
+        "_fetch_manifest",
+        lambda self: {"runtime_id": "test", "rootfs": {"sha256": SHA}},
+    )
+    monkeypatch.setattr(ApplianceProvisioner, "_resume", lambda self, *args: {"ok": True})
+    provisioners = [
+        ApplianceProvisioner(
+            root=tmp_path,
+            runner=lambda argv, timeout=None: CommandResult(0),
+            downloader=BytesDownloader(b""),
+            environ={},
+        )
+        for _ in range(2)
+    ]
+    errors: list[BaseException] = []
+
+    def invoke(index: int, runtime_id: str) -> None:
+        try:
+            provisioners[index].ensure_active(runtime_id)
+        except BaseException as error:  # pragma: no cover - surfaced below
+            errors.append(error)
+
+    first = threading.Thread(target=invoke, args=(0, "runtime-a"))
+    second = threading.Thread(target=invoke, args=(1, "runtime-b"))
+    first.start()
+    assert entered_first.wait(5)
+    second.start()
+    second.join(0.1)
+    assert second.is_alive()
+    assert entered == 1
+    release_first.set()
+    first.join(5)
+    second.join(5)
+    assert not errors
+    assert entered == 2
+
+
+def test_active_state_recovers_pointer_flip_interruption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=lambda argv, timeout=None: CommandResult(0),
+        downloader=BytesDownloader(b""),
+        environ={},
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    provisioner._write_state(
+        runtime_dir,
+        PINNED_RUNTIME_ID,
+        "active",
+        distro_name="LocalBench-Agentic-recovered",
+    )
+    (tmp_path / "active.json").write_text(
+        json.dumps({"runtime_id": "previous-runtime"}), encoding="utf-8"
+    )
+    monkeypatch.setattr(provisioner, "_feature_preflight", lambda: None)
+    monkeypatch.setattr(
+        provisioner,
+        "_fetch_manifest",
+        lambda: {"runtime_id": PINNED_RUNTIME_ID, "rootfs": {"sha256": SHA}},
+    )
+    monkeypatch.setattr(provisioner, "_handshake", lambda *args: {"healthy": True})
+    assert provisioner.ensure_active() == {"healthy": True}
+    pointer = json.loads((tmp_path / "active.json").read_text(encoding="utf-8"))
+    assert pointer["runtime_id"] == PINNED_RUNTIME_ID
+    assert pointer["distro_name"] == "LocalBench-Agentic-recovered"

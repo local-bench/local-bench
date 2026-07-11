@@ -7,8 +7,8 @@ inside the user's managed VHD.
 
 ## Build
 
-Set `LOCALBENCH_RUNTIME_ROOT_SIGNING_KEY` to the offline Ed25519 runtime-root PEM path. Private key
-material is never accepted in a build config or written to the repository. Then run:
+The networked build never receives a signing key. Private key material is never accepted in a
+build config or written to the repository. Run the build first:
 
 ```powershell
 cd cli
@@ -17,22 +17,41 @@ uv run python tools/build_agentic_runtime.py `
   --out build/runtime-release
 ```
 
+It emits `manifest.unsigned.json` and `signing-request.json`. Transfer only the signing request
+to an offline-capable machine, then run `tools/sign_runtime_release.py --request ...
+--signing-key ... --out signature.json`. Return only `signature.json` and combine it with the
+unsigned payload using `tools/assemble_runtime_release.py`. No HSM exists for this release and
+the process does not claim hardware-backed key storage. Mutable rotation, cumulative revocation,
+and runtime kill-switch state use the separately domain-signed trust document produced by
+`tools/sign_runtime_trust.py`.
+
 The config is release input and must pin the Ubuntu base hash, snapshot apt-index hash, exact apt
 versions, worker wheel hash, hash-required dependency lock and wheelhouse, official AppWorld wheel
 and encrypted-data hashes, expected installed/data tree hashes, measured peak/steady disk bytes,
 and publication URLs. `cli/runtime/runtime-build-v1.schema.json` defines the required release
-input; a path-bearing maintainer config is deliberately not committed. The builder runs twice
+input. A path-independent public input lock and the complete build evidence are committed below
+`cli/runtime/release-evidence/<runtime-id>/`; path-bearing local build configuration is not. The builder runs twice
 inside the named existing WSL distribution and rejects
 anything except byte-identical `tar.xz` output. GNU tar 1.35 metadata and xz 5.4.5 flags are fixed in
-`tools/runtime_rootfs_build.sh`. It emits the signed canonical manifest, SPDX inventory, provenance
-statement, and runs the protected-content path scan before signing.
+`tools/runtime_rootfs_build.sh`. It emits an unsigned canonical manifest, complete CycloneDX 1.5
+inventory, provenance statement, and a recursive protected-content scan before offline signing.
+
+The rootfs worker wheel is built before the rootfs and retains no client trust decision. After the
+accepted manifest is assembled, its exact raw-byte SHA-256 is embedded in the final Windows client
+wheel. This ordering avoids a circular rootfs/manifest hash while preventing a fresh client from
+accepting a retargeted initial manifest.
+
+The legacy `agentic-execution-contract-v1` remains authoritative for existing board rows and the
+already-running wave-1 bench. The appliance uses the separately signed
+`agentic-execution-contract-aw013p1-pypi28113a7a-v2`, anchored to the current official PyPI wheel.
+This is an owner-authorized successor identity, not a bridge or rewrite of legacy evidence.
 
 ## WSL command ground truth
 
-The 2026-07-11 maintainer probe recorded Windows build 26200 and Store WSL 2.6.3.0. The binary's
-own help exposed every flag used by the provisioner: `--version`, `--import ... --version 2`,
-`--list --verbose`, `--list --quiet`, `--distribution`, `--user`, `--exec`, `--terminate`, and
-`--unregister`. The encoded support floor is conservative: Windows 11 build 22000 and Store WSL
+The 2026-07-11 maintainer probe recorded Windows build 26200 and Store WSL 2.6.3.0. Raw byte
+fixtures cover every parsed command (`--version`, `--list --verbose`, and `--list --quiet`);
+the real staging rehearsal records the import, distribution/user/exec, terminate, and unregister
+commands. The encoded support floor is conservative: Windows 11 build 22000 and Store WSL
 2.6.3.0, followed by runtime feature probes rather than version trust alone.
 
 Microsoft documents `wsl --import <name> <location> <tar> --version 2`, `wsl --list --verbose`,

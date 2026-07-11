@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import errno
 import hashlib
 import json
 import lzma
@@ -28,8 +29,15 @@ from localbench.appliance.manifest import (
     MAX_MANIFEST_BYTES,
     PINNED_RUNTIME_ID,
     REQUIRED_CRITICAL_HASHES,
+    RUNTIME_PUBLIC_KEYS,
     RuntimeManifestError,
     verify_manifest_bytes,
+)
+from localbench.appliance.trust import (
+    MAX_TRUST_BYTES,
+    TRUST_URL,
+    TrustMetadataError,
+    admit_trust_metadata,
 )
 from localbench.persistence import atomic_write_bytes, atomic_write_json
 from localbench.submissions.canon import canonical_json_hash
@@ -89,6 +97,8 @@ class CommandRunner(Protocol):
 class Downloader(Protocol):
     def get(self, url: str, *, maximum_bytes: int) -> bytes: ...
 
+    def download_to(self, url: str, path: Path, *, exact_bytes: int) -> None: ...
+
 
 class HttpDownloader:
     def __init__(self, *, ca_bundle: Path | None = None) -> None:
@@ -127,6 +137,32 @@ class HttpDownloader:
                 "Check HTTPS_PROXY/NO_PROXY or pass --ca-bundle for your corporate CA",
             ) from error
 
+    def download_to(self, url: str, path: Path, *, exact_bytes: int) -> None:
+        temporary = path.with_suffix(path.suffix + ".partial")
+        total = 0
+        try:
+            with self._client.stream("GET", url) as response, temporary.open("wb") as output:
+                response.raise_for_status()
+                declared = response.headers.get("content-length")
+                if declared is not None and int(declared) != exact_bytes:
+                    raise ProvisioningError("download_size_invalid", declared, "Check the signed release manifest")
+                for chunk in response.iter_bytes():
+                    total += len(chunk)
+                    if total > exact_bytes:
+                        raise ProvisioningError("download_too_large", str(total), "Check the signed release manifest")
+                    output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            if total != exact_bytes:
+                raise ProvisioningError("download_size_invalid", str(total), "Discard the partial download and retry")
+            _replace_retry(temporary, path)
+        except OSError as error:
+            if error.errno == errno.ENOSPC:
+                raise _disk_error(error) from error
+            raise ProvisioningError("download_failed", str(error), "Check disk space, proxy, or CA settings") from error
+        finally:
+            temporary.unlink(missing_ok=True)
+
 
 def subprocess_runner(
     argv: Sequence[str], *, timeout: float | None = None
@@ -158,15 +194,28 @@ class ApplianceProvisioner:
         _validate_runtime_id(runtime_id)
         validate_storage_root(self.root, self.environ)
         runtime_dir = self.root / "WSL" / runtime_id
-        runtime_dir.mkdir(parents=True, exist_ok=True)
-        with runtime_lock(runtime_dir / "provision.lock"):
-            self._feature_preflight()
-            state = self._read_state(runtime_dir, runtime_id)
-            manifest = self._fetch_manifest()
-            self._bind_manifest(runtime_dir, manifest)
-            if state.get("state") == "active":
-                return self._handshake(runtime_dir, state, manifest)
-            return self._resume(runtime_dir, state, manifest)
+        with runtime_lock(self.root / "inventory.lock"):
+            with runtime_lock(self.root / "locks" / f"{runtime_id}.lock"):
+                runtime_dir.mkdir(parents=True, exist_ok=True)
+                self._feature_preflight()
+                state = self._read_state(runtime_dir, runtime_id)
+                manifest = self._fetch_manifest()
+                self._bind_manifest(runtime_dir, manifest)
+                if state.get("state") == "active":
+                    result = self._handshake(runtime_dir, state, manifest)
+                    active = self._read_json(self.root / "active.json")
+                    if active is None or active.get("runtime_id") != runtime_id:
+                        atomic_write_json(
+                            {
+                                "schema": "localbench.appliance_active.v1",
+                                "runtime_id": runtime_id,
+                                "distro_name": state.get("distro_name"),
+                                "activated_at": _now(),
+                            },
+                            self.root / "active.json",
+                        )
+                    return result
+                return self._resume(runtime_dir, state, manifest)
 
     def list_runtimes(self) -> list[JsonObject]:
         base = self.root / "WSL"
@@ -174,6 +223,8 @@ class ApplianceProvisioner:
             return []
         result: list[JsonObject] = []
         for path in sorted(base.iterdir()):
+            if path.name.startswith("."):
+                continue
             state = self._read_json(path / "state.json")
             if state is not None:
                 result.append(state)
@@ -184,11 +235,15 @@ class ApplianceProvisioner:
         runtime_dir = self.root / "WSL" / runtime_id
         if not (runtime_dir / "state.json").exists():
             return
-        with runtime_lock(runtime_dir / "provision.lock"):
+        tombstone: Path | None = None
+        with runtime_lock(self.root / "inventory.lock"), runtime_lock(self.root / "locks" / f"{runtime_id}.lock"):
             state = self._read_json(runtime_dir / "state.json")
             if state is None:
                 return
-            if state.get("state") == "active" and not confirm_active:
+            pointer = self.root / "active.json"
+            active = self._read_json(pointer)
+            is_active = active is not None and active.get("runtime_id") == runtime_id
+            if is_active and not confirm_active:
                 raise ProvisioningError(
                     "active_runtime_confirmation_required",
                     runtime_id,
@@ -198,11 +253,12 @@ class ApplianceProvisioner:
             if isinstance(distro, str) and distro in self._distro_names():
                 self._assert_owned(distro, runtime_id)
                 self._wsl(["--unregister", distro], timeout=300)
-            pointer = self.root / "active.json"
-            active = self._read_json(pointer)
-            if active is not None and active.get("runtime_id") == runtime_id:
+            if is_active:
                 pointer.unlink(missing_ok=True)
-        shutil.rmtree(runtime_dir, ignore_errors=False)
+            tombstone = runtime_dir.with_name(f".{runtime_id}.removed-{os.getpid()}-{time.time_ns()}")
+            os.replace(runtime_dir, tombstone)
+        if tombstone is not None:
+            shutil.rmtree(tombstone, ignore_errors=False)
 
     def prune(self, *, pinned_runtime_id: str = PINNED_RUNTIME_ID) -> list[str]:
         active = self._read_json(self.root / "active.json") or {}
@@ -239,11 +295,17 @@ class ApplianceProvisioner:
         tar_path = runtime_dir / f"localbench-agentic-runtime-{runtime_id}.tar"
         current = str(state.get("state", "absent"))
         if current in {"absent", "downloading"}:
+            self._require_disk(runtime_dir, _object(manifest["disk_requirements"]))
             self._write_state(runtime_dir, runtime_id, "downloading")
-            body = self.downloader.get(
-                str(rootfs["url"]), maximum_bytes=int(rootfs["size_bytes"])
-            )
-            _atomic_bytes(archive, body)
+            if hasattr(self.downloader, "download_to"):
+                self.downloader.download_to(
+                    str(rootfs["url"]), archive, exact_bytes=int(rootfs["size_bytes"])
+                )
+            else:  # Compatibility for injected test downloaders.
+                body = self.downloader.get(str(rootfs["url"]), maximum_bytes=int(rootfs["size_bytes"]))
+                if len(body) != int(rootfs["size_bytes"]):
+                    raise ProvisioningError("download_size_invalid", str(len(body)), "Use the signed artifact")
+                _atomic_bytes(archive, body)
             current = "downloading"
         if current == "downloading":
             _assert_file_hash(archive, str(rootfs["sha256"]), "rootfs")
@@ -272,6 +334,7 @@ class ApplianceProvisioner:
         if current == "canary-green":
             self._wsl(["--terminate", distro], timeout=60)
             self._prove_hardening(distro)
+            self._run_canaries(distro)
             result = self._handshake(
                 runtime_dir, self._read_state(runtime_dir, runtime_id), manifest
             )
@@ -281,17 +344,27 @@ class ApplianceProvisioner:
                 "distro_name": distro,
                 "activated_at": _now(),
             }
-            atomic_write_json(active, self.root / "active.json")
             self._write_state(runtime_dir, runtime_id, "active", distro_name=distro)
+            atomic_write_json(active, self.root / "active.json")
             return result
         return self._handshake(
             runtime_dir, self._read_state(runtime_dir, runtime_id), manifest
         )
 
     def _fetch_manifest(self) -> JsonObject:
+        trust_state: JsonObject | None = None
+        try:
+            trust_raw = self.downloader.get(TRUST_URL, maximum_bytes=MAX_TRUST_BYTES)
+            trust_state = admit_trust_metadata(
+                trust_raw,
+                embedded_roots=dict(RUNTIME_PUBLIC_KEYS),
+                state_path=self.root / "trust-state.json",
+            )
+        except TrustMetadataError as error:
+            raise ProvisioningError("trust_metadata_invalid", str(error), "Retry with an untampered current trust document") from error
         raw = self.downloader.get(MANIFEST_URL, maximum_bytes=MAX_MANIFEST_BYTES)
         try:
-            return verify_manifest_bytes(raw)
+            return verify_manifest_bytes(raw, trust_state=trust_state)
         except RuntimeManifestError as error:
             raise ProvisioningError(
                 error.code, error.detail, "Install an untampered current CLI release"
@@ -357,7 +430,7 @@ class ApplianceProvisioner:
             code = (
                 "virtualization_disabled"
                 if "0x80370102" in detail
-                else "wsl_policy_or_reboot_required"
+                else "wsl_unavailable_unclassified"
             )
             raise ProvisioningError(
                 code,
@@ -382,10 +455,23 @@ class ApplianceProvisioner:
             self._wsl(["--unregister", staging], timeout=300)
         staging_dir = runtime_dir / "staging-import"
         staging_dir.mkdir(exist_ok=True)
-        self._wsl(
-            ["--import", staging, str(staging_dir), str(tar_path), "--version", "2"],
-            timeout=900,
-        )
+        try:
+            self._wsl(
+                ["--import", staging, str(staging_dir), str(tar_path), "--version", "2"],
+                timeout=900,
+            )
+        except ProvisioningError:
+            if staging in self._distro_names():
+                try:
+                    self._assert_owned(staging, runtime_id)
+                except ProvisioningError as marker_error:
+                    atomic_write_json(
+                        {"schema": "localbench.partial_registration.v1", "distro_name": staging, "runtime_id": runtime_id, "recovery": "retry marker proof; never unregister without it"},
+                        runtime_dir / "partial-registration.json",
+                    )
+                    raise ProvisioningError("partial_registration_unowned", staging, "Retry setup; if the marker remains unreadable, inspect the named LocalBench staging distro without unregistering it") from marker_error
+                self._wsl(["--unregister", staging], timeout=300)
+            raise
         self._assert_owned(staging, runtime_id)
         self._prove_wsl2(staging)
         self._install_wsl_conf(staging)
@@ -458,11 +544,25 @@ class ApplianceProvisioner:
 
     def _provision_appworld(self, distro: str, manifest: JsonObject) -> None:
         env = _download_environment(self.environ)
+        ca = self.environ.get("LOCALBENCH_CA_BUNDLE")
+        if ca:
+            source = Path(ca).expanduser()
+            data = source.read_bytes()
+            digest = hashlib.sha256(data).hexdigest()
+            import base64
+            encoded = base64.b64encode(data).decode("ascii")
+            linux_ca = "/opt/localbench/ca/corporate-ca.pem"
+            self._exec(distro, ["/bin/sh", "-c", f"umask 077; mkdir -p /opt/localbench/ca; printf %s {encoded} | base64 -d > {linux_ca}; chown root:root {linux_ca}; chmod 0644 {linux_ca}"], user="root")
+            observed = self._exec(distro, ["/usr/bin/sha256sum", linux_ca])
+            if observed.returncode != 0 or _decode(observed.stdout).split()[0] != digest:
+                raise ProvisioningError("ca_copy_hash_mismatch", str(source), "Retry setup with an intact CA bundle")
+            env["SSL_CERT_FILE"] = linux_ca
         document = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
         result = self._exec(
             distro,
             [
                 "/usr/bin/env",
+                "-i",
                 *[f"{key}={value}" for key, value in env.items()],
                 "/opt/localbench/bin/provision-appworld",
                 document,
@@ -479,7 +579,7 @@ class ApplianceProvisioner:
     def _run_canaries(self, distro: str) -> None:
         result = self._exec(
             distro,
-            ["/opt/localbench/bin/localbench-worker", "canary", "--full"],
+            ["/usr/bin/env", "-i", "HOME=/home/lbworker", "APPWORLD_ROOT=/home/lbworker/appworld", "PATH=/opt/localbench/venv/bin:/usr/bin:/bin", "PYTHONHASHSEED=0", "TZ=UTC", "LC_ALL=C.UTF-8", "/opt/localbench/bin/localbench-worker", "canary", "--full"],
             timeout=600,
         )
         if result.returncode != 0:
@@ -501,7 +601,7 @@ class ApplianceProvisioner:
             manifest = self._fetch_manifest()
         result = self._exec(
             distro,
-            ["/opt/localbench/bin/localbench-worker", "handshake", "--json"],
+            ["/usr/bin/env", "-i", "HOME=/home/lbworker", "PATH=/opt/localbench/venv/bin:/usr/bin:/bin", "PYTHONHASHSEED=0", "TZ=UTC", "LC_ALL=C.UTF-8", "/opt/localbench/bin/localbench-worker", "handshake", "--json"],
             timeout=180,
         )
         try:
@@ -579,12 +679,7 @@ class ApplianceProvisioner:
 
     def _prove_wsl2(self, distro: str) -> None:
         text = _decode(self._wsl(["--list", "--verbose"], timeout=30).stdout)
-        matched = any(
-            line.strip().removeprefix("* ").split()[0] == distro
-            and line.strip().split()[-1] == "2"
-            for line in text.splitlines()
-            if line.strip() and line.strip().split()
-        )
+        matched = _parse_wsl_verbose(text).get(distro) == 2
         if not matched:
             raise ProvisioningError("wsl2_proof_failed", distro, "Update WSL and retry")
 
@@ -619,6 +714,8 @@ class ApplianceProvisioner:
             ) from error
         if check and result.returncode != 0:
             detail = _decode(result.stderr or result.stdout).strip()
+            if _looks_disk_full(detail):
+                raise ProvisioningError("disk_space_exhausted", detail, "Free disk space and retry; no ready state was created")
             code = (
                 "virtualization_disabled"
                 if "0x80370102" in detail
@@ -628,12 +725,18 @@ class ApplianceProvisioner:
         return result
 
     def _require_disk(self, runtime_dir: Path, requirements: JsonObject) -> None:
-        required = requirements.get("peak_free_bytes")
-        if not isinstance(required, int) or required <= 0:
+        peak = requirements.get("peak_free_bytes")
+        steady = requirements.get("steady_free_bytes")
+        parts = [requirements.get(name) for name in ("download_bytes", "import_bytes", "provision_growth_bytes")]
+        if not isinstance(peak, int) or peak <= 0 or not isinstance(steady, int) or steady <= 0 or any(not isinstance(item, int) or item <= 0 for item in parts):
             raise ProvisioningError(
-                "manifest_invalid", "peak_free_bytes", "Use a valid manifest"
+                "manifest_invalid", "disk requirement fields", "Use a valid manifest"
             )
         free = shutil.disk_usage(runtime_dir).free
+        calculated_peak = sum(int(item) for item in parts)
+        if peak < calculated_peak:
+            raise ProvisioningError("manifest_invalid", "peak disk math understates components", "Use a valid manifest")
+        required = max(peak, steady)
         if free < required:
             raise ProvisioningError(
                 "disk_space_insufficient",
@@ -783,6 +886,16 @@ def _parse_wsl_version(text: str) -> tuple[int, int, int, int]:
     return tuple(int(item) for item in match.groups())  # type: ignore[return-value]
 
 
+def _parse_wsl_verbose(text: str) -> dict[str, int]:
+    rows: dict[str, int] = {}
+    for line in text.splitlines():
+        stripped = line.strip().removeprefix("* ").strip()
+        match = re.fullmatch(r"(.+?)\s{2,}.+?\s{2,}(\d+)", stripped)
+        if match:
+            rows[match.group(1).strip()] = int(match.group(2))
+    return rows
+
+
 def _decode(value: bytes) -> str:
     encoding = "utf-16-le" if b"\x00" in value[:8] else "utf-8"
     return value.decode(encoding, errors="replace").lstrip("\ufeff")
@@ -819,6 +932,10 @@ def _decompress_xz(source: Path, destination: Path, expected_size: int) -> None:
                 "archive_size_invalid", str(total), "Discard and retry"
             )
         _replace_retry(temporary, destination)
+    except OSError as error:
+        if error.errno == errno.ENOSPC:
+            raise _disk_error(error) from error
+        raise
     finally:
         temporary.unlink(missing_ok=True)
 
@@ -901,6 +1018,15 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
 
 def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _looks_disk_full(detail: str) -> bool:
+    lowered = detail.lower()
+    return any(value in lowered for value in ("no space left on device", "disk full", "0x80070070", "wsl_e_disk_full"))
+
+
+def _disk_error(error: OSError) -> ProvisioningError:
+    return ProvisioningError("disk_space_exhausted", str(error), "Free disk space and retry; no ready state was created")
 
 
 __all__ = [

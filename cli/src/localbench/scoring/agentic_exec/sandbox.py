@@ -238,14 +238,15 @@ class AppWorldSandbox:
 
     def _start_env_host(self, appworld_root: str) -> None:
         """Spawn the trusted env host in the appworld venv WITH APPWORLD_ROOT."""
-        env = dict(os.environ)
-        env["APPWORLD_ROOT"] = appworld_root
-        env.setdefault("PYTHONHASHSEED", "0")
-        env.setdefault("TZ", "UTC")
-        env.setdefault("LC_ALL", "C.UTF-8")
-        # Ensure the env host can import localbench: run with the repo src on PYTHONPATH.
-        env["PYTHONPATH"] = _repo_src_path() + os.pathsep + env.get("PYTHONPATH", "")
         host_python = resolve_host_python(self.config.host_python_exe)
+        env = {
+            "APPWORLD_ROOT": appworld_root,
+            "HOME": os.environ.get("HOME", str(Path.home())),
+            "PATH": os.path.dirname(host_python) + os.pathsep + "/usr/bin:/bin",
+            "PYTHONHASHSEED": "0",
+            "TZ": "UTC",
+            "LC_ALL": "C.UTF-8",
+        }
         argv = [
             host_python,
             "-m",
