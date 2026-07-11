@@ -72,7 +72,9 @@ def main() -> int:
         if server.returncode != 0:
             raise RuntimeError("Worker compatibility server failed")
     if args.mutate_admission:
-        return 1 if failures > 0 else 0
+        # The negative gate succeeds only by returning non-zero when BOTH N and N-1
+        # independently reject the mutated Worker admission contract.
+        return 1 if failures == len(wheels) and len(wheels) == 2 else 0
     return 0 if failures == 0 else 1
 
 
