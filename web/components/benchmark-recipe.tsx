@@ -141,7 +141,7 @@ function OneCommandLead({
       <RequirementsLine />
       {localOnly ? (
         <p className="font-mono text-[11px] leading-5 text-bench-warn">
-          Raw Hugging Face repos run local-only in localbench 0.3.1. The managed path below is publishable when you
+          Raw Hugging Face repos run local-only in localbench 0.3.2. The managed path below is publishable when you
           can provide the model file and identity metadata.
         </p>
       ) : (

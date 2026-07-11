@@ -57,7 +57,7 @@ export default function SubmitPage() {
           or pass <code className="font-mono text-bench-text">--llama-server-path</code>.
         </p>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`pip install "local-bench-ai[hf]==0.3.1"`}
+          {`pip install "local-bench-ai[hf]==0.3.2"`}
         </pre>
         <p className="text-sm text-bench-warn">
           The package name is <code className="font-mono text-bench-text">local-bench-ai</code> — plain{" "}

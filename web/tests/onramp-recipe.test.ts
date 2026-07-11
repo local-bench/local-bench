@@ -85,7 +85,7 @@ describe("buildRecipe", () => {
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
     expect(recipe.model).toBe(selected);
     expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]==0.3.1"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
+      'pip install "local-bench-ai[hf]==0.3.2"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -275,6 +275,6 @@ describe("buildRecipe", () => {
       reason: "This catalog quant is missing artifact pins, so the one-command flow fails closed.",
     });
     expect(recipe.benchCommand).toContain("localbench run");
-    expect(recipe.setupCommand).toContain('local-bench-ai[hf]==0.3.1');
+    expect(recipe.setupCommand).toContain('local-bench-ai[hf]==0.3.2');
   });
 });

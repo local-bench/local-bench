@@ -66,7 +66,7 @@ describe("SubmitPage", () => {
     expect(html).toContain("local-bench.ai/submission?id=");
     expect(html).toContain("signed bundle");
     expect(html).toContain("Nothing auto-publishes");
-    expect(html).toContain('pip install &quot;local-bench-ai[hf]==0.3.1&quot;');
+    expect(html).toContain('pip install &quot;local-bench-ai[hf]==0.3.2&quot;');
     expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M");
     expect(html).toContain("offers submission at the end");
     expect(html).toContain("Advanced route: bring your own server");
