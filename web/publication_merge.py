@@ -4,7 +4,7 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from publication_export import PublicationExportError, canonical_bytes
 
@@ -21,6 +21,7 @@ def merge_publication_bundle(
     catalog_path: Path,
     board_path: Path,
     surface: str = "production",
+    source_run_paths: Iterable[Path] = (),
 ) -> dict[str, Any]:
     snapshot = _object(json.loads((bundle_dir / "snapshot.json").read_text(encoding="utf-8")), "snapshot")
     rows = _objects(snapshot.get("rows"), "snapshot.rows")
@@ -83,7 +84,11 @@ def merge_publication_bundle(
         "mapper_version": MAPPER_VERSION,
         "projection_object_sha256s": sorted(projections),
         "protected_board_bytes_digest": _digest(board_path.read_bytes()),
+        "protected_input_tree_byte_digests": _file_digest_entries(
+            path for path in out_dir.rglob("*") if path.is_file() and "community" not in path.relative_to(out_dir).parts
+        ),
         "schema_version": SCHEMA_VERSION,
+        "source_run_byte_digests": _file_digest_entries(source_run_paths),
         "snapshot_digest": snapshot.get("snapshot_digest"),
         "snapshot_id": snapshot.get("snapshot_id"),
     }
@@ -92,6 +97,17 @@ def merge_publication_bundle(
     record = {"build_input_manifest": manifest, "build_input_manifest_digest": manifest_digest, "output_tree_digest": output_tree_digest}
     (community_dir / "publication-build.json").write_bytes(canonical_bytes(record))
     return record
+
+
+def _file_digest_entries(paths: Iterable[Path]) -> list[dict[str, str]]:
+    entries: list[dict[str, str]] = []
+    for path in sorted({item.resolve() for item in paths if item.is_file()}, key=lambda item: item.as_posix()):
+        try:
+            label = path.relative_to(Path(__file__).resolve().parents[1]).as_posix()
+        except ValueError:
+            label = path.name
+        entries.append({"path": label, "sha256": _digest(path.read_bytes())})
+    return entries
 
 
 def _surface_enabled(policy: dict[str, Any], row: dict[str, Any], surface: str) -> bool:

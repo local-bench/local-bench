@@ -75,6 +75,24 @@ def test_full_protected_payload_guard_detects_any_mutation(tmp_path: Path) -> No
         assert_protected_tree_unchanged(before, out)
 
 
+def test_same_complete_manifest_reproduces_the_same_output_tree_digest(tmp_path: Path) -> None:
+    bundle, out, catalog, board = _fixture(tmp_path)
+    source = tmp_path / "source-run.json"
+    source.write_text('{"input":"bytes"}', encoding="utf-8")
+    first = merge_publication_bundle(
+        bundle, out, catalog_path=catalog, board_path=board, source_run_paths=[source],
+    )
+    second = merge_publication_bundle(
+        bundle, out, catalog_path=catalog, board_path=board, source_run_paths=[source],
+    )
+    assert first["build_input_manifest"] == second["build_input_manifest"]
+    assert first["output_tree_digest"] == second["output_tree_digest"]
+    assert first["build_input_manifest"]["source_run_byte_digests"] == [{
+        "path": "source-run.json",
+        "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+    }]
+
+
 def _fixture(tmp_path: Path, *, catalog_id: str = "catalog/protected") -> tuple[Path, Path, Path, Path]:
     bundle = tmp_path / "bundle"
     projections = bundle / "projections"

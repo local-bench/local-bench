@@ -167,7 +167,8 @@ def build_static_data(
     allow_lineage_gaps: bool = False,
     publication_bundle: Path | None = None,
 ) -> None:
-    sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
+    raw_sources = _list(_read_json(sources_path), "data_sources")
+    sources = [_source(entry, index) for index, entry in enumerate(raw_sources)]
     raw_catalog = _read_json(ROOT / "web" / CATALOG_FILENAME)
     catalog = catalog_entries(raw_catalog)
     board = _board_context()
@@ -191,8 +192,21 @@ def build_static_data(
             out_dir,
             catalog_path=ROOT / "web" / CATALOG_FILENAME,
             board_path=BOARD_PATH,
+            source_run_paths=_publication_source_run_paths(sources_path, raw_sources),
         )
         assert_protected_tree_unchanged(before, out_dir)
+
+
+def _publication_source_run_paths(sources_path: Path, raw_sources: list[JsonValue]) -> list[Path]:
+    paths = [sources_path.resolve()]
+    for index, value in enumerate(raw_sources):
+        source = _object(value, f"data_sources[{index}]")
+        for key in ("file", "agentic_file"):
+            raw_path = _text(source.get(key))
+            if raw_path is not None:
+                path = Path(raw_path)
+                paths.append((path if path.is_absolute() else ROOT / path).resolve())
+    return paths
 
 
 def _board_context() -> BoardContext:
