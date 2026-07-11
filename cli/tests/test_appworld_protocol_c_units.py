@@ -51,6 +51,14 @@ from localbench.scoring.agentic_exec.sandbox import (  # noqa: E402
 )
 
 
+@pytest.fixture(autouse=True)
+def _passed_execution_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Protocol mechanics are tested independently of the separately locked C0 gate."""
+    from localbench.scoring.agentic_exec import execution_contract
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
+
+
 # ==============================================================================================
 # block_parser
 # ==============================================================================================

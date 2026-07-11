@@ -298,14 +298,14 @@ def load_execution_contract(
 
 def assert_execution_contract(path: Path | None = None) -> str:
     """Fail closed when currently imported score-affecting behavior differs from C0."""
-    contract = load_execution_contract(path)
-    payload = _object(contract["payload"])
-    expected_behavior = _object(payload["covered_behavior"])
+    from localbench.scoring.agentic_exec.contract_scope import active_execution_contract; path, selected_contract_id = active_execution_contract(path)
+    contract = load_execution_contract(path, expected_contract_id=selected_contract_id)
+    payload = _object(contract["payload"]); expected_behavior = _object(payload["covered_behavior"])
     actual_behavior, _provenance = _extract_covered_behavior()
     expected, actual = canonical_json_hash(expected_behavior), canonical_json_hash(actual_behavior)
     if expected != actual:
         raise ExecutionContractDriftError(expected, actual)
-    assert_packaging_correctness_gate(path)
+    if selected_contract_id != LEGACY_CONTRACT_ID: assert_packaging_correctness_gate(path)
     return str(contract["payload_sha256"])
 
 

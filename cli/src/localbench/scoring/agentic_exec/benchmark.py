@@ -98,6 +98,12 @@ def run_appworld_c_benchmark(
     is captured as a ``HARNESS_ERROR`` row rather than aborting the whole run, so one bad task
     never sinks the batch.
     """
+    # This is the execution choke point shared by every host-side producer of a
+    # scored BenchmarkReport.  Keep the assertion before factory construction and
+    # before the first task so direct callers cannot bypass the v3 packaging gate.
+    from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
+
+    assert_execution_contract()
     cfg = config or LoopConfig()
     factories = _BenchmarkFactories(model=model_factory, sandbox=sandbox_factory)
     results: list[TaskRunResult] = []
