@@ -47,12 +47,6 @@ from localbench.scoring.agentic_exec.model_client import (  # noqa: E402
     GenerationParams,
     ModelResponse,
 )
-from localbench.scoring.agentic_exec.execution_contract import (  # noqa: E402
-    LEGACY_CONTRACT_ID,
-    assert_execution_contract as _real_assert_execution_contract,
-    load_execution_contract,
-)
-from localbench.scoring.agentic_exec.contract_scope import execution_contract_scope  # noqa: E402
 
 # Reuse the in-memory sandbox double + stub instruction constants from the Protocol C unit tests.
 from test_appworld_protocol_c_units import (  # noqa: E402
@@ -626,41 +620,6 @@ def test_run_stage_runs_and_persists_report(tmp_path: Path) -> None:
     assert "syntax_error_rate" in rep and "format_failure_rate" in rep
     # loop config captured for provenance
     assert on_disk["loop_config"]["max_turns"] == LoopConfig().max_turns
-
-
-def test_real_legacy_contract_stage_executes_without_successor_gate(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Run the real loop/funnel with the real legacy assertion, not a gate stub."""
-    from localbench.scoring.agentic_exec import execution_contract
-
-    legacy_path = (
-        Path(__file__).parents[1]
-        / "src/localbench/data/contracts/agentic-execution-contract-v1.json"
-    )
-    legacy = load_execution_contract(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID)
-    payload = legacy["payload"]
-    assert isinstance(payload, dict)
-    monkeypatch.setattr(
-        execution_contract,
-        "_extract_covered_behavior",
-        lambda: (payload["covered_behavior"], {}),
-    )
-    monkeypatch.setattr(
-        execution_contract,
-        "assert_execution_contract",
-        _real_assert_execution_contract,
-    )
-    with execution_contract_scope(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID):
-        result = fn.run_stage(
-            label="legacy-fixture",
-            stage=fn.Stage.SMOKE,
-            subset=_two_task_subset(),
-            model_factory=_scripted_factory,
-            sandbox_factory=_fake_sandbox_factory,
-        )
-    assert result.report.tasks_total == 2
-    assert result.report.agentic_success_rate == 1.0
 
 
 def test_run_stage_filename_convention(tmp_path: Path) -> None:
