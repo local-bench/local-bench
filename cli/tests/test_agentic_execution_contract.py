@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from copy import deepcopy
+import json
 from pathlib import Path
+import re
 
 import pytest
-import json
-import re
 
 import localbench.orchestrate as orchestrate
 from localbench.scoring.agentic_exec.execution_contract import (
@@ -28,6 +29,89 @@ from localbench.scoring.agentic_exec.task_pool import (
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import verify_bytes
+
+
+_CITATION_PATTERN = re.compile(r"^(.+?):(\d+)(?:-(\d+))?$")
+_CONSTRUCTION_MARKERS = {
+    "covered_behavior_sha256": '"covered_behavior_sha256": canonical_json_hash(behavior)',
+}
+
+
+def _payload_leaves(value: object, prefix: str = "") -> list[tuple[str, object]]:
+    if isinstance(value, dict):
+        leaves: list[tuple[str, object]] = []
+        for key, child in value.items():
+            if key != "provenance":
+                child_prefix = f"{prefix}.{key}" if prefix else key
+                leaves.extend(_payload_leaves(child, child_prefix))
+        return leaves
+    if isinstance(value, list):
+        leaves = []
+        for index, child in enumerate(value):
+            leaves.extend(_payload_leaves(child, f"{prefix}[{index}]"))
+        return leaves
+    return [(prefix, value)]
+
+
+def _literal_spellings(value: object) -> tuple[str, ...]:
+    if isinstance(value, str):
+        return (value,) if value else ()
+    if value is True:
+        return ("True", "true")
+    if value is False:
+        return ("False", "false")
+    if value is None:
+        return ("None", "null")
+    return (str(value),)
+
+
+def _literal_in_text(value: object, text: str) -> bool:
+    searchable = text.replace("_", "") if isinstance(value, int | float) else text
+    return any(spelling in searchable for spelling in _literal_spellings(value))
+
+
+def _assert_provenance_citations(payload: dict[str, object], repo: Path) -> None:
+    provenance = payload["provenance"]
+    assert isinstance(provenance, dict)
+    source_corpus: dict[Path, str] = {}
+    for citation in provenance.values():
+        assert isinstance(citation, str)
+        for ref in citation.split(";"):
+            match = _CITATION_PATTERN.fullmatch(ref)
+            assert match is not None, ref
+            source = repo / match.group(1)
+            assert source.is_file(), source
+            source_corpus[source] = source.read_text(encoding="utf-8")
+
+    for path, value in _payload_leaves(payload):
+        citation = provenance.get(path)
+        assert isinstance(citation, str), path
+        cited_spans: list[str] = []
+        cited_sources: list[str] = []
+        for ref in citation.split(";"):
+            match = _CITATION_PATTERN.fullmatch(ref)
+            assert match is not None, f"{path}: {ref}"
+            source = repo / match.group(1)
+            lines = source_corpus[source].splitlines()
+            start = int(match.group(2))
+            end = int(match.group(3) or start)
+            assert 1 <= start <= end <= len(lines), f"{path}: {ref}"
+            cited_spans.append("\n".join(lines[start - 1 : end]))
+            cited_sources.append(source_corpus[source])
+
+        literal_exists_in_cited_source = any(
+            _literal_in_text(value, source) for source in cited_sources
+        )
+        if literal_exists_in_cited_source:
+            assert any(_literal_in_text(value, span) for span in cited_spans), (
+                f"{path}: literal {value!r} is outside {citation}"
+            )
+
+        marker = _CONSTRUCTION_MARKERS.get(path)
+        if marker is not None:
+            assert any(marker in span for span in cited_spans), (
+                f"{path}: construction is outside {citation}"
+            )
 
 
 def test_contract_extraction_and_signature_are_deterministic(tmp_path: Path) -> None:
@@ -159,38 +243,39 @@ def test_every_signed_runtime_identity_is_enforced() -> None:
 def test_provenance_citations_exist_and_are_in_range() -> None:
     payload = load_execution_contract()["payload"]
     assert isinstance(payload, dict)
+    repo = Path(__file__).resolve().parents[2]
+    _assert_provenance_citations(payload, repo)
+
+
+@pytest.mark.parametrize(
+    "path,stale_citation",
+    [
+        (
+            "covered_behavior_sha256",
+            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:95",
+        ),
+        (
+            "task_identity.selection_recipe.seed",
+            "cli/src/localbench/scoring/agentic_exec/funnel.py:57-71",
+        ),
+        (
+            "covered_behavior.run_aggregation.threshold_pp",
+            "cli/src/localbench/scoring/agentic_exec/funnel.py:425-428;"
+            "cli/src/localbench/scoring/agentic_exec/funnel.py:465-541",
+        ),
+    ],
+)
+def test_provenance_validator_rejects_known_stale_citation_classes(
+    path: str, stale_citation: str
+) -> None:
+    payload = deepcopy(load_execution_contract()["payload"])
+    assert isinstance(payload, dict)
     provenance = payload["provenance"]
     assert isinstance(provenance, dict)
-    repo = Path(__file__).resolve().parents[2]
-    pattern = re.compile(r"^(.+?):(\d+)(?:-(\d+))?$")
-    for citation in provenance.values():
-        assert isinstance(citation, str)
-        for ref in citation.split(";"):
-            match = pattern.fullmatch(ref)
-            assert match is not None, ref
-            source = repo / match.group(1)
-            assert source.is_file(), source
-            line_count = len(source.read_text(encoding="utf-8").splitlines())
-            start = int(match.group(2))
-            end = int(match.group(3) or start)
-            assert 1 <= start <= end <= line_count, ref
+    provenance[path] = stale_citation
 
-    literal_paths = {
-        "schema": CONTRACT_SCHEMA,
-        "contract_id": CONTRACT_ID,
-        "task_identity.ordered_task_ids[0]": "a30375d_1",
-        "task_identity.ordered_task_ids[95]": "9dabbc9_3",
-        "task_identity.historical_aliases[1].sha256": (
-            "7aabcf2af32300cf8769ce63cdc09353e7eab3a8681386d46fb0747950c85095"
-        ),
-    }
-    for path, value in literal_paths.items():
-        citation = str(provenance[path]).split(";")[0]
-        match = pattern.fullmatch(citation)
-        assert match is not None
-        lines = (repo / match.group(1)).read_text(encoding="utf-8").splitlines()
-        start, end = int(match.group(2)), int(match.group(3) or match.group(2))
-        assert value in "\n".join(lines[start - 1 : end])
+    with pytest.raises(AssertionError, match=re.escape(path)):
+        _assert_provenance_citations(payload, Path(__file__).resolve().parents[2])
 
 
 def test_frozen_artifacts_keep_legacy_hashes_and_add_contract_hashes() -> None:
