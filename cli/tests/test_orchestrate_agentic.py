@@ -16,6 +16,7 @@ from localbench.orchestrate import (
     run_localbench,
 )
 from localbench.scoring.agentic_exec import benchmark as appworld_bench
+from localbench.scoring.agentic_exec import execution_contract
 from localbench.scoring.agentic_exec import scripted_agent as sa
 from localbench.scoring.agentic_exec.loop_types import (
     FailureClass,
@@ -34,7 +35,10 @@ _IFBENCH_PASSING_RESPONSE = (
 )
 
 
-def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(tmp_path: Path) -> None:
+def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
     async def scenario() -> None:
         # Given scored defaults plus injected AppWorld-C task/model/sandbox seams.
         output_path = tmp_path / "agentic-inline-run.json"
