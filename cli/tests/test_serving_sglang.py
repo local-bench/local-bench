@@ -41,7 +41,7 @@ def _launch_config() -> sglang.SglangLaunchConfig:
         kv_cache_dtype="bfloat16",
         mamba_ssm_dtype="float32",
         quantization="compressed-tensors",
-        mem_fraction_static="0.92",
+        mem_fraction_static="0.80",
         chat_template="/mnt/c/model/chat_template.jinja",
         run_token="abc123",
         expected_executable="/opt/sglang/bin/python",
@@ -61,13 +61,13 @@ def _server_info(**overrides: object) -> dict[str, object]:
         "kv_cache_dtype": "bfloat16",
         "mamba_ssm_dtype": "float32",
         "quantization": "compressed-tensors",
-        "mem_fraction_static": 0.92,
+        "mem_fraction_static": 0.80,
         "load_format": "safetensors",
         "sampling_defaults": "openai",
         "device": "cuda",
         "tp_size": 1,
         "dp_size": 1,
-        "chunked_prefill_size": -1,
+        "chunked_prefill_size": 2048,
         "disable_radix_cache": True,
         "disable_overlap_schedule": True,
         "cuda_graph_max_bs": 1,
@@ -113,7 +113,7 @@ def _readiness_kwargs(server_info: dict[str, object]) -> dict[str, object]:
         "kv_cache_dtype": "bfloat16",
         "mamba_ssm_dtype": "float32",
         "quantization": "compressed-tensors",
-        "mem_fraction_static": "0.92",
+        "mem_fraction_static": "0.80",
         "transport": httpx.MockTransport(_readiness_handler(server_info)),
         "startup_timeout_seconds": 1,
         "poll_interval_seconds": 0,
@@ -130,7 +130,7 @@ def test_sglang_strict_argv_uses_only_pinned_v0_5_13_flags() -> None:
 
     assert argv[:3] == ["/opt/sglang/bin/python", "-m", "sglang.launch_server"]
     assert argv[argv.index("--max-running-requests") + 1] == "1"
-    assert argv[argv.index("--chunked-prefill-size") + 1] == "-1"
+    assert argv[argv.index("--chunked-prefill-size") + 1] == "2048"
     assert argv[argv.index("--attention-backend") + 1] == "triton"
     assert "--enable-deterministic-inference" in argv
     assert "auto" not in argv
@@ -328,25 +328,44 @@ def test_sglang_prelaunch_vram_fit_uses_snapshot_weights_and_config(
     snapshot.mkdir()
     (snapshot / "model.safetensors").write_bytes(b"w" * 1024)
     (snapshot / "config.json").write_text(
-        '{"layer_types":["full_attention","linear_attention"],'
-        '"num_key_value_heads":2,"head_dim":64,"torch_dtype":"bfloat16",'
+        '{"text_config":{"layer_types":["full_attention","linear_attention"],'
+        '"num_key_value_heads":2,"head_dim":64,"dtype":"bfloat16",'
+        '"linear_value_head_dim":128,"linear_num_value_heads":48,'
+        '"linear_num_key_heads":16,"linear_key_head_dim":128,'
+        '"linear_conv_kernel_dim":4,"mamba_ssm_dtype":"float32"},'
+        '"vision_config":{"hidden_size":1152},'
         '"quantization_config":{"format":"nvfp4"}}',
         encoding="utf-8",
     )
     (snapshot / "tokenizer.json").write_text("{}", encoding="utf-8")
     (snapshot / "chat_template.jinja").write_text("{{ messages }}", encoding="utf-8")
     artifact = snapshot_artifact(snapshot, run_dir=tmp_path / "run")
+    assert artifact.mamba_ssm_dtype == "float32"
 
     fit = sglang.compute_sglang_memory_fit(
         artifact,
         max_model_len=8192,
-        total_vram_bytes=8 * 1024**3,
-        mem_fraction_static="0.92",
+        total_vram_bytes=32 * 1024**3,
+        mem_fraction_static="0.80",
     )
 
     assert fit.weights_bytes == 1024
     assert fit.kv_bytes == 1 * 2 * 64 * 2 * 2 * 8192
+    assert fit.mamba_state_bytes == (
+        1 * ((128 * 48 + 2 * 16 * 128) * 3 * 2 + 48 * 128 * 128 * 4) * 2
+    )
+    assert fit.static_required_bytes == fit.weights_bytes + fit.kv_bytes + fit.mamba_state_bytes
+    assert fit.non_static_budget_bytes == fit.total_vram_bytes - fit.static_budget_bytes
+    assert fit.non_static_required_bytes > 4 * 1024**3
     assert fit.fits is True
+
+    with pytest.raises(RuntimeError, match="non_static_required_bytes"):
+        sglang.compute_sglang_memory_fit(
+            artifact,
+            max_model_len=8192,
+            total_vram_bytes=16 * 1024**3,
+            mem_fraction_static="0.80",
+        )
 
 
 def test_sglang_publishability_requires_resolved_determinism_and_memory(

@@ -153,8 +153,9 @@ uv run --project cli localbench bench `
 `--sglang-python /absolute/wsl/path/to/python` may replace `--sglang-venv`. The default context is
 the resolved 8192-class execution-profile requirement; `--sglang-max-model-len` is a reviewed
 explicit override. The lane uses the snapshot's NVFP4/compressed-tensors configuration, BF16 model
-and KV-cache data, and a 0.92 static-memory fraction. It computes a conservative pre-launch fit
-from snapshot weight sizes and model configuration, then independently requires the live
+and KV-cache data, 2048-token chunked prefill, and a 0.80 static-memory fraction. The static fit
+contains weights, KV, and hybrid/Mamba state pools; a separate non-static fit reserves activation
+and CUDA-graph memory using the v0.5.13 heuristic. It then independently requires the live
 `/server_info.max_total_num_tokens` capacity to cover the configured context.
 
 Completion requires `runtime: sglang`, exact package/tag/commit and dependency-lock identity,

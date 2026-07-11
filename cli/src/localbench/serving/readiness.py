@@ -249,7 +249,7 @@ async def verify_sglang_readiness(
             "device": "cuda",
             "tp_size": 1,
             "dp_size": 1,
-            "chunked_prefill_size": -1,
+            "chunked_prefill_size": 2048,
             "disable_radix_cache": True,
             "disable_overlap_schedule": True,
             "cuda_graph_max_bs": 1,

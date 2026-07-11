@@ -16,7 +16,6 @@ from localbench.serving.teardown import TeardownEvidence
 from localbench.serving.vllm import (
     LaunchedVllmServer,
     ProcessPin,
-    VLLM_FIXED_HEADROOM_BYTES,
     _cleanup_by_token,
     _cuda_version,
     _dtype_bytes,
@@ -31,6 +30,8 @@ from localbench.serving.vllm import (
 
 SGLANG_PINNED_VERSION = "0.5.13"
 SGLANG_PINNED_COMMIT = "28b095c01005d4a3a2a5b637b7d028b07fba31b2"
+SGLANG_CHUNKED_PREFILL_SIZE = 2048
+SGLANG_CUDA_GRAPH_MAX_BS = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,22 +76,26 @@ class SglangBuildIdentity:
 class SglangMemoryFit:
     weights_bytes: int
     kv_bytes: int
-    headroom_bytes: int
-    required_bytes: int
+    mamba_state_bytes: int
+    static_required_bytes: int
     total_vram_bytes: int
     mem_fraction_static: float
-    budget_bytes: int
+    static_budget_bytes: int
+    non_static_required_bytes: int
+    non_static_budget_bytes: int
     fits: bool
 
     def provenance(self) -> JsonObject:
         return {
             "weights_bytes": self.weights_bytes,
             "kv_bytes": self.kv_bytes,
-            "fixed_headroom_bytes": self.headroom_bytes,
-            "required_bytes": self.required_bytes,
+            "mamba_state_bytes": self.mamba_state_bytes,
+            "static_required_bytes": self.static_required_bytes,
             "total_vram_bytes": self.total_vram_bytes,
             "mem_fraction_static": self.mem_fraction_static,
-            "budget_bytes": self.budget_bytes,
+            "static_budget_bytes": self.static_budget_bytes,
+            "non_static_required_bytes": self.non_static_required_bytes,
+            "non_static_budget_bytes": self.non_static_budget_bytes,
             "fits": self.fits,
         }
 
@@ -181,11 +186,11 @@ def sglang_serve_argv(config: SglangLaunchConfig) -> list[str]:
         "--dp-size",
         "1",
         "--chunked-prefill-size",
-        "-1",
+        str(SGLANG_CHUNKED_PREFILL_SIZE),
         "--disable-radix-cache",
         "--disable-overlap-schedule",
         "--cuda-graph-max-bs",
-        "1",
+        str(SGLANG_CUDA_GRAPH_MAX_BS),
         "--attention-backend",
         "triton",
         "--enable-deterministic-inference",
@@ -453,7 +458,8 @@ def compute_sglang_memory_fit(
         ) from error
     if not isinstance(config, dict):
         raise RuntimeError("SGLang VRAM preflight requires an object config.json")
-    layer_types = config.get("layer_types")
+    model_config = _text_model_config(config)
+    layer_types = model_config.get("layer_types")
     if isinstance(layer_types, list):
         full_attention_layers = sum(
             1
@@ -461,9 +467,9 @@ def compute_sglang_memory_fit(
             if isinstance(value, str) and "full_attention" in value
         )
     else:
-        full_attention_layers = _positive_int(config, "num_full_attention_layers")
-    kv_heads = _positive_int(config, "num_key_value_heads")
-    head_dim_value = config.get("head_dim")
+        full_attention_layers = _positive_int(model_config, "num_full_attention_layers")
+    kv_heads = _positive_int(model_config, "num_key_value_heads")
+    head_dim_value = model_config.get("head_dim")
     if (
         isinstance(head_dim_value, int)
         and not isinstance(head_dim_value, bool)
@@ -471,14 +477,14 @@ def compute_sglang_memory_fit(
     ):
         head_dim = head_dim_value
     else:
-        hidden_size = _positive_int(config, "hidden_size")
-        attention_heads = _positive_int(config, "num_attention_heads")
+        hidden_size = _positive_int(model_config, "hidden_size")
+        attention_heads = _positive_int(model_config, "num_attention_heads")
         if hidden_size % attention_heads:
             raise RuntimeError(
                 "SGLang VRAM preflight cannot derive an integral attention head_dim"
             )
         head_dim = hidden_size // attention_heads
-    dtype_bytes = _dtype_bytes(config.get("torch_dtype"))
+    dtype_bytes = _dtype_bytes(model_config.get("torch_dtype") or model_config.get("dtype"))
     if full_attention_layers <= 0:
         raise RuntimeError(
             "SGLang VRAM preflight found no full-attention layers in config.json"
@@ -492,25 +498,109 @@ def compute_sglang_memory_fit(
     kv_bytes = (
         full_attention_layers * kv_heads * head_dim * 2 * dtype_bytes * max_model_len
     )
+    mamba_state_bytes = _sglang_mamba_state_bytes(model_config, layer_types)
     fraction = float(mem_fraction_static)
-    budget_bytes = int(total_vram_bytes * fraction)
-    required_bytes = weights_bytes + kv_bytes + VLLM_FIXED_HEADROOM_BYTES
+    static_budget_bytes = int(total_vram_bytes * fraction)
+    non_static_budget_bytes = total_vram_bytes - static_budget_bytes
+    non_static_required_bytes = _sglang_non_static_required_bytes(
+        config, total_vram_bytes=total_vram_bytes
+    )
+    static_required_bytes = weights_bytes + kv_bytes + mamba_state_bytes
     result = SglangMemoryFit(
         weights_bytes=weights_bytes,
         kv_bytes=kv_bytes,
-        headroom_bytes=VLLM_FIXED_HEADROOM_BYTES,
-        required_bytes=required_bytes,
+        mamba_state_bytes=mamba_state_bytes,
+        static_required_bytes=static_required_bytes,
         total_vram_bytes=total_vram_bytes,
         mem_fraction_static=fraction,
-        budget_bytes=budget_bytes,
-        fits=required_bytes <= budget_bytes,
+        static_budget_bytes=static_budget_bytes,
+        non_static_required_bytes=non_static_required_bytes,
+        non_static_budget_bytes=non_static_budget_bytes,
+        fits=(
+            static_required_bytes <= static_budget_bytes
+            and non_static_required_bytes <= non_static_budget_bytes
+        ),
     )
     if not result.fits:
         raise RuntimeError(
             "SGLang pre-launch VRAM fit failed: "
             f"weights_bytes={weights_bytes}, kv_bytes={kv_bytes}, "
-            f"headroom_bytes={VLLM_FIXED_HEADROOM_BYTES}, required_bytes={required_bytes}, "
-            f"budget_bytes={budget_bytes}, total_vram_bytes={total_vram_bytes}, "
+            f"mamba_state_bytes={mamba_state_bytes}, "
+            f"static_required_bytes={static_required_bytes}, "
+            f"static_budget_bytes={static_budget_bytes}, "
+            f"non_static_required_bytes={non_static_required_bytes}, "
+            f"non_static_budget_bytes={non_static_budget_bytes}, "
+            f"total_vram_bytes={total_vram_bytes}, "
             f"mem_fraction_static={fraction}"
         )
     return result
+
+
+def _text_model_config(config: JsonObject) -> JsonObject:
+    text_config = config.get("text_config")
+    return text_config if isinstance(text_config, dict) else config
+
+
+def _sglang_mamba_state_bytes(
+    config: JsonObject, layer_types: object
+) -> int:
+    if not isinstance(layer_types, list):
+        return 0
+    linear_layers = sum(
+        1
+        for value in layer_types
+        if isinstance(value, str) and value in {"linear_attention", "mamba"}
+    )
+    if linear_layers == 0:
+        return 0
+    value_head_dim = _positive_int(config, "linear_value_head_dim")
+    value_heads = _positive_int(config, "linear_num_value_heads")
+    key_heads = _positive_int(config, "linear_num_key_heads")
+    key_head_dim = _positive_int(config, "linear_key_head_dim")
+    conv_kernel = _positive_int(config, "linear_conv_kernel_dim")
+    conv_dim = value_head_dim * value_heads + 2 * key_heads * key_head_dim
+    conv_bytes = conv_dim * (conv_kernel - 1) * 2
+    ssm_dtype_bytes = _dtype_bytes(config.get("mamba_ssm_dtype") or "float32")
+    temporal_bytes = value_heads * value_head_dim * key_head_dim * ssm_dtype_bytes
+    # With radix cache disabled and max_running_requests=1, v0.5.13 sets the
+    # Mamba cache size to one; MambaPool allocates size + 1 slots.
+    return linear_layers * (conv_bytes + temporal_bytes) * 2
+
+
+def _sglang_non_static_required_bytes(
+    config: JsonObject, *, total_vram_bytes: int
+) -> int:
+    total_mib = total_vram_bytes / 1024**2
+    piecewise_graph_sizes = (
+        list(range(4, 33, 4))
+        + list(range(48, 257, 16))
+        + list(range(288, 513, 32))
+        + list(range(576, 1025, 64))
+        + list(range(1280, SGLANG_CHUNKED_PREFILL_SIZE + 1, 256))
+    )
+    # Mirrors v0.5.13 ServerArgs._handle_gpu_memory_settings for TP1/PP1:
+    # metadata + chunked-prefill activations + CUDA graphs + parallel overhead
+    # + piecewise CUDA-graph non-Torch memory. These allocations are outside
+    # mem_fraction_static, which covers only weights plus KV/state pools.
+    reserved_mib = (
+        512
+        + max(SGLANG_CHUNKED_PREFILL_SIZE, 2048) * 1.5
+        + SGLANG_CUDA_GRAPH_MAX_BS * 2
+        + 1024 / 8
+        + len(piecewise_graph_sizes) * 8
+    )
+    if reserved_mib >= total_mib:
+        return total_vram_bytes
+    auto_static_fraction = round((total_mib - reserved_mib) / total_mib, 3)
+    vision_config = config.get("vision_config")
+    if isinstance(vision_config, dict):
+        layers = vision_config.get("num_hidden_layers", 24)
+        hidden = vision_config.get("hidden_size", 1024)
+        if not isinstance(layers, int) or isinstance(layers, bool) or layers <= 0:
+            layers = 24
+        if not isinstance(hidden, int) or isinstance(hidden, bool) or hidden <= 0:
+            hidden = 1024
+        complexity_ratio = layers * hidden**2 / (24 * 1024**2)
+        dynamic_factor = max(0.8, min(1.05, 1.0 - 0.1 * (complexity_ratio - 1.0)))
+        auto_static_fraction *= 0.95 * dynamic_factor
+    return total_vram_bytes - int(total_vram_bytes * auto_static_fraction)

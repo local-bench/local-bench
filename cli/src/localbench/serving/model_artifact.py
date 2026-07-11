@@ -203,6 +203,9 @@ def snapshot_artifact(snapshot: Path, *, run_dir: Path) -> ModelArtifact:
         ).encode("utf-8"),
     )
     config = _read_optional_object(resolved / "config.json")
+    text_config = config.get("text_config")
+    if not isinstance(text_config, dict):
+        text_config = {}
     quant = _read_optional_object(resolved / "quantization_config.json")
     if not quant and isinstance(config.get("quantization_config"), dict):
         quant = dict(config["quantization_config"])
@@ -230,7 +233,10 @@ def snapshot_artifact(snapshot: Path, *, run_dir: Path) -> ModelArtifact:
         model_format="safetensors",
         snapshot_merkle_sha256=merkle,
         snapshot_files=tuple(files),
-        mamba_ssm_dtype=_metadata_text(config.get("mamba_ssm_dtype")),
+        mamba_ssm_dtype=(
+            _metadata_text(text_config.get("mamba_ssm_dtype"))
+            or _metadata_text(config.get("mamba_ssm_dtype"))
+        ),
     )
 
 

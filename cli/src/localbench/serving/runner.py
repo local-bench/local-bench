@@ -585,7 +585,11 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         kv_cache_dtype=options.sglang_dtype,
         mamba_ssm_dtype=artifact.mamba_ssm_dtype or "float32",
         quantization=quantization,
-        mem_fraction_static="0.92",
+        # v0.5.13's 32-GiB heuristic with chunked_prefill=2048/cuda_graph_bs=1
+        # reserves 512 + 3072 + 2 + 128 + (42 * 8) = 4050 MiB outside the
+        # static weights+KV/state pool. Its Qwen3.6 VLM adjustment yields about
+        # 0.810 static; 0.80 leaves 6554 MiB for activations/graphs on RTX 5090.
+        mem_fraction_static="0.80",
         chat_template=chat_template,
         run_token=uuid.uuid4().hex,
         expected_executable=build.expected_executable,
