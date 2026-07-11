@@ -11,15 +11,27 @@ from publication_export import PublicationExportError, canonical_bytes
 IDENTITY_LABEL = "community-declared, identity-unverified"
 MAPPER_VERSION = "community-projection-mapper-v1"
 SCHEMA_VERSION = "localbench.community_publication.v1"
+SURFACE_POLICY_PATH = Path(__file__).with_name("publication-surface-policy.json")
 
 
-def merge_publication_bundle(bundle_dir: Path, out_dir: Path, *, catalog_path: Path, board_path: Path) -> dict[str, Any]:
+def merge_publication_bundle(
+    bundle_dir: Path,
+    out_dir: Path,
+    *,
+    catalog_path: Path,
+    board_path: Path,
+    surface: str = "production",
+) -> dict[str, Any]:
     snapshot = _object(json.loads((bundle_dir / "snapshot.json").read_text(encoding="utf-8")), "snapshot")
     rows = _objects(snapshot.get("rows"), "snapshot.rows")
     if len(rows) != _integer(snapshot.get("total_count"), "snapshot.total_count"):
         raise PublicationExportError("snapshot truncation: row count mismatch")
     if _digest(canonical_bytes(rows)) != _text(snapshot, "snapshot_digest"):
         raise PublicationExportError("snapshot digest mismatch")
+    surface_policy = _object(json.loads(SURFACE_POLICY_PATH.read_text(encoding="utf-8")), "publication surface policy")
+    if surface not in {"production", "previewDeploy"}:
+        raise PublicationExportError(f"unknown publication surface: {surface}")
+    rows = [row for row in rows if _surface_enabled(surface_policy, row, surface)]
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     catalog_ids = _catalog_identities(catalog)
     groups: dict[str, list[dict[str, Any]]] = {}
@@ -80,6 +92,15 @@ def merge_publication_bundle(bundle_dir: Path, out_dir: Path, *, catalog_path: P
     record = {"build_input_manifest": manifest, "build_input_manifest_digest": manifest_digest, "output_tree_digest": output_tree_digest}
     (community_dir / "publication-build.json").write_bytes(canonical_bytes(record))
     return record
+
+
+def _surface_enabled(policy: dict[str, Any], row: dict[str, Any], surface: str) -> bool:
+    publish_state = _text(row, "publish_state")
+    state_policy = _object(policy.get(publish_state), f"publication surface policy.{publish_state}")
+    enabled = state_policy.get(surface)
+    if not isinstance(enabled, bool):
+        raise PublicationExportError(f"publication surface policy.{publish_state}.{surface} must be a boolean")
+    return enabled
 
 
 def protected_tree(out_dir: Path) -> dict[str, bytes]:

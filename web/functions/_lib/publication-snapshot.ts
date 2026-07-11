@@ -84,12 +84,19 @@ export async function handleActivatePublicationSnapshot(request: Request, env: S
   const result = await env.DB.prepare(
     `update publication_control set active_snapshot_id = ?, updated_at = datetime('now')
      where singleton = 1 and publication_revision = ?
+       and exists (
+         select 1 from publication_snapshots s
+         where s.snapshot_id = ? and s.publication_revision = ? and s.snapshot_digest <> 'pending'
+       )
        and not exists (
          select 1 from publication_edge_blocks b
          join publication_snapshot_rows r on r.submission_id = b.submission_id
          where r.snapshot_id = ?
        )`,
-  ).bind(body["snapshot_id"], body["publication_revision"], body["snapshot_id"]).run();
+  ).bind(
+    body["snapshot_id"], body["publication_revision"], body["snapshot_id"],
+    body["publication_revision"], body["snapshot_id"],
+  ).run();
   if (result.meta?.changes !== 1) {
     return jsonResponse(409, { code: "publication_revision_mismatch", error: "publication changed after snapshot; rebuild required" });
   }
@@ -98,20 +105,60 @@ export async function handleActivatePublicationSnapshot(request: Request, env: S
   return jsonResponse(200, { active_snapshot_id: body["snapshot_id"], publication_revision: body["publication_revision"] });
 }
 
+/**
+ * Production serving-edge read. Suppression is enforced twice: the suppression
+ * transaction invalidates an affected active snapshot immediately, and this read
+ * still excludes edge-blocked rows. The 300-second constant is the operational
+ * maximum for downstream cache eviction; authoritative reads are blocked at once.
+ */
+export async function handleServeActivePublicationSnapshot(_request: Request, env: SubmissionApiEnv): Promise<Response> {
+  const control = await env.DB.prepare(
+    "select active_snapshot_id from publication_control where singleton = 1",
+  ).first();
+  const snapshotId = control?.["active_snapshot_id"];
+  if (typeof snapshotId !== "string") {
+    return jsonResponse(404, { code: "active_snapshot_not_found", error: "no active publication snapshot" });
+  }
+  const header = await snapshotHeader(env, snapshotId);
+  if (header === null) {
+    return jsonResponse(404, { code: "active_snapshot_not_found", error: "active publication snapshot is missing" });
+  }
+  const result = await env.DB.prepare(
+    `select r.ordinal, r.submission_id, r.projection_object_sha256, r.projection_r2_key, r.publish_state,
+      r.state_revision, r.suite_release_id, r.suite_manifest_sha256, r.decision_class, r.trust_class,
+      r.community_model_group_id
+     from publication_snapshot_rows r
+     left join publication_edge_blocks b on b.submission_id = r.submission_id
+     where r.snapshot_id = ? and r.publish_state = 'published' and b.submission_id is null
+     order by r.ordinal asc`,
+  ).bind(snapshotId).all();
+  const rows = result.results.map(snapshotRow);
+  return jsonResponse(200, {
+    ...header,
+    snapshot_digest: await sha256Hex(canonicalJson(rows)),
+    total_count: rows.length,
+    rows,
+  });
+}
+
 async function snapshotRows(env: SubmissionApiEnv, snapshotId: string): Promise<readonly SnapshotRow[]> {
   const result = await env.DB.prepare(
     `select ordinal, submission_id, projection_object_sha256, projection_r2_key, publish_state,
       state_revision, suite_release_id, suite_manifest_sha256, decision_class, trust_class,
       community_model_group_id from publication_snapshot_rows where snapshot_id = ? order by ordinal asc`,
   ).bind(snapshotId).all();
-  return result.results.map((row) => ({
+  return result.results.map(snapshotRow);
+}
+
+function snapshotRow(row: Record<string, unknown>): SnapshotRow {
+  return {
     community_model_group_id: text(row, "community_model_group_id"), decision_class: text(row, "decision_class"),
     ordinal: number(row, "ordinal"), projection_object_sha256: text(row, "projection_object_sha256"),
     projection_r2_key: text(row, "projection_r2_key"), publish_state: text(row, "publish_state"),
     state_revision: number(row, "state_revision"), submission_id: text(row, "submission_id"),
     suite_manifest_sha256: text(row, "suite_manifest_sha256"), suite_release_id: text(row, "suite_release_id"),
     trust_class: text(row, "trust_class"),
-  }));
+  };
 }
 
 async function snapshotHeader(env: SubmissionApiEnv, snapshotId: string): Promise<Record<string, unknown> | null> {

@@ -6,10 +6,5 @@ export type PublicationSurface = {
   readonly previewDeploy: boolean;
 };
 
-export const PUBLICATION_SURFACES: Readonly<Record<PublicationLifecycleState, PublicationSurface>> = {
-  hidden: { badge: null, previewDeploy: false, production: false },
-  preview: { badge: "preview", previewDeploy: true, production: false },
-  published: { badge: "published", previewDeploy: true, production: true },
-  suppressed: { badge: "suppressed", previewDeploy: false, production: false },
-  withdrawn: { badge: "withdrawn", previewDeploy: false, production: false },
-};
+export const PUBLICATION_SURFACES = policy satisfies Readonly<Record<PublicationLifecycleState, PublicationSurface>>;
+import policy from "../../publication-surface-policy.json";

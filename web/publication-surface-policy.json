@@ -1,0 +1,7 @@
+{
+  "hidden": {"badge": null, "previewDeploy": false, "production": false},
+  "preview": {"badge": "preview", "previewDeploy": true, "production": false},
+  "published": {"badge": "published", "previewDeploy": true, "production": true},
+  "suppressed": {"badge": "suppressed", "previewDeploy": false, "production": false},
+  "withdrawn": {"badge": "withdrawn", "previewDeploy": false, "production": false}
+}

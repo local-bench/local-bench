@@ -3,6 +3,7 @@ import {
   handleActivatePublicationSnapshot,
   handleCreatePublicationSnapshot,
   handleExportPublicationSnapshot,
+  handleServeActivePublicationSnapshot,
   SUPPRESSION_MAX_EXPOSURE_SECONDS,
 } from "../functions/_lib/publication-snapshot";
 import { transitionAcceptedToTerminal } from "../functions/_lib/submission-store";
@@ -48,6 +49,49 @@ describe("immutable publication snapshots", () => {
     expect(activation.status).toBe(409);
     expect(await activation.json()).toMatchObject({ code: "publication_revision_mismatch" });
     expect(SUPPRESSION_MAX_EXPOSURE_SECONDS).toBe(300);
+  });
+
+  it("binds activation to an existing snapshot at the supplied revision and serves only the active snapshot", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
+    await insertPublished(env, "sub_a", "community-group:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    const created = await handleCreatePublicationSnapshot(adminPost("/api/admin/publication-snapshot"), env);
+    const snapshot = await created.json();
+
+    const missing = await handleActivatePublicationSnapshot(
+      jsonRequest("/api/admin/publication-snapshot?action=activate", { snapshot_id: "pub_missing", publication_revision: snapshot.publication_revision }, { "x-localbench-admin-secret": ADMIN_SECRET }), env,
+    );
+    expect(missing.status).toBe(409);
+
+    await env.DB.prepare("update publication_snapshots set publication_revision = publication_revision - 1 where snapshot_id = ?").bind(snapshot.snapshot_id).run();
+    const stale = await handleActivatePublicationSnapshot(
+      jsonRequest("/api/admin/publication-snapshot?action=activate", { snapshot_id: snapshot.snapshot_id, publication_revision: snapshot.publication_revision }, { "x-localbench-admin-secret": ADMIN_SECRET }), env,
+    );
+    expect(stale.status).toBe(409);
+
+    await env.DB.prepare("update publication_snapshots set publication_revision = ? where snapshot_id = ?").bind(snapshot.publication_revision, snapshot.snapshot_id).run();
+    const activated = await handleActivatePublicationSnapshot(
+      jsonRequest("/api/admin/publication-snapshot?action=activate", { snapshot_id: snapshot.snapshot_id, publication_revision: snapshot.publication_revision }, { "x-localbench-admin-secret": ADMIN_SECRET }), env,
+    );
+    expect(activated.status).toBe(200);
+    const served = await handleServeActivePublicationSnapshot(getRequest("/api/publication-snapshot"), env);
+    expect(served.status).toBe(200);
+    expect((await served.json()).snapshot_id).toBe(snapshot.snapshot_id);
+  });
+
+  it("suppression immediately removes the active snapshot and is filtered at the serving edge", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
+    await insertPublished(env, "sub_suppressed", "community-group:cccccccccccccccccccccccccccccccc");
+    const created = await handleCreatePublicationSnapshot(adminPost("/api/admin/publication-snapshot"), env);
+    const snapshot = await created.json();
+    expect((await handleActivatePublicationSnapshot(
+      jsonRequest("/api/admin/publication-snapshot?action=activate", { snapshot_id: snapshot.snapshot_id, publication_revision: snapshot.publication_revision }, { "x-localbench-admin-secret": ADMIN_SECRET }), env,
+    )).status).toBe(200);
+
+    await transitionAcceptedToTerminal(env, "sub_suppressed", "suppressed", "security removal");
+    const served = await handleServeActivePublicationSnapshot(getRequest("/api/publication-snapshot"), env);
+    expect(served.status).toBe(404);
+    const control = await env.DB.prepare("select active_snapshot_id from publication_control where singleton = 1").first();
+    expect(control?.["active_snapshot_id"]).toBeNull();
   });
 
   it("rejects a projection overwrite attempt at a referenced content address", async () => {

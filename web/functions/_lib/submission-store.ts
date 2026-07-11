@@ -280,7 +280,17 @@ export async function transitionAcceptedToTerminal(
     env.DB.prepare(
       "update submissions set status = ?, status_reason = ?, publish_state = 'hidden', state_revision = state_revision + 1 where submission_id = ? and status = 'accepted' and state_revision = ?",
     ).bind(toStatus, reason, submissionId, current.state_revision),
-    env.DB.prepare("update publication_control set publication_revision = publication_revision + 1, edge_block_revision = edge_block_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1"),
+    env.DB.prepare(
+      `update publication_control set
+         publication_revision = publication_revision + 1,
+         edge_block_revision = edge_block_revision + 1,
+         active_snapshot_id = case when exists (
+           select 1 from publication_snapshot_rows r
+           where r.snapshot_id = publication_control.active_snapshot_id and r.submission_id = ?
+         ) then null else active_snapshot_id end,
+         updated_at = datetime('now')
+       where singleton = 1 and changes() = 1`,
+    ).bind(submissionId),
     env.DB.prepare(
       `insert into publication_edge_blocks (submission_id, reason, publication_revision)
        select ?, ?, publication_revision from publication_control where singleton = 1 and changes() = 1

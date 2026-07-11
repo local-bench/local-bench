@@ -35,6 +35,24 @@ def test_two_artifact_variants_merge_to_one_isolated_unranked_group(tmp_path: Pa
     assert len(record["output_tree_digest"]) == 64
 
 
+def test_preview_rows_are_excluded_from_production_and_present_only_in_preview(tmp_path: Path) -> None:
+    bundle, production, catalog, board = _fixture(tmp_path)
+    snapshot_path = bundle / "snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text())
+    snapshot["rows"][0]["publish_state"] = "preview"
+    snapshot["snapshot_digest"] = hashlib.sha256(canonical_bytes(snapshot["rows"])).hexdigest()
+    snapshot_path.write_bytes(canonical_bytes(snapshot))
+
+    merge_publication_bundle(bundle, production, catalog_path=catalog, board_path=board, surface="production")
+    production_group = json.loads((production / "community" / "groups" / f"{'1' * 32}.json").read_text())
+    assert [row["submission_id"] for row in production_group["variants"]] == ["sub_2"]
+
+    preview = tmp_path / "preview"
+    merge_publication_bundle(bundle, preview, catalog_path=catalog, board_path=board, surface="previewDeploy")
+    preview_group = json.loads((preview / "community" / "groups" / f"{'1' * 32}.json").read_text())
+    assert [row["submission_id"] for row in preview_group["variants"]] == ["sub_1", "sub_2"]
+
+
 def test_snapshot_truncation_and_catalog_collision_fail_closed(tmp_path: Path) -> None:
     bundle, out, catalog, board = _fixture(tmp_path)
     snapshot_path = bundle / "snapshot.json"
