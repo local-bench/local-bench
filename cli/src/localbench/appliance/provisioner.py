@@ -427,6 +427,8 @@ class ApplianceProvisioner:
         listing = self._wsl(["--list", "--verbose"], timeout=30, check=False)
         if listing.returncode != 0:
             detail = _decode(listing.stderr or listing.stdout)
+            # Microsoft documents 0x80370102 under WSL installation issues:
+            # https://learn.microsoft.com/en-us/windows/wsl/troubleshooting#installation-issues
             code = (
                 "virtualization_disabled"
                 if "0x80370102" in detail
@@ -443,13 +445,26 @@ class ApplianceProvisioner:
     ) -> str:
         final = FINAL_DISTRO_PREFIX + runtime_id
         staging = STAGING_DISTRO_PREFIX + runtime_id
+        final_journal = runtime_dir / "final-import.json"
+        journal = self._read_json(final_journal)
         names = self._distro_names()
         if final in names:
-            self._assert_owned(final, runtime_id)
-            self._prove_wsl2(final)
-            self._prove_hardening(final)
-            tar_path.unlink(missing_ok=True)
-            return final
+            if journal is not None and journal.get("status") == "completed":
+                self._assert_owned(final, runtime_id)
+                self._prove_wsl2(final)
+                self._prove_hardening(final)
+                tar_path.unlink(missing_ok=True)
+                return final
+            # A durable matching intent proves this registration was created by
+            # LocalBench even if interruption happened before its marker became readable.
+            if not (
+                journal is not None
+                and journal.get("status") == "intent"
+                and journal.get("runtime_id") == runtime_id
+                and journal.get("distro_name") == final
+            ):
+                self._assert_owned(final, runtime_id)
+            self._wsl(["--unregister", final], timeout=300)
         if staging in names:
             self._assert_owned(staging, runtime_id)
             self._wsl(["--unregister", staging], timeout=300)
@@ -481,6 +496,17 @@ class ApplianceProvisioner:
         shutil.rmtree(staging_dir, ignore_errors=True)
         final_dir = runtime_dir / "vhd"
         final_dir.mkdir(exist_ok=True)
+        atomic_write_json(
+            {
+                "schema": "localbench.final_import.v1",
+                "status": "intent",
+                "runtime_id": runtime_id,
+                "distro_name": final,
+                "rootfs_tar_sha256": _sha256_file(tar_path),
+                "started_at": _now(),
+            },
+            final_journal,
+        )
         self._wsl(
             ["--import", final, str(final_dir), str(tar_path), "--version", "2"],
             timeout=900,
@@ -490,6 +516,17 @@ class ApplianceProvisioner:
         self._install_wsl_conf(final)
         self._wsl(["--terminate", final], timeout=60)
         self._prove_hardening(final)
+        atomic_write_json(
+            {
+                "schema": "localbench.final_import.v1",
+                "status": "completed",
+                "runtime_id": runtime_id,
+                "distro_name": final,
+                "rootfs_tar_sha256": _sha256_file(tar_path),
+                "completed_at": _now(),
+            },
+            final_journal,
+        )
         tar_path.unlink(missing_ok=True)
         return final
 
@@ -967,6 +1004,14 @@ def _assert_file_hash(path: Path, expected: str, label: str) -> None:
         )
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _atomic_bytes(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".partial")
@@ -1022,7 +1067,10 @@ def _now() -> str:
 
 def _looks_disk_full(detail: str) -> bool:
     lowered = detail.lower()
-    return any(value in lowered for value in ("no space left on device", "disk full", "0x80070070", "wsl_e_disk_full"))
+    # Microsoft documents HRESULT 0x80070070 as insufficient disk space:
+    # https://learn.microsoft.com/en-us/troubleshoot/windows-server/installing-updates-features-roles/troubleshoot-windows-update-error-0x80070070
+    disk_full_hresult = "0x80070070"
+    return disk_full_hresult in lowered
 
 
 def _disk_error(error: OSError) -> ProvisioningError:

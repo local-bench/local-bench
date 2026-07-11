@@ -16,7 +16,11 @@ from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.appliance.manifest import REQUIRED_CRITICAL_HASHES
-from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
+from localbench.scoring.agentic_exec.execution_contract import (
+    assert_execution_contract,
+    assert_packaging_correctness_gate,
+    load_execution_contract,
+)
 from localbench.scoring.agentic_exec.task_pool import selection_recipe_sha256
 from localbench.scoring.agentic_exec.wsl_worker import collect_identity
 from localbench.scoring.agentic_exec.wsl_worker import _verified_appworld_tree_sha256
@@ -55,6 +59,15 @@ def provision(manifest: JsonObject) -> None:
         )
     lock = _object(locks[machine])
     wheel = _object(appworld["package"])
+    successor = _successor_appworld_identity()
+    if str(wheel["sha256"]) != successor["official_wheel_sha256"]:
+        raise RuntimeError(
+            "signed manifest wheel digest differs from successor contract"
+        )
+    if str(appworld["installed_tree_sha256"]) != successor["installed_tree_sha256"]:
+        raise RuntimeError(
+            "signed manifest installed-tree digest differs from successor contract"
+        )
     distribution = _object(appworld["data_distribution"])
     with tempfile.TemporaryDirectory(prefix="localbench-appworld-") as temporary:
         root = Path(temporary)
@@ -89,17 +102,33 @@ def provision(manifest: JsonObject) -> None:
             check=True,
             env=_clean_env(),
         )
-        subprocess.run(
+        wheel_install = subprocess.run(
             [
                 str(VENV / "bin/python"),
                 "-m",
                 "pip",
                 "install",
+                "--force-reinstall",
                 "--no-deps",
                 str(wheel_path),
             ],
             check=True,
             env=_clean_env(),
+            capture_output=True,
+            text=True,
+        )
+        print(
+            json.dumps(
+                {
+                    "schema": "localbench.appworld_wheel_install_evidence.v1",
+                    "wheel_path": str(wheel_path),
+                    "wheel_sha256": _file_sha(wheel_path),
+                    "pip_stdout": wheel_install.stdout,
+                    "pip_stderr": wheel_install.stderr,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
         )
         env = _clean_env()
         env["APPWORLD_ROOT"] = str(APPWORLD_ROOT)
@@ -109,7 +138,8 @@ def provision(manifest: JsonObject) -> None:
         raise RuntimeError("installed AppWorld version differs from signed manifest")
     expected_installed = str(appworld["installed_tree_sha256"])
     expected_data = str(appworld["data_tree_sha256"])
-    if _verified_appworld_tree_sha256() != expected_installed:
+    installed_tree = _verified_appworld_tree_sha256()
+    if installed_tree != expected_installed or installed_tree != successor["installed_tree_sha256"]:
         raise RuntimeError("AppWorld installed-tree digest mismatch")
     if _tree_sha(APPWORLD_ROOT / "data") != expected_data:
         raise RuntimeError("AppWorld data-tree digest mismatch")
@@ -120,6 +150,7 @@ def handshake() -> JsonObject:
     from localbench.scoring.agentic_exec.execution_contract import contract_task_ids
 
     contract_sha = assert_execution_contract()
+    assert_packaging_correctness_gate()
     collect_identity(str(APPWORLD_ROOT))
     task_ids = contract_task_ids()
     semantic_contents = task_pool.load_semantic_task_contents(
@@ -280,6 +311,16 @@ def _clean_env() -> dict[str, str]:
         if value := os.environ.get(key):
             result[key] = value
     return result
+
+
+def _successor_appworld_identity() -> dict[str, str]:
+    payload = _object(load_execution_contract()["payload"])
+    lineage = _object(payload["identity_lineage"])
+    identity = _object(payload["appworld_identity"])
+    return {
+        "official_wheel_sha256": str(lineage["official_wheel_sha256"]),
+        "installed_tree_sha256": str(identity["appworld_package_sha256"]),
+    }
 
 
 def _tree_sha(root: Path) -> str:

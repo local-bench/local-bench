@@ -19,16 +19,14 @@ from localbench.submissions.crypto import load_private_key, sign_bytes, verify_b
 
 MANIFEST_SCHEMA: Final = "localbench.agentic_runtime_manifest.v1"
 MANIFEST_SIGNATURE_DOMAIN: Final = b"localbench.agentic-runtime-manifest.v1\n"
-PINNED_RUNTIME_ID: Final = "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v2-r1"
+PINNED_RUNTIME_ID: Final = "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v3-r2"
 RUNTIME_KEY_ID: Final = "localbench-runtime-root-2026-07"
 RUNTIME_PUBLIC_KEYS: Final = {
     RUNTIME_KEY_ID: "46dd1ea90d4b227b45a8786189f68ed2657af539eb5ce6eda332287cee765ece"
 }
 # Filled from the accepted release evidence before publication. A non-matching
 # manifest for the pinned runtime is rejected even when correctly signed.
-PINNED_INITIAL_MANIFEST_SHA256: Final = (
-    "60b808c41da3652dea8b1cf08534cb743abdb44f4dcb5465e1bc57e549483164"
-)
+PINNED_INITIAL_MANIFEST_SHA256: Final = ""
 MANIFEST_URL: Final = (
     f"https://local-bench.ai/artifacts/agentic/{PINNED_RUNTIME_ID}/manifest.json"
 )
@@ -94,6 +92,11 @@ def verify_manifest_bytes(
     if not isinstance(document, dict):
         raise RuntimeManifestError(
             "manifest_invalid", "signed manifest must be an object"
+        )
+    if raw != canonical_json_bytes(document) + b"\n":
+        raise RuntimeManifestError(
+            "manifest_noncanonical",
+            "presented bytes differ from canonical UTF-8 JSON encoding",
         )
     payload = document.get("payload")
     signature = document.get("signature")

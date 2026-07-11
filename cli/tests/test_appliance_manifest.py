@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pytest
 
@@ -161,3 +162,21 @@ def test_manifest_size_bound_precedes_json_parse() -> None:
     with pytest.raises(RuntimeManifestError) as caught:
         verify_manifest_bytes(b"{" + b" " * runtime_manifest.MAX_MANIFEST_BYTES)
     assert caught.value.code == "manifest_too_large"
+
+
+@pytest.mark.parametrize(
+    "noncanonical",
+    [
+        lambda document: json.dumps(document, sort_keys=False, separators=(",", ":")).encode() + b"\n",
+        lambda document: json.dumps(document, sort_keys=True, indent=2).encode() + b"\n",
+        lambda document: json.dumps(document, sort_keys=True, ensure_ascii=True, separators=(",", ":")).replace("localbench", "local\\u0062ench", 1).encode() + b"\n",
+        lambda document: json.dumps({**document, "noncanonical_float": 1.0}, sort_keys=True, separators=(",", ":")).replace('"noncanonical_float":1.0', '"noncanonical_float":1e0').encode() + b"\n",
+    ],
+    ids=["reordered-keys", "whitespace", "unicode-escape", "float-form"],
+)
+def test_manifest_rejects_noncanonical_presented_bytes(signer: Path, noncanonical) -> None:
+    document = signed_manifest(payload(), signer)
+    raw = noncanonical(document)
+    with pytest.raises(RuntimeManifestError) as caught:
+        verify_manifest_bytes(raw, expected_manifest_sha256=__import__("hashlib").sha256(raw).hexdigest())
+    assert caught.value.code == "manifest_noncanonical"

@@ -376,6 +376,101 @@ def test_import_flow_uses_only_probed_wsl_flags(
     ] in calls
 
 
+def test_final_import_intent_is_durable_before_wsl_registration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    final = f"LocalBench-Agentic-{PINNED_RUNTIME_ID}"
+
+    def runner(argv, timeout=None):
+        if argv[1:3] == ["--import", final]:
+            intent = json.loads((tmp_path / "final-import.json").read_text(encoding="utf-8"))
+            assert intent["status"] == "intent"
+            assert intent["distro_name"] == final
+            raise ProvisioningError("fault", "killed at final import start", "retry")
+        return CommandResult(0)
+
+    provisioner = ApplianceProvisioner(
+        root=tmp_path, runner=runner, downloader=BytesDownloader(b""), environ={}
+    )
+    monkeypatch.setattr(provisioner, "_distro_names", lambda: set())
+    monkeypatch.setattr(provisioner, "_assert_owned", lambda *args: None)
+    monkeypatch.setattr(provisioner, "_prove_wsl2", lambda *args: None)
+    monkeypatch.setattr(provisioner, "_install_wsl_conf", lambda *args: None)
+    monkeypatch.setattr(provisioner, "_prove_hardening", lambda *args: None)
+    tar_path = tmp_path / "rootfs.tar"
+    tar_path.write_bytes(b"tar")
+
+    with pytest.raises(ProvisioningError, match="killed at final import start"):
+        provisioner._import_hardened(tmp_path, PINNED_RUNTIME_ID, tar_path)
+
+
+def test_ensure_active_recovers_kill_between_final_import_and_completion_journal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    archive = lzma.compress(b"rootfs-tar")
+    value = manifest(archive)
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / f"localbench-agentic-runtime-{PINNED_RUNTIME_ID}.tar.xz").write_bytes(archive)
+    final = f"LocalBench-Agentic-{PINNED_RUNTIME_ID}"
+    registered: set[str] = set()
+    calls: list[list[str]] = []
+
+    def runner(argv, timeout=None):
+        call = list(argv)
+        calls.append(call)
+        if call[1] == "--import":
+            registered.add(call[2])
+        elif call[1] == "--unregister":
+            registered.discard(call[2])
+        return CommandResult(0)
+
+    first = ApplianceProvisioner(
+        root=tmp_path, runner=runner, downloader=BytesDownloader(b""), environ={}
+    )
+    first._write_state(runtime_dir, PINNED_RUNTIME_ID, "verified")
+    monkeypatch.setattr(first, "_feature_preflight", lambda: None)
+    monkeypatch.setattr(first, "_fetch_manifest", lambda: value)
+    monkeypatch.setattr(first, "_distro_names", lambda: set(registered))
+    monkeypatch.setattr(first, "_assert_owned", lambda *args: None)
+    monkeypatch.setattr(first, "_prove_wsl2", lambda *args: None)
+    monkeypatch.setattr(first, "_prove_hardening", lambda *args: None)
+
+    def interrupted_install(distro: str) -> None:
+        if distro == final:
+            raise ProvisioningError("fault", "killed before completion journal", "retry")
+
+    monkeypatch.setattr(first, "_install_wsl_conf", interrupted_install)
+    with pytest.raises(ProvisioningError, match="killed before completion journal"):
+        first.ensure_active()
+    assert final in registered
+    intent = json.loads((runtime_dir / "final-import.json").read_text(encoding="utf-8"))
+    assert intent["status"] == "intent"
+
+    second = ApplianceProvisioner(
+        root=tmp_path, runner=runner, downloader=BytesDownloader(b""), environ={}
+    )
+    for name, replacement in {
+        "_feature_preflight": lambda: None,
+        "_fetch_manifest": lambda: value,
+        "_distro_names": lambda: set(registered),
+        "_assert_owned": lambda *args: None,
+        "_prove_wsl2": lambda *args: None,
+        "_prove_hardening": lambda *args: None,
+        "_install_wsl_conf": lambda *args: None,
+        "_provision_appworld": lambda *args: None,
+        "_run_canaries": lambda *args: None,
+        "_handshake": lambda *args: {"healthy": True},
+    }.items():
+        monkeypatch.setattr(second, name, replacement)
+
+    assert second.ensure_active() == {"healthy": True}
+    assert ["wsl.exe", "--unregister", final] in calls
+    assert sum(call[1:3] == ["--import", final] for call in calls) == 2
+    completed = json.loads((runtime_dir / "final-import.json").read_text(encoding="utf-8"))
+    assert completed["status"] == "completed"
+
+
 def test_partial_registration_without_marker_is_journaled_and_never_unregistered(
     tmp_path: Path,
 ) -> None:
@@ -414,7 +509,7 @@ def test_wsl_disk_full_is_a_typed_disk_error(tmp_path: Path) -> None:
     provisioner = ApplianceProvisioner(
         root=tmp_path,
         runner=lambda argv, timeout=None: CommandResult(
-            1, b"", b"write failed: No space left on device"
+            1, b"", b"import failed with HRESULT 0x80070070"
         ),
         downloader=BytesDownloader(b""),
         environ={},
