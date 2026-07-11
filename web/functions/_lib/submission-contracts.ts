@@ -171,7 +171,12 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
     identity_status: z.enum(["unverified", "maintainer_verified"]),
     model_system_key: z.string().regex(/^(artifact|legacy-project-anchor):[0-9a-f]{64}$/),
   }).strict(),
-  lineage: z.object({ base_model: z.array(z.string().min(1)) }).strict(),
+  lineage: z.object({
+    base_model: z.array(z.string().min(1)).refine(
+      (items) => new Set(items).size === items.length,
+      { message: "lineage.base_model must contain unique items" },
+    ),
+  }).strict(),
   runtime: z.object({
     name: z.string().min(1), version: z.string().min(1), kv_cache_quant: z.string().nullable().optional(),
     ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),

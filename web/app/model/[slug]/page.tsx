@@ -32,14 +32,15 @@ export default async function ModelPage({ params }: PageProps) {
   const headlineMeasured = model.runs.filter(
     (run) => run.score_status === "measured" && run.lane === HEADLINE_LANE,
   );
-  const rankedRuns = headlineMeasured.filter(isTrustedRankedPopulation);
-  const partialRuns = headlineMeasured.filter((run) => !run.ranked);
+  const trustedHeadlineMeasured = headlineMeasured.filter(isTrustedPopulation);
+  const rankedRuns = trustedHeadlineMeasured.filter(isTrustedRankedPopulation);
+  const partialRuns = trustedHeadlineMeasured.filter((run) => !run.ranked);
   // Headline provenance comes from the ranked (representative) run when one exists —
   // ladder/partial runs sort first in the payload and must not set the headline chip.
   const hasProvenance = (run: (typeof headlineMeasured)[number]): boolean =>
     run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined;
   const provenanceRun = selectTrustedHeaderSource(rankedRuns.filter(hasProvenance));
-  const submitter = headlineMeasured.filter(isTrustedPopulation).find(
+  const submitter = trustedHeadlineMeasured.find(
     (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
   )?.submitter_display_name;
 
@@ -48,7 +49,7 @@ export default async function ModelPage({ params }: PageProps) {
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
-          {headlineMeasured.length > 0 ? (
+          {trustedHeadlineMeasured.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               <RunByBadge submitter={submitter} />
             </div>
