@@ -240,18 +240,41 @@ def test_legacy_contract_execution_at_current_head_fails_closed_on_drift() -> No
             assert_execution_contract()
 
 
-def test_verdict_mint_gate_makes_no_demand_on_legacy_contract(
+def test_verdict_mint_gate_at_current_head_rejects_legacy_contract_drift() -> None:
+    legacy_path = (
+        Path(__file__).parents[1]
+        / "src/localbench/data/contracts/agentic-execution-contract-v1.json"
+    )
+
+    with execution_contract_scope(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID):
+        with pytest.raises(ExecutionContractDriftError, match="agentic execution contract drift"):
+            execution_contract_module.assert_verdict_mint_allowed()
+
+
+def test_verdict_mint_gate_accepts_snapshot_pinned_legacy_behavior_without_successor_gate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     legacy_path = (
         Path(__file__).parents[1]
         / "src/localbench/data/contracts/agentic-execution-contract-v1.json"
     )
+    legacy = load_execution_contract(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID)
+    payload = legacy["payload"]
+    assert isinstance(payload, dict)
 
     def unexpected_successor_gate(_path: Path | None = None) -> str:
         raise AssertionError("legacy contract must not demand the successor packaging gate")
 
-    monkeypatch.setattr(execution_contract_module, "assert_execution_contract", unexpected_successor_gate)
+    monkeypatch.setattr(
+        execution_contract_module,
+        "_extract_covered_behavior",
+        lambda: (payload["covered_behavior"], {}),
+    )
+    monkeypatch.setattr(
+        execution_contract_module,
+        "assert_packaging_correctness_gate",
+        unexpected_successor_gate,
+    )
     with execution_contract_scope(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID):
         execution_contract_module.assert_verdict_mint_allowed()
 

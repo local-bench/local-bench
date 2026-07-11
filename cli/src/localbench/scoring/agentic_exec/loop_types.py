@@ -114,6 +114,9 @@ class TaskRunResult:
     attestation: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
+        # Workflow control only: this fail-closed gate is not an anti-forgery boundary against
+        # in-process __init__ bypass (object.__new__/pickle); that documented residual is the
+        # test_coding_exec_known_residual_forgery / landing trust-boundary class, and is out of scope.
         from localbench.scoring.agentic_exec.execution_contract import assert_verdict_mint_allowed
 
         assert_verdict_mint_allowed()
@@ -167,6 +170,9 @@ class BenchmarkReport:
     harness_error_subclass_rate: float = 0.0
 
     def __post_init__(self) -> None:
+        # Workflow control only: this fail-closed gate is not an anti-forgery boundary against
+        # in-process __init__ bypass (object.__new__/pickle); that documented residual is the
+        # test_coding_exec_known_residual_forgery / landing trust-boundary class, and is out of scope.
         from localbench.scoring.agentic_exec.execution_contract import assert_verdict_mint_allowed
 
         assert_verdict_mint_allowed()

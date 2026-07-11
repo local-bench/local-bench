@@ -656,9 +656,9 @@ def assert_verdict_mint_allowed(path: Path | None = None) -> None:
     """
     from localbench.scoring.agentic_exec.contract_scope import active_execution_contract
 
-    active_path, selected_contract_id = active_execution_contract(path)
+    _, selected_contract_id = active_execution_contract(path)
     if selected_contract_id == LEGACY_CONTRACT_ID:
-        load_execution_contract(active_path, expected_contract_id=selected_contract_id)
+        assert_execution_contract()
         return
     if path is None:
         assert_execution_contract()
