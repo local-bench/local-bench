@@ -253,6 +253,11 @@ def _inspect(
     if depth >= MAX_DEPTH:
         raise ScanError(f"container recursion limit exceeded: {name}")
     lower = name.lower()
+    # Container signatures are grounded in PKWARE APPNOTE (ZIP local header), RFC 1952
+    # section 2.3.1 (gzip ID1/ID2), and the Tukaani .xz file-format specification:
+    # https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    # https://www.rfc-editor.org/rfc/rfc1952.html#section-2.3.1
+    # https://tukaani.org/xz/xz-file-format.txt
     is_zip = data.startswith(b"PK\x03\x04") or lower.endswith((".zip", ".whl"))
     is_gzip = data.startswith(b"\x1f\x8b") or lower.endswith((".gz", ".tgz", ".tar.gz"))
     is_xz = data.startswith(b"\xfd7zXZ\x00") or lower.endswith((".xz", ".txz", ".tar.xz"))
@@ -356,6 +361,7 @@ def _inspect(
 
 
 def _looks_tar(data: bytes) -> bool:
+    # POSIX ustar TMAGIC at offset 257: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/tar.h.html
     return len(data) > 265 and data[257:263] in (b"ustar\x00", b"ustar ")
 
 
@@ -410,7 +416,7 @@ def _dpkg_packages(archive: tarfile.TarFile) -> set[str]:
             if ": " in line
         )
         # dpkg-query Status-Abbrev/Status field semantics are captured verbatim in
-        # tests/fixtures/dpkg-query-status-installed.txt from the builder distro.
+        # tests/fixtures/dpkg-status-installed-builder-r2.txt from the builder distro.
         if fields.get("Status") == "install ok installed":
             name, version = fields.get("Package"), fields.get("Version")
             if name and version:
