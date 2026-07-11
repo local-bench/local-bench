@@ -96,7 +96,8 @@ verified through a tokenizer/template probe.
 The command is complete only when the result records `runtime: vllm`, reports the requested model,
 includes the requested repository and 40-character revision plus snapshot Merkle/per-file hashes,
 includes the runtime/device/dependency-lock identity and non-null serve-log hash, records parsed
-determinism and memory evidence, and records a clean teardown. Teardown refreshes the token-owned
+determinism and memory evidence, records the requested run seed, and records a clean teardown.
+Each canary start must also produce certain, GPU-clean teardown evidence. Teardown refreshes the token-owned
 process tree and verifies command-line/executable identity before signalling. A residual owned GPU
 PID marks the result non-publishable; never recover with a process-name sweep. The CLI prints
 `NOT PUBLISHABLE` with the exact blockers whenever any required evidence cannot be verified.
@@ -163,5 +164,6 @@ same token IDs as the server's `/v1/tokenize` response.
 Completion requires `runtime: sglang`, exact package/tag/commit and dependency-lock identity,
 requested repository plus 40-character revision and snapshot Merkle/per-file hashes, non-null serve
 log hash, the server-reported resolved configuration above, and clean token-owned process-group
-teardown. The same PID start-time, interpreter identity, descendant refresh, and no-name-sweep rules
-as the vLLM lane apply.
+teardown. Both canary teardowns must also be certain and GPU-clean. Determinism provenance is scoped
+to SGLang and records the requested run seed. The same PID start-time, interpreter identity,
+descendant refresh, and no-name-sweep rules as the vLLM lane apply.

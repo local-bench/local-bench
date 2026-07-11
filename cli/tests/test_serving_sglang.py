@@ -467,6 +467,21 @@ def test_sglang_publishability_requires_resolved_determinism_and_memory(
     )
 
 
+def test_determinism_canary_rejects_uncertain_teardown() -> None:
+    clean = serving_runner.TeardownEvidence(
+        owned_process_tree=["1234"],
+        terminated=True,
+        exit_code=0,
+        gpu_pids_after=[],
+        teardown_uncertain=False,
+    )
+    serving_runner._require_clean_canary_teardown("SGLang", 1, clean)
+
+    uncertain = replace(clean, teardown_uncertain=True)
+    with pytest.raises(RuntimeError, match="canary failed.*teardown was uncertain"):
+        serving_runner._require_clean_canary_teardown("SGLang", 1, uncertain)
+
+
 def test_cli_sglang_flags_reach_serve_options(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

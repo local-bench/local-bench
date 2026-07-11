@@ -386,6 +386,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         parallel_slots=1,
         flash_attention="batch-invariant",
     )
+    determinism_canary_passed = False
     if options.determinism_canary:
         await _run_vllm_determinism_canary(
             adapter,
@@ -393,6 +394,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             pinned_chat_template_sha256=artifact.chat_template_digest,
             root=root,
         )
+        determinism_canary_passed = True
     launched = None
     teardown: TeardownEvidence | None = None
     try:
@@ -438,6 +440,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             root=root,
             memory_fit=memory_fit,
             live_batch_invariant=live_batch_invariant,
+            determinism_canary_passed=determinism_canary_passed,
         )
         agentic_sandbox_factory = None
         agentic_model_factory = None
@@ -514,6 +517,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         root=root,
         memory_fit=memory_fit,
         live_batch_invariant=live_batch_invariant,
+        determinism_canary_passed=determinism_canary_passed,
     )
     updated = normalize_result_bundle(
         apply_serving_context(record, serving_context(completed_evidence)),
@@ -635,6 +639,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         parallel_slots=1,
         flash_attention="triton-batch-invariant",
     )
+    determinism_canary_passed = False
     if options.determinism_canary:
         await _run_sglang_determinism_canary(
             adapter,
@@ -643,6 +648,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
             local_snapshot_path=artifact.model_file,
             root=root,
         )
+        determinism_canary_passed = True
     launched = None
     teardown: TeardownEvidence | None = None
     try:
@@ -687,6 +693,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
             identity=identity,
             root=root,
             memory_fit=memory_fit,
+            determinism_canary_passed=determinism_canary_passed,
         )
         agentic_sandbox_factory = None
         agentic_model_factory = None
@@ -762,6 +769,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         identity=identity,
         root=root,
         memory_fit=memory_fit,
+        determinism_canary_passed=determinism_canary_passed,
     )
     updated = normalize_result_bundle(
         apply_serving_context(record, serving_context(completed_evidence)),
@@ -925,9 +933,10 @@ async def _run_vllm_determinism_canary(
                 )
         finally:
             try:
-                adapter.teardown(launched)
+                canary_teardown = adapter.teardown(launched)
             finally:
                 launched.close_log()
+        _require_clean_canary_teardown("vLLM", start, canary_teardown)
     if len(outputs) != 2 or outputs[0] != outputs[1]:
         raise RuntimeError(
             "vLLM determinism canary failed: outputs differ across two server starts"
@@ -994,9 +1003,10 @@ async def _run_sglang_determinism_canary(
                 )
         finally:
             try:
-                adapter.teardown(launched)
+                canary_teardown = adapter.teardown(launched)
             finally:
                 launched.close_log()
+        _require_clean_canary_teardown("SGLang", start, canary_teardown)
     if len(outputs) != 2 or outputs[0] != outputs[1]:
         raise RuntimeError(
             "SGLang determinism canary failed: outputs differ across two server starts"
@@ -1009,6 +1019,19 @@ def _raise_memory_fit_error_if_present(log_path: Path, cause: BaseException) -> 
         raise RuntimeError(
             f"vLLM startup memory fit failed: {failed_startup.fit_failure}"
         ) from cause
+
+
+def _require_clean_canary_teardown(
+    runtime: str, start: int, evidence: TeardownEvidence
+) -> None:
+    if (
+        not evidence.terminated
+        or evidence.teardown_uncertain
+        or evidence.gpu_pids_after
+    ):
+        raise RuntimeError(
+            f"{runtime} determinism canary failed: start {start} teardown was uncertain"
+        )
 
 
 def _vllm_serving_evidence(
@@ -1028,6 +1051,7 @@ def _vllm_serving_evidence(
     root: Path,
     memory_fit: VllmMemoryFit,
     live_batch_invariant: str | None,
+    determinism_canary_passed: bool,
 ) -> ServingEvidence:
     startup_log = parse_vllm_startup_log(root / "serve.log")
     memory_allocations = dict(startup_log.memory_allocations)
@@ -1112,7 +1136,8 @@ def _vllm_serving_evidence(
         memory_allocations=memory_allocations,
         computed_memory_fit=memory_fit.provenance(),
         runtime_identity_sha256=build.runtime_identity_sha256,
-        determinism_canary_passed=options.determinism_canary,
+        determinism_canary_passed=determinism_canary_passed,
+        run_seed=options.seed,
     )
 
 
@@ -1132,6 +1157,7 @@ def _sglang_serving_evidence(
     identity: str,
     root: Path,
     memory_fit: SglangMemoryFit,
+    determinism_canary_passed: bool,
 ) -> ServingEvidence:
     resolved = readiness.resolved_runtime or {}
     memory_allocations: JsonObject = {
@@ -1221,8 +1247,9 @@ def _sglang_serving_evidence(
         computed_memory_fit=memory_fit.provenance(),
         runtime_identity_sha256=build.runtime_identity_sha256,
         installed_package_tree_sha256=build.package_tree_sha256,
-        determinism_canary_passed=options.determinism_canary,
+        determinism_canary_passed=determinism_canary_passed,
         resolved_server_config=readiness.resolved_runtime,
+        run_seed=options.seed,
     )
 
 

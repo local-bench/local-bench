@@ -1,4 +1,4 @@
-# VERBATIM CUDA OOM emitted in a vLLM run; only the leading log prefix was omitted.
+# CUDA OOM from a vLLM run; wrapped lines were joined and whitespace normalized.
 # Source: https://github.com/vllm-project/vllm/issues/11560
 # Retrieved: 2026-07-11.
 torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 462.00 MiB. GPU 0 has a total capacity of 79.25 GiB of which 278.75 MiB is free. Including non-PyTorch memory, this process has 78.97 GiB memory in use. Of the allocated memory 78.38 GiB is allocated by PyTorch, and 115.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation. See documentation for Memory Management (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

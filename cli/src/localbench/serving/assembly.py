@@ -294,6 +294,7 @@ def serving_evidence(
         model_id=options.model_id,
         serve_log_path=str(root / "serve.log"),
         cuda_version=build.cuda_version,
+        run_seed=launch_config.seed,
     )
 
 

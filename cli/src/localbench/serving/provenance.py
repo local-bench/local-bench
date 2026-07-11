@@ -74,6 +74,7 @@ class ServingEvidence:
     determinism_canary_passed: bool = False
     resolved_server_config: JsonObject | None = None
     installed_package_tree_sha256: str | None = None
+    run_seed: int = 1234
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,19 +88,27 @@ class ServingRunContext:
     publishable: bool
 
 
-def determinism_policy(*, seed: int = 1234) -> JsonObject:
+def determinism_policy(*, runtime: str, seed: int) -> JsonObject:
+    server: JsonObject = {
+        "parallel_slots": 1,
+        "continuous_batching": False,
+    }
+    if runtime == "vllm":
+        server.update(
+            {
+                "vllm_max_num_seqs": 1,
+                "vllm_batch_invariant": True,
+            }
+        )
+    elif runtime == "sglang":
+        server["sglang_deterministic_inference"] = True
+    elif runtime == "llama.cpp":
+        server["llama_cont_batching"] = False
     return {
         "policy_id": DETERMINISM_POLICY_ID,
         "claim": "best-effort same-stack reproducibility; not bitwise cross-stack determinism",
         "client": {"temperature": 0, "top_k": 1, "seed": seed, "concurrency": 1},
-        "server": {
-            "parallel_slots": 1,
-            "continuous_batching": False,
-            "vllm_max_num_seqs": 1,
-            "vllm_batch_invariant": True,
-            "sglang_deterministic_inference": True,
-            "llama_cont_batching": False,
-        },
+        "server": server,
         "scope": [
             "same model artifact hash",
             "same runtime binary/container digest",
@@ -123,7 +132,9 @@ def serving_context(evidence: ServingEvidence) -> ServingRunContext:
     verification_level = _PINNED_LEVEL if blocking == [] else _PROCESS_LEVEL
     return ServingRunContext(
         block=_serving_block(evidence, verification_level),
-        determinism_policy=determinism_policy(),
+        determinism_policy=determinism_policy(
+            runtime=evidence.runtime, seed=evidence.run_seed
+        ),
         server_fingerprint=evidence.server_fingerprint,
         trust_tier=verification_level,
         verification_level=verification_level,

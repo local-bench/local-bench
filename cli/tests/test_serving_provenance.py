@@ -96,6 +96,34 @@ def test_serving_context_degrades_when_teardown_is_uncertain(tmp_path: Path) -> 
     assert "serving.teardown_uncertain" in context.blocking_reasons
 
 
+def test_determinism_policy_is_runtime_scoped_and_records_actual_seed(
+    tmp_path: Path,
+) -> None:
+    base = serving_evidence(tmp_path, teardown_terminated=True)
+
+    llama_policy = serving_context(replace(base, run_seed=77)).determinism_policy
+    assert llama_policy["client"]["seed"] == 77
+    assert llama_policy["server"]["llama_cont_batching"] is False
+    assert "vllm_batch_invariant" not in llama_policy["server"]
+    assert "sglang_deterministic_inference" not in llama_policy["server"]
+
+    vllm_policy = serving_context(
+        replace(base, runtime="vllm", run_seed=991)
+    ).determinism_policy
+    assert vllm_policy["client"]["seed"] == 991
+    assert vllm_policy["server"]["vllm_batch_invariant"] is True
+    assert "llama_cont_batching" not in vllm_policy["server"]
+    assert "sglang_deterministic_inference" not in vllm_policy["server"]
+
+    sglang_policy = serving_context(
+        replace(base, runtime="sglang", run_seed=42)
+    ).determinism_policy
+    assert sglang_policy["client"]["seed"] == 42
+    assert sglang_policy["server"]["sglang_deterministic_inference"] is True
+    assert "vllm_batch_invariant" not in sglang_policy["server"]
+    assert "llama_cont_batching" not in sglang_policy["server"]
+
+
 def test_normalize_ephemeral_argv_masks_only_port_token() -> None:
     # Given: a redacted launch argv with one ephemeral --port value.
     argv = [
