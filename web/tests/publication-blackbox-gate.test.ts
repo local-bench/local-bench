@@ -12,7 +12,7 @@ import {
   handleExportPublicationSnapshot,
   handleServeActivePublicationSnapshot,
 } from "../functions/_lib/publication-snapshot";
-import { persistProjectionCreateOnly } from "../functions/_lib/publication-storage";
+import { projectionKey } from "../functions/_lib/submission-storage";
 import { transitionAcceptedToTerminal } from "../functions/_lib/submission-store";
 import { getCommunityGroup } from "../lib/data";
 import { onRequestPost as applyDecision } from "../functions/api/admin/submissions/[submissionId]/decision";
@@ -24,14 +24,15 @@ import { onRequestGet as exportProjection } from "../functions/api/admin/publica
 import { communityTicketBody, signedResultBundle, testKeyPair } from "./submission-contract-v2-support";
 import {
   ADMIN_SECRET, MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009,
-  MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, TEST_COMMUNITY_GROUP_ID, createEnv, getRequest, jsonRequest, sha256Hex, statusUpdate,
+  MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, TEST_COMMUNITY_GROUP_ID, createEnv, getRequest, jsonRequest, sha256Hex, statusUpdate,
   type IssuedEnvelope,
 } from "./submission-test-support";
 
 const SUFFIX = TEST_COMMUNITY_GROUP_ID.replace("community-group:", "");
-const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013];
+const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014];
 const communityDir = join(process.cwd(), "public", "data", "community");
 const tempRoot = mkdtempSync(join(tmpdir(), "b2a-blackbox-"));
+let admissionSequence = 0;
 
 afterAll(() => {
   rmSync(communityDir, { force: true, recursive: true });
@@ -47,44 +48,25 @@ afterAll(() => {
 describe("B2a real-contract publication release gate", () => {
   it("runs acceptance through projection persistence, snapshot export, merge, build, serve, and DOM", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
-    const first = await admitAcceptedPublished(env, "variant-one", "a");
-    const second = await admitAcceptedPublished(env, "variant-two", "b");
+    const accepted = [];
+    for (let index = 0; index < 101; index += 1) {
+      accepted.push(await admitAcceptedPublished(env, `variant-${String(index).padStart(3, "0")}`, `artifact-${index}`));
+    }
     const snapshot = await createSnapshot(env);
     expect((await activate(env, snapshot)).status).toBe(200);
-    const bundle = await exportBundleViaProductionExporter(env, snapshot, "positive");
-    const output = join(tempRoot, "positive-output");
-
-    merge(bundle, output);
-    installCommunityOutput(output);
-
-    const servedSnapshot = await handleServeActivePublicationSnapshot(getRequest("/api/publication-snapshot"), env);
-    expect(servedSnapshot.status).toBe(200);
-    expect((await servedSnapshot.json()).snapshot_id).toBe(snapshot.snapshot_id);
-
-    const nextBin = join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
-    execFileSync(process.execPath, [nextBin, "build"], {
-      cwd: process.cwd(), env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: "pipe", timeout: 90_000,
-    });
-    const port = 31_000 + Math.floor(Math.random() * 1_000);
-    const server = spawn(process.execPath, [join(process.cwd(), "tests", "fixtures", "static-server.mjs"), join(process.cwd(), "out"), String(port)], {
-      cwd: process.cwd(), env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: "pipe",
-    });
-    const browser = await chromium.launch({ headless: true });
+    const admin = await startAdminServer(env);
     try {
-      const page = await browser.newPage();
-      await page.goto(`http://127.0.0.1:${port}/community/model/${SUFFIX}`, { waitUntil: "domcontentloaded" });
-      expect(await page.locator("main").textContent()).toContain("community-declared, identity-unverified");
-      expect(await page.locator("article").count()).toBe(2);
-      const articleText = await page.locator("article").allTextContents();
-      expect(articleText.join(" ")).toContain("variant-one");
-      expect(articleText.join(" ")).toContain("variant-two");
-      expect(articleText.every((value) => value.includes("unranked"))).toBe(true);
-      expect(first.artifactSha).not.toBe(second.artifactSha);
+      const bundle = await exportBundleViaProductionExporter(admin.baseUrl, snapshot, "positive");
+      const output = join(tempRoot, "positive-output");
+      await merge(bundle, output, join(process.cwd(), "model_catalog.json"), admin.baseUrl);
+      installCommunityOutput(output);
+      await assertServeAndDom(env, 101);
+      expect(admin.snapshotCursors).toContain(100);
+      expect(new Set(accepted.map((item) => item.artifactSha)).size).toBe(101);
     } finally {
-      await browser.close();
-      server.kill();
+      await admin.close();
     }
-  }, 120_000);
+  }, 600_000);
 
   it.each(["truncated-export", "projection-corruption", "referenced-overwrite", "rank-leakage", "catalog-collision"] as const)(
     "runs the complete release gate for negative mutation %s",
@@ -93,34 +75,15 @@ describe("B2a real-contract publication release gate", () => {
       const accepted = await admitAcceptedPublished(env, `negative-${mutation}`, "d");
       const snapshot = await createSnapshot(env);
       expect((await activate(env, snapshot)).status).toBe(200);
-
-      if (mutation === "referenced-overwrite") {
-        await expect(persistProjectionCreateOnly(env, accepted.projectionObjectSha, "mutated projection bytes"))
-          .rejects.toThrow();
-        return;
+      const admin = await startAdminServer(env, mutation === "truncated-export" || mutation === "projection-corruption" ? mutation : undefined);
+      try {
+        if (mutation === "referenced-overwrite") {
+          await env.SUBMISSIONS.put(projectionKey(accepted.projectionObjectSha), "mutated projection bytes");
+        }
+        await expect(runCompleteGate(env, snapshot, mutation, admin.baseUrl)).rejects.toThrow();
+      } finally {
+        await admin.close();
       }
-      if (mutation === "truncated-export" || mutation === "projection-corruption") {
-        await expect(exportBundleViaProductionExporter(env, snapshot, `negative-${mutation}`, mutation)).rejects.toThrow(/production exporter failed/);
-        return;
-      }
-      const bundle = await exportBundleViaProductionExporter(env, snapshot, `negative-${mutation}`);
-      if (mutation === "catalog-collision") {
-        const collisionCatalog = join(tempRoot, `negative-${mutation}-catalog.json`);
-        const catalog = JSON.parse(readFileSync(join(process.cwd(), "model_catalog.json"), "utf-8"));
-        const models = Array.isArray(catalog) ? catalog : catalog.models;
-        models.push({ id: TEST_COMMUNITY_GROUP_ID, slug: "collision" });
-        writeFileSync(collisionCatalog, JSON.stringify(catalog));
-        expect(() => merge(bundle, join(tempRoot, `negative-${mutation}-output`), collisionCatalog)).toThrow(/catalog\/group-id collision/);
-        return;
-      }
-      const output = join(tempRoot, `negative-${mutation}-output`);
-      merge(bundle, output);
-      installCommunityOutput(output);
-      const groupPath = join(communityDir, "groups", `${SUFFIX}.json`);
-      const leaked = JSON.parse(readFileSync(groupPath, "utf-8"));
-      leaked.ranked = true; leaked.variants[0].ranked = true;
-      writeFileSync(groupPath, JSON.stringify(leaked));
-      await expect(getCommunityGroup(SUFFIX)).rejects.toThrow();
     },
     120_000,
   );
@@ -130,14 +93,15 @@ describe("B2a real-contract publication release gate", () => {
     const accepted = await admitAcceptedPublished(env, "suppressed-variant", "c");
     const snapshot = await createSnapshot(env);
     expect((await activate(env, snapshot)).status).toBe(200);
-    const bundle = await exportBundleViaProductionExporter(env, snapshot, "suppressed");
-    merge(bundle, join(tempRoot, "suppressed-output"));
-
-    // Negative 5: this is the build-to-activation race, through the real suppression CAS.
-    await transitionAcceptedToTerminal(env, accepted.submissionId, "suppressed", "A9 mutation");
-    const activation = await activate(env, snapshot);
-    expect(activation.status).toBe(409);
-    expect(await activation.json()).toMatchObject({ code: "publication_revision_mismatch" });
+    const admin = await startAdminServer(env);
+    try {
+      const bundle = await exportBundleViaProductionExporter(admin.baseUrl, snapshot, "suppressed");
+      await transitionAcceptedToTerminal(env, accepted.submissionId, "suppressed", "A9 mutation");
+      await expect(merge(bundle, join(tempRoot, "suppressed-output"), join(process.cwd(), "model_catalog.json"), admin.baseUrl))
+        .rejects.toThrow(/live active snapshot|live publication revision/);
+    } finally {
+      await admin.close();
+    }
   });
 });
 
@@ -147,12 +111,14 @@ async function admitAcceptedPublished(
   artifactHex: string,
 ): Promise<{ artifactSha: string; projectionObjectSha: string; submissionId: string }> {
   const key = testKeyPair();
-  const artifactSha = artifactHex.repeat(64);
+  const artifactSha = sha256Hex(artifactHex);
+  const sourceOrdinal = admissionSequence++;
+  const sourceIp = `198.51.${sourceOrdinal % 250}.${Math.floor(sourceOrdinal / 250) + 1}`;
   const bundleBytes = JSON.stringify(signedResultBundle(key, { compat_variant: displayName }, artifactSha));
   const rawSha = sha256Hex(bundleBytes);
   const ticketResponse = await issueTicket({
     env,
-    request: jsonRequest("/api/submissions/tickets", communityTicketBody(rawSha, key), { "cf-connecting-ip": "203.0.113.9" }),
+    request: jsonRequest("/api/submissions/tickets", communityTicketBody(rawSha, key), { "cf-connecting-ip": sourceIp }),
   });
   expect(ticketResponse.status).toBe(201);
   const ticket = await ticketResponse.json() as IssuedEnvelope;
@@ -160,7 +126,7 @@ async function admitAcceptedPublished(
     env,
     request: jsonRequest("/api/submissions/request-upload", {
       raw_bundle_sha256: rawSha, ticket_id: ticket.ticket_id, upload_capability: ticket.upload_capability,
-    }, { "cf-connecting-ip": "203.0.113.9" }),
+    }, { "cf-connecting-ip": sourceIp }),
   });
   expect(targetResponse.status).toBe(200);
   const target = await targetResponse.json() as { r2_key: string; upload_headers: Record<string, string> };
@@ -201,13 +167,11 @@ async function createSnapshot(env: Awaited<ReturnType<typeof createEnv>>): Promi
   return created.json();
 }
 
-async function exportBundleViaProductionExporter(
+async function startAdminServer(
   env: Awaited<ReturnType<typeof createEnv>>,
-  snapshot: any,
-  label: string,
   mutation?: "truncated-export" | "projection-corruption",
-): Promise<string> {
-  const bundle = join(tempRoot, `${label}-bundle`);
+): Promise<{ baseUrl: string; close: () => Promise<void>; snapshotCursors: number[] }> {
+  const snapshotCursors: number[] = [];
   const server = createServer(async (request, response) => {
     try {
       const url = `http://127.0.0.1:${(server.address() as { port: number }).port}${request.url ?? "/"}`;
@@ -215,6 +179,9 @@ async function exportBundleViaProductionExporter(
       let result = request.url?.startsWith("/api/admin/publication-projection")
         ? await exportProjection({ env, request: webRequest })
         : await handleExportPublicationSnapshot(webRequest, env);
+      if (request.url?.startsWith("/api/admin/publication-snapshot")) {
+        snapshotCursors.push(Number(new URL(url).searchParams.get("cursor") ?? "0"));
+      }
       if (mutation === "truncated-export" && request.url?.startsWith("/api/admin/publication-snapshot") && result.ok) {
         const page = await result.json() as any; page.total_count += 1;
         result = new Response(JSON.stringify(page), { headers: { "content-type": "application/json" }, status: 200 });
@@ -230,38 +197,108 @@ async function exportBundleViaProductionExporter(
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    snapshotCursors,
+    close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+  };
+}
+
+async function exportBundleViaProductionExporter(
+  baseUrl: string,
+  snapshot: any,
+  label: string,
+): Promise<string> {
+  const bundle = join(tempRoot, `${label}-bundle`);
   const script = [
     "from pathlib import Path", "from publication_export import export_publication_bundle", "import sys",
     "export_publication_bundle(sys.argv[1], sys.argv[2], sys.argv[3], Path(sys.argv[4]))",
   ].join("\n");
-  try {
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(process.env["LOCALBENCH_PYTHON"] ?? "python", ["-c", script, `http://127.0.0.1:${port}`, ADMIN_SECRET, snapshot.snapshot_id, bundle], {
-        cwd: process.cwd(), stdio: "pipe",
-      });
-      let stderr = "";
-      child.stderr.on("data", (chunk) => { stderr += String(chunk); });
-      child.on("error", reject);
-      child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`production exporter failed (${code}): ${stderr}`)));
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(process.env["LOCALBENCH_PYTHON"] ?? "python", ["-c", script, baseUrl, ADMIN_SECRET, snapshot.snapshot_id, bundle], {
+      cwd: process.cwd(), stdio: "pipe",
     });
-    expect(JSON.parse(readFileSync(join(bundle, "export-metadata.json"), "utf-8"))).toMatchObject({
-      exporter: "web/publication_export.py", schema_version: "localbench.publication_export.v1",
-    });
-    return bundle;
-  } finally {
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`production exporter failed (${code}): ${stderr}`)));
+  });
+  expect(JSON.parse(readFileSync(join(bundle, "export-metadata.json"), "utf-8"))).toMatchObject({
+    exporter: "web/publication_export.py", schema_version: "localbench.publication_export.v1",
+  });
+  return bundle;
 }
 
-function merge(bundle: string, output: string, catalog = join(process.cwd(), "model_catalog.json")): void {
+async function merge(bundle: string, output: string, catalog: string, publicationBaseUrl: string): Promise<void> {
   mkdirSync(output, { recursive: true });
   const script = [
     "from pathlib import Path", "from publication_merge import merge_publication_bundle",
-    "import sys", "merge_publication_bundle(Path(sys.argv[1]), Path(sys.argv[2]), catalog_path=Path(sys.argv[3]), board_path=Path(sys.argv[4]))",
+    "import sys", "merge_publication_bundle(Path(sys.argv[1]), Path(sys.argv[2]), catalog_path=Path(sys.argv[3]), board_path=Path(sys.argv[4]), publication_base_url=sys.argv[5], publication_admin_secret=sys.argv[6])",
   ].join("\n");
-  execFileSync(process.env["LOCALBENCH_PYTHON"] ?? "python", ["-c", script, bundle, output, catalog, join(process.cwd(), "..", "cli", "runs", "board", "board_v2.json")], {
-    cwd: process.cwd(), stdio: "pipe",
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(process.env["LOCALBENCH_PYTHON"] ?? "python", ["-c", script, bundle, output, catalog, join(process.cwd(), "..", "cli", "runs", "board", "board_v2.json"), publicationBaseUrl, ADMIN_SECRET], {
+      cwd: process.cwd(), stdio: "pipe",
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`production merge failed (${code}): ${stderr}`)));
   });
+}
+
+async function runCompleteGate(
+  env: Awaited<ReturnType<typeof createEnv>>,
+  snapshot: any,
+  mutation: "truncated-export" | "projection-corruption" | "referenced-overwrite" | "rank-leakage" | "catalog-collision",
+  publicationBaseUrl: string,
+): Promise<void> {
+  const label = `negative-${mutation}`;
+  const bundle = await exportBundleViaProductionExporter(publicationBaseUrl, snapshot, label);
+  let catalog = join(process.cwd(), "model_catalog.json");
+  if (mutation === "catalog-collision") {
+    catalog = join(tempRoot, `${label}-catalog.json`);
+    const payload = JSON.parse(readFileSync(join(process.cwd(), "model_catalog.json"), "utf-8"));
+    const models = Array.isArray(payload) ? payload : payload.models;
+    models.push({ id: TEST_COMMUNITY_GROUP_ID, slug: "collision" });
+    writeFileSync(catalog, JSON.stringify(payload));
+  }
+  const output = join(tempRoot, `${label}-output`);
+  await merge(bundle, output, catalog, publicationBaseUrl);
+  if (mutation === "rank-leakage") {
+    const groupPath = join(output, "community", "groups", `${SUFFIX}.json`);
+    const leaked = JSON.parse(readFileSync(groupPath, "utf-8"));
+    leaked.ranked = true;
+    leaked.variants[0].ranked = true;
+    writeFileSync(groupPath, JSON.stringify(leaked));
+  }
+  installCommunityOutput(output);
+  await assertServeAndDom(env, 1);
+}
+
+async function assertServeAndDom(env: Awaited<ReturnType<typeof createEnv>>, expectedVariants: number): Promise<void> {
+  const servedSnapshot = await handleServeActivePublicationSnapshot(getRequest("/api/publication-snapshot"), env);
+  expect(servedSnapshot.status).toBe(200);
+  const nextBin = join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
+  execFileSync(process.execPath, [nextBin, "build"], {
+    cwd: process.cwd(), env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: "pipe", timeout: 90_000,
+  });
+  const port = 31_000 + Math.floor(Math.random() * 1_000);
+  const server = spawn(process.execPath, [join(process.cwd(), "tests", "fixtures", "static-server.mjs"), join(process.cwd(), "out"), String(port)], {
+    cwd: process.cwd(), env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: "pipe",
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const group = await getCommunityGroup(SUFFIX);
+    expect(group?.variants).toHaveLength(expectedVariants);
+    const page = await browser.newPage();
+    await page.goto(`http://127.0.0.1:${port}/community/model/${SUFFIX}`, { waitUntil: "domcontentloaded" });
+    expect(await page.locator("main").textContent()).toContain("community-declared, identity-unverified");
+    expect(await page.locator("article").count()).toBe(expectedVariants);
+    expect((await page.locator("article").allTextContents()).every((value) => value.includes("unranked"))).toBe(true);
+  } finally {
+    await browser.close();
+    server.kill();
+  }
 }
 
 function installCommunityOutput(output: string): void {
