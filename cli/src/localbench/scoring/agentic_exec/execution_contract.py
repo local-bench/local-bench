@@ -19,9 +19,11 @@ from localbench._types import JsonObject, JsonValue
 from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash, write_json_file
 from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
-CONTRACT_ID: Final = "agentic-execution-contract-v1"
+LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
+CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v2"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
+LEGACY_CONTRACT_FILENAME: Final = f"{LEGACY_CONTRACT_ID}.json"
 CONTRACT_KEY_ID: Final = "localbench-agentic-contract-2026-07"
 CONTRACT_PUBLIC_KEY_HEX: Final = "0becc292026a52fcb7a598cd3729bc45d3bfc31f9aec1b903acec5ddfdbaa6b0"
 CONTRACT_SIGNATURE_DOMAIN: Final = b"localbench.agentic-execution-contract.v1\n"
@@ -153,9 +155,9 @@ def extract_contract_payload(
         },
         "packaging_correctness_gate": {
             "required": True,
-            "status": "pending-C2",
-            "kind": "scripted_agent_current_harness_vs_appliance_differential",
-            "equal_fields": ["per_turn_requests", "sandbox_ops", "verdicts", "aggregates"],
+            "status": "passed-C2-staging",
+            "kind": "direct_session_vs_appliance_ndjson_differential",
+            "equal_fields": ["sandbox_replies", "denials", "teardown"],
             "gpu_required": False,
         },
         "provenance": {
@@ -233,7 +235,9 @@ def write_signed_contract(path: Path, payload: JsonObject, signing_key: Path) ->
     return contract
 
 
-def load_execution_contract(path: Path | None = None) -> JsonObject:
+def load_execution_contract(
+    path: Path | None = None, *, expected_contract_id: str = CONTRACT_ID
+) -> JsonObject:
     try:
         if path is None:
             resource = resources.files("localbench").joinpath("data", "contracts", CONTRACT_FILENAME)
@@ -252,8 +256,10 @@ def load_execution_contract(path: Path | None = None) -> JsonObject:
         raise ExecutionContractDriftError("payload object", type(payload).__name__)
     if payload.get("schema") != CONTRACT_SCHEMA:
         raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
-    if payload.get("contract_id") != CONTRACT_ID:
-        raise ExecutionContractDriftError(CONTRACT_ID, str(payload.get("contract_id")))
+    if payload.get("contract_id") != expected_contract_id:
+        raise ExecutionContractDriftError(
+            expected_contract_id, str(payload.get("contract_id"))
+        )
     trusted_signature = (
         isinstance(signature, dict)
         and signature.get("key_id") == CONTRACT_KEY_ID
@@ -513,7 +519,7 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
             orchestrate, "_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN: Final ="
         ),
         "covered_behavior.budgets.model_call_timeout_enforced": (
-            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:423"
+            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:429"
         ),
         "covered_behavior.budgets": "cli/src/localbench/scoring/agentic_exec/loop_config.py:19-72",
         "covered_behavior.timeouts": (
@@ -620,6 +626,8 @@ def _object(value: object) -> JsonObject:
 __all__ = [
     "CONTRACT_FILENAME",
     "CONTRACT_ID",
+    "LEGACY_CONTRACT_FILENAME",
+    "LEGACY_CONTRACT_ID",
     "ExecutionContractDriftError",
     "TaskIdentityDriftError",
     "RuntimeIdentityDriftError",

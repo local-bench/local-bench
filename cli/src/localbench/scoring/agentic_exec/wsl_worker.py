@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import importlib.metadata as metadata
+import base64
+import csv
 import hashlib
+import io
 import json
 import os
 import platform
@@ -33,6 +36,12 @@ _PIN_ENV: Final[dict[str, str]] = {
     "TZ": "UTC",
     "LC_ALL": "C.UTF-8",
 }
+_APPWORLD_OFFICIAL_TREE_SHA256: Final = (
+    "28113a7a68f5d5a4c5e9ea5bce4743633916e741430cfb96b56030660707308a"
+)
+_APPWORLD_WHEEL_RECORD_SHA256: Final = (
+    "ea60f57d84a7dfcb067cf6399847ac34c1bda2f1fec54e11d9147c9c8ef13031"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +210,7 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
         "appworld_root_under_mnt": root_under_mnt,
         "appworld_root_filesystem": _filesystem_type(root_posix),
         "appworld_version": appworld_version,
-        "appworld_package_sha256": _distribution_tree_sha256("appworld"),
+        "appworld_package_sha256": _verified_appworld_tree_sha256(),
         "env_pins": dict(_PIN_ENV),
     }
 
@@ -239,6 +248,68 @@ def _distribution_tree_sha256(name: str) -> str:
     return hashlib.sha256(
         json.dumps(hashes, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+
+
+def _verified_appworld_tree_sha256() -> str:
+    """Verify the official wheel RECORD, then return its governed installed-tree ID.
+
+    pip adds path-dependent console-script and direct-URL rows, while AppWorld adds
+    interpreter bytecode.  Those rows cannot define a portable installed-tree ID.
+    Every wheel-owned row is instead matched to the canonical official-wheel RECORD
+    and verified against the installed bytes before the governed identity is returned.
+    """
+    distribution = metadata.distribution("appworld")
+    record_relative = next(
+        (
+            str(item).replace("\\", "/")
+            for item in distribution.files or ()
+            if str(item).replace("\\", "/").endswith(".dist-info/RECORD")
+        ),
+        None,
+    )
+    if record_relative is None:
+        raise WorkerPreflightError("appworld RECORD is unavailable")
+    record_path = Path(distribution.locate_file(record_relative))
+    try:
+        rows = list(csv.reader(io.StringIO(record_path.read_text(encoding="utf-8"))))
+    except (OSError, UnicodeError, csv.Error) as error:
+        raise WorkerPreflightError("appworld RECORD is unreadable") from error
+    generated = {
+        "../../../bin/appworld",
+        record_relative.replace("RECORD", "INSTALLER"),
+        record_relative.replace("RECORD", "REQUESTED"),
+        record_relative.replace("RECORD", "direct_url.json"),
+    }
+    wheel_rows: list[tuple[str, str, str]] = []
+    for row in rows:
+        if len(row) != 3:
+            raise WorkerPreflightError("appworld RECORD row is malformed")
+        relative, encoded_hash, encoded_size = row
+        normalized = relative.replace("\\", "/")
+        if normalized in generated or normalized.endswith((".pyc", ".pyo")) or "/__pycache__/" in normalized:
+            continue
+        wheel_rows.append((normalized, encoded_hash, encoded_size))
+    canonical = "".join(
+        f"{relative},{encoded_hash},{encoded_size}\n"
+        for relative, encoded_hash, encoded_size in sorted(wheel_rows)
+    ).encode("utf-8")
+    if hashlib.sha256(canonical).hexdigest() != _APPWORLD_WHEEL_RECORD_SHA256:
+        raise WorkerPreflightError("appworld official wheel RECORD identity mismatch")
+    for relative, encoded_hash, encoded_size in wheel_rows:
+        path = Path(distribution.locate_file(relative))
+        if not path.is_file():
+            raise WorkerPreflightError(f"appworld distribution file is missing: {relative}")
+        content = path.read_bytes()
+        if encoded_size and int(encoded_size) != len(content):
+            raise WorkerPreflightError(f"appworld distribution size mismatch: {relative}")
+        if encoded_hash:
+            algorithm, separator, encoded = encoded_hash.partition("=")
+            if algorithm != "sha256" or not separator:
+                raise WorkerPreflightError(f"appworld RECORD hash is unsupported: {relative}")
+            expected = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+            if hashlib.sha256(content).digest() != expected:
+                raise WorkerPreflightError(f"appworld distribution hash mismatch: {relative}")
+    return _APPWORLD_OFFICIAL_TREE_SHA256
 
 
 def main() -> int:

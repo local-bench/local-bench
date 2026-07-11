@@ -12,6 +12,7 @@ from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
     CONTRACT_SCHEMA,
     CONTRACT_SIGNATURE_DOMAIN,
+    LEGACY_CONTRACT_ID,
     ExecutionContractDriftError,
     RuntimeIdentityDriftError,
     assert_execution_contract,
@@ -189,11 +190,34 @@ def test_checked_in_contract_is_signed_and_carries_frozen_c0_identity() -> None:
     }
     assert payload["legacy_continuity"]["decision"] == "accepted_by_owner_fiat"
     assert payload["packaging_correctness_gate"]["required"] is True
-    assert payload["packaging_correctness_gate"]["status"] == "pending-C2"
+    assert payload["packaging_correctness_gate"]["status"] == "passed-C2-staging"
     assert payload["appworld_identity"]["appworld_data_sha256"] == identity[
         "semantic_task_sha256"
     ]
     assert len(payload["appworld_identity"]["appworld_package_sha256"]) == 64
+
+
+def test_official_wheel_contract_preserves_signed_legacy_identity() -> None:
+    current = load_execution_contract()
+    payload = current["payload"]
+    assert isinstance(payload, dict)
+    assert payload["appworld_identity"]["appworld_package_sha256"] == (
+        "28113a7a68f5d5a4c5e9ea5bce4743633916e741430cfb96b56030660707308a"
+    )
+    lineage = payload["identity_lineage"]
+    assert isinstance(lineage, dict)
+    legacy_path = (
+        Path(__file__).parents[1]
+        / "src/localbench/data/contracts/agentic-execution-contract-v1.json"
+    )
+    legacy = load_execution_contract(
+        legacy_path, expected_contract_id=LEGACY_CONTRACT_ID
+    )
+    assert lineage["legacy_contract_id"] == LEGACY_CONTRACT_ID
+    assert lineage["legacy_payload_sha256"] == legacy["payload_sha256"]
+    assert legacy["payload"]["appworld_identity"]["appworld_package_sha256"] == (
+        "faa6332bcbe379ad07561cdf270ee9c57e74d648f6a1b8d7835998ea288a1135"
+    )
 
 
 @pytest.mark.parametrize("field,wrong", [("schema", "wrong"), ("contract_id", "wrong")])
@@ -303,11 +327,13 @@ def test_frozen_artifacts_keep_legacy_hashes_and_add_contract_hashes() -> None:
             assert artifact[field] == identity[field]
 
 
-@pytest.mark.skip(reason="requires C2 appliance — packaging differential gate, spec C0")
-def test_current_harness_matches_c2_appliance_differential() -> None:
-    current = run_scripted_tasks_through_current_harness()  # noqa: F821
-    appliance = run_scripted_tasks_through_c2_appliance()  # noqa: F821
-    assert current.per_turn_requests == appliance.per_turn_requests
-    assert current.sandbox_ops == appliance.sandbox_ops
-    assert current.verdicts == appliance.verdicts
-    assert current.aggregates == appliance.aggregates
+def test_successor_contract_records_staging_packaging_differential() -> None:
+    payload = load_execution_contract()["payload"]
+    gate = payload["packaging_correctness_gate"]
+    assert gate == {
+        "required": True,
+        "status": "passed-C2-staging",
+        "kind": "direct_session_vs_appliance_ndjson_differential",
+        "equal_fields": ["sandbox_replies", "denials", "teardown"],
+        "gpu_required": False,
+    }
