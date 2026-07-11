@@ -8,7 +8,7 @@ import {
 import { adminBlocked, jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
 import { InvalidTransitionError } from "./submission-state";
 import { canonicalJson, sha256Hex } from "./submission-canonical";
-import { persistProjectionCreateOnly } from "./publication-storage";
+import { persistProjectionAndReference } from "./publication-storage";
 import { zt1DecisionForAcceptedSubmission } from "./submission-zt1-decision";
 import {
   autoPublishEnabled,
@@ -143,9 +143,13 @@ export async function handleApplyVerificationUpdate(
       if (artifactHashes["bundle_sha256"] !== row.value.raw_bundle_sha256 || artifactHashes["public_artifact_manifest_sha256"] !== publicManifestSha256) {
         return jsonResponse(409, { code: "projection_artifact_mismatch", error: "projection artifact digest binding is invalid" });
       }
-      projectionR2Key = await persistProjectionCreateOnly(env, objectSha256, canonicalBytes);
+      await persistProjectionAndReference(env, objectSha256, canonicalBytes, async (projectionKey) => {
+        projectionR2Key = projectionKey;
+        await applyStatusUpdate(env, row.value.submission_id, parsed.data, projectionR2Key);
+      });
+    } else {
+      await applyStatusUpdate(env, row.value.submission_id, parsed.data, projectionR2Key);
     }
-    await applyStatusUpdate(env, row.value.submission_id, parsed.data, projectionR2Key);
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     if (updated !== null && parsed.data.status === "accepted") {
       await applyZt1AcceptedDecision(env, updated);

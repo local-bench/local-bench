@@ -7,14 +7,14 @@ import {
   SUPPRESSION_MAX_EXPOSURE_SECONDS,
 } from "../functions/_lib/publication-snapshot";
 import { transitionAcceptedToTerminal } from "../functions/_lib/submission-store";
-import { deleteProjectionObject, overwriteProjectionObject, persistProjectionCreateOnly } from "../functions/_lib/publication-storage";
+import { deleteProjectionObject, overwriteProjectionObject, persistProjectionAndReference, persistProjectionCreateOnly } from "../functions/_lib/publication-storage";
 import {
   ADMIN_SECRET, MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008,
   MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, PROJECTION_OBJECT_SHA, SUITE_MANIFEST_SHA,
-  SUITE_RELEASE_ID, createEnv, getRequest, jsonRequest,
+  MIGRATION_0014, SUITE_RELEASE_ID, createEnv, getRequest, jsonRequest,
 } from "./submission-test-support";
 
-const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011];
+const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0014];
 
 describe("immutable publication snapshots", () => {
   it("materializes one epoch and exports stable complete pagination", async () => {
@@ -115,6 +115,30 @@ describe("immutable publication snapshots", () => {
     await insertPublished(env, "sub_referenced", "community-group:dddddddddddddddddddddddddddddddd");
     await expect(overwriteProjectionObject(env, PROJECTION_OBJECT_SHA, "replacement")).rejects.toThrow("overwrite is prohibited after reference");
     await expect(deleteProjectionObject(env, PROJECTION_OBJECT_SHA)).rejects.toThrow("deletion is prohibited after reference");
+  });
+
+  it("serializes deletion against the real persist-and-reference acceptance ordering", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
+    const bytes = '{"projection":"racing"}';
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(bytes))
+      .then((value) => [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+    await persistProjectionCreateOnly(env, digest, bytes);
+    let releaseDelete!: () => void;
+    let fenceEntered!: () => void;
+    const deleteCanContinue = new Promise<void>((resolve) => { releaseDelete = resolve; });
+    const deletionHasFence = new Promise<void>((resolve) => { fenceEntered = resolve; });
+    const deletion = deleteProjectionObject(env, digest, {
+      afterFence: async () => { fenceEntered(); await deleteCanContinue; },
+    });
+    await deletionHasFence;
+
+    await expect(persistProjectionAndReference(env, digest, bytes, async () => {
+      throw new Error("reference callback must not run while deletion owns the fence");
+    })).rejects.toThrow("reference conflicts with an in-flight mutation");
+
+    releaseDelete();
+    await deletion;
+    expect(await env.SUBMISSIONS.get(`projections/sha256/${digest}.json`)).toBeNull();
   });
 });
 

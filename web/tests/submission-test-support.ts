@@ -19,6 +19,7 @@ export const MIGRATION_0010 = readFileSync(new URL("../migrations/0010_submissio
 export const MIGRATION_0011 = readFileSync(new URL("../migrations/0011_publication_snapshots.sql", import.meta.url), "utf-8");
 export const MIGRATION_0012 = readFileSync(new URL("../migrations/0012_maintainer_attestations.sql", import.meta.url), "utf-8");
 export const MIGRATION_0013 = readFileSync(new URL("../migrations/0013_community_model_groups.sql", import.meta.url), "utf-8");
+export const MIGRATION_0014 = readFileSync(new URL("../migrations/0014_projection_storage_fences.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const TEST_COMMUNITY_GROUP_ID = `community-group:${"1".repeat(32)}`;
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -87,7 +88,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  const migrations = options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013];
+  const migrations = options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014];
   for (const migration of migrations) {
     await applyMigration(bindings.DB, migration);
   }
