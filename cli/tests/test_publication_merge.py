@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -22,7 +24,11 @@ def test_two_artifact_variants_merge_to_one_isolated_unranked_group(tmp_path: Pa
     bundle, out, catalog, board = _fixture(tmp_path)
     before = protected_tree(out)
 
-    record = merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
+    with _live_admin(bundle) as (base_url, secret):
+        record = merge_publication_bundle(
+            bundle, out, catalog_path=catalog, board_path=board,
+            publication_base_url=base_url, publication_admin_secret=secret,
+        )
     assert_protected_tree_unchanged(before, out)
 
     group = json.loads((out / "community" / "groups" / f"{'1' * 32}.json").read_text())
@@ -43,12 +49,20 @@ def test_preview_rows_are_excluded_from_production_and_present_only_in_preview(t
     snapshot["snapshot_digest"] = hashlib.sha256(canonical_bytes(snapshot["rows"])).hexdigest()
     snapshot_path.write_bytes(canonical_bytes(snapshot))
 
-    merge_publication_bundle(bundle, production, catalog_path=catalog, board_path=board, surface="production")
+    with _live_admin(bundle) as (base_url, secret):
+        merge_publication_bundle(
+            bundle, production, catalog_path=catalog, board_path=board, surface="production",
+            publication_base_url=base_url, publication_admin_secret=secret,
+        )
     production_group = json.loads((production / "community" / "groups" / f"{'1' * 32}.json").read_text())
     assert [row["submission_id"] for row in production_group["variants"]] == ["sub_2"]
 
     preview = tmp_path / "preview"
-    merge_publication_bundle(bundle, preview, catalog_path=catalog, board_path=board, surface="previewDeploy")
+    with _live_admin(bundle) as (base_url, secret):
+        merge_publication_bundle(
+            bundle, preview, catalog_path=catalog, board_path=board, surface="previewDeploy",
+            publication_base_url=base_url, publication_admin_secret=secret,
+        )
     preview_group = json.loads((preview / "community" / "groups" / f"{'1' * 32}.json").read_text())
     assert [row["submission_id"] for row in preview_group["variants"]] == ["sub_1", "sub_2"]
 
@@ -63,8 +77,12 @@ def test_snapshot_truncation_and_catalog_collision_fail_closed(tmp_path: Path) -
         merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
 
     bundle, out, catalog, board = _fixture(tmp_path / "collision", catalog_id=f"community-group:{'1' * 32}")
-    with pytest.raises(PublicationExportError, match="collision"):
-        merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
+    with _live_admin(bundle) as (base_url, secret):
+        with pytest.raises(PublicationExportError, match="collision"):
+            merge_publication_bundle(
+                bundle, out, catalog_path=catalog, board_path=board,
+                publication_base_url=base_url, publication_admin_secret=secret,
+            )
 
 
 def test_non_active_snapshot_and_revision_fail_closed(tmp_path: Path) -> None:
@@ -83,13 +101,46 @@ def test_non_active_snapshot_and_revision_fail_closed(tmp_path: Path) -> None:
         merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
 
 
+def test_live_active_snapshot_and_revision_replace_bundle_self_attestation(tmp_path: Path) -> None:
+    bundle, out, catalog, board = _fixture(tmp_path)
+    live_control = {
+        "active_snapshot_id": "pub_replaced", "edge_block_revision": 0,
+        "publication_revision": 3, "suppressed_submission_ids": [],
+    }
+    with _live_admin(bundle, control=live_control) as (base_url, secret):
+        with pytest.raises(PublicationExportError, match="live active snapshot"):
+            merge_publication_bundle(
+                bundle, out, catalog_path=catalog, board_path=board,
+                publication_base_url=base_url, publication_admin_secret=secret,
+            )
+
+
+def test_live_suppression_after_export_is_authoritative_at_merge(tmp_path: Path) -> None:
+    bundle, out, catalog, board = _fixture(tmp_path)
+    live_control = {
+        "active_snapshot_id": "pub_test", "edge_block_revision": 1,
+        "publication_revision": 2, "suppressed_submission_ids": ["sub_1"],
+    }
+    with _live_admin(bundle, control=live_control) as (base_url, secret):
+        merge_publication_bundle(
+            bundle, out, catalog_path=catalog, board_path=board,
+            publication_base_url=base_url, publication_admin_secret=secret,
+        )
+    group = json.loads((out / "community" / "groups" / f"{'1' * 32}.json").read_text())
+    assert [variant["submission_id"] for variant in group["variants"]] == ["sub_2"]
+
+
 def test_suppression_set_is_authoritative_at_static_build_time(tmp_path: Path) -> None:
     bundle, out, catalog, board = _fixture(tmp_path)
     snapshot_path = bundle / "snapshot.json"
     snapshot = json.loads(snapshot_path.read_text())
     snapshot["publication_control"]["suppressed_submission_ids"] = ["sub_1"]
     snapshot_path.write_bytes(canonical_bytes(snapshot))
-    merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
+    with _live_admin(bundle) as (base_url, secret):
+        merge_publication_bundle(
+            bundle, out, catalog_path=catalog, board_path=board,
+            publication_base_url=base_url, publication_admin_secret=secret,
+        )
     group = json.loads((out / "community" / "groups" / f"{'1' * 32}.json").read_text())
     assert [variant["submission_id"] for variant in group["variants"]] == ["sub_2"]
 
@@ -113,18 +164,52 @@ def test_same_complete_manifest_reproduces_the_same_output_tree_digest(tmp_path:
     source = tmp_path / "source-run.json"
     source.write_text('{"input":"bytes"}', encoding="utf-8")
     parameters = {"benches": ["mmlu_pro"], "iters": 100, "lane": "bounded-final-v2", "profile": "full"}
-    first = merge_publication_bundle(
-        bundle, first_out, catalog_path=catalog, board_path=board, source_run_paths=[source], build_parameters=parameters,
-    )
-    second = merge_publication_bundle(
-        bundle, second_out, catalog_path=second_catalog, board_path=second_board, source_run_paths=[source], build_parameters=parameters,
-    )
+    with _live_admin(bundle) as (base_url, secret):
+        first = merge_publication_bundle(
+            bundle, first_out, catalog_path=catalog, board_path=board, source_run_paths=[source], build_parameters=parameters,
+            publication_base_url=base_url, publication_admin_secret=secret, surface="production",
+        )
+        second = merge_publication_bundle(
+            bundle, second_out, catalog_path=second_catalog, board_path=second_board, source_run_paths=[source], build_parameters=parameters,
+            publication_base_url=base_url, publication_admin_secret=secret, surface="production",
+        )
     assert first["build_input_manifest"] == second["build_input_manifest"]
     assert first["output_tree_digest"] == second["output_tree_digest"]
     assert first["build_input_manifest"]["source_run_byte_digests"] == [{
         "path": "source-run.json",
         "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
     }]
+    assert first["build_input_manifest"]["surface"] == "production"
+    assert first["build_input_manifest"]["surface_policy_bytes_digest"] == hashlib.sha256(
+        (ROOT / "web" / "publication-surface-policy.json").read_bytes(),
+    ).hexdigest()
+
+
+def test_manifest_changes_when_surface_or_surface_policy_changes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bundle, out, catalog, board = _fixture(tmp_path)
+    policy = tmp_path / "surface-policy.json"
+    policy.write_text(json.dumps({
+        "hidden": {"production": False, "previewDeploy": False},
+        "preview": {"production": False, "previewDeploy": True},
+        "published": {"production": True, "previewDeploy": True},
+    }), encoding="utf-8")
+    monkeypatch.setattr("publication_merge.SURFACE_POLICY_PATH", policy)
+    with _live_admin(bundle) as (base_url, secret):
+        production = merge_publication_bundle(
+            bundle, out / "production", catalog_path=catalog, board_path=board,
+            publication_base_url=base_url, publication_admin_secret=secret, surface="production",
+        )
+        preview = merge_publication_bundle(
+            bundle, out / "preview", catalog_path=catalog, board_path=board,
+            publication_base_url=base_url, publication_admin_secret=secret, surface="previewDeploy",
+        )
+        policy.write_text(policy.read_text().replace('"previewDeploy": true', '"previewDeploy": false'), encoding="utf-8")
+        changed_policy = merge_publication_bundle(
+            bundle, out / "changed-policy", catalog_path=catalog, board_path=board,
+            publication_base_url=base_url, publication_admin_secret=secret, surface="production",
+        )
+    assert production["build_input_manifest_digest"] != preview["build_input_manifest_digest"]
+    assert production["build_input_manifest_digest"] != changed_policy["build_input_manifest_digest"]
 
 
 def _fixture(tmp_path: Path, *, catalog_id: str = "catalog/protected") -> tuple[Path, Path, Path, Path]:
@@ -166,3 +251,44 @@ def _fixture(tmp_path: Path, *, catalog_id: str = "catalog/protected") -> tuple[
     }
     (bundle / "snapshot.json").write_bytes(canonical_bytes(snapshot))
     return bundle, out, catalog, board
+
+
+class _LiveAdmin:
+    def __init__(self, bundle: Path, control: dict[str, object] | None = None) -> None:
+        self.bundle = bundle
+        self.control = control
+        self.server: ThreadingHTTPServer | None = None
+        self.thread: threading.Thread | None = None
+
+    def __enter__(self) -> tuple[str, str]:
+        snapshot = json.loads((self.bundle / "snapshot.json").read_text())
+        control = self.control or snapshot["publication_control"]
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(handler_self) -> None:  # noqa: N802
+                payload = {**snapshot, "publication_control": control, "rows": snapshot["rows"], "next_cursor": None}
+                body = canonical_bytes(payload)
+                handler_self.send_response(200)
+                handler_self.send_header("content-type", "application/json")
+                handler_self.send_header("content-length", str(len(body)))
+                handler_self.end_headers()
+                handler_self.wfile.write(body)
+
+            def log_message(self, _format: str, *_args: object) -> None:
+                return
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        return f"http://127.0.0.1:{self.server.server_port}", "test-admin-secret"
+
+    def __exit__(self, *_args: object) -> None:
+        assert self.server is not None
+        self.server.shutdown()
+        self.server.server_close()
+        assert self.thread is not None
+        self.thread.join()
+
+
+def _live_admin(bundle: Path, control: dict[str, object] | None = None) -> _LiveAdmin:
+    return _LiveAdmin(bundle, control)

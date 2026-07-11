@@ -108,7 +108,7 @@ class BuildDataFlags:
 def main(argv: list[str] | None = None) -> int:
     try:
         flags = _extract_build_data_flags(sys.argv[1:] if argv is None else argv)
-        sources, out_dir, iters, benches, weights, publication_bundle = parse_args(flags.argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
+        sources, out_dir, iters, benches, weights, publication_bundle, publication_base_url = parse_args(flags.argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
         build_options = {
             "iters": iters,
             "benches": benches,
@@ -117,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         }
         if publication_bundle is not None:
             build_options["publication_bundle"] = publication_bundle
+            build_options["publication_base_url"] = publication_base_url
         build_static_data(sources, out_dir, **build_options)
     except (DataBuildError, OSError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"build_data: {exc}", file=sys.stderr)
@@ -166,6 +167,7 @@ def build_static_data(
     weights: dict[str, float] = COMPOSITE_WEIGHTS,
     allow_lineage_gaps: bool = False,
     publication_bundle: Path | None = None,
+    publication_base_url: str | None = None,
 ) -> None:
     raw_sources = _list(_read_json(sources_path), "data_sources")
     sources = [_source(entry, index) for index, entry in enumerate(raw_sources)]
@@ -203,6 +205,8 @@ def build_static_data(
                 "static_suite_index_version": STATIC_SUITE_INDEX_VERSION,
                 "weights": weights,
             },
+            publication_base_url=publication_base_url,
+            publication_admin_secret=os.environ.get("LOCALBENCH_PUBLICATION_ADMIN_SECRET"),
         )
         assert_protected_tree_unchanged(before, out_dir)
 

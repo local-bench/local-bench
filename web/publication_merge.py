@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Iterable
 
-from publication_export import PublicationExportError, canonical_bytes
+from publication_export import PublicationExportError, canonical_bytes, fetch_live_publication_control
 
 IDENTITY_LABEL = "community-declared, identity-unverified"
 MAPPER_VERSION = "community-projection-mapper-v1"
@@ -23,6 +23,8 @@ def merge_publication_bundle(
     surface: str = "production",
     source_run_paths: Iterable[Path] = (),
     build_parameters: dict[str, Any] | None = None,
+    publication_base_url: str | None = None,
+    publication_admin_secret: str | None = None,
 ) -> dict[str, Any]:
     snapshot = _object(json.loads((bundle_dir / "snapshot.json").read_text(encoding="utf-8")), "snapshot")
     rows = _objects(snapshot.get("rows"), "snapshot.rows")
@@ -38,10 +40,20 @@ def merge_publication_bundle(
         raise PublicationExportError("active publication revision mismatch")
     if not isinstance(snapshot.get("activated_at"), str) or not snapshot["activated_at"]:
         raise PublicationExportError("active snapshot is not completed and activated")
-    suppressed = control.get("suppressed_submission_ids")
-    if not isinstance(suppressed, list) or not all(isinstance(item, str) for item in suppressed):
+    if not publication_base_url or not publication_admin_secret:
+        raise PublicationExportError("live publication base URL and admin secret are required at build time")
+    live_control = fetch_live_publication_control(publication_base_url, publication_admin_secret, snapshot_id)
+    if live_control.get("active_snapshot_id") != snapshot_id:
+        raise PublicationExportError("bundle snapshot is not the live active snapshot")
+    if live_control.get("publication_revision") != snapshot.get("publication_revision"):
+        raise PublicationExportError("bundle revision does not match the live publication revision")
+    captured_suppressed = control.get("suppressed_submission_ids")
+    live_suppressed = live_control.get("suppressed_submission_ids")
+    if not isinstance(captured_suppressed, list) or not all(isinstance(item, str) for item in captured_suppressed):
         raise PublicationExportError("suppression set is missing or malformed")
-    suppressed_ids = set(suppressed)
+    if not isinstance(live_suppressed, list) or not all(isinstance(item, str) for item in live_suppressed):
+        raise PublicationExportError("live suppression set is missing or malformed")
+    suppressed_ids = set(captured_suppressed) | set(live_suppressed)
     rows = [row for row in rows if _text(row, "submission_id") not in suppressed_ids]
     surface_policy = _object(json.loads(SURFACE_POLICY_PATH.read_text(encoding="utf-8")), "publication surface policy")
     if surface not in {"production", "previewDeploy"}:
@@ -99,11 +111,13 @@ def merge_publication_bundle(
         "mapper_version": MAPPER_VERSION,
         "projection_object_sha256s": sorted(projections),
         "protected_board_bytes_digest": _digest(board_path.read_bytes()),
-        "publication_control": control,
+        "publication_control": live_control,
         "schema_version": SCHEMA_VERSION,
         "source_run_byte_digests": _file_digest_entries(source_run_paths),
         "snapshot_digest": snapshot.get("snapshot_digest"),
         "snapshot_id": snapshot.get("snapshot_id"),
+        "surface": surface,
+        "surface_policy_bytes_digest": _digest(SURFACE_POLICY_PATH.read_bytes()),
     }
     manifest_digest = _digest(canonical_bytes(manifest))
     output_tree_digest = _tree_digest(out_dir, exclude={"community/publication-build.json"})

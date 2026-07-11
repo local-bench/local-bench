@@ -65,6 +65,13 @@ def export_publication_bundle(base_url: str, admin_secret: str, snapshot_id: str
     return snapshot
 
 
+def fetch_live_publication_control(base_url: str, admin_secret: str, snapshot_id: str) -> dict[str, Any]:
+    """Re-read D1 control at build time; bundle-captured control is not authoritative."""
+    query = urllib.parse.urlencode({"snapshot_id": snapshot_id, "cursor": 0})
+    page = _get_json(f"{base_url.rstrip('/')}/api/admin/publication-snapshot?{query}", admin_secret)
+    return _publication_control(page.get("publication_control"))
+
+
 def _get_json(url: str, secret: str) -> dict[str, Any]:
     value = json.loads(_get_bytes(url, secret))
     if not isinstance(value, dict):
@@ -94,8 +101,8 @@ def _text(value: dict[str, Any], key: str) -> str:
 def _publication_control(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise PublicationExportError("publication_control must be an object")
-    if not isinstance(value.get("active_snapshot_id"), str):
-        raise PublicationExportError("publication_control.active_snapshot_id must be a string")
+    if value.get("active_snapshot_id") is not None and not isinstance(value.get("active_snapshot_id"), str):
+        raise PublicationExportError("publication_control.active_snapshot_id must be a string or null")
     if not isinstance(value.get("publication_revision"), int):
         raise PublicationExportError("publication_control.publication_revision must be an integer")
     suppressed = value.get("suppressed_submission_ids")

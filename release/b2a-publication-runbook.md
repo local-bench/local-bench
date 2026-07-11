@@ -24,7 +24,10 @@ The rebuild sequence is:
 
 1. Create and activate a new snapshot after suppression.
 2. Run the production exporter against that active snapshot.
-3. Run `web/build_data.py --publication-bundle <export-dir>`; any stale/non-active bundle fails.
+3. Set `LOCALBENCH_PUBLICATION_ADMIN_SECRET`, then run
+   `web/build_data.py --publication-bundle <export-dir> --publication-base-url <worker-url>`.
+   The merge re-reads live D1 control immediately before materialization; any stale/non-active
+   bundle or changed revision fails, and the current suppression set is authoritative.
 4. Deploy the newly generated static site and invalidate the prior static assets.
 5. Verify the suppressed submission is absent from the served community group and that
    elapsed time from `blocked_at` is no more than 300 seconds.
