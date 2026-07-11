@@ -272,7 +272,7 @@
     "math.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
     "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
-  "kind": "community",
+  "kind": "anchor",
   "manifest_summary": {
     "caps": {
       "max_tokens_math": 0,

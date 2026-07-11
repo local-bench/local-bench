@@ -198,7 +198,7 @@
     "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
     "tool_calling.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
-  "kind": "community",
+  "kind": "anchor",
   "lane": "capped-thinking",
   "manifest_summary": {
     "caps": {

@@ -249,7 +249,7 @@
       "latency_s_median": 43.744,
       "n_errors": 0,
       "n_items": 694,
-      "origin": "community",
+      "origin": "project_anchor",
       "quant_label": "Q4_K_M",
       "ranked": false,
       "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
@@ -265,7 +265,7 @@
       "tok_s": 60.522512976153834,
       "tokens_to_answer_median": 2647.5,
       "tokens_to_answer_p95": 8759.85,
-      "trust_label": "community_re_scored",
+      "trust_label": "project_anchor",
       "vram_footprint_gb": 18.32,
       "vram_required_gb_8k": 20.9,
       "wall_time_seconds": 44835.84482139998

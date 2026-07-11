@@ -102,7 +102,7 @@
     "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
     "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
   },
-  "kind": "community",
+  "kind": "anchor",
   "lane": "capped-thinking",
   "manifest_summary": {
     "caps": {
@@ -160,7 +160,7 @@
     "thinking_mode": "n/a"
   },
   "model_label": "Gemma 4 31B IT",
-  "origin": "community",
+  "origin": "project_anchor",
   "ranked": false,
   "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
   "score_status": "measured",
@@ -187,7 +187,7 @@
     "total_tokens": 5393277,
     "wall_time_seconds": 44835.84482139998
   },
-  "trust_label": "community_re_scored",
+  "trust_label": "project_anchor",
   "worst_axis": {
     "bench": "agentic",
     "point": 11.458333333333332,

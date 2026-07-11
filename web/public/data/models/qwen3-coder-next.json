@@ -44,268 +44,74 @@
   "org": "Qwen",
   "runs": [
     {
-      "axes": {
-        "instruction": {
-          "conditional_accuracy": 0.3125,
-          "hi": 36.054421768707485,
-          "hi_raw": 0.36054421768707484,
-          "lo": 25.510204081632654,
-          "lo_raw": 0.25510204081632654,
-          "n": 294,
-          "n_errors": 5,
-          "n_no_answer": 0,
-          "point": 30.612244897959183,
-          "point_raw": 0.30612244897959184,
-          "raw_accuracy": 0.30612244897959184,
-          "termination_rate": 0.9795918367346939
-        },
-        "knowledge": {
-          "conditional_accuracy": 0.8459595959595958,
-          "hi": 85.68730343985817,
-          "hi_raw": 0.8568730343985816,
-          "lo": 77.54871127820888,
-          "lo_raw": 0.7754871127820888,
-          "n": 400,
-          "n_errors": 0,
-          "n_no_answer": 2,
-          "point": 81.75832791354473,
-          "point_raw": 0.8175832791354474,
-          "raw_accuracy": 0.8375,
-          "termination_rate": 0.99
-        },
-        "tool_calling": {
-          "conditional_accuracy": 0.7545454545454545,
-          "hi": 80.0,
-          "hi_raw": 0.8,
-          "lo": 70.60606060606061,
-          "lo_raw": 0.706060606060606,
-          "n": 330,
-          "n_errors": 0,
-          "n_no_answer": 5,
-          "point": 75.45454545454545,
-          "point_raw": 0.7545454545454545,
-          "raw_accuracy": 0.7545454545454545,
-          "termination_rate": 1.0
-        }
-      },
-      "axis_status": {
-        "agentic": {
-          "axis": "agentic",
-          "reason": "ok",
-          "status": "measured"
-        },
-        "coding": {
-          "axis": "coding",
-          "reason": "not_run",
-          "status": "not_measured"
-        },
-        "instruction_following": {
-          "axis": "instruction_following",
-          "reason": "ok",
-          "status": "measured"
-        },
-        "knowledge": {
-          "axis": "knowledge",
-          "reason": "ok",
-          "status": "measured"
-        },
-        "long_context": {
-          "axis": "long_context",
-          "reason": "not_run",
-          "status": "not_measured"
-        },
-        "math": {
-          "axis": "math",
-          "reason": "not_run",
-          "status": "not_measured"
-        },
-        "tool_calling": {
-          "axis": "tool_calling",
-          "reason": "ok",
-          "status": "measured"
-        }
-      },
+      "axes": {},
       "bpw": 8.5,
       "composite": null,
-      "composite_full": null,
-      "composite_static": null,
-      "diagnostic_composite": {
-        "hi": 65.65314695321212,
-        "hi_raw": 0.6565314695321212,
-        "lo": 56.29860841145572,
-        "lo_raw": 0.5629860841145572,
-        "point": 61.00260116795033,
-        "point_raw": 0.6100260116795033
-      },
+      "demo": false,
       "est_cost_usd": null,
       "file_gb": 84.8,
       "hardware": {
-        "cpu": "x86_64",
-        "gpu": {
-          "driver": "595.58.03",
-          "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
-          "vram_gb": 95.6,
-          "vram_mb": 97887
-        },
-        "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+        "cpu": null,
+        "gpu": null,
+        "os": null,
         "ram_gb": null
       },
-      "lane": "capped-thinking",
-      "latency_s_median": 1.199,
-      "n_errors": 5,
-      "n_items": 1120,
-      "origin": "community",
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
       "quant_label": "Q8_0",
       "ranked": false,
-      "run_id": "qwen3-coder-next__qwen3-coder-next-q8",
+      "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
-        "kv_cache_quant": "unknown",
+        "kv_cache_quant": null,
         "name": null,
         "parallel_slots": null,
         "version": null
       },
-      "score_status": "measured",
-      "tier": "standard",
-      "tok_s": 230.2014226391457,
-      "tokens_to_answer_median": 276.0,
-      "tokens_to_answer_p95": 3355.8999999999937,
-      "trust_label": "community_re_scored",
-      "vram_footprint_gb": 85.0,
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 84.8,
       "vram_required_gb_8k": 89.8,
-      "wall_time_seconds": 3528.822674885858
+      "wall_time_seconds": null
     },
     {
-      "axes": {
-        "instruction": {
-          "conditional_accuracy": 0.313588850174216,
-          "hi": 36.054421768707485,
-          "hi_raw": 0.36054421768707484,
-          "lo": 25.510204081632654,
-          "lo_raw": 0.25510204081632654,
-          "n": 294,
-          "n_errors": 3,
-          "n_no_answer": 0,
-          "point": 30.612244897959183,
-          "point_raw": 0.30612244897959184,
-          "raw_accuracy": 0.30612244897959184,
-          "termination_rate": 0.9761904761904762
-        },
-        "knowledge": {
-          "conditional_accuracy": 0.8207070707070707,
-          "hi": 82.88089234963428,
-          "hi_raw": 0.8288089234963428,
-          "lo": 74.46165907896261,
-          "lo_raw": 0.7446165907896262,
-          "n": 400,
-          "n_errors": 0,
-          "n_no_answer": 3,
-          "point": 78.95191682332083,
-          "point_raw": 0.7895191682332083,
-          "raw_accuracy": 0.8125,
-          "termination_rate": 0.99
-        },
-        "tool_calling": {
-          "conditional_accuracy": 0.7454545454545455,
-          "hi": 79.0909090909091,
-          "hi_raw": 0.7909090909090909,
-          "lo": 69.6969696969697,
-          "lo_raw": 0.696969696969697,
-          "n": 330,
-          "n_errors": 0,
-          "n_no_answer": 5,
-          "point": 74.54545454545455,
-          "point_raw": 0.7454545454545455,
-          "raw_accuracy": 0.7454545454545455,
-          "termination_rate": 1.0
-        }
-      },
-      "axis_status": {
-        "agentic": {
-          "axis": "agentic",
-          "reason": "ok",
-          "status": "measured"
-        },
-        "coding": {
-          "axis": "coding",
-          "reason": "not_run",
-          "status": "not_measured"
-        },
-        "instruction_following": {
-          "axis": "instruction_following",
-          "reason": "ok",
-          "status": "measured"
-        },
-        "knowledge": {
-          "axis": "knowledge",
-          "reason": "ok",
-          "status": "measured"
-        },
-        "long_context": {
-          "axis": "long_context",
-          "reason": "not_run",
-          "status": "not_measured"
-        },
-        "math": {
-          "axis": "math",
-          "reason": "not_run",
-          "status": "not_measured"
-        },
-        "tool_calling": {
-          "axis": "tool_calling",
-          "reason": "ok",
-          "status": "measured"
-        }
-      },
+      "axes": {},
       "bpw": 6.6,
       "composite": null,
-      "composite_full": null,
-      "composite_static": null,
-      "diagnostic_composite": {
-        "hi": 64.37347006710543,
-        "hi_raw": 0.6437347006710543,
-        "lo": 54.913691109465645,
-        "lo_raw": 0.5491369110946565,
-        "point": 59.72292428184364,
-        "point_raw": 0.5972292428184364
-      },
+      "demo": false,
       "est_cost_usd": null,
       "file_gb": 65.6,
       "hardware": {
-        "cpu": "x86_64",
-        "gpu": {
-          "driver": "595.58.03",
-          "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
-          "vram_gb": 95.6,
-          "vram_mb": 97887
-        },
-        "os": "Linux-7.0.0-15-generic-x86_64-with-glibc2.43",
+        "cpu": null,
+        "gpu": null,
+        "os": null,
         "ram_gb": null
       },
-      "lane": "capped-thinking",
-      "latency_s_median": 1.032,
-      "n_errors": 3,
-      "n_items": 1120,
-      "origin": "community",
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
       "quant_label": "Q6_K",
       "ranked": false,
-      "run_id": "qwen3-coder-next__qwen3-coder-next-q6",
+      "run_id": null,
       "runtime": {
         "ctx_len_configured": null,
-        "kv_cache_quant": "unknown",
+        "kv_cache_quant": null,
         "name": null,
         "parallel_slots": null,
         "version": null
       },
-      "score_status": "measured",
-      "tier": "standard",
-      "tok_s": 255.7101168555596,
-      "tokens_to_answer_median": 264.0,
-      "tokens_to_answer_p95": 3379.0,
-      "trust_label": "community_re_scored",
-      "vram_footprint_gb": 66.0,
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 65.6,
       "vram_required_gb_8k": 70.6,
-      "wall_time_seconds": 3261.830271936953
+      "wall_time_seconds": null
     },
     {
       "axes": {},

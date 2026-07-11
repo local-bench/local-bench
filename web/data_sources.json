@@ -329,7 +329,10 @@
     "notes": "Remote Vast GPU0 strict capped-thinking lane. Inline run with AppWorld-C quarantined pending durable diagnostics; website reflects Knowledge/Instruction/Tool-calling only. Footprint = on-disk GGUF weight size (decimal GB)."
   },
   {
-    "kind": "community",
+    "kind": "anchor",
+    "origin": "project_anchor",
+    "trust_label": "project_anchor",
+    "agentic_provenance": "project_attested",
     "family": "Gemma 4",
     "model_id": "google/gemma-4-31B-it",
     "model_label": "Gemma 4 31B IT",
