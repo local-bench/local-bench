@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { canonicalJson } from "../functions/_lib/submission-canonical";
+import { StatusUpdateSchema } from "../functions/_lib/submission-contracts";
 import { onRequestPost as requestUpload } from "../functions/api/submissions/request-upload";
 import { onRequestPost as issueTicket } from "../functions/api/submissions/tickets";
 import { onRequestPost as completeSubmission } from "../functions/api/submissions/[submissionId]/complete";
@@ -18,6 +20,7 @@ import {
   issueEnvelope,
   jsonRequest,
   statusUpdate,
+  sha256Hex,
   ticketRequest,
 } from "./submission-test-support";
 
@@ -246,6 +249,28 @@ describe("submission route contracts", () => {
     });
   });
 
+  it.each([
+    ["forbidden runtime field", (projection: any) => { projection.runtime.command = "smuggled"; }],
+    ["invalid nested axis bound", (projection: any) => { projection.axes.knowledge.n = -1; }],
+  ])("rejects a hash-consistent v2 projection with %s", async (_label, mutate) => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const envelope = await issueEnvelope(env);
+    await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);
+    await completeSubmission({
+      env, params: { submissionId: envelope.ticket_id },
+      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, { raw_bundle_sha256: RAW_BUNDLE_SHA, size_bytes: 1234 }),
+    });
+    const update: any = structuredClone(statusUpdate("accepted"));
+    mutate(update.projection);
+    rehashStatusUpdate(update);
+    const response = await applyVerification({
+      env, params: { submissionId: envelope.ticket_id },
+      request: jsonRequest(`/api/admin/submissions/${envelope.ticket_id}/verification`, update, { "x-localbench-admin-secret": ADMIN_SECRET }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "invalid_status_update" });
+  });
+
   it("enforces FIFO cohort order for admin verification unless override is explicit", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const rows = [
@@ -262,6 +287,7 @@ describe("submission route contracts", () => {
     }
     const second = rows[1] as { id: string; sha: string; uploaded: string };
     const secondUpdate = statusUpdate("accepted", second.sha, "community");
+    expect(StatusUpdateSchema.safeParse(secondUpdate).error?.issues).toBeUndefined();
 
     const refused = await applyVerification({
       env,
@@ -321,3 +347,17 @@ describe("submission route contracts", () => {
     });
   });
 });
+
+function rehashStatusUpdate(update: any): void {
+  const projection: any = update.projection;
+  projection.artifact_hashes.projection_sha256 = "";
+  projection.artifact_hashes.public_artifact_manifest_sha256 = "";
+  const semantic = sha256Hex(canonicalJson(projection));
+  projection.artifact_hashes.projection_sha256 = semantic;
+  projection.artifact_hashes.public_artifact_manifest_sha256 = sha256Hex(canonicalJson({
+    bundle_sha256: projection.artifact_hashes.bundle_sha256,
+    projection_sha256: semantic,
+  }));
+  update.projection_sha256 = semantic;
+  update.projection_object_sha256 = sha256Hex(canonicalJson(projection));
+}

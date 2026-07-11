@@ -101,6 +101,8 @@ const PopSchema = z.object({
 const CatalogSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
 const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
 export const CommunityModelGroupIdSchema = z.string().regex(/^community-group:[0-9a-f]{32}$/);
+const ScoreSchema = z.number().min(0).max(1);
+const NullableScoreSchema = ScoreSchema.nullable();
 
 const OneShotArtifactSchema = z.object({
   filename: z.string().min(1),
@@ -152,12 +154,83 @@ export const CompleteRequestSchema = z.object({
   size_bytes: z.number().int().positive().optional(),
 });
 
+const ProjectionAxisSchema = z.object({
+  ci: z.tuple([ScoreSchema, ScoreSchema]).nullable(),
+  n: z.number().int().min(0).max(10_000_000),
+  score: NullableScoreSchema,
+  status: z.enum(["measured", "not_measured", "invalid"]),
+}).strict();
+const RescoreModeSchema = z.enum(["rescored", "verdict_carried"]);
+const AcceptedResultProjectionV2BaseSchema = z.object({
+  schema_version: z.literal(ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION),
+  model: z.object({
+    display_name: z.string().nullable(), declared_name: z.string().nullable(), file_sha256: Sha256Schema.nullable(),
+    file_size_bytes: z.number().int().positive().nullable().optional(), file_name: z.string().nullable().optional(),
+    family: z.string().nullable().optional(), quant_label: z.string().nullable().optional(), format: z.string().nullable().optional(),
+    tokenizer_digest: Sha256Schema.nullable().optional(), chat_template_digest: Sha256Schema.nullable().optional(),
+    identity_status: z.enum(["unverified", "maintainer_verified"]),
+    model_system_key: z.string().regex(/^(artifact|legacy-project-anchor):[0-9a-f]{64}$/),
+  }).strict(),
+  lineage: z.object({ base_model: z.array(z.string().min(1)) }).strict(),
+  runtime: z.object({
+    name: z.string().min(1), version: z.string().min(1), kv_cache_quant: z.string().nullable().optional(),
+    ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),
+    build_flags: z.string().nullable().optional(),
+  }).strict(),
+  suite_release_id: z.enum([
+    "suite-v1-partial-text-code-4axis-v1", "suite-v1-text-code-agentic-5axis-v1", "suite-v1-full-exec-6axis-v1",
+    "suite-v1-static-exec-5axis-v1", "suite-v1-static-core-diag-v1",
+  ]),
+  suite_manifest_sha256: Sha256Schema,
+  scorecard_id: z.string().min(1), coverage_profile_id: z.string().min(1), headline_complete: z.boolean(),
+  scores: z.object({
+    headline_score: NullableScoreSchema, partial_composite: ScoreSchema,
+    partial_composite_scope: z.literal("measured_headline_axes"), measured_headline_weight: ScoreSchema,
+    missing_headline_weight: ScoreSchema, known_headline_contribution: ScoreSchema, rank_scope: z.string().min(1),
+    composite_static: NullableScoreSchema.optional(), composite_full: NullableScoreSchema.optional(), static_index_version: z.string().min(1).optional(),
+  }).strict(),
+  axes: z.record(z.string(), ProjectionAxisSchema).refine((axes) => Object.keys(axes).length > 0),
+  conformance: z.object({ status: z.string().min(1).optional(), per_bench: z.record(z.string(), z.unknown()).optional() }).strict(),
+  receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict(),
+  artifact_hashes: z.object({ bundle_sha256: Sha256Schema, projection_sha256: Sha256Schema, public_artifact_manifest_sha256: Sha256Schema }).strict(),
+  origin: z.enum(["project_anchor", "community"]),
+  trust_label: z.enum(["project_anchor", "community_self_submitted", "community_re_scored"]),
+  verification_level: z.literal("bundle_rescored"), agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
+  provenance_notes: z.array(z.string()).optional(),
+  rescore_modes: z.object({
+    amo: RescoreModeSchema.optional(), appworld_c: RescoreModeSchema.optional(), bfcl: RescoreModeSchema.optional(),
+    bigcodebench_hard: RescoreModeSchema.optional(), ifbench: RescoreModeSchema.optional(), mmlu_pro: RescoreModeSchema.optional(),
+    olymmath_hard: RescoreModeSchema.optional(), tc_json_v1: RescoreModeSchema.optional(),
+  }).strict(),
+  validator: z.object({ validator_version: z.string().min(1), commit: z.string().nullable(), validated_at: z.iso.datetime() }).strict(),
+}).strict();
+
+const SUITE_MANIFESTS: Readonly<Record<string, string>> = {
+  "suite-v1-full-exec-6axis-v1": "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468",
+  "suite-v1-static-exec-5axis-v1": "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
+  "suite-v1-partial-text-code-4axis-v1": "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
+  "suite-v1-text-code-agentic-5axis-v1": "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f",
+  "suite-v1-static-core-diag-v1": "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69",
+};
+
+export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSchema.superRefine((projection, context) => {
+  if (SUITE_MANIFESTS[projection.suite_release_id] !== projection.suite_manifest_sha256) {
+    context.addIssue({ code: "custom", message: "suite release manifest mismatch" });
+  }
+  if (projection.origin === "community" && (
+    projection.model.identity_status !== "unverified" || projection.model.file_sha256 === null ||
+    !projection.model.model_system_key.startsWith("artifact:")
+  )) {
+    context.addIssue({ code: "custom", message: "community projection identity is invalid" });
+  }
+});
+
 export const StatusUpdateSchema = z
   .object({
     accepted: z.boolean(),
     blocking_reasons: z.array(z.string()),
     projection_path: z.string().min(1),
-    projection: z.record(z.string(), z.unknown()),
+    projection: AcceptedResultProjectionV2Schema,
     projection_object_sha256: Sha256Schema,
     projection_sha256: Sha256Schema,
     raw_bundle_sha256: Sha256Schema,

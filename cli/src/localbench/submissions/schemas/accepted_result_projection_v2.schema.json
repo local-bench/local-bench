@@ -44,7 +44,14 @@
       }
     },
     "lineage": {"type": "object", "additionalProperties": false, "required": ["base_model"], "properties": {"base_model": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}}},
-    "runtime": {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}, "required": ["name", "version"]},
+    "runtime": {
+      "type": "object", "additionalProperties": false, "required": ["name", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1},
+        "kv_cache_quant": {"type": ["string", "null"]}, "ctx_len_configured": {"type": ["integer", "null"], "minimum": 1},
+        "parallel_slots": {"type": ["integer", "null"], "minimum": 1}, "build_flags": {"type": ["string", "null"]}
+      }
+    },
     "suite_release_id": {"enum": ["suite-v1-partial-text-code-4axis-v1", "suite-v1-text-code-agentic-5axis-v1", "suite-v1-full-exec-6axis-v1", "suite-v1-static-exec-5axis-v1", "suite-v1-static-core-diag-v1"]}, "suite_manifest_sha256": {"$ref": "#/$defs/digest"},
     "scorecard_id": {"type": "string", "minLength": 1}, "coverage_profile_id": {"type": "string", "minLength": 1},
     "headline_complete": {"type": "boolean"},
@@ -60,14 +67,28 @@
       }
     },
     "axes": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/axis"}},
-    "conformance": {"$ref": "#/$defs/jsonObject"},
+    "conformance": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "status": {"type": "string", "minLength": 1},
+        "per_bench": {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}}
+      }
+    },
     "receipt_references": {"type": "object", "additionalProperties": false, "required": ["coding_receipt_sha256"], "properties": {"coding_receipt_sha256": {"$ref": "#/$defs/nullableDigest"}}},
     "artifact_hashes": {"type": "object", "additionalProperties": false, "required": ["bundle_sha256", "projection_sha256", "public_artifact_manifest_sha256"], "properties": {"bundle_sha256": {"$ref": "#/$defs/digest"}, "projection_sha256": {"$ref": "#/$defs/digest"}, "public_artifact_manifest_sha256": {"$ref": "#/$defs/digest"}}},
     "origin": {"enum": ["project_anchor", "community"]},
     "trust_label": {"enum": ["project_anchor", "community_self_submitted", "community_re_scored"]},
     "verification_level": {"const": "bundle_rescored"}, "agentic_provenance": {"enum": ["none", "project_attested", "self_reported"]},
     "provenance_notes": {"type": "array", "items": {"type": "string"}},
-    "rescore_modes": {"type": "object", "additionalProperties": {"enum": ["rescored", "verdict_carried"]}},
+    "rescore_modes": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "amo": {"enum": ["rescored", "verdict_carried"]}, "appworld_c": {"enum": ["rescored", "verdict_carried"]},
+        "bfcl": {"enum": ["rescored", "verdict_carried"]}, "bigcodebench_hard": {"enum": ["rescored", "verdict_carried"]},
+        "ifbench": {"enum": ["rescored", "verdict_carried"]}, "mmlu_pro": {"enum": ["rescored", "verdict_carried"]},
+        "olymmath_hard": {"enum": ["rescored", "verdict_carried"]}, "tc_json_v1": {"enum": ["rescored", "verdict_carried"]}
+      }
+    },
     "validator": {"type": "object", "additionalProperties": false, "required": ["validator_version", "commit", "validated_at"], "properties": {"validator_version": {"type": "string", "minLength": 1}, "commit": {"type": ["string", "null"]}, "validated_at": {"type": "string", "format": "date-time"}}}
   },
   "allOf": [
