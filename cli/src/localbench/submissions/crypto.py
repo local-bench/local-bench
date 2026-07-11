@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
@@ -20,7 +20,7 @@ Point = tuple[int, int]
 
 @dataclass(frozen=True, slots=True)
 class Ed25519PrivateKey:
-    seed: bytes
+    seed: bytes = field(repr=False)
     public_key: bytes
 
 

@@ -19,11 +19,16 @@ from localbench.submissions.crypto import load_private_key, sign_bytes, verify_b
 
 MANIFEST_SCHEMA: Final = "localbench.agentic_runtime_manifest.v1"
 MANIFEST_SIGNATURE_DOMAIN: Final = b"localbench.agentic-runtime-manifest.v1\n"
-PINNED_RUNTIME_ID: Final = "aw013p1-ubuntu2404-py312-c0v1-r1"
+PINNED_RUNTIME_ID: Final = "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v2-r1"
 RUNTIME_KEY_ID: Final = "localbench-runtime-root-2026-07"
 RUNTIME_PUBLIC_KEYS: Final = {
     RUNTIME_KEY_ID: "46dd1ea90d4b227b45a8786189f68ed2657af539eb5ce6eda332287cee765ece"
 }
+# Filled from the accepted release evidence before publication. A non-matching
+# manifest for the pinned runtime is rejected even when correctly signed.
+PINNED_INITIAL_MANIFEST_SHA256: Final = (
+    "86c98e38aef443675a92c8d7d90bd5cf88078ce37ee4aca500706b340359ebb2"
+)
 MANIFEST_URL: Final = (
     f"https://local-bench.ai/artifacts/agentic/{PINNED_RUNTIME_ID}/manifest.json"
 )
@@ -54,22 +59,27 @@ class RuntimeManifestError(Exception):
 
 def signed_manifest(payload: JsonObject, signing_key: Path) -> JsonObject:
     key = load_private_key(signing_key)
+    payload_digest = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
     return {
         "payload": payload,
-        "payload_sha256": hashlib.sha256(canonical_json_bytes(payload)).hexdigest(),
+        "payload_sha256": payload_digest,
         "signature": {
             "algorithm": "Ed25519",
             "key_id": RUNTIME_KEY_ID,
             "public_key": key.public_key.hex(),
             "signature": sign_bytes(
-                MANIFEST_SIGNATURE_DOMAIN + canonical_json_bytes(payload), signing_key
+                MANIFEST_SIGNATURE_DOMAIN + bytes.fromhex(payload_digest), signing_key
             ),
         },
     }
 
 
 def verify_manifest_bytes(
-    raw: bytes, *, expected_runtime_id: str = PINNED_RUNTIME_ID
+    raw: bytes,
+    *,
+    expected_runtime_id: str = PINNED_RUNTIME_ID,
+    trust_state: JsonObject | None = None,
+    expected_manifest_sha256: str | None = None,
 ) -> JsonObject:
     if len(raw) > MAX_MANIFEST_BYTES:
         raise RuntimeManifestError(
@@ -92,7 +102,20 @@ def verify_manifest_bytes(
             "manifest_invalid", "payload/signature objects are required"
         )
     key_id = signature.get("key_id")
-    trusted_key = RUNTIME_PUBLIC_KEYS.get(key_id) if isinstance(key_id, str) else None
+    trusted_keys = dict(RUNTIME_PUBLIC_KEYS)
+    revoked: set[str] = set()
+    killed: set[str] = set()
+    if trust_state is not None:
+        admitted = trust_state.get("admitted_keys", {})
+        if isinstance(admitted, dict):
+            trusted_keys.update(
+                {str(key): str(value) for key, value in admitted.items()}
+            )
+        revoked = {str(value) for value in trust_state.get("revoked_key_ids", [])}
+        killed = {
+            str(value) for value in trust_state.get("kill_switched_runtime_ids", [])
+        }
+    trusted_key = trusted_keys.get(key_id) if isinstance(key_id, str) else None
     signature_hex = signature.get("signature")
     if (
         signature.get("algorithm") != "Ed25519"
@@ -100,7 +123,8 @@ def verify_manifest_bytes(
         or not isinstance(signature_hex, str)
         or trusted_key is None
         or not verify_bytes(
-            MANIFEST_SIGNATURE_DOMAIN + canonical_json_bytes(payload),
+            MANIFEST_SIGNATURE_DOMAIN
+            + bytes.fromhex(hashlib.sha256(canonical_json_bytes(payload)).hexdigest()),
             signature_hex,
             trusted_key,
         )
@@ -108,17 +132,26 @@ def verify_manifest_bytes(
         raise RuntimeManifestError(
             "manifest_signature_invalid", "untrusted or invalid signature"
         )
+    if key_id in revoked:
+        raise RuntimeManifestError("runtime_key_revoked", str(key_id))
     actual_payload_sha = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
     if document.get("payload_sha256") != actual_payload_sha:
         raise RuntimeManifestError("manifest_digest_invalid", "payload digest mismatch")
-    _validate_payload(
-        payload, expected_runtime_id=expected_runtime_id, trusted_key_id=key_id
-    )
+    _validate_payload(payload, expected_runtime_id=expected_runtime_id)
+    if expected_runtime_id in killed:
+        raise RuntimeManifestError("runtime_kill_switched", expected_runtime_id)
+    pinned = expected_manifest_sha256
+    if pinned is None and expected_runtime_id == PINNED_RUNTIME_ID:
+        pinned = PINNED_INITIAL_MANIFEST_SHA256
+    if pinned is not None and hashlib.sha256(raw).hexdigest() != pinned:
+        raise RuntimeManifestError(
+            "manifest_digest_unpinned", "manifest differs from the CLI-pinned release"
+        )
     return payload
 
 
 def _validate_payload(
-    payload: JsonObject, *, expected_runtime_id: str, trusted_key_id: object
+    payload: JsonObject, *, expected_runtime_id: str
 ) -> None:
     if payload.get("schema") != MANIFEST_SCHEMA:
         raise RuntimeManifestError(
@@ -129,28 +162,6 @@ def _validate_payload(
             "runtime_replay_or_downgrade",
             f"CLI pins {expected_runtime_id!r}, manifest has {payload.get('runtime_id')!r}",
         )
-    trust = _object(payload.get("trust"), "trust")
-    if trust.get("kill_switched") is True:
-        raise RuntimeManifestError("runtime_kill_switched", expected_runtime_id)
-    revoked = trust.get("revoked_key_ids")
-    if not isinstance(revoked, list) or not all(
-        isinstance(item, str) for item in revoked
-    ):
-        raise RuntimeManifestError(
-            "manifest_invalid", "trust.revoked_key_ids must be strings"
-        )
-    if trusted_key_id in revoked:
-        raise RuntimeManifestError("runtime_key_revoked", str(trusted_key_id))
-    rotation = trust.get("next_keys")
-    if not isinstance(rotation, list):
-        raise RuntimeManifestError("manifest_invalid", "trust.next_keys must be a list")
-    for index, item in enumerate(rotation):
-        next_key = _object(item, f"trust.next_keys[{index}]")
-        if not isinstance(next_key.get("key_id"), str):
-            raise RuntimeManifestError(
-                "manifest_invalid", "rotated key_id must be a string"
-            )
-        _public_key(next_key.get("public_key"), f"trust.next_keys[{index}].public_key")
     artifact = _object(payload.get("rootfs"), "rootfs")
     _sha(artifact.get("sha256"), "rootfs.sha256")
     size = artifact.get("size_bytes")
@@ -177,6 +188,7 @@ def _validate_payload(
         "critical_hashes",
         "provenance",
         "sbom",
+        "protected_content_scan",
         "disk_requirements",
     ):
         if field not in payload:
@@ -257,6 +269,8 @@ def _validate_payload(
         )
     for name in REQUIRED_CRITICAL_HASHES:
         _sha(hashes.get(name), f"critical_hashes.{name}")
+    scan = _object(payload.get("protected_content_scan"), "protected_content_scan")
+    _sha(scan.get("sha256"), "protected_content_scan.sha256")
 
 
 def _object(value: object, name: str) -> JsonObject:
@@ -313,6 +327,7 @@ __all__ = [
     "MAX_ARTIFACT_BYTES",
     "MAX_MANIFEST_BYTES",
     "PINNED_RUNTIME_ID",
+    "PINNED_INITIAL_MANIFEST_SHA256",
     "REQUIRED_CRITICAL_HASHES",
     "RuntimeManifestError",
     "signed_manifest",

@@ -1,33 +1,38 @@
-"""Build C1 twice inside WSL, accept only byte-identical tar.xz output, then sign."""
+"""Build C1 twice and emit an unsigned canonical offline-signing bundle."""
 
 from __future__ import annotations
 
 import argparse
+import base64
+import csv
 import hashlib
 import json
 import os
+import posixpath
 import subprocess
+import shutil
 import tempfile
 import tarfile
 from pathlib import Path
+
+import jsonschema
 
 from localbench._types import JsonObject
 from localbench.appliance.manifest import (
     MANIFEST_SCHEMA,
     PINNED_RUNTIME_ID,
-    signed_manifest,
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
 from localbench.submissions.canon import canonical_json_hash, write_json_file
+from release_scanner import scan_release
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, type=Path)
-    parser.add_argument("--signing-key", type=Path, default=None)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--retain-failed-builds", action="store_true")
     args = parser.parse_args()
-    key = args.signing_key or _key_from_env()
     config = _read_object(args.config)
     _validate_config(config)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -37,16 +42,37 @@ def main() -> int:
         second = root / "second.tar.xz"
         _build_once(config, first)
         _build_once(config, second)
-        if _sha(first) != _sha(second) or first.read_bytes() != second.read_bytes():
+        first_sha, second_sha = _sha(first), _sha(second)
+        if first_sha != second_sha or first.read_bytes() != second.read_bytes():
+            write_json_file(args.out / "failed-double-build.json", {"first_sha256": first_sha, "second_sha256": second_sha, "byte_identical": False})
+            if args.retain_failed_builds:
+                shutil.copy2(first, args.out / "failed-first.tar.xz")
+                shutil.copy2(second, args.out / "failed-second.tar.xz")
             raise RuntimeError(
                 "C1 reproducibility gate failed: double-build archives differ"
             )
-        _scan_no_protected_content(first)
-        artifact = args.out / f"localbench-agentic-runtime-{PINNED_RUNTIME_ID}.tar.xz"
-        if artifact.exists() and _sha(artifact) != _sha(first):
+        write_json_file(
+            args.out / "double-build.json",
+            {
+                "schema": "localbench.runtime_double_build.v1",
+                "first_archive_sha256": first_sha,
+                "second_archive_sha256": second_sha,
+                "byte_comparison": "identical",
+            },
+        )
+        if args.retain_failed_builds:
+            shutil.copy2(first, args.out / "scan-candidate.tar.xz")
+        scan_report = scan_release(
+            first,
+            allowed_top_levels={"bin", "bin.usr-is-merged", "boot", "dev", "etc", "home", "lib", "lib.usr-is-merged", "lib64", "media", "mnt", "opt", "proc", "root", "run", "sbin", "sbin.usr-is-merged", "snap", "srv", "sys", "tmp", "usr", "var"},
+            sandbox_wsl_distro=str(config["builder_wsl_distro"]),
+        )
+        final_artifact = args.out / f"localbench-agentic-runtime-{PINNED_RUNTIME_ID}.tar.xz"
+        if final_artifact.exists() and _sha(final_artifact) != first_sha:
             raise RuntimeError(
                 "immutable runtime ID already exists with different rootfs bytes"
             )
+        artifact = args.out / f".{final_artifact.name}.candidate"
         os.replace(first, artifact)
     sbom: JsonObject = {
         "bomFormat": "CycloneDX",
@@ -55,31 +81,11 @@ def main() -> int:
         "metadata": {
             "component": {"type": "operating-system", "name": PINNED_RUNTIME_ID}
         },
-        "components": [
-            {
-                "type": "library",
-                "name": str(package).split("=", 1)[0],
-                "version": str(package).split("=", 1)[1],
-            }
-            for package in config["apt_packages"]
-        ]
-        + [
-            {
-                "type": "application",
-                "name": "local-bench-ai-worker",
-                "version": str(_object(config["worker"])["version"]),
-                "hashes": [
-                    {
-                        "alg": "SHA-256",
-                        "content": str(_object(config["worker"])["sha256"]),
-                    }
-                ],
-            }
-        ],
+        "components": _complete_sbom_components(artifact),
     }
     provenance: JsonObject = {
         "_type": "https://in-toto.io/Statement/v1",
-        "subject": [{"name": artifact.name, "digest": {"sha256": _sha(artifact)}}],
+        "subject": [{"name": final_artifact.name, "digest": {"sha256": _sha(artifact)}}],
         "predicateType": "https://slsa.dev/provenance/v1",
         "predicate": {
             "buildDefinition": {
@@ -112,18 +118,23 @@ def main() -> int:
     }
     sbom_path = args.out / f"{PINNED_RUNTIME_ID}.sbom.json"
     provenance_path = args.out / f"{PINNED_RUNTIME_ID}.provenance.json"
+    scan_path = args.out / f"{PINNED_RUNTIME_ID}.protected-content-scan.json"
     write_json_file(sbom_path, sbom)
     write_json_file(provenance_path, provenance)
-    payload = _manifest_payload(config, artifact, sbom_path, provenance_path)
-    manifest_path = args.out / "manifest.json"
-    document = signed_manifest(payload, key)
-    if manifest_path.exists():
-        existing = _read_object(manifest_path)
-        if existing != document:
-            raise RuntimeError(
-                "immutable runtime ID already exists with a different manifest"
-            )
-    write_json_file(manifest_path, document)
+    write_json_file(scan_path, scan_report)
+    payload = _manifest_payload(config, artifact, sbom_path, provenance_path, scan_path)
+    payload_digest = canonical_json_hash(payload)
+    write_json_file(args.out / "manifest.unsigned.json", payload)
+    write_json_file(
+        args.out / "signing-request.json",
+        {
+            "schema": "localbench.runtime_signing_request.v1",
+            "domain": "localbench.agentic-runtime-manifest.v1",
+            "key_id": "localbench-runtime-root-2026-07",
+            "payload_sha256": payload_digest,
+        },
+    )
+    os.replace(artifact, final_artifact)
     return 0
 
 
@@ -157,12 +168,13 @@ def _build_once(config: JsonObject, destination: Path) -> None:
 
 
 def _manifest_payload(
-    config: JsonObject, artifact: Path, sbom: Path, provenance: Path
+    config: JsonObject, artifact: Path, sbom: Path, provenance: Path, scan: Path
 ) -> JsonObject:
     contract = load_execution_contract()
     contract_payload = _object(contract["payload"])
     identity = _object(contract_payload["task_identity"])
     worker = _object(config["worker"])
+    metadata = _archive_json(artifact, "usr/share/localbench/build-metadata.json")
     return {
         "schema": MANIFEST_SCHEMA,
         "runtime_id": PINNED_RUNTIME_ID,
@@ -176,8 +188,8 @@ def _manifest_payload(
             "compressor_flags": "--threads=1 --check=crc64 -9e",
         },
         "worker": worker,
-        "python": config["python"],
-        "bubblewrap": config["bubblewrap"],
+        "python": {"version": metadata["python_version"]},
+        "bubblewrap": {"version": metadata["bubblewrap_version"]},
         "appworld": config["appworld"],
         "execution_contract_sha256": contract["payload_sha256"],
         "task_identity": {
@@ -192,15 +204,22 @@ def _manifest_payload(
         "canary_suite_id": "localbench-appliance-canaries-v1",
         "cli_compatibility": {"minimum": "0.4.0", "maximum_exclusive": "0.5.0"},
         "critical_hashes": _derive_critical_hashes(artifact, config),
-        "trust": config["trust"],
         "disk_requirements": config["disk_requirements"],
         "provenance": {"sha256": _sha(provenance), "url": config["provenance_url"]},
         "sbom": {"sha256": _sha(sbom), "url": config["sbom_url"]},
+        "protected_content_scan": {"sha256": _sha(scan)},
         "measured_artifact_size_bytes": artifact.stat().st_size,
     }
 
 
 def _validate_config(config: JsonObject) -> None:
+    schema = _read_object(
+        Path(__file__).parents[1] / "runtime" / "runtime-build-v1.schema.json"
+    )
+    jsonschema.Draft202012Validator(schema).validate(config)
+    script = Path(__file__).with_name("runtime_rootfs_build.sh")
+    if _object(config["toolchain"])["builder_script_sha256"] != _sha(script):
+        raise ValueError("toolchain.builder_script_sha256 differs from builder source")
     required = {
         "runtime_id",
         "builder_wsl_distro",
@@ -216,7 +235,6 @@ def _validate_config(config: JsonObject) -> None:
         "python",
         "bubblewrap",
         "appworld",
-        "trust",
         "disk_requirements",
         "artifact_url",
         "provenance_url",
@@ -238,41 +256,27 @@ def _validate_config(config: JsonObject) -> None:
         or any("=" not in str(item) for item in packages)
     ):
         raise ValueError("apt_packages must contain exact name=version pins")
-
-
-def _scan_no_protected_content(archive: Path) -> None:
-    command = [
-        "wsl.exe",
-        "--exec",
-        "/bin/bash",
-        "-lc",
-        'set -o pipefail; xz -dc "$1" | tar -tf - | '
-        "grep -Eai '(^|/)(appworld/data|data/tasks|ground[_-]?truth|test_normal|test_challenge)(/|$)'",
-        "localbench-scan",
-        _wsl_path(archive),
-    ]
-    result = subprocess.run(command, capture_output=True, check=False)
-    if result.returncode == 0:
-        raise RuntimeError(
-            "licensing gate failed: AppWorld protected content path found"
-        )
-    if result.returncode != 1:
-        raise RuntimeError("licensing gate scan failed to inspect archive")
+    contract = _object(load_execution_contract()["payload"])
+    expected = _object(contract["appworld_identity"])
+    appworld = _object(config["appworld"])
+    python = _object(config["python"])
+    actual = {
+        "appworld_version": appworld.get("version"),
+        # C0's historical field name identifies the normalized installed
+        # distribution tree (see collect_identity), not the encrypted wheel bytes.
+        "appworld_package_sha256": appworld.get("installed_tree_sha256"),
+        "appworld_data_sha256": appworld.get("semantic_task_sha256"),
+        "python_version": python.get("version"),
+        "env_pins": appworld.get("env_pins"),
+    }
+    if actual != expected:
+        raise ValueError("C1 AppWorld identity differs from signed C0 contract")
 
 
 def _wsl_path(path: Path) -> str:
     resolved = path.resolve()
     drive = resolved.drive[:1].lower()
     return f"/mnt/{drive}/{resolved.as_posix()[3:]}"
-
-
-def _key_from_env() -> Path:
-    value = os.environ.get("LOCALBENCH_RUNTIME_ROOT_SIGNING_KEY")
-    if not value:
-        raise ValueError(
-            "pass --signing-key or set LOCALBENCH_RUNTIME_ROOT_SIGNING_KEY"
-        )
-    return Path(value)
 
 
 def _sha(path: Path) -> str:
@@ -306,33 +310,44 @@ def _derive_critical_hashes(archive: Path, config: JsonObject) -> JsonObject:
             and _clean_name(member.name).endswith(".dist-info/METADATA")
         )
         dist_root = _clean_name(metadata.name).rsplit("/", 1)[0]
+        site_root = dist_root.rsplit("/", 1)[0]
+        record_name = dist_root + "/RECORD"
+        record_member = next(item for item in members if _clean_name(item.name) == record_name)
+        record_stream = tar.extractfile(record_member)
+        if record_stream is None:
+            raise RuntimeError("worker RECORD is unreadable")
         entries: list[list[object]] = []
-        for member in sorted(members, key=lambda item: _clean_name(item.name)):
-            name = _clean_name(member.name)
-            if name == dist_root:
+        rows = csv.reader(record_stream.read().decode("utf-8").splitlines())
+        by_name = {_clean_name(item.name): item for item in members}
+        for relative, recorded_hash, recorded_size in rows:
+            normalized = relative.replace("\\", "/")
+            if normalized.endswith((".pyc", ".pyo")) or "/__pycache__/" in normalized:
                 continue
-            if not name.startswith(dist_root + "/"):
-                continue
-            relative = name[len(dist_root) + 1 :]
-            if member.issym():
-                entries.append([relative, "symlink", member.linkname])
-            elif member.isfile():
-                stream = tar.extractfile(member)
-                if stream is None:
-                    raise RuntimeError(f"unable to read {name}")
-                data = stream.read()
-                entries.append(
-                    [relative, "file", hashlib.sha256(data).hexdigest(), len(data)]
-                )
-            elif member.isdir():
-                entries.append([relative, "dir"])
+            name = posixpath.normpath(site_root + "/" + relative)
+            if not name.startswith("opt/localbench/venv/"):
+                raise RuntimeError(f"worker RECORD path escapes installed venv: {relative}")
+            member = by_name.get(name)
+            if member is None or not member.isfile():
+                raise RuntimeError(f"worker RECORD file missing: {relative}")
+            stream = tar.extractfile(member)
+            if stream is None:
+                raise RuntimeError(f"worker RECORD file unreadable: {relative}")
+            data = stream.read()
+            digest = hashlib.sha256(data).digest()
+            if recorded_hash:
+                algorithm, encoded = recorded_hash.split("=", 1)
+                expected = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+                if algorithm != "sha256" or digest != expected:
+                    raise RuntimeError(f"worker RECORD hash mismatch: {relative}")
+            if recorded_size and len(data) != int(recorded_size):
+                raise RuntimeError(f"worker RECORD size mismatch: {relative}")
+            entries.append([normalized, digest.hex(), len(data)])
+        entries.sort()
     appworld = _object(config["appworld"])
     return {
         "worker_entrypoint_sha256": entrypoint,
         "worker_wheel_tree_sha256": hashlib.sha256(
-            json.dumps(
-                entries, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-            ).encode()
+            json.dumps(entries, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
         ).hexdigest(),
         "bubblewrap_sha256": bwrap,
         "appworld_installed_tree_sha256": appworld["installed_tree_sha256"],
@@ -353,6 +368,44 @@ def _member_sha(
 
 def _clean_name(name: str) -> str:
     return name.removeprefix("./")
+
+
+def _archive_json(archive: Path, name: str) -> JsonObject:
+    with tarfile.open(archive, "r:xz") as tar:
+        member = next(item for item in tar.getmembers() if _clean_name(item.name) == name)
+        stream = tar.extractfile(member)
+        if stream is None:
+            raise RuntimeError(f"archive metadata missing: {name}")
+        return _object(json.loads(stream.read().decode("utf-8")))
+
+
+def _complete_sbom_components(archive: Path) -> list[JsonObject]:
+    components: list[JsonObject] = []
+    with tarfile.open(archive, "r:xz") as tar:
+        members = tar.getmembers()
+        status = next(item for item in members if _clean_name(item.name) == "var/lib/dpkg/status")
+        stream = tar.extractfile(status)
+        if stream is None:
+            raise RuntimeError("dpkg status missing")
+        for paragraph in stream.read().decode("utf-8", errors="strict").split("\n\n"):
+            fields = dict(line.split(": ", 1) for line in paragraph.splitlines() if ": " in line)
+            if fields.get("Package") and fields.get("Version") and fields.get("Status") == "install ok installed":
+                components.append({"type": "library", "name": fields["Package"], "version": fields["Version"], "properties": [{"name": "localbench:package-manager", "value": "dpkg"}]})
+        for member in members:
+            name = _clean_name(member.name)
+            if not name.endswith(".dist-info/METADATA") or not member.isfile():
+                continue
+            metadata_stream = tar.extractfile(member)
+            if metadata_stream is None:
+                continue
+            fields = {}
+            for line in metadata_stream.read().decode("utf-8", errors="replace").splitlines():
+                if line.startswith(("Name: ", "Version: ")):
+                    key, value = line.split(": ", 1)
+                    fields[key] = value
+            if fields.get("Name") and fields.get("Version"):
+                components.append({"type": "library", "name": fields["Name"], "version": fields["Version"], "properties": [{"name": "localbench:package-manager", "value": "python-wheel"}]})
+    return sorted(components, key=lambda item: (str(item["name"]).lower(), str(item["version"])))
 
 
 def _read_object(path: Path) -> JsonObject:

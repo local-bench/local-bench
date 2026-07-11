@@ -68,10 +68,10 @@ def payload() -> dict[str, object]:
         "canary_suite_id": "localbench-appliance-canaries-v1",
         "cli_compatibility": {"minimum": "0.4.0", "maximum_exclusive": "0.5.0"},
         "critical_hashes": critical,
-        "trust": {"kill_switched": False, "revoked_key_ids": [], "next_keys": []},
         "provenance": {"sha256": SHA},
         "sbom": {"sha256": SHA},
-        "disk_requirements": {"peak_free_bytes": 1},
+        "protected_content_scan": {"sha256": SHA},
+        "disk_requirements": {"peak_free_bytes": 3, "steady_free_bytes": 1, "download_bytes": 1, "import_bytes": 1, "provision_growth_bytes": 1},
     }
 
 
@@ -91,16 +91,22 @@ def encoded(document: dict[str, object]) -> bytes:
     return canonical_json_bytes(document) + b"\n"
 
 
+def verified(document: dict[str, object], **kwargs):
+    raw = encoded(document)
+    import hashlib
+    return verify_manifest_bytes(raw, expected_manifest_sha256=hashlib.sha256(raw).hexdigest(), **kwargs)
+
+
 def test_manifest_signature_domain_and_payload_validate(signer: Path) -> None:
     document = signed_manifest(payload(), signer)
-    assert verify_manifest_bytes(encoded(document))["runtime_id"] == PINNED_RUNTIME_ID
+    assert verified(document)["runtime_id"] == PINNED_RUNTIME_ID
 
 
 def test_signature_is_checked_before_tampered_url_is_considered(signer: Path) -> None:
     document = signed_manifest(payload(), signer)
     document["payload"]["rootfs"]["url"] = "https://evil.invalid/rootfs.tar.xz"  # type: ignore[index]
     with pytest.raises(RuntimeManifestError) as caught:
-        verify_manifest_bytes(encoded(document))
+        verified(document)
     assert caught.value.code == "manifest_signature_invalid"
 
 
@@ -110,16 +116,6 @@ def test_signature_is_checked_before_tampered_url_is_considered(signer: Path) ->
         (
             lambda value: value.update(runtime_id="older-valid-runtime"),
             "runtime_replay_or_downgrade",
-        ),
-        (
-            lambda value: value["trust"].update(kill_switched=True),
-            "runtime_kill_switched",
-        ),
-        (
-            lambda value: value["trust"].update(
-                revoked_key_ids=[runtime_manifest.RUNTIME_KEY_ID]
-            ),
-            "runtime_key_revoked",
         ),
         (
             lambda value: value["rootfs"].update(url="https://evil.invalid/a.tar.xz"),
@@ -137,7 +133,7 @@ def test_signed_policy_failures_are_typed(signer: Path, mutation, code: str) -> 
     value = payload()
     mutation(value)
     with pytest.raises(RuntimeManifestError) as caught:
-        verify_manifest_bytes(encoded(signed_manifest(value, signer)))
+        verified(signed_manifest(value, signer))
     assert caught.value.code == code
 
 
@@ -145,7 +141,20 @@ def test_manifest_rejects_builder_selected_critical_subset(signer: Path) -> None
     value = payload()
     value["critical_hashes"].pop("wsl_conf_sha256")  # type: ignore[union-attr]
     with pytest.raises(RuntimeManifestError, match="enumerated set"):
-        verify_manifest_bytes(encoded(signed_manifest(value, signer)))
+        verified(signed_manifest(value, signer))
+
+
+@pytest.mark.parametrize(
+    ("trust_state", "code"),
+    [
+        ({"admitted_keys": {}, "revoked_key_ids": [], "kill_switched_runtime_ids": [PINNED_RUNTIME_ID]}, "runtime_kill_switched"),
+        ({"admitted_keys": {}, "revoked_key_ids": [runtime_manifest.RUNTIME_KEY_ID], "kill_switched_runtime_ids": []}, "runtime_key_revoked"),
+    ],
+)
+def test_mutable_trust_policy_is_separate_from_manifest(signer: Path, trust_state, code: str) -> None:
+    with pytest.raises(RuntimeManifestError) as caught:
+        verified(signed_manifest(payload(), signer), trust_state=trust_state)
+    assert caught.value.code == code
 
 
 def test_manifest_size_bound_precedes_json_parse() -> None:

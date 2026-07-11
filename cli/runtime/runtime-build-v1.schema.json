@@ -3,67 +3,44 @@
   "$id": "https://local-bench.ai/schemas/runtime-build-v1.schema.json",
   "title": "LocalBench reproducible agentic runtime build inputs",
   "type": "object",
-  "required": [
-    "runtime_id",
-    "builder_wsl_distro",
-    "base",
-    "apt_snapshot",
-    "apt_packages",
-    "worker_wheel_windows_path",
-    "dependency_lock_windows_path",
-    "dependency_lock_sha256",
-    "wheelhouse_windows_path",
-    "wheelhouse_sha256",
-    "worker",
-    "python",
-    "bubblewrap",
-    "appworld",
-    "trust",
-    "disk_requirements",
-    "artifact_url",
-    "provenance_url",
-    "sbom_url"
-  ],
+  "required": ["runtime_id", "builder_wsl_distro", "base", "apt_snapshot", "apt_packages", "worker_wheel_windows_path", "dependency_lock_windows_path", "dependency_lock_sha256", "wheelhouse_windows_path", "wheelhouse_sha256", "worker", "python", "bubblewrap", "appworld", "disk_requirements", "artifact_url", "provenance_url", "sbom_url", "toolchain"],
   "properties": {
-    "runtime_id": {"const": "aw013p1-ubuntu2404-py312-c0v1-r1"},
-    "builder_wsl_distro": {"type": "string", "minLength": 1},
+    "runtime_id": {"const": "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v2-r1"},
+    "builder_wsl_distro": {"type": "string", "pattern": "^LocalBench-Staging-[A-Za-z0-9.-]+$"},
     "base": {"$ref": "#/$defs/download"},
-    "apt_snapshot": {
-      "type": "object",
-      "required": ["url", "indexes_sha256"],
-      "properties": {
-        "url": {"type": "string", "pattern": "^https://"},
-        "indexes_sha256": {"$ref": "#/$defs/sha256"}
-      },
-      "additionalProperties": false
-    },
-    "apt_packages": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[^=]+=[^=]+$"}},
+    "apt_snapshot": {"type": "object", "required": ["url", "suites", "indexes_sha256"], "properties": {"url": {"type": "string", "pattern": "^https://"}, "suites": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["noble", "noble-updates", "noble-security"]}}, "indexes_sha256": {"$ref": "#/$defs/sha256"}}, "additionalProperties": false},
+    "apt_packages": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[^=]+=[^=]+$"}},
     "worker_wheel_windows_path": {"type": "string", "minLength": 1},
     "dependency_lock_windows_path": {"type": "string", "minLength": 1},
     "dependency_lock_sha256": {"$ref": "#/$defs/sha256"},
     "wheelhouse_windows_path": {"type": "string", "minLength": 1},
     "wheelhouse_sha256": {"$ref": "#/$defs/sha256"},
-    "worker": {"type": "object"},
-    "python": {"type": "object"},
-    "bubblewrap": {"type": "object"},
-    "appworld": {"type": "object"},
-    "trust": {"type": "object"},
-    "disk_requirements": {"type": "object"},
+    "worker": {"type": "object", "required": ["version", "sha256", "protocol_version"], "properties": {"version": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "protocol_version": {"const": "localbench.agentic-worker.v1"}}, "additionalProperties": false},
+    "python": {"type": "object", "required": ["version"], "properties": {"version": {"const": "3.12.3"}}, "additionalProperties": false},
+    "bubblewrap": {"type": "object", "required": ["version"], "properties": {"version": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+    "appworld": {
+      "type": "object", "required": ["version", "env_pins", "package", "dependency_locks", "data_distribution", "installed_tree_sha256", "data_tree_sha256", "semantic_task_sha256"],
+      "properties": {
+        "version": {"const": "0.1.3.post1"},
+        "env_pins": {"type": "object", "required": ["LC_ALL", "PYTHONHASHSEED", "TZ"], "properties": {"LC_ALL": {"const": "C.UTF-8"}, "PYTHONHASHSEED": {"const": "0"}, "TZ": {"const": "UTC"}}, "additionalProperties": false},
+        "package": {"$ref": "#/$defs/named_download"},
+        "dependency_locks": {"type": "object", "required": ["x86_64"], "properties": {"x86_64": {"$ref": "#/$defs/download"}}, "additionalProperties": false},
+        "data_distribution": {"$ref": "#/$defs/named_download"},
+        "installed_tree_sha256": {"$ref": "#/$defs/sha256"},
+        "data_tree_sha256": {"$ref": "#/$defs/sha256"},
+        "semantic_task_sha256": {"$ref": "#/$defs/sha256"}
+      }, "additionalProperties": false
+    },
+    "disk_requirements": {"type": "object", "required": ["peak_free_bytes", "steady_free_bytes", "download_bytes", "import_bytes", "provision_growth_bytes"], "properties": {"peak_free_bytes": {"type": "integer", "minimum": 1}, "steady_free_bytes": {"type": "integer", "minimum": 1}, "download_bytes": {"type": "integer", "minimum": 1}, "import_bytes": {"type": "integer", "minimum": 1}, "provision_growth_bytes": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
+    "toolchain": {"type": "object", "required": ["gnu_tar", "xz", "builder_script_sha256", "source_date_epoch", "umask"], "properties": {"gnu_tar": {"const": "1.35"}, "xz": {"const": "5.4.5"}, "builder_script_sha256": {"$ref": "#/$defs/sha256"}, "source_date_epoch": {"const": 0}, "umask": {"const": "022"}}, "additionalProperties": false},
     "artifact_url": {"type": "string", "pattern": "^https://local-bench\\.ai/"},
     "provenance_url": {"type": "string", "pattern": "^https://local-bench\\.ai/"},
     "sbom_url": {"type": "string", "pattern": "^https://local-bench\\.ai/"}
   },
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "download": {
-      "type": "object",
-      "required": ["url", "sha256"],
-      "properties": {
-        "url": {"type": "string", "pattern": "^https://"},
-        "sha256": {"$ref": "#/$defs/sha256"}
-      },
-      "additionalProperties": false
-    }
+    "download": {"type": "object", "required": ["url", "sha256", "size_bytes"], "properties": {"url": {"type": "string", "pattern": "^https://"}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 1}}, "additionalProperties": false},
+    "named_download": {"type": "object", "required": ["filename", "url", "sha256", "size_bytes"], "properties": {"filename": {"type": "string", "minLength": 1}, "url": {"type": "string", "pattern": "^https://"}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 1}}, "additionalProperties": false}
   },
   "additionalProperties": false
 }
