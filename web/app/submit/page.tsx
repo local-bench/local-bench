@@ -42,7 +42,9 @@ export default function SubmitPage() {
 
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
         <p>
-          Python 3.11+ required. For the one-command path, put{" "}
+          Works on Windows, Linux, or macOS for the public static path — you need Python 3.11+ and a
+          llama.cpp server binary. The full six-axis lane additionally requires Windows with WSL2 for
+          the managed agentic harness. For the one-command path, put{" "}
           <code className="font-mono text-bench-text">llama-server</code> on PATH from{" "}
           <a
             href="https://github.com/ggerganov/llama.cpp/releases"
@@ -57,6 +59,11 @@ export default function SubmitPage() {
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {`pip install "local-bench-ai[hf]==0.3.1"`}
         </pre>
+        <p className="text-sm text-bench-warn">
+          The package name is <code className="font-mono text-bench-text">local-bench-ai</code> — plain{" "}
+          <code className="font-mono text-bench-text">pip install localbench</code> installs an
+          unrelated third-party package. Use the exact command above.
+        </p>
         <p className="text-sm">
           Installs the <code className="font-mono text-bench-text">localbench</code> command. Working
           from source instead? Clone{" "}

@@ -51,10 +51,22 @@ function lineageLine(model: Recipe["model"]): string {
   return `Benchmarking ${model.displayName} — ${kind} of ${model.baseModelDisplayName} · by ${model.org}`;
 }
 
+function PipNamespaceWarning() {
+  return (
+    <p className="font-mono text-[11px] leading-5 text-bench-warn">
+      The package name is <span className="text-bench-text">local-bench-ai</span>. Plain{" "}
+      <span className="text-bench-text">pip install localbench</span> installs an unrelated third-party
+      package — use the exact command above.
+    </p>
+  );
+}
+
 function RequirementsLine() {
   return (
     <p className="font-mono text-[11px] leading-5 text-bench-muted">
-      Requires Python 3.11+ and llama-server on PATH; install llama.cpp from{" "}
+      Tested on Windows 11; any OS that runs Python 3.11+ and llama-server on PATH works for the
+      public static path, while the full six-axis lane also needs Windows with WSL2. Install
+      llama.cpp from{" "}
       <a
         href="https://github.com/ggerganov/llama.cpp/releases"
         target="_blank"
@@ -124,6 +136,7 @@ function OneCommandLead({
         <span>{localOnly ? "raw Hugging Face repo run" : "catalog-pinned one-command flow"}</span>
       </p>
       <CommandBlock title="Step 1 · install" command={recipe.installCommand} />
+      <PipNamespaceWarning />
       <CommandBlock title="Step 2 · bench, score, and optional submit" command={lead.command} />
       <RequirementsLine />
       {localOnly ? (
@@ -157,6 +170,7 @@ function ClassicRecipeBody({ recipe }: { readonly recipe: Recipe }) {
   return (
     <div className="flex flex-col gap-3">
       <CommandBlock title="Step 1 · one-time setup" command={recipe.setupCommand} />
+      <PipNamespaceWarning />
       <p className="font-mono text-[11px] text-bench-muted">
         Python 3.11+. fetch-suite verifies the sha256-pinned item sets and caches them locally.
       </p>

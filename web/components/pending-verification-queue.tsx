@@ -62,7 +62,12 @@ export function PendingVerificationQueue() {
 
 function QueueBody({ state }: { readonly state: QueueState }) {
   if (state.status === "loading") {
-    return <p className="px-4 py-5 text-sm text-bench-muted">Loading the maintainer queue…</p>;
+    return (
+      <p className="px-4 py-5 text-sm text-bench-muted">
+        Loading the live maintainer queue… (needs JavaScript — individual ticket status is also available
+        on the submission page via <span className="font-mono">localbench submit status</span>).
+      </p>
+    );
   }
   if (state.status === "unavailable") {
     return (
