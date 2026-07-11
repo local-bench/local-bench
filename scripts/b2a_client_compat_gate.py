@@ -8,89 +8,43 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
+import time
 import venv
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "release" / "b2a-client-compat.json"
 HELPER = r'''
-import hashlib, importlib.metadata, json, sys, tempfile
+import hashlib, importlib.metadata, inspect, json, sys, tempfile
+from datetime import UTC, datetime
 from pathlib import Path
-from localbench.submissions.client import SiteCredentials, SubmissionStatusRequest, SubmissionTicketRequest, SubmissionUploadRequest, get_submission_status, request_submission_ticket, upload_submission_bundle
+from localbench.submissions.client import SiteCredentials, SubmissionStatusRequest, SubmissionTicketRequest, SubmissionUploadRequest, TicketProofOfPossession, get_submission_status, request_submission_ticket, upload_submission_bundle
+from localbench.submissions.crypto import sign_bytes
+from localbench.submissions.keys import write_private_key
 site = sys.argv[1]
-bundle = Path(tempfile.mkdtemp()) / "bundle.json"
+root = Path(tempfile.mkdtemp())
+bundle = root / "bundle.json"
 bundle.write_text(json.dumps({"schema_version":"localbench.result_bundle.v1","client_version":importlib.metadata.version("local-bench-ai")}), encoding="utf-8")
 sha = hashlib.sha256(bundle.read_bytes()).hexdigest()
-credentials = SiteCredentials(site=site, admin_secret="compat-admin")
-ticket = request_submission_ticket(SubmissionTicketRequest(credentials=credentials, raw_bundle_sha256=sha, submitter_id="compat-maintainer", declared_model_slug="compat-model"))
+release_id = "suite-v1-full-exec-6axis-v1"
+manifest_sha = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468"
+key_path = root / "submission-key.pem"
+public_key = write_private_key(key_path, seed=bytes(range(32)))
+timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+message = "\n".join(("localbench.ticket_pop.v1", sha, release_id, manifest_sha, timestamp))
+pop = TicketProofOfPossession(timestamp=timestamp, signature=sign_bytes(message.encode("utf-8"), key_path), message=message)
+credentials = SiteCredentials(site=site)
+kwargs = dict(credentials=credentials, raw_bundle_sha256=sha, public_key=public_key, declared_model_slug="compat-model", expected_suite_release_id=release_id, expected_suite_manifest_sha256=manifest_sha, pop=pop)
+if "community_model_group_id" in inspect.signature(SubmissionTicketRequest).parameters:
+    kwargs["community_model_group_id"] = "community-group:" + "1" * 32
+ticket = request_submission_ticket(SubmissionTicketRequest(**kwargs))
+assert ticket["origin"] == "community"
 complete = upload_submission_bundle(SubmissionUploadRequest(bundle_path=bundle, credentials=credentials, envelope=ticket))
 status = get_submission_status(SubmissionStatusRequest(credentials=credentials, ticket_id=ticket["ticket_id"]))
 assert complete["status"] == "pending_verification" and status["status"] == "pending_verification"
 print(json.dumps({"ticket_id": ticket["ticket_id"], "status": status["status"]}, sort_keys=True))
 '''
-
-
-class ContractServer(BaseHTTPRequestHandler):
-    mutate_admission = False
-    objects: dict[str, bytes] = {}
-
-    def do_POST(self) -> None:  # noqa: N802
-        body = self._json()
-        if self.path == "/api/submissions/tickets":
-            if self.mutate_admission and "community_model_group_id" not in body:
-                self._send(400, {"code": "invalid_ticket_request", "error": "mutated admission break"})
-                return
-            sha = str(body["bundle_sha256"])
-            self._send(201, {
-                "accepted_suite_terms": True, "allowed_schema": "localbench.result_bundle.v1", "bundle_sha256": sha,
-                "community_model_group_id": f"community-group:{'1' * 32}", "expected_suite_manifest_sha256": None,
-                "expected_suite_release_id": None, "expiry": "2099-01-01T00:00:00Z", "max_upload_bytes": 67108864,
-                "one_use": True, "origin": "project_anchor", "schema_version": "localbench.submission_envelope.v2",
-                "submitter_id": "compat-maintainer", "ticket_id": f"ticket_{sha[:32]}", "upload_capability": f"upload_{'2' * 32}",
-            })
-        elif self.path == "/api/submissions/request-upload":
-            sha = str(body["raw_bundle_sha256"])
-            self._send(200, {"bucket": "compat", "content_sha256": sha, "expires_seconds": 3600, "method": "PUT", "r2_key": f"raw/{sha}.json", "upload_url": f"http://127.0.0.1:{self.server.server_port}/upload/{sha}", "upload_headers": {"if-none-match": "*"}})
-        elif self.path.endswith("/complete"):
-            self._send(200, {"status": "pending_verification", "submission_id": self.path.split("/")[-2]})
-        else:
-            self._send(404, {"code": "not_found"})
-
-    def do_PUT(self) -> None:  # noqa: N802
-        size = int(self.headers.get("content-length", "0"))
-        payload = self.rfile.read(size)
-        sha = self.path.rsplit("/", 1)[-1]
-        if hashlib.sha256(payload).hexdigest() != sha or sha in self.objects:
-            self._send(412, {"code": "create_only_failed"})
-            return
-        self.objects[sha] = payload
-        self.send_response(200)
-        self.end_headers()
-
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path.startswith("/api/submissions/ticket_"):
-            self._send(200, {"status": "pending_verification", "submission_id": self.path.rsplit("/", 1)[-1]})
-        else:
-            self._send(404, {"code": "not_found"})
-
-    def log_message(self, _format: str, *args: Any) -> None:
-        pass
-
-    def _json(self) -> dict[str, Any]:
-        value = json.loads(self.rfile.read(int(self.headers.get("content-length", "0"))))
-        assert isinstance(value, dict)
-        return value
-
-    def _send(self, status: int, value: dict[str, Any]) -> None:
-        payload = json.dumps(value).encode()
-        self.send_response(status)
-        self.send_header("content-type", "application/json")
-        self.send_header("content-length", str(len(payload)))
-        self.end_headers()
-        self.wfile.write(payload)
 
 
 def main() -> int:
@@ -102,20 +56,54 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="b2a-compat-") as temp:
         temp_path = Path(temp)
         wheels = _materialize_wheels(manifest, temp_path, role=args.role)
-        server = ThreadingHTTPServer(("127.0.0.1", 0), ContractServer)
-        ContractServer.mutate_admission = args.mutate_admission
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+        server, port = _start_worker_server(temp_path, mutate_admission=args.mutate_admission)
         try:
-            failures = 0
-            for client, wheel in wheels:
-                failures += 0 if _run_isolated(client, wheel, temp_path, server.server_port) else 1
+            failures = sum(
+                0 if _run_isolated(client, wheel, temp_path, port) else 1
+                for client, wheel in wheels
+            )
         finally:
-            server.shutdown()
-            server.server_close()
+            (temp_path / "stop").touch()
+            try:
+                server.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                server.terminate()
+                server.wait(timeout=10)
+        if server.returncode != 0:
+            raise RuntimeError("Worker compatibility server failed")
     if args.mutate_admission:
         return 1 if failures > 0 else 0
     return 0 if failures == 0 else 1
+
+
+def _start_worker_server(root: Path, *, mutate_admission: bool) -> tuple[subprocess.Popen[str], int]:
+    port_file = root / "port"
+    stop_file = root / "stop"
+    env = {
+        **os.environ,
+        "B2A_COMPAT_SERVER": "1",
+        "B2A_COMPAT_PORT_FILE": str(port_file),
+        "B2A_COMPAT_STOP_FILE": str(stop_file),
+        "B2A_COMPAT_MUTATE_ADMISSION": "1" if mutate_admission else "0",
+    }
+    npm = shutil.which("npm")
+    if npm is None:
+        raise RuntimeError("npm is required for the Worker compatibility server")
+    process = subprocess.Popen(
+        [npm, "test", "--", "--run", "tests/b2a-compat-worker-server.test.ts"],
+        cwd=ROOT / "web",
+        env=env,
+        text=True,
+    )
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        if port_file.exists():
+            return process, int(port_file.read_text(encoding="utf-8"))
+        if process.poll() is not None:
+            raise RuntimeError(f"Worker compatibility server exited early: {process.returncode}")
+        time.sleep(0.1)
+    process.terminate()
+    raise RuntimeError("Worker compatibility server did not publish a port")
 
 
 def _materialize_wheels(manifest: dict[str, Any], root: Path, *, role: str | None) -> list[tuple[dict[str, Any], Path]]:
@@ -132,16 +120,17 @@ def _materialize_wheels(manifest: dict[str, Any], root: Path, *, role: str | Non
                 ignore=shutil.ignore_patterns(".venv", "build", "dist", "runs", "runtime", "__pycache__", "*.egg-info"),
             )
             pyproject = rc_source / "pyproject.toml"
-            pyproject.write_text(
-                pyproject.read_text(encoding="utf-8").replace('version = "0.3.1"', f'version = "{client["version"]}"', 1),
-                encoding="utf-8",
-            )
+            contents = pyproject.read_text(encoding="utf-8")
+            if f'version = "{client["version"]}"' not in contents:
+                contents = contents.replace('version = "0.3.1"', f'version = "{client["version"]}"', 1)
+                pyproject.write_text(contents, encoding="utf-8")
             subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", str(rc_source), "-w", str(root)], check=True, env=env, stdout=subprocess.DEVNULL)
         else:
             subprocess.run([sys.executable, "-m", "pip", "download", "--no-deps", "--only-binary=:all:", f"local-bench-ai=={client['version']}", "-d", str(root)], check=True, stdout=subprocess.DEVNULL)
         wheel = root / client["filename"]
-        if hashlib.sha256(wheel.read_bytes()).hexdigest() != client["sha256"]:
-            raise RuntimeError(f"wheel hash mismatch: {wheel.name}")
+        actual_sha = hashlib.sha256(wheel.read_bytes()).hexdigest()
+        if actual_sha != client["sha256"]:
+            raise RuntimeError(f"wheel hash mismatch: {wheel.name}: expected {client['sha256']}, got {actual_sha}")
         result.append((client, wheel))
     return result
 

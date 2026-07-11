@@ -6,5 +6,19 @@ export type PublicationSurface = {
   readonly previewDeploy: boolean;
 };
 
-export const PUBLICATION_SURFACES = policy satisfies Readonly<Record<PublicationLifecycleState, PublicationSurface>>;
 import policy from "../../publication-surface-policy.json";
+
+export const PUBLICATION_SURFACES = {
+  hidden: publicationSurface(policy.hidden),
+  preview: publicationSurface(policy.preview),
+  published: publicationSurface(policy.published),
+  suppressed: publicationSurface(policy.suppressed),
+  withdrawn: publicationSurface(policy.withdrawn),
+} satisfies Readonly<Record<PublicationLifecycleState, PublicationSurface>>;
+
+function publicationSurface(value: { readonly badge: string | null; readonly previewDeploy: boolean; readonly production: boolean }): PublicationSurface {
+  if (value.badge !== null && !["preview", "published", "suppressed", "withdrawn"].includes(value.badge)) {
+    throw new Error(`invalid publication surface badge: ${value.badge}`);
+  }
+  return { ...value, badge: value.badge as PublicationSurface["badge"] };
+}
