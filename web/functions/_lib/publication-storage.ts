@@ -22,3 +22,20 @@ export async function persistProjectionCreateOnly(
   if (bytes !== canonicalBytes) throw new Error("projection object collision or mutation");
   return key;
 }
+
+/** Projection content addresses are append-only for their entire lifetime. */
+export async function overwriteProjectionObject(
+  _env: SubmissionApiEnv,
+  _projectionObjectSha256: string,
+  _canonicalBytes: string,
+): Promise<never> {
+  throw new Error("projection storage fence: overwrite is prohibited");
+}
+
+/** Referenced projections have no deletion contract; retention is permanent. */
+export async function deleteProjectionObject(
+  _env: SubmissionApiEnv,
+  _projectionObjectSha256: string,
+): Promise<never> {
+  throw new Error("projection storage fence: deletion is prohibited");
+}
