@@ -716,7 +716,10 @@ def _source_origin(source: JsonObject) -> str:
     origin = _text(source.get("origin"))
     if origin is not None:
         return origin
-    return "project_anchor" if _text(source.get("kind")) == "anchor" else "community"
+    # data_sources.json is a maintainer-curated protected-build input. Legacy entries
+    # predate the origin field, so omission retains that project-anchor trust boundary;
+    # public/community ingestion must identify itself explicitly and is merged elsewhere.
+    return "project_anchor"
 
 
 def _trust_label(origin: str) -> str:
