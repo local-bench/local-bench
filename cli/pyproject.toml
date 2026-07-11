@@ -42,6 +42,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 localbench = [
   "data/board_sources.json",
+  "data/contracts/*.json",
   "data/licenses/*",
   "data/suites/tiny-smoke-v1/*",
   "data/suites/core-text-v1/*",

@@ -98,9 +98,9 @@ class TaskMeta:
 class SubsetSpec:
     """A frozen task subset: the inputs that produced it + the resulting ordered ids + a hash.
 
-    The ``manifest_hash`` is a sha256 over (split, size, seed, selection-version, the SORTED ids),
-    so two independent runs of the selection on the same split membership produce the same hash —
-    the freeze check the launch plan requires ("FREEZE the AppWorld-C manifest ... task IDs/order").
+    Task-set identity and selection-recipe identity are deliberately separate. The canonical
+    task-set hash covers only the exact ordered IDs; the recipe hash covers only the inputs that
+    selected them. ``legacy_manifest_hash`` preserves the pre-C0 mixed hash for historical rows.
     """
 
     name: str
@@ -111,7 +111,24 @@ class SubsetSpec:
     selection_version: str = "v1"
 
     @property
-    def manifest_hash(self) -> str:
+    def ordered_task_ids_sha256(self) -> str:
+        from localbench.scoring.agentic_exec.task_pool import ordered_task_ids_sha256
+
+        return ordered_task_ids_sha256(self.task_ids)
+
+    @property
+    def selection_recipe_sha256(self) -> str:
+        from localbench.scoring.agentic_exec.task_pool import selection_recipe_sha256
+
+        return selection_recipe_sha256(
+            split=self.split,
+            seed=self.seed,
+            selection_version=self.selection_version,
+        )
+
+    @property
+    def legacy_manifest_hash(self) -> str:
+        """The historical mixed recipe+IDs hash; never use as task identity for new records."""
         payload = json.dumps(
             {
                 "split": self.split,
@@ -126,6 +143,11 @@ class SubsetSpec:
         )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+    @property
+    def manifest_hash(self) -> str:
+        """Compatibility field now carrying the canonical ordered-task identity."""
+        return self.ordered_task_ids_sha256
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
@@ -135,6 +157,9 @@ class SubsetSpec:
             "selection_version": self.selection_version,
             "task_ids": list(self.task_ids),
             "manifest_hash": self.manifest_hash,
+            "ordered_task_ids_sha256": self.ordered_task_ids_sha256,
+            "selection_recipe_sha256": self.selection_recipe_sha256,
+            "historical_hash_aliases": [self.legacy_manifest_hash],
         }
 
 
@@ -460,6 +485,9 @@ def run_with_reruns(
     constitute a "displayed row" (LOCKED = 2; the launch plan also runs the FIRST full pass + 2
     reruns, but the freeze/early-stop logic only needs the repeatability series, which this owns).
     """
+    from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
+
+    assert_execution_contract()
     runs: list[StageRunResult] = []
     for k in range(1, base_count + 1):
         runs.append(

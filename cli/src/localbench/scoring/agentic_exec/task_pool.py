@@ -4,8 +4,83 @@ import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
+from localbench._types import JsonValue
 from localbench.scoring.agentic_exec import funnel
+from localbench.submissions.canon import canonical_json_hash
+
+
+def ordered_task_ids_sha256(task_ids: list[str] | tuple[str, ...]) -> str:
+    """Hash the canonical JSON array of exact task IDs in execution order."""
+    return canonical_json_hash(list(task_ids))
+
+
+def selection_recipe_sha256(*, split: str, seed: int, selection_version: str) -> str:
+    """Hash selection inputs only; task IDs and mutable result metadata are excluded."""
+    return canonical_json_hash(
+        {
+            "selection_version": selection_version,
+            "seed": seed,
+            "split": split,
+        },
+    )
+
+
+def semantic_task_sha256(task_contents: Mapping[str, JsonValue]) -> str:
+    """Hash canonical task meaning independently of upstream enumeration order."""
+    tasks = [
+        {"task_id": task_id, "content": task_contents[task_id]}
+        for task_id in sorted(task_contents)
+    ]
+    return canonical_json_hash(tasks)
+
+
+def load_semantic_task_contents(
+    task_ids: list[str] | tuple[str, ...],
+    *,
+    root: Path | None = None,
+) -> dict[str, JsonValue]:
+    """Read instructions, initial DB state, and evaluator criteria for exact task IDs."""
+    tasks_root = (root or appworld_root()) / "data" / "tasks"
+    return {
+        task_id: _semantic_task_content(tasks_root / task_id)
+        for task_id in sorted(task_ids)
+    }
+
+
+def _semantic_task_content(task_dir: Path) -> JsonValue:
+    specs = _json_file(task_dir / "specs.json")
+    dbs = {
+        path.name: _jsonl_file(path)
+        for path in sorted((task_dir / "dbs").glob("*.jsonl"), key=lambda item: item.name)
+    }
+    ground_truth_dir = task_dir / "ground_truth"
+    criteria: dict[str, JsonValue] = {
+        path.name: _json_file(path)
+        for path in sorted(ground_truth_dir.glob("*.json"), key=lambda item: item.name)
+    }
+    evaluation_path = ground_truth_dir / "evaluation.py"
+    criteria["evaluation.py"] = _canonical_text(evaluation_path.read_text(encoding="utf-8"))
+    return {
+        "instructions": specs,
+        "setup_state": dbs,
+        "evaluation_criteria": criteria,
+    }
+
+
+def _json_file(path: Path) -> JsonValue:
+    value: Any = json.loads(path.read_text(encoding="utf-8"))
+    return value
+
+
+def _jsonl_file(path: Path) -> JsonValue:
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _canonical_text(value: str) -> str:
+    lines = value.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    return "\n".join(line.rstrip() for line in lines).rstrip("\n") + "\n"
 
 
 def load_split_ids(split: str) -> list[str]:

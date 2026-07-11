@@ -213,6 +213,17 @@ def _file_sha256(path: str) -> str:
 
 
 def main() -> int:
+    from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
+    from localbench.scoring.agentic_exec.execution_contract import (  # noqa: PLC0415
+        assert_execution_contract,
+        assert_task_identity,
+        contract_task_ids,
+    )
+
+    assert_execution_contract()
+    task_ids = contract_task_ids()
+    semantic_contents = task_pool.load_semantic_task_contents(task_ids)
+    assert_task_identity(task_ids, semantic_contents)
     session = WorkerSession()
 
     def _terminate(_signum: int, _frame: object) -> None:
@@ -267,11 +278,9 @@ def _close(worker: WorkerSession) -> JsonObject:
 
 
 def _list_scored_tasks() -> JsonObject:
-    from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
-    from localbench.scoring.agentic_exec.funnel import Stage  # noqa: PLC0415
+    from localbench.scoring.agentic_exec.execution_contract import contract_task_ids  # noqa: PLC0415
 
-    subset = task_pool.build_subset(Stage.SCORED, wide_smoke=False, with_metadata=True)
-    return {"kind": "ok", "task_ids": list(subset.task_ids)}
+    return {"kind": "ok", "task_ids": contract_task_ids()}
 
 
 def _sandbox_call(operation: Callable[[], JsonObject]) -> JsonObject:
