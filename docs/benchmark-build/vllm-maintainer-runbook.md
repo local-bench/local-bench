@@ -13,11 +13,13 @@ supported community provisioning flow.
   exact server-reported package version, a dependency-lock digest from that virtual environment,
   the launcher SHA256, help-text digest, GPU, driver, and CUDA identity.
 - For SGLang, a separate unchanged WSL virtual environment containing exactly SGLang 0.5.13
-  (tag `v0.5.13`, commit `cba18f4d8090d23e9273e663db2a0b3b2e39f117`). The lane rejects
+  (tag `v0.5.13`, commit `28b095c01005d4a3a2a5b637b7d028b07fba31b2`). The lane rejects
   every other package version. The official pinned references are the
   [server arguments](https://github.com/sgl-project/sglang/blob/v0.5.13/docs/advanced_features/server_arguments.md),
   [deterministic-inference guide](https://github.com/sgl-project/sglang/blob/v0.5.13/docs/advanced_features/deterministic_inference.md),
   and [HTTP endpoint source](https://github.com/sgl-project/sglang/blob/v0.5.13/python/sglang/srt/entrypoints/http_server.py).
+  Localbench hashes every file recorded by the installed `sglang` distribution and requires that
+  package-tree identity together with the matching version reported by `/server_info`.
 - A model revision expressed as `hf://<namespace>/<repo>@<full-40-character-commit-sha>`. Branches,
   tags, `latest`, and file fragments are rejected. The Windows-side download is materialized without
   symlinks and every snapshot file is hashed into a deterministic snapshot identity.

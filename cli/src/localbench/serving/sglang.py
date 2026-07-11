@@ -30,6 +30,7 @@ from localbench.serving.vllm import (
 )
 
 SGLANG_PINNED_VERSION = "0.5.13"
+SGLANG_PINNED_COMMIT = "28b095c01005d4a3a2a5b637b7d028b07fba31b2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +67,7 @@ class SglangBuildIdentity:
     dependency_lock_sha256: str
     expected_executable: str
     total_vram_bytes: int
+    package_tree_sha256: str
     runtime_identity_sha256: str
 
 
@@ -258,8 +260,32 @@ def collect_sglang_build_identity(
         distro, [python_bin, "-m", "pip", "freeze", "--all"]
     ).stdout
     dependency_lock_sha256 = hashlib.sha256(dependency_lock.encode("utf-8")).hexdigest()
+    package_tree_probe = _run_wsl(
+        distro,
+        [python_bin, "-c", _package_tree_probe_code()],
+    ).stdout.strip()
+    try:
+        package_tree_evidence = json.loads(package_tree_probe)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("SGLang installed package-tree identity is invalid") from error
+    if not isinstance(package_tree_evidence, dict):
+        raise RuntimeError("SGLang installed package-tree identity is invalid")
+    package_tree_sha256 = package_tree_evidence.get("sha256")
+    package_tree_file_count = package_tree_evidence.get("file_count")
+    if (
+        not isinstance(package_tree_sha256, str)
+        or len(package_tree_sha256) != 64
+        or not all(char in "0123456789abcdef" for char in package_tree_sha256)
+        or not isinstance(package_tree_file_count, int)
+        or isinstance(package_tree_file_count, bool)
+        or package_tree_file_count <= 0
+    ):
+        raise RuntimeError("SGLang installed package-tree identity is incomplete")
     runtime_identity_sha256 = hashlib.sha256(
-        f"sglang={package_version}\nlock={dependency_lock_sha256}\n".encode("utf-8")
+        (
+            f"sglang={package_version}\n"
+            f"package_tree={package_tree_sha256}\n"
+        ).encode("utf-8")
     ).hexdigest()
     gpu = (
         _run_wsl(
@@ -301,9 +327,36 @@ def collect_sglang_build_identity(
         dependency_lock_sha256=dependency_lock_sha256,
         expected_executable=interpreter,
         total_vram_bytes=total_vram_bytes,
+        package_tree_sha256=package_tree_sha256,
         runtime_identity_sha256=runtime_identity_sha256,
     )
     return identity, help_text
+
+
+def _package_tree_probe_code() -> str:
+    return """\
+import hashlib
+import importlib.metadata as metadata
+import json
+
+distribution = metadata.distribution("sglang")
+files = sorted(distribution.files or (), key=lambda value: str(value).replace("\\\\", "/"))
+if not files:
+    raise SystemExit("sglang distribution records no installed files")
+digest = hashlib.sha256()
+for relative in files:
+    path = distribution.locate_file(relative)
+    if not path.is_file():
+        raise SystemExit(f"sglang distribution file is missing: {relative}")
+    name = str(relative).replace("\\\\", "/").encode("utf-8")
+    data = path.read_bytes()
+    digest.update(name)
+    digest.update(b"\\0")
+    digest.update(str(len(data)).encode("ascii"))
+    digest.update(b"\\0")
+    digest.update(data)
+print(json.dumps({"file_count": len(files), "sha256": digest.hexdigest()}, sort_keys=True))
+"""
 
 
 def launch_sglang(

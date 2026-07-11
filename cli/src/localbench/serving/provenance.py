@@ -73,6 +73,7 @@ class ServingEvidence:
     runtime_identity_sha256: str | None = None
     determinism_canary_passed: bool = False
     resolved_server_config: JsonObject | None = None
+    installed_package_tree_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +194,7 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
             "server_reported_package_version": evidence.engine_version,
             "venv_dependency_lock_sha256": evidence.dependency_lock_sha256,
             "runtime_identity_sha256": evidence.runtime_identity_sha256,
+            "installed_package_tree_sha256": evidence.installed_package_tree_sha256,
         },
         "resolved_runtime": {
             "ctx_len_configured": evidence.ctx_len_configured,
@@ -319,6 +321,8 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
         if evidence.live_batch_invariant != "1":
             reasons.append("runtime.live_batch_invariance_unverified")
     if evidence.runtime == "sglang":
+        if evidence.installed_package_tree_sha256 in {None, ""}:
+            reasons.append("runtime.installed_package_tree_identity_missing")
         resolved = evidence.resolved_server_config or {}
         if resolved.get("version") != "0.5.13":
             reasons.append("runtime.server_version_unverified")

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import subprocess
 from dataclasses import replace
 from pathlib import Path
@@ -159,6 +161,8 @@ def test_sglang_build_identity_pins_package_interpreter_and_lock(
             return _completed("sglang==0.5.13\ntorch==2.11.0\n")
         if argv[-1] == "--help":
             return _completed(fixture)
+        if "metadata.distribution" in " ".join(argv):
+            return _completed(json.dumps({"file_count": 42, "sha256": "c" * 64}))
         if "importlib.metadata" in " ".join(argv):
             return _completed("0.5.13\n")
         if argv[0] == "sha256sum":
@@ -177,6 +181,10 @@ def test_sglang_build_identity_pins_package_interpreter_and_lock(
     assert identity.executable_sha256 == "b" * 64
     assert identity.total_vram_bytes == 32768 * 1024 * 1024
     assert len(identity.dependency_lock_sha256) == 64
+    assert identity.package_tree_sha256 == "c" * 64
+    assert identity.runtime_identity_sha256 == hashlib.sha256(
+        f"sglang=0.5.13\npackage_tree={'c' * 64}\n".encode()
+    ).hexdigest()
     assert help_text == fixture
 
 
@@ -190,6 +198,37 @@ def test_sglang_build_identity_rejects_unpinned_version(
 
     monkeypatch.setattr(sglang, "_run_wsl", fake_run)
     with pytest.raises(RuntimeError, match=r"requires 0\.5\.13.*0\.5\.12"):
+        sglang.collect_sglang_build_identity(
+            distro="MaintainerDistro", python_bin="/opt/sglang/bin/python"
+        )
+
+
+def test_sglang_build_identity_rejects_missing_package_tree_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = (
+        Path(__file__).parent / "fixtures" / "sglang-0.5.13-server-options.txt"
+    ).read_text(encoding="utf-8")
+
+    def fake_run(_distro: str, argv: list[str], *, check: bool = True):
+        if argv[:2] == ["readlink", "-f"]:
+            return _completed("/opt/sglang/bin/python\n")
+        if argv[-2:] == ["freeze", "--all"]:
+            return _completed("sglang==0.5.13\n")
+        if argv[-1] == "--help":
+            return _completed(fixture)
+        if "metadata.distribution" in " ".join(argv):
+            return _completed(json.dumps({"file_count": 0, "sha256": ""}))
+        if "importlib.metadata" in " ".join(argv):
+            return _completed("0.5.13\n")
+        if argv[0] == "sha256sum":
+            return _completed("b" * 64 + "  /opt/sglang/bin/python\n")
+        if argv[0] == "nvidia-smi" and len(argv) > 1:
+            return _completed("NVIDIA RTX, 600.1, 32768\n")
+        return _completed("NVIDIA-SMI 600.1 CUDA Version: 13.0 |\n")
+
+    monkeypatch.setattr(sglang, "_run_wsl", fake_run)
+    with pytest.raises(RuntimeError, match="package-tree identity is incomplete"):
         sglang.collect_sglang_build_identity(
             distro="MaintainerDistro", python_bin="/opt/sglang/bin/python"
         )
@@ -339,6 +378,7 @@ def test_sglang_publishability_requires_resolved_determinism_and_memory(
         engine_version="0.5.13",
         dependency_lock_sha256="d" * 64,
         runtime_identity_sha256="r" * 64,
+        installed_package_tree_sha256="p" * 64,
         applied_chat_template_sha256=artifact.chat_template_digest,
         device_name="NVIDIA RTX",
         driver_version="600.1",
@@ -358,6 +398,11 @@ def test_sglang_publishability_requires_resolved_determinism_and_memory(
     )
 
     assert serving_context(evidence).blocking_reasons == ()
+    missing_tree = replace(evidence, installed_package_tree_sha256=None)
+    assert (
+        "runtime.installed_package_tree_identity_missing"
+        in serving_context(missing_tree).blocking_reasons
+    )
     fallback = replace(
         evidence,
         resolved_server_config={

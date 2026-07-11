@@ -84,6 +84,7 @@ from localbench.serving.sglang import (
     SglangBuildIdentity,
     SglangLaunchConfig,
     SglangMemoryFit,
+    SGLANG_PINNED_COMMIT,
     compute_sglang_memory_fit,
     quantization_config as sglang_quantization_config,
     refresh_sglang_process_ownership,
@@ -1150,7 +1151,7 @@ def _sglang_serving_evidence(
         dll_or_so_hashes={},
         version_stdout=readiness.build_info,
         source_repo="sgl-project/sglang",
-        source_commit="cba18f4d8090d23e9273e663db2a0b3b2e39f117",
+        source_commit=SGLANG_PINNED_COMMIT,
         source_tag="v0.5.13",
         build_flags=(
             f"dtype={launch_config.dtype} kv_cache_dtype={launch_config.kv_cache_dtype} "
@@ -1211,6 +1212,7 @@ def _sglang_serving_evidence(
         memory_allocations=memory_allocations,
         computed_memory_fit=memory_fit.provenance(),
         runtime_identity_sha256=build.runtime_identity_sha256,
+        installed_package_tree_sha256=build.package_tree_sha256,
         determinism_canary_passed=options.determinism_canary,
         resolved_server_config=readiness.resolved_runtime,
     )
