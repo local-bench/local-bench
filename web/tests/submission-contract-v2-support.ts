@@ -2,7 +2,7 @@ import { generateKeyPairSync, sign } from "node:crypto";
 import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv } from "../functions/_lib/submission-contracts";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { canonicalJson } from "../functions/_lib/submission-canonical";
-import { RAW_BUNDLE_SHA, resultBundle } from "./submission-test-support";
+import { RAW_BUNDLE_SHA, TEST_COMMUNITY_GROUP_ID, resultBundle } from "./submission-test-support";
 
 export const FIVE_AXIS_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 export const FIVE_AXIS_SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
@@ -26,6 +26,7 @@ export function communityTicketBody(
   const base: Record<string, unknown> = {
     accepted_suite_terms: true,
     bundle_sha256: bundleSha,
+    community_model_group_id: TEST_COMMUNITY_GROUP_ID,
     declared_model_slug: "gemma-4-12b-q4",
     expected_suite_manifest_sha256: expectedSuiteManifestSha,
     expected_suite_release_id: expectedSuiteReleaseId,

@@ -64,8 +64,8 @@ export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: Su
     `insert into submissions (
       submission_id, origin, submitter_id, submitter_display_name, declared_model_slug, ticket_id, status, bundle_schema_version,
       raw_bundle_sha256, raw_bundle_r2_key, suite_release_id, suite_manifest_sha256, expires_at, idempotency_key,
-      upload_capability_sha256
-    ) values (?, ?, ?, ?, ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      upload_capability_sha256, community_model_group_id
+    ) values (?, ?, ?, ?, ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       ticket.ticket_id,
@@ -82,6 +82,7 @@ export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: Su
       ticket.expires_at,
       ticket.bundle_sha256,
       uploadCapabilitySha256,
+      ticket.community_model_group_id ?? null,
     )
     .run();
   await recordSubmissionTransition(env, {
@@ -99,7 +100,7 @@ export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSub
   await env.DB.prepare(
     `update submissions set
       submission_id = ?, ticket_id = ?, submitter_id = ?, submitter_display_name = ?, declared_model_slug = ?, origin = ?, suite_release_id = ?,
-      suite_manifest_sha256 = ?, expires_at = ?, bundle_schema_version = ?, upload_capability_sha256 = ?
+      suite_manifest_sha256 = ?, expires_at = ?, bundle_schema_version = ?, upload_capability_sha256 = ?, community_model_group_id = ?
       where submission_id = ?`,
   )
     .bind(
@@ -114,6 +115,7 @@ export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSub
       ticket.expires_at,
       RESULT_BUNDLE_SCHEMA_VERSION,
       uploadCapabilitySha256,
+      ticket.community_model_group_id ?? null,
       currentSubmissionId,
     )
     .run();

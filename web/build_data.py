@@ -108,9 +108,17 @@ class BuildDataFlags:
 def main(argv: list[str] | None = None) -> int:
     try:
         flags = _extract_build_data_flags(sys.argv[1:] if argv is None else argv)
-        sources, out_dir, iters, benches, weights = parse_args(flags.argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
-        build_static_data(sources, out_dir, iters=iters, benches=benches, weights=weights, allow_lineage_gaps=flags.allow_lineage_gaps)
-    except (DataBuildError, OSError, json.JSONDecodeError) as exc:
+        sources, out_dir, iters, benches, weights, publication_bundle = parse_args(flags.argv, root=ROOT, default_iters=DEFAULT_ITERS, default_benches=BENCHES, default_weights=COMPOSITE_WEIGHTS)
+        build_options = {
+            "iters": iters,
+            "benches": benches,
+            "weights": weights,
+            "allow_lineage_gaps": flags.allow_lineage_gaps,
+        }
+        if publication_bundle is not None:
+            build_options["publication_bundle"] = publication_bundle
+        build_static_data(sources, out_dir, **build_options)
+    except (DataBuildError, OSError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"build_data: {exc}", file=sys.stderr)
         return 2
     print(f"wrote {_display_path(out_dir)}")
@@ -157,6 +165,7 @@ def build_static_data(
     benches: tuple[str, ...] = BENCHES,
     weights: dict[str, float] = COMPOSITE_WEIGHTS,
     allow_lineage_gaps: bool = False,
+    publication_bundle: Path | None = None,
 ) -> None:
     sources = [_source(entry, index) for index, entry in enumerate(_list(_read_json(sources_path), "data_sources"))]
     raw_catalog = _read_json(ROOT / "web" / CATALOG_FILENAME)
@@ -170,6 +179,20 @@ def build_static_data(
         base_models_by_id=_catalog_base_models_by_id(raw_catalog),
     )
     _write_outputs(out_dir, runs, catalog)
+    if publication_bundle is not None:
+        from publication_merge import assert_protected_tree_unchanged, merge_publication_bundle, protected_tree
+
+        before = protected_tree(out_dir)
+        community_dir = out_dir / "community"
+        if community_dir.exists():
+            shutil.rmtree(community_dir)
+        merge_publication_bundle(
+            publication_bundle,
+            out_dir,
+            catalog_path=ROOT / "web" / CATALOG_FILENAME,
+            board_path=BOARD_PATH,
+        )
+        assert_protected_tree_unchanged(before, out_dir)
 
 
 def _board_context() -> BoardContext:

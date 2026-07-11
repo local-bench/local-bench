@@ -12,6 +12,7 @@ import {
   MIGRATION_0010,
   MIGRATION_0011,
   MIGRATION_0012,
+  MIGRATION_0013,
   applyMigration,
   columnCount,
   createEnv,
@@ -73,6 +74,7 @@ describe("submission D1 migrations", () => {
       ["0010_submission_admission_security.sql", MIGRATION_0010],
       ["0011_publication_snapshots.sql", MIGRATION_0011],
       ["0012_maintainer_attestations.sql", MIGRATION_0012],
+      ["0013_community_model_groups.sql", MIGRATION_0013],
     ] as const;
 
     await applyWithWranglerLedger(env.DB, migrations);
@@ -85,8 +87,9 @@ describe("submission D1 migrations", () => {
     expect(await columnCount(env.DB, "submissions", "projection_object_sha256")).toBe(1);
     expect(await tableExists(env.DB, "publication_snapshots")).toBe(true);
     expect(await tableExists(env.DB, "maintainer_verification_attestations")).toBe(true);
+    expect(await tableExists(env.DB, "community_model_groups")).toBe(true);
     const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
-    expect(applied?.["count"]).toBe(11);
+    expect(applied?.["count"]).toBe(12);
   }, 15_000);
 });
 

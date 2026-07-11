@@ -55,6 +55,7 @@ export type SubmissionEnvelope = {
   readonly accepted_suite_terms: true;
   readonly allowed_schema: typeof RESULT_BUNDLE_SCHEMA_VERSION;
   readonly bundle_sha256: string;
+  readonly community_model_group_id?: string;
   readonly declared_model_slug?: string;
   readonly expected_suite_manifest_sha256: string | null;
   readonly expected_suite_release_id: string | null;
@@ -99,6 +100,7 @@ const PopSchema = z.object({
 });
 const CatalogSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
 const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
+export const CommunityModelGroupIdSchema = z.string().regex(/^community-group:[0-9a-f]{32}$/);
 
 const OneShotArtifactSchema = z.object({
   filename: z.string().min(1),
@@ -127,6 +129,7 @@ const OneShotIdentityEnvelopeSchema = z
 export const TicketRequestSchema = z.object({
   accepted_suite_terms: z.literal(true),
   bundle_sha256: Sha256Schema,
+  community_model_group_id: CommunityModelGroupIdSchema.optional(),
   declared_model_slug: CatalogSlugSchema.optional(),
   expected_suite_manifest_sha256: Sha256Schema.nullable().optional(),
   expected_suite_release_id: z.string().min(1).nullable().optional(),

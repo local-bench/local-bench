@@ -261,7 +261,7 @@ describe("submission route contracts", () => {
       ).bind(row.id, `public_key:${row.sha}`, row.id, row.sha, row.sha, row.uploaded, SUITE_RELEASE_ID, SUITE_MANIFEST_SHA).run();
     }
     const second = rows[1] as { id: string; sha: string; uploaded: string };
-    const secondUpdate = statusUpdate("accepted", second.sha);
+    const secondUpdate = statusUpdate("accepted", second.sha, "community");
 
     const refused = await applyVerification({
       env,

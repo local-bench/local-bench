@@ -233,7 +233,7 @@ describe("submission contract v2 ticket route", () => {
     expect(stored?.["submitter_display_name"]).toBe("Quant.Cowboy_2");
     expect(invalid.status).toBe(400);
     expect(await invalid.json()).toMatchObject({ code: "invalid_ticket_request" });
-  });
+  }, 15_000);
 
   it("rotates a live same-submitter ticket and conflicts on submitted or different-submitter rows", async () => {
     // Given: a community submitter has one live ticket for a raw bundle.

@@ -100,7 +100,8 @@ async function communityTicketRejection(
     suiteReleaseId === undefined ||
     suiteReleaseId === null ||
     suiteManifestSha256 === undefined ||
-    suiteManifestSha256 === null
+    suiteManifestSha256 === null ||
+    body.community_model_group_id === undefined
   ) {
     const submitterId = publicKey === undefined ? undefined : `public_key:${publicKey}`;
     return invalidTicket(origin, body.bundle_sha256, submitterId);
@@ -109,6 +110,15 @@ async function communityTicketRejection(
     return reject(400, "unknown_suite_release", origin, "POST /api/submissions/tickets", {
       code: "unknown_suite_release",
       error: "unknown suite release",
+    }, body.bundle_sha256, `public_key:${publicKey}`);
+  }
+  const group = await env.DB.prepare(
+    "select community_model_group_id from community_model_groups where community_model_group_id = ?",
+  ).bind(body.community_model_group_id).first();
+  if (group === null) {
+    return reject(400, "unknown_community_model_group", origin, "POST /api/submissions/tickets", {
+      code: "unknown_community_model_group",
+      error: "community model group must be server-issued",
     }, body.bundle_sha256, `public_key:${publicKey}`);
   }
   const popResult = await verifyTicketPop(
@@ -193,6 +203,7 @@ function ticketEnvelope(request: TicketRequest, origin: SubmissionOrigin): Submi
   return {
     ...envelope,
     ...(request.declared_model_slug === undefined ? {} : { declared_model_slug: request.declared_model_slug }),
+    ...(request.community_model_group_id === undefined ? {} : { community_model_group_id: request.community_model_group_id }),
     ...(request.submitter_display_name === undefined ? {} : { submitter_display_name: request.submitter_display_name }),
   };
 }

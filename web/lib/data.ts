@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 import type { AxisKey } from "./axis-config";
 import {
   AgenticDataSchema,
@@ -47,6 +47,23 @@ import {
 import { HEADLINE_LANE } from "./leaderboard-score";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
+
+const CommunityGroupSchema = z.object({
+  community_model_group_id: z.string().regex(/^community-group:[0-9a-f]{32}$/),
+  identity_label: z.literal("community-declared, identity-unverified"),
+  ranked: z.literal(false),
+  schema_version: z.literal("localbench.community_publication.v1"),
+  variants: z.array(z.object({
+    artifact_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    display_name: z.string().nullable(),
+    projection_object_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    ranked: z.literal(false),
+    scores: z.record(z.string(), z.unknown()),
+    submission_id: z.string().min(1),
+  })),
+});
+const CommunityIndexSchema = z.object({ groups: z.array(z.object({ community_model_group_id: z.string(), group_path: z.string(), n_variants: z.number().int().nonnegative() })) });
+export type CommunityGroupData = z.infer<typeof CommunityGroupSchema>;
 
 export type AnchorReference = {
   readonly axes: Record<string, AxisScore>;
@@ -157,6 +174,20 @@ export async function getPartialCoverageBoard(): Promise<readonly BoardEntryRow[
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
     }
+    throw error;
+  }
+}
+
+export async function getCommunityGroup(groupId: string): Promise<CommunityGroupData> {
+  return readJson(["community", "groups", `${groupId}.json`], CommunityGroupSchema);
+}
+
+export async function getCommunityGroupStaticParams(): Promise<readonly { readonly groupId: string }[]> {
+  try {
+    const index = await readJson(["community", "index.json"], CommunityIndexSchema);
+    return index.groups.map((group) => ({ groupId: group.community_model_group_id.replace("community-group:", "") }));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
 }
