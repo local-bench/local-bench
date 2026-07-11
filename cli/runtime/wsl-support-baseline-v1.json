@@ -1,0 +1,29 @@
+{
+  "schema": "localbench.wsl_support_baseline.v1",
+  "recorded_on": "2026-07-11",
+  "supported_architecture": "x86_64",
+  "minimum_windows_build": 22000,
+  "minimum_store_wsl_version": "2.6.3.0",
+  "measured_host": {
+    "windows_build": 26200,
+    "wsl_version": "2.6.3.0",
+    "wsl_kernel_version": "6.6.87.2-1"
+  },
+  "binary_help_verified_flags": [
+    "--version",
+    "--import <Distro> <InstallLocation> <FileName> --version 2",
+    "--list --verbose",
+    "--list --quiet",
+    "--distribution <Distro>",
+    "--user <UserName>",
+    "--exec <CommandLine>",
+    "--terminate <Distro>",
+    "--unregister <Distro>"
+  ],
+  "authoritative_docs": [
+    "https://learn.microsoft.com/en-us/windows/wsl/basic-commands",
+    "https://learn.microsoft.com/en-us/windows/wsl/use-custom-distro",
+    "https://learn.microsoft.com/en-us/windows/wsl/wsl-config"
+  ],
+  "note": "Version floors are followed by live feature probes; lowering the Store-WSL floor requires a recorded full staging import and post-restart hardening rehearsal."
+}

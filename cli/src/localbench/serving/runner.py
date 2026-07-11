@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import subprocess
+import sys
 import uuid
 import json
 from dataclasses import dataclass, replace
@@ -1260,6 +1261,22 @@ def preflight_agentic_if_needed(
 ) -> WslPreflightResult | None:
     if not needs_wsl_agentic(options):
         return None
+    if (
+        sys.platform == "win32"
+        and options.wsl_venv_python is None
+        and options.appworld_root is None
+    ):
+        # C2 owns transactional preparation and must run before model/tokenizer work.
+        # C3 will consume the resulting active pointer for fixed-entrypoint worker spawns.
+        from localbench.appliance.provisioner import (  # noqa: PLC0415
+            ApplianceProvisioner,
+            ProvisioningError,
+        )
+
+        try:
+            ApplianceProvisioner().ensure_active()
+        except ProvisioningError as error:
+            raise AgenticSetupError(detail=str(error)) from error
     wsl_venv_python, appworld_root = configured_agentic_paths(
         options.wsl_venv_python,
         options.appworld_root,

@@ -23,6 +23,8 @@ from localbench.bounded_final_profiles import (
     BOUNDED_FINAL_PROFILE_CHOICES,
     BoundedFinalProfileChoice,
 )
+from localbench.appliance.manifest import PINNED_RUNTIME_ID
+from localbench.appliance.provisioner import ApplianceProvisioner, ProvisioningError
 from localbench.orchestrate import (
     LaneChoice,
     LocalbenchRun,
@@ -202,6 +204,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run(args)
     if args.command == "bench":
         return _bench(args)
+    if args.command == "setup-agentic":
+        return _setup_agentic(args)
     if args.command == "cache-tokenizer":
         return _cache_tokenizer(args)
     if args.command == "fetch-suite":
@@ -342,6 +346,15 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--runtime-backend")
     run_parser.add_argument("--cuda-version")
     run_parser.add_argument("--runner-build-id")
+    setup_parser = subparsers.add_parser(
+        "setup-agentic", help="prewarm, inspect, remove, or prune the managed WSL appliance"
+    )
+    setup_action = setup_parser.add_mutually_exclusive_group()
+    setup_action.add_argument("--list", action="store_true", dest="list_runtimes")
+    setup_action.add_argument("--remove", metavar="RUNTIME_ID")
+    setup_action.add_argument("--prune", action="store_true")
+    setup_parser.add_argument("--confirm-active", action="store_true")
+    setup_parser.add_argument("--ca-bundle", type=Path)
     bench_parser = subparsers.add_parser("bench", help="launch a pinned local server and run a suite")
     bench_parser.add_argument("one_shot_model", nargs="?", help="catalog slug or HF repo for one-shot bench")
     bench_parser.add_argument("--runtime", choices=("llama.cpp", "vllm", "sglang"))
@@ -1116,6 +1129,35 @@ def _bench(args: argparse.Namespace) -> int:
     progress_reporter.finish()
     _print_summary(record, _bench_output_path(options))
     return EXIT_COMPLETE
+
+
+def _setup_agentic(args: argparse.Namespace) -> int:
+    environ = dict(os.environ)
+    if args.ca_bundle is not None:
+        environ["LOCALBENCH_CA_BUNDLE"] = str(args.ca_bundle.expanduser().resolve())
+    provisioner = ApplianceProvisioner(environ=environ)
+    try:
+        if args.list_runtimes:
+            runtimes = provisioner.list_runtimes()
+            if not runtimes:
+                print("no managed agentic runtimes")
+            for runtime in runtimes:
+                print(f"{runtime.get('runtime_id')}\t{runtime.get('state')}\t{runtime.get('distro_name', '-')}")
+            return EXIT_COMPLETE
+        if args.remove is not None:
+            provisioner.remove(args.remove, confirm_active=bool(args.confirm_active))
+            print(f"removed managed agentic runtime {args.remove}")
+            return EXIT_COMPLETE
+        if args.prune:
+            removed = provisioner.prune()
+            print("pruned " + (", ".join(removed) if removed else "no runtimes"))
+            return EXIT_COMPLETE
+        identity = provisioner.ensure_active(PINNED_RUNTIME_ID)
+        print(f"agentic runtime active {identity.get('runtime_id')}")
+        return EXIT_COMPLETE
+    except ProvisioningError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_AGENTIC_SETUP_REQUIRED
 
 
 def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
