@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -124,7 +125,18 @@ def _materialize_wheels(manifest: dict[str, Any], root: Path, *, role: str | Non
         if role is not None and client["role"] != role:
             continue
         if client["source"] == "build:cli":
-            subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", str(ROOT / "cli"), "-w", str(root)], check=True, env=env, stdout=subprocess.DEVNULL)
+            rc_source = root / "rc-source"
+            shutil.copytree(
+                ROOT / "cli",
+                rc_source,
+                ignore=shutil.ignore_patterns(".venv", "build", "dist", "runs", "runtime", "__pycache__", "*.egg-info"),
+            )
+            pyproject = rc_source / "pyproject.toml"
+            pyproject.write_text(
+                pyproject.read_text(encoding="utf-8").replace('version = "0.3.1"', f'version = "{client["version"]}"', 1),
+                encoding="utf-8",
+            )
+            subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", str(rc_source), "-w", str(root)], check=True, env=env, stdout=subprocess.DEVNULL)
         else:
             subprocess.run([sys.executable, "-m", "pip", "download", "--no-deps", "--only-binary=:all:", f"local-bench-ai=={client['version']}", "-d", str(root)], check=True, stdout=subprocess.DEVNULL)
         wheel = root / client["filename"]

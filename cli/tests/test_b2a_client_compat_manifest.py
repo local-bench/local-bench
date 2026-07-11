@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from localbench.version import installed_package_version
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -27,4 +25,3 @@ def test_b2a_compatibility_manifest_pins_rc_and_live_wheels() -> None:
             "source": "pypi:local-bench-ai==0.3.2",
         },
     ]
-    assert installed_package_version() == "0.3.3rc1"

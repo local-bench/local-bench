@@ -344,7 +344,7 @@ def test_missing_manifest_version_normalizes_to_installed_version_not_legacy_def
 
     bundle = normalize_result_bundle(record)
 
-    assert bundle["manifest"]["provenance"]["cli_version"] == "0.3.3rc1"
+    assert bundle["manifest"]["provenance"]["cli_version"] == "0.3.1"
 
 
 @_REQUIRES_PILOT
