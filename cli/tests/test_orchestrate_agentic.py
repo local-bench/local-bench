@@ -35,10 +35,15 @@ _IFBENCH_PASSING_RESPONSE = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _passed_execution_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Orchestrator conversion mechanics are independent of the separately tested mint gate."""
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
+
+
 def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
     async def scenario() -> None:
         # Given scored defaults plus injected AppWorld-C task/model/sandbox seams.
         output_path = tmp_path / "agentic-inline-run.json"
