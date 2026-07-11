@@ -23,6 +23,7 @@ _TEMPLATE_SNAPSHOT = Path(__file__).parent / "fixtures" / "sglang-template-probe
 _TEMPLATE_SHA256 = hashlib.sha256(
     (_TEMPLATE_SNAPSHOT / "chat_template.jinja").read_bytes()
 ).hexdigest()
+_RESOLVED_MEM_FRACTION = 0.7398125
 
 
 def _completed(
@@ -66,7 +67,7 @@ def _server_info(**overrides: object) -> dict[str, object]:
         "kv_cache_dtype": "bfloat16",
         "mamba_ssm_dtype": "float32",
         "quantization": "compressed-tensors",
-        "mem_fraction_static": 0.80,
+        "mem_fraction_static": _RESOLVED_MEM_FRACTION,
         "load_format": "safetensors",
         "sampling_defaults": "openai",
         "device": "cuda",
@@ -118,7 +119,7 @@ def _readiness_kwargs(server_info: dict[str, object]) -> dict[str, object]:
         "kv_cache_dtype": "bfloat16",
         "mamba_ssm_dtype": "float32",
         "quantization": "compressed-tensors",
-        "mem_fraction_static": "0.80",
+        "expected_mem_fraction_static": _RESOLVED_MEM_FRACTION,
         "local_snapshot_path": _TEMPLATE_SNAPSHOT,
         "local_token_ids_renderer": lambda _path, _messages: [1, 2],
         "transport": httpx.MockTransport(_readiness_handler(server_info)),
@@ -321,6 +322,14 @@ async def test_sglang_readiness_rejects_silent_determinism_fallback() -> None:
 
 
 @pytest.mark.anyio
+async def test_sglang_readiness_requires_resolved_vlm_memory_fraction() -> None:
+    with pytest.raises(ReadinessError, match="mem_fraction_static=0.8"):
+        await verify_sglang_readiness(
+            **_readiness_kwargs(_server_info(mem_fraction_static=0.80))
+        )
+
+
+@pytest.mark.anyio
 async def test_sglang_readiness_rejects_unverified_context_fit() -> None:
     with pytest.raises(ReadinessError, match="max_total_num_tokens"):
         await verify_sglang_readiness(
@@ -388,6 +397,8 @@ def test_sglang_prelaunch_vram_fit_uses_snapshot_weights_and_config(
     )
     assert fit.static_required_bytes == fit.weights_bytes + fit.kv_bytes + fit.mamba_state_bytes
     assert fit.non_static_budget_bytes == fit.total_vram_bytes - fit.static_budget_bytes
+    assert fit.mem_fraction_static == pytest.approx(_RESOLVED_MEM_FRACTION)
+    assert fit.static_budget_bytes == int(fit.total_vram_bytes * _RESOLVED_MEM_FRACTION)
     assert fit.non_static_required_bytes > 4 * 1024**3
     assert fit.fits is True
 

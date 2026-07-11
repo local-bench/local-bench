@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import time
 from collections.abc import Callable
@@ -198,7 +199,7 @@ async def verify_sglang_readiness(
     kv_cache_dtype: str,
     mamba_ssm_dtype: str,
     quantization: str,
-    mem_fraction_static: str,
+    expected_mem_fraction_static: float,
     local_snapshot_path: Path,
     local_token_ids_renderer: Callable[[Path, list[JsonObject]], list[int]] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
@@ -247,7 +248,6 @@ async def verify_sglang_readiness(
             "kv_cache_dtype": kv_cache_dtype,
             "mamba_ssm_dtype": mamba_ssm_dtype,
             "quantization": quantization,
-            "mem_fraction_static": float(mem_fraction_static),
             "load_format": "safetensors",
             "sampling_defaults": "openai",
             "device": "cuda",
@@ -265,6 +265,21 @@ async def verify_sglang_readiness(
             for key, value in expected.items()
             if server_info.get(key) != value
         ]
+        reported_mem_fraction = server_info.get("mem_fraction_static")
+        if (
+            not isinstance(reported_mem_fraction, (int, float))
+            or isinstance(reported_mem_fraction, bool)
+            or not math.isclose(
+                reported_mem_fraction,
+                expected_mem_fraction_static,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+        ):
+            mismatches.append(
+                "mem_fraction_static="
+                f"{reported_mem_fraction!r} (expected {expected_mem_fraction_static!r})"
+            )
         if mismatches:
             raise ReadinessError(
                 "SGLang /server_info resolved-config mismatch: " + "; ".join(mismatches)
@@ -318,6 +333,7 @@ async def verify_sglang_readiness(
                 "SGLang /v1/tokenize token IDs do not match the pinned snapshot template/tokenizer"
             )
         resolved = {key: server_info[key] for key in expected}
+        resolved["mem_fraction_static"] = reported_mem_fraction
         resolved["version"] = engine_version
         resolved["max_total_num_tokens"] = max_total_num_tokens
         return ReadinessEvidence(

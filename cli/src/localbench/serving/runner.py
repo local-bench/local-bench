@@ -589,10 +589,9 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         kv_cache_dtype=options.sglang_dtype,
         mamba_ssm_dtype=artifact.mamba_ssm_dtype or "float32",
         quantization=quantization,
-        # v0.5.13's 32-GiB heuristic with chunked_prefill=2048/cuda_graph_bs=1
-        # reserves 512 + 3072 + 2 + 128 + (42 * 8) = 4050 MiB outside the
-        # static weights+KV/state pool. Its Qwen3.6 VLM adjustment yields about
-        # 0.810 static; 0.80 leaves 6554 MiB for activations/graphs on RTX 5090.
+        # Qwen3.6 has vision hidden_size=1152 and no num_hidden_layers, so v0.5.13
+        # uses 24: complexity=1.265625, dynamic=0.9734375, and VLM factor=
+        # 0.95*0.9734375=0.924765625. Thus requested 0.80 resolves to 0.7398125.
         mem_fraction_static="0.80",
         chat_template=chat_template,
         run_token=uuid.uuid4().hex,
@@ -644,6 +643,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         await _run_sglang_determinism_canary(
             adapter,
             launch_config,
+            expected_mem_fraction_static=memory_fit.mem_fraction_static,
             pinned_chat_template_sha256=artifact.chat_template_digest,
             local_snapshot_path=artifact.model_file,
             root=root,
@@ -667,7 +667,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
                 kv_cache_dtype=options.sglang_dtype,
                 mamba_ssm_dtype=launch_config.mamba_ssm_dtype,
                 quantization=quantization,
-                mem_fraction_static=launch_config.mem_fraction_static,
+                expected_mem_fraction_static=memory_fit.mem_fraction_static,
                 local_snapshot_path=artifact.model_file,
             )
         except BaseException:
@@ -947,6 +947,7 @@ async def _run_sglang_determinism_canary(
     adapter: SglangAdapter,
     config: SglangLaunchConfig,
     *,
+    expected_mem_fraction_static: float,
     pinned_chat_template_sha256: str,
     local_snapshot_path: Path,
     root: Path,
@@ -972,7 +973,7 @@ async def _run_sglang_determinism_canary(
                 kv_cache_dtype=config.kv_cache_dtype,
                 mamba_ssm_dtype=config.mamba_ssm_dtype,
                 quantization=config.quantization,
-                mem_fraction_static=config.mem_fraction_static,
+                expected_mem_fraction_static=expected_mem_fraction_static,
                 local_snapshot_path=local_snapshot_path,
             )
             async with httpx.AsyncClient(

@@ -499,7 +499,7 @@ def compute_sglang_memory_fit(
         full_attention_layers * kv_heads * head_dim * 2 * dtype_bytes * max_model_len
     )
     mamba_state_bytes = _sglang_mamba_state_bytes(model_config, layer_types)
-    fraction = float(mem_fraction_static)
+    fraction = resolve_sglang_mem_fraction(config, mem_fraction_static)
     static_budget_bytes = int(total_vram_bytes * fraction)
     non_static_budget_bytes = total_vram_bytes - static_budget_bytes
     non_static_required_bytes = _sglang_non_static_required_bytes(
@@ -534,6 +534,32 @@ def compute_sglang_memory_fit(
             f"mem_fraction_static={fraction}"
         )
     return result
+
+
+def resolve_sglang_mem_fraction(
+    config: JsonObject, requested_mem_fraction_static: str
+) -> float:
+    """Mirror SGLang v0.5.13's post-parse VLM memory adjustment."""
+    requested = float(requested_mem_fraction_static)
+    vision_config = config.get("vision_config")
+    if not isinstance(vision_config, dict):
+        return requested
+    layers = vision_config.get("num_hidden_layers", 24)
+    hidden = vision_config.get("hidden_size", 1024)
+    if (
+        not isinstance(layers, int)
+        or isinstance(layers, bool)
+        or layers <= 0
+        or not isinstance(hidden, int)
+        or isinstance(hidden, bool)
+        or hidden <= 0
+    ):
+        raise RuntimeError(
+            "SGLang VLM memory adjustment requires positive integer vision dimensions"
+        )
+    complexity_ratio = layers * hidden**2 / (24 * 1024**2)
+    dynamic_factor = max(0.8, min(1.05, 1.0 - 0.1 * (complexity_ratio - 1.0)))
+    return requested * 0.95 * dynamic_factor
 
 
 def _text_model_config(config: JsonObject) -> JsonObject:
