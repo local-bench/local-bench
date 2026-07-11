@@ -4,6 +4,7 @@ import importlib.util
 import io
 import tarfile
 import zipfile
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,38 @@ def test_scanner_accepts_explicit_minimal_rootfs_inventory(tmp_path: Path) -> No
     )
     assert report["result"] == "passed"
     assert report["members"] >= 4
+    assert report["inventory"]
+    assert all(
+        {"path", "size_bytes", "sha256"} <= set(item)
+        for item in report["inventory"]
+        if item["type"] == "file"
+    )
+
+
+def test_scanner_enforces_positive_path_allowlist(tmp_path: Path) -> None:
+    with pytest.raises(scanner.ScanError, match="positive path allowlist"):
+        scanner.scan_release(
+            archive(tmp_path, {"usr/share/unexpected.txt": b"x"}),
+            allowed_top_levels={"usr"},
+            allowed_path_prefixes=("usr/bin",),
+        )
+
+
+def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None:
+    database = tmp_path / "fixture.sqlite"
+    connection = sqlite3.connect(database)
+    connection.execute("create table cache (value text)")
+    connection.executemany("insert into cache values (?)", [("a",), ("b",)])
+    connection.commit()
+    connection.close()
+    report = scanner.scan_release(
+        archive(tmp_path, {"var/lib/localbench/cache.sqlite": database.read_bytes()}),
+        allowed_top_levels={"var"},
+        allowed_path_prefixes=("var/lib/localbench",),
+    )
+    item = next(entry for entry in report["inventory"] if entry["path"].endswith("cache.sqlite"))
+    assert item["content_type"] == "application/vnd.sqlite3"
+    assert item["sqlite"] == [{"table": "cache", "row_count": 2}]
 
 
 @pytest.mark.parametrize(

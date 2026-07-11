@@ -24,7 +24,7 @@ from localbench.appliance.manifest import (
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
 from localbench.submissions.canon import canonical_json_hash, write_json_file
-from release_scanner import scan_release
+from release_scanner import DEFAULT_ROOTFS_PATH_PREFIXES, scan_release
 
 
 def main() -> int:
@@ -65,6 +65,7 @@ def main() -> int:
         scan_report = scan_release(
             first,
             allowed_top_levels={"bin", "bin.usr-is-merged", "boot", "dev", "etc", "home", "lib", "lib.usr-is-merged", "lib64", "media", "mnt", "opt", "proc", "root", "run", "sbin", "sbin.usr-is-merged", "snap", "srv", "sys", "tmp", "usr", "var"},
+            allowed_path_prefixes=DEFAULT_ROOTFS_PATH_PREFIXES,
             sandbox_wsl_distro=str(config["builder_wsl_distro"]),
         )
         final_artifact = args.out / f"localbench-agentic-runtime-{PINNED_RUNTIME_ID}.tar.xz"
@@ -258,6 +259,7 @@ def _validate_config(config: JsonObject) -> None:
         raise ValueError("apt_packages must contain exact name=version pins")
     contract = _object(load_execution_contract()["payload"])
     expected = _object(contract["appworld_identity"])
+    lineage = _object(contract["identity_lineage"])
     appworld = _object(config["appworld"])
     python = _object(config["python"])
     actual = {
@@ -271,6 +273,11 @@ def _validate_config(config: JsonObject) -> None:
     }
     if actual != expected:
         raise ValueError("C1 AppWorld identity differs from signed C0 contract")
+    package = _object(appworld.get("package"))
+    if package.get("sha256") != lineage.get("official_wheel_sha256"):
+        raise ValueError(
+            "C1 AppWorld wheel digest differs from successor contract official_wheel_sha256"
+        )
 
 
 def _wsl_path(path: Path) -> str:
