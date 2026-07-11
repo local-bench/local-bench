@@ -152,7 +152,10 @@ describe("home leaderboard provenance labels", () => {
     expect(sorted.map((row) => row.slug)).toEqual(["static-high", "full-high"]);
   });
 
-  it("does not render a competing Static Index column inside the headline board", () => {
+  // 2026-07-11 deep-dive decision: the headline board now SURFACES the Static Index as a
+  // clearly-labelled secondary column (the agentic axis is near-floor for current entrants,
+  // so composite_static discriminates better). It must read as secondary, never as the rank.
+  it("renders the Static Index as a labelled secondary column on the headline board", () => {
     const html = renderToStaticMarkup(
       createElement(HomeLeaderboard, {
         models: [
@@ -167,8 +170,45 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).not.toContain("static-suite-v2");
+    expect(html).toContain("static-suite-v2");
+    expect(html).toContain("secondary track");
     expect(html).toContain("Local Intelligence Index");
+  });
+
+  it("omits the Static Index column in static score mode where it would duplicate the rank", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeLeaderboard, {
+        scoreMode: "static",
+        models: [
+          IndexModelSchema.parse({
+            ...rawModel("static-track", "Static Track", undefined),
+            composite_full: { hi: 45, lo: 35, point: 40 },
+            composite_static: { hi: 65, lo: 55, point: 60 },
+            lane: "bounded-final-v2",
+            static_index_version: "static-suite-v2",
+          }),
+        ],
+      }),
+    );
+
+    expect(html).not.toContain("secondary track");
+  });
+
+  it("renders a fine-tune chip when the lineage map covers a row", () => {
+    const html = renderToStaticMarkup(
+      createElement(HomeLeaderboard, {
+        models: [
+          IndexModelSchema.parse({
+            ...rawModel("finetune-row", "Finetune Row", undefined),
+            lane: "bounded-final-v2",
+          }),
+        ],
+        fineTuneBaseBySlug: new Map([["finetune-row", "Base Model 27B"]]),
+      }),
+    );
+
+    expect(html).toContain("Fine-tune of");
+    expect(html).toContain("Base Model 27B");
   });
 });
 

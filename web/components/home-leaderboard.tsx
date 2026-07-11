@@ -21,14 +21,19 @@ const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 
 export { sortLeaderboardRows } from "@/lib/leaderboard-sort";
 
+const EMPTY_LINEAGE: ReadonlyMap<string, string> = new Map();
+
 export function HomeLeaderboard({
   models,
   agenticBySlug = EMPTY_AGENTIC,
   scoreMode = "full",
+  fineTuneBaseBySlug = EMPTY_LINEAGE,
 }: {
   readonly models: readonly IndexModel[];
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
   readonly scoreMode?: LeaderboardScoreMode;
+  /** slug → base-model display name, for rows that are fine-tunes of another catalog model. */
+  readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
 }) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const axisKeys = useMemo(() => axisColumns(models), [models]);
@@ -38,7 +43,7 @@ export function HomeLeaderboard({
   );
   const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
   const showAgenticColumn = scoreMode === "full";
-  const showStaticIndexColumn = false;
+  const showStaticIndexColumn = scoreMode === "full";
 
   return (
     <div
@@ -104,6 +109,11 @@ export function HomeLeaderboard({
                   {model.demo ? <DemoBadge /> : null}
                 </span>
                 <div className="text-xs text-bench-muted">{model.family}</div>
+                {fineTuneBaseBySlug.has(model.slug) ? (
+                  <span className="mt-1 inline-block rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
+                    Fine-tune of {fineTuneBaseBySlug.get(model.slug)}
+                  </span>
+                ) : null}
                 <ProvenanceLabels model={model} />
               </td>
               <td className="px-3 py-3">

@@ -10,7 +10,7 @@ import {
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AXIS_CONFIG } from "@/lib/axis-config";
-import { getAgenticBySlug, getIndexData, getPartialCoverageBoard } from "@/lib/data";
+import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getPartialCoverageBoard } from "@/lib/data";
 import { splitLeaderboard } from "@/lib/leaderboard";
 
 export default async function LeaderboardPage() {
@@ -20,6 +20,7 @@ export default async function LeaderboardPage() {
     getPartialCoverageBoard(),
   ]);
   const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
+  const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
   );
@@ -57,14 +58,17 @@ export default async function LeaderboardPage() {
             <Link href="/methodology" className="text-bench-accent hover:underline">
               methodology
             </Link>
-            .
+            . Note: the Agentic axis is near-floor for every current local entrant, so it compresses
+            headline gaps — read the composite alongside the per-axis columns and the Static Index.
           </div>
         </div>
         <BoardIndexChart models={ranked} />
-        <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} />
+        <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} fineTuneBaseBySlug={fineTuneBaseBySlug} />
         {/* The no-agentic lane renders only once it has rows — an empty second ranking
             table reads as a competing benchmark instead of a fallback lane. */}
-        {staticComposite.length > 0 ? <HomeLeaderboard models={staticComposite} scoreMode="static" /> : null}
+        {staticComposite.length > 0 ? (
+          <HomeLeaderboard models={staticComposite} scoreMode="static" fineTuneBaseBySlug={fineTuneBaseBySlug} />
+        ) : null}
         <PendingVerificationQueue />
         <PartialCoverageBoard rows={partialCoverage} />
         <CatalogShells models={catalog} />
