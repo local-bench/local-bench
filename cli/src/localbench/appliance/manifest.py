@@ -27,7 +27,7 @@ RUNTIME_PUBLIC_KEYS: Final = {
 # Filled from the accepted release evidence before publication. A non-matching
 # manifest for the pinned runtime is rejected even when correctly signed.
 PINNED_INITIAL_MANIFEST_SHA256: Final = (
-    "86c98e38aef443675a92c8d7d90bd5cf88078ce37ee4aca500706b340359ebb2"
+    "60b808c41da3652dea8b1cf08534cb743abdb44f4dcb5465e1bc57e549483164"
 )
 MANIFEST_URL: Final = (
     f"https://local-bench.ai/artifacts/agentic/{PINNED_RUNTIME_ID}/manifest.json"

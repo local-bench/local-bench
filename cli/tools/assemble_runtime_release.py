@@ -20,9 +20,9 @@ def main() -> int:
     signature = json.loads(args.signature.read_text(encoding="utf-8"))
     digest = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
     document = {"payload": payload, "payload_sha256": digest, "signature": signature}
-    args.out.write_text(
-        json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
+    args.out.write_bytes(
+        json.dumps(document, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        + b"\n"
     )
     return 0
 

@@ -38,9 +38,9 @@ def main() -> int:
         "public_key": key.public_key.hex(),
         "signature": sign_bytes(MANIFEST_SIGNATURE_DOMAIN + digest, args.signing_key),
     }
-    args.out.write_text(
-        json.dumps(envelope, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
+    args.out.write_bytes(
+        json.dumps(envelope, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        + b"\n"
     )
     return 0
 
