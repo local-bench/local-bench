@@ -72,7 +72,7 @@ export type SubmissionEnvelope = {
 export const RESULT_BUNDLE_SCHEMA_VERSION = "localbench.result_bundle.v1";
 export const SUBMISSION_ENVELOPE_SCHEMA_VERSION = "localbench.submission_envelope.v2";
 export const STATUS_UPDATE_SCHEMA_VERSION = "localbench.submission_status_update.v1";
-export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v1";
+export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v2";
 export const ONE_SHOT_IDENTITY_SCHEMA_VERSION = "localbench.one_shot_identity.v1";
 export const PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION = "localbench.publishability_preflight.v1";
 // Admission streams bounded R2 chunks into DigestStream, so peak memory is O(chunk)

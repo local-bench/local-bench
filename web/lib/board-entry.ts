@@ -15,7 +15,7 @@ export type ProjectionAxis = {
   readonly n?: number;
 };
 
-export type AcceptedResultProjectionV1 = {
+export type AcceptedResultProjectionV2 = {
   readonly artifact_hashes: {
     readonly bundle_sha256: string;
     readonly projection_sha256: string;
@@ -34,7 +34,7 @@ export type AcceptedResultProjectionV1 = {
     readonly quant_label?: string | null;
   };
   readonly n_errors?: number;
-  readonly origin: "project_anchor" | "community_submission";
+  readonly origin: "project_anchor" | "community";
   readonly runtime: {
     readonly hardware_summary?: string | null;
     readonly name?: string | null;
@@ -73,7 +73,7 @@ export type BoardEntryRow = {
   readonly board_schema_version: "localbench.board_entries.v1";
   readonly published_at: string | null;
   readonly visibility: "private" | "preview" | "public";
-  readonly origin: "project_anchor" | "community_submission";
+  readonly origin: "project_anchor" | "community";
   readonly trust_label: string;
   readonly verification_level: string;
   readonly model_display_name: string | null;
@@ -110,7 +110,7 @@ export type BoardEntryRow = {
 };
 
 export function acceptedProjectionToBoardEntry(
-  projection: AcceptedResultProjectionV1,
+  projection: AcceptedResultProjectionV2,
   identity: BoardEntryIdentity,
 ): BoardEntryRow {
   return {
@@ -205,7 +205,7 @@ export const AcceptedResultProjectionSchema = z.object({
     quant_label: z.string().nullable().optional(),
   }),
   n_errors: z.number().optional(),
-  origin: z.enum(["project_anchor", "community_submission"]),
+  origin: z.enum(["project_anchor", "community"]),
   runtime: z.object({
     hardware_summary: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
@@ -255,6 +255,9 @@ export type PartialCoverageData = z.infer<typeof PartialCoverageDataSchema>;
 // unknown under Zod); the mapper only reads well-typed scalar fields + JSON.stringifies the records.
 export function partialCoverageRows(data: PartialCoverageData): readonly BoardEntryRow[] {
   return data.entries.map((entry) =>
-    acceptedProjectionToBoardEntry(entry.projection as unknown as AcceptedResultProjectionV1, entry.identity),
+    acceptedProjectionToBoardEntry(entry.projection as unknown as AcceptedResultProjectionV2, entry.identity),
   );
 }
+
+/** @deprecated v1 payloads must migrate before mapping. */
+export type AcceptedResultProjectionV1 = AcceptedResultProjectionV2;

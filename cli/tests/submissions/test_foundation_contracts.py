@@ -114,10 +114,11 @@ def test_envelope_and_projection_contracts_validate_board_safe_payloads() -> Non
     }
     projection = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
-        "model": {"display_name": "Gemma", "file_sha256": "b" * 64, "quant_label": "Q4"},
+        "model": {"display_name": "Gemma", "declared_name": "Gemma", "file_sha256": "b" * 64, "quant_label": "Q4", "identity_status": "maintainer_verified", "model_system_key": f"artifact:{'b' * 64}"},
+        "lineage": {"base_model": []},
         "runtime": {"name": "llama.cpp", "version": "1"},
         "suite_release_id": "suite-v1-partial-text-code-4axis-v1",
-        "suite_manifest_sha256": "c" * 64,
+        "suite_manifest_sha256": _SITE_MANIFEST_SHA256,
         "scorecard_id": "scorecard",
         "coverage_profile_id": "partial-text-code-4axis-v1",
         "headline_complete": False,
@@ -132,6 +133,7 @@ def test_envelope_and_projection_contracts_validate_board_safe_payloads() -> Non
         },
         "axes": {"knowledge": {"score": 0.7725, "n": 400, "ci": None, "status": "measured"}},
         "conformance": {"status": "headline-comparable"},
+        "receipt_references": {"coding_receipt_sha256": None},
         "artifact_hashes": {
             "bundle_sha256": "d" * 64,
             "projection_sha256": "e" * 64,
@@ -141,6 +143,7 @@ def test_envelope_and_projection_contracts_validate_board_safe_payloads() -> Non
         "trust_label": "community_re_scored",
         "verification_level": "bundle_rescored",
         "agentic_provenance": "none",
+        "rescore_modes": {},
         "validator": {
             "validator_version": "localbench.submission-validator.v1",
             "commit": None,
@@ -376,33 +379,23 @@ def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None
         ],
     )
 
-    # Then: both commands succeed and write the same public results as the Python APIs.
+    # Then: validation still succeeds, while strict projection v2 rejects the locally
+    # rebuilt suite digest because it is not the published allowlisted pair.
     assert validation_code == 0
-    assert rescore_code == 0
+    assert rescore_code == 2
     assert json.loads(validation_out.read_text(encoding="utf-8")) == validate_submission_bundle(
         _PILOT,
         suite_dir=_SUITE_V1,
     )
-    assert json.loads(projection_out.read_text(encoding="utf-8")) == rescore_bundle(
-        _PILOT,
-        suite_dir=_SUITE_V1,
-        validated_at="2026-06-30T00:00:00Z",
-    )
+    assert not projection_out.exists()
 
 
 @_REQUIRES_PILOT
 def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
-    # Given / When: the pilot is rescored twice from item-level responses.
-    first = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
-    second = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
-
-    # Then: the scorer path reproduces the axis scores and index-v3.0 composite deterministically.
-    assert first["axes"]["knowledge"]["score"] == 0.7725
-    assert first["axes"]["instruction_following"]["score"] == 0.6871
-    assert first["axes"]["tool_calling"]["score"] == 0.7364
-    assert first["axes"]["coding"]["score"] == 0.8527
-    assert first["scores"]["partial_composite"] == 0.7569
-    assert canonical_json_bytes(first) == canonical_json_bytes(second)
+    # The source-repo pilot predates the published release manifest. Projection v2 must
+    # not silently bless a locally rebuilt digest under the published release id.
+    with pytest.raises(SubmissionValidationError, match="suite_manifest_sha256"):
+        rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
 
 
 def test_validate_submission_bundle_accepts_structured_determinism_policy(

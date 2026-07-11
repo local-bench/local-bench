@@ -1,0 +1,14 @@
+{
+  "schema_version": "localbench.accepted_result_projection.v2",
+  "model": {"display_name": "Community Model", "file_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "file_size_bytes": 42, "file_name": "model.gguf", "family": "example", "quant_label": "Q4_K_M", "format": "gguf", "tokenizer_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "chat_template_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "declared_name": "Community Model", "identity_status": "unverified", "model_system_key": "artifact:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+  "runtime": {"name": "llama.cpp", "version": "b1", "kv_cache_quant": "q8_0", "ctx_len_configured": 8192, "parallel_slots": 1},
+  "suite_release_id": "suite-v1-static-exec-5axis-v1",
+  "suite_manifest_sha256": "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
+  "scorecard_id": "local-intelligence-index-v3.0", "coverage_profile_id": "static-exec-5axis-v1", "headline_complete": false,
+  "scores": {"headline_score": null, "partial_composite": 0.75, "partial_composite_scope": "measured_headline_axes", "measured_headline_weight": 0.85, "missing_headline_weight": 0.15, "known_headline_contribution": 0.6375, "rank_scope": "static-exec-5axis-v1", "composite_static": 0.75, "composite_full": null, "static_index_version": "local-intelligence-index-static-v1"},
+  "axes": {"knowledge": {"score": 0.75, "n": 1, "ci": null, "status": "measured"}}, "conformance": {},
+  "receipt_references": {"coding_receipt_sha256": null}, "lineage": {"base_model": []},
+  "artifact_hashes": {"bundle_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "projection_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "public_artifact_manifest_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"},
+  "origin": "community", "trust_label": "community_self_submitted", "verification_level": "bundle_rescored", "agentic_provenance": "none", "rescore_modes": {"mmlu_pro": "rescored"},
+  "validator": {"validator_version": "localbench.submission-validator.v1", "commit": "3583769", "validated_at": "2026-07-12T00:00:00Z"}
+}

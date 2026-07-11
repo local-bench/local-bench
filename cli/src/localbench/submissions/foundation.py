@@ -15,10 +15,13 @@ from localbench.serving.provenance import sanitize_launch_argv
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import sha256_file
 from localbench.submissions.contracts import (
+    ACCEPTED_RESULT_PROJECTION_SCHEMA,
     ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
     RESULT_BUNDLE_SCHEMA_VERSION,
     SUBMISSION_ENVELOPE_SCHEMA_VERSION,
+    load_schema,
 )
+from jsonschema import Draft202012Validator
 from localbench.submissions.foundation_scores import score_summary
 from localbench.submissions.origin import normalize_origin
 from localbench.submissions.validate import SubmissionValidationError
@@ -204,22 +207,37 @@ def validate_submission_envelope(envelope: JsonObject) -> None:
 def validate_accepted_result_projection(projection: JsonObject) -> None:
     if projection.get("schema_version") != ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION:
         raise SubmissionValidationError("accepted projection schema_version is not supported")
-    for field in ("items", "output_path", "reasoning_text"):
-        if field in projection:
-            raise SubmissionValidationError(f"accepted projection must not contain {field}")
-    for field in ("model", "runtime", "scores", "axes", "artifact_hashes", "validator"):
-        if field not in projection:
-            raise SubmissionValidationError(f"accepted projection missing {field}")
-    normalize_origin(projection.get("origin"))
-    if projection.get("trust_label") not in {"project_anchor", "community_self_submitted", "community_re_scored"}:
-        raise SubmissionValidationError("accepted projection trust_label is not supported")
-    if projection.get("verification_level") != "bundle_rescored":
-        raise SubmissionValidationError("accepted projection verification_level is not supported")
-    if projection.get("agentic_provenance") not in {"none", "project_attested", "self_reported"}:
-        raise SubmissionValidationError("accepted projection agentic_provenance is not supported")
-    notes = projection.get("provenance_notes")
-    if notes is not None and (not isinstance(notes, list) or not all(isinstance(note, str) for note in notes)):
-        raise SubmissionValidationError("accepted projection provenance_notes must be a list of strings")
+    try:
+        json.dumps(projection, allow_nan=False)
+    except (TypeError, ValueError) as error:
+        raise SubmissionValidationError(f"accepted projection invalid at projection: {error}") from error
+    validator = Draft202012Validator(load_schema(ACCEPTED_RESULT_PROJECTION_SCHEMA))
+    errors = sorted(validator.iter_errors(projection), key=lambda error: list(error.path))
+    if errors:
+        first = errors[0]
+        path = ".".join(str(part) for part in first.path) or "projection"
+        raise SubmissionValidationError(f"accepted projection invalid at {path}: {first.message}")
+
+
+def migrate_accepted_result_projection_v1(projection: JsonObject) -> JsonObject:
+    """Deterministically evolve the frozen v1 payload without changing score truth."""
+    if projection.get("schema_version") != "localbench.accepted_result_projection.v1":
+        raise SubmissionValidationError("accepted projection v1 migration requires a v1 payload")
+    migrated = json.loads(json.dumps(projection, ensure_ascii=False))
+    if not isinstance(migrated, dict):
+        raise SubmissionValidationError("accepted projection must be an object")
+    model = _object(migrated.get("model"))
+    artifact = model.get("file_sha256")
+    model["declared_name"] = model.get("display_name") or model.get("family")
+    model["identity_status"] = "unverified" if normalize_origin(migrated.get("origin")) == "community" else "maintainer_verified"
+    model["model_system_key"] = f"artifact:{artifact}"
+    migrated["model"] = model
+    migrated["origin"] = normalize_origin(migrated.get("origin"))
+    migrated["lineage"] = {"base_model": []}
+    migrated["receipt_references"] = {"coding_receipt_sha256": None}
+    migrated["schema_version"] = ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION
+    validate_accepted_result_projection(migrated)
+    return migrated
 
 
 def rescore_bundle(

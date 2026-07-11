@@ -11,7 +11,7 @@ from localbench._types import JsonObject, JsonValue, Usage
 from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
 from localbench.scoring.public_rescore import score_public_item
 from localbench.submissions.bundle_input import load_result_bundle_input
-from localbench.submissions.canon import canonical_json_hash, sha256_file
+from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash, sha256_bytes, sha256_file
 from localbench.submissions.contracts import ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION
 from localbench.submissions.foundation import (
     VALIDATOR_VERSION,
@@ -38,6 +38,17 @@ GRANDFATHERED_ATTESTED_BUNDLE_SHA256S = frozenset(
         "f815ebbb78516cbdd27b379a87c9fc34fd172692ee4e4e2ce047c5c02c846f85",
     },
 )
+
+
+def canonical_projection_bytes(projection: JsonObject) -> bytes:
+    """Exact immutable object bytes (no trailing newline)."""
+    validate_accepted_result_projection(projection)
+    return canonical_json_bytes(projection)
+
+
+def projection_object_sha256(projection: JsonObject) -> str:
+    """Content address of the exact canonical bytes stored in object storage."""
+    return sha256_bytes(canonical_projection_bytes(projection))
 
 
 def rescore_bundle(
@@ -160,7 +171,8 @@ def _projection(
     scorecard = _object(manifest.get("scorecard"))
     projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
-        "model": _projection_model(bundle, manifest),
+        "model": _projection_model(bundle, manifest, origin, bundle_sha256),
+        "lineage": _projection_lineage(manifest),
         "runtime": _object(manifest.get("runtime")),
         "suite_release_id": str(suite.get("suite_release_id")),
         "suite_manifest_sha256": str(suite.get("suite_manifest_sha256")),
@@ -170,6 +182,7 @@ def _projection(
         "scores": score_summary(benches, axis_status, suite_axes=_suite_axes(manifest)),
         "axes": axis_projection(benches, axis_status),
         "conformance": _object(bundle.get("conformance")),
+        "receipt_references": _receipt_references(bundle),
         "artifact_hashes": {
             "bundle_sha256": bundle_sha256,
             "projection_sha256": "",
@@ -291,12 +304,19 @@ def _suite_items(bundle: JsonObject, suite_dir: Path) -> dict[tuple[str, str], S
     return suite_item_index(payload, suite_dir)
 
 
-def _projection_model(bundle: JsonObject, manifest: JsonObject) -> JsonObject:
+def _projection_model(
+    bundle: JsonObject,
+    manifest: JsonObject,
+    origin: SubmissionOrigin,
+    bundle_sha256: str,
+) -> JsonObject:
     model = _object(bundle.get("model"))
     manifest_model = _object(manifest.get("model"))
+    artifact_sha256 = manifest_model.get("file_sha256")
     return {
         "display_name": model.get("name"),
-        "file_sha256": manifest_model.get("file_sha256"),
+        "declared_name": model.get("name") or manifest_model.get("family"),
+        "file_sha256": artifact_sha256,
         "file_size_bytes": manifest_model.get("file_size_bytes"),
         "file_name": manifest_model.get("file_name"),
         "family": manifest_model.get("family"),
@@ -304,7 +324,31 @@ def _projection_model(bundle: JsonObject, manifest: JsonObject) -> JsonObject:
         "format": manifest_model.get("format"),
         "tokenizer_digest": manifest_model.get("tokenizer_digest"),
         "chat_template_digest": manifest_model.get("chat_template_digest"),
+        "identity_status": "unverified" if origin == "community" else "maintainer_verified",
+        "model_system_key": (
+            f"artifact:{artifact_sha256}"
+            if isinstance(artifact_sha256, str)
+            else f"legacy-project-anchor:{bundle_sha256}"
+        ),
     }
+
+
+def _projection_lineage(manifest: JsonObject) -> JsonObject:
+    model = _object(manifest.get("model"))
+    base_model = model.get("base_model")
+    if isinstance(base_model, str):
+        values = [base_model]
+    elif isinstance(base_model, list):
+        values = [value for value in base_model if isinstance(value, str)]
+    else:
+        values = []
+    return {"base_model": values}
+
+
+def _receipt_references(bundle: JsonObject) -> JsonObject:
+    receipts = _object(bundle.get("receipt_references"))
+    coding = receipts.get("coding_receipt_sha256")
+    return {"coding_receipt_sha256": coding if isinstance(coding, str) else None}
 
 
 def _artifact_hashes(path: Path, projection: JsonObject) -> JsonObject:
