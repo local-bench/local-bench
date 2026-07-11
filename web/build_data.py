@@ -199,6 +199,7 @@ def build_static_data(
                 "headline_lane": board.headline_lane,
                 "index_version": INDEX_VERSION,
                 "iters": iters,
+                "profile": {"kind": "explicit-bench-set", "benches": list(benches)},
                 "static_suite_index_version": STATIC_SUITE_INDEX_VERSION,
                 "weights": weights,
             },
