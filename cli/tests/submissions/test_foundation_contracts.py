@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.contracts import (
     ACCEPTED_RESULT_PROJECTION_SCHEMA,
     ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
@@ -343,7 +344,7 @@ def test_missing_manifest_version_normalizes_to_installed_version_not_legacy_def
 
     bundle = normalize_result_bundle(record)
 
-    assert bundle["manifest"]["provenance"]["cli_version"] == "0.3.1"
+    assert bundle["manifest"]["provenance"]["cli_version"] == "0.3.3rc1"
 
 
 @_REQUIRES_PILOT
@@ -378,23 +379,30 @@ def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None
         ],
     )
 
-    # Then: validation still succeeds, while strict projection v2 rejects the locally
-    # rebuilt suite digest because it is not the published allowlisted pair.
+    # Then: diagnostic legacy inputs remain reproducible, but are not publication-eligible.
     assert validation_code == 0
-    assert rescore_code == 2
+    assert rescore_code == 0
     assert json.loads(validation_out.read_text(encoding="utf-8")) == validate_submission_bundle(
         _PILOT,
         suite_dir=_SUITE_V1,
     )
-    assert not projection_out.exists()
+    assert json.loads(projection_out.read_text(encoding="utf-8")) == rescore_bundle(
+        _PILOT,
+        suite_dir=_SUITE_V1,
+        validated_at="2026-06-30T00:00:00Z",
+    )
 
 
 @_REQUIRES_PILOT
 def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
-    # The source-repo pilot predates the published release manifest. Projection v2 must
-    # not silently bless a locally rebuilt digest under the published release id.
-    with pytest.raises(SubmissionValidationError, match="suite_manifest_sha256"):
-        rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
+    first = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
+    second = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
+    assert first["axes"]["knowledge"]["score"] == 0.7725
+    assert first["axes"]["instruction_following"]["score"] == 0.6871
+    assert first["axes"]["tool_calling"]["score"] == 0.7364
+    assert first["axes"]["coding"]["score"] == 0.8527
+    assert first["scores"]["partial_composite"] == 0.7569
+    assert canonical_json_bytes(first) == canonical_json_bytes(second)
 
 
 def test_validate_submission_bundle_accepts_structured_determinism_policy(

@@ -1,6 +1,6 @@
 import { jsonResponse } from "./submission-api-support";
 import type { SubmissionApiEnv, SubmissionRow } from "./submission-contracts";
-import { publicSubmission, recordSubmissionTransition } from "./submission-store";
+import { publicSubmission, updatePublishState } from "./submission-store";
 import type { Zt1DecisionPlan } from "./submission-zt1-decision";
 
 export type FreezeAlarm = {
@@ -55,7 +55,11 @@ export async function persistZt1Decision(
 ): Promise<void> {
   const publishState = await publishStateForDecision(env, plan);
   const flagsJson = await zt1FlagsForDecision(env, submissionId, plan);
-  await env.DB.prepare(
+  const revisionRow = await env.DB.prepare("select state_revision from submissions where submission_id = ?").bind(submissionId).first();
+  const revision = numeric(revisionRow?.["state_revision"]);
+  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for ZT-1 decisions");
+  const results = await env.DB.batch([
+    env.DB.prepare(
     `update submissions set
       identity_class = ?,
       board_identity_key = ?,
@@ -68,8 +72,9 @@ export async function persistZt1Decision(
       zt1_coding_state = ?,
       publish_state = ?,
       zt1_flags_json = ?,
+      state_revision = state_revision + 1,
       status_reason = case when ? = 'escalated' then ? else status_reason end
-     where submission_id = ?`,
+     where submission_id = ? and state_revision = ?`,
   )
     .bind(
       plan.identityClass,
@@ -85,8 +90,11 @@ export async function persistZt1Decision(
       plan.zt1Decision,
       `escalated:${plan.reason}`,
       submissionId,
-    )
-    .run();
+      revision,
+    ),
+    env.DB.prepare("update publication_control set publication_revision = publication_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1"),
+  ]);
+  if (results[0]?.meta?.changes !== 1) throw new Error("concurrent ZT-1 decision revision mismatch");
   await recordDecisionLog(env, {
     actor: "system",
     details: plan.details,
@@ -190,17 +198,7 @@ export async function publishBatch(env: SubmissionApiEnv): Promise<PublishBatchM
   const promoted: { readonly submission_id: string }[] = [];
   for (const row of rows.results) {
     const submissionId = text(row["submission_id"]);
-    await env.DB.prepare("update submissions set publish_state = 'published', published_at = datetime('now') where submission_id = ?")
-      .bind(submissionId)
-      .run();
-    await recordSubmissionTransition(env, {
-      actor: "maintainer",
-      fromStatus: "accepted",
-      publishState: "published",
-      reason: "zt1 daily batch publish",
-      submissionId,
-      toStatus: "accepted",
-    });
+    await updatePublishState(env, submissionId, "published", "zt1 daily batch publish");
     await recordDecisionLog(env, {
       actor: "system",
       details: {},

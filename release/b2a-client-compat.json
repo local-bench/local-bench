@@ -1,0 +1,20 @@
+{
+  "schema_version": "localbench.b2a_client_compat.v1",
+  "source_date_epoch": 1783814400,
+  "clients": [
+    {
+      "role": "rc_n",
+      "version": "0.3.3rc1",
+      "filename": "local_bench_ai-0.3.3rc1-py3-none-any.whl",
+      "sha256": "011187e234cb0d2856d48f4640cb5da665b039aee15c8892e13fe7f5350dca72",
+      "source": "build:cli"
+    },
+    {
+      "role": "live_n_minus_1",
+      "version": "0.3.2",
+      "filename": "local_bench_ai-0.3.2-py3-none-any.whl",
+      "sha256": "cb1113fb3e1fb06f47f57fa8a6de286e1a0d9f89cf26e7df6cf00c70f366f1b3",
+      "source": "pypi:local-bench-ai==0.3.2"
+    }
+  ]
+}

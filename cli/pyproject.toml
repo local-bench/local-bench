@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-bench-ai"
-version = "0.3.1"
+version = "0.3.3rc1"
 description = "Benchmark runner for local-bench.ai - the community quality leaderboard for local AI setups."
 readme = "README.md"
 requires-python = ">=3.11"

@@ -2,8 +2,8 @@ import { getCommunityGroup, getCommunityGroupStaticParams } from "@/lib/data";
 
 export const dynamicParams = false;
 
-export async function generateStaticParams(): Promise<readonly { readonly groupId: string }[]> {
-  return getCommunityGroupStaticParams();
+export async function generateStaticParams(): Promise<{ groupId: string }[]> {
+  return [...await getCommunityGroupStaticParams()];
 }
 
 export default async function CommunityModelPage({ params }: { readonly params: Promise<{ readonly groupId: string }> }) {

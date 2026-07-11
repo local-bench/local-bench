@@ -6,6 +6,7 @@ import {
   SUPPRESSION_MAX_EXPOSURE_SECONDS,
 } from "../functions/_lib/publication-snapshot";
 import { transitionAcceptedToTerminal } from "../functions/_lib/submission-store";
+import { persistProjectionCreateOnly } from "../functions/_lib/submission-storage";
 import {
   ADMIN_SECRET, MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008,
   MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, PROJECTION_OBJECT_SHA, SUITE_MANIFEST_SHA,
@@ -47,6 +48,15 @@ describe("immutable publication snapshots", () => {
     expect(activation.status).toBe(409);
     expect(await activation.json()).toMatchObject({ code: "publication_revision_mismatch" });
     expect(SUPPRESSION_MAX_EXPOSURE_SECONDS).toBe(300);
+  });
+
+  it("rejects a projection overwrite attempt at a referenced content address", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const declared = "d".repeat(64);
+    await env.SUBMISSIONS.put(`projections/sha256/${declared}.json`, "original");
+    await expect(persistProjectionCreateOnly(env, declared, "mutated")).rejects.toThrow("collision or mutation");
+    const stored = await env.SUBMISSIONS.get(`projections/sha256/${declared}.json`);
+    expect(stored === null ? null : await new Response(stored.body).text()).toBe("original");
   });
 });
 

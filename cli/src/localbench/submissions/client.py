@@ -31,6 +31,7 @@ class SubmissionEnvelope(TypedDict):
     ticket_id: str
     upload_capability: str
     declared_model_slug: NotRequired[str]
+    community_model_group_id: NotRequired[str]
     submitter_display_name: NotRequired[str]
 
 
@@ -65,6 +66,7 @@ class SubmissionTicketRequest:
     public_key: str | None = None
     submitter_id: str | None = None
     declared_model_slug: str | None = None
+    community_model_group_id: str | None = None
     expected_suite_release_id: str | None = None
     expected_suite_manifest_sha256: str | None = None
     pop: TicketProofOfPossession | None = None
@@ -247,6 +249,8 @@ def _ticket_request_body(request: SubmissionTicketRequest) -> JsonObject:
         payload["submitter_id"] = request.submitter_id
     if request.declared_model_slug is not None:
         payload["declared_model_slug"] = request.declared_model_slug
+    if request.community_model_group_id is not None:
+        payload["community_model_group_id"] = request.community_model_group_id
     if request.expected_suite_release_id is not None:
         payload["expected_suite_release_id"] = request.expected_suite_release_id
     if request.expected_suite_manifest_sha256 is not None:

@@ -100,8 +100,7 @@ async function communityTicketRejection(
     suiteReleaseId === undefined ||
     suiteReleaseId === null ||
     suiteManifestSha256 === undefined ||
-    suiteManifestSha256 === null ||
-    body.community_model_group_id === undefined
+    suiteManifestSha256 === null
   ) {
     const submitterId = publicKey === undefined ? undefined : `public_key:${publicKey}`;
     return invalidTicket(origin, body.bundle_sha256, submitterId);
@@ -111,6 +110,13 @@ async function communityTicketRejection(
       code: "unknown_suite_release",
       error: "unknown suite release",
     }, body.bundle_sha256, `public_key:${publicKey}`);
+  }
+  if (body.community_model_group_id === undefined) {
+    const legacyGroupId = `community-group:${crypto.randomUUID().replaceAll("-", "")}`;
+    await env.DB.prepare(
+      "insert into community_model_groups (community_model_group_id, declared_model_name) values (?, ?)",
+    ).bind(legacyGroupId, body.declared_model_slug ?? "legacy-client submission").run();
+    body.community_model_group_id = legacyGroupId;
   }
   const group = await env.DB.prepare(
     "select community_model_group_id from community_model_groups where community_model_group_id = ?",

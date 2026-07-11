@@ -527,6 +527,7 @@ def _parser() -> argparse.ArgumentParser:
     ticket_key_group.add_argument("--signing-key", type=Path)
     ticket_key_group.add_argument("--submitter-id")
     ticket_parser.add_argument("--declared-model-slug")
+    ticket_parser.add_argument("--community-model-group-id")
     ticket_parser.add_argument("--out", type=Path, default=Path("ticket.json"))
     _add_bypass_args(ticket_parser)
     _add_admin_secret_args(ticket_parser)
@@ -2068,6 +2069,7 @@ def _submit_ticket(args: argparse.Namespace) -> int:
             SubmissionTicketRequest(
                 credentials=_site_credentials(args, admin_secret=_optional_admin_secret(args)),
                 declared_model_slug=args.declared_model_slug or bundle.declared_model_slug,
+                community_model_group_id=args.community_model_group_id,
                 expected_suite_manifest_sha256=bundle.suite_manifest_sha256,
                 expected_suite_release_id=bundle.suite_release_id,
                 pop=pop,
