@@ -95,19 +95,26 @@ describe("immutable publication snapshots", () => {
   });
 
   it("rejects a projection overwrite attempt at a referenced content address", async () => {
-    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
-    const declared = "d".repeat(64);
-    await env.SUBMISSIONS.put(`projections/sha256/${declared}.json`, "original");
-    await expect(persistProjectionCreateOnly(env, declared, "mutated")).rejects.toThrow("collision or mutation");
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
+    const original = '{"projection":"original"}';
+    const declared = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(original))
+      .then((value) => [...new Uint8Array(value)].map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+    await persistProjectionCreateOnly(env, declared, original);
+    await env.DB.prepare(
+      `insert into submissions (submission_id, origin, status, raw_bundle_sha256, idempotency_key,
+        projection_object_sha256, projection_r2_key) values ('sub_real_path', 'community', 'accepted', ?, ?, ?, ?)`,
+    ).bind(declared, declared, declared, `projections/sha256/${declared}.json`).run();
+    await expect(overwriteProjectionObject(env, declared, original)).rejects.toThrow("overwrite is prohibited after reference");
+    await expect(deleteProjectionObject(env, declared)).rejects.toThrow("deletion is prohibited after reference");
     const stored = await env.SUBMISSIONS.get(`projections/sha256/${declared}.json`);
-    expect(stored === null ? null : await new Response(stored.body).text()).toBe("original");
+    expect(stored === null ? null : await new Response(stored.body).text()).toBe(original);
   });
 
   it("prohibits overwrite and deletion after a projection is referenced", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
     await insertPublished(env, "sub_referenced", "community-group:dddddddddddddddddddddddddddddddd");
-    await expect(overwriteProjectionObject(env, PROJECTION_OBJECT_SHA, "replacement")).rejects.toThrow("overwrite is prohibited");
-    await expect(deleteProjectionObject(env, PROJECTION_OBJECT_SHA)).rejects.toThrow("deletion is prohibited");
+    await expect(overwriteProjectionObject(env, PROJECTION_OBJECT_SHA, "replacement")).rejects.toThrow("overwrite is prohibited after reference");
+    await expect(deleteProjectionObject(env, PROJECTION_OBJECT_SHA)).rejects.toThrow("deletion is prohibited after reference");
   });
 });
 

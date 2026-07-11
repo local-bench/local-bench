@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -14,7 +16,7 @@ def test_b2a_compatibility_manifest_pins_rc_and_live_wheels() -> None:
             "role": "rc_n",
             "version": "0.3.3rc1",
             "filename": "local_bench_ai-0.3.3rc1-py3-none-any.whl",
-            "sha256": "5bb49ddfe0a6d95bc2b514e970b17caf645d8a7602a742bd3c162adfe794419e",
+            "sha256": "52a75d36c0d65b72d04b6bc32850141fafe9c808d5b942fac3f28eb01583f272",
             "source": "build:cli",
         },
         {
@@ -25,3 +27,16 @@ def test_b2a_compatibility_manifest_pins_rc_and_live_wheels() -> None:
             "source": "pypi:local-bench-ai==0.3.2",
         },
     ]
+
+
+def test_b2a_mutated_admission_is_rejected_by_both_pinned_clients() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "b2a_client_compat_gate.py"), "--mutate-admission"],
+        cwd=ROOT, capture_output=True, text=True, timeout=240,
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 1, combined
+    rc_line = next(line for line in combined.splitlines() if line.startswith("rc_n "))
+    previous_line = next(line for line in combined.splitlines() if line.startswith("live_n_minus_1 "))
+    assert "result=0" not in rc_line
+    assert "result=0" not in previous_line

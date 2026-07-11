@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
+import { createServer } from "node:http";
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,6 +20,7 @@ import { onRequestPost as applyVerification } from "../functions/api/admin/submi
 import { onRequestPost as completeSubmission } from "../functions/api/submissions/[submissionId]/complete";
 import { onRequestPost as requestUpload } from "../functions/api/submissions/request-upload";
 import { onRequestPost as issueTicket } from "../functions/api/submissions/tickets";
+import { onRequestGet as exportProjection } from "../functions/api/admin/publication-projection";
 import { communityTicketBody, signedResultBundle, testKeyPair } from "./submission-contract-v2-support";
 import {
   ADMIN_SECRET, MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009,
@@ -47,43 +49,14 @@ describe("B2a real-contract publication release gate", () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
     const first = await admitAcceptedPublished(env, "variant-one", "a");
     const second = await admitAcceptedPublished(env, "variant-two", "b");
-    const snapshot = await createAndExportSnapshot(env);
-    const bundle = await materializeExportBundle(env, snapshot, "positive");
+    const snapshot = await createSnapshot(env);
+    expect((await activate(env, snapshot)).status).toBe(200);
+    const bundle = await exportBundleViaProductionExporter(env, snapshot, "positive");
     const output = join(tempRoot, "positive-output");
 
     merge(bundle, output);
-
-    // Negative 1: the production merge rejects a truncated production export.
-    const truncated = cloneBundle(bundle, "truncated");
-    const truncatedSnapshot = JSON.parse(readFileSync(join(truncated, "snapshot.json"), "utf-8"));
-    truncatedSnapshot.rows.pop();
-    writeFileSync(join(truncated, "snapshot.json"), JSON.stringify(truncatedSnapshot));
-    expect(() => merge(truncated, join(tempRoot, "truncated-output"))).toThrow(/snapshot truncation/);
-
-    // Negative 2: the content-addressed R2 write contract rejects post-reference overwrite.
-    await expect(persistProjectionCreateOnly(env, first.projectionObjectSha, "mutated projection bytes"))
-      .rejects.toThrow(/collision or mutation/);
-
-    // Negative 3: the live model-page data contract rejects community rank leakage.
-    installCommunityOutput(output);
-    const groupPath = join(communityDir, "groups", `${SUFFIX}.json`);
-    const leaked = JSON.parse(readFileSync(groupPath, "utf-8"));
-    leaked.ranked = true;
-    leaked.variants[0].ranked = true;
-    writeFileSync(groupPath, JSON.stringify(leaked));
-    await expect(getCommunityGroup(SUFFIX)).rejects.toThrow();
     installCommunityOutput(output);
 
-    // Negative 4: the production merge rejects namespace collision with the protected catalog.
-    const collisionCatalog = join(tempRoot, "collision-catalog.json");
-    const catalog = JSON.parse(readFileSync(join(process.cwd(), "model_catalog.json"), "utf-8"));
-    const models = Array.isArray(catalog) ? catalog : catalog.models;
-    models.push({ id: TEST_COMMUNITY_GROUP_ID, slug: "collision" });
-    writeFileSync(collisionCatalog, JSON.stringify(catalog));
-    expect(() => merge(bundle, join(tempRoot, "collision-output"), collisionCatalog)).toThrow(/catalog\/group-id collision/);
-
-    const activation = await activate(env, snapshot);
-    expect(activation.status).toBe(200);
     const servedSnapshot = await handleServeActivePublicationSnapshot(getRequest("/api/publication-snapshot"), env);
     expect(servedSnapshot.status).toBe(200);
     expect((await servedSnapshot.json()).snapshot_id).toBe(snapshot.snapshot_id);
@@ -113,11 +86,51 @@ describe("B2a real-contract publication release gate", () => {
     }
   }, 120_000);
 
+  it.each(["truncated-export", "projection-corruption", "referenced-overwrite", "rank-leakage", "catalog-collision"] as const)(
+    "runs the complete release gate for negative mutation %s",
+    async (mutation) => {
+      const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
+      const accepted = await admitAcceptedPublished(env, `negative-${mutation}`, "d");
+      const snapshot = await createSnapshot(env);
+      expect((await activate(env, snapshot)).status).toBe(200);
+
+      if (mutation === "referenced-overwrite") {
+        await expect(persistProjectionCreateOnly(env, accepted.projectionObjectSha, "mutated projection bytes"))
+          .rejects.toThrow();
+        return;
+      }
+      if (mutation === "truncated-export" || mutation === "projection-corruption") {
+        await expect(exportBundleViaProductionExporter(env, snapshot, `negative-${mutation}`, mutation)).rejects.toThrow(/production exporter failed/);
+        return;
+      }
+      const bundle = await exportBundleViaProductionExporter(env, snapshot, `negative-${mutation}`);
+      if (mutation === "catalog-collision") {
+        const collisionCatalog = join(tempRoot, `negative-${mutation}-catalog.json`);
+        const catalog = JSON.parse(readFileSync(join(process.cwd(), "model_catalog.json"), "utf-8"));
+        const models = Array.isArray(catalog) ? catalog : catalog.models;
+        models.push({ id: TEST_COMMUNITY_GROUP_ID, slug: "collision" });
+        writeFileSync(collisionCatalog, JSON.stringify(catalog));
+        expect(() => merge(bundle, join(tempRoot, `negative-${mutation}-output`), collisionCatalog)).toThrow(/catalog\/group-id collision/);
+        return;
+      }
+      const output = join(tempRoot, `negative-${mutation}-output`);
+      merge(bundle, output);
+      installCommunityOutput(output);
+      const groupPath = join(communityDir, "groups", `${SUFFIX}.json`);
+      const leaked = JSON.parse(readFileSync(groupPath, "utf-8"));
+      leaked.ranked = true; leaked.variants[0].ranked = true;
+      writeFileSync(groupPath, JSON.stringify(leaked));
+      await expect(getCommunityGroup(SUFFIX)).rejects.toThrow();
+    },
+    120_000,
+  );
+
   it("fails activation when suppression lands after build materialization", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: MIGRATIONS });
     const accepted = await admitAcceptedPublished(env, "suppressed-variant", "c");
-    const snapshot = await createAndExportSnapshot(env);
-    const bundle = await materializeExportBundle(env, snapshot, "suppressed");
+    const snapshot = await createSnapshot(env);
+    expect((await activate(env, snapshot)).status).toBe(200);
+    const bundle = await exportBundleViaProductionExporter(env, snapshot, "suppressed");
     merge(bundle, join(tempRoot, "suppressed-output"));
 
     // Negative 5: this is the build-to-activation race, through the real suppression CAS.
@@ -180,34 +193,64 @@ async function admitAcceptedPublished(
   return { artifactSha, projectionObjectSha: update.projection_object_sha256, submissionId: ticket.ticket_id };
 }
 
-async function createAndExportSnapshot(env: Awaited<ReturnType<typeof createEnv>>): Promise<any> {
+async function createSnapshot(env: Awaited<ReturnType<typeof createEnv>>): Promise<any> {
   const created = await handleCreatePublicationSnapshot(
     jsonRequest("/api/admin/publication-snapshot", {}, { "x-localbench-admin-secret": ADMIN_SECRET }), env,
   );
   expect(created.status).toBe(201);
-  const header: any = await created.json();
-  const exported = await handleExportPublicationSnapshot(
-    getRequest(`/api/admin/publication-snapshot?snapshot_id=${header.snapshot_id}&cursor=0`, { "x-localbench-admin-secret": ADMIN_SECRET }), env,
-  );
-  expect(exported.status).toBe(200);
-  return exported.json();
+  return created.json();
 }
 
-async function materializeExportBundle(
+async function exportBundleViaProductionExporter(
   env: Awaited<ReturnType<typeof createEnv>>,
   snapshot: any,
   label: string,
+  mutation?: "truncated-export" | "projection-corruption",
 ): Promise<string> {
   const bundle = join(tempRoot, `${label}-bundle`);
-  const projections = join(bundle, "projections");
-  mkdirSync(projections, { recursive: true });
-  writeFileSync(join(bundle, "snapshot.json"), canonicalJson(snapshot));
-  for (const row of snapshot.rows) {
-    const object = await env.SUBMISSIONS.get(row.projection_r2_key);
-    if (object === null) throw new Error(`missing exported projection ${row.projection_r2_key}`);
-    writeFileSync(join(projections, `${row.projection_object_sha256}.json`), await new Response(object.body).text());
+  const server = createServer(async (request, response) => {
+    try {
+      const url = `http://127.0.0.1:${(server.address() as { port: number }).port}${request.url ?? "/"}`;
+      const webRequest = new Request(url, { headers: { "x-localbench-admin-secret": String(request.headers["x-localbench-admin-secret"] ?? "") } });
+      let result = request.url?.startsWith("/api/admin/publication-projection")
+        ? await exportProjection({ env, request: webRequest })
+        : await handleExportPublicationSnapshot(webRequest, env);
+      if (mutation === "truncated-export" && request.url?.startsWith("/api/admin/publication-snapshot") && result.ok) {
+        const page = await result.json() as any; page.total_count += 1;
+        result = new Response(JSON.stringify(page), { headers: { "content-type": "application/json" }, status: 200 });
+      } else if (mutation === "projection-corruption" && request.url?.startsWith("/api/admin/publication-projection") && result.ok) {
+        result = new Response(`${await result.text()} `, { headers: { "content-type": "application/json" }, status: 200 });
+      }
+      response.statusCode = result.status;
+      result.headers.forEach((value, key) => response.setHeader(key, value));
+      response.end(Buffer.from(await result.arrayBuffer()));
+    } catch (error) {
+      response.statusCode = 500; response.end(String(error));
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as { port: number }).port;
+  const script = [
+    "from pathlib import Path", "from publication_export import export_publication_bundle", "import sys",
+    "export_publication_bundle(sys.argv[1], sys.argv[2], sys.argv[3], Path(sys.argv[4]))",
+  ].join("\n");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(process.env["LOCALBENCH_PYTHON"] ?? "python", ["-c", script, `http://127.0.0.1:${port}`, ADMIN_SECRET, snapshot.snapshot_id, bundle], {
+        cwd: process.cwd(), stdio: "pipe",
+      });
+      let stderr = "";
+      child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+      child.on("error", reject);
+      child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`production exporter failed (${code}): ${stderr}`)));
+    });
+    expect(JSON.parse(readFileSync(join(bundle, "export-metadata.json"), "utf-8"))).toMatchObject({
+      exporter: "web/publication_export.py", schema_version: "localbench.publication_export.v1",
+    });
+    return bundle;
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
-  return bundle;
 }
 
 function merge(bundle: string, output: string, catalog = join(process.cwd(), "model_catalog.json")): void {
@@ -219,12 +262,6 @@ function merge(bundle: string, output: string, catalog = join(process.cwd(), "mo
   execFileSync(process.env["LOCALBENCH_PYTHON"] ?? "python", ["-c", script, bundle, output, catalog, join(process.cwd(), "..", "cli", "runs", "board", "board_v2.json")], {
     cwd: process.cwd(), stdio: "pipe",
   });
-}
-
-function cloneBundle(bundle: string, label: string): string {
-  const target = join(tempRoot, `${label}-bundle`);
-  cpSync(bundle, target, { recursive: true });
-  return target;
 }
 
 function installCommunityOutput(output: string): void {

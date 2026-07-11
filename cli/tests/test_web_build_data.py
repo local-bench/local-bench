@@ -83,7 +83,8 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
                 {
                     "family": "Fixture-KI",
                     "file": str(ki_run),
-                    "kind": "community",
+                    "kind": "anchor",
+                    "origin": "project_anchor",
                     "model_label": "Fixture KI",
                     "quant_label": "Q4_K_M",
                     "reasoning_lane": "answer-only",
@@ -92,7 +93,8 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
                 {
                     "family": "Fixture-Math",
                     "file": str(math_run),
-                    "kind": "community",
+                    "kind": "anchor",
+                    "origin": "project_anchor",
                     "model_label": "Fixture Math",
                     "quant_label": "Q8_0",
                     "reasoning_lane": "capped-thinking",
@@ -183,7 +185,6 @@ def test_untrusted_catalog_collision_cannot_mutate_protected_build_outputs(tmp_p
         "kind": "community",
         "model_id": target_id,
         "model_label": "Injected community run",
-        "origin": "community",
         "quant_label": quant_label,
         "reasoning_lane": "answer-only",
         "trust_label": "community_self_submitted",
@@ -195,6 +196,32 @@ def test_untrusted_catalog_collision_cannot_mutate_protected_build_outputs(tmp_p
     assert (attacked / "index.json").read_bytes() == (baseline / "index.json").read_bytes()
     assert (attacked / "models" / f"{target_slug}.json").read_bytes() == (baseline / "models" / f"{target_slug}.json").read_bytes()
     assert list((attacked / "runs").glob("*.json")) == []
+
+
+def test_no_origin_community_source_is_excluded_from_every_protected_output(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    run_path = tmp_path / "community-run.json"
+    run_path.write_text(json.dumps(_synthetic_run([
+        _synthetic_item("mmlu-pro-001", "mmlu_pro", True),
+        _synthetic_item("ifbench-001", "ifbench", True),
+    ])), encoding="utf-8")
+    sources = tmp_path / "community-sources.json"
+    sources.write_text(json.dumps([{
+        "family": "Untrusted",
+        "file": str(run_path),
+        "kind": "community",
+        "model_label": "No Origin Community",
+        "quant_label": "Q4_K_M",
+        "reasoning_lane": "answer-only",
+        "vram_footprint_gb": 1,
+    }]), encoding="utf-8")
+    out = tmp_path / "out"
+    builder.build_static_data(sources, out, iters=10)
+
+    index = _object(_read_json(out / "index.json"))
+    assert all(row.get("model_label") != "No Origin Community" for row in _objects(index["models"]))
+    assert list((out / "runs").glob("*.json")) == []
+    assert all("no-origin-community" not in path.name for path in (out / "models").glob("*.json"))
 
 
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
@@ -292,7 +319,8 @@ def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Pat
                     "family": "Synthetic",
                     "file": str(run_path),
                     "independent_replication": False,
-                    "kind": "community",
+                    "kind": "anchor",
+                    "origin": "project_anchor",
                     "model_label": "Coding Synthetic",
                     "quant_label": None,
                     "reasoning_lane": "test",
@@ -875,7 +903,8 @@ def _write_synthetic_pipeline_inputs(
                 {
                     "family": "Synthetic",
                     "file": str(run_path),
-                    "kind": "community",
+                    "kind": "anchor",
+                    "origin": "project_anchor",
                     "model_label": "Synthetic Model",
                     "quant_label": None,
                     "reasoning_lane": "test",

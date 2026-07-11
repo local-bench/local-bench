@@ -12,7 +12,7 @@ const trustedRun = {
 };
 const communityRun = {
   ...trustedRun, composite: { hi: 100, lo: 100, point: 100 }, origin: "community", quant_label: "Q2_K",
-  run_id: "community-run", runtime: { ...trustedRun.runtime, version: "community-runtime" },
+  ranked: false, run_id: "community-run", runtime: { ...trustedRun.runtime, version: "community-runtime" },
   trust_label: "community_self_submitted",
 };
 
@@ -34,5 +34,6 @@ describe("model page trusted population", () => {
     expect(html).toContain("trusted-run");
     expect(html).not.toContain("community-runtime");
     expect(html).not.toContain("community-run");
+    expect(html).not.toContain("measured profile");
   });
 });

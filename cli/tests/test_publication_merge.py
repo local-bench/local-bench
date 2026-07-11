@@ -67,6 +67,33 @@ def test_snapshot_truncation_and_catalog_collision_fail_closed(tmp_path: Path) -
         merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
 
 
+def test_non_active_snapshot_and_revision_fail_closed(tmp_path: Path) -> None:
+    bundle, out, catalog, board = _fixture(tmp_path)
+    snapshot_path = bundle / "snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text())
+    snapshot["publication_control"]["active_snapshot_id"] = "pub_other"
+    snapshot_path.write_bytes(canonical_bytes(snapshot))
+    with pytest.raises(PublicationExportError, match="not the active snapshot"):
+        merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
+
+    snapshot["publication_control"]["active_snapshot_id"] = snapshot["snapshot_id"]
+    snapshot["publication_control"]["publication_revision"] += 1
+    snapshot_path.write_bytes(canonical_bytes(snapshot))
+    with pytest.raises(PublicationExportError, match="revision mismatch"):
+        merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
+
+
+def test_suppression_set_is_authoritative_at_static_build_time(tmp_path: Path) -> None:
+    bundle, out, catalog, board = _fixture(tmp_path)
+    snapshot_path = bundle / "snapshot.json"
+    snapshot = json.loads(snapshot_path.read_text())
+    snapshot["publication_control"]["suppressed_submission_ids"] = ["sub_1"]
+    snapshot_path.write_bytes(canonical_bytes(snapshot))
+    merge_publication_bundle(bundle, out, catalog_path=catalog, board_path=board)
+    group = json.loads((out / "community" / "groups" / f"{'1' * 32}.json").read_text())
+    assert [variant["submission_id"] for variant in group["variants"]] == ["sub_2"]
+
+
 def test_full_protected_payload_guard_detects_any_mutation(tmp_path: Path) -> None:
     _bundle, out, _catalog, _board = _fixture(tmp_path)
     before = protected_tree(out)
@@ -76,14 +103,21 @@ def test_full_protected_payload_guard_detects_any_mutation(tmp_path: Path) -> No
 
 
 def test_same_complete_manifest_reproduces_the_same_output_tree_digest(tmp_path: Path) -> None:
-    bundle, out, catalog, board = _fixture(tmp_path)
+    bundle, first_out, catalog, board = _fixture(tmp_path / "first")
+    _bundle2, second_out, _catalog2, _board2 = _fixture(tmp_path / "second")
+    # The second build consumes byte-identical inputs but materializes into another tree.
+    second_catalog = second_out.parent / "catalog.json"
+    second_board = second_out.parent / "board.json"
+    second_catalog.write_bytes(catalog.read_bytes())
+    second_board.write_bytes(board.read_bytes())
     source = tmp_path / "source-run.json"
     source.write_text('{"input":"bytes"}', encoding="utf-8")
+    parameters = {"benches": ["mmlu_pro"], "iters": 100, "lane": "bounded-final-v2", "profile": "full"}
     first = merge_publication_bundle(
-        bundle, out, catalog_path=catalog, board_path=board, source_run_paths=[source],
+        bundle, first_out, catalog_path=catalog, board_path=board, source_run_paths=[source], build_parameters=parameters,
     )
     second = merge_publication_bundle(
-        bundle, out, catalog_path=catalog, board_path=board, source_run_paths=[source],
+        bundle, second_out, catalog_path=second_catalog, board_path=second_board, source_run_paths=[source], build_parameters=parameters,
     )
     assert first["build_input_manifest"] == second["build_input_manifest"]
     assert first["output_tree_digest"] == second["output_tree_digest"]
@@ -122,7 +156,11 @@ def _fixture(tmp_path: Path, *, catalog_id: str = "catalog/protected") -> tuple[
             "suite_manifest_sha256": "c" * 64, "suite_release_id": "suite", "trust_class": "verifier",
         })
     snapshot = {
-        "created_at": "2026-07-12T00:00:00Z", "publication_revision": 2,
+        "activated_at": "2026-07-12T00:01:00Z", "created_at": "2026-07-12T00:00:00Z", "publication_revision": 2,
+        "publication_control": {
+            "active_snapshot_id": "pub_test", "edge_block_revision": 0,
+            "publication_revision": 2, "suppressed_submission_ids": [],
+        },
         "snapshot_digest": hashlib.sha256(canonical_bytes(rows)).hexdigest(), "snapshot_id": "pub_test",
         "total_count": len(rows), "rows": rows,
     }
