@@ -66,6 +66,15 @@ def main() -> int:
             first,
             allowed_top_levels={"bin", "bin.usr-is-merged", "boot", "dev", "etc", "home", "lib", "lib.usr-is-merged", "lib64", "media", "mnt", "opt", "proc", "root", "run", "sbin", "sbin.usr-is-merged", "snap", "srv", "sys", "tmp", "usr", "var"},
             allowed_path_prefixes=DEFAULT_ROOTFS_PATH_PREFIXES,
+            expected_packages=set(
+                json.loads(
+                    (
+                        Path(__file__).parents[1]
+                        / "runtime"
+                        / "rootfs-package-allowlist-v1.json"
+                    ).read_text(encoding="utf-8")
+                )["packages"]
+            ),
             sandbox_wsl_distro=str(config["builder_wsl_distro"]),
         )
         final_artifact = args.out / f"localbench-agentic-runtime-{PINNED_RUNTIME_ID}.tar.xz"

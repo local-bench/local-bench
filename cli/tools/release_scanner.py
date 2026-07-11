@@ -42,16 +42,32 @@ def scan_release(
     *,
     allowed_top_levels: set[str],
     allowed_path_prefixes: tuple[str, ...] | None = None,
+    expected_packages: set[str] | None = None,
     sandbox_wsl_distro: str | None = None,
 ) -> dict[str, object]:
     inventory: list[dict[str, object]] = []
     path_allowlist = allowed_path_prefixes or tuple(sorted(allowed_top_levels))
+    with tarfile.open(archive, "r:xz") as package_archive:
+        observed_packages = _dpkg_packages(package_archive)
+    if expected_packages is not None and observed_packages != expected_packages:
+        unexpected = sorted(observed_packages - expected_packages)
+        missing = sorted(expected_packages - observed_packages)
+        raise ScanError(
+            f"rootfs package allowlist mismatch; unexpected={unexpected}, missing={missing}"
+        )
     if sandbox_wsl_distro is not None:
         _wsl_sandbox_extract(archive, sandbox_wsl_distro)
         with tarfile.open(archive, "r:xz") as outer:
             _inventory_archive(outer, inventory, allowed_top_levels, path_allowlist)
         canonical = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
-        return _report(inventory, canonical, allowed_top_levels, path_allowlist)
+        return _report(
+            inventory,
+            canonical,
+            allowed_top_levels,
+            path_allowlist,
+            observed_packages,
+            expected_packages is not None,
+        )
     with tempfile.TemporaryDirectory(prefix="localbench-release-scan-") as temporary:
         sandbox = Path(temporary).resolve()
         with tarfile.open(archive, "r:xz") as outer:
@@ -69,7 +85,14 @@ def scan_release(
             elif path.is_dir():
                 inventory.append(_metadata_entry(relative, "directory"))
     canonical = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
-    return _report(inventory, canonical, allowed_top_levels, path_allowlist)
+    return _report(
+        inventory,
+        canonical,
+        allowed_top_levels,
+        path_allowlist,
+        observed_packages,
+        expected_packages is not None,
+    )
 
 
 def _report(
@@ -77,6 +100,8 @@ def _report(
     canonical: bytes,
     allowed_top_levels: set[str],
     path_allowlist: tuple[str, ...],
+    observed_packages: set[str],
+    package_allowlist_enforced: bool,
 ) -> dict[str, object]:
     content_types: dict[str, int] = {}
     total_bytes = 0
@@ -95,6 +120,8 @@ def _report(
         "content_type_counts": dict(sorted(content_types.items())),
         "allowed_top_levels": sorted(allowed_top_levels),
         "allowed_path_prefixes": list(path_allowlist),
+        "package_allowlist_enforced": package_allowlist_enforced,
+        "installed_packages": sorted(observed_packages),
     }
 
 
@@ -333,6 +360,34 @@ def _metadata_entry(path: str, kind: str, **metadata: object) -> dict[str, objec
         "sha256": hashlib.sha256(identity).hexdigest(),
         **metadata,
     }
+
+
+def _dpkg_packages(archive: tarfile.TarFile) -> set[str]:
+    status = next(
+        (
+            member
+            for member in archive.getmembers()
+            if member.name.removeprefix("./") == "var/lib/dpkg/status"
+        ),
+        None,
+    )
+    if status is None or not status.isfile():
+        return set()
+    stream = archive.extractfile(status)
+    if stream is None:
+        raise ScanError("dpkg status is unreadable")
+    packages: set[str] = set()
+    for paragraph in stream.read().decode("utf-8", errors="strict").split("\n\n"):
+        fields = dict(
+            line.split(": ", 1)
+            for line in paragraph.splitlines()
+            if ": " in line
+        )
+        if fields.get("Status") == "install ok installed":
+            name, version = fields.get("Package"), fields.get("Version")
+            if name and version:
+                packages.add(f"{name}={version}")
+    return packages
 
 
 def _sqlite_inventory(name: str, data: bytes) -> list[dict[str, object]]:

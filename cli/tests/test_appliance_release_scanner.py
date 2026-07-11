@@ -57,6 +57,20 @@ def test_scanner_enforces_positive_path_allowlist(tmp_path: Path) -> None:
         )
 
 
+def test_scanner_enforces_exact_package_allowlist(tmp_path: Path) -> None:
+    status = (
+        b"Package: expected\nVersion: 1.2.3\nStatus: install ok installed\n\n"
+        b"Package: injected\nVersion: 9\nStatus: install ok installed\n"
+    )
+    with pytest.raises(scanner.ScanError, match="unexpected=.*injected=9"):
+        scanner.scan_release(
+            archive(tmp_path, {"var/lib/dpkg/status": status}),
+            allowed_top_levels={"var"},
+            allowed_path_prefixes=("var/lib/dpkg",),
+            expected_packages={"expected=1.2.3"},
+        )
+
+
 def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None:
     database = tmp_path / "fixture.sqlite"
     connection = sqlite3.connect(database)
