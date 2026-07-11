@@ -1,4 +1,5 @@
 import type { IndexModel, Score } from "./schemas";
+import { isTrustedRankedPopulation } from "./trusted-population";
 
 export type LeaderboardScoreMode = "full" | "static";
 
@@ -26,7 +27,7 @@ export function hasAgenticAxis(model: IndexModel): boolean {
 export function isFullIndexRow(model: IndexModel): boolean {
   return (
     model.score_status === "measured" &&
-    model.ranked &&
+    isTrustedRankedPopulation(model) &&
     model.lane === HEADLINE_LANE &&
     !model.demo &&
     scoreForMode(model, "full") !== null

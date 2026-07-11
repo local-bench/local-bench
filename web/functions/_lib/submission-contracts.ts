@@ -164,6 +164,11 @@ export const StatusUpdateSchema = z
     validated_at: z.string().min(1),
     validator_commit: z.string().nullable().optional(),
     validator_version: z.string().min(1),
+    maintainer_attestation: z.object({
+      coding_receipt_sha256: Sha256Schema,
+      decision: z.enum(["verified", "not_verified"]),
+      maintainer_key_id: z.string().min(1).max(120),
+    }).optional(),
   })
   .refine((update) => update.accepted === (update.status === "accepted"), {
     message: "accepted must match status",

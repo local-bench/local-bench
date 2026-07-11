@@ -1,6 +1,7 @@
 import type { AxisScore, ConformanceGates, Kind, Score, ScoreStatus } from "./schemas";
 import { quantBytesPerParam } from "./quant";
 import type { QuantFilter } from "./quant";
+import { isTrustedRankedPopulation } from "./trusted-population";
 
 export const VRAM_TIERS = [8, 12, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512] as const;
 export const LANE_FILTERS = ["any", "answer-only"] as const;
@@ -32,8 +33,10 @@ export type RigMatchCandidate = {
   readonly modelSlug: string;
   readonly nItems: number;
   readonly nRuns: number;
+  readonly origin?: string | undefined;
   readonly quantLabel: string | null;
   readonly ranked: boolean;
+  readonly trustLabel?: string | undefined;
   readonly runId: string | null;
   readonly score: Score | null;
   readonly scoreStatus: ScoreStatus;
@@ -200,7 +203,7 @@ function verdictFor(candidate: RigMatchCandidate, index: number, bestLowerBound:
   if (candidate.score === null || candidate.scoreStatus === "missing") {
     return "not-enough-data";
   }
-  if (!candidate.ranked) {
+  if (!isTrustedRigCandidate(candidate)) {
     return "not-enough-data";
   }
   if (index === 0) {
@@ -220,7 +223,11 @@ function ciHalfWidth(score: Score): number {
 }
 
 function scoreStatusRank(candidate: RigMatchCandidate): number {
-  return candidate.score === null || candidate.scoreStatus === "missing" || !candidate.ranked ? 1 : 0;
+  return candidate.score === null || candidate.scoreStatus === "missing" || !isTrustedRigCandidate(candidate) ? 1 : 0;
+}
+
+function isTrustedRigCandidate(candidate: RigMatchCandidate): boolean {
+  return isTrustedRankedPopulation({ origin: candidate.origin, ranked: candidate.ranked, trust_label: candidate.trustLabel });
 }
 
 function nullableNumber(value: number | null | undefined, fallback: number): number {

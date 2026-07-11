@@ -61,7 +61,7 @@ export async function zt1DecisionForAcceptedSubmission(
   }
   const model = modelMetadata(bundle);
   const identity = await resolveIdentity(env, row, model, bundle);
-  const codingState = codingStateFor(row, bundle);
+  const codingState = await codingStateFor(env, row, bundle);
   const agenticState = agenticStateFor(bundle);
   const score = candidateScore(bundle);
   const details = {
@@ -186,7 +186,7 @@ function metadataSanitizes(model: ModelMetadata): boolean {
   });
 }
 
-function codingStateFor(row: SubmissionRow, bundle: ResultBundle): CodingState {
+async function codingStateFor(env: SubmissionApiEnv, row: SubmissionRow, bundle: ResultBundle): Promise<CodingState> {
   const codingItems = bundle.items.filter((item) => isRecord(item) && item["bench"] === "bigcodebench_hard");
   if (codingItems.length === 0) {
     return "absent";
@@ -205,6 +205,9 @@ function codingStateFor(row: SubmissionRow, bundle: ResultBundle): CodingState {
   if (row.origin === "project_anchor" && sources.every((source) => source === "verifier")) {
     return "verifier";
   }
+  if (row.origin === "community" && await hasCurrentMaintainerCodingAttestation(env, row, bundle)) {
+    return "verifier";
+  }
   // ANY community coding is self-reported and escalated for maintainer review, regardless of
   // verdict_source. The coding score derives from per-item correctness (build_data_axes.py), NOT
   // from code_artifact, so a null/empty/missing verdict_source is NOT a safe "generated but not
@@ -213,6 +216,40 @@ function codingStateFor(row: SubmissionRow, bundle: ResultBundle): CodingState {
   // yet; see docs/reports/coding-exec-worker-marshalling-spec-2026-07-07.md for the path to trusted
   // community coding. `generated_unverified` is retired here (kept in the type for compatibility).
   return "self_reported_exec";
+}
+
+async function hasCurrentMaintainerCodingAttestation(
+  env: SubmissionApiEnv,
+  row: SubmissionRow,
+  bundle: ResultBundle,
+): Promise<boolean> {
+  if (row.projection_object_sha256 === null) return false;
+  const receipt = codingReceiptSha256(bundle);
+  if (receipt === null) return false;
+  try {
+    const attestation = await env.DB.prepare(
+      `select decision, coding_receipt_sha256 from maintainer_verification_attestations
+       where submission_id = ? and raw_bundle_sha256 = ? and projection_object_sha256 = ?
+         and suite_release_id = ? and suite_manifest_sha256 = ? and revision = ?
+       order by revision desc limit 1`,
+    ).bind(
+      row.submission_id, row.raw_bundle_sha256, row.projection_object_sha256,
+      row.suite_release_id, row.suite_manifest_sha256, row.state_revision,
+    ).first();
+    return attestation?.["decision"] === "verified" && attestation["coding_receipt_sha256"] === receipt;
+  } catch (error) {
+    if (missingAttestationTable(error)) return false;
+    throw error;
+  }
+}
+
+function codingReceiptSha256(bundle: ResultBundle): string | null {
+  const references = isRecord(bundle["receipt_references"]) ? bundle["receipt_references"] : null;
+  return references === null ? null : sha256OrNull(references["coding_receipt_sha256"]);
+}
+
+function missingAttestationTable(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("maintainer_verification_attestations");
 }
 
 function agenticStateFor(bundle: ResultBundle): AgenticState {
@@ -275,6 +312,7 @@ async function publicScores(env: SubmissionApiEnv): Promise<readonly { readonly 
     `select model_display_name, model_family, headline_score as score
      from board_entries
      where visibility = 'public' and headline_score is not null
+       and origin = 'project_anchor' and trust_label = 'project_anchor'
      order by headline_score desc`,
   ).all();
   return rows.results.flatMap((row) => {

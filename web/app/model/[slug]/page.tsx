@@ -9,6 +9,7 @@ import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
+import { isTrustedPopulation, isTrustedRankedPopulation, selectTrustedHeaderSource } from "@/lib/trusted-population";
 
 export const dynamicParams = false;
 
@@ -31,14 +32,14 @@ export default async function ModelPage({ params }: PageProps) {
   const headlineMeasured = model.runs.filter(
     (run) => run.score_status === "measured" && run.lane === HEADLINE_LANE,
   );
-  const rankedRuns = headlineMeasured.filter((run) => run.ranked);
+  const rankedRuns = headlineMeasured.filter(isTrustedRankedPopulation);
   const partialRuns = headlineMeasured.filter((run) => !run.ranked);
   // Headline provenance comes from the ranked (representative) run when one exists —
   // ladder/partial runs sort first in the payload and must not set the headline chip.
   const hasProvenance = (run: (typeof headlineMeasured)[number]): boolean =>
     run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined;
-  const provenanceRun = rankedRuns.find(hasProvenance) ?? headlineMeasured.find(hasProvenance);
-  const submitter = headlineMeasured.find(
+  const provenanceRun = selectTrustedHeaderSource(rankedRuns.filter(hasProvenance));
+  const submitter = headlineMeasured.filter(isTrustedPopulation).find(
     (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
   )?.submitter_display_name;
 

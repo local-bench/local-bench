@@ -3,6 +3,7 @@ import { quantRank } from "./quant";
 import type { AnchorReference } from "./data";
 import type { RigMatchCandidate } from "./rig-match";
 import type { AxisScore } from "./schemas";
+import { isTrustedRankedPopulation } from "./trusted-population";
 
 export type AnchorQualityRow = {
   readonly axes: Readonly<Record<string, AxisScore>>;
@@ -47,7 +48,7 @@ export function getRankedQualityRows({
   }));
   const localsByModel = new Map<string, RigMatchCandidate>();
   for (const run of runs) {
-    if (run.kind !== "community" || run.score === null || !run.ranked) {
+    if (run.kind !== "community" || run.score === null || !isTrustedRankedPopulation({ origin: run.origin, ranked: run.ranked, trust_label: run.trustLabel })) {
       continue;
     }
     const current = localsByModel.get(run.modelSlug);

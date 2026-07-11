@@ -449,7 +449,8 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     # The fail-closed infra-timeout warning decides RANKING only; it surfaces in
     # data_warnings solely for rows that were otherwise rank-eligible, so demo and
     # diagnostic rows (which often predate the field) keep clean detail pages.
-    ranked = rank_eligible_before_infra and not agentic_infra_warnings
+    trusted_population = annotations.get("origin") == "project_anchor" and annotations.get("trust_label") == "project_anchor"
+    ranked = rank_eligible_before_infra and not agentic_infra_warnings and trusted_population
     surfaced_infra_warnings = agentic_infra_warnings if rank_eligible_before_infra else []
     score_fields = _score_fields_for_lane(lane, composite_interval, board.headline_lane)
     data_warnings = quarantined_agentic + surfaced_infra_warnings + axis_warnings + _list(composite["warnings"], "composite.warnings")
@@ -747,11 +748,21 @@ def _representative_run(group: list[JsonObject]) -> JsonObject:
     return max(
         group,
         key=lambda run: (
-            bool(_object(run["index_row"], "index_row").get("ranked")),
+            _trusted_ranked_run(run),
+            _trusted_run(run),
             _number(run["composite_raw"], "composite_raw"),
             -_int(run["order"], "order"),
         ),
     )
+
+
+def _trusted_run(run: JsonObject) -> bool:
+    row = _object(run["index_row"], "index_row")
+    return row.get("origin") == "project_anchor" and row.get("trust_label") == "project_anchor"
+
+
+def _trusted_ranked_run(run: JsonObject) -> bool:
+    return _trusted_run(run) and bool(_object(run["index_row"], "index_row").get("ranked"))
 
 
 def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:

@@ -14,6 +14,8 @@ import {
   MIGRATION_0008,
   MIGRATION_0009,
   MIGRATION_0010,
+  MIGRATION_0011,
+  MIGRATION_0012,
   PROJECTION_SHA,
   applyMigration,
   columnCount,
@@ -124,6 +126,32 @@ describe("ZT-1 automatic publish decisions", () => {
       zt1_decision: "escalated",
       zt1_decision_reason: "coding_self_reported_exec",
     });
+  }, 15_000);
+
+  it("consumes the current server-owned maintainer coding attestation on the real decision path", async () => {
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const receiptSha = "9".repeat(64);
+    const bundle = bundleFor({ fileSha: UNKNOWN_HASH, score: 45 });
+    bundle["receipt_references"] = { coding_receipt_sha256: receiptSha };
+    bundle["items"] = [{ bench: "bigcodebench_hard", item_id: "bcbh-001", code_artifact: { verdict_source: "submitter" } }];
+    const submissionId = await ticketWithBundle(env, bundle);
+    await env.DB.prepare("update submissions set origin = 'community' where submission_id = ?").bind(submissionId).run();
+
+    const response = await verifyAccepted(env, submissionId, {
+      coding_receipt_sha256: receiptSha,
+      decision: "verified",
+      maintainer_key_id: "maintainer-release-key-1",
+    });
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).not.toMatchObject({ zt1_decision_reason: "coding_self_reported_exec" });
+    expect(body).toMatchObject({ zt1_coding_state: "verifier" });
+    const record = await env.DB.prepare(
+      "select raw_bundle_sha256, projection_object_sha256, coding_receipt_sha256, suite_release_id, suite_manifest_sha256, maintainer_key_id, decision, revision from maintainer_verification_attestations where submission_id = ?",
+    ).bind(submissionId).first();
+    expect(record).toMatchObject({ coding_receipt_sha256: receiptSha, decision: "verified", maintainer_key_id: "maintainer-release-key-1", revision: 1 });
   }, 15_000);
 
   it("still honors a project_anchor submission's verifier coding (gate is targeted)", async () => {
@@ -333,6 +361,19 @@ describe("ZT-1 automatic publish decisions", () => {
       publish_state: "preview",
       zt1_decision: "publishable",
     });
+  }, 15_000);
+
+  it("ignores an arbitrarily high unranked community score in the ZT-1 reference population", async () => {
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    await seedBoardScores(10, { scoreAt: 10, value: 50 })(env);
+    await insertCommunityBoardEntry(env, "community_million", 1_000_000);
+    const submissionId = await ticketWithBundle(env, bundleFor({ fileSha: KNOWN_HASH, score: 55 }));
+
+    const response = await verifyAccepted(env, submissionId);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ provisional_reason: expect.stringContaining("top_10_overall") });
   }, 15_000);
 
   it("keeps new provisional decisions hidden when the provisional preview cap is full", async () => {
@@ -584,7 +625,7 @@ describe("ZT-1 automatic publish decisions", () => {
   it("adds the ZT-1 columns additively after older rows already exist", async () => {
     // Given: the feedback migration already owns 0007 in this repository.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
-    for (const migration of [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0009, MIGRATION_0010]) {
+    for (const migration of [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011]) {
       await applyMigration(env.DB, migration);
     }
     await issueEnvelope(env);
@@ -605,7 +646,7 @@ async function createZt1Env(): Promise<SubmissionApiEnv> {
   const env = await createEnv({
     includeAdminSecret: true,
     includeR2Secrets: true,
-    migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010],
+    migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0012],
   });
   return Object.assign(env, {
     ZT1_KNOWN_ARTIFACTS_JSON: JSON.stringify({ [KNOWN_HASH]: "qwen3-4b" }),
@@ -642,18 +683,24 @@ async function ticketWithBundle(
   return envelope.ticket_id;
 }
 
-async function verifyAccepted(env: SubmissionApiEnv, submissionId: string): Promise<Response> {
-  const row = await env.DB.prepare("select raw_bundle_sha256 from submissions where submission_id = ?")
+async function verifyAccepted(
+  env: SubmissionApiEnv,
+  submissionId: string,
+  maintainerAttestation?: { readonly coding_receipt_sha256: string; readonly decision: "verified" | "not_verified"; readonly maintainer_key_id: string },
+): Promise<Response> {
+  const row = await env.DB.prepare("select raw_bundle_sha256, origin from submissions where submission_id = ?")
     .bind(submissionId)
     .first();
   const rawBundleSha = row?.["raw_bundle_sha256"];
   if (typeof rawBundleSha !== "string") {
     throw new Error("submission fixture did not store raw bundle sha");
   }
+  const origin = row?.["origin"] === "community" ? "community" : "project_anchor";
+  const codingReceipt = maintainerAttestation?.coding_receipt_sha256 ?? null;
   return handleApplyVerificationUpdate(
     adminJson(`/api/admin/submissions/${submissionId}/verification`, {
-      ...statusUpdate("accepted"),
-      raw_bundle_sha256: rawBundleSha,
+      ...statusUpdate("accepted", rawBundleSha, origin, codingReceipt),
+      ...(maintainerAttestation === undefined ? {} : { maintainer_attestation: maintainerAttestation }),
     }),
     env,
     {
@@ -795,7 +842,7 @@ async function insertBoardEntry(
       coverage_profile_id, headline_complete, headline_score, partial_composite, measured_headline_weight,
       missing_headline_weight, known_headline_contribution, rank_scope, axis_scores_json, bench_scores_json,
       conformance_json, n_scored, n_errors, warning_count, projection_sha256, bundle_sha256
-    ) values (?, ?, 'localbench.board_entries.v1', 'public', 'community', 'community_re_scored', 'bundle_rescored',
+    ) values (?, ?, 'localbench.board_entries.v1', 'public', 'project_anchor', 'project_anchor', 'bundle_rescored',
       ?, ?, 'suite-v1-full-exec-6axis-v1', ?, 'scorecard', 'full-exec-6axis-v1', 1, ?, ?, 1, 0, ?, 'full-exec-6axis-v1',
       '{}', '{}', '{}', 1, 0, 0, ?, ?)`,
   )
@@ -838,6 +885,12 @@ async function insertPartialOnlyBoardEntry(
       sha256Hex(`${id}:bundle`),
     )
     .run();
+}
+
+async function insertCommunityBoardEntry(env: SubmissionApiEnv, id: string, score: number): Promise<void> {
+  await insertBoardEntry(env, id, "Adversary", "Adversary 1B", score);
+  await env.DB.prepare("update board_entries set origin = 'community', trust_label = 'community_self_submitted' where entry_id = ?")
+    .bind(id).run();
 }
 
 async function seedAcceptedDecision(

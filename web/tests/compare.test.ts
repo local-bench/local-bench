@@ -27,11 +27,7 @@ describe("compare configs", () => {
       modelSlug: "gemma-4-12b-it",
       quantLabel: "QAT Q4_K_XL",
     });
-    expect(configs.find((config) => config.modelSlug === "gemma-4-12b-it" && config.quantLabel === "Q8_0")).toMatchObject({
-      coverage: "partial",
-      modelSlug: "gemma-4-12b-it",
-      quantLabel: "Q8_0",
-    });
+    expect(configs.find((config) => config.modelSlug === "gemma-4-12b-it" && config.quantLabel === "Q8_0")).toBeUndefined();
   });
 
   it("defaults to current-lane configs and quarantines legacy runs behind diagnostics", async () => {
@@ -48,11 +44,10 @@ describe("compare configs", () => {
       }),
     );
 
-    // Then selected cards are current-index only, while retired runs are opt-in diagnostics.
-    expect(configs.some((config) => config.runId === LEGACY_RUN_ID)).toBe(true);
+    // Then selected cards are current-index only; legacy rows without explicit trust are excluded.
+    expect(configs.some((config) => config.runId === LEGACY_RUN_ID)).toBe(false);
     expect(html).toContain(CURRENT_RUN_ID);
-    expect(html).toContain(`value="${LEGACY_RUN_ID}"`);
-    expect(html).toContain("Previous-index diagnostics");
+    expect(html).not.toContain(`value="${LEGACY_RUN_ID}"`);
     expect(html).not.toContain("62.3");
     expect(html).not.toContain("62.0");
   });
@@ -71,10 +66,10 @@ describe("compare configs", () => {
       }),
     );
 
-    // Then the retired composite is framed diagnostically and no current Index delta is shown.
-    expect(html).toContain("Diagnostic score (retired lane)");
-    expect(html).toContain(HEADLINE_LANE);
-    expect(html).not.toContain("Local Intelligence Index delta");
+    // Then an untrusted legacy URL id cannot enter the comparison population.
+    expect(html).not.toContain("Diagnostic score (retired lane)");
+    expect(html).not.toContain(LEGACY_RUN_ID);
+    expect(html).toContain("Local Intelligence Index delta");
   });
 
   it("uses diagnostic_composite for retired-lane configs when standard composite is null", () => {
@@ -157,6 +152,7 @@ function modelRunFixture({
     lane,
     n_errors: 0,
     n_items: 10,
+    origin: "project_anchor",
     quant_label: quantLabel,
     ranked: lane === HEADLINE_LANE,
     run_id: runId,
@@ -171,6 +167,7 @@ function modelRunFixture({
     tier: "standard",
     tok_s: 20,
     tokens_to_answer_median: 128,
+    trust_label: "project_anchor",
     vram_footprint_gb: 12,
   };
 }

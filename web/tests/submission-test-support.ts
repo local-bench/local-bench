@@ -17,6 +17,7 @@ export const MIGRATION_0008 = readFileSync(new URL("../migrations/0008_zt1_zero_
 export const MIGRATION_0009 = readFileSync(new URL("../migrations/0009_pending_verification_queue.sql", import.meta.url), "utf-8");
 export const MIGRATION_0010 = readFileSync(new URL("../migrations/0010_submission_admission_security.sql", import.meta.url), "utf-8");
 export const MIGRATION_0011 = readFileSync(new URL("../migrations/0011_publication_snapshots.sql", import.meta.url), "utf-8");
+export const MIGRATION_0012 = readFileSync(new URL("../migrations/0012_maintainer_attestations.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 export const SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
@@ -255,9 +256,21 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
   };
 }
 
-export function statusUpdate(status: "accepted" | "rejected", rawBundleSha = RAW_BUNDLE_SHA): Record<string, unknown> {
+export function statusUpdate(
+  status: "accepted" | "rejected",
+  rawBundleSha = RAW_BUNDLE_SHA,
+  origin: "community" | "project_anchor" = "project_anchor",
+  codingReceiptSha256: string | null = null,
+): Record<string, unknown> {
   const hashable = {
     ...PROJECTION_HASHABLE,
+    model: {
+      ...PROJECTION_HASHABLE.model,
+      identity_status: origin === "community" ? "unverified" : "maintainer_verified",
+    },
+    origin,
+    receipt_references: { coding_receipt_sha256: codingReceiptSha256 },
+    trust_label: origin === "community" ? "community_self_submitted" : "project_anchor",
     artifact_hashes: { bundle_sha256: rawBundleSha, projection_sha256: "", public_artifact_manifest_sha256: "" },
   };
   const projectionSha = sha256Hex(canonicalJson(hashable));

@@ -117,6 +117,7 @@ export async function handleApplyVerificationUpdate(
         return jsonResponse(409, { code: "projection_semantic_sha_mismatch", error: "projection semantic digest does not match status update" });
       }
       if (
+        parsed.data.projection["origin"] !== row.value.origin ||
         parsed.data.projection["suite_release_id"] !== row.value.suite_release_id ||
         parsed.data.projection["suite_manifest_sha256"] !== row.value.suite_manifest_sha256 ||
         typeof parsed.data.projection["scorecard_id"] !== "string" ||

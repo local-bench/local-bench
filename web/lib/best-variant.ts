@@ -13,6 +13,7 @@ import {
   type CatalogLineageRoot,
 } from "./catalog-lineage";
 import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
+import { isTrustedRankedPopulation } from "./trusted-population";
 
 export type BestVariantPoint = {
   readonly modelSlug: string;
@@ -53,7 +54,7 @@ function isEligible(candidate: RigMatchCandidate): candidate is EligibleRigMatch
   return (
     candidate.kind === "community" &&
     !candidate.demo &&
-    candidate.ranked &&
+    isTrustedRankedPopulation({ origin: candidate.origin, ranked: candidate.ranked, trust_label: candidate.trustLabel }) &&
     candidate.scoreStatus === "measured" &&
     candidate.tier?.toLowerCase() === "standard" &&
     candidate.lane === HEADLINE_LANE &&

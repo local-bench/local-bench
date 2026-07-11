@@ -1,6 +1,7 @@
 import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
+import { isTrustedRankedPopulation } from "./trusted-population";
 
 export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
@@ -8,8 +9,10 @@ export type VsBaseBoardRow = {
   readonly composite: Score | null;
   readonly diagnosticComposite: Score | null;
   readonly lane: string | null;
+  readonly origin?: string | undefined;
   readonly ranked: boolean;
   readonly scoreStatus: ScoreStatus;
+  readonly trustLabel?: string | undefined;
 };
 
 export type VsBaseSide = {
@@ -93,7 +96,7 @@ function measuredRow(row: VsBaseBoardRow | null): (VsBaseBoardRow & { readonly c
   if (row === null || row.scoreStatus !== "measured" || row.composite === null) {
     return null;
   }
-  if (!row.ranked || row.lane !== HEADLINE_LANE) {
+  if (!isTrustedRankedPopulation({ origin: row.origin, ranked: row.ranked, trust_label: row.trustLabel }) || row.lane !== HEADLINE_LANE) {
     return null;
   }
   return row as VsBaseBoardRow & { readonly composite: Score };

@@ -1,6 +1,7 @@
 import { runtimeSortLabel } from "./runtime-display";
 import { scoreForMode, type LeaderboardScoreMode } from "./leaderboard-score";
 import type { AgenticModel, IndexModel } from "./schemas";
+import { isTrustedPopulation } from "./trusted-population";
 
 export const AGENTIC_SORT_KEY = "agentic_experimental";
 export const STATIC_INDEX_SORT_KEY = "static_index";
@@ -46,6 +47,9 @@ export function buildLaneRanks(
 ): ReadonlyMap<string, number> {
   const groups = new Map<string, readonly IndexModel[]>();
   for (const model of models) {
+    if (!isTrustedPopulation(model)) {
+      continue;
+    }
     if (!model.ranked && scoreMode === "full") {
       continue;
     }

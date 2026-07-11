@@ -263,8 +263,10 @@ function toVsBaseBoardRow(row: IndexModel | null): VsBaseBoardRow | null {
     composite: row.composite,
     diagnosticComposite: row.diagnostic_composite ?? null,
     lane: row.lane,
+    origin: row.origin,
     ranked: row.ranked,
     scoreStatus: row.score_status,
+    trustLabel: row.trust_label,
   };
 }
 
@@ -328,7 +330,7 @@ type MeasuredModelRunWithConfiguredAxes = ModelRunWithConfiguredAxes & {
 };
 
 function isMeasuredConfiguredRun(run: ModelRunWithConfiguredAxes): run is MeasuredModelRunWithConfiguredAxes {
-  return run.composite !== null && run.run_id !== null;
+  return run.composite !== null && run.run_id !== null && run.ranked && run.origin === "project_anchor" && run.trust_label === "project_anchor";
 }
 
 function toAnchorReference(model: ModelData, run: MeasuredModelRunWithConfiguredAxes): AnchorReference {
@@ -478,8 +480,10 @@ function toRigMatchCandidate(model: ModelData, run: ModelRun): RigMatchCandidate
     modelSlug: model.slug,
     nItems: run.n_items,
     nRuns: model.runs.length,
+    origin: run.origin,
     quantLabel: run.quant_label,
     ranked: run.ranked,
+    trustLabel: run.trust_label,
     runId: run.run_id,
     score: run.composite,
     scoreStatus: run.score_status,

@@ -219,7 +219,21 @@ export async function applyStatusUpdate(
   const revisionStatement = env.DB.prepare(
     "update publication_control set publication_revision = publication_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1",
   );
-  const results = await env.DB.batch([updateStatement, transitionStatement, revisionStatement]);
+  const statements = [updateStatement, transitionStatement, revisionStatement];
+  if (update.status === "accepted" && update.maintainer_attestation !== undefined) {
+    statements.push(env.DB.prepare(
+      `insert into maintainer_verification_attestations (
+        submission_id, raw_bundle_sha256, projection_object_sha256, coding_receipt_sha256,
+        suite_release_id, suite_manifest_sha256, maintainer_key_id, decision, revision
+      ) select ?, ?, ?, ?, ?, ?, ?, ?, ? where changes() = 1`,
+    ).bind(
+      submissionId, update.raw_bundle_sha256, update.projection_object_sha256,
+      update.maintainer_attestation.coding_receipt_sha256, current.suite_release_id,
+      current.suite_manifest_sha256, update.maintainer_attestation.maintainer_key_id,
+      update.maintainer_attestation.decision, current.state_revision + 1,
+    ));
+  }
+  const results = await env.DB.batch(statements);
   if (results[0]?.meta?.changes !== 1) {
     throw new InvalidTransitionError(current.status, update.status);
   }

@@ -8,6 +8,7 @@ import {
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, ModelData, Score } from "./schemas";
+import { isTrustedPopulation } from "./trusted-population";
 
 export type CompareCoverage = "full" | "partial";
 export type CompareScoreScope = "current-index" | "previous-index";
@@ -47,6 +48,7 @@ export function getCompareConfigs(
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
+        if (!isTrustedPopulation(run)) return [];
         const score = scoreForRun(run);
         if (!isNonEmptyString(run.quant_label) || score === null || run.run_id === null) {
           return [];

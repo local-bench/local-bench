@@ -18,8 +18,10 @@ describe("buildVsBaseComparison", () => {
           diagnosticComposite: null,
           axes: { knowledge: score(83), instruction: score(67), coding: score(20) },
           lane: "bounded-final-v2",
+          origin: "project_anchor",
           ranked: true,
           scoreStatus: "measured",
+          trustLabel: "project_anchor",
         },
       },
       derivative: {
@@ -32,8 +34,10 @@ describe("buildVsBaseComparison", () => {
           diagnosticComposite: null,
           axes: { knowledge: score(86), instruction: score(64), tool_calling: score(50) },
           lane: "bounded-final-v2",
+          origin: "project_anchor",
           ranked: true,
           scoreStatus: "measured",
+          trustLabel: "project_anchor",
         },
       },
     });
@@ -81,8 +85,10 @@ describe("buildVsBaseComparison", () => {
           diagnosticComposite: null,
           axes: { knowledge: score(76) },
           lane: "bounded-final-v2",
+          origin: "project_anchor",
           ranked: true,
           scoreStatus: "measured",
+          trustLabel: "project_anchor",
         },
       },
       derivative: {
@@ -95,8 +101,10 @@ describe("buildVsBaseComparison", () => {
           diagnosticComposite: { point: 52.9, lo: 51, hi: 54 },
           axes: { knowledge: score(80) },
           lane: "capped-thinking",
+          origin: "project_anchor",
           ranked: false,
           scoreStatus: "measured",
+          trustLabel: "project_anchor",
         },
       },
     });
