@@ -35,8 +35,18 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+_SHA256_FILE_CHUNK: Final = 64 * 1024 * 1024
+
+
 def sha256_file(path: Path) -> str:
-    return sha256_bytes(path.read_bytes())
+    # Stream: read_bytes() needs the whole file in one allocation, which raised
+    # MemoryError on an 18.3 GB GGUF at manifest collection after a completed
+    # 21-hour run (2026-07-11). Digest output is unchanged.
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(_SHA256_FILE_CHUNK):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def write_json_file(path: Path, payload: JsonObject) -> None:
