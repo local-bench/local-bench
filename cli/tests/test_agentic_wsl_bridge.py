@@ -308,6 +308,10 @@ def _write_fake_worker(tmp_path: Path) -> Path:
                 req = json.loads(raw)
                 op = req.get("op")
                 if op == "hello":
+                    startup_error = os.environ.get("LB_FAKE_STARTUP_ERROR")
+                    if startup_error:
+                        emit({"kind": "error", "detail": "malformed task JSON", "error_type": startup_error})
+                        break
                     print("fake stderr", file=sys.stderr, flush=True)
                     emit({
                         "kind": "ok",
@@ -437,6 +441,24 @@ def test_well_formed_error_response_keeps_worker_alive(tmp_path: Path) -> None:
         assert sandbox._proc is not None
         assert sandbox._proc.poll() is None
         assert sandbox.run_block("print(3)").stdout == "ran: print(3)"
+
+
+def test_worker_startup_drift_survives_process_boundary_as_typed_setup_error(
+    tmp_path: Path,
+) -> None:
+    script = _write_fake_worker(tmp_path)
+    config = WslWorkerConfig(
+        repo_root_wsl_path="/mnt/c/x",
+        venv_python="/x/python",
+        appworld_root="/x/appworld",
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, str(script)),
+        worker_env={"LB_FAKE_STARTUP_ERROR": "TaskIdentityDriftError"},
+        op_timeout_s=2.0,
+    )
+
+    with pytest.raises(WorkerSetupError, match="malformed task JSON"):
+        WslSandboxProxy(None, config).__enter__()
 
 
 def test_proxy_finalization_provenance_is_the_shared_direct_finalize_descriptor(

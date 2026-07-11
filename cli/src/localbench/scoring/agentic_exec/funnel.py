@@ -25,6 +25,10 @@ GPU-free / model-free: this module imports NO model SDK and NO sandbox. The sand
 supplied by the caller via factories (``run_appworld_c_benchmark``'s seam). The unit tests drive
 the whole thing with a scripted/mock client and a :class:`FakeSandbox`, proving the orchestration
 end-to-end without a model or a GPU. The agentic axis stays unregistered / weight-0.
+
+The signed contract intentionally hashes this whole module, including comments and docstrings.
+That conservative over-coverage may require a re-mint for behavior-neutral edits; it prevents
+score-affecting edits from slipping through an incomplete semantic source extractor.
 """
 
 from __future__ import annotations
@@ -145,10 +149,11 @@ class SubsetSpec:
 
     @property
     def manifest_hash(self) -> str:
-        """Compatibility field now carrying the canonical ordered-task identity."""
-        return self.ordered_task_ids_sha256
+        """Legacy mixed recipe+IDs identity retained for artifact compatibility."""
+        return self.legacy_manifest_hash
 
     def as_dict(self) -> dict[str, Any]:
+        contract_identity = _contract_task_identity(self.task_ids)
         return {
             "name": self.name,
             "split": self.split,
@@ -157,9 +162,13 @@ class SubsetSpec:
             "selection_version": self.selection_version,
             "task_ids": list(self.task_ids),
             "manifest_hash": self.manifest_hash,
-            "ordered_task_ids_sha256": self.ordered_task_ids_sha256,
-            "selection_recipe_sha256": self.selection_recipe_sha256,
-            "historical_hash_aliases": [self.legacy_manifest_hash],
+            "ordered_task_ids_sha256": contract_identity.get(
+                "ordered_task_ids_sha256", self.ordered_task_ids_sha256
+            ),
+            "selection_recipe_sha256": contract_identity.get(
+                "selection_recipe_sha256", self.selection_recipe_sha256
+            ),
+            "semantic_task_sha256": contract_identity.get("semantic_task_sha256"),
         }
 
 
@@ -414,6 +423,25 @@ def _persist_report(
     return str(path)
 
 
+def _contract_task_identity(task_ids: tuple[str, ...]) -> dict[str, str]:
+    """Expose signed full-set hashes without rereading task data during persistence."""
+    from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
+
+    payload = load_execution_contract()["payload"]
+    if not isinstance(payload, dict):
+        return {}
+    identity = payload.get("task_identity")
+    if not isinstance(identity, dict) or list(task_ids) != identity.get("ordered_task_ids"):
+        return {}
+    return {
+        key: value
+        for key in (
+            "ordered_task_ids_sha256",
+            "selection_recipe_sha256",
+            "semantic_task_sha256",
+        )
+        if isinstance((value := identity.get(key)), str)
+    }
 def _report_attestations(report: BenchmarkReport) -> list[dict[str, Any]]:
     return [result.attestation for result in report.results if result.attestation is not None]
 

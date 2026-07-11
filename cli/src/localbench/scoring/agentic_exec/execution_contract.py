@@ -1,4 +1,9 @@
-"""Canonical C0 execution-contract extraction, signing, and fail-closed verification."""
+"""Canonical C0 execution-contract extraction, signing, and fail-closed verification.
+
+Coverage deliberately hashes whole score-affecting modules.  Comment- or docstring-only edits can
+therefore require a new signed contract.  That conservative over-coverage is intentional: a safe
+false-positive abort is preferable to an undetected behavior change.
+"""
 
 from __future__ import annotations
 
@@ -11,14 +16,15 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
-from localbench.submissions.canon import canonical_json_hash, write_json_file
-from localbench.submissions.crypto import sign_manifest_payload, verify_manifest_signature
+from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash, write_json_file
+from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
 CONTRACT_ID: Final = "agentic-execution-contract-v1"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
 CONTRACT_KEY_ID: Final = "localbench-agentic-contract-2026-07"
-CONTRACT_PUBLIC_KEY_HEX: Final = "0becc292026a52fcb7a598cd3729bc45d3bfc31f9aec1b903acec5ddfdbaa6b0"
+CONTRACT_PUBLIC_KEY_HEX: Final = "0409289b9de21e373e6135c8ffcd13d1329cef2ec254ba621f9568f91b909aa9"
+CONTRACT_SIGNATURE_DOMAIN: Final = b"localbench.agentic-execution-contract.v1\n"
 HISTORICAL_SCORED_RECEIPT_HASH: Final = (
     "1920064637cf2a780e0484fcdeb2752b200a247418148eeb9a172047fe7192ad"
 )
@@ -33,18 +39,22 @@ _HOST_SOURCE_MODULES: Final = (
     "localbench.scoring.agentic_exec.block_introspect",
     "localbench.scoring.agentic_exec.block_parser",
     "localbench.scoring.agentic_exec.chat_client",
+    "localbench.scoring.agentic_exec.env_host",
     "localbench.scoring.agentic_exec.funnel",
     "localbench.scoring.agentic_exec.loop_config",
     "localbench.scoring.agentic_exec.loop_types",
     "localbench.scoring.agentic_exec.model_client",
     "localbench.scoring.agentic_exec.prompt",
     "localbench.scoring.agentic_exec.protocol_c_loop",
+    "localbench.scoring.agentic_exec.runner_bootstrap",
     "localbench.scoring.agentic_exec.sandbox",
+    "localbench.scoring.agentic_exec.sandbox_protocol",
     "localbench.scoring.agentic_exec.score",
     "localbench.scoring.agentic_exec.task_pool",
     "localbench.scoring.agentic_exec.wsl_process",
     "localbench.scoring.agentic_exec.wsl_proxy",
     "localbench.scoring.agentic_exec.wsl_worker",
+    "localbench.scoring.agentic_exec.worker_identity",
 )
 
 
@@ -70,6 +80,19 @@ class TaskIdentityDriftError(RuntimeError):
         return f"agentic task identity drift for {self.field}: expected {self.expected}, observed {self.actual}"
 
 
+@dataclass(frozen=True, slots=True)
+class RuntimeIdentityDriftError(RuntimeError):
+    field: str
+    expected: str
+    actual: str
+
+    def __str__(self) -> str:
+        return (
+            f"agentic runtime identity drift for {self.field}: expected {self.expected}, "
+            f"observed {self.actual}"
+        )
+
+
 def extract_contract_payload(
     *,
     ordered_task_ids: list[str],
@@ -88,6 +111,10 @@ def extract_contract_payload(
         "selection_version": "v1",
     }
     semantic_hash = task_pool.semantic_task_sha256(semantic_task_contents)
+    semantic_by_id = {
+        task_id: canonical_json_hash(semantic_task_contents[task_id])
+        for task_id in sorted(semantic_task_contents)
+    }
     payload: JsonObject = {
         "schema": CONTRACT_SCHEMA,
         "contract_id": CONTRACT_ID,
@@ -99,6 +126,7 @@ def extract_contract_payload(
             "selection_recipe": recipe,
             "selection_recipe_sha256": task_pool.selection_recipe_sha256(**recipe),
             "semantic_task_sha256": semantic_hash,
+            "semantic_task_sha256_by_id": semantic_by_id,
             "semantic_canonicalisation": (
                 "tasks sorted by task_id; canonical JSON of instructions/specs, parsed JSONL DB "
                 "setup, parsed ground-truth JSON, and LF-normalised evaluation.py"
@@ -125,20 +153,21 @@ def extract_contract_payload(
         },
         "packaging_correctness_gate": {
             "required": True,
+            "status": "pending-C2",
             "kind": "scripted_agent_current_harness_vs_appliance_differential",
             "equal_fields": ["per_turn_requests", "sandbox_ops", "verdicts", "aggregates"],
             "gpu_required": False,
         },
         "provenance": {
-            "schema": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:17-18",
-            "contract_id": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:17-18",
+            "schema": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:22-23",
+            "contract_id": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:22-23",
             "covered_behavior_sha256": (
                 "cli/src/localbench/scoring/agentic_exec/execution_contract.py:95"
             ),
             **provenance,
             "task_identity.ordered_task_ids": (
                 "runs/bench/ranked-5axis-capped-2026-07-03/agentic/localbench-run/"
-                "gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json:24"
+                "gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json:25-120"
             ),
             "task_identity.selection_recipe": (
                 "cli/src/localbench/scoring/agentic_exec/funnel.py:57-71"
@@ -150,16 +179,31 @@ def extract_contract_payload(
                 "cli/src/localbench/scoring/agentic_exec/task_pool.py:19-29"
             ),
             "task_identity.semantic_task_sha256": (
-                "$APPWORLD_ROOT/data/tasks/<task_id>/{specs.json,dbs/*,ground_truth/*}:1"
+                "cli/src/localbench/data/contracts/agentic-execution-contract-v1-evidence.json:1"
+            ),
+            "task_identity.semantic_task_sha256_by_id": (
+                "cli/src/localbench/data/contracts/agentic-execution-contract-v1-evidence.json:1"
             ),
             "task_identity.semantic_canonicalisation": (
                 "cli/src/localbench/scoring/agentic_exec/task_pool.py:30-91"
             ),
-            "task_identity.historical_aliases": "scratchpad/appliance-spec-v3.md:84-94",
-            "appworld_identity": "cli/src/localbench/scoring/agentic_exec/wsl_worker.py:166-200",
-            "sandbox_identity": "cli/src/localbench/scoring/agentic_exec/sandbox.py:101-120,328-359",
-            "legacy_continuity": "scratchpad/appliance-spec-v3.md:95-99",
-            "packaging_correctness_gate": "scratchpad/appliance-spec-v3.md:100-107",
+            "task_identity.historical_aliases": (
+                "runs/bench/ranked-5axis-capped-2026-07-03/agentic/localbench-run/"
+                "gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json:122;"
+                "cli/runs/agentic/qwen36-27b-Q6_K.scored.run1.json:124"
+            ),
+            "appworld_identity": (
+                "cli/src/localbench/data/contracts/agentic-execution-contract-v1-evidence.json:1"
+            ),
+            "sandbox_identity": (
+                "cli/src/localbench/data/contracts/agentic-execution-contract-v1-evidence.json:1"
+            ),
+            "legacy_continuity": (
+                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:147-152"
+            ),
+            "packaging_correctness_gate": (
+                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:154-162"
+            ),
         },
     }
     payload["provenance"] = _leaf_provenance(payload, _object(payload["provenance"]))
@@ -167,12 +211,17 @@ def extract_contract_payload(
 
 
 def signed_contract(payload: JsonObject, signing_key: Path) -> JsonObject:
+    key = load_private_key(signing_key)
     return {
         "payload": payload,
         "payload_sha256": canonical_json_hash(payload),
         "signature": {
             "key_id": CONTRACT_KEY_ID,
-            **sign_manifest_payload(payload, signing_key),
+            "algorithm": "Ed25519",
+            "public_key": key.public_key.hex(),
+            "signature": sign_bytes(
+                CONTRACT_SIGNATURE_DOMAIN + canonical_json_bytes(payload), signing_key
+            ),
         },
     }
 
@@ -184,23 +233,41 @@ def write_signed_contract(path: Path, payload: JsonObject, signing_key: Path) ->
 
 
 def load_execution_contract(path: Path | None = None) -> JsonObject:
-    if path is None:
-        resource = resources.files("localbench").joinpath("data", "contracts", CONTRACT_FILENAME)
-        raw = resource.read_text(encoding="utf-8")
-    else:
-        raw = path.read_text(encoding="utf-8")
-    parsed = json.loads(raw)
+    try:
+        if path is None:
+            resource = resources.files("localbench").joinpath("data", "contracts", CONTRACT_FILENAME)
+            raw = resource.read_text(encoding="utf-8")
+        else:
+            raw = path.read_text(encoding="utf-8")
+        parsed = json.loads(raw)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ExecutionContractDriftError("readable canonical contract JSON", type(exc).__name__) from exc
     if not isinstance(parsed, dict):
         raise ExecutionContractDriftError("signed-object", type(parsed).__name__)
     contract: JsonObject = parsed
     payload = contract.get("payload")
     signature = contract.get("signature")
+    if not isinstance(payload, dict):
+        raise ExecutionContractDriftError("payload object", type(payload).__name__)
+    if payload.get("schema") != CONTRACT_SCHEMA:
+        raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
+    if payload.get("contract_id") != CONTRACT_ID:
+        raise ExecutionContractDriftError(CONTRACT_ID, str(payload.get("contract_id")))
     trusted_signature = (
         isinstance(signature, dict)
         and signature.get("key_id") == CONTRACT_KEY_ID
         and signature.get("public_key") == CONTRACT_PUBLIC_KEY_HEX
     )
-    if not isinstance(payload, dict) or not trusted_signature or not verify_manifest_signature(contract):
+    signature_hex = signature.get("signature") if isinstance(signature, dict) else None
+    if (
+        not trusted_signature
+        or not isinstance(signature_hex, str)
+        or not verify_bytes(
+            CONTRACT_SIGNATURE_DOMAIN + canonical_json_bytes(payload),
+            signature_hex,
+            CONTRACT_PUBLIC_KEY_HEX,
+        )
+    ):
         raise ExecutionContractDriftError("valid-ed25519-signature", "invalid")
     expected = contract.get("payload_sha256")
     actual = canonical_json_hash(payload)
@@ -222,6 +289,36 @@ def assert_execution_contract(path: Path | None = None) -> str:
     return str(contract["payload_sha256"])
 
 
+def assert_runtime_identity(identity: JsonObject, path: Path | None = None) -> None:
+    """Compare every signed runtime identity leaf with freshly measured worker reality."""
+    payload = _object(load_execution_contract(path)["payload"])
+    expected_groups = {
+        "appworld_identity": _object(payload["appworld_identity"]),
+        "sandbox_identity": _object(payload["sandbox_identity"]),
+    }
+    runtime_names = {
+        "appworld_version": "appworld_version",
+        "appworld_package_sha256": "appworld_package_sha256",
+        "python_version": "python_version",
+        "bubblewrap_sha256": "bwrap_sha256",
+        "bubblewrap_version": "bwrap_version",
+        "appworld_root_filesystem": "appworld_root_filesystem",
+        "worker_content_sha256": "worker_content_sha256",
+    }
+    for group_name, expected_group in expected_groups.items():
+        for field, expected in expected_group.items():
+            if field == "appworld_data_sha256":
+                continue  # Verified from the selected task contents in assert_task_identity().
+            if field == "env_pins":
+                actual = identity.get("env_pins")
+            else:
+                actual = identity.get(runtime_names[field])
+            if actual != expected:
+                raise RuntimeIdentityDriftError(
+                    f"{group_name}.{field}", repr(expected), repr(actual)
+                )
+
+
 def assert_task_identity(
     task_ids: list[str],
     semantic_task_contents: dict[str, JsonValue],
@@ -231,10 +328,25 @@ def assert_task_identity(
 
     payload = _object(load_execution_contract(path)["payload"])
     identity = _object(payload["task_identity"])
-    checks = {
-        "ordered_task_ids_sha256": task_pool.ordered_task_ids_sha256(task_ids),
-        "semantic_task_sha256": task_pool.semantic_task_sha256(semantic_task_contents),
-    }
+    canonical_ids = identity.get("ordered_task_ids")
+    if not isinstance(canonical_ids, list) or task_ids != [item for item in canonical_ids if item in task_ids]:
+        raise TaskIdentityDriftError("ordered_task_ids", "ordered contract subset", repr(task_ids))
+    expected_by_id = _object(identity["semantic_task_sha256_by_id"])
+    for task_id in task_ids:
+        expected = str(expected_by_id.get(task_id))
+        actual = canonical_json_hash(semantic_task_contents[task_id])
+        if expected != actual:
+            raise TaskIdentityDriftError(f"semantic_task_sha256_by_id.{task_id}", expected, actual)
+    checks = {"ordered_task_ids_sha256": task_pool.ordered_task_ids_sha256(task_ids)}
+    if task_ids == canonical_ids:
+        checks["semantic_task_sha256"] = task_pool.semantic_task_sha256(semantic_task_contents)
+        appworld_identity = _object(payload["appworld_identity"])
+        expected_data = str(appworld_identity.get("appworld_data_sha256"))
+        actual_data = checks["semantic_task_sha256"]
+        if expected_data != actual_data:
+            raise TaskIdentityDriftError("appworld_data_sha256", expected_data, actual_data)
+    else:
+        checks.pop("ordered_task_ids_sha256")
     for field, actual in checks.items():
         expected = str(identity.get(field))
         if expected != actual:
@@ -385,7 +497,7 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
     }
     provenance: JsonObject = {
         "covered_behavior.host_agent_loop_scorer_source_sha256": (
-            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:29-48"
+            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:36-59"
         ),
         "covered_behavior.prompt_sha256": "cli/src/localbench/scoring/agentic_exec/prompt.py:30-128",
         "covered_behavior.block_parser_sha256": (
@@ -402,18 +514,22 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
         "covered_behavior.budgets": "cli/src/localbench/scoring/agentic_exec/loop_config.py:19-72",
         "covered_behavior.timeouts": (
             "cli/src/localbench/scoring/agentic_exec/wsl_process.py:19-22;"
-            "cli/src/localbench/scoring/agentic_exec/sandbox.py:51-53,114-120;"
-            "cli/src/localbench/scoring/agentic_exec/chat_client.py:27-31,207-218"
+            "cli/src/localbench/scoring/agentic_exec/sandbox.py:51-53;"
+            "cli/src/localbench/scoring/agentic_exec/sandbox.py:114-120;"
+            "cli/src/localbench/scoring/agentic_exec/chat_client.py:27-31;"
+            "cli/src/localbench/scoring/agentic_exec/chat_client.py:207-218"
         ),
         "covered_behavior.transport_policy": (
             "cli/src/localbench/scoring/agentic_exec/chat_client.py:141-269;"
             "cli/src/localbench/scoring/agentic_exec/benchmark.py:117-146"
         ),
         "covered_behavior.failure_to_score": (
-            "cli/src/localbench/scoring/agentic_exec/benchmark.py:206-279,307-361"
+            "cli/src/localbench/scoring/agentic_exec/benchmark.py:206-279;"
+            "cli/src/localbench/scoring/agentic_exec/benchmark.py:307-361"
         ),
         "covered_behavior.run_aggregation": (
-            "cli/src/localbench/scoring/agentic_exec/funnel.py:425-428,465-541"
+            "cli/src/localbench/scoring/agentic_exec/funnel.py:425-428;"
+            "cli/src/localbench/scoring/agentic_exec/funnel.py:465-541"
         ),
         "covered_behavior.chat_template_policy": (
             "cli/src/localbench/orchestrate.py:1735-1747;"
@@ -421,7 +537,8 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
         ),
         "covered_behavior.execution_profiles": "cli/src/localbench/reasoning_registry.py:112-231",
         "covered_behavior.sandbox_policy": (
-            "cli/src/localbench/scoring/agentic_exec/sandbox.py:101-120,328-359"
+            "cli/src/localbench/scoring/agentic_exec/sandbox.py:101-120;"
+            "cli/src/localbench/scoring/agentic_exec/sandbox.py:328-359"
         ),
     }
     return behavior, provenance
@@ -501,8 +618,10 @@ __all__ = [
     "CONTRACT_ID",
     "ExecutionContractDriftError",
     "TaskIdentityDriftError",
+    "RuntimeIdentityDriftError",
     "assert_execution_contract",
     "assert_task_identity",
+    "assert_runtime_identity",
     "contract_task_ids",
     "extract_contract_payload",
     "load_execution_contract",

@@ -43,10 +43,17 @@ def load_semantic_task_contents(
 ) -> dict[str, JsonValue]:
     """Read instructions, initial DB state, and evaluator criteria for exact task IDs."""
     tasks_root = (root or appworld_root()) / "data" / "tasks"
-    return {
-        task_id: _semantic_task_content(tasks_root / task_id)
-        for task_id in sorted(task_ids)
-    }
+    try:
+        return {
+            task_id: _semantic_task_content(tasks_root / task_id)
+            for task_id in sorted(task_ids)
+        }
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        from localbench.scoring.agentic_exec.execution_contract import TaskIdentityDriftError
+
+        raise TaskIdentityDriftError(
+            "semantic_task_contents", "readable canonical task data", type(exc).__name__
+        ) from exc
 
 
 def _semantic_task_content(task_dir: Path) -> JsonValue:

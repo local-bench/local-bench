@@ -170,9 +170,12 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             pass
         self._close_log()
 
-    def list_tasks(self, stage: str = "scored") -> list[str]:
+    def list_tasks(self, stage: str = "scored", *, max_items: int | None = None) -> list[str]:
+        request: JsonObject = {"op": "list_tasks", "stage": stage}
+        if max_items is not None:
+            request["max_items"] = max_items
         response = self._request(
-            {"op": "list_tasks", "stage": stage},
+            request,
             timeout_s=self.config.open_task_timeout_s,
         )
         task_ids = response.get("task_ids")
@@ -217,7 +220,15 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         if kind == "ok":
             return response
         if kind in {"error", "protocol_error"}:
-            raise SandboxError(f"wsl worker {kind}: {response.get('detail', '')}")
+            detail = f"wsl worker {kind}: {response.get('detail', '')}"
+            if response.get("error_type") in {
+                "ExecutionContractDriftError",
+                "RuntimeIdentityDriftError",
+                "TaskIdentityDriftError",
+                "WorkerPreflightError",
+            }:
+                raise WorkerSetupError(detail)
+            raise SandboxError(detail)
         raise SandboxError(f"wsl worker returned invalid response kind: {kind!r}")
 
     def _require_proc(self) -> subprocess.Popen[bytes]:

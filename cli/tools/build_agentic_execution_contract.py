@@ -12,6 +12,7 @@ from localbench.scoring.agentic_exec.execution_contract import (
     write_signed_contract,
 )
 from localbench.scoring.agentic_exec.wsl_worker import collect_identity
+from localbench.submissions.canon import canonical_json_hash, write_json_file
 
 
 def main() -> int:
@@ -20,6 +21,7 @@ def main() -> int:
     parser.add_argument("--task-ids-from", required=True, type=Path)
     parser.add_argument("--signing-key", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--evidence-out", required=True, type=Path)
     args = parser.parse_args()
 
     task_ids = _task_ids(args.task_ids_from)
@@ -30,6 +32,8 @@ def main() -> int:
         semantic_task_contents=semantic_contents,
         appworld_identity={
             "appworld_version": identity["appworld_version"],
+            "appworld_package_sha256": identity["appworld_package_sha256"],
+            "appworld_data_sha256": task_pool.semantic_task_sha256(semantic_contents),
             "python_version": identity["python_version"],
             "env_pins": identity["env_pins"],
         },
@@ -38,6 +42,24 @@ def main() -> int:
             "bubblewrap_version": identity["bwrap_version"],
             "appworld_root_filesystem": identity["appworld_root_filesystem"],
             "worker_content_sha256": identity["worker_content_sha256"],
+        },
+    )
+    task_identity = payload["task_identity"]
+    if not isinstance(task_identity, dict):
+        raise TypeError("extracted task identity is not an object")
+    write_json_file(
+        args.evidence_out,
+        {
+            "schema": "localbench.agentic-execution-contract-evidence.v1",
+            "source": "measured during contract extraction",
+            "runtime_identity": identity,
+            "ordered_task_ids": task_ids,
+            "ordered_task_ids_sha256": task_identity["ordered_task_ids_sha256"],
+            "semantic_task_sha256": task_identity["semantic_task_sha256"],
+            "semantic_task_sha256_by_id": {
+                task_id: canonical_json_hash(semantic_contents[task_id])
+                for task_id in sorted(task_ids)
+            },
         },
     )
     write_signed_contract(args.out, payload, args.signing_key)

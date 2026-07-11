@@ -70,15 +70,21 @@ def preflight_wsl_agentic(
         if identity is None:
             raise SandboxError("wsl preflight did not collect worker identity")
         _assert_identity(identity, worker_implementation_identity())
-        task_ids = tuple(worker.list_tasks("scored"))
+        task_ids = tuple(worker.list_tasks("scored", max_items=max_items))
     if not task_ids:
         raise SandboxError("wsl preflight list_tasks returned no scored tasks")
-    selected = task_ids[:max_items] if max_items is not None else task_ids
     return WslPreflightResult(
         identity=identity,
-        task_ids=tuple(selected),
-        canonical_task_ids=task_ids,
+        task_ids=task_ids,
+        canonical_task_ids=tuple(worker_contract_task_ids()),
     )
+
+
+def worker_contract_task_ids() -> list[str]:
+    """Return the host copy of the signed canonical IDs after worker verification succeeds."""
+    from localbench.scoring.agentic_exec.execution_contract import contract_task_ids
+
+    return contract_task_ids()
 
 
 def provenance_from_identity(identity: JsonObject) -> JsonObject:
