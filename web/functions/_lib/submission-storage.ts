@@ -101,28 +101,6 @@ export function projectionKey(projectionObjectSha256: string): string {
   return `projections/sha256/${projectionObjectSha256}.json`;
 }
 
-export async function persistProjectionCreateOnly(
-  env: SubmissionApiEnv,
-  projectionObjectSha256: string,
-  canonicalBytes: string,
-): Promise<string> {
-  const key = projectionKey(projectionObjectSha256);
-  let putError: unknown = null;
-  try {
-    await env.SUBMISSIONS.put(key, canonicalBytes, { onlyIf: { etagDoesNotMatch: "*" } });
-  } catch (error) {
-    putError = error;
-  }
-  const stored = await env.SUBMISSIONS.get(key);
-  if (stored === null) {
-    if (putError !== null) throw putError;
-    throw new Error("projection object missing after create-only put");
-  }
-  const bytes = await new Response(stored.body).text();
-  if (bytes !== canonicalBytes) throw new Error("projection object collision or mutation");
-  return key;
-}
-
 function r2SigningConfig(env: SubmissionApiEnv): R2SigningConfig | null {
   if (env.R2_ACCESS_KEY_ID === undefined || env.R2_ACCOUNT_ID === undefined || env.R2_SECRET_ACCESS_KEY === undefined) {
     return null;

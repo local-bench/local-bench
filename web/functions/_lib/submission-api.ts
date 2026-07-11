@@ -8,7 +8,7 @@ import {
 import { adminBlocked, jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
 import { InvalidTransitionError } from "./submission-state";
 import { canonicalJson, sha256Hex } from "./submission-canonical";
-import { persistProjectionCreateOnly } from "./submission-storage";
+import { persistProjectionCreateOnly } from "./publication-storage";
 import { zt1DecisionForAcceptedSubmission } from "./submission-zt1-decision";
 import {
   autoPublishEnabled,
