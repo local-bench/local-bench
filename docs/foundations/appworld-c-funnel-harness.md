@@ -220,3 +220,11 @@ The funnel orchestration + client + frozen subsets + the GPU-free proof ONLY. NO
 agentic axis (stays weight-0 candidate, zero headline impact); the submission-verifier / site work.
 The `ModelClient` seam stays clean: the GPU run is just "start the server, point the client at it,
 run the stage."
+
+## C0 packaging differential gate
+
+The scripted current-harness-versus-appliance differential is explicitly `pending-C2`. The C2
+appliance does not yet exist, so C0 cannot execute the comparison. At C2 the gate must compare the
+same scripted tasks across both paths and require equality of per-turn requests, sandbox
+operations, verdicts, and aggregates. The skip-marked C0 test records this deferral visibly; it is
+not evidence that the differential passed.
