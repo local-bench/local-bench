@@ -71,6 +71,9 @@
       "type": "object", "additionalProperties": false,
       "properties": {
         "status": {"type": "string", "minLength": 1},
+        "n_scored": {"type": "integer", "minimum": 0},
+        "worst_bench": {"type": ["string", "null"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
         "per_bench": {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}}
       }
     },
@@ -85,7 +88,8 @@
       "properties": {
         "amo": {"enum": ["rescored", "verdict_carried"]}, "appworld_c": {"enum": ["rescored", "verdict_carried"]},
         "bfcl": {"enum": ["rescored", "verdict_carried"]}, "bigcodebench_hard": {"enum": ["rescored", "verdict_carried"]},
-        "ifbench": {"enum": ["rescored", "verdict_carried"]}, "mmlu_pro": {"enum": ["rescored", "verdict_carried"]},
+        "ifbench": {"enum": ["rescored", "verdict_carried"]}, "lcb": {"enum": ["rescored", "verdict_carried"]},
+        "mmlu_pro": {"enum": ["rescored", "verdict_carried"]},
         "olymmath_hard": {"enum": ["rescored", "verdict_carried"]}, "tc_json_v1": {"enum": ["rescored", "verdict_carried"]}
       }
     },

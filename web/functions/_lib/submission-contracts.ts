@@ -190,7 +190,11 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
     composite_static: NullableScoreSchema.optional(), composite_full: NullableScoreSchema.optional(), static_index_version: z.string().min(1).optional(),
   }).strict(),
   axes: z.record(z.string(), ProjectionAxisSchema).refine((axes) => Object.keys(axes).length > 0),
-  conformance: z.object({ status: z.string().min(1).optional(), per_bench: z.record(z.string(), z.unknown()).optional() }).strict(),
+  conformance: z.object({
+    status: z.string().min(1).optional(), n_scored: z.number().int().nonnegative().optional(),
+    worst_bench: z.string().nullable().optional(), reasons: z.array(z.string()).optional(),
+    per_bench: z.record(z.string(), z.unknown()).optional(),
+  }).strict(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict(),
   artifact_hashes: z.object({ bundle_sha256: Sha256Schema, projection_sha256: Sha256Schema, public_artifact_manifest_sha256: Sha256Schema }).strict(),
   origin: z.enum(["project_anchor", "community"]),
@@ -199,7 +203,8 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   provenance_notes: z.array(z.string()).optional(),
   rescore_modes: z.object({
     amo: RescoreModeSchema.optional(), appworld_c: RescoreModeSchema.optional(), bfcl: RescoreModeSchema.optional(),
-    bigcodebench_hard: RescoreModeSchema.optional(), ifbench: RescoreModeSchema.optional(), mmlu_pro: RescoreModeSchema.optional(),
+    bigcodebench_hard: RescoreModeSchema.optional(), ifbench: RescoreModeSchema.optional(), lcb: RescoreModeSchema.optional(),
+    mmlu_pro: RescoreModeSchema.optional(),
     olymmath_hard: RescoreModeSchema.optional(), tc_json_v1: RescoreModeSchema.optional(),
   }).strict(),
   validator: z.object({ validator_version: z.string().min(1), commit: z.string().nullable(), validated_at: z.iso.datetime() }).strict(),
