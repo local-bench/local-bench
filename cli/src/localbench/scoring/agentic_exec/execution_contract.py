@@ -20,12 +20,16 @@ from localbench.submissions.canon import canonical_json_bytes, canonical_json_ha
 from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
 LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
-CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v2"
+CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v3"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
 LEGACY_CONTRACT_FILENAME: Final = f"{LEGACY_CONTRACT_ID}.json"
-CONTRACT_KEY_ID: Final = "localbench-agentic-contract-2026-07"
-CONTRACT_PUBLIC_KEY_HEX: Final = "0becc292026a52fcb7a598cd3729bc45d3bfc31f9aec1b903acec5ddfdbaa6b0"
+CONTRACT_KEY_ID: Final = "localbench-agentic-contract-r2-2026-07"
+CONTRACT_PUBLIC_KEY_HEX: Final = "76b4a757ab22d3aaf69b5fc75d2b7a4e2725fb32a8634ab29d3a491e2bbad8ab"
+CONTRACT_PUBLIC_KEYS: Final = {
+    CONTRACT_KEY_ID: CONTRACT_PUBLIC_KEY_HEX,
+    "localbench-agentic-contract-2026-07": "0becc292026a52fcb7a598cd3729bc45d3bfc31f9aec1b903acec5ddfdbaa6b0",
+}
 CONTRACT_SIGNATURE_DOMAIN: Final = b"localbench.agentic-execution-contract.v1\n"
 HISTORICAL_SCORED_RECEIPT_HASH: Final = (
     "1920064637cf2a780e0484fcdeb2752b200a247418148eeb9a172047fe7192ad"
@@ -155,16 +159,23 @@ def extract_contract_payload(
         },
         "packaging_correctness_gate": {
             "required": True,
-            "status": "passed-C2-staging",
-            "kind": "direct_session_vs_appliance_ndjson_differential",
-            "equal_fields": ["sandbox_replies", "denials", "teardown"],
+            "status": "not-yet-passed",
+            "kind": "current_repo_harness_vs_appliance_worker_differential",
+            "equal_fields": [
+                "model_turn_requests",
+                "sandbox_operations",
+                "finalize_verdict",
+                "scored_envelopes",
+                "aggregates",
+            ],
             "gpu_required": False,
+            "admission": "fail-closed",
         },
         "provenance": {
-            "schema": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:22-23",
-            "contract_id": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:22-23",
+            "schema": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:23-24",
+            "contract_id": "cli/src/localbench/scoring/agentic_exec/execution_contract.py:23-24",
             "covered_behavior_sha256": (
-                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:122"
+                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:128"
             ),
             **provenance,
             "task_identity.ordered_task_ids": (
@@ -202,10 +213,10 @@ def extract_contract_payload(
                 "cli/src/localbench/data/contracts/agentic-execution-contract-v1-evidence.json:1"
             ),
             "legacy_continuity": (
-                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:147-152"
+                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:153-159"
             ),
             "packaging_correctness_gate": (
-                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:154-162"
+                "cli/src/localbench/scoring/agentic_exec/execution_contract.py:160-173"
             ),
         },
     }
@@ -260,10 +271,12 @@ def load_execution_contract(
         raise ExecutionContractDriftError(
             expected_contract_id, str(payload.get("contract_id"))
         )
+    signature_key_id = signature.get("key_id") if isinstance(signature, dict) else None
+    trusted_public_key = CONTRACT_PUBLIC_KEYS.get(str(signature_key_id))
     trusted_signature = (
         isinstance(signature, dict)
-        and signature.get("key_id") == CONTRACT_KEY_ID
-        and signature.get("public_key") == CONTRACT_PUBLIC_KEY_HEX
+        and trusted_public_key is not None
+        and signature.get("public_key") == trusted_public_key
     )
     signature_hex = signature.get("signature") if isinstance(signature, dict) else None
     if (
@@ -272,7 +285,7 @@ def load_execution_contract(
         or not verify_bytes(
             CONTRACT_SIGNATURE_DOMAIN + canonical_json_bytes(payload),
             signature_hex,
-            CONTRACT_PUBLIC_KEY_HEX,
+            str(trusted_public_key),
         )
     ):
         raise ExecutionContractDriftError("valid-ed25519-signature", "invalid")
@@ -294,6 +307,17 @@ def assert_execution_contract(path: Path | None = None) -> str:
     if expected != actual:
         raise ExecutionContractDriftError(expected, actual)
     return str(contract["payload_sha256"])
+
+
+def assert_packaging_correctness_gate(path: Path | None = None) -> None:
+    """Prevent appliance admission until the full C0 packaging differential passes."""
+    payload = _object(load_execution_contract(path)["payload"])
+    gate = _object(payload["packaging_correctness_gate"])
+    if gate.get("status") != "passed-current-repo-harness-vs-appliance":
+        raise ExecutionContractDriftError(
+            "passed-current-repo-harness-vs-appliance",
+            str(gate.get("status")),
+        )
 
 
 def assert_runtime_identity(identity: JsonObject, path: Path | None = None) -> None:
@@ -519,7 +543,7 @@ def _extract_covered_behavior() -> tuple[JsonObject, JsonObject]:
             orchestrate, "_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN: Final ="
         ),
         "covered_behavior.budgets.model_call_timeout_enforced": (
-            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:429"
+            "cli/src/localbench/scoring/agentic_exec/execution_contract.py:453"
         ),
         "covered_behavior.budgets": "cli/src/localbench/scoring/agentic_exec/loop_config.py:19-72",
         "covered_behavior.timeouts": (
@@ -632,6 +656,7 @@ __all__ = [
     "TaskIdentityDriftError",
     "RuntimeIdentityDriftError",
     "assert_execution_contract",
+    "assert_packaging_correctness_gate",
     "assert_task_identity",
     "assert_runtime_identity",
     "contract_task_ids",

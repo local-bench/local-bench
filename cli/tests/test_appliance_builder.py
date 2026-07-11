@@ -33,6 +33,7 @@ SPEC.loader.exec_module(builder)
 def valid_config() -> dict[str, object]:
     contract = load_execution_contract()["payload"]
     appworld_identity = contract["appworld_identity"]
+    lineage = contract["identity_lineage"]
     download = {"url": "https://local-bench.ai/input", "sha256": "11" * 32, "size_bytes": 1}
     script = TOOLS / "runtime_rootfs_build.sh"
     return {
@@ -52,7 +53,7 @@ def valid_config() -> dict[str, object]:
         "appworld": {
             "version": appworld_identity["appworld_version"],
             "env_pins": appworld_identity["env_pins"],
-            "package": {**download, "filename": "appworld.whl"},
+            "package": {**download, "filename": "appworld.whl", "sha256": lineage["official_wheel_sha256"]},
             "dependency_locks": {"x86_64": download},
             "data_distribution": {**download, "filename": "data.bundle"},
             "installed_tree_sha256": appworld_identity["appworld_package_sha256"],

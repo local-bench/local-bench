@@ -15,3 +15,11 @@ after AppWorld installation, whose normalized installed-tree SHA-256 is
 
 This successor does not bridge or retarget the legacy identity. The local
 maintainer harness migrates only after wave-1 under a separate work item.
+
+`agentic-execution-contract-aw013p1-pypi28113a7a-v3.json` is the R2
+fail-closed successor. Review established that v2's direct-session versus
+NDJSON check compared installed appliance code with itself, rather than the
+current repository harness with the appliance across model requests,
+finalization, scoring, and aggregation. V3 therefore records the packaging
+gate as `not-yet-passed`; admission remains closed until that complete
+differential passes. V2 remains immutable audit history and is not retargeted.

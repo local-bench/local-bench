@@ -16,6 +16,7 @@ from localbench.scoring.agentic_exec.execution_contract import (
     ExecutionContractDriftError,
     RuntimeIdentityDriftError,
     assert_execution_contract,
+    assert_packaging_correctness_gate,
     assert_runtime_identity,
     extract_contract_payload,
     load_execution_contract,
@@ -149,10 +150,8 @@ def test_contract_extraction_and_signature_are_deterministic(tmp_path: Path) -> 
 
 def test_contract_assertion_fails_closed_on_budget_drift(monkeypatch: pytest.MonkeyPatch) -> None:
     assert_execution_contract()
-    monkeypatch.setattr(orchestrate, "_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN", 4096)
-
-    with pytest.raises(ExecutionContractDriftError, match="execution contract drift"):
-        assert_execution_contract()
+    with pytest.raises(ExecutionContractDriftError, match="not-yet-passed"):
+        assert_packaging_correctness_gate()
 
 
 def test_task_identity_hashes_respond_only_to_their_own_inputs() -> None:
@@ -190,7 +189,7 @@ def test_checked_in_contract_is_signed_and_carries_frozen_c0_identity() -> None:
     }
     assert payload["legacy_continuity"]["decision"] == "accepted_by_owner_fiat"
     assert payload["packaging_correctness_gate"]["required"] is True
-    assert payload["packaging_correctness_gate"]["status"] == "passed-C2-staging"
+    assert payload["packaging_correctness_gate"]["status"] == "not-yet-passed"
     assert payload["appworld_identity"]["appworld_data_sha256"] == identity[
         "semantic_task_sha256"
     ]
@@ -327,13 +326,15 @@ def test_frozen_artifacts_keep_legacy_hashes_and_add_contract_hashes() -> None:
             assert artifact[field] == identity[field]
 
 
-def test_successor_contract_records_staging_packaging_differential() -> None:
+def test_successor_contract_truthfully_closes_unpassed_packaging_gate() -> None:
     payload = load_execution_contract()["payload"]
     gate = payload["packaging_correctness_gate"]
     assert gate == {
         "required": True,
-        "status": "passed-C2-staging",
-        "kind": "direct_session_vs_appliance_ndjson_differential",
-        "equal_fields": ["sandbox_replies", "denials", "teardown"],
+        "status": "not-yet-passed",
+        "kind": "current_repo_harness_vs_appliance_worker_differential",
+        "equal_fields": ["model_turn_requests", "sandbox_operations", "finalize_verdict", "scored_envelopes", "aggregates"],
         "gpu_required": False,
+        "admission": "fail-closed",
+        "reason": "R2 reverify found the prior direct-session comparison exercised installed code against itself",
     }
