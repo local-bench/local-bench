@@ -19,6 +19,11 @@ from localbench.serving.readiness import ReadinessError, verify_sglang_readiness
 from localbench.suite_resolver import STATIC_EXEC_SUITE_ID
 from serving_helpers import serving_evidence
 
+_TEMPLATE_SNAPSHOT = Path(__file__).parent / "fixtures" / "sglang-template-probe"
+_TEMPLATE_SHA256 = hashlib.sha256(
+    (_TEMPLATE_SNAPSHOT / "chat_template.jinja").read_bytes()
+).hexdigest()
+
 
 def _completed(
     stdout: str = "", stderr: str = "", returncode: int = 0
@@ -105,7 +110,7 @@ def _readiness_kwargs(server_info: dict[str, object]) -> dict[str, object]:
         "model_id": "demo",
         "model_path": "/mnt/c/model",
         "chat_template": "/mnt/c/model/chat_template.jinja",
-        "pinned_chat_template_sha256": "a" * 64,
+        "pinned_chat_template_sha256": _TEMPLATE_SHA256,
         "api_key": "secret",
         "seed": 1234,
         "ctx": 8192,
@@ -114,6 +119,8 @@ def _readiness_kwargs(server_info: dict[str, object]) -> dict[str, object]:
         "mamba_ssm_dtype": "float32",
         "quantization": "compressed-tensors",
         "mem_fraction_static": "0.80",
+        "local_snapshot_path": _TEMPLATE_SNAPSHOT,
+        "local_token_ids_renderer": lambda _path, _messages: [1, 2],
         "transport": httpx.MockTransport(_readiness_handler(server_info)),
         "startup_timeout_seconds": 1,
         "poll_interval_seconds": 0,
@@ -318,6 +325,31 @@ async def test_sglang_readiness_rejects_unverified_context_fit() -> None:
     with pytest.raises(ReadinessError, match="max_total_num_tokens"):
         await verify_sglang_readiness(
             **_readiness_kwargs(_server_info(max_total_num_tokens=4096))
+        )
+
+
+@pytest.mark.anyio
+async def test_sglang_readiness_rejects_template_token_id_mismatch() -> None:
+    with pytest.raises(ReadinessError, match="token IDs do not match"):
+        await verify_sglang_readiness(
+            **{
+                **_readiness_kwargs(_server_info()),
+                "local_token_ids_renderer": lambda _path, _messages: [1, 3],
+            }
+        )
+
+
+@pytest.mark.anyio
+async def test_sglang_readiness_rejects_unrenderable_local_template() -> None:
+    def cannot_render(_path: Path, _messages: list[dict[str, object]]) -> list[int]:
+        raise ReadinessError("local template unverifiable")
+
+    with pytest.raises(ReadinessError, match="unverifiable"):
+        await verify_sglang_readiness(
+            **{
+                **_readiness_kwargs(_server_info()),
+                "local_token_ids_renderer": cannot_render,
+            }
         )
 
 

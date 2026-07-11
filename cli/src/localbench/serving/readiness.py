@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -197,6 +199,8 @@ async def verify_sglang_readiness(
     mamba_ssm_dtype: str,
     quantization: str,
     mem_fraction_static: str,
+    local_snapshot_path: Path,
+    local_token_ids_renderer: Callable[[Path, list[JsonObject]], list[int]] | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
     startup_timeout_seconds: float = 180.0,
     poll_interval_seconds: float = 0.25,
@@ -301,6 +305,18 @@ async def verify_sglang_readiness(
             f"{root}/v1/tokenize",
             {"model": model_id, "messages": probe_messages},
         )
+        local_template_path = local_snapshot_path / "chat_template.jinja"
+        if _sha256_file(local_template_path) != pinned_chat_template_sha256:
+            raise ReadinessError(
+                "SGLang local chat template changed after snapshot identity was recorded"
+            )
+        renderer = local_token_ids_renderer or _render_snapshot_chat_token_ids
+        expected_token_ids = renderer(local_snapshot_path, probe_messages)
+        reported_token_ids = _token_ids(tokenized)
+        if reported_token_ids != expected_token_ids:
+            raise ReadinessError(
+                "SGLang /v1/tokenize token IDs do not match the pinned snapshot template/tokenizer"
+            )
         resolved = {key: server_info[key] for key in expected}
         resolved["version"] = engine_version
         resolved["max_total_num_tokens"] = max_total_num_tokens
@@ -428,3 +444,50 @@ def _version_tuple(value: str) -> tuple[int, ...]:
     if match is None:
         return ()
     return tuple(int(part) for part in match.groups(default="0"))
+
+
+def _render_snapshot_chat_token_ids(
+    snapshot_path: Path, messages: list[JsonObject]
+) -> list[int]:
+    template_path = snapshot_path / "chat_template.jinja"
+    try:
+        template = template_path.read_text(encoding="utf-8")
+        from transformers import AutoTokenizer  # noqa: PLC0415
+
+        tokenizer = AutoTokenizer.from_pretrained(snapshot_path, local_files_only=True)
+        rendered = tokenizer.apply_chat_template(
+            messages,
+            chat_template=template,
+            tokenize=True,
+            add_generation_prompt=True,
+        )
+    except (ImportError, OSError, TypeError, ValueError) as error:
+        raise ReadinessError(
+            "SGLang pinned snapshot template/tokenizer could not be rendered locally"
+        ) from error
+    if not isinstance(rendered, list) or any(
+        not isinstance(value, int) or isinstance(value, bool) for value in rendered
+    ):
+        raise ReadinessError(
+            "SGLang pinned snapshot template/tokenizer returned invalid token IDs"
+        )
+    return rendered
+
+
+def _token_ids(payload: JsonObject) -> list[int]:
+    values = payload.get("tokens")
+    if not isinstance(values, list) or any(
+        not isinstance(value, int) or isinstance(value, bool) for value in values
+    ):
+        raise ReadinessError("SGLang /v1/tokenize returned invalid token IDs")
+    return values
+
+
+def _sha256_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

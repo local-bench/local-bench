@@ -640,6 +640,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
             adapter,
             launch_config,
             pinned_chat_template_sha256=artifact.chat_template_digest,
+            local_snapshot_path=artifact.model_file,
             root=root,
         )
     launched = None
@@ -661,6 +662,7 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
                 mamba_ssm_dtype=launch_config.mamba_ssm_dtype,
                 quantization=quantization,
                 mem_fraction_static=launch_config.mem_fraction_static,
+                local_snapshot_path=artifact.model_file,
             )
         except BaseException:
             raise
@@ -937,6 +939,7 @@ async def _run_sglang_determinism_canary(
     config: SglangLaunchConfig,
     *,
     pinned_chat_template_sha256: str,
+    local_snapshot_path: Path,
     root: Path,
 ) -> None:
     outputs: list[bytes] = []
@@ -961,6 +964,7 @@ async def _run_sglang_determinism_canary(
                 mamba_ssm_dtype=config.mamba_ssm_dtype,
                 quantization=config.quantization,
                 mem_fraction_static=config.mem_fraction_static,
+                local_snapshot_path=local_snapshot_path,
             )
             async with httpx.AsyncClient(
                 base_url=f"http://127.0.0.1:{config.port}/v1",

@@ -156,7 +156,9 @@ explicit override. The lane uses the snapshot's NVFP4/compressed-tensors configu
 and KV-cache data, 2048-token chunked prefill, and a 0.80 static-memory fraction. The static fit
 contains weights, KV, and hybrid/Mamba state pools; a separate non-static fit reserves activation
 and CUDA-graph memory using the v0.5.13 heuristic. It then independently requires the live
-`/server_info.max_total_num_tokens` capacity to cover the configured context.
+`/server_info.max_total_num_tokens` capacity to cover the configured context. Template provenance
+is earned only when locally rendering the pinned snapshot template/tokenizer produces exactly the
+same token IDs as the server's `/v1/tokenize` response.
 
 Completion requires `runtime: sglang`, exact package/tag/commit and dependency-lock identity,
 requested repository plus 40-character revision and snapshot Merkle/per-file hashes, non-null serve
