@@ -785,11 +785,11 @@ def _reject_elf_appended_data(name: str, data: bytes) -> None:
                 raise ScanError(f"ELF section-header table is absent but metadata is nonzero: {name}")
         elif shentsize != required_shentsize:
             raise ScanError(f"ELF section-header entry size is invalid: {name}")
-        computed_end = required_ehsize
+        file_extents = [(0, required_ehsize)]
         if phnum:
-            computed_end = max(computed_end, phoff + phentsize * phnum)
+            file_extents.append((phoff, phoff + phentsize * phnum))
         if shnum:
-            computed_end = max(computed_end, shoff + shentsize * shnum)
+            file_extents.append((shoff, shoff + shentsize * shnum))
         for index in range(phnum):
             offset = phoff + index * phentsize
             if elf64:
@@ -800,7 +800,8 @@ def _reject_elf_appended_data(name: str, data: bytes) -> None:
                 _type, file_offset, _vaddr, _paddr, file_size = struct.unpack_from(
                     endian + "IIIII", data, offset
                 )
-            computed_end = max(computed_end, file_offset + file_size)
+            if file_size > 0:
+                file_extents.append((file_offset, file_offset + file_size))
         for index in range(shnum):
             offset = shoff + index * shentsize
             if elf64:
@@ -812,12 +813,21 @@ def _reject_elf_appended_data(name: str, data: bytes) -> None:
                     endian + "IIIIII", data, offset
                 )
             # SHT_NOBITS (8), e.g. .bss, occupies no bytes in the object file.
-            if _type != 8:
-                computed_end = max(computed_end, file_offset + file_size)
+            if _type != 8 and file_size > 0:
+                file_extents.append((file_offset, file_offset + file_size))
     except (struct.error, IndexError) as error:
         raise ScanError(f"malformed ELF structure: {name}") from error
-    if computed_end != len(data):
-        disposition = "appended data" if computed_end < len(data) else "truncated image"
+    merged_extents: list[list[int]] = []
+    for start, end in sorted(file_extents):
+        if merged_extents and start <= merged_extents[-1][1]:
+            merged_extents[-1][1] = max(merged_extents[-1][1], end)
+        else:
+            merged_extents.append([start, end])
+    # ELF alignment permits legitimate unowned interior padding, so enforce trailing coverage
+    # after the final merged file-backed extent. Zero-size attacker-chosen offsets add no extent.
+    coverage_end = merged_extents[-1][1]
+    if coverage_end != len(data):
+        disposition = "appended data" if coverage_end < len(data) else "truncated image"
         raise ScanError(
-            f"ELF {disposition}: {name} computed_end={computed_end} size={len(data)}"
+            f"ELF {disposition}: {name} coverage_end={coverage_end} size={len(data)}"
         )

@@ -379,3 +379,70 @@ def test_elf_zero_count_table_offset_at_eof_fails_closed(
             expected_packages={"dpkg=1.22.6ubuntu6.6"},
             exact_digest_allowlist=allowlist,
         )
+
+
+@pytest.mark.parametrize(
+    "elf_class,table_kind",
+    [
+        (64, "program"),
+        (64, "section"),
+        (32, "program"),
+    ],
+)
+def test_elf_zero_size_table_entry_cannot_claim_trailing_payload(
+    tmp_path: Path, elf_class: int, table_kind: str
+) -> None:
+    import struct
+
+    elf64 = elf_class == 64
+    header_size = 64 if elf64 else 52
+    entry_size = (56 if elf64 else 32) if table_kind == "program" else (64 if elf64 else 40)
+    header = bytearray(header_size)
+    header[:16] = b"\x7fELF" + (b"\x02" if elf64 else b"\x01") + b"\x01\x01" + b"\x00" * 9
+    table_offset = header_size
+    payload = b"smuggled"
+    eof = header_size + entry_size + len(payload)
+    phoff = table_offset if table_kind == "program" else 0
+    shoff = table_offset if table_kind == "section" else 0
+    phentsize = entry_size if table_kind == "program" else 0
+    phnum = 1 if table_kind == "program" else 0
+    shentsize = entry_size if table_kind == "section" else 0
+    shnum = 1 if table_kind == "section" else 0
+    header_format = "<HHIQQQIHHHHHH" if elf64 else "<HHIIIIIHHHHHH"
+    struct.pack_into(
+        header_format,
+        header,
+        16,
+        2,
+        62 if elf64 else 3,
+        1,
+        0,
+        phoff,
+        shoff,
+        0,
+        header_size,
+        phentsize,
+        phnum,
+        shentsize,
+        shnum,
+        0,
+    )
+    entry = bytearray(entry_size)
+    if table_kind == "program":
+        if elf64:
+            struct.pack_into("<IIQQQQ", entry, 0, 0, 0, eof, 0, 0, 0)
+        else:
+            struct.pack_into("<IIIII", entry, 0, 0, eof, 0, 0, 0)
+    else:
+        struct.pack_into("<IIQQQQ", entry, 0, 0, 0, 0, 0, eof, 0)
+    files, allowlist = dpkg_admission(
+        {"usr/bin/tool": bytes(header) + bytes(entry) + payload}
+    )
+
+    with pytest.raises(scanner.ScanError, match="appended data"):
+        scanner.scan_release(
+            archive(tmp_path, files),
+            allowed_top_levels={"usr", "var"},
+            expected_packages={"dpkg=1.22.6ubuntu6.6"},
+            exact_digest_allowlist=allowlist,
+        )
