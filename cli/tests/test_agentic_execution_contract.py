@@ -7,7 +7,6 @@ import re
 
 import pytest
 
-import localbench.orchestrate as orchestrate
 from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
     CONTRACT_SCHEMA,
