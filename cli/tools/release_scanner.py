@@ -64,9 +64,10 @@ def scan_release(
                 inventory.append(_entry(relative, data))
                 _inspect(relative, data, inventory, depth=0)
             elif path.is_symlink():
-                inventory.append({"path": relative, "type": "symlink", "target": path.readlink().as_posix()})
+                target = path.readlink().as_posix()
+                inventory.append(_metadata_entry(relative, "symlink", target=target))
             elif path.is_dir():
-                inventory.append({"path": relative, "type": "directory"})
+                inventory.append(_metadata_entry(relative, "directory"))
     canonical = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
     return _report(inventory, canonical, allowed_top_levels, path_allowlist)
 
@@ -122,13 +123,27 @@ def _inventory_archive(
         elif member.issym() or member.islnk():
             if not _safe_link_target(name, member.linkname):
                 raise ScanError(f"unsafe archive link: {name}")
-            inventory.append({"path": name, "type": "symlink" if member.issym() else "hardlink", "target": member.linkname})
+            inventory.append(
+                _metadata_entry(
+                    name,
+                    "symlink" if member.issym() else "hardlink",
+                    target=member.linkname,
+                )
+            )
         elif member.isdev() or member.isfifo():
             if not path.parts or path.parts[0] != "dev":
                 raise ScanError(f"device node outside /dev: {name}")
-            inventory.append({"path": name, "type": "device-node" if member.isdev() else "fifo", "mode": member.mode, "major": member.devmajor, "minor": member.devminor})
+            inventory.append(
+                _metadata_entry(
+                    name,
+                    "device-node" if member.isdev() else "fifo",
+                    mode=member.mode,
+                    major=member.devmajor,
+                    minor=member.devminor,
+                )
+            )
         elif member.isdir():
-            inventory.append({"path": name, "type": "directory"})
+            inventory.append(_metadata_entry(name, "directory"))
         else:
             raise ScanError(f"unrecognized tar member type: {name}")
 
@@ -157,12 +172,26 @@ def _safe_extract(archive: tarfile.TarFile, root: Path) -> list[dict[str, object
         if member.isdev() or member.isfifo():
             if not path.parts or path.parts[0] != "dev":
                 raise ScanError(f"device node outside /dev: {name}")
-            special.append({"path": name, "type": "device-node" if member.isdev() else "fifo", "mode": member.mode, "major": member.devmajor, "minor": member.devminor})
+            special.append(
+                _metadata_entry(
+                    name,
+                    "device-node" if member.isdev() else "fifo",
+                    mode=member.mode,
+                    major=member.devmajor,
+                    minor=member.devminor,
+                )
+            )
             continue
         if member.issym() or member.islnk():
             if not _safe_link_target(name, member.linkname):
                 raise ScanError(f"unsafe archive link: {name}")
-            special.append({"path": name, "type": "symlink" if member.issym() else "hardlink", "target": member.linkname})
+            special.append(
+                _metadata_entry(
+                    name,
+                    "symlink" if member.issym() else "hardlink",
+                    target=member.linkname,
+                )
+            )
             continue
         extractable.append(member)
     archive.extractall(root, members=extractable, filter="data")
@@ -209,7 +238,7 @@ def _inspect(name: str, data: bytes, inventory: list[dict[str, object]], *, dept
                     if item.flag_bits & 0x1:
                         raise ScanError(f"encrypted embedded archive: {child}")
                     if item.is_dir():
-                        inventory.append({"path": child, "type": "embedded-directory"})
+                        inventory.append(_metadata_entry(child, "embedded-directory"))
                         continue
                     body = archive.read(item)
                     inventory.append(_entry(child, body, kind="embedded-file"))
@@ -293,6 +322,17 @@ def _safe_link_target(name: str, target: str) -> bool:
 
 def _entry(path: str, data: bytes, *, kind: str = "file") -> dict[str, object]:
     return {"path": path, "type": kind, "size_bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+
+
+def _metadata_entry(path: str, kind: str, **metadata: object) -> dict[str, object]:
+    identity = json.dumps(metadata, sort_keys=True, separators=(",", ":")).encode()
+    return {
+        "path": path,
+        "type": kind,
+        "size_bytes": len(identity),
+        "sha256": hashlib.sha256(identity).hexdigest(),
+        **metadata,
+    }
 
 
 def _sqlite_inventory(name: str, data: bytes) -> list[dict[str, object]]:

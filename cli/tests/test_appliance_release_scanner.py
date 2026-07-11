@@ -45,7 +45,6 @@ def test_scanner_accepts_explicit_minimal_rootfs_inventory(tmp_path: Path) -> No
     assert all(
         {"path", "size_bytes", "sha256"} <= set(item)
         for item in report["inventory"]
-        if item["type"] == "file"
     )
 
 
