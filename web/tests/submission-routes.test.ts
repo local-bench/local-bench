@@ -8,6 +8,7 @@ import { onRequestGet as listAdminSubmissions } from "../functions/api/admin/sub
 import {
   ADMIN_SECRET,
   PROJECTION_SHA,
+  PROJECTION_OBJECT_SHA,
   RAW_BUNDLE_SHA,
   RESULT_BUNDLE_JSON,
   SUITE_MANIFEST_SHA,
@@ -229,12 +230,13 @@ describe("submission route contracts", () => {
       submission_id: envelope.ticket_id,
     });
     const row = await env.DB.prepare(
-      "select status, publish_state, projection_sha256, projection_r2_key, validator_version, validator_commit, validated_at from submissions where submission_id = ?",
+      "select status, publish_state, projection_sha256, projection_object_sha256, projection_r2_key, validator_version, validator_commit, validated_at from submissions where submission_id = ?",
     )
       .bind(envelope.ticket_id)
       .first();
     expect(row).toMatchObject({
-      projection_r2_key: `projections/${envelope.ticket_id}/${PROJECTION_SHA}.json`,
+      projection_object_sha256: PROJECTION_OBJECT_SHA,
+      projection_r2_key: `projections/sha256/${PROJECTION_OBJECT_SHA}.json`,
       projection_sha256: PROJECTION_SHA,
       publish_state: "hidden",
       status: "accepted",
@@ -254,12 +256,12 @@ describe("submission route contracts", () => {
       await env.DB.prepare(
         `insert into submissions (
           submission_id, origin, submitter_id, ticket_id, status, raw_bundle_sha256,
-          idempotency_key, publish_state, uploaded_at
-        ) values (?, 'community', ?, ?, 'pending_verification', ?, ?, 'hidden', ?)`,
-      ).bind(row.id, `public_key:${row.sha}`, row.id, row.sha, row.sha, row.uploaded).run();
+          idempotency_key, publish_state, uploaded_at, suite_release_id, suite_manifest_sha256
+        ) values (?, 'community', ?, ?, 'pending_verification', ?, ?, 'hidden', ?, ?, ?)`,
+      ).bind(row.id, `public_key:${row.sha}`, row.id, row.sha, row.sha, row.uploaded, SUITE_RELEASE_ID, SUITE_MANIFEST_SHA).run();
     }
     const second = rows[1] as { id: string; sha: string; uploaded: string };
-    const secondUpdate = { ...statusUpdate("accepted"), raw_bundle_sha256: second.sha };
+    const secondUpdate = statusUpdate("accepted", second.sha);
 
     const refused = await applyVerification({
       env,

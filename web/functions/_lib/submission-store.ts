@@ -9,7 +9,7 @@ import {
 } from "./submission-contracts";
 import { sha256Hex } from "./submission-canonical";
 import { InvalidTransitionError, assertTransition, type SubmissionStatus } from "./submission-state";
-import { projectionKey, rawBundleKey } from "./submission-storage";
+import { rawBundleKey } from "./submission-storage";
 
 export type TransitionActor = "system" | "maintainer" | "gc";
 
@@ -173,14 +173,25 @@ async function diagnosePendingAdmissionFailure(
   return { code: "submission_not_ticketed", kind: "error" };
 }
 
-export async function applyStatusUpdate(env: SubmissionApiEnv, submissionId: string, update: StatusUpdate): Promise<void> {
+export async function applyStatusUpdate(
+  env: SubmissionApiEnv,
+  submissionId: string,
+  update: StatusUpdate,
+  projectionR2Key: string | null,
+): Promise<void> {
   const current = await requiredRow(env, submissionId);
   assertTransition(current.status, update.status);
-  await env.DB.prepare(
+  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for verification acceptance");
+  const updateStatement = env.DB.prepare(
     `update submissions set
       status = ?, status_reason = ?, validator_version = ?, validator_commit = ?, validated_at = ?,
-      projection_schema_version = ?, projection_sha256 = ?, projection_r2_key = ?, redaction_status = 'public_projection_only'
-      where submission_id = ?`,
+      projection_schema_version = case when ? = 'accepted' then ? else projection_schema_version end,
+      projection_sha256 = case when ? = 'accepted' then ? else projection_sha256 end,
+      projection_object_sha256 = case when ? = 'accepted' then ? else projection_object_sha256 end,
+      projection_r2_key = case when ? = 'accepted' then ? else projection_r2_key end,
+      redaction_status = case when ? = 'accepted' then 'public_projection_only' else redaction_status end,
+      state_revision = state_revision + 1
+      where submission_id = ? and status = 'pending_verification' and state_revision = ?`,
   )
     .bind(
       update.status,
@@ -188,20 +199,30 @@ export async function applyStatusUpdate(env: SubmissionApiEnv, submissionId: str
       update.validator_version,
       update.validator_commit ?? null,
       update.validated_at,
+      update.status,
       ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
+      update.status,
       update.projection_sha256,
-      projectionKey(submissionId, update.projection_sha256),
+      update.status,
+      update.projection_object_sha256,
+      update.status,
+      projectionR2Key,
+      update.status,
       submissionId,
-    )
-    .run();
-  await recordSubmissionTransition(env, {
-    actor: "maintainer",
-    fromStatus: current.status,
-    publishState: current.publish_state,
-    reason: update.reason,
-    submissionId,
-    toStatus: update.status,
-  });
+      current.state_revision,
+    );
+  const transitionStatement = env.DB.prepare(
+    `insert into submission_transitions
+      (submission_id, from_status, to_status, publish_state, actor, reason, state_revision)
+     select ?, ?, ?, ?, 'maintainer', ?, ? where changes() = 1`,
+  ).bind(submissionId, current.status, update.status, current.publish_state, update.reason, current.state_revision + 1);
+  const revisionStatement = env.DB.prepare(
+    "update publication_control set publication_revision = publication_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1",
+  );
+  const results = await env.DB.batch([updateStatement, transitionStatement, revisionStatement]);
+  if (results[0]?.meta?.changes !== 1) {
+    throw new InvalidTransitionError(current.status, update.status);
+  }
 }
 
 export async function updatePublishState(
@@ -214,21 +235,20 @@ export async function updatePublishState(
   if (current.status !== "accepted") {
     throw new InvalidTransitionError(current.status, `publish_state:${publishState}`);
   }
-  await env.DB.prepare(
-    `update submissions set publish_state = ?, published_at = case when ? = 'published' then datetime('now') else published_at end where submission_id = ?`,
-  )
-    .bind(publishState, publishState, submissionId)
-    .run();
-  if (current.publish_state !== publishState) {
-    await recordSubmissionTransition(env, {
-      actor: "maintainer",
-      fromStatus: current.status,
-      publishState,
-      reason,
-      submissionId,
-      toStatus: current.status,
-    });
-  }
+  if (current.publish_state === publishState) return;
+  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for publication changes");
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `update submissions set publish_state = ?, published_at = case when ? = 'published' then datetime('now') else published_at end,
+       state_revision = state_revision + 1 where submission_id = ? and status = 'accepted' and state_revision = ?`,
+    ).bind(publishState, publishState, submissionId, current.state_revision),
+    env.DB.prepare("update publication_control set publication_revision = publication_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1"),
+    env.DB.prepare(
+      `insert into submission_transitions (submission_id, from_status, to_status, publish_state, actor, reason, state_revision)
+       select ?, ?, ?, ?, 'maintainer', ?, ? where changes() = 1`,
+    ).bind(submissionId, current.status, current.status, publishState, reason, current.state_revision + 1),
+  ]);
+  if (results[0]?.meta?.changes !== 1) throw new InvalidTransitionError(current.status, `publish_state:${publishState}`);
 }
 
 export async function transitionAcceptedToTerminal(
@@ -239,19 +259,23 @@ export async function transitionAcceptedToTerminal(
 ): Promise<void> {
   const current = await requiredRow(env, submissionId);
   assertTransition(current.status, toStatus);
-  await env.DB.prepare(
-    "update submissions set status = ?, status_reason = ?, publish_state = 'hidden' where submission_id = ?",
-  )
-    .bind(toStatus, reason, submissionId)
-    .run();
-  await recordSubmissionTransition(env, {
-    actor: "maintainer",
-    fromStatus: current.status,
-    publishState: "hidden",
-    reason,
-    submissionId,
-    toStatus,
-  });
+  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for suppression");
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "update submissions set status = ?, status_reason = ?, publish_state = 'hidden', state_revision = state_revision + 1 where submission_id = ? and status = 'accepted' and state_revision = ?",
+    ).bind(toStatus, reason, submissionId, current.state_revision),
+    env.DB.prepare("update publication_control set publication_revision = publication_revision + 1, edge_block_revision = edge_block_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1"),
+    env.DB.prepare(
+      `insert into publication_edge_blocks (submission_id, reason, publication_revision)
+       select ?, ?, publication_revision from publication_control where singleton = 1 and changes() = 1
+       on conflict(submission_id) do update set blocked_at = datetime('now'), reason = excluded.reason, publication_revision = excluded.publication_revision`,
+    ).bind(submissionId, reason),
+    env.DB.prepare(
+      `insert into submission_transitions (submission_id, from_status, to_status, publish_state, actor, reason, state_revision)
+       select ?, ?, ?, 'hidden', 'maintainer', ?, ? where changes() = 1`,
+    ).bind(submissionId, current.status, toStatus, reason, current.state_revision + 1),
+  ]);
+  if (results[0]?.meta?.changes !== 1) throw new InvalidTransitionError(current.status, toStatus);
 }
 
 export async function rowBySubmissionId(env: SubmissionApiEnv, submissionId: string): Promise<SubmissionRow | null> {
@@ -436,6 +460,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
     expires_at: row.status === "ticketed" ? row.expires_at : null,
     origin: row.origin,
     projection_sha256: row.projection_sha256,
+    projection_object_sha256: row.projection_object_sha256,
     publish_state: row.publish_state,
     raw_bundle_size_bytes: row.raw_bundle_size_bytes,
     status: row.status,
@@ -451,9 +476,9 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
 
 function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "status"): string {
   return `select submission_id, ticket_id, status, created_at, declared_model_slug, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
-    raw_bundle_size_bytes, projection_sha256, publish_state, suite_release_id, suite_manifest_sha256,
+    raw_bundle_size_bytes, projection_sha256, projection_object_sha256, publish_state, suite_release_id, suite_manifest_sha256,
     origin, submitter_id, submitter_display_name, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason,
-    upload_capability_sha256
+    upload_capability_sha256, state_revision
     from submissions where ${column} = ?`;
 }
 

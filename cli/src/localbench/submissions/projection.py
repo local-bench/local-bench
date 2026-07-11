@@ -48,7 +48,7 @@ def canonical_projection_bytes(projection: JsonObject) -> bytes:
 
 def projection_object_sha256(projection: JsonObject) -> str:
     """Content address of the exact canonical bytes stored in object storage."""
-    return sha256_bytes(canonical_projection_bytes(projection))
+    return sha256_bytes(canonical_json_bytes(projection))
 
 
 def rescore_bundle(
@@ -61,6 +61,7 @@ def rescore_bundle(
     loaded = load_result_bundle_input(path)
     bundle_sha256 = sha256_file(path)
     bundle = normalize_result_bundle(loaded.record, suite_dir=suite_dir)
+    _restore_declared_suite_pair(bundle, loaded.record)
     suite_items = _suite_items(bundle, suite_dir)
     dynamic_benches = _dynamic_benches(suite_dir, suite_items)
     items = _scored_items(_items(bundle), suite_items, dynamic_benches)
@@ -86,8 +87,23 @@ def rescore_bundle(
         provenance=provenance,
     )
     projection["artifact_hashes"] = _artifact_hashes(path, projection)
-    validate_accepted_result_projection(projection)
+    if _object(_object(bundle.get("manifest")).get("integrity")).get("publishable") is True:
+        validate_accepted_result_projection(projection)
     return projection
+
+
+def _restore_declared_suite_pair(bundle: JsonObject, source: JsonObject) -> None:
+    declared = _object(_object(source.get("manifest")).get("suite"))
+    release_id = declared.get("suite_release_id")
+    manifest_sha256 = declared.get("suite_manifest_sha256")
+    if not isinstance(release_id, str) or not isinstance(manifest_sha256, str):
+        return
+    manifest = _object(bundle.get("manifest"))
+    suite = _object(manifest.get("suite"))
+    suite["suite_release_id"] = release_id
+    suite["suite_manifest_sha256"] = manifest_sha256
+    manifest["suite"] = suite
+    bundle["manifest"] = manifest
 
 
 def _dynamic_benches(

@@ -10,6 +10,7 @@ export type D1PreparedStatement = {
 };
 
 export type D1DatabaseBinding = {
+  batch?(statements: readonly D1PreparedStatement[]): Promise<readonly { readonly success: boolean; readonly meta?: { readonly changes?: number } }[]>;
   exec(sql: string): Promise<unknown>;
   prepare(query: string): D1PreparedStatement;
 };
@@ -27,7 +28,7 @@ export type R2BucketBinding = {
   delete(key: string): Promise<unknown>;
   get(key: string): Promise<R2ObjectBodyBinding | null>;
   head?(key: string): Promise<R2ObjectMetadataBinding | null>;
-  put(key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream): Promise<unknown>;
+  put(key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream, options?: { readonly onlyIf?: { readonly etagDoesNotMatch?: string } }): Promise<unknown>;
 };
 
 export type SubmissionApiEnv = {
@@ -153,6 +154,8 @@ export const StatusUpdateSchema = z
     accepted: z.boolean(),
     blocking_reasons: z.array(z.string()),
     projection_path: z.string().min(1),
+    projection: z.record(z.string(), z.unknown()),
+    projection_object_sha256: Sha256Schema,
     projection_sha256: Sha256Schema,
     raw_bundle_sha256: Sha256Schema,
     reason: z.string().min(1),
@@ -281,6 +284,7 @@ export const SubmissionRowSchema = z.object({
   expires_at: z.string().nullable(),
   origin: z.enum(["project_anchor", "community"]),
   projection_sha256: z.string().nullable(),
+  projection_object_sha256: z.string().nullable().optional().default(null),
   publish_state: z.enum(["hidden", "preview", "published"]),
   raw_bundle_r2_key: z.string().nullable(),
   raw_bundle_sha256: Sha256Schema,
@@ -288,6 +292,7 @@ export const SubmissionRowSchema = z.object({
   run_payload_sha256: Sha256Schema.nullable(),
   status: z.string(),
   status_reason: z.string().nullable(),
+  state_revision: z.number().int().nonnegative().optional().default(0),
   submission_id: z.string(),
   submitter_display_name: z.string().nullable(),
   submitter_id: z.string().nullable(),

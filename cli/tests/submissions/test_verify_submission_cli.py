@@ -9,6 +9,7 @@ from localbench._types import JsonObject
 from localbench.cli import main
 from localbench.submissions.canon import canonical_json_bytes, sha256_file
 from localbench.submissions.foundation import rescore_bundle
+from localbench.submissions.projection import projection_object_sha256
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PILOT = _REPO_ROOT / "runs" / "campaigns" / "wave0-gemma-12b-q4xl-cal-20260629" / "localbench-run.json"
@@ -61,6 +62,8 @@ def test_verify_submission_rejects_pilot_with_exact_blockers(tmp_path: Path) -> 
         "reason": ";".join(_BLOCKING_REASONS),
         "blocking_reasons": _BLOCKING_REASONS,
         "projection_sha256": projection["artifact_hashes"]["projection_sha256"],
+        "projection_object_sha256": projection_object_sha256(projection),
+        "projection": projection,
         "projection_path": str(projection_out),
         "raw_bundle_sha256": sha256_file(_PILOT),
         "validator_version": "localbench.submission-validator.v1",

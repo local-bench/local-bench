@@ -4,6 +4,7 @@ import { afterEach } from "vitest";
 import { Miniflare } from "miniflare";
 import { onRequestPost as issueTicket } from "../functions/api/submissions/tickets";
 import type { SubmissionApiEnv } from "../functions/_lib/submission-api";
+import { canonicalJson } from "../functions/_lib/submission-canonical";
 
 export const MIGRATION_0001 = readFileSync(new URL("../migrations/0001_online_submissions.sql", import.meta.url), "utf-8");
 export const MIGRATION_0002 = readFileSync(new URL("../migrations/0002_submission_slice_index.sql", import.meta.url), "utf-8");
@@ -15,13 +16,41 @@ export const MIGRATION_0007 = readFileSync(new URL("../migrations/0007_feedback.
 export const MIGRATION_0008 = readFileSync(new URL("../migrations/0008_zt1_zero_touch.sql", import.meta.url), "utf-8");
 export const MIGRATION_0009 = readFileSync(new URL("../migrations/0009_pending_verification_queue.sql", import.meta.url), "utf-8");
 export const MIGRATION_0010 = readFileSync(new URL("../migrations/0010_submission_admission_security.sql", import.meta.url), "utf-8");
+export const MIGRATION_0011 = readFileSync(new URL("../migrations/0011_publication_snapshots.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
-export const PROJECTION_SHA = "b".repeat(64);
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 export const SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
 export const RESULT_BUNDLE = resultBundle({ semanticFull: true });
 export const RESULT_BUNDLE_JSON = JSON.stringify(RESULT_BUNDLE);
 export const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
+const PROJECTION_HASHABLE = {
+  schema_version: "localbench.accepted_result_projection.v2",
+  model: {
+    display_name: "Community Model", declared_name: "Community Model", file_sha256: "a".repeat(64),
+    identity_status: "maintainer_verified", model_system_key: `artifact:${"a".repeat(64)}`,
+  },
+  lineage: { base_model: [] }, runtime: { name: "llama.cpp", version: "b1" },
+  suite_release_id: SUITE_RELEASE_ID, suite_manifest_sha256: SUITE_MANIFEST_SHA,
+  scorecard_id: "local-intelligence-index-v3.0", coverage_profile_id: "full-exec-6axis-v1",
+  headline_complete: false,
+  scores: { headline_score: null, partial_composite: 0.5, partial_composite_scope: "measured_headline_axes", measured_headline_weight: 0.5, missing_headline_weight: 0.5, known_headline_contribution: 0.25, rank_scope: "full-exec-6axis-v1" },
+  axes: { knowledge: { ci: null, n: 1, score: 0.5, status: "measured" } }, conformance: {},
+  receipt_references: { coding_receipt_sha256: null },
+  artifact_hashes: { bundle_sha256: RAW_BUNDLE_SHA, projection_sha256: "", public_artifact_manifest_sha256: "" },
+  origin: "project_anchor", trust_label: "project_anchor", verification_level: "bundle_rescored",
+  agentic_provenance: "none", rescore_modes: { mmlu_pro: "rescored" },
+  validator: { validator_version: "localbench.submission-validator.v1", commit: "440f540", validated_at: "2026-06-30T00:00:00Z" },
+} as const;
+export const PROJECTION_SHA = sha256Hex(canonicalJson(PROJECTION_HASHABLE));
+export const PROJECTION = {
+  ...PROJECTION_HASHABLE,
+  artifact_hashes: {
+    bundle_sha256: RAW_BUNDLE_SHA,
+    projection_sha256: PROJECTION_SHA,
+    public_artifact_manifest_sha256: sha256Hex(canonicalJson({ bundle_sha256: RAW_BUNDLE_SHA, projection_sha256: PROJECTION_SHA })),
+  },
+} as const;
+export const PROJECTION_OBJECT_SHA = sha256Hex(canonicalJson(PROJECTION));
 
 const miniflares: Miniflare[] = [];
 
@@ -55,7 +84,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010]) {
+  for (const migration of options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011]) {
     await applyMigration(bindings.DB, migration);
   }
   return {
@@ -226,13 +255,28 @@ export function resultBundle(options: ResultBundleOptions = {}): Record<string, 
   };
 }
 
-export function statusUpdate(status: "accepted" | "rejected"): Record<string, unknown> {
+export function statusUpdate(status: "accepted" | "rejected", rawBundleSha = RAW_BUNDLE_SHA): Record<string, unknown> {
+  const hashable = {
+    ...PROJECTION_HASHABLE,
+    artifact_hashes: { bundle_sha256: rawBundleSha, projection_sha256: "", public_artifact_manifest_sha256: "" },
+  };
+  const projectionSha = sha256Hex(canonicalJson(hashable));
+  const projection = {
+    ...hashable,
+    artifact_hashes: {
+      bundle_sha256: rawBundleSha,
+      projection_sha256: projectionSha,
+      public_artifact_manifest_sha256: sha256Hex(canonicalJson({ bundle_sha256: rawBundleSha, projection_sha256: projectionSha })),
+    },
+  };
   return {
     accepted: status === "accepted",
     blocking_reasons: [],
     projection_path: "out/projection.json",
-    projection_sha256: PROJECTION_SHA,
-    raw_bundle_sha256: RAW_BUNDLE_SHA,
+    projection,
+    projection_object_sha256: sha256Hex(canonicalJson(projection)),
+    projection_sha256: projectionSha,
+    raw_bundle_sha256: rawBundleSha,
     reason: "publishable",
     schema_version: "localbench.submission_status_update.v1",
     status,

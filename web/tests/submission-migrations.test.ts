@@ -9,6 +9,8 @@ import {
   MIGRATION_0007,
   MIGRATION_0008,
   MIGRATION_0009,
+  MIGRATION_0010,
+  MIGRATION_0011,
   applyMigration,
   columnCount,
   createEnv,
@@ -56,7 +58,7 @@ describe("submission D1 migrations", () => {
     expect(await columnCount(env.DB, "submissions", "declared_model_slug")).toBe(1);
   });
 
-  it("applies the complete 0002 through 0009 sequence once under Wrangler ledger replay semantics", async () => {
+  it("applies the complete 0002 through 0011 sequence once under Wrangler ledger replay semantics", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
     const migrations = [
       ["0002_submission_slice_index.sql", MIGRATION_0002],
@@ -67,6 +69,8 @@ describe("submission D1 migrations", () => {
       ["0007_feedback.sql", MIGRATION_0007],
       ["0008_zt1_zero_touch.sql", MIGRATION_0008],
       ["0009_pending_verification_queue.sql", MIGRATION_0009],
+      ["0010_submission_admission_security.sql", MIGRATION_0010],
+      ["0011_publication_snapshots.sql", MIGRATION_0011],
     ] as const;
 
     await applyWithWranglerLedger(env.DB, migrations);
@@ -75,8 +79,11 @@ describe("submission D1 migrations", () => {
     expect(await columnCount(env.DB, "submissions", "declared_model_slug")).toBe(1);
     expect(await columnCount(env.DB, "submissions", "submitter_display_name")).toBe(1);
     expect(await columnCount(env.DB, "submissions", "zt1_decision")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "state_revision")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "projection_object_sha256")).toBe(1);
+    expect(await tableExists(env.DB, "publication_snapshots")).toBe(true);
     const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
-    expect(applied?.["count"]).toBe(8);
+    expect(applied?.["count"]).toBe(10);
   }, 15_000);
 });
 

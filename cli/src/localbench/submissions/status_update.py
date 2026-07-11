@@ -6,6 +6,7 @@ from typing import Final
 from localbench._types import JsonObject, JsonValue
 from localbench.submissions.canon import write_json_file
 from localbench.submissions.foundation import VALIDATOR_VERSION, rescore_bundle, validate_submission_bundle
+from localbench.submissions.projection import projection_object_sha256
 
 STATUS_UPDATE_SCHEMA_VERSION: Final = "localbench.submission_status_update.v1"
 
@@ -31,6 +32,8 @@ def verify_submission(
         "reason": "publishable" if accepted else _rejection_reason(blockers),
         "blocking_reasons": blockers,
         "projection_sha256": _projection_sha256(projection),
+        "projection_object_sha256": projection_object_sha256(projection),
+        "projection": projection,
         "projection_path": str(projection_out),
         "raw_bundle_sha256": str(validation.get("bundle_sha256")),
         "validator_version": VALIDATOR_VERSION,

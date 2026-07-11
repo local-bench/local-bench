@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.contracts import (
     ACCEPTED_RESULT_PROJECTION_SCHEMA,
     ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
