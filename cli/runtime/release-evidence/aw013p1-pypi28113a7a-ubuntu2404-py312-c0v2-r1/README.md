@@ -1,5 +1,7 @@
 # Runtime release evidence
 
+Superseded by `aw013p1-pypi28113a7a-ubuntu2404-py312-c0v3-r2`: R2 found unproven official-wheel installation and overstated packaging/scanner evidence.
+
 This directory records the accepted C1 release for `aw013p1-pypi28113a7a-ubuntu2404-py312-c0v2-r1`. The two isolated builds produced byte-identical compressed archives at SHA-256 `d6d7d86cc578c2c34e0f846b55142d7e912beebadb06470fcda892d43184b426`; the 91,650,844-byte tar.xz is deliberately not committed.
 
 The successor C0 contract is `agentic-execution-contract-aw013p1-pypi28113a7a-v2`, payload SHA-256 `f921ff7cf1401361e1bc7b5c416ad023d9cd3d9cc729201f99d2b8ad5ec3aec7`. It governs the official PyPI AppWorld wheel SHA-256 `db77f8003982502383a50fa2974983894bd1c54f64e2fd3f7e1540d5edd037eb` and installed-tree identity `28113a7a68f5d5a4c5e9ea5bce4743633916e741430cfb96b56030660707308a`.

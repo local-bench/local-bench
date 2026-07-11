@@ -75,7 +75,20 @@ def main() -> int:
         "TZ=UTC", "LC_ALL=C.UTF-8", "APPWORLD_ROOT=/home/lbworker/appworld",
     ]
     recorder.run(_wsl(args.name, [*clean, "/opt/localbench/venv/bin/pip", "install", "--require-hashes", "-r", "/tmp/appworld.lock"]), timeout=1800)
-    recorder.run(_wsl(args.name, [*clean, "/opt/localbench/venv/bin/pip", "install", "--no-deps", appworld_wheel_target]), timeout=300)
+    recorder.run(
+        _wsl(
+            args.name,
+            [
+                *clean,
+                "/opt/localbench/venv/bin/pip",
+                "install",
+                "--force-reinstall",
+                "--no-deps",
+                appworld_wheel_target,
+            ],
+        ),
+        timeout=300,
+    )
     recorder.run(_wsl(args.name, [*clean, "/opt/localbench/venv/bin/appworld", "install"]), timeout=600)
     recorder.run(_wsl(args.name, [*clean, "/opt/localbench/venv/bin/python", "-c", "from pathlib import Path;from localbench.appliance.worker import _unpack_official_data;_unpack_official_data(Path('/tmp/appworld-data.bundle'))"]), timeout=600)
     recorder.run(_wsl(args.name, ["/bin/sh", "-c", "mkdir -p /run/localbench-fstab-probe; printf '%s\\n' 'tmpfs /run/localbench-fstab-probe tmpfs defaults 0 0' >> /etc/fstab"], user="root"))
