@@ -60,7 +60,7 @@ describe("submission D1 migrations", () => {
     expect(await columnCount(env.DB, "submissions", "declared_model_slug")).toBe(1);
   });
 
-  it("applies the complete 0002 through 0011 sequence once under Wrangler ledger replay semantics", async () => {
+  it("applies the complete migration sequence with the custom Wrangler-ledger simulator", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
     const migrations = [
       ["0002_submission_slice_index.sql", MIGRATION_0002],

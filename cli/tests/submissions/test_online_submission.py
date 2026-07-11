@@ -460,6 +460,7 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
         assert len(request.public_key) == 64
         assert request.raw_bundle_sha256 == bundle_sha
         assert request.declared_model_slug == "fixture-model"
+        assert request.community_model_group_id == f"community-group:{'a' * 32}"
         assert request.expected_suite_release_id == release_id
         assert request.expected_suite_manifest_sha256 == manifest_sha
         assert request.pop is not None
@@ -473,6 +474,7 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
         assert _ticket_request_body(request) == {
             "accepted_suite_terms": True,
             "bundle_sha256": bundle_sha,
+            "community_model_group_id": f"community-group:{'a' * 32}",
             "declared_model_slug": "fixture-model",
             "expected_suite_manifest_sha256": manifest_sha,
             "expected_suite_release_id": release_id,
@@ -524,6 +526,8 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
             str(key_path),
             "--bundle",
             str(bundle),
+            "--community-model-group-id",
+            f"community-group:{'a' * 32}",
             "--out",
             str(ticket_path),
         ],

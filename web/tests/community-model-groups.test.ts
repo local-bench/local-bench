@@ -14,4 +14,15 @@ describe("server-issued community model groups", () => {
     expect(isDisjointCommunityGroupId("gemma-4-12b-it")).toBe(false);
     expect(isDisjointCommunityGroupId("google/gemma-4-12b-it")).toBe(false);
   });
+
+  it.each([
+    `community-group:${"a".repeat(31)}`,
+    `community-group:${"a".repeat(32)}suffix`,
+    `community-group:${"a".repeat(31)}z`,
+  ])("rejects malformed ids at the SQL constraint: %s", async (groupId) => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013] });
+    await expect(env.DB.prepare(
+      "insert into community_model_groups (community_model_group_id, declared_model_name) values (?, 'invalid')",
+    ).bind(groupId).run()).rejects.toThrow();
+  });
 });
