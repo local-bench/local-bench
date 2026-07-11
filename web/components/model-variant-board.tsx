@@ -13,6 +13,7 @@ import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
+import { isTrustedRankedPopulation } from "@/lib/trusted-population";
 
 type VariantRun = ModelData["runs"][number];
 type OwnVariantRow = {
@@ -40,7 +41,9 @@ export function ModelVariantBoard({
   // receipts remain reachable by direct URL and carry the retired-lane framing.
   const isCurrentIndexRun = (run: VariantRun): boolean =>
     run.score_status !== "measured" || run.lane === HEADLINE_LANE;
-  const currentRuns = model.runs.filter(isCurrentIndexRun);
+  const currentRuns = model.runs.filter(
+    (run) => isCurrentIndexRun(run) && (run.score_status !== "measured" || isTrustedRankedPopulation(run)),
+  );
   const decisionByQuant = new Map<string, QuantDecisionRow>(
     getQuantDecisionRows({ ...model, runs: currentRuns }, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
       row.quantLabel,
@@ -58,7 +61,7 @@ export function ModelVariantBoard({
   }));
   const familyRows: readonly FamilyVariantRow[] = familyModels.flatMap(({ model: familyModel, relation }) =>
     familyModel.runs
-      .filter((run) => run.score_status === "measured" && run.lane === HEADLINE_LANE)
+      .filter((run) => run.score_status === "measured" && run.lane === HEADLINE_LANE && isTrustedRankedPopulation(run))
       .map((run) => ({ kind: relation, model: familyModel, run })),
   );
   const rows = [...ownRows, ...familyRows];

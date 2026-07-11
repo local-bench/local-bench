@@ -38,6 +38,8 @@ function run(overrides: Partial<ModelRun> = {}): ModelRun {
     n_items: 100,
     n_errors: 0,
     ranked: true,
+    origin: "project_anchor",
+    trust_label: "project_anchor",
     wall_time_seconds: 3600,
     score_status: "measured",
     demo: false,
@@ -134,5 +136,16 @@ describe("ModelScatter family points", () => {
 
     expect(html).not.toContain('href="/run/legacy__q4"');
     expect(html).not.toContain("Legacy Tune");
+  });
+
+  it("renders no scatter point for an untrusted community run", () => {
+    const adversary = model({
+      slug: "community-adversary",
+      label: "Community Adversary",
+      runs: [run({ origin: "community", trust_label: "community_self_submitted", run_id: runId("community__q4") })],
+    });
+    const html = renderToStaticMarkup(createElement(ModelScatter, { model: adversary, anchorRuns: [] }));
+    expect(html).not.toContain('href="/run/community__q4"');
+    expect(html).not.toContain('data-point-kind="this-model"');
   });
 });

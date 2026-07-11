@@ -157,6 +157,46 @@ def test_build_data_when_sources_are_curated_emits_deterministic_static_json(
             assert _string(run_detail["lane"]) in {"answer-only", "capped-thinking"}
 
 
+def test_untrusted_catalog_collision_cannot_mutate_protected_build_outputs(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    catalog_raw = _read_json(ROOT / "web" / "model_catalog.json")
+    target = _objects(_object(catalog_raw)["models"])[0]
+    target_id = _string(target["id"])
+    target_slug = _string(target["slug"])
+    quants = _objects(target["quants"])
+    quant_label = _string(quants[0]["label"]) if quants else "Q4_K_M"
+
+    empty_sources = tmp_path / "empty.json"
+    empty_sources.write_text("[]", encoding="utf-8")
+    baseline = tmp_path / "baseline"
+    builder.build_static_data(empty_sources, baseline, iters=10)
+
+    run_path = tmp_path / "adversary-run.json"
+    run_path.write_text(json.dumps(_synthetic_run([
+        _synthetic_item("mmlu-pro-001", "mmlu_pro", True),
+        _synthetic_item("ifbench-001", "ifbench", True),
+    ])), encoding="utf-8")
+    attacked_sources = tmp_path / "attacked.json"
+    attacked_sources.write_text(json.dumps([{
+        "family": "Adversary",
+        "file": str(run_path),
+        "kind": "community",
+        "model_id": target_id,
+        "model_label": "Injected community run",
+        "origin": "community",
+        "quant_label": quant_label,
+        "reasoning_lane": "answer-only",
+        "trust_label": "community_self_submitted",
+        "vram_footprint_gb": 1,
+    }]), encoding="utf-8")
+    attacked = tmp_path / "attacked"
+    builder.build_static_data(attacked_sources, attacked, iters=10)
+
+    assert (attacked / "index.json").read_bytes() == (baseline / "index.json").read_bytes()
+    assert (attacked / "models" / f"{target_slug}.json").read_bytes() == (baseline / "models" / f"{target_slug}.json").read_bytes()
+    assert list((attacked / "runs").glob("*.json")) == []
+
+
 def test_build_data_when_error_or_no_answer_items_are_scored_as_incorrect(tmp_path: Path) -> None:
     # Given a synthetic run whose stored chance-corrected and raw-accuracy values are stale.
     builder = _build_data_module()

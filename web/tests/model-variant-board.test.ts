@@ -135,6 +135,26 @@ describe("model variant board runtime display", () => {
     expect(familyRow).toContain('href="/run/qwopus-family-run"');
     expect(familyRow).not.toContain("sweet spot");
   });
+
+  it("does not render or select an untrusted community run as best or sweet spot", () => {
+    const base = fixtureModel();
+    const trusted = base.runs[0];
+    if (trusted === undefined) throw new Error("fixture missing run");
+    const adversary: ModelData["runs"][number] = {
+      ...trusted,
+      composite: { hi: 100, lo: 100, point: 100 },
+      origin: "community",
+      quant_label: "Q2_K",
+      run_id: RunIdSchema.parse("community-adversary"),
+      runtime: { ...trusted.runtime, version: "adversary-runtime" },
+      trust_label: "community_self_submitted",
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: { ...base, runs: [trusted, adversary] } }));
+    expect(html).toContain("fixture-run");
+    expect(html).toContain(">best<");
+    expect(html).not.toContain("community-adversary");
+    expect(html).not.toContain("adversary-runtime");
+  });
 });
 
 function fixtureModel(): ModelData {
@@ -157,6 +177,8 @@ function fixtureModel(): ModelData {
         n_items: 10,
         quant_label: "Q4_K_M",
         ranked: true,
+        origin: "project_anchor",
+        trust_label: "project_anchor",
         run_id: RunIdSchema.parse("fixture-run"),
         runtime: {
           ctx_len_configured: 8192,

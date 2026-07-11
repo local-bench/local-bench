@@ -75,7 +75,7 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
           {provenanceRun === undefined ? null : <ProvenanceLabels model={provenanceRun} />}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {[...new Map(headlineMeasured.map((run) => [run.runtime.name, run.runtime])).values()].map((runtime) => (
+            {[...new Map(rankedRuns.map((run) => [run.runtime.name, run.runtime])).values()].map((runtime) => (
               <RuntimeBadge key={runtime.name ?? "unknown"} runtime={runtime} />
             ))}
           </div>

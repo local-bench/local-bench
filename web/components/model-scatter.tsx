@@ -8,6 +8,7 @@ import {
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
 import type { ModelRun } from "@/lib/schemas";
+import { isTrustedRankedPopulation } from "@/lib/trusted-population";
 
 export function ModelScatter({
   model,
@@ -75,7 +76,7 @@ function toScatterRun(
   run: ModelRun,
   options: { readonly label: string; readonly pointKind: QualityVramPointKind },
 ): readonly QualityVramRun[] {
-  if (run.composite === null || run.lane !== HEADLINE_LANE) {
+  if (run.composite === null || run.lane !== HEADLINE_LANE || !isTrustedRankedPopulation(run)) {
     return [];
   }
   const pointBase = {
