@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import base64
 import hashlib
 import io
+import json
 import tarfile
 import zipfile
 import sqlite3
@@ -112,18 +114,112 @@ def test_scanner_admits_file_from_captured_dpkg_list_and_md5sums(tmp_path: Path)
     report = scanner.scan_release(
         archive(tmp_path, files),
         allowed_top_levels={"usr", "var"},
-        expected_packages={"dpkg=1.22.6ubuntu6.1"},
+        expected_packages={"dpkg=1.22.6ubuntu6.6"},
         exact_digest_allowlist=exact(metadata),
     )
-    assert report["regular_file_admission"] == "dpkg-manifest-or-exact-digest-v1"
+    assert report["regular_file_admission"] == "dpkg-wheel-record-or-exact-digest-v2"
 
 
-def test_captured_dpkg_info_fixture_records_real_list_and_md5sums() -> None:
-    captured = (Path(__file__).parent / "fixtures" / "dpkg-info-builder-r2.txt").read_text(
-        encoding="utf-8"
+def test_scanner_rejects_dpkg_list_file_without_integrity_digest(tmp_path: Path) -> None:
+    status = (Path(__file__).parent / "fixtures" / "dpkg-status-installed-builder-r2.txt").read_bytes()
+    metadata = {
+        "var/lib/dpkg/status": status,
+        "var/lib/dpkg/info/dpkg.list": b"/.\n/usr/bin/tool\n",
+        "var/lib/dpkg/info/dpkg.md5sums": b"",
+    }
+    with pytest.raises(scanner.ScanError, match="no class"):
+        scanner.scan_release(
+            archive(tmp_path, {**metadata, "usr/bin/tool": b"unverified\n"}),
+            allowed_top_levels={"usr", "var"},
+            expected_packages={"dpkg=1.22.6ubuntu6.6"},
+            exact_digest_allowlist=exact(metadata),
+        )
+
+
+def test_captured_dpkg_fixtures_match_provenance_sidecar() -> None:
+    fixture_root = Path(__file__).parent / "fixtures"
+    provenance = json.loads(
+        (fixture_root / "dpkg-builder-r2.provenance.json").read_text(encoding="utf-8")
     )
-    assert "/usr/bin/dpkg" in captured
-    assert "db5a344aba5b485cb9507afcd6fa297c  usr/bin/dpkg" in captured
+    assert provenance["wsl_writes_performed"] is False
+    assert "Ubuntu 24.04.3 LTS" in provenance["environment_identity"]["os_release_pretty_name"]
+    for name, evidence in provenance["fixtures"].items():
+        captured = (fixture_root / name).read_bytes()
+        assert hashlib.sha256(captured).hexdigest() == evidence["sha256"]
+        assert evidence["command"].startswith("wsl.exe -d Ubuntu -u michael -- ")
+    assert (fixture_root / "dpkg-builder-r2.list").read_bytes() == b"/usr/bin/dpkg\n"
+    assert (fixture_root / "dpkg-builder-r2.md5sums").read_bytes() == (
+        b"1c9124caa101c66a71237b0285acd7ac  usr/bin/dpkg\n"
+    )
+
+
+def test_scanner_admits_venv_file_only_with_wheel_record_sha256(tmp_path: Path) -> None:
+    package_path = "opt/localbench/venv/lib/python3.12/site-packages/example/__init__.py"
+    record_path = "opt/localbench/venv/lib/python3.12/site-packages/example-1.dist-info/RECORD"
+    body = b"VALUE = 1\n"
+    digest = base64.urlsafe_b64encode(hashlib.sha256(body).digest()).rstrip(b"=").decode()
+    record = f"example/__init__.py,sha256={digest},{len(body)}\n"
+    files = {package_path: body, record_path: record.encode()}
+    report = scanner.scan_release(
+        archive(tmp_path, files),
+        allowed_top_levels={"opt"},
+        exact_digest_allowlist=exact({record_path: record.encode()}),
+    )
+    assert report["result"] == "passed"
+
+
+def test_scanner_fails_closed_when_allowlist_rootfs_id_mismatches(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    marker = b'{"runtime_id":"artifact-r2"}'
+    with pytest.raises(scanner.ScanError, match="allowlist rootfs-id mismatch"):
+        scanner.scan_release(
+            archive(tmp_path, {marker_path: marker}),
+            allowed_top_levels={"etc"},
+            exact_digest_allowlist=exact({marker_path: marker}),
+            allowlist_rootfs_id="wrong-r2",
+        )
+
+
+def test_exact_allowlisted_json_still_gets_scalar_inspection(tmp_path: Path) -> None:
+    name = "usr/share/cache.json"
+    body = b'{"value":"renamed/ground_truth/evaluation.py"}'
+    with pytest.raises(scanner.ScanError, match="JSON scalar"):
+        scanner.scan_release(
+            archive(tmp_path, {name: body}),
+            allowed_top_levels={"usr"},
+            exact_digest_allowlist=exact({name: body}),
+        )
+
+
+def test_allowlist_generator_binds_reviewed_residue_to_artifact(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    config_path = "etc/localbench-runtime.conf"
+    marker = b'{"runtime_id":"r2"}'
+    config = b"locked=true\n"
+    built = archive(tmp_path, {marker_path: marker, config_path: config})
+    generated = scanner.generate_exact_digest_allowlist(
+        built,
+        rootfs_id="r2",
+        residue_justifications={
+            marker_path: "owner marker binds the extracted distro to runtime r2; inert JSON metadata",
+            config_path: "runtime build configuration consumed by LocalBench; contains no task data",
+        },
+    )
+    assert generated["rootfs_id"] == "r2"
+    assert generated["files"][config_path]["sha256"] == hashlib.sha256(config).hexdigest()
+
+
+def test_allowlist_generator_stops_and_reports_large_residue_categories(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    files = {marker_path: b'{"runtime_id":"r2"}'}
+    files.update({f"loose/file-{index}.txt": b"x" for index in range(3)})
+    with pytest.raises(scanner.ScanError, match=r'count=4.*"loose": 3'):
+        scanner.generate_exact_digest_allowlist(
+            archive(tmp_path, files),
+            rootfs_id="r2",
+            residue_justifications={},
+            max_residue_files=2,
+        )
 
 
 def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None:
@@ -138,7 +234,7 @@ def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None
     )
     report = scanner.scan_release(
         archive(tmp_path, files),
-        allowed_top_levels={"var"}, expected_packages={"dpkg=1.22.6ubuntu6.1"},
+        allowed_top_levels={"var"}, expected_packages={"dpkg=1.22.6ubuntu6.6"},
         exact_digest_allowlist=allowlist,
     )
     item = next(entry for entry in report["inventory"] if entry["path"].endswith("cache.sqlite"))
@@ -172,7 +268,7 @@ def test_json_scalar_protected_content_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(scanner.ScanError, match="JSON scalar"):
         scanner.scan_release(
             archive(tmp_path, files), allowed_top_levels={"usr", "var"},
-            expected_packages={"dpkg=1.22.6ubuntu6.1"}, exact_digest_allowlist=allowlist
+            expected_packages={"dpkg=1.22.6ubuntu6.6"}, exact_digest_allowlist=allowlist
         )
 
 
@@ -189,7 +285,7 @@ def test_sqlite_row_protected_content_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(scanner.ScanError, match="SQLite row value"):
         scanner.scan_release(
             archive(tmp_path, files), allowed_top_levels={"var"},
-            expected_packages={"dpkg=1.22.6ubuntu6.1"}, exact_digest_allowlist=allowlist
+            expected_packages={"dpkg=1.22.6ubuntu6.6"}, exact_digest_allowlist=allowlist
         )
 
 
@@ -204,5 +300,41 @@ def test_elf_appended_bytes_fail_closed(tmp_path: Path) -> None:
     with pytest.raises(scanner.ScanError, match="appended data"):
         scanner.scan_release(
             archive(tmp_path, files), allowed_top_levels={"usr", "var"},
-            expected_packages={"dpkg=1.22.6ubuntu6.1"}, exact_digest_allowlist=allowlist
+            expected_packages={"dpkg=1.22.6ubuntu6.6"}, exact_digest_allowlist=allowlist
+        )
+
+
+def test_elf_attacker_chosen_ehsize_zero_tables_and_payload_fails_closed(
+    tmp_path: Path,
+) -> None:
+    header = bytearray(64)
+    header[:16] = b"\x7fELF\x02\x01\x01" + b"\x00" * 9
+    import struct
+
+    payload = b"smuggled"
+    struct.pack_into(
+        "<HHIQQQIHHHHHH",
+        header,
+        16,
+        2,
+        62,
+        1,
+        0,
+        0,
+        0,
+        0,
+        len(header) + len(payload),
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+    files, allowlist = dpkg_admission({"usr/bin/tool": bytes(header) + payload})
+    with pytest.raises(scanner.ScanError, match="ELF header size"):
+        scanner.scan_release(
+            archive(tmp_path, files),
+            allowed_top_levels={"usr", "var"},
+            expected_packages={"dpkg=1.22.6ubuntu6.6"},
+            exact_digest_allowlist=allowlist,
         )

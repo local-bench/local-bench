@@ -1,0 +1,43 @@
+{
+  "schema": "localbench.test_fixture_provenance.v1",
+  "captured_at_utc": "2026-07-11T12:04:22Z",
+  "capture_host": "Windows WSL2 distro Ubuntu",
+  "environment_identity": {
+    "lsb_release_description": "Ubuntu 24.04.3 LTS",
+    "os_release_pretty_name": "Ubuntu 24.04.3 LTS",
+    "kernel": "Linux DESKTOP-EP7170O 6.6.87.2-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Thu Jun 5 18:30:46 UTC 2025 x86_64"
+  },
+  "safety_check": {
+    "commands": [
+      "wsl.exe -d Ubuntu -u michael -- cat /proc/loadavg",
+      "wsl.exe -d Ubuntu -u michael -- ps -eo pid=,comm=,args="
+    ],
+    "result": "no appworld or localbench worker processes observed; read-only capture proceeded"
+  },
+  "identity_commands": [
+    "wsl.exe -d Ubuntu -u michael -- lsb_release -a",
+    "wsl.exe -d Ubuntu -u michael -- cat /etc/os-release",
+    "wsl.exe -d Ubuntu -u michael -- uname -a"
+  ],
+  "fixtures": {
+    "dpkg-status-installed-builder-r2.txt": {
+      "command": "wsl.exe -d Ubuntu -u michael -- dpkg-query -s dpkg",
+      "sha256": "254c2f1b02fae81d0ce1b1f2a2d9824a0ba9758e4dbdb9ce05b2aac921e352be"
+    },
+    "dpkg-builder-r2.list": {
+      "command": "wsl.exe -d Ubuntu -u michael -- grep -Fx /usr/bin/dpkg /var/lib/dpkg/info/dpkg.list",
+      "sha256": "154510655b4dc1db310b3d42c21cf2cb46f43df1803294126d326e873d54e3ff"
+    },
+    "dpkg-builder-r2.md5sums": {
+      "command": "wsl.exe -d Ubuntu -u michael -- grep -E '^([0-9a-f]{32})  usr/bin/dpkg$' /var/lib/dpkg/info/dpkg.md5sums",
+      "sha256": "d2cfe097c408fc410d0a45a874475a75c2a6d0a30bce5a4a6a88e28f3eebd3e6"
+    }
+  },
+  "source_files": {
+    "/var/lib/dpkg/status": "ff764bbee6062d2324a8f465be431beaf8032e7b0739b4509789df1ce0b43a3c",
+    "/var/lib/dpkg/info/dpkg.list": "aa118a41e0f8a54c0c3b51b36f923c73529ab493ad6b6adf28fa2ca50c44b920",
+    "/var/lib/dpkg/info/dpkg.md5sums": "284c2daedc68d61ef4c5c3219c6faba74a20ac79416fedba5871fd5295ae33f2"
+  },
+  "source_sha256_command": "wsl.exe -d Ubuntu -u michael -- sha256sum /var/lib/dpkg/status /var/lib/dpkg/info/dpkg.list /var/lib/dpkg/info/dpkg.md5sums",
+  "wsl_writes_performed": false
+}

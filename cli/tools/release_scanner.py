@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import gzip
+import base64
+import csv
 import hashlib
 import io
 import json
@@ -28,19 +30,102 @@ class ScanError(RuntimeError):
     pass
 
 
+def generate_exact_digest_allowlist(
+    archive_path: Path,
+    *,
+    rootfs_id: str,
+    residue_justifications: dict[str, str],
+    max_residue_files: int = 50,
+) -> dict[str, object]:
+    """Generate the artifact-specific third admission class after dpkg/wheel verification.
+
+    Digests cannot be pre-fabricated because the r2 archive does not exist until the
+    deferred build window.  The policy supplies reviewed, per-path reasons; this function
+    binds those reasons to the bytes in that exact artifact.  A large residue indicates a
+    missing structural class and stops with category counts instead of producing filler.
+    """
+    with tarfile.open(archive_path, "r:xz") as archive:
+        observed_rootfs_id = _rootfs_id(archive)
+        if observed_rootfs_id != rootfs_id:
+            raise ScanError(
+                f"exact-digest allowlist rootfs-id mismatch: policy={rootfs_id}, artifact={observed_rootfs_id}"
+            )
+        installed = _dpkg_packages(archive)
+        dpkg_files = _dpkg_manifest_files(archive, installed)
+        wheel_files = _wheel_record_files(archive)
+        residue: dict[str, bytes] = {}
+        categories: dict[str, int] = {}
+        for member in archive.getmembers():
+            name = member.name.removeprefix("./").removeprefix("/")
+            if not member.isfile() or name in dpkg_files or name in wheel_files:
+                continue
+            stream = archive.extractfile(member)
+            if stream is None:
+                raise ScanError(f"archive member is unreadable: {name}")
+            residue[name] = stream.read()
+            category = _residue_category(name)
+            categories[category] = categories.get(category, 0) + 1
+    if len(residue) > max_residue_files:
+        raise ScanError(
+            "exact-digest residue exceeds review limit: "
+            f"count={len(residue)}, categories={json.dumps(categories, sort_keys=True)}"
+        )
+    files: dict[str, dict[str, str]] = {}
+    for name, data in sorted(residue.items()):
+        justification = residue_justifications.get(name)
+        if not isinstance(justification, str) or not justification.strip():
+            raise ScanError(f"exact-digest residue lacks per-file justification: {name}")
+        files[name] = {
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "justification": justification.strip(),
+        }
+    unused = sorted(set(residue_justifications) - set(residue))
+    if unused:
+        raise ScanError(f"exact-digest policy contains paths absent from artifact: {unused}")
+    return {
+        "schema": "localbench.rootfs_exact_file_allowlist.v2",
+        "rootfs_id": rootfs_id,
+        "residue_categories": dict(sorted(categories.items())),
+        "files": files,
+    }
+
+
+def _residue_category(path: str) -> str:
+    if path.startswith("var/lib/dpkg/"):
+        return "dpkg-database-and-maintainer-metadata"
+    if path.startswith("opt/localbench/venv/"):
+        return "wheel-unhashed-install-metadata"
+    if path.startswith(("etc/localbench", "usr/share/localbench/", "opt/localbench/bin/")):
+        return "localbench-runtime-generated-files"
+    return path.split("/", 1)[0] or "root"
+
+
 def scan_release(
     archive: Path,
     *,
     allowed_top_levels: set[str],
     expected_packages: set[str] | None = None,
     exact_digest_allowlist: dict[str, dict[str, str]] | None = None,
+    allowlist_rootfs_id: str | None = None,
+    rootfs_id: str | None = None,
     sandbox_wsl_distro: str | None = None,
 ) -> dict[str, object]:
     inventory: list[dict[str, object]] = []
     digest_allowlist = exact_digest_allowlist or {}
     with tarfile.open(archive, "r:xz") as package_archive:
+        observed_rootfs_id = _rootfs_id(package_archive)
+        if rootfs_id is not None and observed_rootfs_id != rootfs_id:
+            raise ScanError(
+                f"artifact rootfs-id mismatch: expected={rootfs_id}, observed={observed_rootfs_id}"
+            )
+        if allowlist_rootfs_id is not None and observed_rootfs_id != allowlist_rootfs_id:
+            raise ScanError(
+                "exact-digest allowlist rootfs-id mismatch: "
+                f"allowlist={allowlist_rootfs_id}, artifact={observed_rootfs_id}"
+            )
         observed_packages = _dpkg_packages(package_archive)
         packaged_files = _dpkg_manifest_files(package_archive, observed_packages)
+        wheel_files = _wheel_record_files(package_archive)
     if expected_packages is not None and observed_packages != expected_packages:
         unexpected = sorted(observed_packages - expected_packages)
         missing = sorted(expected_packages - observed_packages)
@@ -51,7 +136,7 @@ def scan_release(
         _wsl_sandbox_extract(archive, sandbox_wsl_distro)
         with tarfile.open(archive, "r:xz") as outer:
             _inventory_archive(
-                outer, inventory, allowed_top_levels, packaged_files, digest_allowlist
+                outer, inventory, allowed_top_levels, packaged_files, wheel_files, digest_allowlist
             )
         canonical = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
         return _report(
@@ -71,7 +156,7 @@ def scan_release(
             if path.is_file():
                 data = path.read_bytes()
                 exact_allowlisted = _justify_regular_file(
-                    relative, data, packaged_files, digest_allowlist
+                    relative, data, packaged_files, wheel_files, digest_allowlist
                 )
                 inventory.append(_entry(relative, data))
                 _inspect(
@@ -115,7 +200,7 @@ def _report(
         "total_member_bytes": total_bytes,
         "content_type_counts": dict(sorted(content_types.items())),
         "allowed_top_levels": sorted(allowed_top_levels),
-        "regular_file_admission": "dpkg-manifest-or-exact-digest-v1",
+        "regular_file_admission": "dpkg-wheel-record-or-exact-digest-v2",
         "package_allowlist_enforced": package_allowlist_enforced,
         "installed_packages": sorted(observed_packages),
     }
@@ -126,6 +211,7 @@ def _inventory_archive(
     inventory: list[dict[str, object]],
     allowed_top_levels: set[str],
     packaged_files: dict[str, str | None],
+    wheel_files: dict[str, str],
     digest_allowlist: dict[str, dict[str, str]],
 ) -> None:
     members = archive.getmembers()
@@ -143,7 +229,7 @@ def _inventory_archive(
                 raise ScanError(f"unreadable archive member: {name}")
             data = stream.read()
             exact_allowlisted = _justify_regular_file(
-                name, data, packaged_files, digest_allowlist
+                name, data, packaged_files, wheel_files, digest_allowlist
             )
             inventory.append(_entry(name, data))
             _inspect(
@@ -324,8 +410,7 @@ def _inspect(
         # ELF magic and layout: System V ABI, "Object Files", ELF Header/Program
         # Header/Section Header (the same 0x7f,'E','L','F' identity documented by elf(5)).
         # https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html
-        if not exact_allowlisted:
-            _reject_elf_appended_data(name, data)
+        _reject_elf_appended_data(name, data)
         inventory[-1]["content_type"] = "application/x-elf"
         return
     stripped = data.lstrip()
@@ -338,8 +423,7 @@ def _inspect(
             ]
         except (UnicodeError, json.JSONDecodeError) as error:
             raise ScanError(f"malformed NDJSON content: {name}") from error
-        if not exact_allowlisted:
-            _reject_protected_json(name, values)
+        _reject_protected_json(name, values)
         inventory[-1]["content_type"] = "application/x-ndjson"
         return
     if lower.endswith(".json") or stripped.startswith(b"{"):
@@ -347,8 +431,7 @@ def _inspect(
             value = json.loads(data.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as error:
             raise ScanError(f"malformed JSON content: {name}") from error
-        if not exact_allowlisted:
-            _reject_protected_json(name, value)
+        _reject_protected_json(name, value)
         inventory[-1]["content_type"] = "application/json"
         return
     if b"\x00" not in data[:8192]:
@@ -429,7 +512,7 @@ def _dpkg_manifest_files(
 ) -> dict[str, str | None]:
     installed_names = {item.rsplit("=", 1)[0] for item in installed_packages}
     members = {member.name.removeprefix("./"): member for member in archive.getmembers()}
-    result: dict[str, str | None] = {}
+    result: dict[str, str | None] = _dpkg_conffile_digests(archive, installed_names)
     for path, member in members.items():
         match = re.fullmatch(r"var/lib/dpkg/info/(.+)\.list", path)
         if match is None or not member.isfile():
@@ -459,9 +542,110 @@ def _dpkg_manifest_files(
                 md5[filename.removeprefix("/")] = digest
         for filename in listed:
             expected = md5.get(filename)
+            # dpkg only provides an integrity check for files that have MD5 metadata;
+            # mere membership in a .list is not content authentication:
+            # https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html#--verify-format
+            if expected is None:
+                continue
             previous = result.setdefault(filename, expected)
             if previous is not None and expected is not None and previous != expected:
                 raise ScanError(f"conflicting dpkg manifests for regular file: {filename}")
+    return result
+
+
+def _dpkg_conffile_digests(
+    archive: tarfile.TarFile, installed_names: set[str]
+) -> dict[str, str | None]:
+    member = next(
+        (item for item in archive.getmembers() if item.name.removeprefix("./") == "var/lib/dpkg/status"),
+        None,
+    )
+    if member is None or not member.isfile():
+        return {}
+    stream = archive.extractfile(member)
+    if stream is None:
+        raise ScanError("dpkg status is unreadable")
+    result: dict[str, str | None] = {}
+    for paragraph in stream.read().decode("utf-8", errors="strict").split("\n\n"):
+        package = next(
+            (line.removeprefix("Package: ") for line in paragraph.splitlines() if line.startswith("Package: ")),
+            None,
+        )
+        if package not in installed_names:
+            continue
+        in_conffiles = False
+        for line in paragraph.splitlines():
+            if line == "Conffiles:":
+                in_conffiles = True
+                continue
+            if in_conffiles and not line.startswith(" "):
+                in_conffiles = False
+            if not in_conffiles:
+                continue
+            fields = line.split()
+            if len(fields) >= 2 and re.fullmatch(r"[0-9a-f]{32}", fields[1]):
+                result[fields[0].removeprefix("/")] = fields[1]
+    return result
+
+
+def _wheel_record_files(archive: tarfile.TarFile) -> dict[str, str]:
+    """Return venv files authenticated by installed-wheel RECORD sha256 rows.
+
+    The PyPA "Recording installed projects" specification defines RECORD as CSV and
+    requires URL-safe-base64 hashes for installed files; blank/unsupported hashes are
+    deliberately not admitted here:
+    https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-record-file
+    """
+    result: dict[str, str] = {}
+    members = {member.name.removeprefix("./"): member for member in archive.getmembers()}
+    for record_path, member in members.items():
+        if (
+            not member.isfile()
+            or not record_path.startswith("opt/localbench/venv/")
+            or not record_path.endswith(".dist-info/RECORD")
+        ):
+            continue
+        marker = "/site-packages/"
+        if marker not in record_path:
+            raise ScanError(f"wheel RECORD is outside site-packages: {record_path}")
+        site_root = record_path.split(marker, 1)[0] + marker.rstrip("/")
+        stream = archive.extractfile(member)
+        if stream is None:
+            raise ScanError(f"wheel RECORD is unreadable: {record_path}")
+        try:
+            rows = csv.reader(io.StringIO(stream.read().decode("utf-8", errors="strict")))
+            for row in rows:
+                if len(row) != 3:
+                    raise ScanError(f"malformed wheel RECORD row: {record_path}")
+                relative, encoded_hash, _size = row
+                algorithm, separator, encoded = encoded_hash.partition("=")
+                if not separator or algorithm != "sha256":
+                    continue
+                resolved = PurePosixPath(site_root, relative)
+                normalized_parts: list[str] = []
+                for part in resolved.parts:
+                    if part in ("", ".", "/"):
+                        continue
+                    if part == "..":
+                        if not normalized_parts:
+                            raise ScanError(f"wheel RECORD path escapes rootfs: {relative}")
+                        normalized_parts.pop()
+                    else:
+                        normalized_parts.append(part)
+                normalized = "/".join(normalized_parts)
+                if not normalized.startswith("opt/localbench/venv/"):
+                    raise ScanError(f"wheel RECORD path escapes installed venv: {relative}")
+                try:
+                    digest = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)).hex()
+                except ValueError as error:
+                    raise ScanError(f"malformed wheel RECORD hash: {record_path}") from error
+                if len(digest) != 64:
+                    raise ScanError(f"malformed wheel RECORD sha256: {record_path}")
+                previous = result.setdefault(normalized, digest)
+                if previous != digest:
+                    raise ScanError(f"conflicting wheel RECORD hashes: {normalized}")
+        except csv.Error as error:
+            raise ScanError(f"malformed wheel RECORD CSV: {record_path}") from error
     return result
 
 
@@ -469,13 +653,18 @@ def _justify_regular_file(
     name: str,
     data: bytes,
     packaged_files: dict[str, str | None],
+    wheel_files: dict[str, str],
     digest_allowlist: dict[str, dict[str, str]],
 ) -> bool:
     normalized = name.removeprefix("./").removeprefix("/")
     package_digest = packaged_files.get(normalized)
-    package_admitted = normalized in packaged_files
+    package_admitted = package_digest is not None
     if package_digest is not None and hashlib.md5(data, usedforsecurity=False).hexdigest() != package_digest:
         raise ScanError(f"dpkg manifest digest mismatch: {normalized}")
+    wheel_digest = wheel_files.get(normalized)
+    wheel_admitted = wheel_digest is not None
+    if wheel_digest is not None and hashlib.sha256(data).hexdigest() != wheel_digest:
+        raise ScanError(f"wheel RECORD digest mismatch: {normalized}")
     exact = digest_allowlist.get(normalized)
     exact_admitted = exact is not None
     if exact_admitted:
@@ -486,10 +675,33 @@ def _justify_regular_file(
             raise ScanError(f"exact-digest allowlist lacks justification: {normalized}")
         if expected != hashlib.sha256(data).hexdigest():
             raise ScanError(f"exact-digest allowlist mismatch: {normalized}")
-    if package_admitted == exact_admitted:
-        classification = "both classes" if package_admitted else "no class"
+    class_count = sum((package_admitted, wheel_admitted, exact_admitted))
+    if class_count != 1:
+        classification = "multiple classes" if class_count else "no class"
         raise ScanError(f"regular file is not justified by exactly one content class ({classification}): {normalized}")
     return exact_admitted
+
+
+def _rootfs_id(archive: tarfile.TarFile) -> str | None:
+    marker = next(
+        (
+            member
+            for member in archive.getmembers()
+            if member.name.removeprefix("./") == "etc/localbench-appliance-owner.json"
+        ),
+        None,
+    )
+    if marker is None or not marker.isfile():
+        return None
+    stream = archive.extractfile(marker)
+    if stream is None:
+        raise ScanError("rootfs owner marker is unreadable")
+    try:
+        payload = json.loads(stream.read().decode("utf-8", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise ScanError("rootfs owner marker is malformed") from error
+    rootfs_id = payload.get("runtime_id") if isinstance(payload, dict) else None
+    return rootfs_id if isinstance(rootfs_id, str) else None
 
 
 def _sqlite_inventory(name: str, data: bytes) -> list[dict[str, object]]:
@@ -554,7 +766,22 @@ def _reject_elf_appended_data(name: str, data: bytes) -> None:
             phoff, shoff, ehsize, phentsize, phnum, shentsize, shnum = (
                 header[4], header[5], header[7], header[8], header[9], header[10], header[11]
             )
-        computed_end = max(ehsize, phoff + phentsize * phnum, shoff + shentsize * shnum)
+        required_ehsize = 64 if elf64 else 52
+        required_phentsize = 56 if elf64 else 32
+        required_shentsize = 64 if elf64 else 40
+        if ehsize != required_ehsize:
+            raise ScanError(
+                f"ELF header size is invalid: {name} expected={required_ehsize} observed={ehsize}"
+            )
+        if phnum and phentsize != required_phentsize:
+            raise ScanError(f"ELF program-header entry size is invalid: {name}")
+        if shnum and shentsize != required_shentsize:
+            raise ScanError(f"ELF section-header entry size is invalid: {name}")
+        computed_end = max(
+            required_ehsize,
+            phoff + phentsize * phnum,
+            shoff + shentsize * shnum,
+        )
         for index in range(phnum):
             offset = phoff + index * phentsize
             if elf64:
