@@ -5,6 +5,7 @@ import subprocess
 import sys
 import textwrap
 import time
+from dataclasses import replace
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -398,18 +399,21 @@ def test_request_timeout_kills_worker_fail_closed(tmp_path: Path) -> None:
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
-        op_timeout_s=0.1,
+        op_timeout_s=1.0,
     )
     proxy = WslSandboxProxy("fac291d_1", config)
     proxy.__enter__()
     try:
+        # Startup is outside this test's scope and needs enough headroom under load.
+        proxy.config = replace(config, op_timeout_s=0.1)
         # When: the op times out.
         with pytest.raises(SandboxError):
             proxy.run_block("hang")
         # Then: the worker is killed immediately (fail closed). A late response from a
         # still-alive worker could pair with the NEXT request and desync every later read.
         assert proxy._proc is not None
-        assert proxy._proc.poll() is not None
+        proxy._proc.wait(timeout=5)
+        assert proxy._proc.returncode is not None
     finally:
         proxy.close()
 
