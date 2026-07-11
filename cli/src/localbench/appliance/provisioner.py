@@ -455,15 +455,18 @@ class ApplianceProvisioner:
                 self._prove_hardening(final)
                 tar_path.unlink(missing_ok=True)
                 return final
-            # A durable matching intent proves this registration was created by
-            # LocalBench even if interruption happened before its marker became readable.
-            if not (
+            matching_intent = (
                 journal is not None
                 and journal.get("status") == "intent"
                 and journal.get("runtime_id") == runtime_id
                 and journal.get("distro_name") == final
-            ):
-                self._assert_owned(final, runtime_id)
+            )
+            if not matching_intent:
+                self._final_name_collision(final, "no matching LocalBench import intent")
+            # Recovery invariant: final-name removal requires both our durable intent
+            # and the marker inside the visible distro. An intent alone is only proof
+            # that import was about to start, never proof that this registration is ours.
+            self._assert_owned(final, runtime_id)
             self._wsl(["--unregister", final], timeout=300)
         if staging in names:
             self._assert_owned(staging, runtime_id)
@@ -496,6 +499,8 @@ class ApplianceProvisioner:
         shutil.rmtree(staging_dir, ignore_errors=True)
         final_dir = runtime_dir / "vhd"
         final_dir.mkdir(exist_ok=True)
+        if final in self._distro_names():
+            self._final_name_collision(final, "registered before final-import intent")
         atomic_write_json(
             {
                 "schema": "localbench.final_import.v1",
@@ -507,6 +512,8 @@ class ApplianceProvisioner:
             },
             final_journal,
         )
+        if final in self._distro_names():
+            self._final_name_collision(final, "registered after intent and before final import")
         self._wsl(
             ["--import", final, str(final_dir), str(tar_path), "--version", "2"],
             timeout=900,
@@ -529,6 +536,14 @@ class ApplianceProvisioner:
         )
         tar_path.unlink(missing_ok=True)
         return final
+
+    @staticmethod
+    def _final_name_collision(distro: str, observation: str) -> None:
+        raise ProvisioningError(
+            "final_distro_name_collision",
+            f"found registered distro {distro!r}: {observation}",
+            "Do not delete it automatically; inspect the named distro and choose a different runtime name",
+        )
 
     def _install_wsl_conf(self, distro: str) -> None:
         import base64
