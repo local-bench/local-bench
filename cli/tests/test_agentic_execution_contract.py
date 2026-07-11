@@ -7,6 +7,7 @@ import re
 
 import pytest
 
+from localbench.scoring.agentic_exec import execution_contract as execution_contract_module
 from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
     CONTRACT_SCHEMA,
@@ -15,7 +16,6 @@ from localbench.scoring.agentic_exec.execution_contract import (
     ExecutionContractDriftError,
     RuntimeIdentityDriftError,
     assert_execution_contract,
-    assert_packaging_correctness_gate,
     assert_runtime_identity,
     extract_contract_payload,
     load_execution_contract,
@@ -147,10 +147,19 @@ def test_contract_extraction_and_signature_are_deterministic(tmp_path: Path) -> 
     )
 
 
-def test_contract_assertion_fails_closed_on_budget_drift(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert_execution_contract()
+def test_contract_assertion_fails_closed_on_unpassed_packaging_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    contract = load_execution_contract()
+    payload = contract["payload"]
+    assert isinstance(payload, dict)
+    monkeypatch.setattr(
+        execution_contract_module,
+        "_extract_covered_behavior",
+        lambda: (payload["covered_behavior"], {}),
+    )
     with pytest.raises(ExecutionContractDriftError, match="not-yet-passed"):
-        assert_packaging_correctness_gate()
+        assert_execution_contract()
 
 
 def test_task_identity_hashes_respond_only_to_their_own_inputs() -> None:
@@ -211,6 +220,8 @@ def test_official_wheel_contract_preserves_signed_legacy_identity() -> None:
     legacy = load_execution_contract(
         legacy_path, expected_contract_id=LEGACY_CONTRACT_ID
     )
+    # Loading verifies the legacy signature and payload without applying the v3 gate.
+    assert legacy["payload"]["packaging_correctness_gate"]["status"] == "pending-C2"
     assert lineage["legacy_contract_id"] == LEGACY_CONTRACT_ID
     assert lineage["legacy_payload_sha256"] == legacy["payload_sha256"]
     assert legacy["payload"]["appworld_identity"]["appworld_package_sha256"] == (

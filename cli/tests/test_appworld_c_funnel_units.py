@@ -56,6 +56,76 @@ from test_appworld_protocol_c_units import (  # noqa: E402
 )
 
 
+@pytest.fixture(autouse=True)
+def _passed_execution_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unrelated funnel mechanics run as though the separately tested C0 gate passed."""
+    from localbench.scoring.agentic_exec import execution_contract
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
+
+
+def test_run_stage_rejects_unpassed_v3_gate_before_any_task_executes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract
+
+    executed = False
+
+    def task_execution(**_kwargs: object) -> object:
+        nonlocal executed
+        executed = True
+        raise AssertionError("task execution must not be reached")
+
+    def reject_gate() -> str:
+        raise RuntimeError("not-yet-passed")
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", reject_gate)
+    monkeypatch.setattr(fn, "run_appworld_c_benchmark", task_execution)
+    subset = fn.SubsetSpec(
+        name="gate", split="test", size=1, seed=0, task_ids=("task-1",)
+    )
+    with pytest.raises(RuntimeError, match="not-yet-passed"):
+        fn.run_stage(
+            label="gate",
+            stage=fn.Stage.SCORED,
+            subset=subset,
+            model_factory=lambda _task_id: None,  # type: ignore[arg-type,return-value]
+            sandbox_factory=lambda _task_id: None,  # type: ignore[arg-type,return-value]
+        )
+    assert executed is False
+
+
+def test_host_rerun_entry_rejects_unpassed_v3_gate_before_any_task_executes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract
+
+    executed = False
+
+    def task_execution(**_kwargs: object) -> object:
+        nonlocal executed
+        executed = True
+        raise AssertionError("task execution must not be reached")
+
+    def reject_gate() -> str:
+        raise RuntimeError("not-yet-passed")
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", reject_gate)
+    monkeypatch.setattr(fn, "run_appworld_c_benchmark", task_execution)
+    subset = fn.SubsetSpec(
+        name="gate", split="test", size=1, seed=0, task_ids=("task-1",)
+    )
+    with pytest.raises(RuntimeError, match="not-yet-passed"):
+        fn.run_with_reruns(
+            label="gate",
+            stage=fn.Stage.SCORED,
+            subset=subset,
+            model_factory=lambda _task_id: None,  # type: ignore[arg-type,return-value]
+            sandbox_factory=lambda _task_id: None,  # type: ignore[arg-type,return-value]
+        )
+    assert executed is False
+
+
 # ==================================================================================================
 # ChatCompletionsClient — request shape + parsing + error handling (MOCK transport).
 # ==================================================================================================

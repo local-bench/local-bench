@@ -88,6 +88,63 @@ def test_provision_force_reinstalls_downloaded_official_wheel_after_lock(
     assert pip_calls[1][-1].endswith("appworld-0.1.3.post1-py3-none-any.whl")
 
 
+def test_ndjson_worker_rejects_unpassed_v3_gate_before_identity_or_task_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract
+
+    identity_collected = False
+
+    def collect_identity() -> dict[str, object]:
+        nonlocal identity_collected
+        identity_collected = True
+        return {}
+
+    def reject_gate() -> str:
+        raise RuntimeError("not-yet-passed")
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", reject_gate)
+    monkeypatch.setattr(wsl_worker, "collect_identity", collect_identity)
+    assert wsl_worker.main() == 2
+    assert identity_collected is False
+
+
+def test_worker_provision_interruption_stops_before_pip_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = {
+        "appworld": {
+            "version": "0.1.3.post1",
+            "installed_tree_sha256": "22" * 32,
+            "data_tree_sha256": "33" * 32,
+            "package": {"filename": "appworld.whl", "url": "https://example.invalid/wheel", "sha256": "11" * 32, "size_bytes": 1},
+            "dependency_locks": {"x86_64": {"url": "https://example.invalid/lock", "sha256": "44" * 32, "size_bytes": 1}},
+            "data_distribution": {"filename": "data.bundle", "url": "https://example.invalid/data", "sha256": "55" * 32, "size_bytes": 1},
+        }
+    }
+    pip_executed = False
+
+    def interrupted_download(*_args: object, **_kwargs: object) -> None:
+        raise OSError("injected download interruption")
+
+    def run(*_args: object, **_kwargs: object) -> object:
+        nonlocal pip_executed
+        pip_executed = True
+        raise AssertionError("pip must not execute after interrupted download")
+
+    monkeypatch.setattr(appliance_worker.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(appliance_worker, "_download", interrupted_download)
+    monkeypatch.setattr(appliance_worker.subprocess, "run", run)
+    monkeypatch.setattr(
+        appliance_worker,
+        "_successor_appworld_identity",
+        lambda: {"official_wheel_sha256": "11" * 32, "installed_tree_sha256": "22" * 32},
+    )
+    with pytest.raises(OSError, match="injected download interruption"):
+        appliance_worker.provision(manifest)
+    assert pip_executed is False
+
+
 def test_worker_distribution_mutation_is_detected_from_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

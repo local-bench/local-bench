@@ -1,0 +1,5 @@
+# Captured from the accepted r2 builder rootfs var/lib/dpkg/info files.
+# dpkg.list:
+/usr/bin/dpkg
+# dpkg.md5sums:
+db5a344aba5b485cb9507afcd6fa297c  usr/bin/dpkg
