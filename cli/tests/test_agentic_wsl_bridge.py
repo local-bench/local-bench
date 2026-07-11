@@ -6,6 +6,7 @@ import sys
 import textwrap
 import time
 from dataclasses import replace
+from contextlib import nullcontext
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -34,7 +35,32 @@ from localbench.scoring.agentic_exec.wsl_worker import (
     decode_worker_frame,
     encode_worker_frame,
     handle_worker_message,
+    WorkerSession,
 )
+
+
+def test_worker_verdict_request_rejects_unpassed_v3_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract
+
+    class Sandbox:
+        def finalize(self, _answer: object) -> object:
+            return type(
+                "Verdict",
+                (),
+                {"success": True, "collateral_damage": False, "passes": (), "failures": ()},
+            )()
+
+    session = WorkerSession(sandbox_factory=lambda _task_id: nullcontext(Sandbox()))
+    session.open_task("task-1")
+
+    def reject_gate() -> str:
+        raise execution_contract.ExecutionContractDriftError("passed", "not-yet-passed")
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", reject_gate)
+    with pytest.raises(execution_contract.ExecutionContractDriftError, match="not-yet-passed"):
+        handle_worker_message({"op": "finalize", "answer": 1}, session)
 
 
 def test_worker_frame_round_trip_and_oversized_rejection() -> None:

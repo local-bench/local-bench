@@ -407,6 +407,9 @@ class AppWorldSandbox:
 
     def finalize(self, answer: Any) -> Verdict:
         """Finalize the task (complete_task + evaluate) via the trusted env-host control seam."""
+        from localbench.scoring.agentic_exec.execution_contract import assert_verdict_mint_allowed
+
+        assert_verdict_mint_allowed()
         self._ensure_live()
         if self._finalized:
             raise SandboxError("finalize already called for this task")

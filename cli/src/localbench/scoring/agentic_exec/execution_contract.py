@@ -298,14 +298,17 @@ def load_execution_contract(
 
 def assert_execution_contract(path: Path | None = None) -> str:
     """Fail closed when currently imported score-affecting behavior differs from C0."""
-    from localbench.scoring.agentic_exec.contract_scope import active_execution_contract; path, selected_contract_id = active_execution_contract(path)
+    from localbench.scoring.agentic_exec.contract_scope import active_execution_contract
+
+    path, selected_contract_id = active_execution_contract(path)
     contract = load_execution_contract(path, expected_contract_id=selected_contract_id)
-    payload = _object(contract["payload"]); expected_behavior = _object(payload["covered_behavior"])
+    expected_behavior = _object(_object(contract["payload"])["covered_behavior"])
     actual_behavior, _provenance = _extract_covered_behavior()
     expected, actual = canonical_json_hash(expected_behavior), canonical_json_hash(actual_behavior)
     if expected != actual:
         raise ExecutionContractDriftError(expected, actual)
-    if selected_contract_id != LEGACY_CONTRACT_ID: assert_packaging_correctness_gate(path)
+    if selected_contract_id != LEGACY_CONTRACT_ID:
+        assert_packaging_correctness_gate(path)
     return str(contract["payload_sha256"])
 
 
@@ -314,10 +317,7 @@ def assert_packaging_correctness_gate(path: Path | None = None) -> None:
     payload = _object(load_execution_contract(path)["payload"])
     gate = _object(payload["packaging_correctness_gate"])
     if gate.get("status") != "passed-current-repo-harness-vs-appliance":
-        raise ExecutionContractDriftError(
-            "passed-current-repo-harness-vs-appliance",
-            str(gate.get("status")),
-        )
+        raise ExecutionContractDriftError("passed-current-repo-harness-vs-appliance", str(gate.get("status")))
 
 
 def assert_runtime_identity(identity: JsonObject, path: Path | None = None) -> None:
@@ -647,6 +647,25 @@ def _object(value: object) -> JsonObject:
     return value
 
 
+def assert_verdict_mint_allowed(path: Path | None = None) -> None:
+    """Apply the active contract at every verdict/scored-envelope mint.
+
+    The legacy schema has no successor packaging-gate requirement. Its signed behavior remains
+    executable only on its pinned snapshot by design; ``assert_execution_contract`` separately
+    fails closed when current HEAD drifts from that snapshot.
+    """
+    from localbench.scoring.agentic_exec.contract_scope import active_execution_contract
+
+    active_path, selected_contract_id = active_execution_contract(path)
+    if selected_contract_id == LEGACY_CONTRACT_ID:
+        load_execution_contract(active_path, expected_contract_id=selected_contract_id)
+        return
+    if path is None:
+        assert_execution_contract()
+    else:
+        assert_execution_contract(path)
+
+
 __all__ = [
     "CONTRACT_FILENAME",
     "CONTRACT_ID",
@@ -656,6 +675,7 @@ __all__ = [
     "TaskIdentityDriftError",
     "RuntimeIdentityDriftError",
     "assert_execution_contract",
+    "assert_verdict_mint_allowed",
     "assert_packaging_correctness_gate",
     "assert_task_identity",
     "assert_runtime_identity",

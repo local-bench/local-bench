@@ -113,6 +113,11 @@ class TaskRunResult:
     diagnostics: TaskDiagnostics
     attestation: dict[str, Any] | None = None
 
+    def __post_init__(self) -> None:
+        from localbench.scoring.agentic_exec.execution_contract import assert_verdict_mint_allowed
+
+        assert_verdict_mint_allowed()
+
     def as_dict(self) -> dict[str, Any]:
         result = {
             "task_id": self.task_id,
@@ -160,6 +165,11 @@ class BenchmarkReport:
     model_failure_rate: float = 0.0
     model_no_progress_rate: float = 0.0
     harness_error_subclass_rate: float = 0.0
+
+    def __post_init__(self) -> None:
+        from localbench.scoring.agentic_exec.execution_contract import assert_verdict_mint_allowed
+
+        assert_verdict_mint_allowed()
 
     def as_dict(self) -> dict[str, Any]:
         return {

@@ -8,8 +8,6 @@ import re
 import pytest
 
 from localbench.scoring.agentic_exec import execution_contract as execution_contract_module
-from localbench.scoring.agentic_exec import funnel as fn
-from localbench.scoring.agentic_exec import scripted_agent as sa
 from localbench.scoring.agentic_exec.contract_scope import execution_contract_scope
 from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
@@ -33,7 +31,6 @@ from localbench.scoring.agentic_exec.task_pool import (
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import verify_bytes
-from test_appworld_protocol_c_units import FakeSandbox, _50E_INSTR, _FAC_INSTR
 
 
 _CITATION_PATTERN = re.compile(r"^(.+?):(\d+)(?:-(\d+))?$")
@@ -233,52 +230,30 @@ def test_official_wheel_contract_preserves_signed_legacy_identity() -> None:
     )
 
 
-def test_real_legacy_contract_stage_executes_without_successor_gate(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Execute the real funnel/loop while the real assertion verifies the legacy fixture."""
+def test_legacy_contract_execution_at_current_head_fails_closed_on_drift() -> None:
     legacy_path = (
         Path(__file__).parents[1]
         / "src/localbench/data/contracts/agentic-execution-contract-v1.json"
     )
-    legacy = load_execution_contract(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID)
-    payload = legacy["payload"]
-    assert isinstance(payload, dict)
-    monkeypatch.setattr(
-        execution_contract_module,
-        "_extract_covered_behavior",
-        lambda: (payload["covered_behavior"], {}),
-    )
-    golds = {
-        "fac291d_1": (5, _FAC_INSTR),
-        "50e1ac9_1": ("Bravo, Delta, Alpha", _50E_INSTR),
-    }
-
-    def sandbox_factory(task_id: str) -> FakeSandbox:
-        gold, instruction = golds[task_id]
-        return FakeSandbox(
-            gold_answer=gold,
-            instruction=instruction,
-            supervisor_email="b@x.com",
-        )
-
-    subset = fn.SubsetSpec(
-        name="legacy-fixture",
-        split="dev",
-        size=2,
-        seed=0,
-        task_ids=("fac291d_1", "50e1ac9_1"),
-    )
     with execution_contract_scope(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID):
-        result = fn.run_stage(
-            label="legacy-fixture",
-            stage=fn.Stage.SMOKE,
-            subset=subset,
-            model_factory=sa.ScriptedSolverAgent,
-            sandbox_factory=sandbox_factory,
-        )
-    assert result.report.tasks_total == 2
-    assert result.report.agentic_success_rate == 1.0
+        with pytest.raises(ExecutionContractDriftError, match="agentic execution contract drift"):
+            assert_execution_contract()
+
+
+def test_verdict_mint_gate_makes_no_demand_on_legacy_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    legacy_path = (
+        Path(__file__).parents[1]
+        / "src/localbench/data/contracts/agentic-execution-contract-v1.json"
+    )
+
+    def unexpected_successor_gate(_path: Path | None = None) -> str:
+        raise AssertionError("legacy contract must not demand the successor packaging gate")
+
+    monkeypatch.setattr(execution_contract_module, "assert_execution_contract", unexpected_successor_gate)
+    with execution_contract_scope(legacy_path, expected_contract_id=LEGACY_CONTRACT_ID):
+        execution_contract_module.assert_verdict_mint_allowed()
 
 
 @pytest.mark.parametrize("field,wrong", [("schema", "wrong"), ("contract_id", "wrong")])

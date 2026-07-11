@@ -87,6 +87,9 @@ class WorkerSession:
         }
 
     def finalize(self, answer: JsonValue) -> JsonObject:
+        from localbench.scoring.agentic_exec.execution_contract import assert_verdict_mint_allowed
+
+        assert_verdict_mint_allowed()
         sandbox = self._require_sandbox()
         verdict = sandbox.finalize(answer)
         passes = tuple(getattr(verdict, "passes", ()) or ())
@@ -160,6 +163,13 @@ def handle_worker_message(
                 return _protocol_error("run_block requires code"), False
             return _sandbox_call(lambda: worker.run_block(code)), False
         case "finalize":
+            # Keep contract rejection outside _sandbox_call: an unpassed gate aborts the verdict
+            # request instead of being converted into an ordinary sandbox error envelope.
+            from localbench.scoring.agentic_exec.execution_contract import (  # noqa: PLC0415
+                assert_verdict_mint_allowed,
+            )
+
+            assert_verdict_mint_allowed()
             return _sandbox_call(lambda: worker.finalize(message.get("answer"))), False
         case "close":
             return _sandbox_call(lambda: _close(worker)), True

@@ -59,6 +59,58 @@ def _passed_execution_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
 
 
+def test_direct_run_task_rejects_unpassed_v3_gate_at_result_mint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract
+
+    def reject_gate() -> str:
+        raise execution_contract.ExecutionContractDriftError("passed", "not-yet-passed")
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", reject_gate)
+    sandbox = FakeSandbox(gold_answer=5, instruction=_FAC_INSTR, supervisor_email="boss@x.com")
+
+    with pytest.raises(execution_contract.ExecutionContractDriftError, match="not-yet-passed"):
+        run_task(sandbox, sa.ScriptedSolverAgent("fac291d_1"), "fac291d_1")
+
+
+def test_benchmark_conversion_rejects_prebuilt_result_under_unpassed_v3_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract
+
+    diagnostics = TaskDiagnostics(
+        task_id="task-1",
+        outcome=TaskOutcome.SUCCESS,
+        success=True,
+        collateral_damage=False,
+        turns_used=1,
+        blocks_run=1,
+        format_failures=0,
+        syntax_errors=0,
+        runtime_errors=0,
+        cap_exceeded=False,
+        total_api_calls=0,
+        api_docs_uses=0,
+        observation_truncations=0,
+        total_output_tokens=1,
+    )
+    prebuilt = TaskRunResult(
+        task_id="task-1",
+        success=True,
+        outcome=TaskOutcome.SUCCESS,
+        collateral_damage=False,
+        diagnostics=diagnostics,
+    )
+
+    def reject_gate() -> str:
+        raise execution_contract.ExecutionContractDriftError("passed", "not-yet-passed")
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", reject_gate)
+    with pytest.raises(execution_contract.ExecutionContractDriftError, match="not-yet-passed"):
+        bench.aggregate([prebuilt])
+
+
 # ==============================================================================================
 # block_parser
 # ==============================================================================================

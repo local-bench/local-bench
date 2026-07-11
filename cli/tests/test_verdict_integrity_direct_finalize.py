@@ -309,3 +309,9 @@ def _sandbox_with_pipes(
     sandbox._env_proc = _LiveProcess(env_stdout)  # type: ignore[assignment]
     sandbox._runner_proc = _LiveProcess(runner_stdout)  # type: ignore[assignment]
     return sandbox
+@pytest.fixture(autouse=True)
+def _passed_execution_contract(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verdict-channel integrity is tested independently of the contract gate."""
+    from localbench.scoring.agentic_exec import execution_contract
+
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "contract")
