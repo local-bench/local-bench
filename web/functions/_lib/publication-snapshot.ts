@@ -2,6 +2,8 @@ import { adminBlocked, jsonResponse } from "./submission-api-support";
 import { canonicalJson, sha256Hex } from "./submission-canonical";
 import type { D1PreparedStatement, SubmissionApiEnv } from "./submission-contracts";
 
+// Operational static-asset eviction SLA; see release/b2a-publication-runbook.md.
+// D1 is invalidated synchronously here, while rebuild/redeploy is external to this repo.
 export const SUPPRESSION_MAX_EXPOSURE_SECONDS = 300;
 const PAGE_LIMIT = 100;
 
@@ -69,9 +71,24 @@ export async function handleExportPublicationSnapshot(request: Request, env: Sub
   const header = await snapshotHeader(env, snapshotId);
   if (header === null || header["snapshot_digest"] === "pending") return jsonResponse(404, { code: "snapshot_not_found", error: "publication snapshot not found" });
   const allRows = await snapshotRows(env, snapshotId);
+  const control = await env.DB.prepare(
+    "select active_snapshot_id, publication_revision, edge_block_revision from publication_control where singleton = 1",
+  ).first();
+  const blockedRows = await env.DB.prepare(
+    "select submission_id from publication_edge_blocks order by submission_id asc",
+  ).all();
   const rows = allRows.slice(cursor, cursor + PAGE_LIMIT);
   const nextCursor = cursor + rows.length < allRows.length ? cursor + rows.length : null;
-  return jsonResponse(200, { ...header, cursor, next_cursor: nextCursor, rows });
+  return jsonResponse(200, {
+    ...header,
+    publication_control: {
+      active_snapshot_id: control?.["active_snapshot_id"] ?? null,
+      edge_block_revision: control?.["edge_block_revision"] ?? null,
+      publication_revision: control?.["publication_revision"] ?? null,
+      suppressed_submission_ids: blockedRows.results.map((row) => text(row, "submission_id")),
+    },
+    cursor, next_cursor: nextCursor, rows,
+  });
 }
 
 export async function handleActivatePublicationSnapshot(request: Request, env: SubmissionApiEnv): Promise<Response> {
@@ -108,8 +125,8 @@ export async function handleActivatePublicationSnapshot(request: Request, env: S
 /**
  * Production serving-edge read. Suppression is enforced twice: the suppression
  * transaction invalidates an affected active snapshot immediately, and this read
- * still excludes edge-blocked rows. The 300-second constant is the operational
- * maximum for downstream cache eviction; authoritative reads are blocked at once.
+ * still excludes edge-blocked rows. Static asset eviction is governed by the external
+ * rebuild/redeploy procedure documented in release/b2a-publication-runbook.md.
  */
 export async function handleServeActivePublicationSnapshot(_request: Request, env: SubmissionApiEnv): Promise<Response> {
   const control = await env.DB.prepare(
@@ -163,7 +180,7 @@ function snapshotRow(row: Record<string, unknown>): SnapshotRow {
 
 async function snapshotHeader(env: SubmissionApiEnv, snapshotId: string): Promise<Record<string, unknown> | null> {
   return env.DB.prepare(
-    "select snapshot_id, publication_revision, snapshot_digest, total_count, created_at from publication_snapshots where snapshot_id = ?",
+    "select snapshot_id, publication_revision, snapshot_digest, total_count, created_at, activated_at from publication_snapshots where snapshot_id = ?",
   ).bind(snapshotId).first();
 }
 

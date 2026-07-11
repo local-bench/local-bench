@@ -1,6 +1,6 @@
 [
   {
-    "kind": "community",
+    "kind": "anchor",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -21,7 +21,7 @@
     "notes": "Project-anchor ranked five-axis proof row from runs/bench/ranked-5axis-capped-2026-07-03. Artifact = Google QAT weights in the UD-Q4_K_XL GGUF (run model gemma-4-12b-it-qat-ud-q4-k-xl); model identity is the weights line, QAT+quant live in the variant label. Agentic verdicts predate per-verdict signing and are labeled project_attested only through the documented grandfathered bundle mechanism."
   },
   {
-    "kind": "community",
+    "kind": "anchor",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -39,7 +39,7 @@
     "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane (index-v3.0: exec-verified BigCodeBench-Hard coding + promoted Math). Same artifact as the capped-thinking anchor: Google QAT weights in the UD-Q4_K_XL GGUF. Generated 2026-07-05; coding re-executed by the sandbox verifier under the finalized scorer; scoring identity + budget audit re-derived 2026-07-06 under scorecard v3 with generations untouched (see rescore_provenance in the run file)."
   },
   {
-    "kind": "community",
+    "kind": "anchor",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -57,7 +57,7 @@
     "notes": "Project-anchor quant-ladder rung 1 for Gemma 4 12B IT on the bounded-final-v2 lane, using the same Google QAT weights line as the Q4 anchor in the UD-Q2_K_XL GGUF. Generated 2026-07-09/10; coding re-executed by the sandbox verifier under the post-#42 harness (3/141 scoreable passed); both AppWorld-C runs were deterministic-identical at 0/96 with zero infrastructure timeouts. Scoring identity + budget audit re-derived 2026-07-10 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB)."
   },
   {
-    "kind": "community",
+    "kind": "anchor",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -75,7 +75,7 @@
     "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane; the fine-tune half of the Qwopus-vs-Qwen3.6-27B lineage pair (base_model in model_catalog). Generated 2026-07-06/07 on the same v2 config as the Gemma anchor; coding re-executed by the sandbox verifier under the post-#42 harness (42/141 scoreable passed); scoring identity + budget audit re-derived 2026-07-08 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB)."
   },
   {
-    "kind": "community",
+    "kind": "anchor",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",

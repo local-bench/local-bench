@@ -22,6 +22,7 @@ def merge_publication_bundle(
     board_path: Path,
     surface: str = "production",
     source_run_paths: Iterable[Path] = (),
+    build_parameters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     snapshot = _object(json.loads((bundle_dir / "snapshot.json").read_text(encoding="utf-8")), "snapshot")
     rows = _objects(snapshot.get("rows"), "snapshot.rows")
@@ -29,6 +30,19 @@ def merge_publication_bundle(
         raise PublicationExportError("snapshot truncation: row count mismatch")
     if _digest(canonical_bytes(rows)) != _text(snapshot, "snapshot_digest"):
         raise PublicationExportError("snapshot digest mismatch")
+    control = _object(snapshot.get("publication_control"), "snapshot.publication_control")
+    snapshot_id = _text(snapshot, "snapshot_id")
+    if control.get("active_snapshot_id") != snapshot_id:
+        raise PublicationExportError("bundle snapshot is not the active snapshot")
+    if control.get("publication_revision") != snapshot.get("publication_revision"):
+        raise PublicationExportError("active publication revision mismatch")
+    if not isinstance(snapshot.get("activated_at"), str) or not snapshot["activated_at"]:
+        raise PublicationExportError("active snapshot is not completed and activated")
+    suppressed = control.get("suppressed_submission_ids")
+    if not isinstance(suppressed, list) or not all(isinstance(item, str) for item in suppressed):
+        raise PublicationExportError("suppression set is missing or malformed")
+    suppressed_ids = set(suppressed)
+    rows = [row for row in rows if _text(row, "submission_id") not in suppressed_ids]
     surface_policy = _object(json.loads(SURFACE_POLICY_PATH.read_text(encoding="utf-8")), "publication surface policy")
     if surface not in {"production", "previewDeploy"}:
         raise PublicationExportError(f"unknown publication surface: {surface}")
@@ -79,14 +93,13 @@ def merge_publication_bundle(
     (community_dir / "index.json").write_bytes(canonical_bytes({"groups": index_groups, "schema_version": SCHEMA_VERSION}))
     manifest = {
         "builder_commit": _builder_commit(),
+        "build_parameters": build_parameters or {},
         "catalog_bytes_digest": _digest(catalog_path.read_bytes()),
         "frozen_generation_time": snapshot.get("created_at"),
         "mapper_version": MAPPER_VERSION,
         "projection_object_sha256s": sorted(projections),
         "protected_board_bytes_digest": _digest(board_path.read_bytes()),
-        "protected_input_tree_byte_digests": _file_digest_entries(
-            path for path in out_dir.rglob("*") if path.is_file() and "community" not in path.relative_to(out_dir).parts
-        ),
+        "publication_control": control,
         "schema_version": SCHEMA_VERSION,
         "source_run_byte_digests": _file_digest_entries(source_run_paths),
         "snapshot_digest": snapshot.get("snapshot_digest"),

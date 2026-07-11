@@ -193,6 +193,15 @@ def build_static_data(
             catalog_path=ROOT / "web" / CATALOG_FILENAME,
             board_path=BOARD_PATH,
             source_run_paths=_publication_source_run_paths(sources_path, raw_sources),
+            build_parameters={
+                "allow_lineage_gaps": allow_lineage_gaps,
+                "benches": list(benches),
+                "headline_lane": board.headline_lane,
+                "index_version": INDEX_VERSION,
+                "iters": iters,
+                "static_suite_index_version": STATIC_SUITE_INDEX_VERSION,
+                "weights": weights,
+            },
         )
         assert_protected_tree_unchanged(before, out_dir)
 
@@ -714,12 +723,12 @@ def _source_annotations(source: JsonObject, axes: JsonObject, headline_complete:
 
 def _source_origin(source: JsonObject) -> str:
     origin = _text(source.get("origin"))
-    if origin is not None:
-        return origin
-    # data_sources.json is a maintainer-curated protected-build input. Legacy entries
-    # predate the origin field, so omission retains that project-anchor trust boundary;
-    # public/community ingestion must identify itself explicitly and is merged elsewhere.
-    return "project_anchor"
+    # Trust is explicit and fail-closed. In particular, a community row cannot promote
+    # itself by claiming project_anchor, and legacy/malformed rows with no origin remain
+    # untrusted until a maintainer adds the explicit protected origin.
+    if source.get("kind") == "community":
+        return "community"
+    return origin if origin == "project_anchor" else "untrusted"
 
 
 def _trust_label(origin: str) -> str:
