@@ -156,7 +156,69 @@ Season-2 is the LAUNCH methodology; announce (#21) gates on the dogfood canary b
 
 ---
 
+## 9. S2-1 design-review outcome (codex read-only consult, reviewed by orchestrator 2026-07-12)
+
+Codex's proposal APPROVED with refinements. Two prerequisites/blast-radius findings materially
+change the plan:
+
+**NEW PREREQUISITE — S2-0 · Freeze v1 profile identity (MUST precede any registry change).**
+The manifest builder uses the LIVE scorecard + LIVE axis membership for every non-legacy profile
+(`suite_release.py:115`), and `cli/scripts/build_6axis_suite_release.py:58` deletes+rebuilds the
+v1 dirs. So editing the `AXES` singleton would change v1's *computed* identity → v1 shas break.
+Fix: generalize the existing frozen-legacy snapshot pattern (`suite_release.py:277`) into
+profile-specific frozen scoring snapshots — freeze the two locked v1 profiles' axis membership,
+registry_digest, scorecard_id, scorer_versions — and stop the release script from regenerating
+v1. Regression test: rebuilding both v1 profiles still reproduces `c4098…f468` / `4e240…c61d64`
+(extend `cli/tests/test_suite_release_manifest.py:133`). Without S2-0, "additive" is a fiction.
+
+**S2-1 refined (facets on Axis):** add optional `facets: tuple[FacetSpec,...]=()` to the `Axis`
+dataclass; `FacetSpec{key, bench, weight, selector}` (selector e.g. `category=="multi_turn_base"`,
+grounded at `build_v1_bfcl_multi_turn.py:22,88`). Keep `Axis.benches` as the flat compat surface
+(helpers at `axes.py:37,131,186` flatten it). Define `tool_use` = benches
+`(appworld_c, bfcl_multi_turn, tc_json_v1)` + facets 0.50/0.35/0.15. Existing axes leave
+`facets=()` → keep item-pooling. Extend `_validate()`: unique facet keys, positive weights,
+selectors reference an axis bench, facet-sum==1.0. (Rejected: parallel weight dicts (drift) and
+synthetic bench names (won't match registered scorer).)
+
+**Item-pool fix — 4-place blast radius (must stay in parity or scores diverge):**
+`board_scoring.py:390/:474`, `web/build_data_axes.py:120/:166`, normal-run `_scoring.py:234`,
+submission projection `foundation_scores.py:101`. One registry-owned facet-sample helper (applies
+the BFCL selector) + `bootstrap.composite_ci` (already normalizes declared bench weights);
+`_source_weights_for_composite` assigns `axis_weight × facet_weight`, keeping count-allocation only
+for facet-less axes. Weighted completeness FAILS CLOSED: any of the 3 facets absent → omit
+`tool_use` → `composite_full=None` (existing strict check `board_scoring.py:494`). Parity test
+across all 4 paths.
+
+**Weight math:** `tool_use .20 + knowledge .24 + instruction_following .24 + coding .24 + math .08
+= 1.00` (retained four = old .15/.15/.15/.05 × 1.6). Static scale: FREEZE `static-suite-v2` (it
+includes tool_calling); if a season-2 static comparator is kept, add `static-suite-v3` over the
+four non-tool axes at .30/.30/.30/.10.
+
+**Diagnostics:** no `diagnostic` AxisRole exists (only headline/candidate/experimental,
+`axes.py:34`; axis_status describes measurement not ranking). Use role=`experimental`, weight 0,
++ `rankable=False` presentation. Single-turn BFCL + BFCL `multi_turn_long_context` NEVER enter
+weighted-facet completeness or the composite.
+
+**Identity:** deliberate `SCORECARD_VERSION` bump + facets/weights → new v2 scorecard/manifest;
+regression-lock `suite/release-pairs.expected.json:5,11`.
+
+**Web-coupling DECISION (orchestrator):** web imports LIVE registry weights
+(`build_data_axes.py:20`) but hardcodes `index-v3.0` (`build_data.py:67`). To keep the website on
+v1 until S2-5, S2-0..S2-4 builds MUST NOT regenerate or deploy web data — the site stays on v1
+until the S2-5 flip. (Alternative — profile-selective web consumption — deferred to S2-5.)
+
+**Naming:** the v2 headline set is FIVE macro-axes (tool_use, knowledge, instruction_following,
+coding, math; long_context stays 0-weight) — so name the profile `full-exec-tooluse-5axis-v2`
+(not "6axis"); editorial label `index-v4.0`. Finalize at build.
+
+**Revised build order:** S2-0 (freeze v1 identity) → S2-1 (facets + 4-place weighting + v2
+profile) → S2-2 (BFCL split/wiring) → S2-3 (bridge/editorial) → S2-4 (calibration GPU, after
+ladder) → S2-5 (website flip = FINAL) → 0.4.0 dogfood canary = gate.
+
 ## Progress log
 - 2026-07-12: Ground-truth mapped (Explore). Oracle + codex two-model panel → Option D. Michael
-  approved structure + full autonomous authority. Design doc written (this file). NEXT: writing-
-  plans → S2-1 codex build, sequenced behind gemma landing + B2a cert.
+  approved structure + FULL autonomous authority. Design doc written + committed 812bece.
+- 2026-07-12: S2-1 read-only design consult (codex GPT-5.6-sol xhigh) done + reviewed → §9.
+  NEW prerequisite S2-0 (freeze v1 identity) identified; item-pool fix is 4-place; web stays on
+  v1 until S2-5. Plan refined. NEXT: after gemma landing + B2a cert free the box, dispatch S2-0
+  BUILD (codex, additive, suites sequential) → my QA → xhigh reverify → SHIP; then S2-1 onward.
