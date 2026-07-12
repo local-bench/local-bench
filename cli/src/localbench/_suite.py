@@ -10,7 +10,10 @@ from typing import Final
 
 from localbench._types import BenchmarkItem, JsonObject, JsonValue
 from localbench.scorers.bfcl import build_bfcl_prompt
-from localbench.scorers.bfcl_multi_turn import build_bfcl_multi_turn_prompt
+from localbench.scorers.bfcl_multi_turn import (
+    BFCL_MULTI_TURN_BENCHES,
+    build_bfcl_multi_turn_prompt,
+)
 from localbench.scorers.lcb import build_lcb_prompt
 from localbench.scorers.ruler import build_ruler_prompt
 from localbench.scorers.tc_json_v1 import build_tc_json_prompt
@@ -162,6 +165,8 @@ def _benchmark_item(
 
 
 def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
+    if bench in BFCL_MULTI_TURN_BENCHES:
+        return build_bfcl_multi_turn_prompt(item)
     match bench:
         case "mmlu_pro" | "supergpqa":
             return template.format(
@@ -176,8 +181,6 @@ def _prompt(bench: str, item: Mapping[str, JsonValue], template: str) -> str:
             return build_bfcl_prompt(item)
         case "tc_json_v1":
             return build_tc_json_prompt(item, template)
-        case "bfcl_multi_turn":
-            return build_bfcl_multi_turn_prompt(item)
         case "lcb":
             return build_lcb_prompt(item, template)
         case "ruler_32k":

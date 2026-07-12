@@ -11,7 +11,7 @@ from localbench._suite import RenderedBench
 from localbench._types import BenchmarkItem, ItemResult, JsonObject, JsonValue, Usage
 from localbench.coding_exec.artifacts import code_artifact_for_generation
 from localbench.scorers.bfcl import score_bfcl
-from localbench.scorers.bfcl_multi_turn import score_bfcl_multi_turn
+from localbench.scorers.bfcl_multi_turn import BFCL_MULTI_TURN_BENCHES, score_bfcl_multi_turn
 from localbench.scorers.bfcl_multi_turn._backend import (
     BackendLoadError,
     backend_readiness_error,
@@ -171,12 +171,12 @@ def _code_artifact(
 
 
 def scorer_unavailable_warning(bench: RenderedBench) -> str | None:
+    if bench.name in BFCL_MULTI_TURN_BENCHES:
+        error = backend_readiness_error(_bfcl_multi_turn_classes(bench.source_items))
+        if error is None:
+            return None
+        return _scorer_unavailable_message(bench.name, error)
     match bench.name:
-        case "bfcl_multi_turn":
-            error = backend_readiness_error(_bfcl_multi_turn_classes(bench.source_items))
-            if error is None:
-                return None
-            return _scorer_unavailable_message(bench.name, error)
         case _:
             return None
 
@@ -305,6 +305,13 @@ def _score_response_detail(
         return {"extracted": None, "correct": False}
     # Scorers see answer text stripped of reasoning; lane conformance still scans raw text.
     scorer_text = strip_reasoning(_strip_response_wrapper(response_text))
+    if bench in BFCL_MULTI_TURN_BENCHES:
+        detailed = score_bfcl_multi_turn(source_item, scorer_text)
+        return {
+            "extracted": detailed["extracted"],
+            "correct": detailed["correct"],
+            "failure_kind": detailed["failure_kind"],
+        }
     match bench:
         case "mmlu_pro" | "supergpqa":
             detailed = score_mcq_detailed(
@@ -353,13 +360,6 @@ def _score_response_detail(
                 "extracted": detailed["extracted"],
                 "correct": detailed["correct"],
                 "failure_kind": detailed["failure_reason"],
-            }
-        case "bfcl_multi_turn":
-            detailed = score_bfcl_multi_turn(source_item, scorer_text)
-            return {
-                "extracted": detailed["extracted"],
-                "correct": detailed["correct"],
-                "failure_kind": detailed["failure_kind"],
             }
         case "lcb":
             detailed = score_lcb(source_item, scorer_text)
@@ -451,7 +451,7 @@ def _string(value: JsonValue | None) -> str | None:
 
 
 def _bench_has_extraction(bench: str) -> bool:
-    return bench in {
+    return bench in BFCL_MULTI_TURN_BENCHES or bench in {
         "mmlu_pro",
         "genmath",
         "amo",
@@ -459,7 +459,6 @@ def _bench_has_extraction(bench: str) -> bool:
         "supergpqa",
         "bfcl",
         "tc_json_v1",
-        "bfcl_multi_turn",
         "lcb",
         "bigcodebench_hard",
         "ruler_32k",

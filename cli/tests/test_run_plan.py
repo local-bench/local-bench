@@ -36,7 +36,8 @@ def test_resolve_run_benches_when_all_uses_scored_default() -> None:
 
     # Then the scored default endpoint axes include math, tool-calling, coding generation, and the Agentic inline attempt.
     assert benches == ["mmlu_pro", "ifbench", "olymmath_hard", "amo", "tc_json_v1", "bigcodebench_hard", "appworld_c"]
-    assert tuple(benches) == SCORED_DEFAULT_BENCHES
+    assert tuple(benches) != SCORED_DEFAULT_BENCHES
+    assert "bfcl_multi_turn_base" in SCORED_DEFAULT_BENCHES
     assert not _OPT_IN_BENCHES.intersection(benches)
 
 

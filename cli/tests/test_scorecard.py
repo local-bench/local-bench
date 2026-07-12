@@ -11,6 +11,7 @@ import localbench.coding_exec.score as coding_score
 from localbench.lane_spec import BOUNDED_FINAL_LANE_SPEC_ID, lane_spec_digest
 from localbench.reasoning_registry import QWEN_REASONING_ENTRY
 from localbench.scoring.axes import AXES, Axis
+from localbench.scoring.benchmark_registry import BENCHMARK_MODULES
 from localbench.scoring.scorecard import (
     EXEC_BENCHES,
     SCORER_VERSIONS,
@@ -154,6 +155,11 @@ def test_profileless_scorecard_id_is_stable_and_distinct_from_profiled() -> None
 def test_every_registry_and_exec_bench_has_a_frozen_scorer_version() -> None:
     # Drift guard: identity can't silently omit a bench's scorer version.
     required = {bench for axis in AXES for bench in (*axis.benches, *axis.legacy_benches)}
+    required |= {
+        bench
+        for module in BENCHMARK_MODULES
+        for bench in (*module.default_benches, *module.opt_in_benches)
+    }
     required |= set(EXEC_BENCHES)
     missing = required - set(SCORER_VERSIONS)
     assert not missing, f"benches missing a scorer version: {sorted(missing)}"

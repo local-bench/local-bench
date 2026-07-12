@@ -1,0 +1,215 @@
+{
+  "version": "suite-v2",
+  "benches": {
+    "amo": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "amo.jsonl",
+          "item_count": 39,
+          "sha256": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/math.txt"
+    },
+    "olymmath_hard": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "olymmath_hard.jsonl",
+          "item_count": 100,
+          "sha256": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/math.txt"
+    },
+    "mmlu_pro": {
+      "chance_correction_baseline": 0.10918253968253969,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "mmlu_pro.jsonl",
+          "item_count": 400,
+          "sha256": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/mcq_cot.txt"
+    },
+    "ifbench": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "ifbench.jsonl",
+          "item_count": 294,
+          "sha256": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/ifbench.txt"
+    },
+    "bfcl": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bfcl.jsonl",
+          "item_count": 300,
+          "sha256": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bfcl.txt"
+    },
+    "bfcl_multi_turn_base": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bfcl_multi_turn_base.jsonl",
+          "item_count": 50,
+          "sha256": "41e5691e87d5c46f12ea19e2bcfe45cb019d83b279c6f1a640bf7ab203c3eec2",
+          "source_dataset": "vendored bfcl-eval BFCL_v4_multi_turn_base+long_context",
+          "source_revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+          "source_repo": "https://github.com/ShishirPatil/gorilla",
+          "license": "Apache-2.0"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bfcl_multi_turn.txt"
+    },
+    "bfcl_multi_turn_long_context": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bfcl_multi_turn_long_context.jsonl",
+          "item_count": 50,
+          "sha256": "c6f642197ab070573fc353bb7265e7efc813addc27eb59b66358830b68b6a1b2",
+          "source_dataset": "vendored bfcl-eval BFCL_v4_multi_turn_base+long_context",
+          "source_revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+          "source_repo": "https://github.com/ShishirPatil/gorilla",
+          "license": "Apache-2.0"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bfcl_multi_turn.txt"
+    },
+    "ruler_32k": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 4096,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "ruler_32k.jsonl",
+          "item_count": 60,
+          "sha256": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/ruler.txt"
+    },
+    "bigcodebench_hard": {
+      "chance_correction_baseline": 0.0,
+      "lane": "exec",
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "bigcodebench_hard.jsonl",
+          "item_count": 148,
+          "sha256": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/bigcodebench.txt"
+    },
+    "tc_json_v1": {
+      "chance_correction_baseline": 0.0,
+      "decoding": {
+        "max_tokens": 16384,
+        "temperature": 0
+      },
+      "itemsets": {
+        "standard": {
+          "file": "tc_json_v1.jsonl",
+          "item_count": 330,
+          "sha256": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
+        }
+      },
+      "lane_caps": {},
+      "template": "templates/tc_json_v1.txt"
+    }
+  },
+  "axis_weight_source": "localbench.scoring.axes.AXES — code is the single source of composite weights + roles; suite.json carries axis MEMBERSHIP only (METHODOLOGY-v1.2 §8). A test asserts this membership matches the registry.",
+  "axes": {
+    "math": {
+      "benches": [
+        "amo",
+        "olymmath_hard"
+      ],
+      "reference_score": 0.58,
+      "reference_note": "Published frontier ceiling (REPORTED, not measured by local-bench): AMO-Bench ~0.63 AVG@32 and OlymMATH EN-HARD ~0.58 P@1; conservative axis value. Probe-only (reference-anchored discrimination). See docs/foundations/math-anchor-reference.md."
+    },
+    "knowledge": {
+      "benches": [
+        "mmlu_pro"
+      ]
+    },
+    "instruction_following": {
+      "benches": [
+        "ifbench"
+      ]
+    },
+    "agentic": {
+      "benches": [
+        "appworld_c"
+      ]
+    },
+    "tool_calling": {
+      "benches": [
+        "tc_json_v1"
+      ]
+    },
+    "coding": {
+      "benches": [
+        "bigcodebench_hard"
+      ]
+    },
+    "long_context": {
+      "benches": [
+        "ruler_32k"
+      ]
+    }
+  }
+}

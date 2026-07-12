@@ -57,6 +57,8 @@ SCORER_VERSIONS: Final[dict[str, str]] = {
     "ruler_32k": "1",
     "bfcl": "1",
     "bfcl_multi_turn": "1",
+    "bfcl_multi_turn_base": "1",
+    "bfcl_multi_turn_long_context": "1",
     "lcb": "1",
     "tc_json_v1": "1",
     "bigcodebench_hard": f"1+{CODING_SCOREABLE_REV}+{AST_GATE_REV}+{SENTINEL_SCHEME_REV}",

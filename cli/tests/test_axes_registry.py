@@ -142,9 +142,14 @@ def test_benchmark_modules_define_fast_defaults_and_opt_in_expansions() -> None:
         "olymmath_hard",
         "amo",
         "tc_json_v1",
+        "bfcl_multi_turn_base",
         "bigcodebench_hard",
         "appworld_c",
     )
+    tool_calling = next(module for module in BENCHMARK_MODULES if module.key == "tool_calling")
+    assert tool_calling.default_benches == ("tc_json_v1", "bfcl_multi_turn_base")
+    assert tool_calling.opt_in_benches == ("bfcl_multi_turn_long_context", "bfcl")
+    assert tool_calling.lane == "http"
     coding = next(module for module in BENCHMARK_MODULES if module.key == "coding")
     assert coding.default_benches == ("bigcodebench_hard",)
     assert coding.opt_in_benches == ("lcb",)

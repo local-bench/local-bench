@@ -1,0 +1,111 @@
+{
+  "files": {
+    "amo.jsonl": {
+      "item_count": 39,
+      "sha256": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
+      "source_dataset": "meituan-longcat/AMO-Bench",
+      "source_revision": "2f422616c25d862984408fbbfaed63a961e8e025"
+    },
+    "olymmath_hard.jsonl": {
+      "item_count": 100,
+      "sha256": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b",
+      "source_dataset": "RUC-AIBOX/OlymMATH",
+      "source_revision": "2c6532ea2cf929ac1c421532af5951553eaee727"
+    },
+    "mmlu_pro.jsonl": {
+      "item_count": 400,
+      "sha256": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+      "source_dataset": "TIGER-Lab/MMLU-Pro",
+      "source_revision": "b189ec765aa7ed75c8acfea42df31fdae71f97be",
+      "license": "MIT"
+    },
+    "ifbench.jsonl": {
+      "item_count": 294,
+      "sha256": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+      "source_dataset": "allenai/IFBench_test",
+      "source_revision": "2e8a48de45ff3bf41242f927254ca81b59ca3ae2"
+    },
+    "bfcl.jsonl": {
+      "item_count": 300,
+      "sha256": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
+      "source_dataset": "gorilla-llm/Berkeley-Function-Calling-Leaderboard",
+      "source_revision": "61fc0608cfd831fcfbbaa676ebdfef0ed963eeda"
+    },
+    "bfcl_multi_turn_base.jsonl": {
+      "item_count": 50,
+      "sha256": "41e5691e87d5c46f12ea19e2bcfe45cb019d83b279c6f1a640bf7ab203c3eec2",
+      "source_dataset": "vendored bfcl-eval BFCL_v4_multi_turn_base+long_context",
+      "source_revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+      "source_repo": "https://github.com/ShishirPatil/gorilla",
+      "license": "Apache-2.0",
+      "source_files": [
+        "bfcl_eval/data/BFCL_v4_multi_turn_base.json",
+        "bfcl_eval/data/BFCL_v4_multi_turn_long_context.json",
+        "bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_base.json",
+        "bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_long_context.json"
+      ],
+      "selection": "50 deterministic hash-stratified rows per multi-turn sub-category",
+      "constrained_exec_contract": "fixed vendored backend class allowlist; AST/literal call parser; no eval; no model-named imports; blocks network, subprocess, and filesystem writes during tool calls"
+    },
+    "bfcl_multi_turn_long_context.jsonl": {
+      "item_count": 50,
+      "sha256": "c6f642197ab070573fc353bb7265e7efc813addc27eb59b66358830b68b6a1b2",
+      "source_dataset": "vendored bfcl-eval BFCL_v4_multi_turn_base+long_context",
+      "source_revision": "6ea57973c7a6097fd7c5915698c54c17c5b1b6c8",
+      "source_repo": "https://github.com/ShishirPatil/gorilla",
+      "license": "Apache-2.0",
+      "source_files": [
+        "bfcl_eval/data/BFCL_v4_multi_turn_base.json",
+        "bfcl_eval/data/BFCL_v4_multi_turn_long_context.json",
+        "bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_base.json",
+        "bfcl_eval/data/possible_answer/BFCL_v4_multi_turn_long_context.json"
+      ],
+      "selection": "50 deterministic hash-stratified rows per multi-turn sub-category",
+      "constrained_exec_contract": "fixed vendored backend class allowlist; AST/literal call parser; no eval; no model-named imports; blocks network, subprocess, and filesystem writes during tool calls"
+    },
+    "ruler_32k.jsonl": {
+      "item_count": 60,
+      "sha256": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540",
+      "source_dataset": "NVIDIA/RULER",
+      "source_revision": "algorithmic-reimplementation",
+      "source_url": "https://github.com/NVIDIA/RULER",
+      "source_paper": "https://arxiv.org/abs/2404.06654",
+      "license": "Apache-2.0",
+      "target_context": "32k",
+      "tasks": [
+        "niah_single",
+        "niah_multikey"
+      ],
+      "depths": [
+        0,
+        25,
+        50,
+        75,
+        100
+      ],
+      "items_per_task_depth": 6,
+      "filler_corpus_id": "synthetic-ruler-local-v1",
+      "generator_attribution": "Reimplemented from NVIDIA/RULER NIAH task pattern",
+      "license_note": "Stores compact seed parameters only; no upstream RULER code, prompts, or haystack data are vendored."
+    },
+    "bigcodebench_hard.jsonl": {
+      "item_count": 148,
+      "sha256": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e",
+      "source_dataset": "bigcode/bigcodebench-hard",
+      "source_split": "v0.1.4",
+      "source_revision": "298d2cc7b96612e15e47313c3603ee124cee0c1f",
+      "source_url": "https://huggingface.co/datasets/bigcode/bigcodebench-hard",
+      "license": "Apache-2.0",
+      "harness_repo": "https://github.com/bigcode-project/bigcodebench",
+      "harness_license": "Apache-2.0",
+      "lane": "exec",
+      "exec_note": "Opt-in code-EXECUTION axis. Model-generated code runs in a hardened, network-isolated Docker sandbox (localbench.coding_exec.sandbox) with the task's own unit tests in an isolated subprocess. See docs/foundations/methodology-lock/CODING-EXEC-MODULE-SPEC.md."
+    },
+    "tc_json_v1.jsonl": {
+      "item_count": 330,
+      "sha256": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74",
+      "source_dataset": "BFCL single-turn backbone plus hand-authored common-tool conformance items",
+      "source_revision": "local suite/v1 tc_json_v1"
+    }
+  }
+}
