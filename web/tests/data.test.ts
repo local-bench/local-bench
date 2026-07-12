@@ -237,20 +237,28 @@ describe("static data access", () => {
 
     // Then they carry agentic ASR only: no full headline profile, no Index, and no run receipt.
     expect(opus).toMatchObject({
+      agentic_provenance: "self_reported",
       composite: null,
       lane: "agentic-only",
+      origin: "community",
+      ranked: false,
       run_id: null,
       score_status: "measured",
+      trust_label: "community_re_scored",
     });
     expect(opus?.axes.agentic.point).toBeCloseTo(12.5, 4);
     expect(opus?.axes.knowledge).toBeUndefined();
     expect(opus?.axes.instruction).toBeUndefined();
 
     expect(coder).toMatchObject({
+      agentic_provenance: "self_reported",
       composite: null,
       lane: "agentic-only",
+      origin: "community",
+      ranked: false,
       run_id: null,
       score_status: "measured",
+      trust_label: "community_re_scored",
     });
     expect(coder?.axes.agentic.point).toBeCloseTo(11.9792, 4);
     expect(coder?.axes.knowledge).toBeUndefined();

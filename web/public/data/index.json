@@ -926,7 +926,7 @@
       "lane": "bounded-final-v2",
       "latency_s_median": 62.924,
       "model_label": "Gemma 4 12B IT",
-      "n_runs": 3,
+      "n_runs": 10,
       "origin": "project_anchor",
       "ranked": true,
       "replicated": false,
@@ -3049,7 +3049,7 @@
       "lane": "bounded-final-v2",
       "latency_s_median": 47.571,
       "model_label": "Qwen3.6 27B",
-      "n_runs": 1,
+      "n_runs": 8,
       "origin": "project_anchor",
       "ranked": true,
       "replicated": false,
@@ -3111,24 +3111,132 @@
       "tokens_to_answer_p95": null
     },
     {
-      "axes": {},
-      "best_run_id": null,
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.3506944444444444,
+          "hi": 39.795918367346935,
+          "hi_raw": 0.3979591836734694,
+          "lo": 28.91156462585034,
+          "lo_raw": 0.2891156462585034,
+          "n": 294,
+          "n_errors": 2,
+          "n_no_answer": 0,
+          "point": 34.35374149659864,
+          "point_raw": 0.3435374149659864,
+          "raw_accuracy": 0.3435374149659864,
+          "termination_rate": 0.9795918367346939
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8446115288220551,
+          "hi": 86.24858565790295,
+          "hi_raw": 0.8624858565790295,
+          "lo": 78.10999349625367,
+          "lo_raw": 0.7810999349625366,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 82.3196101315895,
+          "point_raw": 0.823196101315895,
+          "raw_accuracy": 0.8425,
+          "termination_rate": 0.9975
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7424242424242424,
+          "hi": 78.78787878787878,
+          "hi_raw": 0.7878787878787878,
+          "lo": 69.39393939393939,
+          "lo_raw": 0.693939393939394,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 74.24242424242425,
+          "point_raw": 0.7424242424242424,
+          "raw_accuracy": 0.7424242424242424,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "best_run_id": "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4",
       "catalog_id": "Qwen/Qwen3.6-35B-A3B",
       "composite": null,
-      "demo": false,
+      "composite_full": null,
+      "composite_static": null,
+      "conformance_status": "headline-comparable",
+      "contamination_label": "unverified",
+      "diagnostic_composite": {
+        "hi": 66.9636587064384,
+        "hi_raw": 0.669636587064384,
+        "lo": 57.48156914427385,
+        "lo_raw": 0.5748156914427385,
+        "point": 62.31311292117662,
+        "point_raw": 0.6231311292117662
+      },
       "est_cost_usd": null,
       "family": "Qwen3.6",
+      "gpu": {
+        "driver": "595.58.03",
+        "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "vram_gb": 95.6,
+        "vram_mb": 97887
+      },
       "kind": "community",
-      "lane": "answer-only",
+      "lane": "capped-thinking",
+      "latency_s_median": 0.863,
       "model_label": "Qwen3.6 35B A3B",
-      "n_runs": 0,
+      "n_runs": 3,
+      "origin": "community",
       "ranked": false,
       "replicated": false,
-      "score_status": "missing",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
       "slug": "qwen3-6-35b-a3b",
-      "tier": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null
+      "tier": "standard",
+      "tokens_to_answer_median": 247.0,
+      "tokens_to_answer_p95": 2504.999999999996,
+      "trust_label": "community_re_scored",
+      "wall_time_seconds": 2419.727651232155
     },
     {
       "axes": {},
@@ -3211,24 +3319,132 @@
       "tokens_to_answer_p95": null
     },
     {
-      "axes": {},
-      "best_run_id": null,
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.3125,
+          "hi": 36.054421768707485,
+          "hi_raw": 0.36054421768707484,
+          "lo": 25.510204081632654,
+          "lo_raw": 0.25510204081632654,
+          "n": 294,
+          "n_errors": 5,
+          "n_no_answer": 0,
+          "point": 30.612244897959183,
+          "point_raw": 0.30612244897959184,
+          "raw_accuracy": 0.30612244897959184,
+          "termination_rate": 0.9795918367346939
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8459595959595958,
+          "hi": 85.68730343985817,
+          "hi_raw": 0.8568730343985816,
+          "lo": 77.54871127820888,
+          "lo_raw": 0.7754871127820888,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 81.75832791354473,
+          "point_raw": 0.8175832791354474,
+          "raw_accuracy": 0.8375,
+          "termination_rate": 0.99
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7545454545454545,
+          "hi": 80.0,
+          "hi_raw": 0.8,
+          "lo": 70.60606060606061,
+          "lo_raw": 0.706060606060606,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 5,
+          "point": 75.45454545454545,
+          "point_raw": 0.7545454545454545,
+          "raw_accuracy": 0.7545454545454545,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "best_run_id": "qwen3-coder-next__qwen3-coder-next-q8",
       "catalog_id": "Qwen/Qwen3-Coder-Next",
       "composite": null,
-      "demo": false,
+      "composite_full": null,
+      "composite_static": null,
+      "conformance_status": "headline-comparable",
+      "contamination_label": "unverified",
+      "diagnostic_composite": {
+        "hi": 65.65314695321212,
+        "hi_raw": 0.6565314695321212,
+        "lo": 56.29860841145572,
+        "lo_raw": 0.5629860841145572,
+        "point": 61.00260116795033,
+        "point_raw": 0.6100260116795033
+      },
       "est_cost_usd": null,
       "family": "Qwen3 Coder",
+      "gpu": {
+        "driver": "595.58.03",
+        "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "vram_gb": 95.6,
+        "vram_mb": 97887
+      },
       "kind": "community",
-      "lane": "answer-only",
+      "lane": "capped-thinking",
+      "latency_s_median": 1.199,
       "model_label": "Qwen3 Coder Next",
-      "n_runs": 0,
+      "n_runs": 2,
+      "origin": "community",
       "ranked": false,
       "replicated": false,
-      "score_status": "missing",
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
       "slug": "qwen3-coder-next",
-      "tier": null,
-      "tokens_to_answer_median": null,
-      "tokens_to_answer_p95": null
+      "tier": "standard",
+      "tokens_to_answer_median": 276.0,
+      "tokens_to_answer_p95": 3355.8999999999937,
+      "trust_label": "community_re_scored",
+      "wall_time_seconds": 3528.822674885858
     },
     {
       "axes": {},
@@ -3794,6 +4010,260 @@
       "tier": null,
       "tokens_to_answer_median": null,
       "tokens_to_answer_p95": null
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.3402777777777778,
+          "hi": 38.775510204081634,
+          "hi_raw": 0.3877551020408163,
+          "lo": 27.89115646258503,
+          "lo_raw": 0.2789115646258503,
+          "n": 294,
+          "n_errors": 6,
+          "n_no_answer": 0,
+          "point": 33.33333333333333,
+          "point_raw": 0.3333333333333333,
+          "raw_accuracy": 0.3333333333333333,
+          "termination_rate": 0.9795918367346939
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.6766917293233082,
+          "hi": 68.56819578949244,
+          "hi_raw": 0.6856819578949244,
+          "lo": 58.46511586468643,
+          "lo_raw": 0.5846511586468643,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 4,
+          "point": 63.516655827089444,
+          "point_raw": 0.6351665582708944,
+          "raw_accuracy": 0.675,
+          "termination_rate": 0.9975
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.6636363636363637,
+          "hi": 71.21212121212122,
+          "hi_raw": 0.7121212121212122,
+          "lo": 61.212121212121204,
+          "lo_raw": 0.6121212121212121,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 32,
+          "point": 66.36363636363637,
+          "point_raw": 0.6636363636363637,
+          "raw_accuracy": 0.6636363636363637,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "best_run_id": "gemma-4-12b-coder-fable5__gemma-4-12b-coder-fable5-Q8_0",
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "conformance_status": "headline-comparable",
+      "contamination_label": "unverified",
+      "diagnostic_composite": {
+        "hi": 58.056920050620576,
+        "hi_raw": 0.5805692005062058,
+        "lo": 47.686632425757104,
+        "lo_raw": 0.47686632425757103,
+        "point": 52.909655026067625,
+        "point_raw": 0.5290965502606763
+      },
+      "est_cost_usd": null,
+      "family": "Gemma 4 Coder",
+      "gpu": {
+        "driver": "596.36",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "kind": "community",
+      "lane": "capped-thinking",
+      "latency_s_median": 2.578,
+      "model_label": "Gemma 4 12B Coder Fable5",
+      "n_runs": 1,
+      "origin": "community",
+      "ranked": false,
+      "replicated": false,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "slug": "gemma-4-12b-coder-fable5",
+      "tier": "standard",
+      "tokens_to_answer_median": 132.0,
+      "tokens_to_answer_p95": 583.0,
+      "trust_label": "community_re_scored",
+      "wall_time_seconds": 4437.270994546001
+    },
+    {
+      "axes": {
+        "instruction": {
+          "conditional_accuracy": 0.3275862068965517,
+          "hi": 37.755102040816325,
+          "hi_raw": 0.37755102040816324,
+          "lo": 26.87074829931973,
+          "lo_raw": 0.2687074829931973,
+          "n": 294,
+          "n_errors": 4,
+          "n_no_answer": 0,
+          "point": 32.31292517006803,
+          "point_raw": 0.3231292517006803,
+          "raw_accuracy": 0.3231292517006803,
+          "termination_rate": 0.9863945578231292
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8270676691729322,
+          "hi": 84.56473900376861,
+          "hi_raw": 0.8456473900376861,
+          "lo": 76.14550573309694,
+          "lo_raw": 0.7614550573309694,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 1,
+          "point": 80.35512236843277,
+          "point_raw": 0.8035512236843277,
+          "raw_accuracy": 0.825,
+          "termination_rate": 0.9975
+        },
+        "tool_calling": {
+          "conditional_accuracy": 0.7242424242424242,
+          "hi": 77.27272727272727,
+          "hi_raw": 0.7727272727272727,
+          "lo": 67.57575757575758,
+          "lo_raw": 0.6757575757575758,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 72.42424242424242,
+          "point_raw": 0.7242424242424242,
+          "raw_accuracy": 0.7242424242424242,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "agentic": {
+          "axis": "agentic",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "tool_calling": {
+          "axis": "tool_calling",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "best_run_id": "ornith-1-0-35b__ornith-1.0-35b-q6",
+      "composite": null,
+      "composite_full": null,
+      "composite_static": null,
+      "conformance_status": "headline-comparable",
+      "contamination_label": "unverified",
+      "diagnostic_composite": {
+        "hi": 65.18812220990117,
+        "hi_raw": 0.6518812220990117,
+        "lo": 55.52503465609564,
+        "lo_raw": 0.5552503465609564,
+        "point": 60.35657843299841,
+        "point_raw": 0.6035657843299841
+      },
+      "est_cost_usd": null,
+      "family": "Ornith",
+      "gpu": {
+        "driver": "595.58.03",
+        "name": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "vram_gb": 95.6,
+        "vram_mb": 97887
+      },
+      "kind": "community",
+      "lane": "capped-thinking",
+      "latency_s_median": 1.178,
+      "model_label": "Ornith 1.0 35B",
+      "n_runs": 4,
+      "origin": "community",
+      "ranked": false,
+      "replicated": false,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": "unknown",
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "measured",
+      "slug": "ornith-1-0-35b",
+      "tier": "standard",
+      "tokens_to_answer_median": 275.0,
+      "tokens_to_answer_p95": 1735.149999999998,
+      "trust_label": "community_re_scored",
+      "wall_time_seconds": 2448.0192751688883
     }
   ],
   "suite_version": "suite-v1"

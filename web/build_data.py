@@ -175,6 +175,9 @@ def build_static_data(
     catalog = catalog_entries(raw_catalog)
     board = _board_context()
     runs = [_build_run(source, order=index, iters=iters, benches=benches, weights=weights, board=board) for index, source in enumerate(sources)]
+    maintainer_curated = sources_path.resolve() == (ROOT / "web" / "data_sources.json").resolve()
+    for run in runs:
+        run["maintainer_curated_static"] = maintainer_curated
     _enforce_integrity_gates(
         runs,
         catalog,
@@ -544,6 +547,7 @@ def _build_agentic_only_run(source: JsonObject, *, order: int) -> JsonObject:
     lane = _text(source.get("reasoning_lane")) or "agentic-only"
     slug = slugify(model_label)
     axis = _agentic_axis(_agentic_reports(source))
+    annotations = _source_annotations(source, {"agentic": axis}, True)
     model_row = {
         "axes": {"agentic": axis},
         "composite": None,
@@ -566,7 +570,7 @@ def _build_agentic_only_run(source: JsonObject, *, order: int) -> JsonObject:
         "vram_footprint_gb": source["vram_footprint_gb"],
         "vram_required_gb_8k": None,
         "wall_time_seconds": None,
-    }
+    } | annotations
     index_row = {
         "axes": {"agentic": axis},
         "best_run_id": None,
@@ -589,7 +593,7 @@ def _build_agentic_only_run(source: JsonObject, *, order: int) -> JsonObject:
         "tier": None,
         "tokens_to_answer_median": None,
         "tokens_to_answer_p95": None,
-    }
+    } | annotations
     return {
         "catalog_id": _text(source.get("model_id")),
         "composite_raw": -1.0,
@@ -819,6 +823,10 @@ def _trusted_ranked_run(run: JsonObject) -> bool:
     return _trusted_run(run) and bool(_object(run["index_row"], "index_row").get("ranked"))
 
 
+def _display_eligible(run: JsonObject) -> bool:
+    return _trusted_run(run) or run.get("maintainer_curated_static") is True
+
+
 def _assert_ranked_coding_provenance(runs: list[JsonObject]) -> None:
     """Enforce "community/self-reported coding never ranks" IN CODE (was manual-commit discipline).
 
@@ -1044,37 +1052,47 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
             shutil.rmtree(generated_dir)
         generated_dir.mkdir(parents=True, exist_ok=True)
     trusted_runs = [run for run in runs if _trusted_run(run)]
-    for run in runs:
-        # Catalog identities and their run receipts are protected publication payloads.
-        # A community row that merely claims a catalog id must never enter that tree.
-        if run["detail"] is not None and _trusted_run(run):
-            _write_json(runs_dir / f"{_string(run['run_id'], 'run_id')}.json", run["detail"])
-    groups = _group_runs(trusted_runs)
+    display_runs = [run for run in runs if _display_eligible(run)]
+    for run in display_runs:
+        if run["detail"] is None:
+            continue
+        target = runs_dir / f"{_string(run['run_id'], 'run_id')}.json"
+        if target.exists():
+            raise DataBuildError(f"refusing to overwrite duplicate run detail: {target.name}")
+        _write_json(target, run["detail"])
+    trusted_groups = _group_runs(trusted_runs)
+    display_groups = _group_runs(display_runs)
     catalog_run_groups = _catalog_run_groups(trusted_runs)
+    catalog_display_groups = _catalog_display_run_groups(display_runs)
     catalog_slugs = {catalog_slug(entry) for entry in catalog}
     models: list[JsonValue] = []
     for entry in sorted(catalog, key=catalog_slug):
         slug = catalog_slug(entry)
-        group = catalog_run_groups.get(
+        trusted_group = catalog_run_groups.get(
             catalog_key(entry),
-            groups.get(slug, []),
+            trusted_groups.get(slug, []),
         )
-        if group:
-            best = _representative_run(group)
+        display_group = catalog_display_groups.get(
+            catalog_key(entry),
+            display_groups.get(slug, []),
+        )
+        representative_group = trusted_group or display_group
+        if representative_group:
+            best = _representative_run(representative_group)
             row = _object(best["index_row"], "index_row") | {
                 "catalog_id": entry["id"],
                 "model_label": entry["display_name"],
-                "n_runs": len(group),
-                "replicated": any(_bool(_object(run["index_row"], "index_row").get("replicated"), "index_row.replicated") for run in group),
+                "n_runs": len(display_group),
+                "replicated": any(_bool(_object(run["index_row"], "index_row").get("replicated"), "index_row.replicated") for run in display_group),
                 "score_status": "measured",
                 "slug": slug,
             }
             models.append(row)
         else:
             models.append(catalog_index_row(entry))
-        _write_json(models_dir / f"{slug}.json", catalog_model_payload(entry, sorted(group, key=lambda item: _int(item["order"], "order"))))
-    for slug in sorted(slug for slug in groups if slug not in catalog_slugs and not any(run_catalog_key(run) is not None for run in groups[slug])):
-        group = groups[slug]
+        _write_json(models_dir / f"{slug}.json", _catalog_display_payload(entry, display_group))
+    for slug in sorted(slug for slug in display_groups if slug not in catalog_slugs):
+        group = display_groups[slug]
         best = _representative_run(group)
         row = _object(best["index_row"], "index_row") | {
             "n_runs": len(group),
@@ -1242,6 +1260,35 @@ def _catalog_run_groups(runs: list[JsonObject]) -> dict[str, list[JsonObject]]:
         if key is not None:
             groups.setdefault(key, []).append(run)
     return groups
+
+
+def _catalog_display_run_groups(runs: list[JsonObject]) -> dict[str, list[JsonObject]]:
+    groups: dict[str, list[JsonObject]] = {}
+    for run in runs:
+        if not _display_eligible(run):
+            continue
+        key = run_catalog_key(run)
+        if key is not None:
+            groups.setdefault(key, []).append(run)
+    return groups
+
+
+def _catalog_display_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObject:
+    ordered = sorted(runs, key=lambda item: _int(item["order"], "order"))
+    payload = catalog_model_payload(entry, ordered)
+    payload_runs = _list(payload["runs"], "catalog model runs")
+    displayed_run_ids = {
+        _text(_object(row, "catalog model run").get("run_id"))
+        for row in payload_runs
+        if _text(_object(row, "catalog model run").get("run_id")) is not None
+    }
+    for run in ordered:
+        model_row = _object(run["model_row"], "run.model_row")
+        run_id = _text(model_row.get("run_id"))
+        if run_id is not None and run_id not in displayed_run_ids:
+            payload_runs.append(model_row.copy())
+            displayed_run_ids.add(run_id)
+    return payload
 
 
 def _suite_version(runs: list[JsonObject]) -> str | None:
