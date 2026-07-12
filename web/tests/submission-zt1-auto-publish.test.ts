@@ -16,6 +16,7 @@ import {
   MIGRATION_0010,
   MIGRATION_0011,
   MIGRATION_0012,
+  MIGRATION_0014,
   PROJECTION_SHA,
   applyMigration,
   columnCount,
@@ -646,7 +647,7 @@ async function createZt1Env(): Promise<SubmissionApiEnv> {
   const env = await createEnv({
     includeAdminSecret: true,
     includeR2Secrets: true,
-    migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0012],
+    migrations: [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0012, MIGRATION_0014],
   });
   return Object.assign(env, {
     ZT1_KNOWN_ARTIFACTS_JSON: JSON.stringify({ [KNOWN_HASH]: "qwen3-4b" }),
