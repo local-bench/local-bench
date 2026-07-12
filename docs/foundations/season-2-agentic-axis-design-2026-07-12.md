@@ -238,6 +238,35 @@ benches + itemsets; bench registration + scorer_versions for both; v2 coverage p
 them. Everything else in §9 (macro-axis, bench-normalized weighting across the 3 CLI sites,
 fail-closed, weight math .20/.24/.24/.24/.08, web deferred to S2-5) stands.
 
+## 11. Bench-split design consult review (2026-07-12) + S2-1 STAGING
+
+Consult (codex read-only) confirms bench-split is viable + additive. Approach:
+- New `suite/build_v2_bfcl_multi_turn.py` + self-contained `suite/v2/**`; v1 (`suite/v1/**`, both v1
+  profiles, `_V1_EXEC_SCORING_SNAPSHOT`, `_FROZEN_PROFILE_SCORING` suite_release.py:122, `FROZEN_BUNDLES`,
+  pins c4098df8/4e240f8c) all UNTOUCHED. v2 profile `full-exec-tooluse-5axis-v2` built from suite/v2
+  (release id `suite-v2-…`) uses live registry.
+- 3 scorer keys `bfcl_multi_turn` / `bfcl_multi_turn_base` / `bfcl_multi_turn_long_context` — same
+  impl + version "1", but each needs its OWN registry key (drift guard per-bench, scorecard.py:46,
+  test_scorecard.py:154). No item selector anywhere; whole-bench aggregates in _scoring/foundation/board.
+- Also touches: `_suite.py`, `signed_score.py` (zero baselines for new benches),
+  `benchmark_registry.py` (add base to defaults; long_context+single-turn bfcl diagnostic/opt-in).
+
+Two wrinkles + my resolutions (implementation-level):
+1. **Macro-axis spans 2 execution lanes** (appworld_c out-of-band/agentic-exec vs bfcl/tc_json HTTP);
+   `BenchmarkModule` assumes one lane per module (benchmark_registry.py:11). Resolution: the axis is a
+   SCORING grouping — keep execution modules PER-BENCH (each bench its own lane/module); generalize the
+   registry's axis→lane assumption minimally only if it hard-blocks. Do NOT force the axis single-lane.
+2. **Diagnostics profile policy**: include wt0 diagnostics (long_context, single-turn bfcl) as
+   role=experimental MEASURED benches in the v2 profile but weight-0 (measured+shown, never ranked).
+
+**S2-1 STAGED into 2 sub-builds** (large; each independently pytest-verifiable):
+- **S2-1a** = bench-split foundation: suite/v2 + build_v2_bfcl_multi_turn.py + the 2 split benches +
+  3rd retained + 3 scorer keys + benchmark_registry defaults + signed_score baselines + tests (benches
+  build + self-score; v1 shas UNTOUCHED). NO axis/profile/weighting yet.
+- **S2-1b** = macro-axis: tool_use facets (appworld_c .50 + bfcl_multi_turn_base .35 + tc_json_v1 .15
+  @ 0.20) + bench-normalized weighting (board_scoring/_scoring/foundation_scores) + fail-closed +
+  v2 coverage profile + weights .20/.24/.24/.24/.08 + CLI test updates. Web deferred to S2-5.
+
 ## Progress log
 - 2026-07-12: Ground-truth mapped (Explore). Oracle + codex two-model panel → Option D. Michael
   approved structure + FULL autonomous authority. Design doc written + committed 812bece.
