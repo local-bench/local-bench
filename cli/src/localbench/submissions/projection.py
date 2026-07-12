@@ -9,6 +9,7 @@ from localbench._scoring import BenchAggregate, ScoredItem, aggregate
 from localbench._suite import read_json_object
 from localbench._types import JsonObject, JsonValue, Usage
 from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
+from localbench.scoring.editorial import index_version_for_coverage_profile
 from localbench.scoring.public_rescore import score_public_item
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash, sha256_bytes, sha256_file
@@ -185,6 +186,14 @@ def _projection(
     manifest = _object(bundle.get("manifest"))
     suite = _object(manifest.get("suite"))
     scorecard = _object(manifest.get("scorecard"))
+    coverage_profile_id = str(suite.get("coverage_profile_id"))
+    index_version = index_version_for_coverage_profile(coverage_profile_id)
+    carried_index_version = bundle.get("index_version")
+    if carried_index_version is not None and carried_index_version != index_version:
+        raise ValueError(
+            "result bundle index_version does not match its coverage_profile_id: "
+            f"{carried_index_version!r} != {index_version!r}",
+        )
     projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
         "model": _projection_model(bundle, manifest, origin, bundle_sha256),
@@ -193,7 +202,8 @@ def _projection(
         "suite_release_id": str(suite.get("suite_release_id")),
         "suite_manifest_sha256": str(suite.get("suite_manifest_sha256")),
         "scorecard_id": str(scorecard.get("scorecard_id")),
-        "coverage_profile_id": str(suite.get("coverage_profile_id")),
+        "coverage_profile_id": coverage_profile_id,
+        "index_version": index_version,
         "headline_complete": bool(bundle.get("headline_complete")),
         "scores": score_summary(benches, axis_status, suite_axes=_suite_axes(manifest)),
         "axes": axis_projection(benches, axis_status),

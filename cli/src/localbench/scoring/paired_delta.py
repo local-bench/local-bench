@@ -16,6 +16,7 @@ from localbench.scoring.bootstrap import (
     _stratified_groups,
     stratified_mean_ci,
 )
+from localbench.scoring.comparison_guard import assert_same_index_version as _assert_same_index_version
 from localbench.scoring.metadata import (
     DOMAIN_WEIGHTS,
     cluster_for_item,
@@ -114,6 +115,7 @@ def compare_runs(
     seed: int = 0,
 ) -> CompareResult:
     """Return paired deltas for two runs over the same item ids."""
+    _assert_same_index_version(run_a, run_b, context="paired run comparison")
     items_a = _item_map(run_a)
     items_b = _item_map(run_b)
     if set(items_a) != set(items_b):

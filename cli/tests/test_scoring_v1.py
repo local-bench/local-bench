@@ -430,6 +430,7 @@ def _run_record(items: Sequence[dict]) -> dict:
     benches = sorted({str(item["bench"]) for item in items})
     return {
         "schema": "localbench-run-v0",
+        "index_version": "index-v3.0",
         "manifest": {"suite": {"version": "suite-v0"}},
         "benches": {
             bench: {

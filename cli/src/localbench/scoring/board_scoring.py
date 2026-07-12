@@ -46,21 +46,21 @@ from localbench.scoring.board_support import (
 from localbench.scoring.agentic_exec.score import wilson_95_ci
 from localbench.scoring.board_systems import best_system, system_fields
 from localbench.scoring.board_types import BoardBuildError, CuratedSource, ScoredRun
+from localbench.scoring.comparison_guard import assert_same_index_version
+from localbench.scoring.editorial import INDEX_VERSION_V3
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.scoring.signed_score import chance_for_bench, signed_score
 from localbench.scoring.tc_json_conformance import GATE_ID, tc_json_conformance_gate
 
 APPWORLD_C_BENCH = "appworld_c"
 TC_JSON_BENCH = "tc_json_v1"
-INDEX_VERSION_V3 = "index-v3.0"
-
-
 def scored_runs(
     sources: Sequence[CuratedSource],
     *,
     runs_dir: Path,
     bootstrap_iters: int,
     weights: Mapping[str, float],
+    default_index_version: str,
 ) -> tuple[list[ScoredRun], list[JsonObject]]:
     scored: list[ScoredRun] = []
     skipped: list[JsonObject] = []
@@ -71,7 +71,18 @@ def scored_runs(
             continue
         try:
             run = object_value(read_json(path), path.name)
-            scored.append(_scored_run(source, run, path, runs_dir=runs_dir, order=order, bootstrap_iters=bootstrap_iters, weights=weights))
+            scored.append(
+                _scored_run(
+                    source,
+                    run,
+                    path,
+                    runs_dir=runs_dir,
+                    order=order,
+                    bootstrap_iters=bootstrap_iters,
+                    weights=weights,
+                    default_index_version=default_index_version,
+                ),
+            )
         except (BoardBuildError, json.JSONDecodeError, OSError) as error:
             skipped.append({"file": path.name, "reason": f"incomplete: {error}"})
     return scored, skipped
@@ -80,6 +91,11 @@ def scored_runs(
 def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
     rows: list[JsonObject] = []
     for group in _groups(scored).values():
+        for candidate in group[1:]:
+            try:
+                assert_same_index_version(group[0], candidate, context="board model merge")
+            except ValueError as error:
+                raise BoardBuildError(str(error)) from error
         best = best_system(group)
         row = {
             "slug": best["slug"],
@@ -103,6 +119,7 @@ def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
             "est_cost_usd": best["est_cost_usd"],
             "replicated": any(run["replicated"] for run in group),
             "score_status": best["score_status"],
+            "index_version": best["index_version"],
             "demo": False,
         } | system_fields(group, best)
         publisher = best.get("publisher")
@@ -146,6 +163,7 @@ def _scored_run(
     order: int,
     bootstrap_iters: int,
     weights: Mapping[str, float],
+    default_index_version: str,
 ) -> ScoredRun:
     benches = dict(object_value(run.get("benches"), f"{path.name}.benches"))
     items = list(objects_value(run.get("items"), f"{path.name}.items"))
@@ -214,6 +232,7 @@ def _scored_run(
         "wall_time_seconds": number_or_none(totals.get("wall_time_seconds")),
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
+        "index_version": text_value(run.get("index_version")) or default_index_version,
     }
     if composite_static is not None:
         scored["static_index_version"] = STATIC_SUITE_INDEX_VERSION

@@ -235,6 +235,7 @@ def migrate_accepted_result_projection_v1(projection: JsonObject) -> JsonObject:
     migrated["origin"] = normalize_origin(migrated.get("origin"))
     migrated["lineage"] = {"base_model": []}
     migrated["receipt_references"] = {"coding_receipt_sha256": None}
+    migrated["index_version"] = "index-v3.0"
     migrated["schema_version"] = ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION
     validate_accepted_result_projection(migrated)
     return migrated

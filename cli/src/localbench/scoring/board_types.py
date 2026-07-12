@@ -83,4 +83,5 @@ class ScoredRun(TypedDict):
     wall_time_seconds: float | None
     suite_version: str | None
     item_set_hashes: JsonObject
+    index_version: str
     static_index_version: NotRequired[str]

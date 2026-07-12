@@ -86,7 +86,7 @@ from localbench.reasoning_leaks import registry_leak_regexes
 from localbench.run_plan import resolve_run_benches
 from localbench.run_schema import RUN_SCHEMA_VERSION
 from localbench.runner import run_benchmark, write_json
-from localbench.scoring.axes import AXES, agentic_benches
+from localbench.scoring.axes import AXES, agentic_benches; from localbench.scoring.editorial import index_version_for_benches  # noqa: E501, E702
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
     axis_key_for_bench,
@@ -817,7 +817,7 @@ async def run_localbench(
     if agentic_provenance is not None:
         run_record["agentic_run"] = agentic_provenance
     if config.lane in BOUNDED_FINAL_LANE_SPEC_IDS:
-        run_record["index_version"] = "index-v3.0"
+        run_record["index_version"] = index_version_for_benches(set(benches))
         run_record["prompt_audit"] = prompt_audit
         run_record["budget_audit"] = budget_audit
         run_record["sampler_audit"] = sampler_audit

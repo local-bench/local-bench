@@ -48,14 +48,21 @@ def build_board(
     """Build the board payload without writing files."""
     timestamp = generated_at or datetime.now(UTC).isoformat()
     sources = load_sources(curation_path or DEFAULT_CURATION)
+    fallback_index_version = index_version(DEFAULT_PARITY_INDEX)
     scored, skipped = scored_runs(
         sources,
         runs_dir=runs_dir,
         bootstrap_iters=bootstrap_iters,
         weights=web_composite_weights(),
+        default_index_version=fallback_index_version,
     )
     board_suite_version = suite_version(scored)
-    board_index_version = index_version(DEFAULT_PARITY_INDEX)
+    index_versions = {run["index_version"] for run in scored}
+    if len(index_versions) > 1:
+        raise BoardBuildError(
+            "board build cannot merge mixed index_version labels: " + ", ".join(sorted(index_versions)),
+        )
+    board_index_version = next(iter(index_versions), fallback_index_version)
     return {
         "generated_note": GENERATED_NOTE,
         "schema_version": BOARD_SCHEMA_VERSION,

@@ -50,6 +50,7 @@ def _system_row(run: ScoredRun, *, best: ScoredRun, recommended: ScoredRun) -> J
         "n_runs": 1,
         "replicated": run["replicated"],
         "score_status": run["score_status"],
+        "index_version": run["index_version"],
         "tokens_to_answer_median": run["tokens_to_answer_median"],
         "tokens_to_answer_p95": run["tokens_to_answer_p95"],
         "latency_s_median": run["latency_s_median"],
