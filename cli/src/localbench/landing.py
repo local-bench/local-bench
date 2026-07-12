@@ -46,6 +46,8 @@ from localbench.scoring.board import build_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR, REPO_ROOT, read_json, slugify, write_json
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.foundation_scores import score_summary
+from localbench.suite_errors import SuiteResolutionError
+from localbench.suite_release import coverage_profile_for_id
 
 DATA_SOURCES_PATH: Final = REPO_ROOT / "web" / "data_sources.json"
 MODEL_CATALOG_PATH: Final = REPO_ROOT / "web" / "model_catalog.json"
@@ -554,7 +556,8 @@ def _rescore(
     prior_scorecard_id = _required_text(recorded, "scorecard_id")
     current = scorecard_identity(profile_id, lane_spec_id=lane_spec_id)
     items = _object_list(result.get("items"), "items")
-    _recompute_derived_record(result, items)
+    suite_dir = _assert_rescore_coverage(result, items)
+    _recompute_derived_record(result, items, suite_dir)
     budget = _budget_audit(items)  # type: ignore[arg-type]
     manifest["scorecard"] = current
     result["budget_audit"] = budget
@@ -575,8 +578,106 @@ def _rescore(
     return result
 
 
-def _recompute_derived_record(result: JsonObject, items: list[JsonObject]) -> None:
-    suite = read_json_object(SUITE_DIR / "suite.json")
+def _assert_rescore_coverage(result: JsonObject, items: list[JsonObject]) -> Path:
+    manifest = _object(result.get("manifest"), "manifest")
+    suite_manifest = _object(manifest.get("suite"), "manifest.suite")
+    coverage_profile_id = _required_text(suite_manifest, "coverage_profile_id")
+    try:
+        profile = coverage_profile_for_id(coverage_profile_id)
+    except SuiteResolutionError as error:
+        raise LandingError(str(error)) from error
+    suite_dir = _suite_dir_for_identity(suite_manifest, coverage_profile_id)
+    suite = read_json_object(suite_dir / "suite.json")
+    tier = _required_text(suite_manifest, "tier")
+    suite_benches = _object(suite.get("benches"), "suite.benches")
+    expected_benches = set(profile.benches)
+    static_benches = sorted(expected_benches & set(suite_benches))
+    undefined_expected = sorted(expected_benches - set(suite_benches) - {"appworld_c"})
+    if undefined_expected:
+        raise LandingError(
+            "stamped suite coverage profile references undefined bench(es): "
+            + ", ".join(undefined_expected)
+        )
+
+    rendered = render_benches(",".join(static_benches), tier, None, suite_dir, suite, [])
+    audit = _suite_coverage(
+        rendered,
+        items,  # type: ignore[arg-type]
+        suite=suite,
+        tier=tier,
+        max_items=None,
+    )
+    missing_by_bench: dict[str, int] = {}
+    missing_items = audit.get("missing_items")
+    if not isinstance(missing_items, list) or not all(isinstance(item, str) for item in missing_items):
+        raise LandingError("suite coverage audit returned invalid missing_items")
+    for missing in missing_items:
+        bench, separator, _item_id = missing.partition("/")
+        if separator:
+            missing_by_bench[bench] = missing_by_bench.get(bench, 0) + 1
+
+    observed_counts: dict[str, int] = {}
+    for item in items:
+        bench = item.get("bench")
+        if isinstance(bench, str):
+            observed_counts[bench] = observed_counts.get(bench, 0) + 1
+    expected_counts = {bench.name: len(bench.benchmark_items) for bench in rendered}
+    if "appworld_c" in expected_benches:
+        agentic = _object(result.get("agentic_run"), "agentic_run")
+        subset_size = agentic.get("subset_size")
+        if not isinstance(subset_size, int) or isinstance(subset_size, bool) or subset_size <= 0:
+            raise LandingError(
+                "agentic_run.subset_size must define the stamped appworld_c coverage count"
+            )
+        expected_counts["appworld_c"] = subset_size
+
+    shortfalls = []
+    for bench in sorted(expected_benches):
+        expected = expected_counts[bench]
+        observed = observed_counts.get(bench, 0)
+        missing = missing_by_bench.get(bench, 0)
+        if observed != expected or missing:
+            detail = f"{bench} ({observed}/{expected} items)"
+            if missing and observed == expected:
+                detail += f" ({missing} required item id(s) missing)"
+            shortfalls.append(detail)
+    undefined_items = [
+        f"{bench} ({observed_counts[bench]} items)"
+        for bench in sorted(set(observed_counts) - expected_benches)
+    ]
+    if shortfalls or undefined_items:
+        details = []
+        if shortfalls:
+            details.append("coverage mismatch: " + ", ".join(shortfalls))
+        if undefined_items:
+            details.append("undefined bench items: " + ", ".join(undefined_items))
+        raise LandingError(
+            f"record cannot satisfy stamped suite coverage {coverage_profile_id}: "
+            + "; ".join(details)
+        )
+    return suite_dir
+
+
+def _suite_dir_for_identity(suite_manifest: JsonObject, coverage_profile_id: str) -> Path:
+    suite_version_value = _required_text(suite_manifest, "suite_version")
+    release_id = _required_text(suite_manifest, "suite_release_id")
+    expected_release_id = f"{suite_version_value}-{coverage_profile_id}"
+    if release_id != expected_release_id:
+        raise LandingError(
+            f"manifest suite_release_id {release_id!r} does not match stamped coverage identity "
+            f"{expected_release_id!r}"
+        )
+    match = re.fullmatch(r"suite-(v[0-9]+)", suite_version_value)
+    if match is None:
+        raise LandingError(f"unsupported stamped suite version: {suite_version_value}")
+    suite_dir = REPO_ROOT / "suite" / match.group(1)
+    if not (suite_dir / "suite.json").is_file():
+        raise LandingError(f"stamped suite is unavailable for recertification: {suite_dir}")
+    return suite_dir
+
+
+def _recompute_derived_record(result: JsonObject, items: list[JsonObject], suite_dir: Path) -> None:
+    suite = read_json_object(suite_dir / "suite.json")
     manifest = _object(result.get("manifest"), "manifest")
     suite_manifest = _object(manifest.get("suite"), "manifest.suite")
     tier = _required_text(suite_manifest, "tier")
@@ -587,7 +688,7 @@ def _recompute_derived_record(result: JsonObject, items: list[JsonObject]) -> No
             if isinstance(item.get("bench"), str) and item.get("bench") in _object(suite.get("benches"), "suite.benches")
         }
     )
-    rendered = render_benches(",".join(bench_names), tier, None, SUITE_DIR, suite, [])
+    rendered = render_benches(",".join(bench_names), tier, None, suite_dir, suite, [])
     baselines = {bench.name: bench.baseline for bench in rendered}
     grouped: dict[str, list[JsonObject]] = {}
     for item in items:

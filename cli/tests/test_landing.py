@@ -18,13 +18,17 @@ from localbench.landing import (
     _append_json_array_item,
     _assert_generations_untouched,
     _assert_protected_public_runs_unchanged,
+    _assert_rescore_coverage,
     _candidate_system,
+    _rescore,
     changed_existing_ranked_rows,
     land_run,
 )
+from localbench._suite import read_json_object, render_benches
 from localbench.coding_exec.receipt import attach_signed_verifier_receipt, verify_signed_verifier_receipt
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.keys import write_private_key
+from localbench.suite_release import COVERAGE_PROFILES, CoverageProfile
 
 
 def test_changed_existing_ranked_rows_is_exact_and_ignores_new_rows() -> None:
@@ -237,6 +241,7 @@ def test_land_run_dry_run_preflights_without_writing(tmp_path: Path, monkeypatch
     monkeypatch.setattr(landing, "_assert_campaign_complete", lambda *_: None)
     monkeypatch.setattr(landing, "_assert_verifier_receipt", lambda *_args, **_kwargs: "b" * 64)
     monkeypatch.setattr(landing, "_hash_actual_gguf", lambda *_args, **_kwargs: "a" * 64)
+    monkeypatch.setattr(landing, "_assert_rescore_coverage", lambda *_: landing.SUITE_DIR)
     monkeypatch.setattr(landing, "_recompute_derived_record", lambda *_: None)
     monkeypatch.setattr(landing, "_assert_protected_public_runs_unchanged", lambda *_: None)
     monkeypatch.setattr(landing, "build_board", fake_build_board)
@@ -260,6 +265,103 @@ def test_land_run_dry_run_preflights_without_writing(tmp_path: Path, monkeypatch
     assert sources_path.read_bytes() == before
     assert not landed_dir.exists()
     assert len(preflight_calls) == 1
+
+
+def test_rescore_coverage_rejects_missing_future_profile_bench(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench import landing
+
+    suite_dir = _future_split_suite(tmp_path)
+    profile_id = "future-tool-use-v2"
+    monkeypatch.setattr(landing, "REPO_ROOT", tmp_path)
+    monkeypatch.setitem(
+        COVERAGE_PROFILES,
+        profile_id,
+        CoverageProfile(
+            profile_id=profile_id,
+            benches=("bfcl_multi_turn_base", "bfcl_multi_turn_long_context"),
+            headline_weight=1.0,
+            rank_scope=profile_id,
+        ),
+    )
+    items = _rendered_item_refs(suite_dir, "bfcl_multi_turn_long_context")
+    record = _coverage_record(profile_id, items)
+    record["manifest"]["scorecard"] = scorecard_identity(  # type: ignore[index]
+        "answer_only_v1",
+        lane_spec_id="bounded-final-v2",
+    )
+    monkeypatch.setattr(
+        landing,
+        "scorecard_identity",
+        lambda *_args, **_kwargs: {
+            "scorecard_id": "future-scorecard",
+            "registry": [
+                {
+                    "key": "tool_calling",
+                    "benches": ["bfcl_multi_turn_base", "bfcl_multi_turn_long_context"],
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(
+        LandingError,
+        match=(
+            r"record cannot satisfy stamped suite coverage future-tool-use-v2: "
+            r"coverage mismatch: bfcl_multi_turn_base \(0/2 items\)"
+        ),
+    ):
+        _rescore(
+            record,
+            original_path=tmp_path / "localbench-run.json",
+            verified_path=tmp_path / "coding-verified.json",
+            verifier_receipt_sha256="a" * 64,
+        )
+
+
+def test_rescore_coverage_rejects_unsplit_bench_from_future_suite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench import landing
+
+    suite_dir = _future_split_suite(tmp_path)
+    profile_id = "future-tool-use-v2"
+    monkeypatch.setattr(landing, "REPO_ROOT", tmp_path)
+    monkeypatch.setitem(
+        COVERAGE_PROFILES,
+        profile_id,
+        CoverageProfile(
+            profile_id=profile_id,
+            benches=("bfcl_multi_turn_base", "bfcl_multi_turn_long_context"),
+            headline_weight=1.0,
+            rank_scope=profile_id,
+        ),
+    )
+    items = [
+        *_rendered_item_refs(suite_dir, "bfcl_multi_turn_base,bfcl_multi_turn_long_context"),
+        {"bench": "bfcl_multi_turn", "id": "legacy-unsplit"},
+    ]
+
+    with pytest.raises(
+        LandingError,
+        match=r"undefined bench items: bfcl_multi_turn \(1 items\)",
+    ):
+        _assert_rescore_coverage(_coverage_record(profile_id, items), items)
+
+
+def test_rescore_coverage_accepts_complete_current_suite_record() -> None:
+    suite_dir = Path(__file__).resolve().parents[2] / "suite" / "v1"
+    profile_id = "full-exec-6axis-v1"
+    static_benches = [bench for bench in COVERAGE_PROFILES[profile_id].benches if bench != "appworld_c"]
+    items = _rendered_item_refs(suite_dir, ",".join(static_benches))
+    items.extend({"bench": "appworld_c", "id": f"appworld-{index}"} for index in range(2))
+    record = _coverage_record(profile_id, items)
+    record["agentic_run"] = {"subset_size": 2}
+
+    assert _assert_rescore_coverage(record, items) == suite_dir
 
 
 def test_staged_output_failure_restores_directories_and_removes_created_targets(
@@ -421,6 +523,66 @@ def _run_record(*, verified: bool = False) -> dict[str, object]:
                 },
             ],
         },
+    }
+
+
+def _future_split_suite(tmp_path: Path) -> Path:
+    suite_dir = tmp_path / "suite" / "v2"
+    suite_dir.mkdir(parents=True)
+    template = "templates/bfcl_multi_turn.txt"
+    (suite_dir / "templates").mkdir()
+    (suite_dir / template).write_text("unused", encoding="utf-8")
+    benches: dict[str, object] = {}
+    for bench in ("bfcl_multi_turn_base", "bfcl_multi_turn_long_context"):
+        item_file = f"{bench}.jsonl"
+        rows = [
+            {
+                "id": f"{bench}-{index}",
+                "function": [],
+                "question": [],
+            }
+            for index in range(2)
+        ]
+        (suite_dir / item_file).write_text(
+            "".join(json.dumps(row) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        benches[bench] = {
+            "chance_correction_baseline": 0.0,
+            "decoding": {"max_tokens": 16, "temperature": 0},
+            "itemsets": {"standard": {"file": item_file, "item_count": 2}},
+            "lane_caps": {},
+            "template": template,
+        }
+    _write(suite_dir / "suite.json", {"version": "suite-v2", "benches": benches, "axes": {}})
+    return suite_dir
+
+
+def _rendered_item_refs(suite_dir: Path, bench_choice: str) -> list[dict[str, object]]:
+    suite = read_json_object(suite_dir / "suite.json")
+    rendered = render_benches(bench_choice, "standard", None, suite_dir, suite, [])
+    return [
+        {"bench": bench.name, "id": item["id"]}
+        for bench in rendered
+        for item in bench.benchmark_items
+    ]
+
+
+def _coverage_record(profile_id: str, items: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "manifest": {
+            "suite": {
+                "coverage_profile_id": profile_id,
+                "suite_version": "suite-v2" if profile_id == "future-tool-use-v2" else "suite-v1",
+                "suite_release_id": (
+                    f"suite-v2-{profile_id}"
+                    if profile_id == "future-tool-use-v2"
+                    else f"suite-v1-{profile_id}"
+                ),
+                "tier": "standard",
+            }
+        },
+        "items": items,
     }
 
 

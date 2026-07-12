@@ -312,6 +312,10 @@ def coverage_profile_for_benches(benches: set[str]) -> CoverageProfile:
     )
 
 
+def coverage_profile_for_id(profile_id: str) -> CoverageProfile:
+    return _coverage_profile(profile_id)
+
+
 def _coverage_profile(profile_id: str) -> CoverageProfile:
     profile = COVERAGE_PROFILES.get(profile_id)
     if profile is None:
