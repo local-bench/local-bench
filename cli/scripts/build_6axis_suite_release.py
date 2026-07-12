@@ -19,6 +19,8 @@
 # attribution files are embedded in the bundles (that would change the pinned shas); attribution
 # for every served itemset is provided publicly in the repo-root NOTICE (license-inventory-v1.md
 # is the source of truth). AppWorld-C (agentic) stays out-of-band by design; no appworld jsonl.
+# The two rankable v1 profiles use profile-specific frozen scoring snapshots in suite_release.py;
+# the pinned-sha check below refuses replacement if their immutable identity ever drifts.
 from __future__ import annotations
 
 import shutil

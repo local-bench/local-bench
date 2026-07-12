@@ -3,8 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+import localbench.scoring.axes as axes_module
+import localbench.scoring.scorecard as scorecard_module
 from localbench._types import JsonObject
-from localbench.scoring.axes import axis_membership
+from localbench.scoring.axes import Axis, axis_membership
+from localbench.scoring.scorecard import scorecard_identity
 from localbench.suite_release import (
     COVERAGE_PROFILES,
     build_suite_release_manifest,
@@ -130,29 +135,97 @@ def test_suite_release_manifest_hashes_canonical_serialization() -> None:
     assert manifest["coverage_profile_id"] == "partial-text-code-4axis-v1"
 
 
-def test_full_exec_6axis_release_manifest_sha_is_frozen() -> None:
+@pytest.mark.parametrize(
+    ("profile_id", "release_id", "expected_sha"),
+    (
+        (
+            "full-exec-6axis-v1",
+            "suite-v1-full-exec-6axis-v1",
+            "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468",
+        ),
+        (
+            "static-exec-5axis-v1",
+            "suite-v1-static-exec-5axis-v1",
+            "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
+        ),
+    ),
+)
+def test_v1_exec_release_manifest_shas_are_unchanged(
+    profile_id: str,
+    release_id: str,
+    expected_sha: str,
+) -> None:
+    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id=profile_id)
+
+    assert manifest["suite_release_id"] == release_id
+    assert manifest["suite_manifest_sha256"] == expected_sha
+    assert suite_manifest_sha256(manifest) == expected_sha
+
+
+@pytest.mark.parametrize(
+    ("profile_id", "release_id", "expected_sha"),
+    (
+        (
+            "full-exec-6axis-v1",
+            "suite-v1-full-exec-6axis-v1",
+            "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468",
+        ),
+        (
+            "static-exec-5axis-v1",
+            "suite-v1-static-exec-5axis-v1",
+            "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
+        ),
+    ),
+)
+def test_v1_exec_release_manifest_identity_is_frozen_against_live_registry_perturbation(
+    monkeypatch: pytest.MonkeyPatch,
+    profile_id: str,
+    release_id: str,
+    expected_sha: str,
+) -> None:
+    # Given: a future live registry and scorecard identity that differ from v1.
+    perturbed_scorecard = _perturb_live_scoring_registry(monkeypatch)
+
+    # When: either locked v1 profile is rebuilt.
+    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id=profile_id)
+
+    # Then: all scoring identity comes from its frozen snapshot, preserving the pinned release.
+    assert manifest["suite_release_id"] == release_id
+    assert manifest["suite_manifest_sha256"] == expected_sha
+    assert "scratch_candidate" not in manifest["axis_membership"]
+    assert "scratch_zero_weight" not in manifest["scorer_versions"]
+    assert manifest["registry_digest"] != perturbed_scorecard["registry_digest"]
+    assert manifest["scorecard_id"] != perturbed_scorecard["scorecard_id"]
+
+
+def test_v1_exec_release_membership_matches_its_frozen_registry_snapshot() -> None:
+    # Given / When: the v1 release manifest is generated.
     manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="full-exec-6axis-v1")
 
-    assert manifest["suite_release_id"] == "suite-v1-full-exec-6axis-v1"
-    assert manifest["suite_manifest_sha256"] == (
-        "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468"
-    )
-    assert suite_manifest_sha256(manifest) == (
-        "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468"
-    )
-
-
-def test_suite_release_membership_is_generated_from_axes_registry() -> None:
-    # Given / When: the release manifest is generated.
-    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="full-exec-6axis-v1")
-
-    # Then: every axis membership, including agentic, matches axes.py exactly.
+    # Then: its frozen membership matches the registry at the point v1 was locked.
     expected = {axis: list(benches) for axis, benches in axis_membership().items()}
     assert manifest["axis_membership"] == expected
     assert manifest["axis_membership"]["agentic"] == ["appworld_c"]
     assert manifest["axis_membership"]["coding"] == ["bigcodebench_hard"]
     assert manifest["axis_membership"]["math"] == ["olymmath_hard", "amo"]
     assert manifest["bench_membership"]["appworld_c"] == "agentic"
+
+
+def test_non_v1_profile_scoring_identity_tracks_live_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: the same simulated future live-registry perturbation.
+    perturbed_scorecard = _perturb_live_scoring_registry(monkeypatch)
+
+    # When: an unfrozen diagnostic profile is rebuilt.
+    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="static-core-diag-v1")
+
+    # Then: future/non-v1 profiles still consume the live scoring identity.
+    assert manifest["axis_membership"]["scratch_candidate"] == ["scratch_zero_weight"]
+    assert manifest["bench_membership"]["scratch_zero_weight"] == "scratch_candidate"
+    assert manifest["registry_digest"] == perturbed_scorecard["registry_digest"]
+    assert manifest["scorecard_id"] == perturbed_scorecard["scorecard_id"]
+    assert manifest["scorer_versions"]["scratch_zero_weight"] == "1"
 
 
 def test_cli_release_pairs_match_shared_fixture() -> None:
@@ -267,3 +340,25 @@ def _manifest_paths(manifest: JsonObject) -> set[str]:
         for file_entry in manifest["files"]
         if isinstance(file_entry, dict)
     }
+
+
+def _perturb_live_scoring_registry(monkeypatch: pytest.MonkeyPatch) -> JsonObject:
+    scratch_axis = Axis(
+        key="scratch_candidate",
+        display="Scratch Candidate",
+        web_key="scratch_candidate",
+        benches=("scratch_zero_weight",),
+        legacy_benches=(),
+        role="candidate",
+        weight=0.0,
+        web_display=False,
+    )
+    perturbed_axes = (*axes_module.AXES, scratch_axis)
+    monkeypatch.setattr(axes_module, "AXES", perturbed_axes)
+    monkeypatch.setattr(scorecard_module, "AXES", perturbed_axes)
+    monkeypatch.setattr(
+        scorecard_module,
+        "SCORER_VERSIONS",
+        {**scorecard_module.SCORER_VERSIONS, "scratch_zero_weight": "1"},
+    )
+    return scorecard_identity()

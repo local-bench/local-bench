@@ -25,6 +25,14 @@ class CoverageProfile:
     legacy: bool = False
 
 
+@dataclass(frozen=True, slots=True)
+class FrozenScoringSnapshot:
+    axis_membership: tuple[tuple[str, tuple[str, ...]], ...]
+    registry_digest: str
+    scorecard_id: str
+    scorer_versions: tuple[tuple[str, str], ...]
+
+
 COVERAGE_PROFILES: Final[dict[str, CoverageProfile]] = {
     "full-exec-6axis-v1": CoverageProfile(
         profile_id="full-exec-6axis-v1",
@@ -111,6 +119,43 @@ _LEGACY_AXIS_MEMBERSHIP: Final[dict[str, list[str]]] = {
     "tool_calling": ["tc_json_v1"],
 }
 
+_V1_EXEC_SCORING_SNAPSHOT: Final = FrozenScoringSnapshot(
+    axis_membership=(
+        ("agentic", ("appworld_c",)),
+        ("coding", ("bigcodebench_hard",)),
+        ("instruction_following", ("ifbench",)),
+        ("knowledge", ("mmlu_pro",)),
+        ("long_context", ("ruler_32k",)),
+        ("math", ("olymmath_hard", "amo")),
+        ("tool_calling", ("tc_json_v1",)),
+    ),
+    registry_digest="16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    scorecard_id="b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
+    scorer_versions=(
+        ("amo", "1"),
+        ("appworld_c", "1"),
+        ("bfcl", "1"),
+        ("bfcl_multi_turn", "1"),
+        ("bigcodebench_hard", (
+            "1+bcbh-scoreable-v1+bigcodebench-ast-gate-v2+bigcodebench-invert-control-sentinel-v2"
+        )),
+        ("genmath", "1"),
+        ("ifbench", "1"),
+        ("ifeval", "1"),
+        ("lcb", "1"),
+        ("mmlu_pro", "1"),
+        ("olymmath_hard", "1"),
+        ("ruler_32k", "1"),
+        ("supergpqa", "1"),
+        ("tc_json_v1", "1"),
+    ),
+)
+
+_FROZEN_PROFILE_SCORING: Final[dict[str, FrozenScoringSnapshot]] = {
+    "full-exec-6axis-v1": _V1_EXEC_SCORING_SNAPSHOT,
+    "static-exec-5axis-v1": _V1_EXEC_SCORING_SNAPSHOT,
+}
+
 
 def build_suite_release_manifest(
     suite_dir: Path,
@@ -120,7 +165,8 @@ def build_suite_release_manifest(
     verify_suite_dir(suite_dir)
     profile = _coverage_profile(coverage_profile_id)
     suite = read_json_object(suite_dir / "suite.json")
-    scorecard = scorecard_identity()
+    frozen_scoring = _FROZEN_PROFILE_SCORING.get(profile.profile_id)
+    scorecard = None if frozen_scoring is not None else scorecard_identity()
     axis_members = _axis_membership(profile)
     bench_members = _bench_membership(axis_members)
     coverage: JsonObject = {
@@ -275,6 +321,9 @@ def _item_set_hashes(suite_dir: Path) -> JsonObject:
 
 
 def _axis_membership(profile: CoverageProfile) -> JsonObject:
+    frozen = _FROZEN_PROFILE_SCORING.get(profile.profile_id)
+    if frozen is not None:
+        return {axis: list(benches) for axis, benches in frozen.axis_membership}
     if profile.legacy:
         return {axis: list(benches) for axis, benches in _LEGACY_AXIS_MEMBERSHIP.items()}
     return {axis: list(benches) for axis, benches in axis_membership().items()}
@@ -288,16 +337,37 @@ def _bench_membership(axis_members: JsonObject) -> JsonObject:
     }
 
 
-def _scorecard_id(profile: CoverageProfile, scorecard: JsonObject) -> str:
-    return _LEGACY_SCORECARD_ID if profile.legacy else str(scorecard["scorecard_id"])
+def _scorecard_id(profile: CoverageProfile, scorecard: JsonObject | None) -> str:
+    frozen = _FROZEN_PROFILE_SCORING.get(profile.profile_id)
+    if frozen is not None:
+        return frozen.scorecard_id
+    if profile.legacy:
+        return _LEGACY_SCORECARD_ID
+    if scorecard is None:
+        raise AssertionError("live coverage profiles require a scorecard identity")
+    return str(scorecard["scorecard_id"])
 
 
-def _registry_digest(profile: CoverageProfile, scorecard: JsonObject) -> str:
-    return _LEGACY_REGISTRY_DIGEST if profile.legacy else str(scorecard["registry_digest"])
+def _registry_digest(profile: CoverageProfile, scorecard: JsonObject | None) -> str:
+    frozen = _FROZEN_PROFILE_SCORING.get(profile.profile_id)
+    if frozen is not None:
+        return frozen.registry_digest
+    if profile.legacy:
+        return _LEGACY_REGISTRY_DIGEST
+    if scorecard is None:
+        raise AssertionError("live coverage profiles require a scorecard identity")
+    return str(scorecard["registry_digest"])
 
 
-def _scorer_versions(profile: CoverageProfile, scorecard: JsonObject) -> dict[str, str]:
-    return dict(_LEGACY_SCORER_VERSIONS) if profile.legacy else dict(scorecard["scorer_versions"])
+def _scorer_versions(profile: CoverageProfile, scorecard: JsonObject | None) -> dict[str, str]:
+    frozen = _FROZEN_PROFILE_SCORING.get(profile.profile_id)
+    if frozen is not None:
+        return dict(frozen.scorer_versions)
+    if profile.legacy:
+        return dict(_LEGACY_SCORER_VERSIONS)
+    if scorecard is None:
+        raise AssertionError("live coverage profiles require a scorecard identity")
+    return dict(scorecard["scorer_versions"])
 
 
 def _license_flags(suite_dir: Path) -> list[JsonObject]:
