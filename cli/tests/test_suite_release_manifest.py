@@ -13,6 +13,7 @@ from localbench.scoring.axes import Axis
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.suite_release import (
     COVERAGE_PROFILES,
+    CoverageProfile,
     build_suite_release_manifest,
     coverage_profile_for_benches,
     suite_manifest_sha256,
@@ -24,6 +25,10 @@ _SITE_4AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-partial-text-
 _SITE_MANIFEST = _SITE_4AXIS / "suite_release_manifest.json"
 _SITE_5AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-text-code-agentic-5axis-v1"
 _SITE_5AXIS_MANIFEST = _SITE_5AXIS / "suite_release_manifest.json"
+_SITE_STATIC_CORE_DIAG = (
+    _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-static-core-diag-v1"
+)
+_SITE_STATIC_CORE_DIAG_MANIFEST = _SITE_STATIC_CORE_DIAG / "suite_release_manifest.json"
 _EXPECTED_RELEASE_PAIRS = _REPO_ROOT / "suite" / "release-pairs.expected.json"
 _V1_AXIS_MEMBERSHIP = {
     "agentic": ["appworld_c"],
@@ -158,9 +163,14 @@ def test_suite_release_manifest_hashes_canonical_serialization() -> None:
             "suite-v1-static-exec-5axis-v1",
             "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
         ),
+        (
+            "static-core-diag-v1",
+            "suite-v1-static-core-diag-v1",
+            "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69",
+        ),
     ),
 )
-def test_v1_exec_release_manifest_shas_are_unchanged(
+def test_pinned_v1_release_manifest_shas_are_unchanged(
     profile_id: str,
     release_id: str,
     expected_sha: str,
@@ -185,13 +195,18 @@ def test_v1_exec_release_manifest_shas_are_unchanged(
             "suite-v1-static-exec-5axis-v1",
             "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
         ),
+        (
+            "static-core-diag-v1",
+            "suite-v1-static-core-diag-v1",
+            "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69",
+        ),
     ),
 )
 @pytest.mark.parametrize(
     "perturbation",
     ("axis_weight", "bench_membership", "scorer_version", "web_key"),
 )
-def test_v1_exec_release_manifest_identity_is_frozen_against_live_registry_perturbation(
+def test_pinned_v1_release_manifest_identity_is_frozen_against_live_registry_perturbation(
     monkeypatch: pytest.MonkeyPatch,
     profile_id: str,
     release_id: str,
@@ -201,7 +216,7 @@ def test_v1_exec_release_manifest_identity_is_frozen_against_live_registry_pertu
     # Given: an S2-1-style live registry or scorer change that differs from v1.
     perturbed_scorecard = _perturb_v1_scoring_input(monkeypatch, perturbation)
 
-    # When: either locked v1 profile is rebuilt.
+    # When: any pinned v1 profile is rebuilt.
     manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id=profile_id)
 
     # Then: all scoring identity comes from its frozen snapshot, preserving the pinned release.
@@ -224,14 +239,40 @@ def test_v1_exec_release_membership_matches_its_frozen_registry_snapshot() -> No
     assert manifest["bench_membership"]["appworld_c"] == "agentic"
 
 
+def test_v1_static_core_diag_snapshot_exactly_reproduces_committed_manifest() -> None:
+    committed = read_json(_SITE_STATIC_CORE_DIAG_MANIFEST)
+
+    rebuilt = build_suite_release_manifest(
+        _SITE_STATIC_CORE_DIAG,
+        coverage_profile_id="static-core-diag-v1",
+    )
+
+    assert rebuilt == committed
+    assert rebuilt["suite_manifest_sha256"] == (
+        "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69"
+    )
+
+
 def test_non_v1_profile_scoring_identity_tracks_live_registry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: the same simulated future live-registry perturbation.
     perturbed_scorecard = _perturb_live_scoring_registry(monkeypatch)
+    profile_id = "future-static-core-diag-v2"
+    monkeypatch.setitem(
+        COVERAGE_PROFILES,
+        profile_id,
+        CoverageProfile(
+            profile_id=profile_id,
+            benches=("mmlu_pro", "ifbench", "tc_json_v1", "olymmath_hard", "amo"),
+            headline_weight=0.45,
+            rank_scope="diagnostic",
+            rankable=False,
+        ),
+    )
 
-    # When: an unfrozen diagnostic profile is rebuilt.
-    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="static-core-diag-v1")
+    # When: an unfrozen future diagnostic profile is rebuilt.
+    manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id=profile_id)
 
     # Then: future/non-v1 profiles still consume the live scoring identity.
     assert manifest["axis_membership"]["scratch_candidate"] == ["scratch_zero_weight"]

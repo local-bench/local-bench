@@ -151,9 +151,42 @@ _V1_EXEC_SCORING_SNAPSHOT: Final = FrozenScoringSnapshot(
     ),
 )
 
+_V1_STATIC_CORE_DIAG_SCORING_SNAPSHOT: Final = FrozenScoringSnapshot(
+    axis_membership=(
+        ("agentic", ("appworld_c",)),
+        ("coding", ("bigcodebench_hard",)),
+        ("instruction_following", ("ifbench",)),
+        ("knowledge", ("mmlu_pro",)),
+        ("long_context", ("ruler_32k",)),
+        ("math", ("olymmath_hard", "amo")),
+        ("tool_calling", ("tc_json_v1",)),
+    ),
+    registry_digest="16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    scorecard_id="b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
+    scorer_versions=(
+        ("amo", "1"),
+        ("appworld_c", "1"),
+        ("bfcl", "1"),
+        ("bfcl_multi_turn", "1"),
+        ("bigcodebench_hard", (
+            "1+bcbh-scoreable-v1+bigcodebench-ast-gate-v2+bigcodebench-invert-control-sentinel-v2"
+        )),
+        ("genmath", "1"),
+        ("ifbench", "1"),
+        ("ifeval", "1"),
+        ("lcb", "1"),
+        ("mmlu_pro", "1"),
+        ("olymmath_hard", "1"),
+        ("ruler_32k", "1"),
+        ("supergpqa", "1"),
+        ("tc_json_v1", "1"),
+    ),
+)
+
 _FROZEN_PROFILE_SCORING: Final[dict[str, FrozenScoringSnapshot]] = {
     "full-exec-6axis-v1": _V1_EXEC_SCORING_SNAPSHOT,
     "static-exec-5axis-v1": _V1_EXEC_SCORING_SNAPSHOT,
+    "static-core-diag-v1": _V1_STATIC_CORE_DIAG_SCORING_SNAPSHOT,
 }
 
 
