@@ -596,7 +596,14 @@ def _recompute_derived_record(result: JsonObject, items: list[JsonObject]) -> No
             grouped.setdefault(bench, []).append(item)
     benches: JsonObject = {}
     for bench, bench_items in grouped.items():
-        benches[bench] = aggregate(bench, bench_items, baselines.get(bench, 0.0))  # type: ignore[arg-type]
+        # Inline AppWorld items describe the final diagnostic run, while the
+        # publishable bench score is the mean across the full rerun campaign.
+        # Re-aggregating those items would silently replace the campaign mean
+        # with the final run's ASR and make the board reject the record.
+        if bench == "appworld_c":
+            benches[bench] = _agentic_campaign_aggregate(result)
+        else:
+            benches[bench] = aggregate(bench, bench_items, baselines.get(bench, 0.0))  # type: ignore[arg-type]
     result["benches"] = benches
 
     prior_totals = _object(result.get("totals"), "totals")
@@ -651,6 +658,25 @@ def _recompute_derived_record(result: JsonObject, items: list[JsonObject]) -> No
         tier=tier,
         max_items=None,
     )
+
+
+def _agentic_campaign_aggregate(run: JsonObject) -> JsonObject:
+    agentic = _object(run.get("agentic_run"), "agentic_run")
+    subset_size = agentic.get("subset_size")
+    mean_asr = agentic.get("mean_asr")
+    if not isinstance(subset_size, int) or isinstance(subset_size, bool) or subset_size <= 0:
+        raise LandingError("agentic_run.subset_size must be a positive integer")
+    if not isinstance(mean_asr, int | float) or isinstance(mean_asr, bool) or not 0 <= mean_asr <= 1:
+        raise LandingError("agentic_run.mean_asr must be a number between 0 and 1")
+    return {
+        "n": subset_size,
+        "n_errors": 0,
+        "n_extraction_failures": 0,
+        "raw_accuracy": float(mean_asr),
+        "chance_corrected": float(mean_asr),
+        "conditional_accuracy": float(mean_asr),
+        "termination_rate": 1.0,
+    }
 
 
 def _catalog_entry(run: JsonObject, run_dir: Path) -> JsonObject:
@@ -784,7 +810,38 @@ def _candidate_system(board: JsonObject, stem: str, source: JsonObject) -> JsonO
         None,
     )
     if system is None:
-        raise LandingError(f"candidate board omitted landed system {run_id}")
+        skipped_runs: list[JsonObject] = []
+        manifest = board.get("manifest")
+        if isinstance(manifest, dict):
+            raw_skipped = manifest.get("skipped_runs")
+            if isinstance(raw_skipped, list):
+                skipped_runs = [item for item in raw_skipped if isinstance(item, dict)]
+        canonical_name = f"{stem}.json"
+        skipped = next(
+            (
+                item
+                for item in skipped_runs
+                if isinstance(item.get("file"), str) and Path(item["file"]).name == canonical_name
+            ),
+            None,
+        )
+        if skipped is not None:
+            reason = skipped.get("reason")
+            rendered_reason = reason if isinstance(reason, str) else repr(reason)
+            raise LandingError(
+                f"candidate board omitted landed system {run_id}; staged run {canonical_name} "
+                f"was skipped: {rendered_reason}"
+            )
+        existing_run_ids = sorted(
+            str(item["run_id"])
+            for item in _object_list(model.get("systems"), f"{slug}.systems")
+            if isinstance(item.get("run_id"), str)
+        )
+        rendered_ids = ", ".join(existing_run_ids) if existing_run_ids else "<none>"
+        raise LandingError(
+            f"candidate board omitted landed system {run_id}; no matching skipped_runs entry for "
+            f"{canonical_name}; existing run_ids for {slug}: {rendered_ids}"
+        )
     return system
 
 

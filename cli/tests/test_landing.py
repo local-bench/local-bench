@@ -5,11 +5,20 @@ from pathlib import Path
 
 import pytest
 
+from board_fixtures import (
+    FROZEN_AT,
+    inline_agentic_provenance,
+    run_record as board_run_record,
+    source as board_source,
+    write_run,
+)
 from localbench.landing import (
     LandingError,
+    _agentic_campaign_aggregate,
     _append_json_array_item,
     _assert_generations_untouched,
     _assert_protected_public_runs_unchanged,
+    _candidate_system,
     changed_existing_ranked_rows,
     land_run,
 )
@@ -27,6 +36,76 @@ def test_changed_existing_ranked_rows_is_exact_and_ignores_new_rows() -> None:
 
     candidate["models"][0]["composite"] = {"point": 42.1}
     assert changed_existing_ranked_rows(current, candidate) == ("existing",)
+
+
+def test_candidate_system_surfaces_staged_run_skip_reason() -> None:
+    stem = "fixture-model-new-quant-bounded-final-v2"
+    reason = "incomplete: inline appworld_c mean_asr does not match bench raw_accuracy"
+    board = {
+        "models": [{"slug": "fixture-model", "systems": [{"run_id": "fixture-model__existing"}]}],
+        "manifest": {"skipped_runs": [{"file": f"{stem}.json", "reason": reason}]},
+    }
+
+    with pytest.raises(LandingError, match="mean_asr does not match bench raw_accuracy") as error:
+        _candidate_system(board, stem, {"model_label": "Fixture Model"})
+
+    assert reason in str(error.value)
+
+    board["manifest"] = {"skipped_runs": []}
+    with pytest.raises(LandingError, match="existing run_ids.*fixture-model__existing"):
+        _candidate_system(board, stem, {"model_label": "Fixture Model"})
+
+
+def test_existing_model_new_staged_system_is_present_with_canonical_run_id(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    write_run(runs_dir / "existing.json", board_run_record())
+    stem = "fixture-model-new-quant-bounded-final-v2"
+    staged_run = tmp_path / "stage" / f"{stem}.json"
+    staged_run.parent.mkdir()
+    staged_record = board_run_record(appworld_inline=(False, True))
+    first_run = inline_agentic_provenance((False, False))["diagnostics"]
+    agentic = inline_agentic_provenance((False, True))
+    agentic["runs"][0] = {"run_index": 1, "results_path": "agentic/run1.json", **first_run}
+    agentic["asr_series"] = [0.0, 0.5]
+    agentic["mean_asr"] = 0.25
+    agentic["max_abs_delta_pp"] = 50.0
+    staged_record["agentic_run"] = agentic
+    staged_record["benches"]["appworld_c"] = _agentic_campaign_aggregate(staged_record)
+    write_run(staged_run, staged_record)
+    sources = [
+        board_source("Fixture Model", "existing.json", model_id="org/fixture-model"),
+        board_source("Fixture Model", str(staged_run), model_id="org/fixture-model"),
+    ]
+    curation = tmp_path / "staged-data_sources.json"
+    _write(curation, sources)
+
+    board = build_board(
+        runs_dir=runs_dir,
+        curation_path=curation,
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    system = _candidate_system(board, stem, sources[-1])
+    assert system["run_id"] == f"fixture-model__{stem}"
+
+
+def test_agentic_campaign_aggregate_uses_campaign_mean_not_final_run_items() -> None:
+    aggregate = _agentic_campaign_aggregate(
+        {
+            "agentic_run": {
+                "subset_size": 96,
+                "asr_series": [0.09375, 0.10416666666666667],
+                "mean_asr": 0.09895833333333334,
+            }
+        }
+    )
+
+    assert aggregate["n"] == 96
+    assert aggregate["raw_accuracy"] == 0.09895833333333334
 
 
 def test_generation_guard_allows_only_coding_verdict_fields() -> None:
