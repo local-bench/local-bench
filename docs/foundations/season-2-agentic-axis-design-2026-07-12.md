@@ -215,6 +215,29 @@ coding, math; long_context stays 0-weight) — so name the profile `full-exec-to
 profile) → S2-2 (BFCL split/wiring) → S2-3 (bridge/editorial) → S2-4 (calibration GPU, after
 ladder) → S2-5 (website flip = FINAL) → 0.4.0 dogfood canary = gate.
 
+## 10. S2-1 build STOP → selector replaced by BENCH SPLIT (2026-07-12, codex ground-truth STOP)
+
+S2-1 build (codex) STOPPED correctly: the planned per-item `category==multi_turn_base` facet
+SELECTOR cannot be honored uniformly. board_scoring has item records (can filter), but
+`_scoring.composite()` (:234) and `foundation_scores._axis_aggregate()` (:101) receive only
+pre-aggregated `BenchAggregate` values (category metadata already lost); the lossy conversion is in
+`submissions/projection.py:225` + `foundation.py:475` + `orchestrate.py:790` (outside permitted
+scope). Approximating with the full 100-item BFCL aggregate would wrongly weight the 50 long_context
+items. v1 shas confirmed still frozen; no changes made.
+
+**RESOLUTION (orchestrator decision — implementation, not product): BENCH SPLIT, not selector.**
+Split `bfcl_multi_turn` (100) into TWO first-class benches for v2: `bfcl_multi_turn_base` (50) +
+`bfcl_multi_turn_long_context` (50), via the suite build (items already carry `category`; builder
+already selects 50/50). Then the tool_use facet weights whole-bench `bfcl_multi_turn_base` (0.35),
+`bfcl_multi_turn_long_context` becomes an experimental wt-0 diagnostic bench, and ALL scoring paths
+use uniform whole-bench aggregates — NO item selector, NO facet metadata threaded through the
+submission pipeline. Additive: v1 stays frozen on the original 100-item `bfcl_multi_turn` bench; v2
+references the two split benches. Supersedes §9's `FacetSpec.selector` (facets now bench-only:
+`FacetSpec{key,bench,weight}`, no selector). Revised S2-1 scope adds: suite build emits the two v2
+benches + itemsets; bench registration + scorer_versions for both; v2 coverage profile references
+them. Everything else in §9 (macro-axis, bench-normalized weighting across the 3 CLI sites,
+fail-closed, weight math .20/.24/.24/.24/.08, web deferred to S2-5) stands.
+
 ## Progress log
 - 2026-07-12: Ground-truth mapped (Explore). Oracle + codex two-model panel → Option D. Michael
   approved structure + FULL autonomous authority. Design doc written + committed 812bece.
