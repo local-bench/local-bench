@@ -63,6 +63,7 @@ from localbench.kld import run_kld_ladder
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.landing import LandingError, land_run, print_landing_checklist
+from localbench.facet_backfill import FacetBackfillError, compose_facet_backfill
 from localbench.one_shot.runner import run_one_shot_bench
 from localbench.persistence import atomic_write_json
 from localbench.progress import BenchProgressPlan, ProgressReporter, plans_from_bench_counts
@@ -240,6 +241,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _board(args)
     if args.command == "land-run":
         return _land_run(args)
+    if args.command == "compose-facet-backfill":
+        return _compose_facet_backfill(args)
     if args.command == "tc-json":
         return _tc_json(args)
     parser.print_help()
@@ -738,6 +741,13 @@ def _parser() -> argparse.ArgumentParser:
         help="64-hex Ed25519 public key trusted to sign the coding verifier receipt",
     )
     land_parser.add_argument("--dry-run", action="store_true", help="run every preflight without writing")
+    compose_parser = subparsers.add_parser(
+        "compose-facet-backfill",
+        help="maintainer-only: attach a verified BFCL-base partial campaign",
+    )
+    compose_parser.add_argument("--record", type=Path, required=True)
+    compose_parser.add_argument("--partial", type=Path, required=True)
+    compose_parser.add_argument("--out", type=Path, required=True)
     tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 Tool-calling axis")
     tc_json_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
     tc_json_parser.add_argument("--model", required=True, help="model name to send in requests")
@@ -2510,6 +2520,18 @@ def _land_run(args: argparse.Namespace) -> int:
     print(f"model      {result.model_label}")
     print(f"mode       {'dry-run' if result.dry_run else 'applied'}")
     print_landing_checklist(result)
+    return 0
+
+
+def _compose_facet_backfill(args: argparse.Namespace) -> int:
+    try:
+        result = compose_facet_backfill(args.record, args.partial, args.out)
+    except (FacetBackfillError, OSError, json.JSONDecodeError, ValueError) as error:
+        print(f"error      {error}")
+        return 2
+    print(f"output     {args.out.expanduser().resolve()}")
+    print(f"attached   {result['facet_backfill']['attached_item_count']}")
+    print(f"index      {result['index_version']}")
     return 0
 
 

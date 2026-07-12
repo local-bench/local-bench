@@ -110,14 +110,12 @@ def test_v2_tool_use_profile_resolves_and_tracks_live_registry() -> None:
         "ifbench",
         "olymmath_hard",
         "amo",
-        "ruler_32k",
         "appworld_c",
         "bfcl_multi_turn_base",
         "tc_json_v1",
         "bigcodebench_hard",
-        "bfcl",
-        "bfcl_multi_turn_long_context",
     }
+    assert len(profile.benches) == 8
 
     manifest = build_suite_release_manifest(
         _SUITE_V2,
