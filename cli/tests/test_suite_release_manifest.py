@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -8,7 +9,7 @@ import pytest
 import localbench.scoring.axes as axes_module
 import localbench.scoring.scorecard as scorecard_module
 from localbench._types import JsonObject
-from localbench.scoring.axes import Axis, axis_membership
+from localbench.scoring.axes import Axis
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.suite_release import (
     COVERAGE_PROFILES,
@@ -24,6 +25,15 @@ _SITE_MANIFEST = _SITE_4AXIS / "suite_release_manifest.json"
 _SITE_5AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-text-code-agentic-5axis-v1"
 _SITE_5AXIS_MANIFEST = _SITE_5AXIS / "suite_release_manifest.json"
 _EXPECTED_RELEASE_PAIRS = _REPO_ROOT / "suite" / "release-pairs.expected.json"
+_V1_AXIS_MEMBERSHIP = {
+    "agentic": ["appworld_c"],
+    "coding": ["bigcodebench_hard"],
+    "instruction_following": ["ifbench"],
+    "knowledge": ["mmlu_pro"],
+    "long_context": ["ruler_32k"],
+    "math": ["olymmath_hard", "amo"],
+    "tool_calling": ["tc_json_v1"],
+}
 
 
 def test_coverage_profiles_define_current_partial_scopes() -> None:
@@ -177,14 +187,19 @@ def test_v1_exec_release_manifest_shas_are_unchanged(
         ),
     ),
 )
+@pytest.mark.parametrize(
+    "perturbation",
+    ("axis_weight", "bench_membership", "scorer_version", "web_key"),
+)
 def test_v1_exec_release_manifest_identity_is_frozen_against_live_registry_perturbation(
     monkeypatch: pytest.MonkeyPatch,
     profile_id: str,
     release_id: str,
     expected_sha: str,
+    perturbation: str,
 ) -> None:
-    # Given: a future live registry and scorecard identity that differ from v1.
-    perturbed_scorecard = _perturb_live_scoring_registry(monkeypatch)
+    # Given: an S2-1-style live registry or scorer change that differs from v1.
+    perturbed_scorecard = _perturb_v1_scoring_input(monkeypatch, perturbation)
 
     # When: either locked v1 profile is rebuilt.
     manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id=profile_id)
@@ -192,9 +207,8 @@ def test_v1_exec_release_manifest_identity_is_frozen_against_live_registry_pertu
     # Then: all scoring identity comes from its frozen snapshot, preserving the pinned release.
     assert manifest["suite_release_id"] == release_id
     assert manifest["suite_manifest_sha256"] == expected_sha
-    assert "scratch_candidate" not in manifest["axis_membership"]
-    assert "scratch_zero_weight" not in manifest["scorer_versions"]
-    assert manifest["registry_digest"] != perturbed_scorecard["registry_digest"]
+    if perturbation != "scorer_version":
+        assert manifest["registry_digest"] != perturbed_scorecard["registry_digest"]
     assert manifest["scorecard_id"] != perturbed_scorecard["scorecard_id"]
 
 
@@ -202,9 +216,8 @@ def test_v1_exec_release_membership_matches_its_frozen_registry_snapshot() -> No
     # Given / When: the v1 release manifest is generated.
     manifest = build_suite_release_manifest(_SUITE_V1, coverage_profile_id="full-exec-6axis-v1")
 
-    # Then: its frozen membership matches the registry at the point v1 was locked.
-    expected = {axis: list(benches) for axis, benches in axis_membership().items()}
-    assert manifest["axis_membership"] == expected
+    # Then: its membership matches the historical v1 fixture, not the live registry.
+    assert manifest["axis_membership"] == _V1_AXIS_MEMBERSHIP
     assert manifest["axis_membership"]["agentic"] == ["appworld_c"]
     assert manifest["axis_membership"]["coding"] == ["bigcodebench_hard"]
     assert manifest["axis_membership"]["math"] == ["olymmath_hard", "amo"]
@@ -361,4 +374,29 @@ def _perturb_live_scoring_registry(monkeypatch: pytest.MonkeyPatch) -> JsonObjec
         "SCORER_VERSIONS",
         {**scorecard_module.SCORER_VERSIONS, "scratch_zero_weight": "1"},
     )
+    return scorecard_identity()
+
+
+def _perturb_v1_scoring_input(
+    monkeypatch: pytest.MonkeyPatch,
+    perturbation: str,
+) -> JsonObject:
+    axes = axes_module.AXES
+    if perturbation == "axis_weight":
+        axes = (replace(axes[0], weight=axes[0].weight + 0.01), *axes[1:])
+    elif perturbation == "bench_membership":
+        axes = (replace(axes[0], benches=("future_knowledge",)), *axes[1:])
+    elif perturbation == "web_key":
+        axes = (replace(axes[0], web_key="knowledge_v2"), *axes[1:])
+    elif perturbation == "scorer_version":
+        monkeypatch.setattr(
+            scorecard_module,
+            "SCORER_VERSIONS",
+            {**scorecard_module.SCORER_VERSIONS, "mmlu_pro": "2"},
+        )
+    else:
+        raise AssertionError(f"unknown perturbation: {perturbation}")
+
+    monkeypatch.setattr(axes_module, "AXES", axes)
+    monkeypatch.setattr(scorecard_module, "AXES", axes)
     return scorecard_identity()
