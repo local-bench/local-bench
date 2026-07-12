@@ -15,7 +15,15 @@ from localbench.lane_spec import (
 )
 from localbench.reasoning_registry import ranked_execution_profiles
 from localbench.scoring import bootstrap, cluster_for_item, score_interval, stratum_for_item
-from localbench.scoring.axes import STATIC_SUITE_INDEX_VERSION, headline_web_axes, static_suite_web_weights, web_display_axes, web_source_bench_groups
+from localbench.scoring.axes import (
+    STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
+    axis_for_web_key,
+    headline_web_axes,
+    materialize_facet_samples,
+    static_suite_v3_web_weights as static_suite_web_weights,
+    web_display_axes,
+    web_source_bench_groups,
+)
 from localbench.scoring.board_support import (
     DEFAULT_BOOTSTRAP_SEED,
     LANE_SCOPE,
@@ -409,19 +417,49 @@ def _axes_and_samples(
             else None
         )
         axis_values, axis_strata, no_answer = _axis_samples(source_names, item_groups, samples, expected_counts)
-        axis_ci = bootstrap.stratified_mean_ci(axis_values, axis_strata, seed=DEFAULT_BOOTSTRAP_SEED, iters=bootstrap_iters)
+        registry_axis = axis_for_web_key(axis)
+        facet_material = (
+            None
+            if registry_axis is None
+            else materialize_facet_samples(registry_axis, samples)
+        )
+        axis_ci = (
+            bootstrap.composite_ci(
+                facet_material[0],
+                facet_material[1],
+                seed=DEFAULT_BOOTSTRAP_SEED,
+                iters=bootstrap_iters,
+            )
+            if facet_material is not None
+            else bootstrap.stratified_mean_ci(
+                axis_values,
+                axis_strata,
+                seed=DEFAULT_BOOTSTRAP_SEED,
+                iters=bootstrap_iters,
+            )
+        )
         # Point AND raw derive from the same per-item evidence as the CI and the
         # composites — never from the run's claimed bench aggregates, which can
         # disagree with the item records (first seen: an agentic verdict counted
         # live but unsupported by the carried per-task records).
         axis_score = score_interval(axis_ci["point"], axis_ci["lo"], axis_ci["hi"])
-        raw_values = [
-            1.0 if value else 0.0
-            for bench in source_names
-            for value in samples[bench]["correct"]
-        ]
+        raw_accuracy = (
+            sum(
+                facet_material[1][bench]
+                * _mean_correct(facet_material[0][bench]["correct"])
+                for bench in facet_material[0]
+            )
+            if facet_material is not None
+            else _mean_correct(
+                [
+                    value
+                    for bench in source_names
+                    for value in samples[bench]["correct"]
+                ],
+            )
+        )
         axis_score |= {
-            "raw_accuracy": (sum(raw_values) / len(raw_values)) if raw_values else 0.0,
+            "raw_accuracy": raw_accuracy,
             "n": sum(int_value(aggregate.get("n"), "bench.n") for aggregate in aggregates),
             "n_errors": sum(int_value(aggregate.get("n_errors"), "bench.n_errors") for aggregate in aggregates),
             "n_no_answer": sum(int_value(aggregate.get("n_extraction_failures"), "bench.n_extraction_failures") for aggregate in aggregates) + no_answer,
@@ -483,12 +521,28 @@ def _source_weights_for_composite(
         if axis not in axes or axis_weight <= 0.0:
             continue
         source_names = _source_benches_for_axis(axis, sample_names)
+        registry_axis = axis_for_web_key(axis)
+        facet_material = (
+            None
+            if registry_axis is None
+            else materialize_facet_samples(registry_axis, samples)
+        )
+        if registry_axis is not None and registry_axis.facets:
+            if facet_material is None:
+                continue
+            for bench, facet_weight in facet_material[1].items():
+                source_weights[bench] = axis_weight * facet_weight
+            continue
         axis_n = sum(len(samples[bench]["correct"]) for bench in source_names)
         if axis_n <= 0:
             continue
         for bench in source_names:
             source_weights[bench] = axis_weight * (len(samples[bench]["correct"]) / axis_n)
     return source_weights
+
+
+def _mean_correct(values: Sequence[bool]) -> float:
+    return sum(1 for value in values if value) / len(values) if values else 0.0
 
 
 def _strict_composite(

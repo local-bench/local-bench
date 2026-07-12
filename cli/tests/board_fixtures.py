@@ -62,6 +62,7 @@ def run_record(
     if_correct: tuple[bool, ...] = (True, True),
     appworld_inline: tuple[bool, ...] | None = (True, False),
     tc_json_correct: tuple[bool, ...] | None = (True, False),
+    bfcl_base_correct: tuple[bool, ...] | None = (True, False),
     lcb_correct: tuple[bool, ...] | None = (True, False),
     bigcode_correct: tuple[bool, ...] | None = None,
     math_correct: tuple[bool, ...] | None = None,
@@ -78,6 +79,9 @@ def run_record(
     if tc_json_correct is not None:
         benches["tc_json_v1"] = aggregate("tc_json_v1", tc_json_correct)
         extra_items.extend(items("tc_json_v1", tc_json_correct))
+    if bfcl_base_correct is not None:
+        benches["bfcl_multi_turn_base"] = aggregate("bfcl_multi_turn_base", bfcl_base_correct)
+        extra_items.extend(items("bfcl_multi_turn_base", bfcl_base_correct))
     if lcb_correct is not None:
         benches["lcb"] = aggregate("lcb", lcb_correct)
         extra_items.extend(items("lcb", lcb_correct))

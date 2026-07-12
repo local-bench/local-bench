@@ -26,6 +26,7 @@ from localbench.scorers._reasoning import strip_reasoning
 from localbench.scorers.ruler import score_ruler
 from localbench.scorers.tc_json_v1 import score_tc_json_v1
 from localbench.scoring.axis_status import AxisStatusBlock, bench_is_measured
+from localbench.scoring.axes import AXES, materialize_facet_samples
 from localbench.scoring.metadata import DOMAIN_WEIGHTS, domain_for_bench
 from localbench.scoring.signed_score import signed_score
 
@@ -249,15 +250,33 @@ def composite(
     if not benches:
         return 0.0
     composite_weights = DOMAIN_WEIGHTS if weights is None else weights
-    num: dict[str, float] = {}
-    den: dict[str, float] = {}
-    for name, bench in benches.items():
-        if not bench_is_measured(name, axis_status, suite_axes):
+    measured = {
+        name: bench
+        for name, bench in benches.items()
+        if bench_is_measured(name, axis_status, suite_axes)
+    }
+    domain_scores: dict[str, float] = {}
+    for axis in AXES:
+        facet_material = materialize_facet_samples(axis, measured)
+        if axis.facets:
+            if facet_material is None:
+                continue
+            domain_scores[axis.display] = sum(
+                facet_material[1][bench] * aggregate["chance_corrected"]
+                for bench, aggregate in facet_material[0].items()
+            )
             continue
-        domain = domain_for_bench(name)
-        num[domain] = num.get(domain, 0.0) + bench["chance_corrected"] * bench["n"]
-        den[domain] = den.get(domain, 0.0) + bench["n"]
-    domain_scores = {d: num[d] / den[d] for d in num if den[d] > 0}
+        selected = [
+            aggregate
+            for bench, aggregate in measured.items()
+            if domain_for_bench(bench) == axis.display
+        ]
+        n = sum(aggregate["n"] for aggregate in selected)
+        if n > 0:
+            domain_scores[axis.display] = sum(
+                aggregate["chance_corrected"] * aggregate["n"]
+                for aggregate in selected
+            ) / n
     if not domain_scores:
         return 0.0
     total_weight = sum(composite_weights.get(d, 0.0) for d in domain_scores)

@@ -115,21 +115,21 @@ def test_run_suite_resolution_error_lists_known_suites_and_fetch_command(
 def test_print_summary_reports_full_static_and_per_axis_placement(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    # Given: representative run records with 6, 5, and 2 measured headline axes.
+    # Given: representative run records with 5, 4, and 2 measured headline axes.
     import localbench.cli as cli_mod
 
     for measured_axes, expected in (
         (
-                ("knowledge", "instruction_following", "math", "tool_calling", "coding", "agentic"),
-                "placement  all 6 headline axes measured; this run is eligible for the full composite.",
+                ("knowledge", "instruction_following", "math", "tool_use", "coding"),
+                "placement  all 5 headline axes measured; this run is eligible for the full composite.",
             ),
             (
-                ("knowledge", "instruction_following", "math", "tool_calling", "coding"),
-                "placement  5 static headline axes measured; this run is eligible for the static composite (static-suite-v2), not the full composite.",
+                ("knowledge", "instruction_following", "math", "coding"),
+                "placement  4 static headline axes measured; this run is eligible for the static composite (static-suite-v3), not the full composite.",
             ),
             (
                 ("knowledge", "instruction_following"),
-                "placement  fewer than 5 static headline axes measured; this run is reported per-axis only.",
+                "placement  fewer than 4 static headline axes measured; this run is reported per-axis only.",
         ),
     ):
         # When: the run summary is printed.
@@ -292,7 +292,7 @@ def test_gguf_repo_only_notice_prints_before_run(
 def _record(measured_axes: tuple[str, ...]) -> dict[str, object]:
     axes = {
         key: {"axis": key, "status": "measured" if key in measured_axes else "not_measured", "reason": "ok"}
-        for key in ("knowledge", "instruction_following", "math", "tool_calling", "coding", "agentic")
+        for key in ("knowledge", "instruction_following", "math", "tool_use", "coding")
     }
     return {
         "benches": {},

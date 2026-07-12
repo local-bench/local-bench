@@ -191,13 +191,10 @@
         "ifbench"
       ]
     },
-    "agentic": {
+    "tool_use": {
       "benches": [
-        "appworld_c"
-      ]
-    },
-    "tool_calling": {
-      "benches": [
+        "appworld_c",
+        "bfcl_multi_turn_base",
         "tc_json_v1"
       ]
     },
@@ -209,6 +206,16 @@
     "long_context": {
       "benches": [
         "ruler_32k"
+      ]
+    },
+    "bfcl_single_turn": {
+      "benches": [
+        "bfcl"
+      ]
+    },
+    "bfcl_multi_turn_long_context": {
+      "benches": [
+        "bfcl_multi_turn_long_context"
       ]
     }
   }

@@ -6,7 +6,14 @@ from typing import Final
 
 from localbench._scoring import BenchAggregate, composite
 from localbench._types import JsonObject, JsonValue
-from localbench.scoring.axes import AXES, STATIC_SUITE_INDEX_VERSION, STATIC_SUITE_WEIGHTS, Axis, static_suite_domain_weights
+from localbench.scoring.axes import (
+    AXES,
+    STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
+    STATIC_SUITE_V3_WEIGHTS as STATIC_SUITE_WEIGHTS,
+    Axis,
+    materialize_facet_samples,
+    static_suite_v3_domain_weights as static_suite_domain_weights,
+)
 from localbench.scoring.axis_status import AxisStatusBlock
 from localbench.suite_release import coverage_profile_for_benches
 
@@ -102,13 +109,19 @@ def _axis_aggregate(
     axis: Axis,
     benches: Mapping[str, BenchAggregate],
 ) -> BenchAggregate | None:
-    selected = [benches[bench] for bench in (*axis.benches, *axis.legacy_benches) if bench in benches]
+    facet_material = materialize_facet_samples(axis, benches)
+    if axis.facets:
+        if facet_material is None:
+            return None
+        selected = list(facet_material[0].values())
+    else:
+        selected = [benches[bench] for bench in (*axis.benches, *axis.legacy_benches) if bench in benches]
     if not selected:
         return None
     n = sum(item["n"] for item in selected)
     if n <= 0:
         return None
-    return {
+    aggregate: BenchAggregate = {
         "n": n,
         "n_errors": sum(item["n_errors"] for item in selected),
         "n_extraction_failures": sum(item["n_extraction_failures"] for item in selected),
@@ -117,6 +130,13 @@ def _axis_aggregate(
         "termination_rate": sum(item["termination_rate"] * item["n"] for item in selected) / n,
         "conditional_accuracy": sum(item["conditional_accuracy"] * item["n"] for item in selected) / n,
     }
+    if facet_material is not None:
+        for key in ("raw_accuracy", "chance_corrected", "termination_rate", "conditional_accuracy"):
+            aggregate[key] = sum(
+                facet_material[1][bench] * item[key]
+                for bench, item in facet_material[0].items()
+            )
+    return aggregate
 
 
 def _round_score(value: float) -> float:

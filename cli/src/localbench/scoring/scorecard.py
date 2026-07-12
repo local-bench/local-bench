@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import fields
+from dataclasses import asdict, fields, is_dataclass
 from typing import Final
 
 from localbench._types import JsonObject
@@ -37,7 +37,7 @@ from localbench.scoring.axes import AXES, Axis
 
 # Human-facing scorecard label. BUMP whenever the scoring object changes deliberately
 # (a weight edit, a scorer-version bump, a CI-method change).
-SCORECARD_VERSION: Final = "3"
+SCORECARD_VERSION: Final = "4"
 
 # How interval estimates are produced (part of scoring identity; the iteration count is
 # a per-call parameter, not part of identity).
@@ -82,15 +82,19 @@ def _registry_payload() -> list[JsonObject]:
     """
     return [
         {
-            field.name: (
-                list(value)
-                if isinstance(value := getattr(axis, field.name), tuple)
-                else value
-            )
+            field.name: _registry_value(getattr(axis, field.name))
             for field in fields(Axis)
         }
         for axis in AXES
     ]
+
+
+def _registry_value(value: object) -> object:
+    if is_dataclass(value) and not isinstance(value, type):
+        return {key: _registry_value(item) for key, item in asdict(value).items()}
+    if isinstance(value, tuple | list):
+        return [_registry_value(item) for item in value]
+    return value
 
 
 def _digest(payload: object) -> str:

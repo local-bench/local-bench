@@ -4,7 +4,7 @@ from collections.abc import Iterable, Mapping
 from typing import Final, Literal, NotRequired, TypeAlias, TypedDict
 
 from localbench._types import JsonObject, JsonValue
-from localbench.scoring.axes import AXES
+from localbench.scoring.axes import AXES, axis_for_key
 
 AXIS_STATUS_SCHEMA_VERSION: Final = "localbench.axis-status.v1"
 
@@ -95,14 +95,19 @@ def axis_status_for_benches(
     suite_axes: Mapping[str, JsonValue] | None = None,
 ) -> AxisStatusBlock:
     bench_names = set(benches)
-    axes = {
-        axis: (
+    axes = {}
+    for axis, axis_benches in _axis_bench_map(suite_axes).items():
+        registry_axis = axis_for_key(axis)
+        measured = (
+            all(facet.bench in bench_names for facet in registry_axis.facets)
+            if registry_axis is not None and registry_axis.facets
+            else bool(bench_names.intersection(axis_benches))
+        )
+        axes[axis] = (
             measured_axis(axis)
-            if bench_names.intersection(axis_benches)
+            if measured
             else not_measured_axis(axis, reason="not_run")
         )
-        for axis, axis_benches in _axis_bench_map(suite_axes).items()
-    }
     return {"schema_version": AXIS_STATUS_SCHEMA_VERSION, "axes": axes}
 
 

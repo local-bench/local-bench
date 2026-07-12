@@ -34,6 +34,24 @@ class FrozenScoringSnapshot:
 
 
 COVERAGE_PROFILES: Final[dict[str, CoverageProfile]] = {
+    "full-exec-tooluse-5axis-v2": CoverageProfile(
+        profile_id="full-exec-tooluse-5axis-v2",
+        benches=(
+            "mmlu_pro",
+            "ifbench",
+            "olymmath_hard",
+            "amo",
+            "ruler_32k",
+            "appworld_c",
+            "bfcl_multi_turn_base",
+            "tc_json_v1",
+            "bigcodebench_hard",
+            "bfcl",
+            "bfcl_multi_turn_long_context",
+        ),
+        headline_weight=1.00,
+        rank_scope="full-exec-tooluse-5axis-v2",
+    ),
     "full-exec-6axis-v1": CoverageProfile(
         profile_id="full-exec-6axis-v1",
         benches=(

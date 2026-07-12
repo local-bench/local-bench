@@ -135,13 +135,13 @@ def test_run_localbench_when_bench_all_marks_agentic_unavailable_without_crashin
             "tc_json_v1": record["benches"]["tc_json_v1"],
         }
         assert record["scores"]["partial_composite"] == pytest.approx(round(composite(measured_without_agentic), 4))
-        assert record["scores"]["partial_composite"] == pytest.approx(0.8889)
+        assert record["scores"]["partial_composite"] == pytest.approx(0.8571)
         assert record["headline_complete"] is False
 
     asyncio.run(scenario())
 
 
-def test_run_localbench_zero_scoring_tool_calling_moves_composite(tmp_path: Path) -> None:
+def test_run_localbench_partial_tool_use_does_not_enter_composite(tmp_path: Path) -> None:
     async def scenario() -> None:
         output_path = tmp_path / "tool-fail-run.json"
         record = await run_localbench(
@@ -173,7 +173,7 @@ def test_run_localbench_zero_scoring_tool_calling_moves_composite(tmp_path: Path
             "tc_json_v1": record["benches"]["tc_json_v1"],
         }
         assert record["scores"]["partial_composite"] == pytest.approx(round(composite(measured_without_agentic), 4))
-        assert record["scores"]["partial_composite"] == pytest.approx(0.6667)
+        assert record["scores"]["partial_composite"] == pytest.approx(0.8571)
 
     asyncio.run(scenario())
 

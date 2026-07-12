@@ -10,8 +10,6 @@ from typing import Final, TypeAlias
 
 import pytest
 
-from localbench.scoring.axes import web_composite_weights
-
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonValue: TypeAlias = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -30,6 +28,12 @@ SOURCE_BENCH_GROUPS_BY_AXIS: Final = {
 SOURCE_CHANCE_BASELINES: Final = {
     "mmlu_pro": 0.10918253968253969,
     "supergpqa": 0.1,
+}
+FROZEN_WEB_WEIGHTS: Final = {
+    "knowledge": 0.15,
+    "instruction": 0.15,
+    "agentic": 0.40,
+    "math": 0.05,
 }
 QWEN_RUN_STEMS: Final = (
     "lcpp-q8_0",
@@ -1128,7 +1132,7 @@ def _registry_weighted_composite(benches: JsonObject) -> float:
     # (headline knowledge + instruction at 0.5 each; agentic + math 0.0),
     # normalized over the present headline axes (METHODOLOGY-v1.2 §3). Uses the
     # single weight source so the oracle tracks the registry, not a parallel copy.
-    weights = web_composite_weights()
+    weights = FROZEN_WEB_WEIGHTS
     present = {
         axis: _weighted_source_value(benches, names, "chance_corrected")
         for axis in AXES

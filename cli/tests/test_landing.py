@@ -364,6 +364,20 @@ def test_rescore_coverage_accepts_complete_current_suite_record() -> None:
     assert _assert_rescore_coverage(record, items) == suite_dir
 
 
+def test_rescore_coverage_resolves_v2_tool_use_profile_from_release_identity() -> None:
+    suite_dir = Path(__file__).resolve().parents[2] / "suite" / "v2"
+    profile_id = "full-exec-tooluse-5axis-v2"
+    static_benches = [
+        bench for bench in COVERAGE_PROFILES[profile_id].benches if bench != "appworld_c"
+    ]
+    items = _rendered_item_refs(suite_dir, ",".join(static_benches))
+    items.extend({"bench": "appworld_c", "id": f"appworld-{index}"} for index in range(2))
+    record = _coverage_record(profile_id, items)
+    record["agentic_run"] = {"subset_size": 2}
+
+    assert _assert_rescore_coverage(record, items) == suite_dir
+
+
 def test_staged_output_failure_restores_directories_and_removes_created_targets(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -569,16 +583,17 @@ def _rendered_item_refs(suite_dir: Path, bench_choice: str) -> list[dict[str, ob
 
 
 def _coverage_record(profile_id: str, items: list[dict[str, object]]) -> dict[str, object]:
+    suite_version = (
+        "suite-v2"
+        if profile_id in {"future-tool-use-v2", "full-exec-tooluse-5axis-v2"}
+        else "suite-v1"
+    )
     return {
         "manifest": {
             "suite": {
                 "coverage_profile_id": profile_id,
-                "suite_version": "suite-v2" if profile_id == "future-tool-use-v2" else "suite-v1",
-                "suite_release_id": (
-                    f"suite-v2-{profile_id}"
-                    if profile_id == "future-tool-use-v2"
-                    else f"suite-v1-{profile_id}"
-                ),
+                "suite_version": suite_version,
+                "suite_release_id": f"{suite_version}-{profile_id}",
                 "tier": "standard",
             }
         },

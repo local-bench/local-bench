@@ -43,7 +43,7 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
     assert {"generated_note", "schema_version", "index_version", "suite_version"} <= set(board)
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
     assert board["schema_version"] == "board-v2"
-    assert board["scoring_version"] == "3"
+    assert board["scoring_version"] == "4"
     # The board's scope label is the live headline lane (bounded-final-v2), independent of
     # the legacy LANE_SCOPE constant that gates pre-v3 rows.
     assert board["lane_scope"] == "bounded-final-v2"
@@ -240,7 +240,7 @@ def test_composite_uses_registry_weighted_axis_combination(
     assert set(web_composite_weights()) >= {"knowledge", "instruction"}
 
 
-def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Path) -> None:
+def test_appworld_c_agentic_facet_contributes_to_tool_use_macro_axis(tmp_path: Path) -> None:
     # Given: a curated model with K/I run data and a separate AppWorld-C scored run1 file.
     from localbench.scoring.board import build_board
     from localbench.scoring.metadata import cluster_for_item, stratum_for_item
@@ -266,22 +266,20 @@ def test_appworld_c_agentic_axis_contributes_to_headline_composite(tmp_path: Pat
     # Then: AppWorld-C is a real agentic axis and the composite follows the registry weights.
     model = objects_value(board["models"])[0]
     axes = object_value(model["axes"])
-    agentic = object_value(axes["agentic"])
+    tool_use = object_value(axes["tool_use"])
     knowledge = object_value(axes["knowledge"])
     instruction = object_value(axes["instruction"])
-    tool_calling = object_value(axes["tool_calling"])
     coding = object_value(axes["coding"])
     composite = object_value(model["composite"])
     weights = web_composite_weights()
     expected = (
-        (weights["agentic"] * float_value(agentic["point_raw"]))
+        (weights["tool_use"] * float_value(tool_use["point_raw"]))
         + (weights["knowledge"] * float_value(knowledge["point_raw"]))
         + (weights["instruction"] * float_value(instruction["point_raw"]))
-        + (weights["tool_calling"] * float_value(tool_calling["point_raw"]))
         + (weights["coding"] * float_value(coding["point_raw"]))
-    ) / (weights["agentic"] + weights["knowledge"] + weights["instruction"] + weights["tool_calling"] + weights["coding"])
-    assert agentic["n"] == 4
-    assert agentic["raw_accuracy"] == pytest.approx(0.5)
+    ) / (weights["tool_use"] + weights["knowledge"] + weights["instruction"] + weights["coding"])
+    assert tool_use["n"] == 8
+    assert tool_use["raw_accuracy"] == pytest.approx(0.5)
     assert composite["point_raw"] == pytest.approx(expected)
     # AppWorld-C uses a SINGLE stratum + scenario cluster so the bootstrap resamples
     # scenarios (honest CI). Per-scenario strata (1-3 items each) collapse the variance.
@@ -372,28 +370,26 @@ def test_board_emits_static_and_full_composites_without_changing_rank_composite(
     static_row = rows["Static Model"]
     static_axes = object_value(static_row["axes"])
     expected_static = (
-        0.25 * float_value(object_value(static_axes["knowledge"])["point_raw"])
-        + 0.25 * float_value(object_value(static_axes["instruction"])["point_raw"])
-        + 0.20 * float_value(object_value(static_axes["tool_calling"])["point_raw"])
-        + 0.20 * float_value(object_value(static_axes["coding"])["point_raw"])
+        0.30 * float_value(object_value(static_axes["knowledge"])["point_raw"])
+        + 0.30 * float_value(object_value(static_axes["instruction"])["point_raw"])
+        + 0.30 * float_value(object_value(static_axes["coding"])["point_raw"])
         + 0.10 * float_value(object_value(static_axes["math"])["point_raw"])
     )
     weights = web_composite_weights()
     expected_headline_static = (
         weights["knowledge"] * float_value(object_value(static_axes["knowledge"])["point_raw"])
         + weights["instruction"] * float_value(object_value(static_axes["instruction"])["point_raw"])
-        + weights["tool_calling"] * float_value(object_value(static_axes["tool_calling"])["point_raw"])
         + weights["coding"] * float_value(object_value(static_axes["coding"])["point_raw"])
         + weights["math"] * float_value(object_value(static_axes["math"])["point_raw"])
-    ) / (weights["knowledge"] + weights["instruction"] + weights["tool_calling"] + weights["coding"] + weights["math"])
+    ) / (weights["knowledge"] + weights["instruction"] + weights["coding"] + weights["math"])
     assert object_value(static_row["composite_static"])["point_raw"] == pytest.approx(expected_static)
-    assert static_row["static_index_version"] == "static-suite-v2"
+    assert static_row["static_index_version"] == "static-suite-v3"
     assert static_row["composite_full"] is None
     assert object_value(static_row["composite"])["point_raw"] == pytest.approx(expected_headline_static)
 
     full_row = rows["Full Model"]
     assert object_value(full_row["composite_static"])["point_raw"] == pytest.approx(expected_static)
-    assert full_row["static_index_version"] == "static-suite-v2"
+    assert full_row["static_index_version"] == "static-suite-v3"
     assert object_value(full_row["composite_full"])["point_raw"] == pytest.approx(
         float_value(object_value(full_row["composite"])["point_raw"]),
     )
@@ -429,12 +425,12 @@ def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
         bootstrap_iters=50,
     )
 
-    # Then: the agentic axis reflects the INLINE 0.75, not the sidecar 0.25, and the campaign
+    # Then: the macro-axis reflects the INLINE AppWorld facet, not the sidecar, and the campaign
     # provenance is surfaced on the row.
     model = objects_value(board["models"])[0]
-    agentic = object_value(object_value(model["axes"])["agentic"])
-    assert agentic["n"] == 4
-    assert agentic["raw_accuracy"] == pytest.approx(0.75)
+    tool_use = object_value(object_value(model["axes"])["tool_use"])
+    assert tool_use["n"] == 8
+    assert tool_use["raw_accuracy"] == pytest.approx(0.625)
     provenance = object_value(model["agentic_run"])
     assert provenance["mean_asr"] == pytest.approx(0.75)
     assert provenance["campaign"] is True
@@ -512,7 +508,7 @@ def test_inline_agentic_campaign_with_harness_dominated_diagnostics_is_skipped(t
     assert "inline appworld_c diagnostics are harness dominated" in string_value(inline_skip["reason"])
 
 
-def test_tool_calling_axis_surfaces_from_inline_tc_json(tmp_path: Path) -> None:
+def test_tool_use_axis_surfaces_from_complete_inline_facets(tmp_path: Path) -> None:
     # Given: a run carrying the inline tc_json_v1 bench (Stage 3b tool-calling axis).
     from localbench.scoring.board import build_board
 
@@ -530,14 +526,14 @@ def test_tool_calling_axis_surfaces_from_inline_tc_json(tmp_path: Path) -> None:
         bootstrap_iters=50,
     )
 
-    # Then: tool_calling surfaces as a measured (candidate, 0-weight) axis from the inline bench.
+    # Then: tool_use surfaces from all three facets with declared weights.
     model = objects_value(board["models"])[0]
     axes = object_value(model["axes"])
-    assert "tool_calling" in axes
-    tool = object_value(axes["tool_calling"])
+    assert "tool_use" in axes
+    tool = object_value(axes["tool_use"])
     assert_axis(tool)
-    assert tool["n"] == 4
-    assert tool["raw_accuracy"] == pytest.approx(0.75)
+    assert tool["n"] == 8
+    assert tool["raw_accuracy"] == pytest.approx(0.5375)
 
 
 def test_missing_gemma_run_is_skipped_gracefully(tmp_path: Path) -> None:

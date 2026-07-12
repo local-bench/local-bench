@@ -16,11 +16,13 @@ from localbench.suite_release import (
     CoverageProfile,
     build_suite_release_manifest,
     coverage_profile_for_benches,
+    coverage_profile_for_id,
     suite_manifest_sha256,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SUITE_V1 = _REPO_ROOT / "suite" / "v1"
+_SUITE_V2 = _REPO_ROOT / "suite" / "v2"
 _SITE_4AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-partial-text-code-4axis-v1"
 _SITE_MANIFEST = _SITE_4AXIS / "suite_release_manifest.json"
 _SITE_5AXIS = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-text-code-agentic-5axis-v1"
@@ -95,6 +97,42 @@ def test_coverage_profiles_define_current_partial_scopes() -> None:
         "amo",
     )
     assert COVERAGE_PROFILES["static-core-diag-v1"].rankable is False
+
+
+def test_v2_tool_use_profile_resolves_and_tracks_live_registry() -> None:
+    profile = coverage_profile_for_id("full-exec-tooluse-5axis-v2")
+
+    assert profile is COVERAGE_PROFILES["full-exec-tooluse-5axis-v2"]
+    assert profile.headline_weight == 1.0
+    assert profile.rankable is True
+    assert set(profile.benches) == {
+        "mmlu_pro",
+        "ifbench",
+        "olymmath_hard",
+        "amo",
+        "ruler_32k",
+        "appworld_c",
+        "bfcl_multi_turn_base",
+        "tc_json_v1",
+        "bigcodebench_hard",
+        "bfcl",
+        "bfcl_multi_turn_long_context",
+    }
+
+    manifest = build_suite_release_manifest(
+        _SUITE_V2,
+        coverage_profile_id=profile.profile_id,
+    )
+    assert manifest["suite_release_id"] == "suite-v2-full-exec-tooluse-5axis-v2"
+    assert manifest["coverage_profile_id"] == profile.profile_id
+    assert manifest["axis_membership"]["tool_use"] == [
+        "appworld_c",
+        "bfcl_multi_turn_base",
+        "tc_json_v1",
+    ]
+    registry = manifest["axis_membership"]
+    assert "agentic" not in registry
+    assert "tool_calling" not in registry
 
 
 def test_coverage_profile_for_benches_preserves_four_axis_and_matches_five_axis() -> None:

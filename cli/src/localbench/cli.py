@@ -80,7 +80,11 @@ from localbench.scoring.paired_delta import (
     format_honest_delta,
 )
 from localbench.scoring.axis_status import axis_key_for_bench, mark_axis_not_measured
-from localbench.scoring.axes import AXES, STATIC_SUITE_INDEX_VERSION, STATIC_SUITE_WEIGHTS
+from localbench.scoring.axes import (
+    AXES,
+    STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
+    STATIC_SUITE_V3_WEIGHTS as STATIC_SUITE_WEIGHTS,
+)
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
