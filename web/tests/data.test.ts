@@ -178,7 +178,7 @@ describe("static data access", () => {
     const Q2_RUNG_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2";
     const V1_ANCHOR_RUN_ID = "gemma-4-12b-it__localbench-run";
     expect(gemmaIndex).toMatchObject({
-      n_runs: 10,
+      n_runs: 3,
       ranked: true,
       score_status: "measured",
     });
@@ -229,7 +229,11 @@ describe("static data access", () => {
 
   it("surfaces Qwen3.6 distills as agentic-only model variants", async () => {
     // Given the Qwen3.6-27B model page data generated from curated sources.
+    const index = await getIndexData();
+    const qwenIndex = index.models.find((model) => model.slug === "qwen3-6-27b");
     const model = await getModelData("qwen3-6-27b");
+
+    expect(qwenIndex).toMatchObject({ n_runs: 1, ranked: true, score_status: "measured" });
 
     // When the two distill rows are selected.
     const opus = model.runs.find((run) => run.quant_label === "Opus distill (Q4_K_M)");

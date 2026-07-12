@@ -437,7 +437,14 @@ def _board_optional_interval(value: JsonValue | None) -> JsonObject | None:
 
 def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: BoardContext) -> JsonObject:
     if _bool(source["demo"], "source.demo"):
-        return build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
+        run = build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
+        axes = _object(_object(run["index_row"], "demo.index_row")["axes"], "demo.index_row.axes")
+        annotations = _source_annotations(source, axes, all(axis in axes for axis in headline_web_axes()))
+        for field in ("detail", "model_row", "index_row"):
+            row = _object(run[field], f"demo.{field}")
+            row.update(annotations)
+            row["ranked"] = False
+        return run
     if source.get("file") is None:
         return _build_agentic_only_run(source, order=order)
 
@@ -1045,14 +1052,15 @@ def _base_model_values(value: JsonValue | None) -> list[str]:
 
 def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObject]) -> None:
     _assert_ranked_coding_provenance(runs)  # fail before writing any output if the invariant is violated
+    trusted_runs = [run for run in runs if _trusted_run(run)]
+    display_runs = [run for run in runs if _display_eligible(run)]
+    _assert_catalog_display_consistency(trusted_runs, display_runs, catalog)
     models_dir = out_dir / "models"
     runs_dir = out_dir / "runs"
     for generated_dir in (models_dir, runs_dir):
         if generated_dir.exists():
             shutil.rmtree(generated_dir)
         generated_dir.mkdir(parents=True, exist_ok=True)
-    trusted_runs = [run for run in runs if _trusted_run(run)]
-    display_runs = [run for run in runs if _display_eligible(run)]
     for run in display_runs:
         if run["detail"] is None:
             continue
@@ -1079,19 +1087,21 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
         representative_group = trusted_group or display_group
         if representative_group:
             best = _representative_run(representative_group)
+            index_group = trusted_group if _trusted_ranked_run(best) else display_group
             row = _object(best["index_row"], "index_row") | {
                 "catalog_id": entry["id"],
                 "model_label": entry["display_name"],
-                "n_runs": len(display_group),
-                "replicated": any(_bool(_object(run["index_row"], "index_row").get("replicated"), "index_row.replicated") for run in display_group),
+                "n_runs": len(index_group),
+                "replicated": any(_bool(_object(run["index_row"], "index_row").get("replicated"), "index_row.replicated") for run in index_group),
                 "score_status": "measured",
                 "slug": slug,
             }
             models.append(row)
         else:
             models.append(catalog_index_row(entry))
-        _write_json(models_dir / f"{slug}.json", _catalog_display_payload(entry, display_group))
-    for slug in sorted(slug for slug in display_groups if slug not in catalog_slugs):
+        payload_group = _trusted_precedence_union(trusted_group, display_group)
+        _write_json(models_dir / f"{slug}.json", _catalog_display_payload(entry, payload_group))
+    for slug in sorted(slug for slug in display_groups if slug not in catalog_slugs and not any(run_catalog_key(run) is not None for run in display_groups[slug])):
         group = display_groups[slug]
         best = _representative_run(group)
         row = _object(best["index_row"], "index_row") | {
@@ -1271,6 +1281,52 @@ def _catalog_display_run_groups(runs: list[JsonObject]) -> dict[str, list[JsonOb
         if key is not None:
             groups.setdefault(key, []).append(run)
     return groups
+
+
+def _assert_catalog_display_consistency(
+    trusted_runs: list[JsonObject],
+    display_runs: list[JsonObject],
+    catalog: list[JsonObject],
+) -> None:
+    trusted_groups = _group_runs(trusted_runs)
+    catalog_run_groups = _catalog_run_groups(trusted_runs)
+    catalog_display_groups = _catalog_display_run_groups(display_runs)
+    for entry in catalog:
+        key = catalog_key(entry)
+        trusted_group = catalog_run_groups.get(key, trusted_groups.get(catalog_slug(entry), []))
+        if not trusted_group:
+            continue
+        trusted_slug = _string(_representative_run(trusted_group)["slug"], "trusted representative slug")
+        for run in catalog_display_groups.get(key, []):
+            if _trusted_run(run):
+                continue
+            run_slug = _string(run["slug"], "curated catalog run slug")
+            if run_slug != trusted_slug:
+                raise DataBuildError(
+                    f"refusing catalog/slug collision for {run.get('run_id')!r}: catalog_id "
+                    f"{entry['id']!r} is protected by trusted slug {trusted_slug!r}, not {run_slug!r}"
+                )
+
+
+def _trusted_precedence_union(
+    trusted_runs: list[JsonObject],
+    display_runs: list[JsonObject],
+) -> list[JsonObject]:
+    by_run_id: dict[str, JsonObject] = {}
+    without_run_id: list[JsonObject] = []
+    for run in display_runs:
+        run_id = _text(run.get("run_id"))
+        if run_id is None:
+            without_run_id.append(run)
+        else:
+            by_run_id[run_id] = run
+    for run in trusted_runs:
+        run_id = _text(run.get("run_id"))
+        if run_id is None:
+            without_run_id.append(run)
+        else:
+            by_run_id[run_id] = run
+    return sorted([*without_run_id, *by_run_id.values()], key=lambda item: _int(item["order"], "order"))
 
 
 def _catalog_display_payload(entry: JsonObject, runs: list[JsonObject]) -> JsonObject:
