@@ -9,7 +9,8 @@ type JsonObject = Record<string, unknown>;
 const REPO_ROOT = join(__dirname, "..", "..");
 const WEB_ROOT = join(REPO_ROOT, "web");
 // Stable fixture selection by file path (not array index): the Gemma bounded-final run.
-const FIXTURE_FILE_FRAGMENT = "gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2";
+// Season 2 replaces the ranked proof receipt with its composed v4 counterpart.
+const FIXTURE_FILE_FRAGMENT = "gemma-4-12b-it-qat-ud-q4kxl-s2v5";
 const WARNING_REASON = "agentic-infra-timeout-rate";
 // Sentinel: remove infra_timeout_rate from the summary instead of assigning a value.
 const OMIT: unknown = Symbol("omit-infra-timeout-rate");

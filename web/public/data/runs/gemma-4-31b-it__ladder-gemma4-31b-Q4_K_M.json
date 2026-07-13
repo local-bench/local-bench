@@ -1,26 +1,5 @@
 {
   "axes": {
-    "agentic": {
-      "ambiguous_or_contaminated_final_rate": null,
-      "budget_cap_hit_rate": null,
-      "conditional_accuracy": 0.11458333333333333,
-      "empty_final_rate": null,
-      "hi": 18.75,
-      "hi_raw": 0.1875,
-      "leaked_reasoning_rate": null,
-      "lo": 5.208333333333334,
-      "lo_raw": 0.052083333333333336,
-      "measurement_truncation_rate": null,
-      "n": 96,
-      "n_errors": 0,
-      "n_no_answer": 0,
-      "no_final_answer_rate": null,
-      "point": 11.458333333333332,
-      "point_raw": 0.11458333333333333,
-      "raw_accuracy": 0.11458333333333333,
-      "termination_rate": 1.0,
-      "truncation_rate": null
-    },
     "instruction": {
       "conditional_accuracy": 0.7671232876712328,
       "hi": 80.95238095238095,
@@ -84,17 +63,18 @@
   "contamination_label": "unverified",
   "data_warnings": [
     "math not measured in this run; axis omitted",
+    "long_context not measured in this run; axis omitted",
     "agentic not measured in this run; axis omitted",
     "tool_calling not measured in this run; axis omitted",
     "coding not measured in this run; axis omitted"
   ],
   "diagnostic_composite": {
-    "hi": 46.7102520366052,
-    "hi_raw": 0.467102520366052,
-    "lo": 36.92864224205062,
-    "lo_raw": 0.36928642242050624,
-    "point": 41.476264204709885,
-    "point_raw": 0.41476264204709884
+    "hi": 84.42118839464013,
+    "hi_raw": 0.8442118839464012,
+    "lo": 78.4473643524033,
+    "lo_raw": 0.7844736435240329,
+    "point": 81.50017203321195,
+    "point_raw": 0.8150017203321195
   },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
@@ -165,8 +145,8 @@
   "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "40b8c7499193758095cddd0cf6cd2dae172bbbdd11d7ee4c038d06fa01b7b745",
-    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    "current_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
+    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
     "drift": true,
     "execution_profile_id": null,
     "id": "eab7934471ee63246c72005f149ab41fe54468e76f59bb4440103c988c498483",
@@ -189,8 +169,8 @@
   },
   "trust_label": "project_anchor",
   "worst_axis": {
-    "bench": "agentic",
-    "point": 11.458333333333332,
-    "point_raw": 0.11458333333333333
+    "bench": "instruction",
+    "point": 76.19047619047619,
+    "point_raw": 0.7619047619047619
   }
 }

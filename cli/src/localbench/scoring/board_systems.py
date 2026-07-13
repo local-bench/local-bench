@@ -8,9 +8,18 @@ from localbench._types import JsonObject
 from localbench.scoring.board_types import BoardBuildError, ScoredRun
 
 
-def best_system(group: Sequence[ScoredRun]) -> ScoredRun:
-    """Return the quant that carries the family headline score."""
-    return _ranked_systems(group)[0]
+def best_system(group: Sequence[ScoredRun], *, board_index_version: str) -> ScoredRun:
+    """Return the season-comparable quant that carries the family headline score."""
+    board_season = [run for run in group if run["index_version"] == board_index_version]
+    ranked = [run for run in board_season if run["ranked"]]
+    if ranked:
+        return _composite_order(ranked)[0]
+    if board_season:
+        return _composite_order(board_season)[0]
+    # A board with no ranked rows uses the parity-index fallback label. If a model has
+    # only explicitly other-season display systems, retain it without comparing those
+    # cross-season composites.
+    return min(group, key=lambda run: run["order"])
 
 
 def system_fields(group: Sequence[ScoredRun], best: ScoredRun) -> JsonObject:
@@ -29,6 +38,10 @@ def _ranked_systems(group: Sequence[ScoredRun]) -> list[ScoredRun]:
     # current-lane run as the family headline — even when its raw composite is higher
     # (e.g. a v1-era capped-thinking composite vs the harder bounded-final 6-axis one).
     return sorted(group, key=lambda run: (not run["ranked"], -run["composite_raw"], run["order"]))
+
+
+def _composite_order(group: Sequence[ScoredRun]) -> list[ScoredRun]:
+    return sorted(group, key=lambda run: (-run["composite_raw"], run["order"]))
 
 
 def _recommended_system(group: Sequence[ScoredRun], best: ScoredRun) -> ScoredRun:

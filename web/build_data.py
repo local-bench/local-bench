@@ -264,7 +264,9 @@ def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_i
         return
     composite_interval.update(_board_interval(_object(system.get("composite"), f"board.{slug}.system.composite")))
     board_axes = _object(system.get("axes"), f"board.{slug}.system.axes")
-    for axis in _BOARD_AXES:
+    # Support both board generations: v1/v3 names the legacy tool axis
+    # ``tool_calling`` while v4 projects the season-2 ``tool_use`` macro-axis.
+    for axis in dict.fromkeys((*_BOARD_AXES, *headline_web_axes())):
         if axis not in board_axes:
             continue
         board_axis = _object(board_axes[axis], f"board.{slug}.system.axes.{axis}")
@@ -509,13 +511,12 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     # render the board's single agentic-led Index scale. No-op for unranked rows / unmatched
     # runs. See _apply_board_intervals.
     composite_interval = _object(composite["interval"], "composite.interval")
-    if not season_2:
-        _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
+    _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
     conformance_gates = _board_conformance_gates(slug, run_id, board.models_by_slug) if not season_2 else None
     headline_complete = all(axis in axes for axis in headline_axes)
     static_composite = build_composite(run, axes, static_axes, static_weights) if all(axis in axes for axis in static_axes) else None
-    board_composite_full, board_composite_static, board_static_index_version = (
-        _board_composites_for_run(slug, run_id, board.models_by_slug) if not season_2 else (None, None, None)
+    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(
+        slug, run_id, board.models_by_slug
     )
     computed_composite_full = dict(composite_interval) if headline_complete else None
     computed_composite_static = dict(_object(static_composite["interval"], "static_composite.interval")) if static_composite is not None else None
@@ -1254,8 +1255,10 @@ def _model_label(source: JsonObject, manifest: JsonObject) -> str:
 def _source(value: JsonValue, index: int) -> JsonObject:
     item = _object(value, f"data_sources[{index}]")
     kind = _string(item.get("kind"), f"data_sources[{index}].kind")
-    if kind not in {"anchor", "community"}:
-        raise DataBuildError(f"data_sources[{index}].kind must be anchor or community")
+    if kind not in {"anchor", "community", "maintainer_project"}:
+        raise DataBuildError(
+            f"data_sources[{index}].kind must be anchor, community, or maintainer_project"
+        )
     independent_replication = item.get("independent_replication")
     demo = _bool(item.get("demo"), f"data_sources[{index}].demo") if item.get("demo") is not None else False
     return {"agentic_file": item.get("agentic_file"), "agentic_provenance": _nullable_text(item.get("agentic_provenance"), index, "agentic_provenance"), "demo": demo, "demo_score": _object(item.get("demo_score"), f"data_sources[{index}].demo_score") if item.get("demo_score") is not None else None, "family": _string(item.get("family"), f"data_sources[{index}].family"), "file": _nullable_text(item.get("file"), index, "file"), "independent_replication": _bool(independent_replication, f"data_sources[{index}].independent_replication") if independent_replication is not None else False, "kind": kind, "model_id": _nullable_text(item.get("model_id"), index, "model_id"), "model_label": _string(item.get("model_label"), f"data_sources[{index}].model_label"), "notes": _nullable_text(item.get("notes"), index, "notes"), "origin": _nullable_text(item.get("origin"), index, "origin"), "provenance_notes": _text_list(item.get("provenance_notes"), index, "provenance_notes"), "quant_label": _nullable_text(item.get("quant_label"), index, "quant_label"), "reasoning_lane": _nullable_text(item.get("reasoning_lane"), index, "reasoning_lane"), "release_date": _nullable_text(item.get("release_date"), index, "release_date"), "submitter_display_name": _nullable_text(item.get("submitter_display_name"), index, "submitter_display_name"), "trust_label": _nullable_text(item.get("trust_label"), index, "trust_label"), "vram_footprint_gb": _nullable_number(item.get("vram_footprint_gb"), index, "vram_footprint_gb")}

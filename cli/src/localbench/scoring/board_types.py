@@ -85,3 +85,9 @@ class ScoredRun(TypedDict):
     item_set_hashes: JsonObject
     index_version: str
     static_index_version: NotRequired[str]
+    historical_axes: NotRequired[JsonObject]
+    historical_composite: NotRequired[JsonObject]
+    historical_composite_full: NotRequired[JsonObject | None]
+    historical_composite_raw: NotRequired[float]
+    historical_composite_static: NotRequired[JsonObject | None]
+    historical_static_index_version: NotRequired[str]

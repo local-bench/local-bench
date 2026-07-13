@@ -9,6 +9,7 @@ import {
 import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, ModelData, Score } from "./schemas";
 import { isTrustedPopulation } from "./trusted-population";
+import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
 
 export type CompareCoverage = "full" | "partial";
 export type CompareScoreScope = "current-index" | "previous-index";
@@ -33,7 +34,7 @@ export type CompareConfig = {
 const HEADLINE_AXIS_KEYS = ["agentic", "knowledge", "instruction", "tool_calling", "coding"] as const;
 
 export type AxisDelta = {
-  readonly axis: AxisKey;
+  readonly axis: AxisKey | "tool_use";
   readonly delta: number;
   readonly leftScore: AxisScore;
   readonly rightScore: AxisScore;
@@ -85,7 +86,10 @@ export function getCompareConfigs(
 }
 
 export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readonly AxisDelta[] {
-  return AXIS_KEYS.flatMap((axis) => {
+  const axes = left.axes["tool_use"] !== undefined || right.axes["tool_use"] !== undefined
+    ? SEASON_2_HEADLINE_AXES
+    : AXIS_KEYS;
+  return axes.flatMap((axis) => {
     const leftScore = left.axes[axis];
     const rightScore = right.axes[axis];
     if (leftScore === undefined || rightScore === undefined) {
@@ -97,7 +101,8 @@ export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readon
 }
 
 function coverageForAxes(axes: Readonly<Record<string, AxisScore>>): CompareCoverage {
-  return HEADLINE_AXIS_KEYS.every((axis) => axes[axis] !== undefined) ? "full" : "partial";
+  const required = axes["tool_use"] === undefined ? HEADLINE_AXIS_KEYS : SEASON_2_HEADLINE_AXES;
+  return required.every((axis) => axes[axis] !== undefined) ? "full" : "partial";
 }
 
 function isNonEmptyString(value: string | null): value is string {

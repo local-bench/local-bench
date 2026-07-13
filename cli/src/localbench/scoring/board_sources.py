@@ -50,8 +50,10 @@ def _source(value: JsonValue, index: int) -> CuratedSource | None:
     if file_name is None:
         return None
     kind = string_value(item.get("kind"), f"curation[{index}].kind")
-    if kind not in {"anchor", "community"}:
-        raise BoardBuildError(f"curation[{index}].kind must be anchor or community")
+    if kind not in {"anchor", "community", "maintainer_project"}:
+        raise BoardBuildError(
+            f"curation[{index}].kind must be anchor, community, or maintainer_project"
+        )
     return {
         "agentic_file": text_value(item.get("agentic_file")),
         "family": string_value(item.get("family"), f"curation[{index}].family"),

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
-  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+  indexQualifierForAxes,
 } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG } from "@/lib/axis-config";
@@ -71,6 +71,7 @@ export function ModelVariantBoard({
   const partial = rows.filter((row) => !row.run.ranked && row.run.score_status === "measured");
   const pending = ownRows.filter((row) => row.run.composite === null && row.run.score_status !== "measured");
   const hasPerf = rows.some((row) => row.run.perf !== undefined);
+  const indexQualifier = indexQualifierForAxes(rows.find((row) => row.run.axes["tool_use"] !== undefined)?.run.axes ?? {});
 
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
@@ -91,7 +92,7 @@ export function ModelVariantBoard({
               <th className="px-3 py-3 font-semibold">
                 <span className="flex flex-col gap-0.5 leading-tight">
                   <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
-                  <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+                  <span className="font-mono text-[10px] normal-case text-bench-muted">{indexQualifier}</span>
                 </span>
               </th>
               {axisKeys.map((axis) => (

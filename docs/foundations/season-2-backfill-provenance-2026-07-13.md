@@ -77,10 +77,15 @@ season-2 rescore, refusing unless index-v4.0 binds with a complete strict compos
 - qwopus coding verdicts re-executed 2026-07-13 in the sandbox verifier under the current harness:
   148/148 items re-run, **0 verdict mismatches**, pass count identical (42) — fresh signed receipt
   `coding-verified.recheck-2026-07-13.json`.
-- Rank-stability: item-level bootstrap (two independent seeds, 1000/2000 iters) and a 15-cell
-  weight-sensitivity grid (agentic share .50–.70 × tool_use weight .15–.25) produce the identical
-  five-model ranking in every cell; adjacent-pair bootstrap probabilities (54–70%) are reflected in
-  the published confidence intervals.
+- Coding provenance: all five published records carry sandbox-verifier-executed coding verdicts
+  (the strict landing patch). For gemma-4-31b-it and qwen3-6-35b-a3b this REPLACED unverified
+  gen-time verdicts from their raw parents (composites rose to 55.49 and 44.14 respectively when
+  verified verdicts were applied — the direction and mechanism are documented, not hidden).
+- Rank-stability (final records, item-level bootstrap, 2000 iters): gemma-4-31b-it P(rank 1) =
+  100%; adjacent-pair probabilities 52.9–100%; the 14/15-cell weight-sensitivity grid (agentic
+  share .50–.70 × tool_use weight .15–.25) preserves the final-weights ranking, with the single
+  extreme corner (.50/.25) flipping only the statistically indistinguishable 4-5 pair (44.14 vs
+  44.01) — uncertainty the published confidence intervals display.
 - The `call_formatting` (tc_json) facet was demoted to an unweighted diagnostic BEFORE the season
   lock after an external red-team found it contributed no continuous ranking signal (IQR 0.6 across
   the panel); the tc_json conformance gate and coverage requirement are unchanged.

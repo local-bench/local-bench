@@ -21,7 +21,7 @@
     "notes": "Project-anchor ranked five-axis proof row from runs/bench/ranked-5axis-capped-2026-07-03. Artifact = Google QAT weights in the UD-Q4_K_XL GGUF (run model gemma-4-12b-it-qat-ud-q4-k-xl); model identity is the weights line, QAT+quant live in the variant label. Agentic verdicts predate per-verdict signing and are labeled project_attested only through the documented grandfathered bundle mechanism."
   },
   {
-    "kind": "anchor",
+    "kind": "maintainer_project",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -31,12 +31,12 @@
     "quant_label": "QAT Q4_K_XL",
     "publisher": "google",
     "gguf_repo": null,
-    "file": "runs/bench/ranked-6axis-bounded-final-2026-07-06/gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2.json",
+    "file": "runs/bench/season-2-backfill/gemma-4-12b-it-qat-ud-q4kxl-s2v5.json",
     "reasoning_lane": "bounded-final-v2",
     "independent_replication": false,
     "release_date": null,
     "vram_footprint_gb": 6.716355328,
-    "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane (index-v3.0: exec-verified BigCodeBench-Hard coding + promoted Math). Same artifact as the capped-thinking anchor: Google QAT weights in the UD-Q4_K_XL GGUF. Generated 2026-07-05; coding re-executed by the sandbox verifier under the finalized scorer; scoring identity + budget audit re-derived 2026-07-06 under scorecard v3 with generations untouched (see rescore_provenance in the run file)."
+    "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane (index-v3.0: exec-verified BigCodeBench-Hard coding + promoted Math). Same artifact as the capped-thinking anchor: Google QAT weights in the UD-Q4_K_XL GGUF. Generated 2026-07-05; coding re-executed by the sandbox verifier under the finalized scorer; scoring identity + budget audit re-derived 2026-07-06 under scorecard v3 with generations untouched (see rescore_provenance in the run file). Season-2 (index-v4.0) record: composed from this row's season-1 evidence plus a fresh 50-item bfcl_multi_turn_base facet on the exact GGUF; see docs/foundations/season-2-backfill-provenance-2026-07-13.md."
   },
   {
     "kind": "anchor",
@@ -57,7 +57,7 @@
     "notes": "Project-anchor quant-ladder rung 1 for Gemma 4 12B IT on the bounded-final-v2 lane, using the same Google QAT weights line as the Q4 anchor in the UD-Q2_K_XL GGUF. Generated 2026-07-09/10; coding re-executed by the sandbox verifier under the post-#42 harness (3/141 scoreable passed); both AppWorld-C runs were deterministic-identical at 0/96 with zero infrastructure timeouts. Scoring identity + budget audit re-derived 2026-07-10 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB)."
   },
   {
-    "kind": "anchor",
+    "kind": "maintainer_project",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -67,15 +67,15 @@
     "quant_label": "Q4_K_M",
     "publisher": "Jackrong",
     "gguf_repo": "Jackrong/Qwopus3.6-27B-v2-MTP-GGUF",
-    "file": "runs/bench/ranked-6axis-bounded-final-2026-07-08/qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2.json",
+    "file": "runs/bench/season-2-backfill/qwopus3-6-27b-v2-mtp-q4km-s2v5.json",
     "reasoning_lane": "bounded-final-v2",
     "independent_replication": false,
     "release_date": null,
     "vram_footprint_gb": 16.810713312,
-    "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane; the fine-tune half of the Qwopus-vs-Qwen3.6-27B lineage pair (base_model in model_catalog). Generated 2026-07-06/07 on the same v2 config as the Gemma anchor; coding re-executed by the sandbox verifier under the post-#42 harness (42/141 scoreable passed); scoring identity + budget audit re-derived 2026-07-08 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB)."
+    "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane; the fine-tune half of the Qwopus-vs-Qwen3.6-27B lineage pair (base_model in model_catalog). Generated 2026-07-06/07 on the same v2 config as the Gemma anchor; coding re-executed by the sandbox verifier under the post-#42 harness (42/141 scoreable passed); scoring identity + budget audit re-derived 2026-07-08 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB). Season-2 (index-v4.0) record: composed from this row's season-1 evidence plus a fresh 50-item bfcl_multi_turn_base facet on the exact GGUF; see docs/foundations/season-2-backfill-provenance-2026-07-13.md."
   },
   {
-    "kind": "anchor",
+    "kind": "maintainer_project",
     "origin": "project_anchor",
     "trust_label": "project_anchor",
     "agentic_provenance": "project_attested",
@@ -85,12 +85,12 @@
     "quant_label": "Q4_K_M",
     "publisher": "Qwen",
     "gguf_repo": "lmstudio-community/Qwen3.6-27B-GGUF",
-    "file": "runs/bench/ranked-6axis-bounded-final-2026-07-08/qwen3-6-27b-q4km-bounded-final-v2.json",
+    "file": "runs/bench/season-2-backfill/qwen3-6-27b-q4km-s2v5.json",
     "reasoning_lane": "bounded-final-v2",
     "independent_replication": false,
     "release_date": null,
     "vram_footprint_gb": 16.547398784,
-    "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane; the base-model comparator for the Qwopus lineage pair. Generated 2026-07-07/08 on the same v2 config; coding re-executed by the sandbox verifier under the post-#42 harness; scoring identity + budget audit re-derived 2026-07-08 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB)."
+    "notes": "Project-anchor ranked six-axis row on the bounded-final-v2 lane; the base-model comparator for the Qwopus lineage pair. Generated 2026-07-07/08 on the same v2 config; coding re-executed by the sandbox verifier under the post-#42 harness; scoring identity + budget audit re-derived 2026-07-08 with generations untouched (see rescore_provenance). Footprint = on-disk GGUF weight size (decimal GB). Season-2 (index-v4.0) record: composed from this row's season-1 evidence plus a fresh 50-item bfcl_multi_turn_base facet on the exact GGUF; see docs/foundations/season-2-backfill-provenance-2026-07-13.md."
   },
   {
     "kind": "community",
@@ -103,7 +103,7 @@
     "reasoning_lane": "capped-thinking",
     "independent_replication": false,
     "release_date": null,
-    "vram_footprint_gb": 28.60,
+    "vram_footprint_gb": 28.6,
     "notes": "Strict Local / capped-thinking lane (greedy, temp 0; s1 think-cap 8192 -> force-close). MMLU-Pro 400 + IFBench 294, suite-v1 tier standard. Footprint = on-disk GGUF weight size (decimal GB). Near-lossless reference; no higher than Q4 within CI."
   },
   {
@@ -190,7 +190,7 @@
     "reasoning_lane": "agentic-only",
     "independent_replication": false,
     "release_date": null,
-    "vram_footprint_gb": 16.00,
+    "vram_footprint_gb": 16.0,
     "notes": "Agentic-only coder distill measurement averaged across two AppWorld-C runs; no full modular headline suite run."
   },
   {
@@ -464,5 +464,41 @@
     "release_date": null,
     "vram_footprint_gb": 12.669645344,
     "notes": "Strict Local / capped-thinking lane. Coder-fable Q8_0 GGUF run from the Gemma 4 12B ladder. AppWorld-C result is quarantined pending client-path fix, not used as a validated agentic score. Footprint = on-disk GGUF weight size (decimal GB)."
+  },
+  {
+    "kind": "maintainer_project",
+    "origin": "project_anchor",
+    "trust_label": "project_anchor",
+    "agentic_provenance": "project_attested",
+    "reasoning_lane": "bounded-final-v2",
+    "independent_replication": false,
+    "release_date": null,
+    "family": "Gemma 4",
+    "model_id": "google/gemma-4-31B-it",
+    "model_label": "Gemma 4 31B IT",
+    "quant_label": "Q4_K_M",
+    "publisher": "google",
+    "gguf_repo": "unsloth/gemma-4-31B-it-GGUF",
+    "file": "runs/bench/season-2-backfill/gemma-4-31b-it-q4km-s2v5.json",
+    "vram_footprint_gb": 18.323731456,
+    "notes": "Project row landed at the season-2 cutover: full season-1-shape evidence run 2026-07-10/11 (public pending ticket 4a182447) composed with a fresh bfcl_multi_turn_base facet on the exact GGUF (sha 9fdf3dc8b038\u2026). Season-2 (index-v4.0) record: composed from this row's season-1 evidence plus a fresh 50-item bfcl_multi_turn_base facet on the exact GGUF; see docs/foundations/season-2-backfill-provenance-2026-07-13.md."
+  },
+  {
+    "kind": "maintainer_project",
+    "origin": "project_anchor",
+    "trust_label": "project_anchor",
+    "agentic_provenance": "project_attested",
+    "reasoning_lane": "bounded-final-v2",
+    "independent_replication": false,
+    "release_date": null,
+    "family": "Qwen3.6",
+    "model_id": "Qwen/Qwen3.6-35B-A3B",
+    "model_label": "Qwen3.6 35B A3B",
+    "quant_label": "UD-Q4_K_M",
+    "publisher": "Qwen",
+    "gguf_repo": "unsloth/Qwen3.6-35B-A3B-GGUF",
+    "file": "runs/bench/season-2-backfill/qwen3-6-35b-a3b-udq4-s2v5.json",
+    "vram_footprint_gb": 22.134528992,
+    "notes": "Project row landed at the season-2 cutover: full season-1-shape evidence run 2026-07-11 (public pending ticket 2b007ff4) composed with a fresh bfcl_multi_turn_base facet on the exact GGUF (sha ac0e2c1189e0\u2026). Season-2 (index-v4.0) record: composed from this row's season-1 evidence plus a fresh 50-item bfcl_multi_turn_base facet on the exact GGUF; see docs/foundations/season-2-backfill-provenance-2026-07-13.md."
   }
 ]

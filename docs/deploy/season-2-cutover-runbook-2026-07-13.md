@@ -35,9 +35,12 @@ e9570a4 (tc_json demotion, scorecard v5), provenance bundle
 9. **Deploy**: `cd web && scripts/publish-board.ps1` (chains tests → data → build → deploy →
    live-verify).
 10. **Live-verify assertions** (all must hold before ticket resolution):
-    a. `/leaderboard` shows exactly 5 ranked rows in order: gemma-4-31b-it 47.38 > qwen3-6-27b
-       46.38 > qwopus3-6-27b-v2-mtp 45.12 > gemma-4-12b-it Q4XL 44.01 > qwen3-6-35b-a3b 37.65,
-       each with CI bands and season badge index-v4.0.
+    a. `/leaderboard` shows exactly 5 ranked rows in order: gemma-4-31b-it 55.49 > qwen3-6-27b
+       46.38 > qwopus3-6-27b-v2-mtp 45.12 > qwen3-6-35b-a3b 44.14 > gemma-4-12b-it Q4XL 44.01,
+       each with CI bands and season badge index-v4.0. (gemma-31b and qwen-35b rose vs earlier
+       drafts when their parents' unverified gen-time coding verdicts were replaced by
+       sandbox-verifier-executed verdicts — the same provenance the three landed rows always had;
+       positions 4-5 are statistically indistinguishable and the CIs show it.)
     b. tool_use axis with facet breakdown visible; call_formatting shown as unweighted diagnostic.
     c. qwopus row shows base_model lineage chip + vs-base delta vs qwen3-6-27b (same season).
     d. Anchors/ladder rows still display season-1 labels + composites (option-d), unranked.

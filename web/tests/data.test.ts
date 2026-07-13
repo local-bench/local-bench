@@ -69,19 +69,18 @@ describe("static data access", () => {
 
     expect(proof).toMatchObject({
       agentic_provenance: "project_attested",
-      best_run_id: "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2",
+      best_run_id: "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-s2v5",
       lane: "bounded-final-v2",
       origin: "project_anchor",
       ranked: true,
-      static_index_version: "static-suite-v2",
+      static_index_version: "static-suite-v3",
       trust_label: "project_anchor",
     });
-    // Agentic under the bounded-final-v2 funnel protocol is far harder than the v1 lane
-    // (4/96 for this 12B row): the axis must be present and non-zero, never inflated.
-    expect(proof?.axes["agentic"]?.point).toBeGreaterThan(0);
-    expect(proof?.axes["agentic"]?.point).toBeLessThan(10);
-    expect(proof?.composite_full?.point).toBeCloseTo(35.2, 1);
-    expect(proof?.composite_static?.point).toBeCloseTo(57.1, 1);
+    // Season 2 folds agentic and multi-turn control into the tool_use macro-axis.
+    expect(proof?.axes["agentic"]).toBeUndefined();
+    expect(proof?.axes["tool_use"]?.point).toBeCloseTo(12.33, 1);
+    expect(proof?.composite_full?.point).toBeCloseTo(44.01, 1);
+    expect(proof?.composite_static?.point).toBeCloseTo(51.93, 1);
   });
 
   it("keeps a catalog-only model as quant shells while measured runs add run-detail params", async () => {
@@ -174,7 +173,7 @@ describe("static data access", () => {
     // represented by that ranked run; the v1 capped-thinking anchor keeps its agentic as an
     // unranked diagnostic, while the legacy ladder runs and bounded-final Q2 collapse row
     // keep their quarantined agentic.
-    const RANKED_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2";
+    const RANKED_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-s2v5";
     const Q2_RUNG_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2";
     const V1_ANCHOR_RUN_ID = "gemma-4-12b-it__localbench-run";
     expect(gemmaIndex).toMatchObject({
@@ -182,7 +181,7 @@ describe("static data access", () => {
       ranked: true,
       score_status: "measured",
     });
-    expect(gemmaIndex?.axes["agentic"]).toBeDefined();
+    expect(gemmaIndex?.axes["tool_use"]).toBeDefined();
     expect(gemma.runs).toHaveLength(10);
     const rankedRun = gemma.runs.find((run) => run.run_id === RANKED_RUN_ID);
     expect(rankedRun?.ranked).toBe(true);
@@ -283,16 +282,18 @@ describe("static data access", () => {
       "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q8",
       "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q6",
       "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4",
+      "qwen3-6-35b-a3b__qwen3-6-35b-a3b-udq4-s2v5",
     ]);
     expect(coderNextRows.map((run) => run.run_id)).toEqual([
       "qwen3-coder-next__qwen3-coder-next-q8",
       "qwen3-coder-next__qwen3-coder-next-q6",
     ]);
     expect(
-      qwen35Rows.every(
+      qwen35Rows.slice(0, 3).every(
         (run) => run.composite === null && run.diagnostic_composite !== null && run.lane === "capped-thinking",
       ),
     ).toBe(true);
+    expect(qwen35Rows[3]).toMatchObject({ composite: expect.any(Object), lane: "bounded-final-v2", ranked: true });
     expect(
       coderNextRows.every(
         (run) => run.composite === null && run.diagnostic_composite !== null && run.lane === "capped-thinking",

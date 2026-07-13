@@ -9,8 +9,8 @@
       "n": 96,
       "n_errors": 0,
       "n_no_answer": 0,
-      "point": 5.208333333333334,
-      "point_raw": 0.052083333333333336,
+      "point": 5.729166666666666,
+      "point_raw": 0.057291666666666664,
       "raw_accuracy": 0.057291666666666664,
       "termination_rate": 1.0
     },
@@ -180,15 +180,16 @@
   "contamination_label": "unverified",
   "data_warnings": [
     "math not measured in this run; axis omitted",
+    "long_context not measured in this run; axis omitted",
     "agentic chance_corrected differs from item-derived mean; stale/inconsistent run JSON"
   ],
   "diagnostic_composite": {
-    "hi": 49.49006237248613,
-    "hi_raw": 0.49490062372486127,
-    "lo": 44.13372399507101,
-    "lo_raw": 0.4413372399507101,
-    "point": 46.60534377168118,
-    "point_raw": 0.46605343771681174
+    "hi": 80.0705955665046,
+    "hi_raw": 0.800705955665046,
+    "lo": 74.29042901718617,
+    "lo_raw": 0.7429042901718617,
+    "point": 77.26111294560302,
+    "point_raw": 0.7726111294560302
   },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
@@ -312,8 +313,8 @@
   "run_id": "gemma-4-12b-it__localbench-run",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "40b8c7499193758095cddd0cf6cd2dae172bbbdd11d7ee4c038d06fa01b7b745",
-    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    "current_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
+    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
     "drift": true,
     "execution_profile_id": null,
     "id": "30d33810e489411d79d5e0b0643baa81689e94deffbb05e6ead46694e973f7f9",
@@ -337,7 +338,7 @@
   "trust_label": "project_anchor",
   "worst_axis": {
     "bench": "agentic",
-    "point": 5.208333333333334,
-    "point_raw": 0.052083333333333336
+    "point": 5.729166666666666,
+    "point_raw": 0.057291666666666664
   }
 }

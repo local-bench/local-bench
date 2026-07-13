@@ -11,8 +11,11 @@ from localbench._suite import read_json_object, render_benches
 from localbench._types import JsonObject, JsonValue
 from localbench.landing import (
     LandingError,
+    _assert_coding_verified,
+    _assert_generations_untouched,
     _assert_rescore_coverage,
     _recompute_derived_record,
+    _strict_coding_patch,
 )
 from localbench.orchestrate import _budget_audit
 from localbench.persistence import atomic_write_json
@@ -36,7 +39,13 @@ class FacetBackfillError(RuntimeError):
     """A backfill input failed an identity, integrity, or composition gate."""
 
 
-def compose_facet_backfill(record_path: Path, partial_path: Path, out_path: Path) -> JsonObject:
+def compose_facet_backfill(
+    record_path: Path,
+    partial_path: Path,
+    out_path: Path,
+    *,
+    coding_verified_path: Path | None = None,
+) -> JsonObject:
     """Attach exactly one verified BFCL-base partial campaign to a copied record."""
     original_file = record_path.expanduser().resolve()
     partial_file, status_file = _resolve_partial(partial_path)
@@ -48,6 +57,21 @@ def compose_facet_backfill(record_path: Path, partial_path: Path, out_path: Path
     original = _read_object(original_file, "original record")
     partial = _read_object(partial_file, "partial record")
     status = _read_object(status_file, "partial campaign status")
+    coding_verified: JsonObject | None = None
+    if coding_verified_path is not None:
+        verified_file = coding_verified_path.expanduser().resolve()
+        verified = _read_object(verified_file, "coding-verified record")
+        try:
+            _assert_generations_untouched(original, verified)
+            original = _strict_coding_patch(original, verified)
+            _assert_coding_verified(original)
+        except LandingError as error:
+            raise FacetBackfillError(str(error)) from error
+        coding_verified = {
+            "path": str(verified_file),
+            "sha256": sha256_file(verified_file),
+            "strict_patch_applied": True,
+        }
 
     identity = _assert_identity(original, partial)
     partial_items = _assert_partial_items(original, partial)
@@ -127,6 +151,8 @@ def compose_facet_backfill(record_path: Path, partial_path: Path, out_path: Path
         "original_untouched": True,
         "timestamps_source": "input-records",
     }
+    if coding_verified is not None:
+        result["facet_backfill"]["coding_verified"] = coding_verified
     result["index_version"] = index_version_for_coverage_profile(
         SEASON_2_COVERAGE_PROFILE_ID
     )

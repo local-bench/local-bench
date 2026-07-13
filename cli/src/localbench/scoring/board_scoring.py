@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import cast
 
 from localbench._types import JsonObject, JsonValue
 from localbench.coding_exec.score import BENCH as CODING_BENCH, SANDBOX_UNSCOREABLE_BCBH
@@ -16,6 +17,7 @@ from localbench.lane_spec import (
 from localbench.reasoning_registry import ranked_execution_profiles
 from localbench.scoring import bootstrap, cluster_for_item, score_interval, stratum_for_item
 from localbench.scoring.axes import (
+    STATIC_SUITE_INDEX_VERSION as HISTORICAL_STATIC_SUITE_INDEX_VERSION,
     STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
     axis_for_web_key,
     headline_web_axes,
@@ -47,13 +49,41 @@ from localbench.scoring.agentic_exec.score import wilson_95_ci
 from localbench.scoring.board_systems import best_system, system_fields
 from localbench.scoring.board_types import BoardBuildError, CuratedSource, ScoredRun
 from localbench.scoring.comparison_guard import assert_same_index_version
-from localbench.scoring.editorial import INDEX_VERSION_V3
+from localbench.scoring.editorial import INDEX_VERSION_V3, INDEX_VERSION_V4
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.scoring.signed_score import chance_for_bench, signed_score
 from localbench.scoring.tc_json_conformance import GATE_ID, tc_json_conformance_gate
 
 APPWORLD_C_BENCH = "appworld_c"
 TC_JSON_BENCH = "tc_json_v1"
+
+# Frozen index-v3 projection. Cross-season display rows must retain the axis
+# membership and weights under which season 1 recorded them; applying the live
+# v4 registry to a partial v3 row can turn (for example) a 41.48 diagnostic into
+# an 81.50 two-axis reweighting.
+INDEX_V3_SOURCE_GROUPS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "knowledge": (("mmlu_pro",), ("supergpqa",)),
+    "instruction": (("ifbench",), ("ifeval",)),
+    "math": (("olymmath_hard", "amo"), ("genmath",)),
+    "agentic": ((APPWORLD_C_BENCH,),),
+    "tool_calling": ((TC_JSON_BENCH,),),
+    "coding": (("bigcodebench_hard",), ("lcb",)),
+}
+INDEX_V3_WEIGHTS: dict[str, float] = {
+    "knowledge": 0.15,
+    "instruction": 0.15,
+    "math": 0.05,
+    "agentic": 0.40,
+    "tool_calling": 0.10,
+    "coding": 0.15,
+}
+INDEX_V3_STATIC_WEIGHTS: dict[str, float] = {
+    "knowledge": 0.25,
+    "instruction": 0.25,
+    "tool_calling": 0.20,
+    "coding": 0.20,
+    "math": 0.10,
+}
 def scored_runs(
     sources: Sequence[CuratedSource],
     *,
@@ -88,15 +118,17 @@ def scored_runs(
     return scored, skipped
 
 
-def model_rows(scored: Sequence[ScoredRun]) -> list[JsonObject]:
+def model_rows(scored: Sequence[ScoredRun], *, board_index_version: str) -> list[JsonObject]:
     rows: list[JsonObject] = []
-    for group in _groups(scored).values():
-        for candidate in group[1:]:
+    projected = [_project_cross_season_display(run, board_index_version) for run in scored]
+    for group in _groups(projected).values():
+        ranked_group = [run for run in group if run["ranked"]]
+        for candidate in ranked_group[1:]:
             try:
-                assert_same_index_version(group[0], candidate, context="board model merge")
+                assert_same_index_version(ranked_group[0], candidate, context="board ranked model merge")
             except ValueError as error:
                 raise BoardBuildError(str(error)) from error
-        best = best_system(group)
+        best = best_system(group, board_index_version=board_index_version)
         row = {
             "slug": best["slug"],
             "catalog_id": best["catalog_id"],
@@ -177,13 +209,14 @@ def _scored_run(
     conformance = object_or_empty(run.get("conformance"))
     lane = source["reasoning_lane"] or text_value(suite.get("lane"))
     slug = slugify(source["model_label"])
-    is_v3 = _is_v3_row(run)
+    index_version = text_value(run.get("index_version")) or default_index_version
+    uses_hardened_gate = _uses_hardened_ranked_gate(run)
     axes, samples = _axes_and_samples(
         benches,
         items,
         object_or_empty(conformance.get("per_bench")),
         bootstrap_iters,
-        pad_missing_items=is_v3,
+        pad_missing_items=uses_hardened_gate,
     )
     composite = _composite(samples, axes, bootstrap_iters, weights)
     composite_static = _strict_composite(
@@ -232,8 +265,22 @@ def _scored_run(
         "wall_time_seconds": number_or_none(totals.get("wall_time_seconds")),
         "suite_version": text_value(suite.get("suite_version")),
         "item_set_hashes": object_or_empty(suite.get("item_set_hashes")),
-        "index_version": text_value(run.get("index_version")) or default_index_version,
+        "index_version": index_version,
     }
+    if index_version == INDEX_VERSION_V3:
+        historical = _historical_v3_projection(
+            benches,
+            items,
+            object_or_empty(conformance.get("per_bench")),
+            bootstrap_iters,
+            pad_missing_items=_is_v3_row(run),
+        )
+        scored["historical_axes"] = object_value(historical["axes"], "historical.axes")
+        scored["historical_composite"] = object_value(historical["composite"], "historical.composite")
+        scored["historical_composite_full"] = object_or_none(historical["composite_full"])
+        scored["historical_composite_raw"] = number_value(historical["composite_raw"], "historical.composite_raw")
+        scored["historical_composite_static"] = object_or_none(historical["composite_static"])
+        scored["historical_static_index_version"] = HISTORICAL_STATIC_SUITE_INDEX_VERSION
     if composite_static is not None:
         scored["static_index_version"] = STATIC_SUITE_INDEX_VERSION
     publisher = source.get("publisher")
@@ -421,12 +468,14 @@ def _axes_and_samples(
     bootstrap_iters: int,
     *,
     pad_missing_items: bool = False,
+    display_axes: Sequence[str] | None = None,
+    source_groups: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
 ) -> tuple[JsonObject, dict[str, bootstrap.BenchSample]]:
     axes: JsonObject = {}
     samples: dict[str, bootstrap.BenchSample] = {}
     item_groups = _items_by_bench(items)
-    for axis in web_display_axes():
-        source_names = _source_benches_for_axis(axis, benches)
+    for axis in display_axes or web_display_axes():
+        source_names = _source_benches_for_axis(axis, benches, source_groups=source_groups)
         if not source_names:
             continue
         aggregates = [object_value(benches.get(bench), f"benches.{bench}") for bench in source_names]
@@ -519,8 +568,15 @@ def _axis_samples(
     return values, strata, no_answer
 
 
-def _composite(samples: Mapping[str, bootstrap.BenchSample], axes: Mapping[str, JsonValue], bootstrap_iters: int, weights: Mapping[str, float]) -> JsonObject:
-    source_weights = _source_weights_for_composite(samples, axes, weights)
+def _composite(
+    samples: Mapping[str, bootstrap.BenchSample],
+    axes: Mapping[str, JsonValue],
+    bootstrap_iters: int,
+    weights: Mapping[str, float],
+    *,
+    source_groups: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
+) -> JsonObject:
+    source_weights = _source_weights_for_composite(samples, axes, weights, source_groups=source_groups)
     present = {bench: sample for bench, sample in samples.items() if source_weights.get(bench, 0.0) > 0.0}
     if not present:
         return score_interval(0.0, 0.0, 0.0)
@@ -532,14 +588,16 @@ def _source_weights_for_composite(
     samples: Mapping[str, bootstrap.BenchSample],
     axes: Mapping[str, JsonValue],
     weights: Mapping[str, float],
+    *,
+    source_groups: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
 ) -> dict[str, float]:
     source_weights: dict[str, float] = {}
     sample_names = {name: {} for name in samples}
-    for axis in web_display_axes():
+    for axis in weights:
         axis_weight = weights.get(axis, 0.0)
         if axis not in axes or axis_weight <= 0.0:
             continue
-        source_names = _source_benches_for_axis(axis, sample_names)
+        source_names = _source_benches_for_axis(axis, sample_names, source_groups=source_groups)
         registry_axis = axis_for_web_key(axis)
         facet_material = (
             None
@@ -571,10 +629,58 @@ def _strict_composite(
     *,
     required_axes: frozenset[str],
     weights: Mapping[str, float],
+    source_groups: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
 ) -> JsonObject | None:
     if not required_axes <= set(axes):
         return None
-    return _composite(samples, axes, bootstrap_iters, weights)
+    return _composite(samples, axes, bootstrap_iters, weights, source_groups=source_groups)
+
+
+def _historical_v3_projection(
+    benches: JsonObject,
+    items: Sequence[JsonObject],
+    conformance: JsonObject,
+    bootstrap_iters: int,
+    *,
+    pad_missing_items: bool,
+) -> dict[str, JsonObject | float | None]:
+    axes, samples = _axes_and_samples(
+        benches,
+        items,
+        conformance,
+        bootstrap_iters,
+        pad_missing_items=pad_missing_items,
+        display_axes=tuple(INDEX_V3_SOURCE_GROUPS),
+        source_groups=INDEX_V3_SOURCE_GROUPS,
+    )
+    composite = _composite(
+        samples,
+        axes,
+        bootstrap_iters,
+        INDEX_V3_WEIGHTS,
+        source_groups=INDEX_V3_SOURCE_GROUPS,
+    )
+    return {
+        "axes": axes,
+        "composite": composite,
+        "composite_raw": number_value(composite["point_raw"], "historical_composite.point_raw"),
+        "composite_full": _strict_composite(
+            samples,
+            axes,
+            bootstrap_iters,
+            required_axes=frozenset(INDEX_V3_WEIGHTS),
+            weights=INDEX_V3_WEIGHTS,
+            source_groups=INDEX_V3_SOURCE_GROUPS,
+        ),
+        "composite_static": _strict_composite(
+            samples,
+            axes,
+            bootstrap_iters,
+            required_axes=frozenset(INDEX_V3_STATIC_WEIGHTS),
+            weights=INDEX_V3_STATIC_WEIGHTS,
+            source_groups=INDEX_V3_SOURCE_GROUPS,
+        ),
+    }
 
 
 def _sample_parts(
@@ -631,8 +737,14 @@ def _items_by_bench(items: Sequence[JsonObject]) -> dict[str, list[JsonObject]]:
     return groups
 
 
-def _source_benches_for_axis(axis: str, benches: Mapping[str, JsonValue]) -> tuple[str, ...]:
-    for group in web_source_bench_groups().get(axis, ((axis,),)):
+def _source_benches_for_axis(
+    axis: str,
+    benches: Mapping[str, JsonValue],
+    *,
+    source_groups: Mapping[str, tuple[tuple[str, ...], ...]] | None = None,
+) -> tuple[str, ...]:
+    groups = web_source_bench_groups() if source_groups is None else source_groups
+    for group in groups.get(axis, ((axis,),)):
         if all(bench in benches for bench in group):
             return group
     return ()
@@ -671,7 +783,7 @@ def _ranked(
     conformance_status: str | None,
     axes: Mapping[str, JsonValue],
 ) -> bool:
-    if _is_v3_row(run):
+    if _uses_hardened_ranked_gate(run):
         return _ranked_v3(source, run, lane, conformance_status, axes)
     return (
         source["kind"] != "anchor"
@@ -757,6 +869,26 @@ def _audit_status(run: JsonObject, key: str) -> str | None:
 
 def _is_v3_row(run: JsonObject) -> bool:
     return text_value(run.get("index_version")) == INDEX_VERSION_V3
+
+
+def _uses_hardened_ranked_gate(run: JsonObject) -> bool:
+    return text_value(run.get("index_version")) in {INDEX_VERSION_V3, INDEX_VERSION_V4}
+
+
+def _project_cross_season_display(run: ScoredRun, board_index_version: str) -> ScoredRun:
+    if run["index_version"] == board_index_version or run["index_version"] != INDEX_VERSION_V3:
+        return run
+    projected = dict(run)
+    projected["axes"] = run["historical_axes"]
+    projected["composite"] = run["historical_composite"]
+    projected["composite_full"] = run["historical_composite_full"]
+    projected["composite_raw"] = run["historical_composite_raw"]
+    projected["composite_static"] = run["historical_composite_static"]
+    if projected["composite_static"] is None:
+        projected.pop("static_index_version", None)
+    else:
+        projected["static_index_version"] = run["historical_static_index_version"]
+    return cast(ScoredRun, projected)
 
 
 def _model_point(model: Mapping[str, JsonValue]) -> float | None:

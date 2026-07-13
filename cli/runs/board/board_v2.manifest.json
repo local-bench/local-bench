@@ -1,5 +1,5 @@
 {
-  "board_sha256": "f4964629fadebfb685ea0467a32a7b181d48206de3370001a5f6e5d8998810c7",
+  "board_sha256": "7e4eae5d7b78f45fddca02d70e3c38bd5ce18fd10a6a0660096672ec645d988a",
   "ci_method": "stratified-nonparametric-bootstrap-percentile",
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
   "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
@@ -7,22 +7,26 @@
   "execution_profile_id": null,
   "extractor_version": null,
   "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-  "generated_at": "2026-07-10T05:30:22.555431+00:00",
-  "index_version": "index-v3.0",
+  "generated_at": "2026-07-13T02:19:23.268734+00:00",
+  "index_version": "index-v4.0",
   "item_set_hashes": {
     "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
+    "bfcl.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
+    "bfcl_multi_turn_base.jsonl": "41e5691e87d5c46f12ea19e2bcfe45cb019d83b279c6f1a640bf7ab203c3eec2",
+    "bfcl_multi_turn_long_context.jsonl": "c6f642197ab070573fc353bb7265e7efc813addc27eb59b66358830b68b6a1b2",
     "bigcodebench_hard.jsonl": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e",
     "ifbench.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
     "lcb.jsonl": "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf",
     "mmlu_pro.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
     "olymmath_hard.jsonl": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b",
+    "ruler_32k.jsonl": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540",
     "tc_json_v1.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
   "lane_spec_digest": "5458433a721feb3beee9895ee7a79aacd4ab6e02340628e66cd87b57aef0effe",
   "lane_spec_id": "capped-thinking-v1",
   "profile_catalog_digest": "14929303e739622e0352e66e6accd24f6efc43460ea72216bff8c111982d4452",
   "reasoning_registry_hash": "910cee258a631062a801650b72f38cb745e0ada8a320028ac3cfbbb24745136d",
-  "registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+  "registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
   "sampling_pins": {
     "min_p": null,
     "seed": null,
@@ -30,14 +34,16 @@
     "top_k": null,
     "top_p": null
   },
-  "scorecard_id": "b849e307e27b00d2f872ad7b294ac67d848610abfa0611bc66c402f65de2c20c",
-  "scorecard_version": "3",
-  "scorer_git_commit": "95d4c2e49b4c15581f387931c208525ad61ed1dc",
+  "scorecard_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
+  "scorecard_version": "5",
+  "scorer_git_commit": "8d0bdb1196cf935f4d590ba3a938526aaaa684aa",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",
     "bfcl": "1",
     "bfcl_multi_turn": "1",
+    "bfcl_multi_turn_base": "1",
+    "bfcl_multi_turn_long_context": "1",
     "bigcodebench_hard": "1+bcbh-scoreable-v1+bigcodebench-ast-gate-v2+bigcodebench-invert-control-sentinel-v2",
     "genmath": "1",
     "ifbench": "1",
@@ -49,7 +55,7 @@
     "supergpqa": "1",
     "tc_json_v1": "1"
   },
-  "scoring_version": "3",
+  "scoring_version": "5",
   "skipped_runs": [
     {
       "file": "gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2.json",
@@ -124,5 +130,5 @@
       "reason": "incomplete: inline appworld_c diagnostics are harness dominated"
     }
   ],
-  "suite_version": "suite-v1"
+  "suite_version": "mixed"
 }

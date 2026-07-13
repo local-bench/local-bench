@@ -122,6 +122,7 @@
   "data_warnings": [
     "agentic appworld_c quarantined: missing diagnostics or harness-dominated client path",
     "math not measured in this run; axis omitted",
+    "long_context not measured in this run; axis omitted",
     "agentic not measured in this run; axis omitted",
     "coding not measured in this run; axis omitted",
     "composite point 0.529096550261 differs from stored composite 0.178608317074"
@@ -207,8 +208,8 @@
   "run_id": "gemma-4-12b-coder-fable5__gemma-4-12b-coder-fable5-Q8_0",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "40b8c7499193758095cddd0cf6cd2dae172bbbdd11d7ee4c038d06fa01b7b745",
-    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    "current_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
+    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
     "drift": true,
     "execution_profile_id": null,
     "id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",

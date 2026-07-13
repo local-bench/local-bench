@@ -416,6 +416,248 @@
       "vram_footprint_gb": 21.2,
       "vram_required_gb_8k": null,
       "wall_time_seconds": 2419.727651232155
+    },
+    {
+      "agentic_provenance": "project_attested",
+      "axes": {
+        "coding": {
+          "conditional_accuracy": 0.2702702702702703,
+          "hi": 34.45945945945946,
+          "hi_raw": 0.34459459459459457,
+          "lo": 20.27027027027027,
+          "lo_raw": 0.20270270270270271,
+          "n": 148,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 27.027027027027028,
+          "point_raw": 0.2702702702702703,
+          "raw_accuracy": 0.2702702702702703,
+          "termination_rate": 1.0
+        },
+        "instruction": {
+          "conditional_accuracy": 0.5971731448763251,
+          "hi": 63.26530612244898,
+          "hi_raw": 0.6326530612244898,
+          "lo": 51.70068027210885,
+          "lo_raw": 0.5170068027210885,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 57.48299319727891,
+          "point_raw": 0.5748299319727891,
+          "raw_accuracy": 0.5748299319727891,
+          "termination_rate": 0.9625850340136054
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8571428571428571,
+          "hi": 85.96794454888055,
+          "hi_raw": 0.8596794454888055,
+          "lo": 77.82935238723128,
+          "lo_raw": 0.7782935238723128,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 5,
+          "point": 82.0389690225671,
+          "point_raw": 0.820389690225671,
+          "raw_accuracy": 0.84,
+          "termination_rate": 0.98
+        },
+        "math": {
+          "conditional_accuracy": 0.23701610140459062,
+          "hi": 29.496402877697843,
+          "hi_raw": 0.2949640287769784,
+          "lo": 15.827338129496402,
+          "lo_raw": 0.15827338129496402,
+          "n": 139,
+          "n_errors": 0,
+          "n_no_answer": 6,
+          "point": 22.302158273381295,
+          "point_raw": 0.22302158273381295,
+          "raw_accuracy": 0.22302158273381295,
+          "termination_rate": 0.9424460431654677
+        },
+        "tool_use": {
+          "conditional_accuracy": 0.1095890410958904,
+          "hi": 17.591745442870902,
+          "hi_raw": 0.175917454428709,
+          "lo": 6.788355416423997,
+          "lo_raw": 0.06788355416423997,
+          "n": 146,
+          "n_errors": 0,
+          "n_no_answer": 2,
+          "point": 11.911764705882351,
+          "point_raw": 0.11911764705882352,
+          "raw_accuracy": 0.1095890410958904,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "bfcl_multi_turn_long_context": {
+          "axis": "bfcl_multi_turn_long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "bfcl_single_turn": {
+          "axis": "bfcl_single_turn",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "call_formatting": {
+          "axis": "call_formatting",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "tool_use": {
+          "axis": "tool_use",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "composite": {
+        "hi": 46.86788673344155,
+        "hi_raw": 0.46867886733441555,
+        "lo": 41.45150681574387,
+        "lo_raw": 0.41451506815743866,
+        "point": 44.138283022296505,
+        "point_raw": 0.44138283022296504
+      },
+      "composite_full": {
+        "hi": 46.86788673344155,
+        "hi_raw": 0.46867886733441555,
+        "lo": 41.45150681574387,
+        "lo_raw": 0.41451506815743866,
+        "point": 44.138283022296505,
+        "point_raw": 0.44138283022296504
+      },
+      "composite_static": {
+        "hi": 55.26431126677264,
+        "hi_raw": 0.5526431126677264,
+        "lo": 49.196607455783656,
+        "lo_raw": 0.4919660745578366,
+        "point": 52.19491260140005,
+        "point_raw": 0.5219491260140005
+      },
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "610.62",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "has_code_artifacts": true,
+      "index_version": "index-v4.0",
+      "lane": "bounded-final-v2",
+      "latency_s_median": 19.071,
+      "n_errors": 0,
+      "n_items": 1457,
+      "origin": "project_anchor",
+      "perf": {
+        "decode_tps": 228.03439124767044,
+        "per_bench": {
+          "amo": {
+            "decode_tps": 231.34337464493095,
+            "n": 39,
+            "prefill_tps": 2113.689414777268,
+            "prompt_ms_median": 117.786
+          },
+          "bfcl_multi_turn_base": {
+            "decode_tps": 243.82238931292838,
+            "n": 50,
+            "prefill_tps": 7183.899257921551,
+            "prompt_ms_median": 1027.4935
+          },
+          "bigcodebench_hard": {
+            "decode_tps": 232.43792103732926,
+            "n": 148,
+            "prefill_tps": 6931.091043364167,
+            "prompt_ms_median": 707.806
+          },
+          "ifbench": {
+            "decode_tps": 234.07836606183426,
+            "n": 294,
+            "prefill_tps": 6384.225725905086,
+            "prompt_ms_median": 448.3845
+          },
+          "mmlu_pro": {
+            "decode_tps": 217.9884317640216,
+            "n": 400,
+            "prefill_tps": 5414.050588237939,
+            "prompt_ms_median": 292.092
+          },
+          "olymmath_hard": {
+            "decode_tps": 232.1378327530194,
+            "n": 100,
+            "prefill_tps": 1361.138469813373,
+            "prompt_ms_median": 112.8225
+          },
+          "tc_json_v1": {
+            "decode_tps": 236.99044522485025,
+            "n": 330,
+            "prefill_tps": 6047.673098751419,
+            "prompt_ms_median": 334.3375
+          }
+        },
+        "predicted_ms_median": 15668.019,
+        "predicted_ms_p95": 41837.464,
+        "prefill_tps": 6097.957267834174,
+        "prompt_ms_median": 340.096,
+        "prompt_ms_p95": 1059.582,
+        "timings_coverage": 0.9341111873713109,
+        "timings_source": "llama.cpp",
+        "ttft_proxy_ms_median": 340.096
+      },
+      "quant_label": "UD-Q4_K_M",
+      "ranked": true,
+      "run_id": "qwen3-6-35b-a3b__qwen3-6-35b-a3b-udq4-s2v5",
+      "runtime": {
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
+      },
+      "score_status": "measured",
+      "static_index_version": "static-suite-v3",
+      "tier": "standard",
+      "tok_s": 190.8131486143332,
+      "tokens_to_answer_median": 3639.0,
+      "tokens_to_answer_p95": 9377.0,
+      "trust_label": "project_anchor",
+      "verdict_source": "verifier",
+      "vram_footprint_gb": 22.134528992,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 33278.309414800024
     }
   ],
   "slug": "qwen3-6-35b-a3b"

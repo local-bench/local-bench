@@ -65,27 +65,6 @@
   "runs": [
     {
       "axes": {
-        "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.125,
-          "empty_final_rate": null,
-          "hi": 19.791666666666664,
-          "hi_raw": 0.19791666666666666,
-          "leaked_reasoning_rate": null,
-          "lo": 6.25,
-          "lo_raw": 0.0625,
-          "measurement_truncation_rate": null,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 12.5,
-          "point_raw": 0.125,
-          "raw_accuracy": 0.125,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6903914590747331,
           "hi": 71.42857142857143,
@@ -120,12 +99,12 @@
       "composite_full": null,
       "composite_static": null,
       "diagnostic_composite": {
-        "hi": 44.44054083900232,
-        "hi_raw": 0.4444054083900232,
-        "lo": 34.502574367751706,
-        "lo_raw": 0.34502574367751704,
-        "point": 39.163264812607615,
-        "point_raw": 0.3916326481260761
+        "hi": 77.96690774347033,
+        "hi_raw": 0.7796690774347033,
+        "lo": 71.41058324561973,
+        "lo_raw": 0.7141058324561973,
+        "point": 74.71428456275109,
+        "point_raw": 0.7471428456275109
       },
       "est_cost_usd": null,
       "file_gb": 29.0,
@@ -167,27 +146,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.14583333333333334,
-          "empty_final_rate": null,
-          "hi": 21.875,
-          "hi_raw": 0.21875,
-          "leaked_reasoning_rate": null,
-          "lo": 7.291666666666667,
-          "lo_raw": 0.07291666666666667,
-          "measurement_truncation_rate": null,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 14.583333333333334,
-          "point_raw": 0.14583333333333334,
-          "raw_accuracy": 0.14583333333333334,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6947368421052632,
           "hi": 72.78911564625851,
@@ -222,12 +180,12 @@
       "composite_full": null,
       "composite_static": null,
       "diagnostic_composite": {
-        "hi": 46.68193098910622,
-        "hi_raw": 0.4668193098910622,
-        "lo": 35.28657732688101,
-        "lo_raw": 0.3528657732688101,
-        "point": 40.58514881208338,
-        "point_raw": 0.4058514881208338
+        "hi": 78.5579374342148,
+        "hi_raw": 0.785579374342148,
+        "lo": 71.90777547844597,
+        "lo_raw": 0.7190777547844597,
+        "point": 75.25423611708344,
+        "point_raw": 0.7525423611708344
       },
       "est_cost_usd": null,
       "file_gb": 22.9,
@@ -305,33 +263,18 @@
     {
       "agentic_provenance": "project_attested",
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.08854166666666667,
-          "hi": 14.583333333333334,
-          "hi_raw": 0.14583333333333334,
-          "lo": 3.125,
-          "lo_raw": 0.03125,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "point": 8.333333333333332,
-          "point_raw": 0.08333333333333333,
-          "raw_accuracy": 0.08854166666666667,
-          "termination_rate": 1.0
-        },
         "coding": {
-          "conditional_accuracy": 0.2553191489361702,
-          "hi": 32.62411347517731,
-          "hi_raw": 0.3262411347517731,
-          "lo": 18.439716312056735,
-          "lo_raw": 0.18439716312056736,
-          "n": 141,
+          "conditional_accuracy": 0.25,
+          "hi": 31.08108108108108,
+          "hi_raw": 0.3108108108108108,
+          "lo": 17.56756756756757,
+          "lo_raw": 0.17567567567567569,
+          "n": 148,
           "n_errors": 0,
           "n_no_answer": 0,
-          "n_unscoreable": 7,
-          "point": 25.53191489361702,
-          "point_raw": 0.2553191489361702,
-          "raw_accuracy": 0.2553191489361702,
+          "point": 24.324324324324326,
+          "point_raw": 0.24324324324324326,
+          "raw_accuracy": 0.25,
           "termination_rate": 1.0
         },
         "instruction": {
@@ -376,32 +319,41 @@
           "raw_accuracy": 0.26618705035971224,
           "termination_rate": 0.935251798561151
         },
-        "tool_calling": {
-          "conditional_accuracy": 0.7333333333333333,
-          "hi": 77.87878787878788,
-          "hi_raw": 0.7787878787878788,
-          "lo": 68.48484848484848,
-          "lo_raw": 0.6848484848484848,
-          "n": 330,
+        "tool_use": {
+          "conditional_accuracy": 0.13356164383561644,
+          "hi": 20.454032747119463,
+          "hi_raw": 0.20454032747119463,
+          "lo": 8.235294117647058,
+          "lo_raw": 0.08235294117647059,
+          "n": 146,
           "n_errors": 0,
           "n_no_answer": 0,
-          "point": 73.33333333333333,
-          "point_raw": 0.7333333333333333,
-          "raw_accuracy": 0.7333333333333333,
+          "point": 13.96078431372549,
+          "point_raw": 0.1396078431372549,
+          "raw_accuracy": 0.13356164383561644,
           "termination_rate": 1.0
         }
       },
       "axis_status": {
-        "agentic": {
-          "axis": "agentic",
-          "reason": "ok",
-          "status": "measured"
+        "bfcl_multi_turn_long_context": {
+          "axis": "bfcl_multi_turn_long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "bfcl_single_turn": {
+          "axis": "bfcl_single_turn",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "call_formatting": {
+          "axis": "call_formatting",
+          "reason": "not_run",
+          "status": "not_measured"
         },
         "coding": {
           "axis": "coding",
-          "detail": "BigCodeBench-Hard artifacts generated; verifier verdict pending",
-          "reason": "verdict_pending",
-          "status": "generated_unverified"
+          "reason": "ok",
+          "status": "measured"
         },
         "instruction_following": {
           "axis": "instruction_following",
@@ -423,52 +375,36 @@
           "reason": "ok",
           "status": "measured"
         },
-        "tool_calling": {
-          "axis": "tool_calling",
+        "tool_use": {
+          "axis": "tool_use",
           "reason": "ok",
           "status": "measured"
         }
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 41.379361988127116,
-        "hi_raw": 0.41379361988127117,
-        "lo": 35.13224557301843,
-        "lo_raw": 0.3513224557301843,
-        "point": 38.08861329684331,
-        "point_raw": 0.3808861329684331
+        "hi": 49.0464461442719,
+        "hi_raw": 0.49046446144271894,
+        "lo": 43.70310388739963,
+        "lo_raw": 0.43703103887399625,
+        "point": 46.37744973439749,
+        "point_raw": 0.46377449734397486
       },
       "composite_full": {
-        "hi": 41.379361988127116,
-        "hi_raw": 0.41379361988127117,
-        "lo": 35.13224557301843,
-        "lo_raw": 0.3513224557301843,
-        "point": 38.08861329684331,
-        "point_raw": 0.3808861329684331
+        "hi": 49.0464461442719,
+        "hi_raw": 0.49046446144271894,
+        "lo": 43.70310388739963,
+        "lo_raw": 0.43703103887399625,
+        "point": 46.37744973439749,
+        "point_raw": 0.46377449734397486
       },
       "composite_static": {
-        "hi": 62.03825450718023,
-        "hi_raw": 0.6203825450718022,
-        "lo": 57.04091799833226,
-        "lo_raw": 0.5704091799833226,
-        "point": 59.53696038954641,
-        "point_raw": 0.5953696038954641
-      },
-      "conformance_gates": {
-        "tc_json_v1": {
-          "band": "amber",
-          "band_reasons": [],
-          "id": "tc_json_v1",
-          "invalid_json_rate": 0.0,
-          "label": "Tool-calling",
-          "n_items": 330,
-          "pass_rate": {
-            "hi": 77.81608716866391,
-            "lo": 68.31359383141618,
-            "point": 73.33333333333333
-          },
-          "threshold_version": "tc_json_v1"
-        }
+        "hi": 57.39457366243394,
+        "hi_raw": 0.5739457366243395,
+        "lo": 51.55504812837714,
+        "lo_raw": 0.5155504812837713,
+        "point": 54.481616089565485,
+        "point_raw": 0.5448161608956549
       },
       "est_cost_usd": null,
       "file_gb": 17.1,
@@ -484,19 +420,26 @@
         "ram_gb": null
       },
       "has_code_artifacts": true,
+      "index_version": "index-v4.0",
       "lane": "bounded-final-v2",
-      "latency_s_median": 47.571,
+      "latency_s_median": 47.375,
       "n_errors": 0,
-      "n_items": 1407,
+      "n_items": 1457,
       "origin": "project_anchor",
       "perf": {
-        "decode_tps": 74.42118615506409,
+        "decode_tps": 74.4163513151731,
         "per_bench": {
           "amo": {
             "decode_tps": 76.36688948811565,
             "n": 39,
             "prefill_tps": 1412.0284908615217,
             "prompt_ms_median": 171.299
+          },
+          "bfcl_multi_turn_base": {
+            "decode_tps": 74.29125160123671,
+            "n": 50,
+            "prefill_tps": 3400.397645753315,
+            "prompt_ms_median": 2500.535
           },
           "bigcodebench_hard": {
             "decode_tps": 77.097969705277,
@@ -529,18 +472,18 @@
             "prompt_ms_median": 566.5495000000001
           }
         },
-        "predicted_ms_median": 42315.115,
-        "predicted_ms_p95": 131037.655,
-        "prefill_tps": 3076.360610033247,
-        "prompt_ms_median": 621.607,
-        "prompt_ms_p95": 1966.8345,
-        "timings_coverage": 0.9317697228144989,
+        "predicted_ms_median": 43212.176999999996,
+        "predicted_ms_p95": 130836.705,
+        "prefill_tps": 3112.0565057442377,
+        "prompt_ms_median": 640.8979999999999,
+        "prompt_ms_p95": 2249.694,
+        "timings_coverage": 0.9341111873713109,
         "timings_source": "llama.cpp",
-        "ttft_proxy_ms_median": 621.607
+        "ttft_proxy_ms_median": 640.8979999999999
       },
       "quant_label": "Q4_K_M",
       "ranked": true,
-      "run_id": "qwen3-6-27b__qwen3-6-27b-q4km-bounded-final-v2",
+      "run_id": "qwen3-6-27b__qwen3-6-27b-q4km-s2v5",
       "runtime": {
         "ctx_len_configured": 32768,
         "kv_cache_quant": "k=f16,v=f16",
@@ -549,11 +492,11 @@
         "version": "b9852/fd1a05791"
       },
       "score_status": "measured",
-      "static_index_version": "static-suite-v2",
+      "static_index_version": "static-suite-v3",
       "tier": "standard",
-      "tok_s": 66.80562926673174,
-      "tokens_to_answer_median": 3178.0,
-      "tokens_to_answer_p95": 9426.0,
+      "tok_s": 69.38301800516628,
+      "tokens_to_answer_median": 3287.0,
+      "tokens_to_answer_p95": 9380.0,
       "trust_label": "project_anchor",
       "verdict_source": "verifier",
       "vram_footprint_gb": 16.547398784,
@@ -562,27 +505,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.13541666666666666,
-          "empty_final_rate": null,
-          "hi": 20.833333333333336,
-          "hi_raw": 0.20833333333333334,
-          "leaked_reasoning_rate": null,
-          "lo": 7.291666666666667,
-          "lo_raw": 0.07291666666666667,
-          "measurement_truncation_rate": null,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 13.541666666666666,
-          "point_raw": 0.13541666666666666,
-          "raw_accuracy": 0.13541666666666666,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6787003610108303,
           "hi": 69.38775510204081,
@@ -617,12 +539,12 @@
       "composite_full": null,
       "composite_static": null,
       "diagnostic_composite": {
-        "hi": 45.21744203486752,
-        "hi_raw": 0.45217442034867517,
-        "lo": 34.33948646872589,
-        "lo_raw": 0.3433948646872589,
-        "point": 39.381322504093944,
-        "point_raw": 0.39381322504093946
+        "hi": 77.13789827112834,
+        "hi_raw": 0.7713789827112834,
+        "lo": 70.47079027124155,
+        "lo_raw": 0.7047079027124156,
+        "point": 73.83419695399698,
+        "point_raw": 0.7383419695399698
       },
       "est_cost_usd": null,
       "file_gb": 13.8,
@@ -664,27 +586,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.13541666666666666,
-          "empty_final_rate": null,
-          "hi": 20.833333333333336,
-          "hi_raw": 0.20833333333333334,
-          "leaked_reasoning_rate": null,
-          "lo": 7.291666666666667,
-          "lo_raw": 0.07291666666666667,
-          "measurement_truncation_rate": null,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 13.541666666666666,
-          "point_raw": 0.13541666666666666,
-          "raw_accuracy": 0.13541666666666666,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.6072727272727273,
           "hi": 62.585034013605444,
@@ -718,12 +619,12 @@
       "composite_full": null,
       "composite_static": null,
       "diagnostic_composite": {
-        "hi": 43.4531321212635,
-        "hi_raw": 0.434531321212635,
-        "lo": 32.79267284394757,
-        "lo_raw": 0.3279267284394757,
-        "point": 37.73043549818639,
-        "point_raw": 0.3773043549818639
+        "hi": 73.49406089957522,
+        "hi_raw": 0.7349406089957522,
+        "lo": 66.52968859291622,
+        "lo_raw": 0.6652968859291621,
+        "point": 69.98212727354603,
+        "point_raw": 0.6998212727354602
       },
       "est_cost_usd": null,
       "file_gb": null,
@@ -875,27 +776,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.14583333333333334,
-          "empty_final_rate": null,
-          "hi": 21.875,
-          "hi_raw": 0.21875,
-          "leaked_reasoning_rate": null,
-          "lo": 8.333333333333332,
-          "lo_raw": 0.08333333333333333,
-          "measurement_truncation_rate": null,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 14.583333333333334,
-          "point_raw": 0.14583333333333334,
-          "raw_accuracy": 0.14583333333333334,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.7107142857142857,
           "hi": 73.12925170068027,
@@ -929,12 +809,12 @@
       "composite_full": null,
       "composite_static": null,
       "diagnostic_composite": {
-        "hi": 46.16650007707849,
-        "hi_raw": 0.4616650007707849,
-        "lo": 35.282909282737805,
-        "lo_raw": 0.35282909282737807,
-        "point": 40.41748558744028,
-        "point_raw": 0.4041748558744028
+        "hi": 78.11564510696878,
+        "hi_raw": 0.7811564510696878,
+        "lo": 71.50824247270606,
+        "lo_raw": 0.7150824247270606,
+        "point": 74.86302192624954,
+        "point_raw": 0.7486302192624954
       },
       "est_cost_usd": null,
       "file_gb": null,

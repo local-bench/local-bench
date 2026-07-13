@@ -185,6 +185,38 @@ def test_v3_ranked_predicate_requires_allowlisted_profile_and_exact_audits(
     }
 
 
+def test_v4_composed_record_uses_hardened_ranked_gate(tmp_path: Path) -> None:
+    from localbench.lane_spec import BOUNDED_FINAL_V2_LANE_SPEC_ID
+    from localbench.scoring.axes import headline_web_axes
+    from localbench.scoring.board import build_board
+    from localbench.scoring.editorial import INDEX_VERSION_V4
+
+    paths = write_inputs(
+        tmp_path,
+        [
+            source(
+                "Season 2",
+                "season-2.json",
+                kind="maintainer_project",
+                lane=BOUNDED_FINAL_V2_LANE_SPEC_ID,
+            )
+        ],
+    )
+    write_run(paths["runs"] / "season-2.json", _bounded_final_v4_run())
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    assert board["index_version"] == INDEX_VERSION_V4
+    assert model["ranked"] is True
+    assert set(headline_web_axes()) <= set(object_value(model["axes"]))
+
+
 def test_v3_missing_suite_item_scores_zero_in_axis_denominator(tmp_path: Path) -> None:
     from localbench.scoring.board import build_board
 
@@ -680,6 +712,112 @@ def test_family_row_emits_best_first_systems_with_curated_recommended_quant(tmp_
     assert result.divergences == ()
 
 
+def test_mixed_board_uses_ranked_version_and_retains_cross_season_anchor_system(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+    from localbench.scoring.editorial import INDEX_VERSION_V3, INDEX_VERSION_V4
+
+    sources = [
+        source(
+            "Mixed Model",
+            "ranked.json",
+            family="Mixed",
+            lane="bounded-final-v2",
+            model_id="mixed/model",
+            quant_label="Q4_K_M",
+        ),
+        source(
+            "Mixed Model",
+            "anchor.json",
+            family="Mixed",
+            kind="anchor",
+            model_id="mixed/model",
+            quant_label="Anchor",
+        ),
+    ]
+    paths = write_inputs(tmp_path, sources)
+    ranked = _bounded_final_v4_run()
+    for item in objects_value(ranked["items"]):
+        item["correct"] = False
+    anchor = run_record(mmlu_correct=(True, True), if_correct=(True, True))
+    anchor["index_version"] = INDEX_VERSION_V3
+    write_run(paths["runs"] / "ranked.json", ranked)
+    write_run(paths["runs"] / "anchor.json", anchor)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    systems = objects_value(model["systems"])
+    assert board["index_version"] == INDEX_VERSION_V4
+    assert model["index_version"] == INDEX_VERSION_V4
+    assert model["best_system_run_id"] == "mixed-model__ranked"
+    assert {system["index_version"] for system in systems} == {INDEX_VERSION_V3, INDEX_VERSION_V4}
+    anchor_system = next(system for system in systems if system["index_version"] == INDEX_VERSION_V3)
+    assert anchor_system["ranked"] is False
+    assert object_value(anchor_system["composite"])["point"] == pytest.approx(65.78947368421052)
+    assert set(object_value(anchor_system["axes"])) == {
+        "agentic",
+        "coding",
+        "instruction",
+        "knowledge",
+        "tool_calling",
+    }
+    assert float_value(object_value(anchor_system["composite"])["point_raw"]) > float_value(
+        object_value(model["composite"])["point_raw"],
+    )
+
+
+def test_board_rejects_mixed_ranked_index_versions(tmp_path: Path) -> None:
+    from localbench.lane_spec import BOUNDED_FINAL_V2_LANE_SPEC_ID
+    from localbench.scoring.board import BoardBuildError, build_board
+    from localbench.scoring.editorial import INDEX_VERSION_V4
+
+    paths = write_inputs(
+        tmp_path,
+        [
+            source("Season 2", "season-2.json", lane=BOUNDED_FINAL_V2_LANE_SPEC_ID),
+            source("Season 1", "season-1.json", lane=BOUNDED_FINAL_V2_LANE_SPEC_ID),
+        ],
+    )
+    write_run(paths["runs"] / "season-2.json", _bounded_final_v4_run())
+    write_run(paths["runs"] / "season-1.json", _bounded_final_v3_run())
+
+    with pytest.raises(BoardBuildError, match="mixed ranked index_version labels: index-v3.0, index-v4.0"):
+        build_board(
+            runs_dir=paths["runs"],
+            curation_path=paths["curation"],
+            generated_at=FROZEN_AT,
+            bootstrap_iters=50,
+        )
+
+
+def test_board_with_no_ranked_rows_uses_parity_index_fallback(tmp_path: Path) -> None:
+    from localbench.scoring.board import build_board
+    from localbench.scoring.board_support import DEFAULT_PARITY_INDEX, index_version
+    from localbench.scoring.editorial import INDEX_VERSION_V4
+
+    paths = write_inputs(tmp_path, [source("Display Anchor", "anchor.json", kind="anchor")])
+    anchor = run_record()
+    anchor["index_version"] = INDEX_VERSION_V4
+    write_run(paths["runs"] / "anchor.json", anchor)
+
+    board = build_board(
+        runs_dir=paths["runs"],
+        curation_path=paths["curation"],
+        generated_at=FROZEN_AT,
+        bootstrap_iters=50,
+    )
+
+    model = objects_value(board["models"])[0]
+    assert board["index_version"] == index_version(DEFAULT_PARITY_INDEX)
+    assert model["index_version"] == INDEX_VERSION_V4
+    assert model["ranked"] is False
+
+
 def test_board_rejects_multiple_recommended_quants_in_one_family(tmp_path: Path) -> None:
     # Given: two quants in the same family are curated as recommended.
     from localbench.scoring.board import BoardBuildError, build_board
@@ -780,4 +918,12 @@ def _bounded_final_v3_run() -> dict:
     record["budget_audit"] = {"status": "exact"}
     record["sampler_audit"] = {"status": "deterministic"}
     record["suite_coverage"] = {"status": "complete"}
+    return record
+
+
+def _bounded_final_v4_run() -> dict:
+    from localbench.scoring.editorial import INDEX_VERSION_V4
+
+    record = _bounded_final_v3_run()
+    record["index_version"] = INDEX_VERSION_V4
     return record

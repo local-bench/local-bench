@@ -16,22 +16,21 @@ describe("tool-calling presentation", () => {
     expect(axisLabel("tool_calling")).toBe("Tool calling");
   });
 
-  it("renders measured tool-calling results on the model variant board", async () => {
-    // Given: a model with completed tc_json_v1 results on the CURRENT lane in the generated
-    // public data (retired-lane runs are omitted from the variant board entirely).
+  it("renders measured season-2 tool-use results on the model variant board", async () => {
+    // Given: a model with completed season-2 tool-use facets on the current lane.
     const model = await getModelData("gemma-4-12b-it");
     const currentRun = model.runs.find((run) => run.lane === "bounded-final-v2");
-    const toolCalling = currentRun?.axes.tool_calling;
-    if (toolCalling === undefined) {
-      expect.fail("expected Gemma 4 12B's bounded-final-v2 run to have a measured tool_calling axis");
+    const toolUse = currentRun?.axes["tool_use"];
+    if (toolUse === undefined) {
+      expect.fail("expected Gemma 4 12B's season-2 run to have a measured tool_use axis");
     }
 
     // When: the model variant table is rendered.
     const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model }));
 
-    // Then: the visible table uses the user-facing Tool calling label and measured score.
-    expect(html).toContain("Tool calling");
-    expect(html).toContain(formatScore(toolCalling.point));
+    // Then: the visible table uses the season-2 Tool use label and measured score.
+    expect(html).toContain("Tool use");
+    expect(html).toContain(formatScore(toolUse.point));
     expect(html).not.toContain("JSON gate");
   });
 });

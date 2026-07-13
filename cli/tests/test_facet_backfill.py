@@ -9,6 +9,7 @@ import pytest
 import localbench.facet_backfill as facet_backfill_module
 from localbench._suite import read_json_object, render_benches
 from localbench.facet_backfill import FacetBackfillError, compose_facet_backfill
+from localbench.scoring.board_scoring import _coding_verified_if_required
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.scoring.season2_rescore import rescore_record_season2
 from localbench.suite_release import (
@@ -81,6 +82,101 @@ def test_composer_happy_path_passes_coverage_rescore_and_preserves_original(
         assert set(result[audit_name]["campaigns"]) == {"original", "partial"}
     attached = [item for item in result["items"] if item["bench"] == "bfcl_multi_turn_base"]
     assert all(item["facet_backfill_campaign"]["campaign_id"] for item in attached)
+
+
+def test_composer_strictly_patches_coding_verification_and_records_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_path, partial_dir, out_path = _campaign_files(tmp_path)
+    verified_path = tmp_path / "coding-verified.json"
+    raw_parent = _read(original_path)
+    assert _coding_verified_if_required(raw_parent, _LANE) is False
+    verified = _verified_record(raw_parent)
+    _write(verified_path, verified)
+    before = original_path.read_bytes()
+    monkeypatch.setattr(
+        facet_backfill_module,
+        "rescore_record_season2",
+        lambda record: rescore_record_season2(record, bootstrap_iters=25),
+    )
+
+    result = compose_facet_backfill(
+        original_path,
+        partial_dir,
+        out_path,
+        coding_verified_path=verified_path,
+    )
+
+    assert original_path.read_bytes() == before
+    assert _coding_verified_if_required(result, _LANE) is True
+    coding_items = [
+        item for item in result["items"] if item["bench"] == "bigcodebench_hard"
+    ]
+    assert coding_items
+    assert all(item["code_artifact"]["verdict_source"] == "verifier" for item in coding_items)
+    assert result["facet_backfill"]["coding_verified"] == {
+        "path": str(verified_path.resolve()),
+        "sha256": facet_backfill_module.sha256_file(verified_path),
+        "strict_patch_applied": True,
+    }
+
+
+def test_composer_refuses_coding_verification_with_tampered_generation(tmp_path: Path) -> None:
+    original_path, partial_dir, out_path = _campaign_files(tmp_path)
+    verified_path = tmp_path / "coding-verified.json"
+    verified = _verified_record(_read(original_path))
+    coding_item = next(
+        item for item in verified["items"] if item["bench"] == "bigcodebench_hard"
+    )
+    coding_item["response_text"] = "tampered generation"
+    _write(verified_path, verified)
+
+    with pytest.raises(FacetBackfillError, match="changed generation data"):
+        compose_facet_backfill(
+            original_path,
+            partial_dir,
+            out_path,
+            coding_verified_path=verified_path,
+        )
+
+    assert not out_path.exists()
+
+
+def test_composer_absent_coding_verified_flag_preserves_existing_output_shape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_path, partial_dir, out_path = _campaign_files(tmp_path)
+    monkeypatch.setattr(
+        facet_backfill_module,
+        "rescore_record_season2",
+        lambda record: rescore_record_season2(record, bootstrap_iters=25),
+    )
+
+    result = compose_facet_backfill(original_path, partial_dir, out_path)
+
+    assert "coding_verified" not in result["facet_backfill"]
+
+
+def test_compose_facet_backfill_cli_parses_optional_coding_verified() -> None:
+    from localbench.cli import _parser
+
+    args = _parser().parse_args(
+        [
+            "compose-facet-backfill",
+            "--record",
+            "parent.json",
+            "--partial",
+            "partial",
+            "--coding-verified",
+            "coding-verified.json",
+            "--out",
+            "composed.json",
+        ]
+    )
+
+    assert args.coding_verified == Path("coding-verified.json")
 
 
 @pytest.mark.parametrize(
@@ -311,7 +407,7 @@ def _record(items: list[dict], started: str, finished: str) -> dict:
 
 
 def _scored_item(bench: str, item_id: str) -> dict:
-    return {
+    item = {
         "bench": bench,
         "id": item_id,
         "correct": True,
@@ -324,6 +420,35 @@ def _scored_item(bench: str, item_id: str) -> dict:
         "latency_seconds": 0.01,
         "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
     }
+    if bench == "bigcodebench_hard":
+        item["code_artifact"] = {
+            "sanitized_code": "def answer(): return 1",
+            "verdict_source": "pending",
+        }
+    return item
+
+
+def _verified_record(original: dict) -> dict:
+    verified = copy.deepcopy(original)
+    for item in verified["items"]:
+        if item["bench"] != "bigcodebench_hard":
+            continue
+        item["correct"] = True
+        item["extracted"] = "def answer(): return 1"
+        item["failure_kind"] = None
+        item["code_artifact"].update(
+            {
+                "verdict": {"passed": True, "timeout": False, "oom": False},
+                "verdict_source": "verifier",
+                "image_digest": "sandbox@sha256:" + "d" * 64,
+                "conformance_status": {"status": "ok"},
+                "extraction_status": {"status": "ok"},
+                "ast_gate_rev": "ast-v1",
+                "sentinel_scheme_rev": "sentinel-v1",
+                "assembled_program_sha256": "e" * 64,
+            }
+        )
+    return verified
 
 
 def _read(path: Path) -> dict:

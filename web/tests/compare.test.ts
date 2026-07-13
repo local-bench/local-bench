@@ -7,7 +7,7 @@ import { getIndexData, getModelData } from "../lib/data";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import { ModelDataSchema } from "../lib/schemas";
 
-const CURRENT_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-bounded-final-v2";
+const CURRENT_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-s2v5";
 const LEGACY_RUN_ID = "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4";
 
 describe("compare configs", () => {

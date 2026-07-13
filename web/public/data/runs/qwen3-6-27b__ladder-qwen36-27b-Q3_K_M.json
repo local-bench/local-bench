@@ -1,26 +1,5 @@
 {
   "axes": {
-    "agentic": {
-      "ambiguous_or_contaminated_final_rate": null,
-      "budget_cap_hit_rate": null,
-      "conditional_accuracy": 0.13541666666666666,
-      "empty_final_rate": null,
-      "hi": 20.833333333333336,
-      "hi_raw": 0.20833333333333334,
-      "leaked_reasoning_rate": null,
-      "lo": 7.291666666666667,
-      "lo_raw": 0.07291666666666667,
-      "measurement_truncation_rate": null,
-      "n": 96,
-      "n_errors": 0,
-      "n_no_answer": 0,
-      "no_final_answer_rate": null,
-      "point": 13.541666666666666,
-      "point_raw": 0.13541666666666666,
-      "raw_accuracy": 0.13541666666666666,
-      "termination_rate": 1.0,
-      "truncation_rate": null
-    },
     "instruction": {
       "conditional_accuracy": 0.6787003610108303,
       "hi": 69.38775510204081,
@@ -86,17 +65,18 @@
   "contamination_label": "unverified",
   "data_warnings": [
     "math not measured in this run; axis omitted",
+    "long_context not measured in this run; axis omitted",
     "agentic not measured in this run; axis omitted",
     "tool_calling not measured in this run; axis omitted",
     "coding not measured in this run; axis omitted"
   ],
   "diagnostic_composite": {
-    "hi": 45.21744203486752,
-    "hi_raw": 0.45217442034867517,
-    "lo": 34.33948646872589,
-    "lo_raw": 0.3433948646872589,
-    "point": 39.381322504093944,
-    "point_raw": 0.39381322504093946
+    "hi": 77.13789827112834,
+    "hi_raw": 0.7713789827112834,
+    "lo": 70.47079027124155,
+    "lo_raw": 0.7047079027124156,
+    "point": 73.83419695399698,
+    "point_raw": 0.7383419695399698
   },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
@@ -166,8 +146,8 @@
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q3_K_M",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "40b8c7499193758095cddd0cf6cd2dae172bbbdd11d7ee4c038d06fa01b7b745",
-    "current_registry_digest": "16c189f04e7317756155e578254ecb5ae2d63c7c687528206851fdbe7fce4227",
+    "current_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
+    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
     "drift": true,
     "execution_profile_id": null,
     "id": "59c8f3cd3e8d8dc4b5c778e701d22911fc18fdde4bf5d919ecd8beb5f9142a0f",
@@ -190,8 +170,8 @@
   },
   "trust_label": "community_re_scored",
   "worst_axis": {
-    "bench": "agentic",
-    "point": 13.541666666666666,
-    "point_raw": 0.13541666666666666
+    "bench": "instruction",
+    "point": 63.94557823129252,
+    "point_raw": 0.6394557823129252
   }
 }

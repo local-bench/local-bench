@@ -21,7 +21,7 @@ const IndexModelSchema = z.object({
   composite: ScoreSchema.nullable(),
   demo: z.boolean().optional(),
   diagnostic_composite: ScoreSchema.nullable().optional(),
-  kind: z.enum(["anchor", "community"]),
+  kind: z.enum(["anchor", "community", "maintainer_project"]),
   lane: z.string().nullable(),
   model_label: z.string(),
   ranked: z.boolean(),
@@ -45,7 +45,7 @@ const ModelRunSchema = z.object({
 });
 
 const ModelDataSchema = z.object({
-  kind: z.enum(["anchor", "community"]),
+  kind: z.enum(["anchor", "community", "maintainer_project"]),
   model_label: z.string(),
   runs: z.array(ModelRunSchema),
   slug: z.string(),

@@ -170,27 +170,6 @@
     },
     {
       "axes": {
-        "agentic": {
-          "ambiguous_or_contaminated_final_rate": null,
-          "budget_cap_hit_rate": null,
-          "conditional_accuracy": 0.11458333333333333,
-          "empty_final_rate": null,
-          "hi": 18.75,
-          "hi_raw": 0.1875,
-          "leaked_reasoning_rate": null,
-          "lo": 5.208333333333334,
-          "lo_raw": 0.052083333333333336,
-          "measurement_truncation_rate": null,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "no_final_answer_rate": null,
-          "point": 11.458333333333332,
-          "point_raw": 0.11458333333333333,
-          "raw_accuracy": 0.11458333333333333,
-          "termination_rate": 1.0,
-          "truncation_rate": null
-        },
         "instruction": {
           "conditional_accuracy": 0.7671232876712328,
           "hi": 80.95238095238095,
@@ -225,12 +204,12 @@
       "composite_full": null,
       "composite_static": null,
       "diagnostic_composite": {
-        "hi": 46.7102520366052,
-        "hi_raw": 0.467102520366052,
-        "lo": 36.92864224205062,
-        "lo_raw": 0.36928642242050624,
-        "point": 41.476264204709885,
-        "point_raw": 0.41476264204709884
+        "hi": 84.42118839464013,
+        "hi_raw": 0.8442118839464012,
+        "lo": 78.4473643524033,
+        "lo_raw": 0.7844736435240329,
+        "point": 81.50017203321195,
+        "point_raw": 0.8150017203321195
       },
       "est_cost_usd": null,
       "file_gb": 18.3,
@@ -304,6 +283,248 @@
       "vram_footprint_gb": 14.7,
       "vram_required_gb_8k": 17.2,
       "wall_time_seconds": null
+    },
+    {
+      "agentic_provenance": "project_attested",
+      "axes": {
+        "coding": {
+          "conditional_accuracy": 0.33783783783783783,
+          "hi": 41.21621621621622,
+          "hi_raw": 0.41216216216216217,
+          "lo": 26.351351351351347,
+          "lo_raw": 0.2635135135135135,
+          "n": 148,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 33.78378378378378,
+          "point_raw": 0.33783783783783783,
+          "raw_accuracy": 0.33783783783783783,
+          "termination_rate": 1.0
+        },
+        "instruction": {
+          "conditional_accuracy": 0.797945205479452,
+          "hi": 84.01360544217688,
+          "hi_raw": 0.8401360544217688,
+          "lo": 74.48979591836735,
+          "lo_raw": 0.7448979591836735,
+          "n": 294,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 79.25170068027211,
+          "point_raw": 0.7925170068027211,
+          "raw_accuracy": 0.7925170068027211,
+          "termination_rate": 0.9931972789115646
+        },
+        "knowledge": {
+          "conditional_accuracy": 0.8875,
+          "hi": 90.73884340226117,
+          "hi_raw": 0.9073884340226117,
+          "lo": 83.72281567670144,
+          "lo_raw": 0.8372281567670145,
+          "n": 400,
+          "n_errors": 0,
+          "n_no_answer": 1,
+          "point": 87.3711500939925,
+          "point_raw": 0.873711500939925,
+          "raw_accuracy": 0.8875,
+          "termination_rate": 1.0
+        },
+        "math": {
+          "conditional_accuracy": 0.5150262768508597,
+          "hi": 56.11510791366906,
+          "hi_raw": 0.5611510791366906,
+          "lo": 39.568345323741006,
+          "lo_raw": 0.39568345323741005,
+          "n": 139,
+          "n_errors": 0,
+          "n_no_answer": 6,
+          "point": 48.201438848920866,
+          "point_raw": 0.48201438848920863,
+          "raw_accuracy": 0.48201438848920863,
+          "termination_rate": 0.935251798561151
+        },
+        "tool_use": {
+          "conditional_accuracy": 0.16095890410958905,
+          "hi": 24.752688172043015,
+          "hi_raw": 0.24752688172043014,
+          "lo": 11.09074100513992,
+          "lo_raw": 0.1109074100513992,
+          "n": 146,
+          "n_errors": 0,
+          "n_no_answer": 0,
+          "point": 17.65686274509804,
+          "point_raw": 0.1765686274509804,
+          "raw_accuracy": 0.16095890410958905,
+          "termination_rate": 1.0
+        }
+      },
+      "axis_status": {
+        "bfcl_multi_turn_long_context": {
+          "axis": "bfcl_multi_turn_long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "bfcl_single_turn": {
+          "axis": "bfcl_single_turn",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "call_formatting": {
+          "axis": "call_formatting",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "coding": {
+          "axis": "coding",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "instruction_following": {
+          "axis": "instruction_following",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "knowledge": {
+          "axis": "knowledge",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "long_context": {
+          "axis": "long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "math": {
+          "axis": "math",
+          "reason": "ok",
+          "status": "measured"
+        },
+        "tool_use": {
+          "axis": "tool_use",
+          "reason": "ok",
+          "status": "measured"
+        }
+      },
+      "composite": {
+        "hi": 58.23213028152956,
+        "hi_raw": 0.5823213028152956,
+        "lo": 52.701040139765155,
+        "lo_raw": 0.5270104013976515,
+        "point": 55.48507995086489,
+        "point_raw": 0.5548507995086489
+      },
+      "composite_full": {
+        "hi": 58.23213028152956,
+        "hi_raw": 0.5823213028152956,
+        "lo": 52.701040139765155,
+        "lo_raw": 0.5270104013976515,
+        "point": 55.48507995086489,
+        "point_raw": 0.5548507995086489
+      },
+      "composite_static": {
+        "hi": 67.9233373913961,
+        "hi_raw": 0.679233373913961,
+        "lo": 62.01930257089381,
+        "lo_raw": 0.6201930257089381,
+        "point": 64.94213425230659,
+        "point_raw": 0.6494213425230659
+      },
+      "est_cost_usd": null,
+      "file_gb": null,
+      "hardware": {
+        "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+        "gpu": {
+          "driver": "610.62",
+          "name": "NVIDIA GeForce RTX 5090",
+          "vram_gb": 31.8,
+          "vram_mb": 32607
+        },
+        "os": "Windows-11-10.0.26200-SP0",
+        "ram_gb": null
+      },
+      "has_code_artifacts": true,
+      "index_version": "index-v4.0",
+      "lane": "bounded-final-v2",
+      "latency_s_median": 4.976,
+      "n_errors": 0,
+      "n_items": 1457,
+      "origin": "project_anchor",
+      "perf": {
+        "decode_tps": 63.08077976126481,
+        "per_bench": {
+          "amo": {
+            "decode_tps": 58.00989756595494,
+            "n": 39,
+            "prefill_tps": 818.7263862438515,
+            "prompt_ms_median": 290.303
+          },
+          "bfcl_multi_turn_base": {
+            "decode_tps": 63.52845037230136,
+            "n": 50,
+            "prefill_tps": 3089.3377639327746,
+            "prompt_ms_median": 1659.1509999999998
+          },
+          "bigcodebench_hard": {
+            "decode_tps": 59.142358704176225,
+            "n": 148,
+            "prefill_tps": 2354.921742269247,
+            "prompt_ms_median": 143.8295
+          },
+          "ifbench": {
+            "decode_tps": 66.31031636129205,
+            "n": 294,
+            "prefill_tps": 2265.3064914216293,
+            "prompt_ms_median": 197.7015
+          },
+          "mmlu_pro": {
+            "decode_tps": 62.29781215472496,
+            "n": 400,
+            "prefill_tps": 2188.9116364235247,
+            "prompt_ms_median": 156.77700000000002
+          },
+          "olymmath_hard": {
+            "decode_tps": 65.14029171946599,
+            "n": 100,
+            "prefill_tps": 612.4343708764959,
+            "prompt_ms_median": 255.67849999999999
+          },
+          "tc_json_v1": {
+            "decode_tps": 60.205071024856,
+            "n": 330,
+            "prefill_tps": 2791.134747767099,
+            "prompt_ms_median": 392.10400000000004
+          }
+        },
+        "predicted_ms_median": 29984.34,
+        "predicted_ms_p95": 152744.134,
+        "prefill_tps": 2425.0605565221463,
+        "prompt_ms_median": 252.63600000000002,
+        "prompt_ms_p95": 801.335,
+        "timings_coverage": 0.9341111873713109,
+        "timings_source": "llama.cpp",
+        "ttft_proxy_ms_median": 252.63600000000002
+      },
+      "quant_label": "Q4_K_M",
+      "ranked": true,
+      "run_id": "gemma-4-31b-it__gemma-4-31b-it-q4km-s2v5",
+      "runtime": {
+        "ctx_len_configured": 32768,
+        "kv_cache_quant": "k=f16,v=f16",
+        "name": "llama.cpp",
+        "parallel_slots": 1,
+        "version": "b9852/fd1a05791"
+      },
+      "score_status": "measured",
+      "static_index_version": "static-suite-v3",
+      "tier": "standard",
+      "tok_s": 385.436906882349,
+      "tokens_to_answer_median": 1918.0,
+      "tokens_to_answer_p95": 9318.0,
+      "trust_label": "project_anchor",
+      "verdict_source": "verifier",
+      "vram_footprint_gb": 18.323731456,
+      "vram_required_gb_8k": null,
+      "wall_time_seconds": 12580.048545999918
     }
   ],
   "slug": "gemma-4-31b-it"

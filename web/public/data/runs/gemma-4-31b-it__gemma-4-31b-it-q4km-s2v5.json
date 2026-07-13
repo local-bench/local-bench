@@ -1,0 +1,492 @@
+{
+  "agentic_provenance": "project_attested",
+  "axes": {
+    "coding": {
+      "conditional_accuracy": 0.33783783783783783,
+      "hi": 41.21621621621622,
+      "hi_raw": 0.41216216216216217,
+      "lo": 26.351351351351347,
+      "lo_raw": 0.2635135135135135,
+      "n": 148,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 33.78378378378378,
+      "point_raw": 0.33783783783783783,
+      "raw_accuracy": 0.33783783783783783,
+      "termination_rate": 1.0
+    },
+    "instruction": {
+      "conditional_accuracy": 0.797945205479452,
+      "hi": 84.01360544217688,
+      "hi_raw": 0.8401360544217688,
+      "lo": 74.48979591836735,
+      "lo_raw": 0.7448979591836735,
+      "n": 294,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 79.25170068027211,
+      "point_raw": 0.7925170068027211,
+      "raw_accuracy": 0.7925170068027211,
+      "termination_rate": 0.9931972789115646
+    },
+    "knowledge": {
+      "conditional_accuracy": 0.8875,
+      "hi": 90.73884340226117,
+      "hi_raw": 0.9073884340226117,
+      "lo": 83.72281567670144,
+      "lo_raw": 0.8372281567670145,
+      "n": 400,
+      "n_errors": 0,
+      "n_no_answer": 1,
+      "point": 87.3711500939925,
+      "point_raw": 0.873711500939925,
+      "raw_accuracy": 0.8875,
+      "termination_rate": 1.0
+    },
+    "math": {
+      "conditional_accuracy": 0.5150262768508597,
+      "hi": 56.11510791366906,
+      "hi_raw": 0.5611510791366906,
+      "lo": 39.568345323741006,
+      "lo_raw": 0.39568345323741005,
+      "n": 139,
+      "n_errors": 0,
+      "n_no_answer": 6,
+      "point": 48.201438848920866,
+      "point_raw": 0.48201438848920863,
+      "raw_accuracy": 0.48201438848920863,
+      "termination_rate": 0.935251798561151
+    },
+    "tool_use": {
+      "conditional_accuracy": 0.16095890410958905,
+      "hi": 24.752688172043015,
+      "hi_raw": 0.24752688172043014,
+      "lo": 11.09074100513992,
+      "lo_raw": 0.1109074100513992,
+      "n": 146,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 17.65686274509804,
+      "point_raw": 0.1765686274509804,
+      "raw_accuracy": 0.16095890410958905,
+      "termination_rate": 1.0
+    }
+  },
+  "axis_status": {
+    "bfcl_multi_turn_long_context": {
+      "axis": "bfcl_multi_turn_long_context",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "bfcl_single_turn": {
+      "axis": "bfcl_single_turn",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "call_formatting": {
+      "axis": "call_formatting",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "coding": {
+      "axis": "coding",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "instruction_following": {
+      "axis": "instruction_following",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "knowledge": {
+      "axis": "knowledge",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "long_context": {
+      "axis": "long_context",
+      "reason": "not_run",
+      "status": "not_measured"
+    },
+    "math": {
+      "axis": "math",
+      "reason": "ok",
+      "status": "measured"
+    },
+    "tool_use": {
+      "axis": "tool_use",
+      "reason": "ok",
+      "status": "measured"
+    }
+  },
+  "composite": {
+    "hi": 58.23213028152956,
+    "hi_raw": 0.5823213028152956,
+    "lo": 52.701040139765155,
+    "lo_raw": 0.5270104013976515,
+    "point": 55.48507995086489,
+    "point_raw": 0.5548507995086489
+  },
+  "composite_full": {
+    "hi": 58.23213028152956,
+    "hi_raw": 0.5823213028152956,
+    "lo": 52.701040139765155,
+    "lo_raw": 0.5270104013976515,
+    "point": 55.48507995086489,
+    "point_raw": 0.5548507995086489
+  },
+  "composite_static": {
+    "hi": 67.9233373913961,
+    "hi_raw": 0.679233373913961,
+    "lo": 62.01930257089381,
+    "lo_raw": 0.6201930257089381,
+    "point": 64.94213425230659,
+    "point_raw": 0.6494213425230659
+  },
+  "conformance": {
+    "n_scored": 1457,
+    "per_bench": {
+      "amo": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.07692307692307693,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 39,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "budget_cap_hit_rate=8% - visible scored cap hits, not exclusions"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.07692307692307693
+      },
+      "appworld_c": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 1.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 96,
+        "no_final_answer_rate": 1.0,
+        "reasons": [
+          "empty_final_rate=100% - scored as zero, not an automatic exclusion"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      },
+      "bfcl_multi_turn_base": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 50,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      },
+      "bigcodebench_hard": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 148,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      },
+      "ifbench": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.006802721088435374,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 294,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "budget_cap_hit_rate=1% - visible scored cap hits, not exclusions"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.006802721088435374
+      },
+      "mmlu_pro": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 400,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      },
+      "olymmath_hard": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.06,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 100,
+        "no_final_answer_rate": 0.0,
+        "reasons": [
+          "budget_cap_hit_rate=6% - visible scored cap hits, not exclusions"
+        ],
+        "status": "headline-comparable",
+        "truncation_rate": 0.06
+      },
+      "tc_json_v1": {
+        "ambiguous_or_contaminated_final_rate": 0.0,
+        "budget_cap_hit_rate": 0.0,
+        "empty_final_rate": 0.0,
+        "forced": false,
+        "leaked_reasoning_rate": 0.0,
+        "measurement_truncation_rate": 0.0,
+        "n_scored": 330,
+        "no_final_answer_rate": 0.0,
+        "reasons": [],
+        "status": "headline-comparable",
+        "truncation_rate": 0.0
+      }
+    },
+    "reasons": [],
+    "status": "headline-comparable",
+    "worst_bench": null
+  },
+  "contamination_label": "unverified",
+  "data_warnings": [
+    "tool_use chance_corrected differs from item-derived mean; stale/inconsistent run JSON",
+    "coding chance_corrected differs from item-derived mean; stale/inconsistent run JSON"
+  ],
+  "est_cost_usd": null,
+  "has_code_artifacts": true,
+  "index_version": "index-v4.0",
+  "item_set_hashes": {
+    "bfcl.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
+    "bfcl_multi_turn_long_context.jsonl": "c6f642197ab070573fc353bb7265e7efc813addc27eb59b66358830b68b6a1b2",
+    "coding.jsonl": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e",
+    "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
+    "knowledge.jsonl": "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4",
+    "math-part2.jsonl": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b",
+    "math.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
+    "ruler_32k.jsonl": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540",
+    "tc_json_v1.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74",
+    "tool_use.jsonl": "41e5691e87d5c46f12ea19e2bcfe45cb019d83b279c6f1a640bf7ab203c3eec2"
+  },
+  "kind": "maintainer_project",
+  "manifest_summary": {
+    "caps": {
+      "max_tokens_math": 0,
+      "max_tokens_mcq": 16384,
+      "thinking_budget": 8192
+    },
+    "hardware": {
+      "cpu": "AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD",
+      "gpu": {
+        "driver": "610.62",
+        "name": "NVIDIA GeForce RTX 5090",
+        "vram_gb": 31.8,
+        "vram_mb": 32607
+      },
+      "os": "Windows-11-10.0.26200-SP0",
+      "ram_gb": null
+    },
+    "lane": "bounded-final-v2",
+    "model": {
+      "family": "gemma4",
+      "file_name": "gemma-4-31B-it-Q4_K_M.gguf",
+      "file_sha256": "9fdf3dc8b0384830b4402d151388c140bd8eb2abf8d60588d8224231198254a1",
+      "file_size_bytes": 18323731456,
+      "format": "GGUF",
+      "runtime_reported_model": "gemma-4-31b-it-q4-k-m"
+    },
+    "quant": "Q4_K_M",
+    "runtime": {
+      "ctx_len_configured": 32768,
+      "kv_cache_quant": "k=f16,v=f16",
+      "name": "llama.cpp",
+      "parallel_slots": 1,
+      "version": "b9852/fd1a05791"
+    },
+    "sampling": {
+      "by_bench": {
+        "coding": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "instruction": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "knowledge": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "math": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "tc_json_v1": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
+        "tool_use": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        }
+      },
+      "determinism_policy": {
+        "claim": "best-effort same-stack reproducibility; not bitwise cross-stack determinism",
+        "client": {
+          "concurrency": 1,
+          "seed": 1234,
+          "temperature": 0,
+          "top_k": 1
+        },
+        "known_limits": [
+          "GPU floating-point non-associativity",
+          "kernel/library changes",
+          "driver changes",
+          "batching/scheduler changes",
+          "timeout/VRAM pressure effects"
+        ],
+        "policy_id": "gpu-greedy-single-slot-v1",
+        "scope": [
+          "same model artifact hash",
+          "same runtime binary/container digest",
+          "same GPU architecture",
+          "same driver/runtime family",
+          "same serve flags",
+          "same localbench suite hash"
+        ],
+        "server": {
+          "continuous_batching": false,
+          "llama_cont_batching": false,
+          "parallel_slots": 1,
+          "vllm_batch_invariant": true,
+          "vllm_max_num_seqs": 1
+        }
+      },
+      "execution_profile_id": "gemma4_channel_8192_v1",
+      "min_p": null,
+      "seed": 1234,
+      "temperature": 0.0,
+      "thinking_mode": "n/a",
+      "top_k": 1,
+      "top_p": null
+    },
+    "thinking_mode": "n/a"
+  },
+  "model_label": "Gemma 4 31B IT",
+  "origin": "project_anchor",
+  "perf": {
+    "decode_tps": 63.08077976126481,
+    "per_bench": {
+      "amo": {
+        "decode_tps": 58.00989756595494,
+        "n": 39,
+        "prefill_tps": 818.7263862438515,
+        "prompt_ms_median": 290.303
+      },
+      "bfcl_multi_turn_base": {
+        "decode_tps": 63.52845037230136,
+        "n": 50,
+        "prefill_tps": 3089.3377639327746,
+        "prompt_ms_median": 1659.1509999999998
+      },
+      "bigcodebench_hard": {
+        "decode_tps": 59.142358704176225,
+        "n": 148,
+        "prefill_tps": 2354.921742269247,
+        "prompt_ms_median": 143.8295
+      },
+      "ifbench": {
+        "decode_tps": 66.31031636129205,
+        "n": 294,
+        "prefill_tps": 2265.3064914216293,
+        "prompt_ms_median": 197.7015
+      },
+      "mmlu_pro": {
+        "decode_tps": 62.29781215472496,
+        "n": 400,
+        "prefill_tps": 2188.9116364235247,
+        "prompt_ms_median": 156.77700000000002
+      },
+      "olymmath_hard": {
+        "decode_tps": 65.14029171946599,
+        "n": 100,
+        "prefill_tps": 612.4343708764959,
+        "prompt_ms_median": 255.67849999999999
+      },
+      "tc_json_v1": {
+        "decode_tps": 60.205071024856,
+        "n": 330,
+        "prefill_tps": 2791.134747767099,
+        "prompt_ms_median": 392.10400000000004
+      }
+    },
+    "predicted_ms_median": 29984.34,
+    "predicted_ms_p95": 152744.134,
+    "prefill_tps": 2425.0605565221463,
+    "prompt_ms_median": 252.63600000000002,
+    "prompt_ms_p95": 801.335,
+    "timings_coverage": 0.9341111873713109,
+    "timings_source": "llama.cpp",
+    "ttft_proxy_ms_median": 252.63600000000002
+  },
+  "ranked": true,
+  "run_id": "gemma-4-31b-it__gemma-4-31b-it-q4km-s2v5",
+  "scorecard": {
+    "current_id": "4911710b0f946a6c303d9aebb6304adf070193758f0ff5d0ec485e6c6a66863b",
+    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+    "drift": true,
+    "execution_profile_id": "gemma4_channel_8192_v1",
+    "id": "0eef62af16e2a80d2c45bcbec9caab13724adbc358cdeb2ebc3db7ab8063933a",
+    "registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+    "registry_drift": false,
+    "version": "5"
+  },
+  "static_index_version": "static-suite-v3",
+  "suite_version": "suite-v2",
+  "tier": "standard",
+  "tokens_to_answer_median": 1918.0,
+  "tokens_to_answer_p95": 9318.0,
+  "totals": {
+    "completion_tokens": 4848815,
+    "completion_tokens_per_second": 385.436906882349,
+    "n_errors": 0,
+    "n_items": 1457,
+    "prompt_tokens": 5527046,
+    "total_tokens": 10375861,
+    "wall_time_seconds": 12580.048545999918
+  },
+  "trust_label": "project_anchor",
+  "verdict_source": "verifier",
+  "worst_axis": {
+    "bench": "tool_use",
+    "point": 17.65686274509804,
+    "point_raw": 0.1765686274509804
+  }
+}

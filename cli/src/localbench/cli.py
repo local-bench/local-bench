@@ -747,6 +747,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     compose_parser.add_argument("--record", type=Path, required=True)
     compose_parser.add_argument("--partial", type=Path, required=True)
+    compose_parser.add_argument(
+        "--coding-verified",
+        type=Path,
+        help="sandbox verifier output used to strictly patch the parent record",
+    )
     compose_parser.add_argument("--out", type=Path, required=True)
     tc_json_parser = subparsers.add_parser("tc-json", help="run the tc_json_v1 Tool-calling axis")
     tc_json_parser.add_argument("--endpoint", required=True, help="OpenAI-compatible base URL")
@@ -2525,7 +2530,12 @@ def _land_run(args: argparse.Namespace) -> int:
 
 def _compose_facet_backfill(args: argparse.Namespace) -> int:
     try:
-        result = compose_facet_backfill(args.record, args.partial, args.out)
+        result = compose_facet_backfill(
+            args.record,
+            args.partial,
+            args.out,
+            coding_verified_path=args.coding_verified,
+        )
     except (FacetBackfillError, OSError, json.JSONDecodeError, ValueError) as error:
         print(f"error      {error}")
         return 2

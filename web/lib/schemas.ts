@@ -85,7 +85,7 @@ export const ScorecardSummarySchema = z.object({
   version: z.string().nullable(),
 });
 
-export const KindSchema = z.enum(["anchor", "community"]);
+export const KindSchema = z.enum(["anchor", "community", "maintainer_project"]);
 export const ScoreStatusSchema = z.enum(["measured", "missing"]);
 export const BoardOriginSchema = z.enum(["project_anchor", "community", "community_submission"]);
 export const AgenticProvenanceSchema = z.enum(["none", "project_attested", "self_reported"]);

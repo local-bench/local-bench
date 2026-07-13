@@ -7,8 +7,8 @@ import { CompareCoverageChip, compareCoverageLabel } from "@/components/compare-
 import {
   ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
-  LOCAL_INTELLIGENCE_INDEX_PROFILE,
-  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+  indexProfileForAxes,
+  indexQualifierForAxes,
 } from "@/components/local-intelligence-index";
 import { axisLabel, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
 import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
@@ -93,7 +93,7 @@ export function ComparePicker({
         {canCompareIndex ? (
           <DeltaCard
             label={`${LOCAL_INTELLIGENCE_INDEX_NAME} delta`}
-            note={`${LOCAL_INTELLIGENCE_INDEX_QUALIFIER}. ${LOCAL_INTELLIGENCE_INDEX_PROFILE} deltas appear below.`}
+            note={`${indexQualifierForAxes(left.axes)}. ${indexProfileForAxes(left.axes)} deltas appear below.`}
             value={formatSigned(left.composite.point - right.composite.point)}
           />
         ) : null}
@@ -215,7 +215,7 @@ function ScoreLabel({ config }: { readonly config: CompareConfig }) {
   return (
     <span className="flex flex-col gap-0.5 leading-tight">
       <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
-      <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+      <span className="font-mono text-[10px] normal-case text-bench-muted">{indexQualifierForAxes(config.axes)}</span>
     </span>
   );
 }

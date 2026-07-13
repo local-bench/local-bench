@@ -57,10 +57,11 @@ def build_board(
         default_index_version=fallback_index_version,
     )
     board_suite_version = suite_version(scored)
-    index_versions = {run["index_version"] for run in scored}
+    ranked = [run for run in scored if run["ranked"]]
+    index_versions = {run["index_version"] for run in ranked}
     if len(index_versions) > 1:
         raise BoardBuildError(
-            "board build cannot merge mixed index_version labels: " + ", ".join(sorted(index_versions)),
+            "board build cannot merge mixed ranked index_version labels: " + ", ".join(sorted(index_versions)),
         )
     board_index_version = next(iter(index_versions), fallback_index_version)
     return {
@@ -72,7 +73,7 @@ def build_board(
         "dataset_version": DATASET_VERSION,
         "lane_scope": BOUNDED_FINAL_V2_LANE_SPEC_ID,
         "generated_at": timestamp,
-        "models": model_rows(scored),
+        "models": model_rows(scored, board_index_version=board_index_version),
         "manifest": release_manifest(
             scored,
             skipped=skipped,

@@ -14,34 +14,19 @@
     {
       "agentic_provenance": "project_attested",
       "axes": {
-        "agentic": {
-          "conditional_accuracy": 0.09375,
-          "hi": 15.625,
-          "hi_raw": 0.15625,
-          "lo": 4.166666666666666,
-          "lo_raw": 0.041666666666666664,
-          "n": 96,
-          "n_errors": 0,
-          "n_no_answer": 0,
-          "point": 9.375,
-          "point_raw": 0.09375,
-          "raw_accuracy": 0.09375,
-          "termination_rate": 1.0
-        },
         "coding": {
-          "conditional_accuracy": 0.3,
-          "hi": 37.5886524822695,
-          "hi_raw": 0.375886524822695,
-          "lo": 22.69503546099291,
-          "lo_raw": 0.22695035460992907,
-          "n": 141,
+          "conditional_accuracy": 0.28378378378378377,
+          "hi": 35.810810810810814,
+          "hi_raw": 0.3581081081081081,
+          "lo": 20.945945945945947,
+          "lo_raw": 0.20945945945945946,
+          "n": 148,
           "n_errors": 0,
           "n_no_answer": 0,
-          "n_unscoreable": 7,
-          "point": 29.78723404255319,
-          "point_raw": 0.2978723404255319,
-          "raw_accuracy": 0.2978723404255319,
-          "termination_rate": 0.9929078014184397
+          "point": 28.37837837837838,
+          "point_raw": 0.28378378378378377,
+          "raw_accuracy": 0.28378378378378377,
+          "termination_rate": 1.0
         },
         "instruction": {
           "conditional_accuracy": 0.6159420289855072,
@@ -85,32 +70,41 @@
           "raw_accuracy": 0.2589928057553957,
           "termination_rate": 0.697841726618705
         },
-        "tool_calling": {
-          "conditional_accuracy": 0.7393939393939394,
-          "hi": 78.48484848484848,
-          "hi_raw": 0.7848484848484848,
-          "lo": 69.0909090909091,
-          "lo_raw": 0.6909090909090909,
-          "n": 330,
+        "tool_use": {
+          "conditional_accuracy": 0.14383561643835616,
+          "hi": 22.224610555684727,
+          "hi_raw": 0.22224610555684726,
+          "lo": 9.403274711946635,
+          "lo_raw": 0.09403274711946635,
+          "n": 146,
           "n_errors": 0,
-          "n_no_answer": 1,
-          "point": 73.93939393939394,
-          "point_raw": 0.7393939393939394,
-          "raw_accuracy": 0.7393939393939394,
+          "n_no_answer": 0,
+          "point": 15.397058823529411,
+          "point_raw": 0.1539705882352941,
+          "raw_accuracy": 0.14383561643835616,
           "termination_rate": 1.0
         }
       },
       "axis_status": {
-        "agentic": {
-          "axis": "agentic",
-          "reason": "ok",
-          "status": "measured"
+        "bfcl_multi_turn_long_context": {
+          "axis": "bfcl_multi_turn_long_context",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "bfcl_single_turn": {
+          "axis": "bfcl_single_turn",
+          "reason": "not_run",
+          "status": "not_measured"
+        },
+        "call_formatting": {
+          "axis": "call_formatting",
+          "reason": "not_run",
+          "status": "not_measured"
         },
         "coding": {
           "axis": "coding",
-          "detail": "BigCodeBench-Hard artifacts generated; verifier verdict pending",
-          "reason": "verdict_pending",
-          "status": "generated_unverified"
+          "reason": "ok",
+          "status": "measured"
         },
         "instruction_following": {
           "axis": "instruction_following",
@@ -132,52 +126,36 @@
           "reason": "ok",
           "status": "measured"
         },
-        "tool_calling": {
-          "axis": "tool_calling",
+        "tool_use": {
+          "axis": "tool_use",
           "reason": "ok",
           "status": "measured"
         }
       },
       "bpw": 4.85,
       "composite": {
-        "hi": 41.12525207486963,
-        "hi_raw": 0.4112525207486963,
-        "lo": 34.5812850455642,
-        "lo_raw": 0.345812850455642,
-        "point": 37.63372627211937,
-        "point_raw": 0.37633726272119367
+        "hi": 47.92899088798103,
+        "hi_raw": 0.4792899088798103,
+        "lo": 42.33152543040187,
+        "lo_raw": 0.4233152543040187,
+        "point": 45.12494541039189,
+        "point_raw": 0.45124945410391887
       },
       "composite_full": {
-        "hi": 41.12525207486963,
-        "hi_raw": 0.4112525207486963,
-        "lo": 34.5812850455642,
-        "lo_raw": 0.345812850455642,
-        "point": 37.63372627211937,
-        "point_raw": 0.37633726272119367
+        "hi": 47.92899088798103,
+        "hi_raw": 0.4792899088798103,
+        "lo": 42.33152543040187,
+        "lo_raw": 0.4233152543040187,
+        "point": 45.12494541039189,
+        "point_raw": 0.45124945410391887
       },
       "composite_static": {
-        "hi": 60.46794452321442,
-        "hi_raw": 0.6046794452321442,
-        "lo": 55.32769198284592,
-        "lo_raw": 0.5532769198284592,
-        "point": 57.87981655897675,
-        "point_raw": 0.5787981655897675
-      },
-      "conformance_gates": {
-        "tc_json_v1": {
-          "band": "amber",
-          "band_reasons": [],
-          "id": "tc_json_v1",
-          "invalid_json_rate": 0.30303030303030304,
-          "label": "Tool-calling",
-          "n_items": 330,
-          "pass_rate": {
-            "hi": 78.38075522205723,
-            "lo": 68.94709931049248,
-            "point": 73.93939393939394
-          },
-          "threshold_version": "tc_json_v1"
-        }
+        "hi": 55.62104131542001,
+        "hi_raw": 0.5562104131542001,
+        "lo": 49.487356574038394,
+        "lo_raw": 0.49487356574038394,
+        "point": 52.5569170571075,
+        "point_raw": 0.525569170571075
       },
       "est_cost_usd": null,
       "file_gb": 15.7,
@@ -193,19 +171,26 @@
         "ram_gb": null
       },
       "has_code_artifacts": true,
+      "index_version": "index-v4.0",
       "lane": "bounded-final-v2",
-      "latency_s_median": 25.154,
+      "latency_s_median": 25.451,
       "n_errors": 0,
-      "n_items": 1407,
+      "n_items": 1457,
       "origin": "project_anchor",
       "perf": {
-        "decode_tps": 70.90706508036625,
+        "decode_tps": 70.96000347474812,
         "per_bench": {
           "amo": {
             "decode_tps": 66.76249535930448,
             "n": 39,
             "prefill_tps": 1250.5872772764988,
             "prompt_ms_median": 197.14
+          },
+          "bfcl_multi_turn_base": {
+            "decode_tps": 72.54313450715513,
+            "n": 50,
+            "prefill_tps": 3324.404306887385,
+            "prompt_ms_median": 1976.373
           },
           "bigcodebench_hard": {
             "decode_tps": 66.60187042597204,
@@ -238,18 +223,18 @@
             "prompt_ms_median": 471.4035
           }
         },
-        "predicted_ms_median": 21552.966,
-        "predicted_ms_p95": 216506.34600000002,
-        "prefill_tps": 2641.8000022474116,
-        "prompt_ms_median": 386.3,
-        "prompt_ms_p95": 1392.9825,
-        "timings_coverage": 0.9317697228144989,
+        "predicted_ms_median": 22347.398,
+        "predicted_ms_p95": 216472.391,
+        "prefill_tps": 2729.1008493726317,
+        "prompt_ms_median": 396.06899999999996,
+        "prompt_ms_p95": 1874.07,
+        "timings_coverage": 0.9341111873713109,
         "timings_source": "llama.cpp",
-        "ttft_proxy_ms_median": 386.3
+        "ttft_proxy_ms_median": 396.06899999999996
       },
       "quant_label": "Q4_K_M",
       "ranked": true,
-      "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-bounded-final-v2",
+      "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5",
       "runtime": {
         "ctx_len_configured": 32768,
         "kv_cache_quant": "k=f16,v=f16",
@@ -258,10 +243,10 @@
         "version": "b9852/fd1a05791"
       },
       "score_status": "measured",
-      "static_index_version": "static-suite-v2",
+      "static_index_version": "static-suite-v3",
       "tier": "standard",
-      "tok_s": 61.661321407775176,
-      "tokens_to_answer_median": 1551.0,
+      "tok_s": 63.77079230297856,
+      "tokens_to_answer_median": 1623.0,
       "tokens_to_answer_p95": 16384.0,
       "trust_label": "project_anchor",
       "verdict_source": "verifier",
