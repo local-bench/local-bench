@@ -15,7 +15,7 @@ from localbench.submissions.foundation_scores import axis_projection, score_summ
 def test_normal_run_composite_honors_facets_under_skewed_item_counts() -> None:
     benches = _skewed_tool_use_benches()
 
-    assert composite(benches) == pytest.approx(0.50)
+    assert composite(benches) == pytest.approx(10 / 17)
 
 
 def test_submission_projection_honors_facets_under_skewed_item_counts() -> None:
@@ -24,8 +24,8 @@ def test_submission_projection_honors_facets_under_skewed_item_counts() -> None:
 
     projection = axis_projection(benches, status)
 
-    assert projection["tool_use"]["score"] == pytest.approx(0.50)
-    assert projection["tool_use"]["n"] == 476
+    assert projection["tool_use"]["score"] == pytest.approx(10 / 17, abs=1e-4)
+    assert projection["tool_use"]["n"] == 146
 
 
 def test_board_point_ci_and_source_allocation_honor_facets() -> None:
@@ -43,11 +43,11 @@ def test_board_point_ci_and_source_allocation_honor_facets() -> None:
         web_composite_weights(),
     )
 
-    assert axes["tool_use"]["point_raw"] == pytest.approx(0.50)
-    assert axes["tool_use"]["raw_accuracy"] == pytest.approx(0.50)
-    assert source_weights["appworld_c"] == pytest.approx(0.10)
-    assert source_weights["bfcl_multi_turn_base"] == pytest.approx(0.07)
-    assert source_weights["tc_json_v1"] == pytest.approx(0.03)
+    assert axes["tool_use"]["point_raw"] == pytest.approx(10 / 17)
+    assert axes["tool_use"]["raw_accuracy"] == pytest.approx(10 / 17)
+    assert source_weights["appworld_c"] == pytest.approx(2 / 17)
+    assert source_weights["bfcl_multi_turn_base"] == pytest.approx(7 / 85)
+    assert "tc_json_v1" not in source_weights
 
 
 def test_missing_tool_use_facet_fails_closed_in_all_cli_paths() -> None:
@@ -77,7 +77,7 @@ def test_missing_tool_use_facet_fails_closed_in_all_cli_paths() -> None:
     ) is None
 
 
-def test_experimental_bfcl_benches_never_enter_composite() -> None:
+def test_experimental_benches_never_enter_composite() -> None:
     weighted = _skewed_tool_use_benches()
     with_diagnostics = {
         **weighted,
@@ -90,6 +90,7 @@ def test_experimental_bfcl_benches_never_enter_composite() -> None:
         {
             "bfcl": _aggregate(300, 1.0),
             "bfcl_multi_turn_long_context": _aggregate(50, 1.0),
+            "tc_json_v1": _aggregate(330, 1.0),
         },
     ) == 0.0
 

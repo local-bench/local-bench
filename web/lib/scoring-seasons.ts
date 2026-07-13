@@ -31,26 +31,20 @@ export const TOOL_USE_FACETS = [
     key: "agentic",
     label: "Agentic",
     bench: "appworld_c",
-    weight: 0.5,
+    weight: 10 / 17,
     construct: "Observation-conditioned iterative agency (AppWorld Test-Normal task-goal completion)",
   },
   {
     key: "multi_turn_tool_control",
     label: "Multi-turn tool control",
     bench: "bfcl_multi_turn_base",
-    weight: 0.35,
+    weight: 7 / 17,
     construct: "Stateful tool sequencing across the BFCL multi-turn base split",
-  },
-  {
-    key: "call_formatting",
-    label: "Call formatting",
-    bench: "tc_json_v1",
-    weight: 0.15,
-    construct: "Strict JSON envelope, tool selection, and argument-schema conformance",
   },
 ] as const;
 
 export const SEASON_2_DIAGNOSTICS = [
+  { key: "call_formatting", label: "Call formatting", bench: "tc_json_v1", coverageRequired: true },
   { key: "bfcl_single_turn", label: "BFCL single-turn" },
   { key: "bfcl_multi_turn_long_context", label: "BFCL multi-turn long-context" },
   { key: "long_context", label: "RULER 32K", bench: "ruler_32k" },

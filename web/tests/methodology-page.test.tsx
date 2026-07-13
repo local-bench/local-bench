@@ -96,8 +96,9 @@ describe("MethodologyPage", () => {
     expect(text).toContain("bench-normalized weighted mean");
     expect(text).toContain("not item-count pooling");
     expect(text).toContain("AppWorld Test-Normal");
-    expect(text).toContain("BFCL single-turn, BFCL multi-turn long-context, RULER 32K");
-    expect(text).toContain("never weighted, never required for coverage, and never used for ranking");
+    expect(text).toContain("Call formatting, BFCL single-turn, BFCL multi-turn long-context, RULER 32K");
+    expect(text).toContain("Call formatting remains coverage-required and powers the separate tc_json conformance gate");
+    expect(text).toContain("never weighted and never used for ranking");
     expect(text).toContain("the only sanctioned pairing");
     expect(text).toContain("A partial v4 composite is never displayed or ranked");
   });

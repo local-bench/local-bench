@@ -43,7 +43,7 @@ def test_board_json_matches_index_schema_shape(tmp_path: Path) -> None:
     assert {"generated_note", "schema_version", "index_version", "suite_version"} <= set(board)
     assert {"scoring_version", "dataset_version", "lane_scope", "generated_at", "models", "manifest"} <= set(board)
     assert board["schema_version"] == "board-v2"
-    assert board["scoring_version"] == "4"
+    assert board["scoring_version"] == "5"
     # The board's scope label is the live headline lane (bounded-final-v2), independent of
     # the legacy LANE_SCOPE constant that gates pre-v3 rows.
     assert board["lane_scope"] == "bounded-final-v2"
@@ -278,7 +278,7 @@ def test_appworld_c_agentic_facet_contributes_to_tool_use_macro_axis(tmp_path: P
         + (weights["instruction"] * float_value(instruction["point_raw"]))
         + (weights["coding"] * float_value(coding["point_raw"]))
     ) / (weights["tool_use"] + weights["knowledge"] + weights["instruction"] + weights["coding"])
-    assert tool_use["n"] == 8
+    assert tool_use["n"] == 6
     assert tool_use["raw_accuracy"] == pytest.approx(0.5)
     assert composite["point_raw"] == pytest.approx(expected)
     # AppWorld-C uses a SINGLE stratum + scenario cluster so the bootstrap resamples
@@ -429,8 +429,8 @@ def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
     # provenance is surfaced on the row.
     model = objects_value(board["models"])[0]
     tool_use = object_value(object_value(model["axes"])["tool_use"])
-    assert tool_use["n"] == 8
-    assert tool_use["raw_accuracy"] == pytest.approx(0.625)
+    assert tool_use["n"] == 6
+    assert tool_use["raw_accuracy"] == pytest.approx(11 / 17)
     provenance = object_value(model["agentic_run"])
     assert provenance["mean_asr"] == pytest.approx(0.75)
     assert provenance["campaign"] is True
@@ -526,14 +526,14 @@ def test_tool_use_axis_surfaces_from_complete_inline_facets(tmp_path: Path) -> N
         bootstrap_iters=50,
     )
 
-    # Then: tool_use surfaces from all three facets with declared weights.
+    # Then: tool_use surfaces from both headline facets with declared weights.
     model = objects_value(board["models"])[0]
     axes = object_value(model["axes"])
     assert "tool_use" in axes
     tool = object_value(axes["tool_use"])
     assert_axis(tool)
-    assert tool["n"] == 8
-    assert tool["raw_accuracy"] == pytest.approx(0.5375)
+    assert tool["n"] == 4
+    assert tool["raw_accuracy"] == pytest.approx(0.5)
 
 
 def test_missing_gemma_run_is_skipped_gracefully(tmp_path: Path) -> None:

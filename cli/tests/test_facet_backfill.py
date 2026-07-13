@@ -72,7 +72,6 @@ def test_composer_happy_path_passes_coverage_rescore_and_preserves_original(
     assert set(result["season2_rescore"]["axes"]["tool_use"]["facets"]) == {
         "agentic",
         "multi_turn_tool_control",
-        "call_formatting",
     }
     assert result["facet_backfill"]["attached_item_count"] == 50
     assert result["facet_backfill"]["partial_campaign_status"]["completeness_check"] == (

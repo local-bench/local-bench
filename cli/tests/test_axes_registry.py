@@ -66,7 +66,7 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert BENCH_DOMAINS["bfcl_multi_turn_base"] == "Tool Use"
     assert BENCH_DOMAINS["bigcodebench_hard"] == "Coding"
     assert BENCH_DOMAINS["lcb"] == "Coding"
-    assert BENCH_DOMAINS["tc_json_v1"] == "Tool Use"
+    assert BENCH_DOMAINS["tc_json_v1"] == "Call Formatting"
     assert BENCH_DOMAINS["bfcl"] == "BFCL Single-Turn"
     assert BENCH_DOMAINS["bfcl_multi_turn_long_context"] == "BFCL Multi-Turn Long-Context"
 
@@ -90,7 +90,7 @@ def test_web_derivations_track_the_registry() -> None:
     assert groups["knowledge"] == (("mmlu_pro",), ("supergpqa",))
     assert groups["instruction"] == (("ifbench",), ("ifeval",))
     assert groups["math"] == (("olymmath_hard", "amo"), ("genmath",))
-    assert groups["tool_use"] == (("appworld_c", "bfcl_multi_turn_base", "tc_json_v1"),)
+    assert groups["tool_use"] == (("appworld_c", "bfcl_multi_turn_base"),)
     assert groups["coding"] == (("bigcodebench_hard",), ("lcb",))
 
 
@@ -99,22 +99,22 @@ def test_tool_use_macro_axis_declares_bench_normalized_facets() -> None:
 
     assert axis.display == "Tool Use"
     assert axis.web_key == "tool_use"
-    assert axis.benches == ("appworld_c", "bfcl_multi_turn_base", "tc_json_v1")
+    assert axis.benches == ("appworld_c", "bfcl_multi_turn_base")
     assert axis.legacy_benches == ()
     assert axis.role == "headline"
     assert axis.weight == 0.20
     assert axis.web_display is True
     assert axis.facets == (
-        FacetSpec("agentic", "appworld_c", 0.50),
-        FacetSpec("multi_turn_tool_control", "bfcl_multi_turn_base", 0.35),
-        FacetSpec("call_formatting", "tc_json_v1", 0.15),
+        FacetSpec("agentic", "appworld_c", 10 / 17),
+        FacetSpec("multi_turn_tool_control", "bfcl_multi_turn_base", 7 / 17),
     )
 
 
-def test_bfcl_diagnostics_are_experimental_and_unweighted() -> None:
+def test_diagnostics_are_experimental_and_unweighted() -> None:
     diagnostics = [axis for axis in AXES if axis.role == "experimental"]
 
     assert {axis.benches for axis in diagnostics} == {
+        ("tc_json_v1",),
         ("bfcl",),
         ("bfcl_multi_turn_long_context",),
     }
@@ -212,9 +212,17 @@ def test_suite_v2_manifest_membership_matches_registry_drift_gate() -> None:
     manifest = json.loads(_SUITE_V2.read_text(encoding="utf-8"))
     manifest_axes = manifest["axes"]
     registry = axis_membership()
-    assert set(manifest_axes) == set(registry)
+    # The suite identity is immutable: tc_json_v1 remains in its original tool_use
+    # coverage bucket even though the live registry publishes it as an experimental
+    # call-formatting diagnostic.
+    assert set(manifest_axes) == set(registry) - {"call_formatting"}
     for axis, members in registry.items():
-        assert set(manifest_axes[axis]["benches"]) == set(members), axis
+        if axis == "call_formatting":
+            assert set(members) == {"tc_json_v1"}
+        elif axis == "tool_use":
+            assert set(manifest_axes[axis]["benches"]) == set(members) | {"tc_json_v1"}
+        else:
+            assert set(manifest_axes[axis]["benches"]) == set(members), axis
 
 
 def test_suite_v2_manifest_carries_no_weight_numbers() -> None:

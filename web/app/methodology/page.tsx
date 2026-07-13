@@ -138,17 +138,18 @@ export default async function MethodologyPage() {
           </table>
         </div>
         <p className="text-sm">
-          These are draft, calibration-tunable weights. The table and board breakdown read the same constants, so
-          finalizing calibration is a one-place change.
+          These are the final ratio-preserving weights after calibration. The table and board breakdown read the same
+          constants, so the published split remains a one-place definition.
         </p>
 
         <div className="space-y-2 border-t border-bench-line pt-4">
-          <h3 className="text-lg font-semibold text-bench-text">Opt-in diagnostics</h3>
+          <h3 className="text-lg font-semibold text-bench-text">Unweighted diagnostics</h3>
           <p>
             {SEASON_2_DIAGNOSTICS.map((diagnostic) => diagnostic.label).join(", ")} are displayed when a result carries
-            them. They are never weighted, never required for coverage, and never used for ranking. BFCL single-turn
-            overlaps the call-formatting material; BFCL multi-turn long-context and RULER 32K also mix capability with
-            context and cache limits, so they remain diagnostic evidence rather than headline score inputs.
+            them. They are never weighted and never used for ranking. Call formatting remains coverage-required and
+            powers the separate tc_json conformance gate; the other diagnostics are opt-in and not coverage-required.
+            BFCL single-turn overlaps the call-formatting material; BFCL multi-turn long-context and RULER 32K also mix
+            capability with context and cache limits, so they remain diagnostic evidence rather than headline score inputs.
           </p>
         </div>
 

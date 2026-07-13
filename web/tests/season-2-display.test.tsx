@@ -37,7 +37,8 @@ describe("additive season board display", () => {
     expect(html).not.toContain("Tool calling");
     expect(html).not.toContain("Static Index");
     expect(html).toContain("facet breakdown");
-    expect(html).toContain("Multi-turn tool control · 35%");
+    expect(html).toContain("Agentic · 59%");
+    expect(html).toContain("Multi-turn tool control · 41%");
     expect(html).toContain("Diagnostics · unweighted");
     expect(html).toContain("BFCL single-turn");
     expect(html).toContain("index-v3.0 bridge 41.0");
@@ -99,15 +100,15 @@ function season2Fixture(slug: string, v4Point: number, v3Point: number): IndexMo
         ...SCORE,
         point: 55,
         facets: {
-          agentic: facet(50, "appworld_c", 0.5),
-          multi_turn_tool_control: facet(60, "bfcl_multi_turn_base", 0.35),
-          call_formatting: facet(45, "tc_json_v1", 0.15),
+          agentic: facet(50, "appworld_c", 10 / 17),
+          multi_turn_tool_control: facet(60, "bfcl_multi_turn_base", 7 / 17),
         },
       },
       knowledge: SCORE,
       instruction: SCORE,
       coding: SCORE,
       math: SCORE,
+      call_formatting: { ...SCORE, point: 45 },
       bfcl_single_turn: { ...SCORE, point: 44 },
     },
   });

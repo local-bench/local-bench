@@ -44,7 +44,6 @@ def test_season2_rescore_complete_record_emits_v4_strict_composite_and_facets() 
     assert set(rescored["axes"]["tool_use"]["facets"]) == {  # type: ignore[index]
         "agentic",
         "multi_turn_tool_control",
-        "call_formatting",
     }
 
 
