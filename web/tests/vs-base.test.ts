@@ -114,4 +114,48 @@ describe("buildVsBaseComparison", () => {
     expect(comparison.compareHref).toBe("/model/gemma-4-12b-coder-fable5");
     expect(comparison.missing).toEqual(["fine-tune has only previous-index runs — awaiting a current-index rerun"]);
   });
+
+  it("refuses mixed-season lineage deltas with an explicit bridge state", () => {
+    const comparison = buildVsBaseComparison({
+      base: {
+        catalogId: "base",
+        displayName: "Base",
+        slug: "base",
+        row: {
+          axes: { knowledge: score(70) },
+          bestRunId: "base-v3",
+          composite: { point: 40, lo: 39, hi: 41 },
+          diagnosticComposite: null,
+          indexVersion: "index-v3.0",
+          lane: "bounded-final-v2",
+          origin: "project_anchor",
+          ranked: true,
+          scoreStatus: "measured",
+          trustLabel: "project_anchor",
+        },
+      },
+      derivative: {
+        catalogId: "tune",
+        displayName: "Tune",
+        slug: "tune",
+        row: {
+          axes: { knowledge: score(80) },
+          bestRunId: "tune-v4",
+          composite: { point: 60, lo: 59, hi: 61 },
+          diagnosticComposite: null,
+          indexVersion: "index-v4.0",
+          lane: "bounded-final-v2",
+          origin: "project_anchor",
+          ranked: true,
+          scoreStatus: "measured",
+          trustLabel: "project_anchor",
+        },
+      },
+    });
+
+    expect(comparison.compositeDelta).toBeNull();
+    expect(comparison.axes).toEqual([]);
+    expect(comparison.missing).toEqual(["different scoring seasons — see bridge"]);
+    expect(comparison.compareHref).toBe("/model/tune#season-bridge");
+  });
 });

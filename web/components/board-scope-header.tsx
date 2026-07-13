@@ -1,4 +1,5 @@
 import type { LeaderboardScoreMode } from "@/lib/leaderboard-score";
+import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export const BOARD_SCOPE_TITLE = "Local Intelligence Index | index-v3.0";
 export const BOARD_SCOPE_SUBTITLE =
@@ -6,10 +7,20 @@ export const BOARD_SCOPE_SUBTITLE =
 export const STATIC_SCOPE_TITLE = "Static Index | static-suite-v2";
 export const STATIC_SCOPE_SUBTITLE =
   "Secondary, provisional track while agentic verification is pending: Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. It never competes with the six-axis Local Intelligence Index.";
+export const SEASON_2_SCOPE_TITLE = "Local Intelligence Index | index-v4.0";
+export const SEASON_2_SCOPE_SUBTITLE =
+  "Headline = 0.20 Tool use + 0.24 Knowledge + 0.24 Instruction + 0.24 Coding + 0.08 Math. Tool use is bench-normalized across its declared facets; ranks require the complete season-2 profile.";
 
-export function BoardScopeHeader({ mode = "full" }: { readonly mode?: LeaderboardScoreMode }) {
-  const title = mode === "static" ? STATIC_SCOPE_TITLE : BOARD_SCOPE_TITLE;
-  const subtitle = mode === "static" ? STATIC_SCOPE_SUBTITLE : BOARD_SCOPE_SUBTITLE;
+export function BoardScopeHeader({
+  mode = "full",
+  indexVersion,
+}: {
+  readonly mode?: LeaderboardScoreMode;
+  readonly indexVersion?: string | undefined;
+}) {
+  const season2 = mode === "full" && indexVersion === INDEX_VERSION_V4;
+  const title = mode === "static" ? STATIC_SCOPE_TITLE : season2 ? SEASON_2_SCOPE_TITLE : BOARD_SCOPE_TITLE;
+  const subtitle = mode === "static" ? STATIC_SCOPE_SUBTITLE : season2 ? SEASON_2_SCOPE_SUBTITLE : BOARD_SCOPE_SUBTITLE;
   return (
     <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
       <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-muted">{title}</p>

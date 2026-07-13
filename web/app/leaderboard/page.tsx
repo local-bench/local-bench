@@ -12,6 +12,7 @@ import {
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getPartialCoverageBoard } from "@/lib/data";
 import { splitLeaderboard } from "@/lib/leaderboard";
+import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export default async function LeaderboardPage() {
   const [index, agenticBySlug, partialCoverage] = await Promise.all([
@@ -20,6 +21,9 @@ export default async function LeaderboardPage() {
     getPartialCoverageBoard(),
   ]);
   const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
+  const rankedForDisplay = index.index_version === INDEX_VERSION_V4
+    ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
+    : ranked;
   const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
   const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
     (axis) => axis.label,
@@ -62,8 +66,8 @@ export default async function LeaderboardPage() {
             headline gaps — read the composite alongside the per-axis columns and the Static Index.
           </div>
         </div>
-        <BoardIndexChart models={ranked} />
-        <HomeLeaderboard models={ranked} agenticBySlug={agenticBySlug} fineTuneBaseBySlug={fineTuneBaseBySlug} />
+        <BoardIndexChart models={rankedForDisplay} />
+        <HomeLeaderboard models={rankedForDisplay} agenticBySlug={agenticBySlug} fineTuneBaseBySlug={fineTuneBaseBySlug} indexVersion={index.index_version} />
         {/* The no-agentic lane renders only once it has rows — an empty second ranking
             table reads as a competing benchmark instead of a fallback lane. */}
         {staticComposite.length > 0 ? (

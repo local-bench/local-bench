@@ -10,28 +10,45 @@ export const INDEX_AXIS_WEIGHTS = {
   math: 0.05,
 } as const satisfies Readonly<Record<AxisKey, number>>;
 
+export const SEASON_2_AXIS_WEIGHTS = {
+  knowledge: 0.24,
+  instruction: 0.24,
+  tool_use: 0.2,
+  coding: 0.24,
+  math: 0.08,
+} as const;
+
 export type IndexContribution = {
-  readonly key: AxisKey;
+  readonly key: AxisKey | "tool_use";
   readonly label: string;
   readonly color: string;
   readonly contribution: number;
 };
 
-const TITLE_LABELS = {
+const TITLE_LABELS: Readonly<Record<string, string>> = {
   agentic: "Agentic",
   knowledge: "Knowledge",
   instruction: "Instruction",
+  tool_use: "Tool use",
   tool_calling: "Tool",
   coding: "Coding",
   math: "Math",
-} as const satisfies Readonly<Record<AxisKey, string>>;
+};
 
 export function indexContributions(axes: Readonly<Record<string, AxisScore>>): readonly IndexContribution[] {
-  return AXIS_CONFIG.map((axis) => ({
+  const season2 = axes["tool_use"] !== undefined;
+  const weights: Readonly<Record<string, number>> = season2 ? SEASON_2_AXIS_WEIGHTS : INDEX_AXIS_WEIGHTS;
+  const config: readonly { readonly key: AxisKey | "tool_use"; readonly label: string; readonly color: string }[] = season2
+    ? [
+        { key: "tool_use", label: "Tool use", color: "#ffb627" },
+        ...AXIS_CONFIG.filter((axis) => ["knowledge", "instruction", "coding", "math"].includes(axis.key)),
+      ]
+    : AXIS_CONFIG;
+  return config.map((axis) => ({
     key: axis.key,
     label: axis.label,
     color: axis.color,
-    contribution: weightedPoint(axes[axis.key], INDEX_AXIS_WEIGHTS[axis.key]),
+    contribution: weightedPoint(axes[axis.key], weights[axis.key] ?? 0),
   }));
 }
 

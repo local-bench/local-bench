@@ -43,7 +43,7 @@ describe("engine-diverse build projection", () => {
 
     const receipt = readJson(runPath) as Record<string, any>;
     expect(receipt["serving_mode"]).toBe("orchestrated_vllm");
-    expect(receipt["manifest"].scorecard.scorecard_version).toBe("3");
+    expect(receipt["manifest"].scorecard.scorecard_version).toBe("4");
     expect(receipt["manifest"].integrity).toMatchObject({ publishable: true, blocking_reasons: [] });
     expect(receipt["perf"].timings_source).toBeNull();
     expect(receipt["perf"].prefill_tps).toBeNull();

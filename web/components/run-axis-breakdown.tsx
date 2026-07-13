@@ -1,15 +1,18 @@
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, clampScore, formatCi, formatScore } from "@/lib/format";
 import type { Axis, AxisScore, RunDetail } from "@/lib/schemas";
+import { hasCompleteSeason2Coverage } from "@/lib/scoring-seasons";
 
 export function RunAxisBreakdown({ run }: { readonly run: RunDetail }) {
   // Canonical axis order first, then any extra measured axes outside the config. An axis
   // that wasn't measured (absent, or present with n=0) renders "— not measured" rather than
   // a fabricated number+bar.
+  const season2 = hasCompleteSeason2Coverage(run);
+  const canonicalAxes = season2 ? ["tool_use", "knowledge", "instruction", "coding", "math"] : AXIS_CONFIG.map((axis) => axis.key);
   const extraAxes = Object.keys(run.axes)
-    .filter((axis) => !isAxisKey(axis))
+    .filter((axis) => !canonicalAxes.includes(axis) && (season2 || !isAxisKey(axis)))
     .sort();
-  const axisKeys = [...AXIS_CONFIG.map((axis) => axis.key), ...extraAxes];
+  const axisKeys = [...canonicalAxes, ...extraAxes];
   return (
     <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
       <h2 className="text-lg font-semibold text-bench-text">Axis breakdown</h2>

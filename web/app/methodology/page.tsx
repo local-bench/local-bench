@@ -5,6 +5,12 @@ import {
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
+import {
+  INDEX_VERSION_V4,
+  SEASON_2_DIAGNOSTICS,
+  TOOL_USE_FACETS,
+  TOOL_USE_WEIGHT,
+} from "@/lib/scoring-seasons";
 
 type Attribution = {
   readonly name: string;
@@ -95,6 +101,71 @@ export default async function MethodologyPage() {
           {` ${LOCAL_INTELLIGENCE_INDEX_PROFILE}`} stays visible beside every score.
         </p>
       </header>
+
+      <section id="season-2" className="space-y-4 rounded-lg border border-bench-accent/30 bg-bench-panel/55 p-5 text-bench-muted">
+        <div>
+          <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
+            Season 2 · {INDEX_VERSION_V4}
+          </p>
+          <h2 className="mt-1 text-xl font-semibold text-bench-text">Tool-use macro-axis</h2>
+        </div>
+        <p>
+          Season 2 replaces the separate Agentic and Tool-calling headline axes with one Tool-use macro-axis worth{" "}
+          {Math.round(TOOL_USE_WEIGHT * 100)}% of the full Index. Its facets are first scored independently, then
+          combined using the declared facet weights below. This is a <span className="font-semibold text-bench-text">bench-normalized weighted mean</span>,
+          not item-count pooling: a bench with more test items does not silently gain more influence.
+        </p>
+        <div className="overflow-x-auto rounded border border-bench-line">
+          <table className="min-w-[680px] border-collapse text-sm">
+            <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-bench-text/85">
+              <tr>
+                <th className="px-3 py-2">Sub-facet</th>
+                <th className="px-3 py-2">Bench</th>
+                <th className="px-3 py-2">Declared weight</th>
+                <th className="px-3 py-2">Construct</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TOOL_USE_FACETS.map((facet) => (
+                <tr key={facet.key} className="border-t border-bench-line/70">
+                  <td className="px-3 py-2 font-semibold text-bench-text">{facet.label}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{facet.bench}</td>
+                  <td className="px-3 py-2 font-mono">{Math.round(facet.weight * 100)}%</td>
+                  <td className="px-3 py-2">{facet.construct}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-sm">
+          These are draft, calibration-tunable weights. The table and board breakdown read the same constants, so
+          finalizing calibration is a one-place change.
+        </p>
+
+        <div className="space-y-2 border-t border-bench-line pt-4">
+          <h3 className="text-lg font-semibold text-bench-text">Opt-in diagnostics</h3>
+          <p>
+            {SEASON_2_DIAGNOSTICS.map((diagnostic) => diagnostic.label).join(", ")} are displayed when a result carries
+            them. They are never weighted, never required for coverage, and never used for ranking. BFCL single-turn
+            overlaps the call-formatting material; BFCL multi-turn long-context and RULER 32K also mix capability with
+            context and cache limits, so they remain diagnostic evidence rather than headline score inputs.
+          </p>
+        </div>
+
+        <div className="space-y-2 border-t border-bench-line pt-4">
+          <h3 className="text-lg font-semibold text-bench-text">Season 1 → 2 bridge</h3>
+          <p>
+            Index-v3.0 and index-v4.0 composites are different editorial scales and are never directly compared.
+            Lineage deltas and ordinary compare views require matching index versions. The versioned season bridge is
+            the only sanctioned pairing: for an artifact measured completely in both seasons, it presents the frozen
+            v3 composite beside the full v4 composite without treating their numerical gap as a performance delta.
+          </p>
+          <p>
+            Under Option D, an anchor without complete season-2 coverage keeps its season-1 label and season-1
+            composite. A partial v4 composite is never displayed or ranked.
+          </p>
+        </div>
+      </section>
 
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What index-v3.0 measures</h2>

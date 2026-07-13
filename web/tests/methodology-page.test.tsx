@@ -11,19 +11,6 @@ function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ");
 }
 
-function axisWeights(): Record<string, number> {
-  const source = readFileSync(path.join(REPO_ROOT, "cli", "src", "localbench", "scoring", "axes.py"), "utf8");
-  const weights: Record<string, number> = {};
-  for (const block of source.split(/\n\s*Axis\(/).slice(1)) {
-    const key = /^\s*"([^"]+)"/.exec(block)?.[1];
-    const weight = /"headline",\s*\n\s*([0-9.]+),/.exec(block)?.[1];
-    if (key !== undefined && weight !== undefined) {
-      weights[key] = Number(weight);
-    }
-  }
-  return weights;
-}
-
 function staticWeights(): Record<string, number> {
   const source = readFileSync(path.join(REPO_ROOT, "cli", "src", "localbench", "scoring", "axes.py"), "utf8");
   const body = /STATIC_SUITE_WEIGHTS: Final\[dict\[str, float\]\] = \{([\s\S]*?)\n\}/.exec(source)?.[1] ?? "";
@@ -67,19 +54,12 @@ function webTextFiles(dir: string): readonly string[] {
 describe("MethodologyPage", () => {
   it("describes execution/re-execution, current axes, and coding trust", async () => {
     const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
-    const full = axisWeights();
     const stat = staticWeights();
 
     expect(text).toContain("execution");
     expect(text).toContain("re-execution");
     expect(text).toContain(
-      `${percent(requiredWeight(full, "agentic"))} Agentic, ${percent(
-        requiredWeight(full, "knowledge"),
-      )} Knowledge, ${percent(
-        requiredWeight(full, "instruction_following"),
-      )} Instruction-Following, ${percent(requiredWeight(full, "tool_calling"))} Tool calling, ${percent(
-        requiredWeight(full, "coding"),
-      )} Coding, and ${percent(requiredWeight(full, "math"))} Math`,
+      "40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math",
     );
     expect(text).toContain(
       `${percent(requiredWeight(stat, "knowledge"))} Knowledge, ${percent(
@@ -107,5 +87,18 @@ describe("MethodologyPage", () => {
     for (const file of webTextFiles(WEB_ROOT)) {
       expect(readFileSync(file, "utf8"), file).not.toContain(forbidden);
     }
+  });
+
+  it("documents the season-2 macro-axis, diagnostics, Option-D anchors, and bridge guard", async () => {
+    const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
+
+    expect(text).toContain("Season 2 · index-v4.0");
+    expect(text).toContain("bench-normalized weighted mean");
+    expect(text).toContain("not item-count pooling");
+    expect(text).toContain("AppWorld Test-Normal");
+    expect(text).toContain("BFCL single-turn, BFCL multi-turn long-context, RULER 32K");
+    expect(text).toContain("never weighted, never required for coverage, and never used for ranking");
+    expect(text).toContain("the only sanctioned pairing");
+    expect(text).toContain("A partial v4 composite is never displayed or ranked");
   });
 });

@@ -16,6 +16,16 @@ import { AGENTIC_SORT_KEY, STATIC_INDEX_SORT_KEY, buildLaneRanks, sortLeaderboar
 import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
+import {
+  INDEX_VERSION_V4,
+  TOOL_USE_FACETS,
+  diagnosticScores,
+  displayIndexVersion,
+  isSeason2Board,
+  legacyBridgeScore,
+  SEASON_2_INDEX_QUALIFIER,
+} from "@/lib/scoring-seasons";
+import { formatScore } from "@/lib/format";
 
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 
@@ -28,22 +38,26 @@ export function HomeLeaderboard({
   agenticBySlug = EMPTY_AGENTIC,
   scoreMode = "full",
   fineTuneBaseBySlug = EMPTY_LINEAGE,
+  indexVersion,
 }: {
   readonly models: readonly IndexModel[];
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
   readonly scoreMode?: LeaderboardScoreMode;
+  readonly indexVersion?: string;
   /** slug → base-model display name, for rows that are fine-tunes of another catalog model. */
   readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
 }) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
-  const axisKeys = useMemo(() => axisColumns(models), [models]);
+  const scopedModels = models;
+  const axisKeys = useMemo(() => axisColumns(scopedModels), [scopedModels]);
   const sortedModels = useMemo(
-    () => sortLeaderboardRows(models, sort, { agenticBySlug, scoreMode }),
-    [models, sort, agenticBySlug, scoreMode],
+    () => sortLeaderboardRows(scopedModels, sort, { agenticBySlug, scoreMode }),
+    [scopedModels, sort, agenticBySlug, scoreMode],
   );
-  const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
-  const showAgenticColumn = scoreMode === "full";
-  const showStaticIndexColumn = scoreMode === "full";
+  const laneRanks = useMemo(() => buildLaneRanks(scopedModels, scoreMode), [scopedModels, scoreMode]);
+  const season2 = scoreMode === "full" && isSeason2Board(scopedModels, indexVersion);
+  const showAgenticColumn = scoreMode === "full" && !season2;
+  const showStaticIndexColumn = scoreMode === "full" && !season2;
 
   return (
     <div
@@ -52,7 +66,7 @@ export function HomeLeaderboard({
         ? "overflow-hidden rounded-lg border border-bench-line/70 bg-bench-panel/45 opacity-90"
         : "overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82 shadow-2xl shadow-black/20"}
     >
-      <BoardScopeHeader mode={scoreMode} />
+      <BoardScopeHeader mode={scoreMode} indexVersion={season2 ? INDEX_VERSION_V4 : indexVersion} />
       {sortedModels.length === 0 ? (
         <div className="px-4 py-8 text-sm leading-6 text-bench-muted">
           <div className="font-semibold text-bench-text">No ranked rows yet</div>
@@ -71,7 +85,7 @@ export function HomeLeaderboard({
           <tr>
             <th className="px-3 py-3 font-semibold">{scoreMode === "static" ? "Status" : "Rank"}</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
-            <SortableHeader label={<CompositeHeaderLabel scoreMode={scoreMode} />} sortKey="composite" sort={sort} onSort={setSort} />
+            <SortableHeader label={<CompositeHeaderLabel scoreMode={scoreMode} season2={season2} />} sortKey="composite" sort={sort} onSort={setSort} />
             {showStaticIndexColumn ? (
               <SortableHeader label={<StaticIndexHeaderLabel />} sortKey={STATIC_INDEX_SORT_KEY} sort={sort} onSort={setSort} />
             ) : null}
@@ -107,6 +121,7 @@ export function HomeLeaderboard({
                     {model.model_label}
                   </Link>
                   {model.demo ? <DemoBadge /> : null}
+                  {season2 ? <SeasonBadge indexVersion={displayIndexVersion(model)} /> : null}
                 </span>
                 <div className="text-xs text-bench-muted">{model.family}</div>
                 {fineTuneBaseBySlug.has(model.slug) ? (
@@ -120,7 +135,7 @@ export function HomeLeaderboard({
                 {score === null ? (
                   <NoScoreCell />
                 ) : (
-                  <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} rail={scoreMode === "full"} />
+                  <CompositeCell model={model} score={score} scoreMode={scoreMode} />
                 )}
               </td>
               {showStaticIndexColumn ? (
@@ -130,7 +145,11 @@ export function HomeLeaderboard({
               ) : null}
               {axisKeys.map((axisKey) => (
                 <td key={axisKey} className="px-3 py-3">
-                  <AxisMiniBar score={model.axes[axisKey]} axis={axisKey} />
+                  {axisKey === "tool_use" ? (
+                    <ToolUseCell model={model} />
+                  ) : (
+                    <AxisMiniBar score={model.axes[axisKey]} axis={axisKey} />
+                  )}
                 </td>
               ))}
               {showAgenticColumn ? (
@@ -208,6 +227,75 @@ function NoScoreCell() {
   );
 }
 
+function CompositeCell({
+  model,
+  score,
+  scoreMode,
+}: {
+  readonly model: IndexModel;
+  readonly score: NonNullable<ReturnType<typeof scoreForMode>>;
+  readonly scoreMode: LeaderboardScoreMode;
+}) {
+  const bridgeScore = legacyBridgeScore(model);
+  if (bridgeScore === null) {
+    return <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} rail={scoreMode === "full"} />;
+  }
+  return (
+    <div className="min-w-[132px]">
+      <ScoreBar axes={model.axes} score={score} tone={scoreTone(scoreMode)} rail={scoreMode === "full"} />
+      <div className="mt-1 font-mono text-[10px] text-bench-muted">
+        index-v3.0 bridge {formatScore(bridgeScore.point)}
+      </div>
+    </div>
+  );
+}
+
+function SeasonBadge({ indexVersion }: { readonly indexVersion: string }) {
+  return (
+    <span className="rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
+      {indexVersion}
+    </span>
+  );
+}
+
+function ToolUseCell({ model }: { readonly model: IndexModel }) {
+  const score = model.axes["tool_use"];
+  if (score === undefined) {
+    return <span className="font-mono text-xs text-bench-muted">n/a</span>;
+  }
+  const diagnostics = diagnosticScores(model);
+  return (
+    <div className="min-w-[150px]">
+      <AxisMiniBar score={score} axis="tool_use" />
+      <details className="mt-1 text-[10px] text-bench-muted">
+        <summary className="cursor-pointer font-mono text-bench-accent">facet breakdown</summary>
+        <dl className="mt-1 grid gap-1">
+          {TOOL_USE_FACETS.map((facet) => {
+            const facetScore = score.facets?.[facet.key];
+            return (
+              <div key={facet.key} className="flex justify-between gap-3">
+                <dt>{facet.label} · {Math.round(facet.weight * 100)}%</dt>
+                <dd className="font-mono text-bench-text">{facetScore === undefined ? "n/a" : formatScore(facetScore.point)}</dd>
+              </div>
+            );
+          })}
+          {diagnostics.length === 0 ? null : (
+            <div className="mt-1 border-t border-bench-line/70 pt-1">
+              <dt className="font-semibold uppercase text-bench-muted">Diagnostics · unweighted</dt>
+              {diagnostics.map((diagnostic) => (
+                <div key={diagnostic.key} className="flex justify-between gap-3">
+                  <dt>{diagnostic.label}</dt>
+                  <dd className="font-mono text-bench-text">{formatScore(diagnostic.score.point)}</dd>
+                </div>
+              ))}
+            </div>
+          )}
+        </dl>
+      </details>
+    </div>
+  );
+}
+
 function SortableHeader({
   label,
   sortKey,
@@ -258,7 +346,7 @@ function RuntimeCell({ runtime }: { readonly runtime: IndexModel["runtime"] }) {
   );
 }
 
-function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardScoreMode }) {
+function CompositeHeaderLabel({ scoreMode, season2 }: { readonly scoreMode: LeaderboardScoreMode; readonly season2: boolean }) {
   if (scoreMode === "static") {
     return (
       <span className="flex flex-col gap-0.5 leading-tight">
@@ -270,7 +358,7 @@ function CompositeHeaderLabel({ scoreMode }: { readonly scoreMode: LeaderboardSc
   return (
     <span className="flex flex-col gap-0.5 leading-tight">
       <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
-      <span className="font-mono text-[10px] normal-case text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
+      <span className="font-mono text-[10px] normal-case text-bench-muted">{season2 ? SEASON_2_INDEX_QUALIFIER : LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</span>
     </span>
   );
 }
@@ -280,6 +368,11 @@ function scoreTone(scoreMode: LeaderboardScoreMode): "accent" | "muted" {
 }
 
 function axisColumns(models: readonly IndexModel[]): readonly string[] {
+  if (models.some((model) => displayIndexVersion(model) === INDEX_VERSION_V4)) {
+    return ["tool_use", "knowledge", "instruction", "coding", "math"].filter((axis) =>
+      models.some((model) => model.axes[axis] !== undefined),
+    );
+  }
   const present = new Set<string>();
   for (const model of models) {
     for (const axis of Object.keys(model.axes)) {

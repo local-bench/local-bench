@@ -29,7 +29,16 @@ export function LocalIntelligenceIndexScope({ className = "" }: { readonly class
 }
 
 export function formatModularAxisProfile(axes: Readonly<Record<string, AxisScore>>): string {
-  return HEADLINE_AXES.map(({ key, label }) => {
+  const headlineAxes = axes["tool_use"] === undefined
+    ? HEADLINE_AXES
+    : [
+        { key: "tool_use", label: "Tool use" },
+        { key: "knowledge", label: "Knowledge" },
+        { key: "instruction", label: "Instruction" },
+        { key: "coding", label: "Coding" },
+        { key: "math", label: "Math" },
+      ];
+  return headlineAxes.map(({ key, label }) => {
     const score = axes[key];
     return `${label} ${score === undefined ? "n/a" : formatScore(score.point)}`;
   }).join(" / ");

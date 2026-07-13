@@ -2,6 +2,7 @@ import { runtimeSortLabel } from "./runtime-display";
 import { scoreForMode, type LeaderboardScoreMode } from "./leaderboard-score";
 import type { AgenticModel, IndexModel } from "./schemas";
 import { isTrustedPopulation } from "./trusted-population";
+import { displayIndexVersion } from "./scoring-seasons";
 
 export const AGENTIC_SORT_KEY = "agentic_experimental";
 export const STATIC_INDEX_SORT_KEY = "static_index";
@@ -38,7 +39,14 @@ export function sortLeaderboardRows(
     key: sort.key,
     scoreMode: options.scoreMode ?? "full",
   };
-  return [...models].sort((left, right) => compareRows(left, right, context) * direction);
+  const seasonGroups = new Map<string, IndexModel[]>();
+  for (const model of models) {
+    const version = displayIndexVersion(model);
+    seasonGroups.set(version, [...(seasonGroups.get(version) ?? []), model]);
+  }
+  return [...seasonGroups.values()].flatMap((group) =>
+    group.sort((left, right) => compareRows(left, right, context) * direction),
+  );
 }
 
 export function buildLaneRanks(
@@ -53,7 +61,7 @@ export function buildLaneRanks(
     if (!model.ranked && scoreMode === "full") {
       continue;
     }
-    const lane = model.lane ?? "n/a";
+    const lane = `${displayIndexVersion(model)}:${model.lane ?? "n/a"}`;
     const group = groups.get(lane) ?? [];
     groups.set(lane, [...group, model]);
   }

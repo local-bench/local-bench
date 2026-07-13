@@ -15,6 +15,10 @@ from build_data_args import parse_args
 from build_data_axes import (
     BENCHES,
     COMPOSITE_WEIGHTS,
+    SEASON_2_BENCHES,
+    SEASON_2_COMPOSITE_WEIGHTS,
+    SEASON_2_SOURCE_BENCH_GROUPS_BY_AXIS,
+    SOURCE_BENCH_GROUPS_BY_AXIS,
     build_axes,
     build_composite,
     display_item_set_hashes,
@@ -74,9 +78,11 @@ BOARD_PATH: Final = Path(os.environ.get("LOCALBENCH_BOARD_PATH", ROOT / "cli" / 
 # The six interval fields the site renders straight from the board for ranked rows.
 _INTERVAL_FIELDS: Final = ("point", "lo", "hi", "point_raw", "lo_raw", "hi_raw")
 
-_BOARD_AXES: Final = headline_web_axes()
-_STATIC_AXES: Final = tuple(static_suite_web_weights())
-_STATIC_WEIGHTS: Final = static_suite_web_weights()
+_BOARD_AXES: Final = ("knowledge", "instruction", "math", "agentic", "tool_calling", "coding")
+_STATIC_WEIGHTS: Final = {"knowledge": 0.25, "instruction": 0.25, "tool_calling": 0.20, "coding": 0.20, "math": 0.10}
+_STATIC_AXES: Final = tuple(_STATIC_WEIGHTS)
+_SEASON_2_STATIC_WEIGHTS: Final = static_suite_web_weights()
+_SEASON_2_STATIC_AXES: Final = tuple(_SEASON_2_STATIC_WEIGHTS)
 _APPWORLD_C_BENCH: Final = "appworld_c"
 _AGENTIC_INFRA_TIMEOUT_RATE_LIMIT: Final = 0.05
 # Watchdog per_task_timeout_s=1800 as of CLI commit 5fe9186; this gate protects
@@ -436,20 +442,36 @@ def _board_optional_interval(value: JsonValue | None) -> JsonObject | None:
 
 
 def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str, ...], weights: dict[str, float], board: BoardContext) -> JsonObject:
+    source_index_version = _text(source.get("index_version"))
     if _bool(source["demo"], "source.demo"):
-        run = build_demo_run(source, order=order, benches=benches, index_version=INDEX_VERSION)
+        season_2 = source_index_version == "index-v4.0"
+        effective_benches = SEASON_2_BENCHES if season_2 and benches == BENCHES else benches
+        effective_index_version = "index-v4.0" if season_2 else INDEX_VERSION
+        run = build_demo_run(source, order=order, benches=effective_benches, index_version=effective_index_version)
         axes = _object(_object(run["index_row"], "demo.index_row")["axes"], "demo.index_row.axes")
-        annotations = _source_annotations(source, axes, all(axis in axes for axis in headline_web_axes()))
+        headline_axes = headline_web_axes() if season_2 else _BOARD_AXES
+        annotations = _source_annotations(source, axes, all(axis in axes for axis in headline_axes))
         for field in ("detail", "model_row", "index_row"):
             row = _object(run[field], f"demo.{field}")
             row.update(annotations)
             row["ranked"] = False
+            if season_2 and field != "detail":
+                row["index_version"] = effective_index_version
         return run
     if source.get("file") is None:
         return _build_agentic_only_run(source, order=order)
 
     path = ROOT / _string(source["file"], "source.file")
     run = _object(_read_json(path), str(path))
+    run_index_version = _text(run.get("index_version")) or source_index_version
+    season_2 = run_index_version == "index-v4.0"
+    effective_index_version = "index-v4.0" if season_2 else INDEX_VERSION
+    effective_benches = SEASON_2_BENCHES if season_2 and benches == BENCHES else benches
+    effective_weights = SEASON_2_COMPOSITE_WEIGHTS if season_2 and weights == COMPOSITE_WEIGHTS else weights
+    source_groups = SEASON_2_SOURCE_BENCH_GROUPS_BY_AXIS if season_2 else SOURCE_BENCH_GROUPS_BY_AXIS
+    headline_axes = headline_web_axes() if season_2 else _BOARD_AXES
+    static_axes = _SEASON_2_STATIC_AXES if season_2 else _STATIC_AXES
+    static_weights = _SEASON_2_STATIC_WEIGHTS if season_2 else _STATIC_WEIGHTS
     manifest = _object_or_empty(run.get("manifest"))
     suite = _object_or_empty(manifest.get("suite"))
     scorecard = _scorecard_detail(_object_or_empty(manifest.get("scorecard")))
@@ -477,21 +499,24 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     est_cost = _number_or_none(run.get("estimated_cost_usd"))
     tok_s = _number_or_none(totals.get("completion_tokens_per_second"))
     latency_s_median = round(tokens["median"] / tok_s, 3) if tokens["median"] is not None and tok_s and tok_s > 0 else None
-    summary = _manifest_summary(source, manifest, lane, quant)
+    summary = _manifest_summary(source, manifest, lane, quant, source_groups)
     serving_provenance = _serving_provenance(run)
-    axes, axis_warnings = build_axes(source_benches, values, strata, no_answer, iters, benches)
-    composite = build_composite(run, axes, benches, weights)
+    axes, axis_warnings = build_axes(source_benches, values, strata, no_answer, iters, effective_benches, source_groups)
+    composite = build_composite(run, axes, effective_benches, effective_weights)
     # Pure-renderer override: for EVERY quant of a board-ranked model, swap the re-bootstrapped
     # composite and headline-axis intervals for the board's verbatim per-system values (matched
     # by run_id), so the leaderboard, the landing scatter, and the model-page quant ladder all
     # render the board's single agentic-led Index scale. No-op for unranked rows / unmatched
     # runs. See _apply_board_intervals.
     composite_interval = _object(composite["interval"], "composite.interval")
-    _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
-    conformance_gates = _board_conformance_gates(slug, run_id, board.models_by_slug)
-    headline_complete = all(axis in axes for axis in headline_web_axes())
-    static_composite = build_composite(run, axes, _STATIC_AXES, _STATIC_WEIGHTS) if _static_complete(axes) else None
-    board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(slug, run_id, board.models_by_slug)
+    if not season_2:
+        _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
+    conformance_gates = _board_conformance_gates(slug, run_id, board.models_by_slug) if not season_2 else None
+    headline_complete = all(axis in axes for axis in headline_axes)
+    static_composite = build_composite(run, axes, static_axes, static_weights) if all(axis in axes for axis in static_axes) else None
+    board_composite_full, board_composite_static, board_static_index_version = (
+        _board_composites_for_run(slug, run_id, board.models_by_slug) if not season_2 else (None, None, None)
+    )
     computed_composite_full = dict(composite_interval) if headline_complete else None
     computed_composite_static = dict(_object(static_composite["interval"], "static_composite.interval")) if static_composite is not None else None
     composite_full = board_composite_full if board_composite_full is not None else computed_composite_full
@@ -517,13 +542,16 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     data_warnings = quarantined_agentic + surfaced_infra_warnings + axis_warnings + _list(composite["warnings"], "composite.warnings")
     if static_composite is not None:
         data_warnings += _list(static_composite["warnings"], "static_composite.warnings")
-    detail = {"axes": axes, "composite": composite_interval, "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": INDEX_VERSION, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes"))), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, benches, weights))} | annotations
+    detail = {"axes": axes, "composite": composite_interval, "composite_full": composite_full, "composite_static": composite_static, "data_warnings": data_warnings, "est_cost_usd": est_cost, "index_version": effective_index_version, "item_set_hashes": display_item_set_hashes(_object_or_empty(suite.get("item_set_hashes")), source_groups), "kind": kind, "conformance": conformance, "contamination_label": contamination_label, "manifest_summary": summary, "model_label": model_label, "ranked": ranked, "run_id": run_id, "scorecard": scorecard, "suite_version": _text(suite.get("suite_version")), "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "totals": totals, "worst_axis": worst_axis(axes, _headline_benches(axes, effective_benches, effective_weights))} | annotations
     if lane != board.headline_lane:
         detail.update(score_fields)
         detail["lane"] = lane
         detail["score_status"] = "measured"
     model_row = {"axes": axes, "composite_full": composite_full, "composite_static": composite_static, "est_cost_usd": est_cost, "file_gb": None, "hardware": _object(summary["hardware"], "summary.hardware"), "lane": lane, "n_errors": _int(totals.get("n_errors"), "totals.n_errors"), "n_items": _int(totals.get("n_items"), "totals.n_items"), "quant_label": quant, "ranked": ranked, "run_id": run_id, "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"], "tok_s": tok_s, "latency_s_median": latency_s_median, "vram_footprint_gb": source["vram_footprint_gb"], "vram_required_gb_8k": None, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds"))} | score_fields | annotations
     index_row = {"axes": axes, "best_run_id": run_id, "gpu": _object(summary["hardware"], "summary.hardware").get("gpu"), "composite_full": composite_full, "composite_static": composite_static, "conformance_status": conformance_status, "contamination_label": contamination_label, "est_cost_usd": est_cost, "family": family, "kind": kind, "lane": lane, "latency_s_median": latency_s_median, "wall_time_seconds": _number_or_none(totals.get("wall_time_seconds")), "model_label": model_label, "n_runs": 1, "ranked": ranked, "replicated": _bool(source["independent_replication"], "source.independent_replication"), "runtime": _object(summary["runtime"], "summary.runtime"), "score_status": "measured", "slug": slug, "tier": tier, "tokens_to_answer_median": tokens["median"], "tokens_to_answer_p95": tokens["p95"]} | score_fields | annotations
+    if season_2:
+        model_row["index_version"] = effective_index_version
+        index_row["index_version"] = effective_index_version
     if serving_provenance is not None:
         detail["serving_provenance"] = serving_provenance
         model_row["serving_provenance"] = serving_provenance
@@ -731,7 +759,7 @@ def _source_annotations(source: JsonObject, axes: JsonObject, headline_complete:
     notes = _text_list(source.get("provenance_notes"), -1, "provenance_notes")
     if notes:
         annotations["provenance_notes"] = notes
-    provenance = _agentic_provenance(source, origin, headline_complete and "agentic" in axes)
+    provenance = _agentic_provenance(source, origin, headline_complete and ("agentic" in axes or "tool_use" in axes))
     if provenance is not None:
         annotations["agentic_provenance"] = provenance
     return annotations
@@ -1115,16 +1143,23 @@ def _write_outputs(out_dir: Path, runs: list[JsonObject], catalog: list[JsonObje
             model_payload["demo"] = True
         _write_json(models_dir / f"{slug}.json", model_payload)
     index_models = [without_scoreless_conformance_status(_object(model, "index.model")) for model in models]
-    _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "index_version": INDEX_VERSION, "models": index_models, "suite_version": _suite_version(trusted_runs)})
+    output_index_version = "index-v4.0" if any(model.get("index_version") == "index-v4.0" for model in index_models) else INDEX_VERSION
+    _write_json(out_dir / "index.json", {"generated_note": GENERATED_NOTE, "index_version": output_index_version, "models": index_models, "suite_version": _suite_version(trusted_runs)})
 
 
-def _manifest_summary(source: JsonObject, manifest: JsonObject, lane: str | None, quant: str | None) -> JsonObject:
+def _manifest_summary(
+    source: JsonObject,
+    manifest: JsonObject,
+    lane: str | None,
+    quant: str | None,
+    source_bench_groups_by_axis: dict[str, tuple[tuple[str, ...], ...]],
+) -> JsonObject:
     suite = _object_or_empty(manifest.get("suite"))
     sampling = _object_or_empty(manifest.get("sampling"))
     model = _object_or_empty(manifest.get("model"))
     endpoint = _object_or_empty(manifest.get("endpoint"))
     model_summary = {"family": _text(model.get("family")) or _string(source["family"], "source.family"), "file_name": _text(model.get("file_name")), "file_sha256": _text(model.get("file_sha256")), "file_size_bytes": _int_or_none(model.get("file_size_bytes")), "format": _text(model.get("format")), "runtime_reported_model": _text(endpoint.get("runtime_reported_model"))}
-    return {"caps": _object_or_empty(suite.get("caps")), "hardware": _hardware(_object_or_empty(manifest.get("hardware"))), "lane": lane, "model": model_summary, "quant": quant, "runtime": _runtime(_object_or_empty(manifest.get("runtime"))), "sampling": display_sampling(sampling), "thinking_mode": _text(sampling.get("thinking_mode"))}
+    return {"caps": _object_or_empty(suite.get("caps")), "hardware": _hardware(_object_or_empty(manifest.get("hardware"))), "lane": lane, "model": model_summary, "quant": quant, "runtime": _runtime(_object_or_empty(manifest.get("runtime"))), "sampling": display_sampling(sampling, source_bench_groups_by_axis), "thinking_mode": _text(sampling.get("thinking_mode"))}
 
 
 def _hardware(hardware: JsonObject) -> JsonObject:

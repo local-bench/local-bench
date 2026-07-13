@@ -25,6 +25,14 @@ import {
 } from "@/lib/format";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import type { RunDetail } from "@/lib/schemas";
+import {
+  SEASON_2_INDEX_PROFILE,
+  SEASON_2_INDEX_QUALIFIER,
+  displayIndexVersion,
+  hasCompleteSeason2Coverage,
+  headlineScoreForDisplay,
+  legacyBridgeScore,
+} from "@/lib/scoring-seasons";
 
 export const dynamicParams = false;
 const NO_RUNS_STATIC_EXPORT_SENTINEL = "__no-run-receipts-yet";
@@ -61,7 +69,10 @@ export default async function RunPage({ params }: PageProps) {
   const hasQualityNote = run.totals.n_errors > 0 || noAnswerCount > 0;
   const dataWarnings = run.data_warnings ?? [];
   const isLegacyReceipt = run.score_status === "measured" && run.lane !== HEADLINE_LANE;
-  const visibleScore = isLegacyReceipt ? (run.diagnostic_composite ?? run.composite) : run.composite;
+  const season2 = hasCompleteSeason2Coverage(run);
+  const effectiveIndexVersion = displayIndexVersion(run);
+  const visibleScore = isLegacyReceipt ? (run.diagnostic_composite ?? run.composite) : headlineScoreForDisplay(run);
+  const bridgeScore = legacyBridgeScore(run);
   const scoreText = visibleScore === null ? "n/a" : formatScore(visibleScore.point);
   const scoreCiText = visibleScore === null ? "CI unavailable" : `${formatCi(visibleScore)} 95% CI`;
   const scoreTitle = run.ranked ? LOCAL_INTELLIGENCE_INDEX_NAME : "Diagnostic score profile";
@@ -77,7 +88,7 @@ export default async function RunPage({ params }: PageProps) {
       />
       <header className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <p className="font-mono text-xs uppercase text-bench-accent">
-          {isLegacyReceipt ? `${run.suite_version} | retired lane ${run.lane ?? "previous index"}` : `${run.suite_version} | ${run.index_version}`}
+          {isLegacyReceipt ? `${run.suite_version} | retired lane ${run.lane ?? "previous index"}` : `${run.suite_version} | ${effectiveIndexVersion}`}
         </p>
         <h1 className="mt-2 text-3xl font-semibold text-bench-text">{run.model_label}</h1>
         <p className="mt-1 break-all font-mono text-sm text-bench-muted">{run.run_id}</p>
@@ -109,14 +120,19 @@ export default async function RunPage({ params }: PageProps) {
             <>
               <div>
                 <div className="text-sm font-semibold text-bench-text">{scoreTitle}</div>
-                <div className="font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
+                <div className="font-mono text-xs text-bench-accent">{season2 ? SEASON_2_INDEX_QUALIFIER : LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</div>
                 <div className="font-mono text-6xl font-semibold text-bench-text">{scoreText}</div>
                 <div className="mt-1 font-mono text-lg text-bench-muted">{scoreCiText}</div>
+                {bridgeScore === null ? null : (
+                  <div className="mt-1 font-mono text-xs text-bench-muted">index-v3.0 bridge {formatScore(bridgeScore.point)}</div>
+                )}
               </div>
               <div className="pb-2 text-sm text-bench-muted">
-                <div className="font-mono text-xs uppercase text-bench-muted">{LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
+                <div className="font-mono text-xs uppercase text-bench-muted">{season2 ? SEASON_2_INDEX_PROFILE : LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
                 <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
-                <div className="mt-1">Weighted headline profile: Agentic 40%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 15%, Math 5%.</div>
+                <div className="mt-1">{season2
+                  ? "Weighted headline profile: Tool use 20%, Knowledge 24%, Instruction 24%, Coding 24%, Math 8%."
+                  : "Weighted headline profile: Agentic 40%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 15%, Math 5%."}</div>
               </div>
             </>
           )}
@@ -161,7 +177,7 @@ export default async function RunPage({ params }: PageProps) {
       <footer className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <h2 className="text-lg font-semibold text-bench-text">Provenance</h2>
         <p className="mt-2 font-mono text-sm text-bench-muted">suite_version: {run.suite_version}</p>
-        <p className="mt-1 font-mono text-sm text-bench-muted">index_version: {run.index_version}</p>
+        <p className="mt-1 font-mono text-sm text-bench-muted">index_version: {effectiveIndexVersion}</p>
         {run.scorecard === undefined ? null : (
           <div className="mt-3 rounded-md border border-bench-line bg-white/[0.025] p-3 text-sm leading-6 text-bench-muted">
             <div className="font-mono text-xs uppercase text-bench-muted">source scorecard</div>
@@ -170,7 +186,7 @@ export default async function RunPage({ params }: PageProps) {
             {run.scorecard.drift || run.scorecard.registry_drift ? (
               <p className="mt-2 text-bench-warn-soft">
                 Provenance drift: this receipt preserves its original scorecard metadata; the site projection is
-                rendered under {run.index_version}.
+                rendered under {effectiveIndexVersion}.
               </p>
             ) : null}
           </div>

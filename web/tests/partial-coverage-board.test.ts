@@ -99,4 +99,15 @@ describe("partial-coverage board", () => {
     const html = renderToStaticMarkup(createElement(PartialCoverageBoard, { rows: [] }));
     expect(html).toBe("");
   });
+
+  it("withholds partial v4 composites under Option D", () => {
+    const v4: any = structuredClone(SAMPLE);
+    v4.entries[0].projection.index_version = "index-v4.0";
+    const rows = partialCoverageRows(PartialCoverageDataSchema.parse(v4));
+    const html = renderToStaticMarkup(createElement(PartialCoverageBoard, { rows }));
+
+    expect(html).toContain("season-1 anchor retained");
+    expect(html).toContain("partial v4 composite withheld");
+    expect(html).not.toContain(formatScore(74.73));
+  });
 });

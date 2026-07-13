@@ -161,6 +161,31 @@ const ProjectionAxisSchema = z.object({
   status: z.enum(["measured", "not_measured", "invalid"]),
 }).strict();
 const RescoreModeSchema = z.enum(["rescored", "verdict_carried"]);
+export const ACCEPTED_PROJECTION_SUITE_RELEASE_IDS = [
+  "suite-v1-partial-text-code-4axis-v1",
+  "suite-v1-text-code-agentic-5axis-v1",
+  "suite-v1-full-exec-6axis-v1",
+  "suite-v1-static-exec-5axis-v1",
+  "suite-v1-static-core-diag-v1",
+  "suite-v2-full-exec-tooluse-5axis-v2",
+] as const;
+export const ACCEPTED_PROJECTION_INDEX_VERSIONS = ["index-v3.0", "index-v4.0"] as const;
+export const ACCEPTED_PROJECTION_RESCORE_MODE_KEYS = [
+  "amo",
+  "appworld_c",
+  "bfcl",
+  "bfcl_multi_turn_base",
+  "bfcl_multi_turn_long_context",
+  "bigcodebench_hard",
+  "ifbench",
+  "lcb",
+  "mmlu_pro",
+  "olymmath_hard",
+  "tc_json_v1",
+] as const;
+const AcceptedProjectionRescoreModesShape = Object.fromEntries(
+  ACCEPTED_PROJECTION_RESCORE_MODE_KEYS.map((key) => [key, RescoreModeSchema.optional()]),
+);
 const AcceptedResultProjectionV2BaseSchema = z.object({
   schema_version: z.literal(ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION),
   model: z.object({
@@ -182,12 +207,10 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
     ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),
     build_flags: z.string().nullable().optional(),
   }).strict(),
-  suite_release_id: z.enum([
-    "suite-v1-partial-text-code-4axis-v1", "suite-v1-text-code-agentic-5axis-v1", "suite-v1-full-exec-6axis-v1",
-    "suite-v1-static-exec-5axis-v1", "suite-v1-static-core-diag-v1",
-  ]),
+  suite_release_id: z.enum(ACCEPTED_PROJECTION_SUITE_RELEASE_IDS),
   suite_manifest_sha256: Sha256Schema,
-  scorecard_id: z.string().min(1), coverage_profile_id: z.string().min(1), headline_complete: z.boolean(),
+  scorecard_id: z.string().min(1), coverage_profile_id: z.string().min(1),
+  index_version: z.enum(ACCEPTED_PROJECTION_INDEX_VERSIONS).optional(), headline_complete: z.boolean(),
   scores: z.object({
     headline_score: NullableScoreSchema, partial_composite: ScoreSchema,
     partial_composite_scope: z.literal("measured_headline_axes"), measured_headline_weight: ScoreSchema,
@@ -206,12 +229,7 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   trust_label: z.enum(["project_anchor", "community_self_submitted", "community_re_scored"]),
   verification_level: z.literal("bundle_rescored"), agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
   provenance_notes: z.array(z.string()).optional(),
-  rescore_modes: z.object({
-    amo: RescoreModeSchema.optional(), appworld_c: RescoreModeSchema.optional(), bfcl: RescoreModeSchema.optional(),
-    bigcodebench_hard: RescoreModeSchema.optional(), ifbench: RescoreModeSchema.optional(), lcb: RescoreModeSchema.optional(),
-    mmlu_pro: RescoreModeSchema.optional(),
-    olymmath_hard: RescoreModeSchema.optional(), tc_json_v1: RescoreModeSchema.optional(),
-  }).strict(),
+  rescore_modes: z.object(AcceptedProjectionRescoreModesShape).strict(),
   validator: z.object({ validator_version: z.string().min(1), commit: z.string().nullable(), validated_at: z.iso.datetime() }).strict(),
 }).strict();
 
@@ -224,7 +242,8 @@ const SUITE_MANIFESTS: Readonly<Record<string, string>> = {
 };
 
 export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSchema.superRefine((projection, context) => {
-  if (SUITE_MANIFESTS[projection.suite_release_id] !== projection.suite_manifest_sha256) {
+  const expectedManifest = SUITE_MANIFESTS[projection.suite_release_id];
+  if (expectedManifest !== undefined && expectedManifest !== projection.suite_manifest_sha256) {
     context.addIssue({ code: "custom", message: "suite release manifest mismatch" });
   }
   if (projection.origin === "community" && (

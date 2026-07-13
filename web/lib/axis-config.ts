@@ -19,7 +19,10 @@ export const AXIS_CONFIG = [
 // Accent at ~55% — the historical mini-bar fill, kept for axes outside the canonical set.
 const DEFAULT_AXIS_COLOR = "#3fd0d48c";
 
-const COLORS: ReadonlyMap<string, string> = new Map(AXIS_CONFIG.map((axis) => [axis.key, axis.color]));
+const COLORS: ReadonlyMap<string, string> = new Map([
+  ...AXIS_CONFIG.map((axis) => [axis.key, axis.color] as const),
+  ["tool_use", "#ffb627"],
+]);
 
 export function axisColor(key: string | undefined): string {
   return (key === undefined ? undefined : COLORS.get(key)) ?? DEFAULT_AXIS_COLOR;
@@ -36,6 +39,7 @@ export function isAxisKey(key: string): boolean {
 }
 
 export function axisLabel(key: string): string {
+  if (key === "tool_use") return "Tool use";
   return LABELS.get(key) ?? key.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 

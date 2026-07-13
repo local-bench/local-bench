@@ -2,6 +2,7 @@ import { AXIS_CONFIG, axisLabel } from "@/lib/axis-config";
 import { formatScore } from "@/lib/format";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import type { BoardEntryRow } from "@/lib/board-entry";
+import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 // Projection axis keys use the scoring-registry names; the site's display config uses "instruction"
 // for the "instruction_following" axis. Map display key -> projection key when reading axis scores.
@@ -135,7 +136,12 @@ export function PartialCoverageBoard({ rows }: { readonly rows: readonly BoardEn
                       <div className="mt-0.5 font-mono text-[10px] text-bench-muted">{measuredPct}% of headline weight</div>
                     </td>
                     <td className="px-3 py-3">
-                      {row.partial_composite === null ? (
+                      {row.index_version === INDEX_VERSION_V4 && row.headline_complete === 0 ? (
+                        <div>
+                          <span className="font-mono text-xs text-bench-muted">season-1 anchor retained</span>
+                          <div className="mt-0.5 text-[10px] text-bench-warn-soft">partial v4 composite withheld</div>
+                        </div>
+                      ) : row.partial_composite === null ? (
                         <span className="font-mono text-xs text-bench-muted">not measured</span>
                       ) : (
                         <div>

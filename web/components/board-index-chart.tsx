@@ -12,9 +12,11 @@ import {
 import { familyStyle } from "@/lib/family-color";
 import { formatScore } from "@/lib/format";
 import type { IndexModel } from "@/lib/schemas";
+import { hasCompleteSeason2Coverage } from "@/lib/scoring-seasons";
 
 export function BoardIndexChart({ models }: { readonly models: readonly IndexModel[] }) {
   const rows = toChartRows(models);
+  const season2 = models.some(hasCompleteSeason2Coverage);
   if (rows.length === 0) {
     return null;
   }
@@ -37,10 +39,17 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
       <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Full board</p>
         <h2 className="mt-1 text-2xl font-semibold text-bench-text">Local Intelligence Index — ranked</h2>
-        <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
-          Each bar is one ranked variant, colored by model family. Hover or focus a bar for its six-axis breakdown
-          and the score&apos;s uncertainty range.
-        </p>
+        {season2 ? (
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
+            Each bar is one ranked variant, colored by model family. Hover or focus a bar for its five-axis season-2
+            breakdown and the score&apos;s uncertainty range.
+          </p>
+        ) : (
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
+            Each bar is one ranked variant, colored by model family. Hover or focus a bar for its six-axis breakdown
+            and the score&apos;s uncertainty range.
+          </p>
+        )}
         <p className="sr-only">The ranked table below lists the same data in sortable text.</p>
       </div>
       <div className="overflow-x-auto px-3 pb-4 pt-4">

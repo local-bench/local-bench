@@ -84,7 +84,7 @@
     "model_label": "Qwen3.6-27B",
     "quant_label": "Q4_K_M",
     "publisher": "Qwen",
-    "gguf_repo": "unsloth/Qwen3.6-27B-MTP-GGUF",
+    "gguf_repo": "lmstudio-community/Qwen3.6-27B-GGUF",
     "file": "runs/bench/ranked-6axis-bounded-final-2026-07-08/qwen3-6-27b-q4km-bounded-final-v2.json",
     "reasoning_lane": "bounded-final-v2",
     "independent_replication": false,

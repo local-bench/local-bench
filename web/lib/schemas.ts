@@ -31,6 +31,15 @@ export const AxisScoreSchema = ScoreSchema.extend({
   // producer's shape — see docs/SITE-DATA-CONTRACT.md). raw_accuracy above IS the strict accuracy.
   termination_rate: z.number().optional(),
   conditional_accuracy: z.number().optional(),
+  facets: z.record(
+    z.string(),
+    ScoreSchema.extend({
+      bench: z.string(),
+      weight: z.number(),
+      raw_accuracy: z.number(),
+      n: z.number(),
+    }).passthrough(),
+  ).optional(),
 });
 
 export const AxesSchema = z.record(z.string(), AxisScoreSchema);
@@ -234,6 +243,17 @@ function requireValidVllmProvenance(row: RuntimeBearingRow, ctx: z.RefinementCtx
   }
 }
 
+const SeasonBridgeSchema = z.object({
+  season_1: z.object({
+    index_version: z.literal("index-v3.0"),
+    composite_v3: ScoreSchema,
+  }).passthrough(),
+  season_2: z.object({
+    index_version: z.literal("index-v4.0"),
+    composite_v4: ScoreSchema,
+  }).passthrough(),
+}).passthrough();
+
 export const IndexModelSchema = z.object({
   slug: ModelSlugSchema,
   catalog_id: z.string().nullable().optional(),
@@ -245,8 +265,12 @@ export const IndexModelSchema = z.object({
   diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
+  legacy_composite: ScoreSchema.nullable().optional(),
+  index_version: z.string().optional(),
+  season_bridge: SeasonBridgeSchema.optional(),
   conformance_status: z.string().nullable().optional(),
   axes: AxesSchema,
+  diagnostics: AxesSchema.optional(),
   axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
   lane: z.string().nullable(),
@@ -315,6 +339,9 @@ export const ModelRunSchema = z.object({
   diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
+  legacy_composite: ScoreSchema.nullable().optional(),
+  index_version: z.string().optional(),
+  season_bridge: SeasonBridgeSchema.optional(),
   axes: AxesSchema,
   axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
@@ -388,6 +415,8 @@ export const RunDetailSchema = z.object({
   diagnostic_composite: ScoreSchema.nullable().optional(),
   composite_full: ScoreSchema.nullable().optional(),
   composite_static: ScoreSchema.nullable().optional(),
+  legacy_composite: ScoreSchema.nullable().optional(),
+  season_bridge: SeasonBridgeSchema.optional(),
   axes: AxesSchema,
   axis_status: AxisStatusSchema.optional(),
   worst_axis: z.object({

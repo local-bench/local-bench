@@ -2,12 +2,14 @@ import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 import { isTrustedRankedPopulation } from "./trusted-population";
+import { INDEX_VERSION_V3 } from "./scoring-seasons";
 
 export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
   readonly bestRunId: string | null;
   readonly composite: Score | null;
   readonly diagnosticComposite: Score | null;
+  readonly indexVersion?: string | undefined;
   readonly lane: string | null;
   readonly origin?: string | undefined;
   readonly ranked: boolean;
@@ -23,7 +25,7 @@ export type VsBaseSide = {
 };
 
 export type VsBaseAxisDelta = {
-  readonly axis: AxisKey;
+  readonly axis: AxisKey | "tool_use";
   readonly base: AxisScore;
   readonly delta: number;
   readonly derivative: AxisScore;
@@ -53,10 +55,14 @@ export function buildVsBaseComparison({
 }): VsBaseComparison {
   const measuredBase = measuredRow(base.row);
   const measuredDerivative = measuredRow(derivative.row);
+  const differentScoringSeasons =
+    measuredBase !== null &&
+    measuredDerivative !== null &&
+    indexVersion(measuredBase) !== indexVersion(measuredDerivative);
   const axes =
-    measuredBase === null || measuredDerivative === null
+    measuredBase === null || measuredDerivative === null || differentScoringSeasons
       ? []
-      : AXIS_KEYS.flatMap((axis) => {
+      : [...AXIS_KEYS, "tool_use" as const].flatMap((axis) => {
           const baseScore = measuredBase.axes[axis];
           const derivativeScore = measuredDerivative.axes[axis];
           if (baseScore === undefined || derivativeScore === undefined) {
@@ -70,11 +76,13 @@ export function buildVsBaseComparison({
     base,
     compareHref: compareHref(base, derivative),
     compositeDelta:
-      measuredBase === null || measuredDerivative === null
+      measuredBase === null || measuredDerivative === null || differentScoringSeasons
         ? null
         : measuredDerivative.composite.point - measuredBase.composite.point,
     derivative,
-    missing: [...missingMessages("base", base), ...missingMessages("fine-tune", derivative)],
+    missing: differentScoringSeasons
+      ? ["different scoring seasons — see bridge"]
+      : [...missingMessages("base", base), ...missingMessages("fine-tune", derivative)],
   };
 }
 
@@ -107,6 +115,13 @@ export function currentIndexRunId(row: VsBaseBoardRow | null): string | null {
 }
 
 function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
+  if (
+    base.row !== null &&
+    derivative.row !== null &&
+    indexVersion(base.row) !== indexVersion(derivative.row)
+  ) {
+    return `/model/${encodeURIComponent(derivative.slug)}#season-bridge`;
+  }
   const baseRunId = currentIndexRunId(base.row);
   const derivativeRunId = currentIndexRunId(derivative.row);
   if (baseRunId !== null && derivativeRunId !== null) {
@@ -116,6 +131,10 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
     return `/model/${encodeURIComponent(derivative.slug)}`;
   }
   return `/compare?finetune=${encodeURIComponent(derivative.slug)}`;
+}
+
+function indexVersion(row: VsBaseBoardRow): string {
+  return row.indexVersion ?? INDEX_VERSION_V3;
 }
 
 function hasPreviousIndexDiagnostics(row: VsBaseBoardRow | null): boolean {

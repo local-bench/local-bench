@@ -8,6 +8,7 @@ import {
 import { clampScore, formatScore } from "@/lib/format";
 import { scoreForMode } from "@/lib/leaderboard-score";
 import type { IndexModel, Score } from "@/lib/schemas";
+import { displayIndexVersion } from "@/lib/scoring-seasons";
 
 export const PLOT = {
   bottom: 28,
@@ -27,7 +28,7 @@ type ScoredModel = {
 };
 
 type StackSegment = {
-  readonly key: AxisKey | "unallocated";
+  readonly key: AxisKey | "tool_use" | "unallocated";
   readonly label: string;
   readonly color: string;
   readonly muted: boolean;
@@ -52,7 +53,12 @@ export type ChartRow = ScoredModel & {
 };
 
 export function toChartRows(models: readonly IndexModel[]): readonly ChartRow[] {
-  return models.map(toScoredModel).filter(isScoredModel).sort(compareScoredModels).map(toChartRow);
+  const groups = new Map<string, ScoredModel[]>();
+  for (const row of models.map(toScoredModel).filter(isScoredModel)) {
+    const version = displayIndexVersion(row.model);
+    groups.set(version, [...(groups.get(version) ?? []), row]);
+  }
+  return [...groups.values()].flatMap((group) => group.sort(compareScoredModels)).map(toChartRow);
 }
 
 function toScoredModel(model: IndexModel): ScoredModel | null {

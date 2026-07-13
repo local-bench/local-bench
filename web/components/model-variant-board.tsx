@@ -14,6 +14,7 @@ import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
 import { isTrustedRankedPopulation } from "@/lib/trusted-population";
+import { displayIndexVersion, headlineScoreForDisplay } from "@/lib/scoring-seasons";
 
 type VariantRun = ModelData["runs"][number];
 type OwnVariantRow = {
@@ -50,10 +51,10 @@ export function ModelVariantBoard({
       row,
     ]),
   );
-  const ownRankedRuns = currentRuns
-    .filter((run) => run.ranked && run.composite !== null)
-    .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0));
-  const ownRankByRun = new Map<VariantRun, number>(ownRankedRuns.map((run, index) => [run, index]));
+  const ownRankedRuns = sortRunsBySeason(
+    currentRuns.filter((run) => run.ranked && headlineScoreForDisplay(run) !== null),
+  );
+  const ownRankByRun = new Map<VariantRun, number>(ownRankedRuns.map((run, index) => [run, rankWithinRunSeason(ownRankedRuns, index) - 1]));
   const ownRows: readonly OwnVariantRow[] = currentRuns.map((run) => ({
     kind: "this-model",
     ownRankIndex: ownRankByRun.get(run) ?? null,
@@ -66,9 +67,7 @@ export function ModelVariantBoard({
   );
   const rows = [...ownRows, ...familyRows];
   const axisKeys = variantAxisColumns(rows.map((row) => row.run));
-  const ranked = rows
-    .filter((row) => row.run.ranked && row.run.composite !== null)
-    .sort((left, right) => (right.run.composite?.point ?? 0) - (left.run.composite?.point ?? 0));
+  const ranked = sortVariantRowsBySeason(rows.filter((row) => row.run.ranked && headlineScoreForDisplay(row.run) !== null));
   const partial = rows.filter((row) => !row.run.ranked && row.run.score_status === "measured");
   const pending = ownRows.filter((row) => row.run.composite === null && row.run.score_status !== "measured");
   const hasPerf = rows.some((row) => row.run.perf !== undefined);
@@ -147,7 +146,7 @@ export function ModelVariantBoard({
                 row.kind === "this-model" && run.quant_label !== null ? decisionByQuant.get(run.quant_label) : undefined;
               return (
                 <tr key={variantRowKey(row, index)} className={variantRowClass(row)}>
-                  <td className="px-3 py-3 font-mono text-bench-muted">{index + 1}</td>
+                  <td className="px-3 py-3 font-mono text-bench-muted">{rankWithinRowSeason(ranked, index)}</td>
                   <td className="px-3 py-3">
                     <VariantCell row={row}>
                       {row.kind === "this-model" && row.ownRankIndex === 0 ? (
@@ -159,10 +158,10 @@ export function ModelVariantBoard({
                     </VariantCell>
                   </td>
                   <td className="px-3 py-3">
-                    {run.composite === null ? (
+                    {headlineScoreForDisplay(run) === null ? (
                       <span className="text-bench-muted">no data</span>
                     ) : (
-                      <ScoreBar axes={run.axes} score={run.composite} />
+                      <ScoreBar axes={run.axes} score={headlineScoreForDisplay(run) as NonNullable<ReturnType<typeof headlineScoreForDisplay>>} />
                     )}
                   </td>
                   {axisKeys.map((axis) => (
@@ -428,6 +427,11 @@ function formatFitTier(decision: QuantDecisionRow | undefined): string {
 
 // Headline + present axes (n > 0) for this model's runs, in canonical display order.
 function variantAxisColumns(runs: readonly VariantRun[]): readonly string[] {
+  if (runs.some((run) => run.axes["tool_use"] !== undefined)) {
+    return ["tool_use", "knowledge", "instruction", "coding", "math"].filter((key) =>
+      runs.some((run) => run.axes[key] !== undefined),
+    );
+  }
   const present = new Set<string>();
   for (const run of runs) {
     for (const [axis, score] of Object.entries(run.axes)) {
@@ -437,4 +441,40 @@ function variantAxisColumns(runs: readonly VariantRun[]): readonly string[] {
     }
   }
   return AXIS_CONFIG.map((axis) => axis.key).filter((key) => present.has(key));
+}
+
+function sortVariantRowsBySeason(rows: readonly VariantRow[]): readonly VariantRow[] {
+  const groups = new Map<string, VariantRow[]>();
+  for (const row of rows) {
+    const version = displayIndexVersion(row.run);
+    groups.set(version, [...(groups.get(version) ?? []), row]);
+  }
+  return [...groups.values()].flatMap((group) => group.sort(
+    (left, right) => (headlineScoreForDisplay(right.run)?.point ?? 0) - (headlineScoreForDisplay(left.run)?.point ?? 0),
+  ));
+}
+
+function sortRunsBySeason(runs: readonly VariantRun[]): readonly VariantRun[] {
+  const groups = new Map<string, VariantRun[]>();
+  for (const run of runs) {
+    const version = displayIndexVersion(run);
+    groups.set(version, [...(groups.get(version) ?? []), run]);
+  }
+  return [...groups.values()].flatMap((group) => group.sort(
+    (left, right) => (headlineScoreForDisplay(right)?.point ?? 0) - (headlineScoreForDisplay(left)?.point ?? 0),
+  ));
+}
+
+function rankWithinRunSeason(runs: readonly VariantRun[], index: number): number {
+  const run = runs[index];
+  if (run === undefined) return 0;
+  return runs.slice(0, index + 1).filter((candidate) => displayIndexVersion(candidate) === displayIndexVersion(run)).length;
+}
+
+function rankWithinRowSeason(rows: readonly VariantRow[], index: number): number {
+  const row = rows[index];
+  if (row === undefined) return 0;
+  return rows.slice(0, index + 1).filter(
+    (candidate) => displayIndexVersion(candidate.run) === displayIndexVersion(row.run),
+  ).length;
 }

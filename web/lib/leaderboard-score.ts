@@ -1,5 +1,6 @@
 import type { IndexModel, Score } from "./schemas";
 import { isTrustedRankedPopulation } from "./trusted-population";
+import { headlineScoreForDisplay } from "./scoring-seasons";
 
 export type LeaderboardScoreMode = "full" | "static";
 
@@ -12,7 +13,7 @@ export const HEADLINE_LANE = "bounded-final-v2";
 export function scoreForMode(model: IndexModel, mode: LeaderboardScoreMode): Score | null {
   switch (mode) {
     case "full":
-      return model.composite_full ?? model.composite;
+      return headlineScoreForDisplay(model);
     case "static":
       return model.composite_static ?? null;
     default:

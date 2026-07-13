@@ -26,6 +26,7 @@ export type AcceptedResultProjectionV2 = {
   readonly conformance: JsonRecord;
   readonly coverage_profile_id: string;
   readonly headline_complete: boolean;
+  readonly index_version?: "index-v3.0" | "index-v4.0" | undefined;
   readonly lane_id?: string | null;
   readonly model: {
     readonly display_name?: string | null;
@@ -90,6 +91,7 @@ export type BoardEntryRow = {
   readonly scorecard_id: string;
   readonly coverage_profile_id: string;
   readonly headline_complete: 0 | 1;
+  readonly index_version?: "index-v3.0" | "index-v4.0" | undefined;
   readonly headline_score: number | null;
   readonly partial_composite: number | null;
   readonly measured_headline_weight: number;
@@ -124,6 +126,7 @@ export function acceptedProjectionToBoardEntry(
     global_rank: null,
     hardware_summary: projection.runtime.hardware_summary ?? null,
     headline_complete: projection.headline_complete ? 1 : 0,
+    index_version: projection.index_version,
     headline_score: projection.scores.headline_score ?? null,
     known_headline_contribution: projection.scores.known_headline_contribution,
     lane_id: projection.lane_id ?? null,
@@ -197,6 +200,7 @@ export const AcceptedResultProjectionSchema = z.object({
   conformance: JsonObjectSchema,
   coverage_profile_id: z.string(),
   headline_complete: z.boolean(),
+  index_version: z.enum(["index-v3.0", "index-v4.0"]).optional(),
   lane_id: z.string().nullable().optional(),
   model: z.object({
     display_name: z.string().nullable().optional(),

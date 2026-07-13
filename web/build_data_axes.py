@@ -18,21 +18,40 @@ ensure_cli_src_path()
 
 from localbench.scoring import bootstrap, score_interval  # noqa: E402
 from localbench.scoring.axes import (  # noqa: E402
-    web_composite_weights,
-    web_display_axes,
-    web_source_bench_groups,
+    web_composite_weights as season_2_web_composite_weights,
+    web_display_axes as season_2_web_display_axes,
+    web_source_bench_groups as season_2_web_source_bench_groups,
 )
 from localbench.coding_exec.score import BENCH as CODING_BENCH, SANDBOX_UNSCOREABLE_BCBH  # noqa: E402
 
 StratumForItem: TypeAlias = Callable[[str, str | None, Mapping[str, JsonValue]], str]
 
-# Web display axes, source-bench groups, and composite weights are DERIVED from the
-# single source of truth (localbench.scoring.axes.AXES) — no hardcoded copy here
-# (METHODOLOGY-v3.0). Headline/static axis weights are imported from the same
-# registry the CLI scorer hashes into scorecard identity.
-BENCHES: Final = web_display_axes()
-SOURCE_BENCH_GROUPS_BY_AXIS: Final = web_source_bench_groups()
-COMPOSITE_WEIGHTS: Final = web_composite_weights()
+# Web display axes, source-bench groups, and composite weights use the frozen
+# season-1 contract below. Explicit v4 records opt into the live CLI
+# registry through the SEASON_2_* constants, so registry upgrades cannot silently
+# reinterpret live v1 site data.
+BENCHES: Final = ("knowledge", "instruction", "math", "long_context", "agentic", "tool_calling", "coding")
+SOURCE_BENCH_GROUPS_BY_AXIS: Final = {
+    "knowledge": (("mmlu_pro",), ("supergpqa",)),
+    "instruction": (("ifbench",), ("ifeval",)),
+    "math": (("olymmath_hard", "amo"), ("genmath",)),
+    "long_context": (("ruler_32k",),),
+    "agentic": (("appworld_c",),),
+    "tool_calling": (("tc_json_v1",),),
+    "coding": (("bigcodebench_hard",), ("lcb",)),
+}
+COMPOSITE_WEIGHTS: Final = {
+    "knowledge": 0.15,
+    "instruction": 0.15,
+    "math": 0.05,
+    "long_context": 0.0,
+    "agentic": 0.40,
+    "tool_calling": 0.10,
+    "coding": 0.15,
+}
+SEASON_2_BENCHES: Final = season_2_web_display_axes()
+SEASON_2_SOURCE_BENCH_GROUPS_BY_AXIS: Final = season_2_web_source_bench_groups()
+SEASON_2_COMPOSITE_WEIGHTS: Final = season_2_web_composite_weights()
 SEED: Final = 20260612
 
 
@@ -72,11 +91,12 @@ def build_axes(
     no_answer: dict[str, int],
     iters: int,
     benches: tuple[str, ...],
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]] = SOURCE_BENCH_GROUPS_BY_AXIS,
 ) -> tuple[JsonObject, list[JsonValue]]:
     axes: JsonObject = {}
     warnings: list[JsonValue] = []
     for axis in benches:
-        source_names = _source_benches_for_axis(axis, source_benches)
+        source_names = _source_benches_for_axis(axis, source_benches, source_bench_groups_by_axis)
         if source_names:
             axes[axis] = _axis_from_benches(axis, source_names, source_benches, values, strata, no_answer, iters, warnings)
         else:
@@ -102,17 +122,23 @@ def build_composite(run: JsonObject, axes: JsonObject, benches: tuple[str, ...],
     return {"interval": score_interval(point, lo, hi), "raw_point": point, "warnings": warnings}
 
 
-def display_sampling(sampling: JsonObject) -> JsonObject:
+def display_sampling(
+    sampling: JsonObject,
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]] = SOURCE_BENCH_GROUPS_BY_AXIS,
+) -> JsonObject:
     by_bench = sampling.get("by_bench")
     if not isinstance(by_bench, dict):
         return sampling
-    return sampling | {"by_bench": _display_axis_map(by_bench)}
+    return sampling | {"by_bench": _display_axis_map(by_bench, source_bench_groups_by_axis)}
 
 
-def display_item_set_hashes(item_set_hashes: JsonObject) -> JsonObject:
+def display_item_set_hashes(
+    item_set_hashes: JsonObject,
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]] = SOURCE_BENCH_GROUPS_BY_AXIS,
+) -> JsonObject:
     rendered: JsonObject = {}
     for raw_name, hash_value in item_set_hashes.items():
-        name = _display_source_name(raw_name, rendered)
+        name = _display_source_name(raw_name, rendered, source_bench_groups_by_axis)
         rendered[name] = hash_value
     return rendered
 
@@ -156,8 +182,12 @@ def _axis_from_benches(
     return axis_score
 
 
-def _source_benches_for_axis(axis: str, source_benches: JsonObject) -> tuple[str, ...]:
-    for group in SOURCE_BENCH_GROUPS_BY_AXIS.get(axis, ((axis,),)):
+def _source_benches_for_axis(
+    axis: str,
+    source_benches: JsonObject,
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]],
+) -> tuple[str, ...]:
+    for group in source_bench_groups_by_axis.get(axis, ((axis,),)):
         if all(bench in source_benches for bench in group):
             return group
     return ()
@@ -189,16 +219,23 @@ def _signed_item_score(correct: bool, chance: float) -> float:
     return ((1.0 if correct else 0.0) - chance) / (1.0 - chance)
 
 
-def _display_axis_map(source_map: Mapping[str, JsonValue]) -> JsonObject:
+def _display_axis_map(
+    source_map: Mapping[str, JsonValue],
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]],
+) -> JsonObject:
     rendered: JsonObject = {}
     for key, value in source_map.items():
-        axis = _axis_for_source(key)
+        axis = _axis_for_source(key, source_bench_groups_by_axis)
         rendered[axis if axis is not None else key] = value
     return rendered
 
 
-def _display_source_name(raw_name: str, rendered: JsonObject) -> str:
-    axis = _axis_for_source(raw_name.split(".", maxsplit=1)[0].split("_quick", maxsplit=1)[0])
+def _display_source_name(
+    raw_name: str,
+    rendered: JsonObject,
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]],
+) -> str:
+    axis = _axis_for_source(raw_name.split(".", maxsplit=1)[0].split("_quick", maxsplit=1)[0], source_bench_groups_by_axis)
     stem, suffix = raw_name.rsplit(".", maxsplit=1) if "." in raw_name else (raw_name, "")
     candidate = f"{axis or stem}.{suffix}" if suffix else axis or stem
     while candidate in rendered:
@@ -206,8 +243,11 @@ def _display_source_name(raw_name: str, rendered: JsonObject) -> str:
     return candidate
 
 
-def _axis_for_source(source_name: str) -> str | None:
-    for axis, groups in SOURCE_BENCH_GROUPS_BY_AXIS.items():
+def _axis_for_source(
+    source_name: str,
+    source_bench_groups_by_axis: Mapping[str, tuple[tuple[str, ...], ...]],
+) -> str | None:
+    for axis, groups in source_bench_groups_by_axis.items():
         if any(source_name in group for group in groups):
             return axis
     return None

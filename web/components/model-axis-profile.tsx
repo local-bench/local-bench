@@ -3,11 +3,14 @@ import { AXIS_CONFIG } from "@/lib/axis-config";
 import { clampScore, formatCi, formatScore } from "@/lib/format";
 import type { ModelData } from "@/lib/data";
 import type { AxisScore } from "@/lib/schemas";
+import { displayIndexVersion, headlineScoreForDisplay } from "@/lib/scoring-seasons";
 
 export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
-  const bestRun = [...model.runs]
-    .filter((run) => run.composite !== null)
-    .sort((left, right) => (right.composite?.point ?? 0) - (left.composite?.point ?? 0))[0] ?? null;
+  const measured = model.runs.filter((run) => headlineScoreForDisplay(run) !== null);
+  const firstSeason = measured[0] === undefined ? null : displayIndexVersion(measured[0]);
+  const bestRun = measured
+    .filter((run) => displayIndexVersion(run) === firstSeason)
+    .sort((left, right) => (headlineScoreForDisplay(right)?.point ?? 0) - (headlineScoreForDisplay(left)?.point ?? 0))[0] ?? null;
   if (bestRun === null) {
     return null;
   }
@@ -23,7 +26,12 @@ export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
         {bestRun.demo ? <DemoBadge /> : null}
       </div>
       <div className="grid gap-3 lg:grid-cols-3">
-        {AXIS_CONFIG.map((axis) => (
+        {(bestRun.axes["tool_use"] === undefined
+          ? AXIS_CONFIG
+          : [
+              { key: "tool_use", label: "Tool use", color: "#ffb627" },
+              ...AXIS_CONFIG.filter((axis) => ["knowledge", "instruction", "coding", "math"].includes(axis.key)),
+            ]).map((axis) => (
           <AxisProfileCard key={axis.key} label={axis.label} score={bestRun.axes[axis.key]} />
         ))}
       </div>
