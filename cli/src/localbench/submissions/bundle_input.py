@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.submissions.archive import unpack_bundle
+from localbench.submissions.strict_json import StrictJsonError, strict_json_loads
 from localbench.submissions.validate import SubmissionValidationError
 
 
@@ -32,7 +32,10 @@ def load_result_bundle_input(path: Path) -> ResultBundleInput:
 
 
 def _read_json_bytes(source_bytes: bytes) -> JsonObject:
-    data = json.loads(source_bytes.decode("utf-8"))
+    try:
+        data = strict_json_loads(source_bytes, "result bundle")
+    except StrictJsonError as error:
+        raise SubmissionValidationError(str(error)) from error
     if not isinstance(data, dict):
         raise SubmissionValidationError("result bundle must be a JSON object")
     return data

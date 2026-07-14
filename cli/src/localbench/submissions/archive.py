@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -8,6 +7,7 @@ from typing import Final
 
 from localbench._types import JsonObject
 from localbench.submissions.canon import sha256_bytes
+from localbench.submissions.strict_json import StrictJsonError, strict_json_loads
 from localbench.submissions.validate import SubmissionValidationError
 
 ALLOWED_MEMBERS: Final = frozenset({"manifest.json", "items.jsonl", "run.original.json", "environment.json", "attestations.jsonl"})
@@ -58,9 +58,9 @@ def unpack_bundle(path: Path) -> UnpackedBundle:
 
 def json_object_from_bytes(data: bytes, label: str) -> JsonObject:
     try:
-        parsed = json.loads(data.decode("utf-8"))
-    except json.JSONDecodeError as error:
-        raise SubmissionValidationError(f"invalid JSON in {label}") from error
+        parsed = strict_json_loads(data, label)
+    except StrictJsonError as error:
+        raise SubmissionValidationError(str(error)) from error
     if not isinstance(parsed, dict):
         raise SubmissionValidationError(f"{label} must be a JSON object")
     return parsed
@@ -78,10 +78,13 @@ def _check_member(info: zipfile.ZipInfo) -> None:
 
 def _jsonl_objects(data: bytes, label: str) -> list[JsonObject]:
     records: list[JsonObject] = []
-    for line in data.decode("utf-8").splitlines():
+    for line in data.splitlines():
         if not line.strip():
             continue
-        parsed = json.loads(line)
+        try:
+            parsed = strict_json_loads(line, label)
+        except StrictJsonError as error:
+            raise SubmissionValidationError(str(error)) from error
         if not isinstance(parsed, dict):
             raise SubmissionValidationError(f"{label} rows must be JSON objects")
         records.append(parsed)

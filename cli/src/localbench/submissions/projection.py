@@ -145,9 +145,11 @@ def _rescore_bundle(
         origin=origin,
         provenance=provenance,
     )
-    if coding_verification is not None:
+    if admission:
         projection["receipt_references"] = {
-            "coding_receipt_sha256": coding_verification.receipt_sha256,
+            "coding_receipt_sha256": (
+                coding_verification.receipt_sha256 if coding_verification is not None else None
+            ),
         }
     projection["artifact_hashes"] = _artifact_hashes(path, projection)
     if _object(_object(bundle.get("manifest")).get("integrity")).get("publishable") is True:
@@ -297,6 +299,7 @@ def _projection(
             "result bundle index_version does not match its coverage_profile_id: "
             f"{carried_index_version!r} != {index_version!r}",
         )
+    scores = score_summary(benches, axis_status, suite_axes=_suite_axes(manifest))
     projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
         "model": _projection_model(bundle, manifest, origin, bundle_sha256),
@@ -307,8 +310,8 @@ def _projection(
         "scorecard_id": str(scorecard.get("scorecard_id")),
         "coverage_profile_id": coverage_profile_id,
         "index_version": index_version,
-        "headline_complete": bool(bundle.get("headline_complete")),
-        "scores": score_summary(benches, axis_status, suite_axes=_suite_axes(manifest)),
+        "headline_complete": scores.get("headline_score") is not None,
+        "scores": scores,
         "axes": axis_projection(benches, axis_status),
         "conformance": _object(bundle.get("conformance")),
         "receipt_references": _receipt_references(bundle),

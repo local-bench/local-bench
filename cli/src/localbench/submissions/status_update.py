@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
-from localbench.landing import verify_coding_run
+from localbench.submissions.admission_coding import verify_coding_receipt_for_bundle
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import write_json_file
 from localbench.submissions.foundation import VALIDATOR_VERSION, validate_submission_bundle
@@ -28,7 +28,7 @@ def verify_submission(
     validation = validate_submission_bundle(bundle_path, suite_dir=suite_dir)
     loaded = load_result_bundle_input(bundle_path)
     coding_verification = (
-        verify_coding_run(
+        verify_coding_receipt_for_bundle(
             loaded.record,
             loaded.source_bytes,
             coding_verified_path,

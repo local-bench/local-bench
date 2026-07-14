@@ -61,6 +61,7 @@ class BenchAggregate(TypedDict):
     n_errors: int
     n_extraction_failures: int
     n_conformance_failures: NotRequired[int]
+    n_unscoreable: NotRequired[int]
     raw_accuracy: float
     chance_corrected: float
     termination_rate: float
@@ -188,20 +189,27 @@ def scorer_unavailable_results(bench: RenderedBench, error: str) -> list[ItemRes
 
 def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggregate:
     """Aggregate item-level correctness into benchmark metrics."""
-    n = len(items)
-    n_correct = sum(1 for item in items if item["correct"])
+    scoreable_items = items
+    n_unscoreable = 0
+    if bench == "bigcodebench_hard":
+        from localbench.coding_exec.score import SANDBOX_UNSCOREABLE_BCBH
+
+        scoreable_items = [item for item in items if item["id"] not in SANDBOX_UNSCOREABLE_BCBH]
+        n_unscoreable = len(items) - len(scoreable_items)
+    n = len(scoreable_items)
+    n_correct = sum(1 for item in scoreable_items if item["correct"])
     n_terminated = sum(
         1
-        for item in items
+        for item in scoreable_items
         if item["error"] is None and item["finish_reason"] != "length"
     )
     raw_accuracy = n_correct / n if n else 0.0
     aggregate_result: BenchAggregate = {
         "n": n,
-        "n_errors": sum(1 for item in items if item["error"] is not None),
+        "n_errors": sum(1 for item in scoreable_items if item["error"] is not None),
         "n_extraction_failures": sum(
             1
-            for item in items
+            for item in scoreable_items
             if _bench_has_extraction(bench)
             and item["error"] is None
             and item["extracted"] is None
@@ -213,8 +221,9 @@ def aggregate(bench: str, items: list[ScoredItem], baseline: float) -> BenchAggr
     }
     if bench == "bigcodebench_hard":
         aggregate_result["n_conformance_failures"] = sum(
-            1 for item in items if item.get("failure_kind") == "coding_ast_rejected"
+            1 for item in scoreable_items if item.get("failure_kind") == "coding_ast_rejected"
         )
+        aggregate_result["n_unscoreable"] = n_unscoreable
     return aggregate_result
 
 

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from localbench._suite import item_hashes, read_json_object, render_benches
+from localbench._scoring import aggregate
 from localbench._types import JsonObject, JsonValue
 from localbench.cli import _parser
 from localbench.coding_exec.artifacts import code_artifact_for_generation, verified_artifact
@@ -15,6 +16,7 @@ from localbench.coding_exec.receipt import attach_signed_verifier_receipt
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
 from localbench.submissions.foundation import validate_accepted_result_projection
 from localbench.submissions.keys import write_private_key
+from localbench.submissions.projection import _verified_coding_item
 from localbench.submissions.status_update import verify_submission
 from localbench.submissions.validate import SubmissionValidationError
 
@@ -25,6 +27,9 @@ _RELEASED_SUITE = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-full-exec
 _VALIDATED_AT = "2026-07-14T00:00:00Z"
 _IMAGE_DIGEST = "bigcodebench/bigcodebench-evaluate@sha256:" + "a" * 64
 _GOLDEN = Path(__file__).parent / "fixtures" / "accepted_projection_v2_full_exec_golden.json"
+_NO_RECEIPT_GOLDEN = (
+    Path(__file__).parent / "fixtures" / "accepted_projection_v2_full_exec_no_receipt_golden.json"
+)
 
 
 def test_full_exec_receipt_projects_verified_coding_as_measured(
@@ -53,7 +58,20 @@ def test_full_exec_receipt_projects_verified_coding_as_measured(
     coding = _object(_object(projection["axes"])["coding"])
     validate_accepted_result_projection(projection)
     assert status["accepted"] is True
-    assert coding == {"score": 1.0, "n": 1, "ci": None, "status": "measured"}
+    assert coding == {"score": 1.0, "n": 141, "ci": None, "status": "measured"}
+    assert fixture.verified is not None
+    verified = read_json_object(fixture.verified)
+    coding_aggregate = aggregate(
+        "bigcodebench_hard",
+        [
+            _verified_coding_item(item)
+            for item in verified["items"]
+            if isinstance(item, dict) and item.get("bench") == "bigcodebench_hard"
+        ],
+        0.0,
+    )
+    assert coding_aggregate["n"] == 141
+    assert coding_aggregate["n_unscoreable"] == 7
     assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
     assert _object(projection["rescore_modes"])["bigcodebench_hard"] == "verdict_carried"
     assert _object(projection["receipt_references"])["coding_receipt_sha256"] is not None
@@ -69,6 +87,10 @@ def test_full_exec_without_receipt_constructs_schema_valid_status_update(
 ) -> None:
     # Given: a full-exec bundle with gen-time coding artifacts but no maintainer receipt.
     fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=False, publishable=publishable)
+    stale_bundle = read_json_object(fixture.bundle)
+    stale_bundle["headline_complete"] = True
+    stale_bundle["receipt_references"] = {"coding_receipt_sha256": "f" * 64}
+    write_json_file(fixture.bundle, stale_bundle)
 
     # When: admission verification constructs either an accept or reject status update.
     status = verify_submission(
@@ -87,8 +109,11 @@ def test_full_exec_without_receipt_constructs_schema_valid_status_update(
     assert status["accepted"] is publishable
     assert status["status"] == ("accepted" if publishable else "rejected")
     assert coding == {"score": None, "n": 0, "ci": None, "status": "not_measured"}
+    assert projection["headline_complete"] is False
     assert _object(projection["receipt_references"])["coding_receipt_sha256"] is None
     assert "generated_unverified" not in json.dumps(projection, sort_keys=True)
+    if publishable:
+        assert projection == read_json_object(_NO_RECEIPT_GOLDEN)
 
 
 def test_admission_without_coding_execution_cannot_claim_measured_coding(
@@ -235,29 +260,35 @@ def _full_exec_fixture(
     if not publishable:
         _object(_object(bundle["manifest"])["sampling"])["top_k"] = 0
 
-    rendered = render_benches("bigcodebench_hard", "standard", 1, suite_dir, suite, [])
+    rendered = render_benches("bigcodebench_hard", "standard", None, suite_dir, suite, [])
     coding_bench = rendered[0]
-    coding_id = str(coding_bench.benchmark_items[0]["id"])
-    coding_item: JsonObject = {
-        "id": coding_id,
-        "bench": "bigcodebench_hard",
-        "response_text": "def task_func(*args, **kwargs):\n    return None",
-        "reasoning_text": None,
-        "finish_reason": "stop",
-        "latency_seconds": 0.25,
-        "started_at": "2026-07-14T00:00:00Z",
-        "finished_at": "2026-07-14T00:00:01Z",
-        "attempts": 1,
-        "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
-        "error": None,
-        "correct": False,
-        "extracted": "def task_func(*args, **kwargs):\n    return None",
-    }
-    coding_item["code_artifact"] = code_artifact_for_generation(
-        coding_bench.source_items[0],
-        coding_bench.benchmark_items[0],
-        coding_item,
-    )
+    coding_items: list[JsonObject] = []
+    for source_item, benchmark_item in zip(
+        coding_bench.source_items,
+        coding_bench.benchmark_items,
+        strict=True,
+    ):
+        coding_item: JsonObject = {
+            "id": str(benchmark_item["id"]),
+            "bench": "bigcodebench_hard",
+            "response_text": "def task_func(*args, **kwargs):\n    return None",
+            "reasoning_text": None,
+            "finish_reason": "stop",
+            "latency_seconds": 0.25,
+            "started_at": "2026-07-14T00:00:00Z",
+            "finished_at": "2026-07-14T00:00:01Z",
+            "attempts": 1,
+            "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
+            "error": None,
+            "correct": False,
+            "extracted": "def task_func(*args, **kwargs):\n    return None",
+        }
+        coding_item["code_artifact"] = code_artifact_for_generation(
+            source_item,
+            benchmark_item,
+            coding_item,
+        )
+        coding_items.append(coding_item)
     # Item shape copied from cli/tests/submissions/test_projection_dynamic_benches.py.
     agentic_item: JsonObject = {
         "id": "synthetic-agentic-1",
@@ -273,14 +304,14 @@ def _full_exec_fixture(
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         "error": None,
     }
-    bundle["items"] = ([coding_item] if with_coding_evidence else []) + [agentic_item]
+    bundle["items"] = (coding_items if with_coding_evidence else []) + [agentic_item]
     benches: JsonObject = {
         **_object(bundle["benches"]),
         "appworld_c": {"n": 1, "n_errors": 0, "raw_accuracy": 1.0, "chance_corrected": 1.0},
     }
     if with_coding_evidence:
         benches["bigcodebench_hard"] = {
-            "n": 1,
+            "n": len(coding_items),
             "n_errors": 0,
             "raw_accuracy": 0.0,
             "chance_corrected": 0.0,
@@ -309,21 +340,22 @@ def _full_exec_fixture(
         return _FullExecFixture(bundle=bundle_path, suite_dir=suite_dir, verified=None)
 
     verified = copy.deepcopy(bundle)
-    verified_item = _object(verified["items"][0])
-    verified_item["correct"] = True
-    verified_item["code_artifact"] = verified_artifact(
-        _object(verified_item["code_artifact"]),
-        verdict={
-            "passed": True,
-            "timeout": False,
-            "oom": False,
-            "runtime_ms": 1,
-            "stdout_tail": "",
-            "stderr_tail": "",
-        },
-        image_digest=_IMAGE_DIGEST,
-    )
-    verified["items"][0] = verified_item
+    for index in range(len(coding_items)):
+        verified_item = _object(verified["items"][index])
+        verified_item["correct"] = True
+        verified_item["code_artifact"] = verified_artifact(
+            _object(verified_item["code_artifact"]),
+            verdict={
+                "passed": True,
+                "timeout": False,
+                "oom": False,
+                "runtime_ms": 1,
+                "stdout_tail": "",
+                "stderr_tail": "",
+            },
+            image_digest=_IMAGE_DIGEST,
+        )
+        verified["items"][index] = verified_item
     key_path = tmp_path / "test-verifier.pem"
     public_key = write_private_key(key_path, seed=bytes(range(32)))
     attach_signed_verifier_receipt(
