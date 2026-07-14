@@ -111,9 +111,13 @@ try {
   }
 
   # --- 5. Push the exact verified commit ---
-  $before = $null
+  # Two change baselines: a data-only deploy moves index.json, an HTML/code-only deploy moves
+  # the landing page (RSC payload + hashed chunk refs). Either one proves the new build is live.
+  $beforeIndex = $null
+  $beforeLanding = $null
   try {
-    $before = (Invoke-WebRequest -UseBasicParsing -Uri $liveIndexUrl -TimeoutSec 30).Content
+    $beforeIndex = (Invoke-WebRequest -UseBasicParsing -Uri $liveIndexUrl -TimeoutSec 30).Content
+    $beforeLanding = (Invoke-WebRequest -UseBasicParsing -Uri "https://local-bench.ai/" -TimeoutSec 30).Content
   } catch {
     Write-Host "    (pre-push live baseline fetch failed: $($_.Exception.Message))" -ForegroundColor Yellow
   }
@@ -124,8 +128,8 @@ try {
   & git -C $repoRoot push deploy HEAD:main
   if ($LASTEXITCODE -ne 0) { throw "git push deploy HEAD:main failed" }
 
-  # --- 6. Poll until Cloudflare Pages serves the deployed data ---
-  Write-Host ("==> Waiting for Cloudflare Pages (expect index_version {0}, content change)" -f $expectedVersion) -ForegroundColor Cyan
+  # --- 6. Poll until Cloudflare Pages serves the deployed build ---
+  Write-Host ("==> Waiting for Cloudflare Pages (expect index_version {0} plus index OR landing content change)" -f $expectedVersion) -ForegroundColor Cyan
   $deadline = (Get-Date).AddMinutes(12)
   $live = $null
   while ((Get-Date) -lt $deadline) {
@@ -133,16 +137,20 @@ try {
     try {
       $resp = Invoke-WebRequest -UseBasicParsing -Uri $liveIndexUrl -TimeoutSec 30
       $json = $resp.Content | ConvertFrom-Json
-      if (($json.index_version -eq $expectedVersion) -and ($resp.Content -ne $before)) {
+      $landing = (Invoke-WebRequest -UseBasicParsing -Uri "https://local-bench.ai/" -TimeoutSec 30).Content
+      $indexChanged = $resp.Content -ne $beforeIndex
+      $landingChanged = $landing -ne $beforeLanding
+      if (($json.index_version -eq $expectedVersion) -and ($indexChanged -or $landingChanged)) {
         $live = $json
+        Write-Host ("    deploy detected (index changed: {0}; landing changed: {1})" -f $indexChanged, $landingChanged)
         break
       }
-      Write-Host ("    live index_version={0}; still waiting..." -f $json.index_version)
+      Write-Host ("    live index_version={0}; no content change yet; still waiting..." -f $json.index_version)
     } catch {
       Write-Host "    poll failed: $($_.Exception.Message)" -ForegroundColor Yellow
     }
   }
-  if ($null -eq $live) { throw "live site did not serve index_version $expectedVersion within 12 minutes - check the Cloudflare Pages dashboard before retrying" }
+  if ($null -eq $live) { throw "live site did not serve the deployed build within 12 minutes - check the Cloudflare Pages dashboard before retrying" }
   $rankedCount = @($live.models | Where-Object { $_.ranked -eq $true }).Count
   Write-Host ("==> LIVE: index_version {0}, {1} models, {2} ranked" -f $live.index_version, @($live.models).Count, $rankedCount) -ForegroundColor Green
 
