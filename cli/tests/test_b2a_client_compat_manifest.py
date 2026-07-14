@@ -3,9 +3,18 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_cli_wheel_build_backend_is_exactly_pinned() -> None:
+    pyproject = tomllib.loads((ROOT / "cli" / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["build-system"]["requires"] == [
+        "setuptools==80.9.0",
+        "wheel==0.45.1",
+    ]
 
 
 def test_b2a_compatibility_manifest_pins_rc_and_live_wheels() -> None:
