@@ -8,8 +8,7 @@ import pytest
 from localbench._types import JsonObject
 from localbench.cli import main
 from localbench.submissions.canon import canonical_json_bytes, sha256_file
-from localbench.submissions.foundation import rescore_bundle
-from localbench.submissions.projection import projection_object_sha256
+from localbench.submissions.projection import projection_object_sha256, rescore_admission_bundle
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _PILOT = _REPO_ROOT / "runs" / "campaigns" / "wave0-gemma-12b-q4xl-cal-20260629" / "localbench-run.json"
@@ -99,7 +98,13 @@ def test_verify_submission_accepts_publishable_fixture_with_byte_identical_proje
     )
 
     # Then: the projection bytes match the authoritative rescorer exactly.
-    expected_projection = rescore_bundle(bundle, suite_dir=_SUITE_V1, validated_at=_VALIDATED_AT)
+    expected_projection = rescore_admission_bundle(
+        bundle,
+        suite_dir=_SUITE_V1,
+        validated_at=_VALIDATED_AT,
+        origin="project_anchor",
+        coding_verification=None,
+    )
     status = read_json(status_out)
     assert code == 0
     assert projection_out.read_bytes() == canonical_json_bytes(expected_projection) + b"\n"

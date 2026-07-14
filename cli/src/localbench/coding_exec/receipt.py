@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
 from localbench._suite import item_hashes, read_json_object, suite_version
-from localbench._types import JsonObject, JsonValue
+from localbench._types import JsonObject
 from localbench.coding_exec.artifacts import (
     ASSEMBLY_RECIPE_ID,
     HARNESS_REV,
@@ -18,8 +19,19 @@ from localbench.coding_exec.program import SENTINEL_SCHEME_REV
 from localbench.coding_exec.score import BENCH
 from localbench.submissions.canon import canonical_json_hash
 from localbench.submissions.crypto import sign_manifest_payload, verify_manifest_signature
+from localbench.submissions.validate import SubmissionValidationError
 
 RECEIPT_SCHEMA_VERSION: Final = "localbench.coding_verifier_receipt.v1"
+
+
+class CodingVerificationError(SubmissionValidationError):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class CodingVerificationResult:
+    record: JsonObject
+    receipt_sha256: str
 
 
 def attach_signed_verifier_receipt(
@@ -117,6 +129,8 @@ def _has_trusted_disposition(item: JsonObject) -> bool:
 
 
 __all__ = [
+    "CodingVerificationError",
+    "CodingVerificationResult",
     "RECEIPT_SCHEMA_VERSION",
     "attach_signed_verifier_receipt",
     "coding_patch_sha256",

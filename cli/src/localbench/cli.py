@@ -569,6 +569,7 @@ def _parser() -> argparse.ArgumentParser:
     admin_verify_parser.add_argument("--bundle", required=True, type=Path)
     admin_verify_parser.add_argument("--suite-dir", required=True, type=Path)
     admin_verify_parser.add_argument("--projection-out", required=True, type=Path)
+    admin_verify_parser.add_argument("--coding-verified", type=Path)
     admin_verify_parser.add_argument("--out", type=Path)
     admin_verify_parser.add_argument("--validated-at", default="1970-01-01T00:00:00Z")
     admin_verify_parser.add_argument("--validator-commit")
@@ -2228,6 +2229,7 @@ def _submit_admin_verify(args: argparse.Namespace) -> int:
             validated_at=args.validated_at,
             validator_commit=args.validator_commit,
             origin=_submission_origin(submission),
+            coding_verified_path=args.coding_verified,
         )
         result = post_admin_verification(
             AdminVerificationRequest(

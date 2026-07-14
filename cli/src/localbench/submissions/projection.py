@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -8,7 +9,14 @@ from typing import assert_never
 from localbench._scoring import BenchAggregate, ScoredItem, aggregate
 from localbench._suite import read_json_object
 from localbench._types import JsonObject, JsonValue, Usage
-from localbench.scoring.axis_status import AxisStatusBlock, parse_axis_status_block
+from localbench.coding_exec.receipt import CodingVerificationResult
+from localbench.coding_exec.score import BENCH as CODING_BENCH
+from localbench.scoring.axis_status import (
+    AxisStatusBlock,
+    measured_axis,
+    not_measured_axis,
+    parse_axis_status_block,
+)
 from localbench.scoring.editorial import index_version_for_coverage_profile
 from localbench.scoring.public_rescore import score_public_item
 from localbench.submissions.bundle_input import load_result_bundle_input
@@ -59,15 +67,60 @@ def rescore_bundle(
     validated_at: str,
     origin: SubmissionOrigin = "project_anchor",
 ) -> JsonObject:
+    return _rescore_bundle(
+        path,
+        suite_dir=suite_dir,
+        validated_at=validated_at,
+        origin=origin,
+        admission=False,
+        coding_verification=None,
+    )
+
+
+def rescore_admission_bundle(
+    path: Path,
+    *,
+    suite_dir: Path,
+    validated_at: str,
+    origin: SubmissionOrigin,
+    coding_verification: CodingVerificationResult | None,
+) -> JsonObject:
+    return _rescore_bundle(
+        path,
+        suite_dir=suite_dir,
+        validated_at=validated_at,
+        origin=origin,
+        admission=True,
+        coding_verification=coding_verification,
+    )
+
+
+def _rescore_bundle(
+    path: Path,
+    *,
+    suite_dir: Path,
+    validated_at: str,
+    origin: SubmissionOrigin,
+    admission: bool,
+    coding_verification: CodingVerificationResult | None,
+) -> JsonObject:
     loaded = load_result_bundle_input(path)
     bundle_sha256 = sha256_file(path)
     bundle = normalize_result_bundle(loaded.record, suite_dir=suite_dir)
     _restore_declared_suite_pair(bundle, loaded.record)
     suite_items = _suite_items(bundle, suite_dir)
     dynamic_benches = _dynamic_benches(suite_dir, suite_items)
-    items = _scored_items(_items(bundle), suite_items, dynamic_benches)
-    benches = _bench_aggregates(items, suite_items, dynamic_benches)
+    source_items = _items(bundle)
+    items = _scored_items(source_items, suite_items, dynamic_benches)
     axis_status = parse_axis_status_block(_object(bundle.get("axis_status")))
+    if admission:
+        items, axis_status = _admission_coding_inputs(
+            items,
+            source_items,
+            axis_status,
+            coding_verification,
+        )
+    benches = _bench_aggregates(items, suite_items, dynamic_benches)
     provenance = _agentic_provenance(
         origin,
         carried_from_result_items(_items(bundle), dynamic_benches),
@@ -83,14 +136,64 @@ def rescore_bundle(
         rescore_modes={
             bench: ("verdict_carried" if bench in dynamic_benches else "rescored")
             for bench in sorted(benches)
-        },
+        }
+        | (
+            {CODING_BENCH: "verdict_carried"}
+            if admission and coding_verification is not None and CODING_BENCH in benches
+            else {}
+        ),
         origin=origin,
         provenance=provenance,
     )
+    if coding_verification is not None:
+        projection["receipt_references"] = {
+            "coding_receipt_sha256": coding_verification.receipt_sha256,
+        }
     projection["artifact_hashes"] = _artifact_hashes(path, projection)
     if _object(_object(bundle.get("manifest")).get("integrity")).get("publishable") is True:
         validate_accepted_result_projection(projection)
     return projection
+
+
+def _admission_coding_inputs(
+    rescored_items: list[ScoredItem],
+    source_items: list[JsonObject],
+    axis_status: AxisStatusBlock,
+    coding_verification: CodingVerificationResult | None,
+) -> tuple[list[ScoredItem], AxisStatusBlock]:
+    has_coding_execution = any(item.get("bench") == CODING_BENCH for item in source_items)
+    adjusted_status = copy.deepcopy(axis_status)
+    non_coding = [item for item in rescored_items if item["bench"] != CODING_BENCH]
+    if not has_coding_execution or coding_verification is None:
+        adjusted_status["axes"]["coding"] = not_measured_axis("coding", reason="not_run")
+        return non_coding, adjusted_status
+    adjusted_status["axes"]["coding"] = measured_axis("coding")
+    verified_coding = [
+        _verified_coding_item(item)
+        for item in _items(coding_verification.record)
+        if item.get("bench") == CODING_BENCH
+    ]
+    return [*non_coding, *verified_coding], adjusted_status
+
+
+def _verified_coding_item(item: JsonObject) -> ScoredItem:
+    correct = item.get("correct")
+    if not isinstance(correct, bool):
+        raise SubmissionValidationError("verified coding item correct must be a boolean")
+    return {
+        "id": _required_string(item.get("id"), "id"),
+        "bench": CODING_BENCH,
+        "response_text": _optional_string(item.get("response_text")),
+        "extracted": _optional_string(item.get("extracted")),
+        "correct": correct,
+        "finish_reason": _optional_string(item.get("finish_reason")),
+        "latency_seconds": _number(item.get("latency_seconds")),
+        "started_at": _optional_string(item.get("started_at")) or "",
+        "finished_at": _optional_string(item.get("finished_at")) or "",
+        "attempts": _int(item.get("attempts")),
+        "usage": _usage(item.get("usage")),
+        "error": _optional_string(item.get("error")),
+    }
 
 
 def _restore_declared_suite_pair(bundle: JsonObject, source: JsonObject) -> None:

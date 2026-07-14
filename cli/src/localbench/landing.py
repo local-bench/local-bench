@@ -29,6 +29,8 @@ from localbench.coding_exec.ast_gate import AST_GATE_REV
 from localbench.coding_exec.extract import EXTRACTOR_REV
 from localbench.coding_exec.program import SENTINEL_SCHEME_REV
 from localbench.coding_exec.receipt import (
+    CodingVerificationError,
+    CodingVerificationResult,
     RECEIPT_SCHEMA_VERSION,
     coding_patch_sha256,
     verify_signed_verifier_receipt,
@@ -62,6 +64,17 @@ LANDING_BACKUPS_PATH: Final = REPO_ROOT / ".localbench-land-backups"
 _PROTECTED_PUBLIC_RUNS: Final = (
     ("gemma-4-12b-it", "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2"),
 )
+_CODING_ITEM_PATCH_FIELDS: Final = ("code_artifact", "correct", "extracted", "failure_kind")
+_CODING_ARTIFACT_PATCH_FIELDS: Final = (
+    "verdict",
+    "verdict_source",
+    "image_digest",
+    "conformance_status",
+    "extraction_status",
+    "ast_gate_rev",
+    "sentinel_scheme_rev",
+    "assembled_program_sha256",
+)
 
 
 class LandingError(RuntimeError):
@@ -94,18 +107,20 @@ def land_run(
     original_path = resolved_run_dir / "localbench-run.json"
     verified_path = _resolve_verified_path(resolved_run_dir, coding_verified_path)
     original = _read_object(original_path, "original run")
-    verified = _read_object(verified_path, "coding-verified run")
     _assert_campaign_complete(resolved_run_dir, original)
-    _assert_generations_untouched(original, verified)
-    patched = _strict_coding_patch(original, verified)
-    _assert_coding_verified(patched)
+    try:
+        coding_verification = verify_coding_run(
+            original,
+            original_path.read_bytes(),
+            verified_path,
+            suite_dir=SUITE_DIR,
+            verifier_public_key=verifier_public_key,
+        )
+    except CodingVerificationError as error:
+        raise LandingError(str(error)) from error
+    patched = coding_verification.record
     _assert_agentic_verification(patched)
-    receipt_hash = _assert_verifier_receipt(
-        original_path,
-        verified,
-        patched,
-        verifier_public_key=verifier_public_key,
-    )
+    receipt_hash = coding_verification.receipt_sha256
     model_sha = _hash_actual_gguf(
         gguf_path,
         claimed_sha256=_model_sha(patched),
@@ -277,6 +292,32 @@ def _read_sources() -> list[JsonObject]:
     return list(value)
 
 
+def verify_coding_run(
+    original: JsonObject,
+    source_bytes: bytes,
+    verified_path: Path,
+    *,
+    suite_dir: Path,
+    verifier_public_key: str,
+) -> CodingVerificationResult:
+    try:
+        verified = _read_object(verified_path, "coding-verified run")
+        _assert_generations_untouched(original, verified)
+        patched = _strict_coding_patch(original, verified)
+        _assert_coding_verified(patched)
+        receipt_hash = _assert_verifier_receipt(
+            source_bytes,
+            original,
+            verified,
+            patched,
+            suite_dir=suite_dir,
+            verifier_public_key=verifier_public_key,
+        )
+    except LandingError as error:
+        raise CodingVerificationError(str(error)) from error
+    return CodingVerificationResult(record=patched, receipt_sha256=receipt_hash)
+
+
 def _assert_generations_untouched(original: JsonObject, verified: JsonObject) -> None:
     stable_original = {key: value for key, value in original.items() if key != "items"}
     stable_verified = {
@@ -297,17 +338,8 @@ def _assert_generations_untouched(original: JsonObject, verified: JsonObject) ->
     verified_items = _object_list(verified.get("items"), "verified items")
     if len(original_items) != len(verified_items):
         raise LandingError("coding verification changed the item count")
-    mutable = {"code_artifact", "correct", "extracted", "failure_kind"}
-    mutable_artifact = {
-        "verdict",
-        "verdict_source",
-        "image_digest",
-        "conformance_status",
-        "extraction_status",
-        "ast_gate_rev",
-        "sentinel_scheme_rev",
-        "assembled_program_sha256",
-    }
+    mutable = set(_CODING_ITEM_PATCH_FIELDS)
+    mutable_artifact = set(_CODING_ARTIFACT_PATCH_FIELDS)
     for before, after in zip(original_items, verified_items, strict=True):
         identity = (before.get("bench"), before.get("id"))
         if identity != (after.get("bench"), after.get("id")):
@@ -338,22 +370,13 @@ def _strict_coding_patch(original: JsonObject, verified: JsonObject) -> JsonObje
             continue
         before_artifact = _object(before.get("code_artifact"), f"original coding artifact {before.get('id')}")
         after_artifact = _object(after.get("code_artifact"), f"verified coding artifact {after.get('id')}")
-        for key in (
-            "verdict",
-            "verdict_source",
-            "image_digest",
-            "conformance_status",
-            "extraction_status",
-            "ast_gate_rev",
-            "sentinel_scheme_rev",
-            "assembled_program_sha256",
-        ):
+        for key in _CODING_ARTIFACT_PATCH_FIELDS:
             if key in after_artifact:
                 before_artifact[key] = copy.deepcopy(after_artifact[key])
             else:
                 before_artifact.pop(key, None)
         before["code_artifact"] = before_artifact
-        for key in ("correct", "extracted", "failure_kind"):
+        for key in _CODING_ITEM_PATCH_FIELDS[1:]:
             if key in after:
                 before[key] = copy.deepcopy(after[key])
             else:
@@ -414,10 +437,12 @@ def _assert_campaign_complete(run_dir: Path, run: JsonObject) -> None:
 
 
 def _assert_verifier_receipt(
-    original_path: Path,
+    source_bytes: bytes,
+    original: JsonObject,
     verified: JsonObject,
     patched: JsonObject,
     *,
+    suite_dir: Path,
     verifier_public_key: str,
 ) -> str:
     if re.fullmatch(r"[0-9a-f]{64}", verifier_public_key) is None:
@@ -429,16 +454,16 @@ def _assert_verifier_receipt(
         raise LandingError(str(error)) from error
     if payload.get("schema_version") != RECEIPT_SCHEMA_VERSION or payload.get("complete") is not True:
         raise LandingError("coding verifier receipt is incomplete or uses an unsupported schema")
-    if payload.get("source_run_sha256") != _sha256_file(original_path):
-        raise LandingError("coding verifier receipt is not bound to the original run bytes")
+    if payload.get("source_run_sha256") not in _source_run_sha256s(source_bytes, original, verified):
+        raise LandingError("coding verifier receipt is not bound to the submitted run")
     if payload.get("coding_patch_sha256") != coding_patch_sha256(patched):
         raise LandingError("coding verifier receipt does not cover the accepted coding patch")
     image = payload.get("image_digest")
     if not isinstance(image, str) or re.fullmatch(r"[^\s@]+@sha256:[0-9a-f]{64}", image) is None:
         raise LandingError("coding verifier receipt image must be digest-pinned")
 
-    suite = read_json_object(SUITE_DIR / "suite.json")
-    expected_hashes = item_hashes(SUITE_DIR, [f"{CODING_BENCH}.jsonl"])
+    suite = read_json_object(suite_dir / "suite.json")
+    expected_hashes = item_hashes(suite_dir, [f"{CODING_BENCH}.jsonl"])
     expected_constants = {
         "suite_version": suite_version(suite),
         "item_set_hashes": expected_hashes,
@@ -455,15 +480,49 @@ def _assert_verifier_receipt(
     coding_items = [item for item in _object_list(patched.get("items"), "items") if item.get("bench") == CODING_BENCH]
     if payload.get("coding_item_count") != len(coding_items) or payload.get("verified_item_count") != len(coding_items):
         raise LandingError("coding verifier receipt does not cover every coding item")
-    _assert_current_coding_artifacts(patched, image)
+    _assert_current_coding_artifacts(patched, image, suite_dir=suite_dir)
     return hashlib.sha256(
         json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     ).hexdigest()
 
 
-def _assert_current_coding_artifacts(run: JsonObject, image_digest: str) -> None:
-    suite = read_json_object(SUITE_DIR / "suite.json")
-    rendered = render_benches(CODING_BENCH, "standard", None, SUITE_DIR, suite, [])
+def _source_run_sha256s(
+    source_bytes: bytes,
+    original: JsonObject,
+    verified: JsonObject,
+) -> frozenset[str]:
+    reconstructed = copy.deepcopy(verified)
+    reconstructed.pop("coding_verifier_receipt", None)
+    original_items = _object_list(original.get("items"), "original items")
+    reconstructed_items = _object_list(reconstructed.get("items"), "reconstructed items")
+    for before, restored in zip(original_items, reconstructed_items, strict=True):
+        if before.get("bench") != CODING_BENCH:
+            continue
+        before_artifact = _object(before.get("code_artifact"), f"original coding artifact {before.get('id')}")
+        restored_artifact = _object(restored.get("code_artifact"), f"verified coding artifact {before.get('id')}")
+        for key in _CODING_ARTIFACT_PATCH_FIELDS:
+            if key in before_artifact:
+                restored_artifact[key] = copy.deepcopy(before_artifact[key])
+            else:
+                restored_artifact.pop(key, None)
+        restored["code_artifact"] = restored_artifact
+        for key in _CODING_ITEM_PATCH_FIELDS[1:]:
+            if key in before:
+                restored[key] = copy.deepcopy(before[key])
+            else:
+                restored.pop(key, None)
+    reconstructed_bytes = (json.dumps(reconstructed, indent=2) + "\n").encode("utf-8")
+    return frozenset(
+        {
+            hashlib.sha256(source_bytes).hexdigest(),
+            hashlib.sha256(reconstructed_bytes).hexdigest(),
+        }
+    )
+
+
+def _assert_current_coding_artifacts(run: JsonObject, image_digest: str, *, suite_dir: Path) -> None:
+    suite = read_json_object(suite_dir / "suite.json")
+    rendered = render_benches(CODING_BENCH, "standard", None, suite_dir, suite, [])
     if len(rendered) != 1:
         raise LandingError("current coding suite cannot be rendered")
     bench = rendered[0]

@@ -4,11 +4,15 @@ from pathlib import Path
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
+from localbench.landing import verify_coding_run
+from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import write_json_file
-from localbench.submissions.foundation import VALIDATOR_VERSION, rescore_bundle, validate_submission_bundle
-from localbench.submissions.projection import projection_object_sha256
+from localbench.submissions.foundation import VALIDATOR_VERSION, validate_submission_bundle
+from localbench.submissions.origin import normalize_origin
+from localbench.submissions.projection import projection_object_sha256, rescore_admission_bundle
 
 STATUS_UPDATE_SCHEMA_VERSION: Final = "localbench.submission_status_update.v1"
+_CODING_VERIFIER_PUBLIC_KEY: Final = "63d52c31a16d5806a0de4dbbdcd8680e3960137bc044ba337d8d2f7572fccc60"
 
 
 def verify_submission(
@@ -19,9 +23,28 @@ def verify_submission(
     validated_at: str,
     validator_commit: str | None,
     origin: str,
+    coding_verified_path: Path | None = None,
 ) -> JsonObject:
     validation = validate_submission_bundle(bundle_path, suite_dir=suite_dir)
-    projection = rescore_bundle(bundle_path, suite_dir=suite_dir, validated_at=validated_at, origin=origin)
+    loaded = load_result_bundle_input(bundle_path)
+    coding_verification = (
+        verify_coding_run(
+            loaded.record,
+            loaded.source_bytes,
+            coding_verified_path,
+            suite_dir=suite_dir,
+            verifier_public_key=_CODING_VERIFIER_PUBLIC_KEY,
+        )
+        if coding_verified_path is not None
+        else None
+    )
+    projection = rescore_admission_bundle(
+        bundle_path,
+        suite_dir=suite_dir,
+        validated_at=validated_at,
+        origin=normalize_origin(origin),
+        coding_verification=coding_verification,
+    )
     write_json_file(projection_out, projection)
     blockers = _string_list(validation.get("blocking_reasons"))
     accepted = bool(validation.get("publishable"))
