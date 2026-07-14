@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 import venv
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -51,10 +55,17 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mutate-admission", action="store_true")
     parser.add_argument("--role")
+    parser.add_argument("--verify-rc-rebuild", action="store_true")
     args = parser.parse_args()
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     with tempfile.TemporaryDirectory(prefix="b2a-compat-") as temp:
         temp_path = Path(temp)
+        if args.verify_rc_rebuild:
+            wheels = _materialize_wheels(manifest, temp_path, role="rc_n")
+            _client, wheel = wheels[0]
+            digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+            print(f"rc_rebuild {wheel.name} sha256={digest}")
+            return 0
         wheels = _materialize_wheels(manifest, temp_path, role=args.role)
         server, port = _start_worker_server(temp_path, mutate_admission=args.mutate_admission)
         try:
@@ -115,18 +126,7 @@ def _materialize_wheels(manifest: dict[str, Any], root: Path, *, role: str | Non
         if role is not None and client["role"] != role:
             continue
         if client["source"] == "build:cli":
-            rc_source = root / "rc-source"
-            shutil.copytree(
-                ROOT / "cli",
-                rc_source,
-                ignore=shutil.ignore_patterns(".venv", "build", "dist", "runs", "runtime", "__pycache__", "*.egg-info"),
-            )
-            pyproject = rc_source / "pyproject.toml"
-            contents = pyproject.read_text(encoding="utf-8")
-            if f'version = "{client["version"]}"' not in contents:
-                contents = contents.replace('version = "0.3.1"', f'version = "{client["version"]}"', 1)
-                pyproject.write_text(contents, encoding="utf-8")
-            subprocess.run([sys.executable, "-m", "pip", "wheel", "--no-deps", str(rc_source), "-w", str(root)], check=True, env=env, stdout=subprocess.DEVNULL)
+            _build_rc_wheel(manifest, client, root, env)
         else:
             subprocess.run([sys.executable, "-m", "pip", "download", "--no-deps", "--only-binary=:all:", f"local-bench-ai=={client['version']}", "-d", str(root)], check=True, stdout=subprocess.DEVNULL)
         wheel = root / client["filename"]
@@ -135,6 +135,111 @@ def _materialize_wheels(manifest: dict[str, Any], root: Path, *, role: str | Non
             raise RuntimeError(f"wheel hash mismatch: {wheel.name}: expected {client['sha256']}, got {actual_sha}")
         result.append((client, wheel))
     return result
+
+
+def _build_rc_wheel(
+    manifest: dict[str, Any],
+    client: dict[str, Any],
+    root: Path,
+    env: dict[str, str],
+) -> None:
+    provenance = manifest.get("rc_build")
+    if not isinstance(provenance, dict):
+        raise RuntimeError("compatibility manifest is missing rc_build provenance")
+    if provenance.get("wheel_sha256") != client.get("sha256"):
+        raise RuntimeError("rc_build wheel hash does not match the RC client pin")
+    if str(provenance.get("source_date_epoch")) != env.get("SOURCE_DATE_EPOCH"):
+        raise RuntimeError("rc_build SOURCE_DATE_EPOCH does not match the build environment")
+    source_commit = str(provenance["source_commit"])
+    source_tree = str(provenance["source_tree"])
+    if _git_output("rev-parse", f"{source_commit}^{{commit}}") != source_commit:
+        raise RuntimeError("rc_build source_commit is not the named clean Git object")
+    if _git_output("rev-parse", f"{source_commit}:cli") != source_tree:
+        raise RuntimeError("rc_build source_tree does not match source_commit:cli")
+
+    archive = subprocess.run(
+        ["git", "archive", "--format=zip", source_commit, "cli"],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+    source_root = root / "rc-source"
+    with zipfile.ZipFile(io.BytesIO(archive)) as source_zip:
+        source_zip.extractall(source_root)
+    pyproject = source_root / "cli" / "pyproject.toml"
+    contents = pyproject.read_text(encoding="utf-8")
+    released_version = f'version = "{client["version"]}"'
+    if released_version not in contents:
+        original_version = 'version = "0.3.1"'
+        if contents.count(original_version) != 1:
+            raise RuntimeError("clean rc source has an unexpected project version")
+        contents = contents.replace(original_version, released_version, 1)
+        pyproject.write_text(contents, encoding="utf-8")
+    _assert_build_toolchain(pyproject, provenance)
+
+    uv = shutil.which("uv")
+    if uv is None:
+        raise RuntimeError("uv is required for the reproducible RC wheel build")
+    build_env = {
+        **env,
+        "UV_OFFLINE": "1",
+        "UV_PYTHON_DOWNLOADS": "never",
+    }
+    result = subprocess.run(
+        [
+            uv,
+            "build",
+            "--offline",
+            "--wheel",
+            "--no-build-logs",
+            "--no-progress",
+            "--python",
+            sys.executable,
+            str(source_root / "cli"),
+            "--out-dir",
+            str(root),
+        ],
+        cwd=ROOT,
+        env=build_env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("reproducible RC wheel build failed:\n" + result.stdout + result.stderr)
+
+
+def _assert_build_toolchain(pyproject: Path, provenance: dict[str, Any]) -> None:
+    tools = provenance.get("tool_versions")
+    if not isinstance(tools, dict):
+        raise RuntimeError("rc_build tool_versions must be an object")
+    python_version = f"{platform.python_implementation()} {platform.python_version()}"
+    if python_version != tools.get("python"):
+        raise RuntimeError(f"RC wheel build requires {tools.get('python')}, got {python_version}")
+    uv = shutil.which("uv")
+    if uv is None:
+        raise RuntimeError("uv is required for the reproducible RC wheel build")
+    uv_version = subprocess.run(
+        [uv, "--version"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip().split()[1]
+    if uv_version != tools.get("uv"):
+        raise RuntimeError(f"RC wheel build requires uv {tools.get('uv')}, got {uv_version}")
+    build_requires = tomllib.loads(pyproject.read_text(encoding="utf-8"))["build-system"]["requires"]
+    expected = [f"setuptools=={tools['setuptools']}", f"wheel=={tools['wheel']}"]
+    if build_requires != expected:
+        raise RuntimeError(f"RC wheel backend pins do not match provenance: {build_requires!r}")
+
+
+def _git_output(*args: str) -> str:
+    return subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def _run_isolated(client: dict[str, Any], wheel: Path, root: Path, port: int) -> bool:
