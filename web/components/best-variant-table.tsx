@@ -12,6 +12,7 @@ import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { axisLabel, formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
+import { TOOL_USE_FACET_QUALIFIER } from "@/lib/scoring-seasons";
 import type { BestVariantPoint } from "@/lib/best-variant";
 import type { AxisScore } from "@/lib/schemas";
 
@@ -90,6 +91,11 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                 <th key={axis} className="px-3 py-3">
                   <AxisDot axis={axis} />
                   {axisLabel(axis)} {Math.round((axisWeights[axis] ?? 0) * 100)}%
+                  {axis === "tool_use" ? (
+                    <span className="block font-mono text-[10px] font-normal normal-case tracking-normal text-bench-muted">
+                      {TOOL_USE_FACET_QUALIFIER}
+                    </span>
+                  ) : null}
                 </th>
               ))}
               <th className="px-3 py-3">tok/s</th>

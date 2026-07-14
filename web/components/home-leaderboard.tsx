@@ -18,6 +18,7 @@ import { RuntimeBadge } from "@/components/runtime-badge";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 import {
   INDEX_VERSION_V4,
+  TOOL_USE_FACET_QUALIFIER,
   TOOL_USE_FACETS,
   diagnosticScores,
   displayIndexVersion,
@@ -90,7 +91,13 @@ export function HomeLeaderboard({
               <SortableHeader label={<StaticIndexHeaderLabel />} sortKey={STATIC_INDEX_SORT_KEY} sort={sort} onSort={setSort} />
             ) : null}
             {axisKeys.map((axis) => (
-              <SortableHeader key={axis} label={axisLabel(axis)} sortKey={axis} sort={sort} onSort={setSort} />
+              <SortableHeader
+                key={axis}
+                label={axis === "tool_use" ? <ToolUseHeaderLabel /> : axisLabel(axis)}
+                sortKey={axis}
+                sort={sort}
+                onSort={setSort}
+              />
             ))}
             {showAgenticColumn ? (
               <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
@@ -254,6 +261,17 @@ function SeasonBadge({ indexVersion }: { readonly indexVersion: string }) {
   return (
     <span className="rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
       {indexVersion}
+    </span>
+  );
+}
+
+function ToolUseHeaderLabel() {
+  return (
+    <span className="flex flex-col gap-0.5 leading-tight">
+      <span>{axisLabel("tool_use")}</span>
+      <span className="font-mono text-[10px] font-normal normal-case tracking-normal text-bench-muted">
+        {TOOL_USE_FACET_QUALIFIER}
+      </span>
     </span>
   );
 }

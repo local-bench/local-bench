@@ -39,6 +39,8 @@ describe("additive season board display", () => {
     expect(html).toContain("facet breakdown");
     expect(html).toContain("Agentic · 59%");
     expect(html).toContain("Multi-turn tool control · 41%");
+    // Column header carries the facet split without expanding the breakdown (owner ask, 07-15).
+    expect(html).toContain("agentic 59% · multi-turn tool control 41%");
     expect(html).toContain("Diagnostics · unweighted");
     expect(html).toContain("BFCL single-turn");
     expect(html).toContain("index-v3.0 bridge 41.0");

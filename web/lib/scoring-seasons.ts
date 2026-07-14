@@ -43,6 +43,12 @@ export const TOOL_USE_FACETS = [
   },
 ] as const;
 
+// One-line facet split for column headers ("agentic 59% · multi-turn tool control 41%"),
+// derived from TOOL_USE_FACETS so header copy can never drift from the declared weights.
+export const TOOL_USE_FACET_QUALIFIER = TOOL_USE_FACETS.map(
+  (facet) => `${facet.label.toLowerCase()} ${Math.round(facet.weight * 100)}%`,
+).join(" · ");
+
 export const SEASON_2_DIAGNOSTICS = [
   { key: "call_formatting", label: "Call formatting", bench: "tc_json_v1", coverageRequired: true },
   { key: "bfcl_single_turn", label: "BFCL single-turn" },

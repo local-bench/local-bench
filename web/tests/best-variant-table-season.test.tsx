@@ -65,6 +65,7 @@ describe("BestVariantTable season identity", () => {
     );
     expect(html).toContain("index-v4.0 | 20/24/24/24/8");
     expect(html).toContain("Tool use 20%");
+    expect(html).toContain("agentic 59% · multi-turn tool control 41%");
     expect(html).toContain("Knowledge 24%");
     expect(html).toContain("Instruction 24%");
     expect(html).toContain("Coding 24%");
@@ -88,5 +89,6 @@ describe("BestVariantTable season identity", () => {
     expect(html).toContain("Coding 15%");
     expect(html).toContain("Math 5%");
     expect(html).not.toContain("index-v4.0");
+    expect(html).not.toContain("agentic 59%");
   });
 });
