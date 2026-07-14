@@ -16,7 +16,7 @@ def test_b2a_compatibility_manifest_pins_rc_and_live_wheels() -> None:
             "role": "rc_n",
             "version": "0.3.3rc1",
             "filename": "local_bench_ai-0.3.3rc1-py3-none-any.whl",
-            "sha256": "ac7c8d4f176b11bd1a7ba4b09523e7ef8d3f2183fc40788749ee08716e8b3184",
+            "sha256": "ab302212d617c749977b3226660c1f8a009a2d6ed3d00237cdc3f3d547149370",
             "source": "build:cli",
         },
         {
