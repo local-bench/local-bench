@@ -171,57 +171,57 @@ describe("static display eligibility security boundary", () => {
 
   it("rejects an untrusted protected-catalog claim from protected model and run outputs", () => {
     const result = probe;
-    expect(result.protected_unchanged).toBe(true);
-    expect(result.forged_details).toBe(0);
-    expect(result.forged_catalog_groups).toEqual({});
+    expect(result["protected_unchanged"]).toBe(true);
+    expect(result["forged_details"]).toBe(0);
+    expect(result["forged_catalog_groups"]).toEqual({});
   });
 
   it("never lets an untrusted row rank or displace the trusted representative", () => {
     const result = probe;
-    expect(result.forged_ranks).toBe(false);
-    expect(result.representative).toBe("trusted");
+    expect(result["forged_ranks"]).toBe(false);
+    expect(result["representative"]).toBe("trusted");
   });
 
   it("displays canonical curated-static rows but excludes dynamic public rows", () => {
     const result = probe;
-    expect(result.curated_displays).toBe(true);
-    expect(result.curated_models).toEqual(["curated-static"]);
-    expect(result.dynamic_displays).toBe(false);
-    expect(result.dynamic_models).toEqual([]);
-    expect(result.dynamic_details).toBe(0);
+    expect(result["curated_displays"]).toBe(true);
+    expect(result["curated_models"]).toEqual(["curated-static"]);
+    expect(result["dynamic_displays"]).toBe(false);
+    expect(result["dynamic_models"]).toEqual([]);
+    expect(result["dynamic_details"]).toBe(0);
   });
 
   it("keeps the trusted run in the catalog payload with trusted run-id precedence and rejects the exact different-slug collision", () => {
     const result = probe;
-    expect(result.catalog_payload_run_ids).toEqual(expect.arrayContaining([
-      `${String(result.target_slug)}__trusted`,
-      `${String(result.target_slug)}__curated`,
+    expect(result["catalog_payload_run_ids"]).toEqual(expect.arrayContaining([
+      `${String(result["target_slug"])}__trusted`,
+      `${String(result["target_slug"])}__curated`,
     ]));
-    expect(result.collision_payload_run_ids).toEqual(expect.arrayContaining([
-      `${String(result.target_slug)}__trusted`,
+    expect(result["collision_payload_run_ids"]).toEqual(expect.arrayContaining([
+      `${String(result["target_slug"])}__trusted`,
       "attacker-alias__alias",
     ]));
-    expect(result.trusted_precedence).toBe(true);
-    expect(result.collision_error).toContain("refusing catalog/slug collision");
+    expect(result["trusted_precedence"]).toBe(true);
+    expect(result["collision_error"]).toContain("refusing catalog/slug collision");
   });
 
   it("emits a catalog-keyed non-catalog slug once under its catalog identity", () => {
     const result = probe;
-    expect(result.keyed_index_slugs).toEqual([result.target_slug]);
-    expect(result.keyed_page_run_ids).toEqual(["attacker-alias__alias"]);
-    expect(result.keyed_standalone_exists).toBe(false);
+    expect(result["keyed_index_slugs"]).toEqual([result["target_slug"]]);
+    expect(result["keyed_page_run_ids"]).toEqual(["attacker-alias__alias"]);
+    expect(result["keyed_standalone_exists"]).toBe(false);
   });
 
   it("counts only trusted contributing runs on a trusted-ranked catalog row", () => {
     const result = probe;
-    expect(result.ranked_catalog_n_runs).toBe(1);
-    expect(result.ranked_catalog_payload_n_runs).toBe(2);
+    expect(result["ranked_catalog_n_runs"]).toBe(1);
+    expect(result["ranked_catalog_payload_n_runs"]).toBe(2);
   });
 
   it("annotates every display-eligible demo projection with provenance and an explicit unranked label", () => {
     const result = probe;
-    expect(result.demo_displays).toBe(true);
-    expect(result.demo_annotations).toEqual({
+    expect(result["demo_displays"]).toBe(true);
+    expect(result["demo_annotations"]).toEqual({
       detail: { agentic_provenance: "self_reported", origin: "community", ranked: false, trust_label: "community_re_scored" },
       index_row: { agentic_provenance: "self_reported", origin: "community", ranked: false, trust_label: "community_re_scored" },
       model_row: { agentic_provenance: "self_reported", origin: "community", ranked: false, trust_label: "community_re_scored" },
