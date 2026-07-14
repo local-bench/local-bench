@@ -1,5 +1,5 @@
 export const LAUNCH_FREEZE = {
-  asOfDate: "2026-07-08",
+  asOfDate: "2026-07-13",
   scorecardVersion: "scorecard-v3",
   boardSha256: "7e4eae5d7b78f45fddca02d70e3c38bd5ce18fd10a6a0660096672ec645d988a",
   itemSetHashes: [

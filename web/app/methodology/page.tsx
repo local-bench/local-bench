@@ -369,7 +369,7 @@ export default async function MethodologyPage() {
           </div>
           <div className="bg-bench-bg px-4 py-3">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Index identity</dt>
-            <dd className="mt-1 text-sm text-bench-text">suite-v2 / index-v3.0</dd>
+            <dd className="mt-1 text-sm text-bench-text">index-v4.0 / scorecard-v5</dd>
           </div>
           <div className="bg-bench-bg px-4 py-3 sm:col-span-2">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Board sha256</dt>
