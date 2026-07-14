@@ -182,12 +182,18 @@ export async function getCommunityGroup(groupId: string): Promise<CommunityGroup
   return readJson(["community", "groups", `${groupId}.json`], CommunityGroupSchema);
 }
 
+// output: "export" refuses a dynamic route with zero static params, so while no community
+// group has been published the route emits one reserved placeholder path instead. Real group
+// ids are 32-hex, so the placeholder can never collide with one.
+export const COMMUNITY_GROUP_PLACEHOLDER_ID = "not-yet-published";
+
 export async function getCommunityGroupStaticParams(): Promise<readonly { readonly groupId: string }[]> {
   try {
     const index = await readJson(["community", "index.json"], CommunityIndexSchema);
+    if (index.groups.length === 0) return [{ groupId: COMMUNITY_GROUP_PLACEHOLDER_ID }];
     return index.groups.map((group) => ({ groupId: group.community_model_group_id.replace("community-group:", "") }));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [{ groupId: COMMUNITY_GROUP_PLACEHOLDER_ID }];
     throw error;
   }
 }
