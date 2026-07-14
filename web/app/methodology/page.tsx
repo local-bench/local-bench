@@ -1,8 +1,8 @@
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
-  LOCAL_INTELLIGENCE_INDEX_PROFILE,
-  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+  SEASON_2_INDEX_PROFILE,
+  SEASON_2_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
 import {
@@ -90,15 +90,15 @@ export default async function MethodologyPage() {
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-          suite-v2 | index-v3.0 methodology
+          index-v4.0 | scorecard-v5 methodology
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
         <p className="mt-3 leading-7 text-bench-muted">
-          The sortable number is the {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}):
-          40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math.
-          Static ranked rows use the no-agentic five-axis profile: 25% Knowledge, 25% Instruction-Following,
-          20% Tool calling, 20% Coding, and 10% Math.
-          {` ${LOCAL_INTELLIGENCE_INDEX_PROFILE}`} stays visible beside every score.
+          The sortable number is the {LOCAL_INTELLIGENCE_INDEX_NAME} ({SEASON_2_INDEX_QUALIFIER}):
+          20% Tool use, 24% Knowledge, 24% Instruction-Following, 24% Coding, and 8% Math.
+          {` ${SEASON_2_INDEX_PROFILE}`} stays visible beside every score. Season-1 (index-v3.0) results
+          remain published as history and diagnostics; the two scales are never directly compared — see the
+          season bridge below.
         </p>
       </header>
 
@@ -174,10 +174,12 @@ export default async function MethodologyPage() {
           The Index is a weighted arithmetic mean of measured, judge-free axes. Agentic is AppWorld-C task success
           rate. Knowledge is MMLU-Pro. Instruction is IFBench. Tool calling is tc_json_v1 structural tool selection
           and argument construction. Coding is BigCodeBench-Hard Instruct execution pass rate. Math combines
-          OlymMATH-Hard and AMO.
+          OlymMATH-Hard and AMO. Season-1 headline weights were 40% Agentic, 15% Knowledge, 15% Instruction-Following,
+          10% Tool calling, 15% Coding, and 5% Math.
         </p>
         <p>
-          The static ranked Index removes Agentic and reweights the remaining five axes. Static-Core measures only
+          The static ranked Index removes Agentic and reweights the remaining five axes: 25% Knowledge,
+          25% Instruction-Following, 20% Tool calling, 20% Coding, and 10% Math. Static-Core measures only
           Knowledge, Instruction, Tool calling, and Math; it has no sandbox, no Agentic, and no verified Coding, so it is
           an unranked diagnostic release and is not comparable to ranked static.
         </p>
@@ -409,10 +411,11 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Editorial versioning</h2>
         <p>
-          Domain weights are explicit editorial choices tied to named releases: index-v3.0 for the full six-axis
-          Index, static-suite-v2 for the ranked no-agentic Index, and static-core diagnostic for the unranked no-sandbox
-          profile. Weights live in the scorer axis registry and are hashed into the scorecard, so history cannot be
-          silently re-scored under the same label.
+          Domain weights are explicit editorial choices tied to named releases: index-v4.0 (scorecard-v5) for the
+          current five-axis Index, index-v3.0 for the season-1 six-axis Index, static-suite-v2 for the ranked
+          no-agentic Index, and static-core diagnostic for the unranked no-sandbox profile. Weights live in the scorer
+          axis registry and are hashed into the scorecard, so history cannot be silently re-scored under the same
+          label.
         </p>
       </section>
     </main>

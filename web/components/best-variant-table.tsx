@@ -1,13 +1,24 @@
 import Link from "next/link";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
+import {
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+  SEASON_2_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import { AxisMiniBar, IndexContributionRail } from "@/components/score-bar";
 import { axisColor } from "@/lib/axis-config";
+import { INDEX_AXIS_WEIGHTS, SEASON_2_AXIS_WEIGHTS } from "@/lib/axis-contributions";
 import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
-import { formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
+import { axisLabel, formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
 import type { BestVariantPoint } from "@/lib/best-variant";
 import type { AxisScore } from "@/lib/schemas";
+
+// Display order of the per-axis columns, one list per season. Weights render from the same
+// constants the contribution rail uses, so the header percentages can never drift from scoring.
+const SEASON_1_AXIS_KEYS = ["agentic", "knowledge", "instruction", "tool_calling", "coding", "math"] as const;
+const SEASON_2_AXIS_KEYS = ["tool_use", "knowledge", "instruction", "coding", "math"] as const;
 
 export function BestVariantTable({ points }: { readonly points: readonly BestVariantPoint[] }) {
   if (points.length === 0) {
@@ -28,6 +39,12 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
     );
   }
   const rows = [...points].sort((left, right) => right.score.point - left.score.point);
+  // Same season feature-detection rule as indexQualifierForAxes / indexContributions: only
+  // season-2 scoring produces the tool_use macro-axis, so any row carrying it means the board
+  // (and therefore this summary) is index-v4.0.
+  const season2 = rows.some((row) => row.axes["tool_use"] !== undefined);
+  const axisKeys: readonly string[] = season2 ? SEASON_2_AXIS_KEYS : SEASON_1_AXIS_KEYS;
+  const axisWeights: Readonly<Record<string, number>> = season2 ? SEASON_2_AXIS_WEIGHTS : INDEX_AXIS_WEIGHTS;
   const showFrontierChips = rows.length >= 3;
   const top = rows[0];
   const second = rows[1];
@@ -60,14 +77,21 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
             <tr>
               <th className="w-10 px-3 py-3">#</th>
               <th className="px-3 py-3">Model</th>
-              <th className="px-3 py-3">Local Intelligence Index v3.0</th>
+              <th className="px-3 py-3">
+                <span className="flex flex-col gap-0.5 leading-tight">
+                  <span>{LOCAL_INTELLIGENCE_INDEX_NAME}</span>
+                  <span className="font-mono text-[10px] normal-case text-bench-muted">
+                    {season2 ? SEASON_2_INDEX_QUALIFIER : LOCAL_INTELLIGENCE_INDEX_QUALIFIER}
+                  </span>
+                </span>
+              </th>
               <th className="px-3 py-3">VRAM / fits</th>
-              <th className="px-3 py-3"><AxisDot axis="agentic" />Agentic 40%</th>
-              <th className="px-3 py-3"><AxisDot axis="knowledge" />Knowledge 15%</th>
-              <th className="px-3 py-3"><AxisDot axis="instruction" />Instruction 15%</th>
-              <th className="px-3 py-3"><AxisDot axis="tool_calling" />Tool calling 10%</th>
-              <th className="px-3 py-3"><AxisDot axis="coding" />Coding 15%</th>
-              <th className="px-3 py-3"><AxisDot axis="math" />Math 5%</th>
+              {axisKeys.map((axis) => (
+                <th key={axis} className="px-3 py-3">
+                  <AxisDot axis={axis} />
+                  {axisLabel(axis)} {Math.round((axisWeights[axis] ?? 0) * 100)}%
+                </th>
+              ))}
               <th className="px-3 py-3">tok/s</th>
               <th className="px-3 py-3">Bench time</th>
             </tr>
@@ -116,12 +140,9 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                     ~{formatGb(point.effectiveVramGb)}{" "}
                     <span className="text-xs text-bench-muted">{tier === null ? ">512 GB" : `fits ${tier} GB`}</span>
                   </td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["agentic"]} axis="agentic" /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["knowledge"]} axis="knowledge" /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["instruction"]} axis="instruction" /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["tool_calling"]} axis="tool_calling" /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["coding"]} axis="coding" /></td>
-                  <td className="px-3 py-3"><AxisMiniBar score={point.axes["math"]} axis="math" /></td>
+                  {axisKeys.map((axis) => (
+                    <td key={axis} className="px-3 py-3"><AxisMiniBar score={point.axes[axis]} axis={axis} /></td>
+                  ))}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(point.tokS)}</td>
                   <td className="px-3 py-3 font-mono text-xs text-bench-muted">{formatDuration(point.wallTimeSeconds)}</td>
                 </tr>

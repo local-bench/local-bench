@@ -1,4 +1,8 @@
-import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
+import {
+  LOCAL_INTELLIGENCE_INDEX_NAME,
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+  SEASON_2_INDEX_QUALIFIER,
+} from "@/components/local-intelligence-index";
 import {
   QualityVramScatter,
   type QualityVramLegendItem,
@@ -19,6 +23,15 @@ export function ModelScatter({
   readonly anchorRuns: readonly AnchorReference[];
   readonly familyModels?: readonly ModelFamilyScatterModel[];
 }) {
+  // Season identity for the scale label: a run carrying the tool_use macro-axis is season-2
+  // (same detection rule as indexQualifierForAxes). A model with only v3-axis runs keeps the v3
+  // qualifier; a catalog shell with no measured axes gets the CURRENT index — its first run
+  // will be scored there.
+  const hasSeason2Run = model.runs.some((run) => run.axes["tool_use"] !== undefined);
+  const hasSeason1Run = model.runs.some(
+    (run) => run.axes["agentic"] !== undefined || run.axes["tool_calling"] !== undefined,
+  );
+  const indexQualifier = hasSeason2Run || !hasSeason1Run ? SEASON_2_INDEX_QUALIFIER : LOCAL_INTELLIGENCE_INDEX_QUALIFIER;
   // Only current-index (headline lane) composites share a y-axis with the anchors. Legacy-lane
   // composites come from an earlier index version and would plot as false comparisons.
   const ownRuns = model.runs.flatMap((run) =>
@@ -50,7 +63,7 @@ export function ModelScatter({
     return (
       <section data-testid="model-scatter" className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <h2 className="text-lg font-semibold text-bench-text">VRAM footprint vs {LOCAL_INTELLIGENCE_INDEX_NAME}</h2>
-        <p className="mt-1 font-mono text-xs text-bench-accent">{LOCAL_INTELLIGENCE_INDEX_QUALIFIER}</p>
+        <p className="mt-1 font-mono text-xs text-bench-accent">{indexQualifier}</p>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-bench-muted">
           This chart appears after the model&apos;s first measured run lands. Use the quant ladder below for file size
           and VRAM requirements.
@@ -62,8 +75,8 @@ export function ModelScatter({
   return (
     <QualityVramScatter
       anchorRuns={anchorRuns}
-      ariaLabel={`${model.model_label} ${LOCAL_INTELLIGENCE_INDEX_NAME} (${LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) scatter with anchor reference lines`}
-      description={`${LOCAL_INTELLIGENCE_INDEX_QUALIFIER}. Where this model and current-lane family runs land vs the frontier anchors.`}
+      ariaLabel={`${model.model_label} ${LOCAL_INTELLIGENCE_INDEX_NAME} (${indexQualifier}) scatter with anchor reference lines`}
+      description={`${indexQualifier}. Where this model and current-lane family runs land vs the frontier anchors.`}
       omittedLabel="run(s) listed below but omitted from scatter x: no footprint"
       pointLegend={pointLegend}
       runs={runs}

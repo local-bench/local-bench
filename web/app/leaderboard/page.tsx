@@ -8,11 +8,14 @@ import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_PROFILE,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
+  SEASON_2_INDEX_PROFILE,
+  SEASON_2_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AXIS_CONFIG } from "@/lib/axis-config";
+import { axisLabel } from "@/lib/format";
 import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getPartialCoverageBoard } from "@/lib/data";
 import { splitLeaderboard } from "@/lib/leaderboard";
-import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
+import { INDEX_VERSION_V4, SEASON_2_HEADLINE_AXES } from "@/lib/scoring-seasons";
 
 export default async function LeaderboardPage() {
   const [index, agenticBySlug, partialCoverage] = await Promise.all([
@@ -25,9 +28,13 @@ export default async function LeaderboardPage() {
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
   const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
-  const axisNames = AXIS_CONFIG.filter((axis) => index.models.some((model) => model.axes[axis.key] !== undefined)).map(
-    (axis) => axis.label,
-  );
+  const season2 = index.index_version === INDEX_VERSION_V4;
+  // On a season-2 board the copy must list the season-2 headline axes; the v3 axis palette
+  // (AXIS_CONFIG) still names Agentic / Tool calling, which legacy diagnostic rows carry.
+  const axisKeysForCopy: readonly string[] = season2 ? SEASON_2_HEADLINE_AXES : AXIS_CONFIG.map((axis) => axis.key);
+  const axisNames = axisKeysForCopy
+    .filter((key) => index.models.some((model) => model.axes[key] !== undefined))
+    .map((key) => axisLabel(key));
   const hasMeasuredRankedData = index.models.some(
     (model) => model.score_status === "measured" && model.ranked && !model.demo && model.composite !== null,
   );
@@ -51,8 +58,8 @@ export default async function LeaderboardPage() {
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-bench-text">Ranked board</h2>
             <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-              {axisCopy} The {LOCAL_INTELLIGENCE_INDEX_NAME} ({LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) appears only
-              after a measured run attaches to a catalog model and quant. {LOCAL_INTELLIGENCE_INDEX_PROFILE}.
+              {axisCopy} The {LOCAL_INTELLIGENCE_INDEX_NAME} ({season2 ? SEASON_2_INDEX_QUALIFIER : LOCAL_INTELLIGENCE_INDEX_QUALIFIER}) appears only
+              after a measured run attaches to a catalog model and quant. {season2 ? SEASON_2_INDEX_PROFILE : LOCAL_INTELLIGENCE_INDEX_PROFILE}.
             </p>
           </div>
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
@@ -62,8 +69,9 @@ export default async function LeaderboardPage() {
             <Link href="/methodology" className="text-bench-accent hover:underline">
               methodology
             </Link>
-            . Note: the Agentic axis is near-floor for every current local entrant, so it compresses
-            headline gaps — read the composite alongside the per-axis columns and the Static Index.
+            . Note: {season2
+              ? "the Tool use axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the facet breakdown."
+              : "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the Static Index."}
           </div>
         </div>
         <BoardIndexChart models={rankedForDisplay} />

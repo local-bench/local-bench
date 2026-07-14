@@ -4,8 +4,10 @@ import { getIndexData } from "@/lib/data";
 import "./globals.css";
 
 const title = "local-bench";
+// Season-neutral on purpose: the axis lineup changes per index season, and this string is
+// baked into every page's search/social preview.
 const description =
-  "A community quality leaderboard for local and open LLMs: a modular Local Intelligence Index across agentic, knowledge, instruction, tool-calling, and coding axes.";
+  "A community quality leaderboard for local and open LLMs: a modular Local Intelligence Index measured judge-free on real local hardware.";
 const siteUrl = "https://local-bench.ai";
 
 export const metadata: Metadata = {

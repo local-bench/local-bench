@@ -3,6 +3,7 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import MethodologyPage from "../app/methodology/page";
+import { SEASON_2_AXIS_WEIGHTS } from "../lib/axis-contributions";
 
 const WEB_ROOT = process.cwd();
 const REPO_ROOT = path.resolve(WEB_ROOT, "..");
@@ -58,8 +59,16 @@ describe("MethodologyPage", () => {
 
     expect(text).toContain("execution");
     expect(text).toContain("re-execution");
+    // The intro must describe the CURRENT (season-2) sortable number, derived from the same
+    // weight constants the contribution rail uses so intro copy can never drift from scoring.
     expect(text).toContain(
-      "40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math",
+      `${percent(SEASON_2_AXIS_WEIGHTS.tool_use)} Tool use, ${percent(SEASON_2_AXIS_WEIGHTS.knowledge)} Knowledge, ${percent(
+        SEASON_2_AXIS_WEIGHTS.instruction,
+      )} Instruction-Following, ${percent(SEASON_2_AXIS_WEIGHTS.coding)} Coding, and ${percent(SEASON_2_AXIS_WEIGHTS.math)} Math`,
+    );
+    // Season-1 weights stay documented as history in the "What index-v3.0 measures" section.
+    expect(text).toContain(
+      "Season-1 headline weights were 40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math",
     );
     expect(text).toContain(
       `${percent(requiredWeight(stat, "knowledge"))} Knowledge, ${percent(
