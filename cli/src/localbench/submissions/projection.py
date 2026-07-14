@@ -301,7 +301,7 @@ def _projection(
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
         "model": _projection_model(bundle, manifest, origin, bundle_sha256),
         "lineage": _projection_lineage(manifest),
-        "runtime": _object(manifest.get("runtime")),
+        "runtime": _projection_runtime(manifest),
         "suite_release_id": str(suite.get("suite_release_id")),
         "suite_manifest_sha256": str(suite.get("suite_manifest_sha256")),
         "scorecard_id": str(scorecard.get("scorecard_id")),
@@ -472,6 +472,25 @@ def _projection_lineage(manifest: JsonObject) -> JsonObject:
     else:
         values = []
     return {"base_model": values}
+
+
+# The frozen AcceptedResultProjectionV2 runtime object is additionalProperties: false. Bundles
+# legitimately carry MORE runtime provenance than the projection contract (the harness added
+# "backend" after the schema froze — every 2026-07 full-exec bundle has it), so the projection
+# takes exactly the contract's view. Drift-guarded by a test against the schema's property set.
+_RUNTIME_PROJECTION_KEYS = (
+    "build_flags",
+    "ctx_len_configured",
+    "kv_cache_quant",
+    "name",
+    "parallel_slots",
+    "version",
+)
+
+
+def _projection_runtime(manifest: JsonObject) -> JsonObject:
+    runtime = _object(manifest.get("runtime"))
+    return {key: runtime[key] for key in _RUNTIME_PROJECTION_KEYS if key in runtime}
 
 
 def _receipt_references(bundle: JsonObject) -> JsonObject:
