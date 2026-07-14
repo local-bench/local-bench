@@ -22,6 +22,18 @@ try {
   & $venvPython -m localbench.cli board --no-check-parity
   if ($LASTEXITCODE -ne 0) { throw "localbench board failed" }
 
+  # A board re-cut changes the board sha. Publication (scripts/publish-board.ps1) validates the
+  # committed board against the launch-freeze pin and refuses to re-cut, so a stale pin here
+  # means the re-locked board cannot ship until the pin is updated and committed with it.
+  $freezePath = Join-Path $webDir "components\launch-freeze.ts"
+  $newBoardSha = (Get-FileHash -Algorithm SHA256 -Path (Join-Path $repoRoot "cli\runs\board\board_v2.json")).Hash.ToLowerInvariant()
+  $freezePin = (Select-String -Path $freezePath -Pattern 'boardSha256:\s*"([0-9a-f]{64})"').Matches[0].Groups[1].Value
+  if ($freezePin -ne $newBoardSha) {
+    Write-Host "==> Board re-cut: new sha $newBoardSha" -ForegroundColor Yellow
+    Write-Host "    launch-freeze pin is now stale. Re-pin web/components/launch-freeze.ts boardSha256" -ForegroundColor Yellow
+    Write-Host "    and commit board + manifest + pin + data together BEFORE scripts/publish-board.ps1." -ForegroundColor Yellow
+  }
+
   Write-Host "==> Regenerating site data" -ForegroundColor Cyan
   & $venvPython (Join-Path $webDir "build_data.py")
   if ($LASTEXITCODE -ne 0) { throw "build_data.py failed" }

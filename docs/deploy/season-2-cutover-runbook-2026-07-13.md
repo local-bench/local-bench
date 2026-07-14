@@ -32,8 +32,11 @@ e9570a4 (tc_json demotion, scorecard v5), provenance bundle
 7. **Full suites once more on the exact deploy tree** (cli pytest + web vitest) — green required
    (b2a pin refresh expected after any cli change; none expected in this sequence).
 8. **Commit** the cutover (curation + board artifacts + freeze pin + data).
-9. **Deploy**: `cd web && scripts/publish-board.ps1` (chains tests → data → build → deploy →
-   live-verify).
+9. **Deploy**: `scripts/publish-board.ps1` — validates the COMMITTED board (file == manifest ==
+   launch-freeze pin; it never re-cuts), runs the cli suite + web preflight (npm ci/vitest/tsc/
+   build), pushes `deploy HEAD:main`, polls live data, checks health. (Fixed 2026-07-14: the
+   original chained refresh-site-data.ps1, which re-cut the board and tripped its own freeze
+   gate — the 07-13 launch attempt stopped exactly there, before any deploy.)
 10. **Live-verify assertions** (all must hold before ticket resolution):
     a. `/leaderboard` shows exactly 5 ranked rows in order: gemma-4-31b-it 55.49 > qwen3-6-27b
        46.38 > qwopus3-6-27b-v2-mtp 45.12 > qwen3-6-35b-a3b 44.14 > gemma-4-12b-it Q4XL 44.01,
