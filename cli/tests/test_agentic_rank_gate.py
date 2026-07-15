@@ -195,6 +195,31 @@ def test_v4_rank_gate_uses_accepted_envelopes_not_attempt_history_digests(
     assert retried_verdict.unresolved_infra_task_ids == ()
 
 
+def test_v4_gate_verdict_append_is_recovery_idempotent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    contract_path = write_test_signed_v4_contract(tmp_path, monkeypatch)
+    with execution_contract_scope(contract_path, expected_contract_id=V4_CONTRACT_ID):
+        with TaskJournal.open(tmp_path / "idempotent.bin", _identity()) as journal:
+            _append_measurement(journal, "task-a", attempt_number=1)
+            first = evaluate_rank_gate(
+                journal,
+                required_task_ids=("task-a",),
+                run_index=1,
+            )
+            second = evaluate_rank_gate(
+                journal,
+                required_task_ids=("task-a",),
+                run_index=1,
+            )
+
+            assert first == second
+            assert sum(
+                record.record_type == "c6_gate_verdict" for record in journal.records
+            ) == 1
+
+
 @pytest.mark.parametrize(
     ("teardown_state", "accepted_after_failure"),
     [("verified", False), ("uncertain", True)],
@@ -353,6 +378,54 @@ def test_v3_infra_result_remains_one_scored_zero_without_retry_or_gate(
         assert report.tasks_succeeded == 0
         assert report.agentic_success_rate == 0.0
         assert journal.gate_verdict(1) is None
+
+
+@pytest.mark.parametrize(
+    ("failure_count", "teardown_state"),
+    [(3, "verified"), (1, "uncertain")],
+)
+def test_v4_resume_never_advances_past_retry_bound_or_uncertain_teardown(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_count: int,
+    teardown_state: str,
+) -> None:
+    contract_path = write_test_signed_v4_contract(tmp_path, monkeypatch)
+    monkeypatch.setattr(execution_contract, "assert_execution_contract", lambda: "fixture")
+    monkeypatch.setattr(execution_contract, "assert_verdict_mint_allowed", lambda _path=None: None)
+    monkeypatch.setattr(
+        benchmark,
+        "_run_task_with_watchdog",
+        lambda *_args: pytest.fail("resume must not execute another attempt"),
+    )
+
+    with execution_contract_scope(contract_path, expected_contract_id=V4_CONTRACT_ID):
+        with TaskJournal.open(tmp_path / f"resume-{teardown_state}.bin", _identity()) as journal:
+            for attempt_number in range(1, failure_count + 1):
+                key = TaskAttemptKey("task-a", 1, attempt_number)
+                journal.append_attempt_started(
+                    key,
+                    contract_id=V4_CONTRACT_ID,
+                    identity_ref=journal.identity_ref,
+                )
+                journal.append_attempt_failed(
+                    key,
+                    failure_class="infra_timeout",
+                    evidence_ref=f"fault:{attempt_number}",
+                    teardown_state=teardown_state,
+                )
+
+            report = run_appworld_c_benchmark(
+                task_ids=["task-a"],
+                model_factory=lambda _task_id: None,
+                sandbox_factory=lambda _task_id: nullcontext(),
+                config=LoopConfig(),
+                journal=journal,
+                run_index=1,
+            )
+
+            assert report.tasks_total == 0
+            assert journal.gate_verdict(1) is not None
 
 
 def _append_measurement(

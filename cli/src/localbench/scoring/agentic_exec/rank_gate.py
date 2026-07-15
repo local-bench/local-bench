@@ -10,7 +10,10 @@ from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
     load_execution_contract,
 )
-from localbench.scoring.agentic_exec.task_journal import TaskJournal
+from localbench.scoring.agentic_exec.task_journal import (
+    JournalCorruptionError,
+    TaskJournal,
+)
 from localbench.scoring.agentic_exec.task_journal_validation import (
     committed_key,
     record_key,
@@ -208,20 +211,28 @@ def evaluate_rank_gate(
         ),
         uncertain_teardown_record_sequences=uncertain,
     )
+    evidence: JsonObject = {
+        "accepted_result_records": list(accepted_sequences),
+        "missing_measurement_task_ids": list(missing),
+        "unexpected_measurement_task_ids": list(unexpected),
+        "unresolved_infra_task_ids": list(unresolved_tasks),
+        "unresolved_infra_records": list(
+            verdict.unresolved_infra_record_sequences
+        ),
+        "uncertain_teardown_records": list(uncertain),
+    }
     if semantics.rank_gate_policy is RankGatePolicy.NON_MEASUREMENT:
+        existing = journal.gate_verdict(run_index)
+        if existing is not None:
+            if existing.get("decision") != decision or existing.get("evidence") != evidence:
+                raise JournalCorruptionError(
+                    f"C6 gate verdict for run {run_index} differs from recovered evidence"
+                )
+            return verdict
         journal.append_gate_verdict(
             run_index=run_index,
             decision=decision,
-            evidence={
-                "accepted_result_records": list(accepted_sequences),
-                "missing_measurement_task_ids": list(missing),
-                "unexpected_measurement_task_ids": list(unexpected),
-                "unresolved_infra_task_ids": list(unresolved_tasks),
-                "unresolved_infra_records": list(
-                    verdict.unresolved_infra_record_sequences
-                ),
-                "uncertain_teardown_records": list(uncertain),
-            },
+            evidence=evidence,
         )
     return verdict
 

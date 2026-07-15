@@ -174,6 +174,19 @@ class TaskJournal(TaskJournalCore):
         ]
         return max(attempts, default=0) + 1
 
+    def failed_attempts(
+        self,
+        task_id: str,
+        run_index: int,
+    ) -> tuple[JournalRecord, ...]:
+        return tuple(
+            record
+            for record in self._records
+            if record.record_type == "attempt_failed"
+            and record_key(record.record_type, record.payload).task_id == task_id
+            and record_key(record.record_type, record.payload).run_index == run_index
+        )
+
     def run_closed(self, run_index: int) -> bool:
         return any(
             record.record_type == "run_boundary"

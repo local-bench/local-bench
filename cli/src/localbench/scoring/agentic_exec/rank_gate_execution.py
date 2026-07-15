@@ -27,7 +27,22 @@ def execute_v4_task(
     semantics: ContractSemantics,
     run_attempt: RunAttempt,
 ) -> TaskRunResult | None:
-    for _ in range(semantics.whole_task_retry_count + 1):
+    prior_failures = journal.failed_attempts(task_id, run_index)
+    if any(
+        record.payload.get("teardown_state") == "uncertain"
+        for record in prior_failures
+    ):
+        return None
+    if prior_failures and (
+        prior_failures[-1].payload.get("failure_class")
+        not in semantics.retryable_failure_classes
+    ):
+        return None
+    next_attempt = journal.next_attempt_number(task_id, run_index)
+    maximum_attempt = semantics.whole_task_retry_count + 1
+    if next_attempt > maximum_attempt:
+        return None
+    for _ in range(maximum_attempt - next_attempt + 1):
         key = TaskAttemptKey(
             task_id,
             run_index,
