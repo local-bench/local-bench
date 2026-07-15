@@ -171,18 +171,29 @@ def validate_worker_argv(
     *,
     platform_name: str,
 ) -> None:
+    from localbench.appliance.provisioner import FINAL_DISTRO_PREFIX, ProvisioningError
+    from localbench.appliance.worker import APPWORLD_ROOT as managed_appworld_root
+    from localbench.appliance.worker import VENV as managed_venv
+
     if platform_name != "win32":
         return
+    # The spawn boundary must reject ANY unpinned invocation regardless of how the config was
+    # produced (test-override flag, or a caller-supplied preflight that skipped
+    # resolve_worker_config). Validate the full pinned form: the wsl -d <managed> --exec prefix
+    # AND the interpreter + AppWorld root, which are the caller-controlled config fields that
+    # worker_argv() interpolates into the executable and environment.
     managed_distro = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
-    if config.distro_name != managed_distro or argv[:4] != (
-        "wsl.exe",
-        "-d",
-        managed_distro,
-        "--exec",
+    managed_python = (managed_venv / "bin/python").as_posix()
+    managed_appworld = managed_appworld_root.as_posix()
+    if (
+        config.distro_name != managed_distro
+        or config.venv_python != managed_python
+        or config.appworld_root != managed_appworld
+        or argv[:4] != ("wsl.exe", "-d", managed_distro, "--exec")
     ):
         raise ProvisioningError(
             "managed_boundary_required",
-            "Windows worker argv is not pinned to the managed distro",
+            "Windows worker argv is not pinned to the managed distro, interpreter, and AppWorld root",
             "Run 'localbench setup-agentic' and retry",
         )
 

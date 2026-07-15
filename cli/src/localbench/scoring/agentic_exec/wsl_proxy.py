@@ -195,6 +195,12 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
                     )
                 except SandboxError as error:
                     self._force_kill_for_close(f"{type(error).__name__}: {error}")
+                except OSError as error:
+                    # A raw OSError from proc.wait() must NOT escape close() and skip the
+                    # process-tree verification below — otherwise an unproven teardown becomes a
+                    # plain per-task harness error and the campaign continues past a possible
+                    # orphan. Force-kill and fall through to verification, exactly like SandboxError.
+                    self._force_kill_for_close(f"OSError during wsl worker close: {error}")
             self._verify_closed_process_tree()
         finally:
             self._close_log()

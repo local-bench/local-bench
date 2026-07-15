@@ -337,6 +337,72 @@ def test_proxy_close_process_exit_timeout_is_recorded_additively(
     assert "did not exit" in (proxy.teardown_failure or "")
 
 
+def test_validate_worker_argv_rejects_unpinned_interpreter_on_win32() -> None:
+    # Round-3 red-team probe (2026-07-15): a caller-supplied preflight (runner.py's
+    # `options.agentic_preflight or ...` seam) can carry the pinned managed distro but an
+    # UNPINNED interpreter/appworld root, and the old validate_worker_argv only checked the
+    # distro prefix + argv[:4]. The spawn boundary must reject the full unpinned form.
+    from localbench.appliance.manifest import PINNED_RUNTIME_ID
+    from localbench.appliance.provisioner import FINAL_DISTRO_PREFIX, ProvisioningError
+
+    managed_distro = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
+    config = WslWorkerConfig(
+        distro_name=managed_distro,
+        venv_python="/tmp/unpinned/python",  # NOT the managed /opt/localbench/venv interpreter
+        appworld_root="/tmp/unpinned/appworld",
+    )
+    argv = wsl_process.worker_argv(config)
+    # Sanity: the distro prefix the old check looked at IS the managed one, so only the deeper
+    # interpreter/appworld validation can catch this.
+    assert argv[:4] == ("wsl.exe", "-d", managed_distro, "--exec")
+    with pytest.raises(ProvisioningError, match="managed_boundary_required|not pinned"):
+        wsl_process.validate_worker_argv(config, argv, platform_name="win32")
+
+
+def test_proxy_close_oserror_from_wait_does_not_skip_teardown(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Round-3 red-team probe (2026-07-15): a raw OSError from proc.wait() during close()
+    # escaped the inner except (which only caught TimeoutExpired/SandboxError), skipping the
+    # process-tree verification and letting the campaign continue past a possible orphan. The
+    # OSError must now force-kill and record a teardown failure like SandboxError does.
+    class _WaitErrorProcess:
+        def poll(self) -> None:
+            return None
+
+        def wait(self, timeout: float) -> None:
+            raise OSError("wait() failed on the wsl worker handle")
+
+    proxy = WslSandboxProxy(
+        "fac291d_1",
+        WslWorkerConfig(
+            repo_root_wsl_path="/mnt/c/repo",
+            venv_python="/managed/venv/bin/python3",
+            appworld_root="/managed/appworld",
+            log_dir=tmp_path,
+        ),
+    )
+    proxy._proc = cast(subprocess.Popen[bytes], _WaitErrorProcess())
+    killed = False
+
+    def acknowledge_close(message, *, timeout_s: float) -> dict[str, str]:
+        return {"kind": "ok"}
+
+    def record_kill() -> None:
+        nonlocal killed
+        killed = True
+
+    monkeypatch.setattr(proxy, "_request", acknowledge_close)
+    monkeypatch.setattr(proxy, "force_kill", record_kill)
+
+    proxy.close()
+
+    # The OSError no longer silently escaped close(): teardown was force-killed and recorded.
+    assert killed is True
+    assert "OSError" in (proxy.teardown_failure or "")
+
+
 def test_proxy_force_kill_surfaces_process_wait_failure(tmp_path: Path) -> None:
     class _UnreapableProcess:
         returncode = None
