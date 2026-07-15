@@ -32,6 +32,7 @@ from localbench.scoring.agentic_exec.execution_contract import (
     load_execution_contract,
     validate_execution_contract_payload,
 )
+from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 from localbench.submissions.canon import canonical_json_hash, write_json_file
 
 V4_CONTRACT_ID: Final = CONTRACT_ID.removesuffix("-v3") + "-v4"
@@ -103,6 +104,11 @@ def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
     base["contract_version"] = V4_CONTRACT_VERSION
     base["covered_behavior"] = behavior
     base["covered_behavior_sha256"] = canonical_json_hash(behavior)
+    sandbox_identity = deepcopy(_object(base["sandbox_identity"]))
+    sandbox_identity["worker_content_sha256"] = worker_implementation_identity()[
+        "worker_content_sha256"
+    ]
+    base["sandbox_identity"] = sandbox_identity
     lineage = deepcopy(_object(base["identity_lineage"]))
     lineage["predecessor_contract_id"] = CONTRACT_ID
     lineage["predecessor_payload_sha256"] = str(base_contract["payload_sha256"])
@@ -122,6 +128,7 @@ def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
         "covered_behavior_sha256",
         "identity_lineage",
         "packaging_correctness_gate",
+        "sandbox_identity.worker_content_sha256",
     )
     provenance = {
         key: (
@@ -140,6 +147,7 @@ def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
             "covered_behavior_sha256": builder_citation,
             "identity_lineage": builder_citation,
             "packaging_correctness_gate": builder_citation,
+            "sandbox_identity.worker_content_sha256": builder_citation,
         }
     )
     base["provenance"] = _leaf_provenance(base, provenance)

@@ -15,6 +15,7 @@ from localbench.scoring.agentic_exec.execution_contract import (
     load_execution_contract,
     validate_execution_contract_payload,
 )
+from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 from localbench.submissions.canon import canonical_json_hash
 from scripts.build_contract_v4_payload import (
     V4_CONTRACT_ID,
@@ -90,6 +91,21 @@ def test_v4_payload_builder_carries_gate_status_and_v3_lineage_verbatim() -> Non
     )
     assert default["covered_behavior"]["run_aggregation"] == (
         load_execution_contract()["payload"]["covered_behavior"]["run_aggregation"]
+    )
+
+
+def test_v4_payload_builder_refreshes_worker_content_identity_at_head() -> None:
+    current_identity = worker_implementation_identity()
+    predecessor_sandbox = dict(load_execution_contract()["payload"]["sandbox_identity"])
+    payload = build_v4_payload(gate_status="not-yet-passed")
+
+    assert payload["sandbox_identity"]["worker_content_sha256"] == (
+        current_identity["worker_content_sha256"]
+    )
+    predecessor_sandbox["worker_content_sha256"] = current_identity["worker_content_sha256"]
+    assert payload["sandbox_identity"] == predecessor_sandbox
+    assert str(payload["provenance"]["sandbox_identity.worker_content_sha256"]).startswith(
+        "scripts/build_contract_v4_payload.py:"
     )
 
 
