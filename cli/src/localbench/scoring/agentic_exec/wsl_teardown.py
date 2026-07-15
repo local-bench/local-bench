@@ -101,7 +101,10 @@ class LinuxProcfs:
         return [
             process
             for process in self.processes()
-            if self._has_token(process.pid, token)
+            if (
+                self._has_token(process.pid, token)
+                and not self._is_session_launcher(process.pid)
+            )
             or (
                 process.process_group_id == pin.process_group_id
                 and process.session_id == pin.session_id
@@ -113,6 +116,8 @@ class LinuxProcfs:
             process
             for process in self.processes()
             if self._has_token(process.pid, token)
+            and not self._is_session_launcher(process.pid)
+            and process.pid == process.process_group_id == process.session_id
             and self._cmdline_contains(process.pid, b"localbench.scoring.agentic_exec.wsl_worker")
         ]
         if len(matches) != 1:
@@ -150,13 +155,20 @@ class LinuxProcfs:
         return expected in environment.split(b"\0")
 
     def _cmdline_contains(self, pid: int, expected: bytes) -> bool:
+        return expected in self._cmdline(pid)
+
+    def _is_session_launcher(self, pid: int) -> bool:
+        commandline = self._cmdline(pid)
+        return bool(commandline) and commandline[0].endswith(b"/setsid")
+
+    def _cmdline(self, pid: int) -> list[bytes]:
         try:
             commandline = (self.root / str(pid) / "cmdline").read_bytes()
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             return False
         except OSError as error:
             raise TeardownError(f"could not read process command line for pid {pid}: {error}") from error
-        return expected in commandline.split(b"\0")
+        return [field for field in commandline.split(b"\0") if field]
 
 
 def terminate_linux_worker(

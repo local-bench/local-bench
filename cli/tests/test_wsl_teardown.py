@@ -54,6 +54,19 @@ def test_linux_teardown_kills_owned_groups_and_proves_they_are_empty(tmp_path: P
     token = "worker-token"
     _write_process(
         tmp_path,
+        pid=91,
+        process_group_id=91,
+        session_id=1,
+        start_time_ticks=900,
+        token=token,
+        executable="/usr/bin/setsid",
+        commandline=(
+            "/usr/bin/setsid\0--wait\0/opt/localbench/venv/bin/python\0-m\0"
+            "localbench.scoring.agentic_exec.wsl_worker\0"
+        ),
+    )
+    _write_process(
+        tmp_path,
         pid=101,
         process_group_id=101,
         session_id=101,
@@ -76,8 +89,10 @@ def test_linux_teardown_kills_owned_groups_and_proves_they_are_empty(tmp_path: P
         start_time_ticks=2000,
         token=token,
         executable="/opt/localbench/venv/bin/env_host",
+        commandline="python\0-m\0localbench.scoring.agentic_exec.env_host\0",
     )
     pin = procfs.capture(101, token=token)
+    assert procfs.find_worker(token=token) == pin
     signals: list[tuple[int, int]] = []
 
     def signal_group(process_group_id: int, signum: int) -> None:
@@ -96,7 +111,8 @@ def test_linux_teardown_kills_owned_groups_and_proves_they_are_empty(tmp_path: P
     )
 
     assert signals == [(101, signal.SIGTERM), (201, signal.SIGTERM)]
-    assert procfs.processes() == []
+    assert procfs.owned_processes(pin, token=token) == []
+    assert [process.pid for process in procfs.processes()] == [91]
 
 
 def test_linux_teardown_reports_failed_group_signal(tmp_path: Path) -> None:
@@ -141,6 +157,7 @@ def _write_process(
     start_time_ticks: int,
     token: str | None,
     executable: str = "/opt/localbench/venv/bin/python",
+    commandline: str = "python\0-m\0localbench.scoring.agentic_exec.wsl_worker\0",
 ) -> None:
     process_root = root / str(pid)
     process_root.mkdir(parents=True, exist_ok=True)
@@ -157,9 +174,7 @@ def _write_process(
         encoding="utf-8",
     )
     (process_root / "exe").write_text(executable, encoding="utf-8")
-    (process_root / "cmdline").write_bytes(
-        b"python\0-m\0localbench.scoring.agentic_exec.wsl_worker\0",
-    )
+    (process_root / "cmdline").write_bytes(commandline.encode())
     environment = b"APPWORLD_ROOT=/home/lbworker/appworld\0"
     if token is not None:
         environment += f"LOCALBENCH_WORKER_TOKEN={token}\0".encode()
