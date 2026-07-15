@@ -79,4 +79,9 @@ network locations are rejected. Downloads honor `HTTPS_PROXY`/`NO_PROXY`; pass `
 set `LOCALBENCH_CA_BUNDLE` for an explicit corporate CA. Automatic Windows-certificate import,
 PAC discovery, and integrated-auth proxy discovery are not supported.
 
+Agentic task-journal file contents and renames are crash-safe, but directory `fsync` is POSIX-only.
+On native Windows/NTFS, process death is fully covered; a machine-wide power loss immediately after
+journal creation can still lose the not-yet-referenced journal file. Journal paths hosted in
+WSL/ext4 receive the full directory-`fsync` durability semantics.
+
 Do not export or upload a provisioned VHD: it contains locally decrypted AppWorld material.
