@@ -199,9 +199,11 @@ class ApplianceProvisioner:
                 runtime_dir.mkdir(parents=True, exist_ok=True)
                 self._feature_preflight()
                 state = self._read_state(runtime_dir, runtime_id)
+                # TODO(C4): Define the offline/cache posture before replacing this per-run manifest/trust fetch.
                 manifest = self._fetch_manifest()
                 self._bind_manifest(runtime_dir, manifest)
                 if state.get("state") == "active":
+                    # TODO(C4): Assert ownership before handshake and cover that marker read in the C4 test.
                     result = self._handshake(runtime_dir, state, manifest)
                     active = self._read_json(self.root / "active.json")
                     if active is None or active.get("runtime_id") != runtime_id:
