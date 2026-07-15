@@ -30,7 +30,7 @@ from localbench.serving.runner import run_orchestrated_bench
 from localbench.serving.teardown import TeardownEvidence
 from localbench.scoring.agentic_exec.sandbox import SandboxError
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
-from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
+from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig, worker_argv
 from localbench.cli import _parser
 from localbench.persistence import atomic_write_json
 from localbench.submissions.canon import sha256_file
@@ -1142,6 +1142,14 @@ def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worke
     assert result is not None
     assert resolved is result.worker_config
     assert resolved.distro_name in boundary.names
+    assert resolved.allow_test_worker_override is False
+    assert resolved.worker_argv is None
+    assert worker_argv(resolved, worker_token="fixture-token")[:4] == (
+        "wsl.exe",
+        "-d",
+        resolved.distro_name,
+        "--exec",
+    )
     verification_calls = boundary.calls[setup_call_count:]
     assert any(call[1:] == ["--list", "--quiet"] for call in verification_calls)
     assert any("handshake" in call for call in verification_calls)

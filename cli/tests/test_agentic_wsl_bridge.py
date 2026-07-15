@@ -50,6 +50,14 @@ from localbench.scoring.agentic_exec.wsl_worker import (
 )
 
 
+def _enable_test_worker_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        wsl_proxy,
+        "_worker_platform_name",
+        lambda: wsl_process._TEST_WORKER_PLATFORM,
+    )
+
+
 def test_worker_verdict_request_rejects_unpassed_v3_gate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -112,6 +120,7 @@ def test_per_task_worker_identity_must_match_preflight_before_model_turn(
     from localbench.scoring.agentic_exec import execution_contract
 
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         venv_python="/managed/venv/bin/python3",
         appworld_root="/managed/appworld",
@@ -155,6 +164,7 @@ def test_per_task_worker_matching_preflight_identity_proceeds(
     from localbench.scoring.agentic_exec import wsl_bridge
 
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         venv_python="/managed/venv/bin/python3",
         appworld_root="/managed/appworld",
@@ -195,9 +205,13 @@ def test_worker_malformed_op_returns_protocol_error() -> None:
     assert "unknown op" in str(response["detail"])
 
 
-def test_proxy_round_trip_and_list_tasks_through_fake_worker(tmp_path: Path) -> None:
+def test_proxy_round_trip_and_list_tasks_through_fake_worker(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a fake worker subprocess speaking the same NDJSON protocol as the WSL worker.
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
         venv_python="/home/michael/appworld-harness/venv/bin/python3",
@@ -223,9 +237,13 @@ def test_proxy_round_trip_and_list_tasks_through_fake_worker(tmp_path: Path) -> 
     assert any(path.name.endswith(".stderr.log") for path in tmp_path.iterdir())
 
 
-def test_proxy_timeout_maps_to_infra_timeout(tmp_path: Path) -> None:
+def test_proxy_timeout_maps_to_infra_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a fake worker that accepts the task but hangs on one run_block request.
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
         venv_python="/home/michael/appworld-harness/venv/bin/python3",
@@ -250,6 +268,7 @@ def test_proxy_close_timeout_is_recorded_without_discarding_task_result(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/repo",
         venv_python="/managed/venv/bin/python3",
@@ -344,7 +363,10 @@ def test_proxy_force_kill_surfaces_process_wait_failure(tmp_path: Path) -> None:
     assert "did not terminate" in (proxy.teardown_failure or "")
 
 
-def test_proxy_enter_time_failure_raises_and_tears_down(tmp_path: Path) -> None:
+def test_proxy_enter_time_failure_raises_and_tears_down(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a worker that exits immediately, so the hello handshake in __enter__ fails.
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/x",
@@ -356,6 +378,7 @@ def test_proxy_enter_time_failure_raises_and_tears_down(tmp_path: Path) -> None:
         op_timeout_s=2.0,
     )
     proxy = WslSandboxProxy("fac291d_1", config)
+    _enable_test_worker_override(monkeypatch)
 
     # When / Then: __enter__ fails closed (no hang) and cleans up rather than leaking the worker.
     # (Previously an enter-time hello/open_task failure skipped force_kill entirely, since __exit__
@@ -373,6 +396,7 @@ def test_wsl_sandbox_factory_builds_proxy_context(
 
     # Given: WSL bridge defaults plus a test launch argv.
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
 
     # When: building the sandbox factory.
     config = WslWorkerConfig(
@@ -418,7 +442,10 @@ def test_missing_wsl_executable_is_typed_transport_error(
     assert error.value.operation == "spawn"
 
 
-def test_abrupt_worker_subprocess_exit_is_typed_transport_error(tmp_path: Path) -> None:
+def test_abrupt_worker_subprocess_exit_is_typed_transport_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     config = WslWorkerConfig(
         venv_python=sys.executable,
         appworld_root=APPWORLD_ROOT.as_posix(),
@@ -426,6 +453,7 @@ def test_abrupt_worker_subprocess_exit_is_typed_transport_error(tmp_path: Path) 
         worker_argv=(sys.executable, "-c", "raise SystemExit(71)"),
         allow_test_worker_override=True,
     )
+    _enable_test_worker_override(monkeypatch)
 
     with pytest.raises(wsl_proxy.WslTransportError) as error:
         WslSandboxProxy(None, config).__enter__()
@@ -520,6 +548,7 @@ def test_preflight_carries_resolved_worker_config_to_task_spawns(
     from localbench.scoring.agentic_exec import wsl_bridge
 
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         distro_name=f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}",
         venv_python=(VENV / "bin/python").as_posix(),
@@ -627,9 +656,13 @@ def _fake_worker_identity() -> JsonObject:
     }
 
 
-def test_request_timeout_kills_worker_fail_closed(tmp_path: Path) -> None:
+def test_request_timeout_kills_worker_fail_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a fake worker that hangs on one run_block request.
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
         venv_python="/home/michael/appworld-harness/venv/bin/python3",
@@ -656,9 +689,13 @@ def test_request_timeout_kills_worker_fail_closed(tmp_path: Path) -> None:
         proxy.close()
 
 
-def test_well_formed_error_response_keeps_worker_alive(tmp_path: Path) -> None:
+def test_well_formed_error_response_keeps_worker_alive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Given: a live fake worker (its unknown-op branch answers protocol_error and keeps serving).
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
         venv_python="/home/michael/appworld-harness/venv/bin/python3",
@@ -680,8 +717,10 @@ def test_well_formed_error_response_keeps_worker_alive(tmp_path: Path) -> None:
 
 def test_worker_startup_drift_survives_process_boundary_as_typed_setup_error(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     script = _write_fake_worker(tmp_path)
+    _enable_test_worker_override(monkeypatch)
     config = WslWorkerConfig(
         repo_root_wsl_path="/mnt/c/x",
         venv_python="/x/python",
@@ -840,6 +879,73 @@ def test_worker_argv_override_requires_explicit_test_context() -> None:
         worker_argv(config)
 
     assert error.value.code == "test_worker_override_required"
+
+
+def test_windows_worker_override_flag_cannot_change_resolved_argv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = WslWorkerConfig(
+        venv_python=(VENV / "bin/python").as_posix(),
+        appworld_root=APPWORLD_ROOT.as_posix(),
+        worker_argv=("wsl.exe", "bash", "-lc", "python -m worker"),
+        allow_test_worker_override=True,
+    )
+    monkeypatch.setattr(wsl_process.sys, "platform", "win32")
+
+    with pytest.raises(ProvisioningError) as error:
+        worker_argv(config)
+
+    assert error.value.code == "test_worker_override_required"
+
+
+def test_windows_worker_override_flag_cannot_disable_spawn_validation() -> None:
+    config = WslWorkerConfig(
+        distro_name=f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}",
+        venv_python=(VENV / "bin/python").as_posix(),
+        appworld_root=APPWORLD_ROOT.as_posix(),
+        allow_test_worker_override=True,
+    )
+
+    with pytest.raises(ProvisioningError) as error:
+        wsl_process.validate_worker_argv(
+            config,
+            ("wsl.exe", "bash", "-lc", "python -m worker"),
+            platform_name="win32",
+        )
+
+    assert error.value.code == "managed_boundary_required"
+
+
+def test_windows_production_proxy_rejects_override_flag_before_spawn(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spawned = False
+
+    def unexpected_spawn(*_args: object, **_kwargs: object) -> NoReturn:
+        nonlocal spawned
+        spawned = True
+        raise AssertionError("an override worker command reached Popen")
+
+    monkeypatch.setattr(wsl_proxy.sys, "platform", "win32")
+    monkeypatch.setattr(wsl_proxy.subprocess, "Popen", unexpected_spawn)
+    proxy = WslSandboxProxy(
+        None,
+        WslWorkerConfig(
+            distro_name=f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}",
+            venv_python=(VENV / "bin/python").as_posix(),
+            appworld_root=APPWORLD_ROOT.as_posix(),
+            log_dir=tmp_path,
+            worker_argv=("wsl.exe", "bash", "-lc", "python -m worker"),
+            allow_test_worker_override=True,
+        ),
+    )
+
+    with pytest.raises(wsl_proxy.WslTransportError) as error:
+        proxy._start()
+
+    assert error.value.operation == "spawn_guard"
+    assert spawned is False
 
 
 def test_windows_proxy_revalidates_pinned_managed_exec_before_spawn(

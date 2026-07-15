@@ -20,6 +20,7 @@ from localbench.scoring.agentic_exec.sandbox import (
     WorkerSetupError,
 )
 from localbench.scoring.agentic_exec.wsl_process import (
+    _TEST_WORKER_PLATFORM,
     WslWorkerConfig,
     creation_flags,
     new_worker_token,
@@ -232,12 +233,20 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         return list(task_ids)
 
     def _start(self) -> None:
+        platform_name = _worker_platform_name()
         self._worker_token = (
-            None if self.config.allow_test_worker_override else new_worker_token()
+            None
+            if self.config.allow_test_worker_override
+            and platform_name == _TEST_WORKER_PLATFORM
+            else new_worker_token()
         )
         try:
-            argv = worker_argv(self.config, worker_token=self._worker_token)
-            validate_worker_argv(self.config, argv, platform_name=sys.platform)
+            argv = worker_argv(
+                self.config,
+                worker_token=self._worker_token,
+                platform_name=platform_name,
+            )
+            validate_worker_argv(self.config, argv, platform_name=platform_name)
         except ProvisioningError as error:
             raise WslTransportError(operation="spawn_guard", detail=str(error)) from error
         self.config.log_dir.mkdir(parents=True, exist_ok=True)
@@ -385,3 +394,7 @@ def _string_tuple(value: JsonValue | None, *, fallback_count: int) -> tuple[str,
     if isinstance(value, list):
         return tuple(item for item in value if isinstance(item, str))
     return tuple("" for _ in range(fallback_count))
+
+
+def _worker_platform_name() -> str:
+    return sys.platform

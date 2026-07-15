@@ -22,6 +22,7 @@ _DEFAULT_FINALIZE_TIMEOUT_S = 120.0
 _DEFAULT_CLOSE_TIMEOUT_S = 5.0
 _WORKER_MODULE = "localbench.scoring.agentic_exec.wsl_worker"
 _TEARDOWN_MODULE = "localbench.scoring.agentic_exec.wsl_teardown"
+_TEST_WORKER_PLATFORM = "localbench-test-worker"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,9 +45,14 @@ def worker_argv(
     config: WslWorkerConfig,
     *,
     worker_token: str | None = None,
+    platform_name: str | None = None,
 ) -> tuple[str, ...]:
+    resolved_platform = sys.platform if platform_name is None else platform_name
     if config.worker_argv is not None:
-        if not config.allow_test_worker_override:
+        if (
+            not config.allow_test_worker_override
+            or resolved_platform != _TEST_WORKER_PLATFORM
+        ):
             raise ProvisioningError(
                 "test_worker_override_required",
                 "worker_argv overrides are disabled for managed execution",
@@ -165,7 +171,7 @@ def validate_worker_argv(
     *,
     platform_name: str,
 ) -> None:
-    if platform_name != "win32" or config.allow_test_worker_override:
+    if platform_name != "win32":
         return
     managed_distro = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
     if config.distro_name != managed_distro or argv[:4] != (
