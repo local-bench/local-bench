@@ -199,6 +199,7 @@ def test_evidence_writer_is_byte_deterministic(tmp_path: Path) -> None:
     assert first.read_bytes().endswith(b"\n")
     parsed = json.loads(first.read_text(encoding="utf-8"))
     assert parsed["schema"] == "localbench.packaging_differential.v1"
+    assert parsed["mode"] == "differential"
     assert parsed["verdict"] == "pass"
     assert set(parsed["per_side"]) == {"appliance", "repo"}
     assert set(parsed["per_side"]["repo"]["per_task"]["fac291d_1"]) == {
@@ -533,6 +534,7 @@ def test_self_test_accepts_identity_failure_and_writes_fail_evidence(
     evidence = json.loads(out.read_text(encoding="utf-8"))
     assert exit_code == 0
     assert capsys.readouterr().out.strip() == "SELF-TEST OK"
+    assert evidence["mode"] == "self-test"
     assert evidence["verdict"] == "fail"
     assert evidence["staged_source"] == asdict(staged)
     assert evidence["diffs"] == [
@@ -550,15 +552,27 @@ def test_self_test_accepts_identity_failure_and_writes_fail_evidence(
 
 
 @pytest.mark.parametrize(
-    ("failure", "expected_verdict"),
-    [(None, "pass"), (differential.PackagingDifferentialError("spawn failed"), "fail")],
+    ("failure", "expected_diff_field"),
+    [
+        pytest.param(None, "self_test", id="undetected-mutation"),
+        pytest.param(
+            differential.PackagingDifferentialError("spawn failed"),
+            "driver",
+            id="non-worker-error",
+        ),
+        pytest.param(
+            WorkerSetupError("wsl worker error: bubblewrap (bwrap) not found"),
+            "startup_failure",
+            id="non-drift-worker-setup-error",
+        ),
+    ],
 )
 def test_self_test_rejects_pass_or_non_identity_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-    failure: differential.PackagingDifferentialError | None,
-    expected_verdict: str,
+    failure: Exception | None,
+    expected_diff_field: str,
 ) -> None:
     out = tmp_path / "self-test-failed.json"
     monkeypatch.setattr(
@@ -600,7 +614,9 @@ def test_self_test_rejects_pass_or_non_identity_failure(
     evidence = json.loads(out.read_text(encoding="utf-8"))
     assert exit_code == 1
     assert capsys.readouterr().out.startswith("SELF-TEST FAILED")
-    assert evidence["verdict"] == expected_verdict
+    assert evidence["mode"] == "self-test"
+    assert evidence["verdict"] == "fail"
+    assert expected_diff_field in {str(item["field"]) for item in evidence["diffs"]}
 
 
 def test_capture_validation_fails_closed_on_capture_gap() -> None:

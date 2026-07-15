@@ -68,6 +68,13 @@ VENV_PYTHON: Final = "/opt/localbench/venv/bin/python"
 APPWORLD_ROOT: Final = "/home/lbworker/appworld"
 SELF_TEST_MODULE: Final = "localbench.scoring.agentic_exec.wsl_worker"
 SELF_TEST_COMMENT: Final = b"# packaging differential self-test mutation\n"
+# The self-test only counts as OK when the failure is one of the two DESIGNED source-divergence
+# detection layers; any other worker startup error (preflight, task identity) means the
+# mutation-detection layer was never exercised.
+SELF_TEST_DRIFT_MARKERS: Final = (
+    "agentic execution contract drift",
+    "agentic runtime identity drift",
+)
 MODULE_ORIGIN_PROBE: Final = (
     "import importlib,json,sys;import localbench;"
     "from localbench.scoring.agentic_exec.worker_identity import _WORKER_MODULES;"
@@ -447,9 +454,11 @@ def build_evidence(
     appliance: SideRun,
     comparison: Comparison,
     staged_source: StagedSource,
+    mode: Literal["differential", "self-test"] = "differential",
 ) -> JsonObject:
     return {
         "schema": SCHEMA,
+        "mode": mode,
         "runtime_id": runtime_id,
         "distro_name": distro_name,
         "contract_id": contract_id,
@@ -728,14 +737,24 @@ def main(argv: Sequence[str] | None = None) -> int:
                                 }
                             ],
                         )
-                        self_test_ok = True
+                        self_test_ok = _is_designed_drift_detection(error)
                     else:
+                        # Mutation NOT detected: self-test evidence must never read as a
+                        # differential PASS.
                         comparison = Comparison(
                             field_verdicts={
-                                field_name: True for field_name in EQUAL_FIELDS
+                                field_name: False for field_name in EQUAL_FIELDS
                             },
-                            verdict="pass",
-                            diffs=[],
+                            verdict="fail",
+                            diffs=[
+                                {
+                                    "field": "self_test",
+                                    "detail": (
+                                        "mutated staged tree ran to completion; the "
+                                        "source-divergence detection layer did not fire"
+                                    ),
+                                }
+                            ],
                         )
                 finally:
                     remove_staged_source(args.distro)
@@ -772,6 +791,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         appliance=appliance,
         comparison=comparison,
         staged_source=staged_source,
+        mode="self-test" if args.self_test else "differential",
     )
     write_evidence(args.out, evidence)
     if args.self_test:
@@ -782,6 +802,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     print(f"verdict={comparison.verdict} evidence={args.out}")
     return 0 if comparison.verdict == "pass" else 1
+
+
+def _is_designed_drift_detection(error: Exception) -> bool:
+    detail = str(error)
+    return any(marker in detail for marker in SELF_TEST_DRIFT_MARKERS)
 
 
 def _record_worker_identity(run: SideRun, identity: JsonObject) -> None:
