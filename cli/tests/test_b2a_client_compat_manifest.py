@@ -2,12 +2,47 @@ from __future__ import annotations
 
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_b2a_gate_binds_manifest_to_clean_repo_head(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    cli = repo / "cli"
+    cli.mkdir(parents=True)
+    source = cli / "source.txt"
+    source.write_text("fixture\n", encoding="utf-8")
+    _git(repo, "init")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test User")
+    _git(repo, "add", "cli/source.txt")
+    _git(repo, "commit", "-m", "fixture")
+    head = _git(repo, "rev-parse", "HEAD")
+    manifest = {
+        "rc_build": {
+            "source_commit": head,
+            "source_tree": _git(repo, "rev-parse", "HEAD:cli"),
+        }
+    }
+    gate = runpy.run_path(str(ROOT / "scripts" / "b2a_client_compat_gate.py"))
+    assert_repo_source = gate["_assert_repo_source_is_current"]
+
+    assert_repo_source(manifest, repo)
+
+    stale = {"rc_build": {**manifest["rc_build"], "source_commit": "0" * 40}}
+    with pytest.raises(RuntimeError, match="repository HEAD"):
+        assert_repo_source(stale, repo)
+
+    source.write_text("dirty\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="clean tracked tree"):
+        assert_repo_source(manifest, repo)
 
 
 def test_cli_wheel_build_backend_is_exactly_pinned() -> None:
@@ -84,3 +119,13 @@ def test_b2a_mutated_admission_is_rejected_by_both_pinned_clients() -> None:
     previous_line = next(line for line in combined.splitlines() if line.startswith("live_n_minus_1 "))
     assert "result=0" not in rc_line
     assert "result=0" not in previous_line
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()

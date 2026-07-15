@@ -58,6 +58,8 @@ def main() -> int:
     parser.add_argument("--verify-rc-rebuild", action="store_true")
     args = parser.parse_args()
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    if not args.mutate_admission and not args.verify_rc_rebuild:
+        _assert_repo_source_is_current(manifest, ROOT)
     with tempfile.TemporaryDirectory(prefix="b2a-compat-") as temp:
         temp_path = Path(temp)
         if args.verify_rc_rebuild:
@@ -232,10 +234,33 @@ def _assert_build_toolchain(pyproject: Path, provenance: dict[str, Any]) -> None
         raise RuntimeError(f"RC wheel backend pins do not match provenance: {build_requires!r}")
 
 
+def _assert_repo_source_is_current(manifest: dict[str, Any], repo: Path) -> None:
+    provenance = manifest.get("rc_build")
+    if not isinstance(provenance, dict):
+        raise RuntimeError("compatibility manifest is missing rc_build provenance")
+    source_commit = str(provenance.get("source_commit"))
+    repo_head = _git_output_at(repo, "rev-parse", "HEAD")
+    if source_commit != repo_head:
+        raise RuntimeError(
+            "rc_build source_commit does not match repository HEAD: "
+            f"expected {repo_head}, got {source_commit}"
+        )
+    tracked_status = _git_output_at(repo, "status", "--short", "--untracked-files=no")
+    if tracked_status:
+        raise RuntimeError(
+            "compatibility gate requires a clean tracked tree; tracked changes:\n"
+            f"{tracked_status}"
+        )
+
+
 def _git_output(*args: str) -> str:
+    return _git_output_at(ROOT, *args)
+
+
+def _git_output_at(repo: Path, *args: str) -> str:
     return subprocess.run(
         ["git", *args],
-        cwd=ROOT,
+        cwd=repo,
         check=True,
         capture_output=True,
         text=True,
