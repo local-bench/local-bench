@@ -359,6 +359,28 @@ def test_validate_worker_argv_rejects_unpinned_interpreter_on_win32() -> None:
         wsl_process.validate_worker_argv(config, argv, platform_name="win32")
 
 
+def test_validate_worker_argv_accepts_the_real_managed_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # False-positive guard for the V-F2 hardening: the pinned interpreter/appworld check must
+    # match EXACTLY what resolve_worker_config produces for a healthy managed win32 runtime, or
+    # every legitimate agentic run would spuriously fail the spawn boundary. If the managed venv
+    # or AppWorld path is ever changed in one place but not the validator, this test fails.
+    managed_distro = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
+    active = {"schema": "localbench.appliance_active.v1", "runtime_id": PINNED_RUNTIME_ID, "distro_name": managed_distro}
+    state = {"schema": "localbench.appliance_state.v1", "runtime_id": PINNED_RUNTIME_ID, "state": "active", "distro_name": managed_distro}
+    monkeypatch.setattr(wsl_process, "appliance_root", lambda _environ: Path("/fake"))
+    monkeypatch.setattr(
+        wsl_process,
+        "_read_runtime_json",
+        lambda path: active if path.name == "active.json" else state,
+    )
+    config = wsl_process.resolve_worker_config(platform_name="win32")
+    argv = wsl_process.worker_argv(config)
+    # Must not raise.
+    wsl_process.validate_worker_argv(config, argv, platform_name="win32")
+
+
 def test_proxy_close_oserror_from_wait_does_not_skip_teardown(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
