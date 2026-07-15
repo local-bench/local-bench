@@ -11,19 +11,11 @@ from pathlib import Path, PurePosixPath
 
 from localbench._types import JsonObject
 from localbench.appliance.manifest import PINNED_RUNTIME_ID
-from localbench.appliance.provisioner import (
-    FINAL_DISTRO_PREFIX,
-    ProvisioningError,
-    appliance_root,
-)
-from localbench.scoring.agentic_exec.wsl_teardown import (
-    LinuxProcfs,
-    ProcessPin,
-    TeardownError,
-    WORKER_TOKEN_ENV,
-    terminate_linux_worker,
-    verify_linux_worker_terminated,
-)
+from localbench.appliance.provisioner import FINAL_DISTRO_PREFIX, ProvisioningError, appliance_root
+from localbench.scoring.agentic_exec.wsl_teardown import LinuxProcfs, ProcessPin, TeardownError
+from localbench.scoring.agentic_exec.wsl_teardown import WORKER_TOKEN_ENV, terminate_linux_worker
+from localbench.scoring.agentic_exec.wsl_teardown import verify_linux_worker_terminated
+
 _DEFAULT_OPEN_TASK_TIMEOUT_S = 180.0
 _DEFAULT_OPERATION_TIMEOUT_S = 300.0
 _DEFAULT_FINALIZE_TIMEOUT_S = 120.0
