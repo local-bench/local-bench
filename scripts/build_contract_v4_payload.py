@@ -47,6 +47,16 @@ GATE_STATUSES: Final[tuple[GateStatus, ...]] = (
 )
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT: Final = REPO_ROOT / "scratchpad/contract-v4-payload-DRAFT.json"
+RAW_RUN_PROVENANCE_PATHS: Final = (
+    "runs/bench/ranked-5axis-capped-2026-07-03/agentic/localbench-run/"
+    "gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json",
+    "cli/runs/agentic/qwen36-27b-Q6_K.scored.run1.json",
+)
+TASK_IDENTITY_RUN_EXCERPT_CITATION: Final = (
+    "cli/src/localbench/data/contracts/agentic-task-identity-run-excerpts-v1.json:1"
+)
+
+
 def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
     base_contract = load_execution_contract()
     base = deepcopy(_object(base_contract["payload"]))
@@ -114,7 +124,11 @@ def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
         "packaging_correctness_gate",
     )
     provenance = {
-        key: value
+        key: (
+            TASK_IDENTITY_RUN_EXCERPT_CITATION
+            if any(path in str(value) for path in RAW_RUN_PROVENANCE_PATHS)
+            else value
+        )
         for key, value in previous_provenance.items()
         if not key.startswith(replaced_prefixes)
     }

@@ -179,8 +179,8 @@ def extract_contract_payload(
             ),
             **provenance,
             "task_identity.ordered_task_ids": (
-                "runs/bench/ranked-5axis-capped-2026-07-03/agentic/localbench-run/"
-                "gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json:25-120"
+                "cli/src/localbench/data/contracts/"
+                "agentic-task-identity-run-excerpts-v1.json:1"
             ),
             "task_identity.selection_recipe": (
                 "cli/src/localbench/scoring/agentic_exec/funnel.py:57-75;"
@@ -202,9 +202,9 @@ def extract_contract_payload(
                 "cli/src/localbench/scoring/agentic_exec/task_pool.py:30-91"
             ),
             "task_identity.historical_aliases": (
-                "runs/bench/ranked-5axis-capped-2026-07-03/agentic/localbench-run/"
-                "gemma-4-12b-it-qat-ud-q4-k-xl.scored.run1.json:122;"
-                "cli/runs/agentic/qwen36-27b-Q6_K.scored.run1.json:124"
+                "cli/src/localbench/data/"
+                "contracts/"
+                "agentic-task-identity-run-excerpts-v1.json:1"
             ),
             "appworld_identity": (
                 "cli/src/localbench/data/contracts/agentic-execution-contract-v1-evidence.json:1"
