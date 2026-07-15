@@ -118,6 +118,7 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             if self.identity_assertion is not None:
                 self.identity_assertion(identity)
             if self.task_id is not None:
+                # TODO(C4): Revalidate AppWorld package/data digests and ordered task IDs before each open_task.
                 self._request(
                     {"op": "open_task", "task_id": self.task_id},
                     timeout_s=self.config.open_task_timeout_s,

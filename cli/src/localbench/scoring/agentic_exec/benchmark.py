@@ -248,6 +248,7 @@ def aggregate(results: list[TaskRunResult]) -> BenchmarkReport:
     return BenchmarkReport(
         tasks_total=n,
         tasks_succeeded=succeeded,
+        # TODO(C6): Exclude infra attempts as non-measurements before ranked ASR aggregation.
         agentic_success_rate=_safe_div(succeeded, n),
         asr_excluding_infra=_safe_div(succeeded, n - infra_failures),
         collateral_damage_rate=_safe_div(tasks_with_collateral, n),
