@@ -1,0 +1,113 @@
+{
+  "board": {
+    "models": [
+      {
+        "agentic_run": {
+          "runs": [
+            {
+              "harness_error_subclass_rate": 0.0,
+              "infra_sandbox_rate": 0.0,
+              "infra_timeout_rate": 0.25
+            }
+          ]
+        },
+        "slug": "affected"
+      },
+      {
+        "agentic_run": {
+          "attempt_evidence": [
+            {
+              "accepted_measurement_count": 1,
+              "failure_classes": [],
+              "task_id": "task-a"
+            }
+          ],
+          "attempt_evidence_complete": true,
+          "runs": []
+        },
+        "slug": "unaffected"
+      },
+      {
+        "agentic_run": {
+          "runs": [
+            {
+              "harness_error_subclass_rate": 0.0,
+              "infra_sandbox_rate": 0.0,
+              "infra_timeout_rate": 0.0
+            }
+          ]
+        },
+        "slug": "indeterminate"
+      }
+    ]
+  },
+  "expected": {
+    "counts": {
+      "AFFECTED": 1,
+      "INDETERMINATE-MISSING-EVIDENCE": 1,
+      "UNAFFECTED-WITH-EVIDENCE": 1
+    },
+    "rows": [
+      {
+        "classification": "AFFECTED",
+        "evidence_pointer": "/board/models/0/agentic_run/runs/0/infra_timeout_rate",
+        "model_label": "Affected",
+        "reason": "published agentic aggregate contains a nonzero infra_timeout_rate",
+        "row_id": "affected-run",
+        "slug": "affected"
+      },
+      {
+        "classification": "INDETERMINATE-MISSING-EVIDENCE",
+        "evidence_pointer": "/board/models/2/agentic_run",
+        "model_label": "Indeterminate",
+        "reason": "attempt-level evidence is absent or incomplete; zero aggregate rates do not prove unaffected status",
+        "row_id": "indeterminate-run",
+        "slug": "indeterminate"
+      },
+      {
+        "classification": "UNAFFECTED-WITH-EVIDENCE",
+        "evidence_pointer": "/board/models/1/agentic_run/attempt_evidence",
+        "model_label": "Unaffected",
+        "reason": "complete attempt-level evidence has exactly one accepted measurement per task and no non-measurement failures",
+        "row_id": "unaffected-run",
+        "slug": "unaffected"
+      }
+    ]
+  },
+  "published_index": {
+    "models": [
+      {
+        "best_run_id": "affected-run",
+        "kind": "maintainer_project",
+        "model_label": "Affected",
+        "ranked": true,
+        "score_status": "measured",
+        "slug": "affected"
+      },
+      {
+        "best_run_id": "unaffected-run",
+        "kind": "community",
+        "model_label": "Unaffected",
+        "ranked": false,
+        "score_status": "measured",
+        "slug": "unaffected"
+      },
+      {
+        "best_run_id": "indeterminate-run",
+        "kind": "community",
+        "model_label": "Indeterminate",
+        "ranked": false,
+        "score_status": "measured",
+        "slug": "indeterminate"
+      },
+      {
+        "best_run_id": null,
+        "kind": "community",
+        "model_label": "Missing",
+        "ranked": false,
+        "score_status": "missing",
+        "slug": "missing"
+      }
+    ]
+  }
+}
