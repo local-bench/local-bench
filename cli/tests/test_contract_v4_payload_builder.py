@@ -16,6 +16,7 @@ from localbench.scoring.agentic_exec.execution_contract import (
     validate_execution_contract_payload,
 )
 from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
+from localbench.scoring.agentic_exec.wsl_worker import _PIN_ENV
 from localbench.submissions.canon import canonical_json_hash
 from scripts.build_contract_v4_payload import (
     V4_CONTRACT_ID,
@@ -107,6 +108,12 @@ def test_v4_payload_builder_refreshes_worker_content_identity_at_head() -> None:
     assert str(payload["provenance"]["sandbox_identity.worker_content_sha256"]).startswith(
         "scripts/build_contract_v4_payload.py:"
     )
+
+
+def test_v4_payload_builder_env_pins_match_worker_startup_assertion() -> None:
+    payload = build_v4_payload(gate_status="not-yet-passed")
+
+    assert payload["appworld_identity"]["env_pins"] == _PIN_ENV
 
 
 def test_v4_payload_builder_refuses_unknown_gate_status(tmp_path: Path) -> None:
