@@ -799,19 +799,6 @@ def test_managed_worker_argv_uses_installed_package_without_source_checkout() ->
     assert all("PYTHONPATH=" not in item for item in command)
 
 
-def test_windows_backend_resolves_only_active_c2_managed_runtime(tmp_path: Path) -> None:
-    distro_name = _write_managed_runtime_state(tmp_path)
-
-    config = wsl_process.resolve_worker_config(
-        platform_name="win32",
-        environ={"LOCALAPPDATA": str(tmp_path)},
-    )
-
-    assert config.distro_name == distro_name
-    assert config.venv_python == (VENV / "bin/python").as_posix()
-    assert config.appworld_root == APPWORLD_ROOT.as_posix()
-
-
 def test_linux_backend_executes_installed_worker_directly() -> None:
     config = wsl_process.resolve_worker_config(
         platform_name="linux",
@@ -914,7 +901,7 @@ def test_windows_backend_missing_or_unready_runtime_is_typed_setup_error(
     runtime_state: str | None,
 ) -> None:
     if runtime_state is not None:
-        _write_managed_runtime_state(tmp_path, runtime_state=runtime_state)
+        _write_unready_runtime_state(tmp_path)
 
     with pytest.raises(ProvisioningError, match="Run 'localbench setup-agentic'"):
         wsl_process.resolve_worker_config(
@@ -924,8 +911,6 @@ def test_windows_backend_missing_or_unready_runtime_is_typed_setup_error(
 
 
 def test_windows_backend_rejects_custom_worker_path_fallback(tmp_path: Path) -> None:
-    _write_managed_runtime_state(tmp_path)
-
     with pytest.raises(ProvisioningError, match="managed runtime only"):
         wsl_process.resolve_worker_config(
             platform_name="win32",
@@ -935,11 +920,7 @@ def test_windows_backend_rejects_custom_worker_path_fallback(tmp_path: Path) -> 
         )
 
 
-def _write_managed_runtime_state(
-    local_app_data: Path,
-    *,
-    runtime_state: str = "active",
-) -> str:
+def _write_unready_runtime_state(local_app_data: Path) -> None:
     distro_name = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
     root = local_app_data / "LocalBench"
     runtime_dir = root / "WSL" / PINNED_RUNTIME_ID
@@ -962,16 +943,13 @@ def _write_managed_runtime_state(
             {
                 "schema": "localbench.appliance_state.v1",
                 "runtime_id": PINNED_RUNTIME_ID,
-                "state": runtime_state,
+                "state": "canary-green",
                 "updated_at": written_at,
                 "distro_name": distro_name,
             }
         ),
         encoding="utf-8",
     )
-    return distro_name
-
-
 def test_default_wsl_repo_path_rejects_non_drive_colon_paths() -> None:
     class _NonDrivePath:
         def resolve(self) -> PurePosixPath:

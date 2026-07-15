@@ -10,6 +10,7 @@ import httpx
 import pytest
 
 from localbench._types import JsonObject
+from localbench.appliance.provisioner import CommandResult
 from localbench.orchestrate import OrchestrateConfig
 from localbench.serving import assembly
 from localbench.serving import runner as serving_runner
@@ -36,6 +37,7 @@ from localbench.submissions.canon import sha256_file
 from localbench.submissions.contracts import RESULT_BUNDLE_SCHEMA_VERSION
 from localbench.submissions.foundation import validate_submission_bundle
 from serving_helpers import flag_value, minimal_gguf, serving_evidence
+from test_appliance_provisioner import WslBoundary, verified_public_provisioner
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
@@ -1078,26 +1080,46 @@ def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worke
         suite_dir=SUITE_V1,
         out=tmp_path / "run",
     )
-    resolved = WslWorkerConfig(
-        distro_name="LocalBench-Agentic-fixture",
-        venv_python="/opt/localbench/venv/bin/python",
-        appworld_root="/home/lbworker/appworld",
-        log_dir=tmp_path / "run" / "agentic" / "wsl-worker-logs",
+    class VerifiedWslBoundary(WslBoundary):
+        handshake_identity: JsonObject
+
+        def __call__(self, argv, timeout=None):
+            call = list(argv)
+            if "handshake" in call:
+                self.calls.append(call)
+                return CommandResult(0, json.dumps(self.handshake_identity).encode())
+            return super().__call__(argv, timeout=timeout)
+
+    boundary = VerifiedWslBoundary()
+    managed_root = tmp_path / "LocalBench"
+    provisioner, _runtime_dir = verified_public_provisioner(
+        managed_root,
+        monkeypatch,
+        boundary,
     )
-    calls: list[str] = []
-
-    class VerifiedProvisioner:
-        def ensure_active(self) -> JsonObject:
-            calls.append("verify")
-            return {"runtime_id": "fixture"}
-
-    def resolve(**_kwargs) -> WslWorkerConfig:
-        calls.append("resolve")
-        return resolved
+    manifest = provisioner._fetch_manifest()
+    tasks = manifest["task_identity"]
+    boundary.handshake_identity = {
+        "runtime_id": manifest["runtime_id"],
+        "protocol_version": manifest["worker"]["protocol_version"],
+        "critical_hashes": manifest["critical_hashes"],
+        "execution_contract_sha256": manifest["execution_contract_sha256"],
+        "ordered_task_ids_sha256": tasks["ordered_task_ids_sha256"],
+        "selection_recipe_sha256": tasks["selection_recipe_sha256"],
+        "semantic_task_sha256": tasks["semantic_task_sha256"],
+        "uid": "lbworker",
+        "gid": "lbworker",
+        "mnt_c_absent": True,
+        "interop_blocked": True,
+        "windows_path_absent": True,
+    }
+    assert provisioner.ensure_active() == boundary.handshake_identity
+    setup_call_count = len(boundary.calls)
+    resolved: WslWorkerConfig | None = None
 
     def preflight(*, config: WslWorkerConfig, max_items: int | None) -> WslPreflightResult:
-        calls.append("preflight")
-        assert config is resolved
+        nonlocal resolved
+        resolved = config
         assert max_items is None
         return WslPreflightResult(
             identity={},
@@ -1106,20 +1128,23 @@ def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worke
         )
 
     monkeypatch.setattr(serving_runner.sys, "platform", "win32")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     monkeypatch.setattr(
         serving_runner,
         "ApplianceProvisioner",
-        VerifiedProvisioner,
+        lambda: provisioner,
         raising=False,
     )
-    monkeypatch.setattr(serving_runner, "resolve_worker_config", resolve, raising=False)
     monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", preflight)
 
     result = serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
 
     assert result is not None
-    assert result.worker_config is resolved
-    assert calls == ["verify", "resolve", "preflight"]
+    assert resolved is result.worker_config
+    assert resolved.distro_name in boundary.names
+    verification_calls = boundary.calls[setup_call_count:]
+    assert any(call[1:] == ["--list", "--quiet"] for call in verification_calls)
+    assert any("handshake" in call for call in verification_calls)
 
 
 def test_agentic_worker_identity_mismatch_maps_to_honest_setup_error(
