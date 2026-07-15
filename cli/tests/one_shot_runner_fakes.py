@@ -4,11 +4,13 @@ import argparse
 import json
 from pathlib import Path
 
+from localbench.appliance.worker import APPWORLD_ROOT, VENV
 from localbench.one_shot.download import DownloadError
 from localbench.one_shot.runner import OneShotRunnerDeps
 from localbench.one_shot.serve_plan import STATIC_EXEC_BENCHES
 from localbench.one_shot.types import STATIC_EXEC_SUITE_IDENTITY
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
+from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.submissions.submit_run import SubmitRunOptions, SubmitRunResult
 from one_shot_fixtures import (
     MODEL_BYTES,
@@ -137,7 +139,14 @@ class _RawArtifactResolver:
 
 
 def _agentic_preflight(_options, _root: Path) -> WslPreflightResult:
-    return WslPreflightResult(identity={"fixture": True}, task_ids=("fixture_task",))
+    return WslPreflightResult(
+        identity={"fixture": True},
+        task_ids=("fixture_task",),
+        worker_config=WslWorkerConfig(
+            venv_python=(VENV / "bin/python").as_posix(),
+            appworld_root=APPWORLD_ROOT.as_posix(),
+        ),
+    )
 
 
 def _deps(tmp_path: Path) -> OneShotRunnerDeps:

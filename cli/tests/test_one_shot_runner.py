@@ -10,6 +10,7 @@ import pytest
 import localbench.cli as cli_mod
 import localbench.exit_codes as exit_codes
 import localbench.one_shot.runner as one_shot_runner
+from localbench.appliance.worker import APPWORLD_ROOT, VENV
 from localbench.exit_codes import EXIT_COMPLETE, EXIT_USER_INTERRUPTED
 from localbench.one_shot.runner import (
     SleepGapMonitor,
@@ -17,6 +18,7 @@ from localbench.one_shot.runner import (
     run_one_shot_bench,
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
+from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.suite_resolver import STATIC_EXEC_SUITE_ID
 from localbench.submissions.submit_run import SubmitRunOptions
 from one_shot_fixtures import REV_A, TOKENIZER_REV_A
@@ -159,7 +161,14 @@ def test_one_shot_revalidates_agentic_setup_after_download_before_serving(
         calls += 1
         if calls == 2:
             raise one_shot_runner.AgenticSetupError(detail="managed harness changed")
-        return one_shot_runner.WslPreflightResult(identity={}, task_ids=("task",))
+        return one_shot_runner.WslPreflightResult(
+            identity={},
+            task_ids=("task",),
+            worker_config=WslWorkerConfig(
+                venv_python=(VENV / "bin/python").as_posix(),
+                appworld_root=APPWORLD_ROOT.as_posix(),
+            ),
+        )
 
     deps.agentic_preflight = changing_preflight
 
