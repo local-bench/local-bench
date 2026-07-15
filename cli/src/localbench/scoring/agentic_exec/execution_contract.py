@@ -246,37 +246,6 @@ def write_signed_contract(path: Path, payload: JsonObject, signing_key: Path) ->
     return contract
 
 
-def validate_execution_contract_payload(
-    payload: JsonObject,
-    *,
-    expected_contract_id: str,
-) -> None:
-    if payload.get("schema") != CONTRACT_SCHEMA:
-        raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
-    if payload.get("contract_id") != expected_contract_id:
-        raise ExecutionContractDriftError(
-            expected_contract_id,
-            str(payload.get("contract_id")),
-        )
-    required_objects = (
-        "covered_behavior",
-        "task_identity",
-        "appworld_identity",
-        "sandbox_identity",
-        "legacy_continuity",
-        "packaging_correctness_gate",
-        "provenance",
-    )
-    for field in required_objects:
-        if not isinstance(payload.get(field), dict):
-            raise ExecutionContractDriftError(f"{field} object", type(payload.get(field)).__name__)
-    behavior = _object(payload["covered_behavior"])
-    expected_behavior = payload.get("covered_behavior_sha256")
-    actual_behavior = canonical_json_hash(behavior)
-    if expected_behavior != actual_behavior:
-        raise ExecutionContractDriftError(str(expected_behavior), actual_behavior)
-
-
 def load_execution_contract(
     path: Path | None = None, *, expected_contract_id: str = CONTRACT_ID
 ) -> JsonObject:
@@ -296,7 +265,12 @@ def load_execution_contract(
     signature = contract.get("signature")
     if not isinstance(payload, dict):
         raise ExecutionContractDriftError("payload object", type(payload).__name__)
-    validate_execution_contract_payload(payload, expected_contract_id=expected_contract_id)
+    if payload.get("schema") != CONTRACT_SCHEMA:
+        raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
+    if payload.get("contract_id") != expected_contract_id:
+        raise ExecutionContractDriftError(
+            expected_contract_id, str(payload.get("contract_id"))
+        )
     signature_key_id = signature.get("key_id") if isinstance(signature, dict) else None
     trusted_public_key = CONTRACT_PUBLIC_KEYS.get(str(signature_key_id))
     trusted_signature = (
@@ -329,18 +303,18 @@ def assert_execution_contract(path: Path | None = None) -> str:
     path, selected_contract_id = active_execution_contract(path)
     contract = load_execution_contract(path, expected_contract_id=selected_contract_id)
     expected_behavior = _object(_object(contract["payload"])["covered_behavior"])
-    actual_behavior, _provenance = _extract_covered_behavior()
+    actual_behavior = _actual_covered_behavior(_object(contract["payload"]))
     expected, actual = canonical_json_hash(expected_behavior), canonical_json_hash(actual_behavior)
     if expected != actual:
         raise ExecutionContractDriftError(expected, actual)
     if selected_contract_id != LEGACY_CONTRACT_ID:
-        assert_packaging_correctness_gate(path)
+        assert_packaging_correctness_gate(path, expected_contract_id=selected_contract_id)
     return str(contract["payload_sha256"])
 
 
-def assert_packaging_correctness_gate(path: Path | None = None) -> None:
+def assert_packaging_correctness_gate(path: Path | None = None, *, expected_contract_id: str = CONTRACT_ID) -> None:
     """Prevent appliance admission until the full C0 packaging differential passes."""
-    payload = _object(load_execution_contract(path)["payload"])
+    payload = _object(load_execution_contract(path, expected_contract_id=expected_contract_id)["payload"])
     gate = _object(payload["packaging_correctness_gate"])
     if gate.get("status") != "passed-current-repo-harness-vs-appliance":
         raise ExecutionContractDriftError("passed-current-repo-harness-vs-appliance", str(gate.get("status")))
@@ -712,3 +686,71 @@ __all__ = [
     "write_signed_contract",
     "validate_execution_contract_payload",
 ]
+
+_C6_SOURCE_MODULES: Final = (
+    "localbench.scoring.agentic_exec.contract_scope",
+    "localbench.scoring.agentic_exec.execution_contract",
+    "localbench.scoring.agentic_exec.rank_gate",
+    "localbench.scoring.agentic_exec.rank_gate_execution",
+    "localbench.scoring.agentic_exec.task_journal",
+    "localbench.scoring.agentic_exec.task_journal_core",
+    "localbench.scoring.agentic_exec.task_journal_digest",
+    "localbench.scoring.agentic_exec.task_journal_result",
+    "localbench.scoring.agentic_exec.task_journal_types",
+    "localbench.scoring.agentic_exec.task_journal_validation",
+    "localbench.serving.agentic_resume",
+    "localbench.serving.assembly",
+)
+
+
+def validate_execution_contract_payload(
+    payload: JsonObject,
+    *,
+    expected_contract_id: str,
+) -> None:
+    if payload.get("schema") != CONTRACT_SCHEMA:
+        raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
+    if payload.get("contract_id") != expected_contract_id:
+        raise ExecutionContractDriftError(
+            expected_contract_id,
+            str(payload.get("contract_id")),
+        )
+    required_objects = (
+        "covered_behavior",
+        "task_identity",
+        "appworld_identity",
+        "sandbox_identity",
+        "legacy_continuity",
+        "packaging_correctness_gate",
+        "provenance",
+    )
+    for field in required_objects:
+        if not isinstance(payload.get(field), dict):
+            raise ExecutionContractDriftError(f"{field} object", type(payload.get(field)).__name__)
+    behavior = _object(payload["covered_behavior"])
+    expected_behavior = payload.get("covered_behavior_sha256")
+    actual_behavior = canonical_json_hash(behavior)
+    if expected_behavior != actual_behavior:
+        raise ExecutionContractDriftError(str(expected_behavior), actual_behavior)
+
+
+def _actual_covered_behavior(payload: JsonObject) -> JsonObject:
+    behavior, _ = _extract_covered_behavior()
+    version = payload.get("contract_version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 4:
+        return behavior
+    expected = _object(payload["covered_behavior"])
+    behavior["host_agent_loop_scorer_source_sha256"] = _source_bundle_sha256(
+        (*_HOST_SOURCE_MODULES, *_C6_SOURCE_MODULES)
+    )
+    actual_transport = _object(behavior["transport_policy"])
+    expected_transport = _object(expected["transport_policy"])
+    for field in (
+        "whole_task_retry_count",
+        "retryable_failure_classes",
+        "non_retryable_failure_classes",
+    ):
+        actual_transport[field] = expected_transport[field]
+    behavior["failure_to_score"] = expected["failure_to_score"]
+    behavior["rank_gate"] = expected["rank_gate"]
+    return behavior

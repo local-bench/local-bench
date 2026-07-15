@@ -129,6 +129,25 @@ def test_v4_contract_missing_retry_count_is_a_typed_error(
             resolve_contract_semantics()
 
 
+def test_test_signed_v4_contract_passes_runtime_source_and_packaging_assertions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = build_v4_payload(
+        gate_status="passed-current-repo-harness-vs-appliance"
+    )
+    path = write_test_signed_v4_contract(
+        tmp_path,
+        monkeypatch,
+        payload=payload,
+    )
+
+    with execution_contract_scope(path, expected_contract_id=V4_CONTRACT_ID):
+        observed_digest = execution_contract.assert_execution_contract()
+
+    assert observed_digest == canonical_json_hash(payload)
+
+
 def test_v4_rank_gate_uses_accepted_envelopes_not_attempt_history_digests(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

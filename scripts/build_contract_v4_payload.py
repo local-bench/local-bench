@@ -23,6 +23,7 @@ from typing import Final, Literal
 from localbench._types import JsonObject
 from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
+    _C6_SOURCE_MODULES,
     _HOST_SOURCE_MODULES,
     _extract_covered_behavior,
     _leaf_provenance,
@@ -46,15 +47,6 @@ GATE_STATUSES: Final[tuple[GateStatus, ...]] = (
 )
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT: Final = REPO_ROOT / "scratchpad/contract-v4-payload-DRAFT.json"
-_C6_SOURCE_MODULES: Final = (
-    "localbench.scoring.agentic_exec.rank_gate",
-    "localbench.scoring.agentic_exec.task_journal",
-    "localbench.scoring.agentic_exec.task_journal_core",
-    "localbench.scoring.agentic_exec.task_journal_types",
-    "localbench.scoring.agentic_exec.task_journal_validation",
-)
-
-
 def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
     base_contract = load_execution_contract()
     base = deepcopy(_object(base_contract["payload"]))
