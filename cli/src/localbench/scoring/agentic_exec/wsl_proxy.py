@@ -338,7 +338,11 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         try:
             self.force_kill()
         except WslTransportError as error:
-            detail = f"{detail}; {error}"
+            self._record_teardown_failure(detail)
+            raise WslTransportError(
+                operation="teardown",
+                detail=f"{detail}; {error}",
+            ) from error
         self._record_teardown_failure(detail)
 
     def _record_teardown_failure(self, detail: str) -> None:

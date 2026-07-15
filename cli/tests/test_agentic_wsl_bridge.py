@@ -263,7 +263,7 @@ def test_proxy_timeout_maps_to_infra_timeout(
     assert appworld_bench._classify_harness_exception(error.value) is FailureClass.INFRA_TIMEOUT
 
 
-def test_proxy_close_timeout_is_recorded_without_discarding_task_result(
+def test_proxy_close_timeout_aborts_when_forced_teardown_cannot_prove_death(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -284,11 +284,18 @@ def test_proxy_close_timeout_is_recorded_without_discarding_task_result(
     def timeout_close(message, *, timeout_s: float):
         raise SandboxTimeoutError(f"close timed out after {timeout_s}s")
 
+    def unproven_teardown(*_args: object, **_kwargs: object) -> NoReturn:
+        raise wsl_proxy.TeardownError("worker process groups did not terminate: [102]")
+
     monkeypatch.setattr(proxy, "_request", timeout_close)
+    monkeypatch.setattr(wsl_proxy, "terminate_worker_process_tree", unproven_teardown)
 
-    proxy.close()
+    with pytest.raises(wsl_proxy.WslTransportError) as error:
+        proxy.close()
 
-    assert "close timed out" in (proxy.teardown_failure or "")
+    assert error.value.operation == "teardown"
+    assert "did not terminate" in error.value.detail
+    assert "did not terminate" in (proxy.teardown_failure or "")
 
 
 def test_proxy_close_process_exit_timeout_is_recorded_additively(

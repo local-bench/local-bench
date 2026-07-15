@@ -8,8 +8,10 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Final, Protocol
 
 WORKER_TOKEN_ENV = "LOCALBENCH_WORKER_TOKEN"
+_SIGKILL: Final[int] = int(getattr(signal, "SIGKILL", 9))
 
 
 class TeardownError(RuntimeError):
@@ -65,6 +67,14 @@ class ProcessPin:
             start_time_ticks=start_time_ticks,
             executable=executable,
         )
+
+
+class _ProcessTable(Protocol):
+    def _read_process(self, pid: int) -> ProcessPin | None: ...
+
+    def capture(self, pid: int, *, token: str | None = None) -> ProcessPin: ...
+
+    def owned_processes(self, pin: ProcessPin, *, token: str) -> list[ProcessPin]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,7 +185,7 @@ def terminate_linux_worker(
     pin: ProcessPin,
     *,
     token: str,
-    procfs: LinuxProcfs | None = None,
+    procfs: _ProcessTable | None = None,
     signal_group: Callable[[int, int], None] | None = None,
     timeout_s: float = 5.0,
     poll_interval_s: float = 0.05,
@@ -199,7 +209,7 @@ def terminate_linux_worker(
         return
     _verify_worker_not_reused(process_table, pin)
     remaining = process_table.owned_processes(pin, token=token)
-    _signal_owned_groups(remaining, signal.SIGKILL, signal_group=group_signaller)
+    _signal_owned_groups(remaining, _SIGKILL, signal_group=group_signaller)
     if not _wait_until_empty(
         process_table,
         pin,
@@ -215,7 +225,7 @@ def verify_linux_worker_terminated(
     pin: ProcessPin,
     *,
     token: str,
-    procfs: LinuxProcfs | None = None,
+    procfs: _ProcessTable | None = None,
 ) -> None:
     remaining = (procfs or LinuxProcfs()).owned_processes(pin, token=token)
     if remaining:
@@ -231,7 +241,7 @@ def current_worker_process() -> tuple[str, ProcessPin] | None:
     return token, LinuxProcfs().capture(os.getpid(), token=token)
 
 
-def _verify_worker_pin(procfs: LinuxProcfs, pin: ProcessPin, *, token: str) -> None:
+def _verify_worker_pin(procfs: _ProcessTable, pin: ProcessPin, *, token: str) -> None:
     live = procfs.capture(pin.pid, token=token)
     if live.start_time_ticks != pin.start_time_ticks:
         raise TeardownError(f"worker pid {pin.pid} start time changed; refusing to signal")
@@ -244,7 +254,7 @@ def _verify_worker_pin(procfs: LinuxProcfs, pin: ProcessPin, *, token: str) -> N
         raise TeardownError(f"worker pid {pin.pid} process group changed; refusing to signal")
 
 
-def _verify_worker_not_reused(procfs: LinuxProcfs, pin: ProcessPin) -> None:
+def _verify_worker_not_reused(procfs: _ProcessTable, pin: ProcessPin) -> None:
     try:
         live = procfs.capture(pin.pid)
     except TeardownError as error:
@@ -280,7 +290,7 @@ def _kill_process_group(process_group_id: int, signum: int) -> None:
 
 
 def _wait_until_empty(
-    procfs: LinuxProcfs,
+    procfs: _ProcessTable,
     pin: ProcessPin,
     *,
     token: str,

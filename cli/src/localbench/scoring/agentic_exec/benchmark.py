@@ -161,8 +161,14 @@ def _run_task_with_watchdog(
             return published
         case Exception():
             from localbench.scoring.agentic_exec.sandbox import WorkerSetupError  # noqa: PLC0415
+            from localbench.scoring.agentic_exec.wsl_proxy import (  # noqa: PLC0415
+                WslTransportError,
+            )
 
-            if isinstance(published, WorkerSetupError):
+            if isinstance(published, WorkerSetupError) or (
+                isinstance(published, WslTransportError)
+                and published.operation == "teardown"
+            ):
                 raise published
             return _harness_error_result(task_id, published)
         case unreachable:
