@@ -71,7 +71,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
                     "model_call_location": "windows_campaign_process",
                 },
                 "wsl_identity": {
-                    "localbench_distribution_version": "0.3.1",
+                    "localbench_distribution_version": "0.4.0",
                     "worker_content_sha256": "3" * 64,
                 },
                 "agentic_sandbox_identity": {
@@ -140,7 +140,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
             "scorecard_assembly": "single-campaign-no-merge",
             "model_call_location": "windows_campaign_process",
         }
-        assert agentic_run["wsl_identity"]["localbench_distribution_version"] == "0.3.1"
+        assert agentic_run["wsl_identity"]["localbench_distribution_version"] == "0.4.0"
         assert agentic_run["wsl_identity"]["worker_content_sha256"] == "3" * 64
         assert agentic_run["agentic_sandbox_identity"]["appworld_root_path_sha256"] == "2" * 64
         assert agentic_run["single_campaign_integrity"] == {"merge_step_used": False}

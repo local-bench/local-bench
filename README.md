@@ -47,4 +47,4 @@ Working from source instead: `pip install -e cli`.
 
 ## Status
 
-Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v3.0 on the bounded-final-v2 ranked lane; current CLI release: 0.3.2 (admission-compatible submit client, streaming file hashing). The site's recipe generator pins the exact CLI version to run.
+Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v3.0 on the bounded-final-v2 ranked lane; current CLI release: 0.4.0 (managed appliance bridge, runtime identity, crash-safe agentic resume, and contract-gated ranking). The site's recipe generator pins the exact CLI version to run.

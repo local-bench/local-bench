@@ -62,7 +62,7 @@ def test_worker_hello_identity_sanity() -> None:
     assert identity["appworld_root_under_mnt"] is False
     assert identity["bwrap_path"]
     assert identity["appworld_version"]
-    assert identity["localbench_distribution_version"] == "0.3.1"
+    assert identity["localbench_distribution_version"] == "0.4.0"
     assert len(identity["worker_content_sha256"]) == 64
     assert identity["worker_module_sha256"]
 

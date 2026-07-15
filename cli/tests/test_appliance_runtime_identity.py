@@ -78,7 +78,7 @@ def _source_inputs() -> tuple[dict[str, object], dict[str, object], dict[str, ob
     }
     # Ground truth: scoring/agentic_exec/worker_identity.py:47-50 and signed sandbox identity.
     worker_identity = {
-        "localbench_distribution_version": "0.3.1",
+        "localbench_distribution_version": "0.4.0",
         "worker_content_sha256": sandbox_identity["worker_content_sha256"],
     }
     return manifest, handshake, worker_identity

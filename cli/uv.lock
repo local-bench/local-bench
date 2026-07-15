@@ -655,7 +655,7 @@ wheels = [
 
 [[package]]
 name = "local-bench-ai"
-version = "0.3.1"
+version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
@@ -680,6 +680,13 @@ hf = [
     { name = "transformers" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "jinja2" },
+    { name = "nltk" },
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "anyio", specifier = ">=4" },
@@ -696,6 +703,13 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'hf'", specifier = ">=4.51" },
 ]
 provides-extras = ["build", "dev", "hf"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "jinja2", specifier = ">=3.1" },
+    { name = "nltk", specifier = ">=3.9" },
+    { name = "pytest", specifier = ">=8" },
+]
 
 [[package]]
 name = "markdown-it-py"

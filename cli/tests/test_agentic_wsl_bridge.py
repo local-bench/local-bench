@@ -100,7 +100,7 @@ def test_worker_frame_round_trip_and_oversized_rejection() -> None:
 def test_local_worker_implementation_identity_hashes_installed_sources() -> None:
     identity = worker_implementation_identity()
 
-    assert identity["localbench_distribution_version"] == "0.3.1"
+    assert identity["localbench_distribution_version"] == "0.4.0"
     assert len(identity["worker_content_sha256"]) == 64
     module_hashes = identity["worker_module_sha256"]
     assert isinstance(module_hashes, dict)
@@ -860,7 +860,7 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
         "bwrap_version": "bwrap 0.9.0",
         "appworld_root": "/x/appworld",
         "appworld_root_path_sha256": "3" * 64,
-        "localbench_distribution_version": "0.3.1",
+        "localbench_distribution_version": "0.4.0",
         "worker_content_sha256": "4" * 64,
     })
 
@@ -874,13 +874,13 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
     assert "appworld_root" not in prov["wsl_identity"]
     assert prov["agentic_sandbox_identity"]["bubblewrap_sha256"] == "2" * 64
     assert prov["agentic_sandbox_identity"]["appworld_root_path_sha256"] == "3" * 64
-    assert prov["wsl_identity"]["localbench_distribution_version"] == "0.3.1"
+    assert prov["wsl_identity"]["localbench_distribution_version"] == "0.4.0"
     assert prov["wsl_identity"]["worker_content_sha256"] == "4" * 64
 
 
 def test_worker_identity_gate_compares_distribution_version_and_content_digest() -> None:
     expected = {
-        "localbench_distribution_version": "0.3.1",
+        "localbench_distribution_version": "0.4.0",
         "worker_content_sha256": "a" * 64,
     }
     base = {
