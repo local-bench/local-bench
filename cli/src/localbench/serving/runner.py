@@ -11,6 +11,7 @@ from pathlib import Path
 import httpx
 
 from localbench._types import JsonObject
+from localbench.appliance.provisioner import ProvisioningError
 from localbench._suite import read_json_object
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
@@ -33,7 +34,6 @@ from localbench.serving.assembly import (
 from localbench.serving.agentic_support import (
     AgenticSetupError,
     agentic_chat_template_kwargs,
-    configured_agentic_paths,
 )
 from localbench.serving.bench import build_orchestrate_config
 from localbench.serving.fingerprint import resume_identity, server_fingerprint
@@ -65,6 +65,7 @@ from localbench.scoring.agentic_exec.wsl_bridge import (
     wsl_sandbox_factory,
 )
 from localbench.scoring.agentic_exec.sandbox import SandboxError, WorkerSetupError
+from localbench.scoring.agentic_exec.wsl_process import resolve_worker_config
 from localbench.submissions.foundation import normalize_result_bundle
 from localbench.serving.vllm import (
     VllmAdapter,
@@ -205,16 +206,8 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-            log_dir = root / "agentic" / "wsl-worker-logs"
-            wsl_venv_python, appworld_root = configured_agentic_paths(
-                options.wsl_venv_python,
-                options.appworld_root,
-            )
             agentic_sandbox_factory = wsl_sandbox_factory(
-                "",
-                wsl_venv_python,
-                appworld_root,
-                log_dir=log_dir,
+                agentic_preflight.worker_config,
                 expected_identity=agentic_preflight.identity,
             )
             agentic_model_factory = chat_client_factory(
@@ -451,16 +444,8 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-            log_dir = root / "agentic" / "wsl-worker-logs"
-            wsl_venv_python, appworld_root = configured_agentic_paths(
-                options.wsl_venv_python,
-                options.appworld_root,
-            )
             agentic_sandbox_factory = wsl_sandbox_factory(
-                "",
-                wsl_venv_python,
-                appworld_root,
-                log_dir=log_dir,
+                agentic_preflight.worker_config,
                 expected_identity=agentic_preflight.identity,
             )
             agentic_model_factory = chat_client_factory(
@@ -704,16 +689,8 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
-            log_dir = root / "agentic" / "wsl-worker-logs"
-            wsl_venv_python, appworld_root = configured_agentic_paths(
-                options.wsl_venv_python,
-                options.appworld_root,
-            )
             agentic_sandbox_factory = wsl_sandbox_factory(
-                "",
-                wsl_venv_python,
-                appworld_root,
-                log_dir=log_dir,
+                agentic_preflight.worker_config,
                 expected_identity=agentic_preflight.identity,
             )
             agentic_model_factory = chat_client_factory(
@@ -1261,38 +1238,22 @@ def preflight_agentic_if_needed(
 ) -> WslPreflightResult | None:
     if not needs_wsl_agentic(options):
         return None
-    if (
-        sys.platform == "win32"
-        and options.wsl_venv_python is None
-        and options.appworld_root is None
-    ):
-        # C2 owns transactional preparation and must run before model/tokenizer work.
-        # C3 will consume the resulting active pointer for fixed-entrypoint worker spawns.
-        from localbench.appliance.provisioner import (  # noqa: PLC0415
-            ApplianceProvisioner,
-            ProvisioningError,
-        )
-
-        try:
-            ApplianceProvisioner().ensure_active()
-        except ProvisioningError as error:
-            raise AgenticSetupError(detail=str(error)) from error
-    wsl_venv_python, appworld_root = configured_agentic_paths(
-        options.wsl_venv_python,
-        options.appworld_root,
-    )
     try:
-        return preflight_wsl_agentic(
-            repo_root_wsl_path="",
-            venv_python=wsl_venv_python,
-            appworld_root=appworld_root,
+        config = resolve_worker_config(
+            platform_name=sys.platform,
+            direct_python=options.wsl_venv_python,
+            appworld_root=options.appworld_root,
             log_dir=root / "agentic" / "wsl-worker-logs",
+        )
+        return preflight_wsl_agentic(
+            config=config,
             max_items=options.max_items,
         )
     except AgenticSetupError:
         raise
     except (
         SandboxError,
+        ProvisioningError,
         OSError,
         subprocess.TimeoutExpired,
         IndexError,

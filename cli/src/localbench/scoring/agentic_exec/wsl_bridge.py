@@ -7,7 +7,11 @@ from pathlib import Path
 
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike
-from localbench.scoring.agentic_exec.sandbox import FINALIZATION_PROVENANCE, SandboxError
+from localbench.scoring.agentic_exec.sandbox import (
+    FINALIZATION_PROVENANCE,
+    SandboxError,
+    WorkerSetupError,
+)
 from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.scoring.agentic_exec.wsl_proxy import WslSandboxProxy, WslVerdict as WslVerdict
 from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
@@ -17,6 +21,7 @@ from localbench.scoring.agentic_exec.worker_identity import worker_implementatio
 class WslPreflightResult:
     identity: JsonObject
     task_ids: tuple[str, ...]
+    worker_config: WslWorkerConfig
     canonical_task_ids: tuple[str, ...] = ()
 
     def provenance(self) -> JsonObject:
@@ -24,24 +29,23 @@ class WslPreflightResult:
 
 
 def wsl_sandbox_factory(
-    repo_root_wsl_path: str,
-    venv_python: str,
-    appworld_root: str,
+    config: WslWorkerConfig,
     *,
-    log_dir: Path | None = None,
-    worker_argv: tuple[str, ...] | None = None,
     expected_identity: JsonObject | None = None,
 ) -> Callable[[str], AbstractContextManager[SandboxLike]]:
-    config = WslWorkerConfig(
-        repo_root_wsl_path=repo_root_wsl_path,
-        venv_python=venv_python,
-        appworld_root=appworld_root,
-        log_dir=log_dir or Path("runs") / "agentic-wsl",
-        worker_argv=worker_argv,
-    )
+    def _assert_spawn_identity(identity: JsonObject) -> None:
+        _assert_identity(
+            identity,
+            worker_implementation_identity(),
+            preflight_identity=expected_identity,
+        )
 
     def _factory(task_id: str) -> WslSandboxProxy:
-        return WslSandboxProxy(task_id, config, expected_identity=expected_identity)
+        return WslSandboxProxy(
+            task_id,
+            config,
+            identity_assertion=_assert_spawn_identity,
+        )
 
     return _factory
 
@@ -53,18 +57,9 @@ def wsl_list_scored_task_ids(config: WslWorkerConfig) -> list[str]:
 
 def preflight_wsl_agentic(
     *,
-    repo_root_wsl_path: str,
-    venv_python: str,
-    appworld_root: str,
-    log_dir: Path,
+    config: WslWorkerConfig,
     max_items: int | None = None,
 ) -> WslPreflightResult:
-    config = WslWorkerConfig(
-        repo_root_wsl_path=repo_root_wsl_path,
-        venv_python=venv_python,
-        appworld_root=appworld_root,
-        log_dir=log_dir,
-    )
     with WslSandboxProxy(None, config) as worker:
         identity = worker.identity
         if identity is None:
@@ -77,6 +72,7 @@ def preflight_wsl_agentic(
         identity=identity,
         task_ids=task_ids,
         canonical_task_ids=tuple(worker_contract_task_ids()),
+        worker_config=config,
     )
 
 
@@ -129,7 +125,12 @@ def default_wsl_repo_path(windows_repo_root: Path) -> str:
     return f"/mnt/{drive}/{rest}"
 
 
-def _assert_identity(identity: JsonObject, expected: JsonObject) -> None:
+def _assert_identity(
+    identity: JsonObject,
+    expected: JsonObject,
+    *,
+    preflight_identity: JsonObject | None = None,
+) -> None:
     if identity.get("appworld_root_under_mnt") is True:
         raise SandboxError("wsl preflight failed: APPWORLD_ROOT is under /mnt")
     if not identity.get("bwrap_path"):
@@ -151,6 +152,16 @@ def _assert_identity(identity: JsonObject, expected: JsonObject) -> None:
         raise SandboxError(
             "wsl preflight failed: worker content digest mismatch: "
             f"worker={actual_digest!r} host={expected_digest!r}",
+        )
+    if preflight_identity is not None and identity != preflight_identity:
+        differing = sorted(
+            key
+            for key in set(identity) | set(preflight_identity)
+            if identity.get(key) != preflight_identity.get(key)
+        )
+        raise WorkerSetupError(
+            "wsl worker setup failed: per-task identity differs from preflight: "
+            f"fields={differing}",
         )
 
 

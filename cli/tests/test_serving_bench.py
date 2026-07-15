@@ -28,6 +28,8 @@ from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import run_orchestrated_bench
 from localbench.serving.teardown import TeardownEvidence
 from localbench.scoring.agentic_exec.sandbox import SandboxError
+from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
+from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.cli import _parser
 from localbench.persistence import atomic_write_json
 from localbench.submissions.canon import sha256_file
@@ -928,6 +930,15 @@ def test_orchestrated_agentic_preflight_runs_before_server_launch(
         monkeypatch.setattr(runner, "strict_llama_cpp_argv", lambda _config: [str(server)])
         monkeypatch.setattr(runner, "validate_strict_argv_supported", lambda _argv, _help: None)
         monkeypatch.setattr(runner, "server_fingerprint", lambda **_kwargs: "fp")
+        monkeypatch.setattr(
+            runner,
+            "resolve_worker_config",
+            lambda **_kwargs: WslWorkerConfig(
+                venv_python="/opt/localbench/venv/bin/python",
+                appworld_root="/home/lbworker/appworld",
+                log_dir=tmp_path,
+            ),
+        )
 
         def fail_preflight(**_kwargs: object) -> object:
             calls.append("preflight")
@@ -1009,10 +1020,72 @@ def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
     def timeout(**_kwargs: object) -> object:
         raise subprocess.TimeoutExpired(cmd="git", timeout=30)
 
+    monkeypatch.setattr(
+        serving_runner,
+        "resolve_worker_config",
+        lambda **_kwargs: WslWorkerConfig(
+            venv_python="/opt/localbench/venv/bin/python",
+            appworld_root="/home/lbworker/appworld",
+            log_dir=tmp_path,
+        ),
+    )
     monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", timeout)
 
     with pytest.raises(AgenticSetupError, match="timed out"):
         serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
+
+
+def test_agentic_preflight_resolves_backend_before_worker_spawn(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=32768,
+        determinism="strict",
+        tier="standard",
+        bench="appworld_c",
+        lane="bounded-final-v2",
+        seed=1234,
+        suite_dir=SUITE_V1,
+        out=tmp_path / "run",
+        wsl_venv_python="/opt/localbench/venv/bin/python",
+        appworld_root="/home/lbworker/appworld",
+    )
+    resolved = WslWorkerConfig(
+        distro_name="LocalBench-Agentic-fixture",
+        venv_python="/opt/localbench/venv/bin/python",
+        appworld_root="/home/lbworker/appworld",
+        log_dir=tmp_path / "run" / "agentic" / "wsl-worker-logs",
+    )
+    calls: list[str] = []
+
+    def resolve(**_kwargs) -> WslWorkerConfig:
+        calls.append("resolve")
+        return resolved
+
+    def preflight(*, config: WslWorkerConfig, max_items: int | None) -> WslPreflightResult:
+        calls.append("preflight")
+        assert config is resolved
+        assert max_items is None
+        return WslPreflightResult(
+            identity={},
+            task_ids=("fixture-task",),
+            worker_config=config,
+        )
+
+    monkeypatch.setattr(serving_runner, "resolve_worker_config", resolve, raising=False)
+    monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", preflight)
+
+    result = serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
+
+    assert result is not None
+    assert result.worker_config is resolved
+    assert calls == ["resolve", "preflight"]
 
 
 def test_agentic_worker_identity_mismatch_maps_to_honest_setup_error(
@@ -1043,6 +1116,15 @@ def test_agentic_worker_identity_mismatch_maps_to_honest_setup_error(
             "worker='0.3.0' host='0.3.1'",
         )
 
+    monkeypatch.setattr(
+        serving_runner,
+        "resolve_worker_config",
+        lambda **_kwargs: WslWorkerConfig(
+            venv_python="/opt/localbench/venv/bin/python",
+            appworld_root="/home/lbworker/appworld",
+            log_dir=tmp_path,
+        ),
+    )
     monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", mismatch)
 
     with pytest.raises(AgenticSetupError, match="distribution version mismatch"):

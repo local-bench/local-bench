@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import BinaryIO
@@ -31,6 +32,24 @@ from localbench.scoring.agentic_exec.wsl_worker import (
 )
 
 
+class WslTransportError(SandboxError):
+    __slots__ = ("detail", "operation")
+
+    def __init__(self, *, operation: str, detail: str) -> None:
+        self.operation = operation
+        self.detail = detail
+        super().__init__(f"wsl transport {operation} failed: {detail}")
+
+
+class WslTransportTimeoutError(SandboxTimeoutError):
+    __slots__ = ("detail", "operation")
+
+    def __init__(self, *, operation: str, detail: str) -> None:
+        self.operation = operation
+        self.detail = detail
+        super().__init__(f"wsl transport {operation} timed out: {detail}")
+
+
 @dataclass(frozen=True, slots=True)
 class WslVerdict:
     success: bool
@@ -53,11 +72,11 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         task_id: str | None,
         config: WslWorkerConfig,
         *,
-        expected_identity: JsonObject | None = None,
+        identity_assertion: Callable[[JsonObject], None] | None = None,
     ) -> None:
         self.task_id = task_id
         self.config = config
-        self.expected_identity = expected_identity
+        self.identity_assertion = identity_assertion
         self.identity: JsonObject | None = None
         self._proc: subprocess.Popen[bytes] | None = None
         self._stderr_handle: BinaryIO | None = None
@@ -76,8 +95,8 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             if not isinstance(identity, dict):
                 raise SandboxError("wsl worker hello returned no identity")
             self.identity = identity
-            if self.expected_identity is not None:
-                _assert_preflight_identity(identity, self.expected_identity)
+            if self.identity_assertion is not None:
+                self.identity_assertion(identity)
             if self.task_id is not None:
                 self._request(
                     {"op": "open_task", "task_id": self.task_id},
@@ -192,27 +211,36 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             / f"{safe_label(self.task_id or 'preflight')}.{time.time_ns()}.stderr.log"
         )
         self._stderr_handle = log_path.open("ab")
-        self._proc = subprocess.Popen(
-            list(worker_argv(self.config)),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=self._stderr_handle,
-            env=worker_env(self.config),
-            creationflags=creation_flags(),
-            start_new_session=sys.platform != "win32",
-        )
+        try:
+            self._proc = subprocess.Popen(
+                list(worker_argv(self.config)),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=self._stderr_handle,
+                env=worker_env(self.config),
+                creationflags=creation_flags(),
+                start_new_session=sys.platform != "win32",
+            )
+        except OSError as error:
+            self._close_log()
+            raise WslTransportError(operation="spawn", detail=str(error)) from error
 
     def _request(self, message: JsonObject, *, timeout_s: float) -> JsonObject:
         proc = self._require_proc()
         if proc.stdin is None or proc.stdout is None:
-            raise SandboxError("wsl worker pipes are unavailable")
+            raise WslTransportError(operation="pipe_setup", detail="worker pipes are unavailable")
         try:
             try:
                 proc.stdin.write(encode_worker_frame(message))
                 proc.stdin.flush()
             except (BrokenPipeError, OSError, ValueError) as exc:
-                raise SandboxError(f"wsl worker pipe write failed: {exc}") from exc
-            response = read_response(proc.stdout, timeout_s)
+                raise WslTransportError(operation="pipe_write", detail=str(exc)) from exc
+            operation = message.get("op")
+            response = read_response(
+                proc.stdout,
+                timeout_s,
+                operation=operation if isinstance(operation, str) else "request",
+            )
         except SandboxError:
             self.force_kill()
             raise
@@ -234,9 +262,12 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
     def _require_proc(self) -> subprocess.Popen[bytes]:
         proc = self._proc
         if proc is None:
-            raise SandboxError("wsl worker is not started")
+            raise WslTransportError(operation="worker_state", detail="worker is not started")
         if proc.poll() is not None:
-            raise SandboxError(f"wsl worker exited with rc={proc.returncode}")
+            raise WslTransportError(
+                operation="worker_exit",
+                detail=f"returncode={proc.returncode}",
+            )
         return proc
 
     def _close_log(self) -> None:
@@ -246,7 +277,12 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             handle.close()
 
 
-def read_response(stdout: BinaryIO, timeout_s: float) -> JsonObject:
+def read_response(
+    stdout: BinaryIO,
+    timeout_s: float,
+    *,
+    operation: str = "handshake",
+) -> JsonObject:
     result: list[bytes] = []
     errors: list[OSError | ValueError] = []
 
@@ -260,16 +296,19 @@ def read_response(stdout: BinaryIO, timeout_s: float) -> JsonObject:
     thread.start()
     thread.join(timeout_s)
     if thread.is_alive():
-        raise SandboxTimeoutError(f"wsl worker timed out after {timeout_s}s")
+        raise WslTransportTimeoutError(
+            operation=operation,
+            detail=f"after {timeout_s}s",
+        )
     if errors:
-        raise SandboxError(f"wsl worker stdout read failed: {errors[0]}")
+        raise WslTransportError(operation="pipe_read", detail=str(errors[0]))
     line = result[0] if result else b""
     if not line:
-        raise SandboxError("wsl worker closed stdout")
+        raise WslTransportError(operation="pipe_read", detail="worker closed stdout")
     try:
         return decode_worker_frame(line)
     except (ValueError, OSError) as exc:
-        raise SandboxError(f"wsl worker sent invalid frame: {exc}") from exc
+        raise WslTransportError(operation="protocol_read", detail=str(exc)) from exc
 
 
 def _int_field(value: JsonValue | None) -> int:
@@ -284,27 +323,3 @@ def _string_tuple(value: JsonValue | None, *, fallback_count: int) -> tuple[str,
     if isinstance(value, list):
         return tuple(item for item in value if isinstance(item, str))
     return tuple("" for _ in range(fallback_count))
-
-
-def _assert_preflight_identity(actual: JsonObject, expected: JsonObject) -> None:
-    for field, label in (
-        ("localbench_distribution_version", "distribution version"),
-        ("worker_content_sha256", "worker content digest"),
-    ):
-        expected_value = expected.get(field)
-        actual_value = actual.get(field)
-        if not isinstance(expected_value, str) or not expected_value:
-            raise WorkerSetupError(f"wsl worker setup failed: preflight {label} is unavailable")
-        if actual_value != expected_value:
-            raise WorkerSetupError(
-                f"wsl worker setup failed: per-task {label} mismatch: "
-                f"worker={actual_value!r} preflight={expected_value!r}",
-            )
-    if actual != expected:
-        differing = sorted(
-            key for key in set(actual) | set(expected) if actual.get(key) != expected.get(key)
-        )
-        raise WorkerSetupError(
-            "wsl worker setup failed: per-task identity differs from preflight: "
-            f"fields={differing}",
-        )
