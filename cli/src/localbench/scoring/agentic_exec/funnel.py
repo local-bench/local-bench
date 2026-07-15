@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence; from contextlib import contextmanager  # noqa: E702
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import StrEnum
@@ -48,7 +48,7 @@ from localbench.scoring.agentic_exec.benchmark import (
     run_appworld_c_benchmark,
 )
 from localbench.scoring.agentic_exec.loop_config import LoopConfig
-from localbench.scoring.agentic_exec.loop_types import BenchmarkReport, TaskOutcome
+from localbench.scoring.agentic_exec.loop_types import BenchmarkReport, TaskOutcome; from localbench.scoring.agentic_exec.task_journal import AgenticResumeIdentity, JournalCorruptionError, SleepWakeMonitor, TaskJournal, canonical_result_digest; from localbench.submissions.canon import canonical_json_hash  # noqa: E501, E702
 
 # ==================================================================================================
 # Frozen subset selection — deterministic, pre-registered, stratified, NOT tuned on results.
@@ -306,15 +306,15 @@ class StageRunResult:
     run_index: int
     subset_hash: str
     report: BenchmarkReport
-    results_path: str | None  # None when not persisted (e.g. in-memory test)
-
+    results_path: str | None
+    canonical_result_digest: str
     def as_dict(self) -> dict[str, Any]:
         return {
             "label": self.label,
             "stage": self.stage,
             "run_index": self.run_index,
             "subset_hash": self.subset_hash,
-            "results_path": self.results_path,
+            "results_path": self.results_path, "canonical_result_digest": self.canonical_result_digest,
             "report": self.report.as_dict(),
         }
 
@@ -335,7 +335,7 @@ def run_stage(
     results_dir: Path | str | None = None,
     endpoint: str | None = None,
     model_id: str | None = None,
-    chat_template_kwargs: dict[str, object] | None = None,
+    chat_template_kwargs: dict[str, object] | None = None, journal: TaskJournal | None = None, sleep_wake_monitor: SleepWakeMonitor | None = None, runtime_revalidator: Callable[[], None] | None = None,
 ) -> StageRunResult:
     """Run one funnel stage over ``subset`` and (optionally) persist the BenchmarkReport.
 
@@ -352,9 +352,9 @@ def run_stage(
         task_ids=list(subset.task_ids),
         model_factory=model_factory,
         sandbox_factory=sandbox_factory,
-        config=cfg,
+        config=cfg, journal=journal, run_index=run_index, sleep_wake_monitor=sleep_wake_monitor, runtime_revalidator=runtime_revalidator,
     )
-
+    digest = _stage_digest(journal, report, run_index)
     results_path: str | None = None
     if results_dir is not None:
         results_path = _persist_report(
@@ -367,7 +367,7 @@ def run_stage(
             config=cfg,
             endpoint=endpoint,
             model_id=model_id,
-            chat_template_kwargs=chat_template_kwargs,
+            chat_template_kwargs=chat_template_kwargs, canonical_digest=digest,
         )
 
     return StageRunResult(
@@ -376,7 +376,7 @@ def run_stage(
         run_index=run_index,
         subset_hash=subset.manifest_hash,
         report=report,
-        results_path=results_path,
+        results_path=results_path, canonical_result_digest=_close_stage(journal, run_index, digest),
     )
 
 
@@ -391,7 +391,7 @@ def _persist_report(
     config: LoopConfig,
     endpoint: str | None,
     model_id: str | None,
-    chat_template_kwargs: dict[str, object] | None = None,
+    chat_template_kwargs: dict[str, object] | None = None, canonical_digest: str,
 ) -> str:
     results_dir.mkdir(parents=True, exist_ok=True)
     fname = f"{_slug(label)}.{stage}.run{run_index}.json"
@@ -416,7 +416,7 @@ def _persist_report(
             "seed": config.seed,
         },
         "subset": subset.as_dict(),
-        "attestations": _report_attestations(report),
+        "attestations": _report_attestations(report), "canonical_result_digest": canonical_digest,
         "report": report.as_dict(),
     }
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
@@ -467,8 +467,8 @@ class RerunAggregate:
     max_abs_delta_pp: float                  # max pairwise abs delta on ASR, in percentage points
     triggered_third_run: bool                # did the >5pp rule fire?
     mean_asr: float
+    canonical_result_digest: str
     runs: tuple[StageRunResult, ...] = field(default_factory=tuple)
-
     def as_dict(self) -> dict[str, Any]:
         return {
             "label": self.label,
@@ -477,7 +477,7 @@ class RerunAggregate:
             "asr_series": list(self.asr_series),
             "max_abs_delta_pp": self.max_abs_delta_pp,
             "triggered_third_run": self.triggered_third_run,
-            "mean_asr": self.mean_asr,
+            "mean_asr": self.mean_asr, "canonical_result_digest": self.canonical_result_digest,
             "runs": [r.as_dict() for r in self.runs],
         }
 
@@ -503,71 +503,172 @@ def run_with_reruns(
     delta_trigger_pp: float = DELTA_TRIGGER_PP,
     endpoint: str | None = None,
     model_id: str | None = None,
-    chat_template_kwargs: dict[str, object] | None = None,
+    chat_template_kwargs: dict[str, object] | None = None, resume_identity: AgenticResumeIdentity | None = None, sleep_wake_monitor: SleepWakeMonitor | None = None, runtime_revalidator: Callable[[], None] | None = None,
 ) -> RerunAggregate:
     """Run a displayed row ``base_count`` times; add a 3rd run iff ASR drift exceeds the threshold.
 
     Implements the LOCKED repeatability rule. Each run gets its own persisted JSON (run1/run2/…);
-    the returned aggregate reports the ASR series, the max abs run-to-run delta in percentage
-    points, whether the 3rd run fired, and the mean ASR. ``base_count`` is the number of runs that
-    constitute a "displayed row" (LOCKED = 2; the launch plan also runs the FIRST full pass + 2
-    reruns, but the freeze/early-stop logic only needs the repeatability series, which this owns).
+    the returned aggregate reports ASR, drift, and mean; ``base_count`` is the run count (LOCKED=2).
+    The journal adds recovery without changing the frozen repeatability calculation.
     """
     from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
 
     assert_execution_contract()
-    runs: list[StageRunResult] = []
-    for k in range(1, base_count + 1):
-        runs.append(
-            run_stage(
-                label=label,
-                stage=stage,
-                subset=subset,
-                model_factory=model_factory,
-                sandbox_factory=sandbox_factory,
-                config=config,
-                run_index=k,
-                results_dir=results_dir,
-                endpoint=endpoint,
-                model_id=model_id,
-                chat_template_kwargs=chat_template_kwargs,
+    with _campaign_journal(results_dir, resume_identity, sleep_wake_monitor) as journal_context:
+        journal, monitor = journal_context
+        runs: list[StageRunResult] = []
+        for run_index in range(1, base_count + 1):
+            runs.append(
+                run_stage(
+                    label=label,
+                    stage=stage,
+                    subset=subset,
+                    model_factory=model_factory,
+                    sandbox_factory=sandbox_factory,
+                    config=config,
+                    run_index=run_index,
+                    results_dir=results_dir,
+                    endpoint=endpoint,
+                    model_id=model_id,
+                    chat_template_kwargs=chat_template_kwargs, journal=journal, sleep_wake_monitor=monitor, runtime_revalidator=runtime_revalidator,
+                )
             )
-        )
 
-    asr = [r.report.agentic_success_rate for r in runs]
-    delta = _max_abs_delta_pp(asr)
-    triggered = delta > delta_trigger_pp
-    if triggered:
-        runs.append(
-            run_stage(
-                label=label,
-                stage=stage,
-                subset=subset,
-                model_factory=model_factory,
-                sandbox_factory=sandbox_factory,
-                config=config,
-                run_index=base_count + 1,
-                results_dir=results_dir,
-                endpoint=endpoint,
-                model_id=model_id,
-                chat_template_kwargs=chat_template_kwargs,
-            )
-        )
         asr = [r.report.agentic_success_rate for r in runs]
-        delta = _max_abs_delta_pp(asr)  # recompute over all runs incl. the 3rd
+        delta = _max_abs_delta_pp(asr)
+        triggered = delta > delta_trigger_pp
+        decision = _third_run_decision(journal, asr, delta, delta_trigger_pp, triggered)
+        if triggered:
+            runs.append(
+                run_stage(
+                    label=label,
+                    stage=stage,
+                    subset=subset,
+                    model_factory=model_factory,
+                    sandbox_factory=sandbox_factory,
+                    config=config,
+                    run_index=base_count + 1,
+                    results_dir=results_dir,
+                    endpoint=endpoint,
+                    model_id=model_id,
+                    chat_template_kwargs=chat_template_kwargs, journal=journal, sleep_wake_monitor=monitor, runtime_revalidator=runtime_revalidator,
+                )
+            )
+            asr = [r.report.agentic_success_rate for r in runs]
+            delta = _max_abs_delta_pp(asr)  # recompute over all runs incl. the 3rd
 
-    stage_val = stage.value if isinstance(stage, Stage) else str(stage)
-    mean_asr = sum(asr) / len(asr) if asr else 0.0
-    return RerunAggregate(
-        label=label,
-        stage=stage_val,
-        subset_hash=subset.manifest_hash,
-        asr_series=tuple(asr),
-        max_abs_delta_pp=delta,
-        triggered_third_run=triggered,
-        mean_asr=mean_asr,
-        runs=tuple(runs),
+        stage_val = stage.value if isinstance(stage, Stage) else str(stage)
+        mean_asr = sum(asr) / len(asr) if asr else 0.0
+        digest = _campaign_digest(journal, runs, decision)
+        return RerunAggregate(
+            label=label,
+            stage=stage_val,
+            subset_hash=subset.manifest_hash,
+            asr_series=tuple(asr),
+            max_abs_delta_pp=delta,
+            triggered_third_run=triggered,
+            mean_asr=mean_asr, canonical_result_digest=digest, runs=tuple(runs),
+        )
+
+
+def _stage_digest(
+    journal: TaskJournal | None,
+    report: BenchmarkReport,
+    run_index: int,
+) -> str:
+    if journal is not None:
+        return journal.canonical_result_digest()
+    return canonical_result_digest(
+        _report_envelopes(report, run_index),
+        third_run_decision=None,
     )
+
+
+def _close_stage(journal: TaskJournal | None, run_index: int, digest: str) -> str:
+    if journal is not None and not journal.run_closed(run_index):
+        journal.append_run_boundary(run_index)
+    return digest
+
+
+@contextmanager
+def _campaign_journal(
+    results_dir: Path | str | None,
+    resume_identity: AgenticResumeIdentity | None,
+    sleep_wake_monitor: SleepWakeMonitor | None,
+) -> Iterator[tuple[TaskJournal | None, SleepWakeMonitor | None]]:
+    if results_dir is None or resume_identity is None:
+        yield None, None
+        return
+    journal_path = Path(results_dir) / "agentic-task-journal.bin"
+    with TaskJournal.open(journal_path, resume_identity) as journal:
+        yield journal, sleep_wake_monitor or SleepWakeMonitor()
+
+
+def _third_run_decision(
+    journal: TaskJournal | None,
+    asr: list[float],
+    delta: float,
+    threshold_pp: float,
+    triggered: bool,
+) -> dict[str, Any]:
+    decision: dict[str, Any] = {
+        "trigger_value": delta,
+        "threshold_pp": threshold_pp,
+        "decision": triggered,
+        "evidence": {"asr_series": list(asr)},
+    }
+    if journal is None:
+        return decision
+    recorded = journal.third_run_decision
+    if recorded is None:
+        journal.append_third_run_decision(
+            trigger_value=delta,
+            threshold_pp=threshold_pp,
+            decision=triggered,
+            evidence={"asr_series": list(asr)},
+        )
+    elif recorded != decision:
+        raise JournalCorruptionError(
+            "recomputed conditional third-run decision differs from the journal"
+        )
+    return decision
+
+
+def _campaign_digest(
+    journal: TaskJournal | None,
+    runs: list[StageRunResult],
+    decision: dict[str, Any],
+) -> str:
+    if journal is not None:
+        return journal.canonical_result_digest()
+    return canonical_result_digest(
+        [
+            envelope
+            for run in runs
+            for envelope in _report_envelopes(run.report, run.run_index)
+        ],
+        third_run_decision=decision,
+    )
+
+
+def _report_envelopes(report: BenchmarkReport, run_index: int) -> list[dict[str, Any]]:
+    envelopes: list[dict[str, Any]] = []
+    for result in report.results:
+        accepted = {
+            "result": {
+                "task_id": result.task_id,
+                "success": result.success,
+                "outcome": result.outcome.value,
+                "collateral_damage": result.collateral_damage,
+            },
+            "diagnostics": result.diagnostics.as_dict(),
+            "attestation": result.attestation,
+            "identity": {"task_id": result.task_id, "run_index": run_index},
+            "attempt_number": 1,
+        }
+        accepted["payload_sha256"] = canonical_json_hash(accepted)
+        envelopes.append(accepted)
+    return envelopes
 
 
 # ==================================================================================================

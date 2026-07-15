@@ -26,6 +26,7 @@ weight-0 candidate entry point, callable on demand, with zero headline impact.
 from __future__ import annotations
 
 import queue
+import hashlib
 import threading
 import time
 from contextlib import AbstractContextManager
@@ -49,6 +50,14 @@ from localbench.scoring.agentic_exec.model_client import (
     ModelTransportTimeout,
 )
 from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike, run_task
+from localbench.scoring.agentic_exec.task_journal import (
+    RuntimeRevalidationError,
+    SleepDuringTaskError,
+    SleepWakeMonitor,
+    TaskAttemptKey,
+    TaskJournal,
+)
+from localbench.scoring.agentic_exec.task_journal_result import task_result_from_envelope
 
 # A sandbox factory yields a context manager that, on __enter__, returns a live SandboxLike.
 SandboxFactory = Callable[[str], AbstractContextManager[SandboxLike]]
@@ -91,6 +100,10 @@ def run_appworld_c_benchmark(
     model_factory: ModelFactory,
     sandbox_factory: SandboxFactory,
     config: LoopConfig | None = None,
+    journal: TaskJournal | None = None,
+    run_index: int = 1,
+    sleep_wake_monitor: SleepWakeMonitor | None = None,
+    runtime_revalidator: Callable[[], None] | None = None,
 ) -> BenchmarkReport:
     """Run Protocol C over ``task_ids``; return ASR + diagnostics aggregate.
 
@@ -102,14 +115,96 @@ def run_appworld_c_benchmark(
     # scored BenchmarkReport.  Keep the assertion before factory construction and
     # before the first task so direct callers cannot bypass the v3 packaging gate.
     from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
+    from localbench.scoring.agentic_exec.sandbox import WorkerSetupError
 
     assert_execution_contract()
     cfg = config or LoopConfig()
     factories = _BenchmarkFactories(model=model_factory, sandbox=sandbox_factory)
     results: list[TaskRunResult] = []
     for task_id in task_ids:
-        results.append(_run_task_with_watchdog(task_id, factories, cfg))
+        if journal is None:
+            results.append(_run_task_with_watchdog(task_id, factories, cfg))
+            continue
+        if journal.is_committed(task_id, run_index):
+            results.append(
+                task_result_from_envelope(journal.committed_envelope(task_id, run_index))
+            )
+            continue
+        started = sleep_wake_monitor.task_started() if sleep_wake_monitor is not None else None
+        if started is not None and started.slept_between_tasks:
+            if runtime_revalidator is None:
+                raise RuntimeRevalidationError(
+                    "sleep detected between agentic tasks but no runtime revalidator is configured"
+                )
+            runtime_revalidator()
+        key = TaskAttemptKey(task_id, run_index, journal.next_attempt_number(task_id, run_index))
+        journal.append_attempt_started(
+            key,
+            contract_id=_execution_contract_id(),
+            identity_ref=_journal_identity_ref(journal),
+        )
+        try:
+            result = _run_task_with_watchdog(task_id, factories, cfg)
+        except WorkerSetupError as error:
+            journal.append_attempt_failed(
+                key,
+                failure_class=FailureClass.INFRA_SANDBOX.value,
+                evidence_ref=_error_evidence_ref(error),
+                teardown_state="failed",
+            )
+            raise
+        if started is not None and sleep_wake_monitor is not None:
+            if sleep_wake_monitor.task_finished(started):
+                journal.append_attempt_failed(
+                    key,
+                    failure_class=FailureClass.INFRA_TIMEOUT.value,
+                    evidence_ref="sleep-wake-divergence",
+                    teardown_state="verified",
+                )
+                raise SleepDuringTaskError(
+                    f"sleep detected during agentic task {task_id}; uncommitted attempt invalidated"
+                )
+        if result.diagnostics.teardown_failure_count > 0:
+            journal.append_attempt_failed(
+                key,
+                failure_class=FailureClass.INFRA_SANDBOX.value,
+                evidence_ref=hashlib.sha256(
+                    str(result.diagnostics.teardown_failure_detail).encode("utf-8")
+                ).hexdigest(),
+                teardown_state="failed",
+            )
+            raise WorkerSetupError(
+                result.diagnostics.teardown_failure_detail
+                or "agentic sandbox teardown verification failed"
+            )
+        journal.append_result_committed(
+            key,
+            result={
+                "task_id": result.task_id,
+                "success": result.success,
+                "outcome": result.outcome.value,
+                "collateral_damage": result.collateral_damage,
+            },
+            diagnostics=result.diagnostics.as_dict(),
+            attestation=result.attestation,
+        )
+        results.append(result)
     return aggregate(results)
+
+
+def _execution_contract_id() -> str:
+    from localbench.scoring.agentic_exec.execution_contract import CONTRACT_ID
+
+    return CONTRACT_ID
+
+
+def _journal_identity_ref(journal: TaskJournal) -> str:
+    return journal.identity_ref
+
+
+def _error_evidence_ref(error: Exception) -> str:
+    value = f"{type(error).__name__}:{error}"
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _run_task_with_watchdog(
