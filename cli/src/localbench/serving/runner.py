@@ -1239,17 +1239,36 @@ def preflight_agentic_if_needed(
     if not needs_wsl_agentic(options):
         return None
     try:
+        appliance_identity: JsonObject | None = None
+        appliance_identity_digest: str | None = None
         if sys.platform == "win32":
-            ApplianceProvisioner().ensure_active()
+            appliance_result = ApplianceProvisioner().ensure_active()
+            identity_value = appliance_result.get("agentic_runtime_identity")
+            digest_value = appliance_result.get("agentic_runtime_identity_sha256")
+            if not isinstance(identity_value, dict) or not isinstance(digest_value, str):
+                raise ProvisioningError(
+                    "runtime_identity_missing",
+                    "managed appliance handshake omitted C4 identity",
+                    "Reprovision the managed runtime",
+                )
+            appliance_identity = identity_value
+            appliance_identity_digest = digest_value
         config = resolve_worker_config(
             platform_name=sys.platform,
             direct_python=options.wsl_venv_python,
             appworld_root=options.appworld_root,
             log_dir=root / "agentic" / "wsl-worker-logs",
         )
-        return preflight_wsl_agentic(
+        preflight = preflight_wsl_agentic(
             config=config,
             max_items=options.max_items,
+        )
+        if appliance_identity is None or appliance_identity_digest is None:
+            return preflight
+        return replace(
+            preflight,
+            agentic_runtime_identity=appliance_identity,
+            agentic_runtime_identity_sha256=appliance_identity_digest,
         )
     except AgenticSetupError:
         raise

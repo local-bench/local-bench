@@ -86,6 +86,11 @@ def _manifest_payload(
     run_manifest = _object(run.get("manifest"))
     run_suite = _object(run_manifest.get("suite"))
     run_scorecard = _object(run_manifest.get("scorecard"))
+    agentic_run = _object(run.get("agentic_run"))
+    agentic_runtime_identity = _object(agentic_run.get("agentic_runtime_identity"))
+    agentic_runtime_identity_digest = _string(
+        agentic_run.get("agentic_runtime_identity_sha256")
+    )
     execution_profile_id = _string(run_scorecard.get("execution_profile_id"))
     lane_spec_id = _string(run_scorecard.get("lane_spec_id")) or lane_spec_id_for_lane(
         _string(run_suite.get("lane")) or "",
@@ -106,6 +111,14 @@ def _manifest_payload(
             **suite_release_pair(run_suite, suite_dir),
         },
         "scorecard": _submission_scorecard(scorecard),
+        **(
+            {
+                "agentic_runtime_identity": agentic_runtime_identity,
+                "agentic_runtime_identity_sha256": agentic_runtime_identity_digest,
+            }
+            if agentic_runtime_identity and agentic_runtime_identity_digest is not None
+            else {}
+        ),
         "lane": {
             "name": _string(run_suite.get("lane")) or "answer-only",
             "sampler": _object(_object(run_manifest.get("sampling")).get("by_bench")),

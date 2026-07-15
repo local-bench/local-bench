@@ -11,6 +11,10 @@ import pytest
 
 from localbench._types import JsonObject
 from localbench.appliance.provisioner import CommandResult
+from localbench.appliance.runtime_identity import (
+    agentic_runtime_identity_object,
+    agentic_runtime_identity_sha256,
+)
 from localbench.orchestrate import OrchestrateConfig
 from localbench.serving import assembly
 from localbench.serving import runner as serving_runner
@@ -38,6 +42,7 @@ from localbench.submissions.contracts import RESULT_BUNDLE_SCHEMA_VERSION
 from localbench.submissions.foundation import validate_submission_bundle
 from serving_helpers import flag_value, minimal_gguf, serving_evidence
 from test_appliance_provisioner import WslBoundary, verified_public_provisioner
+from test_appliance_runtime_identity import _components
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
@@ -56,7 +61,11 @@ BANNED_RESULT_BUNDLE_FIELDS = {
 
 class _VerifiedApplianceProvisioner:
     def ensure_active(self) -> JsonObject:
-        return {}
+        identity = agentic_runtime_identity_object(_components())
+        return {
+            "agentic_runtime_identity": identity,
+            "agentic_runtime_identity_sha256": agentic_runtime_identity_sha256(identity),
+        }
 
 
 def _launch_config(
@@ -1061,6 +1070,66 @@ def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
         serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
 
 
+def test_managed_preflight_carries_appliance_runtime_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.appliance.runtime_identity import (
+        agentic_runtime_identity_object,
+        agentic_runtime_identity_sha256,
+    )
+    from test_appliance_runtime_identity import _components
+
+    # Given: an appliance result using the shared real-artifact C4 fixture.
+    runtime_identity = agentic_runtime_identity_object(_components())
+    runtime_digest = agentic_runtime_identity_sha256(runtime_identity)
+
+    class IdentityProvisioner:
+        def ensure_active(self) -> JsonObject:
+            return {
+                "agentic_runtime_identity": runtime_identity,
+                "agentic_runtime_identity_sha256": runtime_digest,
+            }
+
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=32768,
+        determinism="strict",
+        tier="standard",
+        bench="appworld_c",
+        lane="bounded-final-v2",
+        seed=1234,
+        suite_dir=SUITE_V1,
+        out=tmp_path / "run",
+    )
+    config = WslWorkerConfig(
+        venv_python="/opt/localbench/venv/bin/python",
+        appworld_root="/home/lbworker/appworld",
+    )
+    monkeypatch.setattr(serving_runner.sys, "platform", "win32")
+    monkeypatch.setattr(serving_runner, "ApplianceProvisioner", IdentityProvisioner)
+    monkeypatch.setattr(serving_runner, "resolve_worker_config", lambda **_kwargs: config)
+    monkeypatch.setattr(
+        serving_runner,
+        "preflight_wsl_agentic",
+        lambda **_kwargs: WslPreflightResult(
+            identity={}, task_ids=("a30375d_1",), worker_config=config
+        ),
+    )
+
+    # When: Windows agentic preflight completes.
+    result = serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
+
+    # Then: the runtime object and digest reach scorecard provenance unchanged.
+    assert result is not None
+    assert result.agentic_runtime_identity == runtime_identity
+    assert result.agentic_runtime_identity_sha256 == runtime_digest
+
+
 def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worker_spawn(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1097,11 +1166,19 @@ def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worke
         monkeypatch,
         boundary,
     )
-    manifest = provisioner._fetch_manifest()
+    manifest = provisioner._fetch_manifest().payload
     tasks = manifest["task_identity"]
     boundary.handshake_identity = {
         "runtime_id": manifest["runtime_id"],
         "protocol_version": manifest["worker"]["protocol_version"],
+        "python_version": manifest["python"]["version"],
+        "bubblewrap_version": f"bubblewrap {manifest['bubblewrap']['version']}",
+        "appworld_package_sha256": manifest["critical_hashes"][
+            "appworld_installed_tree_sha256"
+        ],
+        "appworld_data_sha256": manifest["critical_hashes"][
+            "appworld_data_tree_sha256"
+        ],
         "critical_hashes": manifest["critical_hashes"],
         "execution_contract_sha256": manifest["execution_contract_sha256"],
         "ordered_task_ids_sha256": tasks["ordered_task_ids_sha256"],
@@ -1113,7 +1190,9 @@ def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worke
         "interop_blocked": True,
         "windows_path_absent": True,
     }
-    assert provisioner.ensure_active() == boundary.handshake_identity
+    appliance_result = provisioner.ensure_active()
+    assert appliance_result["runtime_id"] == boundary.handshake_identity["runtime_id"]
+    assert appliance_result["agentic_runtime_identity_sha256"]
     setup_call_count = len(boundary.calls)
     resolved: WslWorkerConfig | None = None
 

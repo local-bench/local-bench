@@ -8,6 +8,11 @@ from pathlib import Path
 import pytest
 
 from localbench.submissions.bundle import pack_submission_bundle
+from localbench.appliance.runtime_identity import (
+    agentic_runtime_identity_object,
+    agentic_runtime_identity_sha256,
+)
+from test_appliance_runtime_identity import _components
 
 from .fixtures import build_submission_fixtures
 
@@ -77,6 +82,41 @@ async def test_pack_records_manifest_counts_and_file_hashes(tmp_path: Path) -> N
     assert files["items.jsonl"]["sha256"] == hashlib.sha256(
         zipfile.ZipFile(out, "r").read("items.jsonl"),
     ).hexdigest()
+
+
+@pytest.mark.anyio
+async def test_pack_carries_agentic_runtime_identity_additively(tmp_path: Path) -> None:
+    # Given: a run record carrying C4 identity values sourced by the shared real-artifact fixture.
+    fixtures = await build_submission_fixtures(tmp_path)
+    run = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    identity = agentic_runtime_identity_object(_components())
+    digest = agentic_runtime_identity_sha256(identity)
+    run["agentic_run"] = {
+        "agentic_runtime_identity": identity,
+        "agentic_runtime_identity_sha256": digest,
+    }
+    fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
+    out = tmp_path / "agentic.lbsub.zip"
+
+    # When: the submission bundle is packed.
+    manifest = pack_submission_bundle(
+        run_path=fixtures.run_path,
+        suite_dir=fixtures.suite_dir,
+        model_name="fixture-model",
+        signing_key_path=fixtures.key_path,
+        out_path=out,
+        offline=True,
+        created_at="2026-06-24T00:00:00Z",
+        run_nonce="fixed-nonce",
+    )
+
+    # Then: the additive bundle payload and signed run file both carry object plus digest.
+    assert manifest["payload"]["agentic_runtime_identity"] == identity
+    assert manifest["payload"]["agentic_runtime_identity_sha256"] == digest
+    with zipfile.ZipFile(out, "r") as archive:
+        carried_run = json.loads(archive.read("run.original.json"))
+    assert carried_run["agentic_run"]["agentic_runtime_identity"] == identity
+    assert carried_run["agentic_run"]["agentic_runtime_identity_sha256"] == digest
 
 
 @pytest.mark.anyio
