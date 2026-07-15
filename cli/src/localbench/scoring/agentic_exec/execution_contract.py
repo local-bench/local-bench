@@ -246,6 +246,37 @@ def write_signed_contract(path: Path, payload: JsonObject, signing_key: Path) ->
     return contract
 
 
+def validate_execution_contract_payload(
+    payload: JsonObject,
+    *,
+    expected_contract_id: str,
+) -> None:
+    if payload.get("schema") != CONTRACT_SCHEMA:
+        raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
+    if payload.get("contract_id") != expected_contract_id:
+        raise ExecutionContractDriftError(
+            expected_contract_id,
+            str(payload.get("contract_id")),
+        )
+    required_objects = (
+        "covered_behavior",
+        "task_identity",
+        "appworld_identity",
+        "sandbox_identity",
+        "legacy_continuity",
+        "packaging_correctness_gate",
+        "provenance",
+    )
+    for field in required_objects:
+        if not isinstance(payload.get(field), dict):
+            raise ExecutionContractDriftError(f"{field} object", type(payload.get(field)).__name__)
+    behavior = _object(payload["covered_behavior"])
+    expected_behavior = payload.get("covered_behavior_sha256")
+    actual_behavior = canonical_json_hash(behavior)
+    if expected_behavior != actual_behavior:
+        raise ExecutionContractDriftError(str(expected_behavior), actual_behavior)
+
+
 def load_execution_contract(
     path: Path | None = None, *, expected_contract_id: str = CONTRACT_ID
 ) -> JsonObject:
@@ -265,12 +296,7 @@ def load_execution_contract(
     signature = contract.get("signature")
     if not isinstance(payload, dict):
         raise ExecutionContractDriftError("payload object", type(payload).__name__)
-    if payload.get("schema") != CONTRACT_SCHEMA:
-        raise ExecutionContractDriftError(CONTRACT_SCHEMA, str(payload.get("schema")))
-    if payload.get("contract_id") != expected_contract_id:
-        raise ExecutionContractDriftError(
-            expected_contract_id, str(payload.get("contract_id"))
-        )
+    validate_execution_contract_payload(payload, expected_contract_id=expected_contract_id)
     signature_key_id = signature.get("key_id") if isinstance(signature, dict) else None
     trusted_public_key = CONTRACT_PUBLIC_KEYS.get(str(signature_key_id))
     trusted_signature = (
@@ -684,4 +710,5 @@ __all__ = [
     "load_execution_contract",
     "signed_contract",
     "write_signed_contract",
+    "validate_execution_contract_payload",
 ]

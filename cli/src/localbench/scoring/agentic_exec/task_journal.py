@@ -114,6 +114,35 @@ class TaskJournal(TaskJournalCore):
             },
         )
 
+    def append_gate_verdict(
+        self,
+        *,
+        run_index: int,
+        decision: bool,
+        evidence: JsonObject,
+    ) -> JournalRecord:
+        if self.gate_verdict(run_index) is not None:
+            raise JournalCorruptionError(
+                f"C6 gate verdict for run {run_index} is already committed"
+            )
+        return self.append_record(
+            "c6_gate_verdict",
+            {
+                "run_index": run_index,
+                "decision": decision,
+                "evidence": evidence,
+            },
+        )
+
+    def gate_verdict(self, run_index: int) -> JsonObject | None:
+        verdicts = [
+            record.payload
+            for record in self._records
+            if record.record_type == "c6_gate_verdict"
+            and record.payload.get("run_index") == run_index
+        ]
+        return verdicts[-1] if verdicts else None
+
     def committed_task_ids(self, run_index: int) -> tuple[str, ...]:
         return tuple(
             key.task_id

@@ -31,7 +31,7 @@ import threading
 import time
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Callable, Protocol, assert_never, runtime_checkable
+from typing import TYPE_CHECKING, Callable, Protocol, assert_never, runtime_checkable
 
 from localbench.scoring.agentic_exec.loop_config import (
     TASK_FINALIZE_TEARDOWN_RESERVE_S,
@@ -58,6 +58,9 @@ from localbench.scoring.agentic_exec.task_journal import (
     TaskJournal,
 )
 from localbench.scoring.agentic_exec.task_journal_result import task_result_from_envelope
+
+if TYPE_CHECKING:
+    from localbench.scoring.agentic_exec.rank_gate import ContractSemantics
 
 # A sandbox factory yields a context manager that, on __enter__, returns a live SandboxLike.
 SandboxFactory = Callable[[str], AbstractContextManager[SandboxLike]]
@@ -115,11 +118,57 @@ def run_appworld_c_benchmark(
     # scored BenchmarkReport.  Keep the assertion before factory construction and
     # before the first task so direct callers cannot bypass the v3 packaging gate.
     from localbench.scoring.agentic_exec.execution_contract import assert_execution_contract
-    from localbench.scoring.agentic_exec.sandbox import WorkerSetupError
 
     assert_execution_contract()
     cfg = config or LoopConfig()
     factories = _BenchmarkFactories(model=model_factory, sandbox=sandbox_factory)
+    from localbench.scoring.agentic_exec.rank_gate import (
+        RankGatePolicy,
+        resolve_contract_semantics,
+    )
+
+    semantics = resolve_contract_semantics()
+    if semantics.rank_gate_policy is RankGatePolicy.NON_MEASUREMENT:
+        if journal is None:
+            from localbench.scoring.agentic_exec.rank_gate import ContractSemanticsError
+
+            raise ContractSemanticsError(
+                "journal",
+                "v4+ ranked execution requires an append-only task journal",
+            )
+        return _run_v4_benchmark(
+            tuple(task_ids),
+            factories,
+            cfg,
+            journal=journal,
+            run_index=run_index,
+            sleep_wake_monitor=sleep_wake_monitor,
+            runtime_revalidator=runtime_revalidator,
+            semantics=semantics,
+        )
+    return _run_v3_benchmark(
+        tuple(task_ids),
+        factories,
+        cfg,
+        journal=journal,
+        run_index=run_index,
+        sleep_wake_monitor=sleep_wake_monitor,
+        runtime_revalidator=runtime_revalidator,
+    )
+
+
+def _run_v3_benchmark(
+    task_ids: tuple[str, ...],
+    factories: _BenchmarkFactories,
+    cfg: LoopConfig,
+    *,
+    journal: TaskJournal | None,
+    run_index: int,
+    sleep_wake_monitor: SleepWakeMonitor | None,
+    runtime_revalidator: Callable[[], None] | None,
+) -> BenchmarkReport:
+    from localbench.scoring.agentic_exec.sandbox import WorkerSetupError
+
     results: list[TaskRunResult] = []
     for task_id in task_ids:
         if journal is None:
@@ -192,10 +241,70 @@ def run_appworld_c_benchmark(
     return aggregate(results)
 
 
-def _execution_contract_id() -> str:
-    from localbench.scoring.agentic_exec.execution_contract import CONTRACT_ID
+def _run_v4_benchmark(
+    task_ids: tuple[str, ...],
+    factories: _BenchmarkFactories,
+    cfg: LoopConfig,
+    *,
+    journal: TaskJournal,
+    run_index: int,
+    sleep_wake_monitor: SleepWakeMonitor | None,
+    runtime_revalidator: Callable[[], None] | None,
+    semantics: ContractSemantics,
+) -> BenchmarkReport:
+    from localbench.scoring.agentic_exec.rank_gate import evaluate_rank_gate
+    from localbench.scoring.agentic_exec.rank_gate_execution import execute_v4_task
 
-    return CONTRACT_ID
+    results: list[TaskRunResult] = []
+    for task_id in task_ids:
+        if journal.is_committed(task_id, run_index):
+            results.append(
+                task_result_from_envelope(journal.committed_envelope(task_id, run_index))
+            )
+            continue
+
+        def _attempt() -> TaskRunResult:
+            started = (
+                sleep_wake_monitor.task_started()
+                if sleep_wake_monitor is not None
+                else None
+            )
+            if started is not None and started.slept_between_tasks:
+                if runtime_revalidator is None:
+                    raise RuntimeRevalidationError(
+                        "sleep detected between agentic tasks but no runtime revalidator "
+                        "is configured"
+                    )
+                runtime_revalidator()
+            result = _run_task_with_watchdog(task_id, factories, cfg)
+            if (
+                started is not None
+                and sleep_wake_monitor is not None
+                and sleep_wake_monitor.task_finished(started)
+            ):
+                raise SleepDuringTaskError(
+                    f"sleep detected during agentic task {task_id}; "
+                    "uncommitted attempt invalidated"
+                )
+            return result
+
+        result = execute_v4_task(
+            task_id,
+            run_index=run_index,
+            journal=journal,
+            semantics=semantics,
+            run_attempt=_attempt,
+        )
+        if result is not None:
+            results.append(result)
+    evaluate_rank_gate(journal, required_task_ids=task_ids, run_index=run_index)
+    return aggregate(results)
+
+
+def _execution_contract_id() -> str:
+    from localbench.scoring.agentic_exec.contract_scope import active_execution_contract
+
+    return active_execution_contract(None)[1]
 
 
 def _journal_identity_ref(journal: TaskJournal) -> str:

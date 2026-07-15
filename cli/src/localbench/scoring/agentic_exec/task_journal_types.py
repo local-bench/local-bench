@@ -7,6 +7,7 @@ from localbench._types import JsonObject, JsonValue
 
 SCHEMA_ID: Final = "localbench.agentic_task_journal.v1"
 SCHEMA_VERSION: Final = 1
+JOURNAL_READER_VERSION: Final = 2
 KNOWN_RECORD_TYPES: Final = frozenset(
     {
         "attempt_started",
@@ -14,6 +15,7 @@ KNOWN_RECORD_TYPES: Final = frozenset(
         "attempt_result_committed",
         "run_boundary",
         "third_run_decision",
+        "c6_gate_verdict",
     }
 )
 

@@ -23,6 +23,7 @@ from localbench.scoring.agentic_exec.task_journal import (
     SleepWakeMonitor,
     TaskJournal,
 )
+from localbench.submissions.canon import canonical_json_hash
 from test_appworld_protocol_c_units import FakeSandbox
 
 
@@ -303,6 +304,19 @@ def test_resumed_and_uninterrupted_scripted_campaigns_have_same_canonical_digest
     assert resumed.triggered_third_run is True
     assert resumed.canonical_result_digest == control.canonical_result_digest
     assert resumed.asr_series == control.asr_series
+    assert control.canonical_result_digest == (
+        "762c15d6ed134f4d93bc7e9e4ff84a9c977c0ce356f5a1c3a08cf1d0202219c0"
+    )
+    assert [
+        canonical_json_hash(
+            json.loads(path.read_text(encoding="utf-8"))["report"]
+        )
+        for path in sorted(control_dir.glob("*.json"))
+    ] == [
+        "375529c8efe2b6ff83cbe209df1793c29600b4567d83e1f9445b5f784d9deb24",
+        "732b965141d70019c404e821640d78c216ddf7dd16f44f366aaaca4d86c600af",
+        "375529c8efe2b6ff83cbe209df1793c29600b4567d83e1f9445b5f784d9deb24",
+    ]
 
 
 def test_stage_report_is_rebuilt_from_closed_journal_without_task_execution(

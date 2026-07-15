@@ -75,6 +75,20 @@ def validate_record(
         number_value(record.payload.get("trigger_value"), "trigger_value")
         number_value(record.payload.get("threshold_pp"), "threshold_pp")
         object_value(record.payload.get("evidence"), "third-run evidence")
+        return
+    if record.record_type == "c6_gate_verdict":
+        run_index = record.payload.get("run_index")
+        if run_index not in {1, 2, 3}:
+            raise JournalCorruptionError("c6_gate_verdict run_index is invalid")
+        if any(
+            item.record_type == "c6_gate_verdict"
+            and item.payload.get("run_index") == run_index
+            for item in existing_records
+        ):
+            raise JournalCorruptionError("c6 gate verdict is duplicated")
+        if not isinstance(record.payload.get("decision"), bool):
+            raise JournalCorruptionError("c6_gate_verdict decision is invalid")
+        object_value(record.payload.get("evidence"), "c6 gate evidence")
 
 
 def record_key(record_type: str, payload: JsonObject) -> TaskAttemptKey:
