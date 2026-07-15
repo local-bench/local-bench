@@ -16,6 +16,7 @@ from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.appliance.manifest import REQUIRED_CRITICAL_HASHES
+from localbench.appliance.runtime_identity import AGENTIC_WORKER_PROTOCOL_VERSION
 from localbench.scoring.agentic_exec.execution_contract import (
     assert_execution_contract,
     assert_packaging_correctness_gate,
@@ -151,7 +152,7 @@ def handshake() -> JsonObject:
 
     contract_sha = assert_execution_contract()
     assert_packaging_correctness_gate()
-    collect_identity(str(APPWORLD_ROOT))
+    measured_identity = collect_identity(str(APPWORLD_ROOT))
     task_ids = contract_task_ids()
     semantic_contents = task_pool.load_semantic_task_contents(
         task_ids, root=APPWORLD_ROOT
@@ -170,7 +171,11 @@ def handshake() -> JsonObject:
         raise RuntimeError("critical hash enumeration drift")
     return {
         "runtime_id": _owner_marker()["runtime_id"],
-        "protocol_version": "localbench.agentic-worker.v1",
+        "protocol_version": AGENTIC_WORKER_PROTOCOL_VERSION,
+        "python_version": measured_identity["python_version"],
+        "bubblewrap_version": measured_identity["bwrap_version"],
+        "appworld_package_sha256": measured_identity["appworld_package_sha256"],
+        "appworld_data_sha256": critical["appworld_data_tree_sha256"],
         "execution_contract_sha256": contract_sha,
         "critical_hashes": critical,
         "ordered_task_ids_sha256": task_pool.ordered_task_ids_sha256(task_ids),

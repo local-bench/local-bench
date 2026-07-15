@@ -6,30 +6,51 @@ import json
 import lzma
 from pathlib import Path
 import threading
+from dataclasses import dataclass
 
 import pytest
 
 import localbench.appliance.provisioner as provisioner_module
+import localbench.appliance.manifest as runtime_manifest
 from localbench.appliance.manifest import PINNED_RUNTIME_ID, REQUIRED_CRITICAL_HASHES
 from localbench.appliance.provisioner import (
     ApplianceProvisioner,
     CommandResult,
     ProvisioningError,
     STATE_ORDER,
+    VerifiedManifest,
     WSL_CONF,
     _decode,
     _parse_wsl_version,
     _parse_wsl_verbose,
     validate_storage_root,
 )
+from localbench.appliance.runtime_identity import agentic_runtime_identity_sha256
+from localbench.appliance.trust import TRUST_SCHEMA, admit_trust_metadata, sign_trust_metadata
+from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
+from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash
+from localbench.submissions.keys import write_private_key
+from test_appliance_manifest import payload as signed_manifest_payload
 
 SHA = "ab" * 32
 
 
 def manifest(archive: bytes) -> dict[str, object]:
+    contract = load_execution_contract()
+    payload = contract["payload"]
+    assert isinstance(payload, dict)
+    tasks = payload["task_identity"]
+    appworld = payload["appworld_identity"]
+    assert isinstance(tasks, dict)
+    assert isinstance(appworld, dict)
+    critical = {name: SHA for name in REQUIRED_CRITICAL_HASHES}
+    critical["appworld_installed_tree_sha256"] = appworld[
+        "appworld_package_sha256"
+    ]
+    critical["appworld_data_tree_sha256"] = appworld["appworld_data_sha256"]
     return {
         "runtime_id": PINNED_RUNTIME_ID,
-        "execution_contract_sha256": SHA,
+        "execution_contract_sha256": contract["payload_sha256"],
         "rootfs": {
             "url": "https://local-bench.ai/rootfs.tar.xz",
             "sha256": hashlib.sha256(archive).hexdigest(),
@@ -38,13 +59,15 @@ def manifest(archive: bytes) -> dict[str, object]:
         },
         "disk_requirements": {"peak_free_bytes": 3, "steady_free_bytes": 1, "download_bytes": 1, "import_bytes": 1, "provision_growth_bytes": 1},
         "appworld": {},
-        "worker": {"protocol_version": "localbench.agentic-worker.v1"},
+        "worker": {"sha256": SHA, "protocol_version": "localbench.agentic-worker.v1"},
+        "python": {"version": appworld["python_version"]},
+        "bubblewrap": {"version": "0.9.0"},
         "task_identity": {
-            "ordered_task_ids_sha256": SHA,
-            "selection_recipe_sha256": SHA,
-            "semantic_task_sha256": SHA,
+            "ordered_task_ids_sha256": tasks["ordered_task_ids_sha256"],
+            "selection_recipe_sha256": tasks["selection_recipe_sha256"],
+            "semantic_task_sha256": tasks["semantic_task_sha256"],
         },
-        "critical_hashes": {name: SHA for name in REQUIRED_CRITICAL_HASHES},
+        "critical_hashes": critical,
     }
 
 
@@ -57,6 +80,84 @@ class BytesDownloader:
             raise self.body
         assert len(self.body) <= maximum_bytes
         return self.body
+
+
+class SpyManifestDownloader:
+    def __init__(self, responses: dict[str, list[bytes | Exception]]) -> None:
+        self.responses = responses
+        self.calls: list[str] = []
+
+    def get(self, url: str, *, maximum_bytes: int) -> bytes:
+        self.calls.append(url)
+        response = self.responses[url].pop(0)
+        if isinstance(response, Exception):
+            raise response
+        assert len(response) <= maximum_bytes
+        return response
+
+    def download_to(self, url: str, path: Path, *, exact_bytes: int) -> None:
+        raise AssertionError("rootfs download is outside manifest-cache tests")
+
+
+@dataclass(frozen=True, slots=True)
+class SignedReleaseFixture:
+    trust_raw: bytes
+    trust_public_key: str
+    manifest_signer: Path
+
+    def manifest_bytes(self, value: dict[str, object]) -> bytes:
+        return canonical_json_bytes(
+            runtime_manifest.signed_manifest(value, self.manifest_signer)
+        ) + b"\n"
+
+
+def signed_release_fixture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> SignedReleaseFixture:
+    # Ground truth: cli/tests/test_appliance_trust.py:21-36 and
+    # cli/tests/test_appliance_manifest.py:23-98.
+    trust_signer = tmp_path / "trust-root.pem"
+    trust_public = write_private_key(trust_signer, seed=bytes(range(32)))
+    manifest_signer = tmp_path / "rotated-runtime.pem"
+    manifest_public = write_private_key(
+        manifest_signer, seed=bytes(reversed(range(32)))
+    )
+    trust_payload = {
+        "schema": TRUST_SCHEMA,
+        "sequence": 7,
+        "admitted_keys": [
+            {"key_id": "rotated-1", "public_key": manifest_public}
+        ],
+        "revoked_key_ids": [],
+        "kill_switched_runtime_ids": [],
+    }
+    trust_raw = canonical_json_bytes(
+        sign_trust_metadata(trust_payload, trust_signer, key_id="root")
+    ) + b"\n"
+    roots = {"root": trust_public}
+    monkeypatch.setattr(provisioner_module, "RUNTIME_PUBLIC_KEYS", roots)
+    monkeypatch.setattr(runtime_manifest, "RUNTIME_PUBLIC_KEYS", roots)
+    monkeypatch.setattr(runtime_manifest, "RUNTIME_KEY_ID", "rotated-1")
+    return SignedReleaseFixture(trust_raw, trust_public, manifest_signer)
+
+
+def manifest_cache_provisioner(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    downloader: SpyManifestDownloader,
+    *,
+    environ: dict[str, str] | None = None,
+) -> ApplianceProvisioner:
+    value = ApplianceProvisioner(
+        root=tmp_path,
+        runner=lambda argv, timeout=None: CommandResult(0),
+        downloader=downloader,
+        environ=environ or {},
+    )
+    monkeypatch.setattr(value, "_feature_preflight", lambda: None)
+    monkeypatch.setattr(value, "_resume", lambda _runtime_dir, _state, manifest: manifest)
+    return value
 
 
 class WslBoundary:
@@ -118,7 +219,9 @@ def verified_public_provisioner(
     )
     provisioner._write_state(runtime_dir, PINNED_RUNTIME_ID, "verified")
     monkeypatch.setattr(provisioner, "_feature_preflight", lambda: None)
-    monkeypatch.setattr(provisioner, "_fetch_manifest", lambda: value)
+    monkeypatch.setattr(
+        provisioner, "_fetch_manifest", lambda: VerifiedManifest(value, b"fixture")
+    )
     return provisioner, runtime_dir
 
 
@@ -389,6 +492,294 @@ def test_runtime_id_cannot_be_retargeted_after_first_seen_manifest(
     assert caught.value.code == "runtime_id_retargeted"
 
 
+def test_valid_cached_manifest_uses_zero_network_calls(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: raw signed manifest bytes, their bound payload digest, and admitted trust state.
+    release = signed_release_fixture(tmp_path, monkeypatch)
+    value = signed_manifest_payload()
+    raw = release.manifest_bytes(value)
+    monkeypatch.setattr(
+        runtime_manifest,
+        "PINNED_INITIAL_MANIFEST_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    admit_trust_metadata(
+        release.trust_raw,
+        embedded_roots={"root": release.trust_public_key},
+        state_path=tmp_path / "trust-state.json",
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "manifest.bytes").write_bytes(raw)
+    (runtime_dir / "manifest-payload.sha256").write_text(
+        canonical_json_hash(value) + "\n", encoding="ascii"
+    )
+    downloader = SpyManifestDownloader({})
+    provisioner = manifest_cache_provisioner(
+        tmp_path, monkeypatch, downloader
+    )
+
+    # When: active-runtime preflight resolves the manifest.
+    result = provisioner.ensure_active()
+
+    # Then: the verified cache is used without a trust or manifest network request.
+    assert result == value
+    assert downloader.calls == []
+
+
+def test_missing_cache_fetches_and_persists_raw_verified_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: first-use state and signed trust/manifest bytes from the real fixtures.
+    release = signed_release_fixture(tmp_path, monkeypatch)
+    value = signed_manifest_payload()
+    raw = release.manifest_bytes(value)
+    monkeypatch.setattr(
+        runtime_manifest,
+        "PINNED_INITIAL_MANIFEST_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    downloader = SpyManifestDownloader(
+        {
+            provisioner_module.TRUST_URL: [release.trust_raw],
+            provisioner_module.MANIFEST_URL: [raw],
+        }
+    )
+    provisioner = manifest_cache_provisioner(
+        tmp_path, monkeypatch, downloader
+    )
+
+    # When: ensure_active has no cached manifest.
+    result = provisioner.ensure_active()
+
+    # Then: it fetches once and persists the exact verified wire bytes plus bound digest.
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    assert result == value
+    assert downloader.calls == [
+        provisioner_module.TRUST_URL,
+        provisioner_module.MANIFEST_URL,
+    ]
+    assert (runtime_dir / "manifest.bytes").read_bytes() == raw
+    assert (runtime_dir / "manifest-payload.sha256").read_text(
+        encoding="ascii"
+    ).strip() == canonical_json_hash(value)
+
+
+def test_tampered_cached_manifest_fails_closed_to_fresh_fetch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: admitted trust, the correct bound digest, and tampered cached raw bytes.
+    release = signed_release_fixture(tmp_path, monkeypatch)
+    value = signed_manifest_payload()
+    raw = release.manifest_bytes(value)
+    monkeypatch.setattr(
+        runtime_manifest,
+        "PINNED_INITIAL_MANIFEST_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    admit_trust_metadata(
+        release.trust_raw,
+        embedded_roots={"root": release.trust_public_key},
+        state_path=tmp_path / "trust-state.json",
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "manifest.bytes").write_bytes(b"tampered")
+    (runtime_dir / "manifest-payload.sha256").write_text(
+        canonical_json_hash(value) + "\n", encoding="ascii"
+    )
+    downloader = SpyManifestDownloader(
+        {
+            provisioner_module.TRUST_URL: [release.trust_raw],
+            provisioner_module.MANIFEST_URL: [raw],
+        }
+    )
+    provisioner = manifest_cache_provisioner(
+        tmp_path, monkeypatch, downloader
+    )
+
+    # When: ensure_active rejects the cache and refreshes it.
+    result = provisioner.ensure_active()
+
+    # Then: the signed fresh bytes replace the cache after both network reads.
+    assert result == value
+    assert downloader.calls == [
+        provisioner_module.TRUST_URL,
+        provisioner_module.MANIFEST_URL,
+    ]
+    assert (runtime_dir / "manifest.bytes").read_bytes() == raw
+
+
+def test_refetched_manifest_conflicting_with_bound_digest_is_retargeted_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a tampered cache, an old bound payload, and a newly signed conflicting payload.
+    release = signed_release_fixture(tmp_path, monkeypatch)
+    bound_value = signed_manifest_payload()
+    refreshed_value = signed_manifest_payload()
+    assert isinstance(refreshed_value["sbom"], dict)
+    refreshed_value["sbom"]["sha256"] = "cd" * 32
+    refreshed_raw = release.manifest_bytes(refreshed_value)
+    monkeypatch.setattr(
+        runtime_manifest,
+        "PINNED_INITIAL_MANIFEST_SHA256",
+        hashlib.sha256(refreshed_raw).hexdigest(),
+    )
+    admit_trust_metadata(
+        release.trust_raw,
+        embedded_roots={"root": release.trust_public_key},
+        state_path=tmp_path / "trust-state.json",
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "manifest.bytes").write_bytes(b"tampered")
+    (runtime_dir / "manifest-payload.sha256").write_text(
+        canonical_json_hash(bound_value) + "\n", encoding="ascii"
+    )
+    downloader = SpyManifestDownloader(
+        {
+            provisioner_module.TRUST_URL: [release.trust_raw],
+            provisioner_module.MANIFEST_URL: [refreshed_raw],
+        }
+    )
+    provisioner = manifest_cache_provisioner(
+        tmp_path, monkeypatch, downloader
+    )
+
+    # When: the fresh verified payload conflicts with the bind-once digest.
+    with pytest.raises(ProvisioningError) as caught:
+        provisioner.ensure_active()
+
+    # Then: the existing anti-retarget error fires and cached bytes are not overwritten.
+    assert caught.value.code == "runtime_id_retargeted"
+    assert (runtime_dir / "manifest.bytes").read_bytes() == b"tampered"
+
+
+def test_cached_runtime_pin_mismatch_forces_fresh_fetch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a signed cache for another runtime ID and a valid fresh pinned manifest.
+    release = signed_release_fixture(tmp_path, monkeypatch)
+    value = signed_manifest_payload()
+    raw = release.manifest_bytes(value)
+    mismatched = signed_manifest_payload()
+    mismatched["runtime_id"] = "older-valid-runtime"
+    mismatched_raw = release.manifest_bytes(mismatched)
+    monkeypatch.setattr(
+        runtime_manifest,
+        "PINNED_INITIAL_MANIFEST_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    admit_trust_metadata(
+        release.trust_raw,
+        embedded_roots={"root": release.trust_public_key},
+        state_path=tmp_path / "trust-state.json",
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "manifest.bytes").write_bytes(mismatched_raw)
+    (runtime_dir / "manifest-payload.sha256").write_text(
+        canonical_json_hash(value) + "\n", encoding="ascii"
+    )
+    downloader = SpyManifestDownloader(
+        {
+            provisioner_module.TRUST_URL: [release.trust_raw],
+            provisioner_module.MANIFEST_URL: [raw],
+        }
+    )
+    provisioner = manifest_cache_provisioner(
+        tmp_path, monkeypatch, downloader
+    )
+
+    # When: ensure_active verifies the cached runtime pin.
+    result = provisioner.ensure_active()
+
+    # Then: it rejects that cache and uses the fresh pinned manifest.
+    assert result == value
+    assert downloader.calls == [
+        provisioner_module.TRUST_URL,
+        provisioner_module.MANIFEST_URL,
+    ]
+
+
+def test_offline_without_manifest_cache_has_typed_remediation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: first-use state with no cache and an offline downloader.
+    signed_release_fixture(tmp_path, monkeypatch)
+    offline = ProvisioningError("download_failed", "offline", "connect")
+    downloader = SpyManifestDownloader(
+        {provisioner_module.TRUST_URL: [offline]}
+    )
+    provisioner = manifest_cache_provisioner(
+        tmp_path, monkeypatch, downloader
+    )
+
+    # When: ensure_active cannot seed the cache.
+    with pytest.raises(ProvisioningError) as caught:
+        provisioner.ensure_active()
+
+    # Then: the typed error tells the operator to connect once and retry setup.
+    assert caught.value.code == "manifest_cache_unavailable"
+    assert "connect" in caught.value.remediation.casefold()
+    assert "setup-agentic" in caught.value.remediation
+
+
+def test_explicit_manifest_refresh_bypasses_valid_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a valid cache and the explicit C4 refresh environment switch.
+    release = signed_release_fixture(tmp_path, monkeypatch)
+    value = signed_manifest_payload()
+    raw = release.manifest_bytes(value)
+    monkeypatch.setattr(
+        runtime_manifest,
+        "PINNED_INITIAL_MANIFEST_SHA256",
+        hashlib.sha256(raw).hexdigest(),
+    )
+    admit_trust_metadata(
+        release.trust_raw,
+        embedded_roots={"root": release.trust_public_key},
+        state_path=tmp_path / "trust-state.json",
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    (runtime_dir / "manifest.bytes").write_bytes(raw)
+    (runtime_dir / "manifest-payload.sha256").write_text(
+        canonical_json_hash(value) + "\n", encoding="ascii"
+    )
+    downloader = SpyManifestDownloader(
+        {
+            provisioner_module.TRUST_URL: [release.trust_raw],
+            provisioner_module.MANIFEST_URL: [raw],
+        }
+    )
+    provisioner = manifest_cache_provisioner(
+        tmp_path,
+        monkeypatch,
+        downloader,
+        environ={"LOCALBENCH_REFRESH_MANIFEST": "1"},
+    )
+
+    # When: ensure_active resolves the manifest.
+    result = provisioner.ensure_active()
+
+    # Then: explicit refresh performs both network reads despite a valid cache.
+    assert result == value
+    assert downloader.calls == [
+        provisioner_module.TRUST_URL,
+        provisioner_module.MANIFEST_URL,
+    ]
+
+
 def test_import_flow_uses_only_probed_wsl_flags(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -587,7 +978,9 @@ def test_global_inventory_lock_serializes_different_runtime_ids(
     monkeypatch.setattr(
         ApplianceProvisioner,
         "_fetch_manifest",
-        lambda self: {"runtime_id": "test", "rootfs": {"sha256": SHA}},
+        lambda self: VerifiedManifest(
+            {"runtime_id": "test", "rootfs": {"sha256": SHA}}, b"fixture"
+        ),
     )
     monkeypatch.setattr(ApplianceProvisioner, "_resume", lambda self, *args: {"ok": True})
     provisioners = [
@@ -625,9 +1018,20 @@ def test_global_inventory_lock_serializes_different_runtime_ids(
 def test_active_state_recovers_pointer_flip_interruption(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    marker = {
+        "owner": "localbench",
+        "runtime_id": PINNED_RUNTIME_ID,
+        "schema": "localbench.appliance_owner.v1",
+    }
+
+    def runner(argv, timeout=None):
+        if "/bin/cat" in argv:
+            return CommandResult(0, json.dumps(marker).encode())
+        return CommandResult(0)
+
     provisioner = ApplianceProvisioner(
         root=tmp_path,
-        runner=lambda argv, timeout=None: CommandResult(0),
+        runner=runner,
         downloader=BytesDownloader(b""),
         environ={},
     )
@@ -646,10 +1050,201 @@ def test_active_state_recovers_pointer_flip_interruption(
     monkeypatch.setattr(
         provisioner,
         "_fetch_manifest",
-        lambda: {"runtime_id": PINNED_RUNTIME_ID, "rootfs": {"sha256": SHA}},
+        lambda: VerifiedManifest(
+            {"runtime_id": PINNED_RUNTIME_ID, "rootfs": {"sha256": SHA}},
+            b"fixture",
+        ),
     )
     monkeypatch.setattr(provisioner, "_handshake", lambda *args: {"healthy": True})
     assert provisioner.ensure_active() == {"healthy": True}
     pointer = json.loads((tmp_path / "active.json").read_text(encoding="utf-8"))
     assert pointer["runtime_id"] == PINNED_RUNTIME_ID
     assert pointer["distro_name"] == "LocalBench-Agentic-recovered"
+
+
+@pytest.mark.parametrize(
+    ("marker_result", "expected_code"),
+    [
+        (CommandResult(1, b"", b"marker absent"), "ownership_marker_missing"),
+        (
+            CommandResult(0, b'{"owner":"someone-else"}'),
+            "ownership_marker_mismatch",
+        ),
+    ],
+)
+def test_active_runtime_rejects_unproven_ownership_before_handshake(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    marker_result: CommandResult,
+    expected_code: str,
+) -> None:
+    # Given: an active state from the existing provisioner fixture and an invalid owner marker.
+    distro = f"LocalBench-Agentic-{PINNED_RUNTIME_ID}"
+    events: list[str] = []
+
+    def runner(argv, timeout=None):
+        if "/bin/cat" in argv:
+            events.append("marker-read")
+            return marker_result
+        return CommandResult(0)
+
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=runner,
+        downloader=BytesDownloader(b""),
+        environ={},
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    provisioner._write_state(
+        runtime_dir, PINNED_RUNTIME_ID, "active", distro_name=distro
+    )
+    monkeypatch.setattr(provisioner, "_feature_preflight", lambda: None)
+    monkeypatch.setattr(
+        provisioner,
+        "_resolve_manifest",
+        lambda *_args: VerifiedManifest(manifest(lzma.compress(b"tar")), b"fixture"),
+    )
+    monkeypatch.setattr(
+        provisioner,
+        "_handshake",
+        lambda *_args: events.append("handshake") or {"healthy": True},
+    )
+
+    # When: ensure_active revalidates the active runtime.
+    with pytest.raises(ProvisioningError) as caught:
+        provisioner.ensure_active()
+
+    # Then: marker failure is typed and the handshake is never reached.
+    assert caught.value.code == expected_code
+    assert events == ["marker-read"]
+
+
+def test_active_runtime_reads_owner_marker_before_handshake(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: active state and matching owner marker from the real provisioner fixture shape.
+    distro = f"LocalBench-Agentic-{PINNED_RUNTIME_ID}"
+    marker = {
+        "owner": "localbench",
+        "runtime_id": PINNED_RUNTIME_ID,
+        "schema": "localbench.appliance_owner.v1",
+    }
+    events: list[str] = []
+
+    def runner(argv, timeout=None):
+        if "/bin/cat" in argv:
+            events.append("marker-read")
+            return CommandResult(0, json.dumps(marker).encode())
+        return CommandResult(0)
+
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=runner,
+        downloader=BytesDownloader(b""),
+        environ={},
+    )
+    runtime_dir = tmp_path / "WSL" / PINNED_RUNTIME_ID
+    runtime_dir.mkdir(parents=True)
+    provisioner._write_state(
+        runtime_dir, PINNED_RUNTIME_ID, "active", distro_name=distro
+    )
+    monkeypatch.setattr(provisioner, "_feature_preflight", lambda: None)
+    monkeypatch.setattr(
+        provisioner,
+        "_resolve_manifest",
+        lambda *_args: VerifiedManifest(manifest(lzma.compress(b"tar")), b"fixture"),
+    )
+    monkeypatch.setattr(
+        provisioner,
+        "_handshake",
+        lambda *_args: events.append("handshake") or {"healthy": True},
+    )
+
+    # When: ensure_active revalidates the active runtime.
+    result = provisioner.ensure_active()
+
+    # Then: ownership is read first and the healthy handshake proceeds.
+    assert result == {"healthy": True}
+    assert events == ["marker-read", "handshake"]
+
+
+def test_handshake_builds_canonical_agentic_runtime_identity(tmp_path: Path) -> None:
+    # Given: manifest and handshake values copied from existing provisioner fixtures and the
+    # signed v3 execution-contract artifact.
+    contract = load_execution_contract()
+    payload = contract["payload"]
+    assert isinstance(payload, dict)
+    tasks = payload["task_identity"]
+    appworld = payload["appworld_identity"]
+    sandbox = payload["sandbox_identity"]
+    assert isinstance(tasks, dict)
+    assert isinstance(appworld, dict)
+    assert isinstance(sandbox, dict)
+    value = manifest(lzma.compress(b"rootfs-tar"))
+    value["worker"] = {
+        "sha256": SHA,
+        "protocol_version": "localbench.agentic-worker.v1",
+    }
+    value["python"] = {"version": appworld["python_version"]}
+    value["bubblewrap"] = {"version": "0.9.0"}
+    value["execution_contract_sha256"] = contract["payload_sha256"]
+    value["task_identity"] = {
+        "ordered_task_ids_sha256": tasks["ordered_task_ids_sha256"],
+        "selection_recipe_sha256": tasks["selection_recipe_sha256"],
+        "semantic_task_sha256": tasks["semantic_task_sha256"],
+    }
+    value["critical_hashes"]["appworld_installed_tree_sha256"] = appworld[
+        "appworld_package_sha256"
+    ]
+    value["critical_hashes"]["appworld_data_tree_sha256"] = appworld[
+        "appworld_data_sha256"
+    ]
+    identity = {
+        "runtime_id": PINNED_RUNTIME_ID,
+        "protocol_version": "localbench.agentic-worker.v1",
+        "python_version": appworld["python_version"],
+        "bubblewrap_version": sandbox["bubblewrap_version"],
+        "appworld_package_sha256": appworld["appworld_package_sha256"],
+        "appworld_data_sha256": appworld["appworld_data_sha256"],
+        "critical_hashes": value["critical_hashes"],
+        "execution_contract_sha256": contract["payload_sha256"],
+        "ordered_task_ids_sha256": tasks["ordered_task_ids_sha256"],
+        "selection_recipe_sha256": tasks["selection_recipe_sha256"],
+        "semantic_task_sha256": tasks["semantic_task_sha256"],
+        "uid": "lbworker",
+        "gid": "lbworker",
+        "mnt_c_absent": True,
+        "interop_blocked": True,
+        "windows_path_absent": True,
+    }
+    distro = f"LocalBench-Agentic-{PINNED_RUNTIME_ID}"
+
+    def runner(argv, timeout=None):
+        if argv[1:] == ["--list", "--quiet"]:
+            return CommandResult(0, (distro + "\n").encode())
+        if "handshake" in argv:
+            return CommandResult(0, json.dumps(identity).encode())
+        return CommandResult(0)
+
+    provisioner = ApplianceProvisioner(
+        root=tmp_path,
+        runner=runner,
+        downloader=BytesDownloader(b""),
+        environ={},
+    )
+
+    # When: the verified managed handshake is accepted.
+    result = provisioner._handshake(
+        tmp_path / "WSL" / PINNED_RUNTIME_ID,
+        {"distro_name": distro},
+        value,
+    )
+
+    # Then: the handshake carries the canonical object and its exact canonical digest.
+    runtime_identity = result["agentic_runtime_identity"]
+    assert isinstance(runtime_identity, dict)
+    assert result["agentic_runtime_identity_sha256"] == agentic_runtime_identity_sha256(
+        runtime_identity
+    )

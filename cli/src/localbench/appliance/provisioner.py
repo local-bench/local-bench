@@ -38,6 +38,12 @@ from localbench.appliance.trust import (
     TRUST_URL,
     TrustMetadataError,
     admit_trust_metadata,
+    load_trust_state,
+)
+from localbench.appliance.runtime_identity import (
+    agentic_runtime_identity_from_sources,
+    agentic_runtime_identity_object,
+    agentic_runtime_identity_sha256,
 )
 from localbench.persistence import atomic_write_bytes, atomic_write_json
 from localbench.submissions.canon import canonical_json_hash
@@ -86,6 +92,12 @@ class CommandResult:
     returncode: int
     stdout: bytes = b""
     stderr: bytes = b""
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedManifest:
+    payload: JsonObject
+    raw: bytes
 
 
 class CommandRunner(Protocol):
@@ -199,11 +211,18 @@ class ApplianceProvisioner:
                 runtime_dir.mkdir(parents=True, exist_ok=True)
                 self._feature_preflight()
                 state = self._read_state(runtime_dir, runtime_id)
-                # TODO(C4): Define the offline/cache posture before replacing this per-run manifest/trust fetch.
-                manifest = self._fetch_manifest()
-                self._bind_manifest(runtime_dir, manifest)
+                verified_manifest = self._resolve_manifest(runtime_dir, runtime_id)
+                manifest = verified_manifest.payload
+                self._bind_manifest(runtime_dir, manifest, verified_manifest.raw)
                 if state.get("state") == "active":
-                    # TODO(C4): Assert ownership before handshake and cover that marker read in the C4 test.
+                    distro = state.get("distro_name")
+                    if not isinstance(distro, str):
+                        raise ProvisioningError(
+                            "runtime_missing",
+                            repr(distro),
+                            "Run localbench setup-agentic",
+                        )
+                    self._assert_owned(distro, runtime_id)
                     result = self._handshake(runtime_dir, state, manifest)
                     active = self._read_json(self.root / "active.json")
                     if active is None or active.get("runtime_id") != runtime_id:
@@ -353,7 +372,49 @@ class ApplianceProvisioner:
             runtime_dir, self._read_state(runtime_dir, runtime_id), manifest
         )
 
-    def _fetch_manifest(self) -> JsonObject:
+    def _resolve_manifest(
+        self, runtime_dir: Path, runtime_id: str
+    ) -> VerifiedManifest:
+        cache_path = runtime_dir / "manifest.bytes"
+        refresh = self.environ.get("LOCALBENCH_REFRESH_MANIFEST") == "1"
+        if cache_path.exists() and not refresh:
+            try:
+                raw = cache_path.read_bytes()
+                trust_state = load_trust_state(self.root / "trust-state.json")
+                payload = verify_manifest_bytes(
+                    raw,
+                    expected_runtime_id=runtime_id,
+                    trust_state=trust_state,
+                )
+                bound = (runtime_dir / "manifest-payload.sha256").read_text(
+                    encoding="ascii"
+                ).strip()
+                actual = canonical_json_hash(payload)
+                if actual != bound:
+                    raise RuntimeManifestError(
+                        "manifest_digest_invalid",
+                        "cached payload differs from the bound manifest digest",
+                    )
+                return VerifiedManifest(payload, raw)
+            except (
+                OSError,
+                UnicodeError,
+                TrustMetadataError,
+                RuntimeManifestError,
+            ):
+                pass
+        try:
+            return self._fetch_manifest()
+        except ProvisioningError as error:
+            if not cache_path.exists() and error.code == "download_failed":
+                raise ProvisioningError(
+                    "manifest_cache_unavailable",
+                    "no verified runtime manifest is cached and the network fetch failed",
+                    "Connect once and run 'localbench setup-agentic', then retry offline",
+                ) from error
+            raise
+
+    def _fetch_manifest(self) -> VerifiedManifest:
         trust_state: JsonObject | None = None
         try:
             trust_raw = self.downloader.get(TRUST_URL, maximum_bytes=MAX_TRUST_BYTES)
@@ -366,27 +427,38 @@ class ApplianceProvisioner:
             raise ProvisioningError("trust_metadata_invalid", str(error), "Retry with an untampered current trust document") from error
         raw = self.downloader.get(MANIFEST_URL, maximum_bytes=MAX_MANIFEST_BYTES)
         try:
-            return verify_manifest_bytes(raw, trust_state=trust_state)
+            return VerifiedManifest(
+                verify_manifest_bytes(raw, trust_state=trust_state), raw
+            )
         except RuntimeManifestError as error:
             raise ProvisioningError(
                 error.code, error.detail, "Install an untampered current CLI release"
             ) from error
 
     @staticmethod
-    def _bind_manifest(runtime_dir: Path, manifest: JsonObject) -> None:
+    def _bind_manifest(
+        runtime_dir: Path,
+        manifest: JsonObject,
+        raw: bytes | None = None,
+    ) -> None:
         digest = canonical_json_hash(manifest)
         path = runtime_dir / "manifest-payload.sha256"
         try:
             existing = path.read_text(encoding="ascii").strip()
         except FileNotFoundError:
             atomic_write_bytes((digest + "\n").encode("ascii"), path)
-            return
-        if existing != digest:
+        else:
+            if existing == digest:
+                if raw is not None:
+                    atomic_write_bytes(raw, runtime_dir / "manifest.bytes")
+                return
             raise ProvisioningError(
                 "runtime_id_retargeted",
                 f"first-seen payload {existing}, fetched {digest}",
                 "Keep the existing runtime; install a CLI release that pins a new runtime ID",
             )
+        if raw is not None:
+            atomic_write_bytes(raw, runtime_dir / "manifest.bytes")
 
     def _feature_preflight(self) -> None:
         if self.runner is subprocess_runner and platform.system() != "Windows":
@@ -652,7 +724,7 @@ class ApplianceProvisioner:
                 "runtime_missing", repr(distro), "Run localbench setup-agentic"
             )
         if manifest is None:
-            manifest = self._fetch_manifest()
+            manifest = self._fetch_manifest().payload
         result = self._exec(
             distro,
             ["/usr/bin/env", "-i", "HOME=/home/lbworker", "PATH=/opt/localbench/venv/bin:/usr/bin:/bin", "PYTHONHASHSEED=0", "TZ=UTC", "LC_ALL=C.UTF-8", "/opt/localbench/bin/localbench-worker", "handshake", "--json"],
@@ -708,6 +780,33 @@ class ApplianceProvisioner:
                 raise ProvisioningError(
                     "runtime_identity_mismatch", field, "Reprovision"
                 )
+        expected_python = str(_object(manifest["python"])["version"])
+        if identity.get("python_version") != expected_python:
+            raise ProvisioningError(
+                "runtime_identity_mismatch", "python_version", "Reprovision"
+            )
+        expected_bubblewrap = str(_object(manifest["bubblewrap"])["version"])
+        if identity.get("bubblewrap_version") not in {
+            expected_bubblewrap,
+            f"bubblewrap {expected_bubblewrap}",
+        }:
+            raise ProvisioningError(
+                "runtime_identity_mismatch", "bubblewrap_version", "Reprovision"
+            )
+        for field, critical_field in (
+            ("appworld_package_sha256", "appworld_installed_tree_sha256"),
+            ("appworld_data_sha256", "appworld_data_tree_sha256"),
+        ):
+            if identity.get(field) != expected_hashes.get(critical_field):
+                raise ProvisioningError(
+                    "runtime_identity_mismatch", field, "Reprovision"
+                )
+        components = agentic_runtime_identity_from_sources(manifest, identity)
+        runtime_identity = agentic_runtime_identity_object(components)
+        identity["agentic_runtime_identity"] = runtime_identity
+        identity["agentic_runtime_identity_sha256"] = (
+            agentic_runtime_identity_sha256(runtime_identity)
+        )
         return identity
 
     def _assert_owned(self, distro: str, runtime_id: str) -> None:

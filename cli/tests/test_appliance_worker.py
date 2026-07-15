@@ -109,6 +109,51 @@ def test_ndjson_worker_rejects_unpassed_v3_gate_before_identity_or_task_executio
     assert identity_collected is False
 
 
+def test_appliance_handshake_exposes_c4_measured_identity_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from localbench.scoring.agentic_exec import execution_contract, task_pool
+
+    # Given: real values copied from the signed v3 execution-contract artifact.
+    contract = execution_contract.load_execution_contract()
+    payload = contract["payload"]
+    assert isinstance(payload, dict)
+    appworld = payload["appworld_identity"]
+    sandbox = payload["sandbox_identity"]
+    tasks = payload["task_identity"]
+    assert isinstance(appworld, dict)
+    assert isinstance(sandbox, dict)
+    assert isinstance(tasks, dict)
+    measured = {
+        "python_version": appworld["python_version"],
+        "bwrap_version": sandbox["bubblewrap_version"],
+        "appworld_package_sha256": appworld["appworld_package_sha256"],
+    }
+    monkeypatch.setattr(appliance_worker, "assert_execution_contract", lambda: contract["payload_sha256"])
+    monkeypatch.setattr(appliance_worker, "assert_packaging_correctness_gate", lambda: None)
+    monkeypatch.setattr(appliance_worker, "collect_identity", lambda _root: measured)
+    monkeypatch.setattr(execution_contract, "contract_task_ids", lambda: list(tasks["ordered_task_ids"]))
+    monkeypatch.setattr(task_pool, "load_semantic_task_contents", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(task_pool, "ordered_task_ids_sha256", lambda _ids: tasks["ordered_task_ids_sha256"])
+    monkeypatch.setattr(task_pool, "semantic_task_sha256", lambda _contents: tasks["semantic_task_sha256"])
+    monkeypatch.setattr(appliance_worker, "selection_recipe_sha256", lambda **_kwargs: tasks["selection_recipe_sha256"])
+    monkeypatch.setattr(appliance_worker, "_file_sha", lambda _path: "ab" * 32)
+    monkeypatch.setattr(appliance_worker, "_localbench_record_tree_sha256", lambda: "ab" * 32)
+    monkeypatch.setattr(appliance_worker, "_verified_appworld_tree_sha256", lambda: appworld["appworld_package_sha256"])
+    monkeypatch.setattr(appliance_worker, "_tree_sha", lambda _path: appworld["appworld_data_sha256"])
+    monkeypatch.setattr(appliance_worker, "_owner_marker", lambda: {"runtime_id": "agentic-amd64-v1"})
+    monkeypatch.setattr(appliance_worker, "_name", lambda _flag: "lbworker")
+
+    # When: the managed worker emits its handshake.
+    identity = appliance_worker.handshake()
+
+    # Then: C4 receives measured versions and AppWorld package/data digests.
+    assert identity["python_version"] == appworld["python_version"]
+    assert identity["bubblewrap_version"] == sandbox["bubblewrap_version"]
+    assert identity["appworld_package_sha256"] == appworld["appworld_package_sha256"]
+    assert identity["appworld_data_sha256"] == appworld["appworld_data_sha256"]
+
+
 def test_worker_provision_interruption_stops_before_pip_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

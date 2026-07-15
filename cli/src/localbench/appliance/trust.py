@@ -105,6 +105,37 @@ def admit_trust_metadata(
     return state
 
 
+def load_trust_state(path: Path) -> JsonObject | None:
+    state = _read_state(path)
+    if state is None:
+        return None
+    if (
+        state.get("schema") != "localbench.agentic_runtime_trust_state.v1"
+        or not isinstance(state.get("sequence"), int)
+        or not isinstance(state.get("metadata_sha256"), str)
+    ):
+        raise TrustMetadataError("persisted trust state is invalid")
+    admitted = state.get("admitted_keys")
+    if not isinstance(admitted, dict):
+        raise TrustMetadataError("persisted trust state is invalid")
+    for key_id, public_key in admitted.items():
+        if not isinstance(key_id, str) or not isinstance(public_key, str):
+            raise TrustMetadataError("persisted trust state is invalid")
+        try:
+            decoded = bytes.fromhex(public_key)
+        except ValueError as error:
+            raise TrustMetadataError("persisted trust state is invalid") from error
+        if len(decoded) != 32:
+            raise TrustMetadataError("persisted trust state is invalid")
+    for field in ("revoked_key_ids", "kill_switched_runtime_ids"):
+        values = state.get(field)
+        if not isinstance(values, list) or not all(
+            isinstance(value, str) for value in values
+        ):
+            raise TrustMetadataError("persisted trust state is invalid")
+    return state
+
+
 def _validate_payload(payload: JsonObject) -> None:
     if payload.get("schema") != TRUST_SCHEMA or not isinstance(payload.get("sequence"), int):
         raise TrustMetadataError("unsupported trust schema/sequence")
@@ -131,6 +162,8 @@ def _read_state(path: Path) -> JsonObject | None:
         value = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise TrustMetadataError("persisted trust state is invalid") from error
     if not isinstance(value, dict):
         raise TrustMetadataError("persisted trust state is invalid")
     return value

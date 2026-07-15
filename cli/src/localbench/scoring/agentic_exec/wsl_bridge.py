@@ -23,9 +23,20 @@ class WslPreflightResult:
     task_ids: tuple[str, ...]
     worker_config: WslWorkerConfig
     canonical_task_ids: tuple[str, ...] = ()
+    agentic_runtime_identity: JsonObject | None = None
+    agentic_runtime_identity_sha256: str | None = None
 
     def provenance(self) -> JsonObject:
-        return provenance_from_identity(self.identity)
+        provenance = provenance_from_identity(self.identity)
+        if (
+            self.agentic_runtime_identity is not None
+            and self.agentic_runtime_identity_sha256 is not None
+        ):
+            provenance["agentic_runtime_identity"] = self.agentic_runtime_identity
+            provenance["agentic_runtime_identity_sha256"] = (
+                self.agentic_runtime_identity_sha256
+            )
+        return provenance
 
 
 def wsl_sandbox_factory(

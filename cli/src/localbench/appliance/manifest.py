@@ -14,6 +14,7 @@ from typing import Final
 from urllib.parse import urlparse
 
 from localbench._types import JsonObject
+from localbench.appliance.runtime_identity import AGENTIC_WORKER_PROTOCOL_VERSION
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
@@ -200,7 +201,7 @@ def _validate_payload(
     _sha(execution_digest, "execution_contract_sha256")
     worker = _object(payload.get("worker"), "worker")
     _sha(worker.get("sha256"), "worker.sha256")
-    if worker.get("protocol_version") != "localbench.agentic-worker.v1":
+    if worker.get("protocol_version") != AGENTIC_WORKER_PROTOCOL_VERSION:
         raise RuntimeManifestError(
             "manifest_invalid", "worker.protocol_version is unsupported"
         )
