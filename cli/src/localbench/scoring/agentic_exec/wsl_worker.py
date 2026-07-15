@@ -27,6 +27,10 @@ from localbench.scoring.agentic_exec.sandbox import (
 )
 from localbench.scoring.agentic_exec.sandbox_protocol import _MAX_FRAME_BYTES
 from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
+from localbench.scoring.agentic_exec.wsl_teardown import (
+    TeardownError,
+    current_worker_process,
+)
 
 WorkerReply: TypeAlias = tuple[JsonObject, bool]
 SandboxFactory: TypeAlias = Callable[[str], AbstractContextManager[SandboxLike]]
@@ -375,8 +379,13 @@ def _write_response(stdout: BinaryIO, response: JsonObject) -> None:
 
 def _ok_with_identity() -> JsonObject:
     try:
-        return {"kind": "ok", "identity": collect_identity()}
-    except WorkerPreflightError as exc:
+        response: JsonObject = {"kind": "ok", "identity": collect_identity()}
+        worker_process = current_worker_process()
+        if worker_process is not None:
+            _token, pin = worker_process
+            response["process"] = pin.as_json()
+        return response
+    except (TeardownError, WorkerPreflightError) as exc:
         return {"kind": "error", "detail": str(exc), "error_type": type(exc).__name__}
 
 

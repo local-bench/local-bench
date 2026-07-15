@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-import signal
+import secrets
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -16,11 +16,20 @@ from localbench.appliance.provisioner import (
     ProvisioningError,
     appliance_root,
 )
+from localbench.scoring.agentic_exec.wsl_teardown import (
+    LinuxProcfs,
+    ProcessPin,
+    TeardownError,
+    WORKER_TOKEN_ENV,
+    terminate_linux_worker,
+    verify_linux_worker_terminated,
+)
 _DEFAULT_OPEN_TASK_TIMEOUT_S = 180.0
 _DEFAULT_OPERATION_TIMEOUT_S = 300.0
 _DEFAULT_FINALIZE_TIMEOUT_S = 120.0
 _DEFAULT_CLOSE_TIMEOUT_S = 5.0
 _WORKER_MODULE = "localbench.scoring.agentic_exec.wsl_worker"
+_TEARDOWN_MODULE = "localbench.scoring.agentic_exec.wsl_teardown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +48,11 @@ class WslWorkerConfig:
     worker_env: Mapping[str, str] | None = None
 
 
-def worker_argv(config: WslWorkerConfig) -> tuple[str, ...]:
+def worker_argv(
+    config: WslWorkerConfig,
+    *,
+    worker_token: str | None = None,
+) -> tuple[str, ...]:
     if config.worker_argv is not None:
         if not config.allow_test_worker_override:
             raise ProvisioningError(
@@ -49,7 +62,19 @@ def worker_argv(config: WslWorkerConfig) -> tuple[str, ...]:
             )
         return config.worker_argv
     if config.distro_name is None:
-        return (config.venv_python, "-m", _WORKER_MODULE)
+        command = (config.venv_python, "-m", _WORKER_MODULE)
+        if worker_token is not None:
+            return (*command, f"--localbench-worker-token={worker_token}")
+        return command
+    token_environment = (
+        (f"{WORKER_TOKEN_ENV}={worker_token}",) if worker_token is not None else ()
+    )
+    session_launcher = ("/usr/bin/setsid", "--wait") if worker_token is not None else ()
+    token_argument = (
+        (f"--localbench-worker-token={worker_token}",)
+        if worker_token is not None
+        else ()
+    )
     return (
         "wsl.exe",
         "-d",
@@ -63,9 +88,12 @@ def worker_argv(config: WslWorkerConfig) -> tuple[str, ...]:
         "TZ=UTC",
         "LC_ALL=C.UTF-8",
         f"PATH={PurePosixPath(config.venv_python).parent}:/usr/bin:/bin",
+        *token_environment,
+        *session_launcher,
         config.venv_python,
         "-m",
         _WORKER_MODULE,
+        *token_argument,
     )
 
 
@@ -191,7 +219,11 @@ def _runtime_not_ready(path: Path) -> ProvisioningError:
     )
 
 
-def worker_env(config: WslWorkerConfig) -> dict[str, str]:
+def worker_env(
+    config: WslWorkerConfig,
+    *,
+    worker_token: str | None = None,
+) -> dict[str, str]:
     if config.distro_name is None and sys.platform.startswith("linux"):
         env = {
             "HOME": os.environ.get("HOME", "/home/lbworker"),
@@ -204,34 +236,142 @@ def worker_env(config: WslWorkerConfig) -> dict[str, str]:
             if key in os.environ
         }
     env.update({"APPWORLD_ROOT": config.appworld_root, "PYTHONHASHSEED": "0", "TZ": "UTC", "LC_ALL": "C.UTF-8"})
+    if worker_token is not None:
+        env[WORKER_TOKEN_ENV] = worker_token
     if config.worker_env is not None:
         env.update(dict(config.worker_env))
     return env
 
 
-def kill_process_tree(proc: subprocess.Popen[bytes]) -> None:
-    if sys.platform == "win32":
-        subprocess.run(
-            ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
-            check=False,
-            capture_output=True,
+def new_worker_token() -> str:
+    return secrets.token_hex(16)
+
+
+def verify_reported_worker_process(
+    config: WslWorkerConfig,
+    *,
+    token: str,
+    reported: object,
+) -> ProcessPin:
+    pin = ProcessPin.from_json(reported)
+    if pin.pid != pin.process_group_id or pin.process_group_id != pin.session_id:
+        raise TeardownError("worker is not the leader of its pinned process group and session")
+    if config.distro_name is not None:
+        verified = _run_managed_control(config, "verify", token=token, pin=pin)
+        if ProcessPin.from_json(verified) != pin:
+            raise TeardownError("managed worker identity changed during verification")
+        return pin
+    live = LinuxProcfs().capture(pin.pid, token=token)
+    if live != pin:
+        raise TeardownError("native Linux worker identity differs from its process record")
+    return pin
+
+
+def terminate_worker_process_tree(
+    config: WslWorkerConfig,
+    proc: subprocess.Popen[bytes],
+    *,
+    token: str | None,
+    pin: ProcessPin | None,
+) -> None:
+    if token is not None:
+        resolved_pin = pin or _discover_worker_process(config, token=token)
+        if config.distro_name is not None:
+            _run_managed_control(config, "terminate", token=token, pin=resolved_pin)
+        else:
+            terminate_linux_worker(resolved_pin, token=token)
+    _terminate_retained_process_handle(proc)
+
+
+def verify_worker_process_tree_terminated(
+    config: WslWorkerConfig,
+    *,
+    token: str,
+    pin: ProcessPin,
+) -> None:
+    if config.distro_name is not None:
+        _run_managed_control(config, "verify-terminated", token=token, pin=pin)
+    else:
+        verify_linux_worker_terminated(pin, token=token)
+
+
+def _discover_worker_process(config: WslWorkerConfig, *, token: str) -> ProcessPin:
+    if config.distro_name is not None:
+        return ProcessPin.from_json(_run_managed_control(config, "discover", token=token))
+    return LinuxProcfs().find_worker(token=token)
+
+
+def _run_managed_control(
+    config: WslWorkerConfig,
+    operation: str,
+    *,
+    token: str,
+    pin: ProcessPin | None = None,
+) -> JsonObject:
+    if config.distro_name is None:
+        raise TeardownError("managed worker control requires a distro")
+    arguments = [operation, token]
+    if pin is not None:
+        arguments.extend(
+            [
+                str(pin.pid),
+                str(pin.process_group_id),
+                str(pin.session_id),
+                str(pin.start_time_ticks),
+                pin.executable,
+            ],
         )
-        return
+    command = [
+        "wsl.exe",
+        "-d",
+        config.distro_name,
+        "--exec",
+        "/usr/bin/env",
+        "-i",
+        "HOME=/home/lbworker",
+        f"PATH={PurePosixPath(config.venv_python).parent}:/usr/bin:/bin",
+        config.venv_python,
+        "-m",
+        _TEARDOWN_MODULE,
+        *arguments,
+    ]
     try:
-        proc.terminate()
-        proc.wait(timeout=5)
-        return
-    except (subprocess.TimeoutExpired, OSError):
-        pass
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15.0,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise TeardownError(f"managed worker {operation} command failed: {error}") from error
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "no diagnostic output"
+        raise TeardownError(
+            f"managed worker {operation} failed with exit {completed.returncode}: {detail}",
+        )
     try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-    except ProcessLookupError:
-        return
-    except OSError:
+        result = json.loads(completed.stdout)
+    except json.JSONDecodeError as error:
+        raise TeardownError(f"managed worker {operation} returned invalid JSON") from error
+    if not isinstance(result, dict):
+        raise TeardownError(f"managed worker {operation} returned a non-object result")
+    return result
+
+
+def _terminate_retained_process_handle(proc: subprocess.Popen[bytes]) -> None:
+    if proc.poll() is None:
         try:
             proc.kill()
-        except OSError:
-            pass
+        except OSError as error:
+            if proc.poll() is None:
+                raise TeardownError(f"host worker termination failed: {error}") from error
+    try:
+        returncode = proc.wait(timeout=5.0)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise TeardownError(f"host worker did not terminate: {error}") from error
+    if returncode is None:
+        raise TeardownError("host worker termination returned no exit status")
 
 
 def creation_flags() -> int:

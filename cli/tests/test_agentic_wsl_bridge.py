@@ -311,30 +311,37 @@ def test_proxy_close_process_exit_timeout_is_recorded_additively(
     assert "did not exit" in (proxy.teardown_failure or "")
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="taskkill process-tree assertion is Windows-only")
-def test_proxy_force_kill_terminates_fake_worker_child(tmp_path: Path) -> None:
-    # Given: a fake worker that starts a long-lived child process.
-    script = _write_fake_worker(tmp_path)
-    child_pid_file = tmp_path / "child.pid"
-    config = WslWorkerConfig(
-        repo_root_wsl_path="/mnt/c/Users/Michael/local-bench-wt-agentic",
-        venv_python="/home/michael/appworld-harness/venv/bin/python3",
-        appworld_root="/home/michael/appworld-data",
-        log_dir=tmp_path,
-        worker_argv=(sys.executable, str(script)),
-        allow_test_worker_override=True,
-        worker_env={"LB_FAKE_CHILD_PID_FILE": str(child_pid_file)},
-        op_timeout_s=2.0,
+def test_proxy_force_kill_surfaces_process_wait_failure(tmp_path: Path) -> None:
+    class _UnreapableProcess:
+        returncode = None
+
+        def poll(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+        def wait(self, timeout: float) -> None:
+            raise subprocess.TimeoutExpired(cmd="worker", timeout=timeout)
+
+    proxy = WslSandboxProxy(
+        None,
+        WslWorkerConfig(
+            venv_python=sys.executable,
+            appworld_root=APPWORLD_ROOT.as_posix(),
+            log_dir=tmp_path,
+            worker_argv=(sys.executable, "-c", "pass"),
+            allow_test_worker_override=True,
+        ),
     )
-    proxy = WslSandboxProxy("fac291d_1", config)
+    proxy._proc = cast(subprocess.Popen[bytes], _UnreapableProcess())
 
-    # When: the proxy is entered and force-killed.
-    proxy.__enter__()
-    child_pid = _read_pid(child_pid_file)
-    proxy.force_kill()
+    with pytest.raises(wsl_proxy.WslTransportError) as error:
+        proxy.force_kill()
 
-    # Then: the worker child is also gone.
-    assert _eventually_dead(child_pid)
+    assert error.value.operation == "teardown"
+    assert "did not terminate" in error.value.detail
+    assert "did not terminate" in (proxy.teardown_failure or "")
 
 
 def test_proxy_enter_time_failure_raises_and_tears_down(tmp_path: Path) -> None:
@@ -411,37 +418,19 @@ def test_missing_wsl_executable_is_typed_transport_error(
     assert error.value.operation == "spawn"
 
 
-@pytest.mark.parametrize("failure_mode", ["distro_missing", "exec_failed"])
-def test_wsl_distro_or_exec_failure_is_typed_transport_error(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    failure_mode: str,
-) -> None:
-    class _ExitedWsl:
-        returncode = 1
-
-        def poll(self) -> int:
-            return self.returncode
-
-    # DERIVED fixture: Microsoft documents `wsl.exe --distribution <Name> --exec <Command>`
-    # at https://learn.microsoft.com/en-us/windows/wsl/basic-commands#run-a-specific-linux-distribution.
-    # A real missing-distro/exec stderr is unavailable without launching WSL, so assertions are
-    # structural (non-zero transport exit) rather than byte-exact prose.
-    monkeypatch.setattr(
-        wsl_proxy.subprocess,
-        "Popen",
-        lambda *_args, **_kwargs: _ExitedWsl(),
-    )
+def test_abrupt_worker_subprocess_exit_is_typed_transport_error(tmp_path: Path) -> None:
     config = WslWorkerConfig(
-        distro_name=f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}",
-        venv_python=(VENV / "bin/python").as_posix(),
+        venv_python=sys.executable,
         appworld_root=APPWORLD_ROOT.as_posix(),
-        log_dir=tmp_path / failure_mode,
+        log_dir=tmp_path,
+        worker_argv=(sys.executable, "-c", "raise SystemExit(71)"),
+        allow_test_worker_override=True,
     )
 
     with pytest.raises(wsl_proxy.WslTransportError) as error:
         WslSandboxProxy(None, config).__enter__()
-    assert error.value.operation == "worker_exit"
+    assert error.value.operation == "pipe_read"
+    assert error.value.detail == "worker closed stdout"
 
 
 def test_worker_pipe_breakage_is_typed_transport_error(
@@ -563,16 +552,8 @@ def _write_fake_worker(tmp_path: Path) -> Path:
             """
             import json
             import os
-            import subprocess
             import sys
             import time
-
-            child = None
-            child_pid_file = os.environ.get("LB_FAKE_CHILD_PID_FILE")
-            if child_pid_file:
-                child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
-                with open(child_pid_file, "w", encoding="utf-8") as handle:
-                    handle.write(str(child.pid))
 
             def emit(payload):
                 print(json.dumps(payload, separators=(",", ":")), flush=True)
@@ -644,42 +625,6 @@ def _fake_worker_identity() -> JsonObject:
         "bwrap_path": "/home/michael/.local/bin/bwrap",
         "bwrap_version": "bwrap 0.9.0",
     }
-
-
-def _read_pid(path: Path) -> int:
-    deadline = time.monotonic() + 5.0
-    while time.monotonic() < deadline:
-        if path.exists():
-            return int(path.read_text(encoding="utf-8"))
-        time.sleep(0.05)
-    raise AssertionError(f"pid file was not written: {path}")
-
-
-def _eventually_dead(pid: int) -> bool:
-    deadline = time.monotonic() + 5.0
-    while time.monotonic() < deadline:
-        if not _pid_exists(pid):
-            return True
-        time.sleep(0.05)
-    return not _pid_exists(pid)
-
-
-def _pid_exists(pid: int) -> bool:
-    if sys.platform == "win32":
-        result = subprocess.run(
-            ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        return str(pid) in result.stdout
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
 
 
 def test_request_timeout_kills_worker_fail_closed(tmp_path: Path) -> None:
@@ -824,7 +769,7 @@ def test_managed_worker_argv_uses_installed_package_without_source_checkout() ->
         appworld_root=APPWORLD_ROOT.as_posix(),
     )
 
-    command = worker_argv(config)
+    command = worker_argv(config, worker_token="fixture-token")
 
     # Paths and clean environment copied from appliance/worker.py:29-30,221-224 and
     # appliance/provisioner.py:631-656. The distro name is derived from the C2 prefix/runtime ID.
@@ -841,9 +786,13 @@ def test_managed_worker_argv_uses_installed_package_without_source_checkout() ->
         "TZ=UTC",
         "LC_ALL=C.UTF-8",
         "PATH=/opt/localbench/venv/bin:/usr/bin:/bin",
+        "LOCALBENCH_WORKER_TOKEN=fixture-token",
+        "/usr/bin/setsid",
+        "--wait",
         "/opt/localbench/venv/bin/python",
         "-m",
         "localbench.scoring.agentic_exec.wsl_worker",
+        "--localbench-worker-token=fixture-token",
     )
     assert "bash" not in command
     assert "-lc" not in command

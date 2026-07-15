@@ -22,12 +22,16 @@ from localbench.scoring.agentic_exec.sandbox import (
 from localbench.scoring.agentic_exec.wsl_process import (
     WslWorkerConfig,
     creation_flags,
-    kill_process_tree,
+    new_worker_token,
     safe_label,
+    terminate_worker_process_tree,
     validate_worker_argv,
+    verify_reported_worker_process,
+    verify_worker_process_tree_terminated,
     worker_argv,
     worker_env,
 )
+from localbench.scoring.agentic_exec.wsl_teardown import ProcessPin, TeardownError
 from localbench.scoring.agentic_exec.wsl_worker import (
     decode_worker_frame,
     encode_worker_frame,
@@ -84,6 +88,8 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         self._stderr_handle: BinaryIO | None = None
         self._closed = False
         self._teardown_failure: str | None = None
+        self._worker_token: str | None = None
+        self._worker_pin: ProcessPin | None = None
 
     @property
     def teardown_failure(self) -> str | None:
@@ -93,6 +99,18 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         self._start()
         try:
             hello = self._request({"op": "hello"}, timeout_s=self.config.op_timeout_s)
+            if self._worker_token is not None:
+                try:
+                    self._worker_pin = verify_reported_worker_process(
+                        self.config,
+                        token=self._worker_token,
+                        reported=hello.get("process"),
+                    )
+                except TeardownError as error:
+                    raise WslTransportError(
+                        operation="process_identity",
+                        detail=str(error),
+                    ) from error
             identity = hello.get("identity")
             if not isinstance(identity, dict):
                 raise SandboxError("wsl worker hello returned no identity")
@@ -161,18 +179,21 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
                     )
                     proc.wait(timeout=self.config.close_timeout_s)
                 except SandboxTimeoutError:
-                    self.force_kill()
-                    self._teardown_failure = (
-                        f"wsl worker close timed out after {self.config.close_timeout_s}s"
+                    self._force_kill_for_close(
+                        f"wsl worker close timed out after {self.config.close_timeout_s}s",
                     )
                 except subprocess.TimeoutExpired:
-                    self.force_kill()
-                    self._teardown_failure = str(SandboxTimeoutError(
-                        f"wsl worker did not exit within {self.config.close_timeout_s}s after close",
-                    ))
+                    self._force_kill_for_close(
+                        str(
+                            SandboxTimeoutError(
+                                "wsl worker did not exit within "
+                                f"{self.config.close_timeout_s}s after close",
+                            ),
+                        ),
+                    )
                 except SandboxError as error:
-                    self.force_kill()
-                    self._teardown_failure = f"{type(error).__name__}: {error}"
+                    self._force_kill_for_close(f"{type(error).__name__}: {error}")
+            self._verify_closed_process_tree()
         finally:
             self._close_log()
 
@@ -181,14 +202,17 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         if proc is None:
             self._close_log()
             return
-        if proc.poll() is not None:
-            self._close_log()
-            return
-        kill_process_tree(proc)
         try:
-            proc.wait(timeout=5)
-        except (subprocess.TimeoutExpired, OSError):
-            pass
+            terminate_worker_process_tree(
+                self.config,
+                proc,
+                token=self._worker_token,
+                pin=self._worker_pin,
+            )
+        except TeardownError as error:
+            self._record_teardown_failure(f"verified teardown failed: {error}")
+            self._close_log()
+            raise WslTransportError(operation="teardown", detail=str(error)) from error
         self._close_log()
 
     def list_tasks(self, stage: str = "scored", *, max_items: int | None = None) -> list[str]:
@@ -207,8 +231,11 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         return list(task_ids)
 
     def _start(self) -> None:
+        self._worker_token = (
+            None if self.config.allow_test_worker_override else new_worker_token()
+        )
         try:
-            argv = worker_argv(self.config)
+            argv = worker_argv(self.config, worker_token=self._worker_token)
             validate_worker_argv(self.config, argv, platform_name=sys.platform)
         except ProvisioningError as error:
             raise WslTransportError(operation="spawn_guard", detail=str(error)) from error
@@ -224,7 +251,7 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=self._stderr_handle,
-                env=worker_env(self.config),
+                env=worker_env(self.config, worker_token=self._worker_token),
                 creationflags=creation_flags(),
                 start_new_session=sys.platform != "win32",
             )
@@ -282,6 +309,33 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         self._stderr_handle = None
         if handle is not None:
             handle.close()
+
+    def _verify_closed_process_tree(self) -> None:
+        if self._worker_token is None or self._worker_pin is None:
+            return
+        try:
+            verify_worker_process_tree_terminated(
+                self.config,
+                token=self._worker_token,
+                pin=self._worker_pin,
+            )
+        except TeardownError as error:
+            self._force_kill_for_close(
+                f"worker process tree survived orderly close: {error}",
+            )
+
+    def _force_kill_for_close(self, detail: str) -> None:
+        try:
+            self.force_kill()
+        except WslTransportError as error:
+            detail = f"{detail}; {error}"
+        self._record_teardown_failure(detail)
+
+    def _record_teardown_failure(self, detail: str) -> None:
+        if self._teardown_failure is None:
+            self._teardown_failure = detail
+        elif detail not in self._teardown_failure:
+            self._teardown_failure = f"{self._teardown_failure}; {detail}"
 
 
 def read_response(

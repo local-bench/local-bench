@@ -247,6 +247,9 @@ class AppWorldSandbox:
             "TZ": "UTC",
             "LC_ALL": "C.UTF-8",
         }
+        worker_token = os.environ.get("LOCALBENCH_WORKER_TOKEN")
+        if worker_token is not None:
+            env["LOCALBENCH_WORKER_TOKEN"] = worker_token
         argv = [
             host_python,
             "-m",
