@@ -12,6 +12,7 @@ import httpx
 
 from localbench._types import JsonObject
 from localbench.appliance.provisioner import ApplianceProvisioner, ProvisioningError
+from localbench.appliance.runtime_identity import AgenticRuntimeIdentityError
 from localbench._suite import read_json_object
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
@@ -34,6 +35,10 @@ from localbench.serving.assembly import (
 from localbench.serving.agentic_support import (
     AgenticSetupError,
     agentic_chat_template_kwargs,
+)
+from localbench.serving.agentic_resume import (
+    agentic_runtime_revalidator,
+    build_agentic_resume_seed_from_runtime,
 )
 from localbench.serving.bench import build_orchestrate_config
 from localbench.serving.fingerprint import resume_identity, server_fingerprint
@@ -65,6 +70,7 @@ from localbench.scoring.agentic_exec.wsl_bridge import (
     wsl_sandbox_factory,
 )
 from localbench.scoring.agentic_exec.sandbox import SandboxError, WorkerSetupError
+from localbench.scoring.agentic_exec.task_journal import JournalError
 from localbench.scoring.agentic_exec.wsl_process import resolve_worker_config
 from localbench.submissions.foundation import normalize_result_bundle
 from localbench.serving.vllm import (
@@ -203,6 +209,8 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         agentic_task_ids = None
         agentic_canonical_task_ids = None
         agentic_provenance_extra = None
+        agentic_resume_seed = None
+        runtime_revalidator = None
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
@@ -223,6 +231,17 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 agentic_preflight.canonical_task_ids or agentic_preflight.task_ids
             )
             agentic_provenance_extra = agentic_preflight.provenance()
+            agentic_resume_seed = build_agentic_resume_seed_from_runtime(
+                preflight=agentic_preflight,
+                evidence=evidence,
+                lane=options.lane,
+                profile=effective_profile,
+            )
+            runtime_revalidator = agentic_runtime_revalidator(
+                endpoint=f"http://127.0.0.1:{port}/v1",
+                model_id=options.model_id,
+                api_key=api_key,
+            )
         try:
             await run_localbench(
                 build_orchestrate_config(
@@ -233,8 +252,10 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 agentic_task_ids=agentic_task_ids,
                 agentic_canonical_task_ids=agentic_canonical_task_ids,
                 agentic_provenance_extra=agentic_provenance_extra,
+                agentic_resume_seed=agentic_resume_seed,
+                agentic_runtime_revalidator=runtime_revalidator,
             )
-        except WorkerSetupError as error:
+        except (JournalError, WorkerSetupError) as error:
             raise AgenticSetupError(
                 detail=str(error),
                 model_download_started=True,
@@ -441,6 +462,8 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         agentic_task_ids = None
         agentic_canonical_task_ids = None
         agentic_provenance_extra = None
+        agentic_resume_seed = None
+        runtime_revalidator = None
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
@@ -461,6 +484,17 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
                 agentic_preflight.canonical_task_ids or agentic_preflight.task_ids
             )
             agentic_provenance_extra = agentic_preflight.provenance()
+            agentic_resume_seed = build_agentic_resume_seed_from_runtime(
+                preflight=agentic_preflight,
+                evidence=evidence,
+                lane=options.lane,
+                profile=effective_profile,
+            )
+            runtime_revalidator = agentic_runtime_revalidator(
+                endpoint=f"http://127.0.0.1:{port}/v1",
+                model_id=options.model_id,
+                api_key=api_key,
+            )
         try:
             await run_localbench(
                 build_orchestrate_config(
@@ -471,8 +505,10 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
                 agentic_task_ids=agentic_task_ids,
                 agentic_canonical_task_ids=agentic_canonical_task_ids,
                 agentic_provenance_extra=agentic_provenance_extra,
+                agentic_resume_seed=agentic_resume_seed,
+                agentic_runtime_revalidator=runtime_revalidator,
             )
-        except WorkerSetupError as error:
+        except (JournalError, WorkerSetupError) as error:
             raise AgenticSetupError(
                 detail=str(error),
                 model_download_started=True,
@@ -686,6 +722,8 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         agentic_task_ids = None
         agentic_canonical_task_ids = None
         agentic_provenance_extra = None
+        agentic_resume_seed = None
+        runtime_revalidator = None
         if agentic_preflight is not None:
             from localbench.scoring.agentic_exec.funnel import chat_client_factory  # noqa: PLC0415
 
@@ -706,6 +744,17 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
                 agentic_preflight.canonical_task_ids or agentic_preflight.task_ids
             )
             agentic_provenance_extra = agentic_preflight.provenance()
+            agentic_resume_seed = build_agentic_resume_seed_from_runtime(
+                preflight=agentic_preflight,
+                evidence=evidence,
+                lane=options.lane,
+                profile=effective_profile,
+            )
+            runtime_revalidator = agentic_runtime_revalidator(
+                endpoint=f"http://127.0.0.1:{port}/v1",
+                model_id=options.model_id,
+                api_key=api_key,
+            )
         try:
             await run_localbench(
                 build_orchestrate_config(
@@ -716,8 +765,10 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
                 agentic_task_ids=agentic_task_ids,
                 agentic_canonical_task_ids=agentic_canonical_task_ids,
                 agentic_provenance_extra=agentic_provenance_extra,
+                agentic_resume_seed=agentic_resume_seed,
+                agentic_runtime_revalidator=runtime_revalidator,
             )
-        except WorkerSetupError as error:
+        except (JournalError, WorkerSetupError) as error:
             raise AgenticSetupError(
                 detail=str(error),
                 model_download_started=True,
@@ -1272,6 +1323,8 @@ def preflight_agentic_if_needed(
         )
     except AgenticSetupError:
         raise
+    except AgenticRuntimeIdentityError as error:
+        raise AgenticSetupError(detail=str(error)) from None
     except (
         SandboxError,
         ProvisioningError,

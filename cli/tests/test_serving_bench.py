@@ -12,6 +12,7 @@ import pytest
 from localbench._types import JsonObject
 from localbench.appliance.provisioner import CommandResult
 from localbench.appliance.runtime_identity import (
+    AgenticRuntimeIdentityError,
     agentic_runtime_identity_object,
     agentic_runtime_identity_sha256,
 )
@@ -339,6 +340,8 @@ async def _write_publishable_record(
     agentic_task_ids: object | None = None,
     agentic_canonical_task_ids: object | None = None,
     agentic_provenance_extra: object | None = None,
+    agentic_resume_seed: object | None = None,
+    agentic_runtime_revalidator: object | None = None,
 ) -> JsonObject:
     record = _publishable_result_bundle(config)
     atomic_write_json(record, config.out or Path("localbench-run.json"))
@@ -1128,6 +1131,37 @@ def test_managed_preflight_carries_appliance_runtime_identity(
     assert result is not None
     assert result.agentic_runtime_identity == runtime_identity
     assert result.agentic_runtime_identity_sha256 == runtime_digest
+
+
+def test_managed_preflight_runtime_identity_error_maps_to_agentic_setup_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options = ServeBenchOptions(
+        runtime="llama.cpp",
+        model_file=tmp_path / "model.gguf",
+        model_ref=None,
+        model_id="gemma",
+        server_bin=tmp_path / "llama-server.exe",
+        ctx=32768,
+        determinism="strict",
+        tier="standard",
+        bench="appworld_c",
+        lane="bounded-final-v2",
+        seed=1234,
+        suite_dir=SUITE_V1,
+        out=tmp_path / "run",
+    )
+
+    class FailingProvisioner:
+        def ensure_active(self) -> JsonObject:
+            raise AgenticRuntimeIdentityError("distribution_version", "0.3.1", "dev")
+
+    monkeypatch.setattr(serving_runner.sys, "platform", "win32")
+    monkeypatch.setattr(serving_runner, "ApplianceProvisioner", FailingProvisioner)
+
+    with pytest.raises(AgenticSetupError, match="distribution_version"):
+        serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
 
 
 def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worker_spawn(

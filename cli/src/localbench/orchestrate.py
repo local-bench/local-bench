@@ -8,7 +8,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -99,7 +99,7 @@ from localbench.submissions.foundation import normalize_result_bundle
 from localbench.suite_resolver import DEFAULT_SUITE_ID, resolve_suite_dir
 
 if TYPE_CHECKING:
-    from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory
+    from localbench.scoring.agentic_exec.benchmark import ModelFactory, SandboxFactory; from localbench.scoring.agentic_exec.loop_config import LoopConfig; from localbench.scoring.agentic_exec.task_journal import AgenticResumeIdentity, AgenticResumeSeed  # noqa: E501, E702
     from localbench.scoring.agentic_exec.funnel import RerunAggregate, StageRunResult
     from localbench.scoring.agentic_exec.loop_types import BenchmarkReport
 
@@ -280,7 +280,7 @@ async def run_localbench(
     agentic_model_factory: ModelFactory | None = None,
     agentic_task_ids: list[str] | None = None,
     agentic_canonical_task_ids: list[str] | None = None,
-    agentic_provenance_extra: JsonObject | None = None,
+    agentic_provenance_extra: JsonObject | None = None, agentic_resume_seed: AgenticResumeSeed | None = None, agentic_runtime_revalidator: Callable[[], None] | None = None,
 ) -> LocalbenchRun:
     """Run selected suite benches, score responses, write JSON, and return the record."""
     suite_ref = resolve_suite_dir(
@@ -648,7 +648,7 @@ async def run_localbench(
             task_ids=agentic_task_ids,
             canonical_task_ids=agentic_canonical_task_ids,
             results_dir=_agentic_results_dir(output_path),
-            provenance_extra=agentic_provenance_extra,
+            provenance_extra=agentic_provenance_extra, resume_seed=agentic_resume_seed, runtime_revalidator=agentic_runtime_revalidator,
             execution_profile_id=execution_profile_id,
             chat_template_kwargs=_agentic_chat_template_kwargs_for_profile(
                 config.lane,
@@ -1613,7 +1613,7 @@ def _run_agentic_axis(
     task_ids: list[str] | None = None,
     canonical_task_ids: list[str] | None = None,
     results_dir: Path | None = None,
-    provenance_extra: JsonObject | None = None,
+    provenance_extra: JsonObject | None = None, resume_seed: AgenticResumeSeed | None = None, runtime_revalidator: Callable[[], None] | None = None,
     execution_profile_id: str | None = None,
     chat_template_kwargs: JsonObject | None = None,
 ) -> AgenticOutcome | None:
@@ -1650,7 +1650,7 @@ def _run_agentic_axis(
 
     from localbench.scoring.agentic_exec import task_pool  # noqa: PLC0415
     from localbench.scoring.agentic_exec.funnel import Stage, run_with_reruns  # noqa: PLC0415
-    from localbench.scoring.agentic_exec.loop_config import LoopConfig  # noqa: PLC0415
+
 
     if resolved_sandbox_factory is None or resolved_model_factory is None:
         warnings.append(
@@ -1681,21 +1681,21 @@ def _run_agentic_axis(
         subset = task_pool.build_subset(Stage.SCORED, wide_smoke=False, with_metadata=True)
         provenance_stage = "scored"
 
+    journal_context = _agentic_journal_context(
+        resume_seed, subset.ordered_task_ids_sha256, resolved_chat_template_kwargs, results_dir
+    )
     agg = run_with_reruns(
         label=config.model,
         stage=Stage.SCORED,
         subset=subset,
         model_factory=resolved_model_factory,
         sandbox_factory=resolved_sandbox_factory,
-        config=LoopConfig(
-            max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN,
-            attestation_run_id=_attestation_run_id(results_dir),
-        ),
+        config=journal_context[0],
         base_count=2,
         results_dir=results_dir,
         endpoint=config.endpoint,
         model_id=config.model,
-        chat_template_kwargs=resolved_chat_template_kwargs,
+        chat_template_kwargs=resolved_chat_template_kwargs, resume_identity=journal_context[1], runtime_revalidator=runtime_revalidator,
     )
     last_report = agg.runs[-1].report
     provenance: JsonObject = {
@@ -1704,7 +1704,7 @@ def _run_agentic_axis(
         "asr_series": list(agg.asr_series),
         "mean_asr": agg.mean_asr,
         "max_abs_delta_pp": agg.max_abs_delta_pp,
-        "triggered_third_run": agg.triggered_third_run,
+        "triggered_third_run": agg.triggered_third_run, "canonical_result_digest": agg.canonical_result_digest,
         "subset_size": subset.size,
         "subset_hash": subset.manifest_hash,
         "stage": provenance_stage,
@@ -1839,6 +1839,7 @@ def _appworld_stage_run_summary(run: StageRunResult, *, run_dir: Path) -> JsonOb
     summary["run_index"] = run.run_index
     summary["stage"] = run.stage
     summary["subset_hash"] = run.subset_hash
+    summary["canonical_result_digest"] = run.canonical_result_digest
     if run.results_path is not None:
         path = Path(run.results_path)
         try:
@@ -2141,3 +2142,33 @@ def _ruler_truncation_warning(
             f"threshold={threshold}"
         )
     return None
+
+
+def _agentic_journal_context(
+    resume_seed: AgenticResumeSeed | None,
+    task_set_sha256: str,
+    chat_template_kwargs: JsonObject,
+    results_dir: Path | None,
+) -> tuple[LoopConfig, AgenticResumeIdentity]:
+    from localbench.scoring.agentic_exec.loop_config import LoopConfig
+    from localbench.scoring.agentic_exec.task_journal import JournalError
+
+    config = LoopConfig(
+        max_output_tokens_per_turn=_AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN,
+        attestation_run_id=_attestation_run_id(results_dir),
+    )
+    if resume_seed is None:
+        raise JournalError("agentic journal resume identity is unavailable")
+    return config, resume_seed.build(
+        task_set_sha256=task_set_sha256,
+        sampling={
+            "max_turns": config.max_turns,
+            "max_output_tokens_per_turn": config.max_output_tokens_per_turn,
+            "max_observation_chars": config.max_observation_chars,
+            "context_window": config.context_window,
+            "temperature": config.temperature,
+            "top_p": config.top_p,
+            "seed": config.seed,
+            "chat_template_kwargs": chat_template_kwargs,
+        },
+    )

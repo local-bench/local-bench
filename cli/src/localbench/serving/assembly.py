@@ -293,6 +293,7 @@ def serving_evidence(
         resume_identity=identity,
         model_id=options.model_id,
         serve_log_path=str(root / "serve.log"),
+        device_name=build.list_devices_stdout,
         cuda_version=build.cuda_version,
         run_seed=launch_config.seed,
     )

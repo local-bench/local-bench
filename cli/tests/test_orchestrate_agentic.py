@@ -24,6 +24,7 @@ from localbench.scoring.agentic_exec.loop_types import (
     TaskOutcome,
     TaskRunResult,
 )
+from localbench.scoring.agentic_exec.task_journal import AgenticResumeSeed
 from test_appworld_protocol_c_units import FakeSandbox
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -63,6 +64,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
             agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
             agentic_task_ids=["fac291d_1", "50e1ac9_1"],
             agentic_canonical_task_ids=["fac291d_1", "50e1ac9_1"],
+            agentic_resume_seed=_agentic_resume_seed(),
             agentic_provenance_extra={
                 "topology": {
                     "scorecard_assembly": "single-campaign-no-merge",
@@ -129,6 +131,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
         assert agentic_run["mean_asr"] == pytest.approx(1.0)
         assert agentic_run["max_abs_delta_pp"] == pytest.approx(0.0)
         assert agentic_run["triggered_third_run"] is False
+        assert len(agentic_run["canonical_result_digest"]) == 64
         assert agentic_run["subset_size"] == 2
         assert isinstance(agentic_run["subset_hash"], str)
         assert agentic_run["subset_hash"]
@@ -169,6 +172,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
             assert sidecar["loop_config"]["max_output_tokens_per_turn"] == 3072
             assert sidecar["report"]["tasks_total"] == 2
             assert sidecar["report"]["outcome_counts"]["success"] == 2
+            assert len(sidecar["canonical_result_digest"]) == 64
         diagnostics = agentic_run["diagnostics"]
         assert isinstance(diagnostics, dict)
         assert diagnostics["tasks_total"] == 2
@@ -268,6 +272,7 @@ def test_inline_agentic_campaign_uses_frozen_scored_output_token_cap(
                 agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
                 agentic_task_ids=["fac291d_1", "50e1ac9_1"],
                 agentic_canonical_task_ids=["fac291d_1", "50e1ac9_1"],
+                agentic_resume_seed=_agentic_resume_seed(),
             )
 
     asyncio.run(scenario())
@@ -276,6 +281,20 @@ def test_inline_agentic_campaign_uses_frozen_scored_output_token_cap(
     assert config.max_output_tokens_per_turn == 3072
     assert orch._AGENTIC_SCORED_MAX_OUTPUT_TOKENS_PER_TURN == 3072
     assert captured["results_dir"] == tmp_path / "agentic" / "cap-probe"
+
+
+def _agentic_resume_seed() -> AgenticResumeSeed:
+    return AgenticResumeSeed(
+        agentic_runtime_identity_sha256="1" * 64,
+        model_sha256="2" * 64,
+        normalized_server_identity="server-identity",
+        host_loop_scorer_contract_digest="3" * 64,
+        lane="bounded-final-v2",
+        profile="generic_think_tags_8192_v1",
+        wsl_kernel_family="6.6-microsoft-standard-WSL2",
+        gpu_architecture="NVIDIA RTX 4090",
+        driver_runtime_family='{"cuda":"12","driver":"555","runtime":"llama.cpp"}',
+    )
 
 
 def _v1_agentic_weight_handler(request: httpx.Request) -> httpx.Response:

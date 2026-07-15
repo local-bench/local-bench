@@ -9,6 +9,7 @@ import pytest
 from localbench.orchestrate import OrchestrateConfig, run_localbench
 from test_orchestrate_agentic import (
     _SUITE_DIR,
+    _agentic_resume_seed,
     _fake_appworld_sandbox_factory,
     _v1_agentic_weight_handler,
 )
@@ -49,6 +50,7 @@ def test_inline_agentic_loop_config_uses_campaign_run_identifier(
                 agentic_model_factory=lambda task_id: sa.ScriptedSolverAgent(task_id),
                 agentic_task_ids=["fac291d_1"],
                 agentic_canonical_task_ids=["fac291d_1"],
+                agentic_resume_seed=_agentic_resume_seed(),
             )
 
     # When: the orchestrator constructs LoopConfig for the agentic campaign.
