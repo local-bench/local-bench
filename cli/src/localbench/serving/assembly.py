@@ -16,6 +16,7 @@ from localbench.reasoning_registry import ANSWER_ONLY_PROFILE
 from localbench.orchestrate import LaneChoice, UnsafeResumeError
 from localbench.run_plan import resolve_run_benches
 from localbench.serving.bench import BenchRunConfig
+from localbench.serving.agentic_resume import normalize_gpu_architecture
 from localbench.serving.fingerprint import normalize_ephemeral_argv, server_fingerprint
 from localbench.serving.llama_cpp import (
     BuildIdentity,
@@ -293,7 +294,7 @@ def serving_evidence(
         resume_identity=identity,
         model_id=options.model_id,
         serve_log_path=str(root / "serve.log"),
-        device_name=build.list_devices_stdout,
+        device_name=normalize_gpu_architecture(build.list_devices_stdout),
         cuda_version=build.cuda_version,
         run_seed=launch_config.seed,
     )

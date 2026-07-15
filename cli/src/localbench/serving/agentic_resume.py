@@ -57,7 +57,9 @@ def build_agentic_resume_seed(
         lane=_required_value(lane, "lane"),
         profile=_required_value(profile, "profile"),
         wsl_kernel_family=normalize_wsl_kernel_family(wsl_kernel),
-        gpu_architecture=_required_value(gpu_architecture, "gpu_architecture"),
+        gpu_architecture=normalize_gpu_architecture(
+            _required_value(gpu_architecture, "gpu_architecture")
+        ),
         driver_runtime_family=canonical_json_bytes(
             {
                 "driver": driver_version or "unavailable",
@@ -117,6 +119,21 @@ def normalize_wsl_kernel_family(kernel: str) -> str:
         raise AgenticSetupError(detail=f"managed preflight reported an invalid WSL kernel: {value!r}")
     suffix = "microsoft-standard-WSL2" if "microsoft" in value.casefold() else "linux"
     return f"{version.group(1)}.{version.group(2)}-{suffix}"
+
+
+def normalize_gpu_architecture(evidence: str) -> str:
+    for line in evidence.splitlines():
+        match = re.match(r"^\s*CUDA\d+\s*:?\s*(?P<device>.+?)\s*$", line)
+        if match is None:
+            continue
+        device = match.group("device").split("(", 1)[0].strip()
+        return re.sub(
+            r",\s*(?:compute capability|VMM|\d+(?:\.\d+)?\s*(?:MiB|GiB)\b).*$",
+            "",
+            device,
+            flags=re.IGNORECASE,
+        ).strip()
+    return evidence.strip()
 
 
 def revalidate_agentic_server(
