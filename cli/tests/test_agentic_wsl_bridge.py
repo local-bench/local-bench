@@ -117,6 +117,7 @@ def test_per_task_worker_identity_must_match_preflight_before_model_turn(
         appworld_root="/managed/appworld",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
     preflight_identity = _fake_worker_identity()
@@ -159,6 +160,7 @@ def test_per_task_worker_matching_preflight_identity_proceeds(
         appworld_root="/managed/appworld",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
     monkeypatch.setattr(
@@ -202,6 +204,7 @@ def test_proxy_round_trip_and_list_tasks_through_fake_worker(tmp_path: Path) -> 
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
 
@@ -229,6 +232,7 @@ def test_proxy_timeout_maps_to_infra_timeout(tmp_path: Path) -> None:
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=1.0,
     )
 
@@ -252,6 +256,7 @@ def test_proxy_close_timeout_is_recorded_without_discarding_task_result(
         appworld_root="/managed/appworld",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
     proxy = WslSandboxProxy("fac291d_1", config)
@@ -317,6 +322,7 @@ def test_proxy_force_kill_terminates_fake_worker_child(tmp_path: Path) -> None:
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         worker_env={"LB_FAKE_CHILD_PID_FILE": str(child_pid_file)},
         op_timeout_s=2.0,
     )
@@ -339,6 +345,7 @@ def test_proxy_enter_time_failure_raises_and_tears_down(tmp_path: Path) -> None:
         appworld_root="/x/data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, "-c", "import sys; sys.exit(0)"),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
     proxy = WslSandboxProxy("fac291d_1", config)
@@ -366,6 +373,7 @@ def test_wsl_sandbox_factory_builds_proxy_context(
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
     )
     monkeypatch.setattr(
         wsl_bridge,
@@ -462,6 +470,7 @@ def test_worker_pipe_breakage_is_typed_transport_error(
             appworld_root=APPWORLD_ROOT.as_posix(),
             log_dir=tmp_path,
             worker_argv=(sys.executable, "-c", "pass"),
+            allow_test_worker_override=True,
         ),
     )
     proxy._proc = cast(subprocess.Popen[bytes], _LiveWorker())
@@ -528,6 +537,7 @@ def test_preflight_carries_resolved_worker_config_to_task_spawns(
         appworld_root=APPWORLD_ROOT.as_posix(),
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
     monkeypatch.setattr(
@@ -681,6 +691,7 @@ def test_request_timeout_kills_worker_fail_closed(tmp_path: Path) -> None:
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=1.0,
     )
     proxy = WslSandboxProxy("fac291d_1", config)
@@ -709,6 +720,7 @@ def test_well_formed_error_response_keeps_worker_alive(tmp_path: Path) -> None:
         appworld_root="/home/michael/appworld-data",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         op_timeout_s=2.0,
     )
     with WslSandboxProxy("fac291d_1", config) as sandbox:
@@ -731,6 +743,7 @@ def test_worker_startup_drift_survives_process_boundary_as_typed_setup_error(
         appworld_root="/x/appworld",
         log_dir=tmp_path,
         worker_argv=(sys.executable, str(script)),
+        allow_test_worker_override=True,
         worker_env={"LB_FAKE_STARTUP_ERROR": "TaskIdentityDriftError"},
         op_timeout_s=2.0,
     )
@@ -863,6 +876,64 @@ def test_linux_backend_executes_installed_worker_directly() -> None:
         "-m",
         "localbench.scoring.agentic_exec.wsl_worker",
     )
+
+
+@pytest.mark.parametrize("wsl_marker", ["WSL_DISTRO_NAME", "WSL_INTEROP"])
+def test_linux_backend_refuses_direct_execution_inside_wsl(wsl_marker: str) -> None:
+    with pytest.raises(ProvisioningError) as error:
+        wsl_process.resolve_worker_config(
+            platform_name="linux",
+            environ={
+                "APPWORLD_ROOT": APPWORLD_ROOT.as_posix(),
+                wsl_marker: "fixture",
+            },
+            direct_python=(VENV / "bin/python").as_posix(),
+        )
+
+    assert error.value.code == "managed_boundary_required"
+
+
+def test_worker_argv_override_requires_explicit_test_context() -> None:
+    config = WslWorkerConfig(
+        venv_python=(VENV / "bin/python").as_posix(),
+        appworld_root=APPWORLD_ROOT.as_posix(),
+        worker_argv=("wsl.exe", "bash", "-lc", "python -m worker"),
+    )
+
+    with pytest.raises(ProvisioningError) as error:
+        worker_argv(config)
+
+    assert error.value.code == "test_worker_override_required"
+
+
+def test_windows_proxy_revalidates_pinned_managed_exec_before_spawn(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    spawned = False
+
+    def unexpected_spawn(*_args: object, **_kwargs: object) -> NoReturn:
+        nonlocal spawned
+        spawned = True
+        raise AssertionError("an unpinned worker command reached Popen")
+
+    monkeypatch.setattr(wsl_proxy.sys, "platform", "win32")
+    monkeypatch.setattr(wsl_proxy.subprocess, "Popen", unexpected_spawn)
+    proxy = WslSandboxProxy(
+        None,
+        WslWorkerConfig(
+            distro_name="Ubuntu",
+            venv_python=(VENV / "bin/python").as_posix(),
+            appworld_root=APPWORLD_ROOT.as_posix(),
+            log_dir=tmp_path,
+        ),
+    )
+
+    with pytest.raises(wsl_proxy.WslTransportError) as error:
+        proxy._start()
+
+    assert error.value.operation == "spawn_guard"
+    assert spawned is False
 
 
 def test_linux_backend_preserves_clean_worker_environment(

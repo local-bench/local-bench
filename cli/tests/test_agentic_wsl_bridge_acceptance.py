@@ -46,6 +46,7 @@ def _wsl_proxy_config():
         appworld_root="/home/michael/appworld-data",
         log_dir=_REPO / "cli" / ".pytest-wsl-logs",
         worker_argv=(sys.executable, "-m", "localbench.scoring.agentic_exec.wsl_worker"),
+        allow_test_worker_override=True,
         worker_env={"PYTHONPATH": str(_REPO / "cli" / "src")},
         op_timeout_s=30.0,
         open_task_timeout_s=180.0,

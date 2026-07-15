@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import BinaryIO
 
 from localbench._types import JsonObject, JsonValue
+from localbench.appliance.provisioner import ProvisioningError
 from localbench.scoring.agentic_exec.protocol_c_loop import SandboxLike
 from localbench.scoring.agentic_exec.sandbox import (
     BlockObservation,
@@ -23,6 +24,7 @@ from localbench.scoring.agentic_exec.wsl_process import (
     creation_flags,
     kill_process_tree,
     safe_label,
+    validate_worker_argv,
     worker_argv,
     worker_env,
 )
@@ -205,6 +207,11 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         return list(task_ids)
 
     def _start(self) -> None:
+        try:
+            argv = worker_argv(self.config)
+            validate_worker_argv(self.config, argv, platform_name=sys.platform)
+        except ProvisioningError as error:
+            raise WslTransportError(operation="spawn_guard", detail=str(error)) from error
         self.config.log_dir.mkdir(parents=True, exist_ok=True)
         log_path = (
             self.config.log_dir
@@ -213,7 +220,7 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
         self._stderr_handle = log_path.open("ab")
         try:
             self._proc = subprocess.Popen(
-                list(worker_argv(self.config)),
+                list(argv),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=self._stderr_handle,

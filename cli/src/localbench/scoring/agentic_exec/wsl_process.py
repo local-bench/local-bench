@@ -35,11 +35,18 @@ class WslWorkerConfig:
     finalize_timeout_s: float = _DEFAULT_FINALIZE_TIMEOUT_S
     close_timeout_s: float = _DEFAULT_CLOSE_TIMEOUT_S
     worker_argv: tuple[str, ...] | None = None
+    allow_test_worker_override: bool = False
     worker_env: Mapping[str, str] | None = None
 
 
 def worker_argv(config: WslWorkerConfig) -> tuple[str, ...]:
     if config.worker_argv is not None:
+        if not config.allow_test_worker_override:
+            raise ProvisioningError(
+                "test_worker_override_required",
+                "worker_argv overrides are disabled for managed execution",
+                "Use the resolved managed worker configuration",
+            )
         return config.worker_argv
     if config.distro_name is None:
         return (config.venv_python, "-m", _WORKER_MODULE)
@@ -107,6 +114,12 @@ def resolve_worker_config(
             log_dir=log_dir or Path("runs") / "agentic-wsl",
         )
     if platform_name.startswith("linux"):
+        if _running_inside_wsl(environment):
+            raise ProvisioningError(
+                "managed_boundary_required",
+                "direct Linux execution is disabled when the CLI is running inside WSL",
+                "Run LocalBench from Windows so it can select the managed distro",
+            )
         resolved_root = appworld_root or environment.get("APPWORLD_ROOT")
         if not resolved_root:
             raise ProvisioningError(
@@ -124,6 +137,40 @@ def resolve_worker_config(
         platform_name,
         "Use x64 Windows 11 or native Linux",
     )
+
+
+def validate_worker_argv(
+    config: WslWorkerConfig,
+    argv: tuple[str, ...],
+    *,
+    platform_name: str,
+) -> None:
+    if platform_name != "win32" or config.allow_test_worker_override:
+        return
+    managed_distro = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
+    if config.distro_name != managed_distro or argv[:4] != (
+        "wsl.exe",
+        "-d",
+        managed_distro,
+        "--exec",
+    ):
+        raise ProvisioningError(
+            "managed_boundary_required",
+            "Windows worker argv is not pinned to the managed distro",
+            "Run 'localbench setup-agentic' and retry",
+        )
+
+
+def _running_inside_wsl(environment: Mapping[str, str]) -> bool:
+    if environment.get("WSL_DISTRO_NAME") or environment.get("WSL_INTEROP"):
+        return True
+    for path in (Path("/proc/sys/kernel/osrelease"), Path("/proc/version")):
+        try:
+            if "microsoft" in path.read_text(encoding="utf-8").casefold():
+                return True
+        except (FileNotFoundError, OSError, UnicodeError):
+            continue
+    return False
 
 
 def _read_runtime_json(path: Path) -> JsonObject:
