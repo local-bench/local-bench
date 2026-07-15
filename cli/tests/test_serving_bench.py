@@ -52,6 +52,11 @@ BANNED_RESULT_BUNDLE_FIELDS = {
 }
 
 
+class _VerifiedApplianceProvisioner:
+    def ensure_active(self) -> JsonObject:
+        return {}
+
+
 def _launch_config(
     tmp_path: Path,
     *,
@@ -923,6 +928,7 @@ def test_orchestrated_agentic_preflight_runs_before_server_launch(
 
         import localbench.serving.runner as runner
 
+        monkeypatch.setattr(runner, "ApplianceProvisioner", _VerifiedApplianceProvisioner)
         monkeypatch.setattr(runner, "resolve_artifact", lambda _options, _root: artifact)
         monkeypatch.setattr(runner, "server_bin", lambda _options: server)
         monkeypatch.setattr(runner, "collect_build_identity", lambda _binary: build)
@@ -986,7 +992,20 @@ def test_advanced_model_ref_agentic_preflight_runs_before_model_resolution(
             artifact_resolved = True
             raise AssertionError("model resolution/download ran before agentic preflight")
 
+        def unavailable_worker_config(**_kwargs: object) -> WslWorkerConfig:
+            raise AgenticSetupError("fixture appliance is unavailable")
+
         monkeypatch.setattr(serving_runner, "resolve_artifact", unexpected_artifact)
+        monkeypatch.setattr(
+            serving_runner,
+            "ApplianceProvisioner",
+            _VerifiedApplianceProvisioner,
+        )
+        monkeypatch.setattr(
+            serving_runner,
+            "resolve_worker_config",
+            unavailable_worker_config,
+        )
 
         with pytest.raises(AgenticSetupError):
             await run_orchestrated_bench(options)
@@ -1022,6 +1041,11 @@ def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
 
     monkeypatch.setattr(
         serving_runner,
+        "ApplianceProvisioner",
+        _VerifiedApplianceProvisioner,
+    )
+    monkeypatch.setattr(
+        serving_runner,
         "resolve_worker_config",
         lambda **_kwargs: WslWorkerConfig(
             venv_python="/opt/localbench/venv/bin/python",
@@ -1035,7 +1059,7 @@ def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
         serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
 
 
-def test_agentic_preflight_resolves_backend_before_worker_spawn(
+def test_agentic_preflight_verifies_appliance_then_resolves_backend_before_worker_spawn(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1053,8 +1077,6 @@ def test_agentic_preflight_resolves_backend_before_worker_spawn(
         seed=1234,
         suite_dir=SUITE_V1,
         out=tmp_path / "run",
-        wsl_venv_python="/opt/localbench/venv/bin/python",
-        appworld_root="/home/lbworker/appworld",
     )
     resolved = WslWorkerConfig(
         distro_name="LocalBench-Agentic-fixture",
@@ -1063,6 +1085,11 @@ def test_agentic_preflight_resolves_backend_before_worker_spawn(
         log_dir=tmp_path / "run" / "agentic" / "wsl-worker-logs",
     )
     calls: list[str] = []
+
+    class VerifiedProvisioner:
+        def ensure_active(self) -> JsonObject:
+            calls.append("verify")
+            return {"runtime_id": "fixture"}
 
     def resolve(**_kwargs) -> WslWorkerConfig:
         calls.append("resolve")
@@ -1078,6 +1105,13 @@ def test_agentic_preflight_resolves_backend_before_worker_spawn(
             worker_config=config,
         )
 
+    monkeypatch.setattr(serving_runner.sys, "platform", "win32")
+    monkeypatch.setattr(
+        serving_runner,
+        "ApplianceProvisioner",
+        VerifiedProvisioner,
+        raising=False,
+    )
     monkeypatch.setattr(serving_runner, "resolve_worker_config", resolve, raising=False)
     monkeypatch.setattr(serving_runner, "preflight_wsl_agentic", preflight)
 
@@ -1085,7 +1119,7 @@ def test_agentic_preflight_resolves_backend_before_worker_spawn(
 
     assert result is not None
     assert result.worker_config is resolved
-    assert calls == ["resolve", "preflight"]
+    assert calls == ["verify", "resolve", "preflight"]
 
 
 def test_agentic_worker_identity_mismatch_maps_to_honest_setup_error(
@@ -1116,6 +1150,11 @@ def test_agentic_worker_identity_mismatch_maps_to_honest_setup_error(
             "worker='0.3.0' host='0.3.1'",
         )
 
+    monkeypatch.setattr(
+        serving_runner,
+        "ApplianceProvisioner",
+        _VerifiedApplianceProvisioner,
+    )
     monkeypatch.setattr(
         serving_runner,
         "resolve_worker_config",

@@ -11,7 +11,7 @@ from pathlib import Path
 import httpx
 
 from localbench._types import JsonObject
-from localbench.appliance.provisioner import ProvisioningError
+from localbench.appliance.provisioner import ApplianceProvisioner, ProvisioningError
 from localbench._suite import read_json_object
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
@@ -1239,6 +1239,8 @@ def preflight_agentic_if_needed(
     if not needs_wsl_agentic(options):
         return None
     try:
+        if sys.platform == "win32":
+            ApplianceProvisioner().ensure_active()
         config = resolve_worker_config(
             platform_name=sys.platform,
             direct_python=options.wsl_venv_python,
