@@ -378,8 +378,18 @@ def test_stage_repo_source_verifies_hashes_and_mutates_only_archived_worker(
     source, original_files = _worker_source_tree(tmp_path)
     archived_files: dict[str, bytes] = {}
 
-    def fake_run_wsl(_distro: str, *command: str, stdin: bytes | None = None) -> bytes:
+    root_ops: list[tuple[str, ...]] = []
+
+    def fake_run_wsl(
+        _distro: str,
+        *command: str,
+        stdin: bytes | None = None,
+        user: str | None = None,
+    ) -> bytes:
+        if user == "root":
+            root_ops.append(command)
         if command[0] == "/bin/tar":
+            assert user is None
             assert stdin is not None
             with tarfile.open(fileobj=io.BytesIO(stdin), mode="r") as archive:
                 for member in archive.getmembers():
@@ -399,6 +409,14 @@ def test_stage_repo_source_verifies_hashes_and_mutates_only_archived_worker(
         _staging_distro(),
         source,
         mutate_module="localbench.scoring.agentic_exec.wsl_worker",
+    )
+
+    # The staging root is created and chowned as root before the tree is extracted.
+    assert [op[0] for op in root_ops] == ["/bin/rm", "/bin/mkdir", "/bin/chown"]
+    assert root_ops[-1] == (
+        "/bin/chown",
+        "lbworker:lbworker",
+        differential.REPO_SOURCE_ROOT,
     )
 
     changed = [
@@ -429,7 +447,12 @@ def test_stage_repo_source_fails_closed_on_extracted_hash_mismatch(
 ) -> None:
     source, _original_files = _worker_source_tree(tmp_path)
 
-    def fake_run_wsl(_distro: str, *command: str, stdin: bytes | None = None) -> bytes:
+    def fake_run_wsl(
+        _distro: str,
+        *command: str,
+        stdin: bytes | None = None,
+        user: str | None = None,
+    ) -> bytes:
         if command[0] == "/usr/bin/sha256sum":
             return "".join(f"{'0' * 64}  {path}\n" for path in command[1:]).encode()
         return b""

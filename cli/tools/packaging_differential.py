@@ -585,8 +585,10 @@ def stage_repo_source(
         raise PackagingDifferentialError(
             f"staged source is missing worker modules: {', '.join(missing_modules)}"
         )
-    _run_wsl(distro_name, "/bin/rm", "-rf", "--", REPO_SOURCE_ROOT)
-    _run_wsl(distro_name, "/bin/mkdir", "-p", REPO_SOURCE_ROOT)
+    # REPO_SOURCE_ROOT lives under the root-owned venv tree /opt/localbench; create and own
+    # it as root so the worker user can populate it and write __pycache__ under it. The
+    # staged worker still runs as the default (worker) user, matching the appliance side.
+    _reset_staging_root(distro_name)
     _run_wsl(
         distro_name,
         "/bin/tar",
@@ -622,9 +624,23 @@ def stage_repo_source(
     )
 
 
+def _reset_staging_root(distro_name: str) -> None:
+    # The parent /opt/localbench is root-owned, so directory create/remove must run as root;
+    # ownership is then handed to the worker user (lbworker) that runs the staged repo side.
+    _run_wsl(distro_name, "/bin/rm", "-rf", "--", REPO_SOURCE_ROOT, user="root")
+    _run_wsl(distro_name, "/bin/mkdir", "-p", REPO_SOURCE_ROOT, user="root")
+    _run_wsl(
+        distro_name,
+        "/bin/chown",
+        "lbworker:lbworker",
+        REPO_SOURCE_ROOT,
+        user="root",
+    )
+
+
 def remove_staged_source(distro_name: str) -> None:
     _require_staging_distro(distro_name)
-    _run_wsl(distro_name, "/bin/rm", "-rf", "--", REPO_SOURCE_ROOT)
+    _run_wsl(distro_name, "/bin/rm", "-rf", "--", REPO_SOURCE_ROOT, user="root")
 
 
 def run_side(side_name: SideName, context: SpawnContext, run: SideRun) -> None:
@@ -821,9 +837,11 @@ def _run_wsl(
     distro_name: str,
     *command: str,
     stdin: bytes | None = None,
+    user: str | None = None,
 ) -> bytes:
+    user_flag = ["-u", user] if user is not None else []
     completed = subprocess.run(
-        ["wsl.exe", "-d", distro_name, "--exec", *command],
+        ["wsl.exe", "-d", distro_name, *user_flag, "--exec", *command],
         input=stdin,
         capture_output=True,
         check=False,
