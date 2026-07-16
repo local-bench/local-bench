@@ -222,6 +222,149 @@ def test_allowlist_generator_stops_and_reports_large_residue_categories(tmp_path
         )
 
 
+def test_allowlist_generator_accepts_reviewed_category_classes(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    files = {
+        marker_path: b'{"runtime_id":"r2"}',
+        "loose/a.txt": b"a",
+        "loose/b.txt": b"b",
+    }
+    generated = scanner.generate_exact_digest_allowlist(
+        archive(tmp_path, files),
+        rootfs_id="r2",
+        residue_justifications={
+            marker_path: "owner marker binds the extracted distro to runtime r2; inert JSON metadata",
+        },
+        residue_category_justifications={
+            "loose": {"reason": "fixture class reviewed as uniform", "expected_count": 2},
+        },
+    )
+    assert generated["files"]["loose/a.txt"]["sha256"] == hashlib.sha256(b"a").hexdigest()
+    assert generated["files"]["loose/b.txt"]["justification"] == (
+        "category:loose: fixture class reviewed as uniform"
+    )
+    assert generated["residue_category_policy"] == {
+        "loose": {"reason": "fixture class reviewed as uniform", "expected_count": 2},
+    }
+
+
+def test_allowlist_generator_fails_closed_on_category_count_drift(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    files = {
+        marker_path: b'{"runtime_id":"r2"}',
+        "loose/a.txt": b"a",
+        "loose/b.txt": b"b",
+    }
+    with pytest.raises(scanner.ScanError, match=r"category count drift: loose expected=3, actual=2"):
+        scanner.generate_exact_digest_allowlist(
+            archive(tmp_path, files),
+            rootfs_id="r2",
+            residue_justifications={
+                marker_path: "owner marker binds the extracted distro to runtime r2",
+            },
+            residue_category_justifications={
+                "loose": {"reason": "fixture class reviewed as uniform", "expected_count": 3},
+            },
+        )
+
+
+def test_allowlist_generator_rejects_malformed_category_policy(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    files = {marker_path: b'{"runtime_id":"r2"}', "loose/a.txt": b"a"}
+    with pytest.raises(scanner.ScanError, match=r"invalid residue category policy entry: loose"):
+        scanner.generate_exact_digest_allowlist(
+            archive(tmp_path, files),
+            rootfs_id="r2",
+            residue_justifications={marker_path: "owner marker"},
+            residue_category_justifications={
+                "loose": {"reason": "   ", "expected_count": 1},
+            },
+        )
+
+
+def test_allowlist_generator_bounds_per_path_reviewed_tail(tmp_path: Path) -> None:
+    marker_path = "etc/localbench-appliance-owner.json"
+    config_path = "etc/localbench-runtime.conf"
+    files = {marker_path: b'{"runtime_id":"r2"}', config_path: b"locked=true\n"}
+    with pytest.raises(scanner.ScanError, match=r"per-path residue exceeds review limit: count=2, maximum=1"):
+        scanner.generate_exact_digest_allowlist(
+            archive(tmp_path, files),
+            rootfs_id="r2",
+            residue_justifications={
+                marker_path: "owner marker binds the extracted distro to runtime r2",
+                config_path: "runtime build configuration consumed by LocalBench",
+            },
+            max_residue_files=1,
+        )
+
+
+def test_dpkg_admission_accepts_held_installed_packages(tmp_path: Path) -> None:
+    body = b"held\n"
+    files = {
+        "etc/localbench-appliance-owner.json": b'{"runtime_id":"r2"}',
+        "var/lib/dpkg/status": b"Package: pinned\nStatus: hold ok installed\nVersion: 1.0\n\n",
+        "var/lib/dpkg/info/pinned.list": b"/usr/bin/pinned-tool\n",
+        "var/lib/dpkg/info/pinned.md5sums": (
+            hashlib.md5(body, usedforsecurity=False).hexdigest().encode()
+            + b"  usr/bin/pinned-tool\n"
+        ),
+        "usr/bin/pinned-tool": body,
+    }
+    generated = scanner.generate_exact_digest_allowlist(
+        archive(tmp_path, files),
+        rootfs_id="r2",
+        residue_justifications={
+            "etc/localbench-appliance-owner.json": "owner marker binds the extracted distro",
+        },
+        residue_category_justifications={
+            "dpkg-database-and-maintainer-metadata": {
+                "reason": "dpkg database fixture",
+                "expected_count": 3,
+            },
+        },
+    )
+    assert "usr/bin/pinned-tool" not in generated["files"]
+
+
+def test_dpkg_admission_resolves_usr_merge_aliases(tmp_path: Path) -> None:
+    path = tmp_path / "fixture.tar.xz"
+    body = b"merged\n"
+    contents = {
+        "etc/localbench-appliance-owner.json": b'{"runtime_id":"r2"}',
+        "var/lib/dpkg/status": b"Package: merged\nStatus: install ok installed\nVersion: 1\n\n",
+        "var/lib/dpkg/info/merged.list": b"/bin/tool\n",
+        "var/lib/dpkg/info/merged.md5sums": (
+            hashlib.md5(body, usedforsecurity=False).hexdigest().encode() + b"  bin/tool\n"
+        ),
+        "usr/bin/tool": body,
+    }
+    with tarfile.open(path, "w:xz") as tar:
+        link = tarfile.TarInfo("bin")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "usr/bin"
+        link.mtime = 0
+        tar.addfile(link)
+        for name, data in contents.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            info.mtime = 0
+            tar.addfile(info, io.BytesIO(data))
+    generated = scanner.generate_exact_digest_allowlist(
+        path,
+        rootfs_id="r2",
+        residue_justifications={
+            "etc/localbench-appliance-owner.json": "owner marker binds the extracted distro",
+        },
+        residue_category_justifications={
+            "dpkg-database-and-maintainer-metadata": {
+                "reason": "dpkg database fixture",
+                "expected_count": 3,
+            },
+        },
+    )
+    assert "usr/bin/tool" not in generated["files"]
+
+
 def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None:
     database = tmp_path / "fixture.sqlite"
     connection = sqlite3.connect(database)

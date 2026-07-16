@@ -73,6 +73,15 @@ def main() -> int:
                 str(path): str(reason)
                 for path, reason in _object(exact_policy["residue_justifications"]).items()
             },
+            residue_category_justifications={
+                str(name): {
+                    "reason": str(_object(entry)["reason"]),
+                    "expected_count": int(str(_object(entry)["expected_count"])),
+                }
+                for name, entry in _object(
+                    exact_policy.get("residue_category_justifications", {})
+                ).items()
+            },
             max_residue_files=int(exact_policy["max_residue_files"]),
         )
         write_json_file(args.out / "generated-rootfs-exact-file-allowlist.json", generated_allowlist)

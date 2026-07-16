@@ -35,15 +35,22 @@ def generate_exact_digest_allowlist(
     *,
     rootfs_id: str,
     residue_justifications: dict[str, str],
+    residue_category_justifications: dict[str, dict[str, object]] | None = None,
     max_residue_files: int = 50,
 ) -> dict[str, object]:
     """Generate the artifact-specific third admission class after dpkg/wheel verification.
 
     Digests cannot be pre-fabricated because the r2 archive does not exist until the
-    deferred build window.  The policy supplies reviewed, per-path reasons; this function
-    binds those reasons to the bytes in that exact artifact.  A large residue indicates a
-    missing structural class and stops with category counts instead of producing filler.
+    deferred build window.  The policy supplies reviewed reasons at two granularities:
+    per-path for the individually reviewed tail (bounded by ``max_residue_files``), and
+    per-category with an exact pinned ``expected_count`` for reviewed structural classes
+    (the dpkg database, wheel install metadata, interpreter caches) whose members are
+    uniform in nature.  Every admitted file is still digest-bound; an unreviewed path or
+    a category-count drift stops the build instead of producing filler.
     """
+    category_policy = residue_category_justifications or {}
+    for name in sorted(category_policy):
+        _category_entry(category_policy, name)
     with tarfile.open(archive_path, "r:xz") as archive:
         observed_rootfs_id = _rootfs_id(archive)
         if observed_rootfs_id != rootfs_id:
@@ -65,20 +72,44 @@ def generate_exact_digest_allowlist(
             residue[name] = stream.read()
             category = _residue_category(name)
             categories[category] = categories.get(category, 0) + 1
-    if len(residue) > max_residue_files:
-        raise ScanError(
-            "exact-digest residue exceeds review limit: "
-            f"count={len(residue)}, categories={json.dumps(categories, sort_keys=True)}"
-        )
     files: dict[str, dict[str, str]] = {}
+    unjustified: dict[str, int] = {}
+    category_counts: dict[str, int] = {}
+    path_justified = 0
     for name, data in sorted(residue.items()):
         justification = residue_justifications.get(name)
-        if not isinstance(justification, str) or not justification.strip():
-            raise ScanError(f"exact-digest residue lacks per-file justification: {name}")
+        category = _residue_category(name)
+        if isinstance(justification, str) and justification.strip():
+            path_justified += 1
+            note = justification.strip()
+        elif category in category_policy:
+            category_counts[category] = category_counts.get(category, 0) + 1
+            reason, _expected = _category_entry(category_policy, category)
+            note = f"category:{category}: {reason}"
+        else:
+            unjustified[category] = unjustified.get(category, 0) + 1
+            continue
         files[name] = {
             "sha256": hashlib.sha256(data).hexdigest(),
-            "justification": justification.strip(),
+            "justification": note,
         }
+    if unjustified:
+        raise ScanError(
+            "exact-digest residue exceeds review limit: "
+            f"count={sum(unjustified.values())}, categories={json.dumps(unjustified, sort_keys=True)}"
+        )
+    if path_justified > max_residue_files:
+        raise ScanError(
+            "exact-digest per-path residue exceeds review limit: "
+            f"count={path_justified}, maximum={max_residue_files}"
+        )
+    for category in sorted(category_policy):
+        _reason, expected = _category_entry(category_policy, category)
+        actual = category_counts.get(category, 0)
+        if actual != expected:
+            raise ScanError(
+                f"exact-digest category count drift: {category} expected={expected}, actual={actual}"
+            )
     unused = sorted(set(residue_justifications) - set(residue))
     if unused:
         raise ScanError(f"exact-digest policy contains paths absent from artifact: {unused}")
@@ -86,8 +117,27 @@ def generate_exact_digest_allowlist(
         "schema": "localbench.rootfs_exact_file_allowlist.v2",
         "rootfs_id": rootfs_id,
         "residue_categories": dict(sorted(categories.items())),
+        "residue_category_policy": {
+            name: dict(zip(("reason", "expected_count"), _category_entry(category_policy, name)))
+            for name in sorted(category_policy)
+        },
         "files": files,
     }
+
+
+def _category_entry(policy: dict[str, dict[str, object]], name: str) -> tuple[str, int]:
+    entry = policy.get(name)
+    reason = entry.get("reason") if isinstance(entry, dict) else None
+    expected = entry.get("expected_count") if isinstance(entry, dict) else None
+    if (
+        not isinstance(reason, str)
+        or not reason.strip()
+        or not isinstance(expected, int)
+        or isinstance(expected, bool)
+        or expected < 1
+    ):
+        raise ScanError(f"invalid residue category policy entry: {name}")
+    return reason.strip(), expected
 
 
 def _residue_category(path: str) -> str:
@@ -500,7 +550,11 @@ def _dpkg_packages(archive: tarfile.TarFile) -> set[str]:
         )
         # dpkg-query Status-Abbrev/Status field semantics are captured verbatim in
         # tests/fixtures/dpkg-status-installed-builder-r2.txt from the builder distro.
-        if fields.get("Status") == "install ok installed":
+        # The builder apt-holds its version-pinned set, so any want flag counts as long
+        # as the package state is "ok installed" ("install ok installed" and
+        # "hold ok installed" are both fully installed).
+        status_parts = fields.get("Status", "").split()
+        if len(status_parts) == 3 and status_parts[1:] == ["ok", "installed"]:
             name, version = fields.get("Package"), fields.get("Version")
             if name and version:
                 packages.add(f"{name}={version}")
@@ -512,6 +566,7 @@ def _dpkg_manifest_files(
 ) -> dict[str, str | None]:
     installed_names = {item.rsplit("=", 1)[0] for item in installed_packages}
     members = {member.name.removeprefix("./"): member for member in archive.getmembers()}
+    aliases = _usr_merge_aliases(archive)
     result: dict[str, str | None] = _dpkg_conffile_digests(archive, installed_names)
     for path, member in members.items():
         match = re.fullmatch(r"var/lib/dpkg/info/(.+)\.list", path)
@@ -547,10 +602,31 @@ def _dpkg_manifest_files(
             # https://manpages.debian.org/bookworm/dpkg/dpkg.1.en.html#--verify-format
             if expected is None:
                 continue
-            previous = result.setdefault(filename, expected)
-            if previous is not None and expected is not None and previous != expected:
-                raise ScanError(f"conflicting dpkg manifests for regular file: {filename}")
+            # Manifests on a merged-/usr rootfs record aliased roots (/bin/ip) while the
+            # archive stores the file at its physical path (usr/bin/ip); admit both names.
+            for admitted in _alias_names(filename, aliases):
+                previous = result.setdefault(admitted, expected)
+                if previous is not None and expected is not None and previous != expected:
+                    raise ScanError(f"conflicting dpkg manifests for regular file: {admitted}")
     return result
+
+
+def _usr_merge_aliases(archive: tarfile.TarFile) -> set[str]:
+    aliases: set[str] = set()
+    for member in archive.getmembers():
+        name = member.name.removeprefix("./").removeprefix("/")
+        if not name or "/" in name or not member.issym():
+            continue
+        if member.linkname.removeprefix("./").removeprefix("/") == f"usr/{name}":
+            aliases.add(name)
+    return aliases
+
+
+def _alias_names(filename: str, aliases: set[str]) -> tuple[str, ...]:
+    root = filename.split("/", 1)[0]
+    if root in aliases:
+        return (filename, f"usr/{filename}")
+    return (filename,)
 
 
 def _dpkg_conffile_digests(
