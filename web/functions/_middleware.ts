@@ -14,11 +14,14 @@ const BYPASS_HEADER_NAME = "x-localbench-bypass";
 const PRIVATE_MODE_VALUES = new Set(["1", "true", "yes", "on"]);
 
 export async function onRequest(context: PrivateGateContext): Promise<Response> {
+  const requestUrl = new URL(context.request.url);
+  if (requestUrl.pathname.startsWith("/artifacts/")) {
+    return context.next();
+  }
   if (!isPrivateModeEnabled(context.env)) {
     return context.next();
   }
 
-  const requestUrl = new URL(context.request.url);
   const bypassToken = context.env.LOCALBENCH_PRIVATE_BYPASS_TOKEN;
   if (bypassToken !== undefined && bypassToken.length > 0) {
     const queryToken = requestUrl.searchParams.get("lb_bypass");
