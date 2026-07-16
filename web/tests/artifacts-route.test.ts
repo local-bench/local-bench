@@ -43,6 +43,30 @@ describe("public artifact route", () => {
     expect(await response.text()).toBe(ARTIFACT_BYTES);
   });
 
+  it("streams the shared trust metadata at agentic/trust-v1.json (no runtime-id segment)", async () => {
+    // Given: the CLI fetches trust from artifacts/agentic/trust-v1.json (TRUST_URL).
+    const env = await createEnv();
+    const trustPath = ["agentic", "trust-v1.json"];
+    await env.PUBLIC_ARTIFACTS.put("artifacts/agentic/trust-v1.json", "{}", {
+      httpMetadata: { contentType: "application/json" },
+    });
+
+    // When: the appliance downloads the shared-trust URL.
+    const response = await requestArtifact(env, { path: trustPath });
+
+    // Then: the one-segment key streams instead of 404ing on the runtime-id shape.
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    expect(await response.text()).toBe("{}");
+  });
+
+  it("rejects a single-dot segment", async () => {
+    const env = await createEnv();
+    const response = await requestArtifact(env, { path: ["agentic", ".", "manifest.json"] });
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: "not_found" });
+  });
+
   it("returns not_found JSON when the R2 object is missing", async () => {
     // Given: the public R2 bucket does not contain the requested artifact.
     const env = await createEnv();

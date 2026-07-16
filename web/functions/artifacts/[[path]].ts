@@ -36,7 +36,9 @@ type ArtifactContext = {
   readonly request: Request;
 };
 
-const ARTIFACT_KEY_PATTERN = /^artifacts\/agentic\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+// Two shapes the CLI fetches: the runtime bundle artifacts/agentic/<runtime_id>/<file>
+// and the shared trust metadata artifacts/agentic/trust-v1.json (no runtime-id segment).
+const ARTIFACT_KEY_PATTERN = /^artifacts\/agentic\/(?:[A-Za-z0-9._-]+\/)?[A-Za-z0-9._-]+$/;
 const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export async function onRequest(context: ArtifactContext): Promise<Response> {
@@ -82,7 +84,7 @@ export async function onRequest(context: ArtifactContext): Promise<Response> {
 
 function artifactKey(path: ArtifactRouteParams["path"]): string | null {
   const segments = typeof path === "string" ? path.split("/") : path;
-  if (segments === undefined || segments.length === 0 || segments.some((segment) => segment.length === 0 || segment === "..")) {
+  if (segments === undefined || segments.length === 0 || segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")) {
     return null;
   }
   const key = `artifacts/${segments.join("/")}`;
