@@ -209,3 +209,13 @@ Cloudflare Pages keeps deployment history. Use Pages → `local-bench` → Deplo
 ## Anonymity Caveat
 
 A private GitHub repo hides source and commit history from the public, but Cloudflare and GitHub still know the owning account. If public pseudonymity matters, use a clean pseudonymous GitHub org/repo before connecting Pages.
+
+## Public Runtime Artifact Binding
+
+In the Cloudflare dashboard, open **Workers & Pages → local-bench → Settings → Bindings** and add an R2 bucket binding with variable name `ARTIFACTS` and bucket `localbench-public-artifacts`. Add the binding to both Production and Preview, then redeploy each environment so `/artifacts/*` can read the bucket.
+
+Upload each runtime file under the key used by the signed manifest:
+
+```powershell
+npx wrangler r2 object put localbench-public-artifacts/artifacts/agentic/<runtime_id>/<file> --file <local>
+```
