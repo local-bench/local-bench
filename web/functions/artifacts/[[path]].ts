@@ -23,7 +23,7 @@ type ArtifactR2Bucket = {
 };
 
 export type ArtifactEnv = {
-  readonly ARTIFACTS: ArtifactR2Bucket;
+  readonly PUBLIC_ARTIFACTS: ArtifactR2Bucket;
 };
 
 type ArtifactRouteParams = {
@@ -57,7 +57,7 @@ export async function onRequest(context: ArtifactContext): Promise<Response> {
     return Response.json({ error: "invalid_range" }, { status: 416 });
   }
   const rangeOptions = requestedRange === null ? undefined : { range: requestedRange };
-  const object = await context.env.ARTIFACTS.get(key, rangeOptions);
+  const object = await context.env.PUBLIC_ARTIFACTS.get(key, rangeOptions);
   if (object === null) {
     return notFound();
   }

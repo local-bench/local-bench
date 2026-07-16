@@ -6,7 +6,7 @@ const ARTIFACT_PATH = ["agentic", "runtime-v1", "rootfs.tar.xz"] as const;
 const ARTIFACT_KEY = `artifacts/${ARTIFACT_PATH.join("/")}`;
 const ARTIFACT_BYTES = "0123456789";
 
-type ArtifactTestBucket = ArtifactEnv["ARTIFACTS"] & {
+type ArtifactTestBucket = ArtifactEnv["PUBLIC_ARTIFACTS"] & {
   put(
     key: string,
     value: string,
@@ -15,7 +15,7 @@ type ArtifactTestBucket = ArtifactEnv["ARTIFACTS"] & {
 };
 
 type ArtifactTestEnv = {
-  readonly ARTIFACTS: ArtifactTestBucket;
+  readonly PUBLIC_ARTIFACTS: ArtifactTestBucket;
 };
 
 const miniflares: Miniflare[] = [];
@@ -165,7 +165,7 @@ async function createEnv(): Promise<ArtifactTestEnv> {
   const miniflare = new Miniflare({
     compatibilityDate: "2026-06-27",
     modules: true,
-    r2Buckets: { ARTIFACTS: "localbench-public-artifacts" },
+    r2Buckets: { PUBLIC_ARTIFACTS: "localbench-public-artifacts" },
     script: "export default { fetch() { return new Response('ok'); } }",
   });
   miniflares.push(miniflare);
@@ -173,7 +173,7 @@ async function createEnv(): Promise<ArtifactTestEnv> {
 }
 
 async function putArtifact(env: ArtifactTestEnv): Promise<void> {
-  await env.ARTIFACTS.put(ARTIFACT_KEY, ARTIFACT_BYTES, {
+  await env.PUBLIC_ARTIFACTS.put(ARTIFACT_KEY, ARTIFACT_BYTES, {
     httpMetadata: { contentType: "application/x-xz" },
   });
 }
