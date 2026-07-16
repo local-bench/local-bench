@@ -445,7 +445,7 @@
       "has_code_artifacts": true,
       "index_version": "index-v4.0",
       "lane": "bounded-final-v2",
-      "latency_s_median": 4.976,
+      "latency_s_median": 39.658,
       "n_errors": 0,
       "n_items": 1457,
       "origin": "project_anchor",
@@ -517,14 +517,14 @@
       "score_status": "measured",
       "static_index_version": "static-suite-v3",
       "tier": "standard",
-      "tok_s": 385.436906882349,
+      "tok_s": 48.36372946956659,
       "tokens_to_answer_median": 1918.0,
       "tokens_to_answer_p95": 9318.0,
       "trust_label": "project_anchor",
       "verdict_source": "verifier",
       "vram_footprint_gb": 18.323731456,
       "vram_required_gb_8k": null,
-      "wall_time_seconds": 12580.048545999918
+      "wall_time_seconds": 100257.26
     }
   ],
   "slug": "gemma-4-31b-it"

@@ -1167,7 +1167,7 @@
       "index_version": "index-v4.0",
       "kind": "maintainer_project",
       "lane": "bounded-final-v2",
-      "latency_s_median": 4.976,
+      "latency_s_median": 39.658,
       "model_label": "Gemma 4 31B IT",
       "n_runs": 2,
       "origin": "project_anchor",
@@ -1188,7 +1188,7 @@
       "tokens_to_answer_p95": 9318.0,
       "trust_label": "project_anchor",
       "verdict_source": "verifier",
-      "wall_time_seconds": 12580.048545999918
+      "wall_time_seconds": 100257.26
     },
     {
       "axes": {},

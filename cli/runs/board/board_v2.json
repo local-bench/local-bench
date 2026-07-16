@@ -1,6 +1,6 @@
 {
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
-  "generated_at": "2026-07-13T02:19:23.268734+00:00",
+  "generated_at": "2026-07-16T21:16:30.017697+00:00",
   "generated_note": "Produced by localbench board from scorer-side scores; board-v2 folds AppWorld-C into the headline composite.",
   "index_version": "index-v4.0",
   "lane_scope": "bounded-final-v2",
@@ -12,7 +12,7 @@
     "execution_profile_id": null,
     "extractor_version": null,
     "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-    "generated_at": "2026-07-13T02:19:23.268734+00:00",
+    "generated_at": "2026-07-16T21:16:30.017697+00:00",
     "index_version": "index-v4.0",
     "item_set_hashes": {
       "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
@@ -41,7 +41,7 @@
     },
     "scorecard_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
     "scorecard_version": "5",
-    "scorer_git_commit": "8d0bdb1196cf935f4d590ba3a938526aaaa684aa",
+    "scorer_git_commit": "805eda99e560180013ffbde0596402f83d2fd4e0",
     "scorer_versions": {
       "amo": "1",
       "appworld_c": "1",
@@ -471,7 +471,7 @@
       "index_version": "index-v4.0",
       "kind": "maintainer_project",
       "lane": "bounded-final-v2",
-      "latency_s_median": 4.976,
+      "latency_s_median": 39.658,
       "model_label": "Gemma 4 31B IT",
       "n_runs": 2,
       "publisher": "google",
@@ -620,7 +620,7 @@
           "is_best": true,
           "is_recommended": true,
           "lane": "bounded-final-v2",
-          "latency_s_median": 4.976,
+          "latency_s_median": 39.658,
           "n_runs": 1,
           "publisher": "google",
           "quant_label": "Q4_K_M",
@@ -631,7 +631,7 @@
           "tier": "standard",
           "tokens_to_answer_median": 1918.0,
           "tokens_to_answer_p95": 9318.0,
-          "wall_time_seconds": 12580.048545999918
+          "wall_time_seconds": 100257.26
         },
         {
           "axes": {
@@ -707,7 +707,7 @@
       "tier": "standard",
       "tokens_to_answer_median": 1918.0,
       "tokens_to_answer_p95": 9318.0,
-      "wall_time_seconds": 12580.048545999918
+      "wall_time_seconds": 100257.26
     },
     {
       "agentic_run": {

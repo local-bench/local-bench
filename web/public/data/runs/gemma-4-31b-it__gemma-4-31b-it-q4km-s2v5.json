@@ -475,12 +475,12 @@
   "tokens_to_answer_p95": 9318.0,
   "totals": {
     "completion_tokens": 4848815,
-    "completion_tokens_per_second": 385.436906882349,
+    "completion_tokens_per_second": 48.36372946956659,
     "n_errors": 0,
     "n_items": 1457,
     "prompt_tokens": 5527046,
     "total_tokens": 10375861,
-    "wall_time_seconds": 12580.048545999918
+    "wall_time_seconds": 100257.26
   },
   "trust_label": "project_anchor",
   "verdict_source": "verifier",
