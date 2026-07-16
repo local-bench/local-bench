@@ -71,12 +71,23 @@ def generate_exact_digest_allowlist(
         categories: dict[str, int] = {}
         for member in archive.getmembers():
             name = member.name.removeprefix("./").removeprefix("/")
-            if not member.isfile() or name in dpkg_files or name in wheel_files:
+            if not member.isfile() or name in wheel_files:
                 continue
             stream = archive.extractfile(member)
             if stream is None:
                 raise ScanError(f"archive member is unreadable: {name}")
-            residue[name] = stream.read()
+            data = stream.read()
+            # dpkg admission mirrors scan semantics: the recorded digest must exist AND
+            # match; a mismatching record (e.g. the livecd-rootfs start-stop-daemon
+            # restore artifact in Ubuntu cloud images) demands individual review here.
+            package_digest = dpkg_files.get(name)
+            if package_digest is not None and (
+                hashlib.md5(data, usedforsecurity=False).hexdigest() == package_digest
+            ):
+                continue
+            if name in dpkg_files and package_digest is None:
+                continue
+            residue[name] = data
             category = _residue_category(name)
             categories[category] = categories.get(category, 0) + 1
     files: dict[str, dict[str, str]] = {}
@@ -744,7 +755,17 @@ def _justify_regular_file(
     package_digest = packaged_files.get(normalized)
     package_admitted = package_digest is not None
     if package_digest is not None and hashlib.md5(data, usedforsecurity=False).hexdigest() != package_digest:
-        raise ScanError(f"dpkg manifest digest mismatch: {normalized}")
+        exact_override = digest_allowlist.get(normalized)
+        if (
+            isinstance(exact_override, dict)
+            and exact_override.get("sha256") == hashlib.sha256(data).hexdigest()
+        ):
+            # A reviewed exact-digest entry supersedes a stale dpkg record (the base
+            # image ships start-stop-daemon bytes that differ from dpkg's md5sums —
+            # a known livecd-rootfs build artifact); admission proceeds as exact-digest.
+            package_admitted = False
+        else:
+            raise ScanError(f"dpkg manifest digest mismatch: {normalized}")
     wheel_digest = wheel_files.get(normalized)
     wheel_admitted = wheel_digest is not None
     if wheel_digest is not None and hashlib.sha256(data).hexdigest() != wheel_digest:

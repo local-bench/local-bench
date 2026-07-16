@@ -389,6 +389,82 @@ def test_protected_scalar_still_rejected_outside_localbench_contract_metadata(tm
         )
 
 
+def test_dpkg_digest_mismatch_lands_in_residue_and_needs_review(tmp_path: Path) -> None:
+    body = b"restored-from-build-env\n"
+    files = {
+        "etc/localbench-appliance-owner.json": b'{"runtime_id":"r2"}',
+        "var/lib/dpkg/status": b"Package: demo\nStatus: install ok installed\nVersion: 1\n\n",
+        "var/lib/dpkg/info/demo.list": b"/usr/sbin/start-stop-daemon\n",
+        "var/lib/dpkg/info/demo.md5sums": (
+            b"00000000000000000000000000000000  usr/sbin/start-stop-daemon\n"
+        ),
+        "usr/sbin/start-stop-daemon": body,
+    }
+    category_policy = {
+        "dpkg-database-and-maintainer-metadata": {
+            "reason": "dpkg database fixture",
+            "expected_count": 3,
+        },
+    }
+    with pytest.raises(scanner.ScanError, match="exact-digest residue exceeds review limit"):
+        scanner.generate_exact_digest_allowlist(
+            archive(tmp_path, files),
+            rootfs_id="r2",
+            residue_justifications={
+                "etc/localbench-appliance-owner.json": "owner marker binds the distro",
+            },
+            residue_category_justifications=category_policy,
+        )
+    generated = scanner.generate_exact_digest_allowlist(
+        archive(tmp_path, files),
+        rootfs_id="r2",
+        residue_justifications={
+            "etc/localbench-appliance-owner.json": "owner marker binds the distro",
+            "usr/sbin/start-stop-daemon": "base-image restore artifact; reviewed",
+        },
+        residue_category_justifications=category_policy,
+    )
+    assert generated["files"]["usr/sbin/start-stop-daemon"]["sha256"] == (
+        hashlib.sha256(body).hexdigest()
+    )
+
+
+def test_scan_admits_reviewed_override_of_stale_dpkg_record(tmp_path: Path) -> None:
+    body = b"restored-from-build-env\n"
+    metadata = {
+        "var/lib/dpkg/status": b"Package: demo\nStatus: install ok installed\nVersion: 1\n\n",
+        "var/lib/dpkg/info/demo.list": b"/usr/sbin/start-stop-daemon\n",
+        "var/lib/dpkg/info/demo.md5sums": (
+            b"00000000000000000000000000000000  usr/sbin/start-stop-daemon\n"
+        ),
+    }
+    files = {**metadata, "usr/sbin/start-stop-daemon": body}
+    report = scanner.scan_release(
+        archive(tmp_path, files),
+        allowed_top_levels={"var", "usr"},
+        exact_digest_allowlist=exact(files),
+    )
+    assert report["result"] == "passed"
+
+
+def test_scan_rejects_stale_dpkg_record_without_reviewed_override(tmp_path: Path) -> None:
+    body = b"restored-from-build-env\n"
+    metadata = {
+        "var/lib/dpkg/status": b"Package: demo\nStatus: install ok installed\nVersion: 1\n\n",
+        "var/lib/dpkg/info/demo.list": b"/usr/sbin/start-stop-daemon\n",
+        "var/lib/dpkg/info/demo.md5sums": (
+            b"00000000000000000000000000000000  usr/sbin/start-stop-daemon\n"
+        ),
+    }
+    files = {**metadata, "usr/sbin/start-stop-daemon": body}
+    with pytest.raises(scanner.ScanError, match="dpkg manifest digest mismatch"):
+        scanner.scan_release(
+            archive(tmp_path, files),
+            allowed_top_levels={"var", "usr"},
+            exact_digest_allowlist=exact(metadata),
+        )
+
+
 def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None:
     database = tmp_path / "fixture.sqlite"
     connection = sqlite3.connect(database)
