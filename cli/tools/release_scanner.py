@@ -22,6 +22,13 @@ PROTECTED_PATH = re.compile(
     r"(?i)(^|/)(appworld(?:-[^/]+)?\.dist-info|appworld/(?:apps|data|evaluator)|"
     r"ground[_-]?truth|test_(?:normal|challenge)|tasks?)(/|$)"
 )
+# The localbench package's own contract-lineage metadata is committed verbatim in the
+# public repository and names the AppWorld split it selects from (task_identity.split);
+# the protected-content guard targets AppWorld dataset-derived files, which never live
+# in the localbench package. Everything else in these files stays subject to _inspect.
+LOCALBENCH_PUBLIC_METADATA = re.compile(
+    r"(^|/)site-packages/localbench/data/contracts/[^/]+\.json$"
+)
 ARCHIVE_SUFFIXES = (".zip", ".whl", ".tar", ".tar.gz", ".tgz", ".tar.xz", ".txz", ".gz")
 MAX_DEPTH = 5
 MAX_MEMBERS = 500_000
@@ -481,7 +488,8 @@ def _inspect(
             value = json.loads(data.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as error:
             raise ScanError(f"malformed JSON content: {name}") from error
-        _reject_protected_json(name, value)
+        if not LOCALBENCH_PUBLIC_METADATA.search(name):
+            _reject_protected_json(name, value)
         inventory[-1]["content_type"] = "application/json"
         return
     if b"\x00" not in data[:8192]:

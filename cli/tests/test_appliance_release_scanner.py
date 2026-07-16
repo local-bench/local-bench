@@ -365,6 +365,30 @@ def test_dpkg_admission_resolves_usr_merge_aliases(tmp_path: Path) -> None:
     assert "usr/bin/tool" not in generated["files"]
 
 
+def test_localbench_contract_metadata_split_name_is_not_a_protected_leak(tmp_path: Path) -> None:
+    contract = json.dumps({"task_identity": {"split": "test_normal"}}).encode()
+    packaged = "opt/localbench/venv/lib/python3.12/site-packages/localbench/data/contracts/x.json"
+    files = {packaged: contract}
+    report = scanner.scan_release(
+        archive(tmp_path, files),
+        allowed_top_levels={"opt"},
+        exact_digest_allowlist=exact(files),
+    )
+    assert report["result"] == "passed"
+
+
+def test_protected_scalar_still_rejected_outside_localbench_contract_metadata(tmp_path: Path) -> None:
+    contract = json.dumps({"task_identity": {"split": "test_normal"}}).encode()
+    stray = "opt/localbench/notes.json"
+    files = {stray: contract}
+    with pytest.raises(scanner.ScanError, match="protected JSON scalar value"):
+        scanner.scan_release(
+            archive(tmp_path, files),
+            allowed_top_levels={"opt"},
+            exact_digest_allowlist=exact(files),
+        )
+
+
 def test_scanner_enumerates_sqlite_tables_and_row_counts(tmp_path: Path) -> None:
     database = tmp_path / "fixture.sqlite"
     connection = sqlite3.connect(database)
