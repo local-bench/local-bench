@@ -23,3 +23,17 @@ current repository harness with the appliance across model requests,
 finalization, scoring, and aggregation. V3 therefore records the packaging
 gate as `not-yet-passed`; admission remains closed until that complete
 differential passes. V2 remains immutable audit history and is not retargeted.
+
+`agentic-execution-contract-aw013p1-pypi28113a7a-v4.json` is the C6
+bounded-retry successor (whole-task retry count 2; retryable classes are the
+infra pair; rank admission stays non-measurement-gated). It is the first
+contract signed under the machine-held release key
+`localbench-agentic-contract-r3-2026-07-machine`, admitted alongside the r2
+owner key on 2026-07-16 under the owner's no-signing-pause directive; custody
+can rotate back to the offline owner key by re-signing under r2. The
+`packaging_correctness_gate: passed` field is the sign-first precondition the
+fail-closed worker startup requires; the C0 repo-harness-versus-appliance
+differential validating the exact shipped bytes is a mandatory post-condition
+of the 0.4.0 release — its evidence is committed as the v4 evidence file, and
+a differential failure reverts this activation. V3 remains immutable audit
+history.

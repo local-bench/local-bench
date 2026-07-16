@@ -21,6 +21,7 @@ from localbench._types import JsonObject
 from localbench.appliance.manifest import (
     MANIFEST_SCHEMA,
     PINNED_RUNTIME_ID,
+    RUNTIME_KEY_ID,
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
 from localbench.submissions.canon import canonical_json_hash, write_json_file
@@ -155,7 +156,7 @@ def main() -> int:
         {
             "schema": "localbench.runtime_signing_request.v1",
             "domain": "localbench.agentic-runtime-manifest.v1",
-            "key_id": "localbench-runtime-root-2026-07",
+            "key_id": RUNTIME_KEY_ID,
             "payload_sha256": payload_digest,
         },
     )

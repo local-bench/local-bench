@@ -20,14 +20,15 @@ from localbench.submissions.canon import canonical_json_bytes, canonical_json_ha
 from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
 LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
-CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v3"
+CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v4"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
 LEGACY_CONTRACT_FILENAME: Final = f"{LEGACY_CONTRACT_ID}.json"
-CONTRACT_KEY_ID: Final = "localbench-agentic-contract-r2-2026-07"
-CONTRACT_PUBLIC_KEY_HEX: Final = "76b4a757ab22d3aaf69b5fc75d2b7a4e2725fb32a8634ab29d3a491e2bbad8ab"
+CONTRACT_KEY_ID: Final = "localbench-agentic-contract-r3-2026-07-machine"
+CONTRACT_PUBLIC_KEY_HEX: Final = "4859d1b8585402191ef08f4de624a6abda6d834500672ba7ec24bba931d51536"
 CONTRACT_PUBLIC_KEYS: Final = {
     CONTRACT_KEY_ID: CONTRACT_PUBLIC_KEY_HEX,
+    "localbench-agentic-contract-r2-2026-07": "76b4a757ab22d3aaf69b5fc75d2b7a4e2725fb32a8634ab29d3a491e2bbad8ab",
     "localbench-agentic-contract-2026-07": "0becc292026a52fcb7a598cd3729bc45d3bfc31f9aec1b903acec5ddfdbaa6b0",
 }
 CONTRACT_SIGNATURE_DOMAIN: Final = b"localbench.agentic-execution-contract.v1\n"

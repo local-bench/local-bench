@@ -22,7 +22,6 @@ from typing import Final, Literal
 
 from localbench._types import JsonObject
 from localbench.scoring.agentic_exec.execution_contract import (
-    CONTRACT_ID,
     _C6_SOURCE_MODULES,
     _HOST_SOURCE_MODULES,
     _extract_covered_behavior,
@@ -35,7 +34,10 @@ from localbench.scoring.agentic_exec.execution_contract import (
 from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 from localbench.submissions.canon import canonical_json_hash, write_json_file
 
-V4_CONTRACT_ID: Final = CONTRACT_ID.removesuffix("-v3") + "-v4"
+# Literal (not derived from CONTRACT_ID): the builder must produce identical payloads before
+# AND after the activation bump of execution_contract.CONTRACT_ID to the v4 id.
+V4_CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v4"
+BASE_CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v3"
 V4_CONTRACT_VERSION: Final = 4
 V4_WHOLE_TASK_RETRY_COUNT: Final = 2
 GateStatus = Literal[
@@ -59,7 +61,11 @@ TASK_IDENTITY_RUN_EXCERPT_CITATION: Final = (
 
 
 def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
-    base_contract = load_execution_contract()
+    # The v3 predecessor is the base regardless of which contract id is currently active.
+    base_contract = load_execution_contract(
+        REPO_ROOT / "cli/src/localbench/data/contracts" / f"{BASE_CONTRACT_ID}.json",
+        expected_contract_id=BASE_CONTRACT_ID,
+    )
     base = deepcopy(_object(base_contract["payload"]))
     behavior, _ = _extract_covered_behavior()
     behavior["host_agent_loop_scorer_source_sha256"] = _source_bundle_sha256(
@@ -110,7 +116,7 @@ def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
     ]
     base["sandbox_identity"] = sandbox_identity
     lineage = deepcopy(_object(base["identity_lineage"]))
-    lineage["predecessor_contract_id"] = CONTRACT_ID
+    lineage["predecessor_contract_id"] = BASE_CONTRACT_ID
     lineage["predecessor_payload_sha256"] = str(base_contract["payload_sha256"])
     lineage["relationship"] = (
         "unsigned C6 successor draft; owner offline signature required before activation"
