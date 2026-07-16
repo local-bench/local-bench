@@ -29,6 +29,7 @@ from localbench.submissions.canon import canonical_json_bytes
 
 APPWORLD_ROOT = Path("/home/lbworker/appworld")
 VENV = Path("/opt/localbench/venv")
+DOWNLOAD_USER_AGENT = "localbench-appliance/0.4.0"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -274,9 +275,12 @@ def _run_real_ndjson_canary() -> None:
 
 
 def _download(url: str, path: Path, expected_sha: str, maximum: int) -> None:
-    from urllib.request import urlopen
+    from urllib.request import Request, urlopen
 
-    with urlopen(url, timeout=120) as response, path.open("wb") as output:  # noqa: S310 - signed URL/hash
+    # Identify the client explicitly: an anonymous urllib User-Agent is rejected by the
+    # local-bench.ai edge bot protection, which would 403 the signed lock download.
+    request = Request(url, headers={"User-Agent": DOWNLOAD_USER_AGENT})
+    with urlopen(request, timeout=120) as response, path.open("wb") as output:  # noqa: S310 - signed URL/hash
         if response.geturl() != url:
             raise RuntimeError("download redirect is forbidden")
         total = 0

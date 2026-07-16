@@ -118,7 +118,11 @@ class HttpDownloader:
         if ca_bundle is not None:
             verify = ssl.create_default_context(cafile=str(ca_bundle))
         self._client = httpx.Client(
-            follow_redirects=False, timeout=120, verify=verify, trust_env=True
+            follow_redirects=False,
+            timeout=120,
+            verify=verify,
+            trust_env=True,
+            headers={"user-agent": "localbench-appliance/0.4.0"},
         )
 
     def get(self, url: str, *, maximum_bytes: int) -> bytes:

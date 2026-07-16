@@ -13,6 +13,49 @@ import localbench.appliance.worker as appliance_worker
 from localbench.scoring.agentic_exec import wsl_worker
 
 
+def test_download_sends_identifying_user_agent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The local-bench.ai edge 403s an anonymous urllib User-Agent, so the signed-artifact
+    # download must identify the client.
+    payload = b"lock-bytes\n"
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        def __init__(self) -> None:
+            self._chunks = [payload, b""]
+
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def geturl(self) -> str:
+            return "https://local-bench.ai/artifacts/agentic/x/appworld.lock"
+
+        def read(self, _size: int) -> bytes:
+            return self._chunks.pop(0)
+
+    def fake_urlopen(request: object, timeout: int) -> FakeResponse:
+        captured["url"] = request.full_url
+        captured["user_agent"] = request.get_header("User-agent")
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(appliance_worker, "urlopen", fake_urlopen, raising=False)
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    destination = tmp_path / "appworld.lock"
+    appliance_worker._download(
+        "https://local-bench.ai/artifacts/agentic/x/appworld.lock",
+        destination,
+        hashlib.sha256(payload).hexdigest(),
+        len(payload),
+    )
+    assert captured["user_agent"] == appliance_worker.DOWNLOAD_USER_AGENT
+    assert destination.read_bytes() == payload
+
+
 class FakeDistribution:
     def __init__(self, root: Path, files: list[PurePosixPath]) -> None:
         self.root = root
