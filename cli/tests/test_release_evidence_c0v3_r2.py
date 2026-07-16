@@ -114,10 +114,10 @@ def test_committed_differential_proves_distinct_installations() -> None:
     for module in ORIGIN_MODULES:
         assert str(repo["module_origins"][module]).startswith("/opt/localbench/diff-src/")
         assert str(appliance["module_origins"][module]).startswith("/opt/localbench/venv/")
-    assert not any(
-        "/opt/localbench/diff-src" in str(entry)
-        for entry in appliance["module_origins"].get("sys_path", [])
-    )
+    # sys_path must be present (a forged bundle must not skip the leak check by omitting it).
+    appliance_sys_path = appliance["module_origins"]["sys_path"]
+    assert isinstance(appliance_sys_path, list) and appliance_sys_path
+    assert not any("/opt/localbench/diff-src" in str(entry) for entry in appliance_sys_path)
     assert repo["module_origins"].get("sys_prefix") == "/opt/localbench/venv"
 
     # Per-task traces exist on both sides, are equal across sides, and are not hollow digests.
@@ -157,6 +157,11 @@ def test_differential_selftest_is_a_bound_negative_control() -> None:
     selftest = _load("packaging-differential-selftest.json")
     assert selftest["mode"] == "self-test"
     assert selftest["verdict"] != "pass"
+    # Bind the negative control to this exact release so a stale self-test from an earlier
+    # build cannot satisfy the gate.
+    assert selftest["runtime_id"] == PINNED_RUNTIME_ID
+    assert selftest["rootfs_sha256"] == RELEASE_ROOTFS_SHA256
+    assert selftest["worker_wheel_sha256"] == RELEASE_WORKER_WHEEL_SHA256
     # The failure must be a designed source-divergence detection, not an unrelated startup
     # error that would mean the detection layer never fired.
     blob = json.dumps(selftest)
