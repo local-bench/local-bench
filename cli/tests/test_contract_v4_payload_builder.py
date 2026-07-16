@@ -11,7 +11,6 @@ import pytest
 
 from localbench._types import JsonObject
 from localbench.scoring.agentic_exec.execution_contract import (
-    CONTRACT_ID,
     load_execution_contract,
     validate_execution_contract_payload,
 )
@@ -19,6 +18,7 @@ from localbench.scoring.agentic_exec.worker_identity import worker_implementatio
 from localbench.scoring.agentic_exec.wsl_worker import _PIN_ENV
 from localbench.submissions.canon import canonical_json_hash
 from scripts.build_contract_v4_payload import (
+    BASE_CONTRACT_ID,
     V4_CONTRACT_ID,
     build_v4_payload,
 )
@@ -76,6 +76,12 @@ def test_v4_payload_builder_is_deterministic_and_preserves_contract_store(
 
 def test_v4_payload_builder_carries_gate_status_and_v3_lineage_verbatim() -> None:
     # Given / When: both authorized gate-status payload variants are built.
+    predecessor = load_execution_contract(
+        _REPO_ROOT
+        / "cli/src/localbench/data/contracts"
+        / f"{BASE_CONTRACT_ID}.json",
+        expected_contract_id=BASE_CONTRACT_ID,
+    )
     default = build_v4_payload(gate_status="not-yet-passed")
     passed = build_v4_payload(
         gate_status="passed-current-repo-harness-vs-appliance"
@@ -86,12 +92,12 @@ def test_v4_payload_builder_carries_gate_status_and_v3_lineage_verbatim() -> Non
     assert passed["packaging_correctness_gate"]["status"] == (
         "passed-current-repo-harness-vs-appliance"
     )
-    assert default["identity_lineage"]["predecessor_contract_id"] == CONTRACT_ID
+    assert default["identity_lineage"]["predecessor_contract_id"] == BASE_CONTRACT_ID
     assert default["identity_lineage"]["predecessor_payload_sha256"] == (
-        load_execution_contract()["payload_sha256"]
+        predecessor["payload_sha256"]
     )
     assert default["covered_behavior"]["run_aggregation"] == (
-        load_execution_contract()["payload"]["covered_behavior"]["run_aggregation"]
+        predecessor["payload"]["covered_behavior"]["run_aggregation"]
     )
 
 

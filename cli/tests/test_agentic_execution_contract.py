@@ -7,10 +7,12 @@ import re
 
 import pytest
 
+from agentic_contract_fixtures import write_test_signed_v4_contract
 from localbench.scoring.agentic_exec import execution_contract as execution_contract_module
 from localbench.scoring.agentic_exec.contract_scope import execution_contract_scope
 from localbench.scoring.agentic_exec.execution_contract import (
     CONTRACT_ID,
+    CONTRACT_PUBLIC_KEYS,
     CONTRACT_SCHEMA,
     CONTRACT_SIGNATURE_DOMAIN,
     LEGACY_CONTRACT_ID,
@@ -31,11 +33,15 @@ from localbench.scoring.agentic_exec.task_pool import (
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import verify_bytes
+from scripts.build_contract_v4_payload import build_v4_payload
 
 
 _CITATION_PATTERN = re.compile(r"^(.+?):(\d+)(?:-(\d+))?$")
 _CONSTRUCTION_MARKERS = {
-    "covered_behavior_sha256": '"covered_behavior_sha256": canonical_json_hash(behavior)',
+    "covered_behavior_sha256": (
+        '"covered_behavior_sha256": canonical_json_hash(behavior)',
+        'base["covered_behavior_sha256"] = canonical_json_hash(behavior)',
+    ),
 }
 
 
@@ -111,7 +117,11 @@ def _assert_provenance_citations(payload: dict[str, object], repo: Path) -> None
 
         marker = _CONSTRUCTION_MARKERS.get(path)
         if marker is not None:
-            assert any(marker in span for span in cited_spans), (
+            assert any(
+                construction in span
+                for construction in marker
+                for span in cited_spans
+            ), (
                 f"{path}: construction is outside {citation}"
             )
 
@@ -149,18 +159,22 @@ def test_contract_extraction_and_signature_are_deterministic(tmp_path: Path) -> 
 
 
 def test_contract_assertion_fails_closed_on_unpassed_packaging_gate(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    contract = load_execution_contract()
-    payload = contract["payload"]
-    assert isinstance(payload, dict)
+    payload = build_v4_payload(gate_status="not-yet-passed")
+    path = write_test_signed_v4_contract(
+        tmp_path,
+        monkeypatch,
+        payload=payload,
+    )
     monkeypatch.setattr(
         execution_contract_module,
         "_extract_covered_behavior",
         lambda: (payload["covered_behavior"], {}),
     )
     with pytest.raises(ExecutionContractDriftError, match="not-yet-passed"):
-        assert_execution_contract()
+        assert_execution_contract(path)
 
 
 def test_task_identity_hashes_respond_only_to_their_own_inputs() -> None:
@@ -186,6 +200,12 @@ def test_checked_in_contract_is_signed_and_carries_frozen_c0_identity() -> None:
     contract = load_execution_contract()
     payload = contract["payload"]
     assert isinstance(payload, dict)
+    signature = contract["signature"]
+    assert isinstance(signature, dict)
+    key_id = signature["key_id"]
+    assert isinstance(key_id, str)
+    assert key_id in CONTRACT_PUBLIC_KEYS
+    assert signature["public_key"] == CONTRACT_PUBLIC_KEYS[key_id]
     identity = payload["task_identity"]
     assert isinstance(identity, dict)
     assert len(identity["ordered_task_ids"]) == 96
@@ -198,7 +218,9 @@ def test_checked_in_contract_is_signed_and_carries_frozen_c0_identity() -> None:
     }
     assert payload["legacy_continuity"]["decision"] == "accepted_by_owner_fiat"
     assert payload["packaging_correctness_gate"]["required"] is True
-    assert payload["packaging_correctness_gate"]["status"] == "not-yet-passed"
+    assert payload["packaging_correctness_gate"]["status"] == (
+        "passed-current-repo-harness-vs-appliance"
+    )
     assert payload["appworld_identity"]["appworld_data_sha256"] == identity[
         "semantic_task_sha256"
     ]
@@ -386,15 +408,35 @@ def test_frozen_artifacts_keep_legacy_hashes_and_add_contract_hashes() -> None:
             assert artifact[field] == identity[field]
 
 
-def test_successor_contract_truthfully_closes_unpassed_packaging_gate() -> None:
-    payload = load_execution_contract()["payload"]
-    gate = payload["packaging_correctness_gate"]
-    assert gate == {
+def test_successor_contract_truthfully_distinguishes_draft_and_release_gate() -> None:
+    draft = build_v4_payload(gate_status="not-yet-passed")
+    release = load_execution_contract()["payload"]
+    gate_fields = {
         "required": True,
-        "status": "not-yet-passed",
         "kind": "current_repo_harness_vs_appliance_worker_differential",
-        "equal_fields": ["model_turn_requests", "sandbox_operations", "finalize_verdict", "scored_envelopes", "aggregates"],
+        "equal_fields": [
+            "model_turn_requests",
+            "sandbox_operations",
+            "finalize_verdict",
+            "scored_envelopes",
+            "aggregates",
+        ],
         "gpu_required": False,
         "admission": "fail-closed",
         "reason": "R2 reverify found the prior direct-session comparison exercised installed code against itself",
     }
+    assert draft["packaging_correctness_gate"] == {
+        **gate_fields,
+        "status": "not-yet-passed",
+    }
+    assert release["packaging_correctness_gate"] == {
+        **gate_fields,
+        "status": "passed-current-repo-harness-vs-appliance",
+    }
+    assert draft["identity_lineage"]["relationship"] == (
+        "unsigned C6 successor draft; release signature required before activation"
+    )
+    assert release["identity_lineage"]["relationship"] == (
+        "C6 successor activated under the release signing key; sign-first ceremony -- "
+        "the C0 packaging differential is the mandatory release post-condition"
+    )

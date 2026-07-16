@@ -89,7 +89,7 @@ def test_test_signed_v4_contract_resolves_builder_derived_semantics(
 
     # Then: the round-trip payload and every C6 policy field are contract-derived.
     assert load_execution_contract(path, expected_contract_id=V4_CONTRACT_ID)["payload"] == (
-        build_v4_payload(gate_status="not-yet-passed")
+        build_v4_payload(gate_status="passed-current-repo-harness-vs-appliance")
     )
     assert semantics.contract_version == 4
     assert semantics.whole_task_retry_count == 2
