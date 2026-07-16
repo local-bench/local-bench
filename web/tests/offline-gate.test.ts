@@ -31,6 +31,18 @@ describe("private site gate", () => {
     expect(response.headers.get("x-robots-tag")).toBe("noindex");
   });
 
+  it("allows public artifact downloads when private mode is enabled", async () => {
+    // Given: private prototype mode is enabled while signed manifests reference public artifacts.
+    const request = new Request("https://local-bench.ai/artifacts/agentic/runtime-v1/rootfs.tar.xz");
+
+    // When: the appliance requests an artifact without an owner bypass token.
+    const response = await onRequest({ env: { LOCALBENCH_SITE_PRIVATE: "1" }, next: nextResponse, request });
+
+    // Then: middleware passes the same-origin download through unchanged.
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("ok");
+  });
+
   it("allows owner smoke checks through the bypass header", async () => {
     // Given: private mode is enabled with an owner bypass token.
     const request = new Request("https://local-bench.ai/api/health", {
