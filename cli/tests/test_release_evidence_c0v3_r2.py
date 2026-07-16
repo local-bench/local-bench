@@ -35,10 +35,10 @@ EVIDENCE_DIR = (
 # Recorded in the release README; the worker wheel the rootfs baked and the differential
 # validated. Bound here so a swapped evidence bundle with a different wheel is rejected.
 RELEASE_WORKER_WHEEL_SHA256 = (
-    "7620f2443e603e15ab4208d0d96282ec34962049e49f6ff3b6047c0c93f9b2cb"
+    "9d2b7962932e6b3b6ae57f338ee3fab4b2233ab48333c7a124b53794d9c6ab3f"
 )
 RELEASE_ROOTFS_SHA256 = (
-    "b1fd82aa3459d3ad469c4cf5688109fb62ab27dee8444b011df67ba1023e7107"
+    "257108fb8b17ec11374acf81d80d24419c677aea7de78dcf9ee8f3ece730ac11"
 )
 EQUAL_FIELDS = frozenset(
     {
