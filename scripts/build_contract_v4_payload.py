@@ -9,7 +9,9 @@
 #      curl -LsSf https://astral.sh/uv/install.sh | sh
 # 2. Build the default unsigned draft:
 #      uv run scripts/build_contract_v4_payload.py
-# 3. Record a passed Phase-4 differential only after it actually passes:
+# 3. Ceremony build (sign-first, fail-closed): gate-status=passed is signed BEFORE the
+#    differential can run — worker startup refuses any other status — and the C0 packaging
+#    differential is the mandatory release post-condition validating the shipped bytes:
 #      uv run scripts/build_contract_v4_payload.py --gate-status passed-current-repo-harness-vs-appliance
 # ──────────────────
 
@@ -119,7 +121,10 @@ def build_v4_payload(*, gate_status: GateStatus) -> JsonObject:
     lineage["predecessor_contract_id"] = BASE_CONTRACT_ID
     lineage["predecessor_payload_sha256"] = str(base_contract["payload_sha256"])
     lineage["relationship"] = (
-        "unsigned C6 successor draft; owner offline signature required before activation"
+        "C6 successor activated under the release signing key; sign-first ceremony -- the"
+        " C0 packaging differential is the mandatory release post-condition"
+        if gate_status == "passed-current-repo-harness-vs-appliance"
+        else "unsigned C6 successor draft; release signature required before activation"
     )
     base["identity_lineage"] = lineage
     packaging_gate = deepcopy(_object(base["packaging_correctness_gate"]))
