@@ -186,6 +186,34 @@ def item_set_hashes(scored: Sequence[ScoredRun]) -> JsonObject:
     return rendered
 
 
+# Wall-time totals must be physically consistent with the measured decode rate. A resumed
+# or re-scored run dir can overwrite cumulative wall time with the final segment's process
+# clock (the 2026-07-15 gemma-31b incident: ~27.9h of bench time across three segments
+# recorded as the 3.5h agentic re-run) while token totals still span every segment. A real
+# run always implies LESS throughput than raw decode — wall time adds prefill, model load,
+# and scoring overhead — so implied throughput far above decode is corruption, never noise.
+_WALL_TIME_CONSISTENCY_FACTOR = 1.25
+
+
+def _validate_wall_time_consistency(run: JsonObject, totals: JsonObject, path: Path) -> None:
+    wall = number_or_none(totals.get("wall_time_seconds"))
+    completion_tokens = number_or_none(totals.get("completion_tokens"))
+    decode_tps = number_or_none(object_or_empty(run.get("perf")).get("decode_tps"))
+    if wall is None or completion_tokens is None or decode_tps is None:
+        return
+    if wall <= 0 or decode_tps <= 0:
+        return
+    implied_tps = completion_tokens / wall
+    if implied_tps > decode_tps * _WALL_TIME_CONSISTENCY_FACTOR:
+        raise BoardBuildError(
+            f"{path.name}: totals.wall_time_seconds={wall:.2f}s implies "
+            f"{implied_tps:.1f} completion tok/s, above measured perf.decode_tps "
+            f"{decode_tps:.1f} — the wall clock covers only part of the run "
+            f"(resumed-run timing overwrite). Recompute cumulative wall time across "
+            f"all segments before boarding this record."
+        )
+
+
 def _scored_run(
     source: CuratedSource,
     run: JsonObject,
@@ -204,6 +232,7 @@ def _scored_run(
     if has_inline_appworld:
         _validate_inline_appworld_c(run, benches, items, path)
     totals = object_value(run.get("totals"), f"{path.name}.totals")
+    _validate_wall_time_consistency(run, totals, path)
     manifest = object_or_empty(run.get("manifest"))
     suite = object_or_empty(manifest.get("suite"))
     conformance = object_or_empty(run.get("conformance"))
