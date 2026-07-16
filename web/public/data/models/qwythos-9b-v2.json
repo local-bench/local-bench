@@ -1,0 +1,198 @@
+{
+  "artifacts": [
+    {
+      "file_gb": 5.7,
+      "file_sha256": "c0a588704f422b713eca29b2c1f192ae6f69aea3f9e7cb64f9ecdb76ff7a85f4",
+      "file_size_bytes": 5736063744,
+      "filename": "Qwythos-9B-v2-Q4_K_M.gguf",
+      "quant_label": "Q4_K_M",
+      "repo_id": "empero-ai/Qwythos-9B-v2-GGUF",
+      "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+      "vram_gb_8k": 7.7
+    },
+    {
+      "file_gb": 6.5,
+      "file_sha256": "fc5251e8e3e87d58946522833eb896c84375a715b6f89c54cdd10082ecc6ea8d",
+      "file_size_bytes": 6523806464,
+      "filename": "Qwythos-9B-v2-Q5_K_M.gguf",
+      "quant_label": "Q5_K_M",
+      "repo_id": "empero-ai/Qwythos-9B-v2-GGUF",
+      "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+      "vram_gb_8k": 8.5
+    },
+    {
+      "file_gb": 7.5,
+      "file_sha256": "dd39e148823f0bab858e946d603e4bf424240aae34435580be820f09c75ca379",
+      "file_size_bytes": 7458300672,
+      "filename": "Qwythos-9B-v2-Q6_K.gguf",
+      "quant_label": "Q6_K",
+      "repo_id": "empero-ai/Qwythos-9B-v2-GGUF",
+      "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+      "vram_gb_8k": 9.5
+    },
+    {
+      "file_gb": 9.5,
+      "file_sha256": "3324ac1a7260fbb484d10373df7d54d156ff6c4f5c577d87dbd0218928beab89",
+      "file_size_bytes": 9527501568,
+      "filename": "Qwythos-9B-v2-Q8_0.gguf",
+      "quant_label": "Q8_0",
+      "repo_id": "empero-ai/Qwythos-9B-v2-GGUF",
+      "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+      "vram_gb_8k": 11.5
+    }
+  ],
+  "base_model": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+  "catalog_id": "empero-ai/Qwythos-9B-v2",
+  "demo": false,
+  "family": "Qwen3.5",
+  "gguf_repo": "empero-ai/Qwythos-9B-v2-GGUF",
+  "hf_model_id": "empero-ai/Qwythos-9B-v2",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "finetune",
+  "model_label": "Qwythos 9B v2",
+  "org": "empero-ai",
+  "runs": [
+    {
+      "axes": {},
+      "bpw": 4.7,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 5.7,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q4_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 5.7,
+      "vram_required_gb_8k": 7.7,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 5.4,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 6.5,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q5_K_M",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 6.5,
+      "vram_required_gb_8k": 8.5,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 6.2,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 7.5,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q6_K",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 7.5,
+      "vram_required_gb_8k": 9.5,
+      "wall_time_seconds": null
+    },
+    {
+      "axes": {},
+      "bpw": 7.9,
+      "composite": null,
+      "demo": false,
+      "est_cost_usd": null,
+      "file_gb": 9.5,
+      "hardware": {
+        "cpu": null,
+        "gpu": null,
+        "os": null,
+        "ram_gb": null
+      },
+      "lane": "answer-only",
+      "n_errors": 0,
+      "n_items": 0,
+      "quant_label": "Q8_0",
+      "ranked": false,
+      "run_id": null,
+      "runtime": {
+        "ctx_len_configured": null,
+        "kv_cache_quant": null,
+        "name": null,
+        "parallel_slots": null,
+        "version": null
+      },
+      "score_status": "missing",
+      "tier": null,
+      "tok_s": null,
+      "tokens_to_answer_median": null,
+      "tokens_to_answer_p95": null,
+      "vram_footprint_gb": 9.5,
+      "vram_required_gb_8k": 11.5,
+      "wall_time_seconds": null
+    }
+  ],
+  "slug": "qwythos-9b-v2"
+}

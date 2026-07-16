@@ -16628,6 +16628,110 @@
         }
       ],
       "distills": []
+    },
+    {
+      "id": "Qwen/Qwen3.5-9B",
+      "slug": "qwen3-5-9b",
+      "display_name": "Qwen3.5 9B",
+      "family": "Qwen3.5",
+      "org": "Qwen",
+      "params_b": 9.7,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3.5-9B-Base",
+      "popularity": {
+        "downloads": 8902388,
+        "likes": 1714
+      },
+      "gguf_repo": null,
+      "quants": [],
+      "distills": []
+    },
+    {
+      "id": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+      "slug": "qwythos-9b-claude-mythos-5-1m",
+      "display_name": "Qwythos 9B Claude Mythos 5 1M",
+      "family": "Qwen3.5",
+      "org": "empero-ai",
+      "params_b": 9.7,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3.5-9B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 192847,
+        "likes": 819
+      },
+      "gguf_repo": null,
+      "quants": [],
+      "distills": []
+    },
+    {
+      "id": "empero-ai/Qwythos-9B-v2",
+      "slug": "qwythos-9b-v2",
+      "display_name": "Qwythos 9B v2",
+      "family": "Qwen3.5",
+      "org": "empero-ai",
+      "params_b": 9.7,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 6220,
+        "likes": 128
+      },
+      "gguf_repo": "empero-ai/Qwythos-9B-v2-GGUF",
+      "quants": [
+        {
+          "label": "Q4_K_M",
+          "bpw": 4.7,
+          "file_gb": 5.7,
+          "vram_gb_8k": 7.7,
+          "gguf_repo": "empero-ai/Qwythos-9B-v2-GGUF",
+          "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+          "filename": "Qwythos-9B-v2-Q4_K_M.gguf",
+          "file_size_bytes": 5736063744,
+          "file_sha256": "c0a588704f422b713eca29b2c1f192ae6f69aea3f9e7cb64f9ecdb76ff7a85f4"
+        },
+        {
+          "label": "Q5_K_M",
+          "bpw": 5.4,
+          "file_gb": 6.5,
+          "vram_gb_8k": 8.5,
+          "gguf_repo": "empero-ai/Qwythos-9B-v2-GGUF",
+          "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+          "filename": "Qwythos-9B-v2-Q5_K_M.gguf",
+          "file_size_bytes": 6523806464,
+          "file_sha256": "fc5251e8e3e87d58946522833eb896c84375a715b6f89c54cdd10082ecc6ea8d"
+        },
+        {
+          "label": "Q6_K",
+          "bpw": 6.2,
+          "file_gb": 7.5,
+          "vram_gb_8k": 9.5,
+          "gguf_repo": "empero-ai/Qwythos-9B-v2-GGUF",
+          "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+          "filename": "Qwythos-9B-v2-Q6_K.gguf",
+          "file_size_bytes": 7458300672,
+          "file_sha256": "dd39e148823f0bab858e946d603e4bf424240aae34435580be820f09c75ca379"
+        },
+        {
+          "label": "Q8_0",
+          "bpw": 7.9,
+          "file_gb": 9.5,
+          "vram_gb_8k": 11.5,
+          "gguf_repo": "empero-ai/Qwythos-9B-v2-GGUF",
+          "revision": "97c11b03687f194b300efbdb4760d9bc4021b759",
+          "filename": "Qwythos-9B-v2-Q8_0.gguf",
+          "file_size_bytes": 9527501568,
+          "file_sha256": "3324ac1a7260fbb484d10373df7d54d156ff6c4f5c577d87dbd0218928beab89"
+        }
+      ],
+      "distills": []
     }
   ]
 }

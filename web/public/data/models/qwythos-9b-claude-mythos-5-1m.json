@@ -1,0 +1,15 @@
+{
+  "base_model": "Qwen/Qwen3.5-9B",
+  "catalog_id": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+  "demo": false,
+  "family": "Qwen3.5",
+  "gguf_repo": null,
+  "hf_model_id": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "finetune",
+  "model_label": "Qwythos 9B Claude Mythos 5 1M",
+  "org": "empero-ai",
+  "runs": [],
+  "slug": "qwythos-9b-claude-mythos-5-1m"
+}

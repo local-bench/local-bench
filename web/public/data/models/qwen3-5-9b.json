@@ -1,0 +1,15 @@
+{
+  "base_model": "Qwen/Qwen3.5-9B-Base",
+  "catalog_id": "Qwen/Qwen3.5-9B",
+  "demo": false,
+  "family": "Qwen3.5",
+  "gguf_repo": null,
+  "hf_model_id": "Qwen/Qwen3.5-9B",
+  "kind": "community",
+  "license": "apache-2.0",
+  "model_kind": "base",
+  "model_label": "Qwen3.5 9B",
+  "org": "Qwen",
+  "runs": [],
+  "slug": "qwen3-5-9b"
+}
