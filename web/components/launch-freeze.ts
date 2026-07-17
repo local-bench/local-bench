@@ -1,6 +1,6 @@
 export const LAUNCH_FREEZE = {
   asOfDate: "2026-07-17",
-  scorecardVersion: "scorecard-v3",
+  scorecardVersion: "scorecard-v6",
   boardSha256: "5803ce4344624312fc501b78e8b1ab1a43093e69919841c2d8788bdf796098c8",
   itemSetHashes: [
     { label: "MMLU-Pro (Knowledge, 400 items)", file: "mmlu_pro.jsonl", sha256: "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4" },
@@ -12,7 +12,7 @@ export const LAUNCH_FREEZE = {
     { label: "LiveCodeBench proxy (legacy diagnostic, 129 items)", file: "lcb.jsonl", sha256: "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf" },
   ],
   headlineDefinition:
-    "Index = 0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.15 Coding + 0.10 Tool calling + 0.05 Math, under the bounded-final-v2 lane. Coding is BigCodeBench-Hard with verifier-side execution.",
+    "Index (index-v4.1) = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math, under the bounded-final-v2 lane. Agentic folds AppWorld (agentic execution) and multi-turn tool control; Coding is BigCodeBench-Hard with verifier-side execution.",
   candidateDefinition:
     "Long-Context remains a candidate axis; LiveCodeBench is a legacy diagnostic. Rows measured under earlier lanes (capped-thinking) stay on model pages as diagnostics and never rank.",
   determinismWording:

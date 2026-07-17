@@ -8,7 +8,7 @@
 - Reweights the headline composite to index-v4.1: Agentic 0.20 -> 0.25; Knowledge/Instruction-Following/Coding 0.24 -> 0.225 and Math 0.08 -> 0.075 (the 5 points come proportionally from the four other weighted axes, a 15/16 scale; weights sum to exactly 1.0). Facet split (10/17, 7/17) unchanged. Long-Context stays 0.
 - Bumps `SCORECARD_VERSION` to "6" (weights and the display label are hashed into the registry digest), so new runs carry a new `scorecard_id` and suite-v2 manifest identity; frozen v1 profile identities are untouched.
 - index-v4.0 (20/24/24/24/8) remains a distinct historical editorial scale; ranked rows must be re-scored to move to index-v4.1, and the cross-season comparison guards treat v4.0 vs v4.1 as different scales.
-- KNOWN LIMIT: the frozen accepted-result projection v2 contract enumerates only index-v3.0/index-v4.0, so community submissions cannot carry index-v4.1 until a deliberate projection-contract rev lands (tracked in the v4.1 landing checklist).
+- The frozen accepted-result projection v2 contract was widened (owner-gated, additive-only) to admit index-v4.1 alongside index-v3.0/index-v4.0; shipped 0.3.x/0.4.0 clients keep submitting their own labels and are re-projected maintainer-side. The enum is never narrowed after public exposure.
 
 ## 0.4.0 - 2026-07-16
 
