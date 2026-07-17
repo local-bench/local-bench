@@ -172,14 +172,14 @@ export async function readCompareRuns(): Promise<readonly CompareRun[]> {
 
 // Mirrors web/lib/trusted-population.ts (532c9b9 "isolate trusted ranking population"):
 // only the project-anchor population may affect ranks, representatives, or provenance.
-export function isTrustedPopulation(row: { readonly origin?: string; readonly trust_label?: string }): boolean {
+export function isTrustedPopulation(row: { readonly origin?: string | null | undefined; readonly trust_label?: string | null | undefined }): boolean {
   return row.origin === "project_anchor" && row.trust_label === "project_anchor";
 }
 
 export function isTrustedRankedPopulation(row: {
-  readonly origin?: string;
-  readonly ranked?: boolean;
-  readonly trust_label?: string;
+  readonly origin?: string | null | undefined;
+  readonly ranked?: boolean | undefined;
+  readonly trust_label?: string | null | undefined;
 }): boolean {
   return row.ranked === true && isTrustedPopulation(row);
 }
