@@ -10,12 +10,14 @@ export const INDEX_AXIS_WEIGHTS = {
   math: 0.05,
 } as const satisfies Readonly<Record<AxisKey, number>>;
 
+// index-v4.1 weights — MUST match cli/src/localbench/scoring/axes.py AXES.
+// Agentic macro-axis (key tool_use) 0.25; the other four = old values x 15/16.
 export const SEASON_2_AXIS_WEIGHTS = {
-  knowledge: 0.24,
-  instruction: 0.24,
-  tool_use: 0.2,
-  coding: 0.24,
-  math: 0.08,
+  knowledge: 0.225,
+  instruction: 0.225,
+  tool_use: 0.25,
+  coding: 0.225,
+  math: 0.075,
 } as const;
 
 export type IndexContribution = {
@@ -26,10 +28,13 @@ export type IndexContribution = {
 };
 
 const TITLE_LABELS: Readonly<Record<string, string>> = {
+  // "agentic" is the season-1 AppWorld-only axis; "tool_use" is the season-2
+  // Agentic macro-axis. Same display word, but the two never share a view:
+  // contribution rails branch on season, and mixed-season rails are forbidden.
   agentic: "Agentic",
   knowledge: "Knowledge",
   instruction: "Instruction",
-  tool_use: "Tool use",
+  tool_use: "Agentic",
   tool_calling: "Tool",
   coding: "Coding",
   math: "Math",
@@ -40,7 +45,7 @@ export function indexContributions(axes: Readonly<Record<string, AxisScore>>): r
   const weights: Readonly<Record<string, number>> = season2 ? SEASON_2_AXIS_WEIGHTS : INDEX_AXIS_WEIGHTS;
   const config: readonly { readonly key: AxisKey | "tool_use"; readonly label: string; readonly color: string }[] = season2
     ? [
-        { key: "tool_use", label: "Tool use", color: "#ffb627" },
+        { key: "tool_use", label: "Agentic", color: "#ffb627" },
         ...AXIS_CONFIG.filter((axis) => ["knowledge", "instruction", "coding", "math"].includes(axis.key)),
       ]
     : AXIS_CONFIG;

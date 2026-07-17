@@ -37,7 +37,7 @@ def rescore_record_season2(
 ) -> JsonObject:
     """Recompute axes and a strict season-2 composite from carried item verdicts.
 
-    Missing Tool Use facet benches mechanically omit the macro-axis through the
+    Missing Agentic (`tool_use`) facet benches mechanically omit the macro-axis through the
     registry's existing fail-closed facet materialization.  Consequently the
     strict composite is ``None`` when any season-2 headline axis is absent.
     """

@@ -29,7 +29,7 @@ export function ModelAxisProfile({ model }: { readonly model: ModelData }) {
         {(bestRun.axes["tool_use"] === undefined
           ? AXIS_CONFIG
           : [
-              { key: "tool_use", label: "Tool use", color: "#ffb627" },
+              { key: "tool_use", label: "Agentic", color: "#ffb627" },
               ...AXIS_CONFIG.filter((axis) => ["knowledge", "instruction", "coding", "math"].includes(axis.key)),
             ]).map((axis) => (
           <AxisProfileCard key={axis.key} label={axis.label} score={bestRun.axes[axis.key]} />

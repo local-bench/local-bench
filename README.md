@@ -1,8 +1,8 @@
 # local-bench
 
-Community quality leaderboard for local AI setups. The sortable headline score is the **Local Intelligence Index** (`index-v3.0 | 40/15/15/10/15/5`): 40% Agentic, 15% Knowledge, 15% Instruction-Following, 10% Tool calling, 15% Coding, and 5% Math.
+Community quality leaderboard for local AI setups. The sortable headline score is the **Local Intelligence Index** (`index-v4.1 | 25/22.5/22.5/22.5/7.5`): 25% Agentic, 22.5% Knowledge, 22.5% Instruction-Following, 22.5% Coding, and 7.5% Math.
 
-The ranked six-axis profile is Agentic / Knowledge / Instruction / Tool calling / Coding / Math. BigCodeBench-Hard execution is the ranked Coding axis; the LiveCodeBench proxy (`lcb`) is a legacy diagnostic only and is never pooled into the ranked score.
+The ranked five-axis profile is Agentic / Knowledge / Instruction / Coding / Math. Agentic is a bench-normalized macro-axis (AppWorld agentic execution 10/17 + BFCL multi-turn tool control 7/17). BigCodeBench-Hard execution is the ranked Coding axis; the LiveCodeBench proxy (`lcb`) is a legacy diagnostic only and is never pooled into the ranked score. Season-1 (`index-v3.0 | 40/15/15/10/15/5`) results remain published as history on their own scale.
 
 ## Layout
 
@@ -47,4 +47,4 @@ Working from source instead: `pip install -e cli`.
 
 ## Status
 
-Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v3.0 on the bounded-final-v2 ranked lane; current CLI release: 0.4.0 (managed appliance bridge, runtime identity, crash-safe agentic resume, and contract-gated ranking). The site's recipe generator pins the exact CLI version to run.
+Live and actively maintained. The public board is at https://local-bench.ai and is maintainer-verified. Current index identity: index-v4.1 on the bounded-final-v2 ranked lane; current CLI release: 0.4.0 (managed appliance bridge, runtime identity, crash-safe agentic resume, and contract-gated ranking). The site's recipe generator pins the exact CLI version to run.

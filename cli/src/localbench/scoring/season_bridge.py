@@ -33,7 +33,7 @@ def build_bridge_entry(
     if record_index_version(season_1) != INDEX_VERSION_V3:
         raise ValueError("season-1 bridge input must carry index-v3.0")
     if record_index_version(season_2) != INDEX_VERSION_V4:
-        raise ValueError("season-2 bridge input must carry index-v4.0")
+        raise ValueError(f"season-2 bridge input must carry {INDEX_VERSION_V4}")
     identity_1 = _model_identity(season_1)
     identity_2 = _model_identity(season_2)
     if not identity_1 or identity_1 != identity_2:

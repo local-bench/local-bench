@@ -274,3 +274,14 @@ Two wrinkles + my resolutions (implementation-level):
   NEW prerequisite S2-0 (freeze v1 identity) identified; item-pool fix is 4-place; web stays on
   v1 until S2-5. Plan refined. NEXT: after gemma landing + B2a cert free the box, dispatch S2-0
   BUILD (codex, additive, suites sequential) → my QA → xhigh reverify → SHIP; then S2-1 onward.
+- 2026-07-17: OWNER DIRECTIVE (Michael) — the macro-axis is renamed to an agentic-named axis and
+  its composite weight rises to 25%. Implemented on branch `feat/agentic-axis-reweight` as
+  **index-v4.1** (scorecard-v6): display label "Tool Use" → "Agentic" (ALL structural keys
+  unchanged — axis/web key `tool_use`, facet keys, bench ids, profile id); weights
+  25/22.5/22.5/22.5/7.5 (the +5pp deducted proportionally from Knowledge/Instruction/Coding/Math,
+  a 15/16 scale; exact sum 1.0; facet split 10/17-7/17 unchanged). index-v4.0 rows are a
+  distinct historical scale and must be re-scored (board rebuild) to carry v4.1. BLOCKER for
+  community submissions: the frozen accepted-projection v2 contract enum admits only
+  index-v3.0/index-v4.0 → v4.1 submissions need a deliberate contract rev (owner-gated,
+  separate change). Landing checklist: scratchpad/agentic-reweight-validation-checklist.md
+  (worktree, uncommitted).

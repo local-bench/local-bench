@@ -20,7 +20,7 @@ type Attribution = {
 };
 
 const HEADLINE_SOURCES: readonly Attribution[] = [
-  { name: "AppWorld-C", owner: "AppWorld authors", license: "Apache-2.0", role: "Agentic axis task-success module." },
+  { name: "AppWorld-C", owner: "AppWorld authors", license: "Apache-2.0", role: "Agentic-execution facet of the Agentic macro-axis (task-success module)." },
   { name: "MMLU-Pro", owner: "TIGER-Lab", license: "MIT", role: "Knowledge axis item set (400 items)." },
   {
     name: "IFBench",
@@ -90,12 +90,12 @@ export default async function MethodologyPage() {
       <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-          index-v4.0 | scorecard-v5 methodology
+          index-v4.1 | scorecard-v6 methodology
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
         <p className="mt-3 leading-7 text-bench-muted">
           The sortable number is the {LOCAL_INTELLIGENCE_INDEX_NAME} ({SEASON_2_INDEX_QUALIFIER}):
-          20% Tool use, 24% Knowledge, 24% Instruction-Following, 24% Coding, and 8% Math.
+          25% Agentic, 22.5% Knowledge, 22.5% Instruction-Following, 22.5% Coding, and 7.5% Math.
           {` ${SEASON_2_INDEX_PROFILE}`} stays visible beside every score. Season-1 (index-v3.0) results
           remain published as history and diagnostics; the two scales are never directly compared — see the
           season bridge below.
@@ -107,10 +107,11 @@ export default async function MethodologyPage() {
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
             Season 2 · {INDEX_VERSION_V4}
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-bench-text">Tool-use macro-axis</h2>
+          <h2 className="mt-1 text-xl font-semibold text-bench-text">Agentic macro-axis</h2>
         </div>
         <p>
-          Season 2 replaces the separate Agentic and Tool-calling headline axes with one Tool-use macro-axis worth{" "}
+          Season 2 replaces the separate season-1 Agentic and Tool-calling headline axes with one Agentic macro-axis
+          (structural data key <span className="font-mono">tool_use</span>, axis label renamed at index-v4.1) worth{" "}
           {Math.round(TOOL_USE_WEIGHT * 100)}% of the full Index. Its facets are first scored independently, then
           combined using the declared facet weights below. This is a <span className="font-semibold text-bench-text">bench-normalized weighted mean</span>,
           not item-count pooling: a bench with more test items does not silently gain more influence.
@@ -156,7 +157,8 @@ export default async function MethodologyPage() {
         <div className="space-y-2 border-t border-bench-line pt-4">
           <h3 className="text-lg font-semibold text-bench-text">Season 1 → 2 bridge</h3>
           <p>
-            Index-v3.0 and index-v4.0 composites are different editorial scales and are never directly compared.
+            Index-v3.0 and index-v4.x composites are different editorial scales and are never directly compared
+            (as are index-v4.0 and index-v4.1, which weight the same axes differently).
             Lineage deltas and ordinary compare views require matching index versions. The versioned season bridge is
             the only sanctioned pairing: for an artifact measured completely in both seasons, it presents the frozen
             v3 composite beside the full v4 composite without treating their numerical gap as a performance delta.
@@ -371,7 +373,7 @@ export default async function MethodologyPage() {
           </div>
           <div className="bg-bench-bg px-4 py-3">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Index identity</dt>
-            <dd className="mt-1 text-sm text-bench-text">index-v4.0 / scorecard-v5</dd>
+            <dd className="mt-1 text-sm text-bench-text">index-v4.1 / scorecard-v6</dd>
           </div>
           <div className="bg-bench-bg px-4 py-3 sm:col-span-2">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Board sha256</dt>
@@ -411,11 +413,12 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Editorial versioning</h2>
         <p>
-          Domain weights are explicit editorial choices tied to named releases: index-v4.0 (scorecard-v5) for the
-          current five-axis Index, index-v3.0 for the season-1 six-axis Index, static-suite-v2 for the ranked
-          no-agentic Index, and static-core diagnostic for the unranked no-sandbox profile. Weights live in the scorer
-          axis registry and are hashed into the scorecard, so history cannot be silently re-scored under the same
-          label.
+          Domain weights are explicit editorial choices tied to named releases: index-v4.1 (scorecard-v6) for the
+          current five-axis Index (Agentic raised to 25% from index-v4.0&apos;s 20%, the other four axes scaled by
+          15/16), index-v4.0 (scorecard-v5) for the initial season-2 scale, index-v3.0 for the season-1 six-axis
+          Index, static-suite-v2 for the ranked no-agentic Index, and static-core diagnostic for the unranked
+          no-sandbox profile. Weights live in the scorer axis registry and are hashed into the scorecard, so history
+          cannot be silently re-scored under the same label.
         </p>
       </section>
     </main>

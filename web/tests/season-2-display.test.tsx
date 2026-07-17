@@ -32,15 +32,15 @@ describe("additive season board display", () => {
       createElement(HomeLeaderboard, { models: [row], indexVersion: INDEX_VERSION_V4 }),
     );
 
-    expect(html).toContain("index-v4.0");
-    expect(html).toContain("Tool use");
+    expect(html).toContain("index-v4.1");
+    expect(html).toContain("Agentic");
     expect(html).not.toContain("Tool calling");
     expect(html).not.toContain("Static Index");
     expect(html).toContain("facet breakdown");
-    expect(html).toContain("Agentic · 59%");
+    expect(html).toContain("AppWorld (agentic execution) · 59%");
     expect(html).toContain("Multi-turn tool control · 41%");
     // Column header carries the facet split without expanding the breakdown (owner ask, 07-15).
-    expect(html).toContain("agentic 59% · multi-turn tool control 41%");
+    expect(html).toContain("appworld (agentic execution) 59% · multi-turn tool control 41%");
     expect(html).toContain("Diagnostics · unweighted");
     expect(html).toContain("BFCL single-turn");
     expect(html).toContain("index-v3.0 bridge 41.0");

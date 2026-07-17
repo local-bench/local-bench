@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Agentic axis rename + index-v4.1 reweight (owner directive 2026-07-17)
+
+- Renames the season-2 macro-axis display label from "Tool Use" to "Agentic" everywhere user-facing (CLI registry display, site axis columns, methodology). Structural identifiers are unchanged: axis key/web key `tool_use`, facet keys `agentic` / `multi_turn_tool_control`, bench ids, coverage profile `full-exec-tooluse-5axis-v2`, and all stored-run/projection data keys.
+- Reweights the headline composite to index-v4.1: Agentic 0.20 -> 0.25; Knowledge/Instruction-Following/Coding 0.24 -> 0.225 and Math 0.08 -> 0.075 (the 5 points come proportionally from the four other weighted axes, a 15/16 scale; weights sum to exactly 1.0). Facet split (10/17, 7/17) unchanged. Long-Context stays 0.
+- Bumps `SCORECARD_VERSION` to "6" (weights and the display label are hashed into the registry digest), so new runs carry a new `scorecard_id` and suite-v2 manifest identity; frozen v1 profile identities are untouched.
+- index-v4.0 (20/24/24/24/8) remains a distinct historical editorial scale; ranked rows must be re-scored to move to index-v4.1, and the cross-season comparison guards treat v4.0 vs v4.1 as different scales.
+- KNOWN LIMIT: the frozen accepted-result projection v2 contract enumerates only index-v3.0/index-v4.0, so community submissions cannot carry index-v4.1 until a deliberate projection-contract rev lands (tracked in the v4.1 landing checklist).
+
 ## 0.4.0 - 2026-07-16
 
 Changes are relative to the verified 0.3.2 source point (`8c242b2`) and its

@@ -4,8 +4,8 @@ import type { AxisScore } from "@/lib/schemas";
 export const LOCAL_INTELLIGENCE_INDEX_NAME = "Local Intelligence Index";
 export const LOCAL_INTELLIGENCE_INDEX_QUALIFIER = "index-v3.0 | 40/15/15/10/15/5";
 export const LOCAL_INTELLIGENCE_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Tool calling / Coding / Math";
-export const SEASON_2_INDEX_QUALIFIER = "index-v4.0 | 20/24/24/24/8";
-export const SEASON_2_INDEX_PROFILE = "Profile: Tool use / Knowledge / Instruction / Coding / Math";
+export const SEASON_2_INDEX_QUALIFIER = "index-v4.1 | 25/22.5/22.5/22.5/7.5";
+export const SEASON_2_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Coding / Math";
 
 const HEADLINE_AXES = [
   { key: "agentic", label: "Agentic" },
@@ -42,7 +42,7 @@ export function formatModularAxisProfile(axes: Readonly<Record<string, AxisScore
   const headlineAxes = axes["tool_use"] === undefined
     ? HEADLINE_AXES
     : [
-        { key: "tool_use", label: "Tool use" },
+        { key: "tool_use", label: "Agentic" },
         { key: "knowledge", label: "Knowledge" },
         { key: "instruction", label: "Instruction" },
         { key: "coding", label: "Coding" },

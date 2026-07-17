@@ -131,7 +131,7 @@ export default async function RunPage({ params }: PageProps) {
                 <div className="font-mono text-xs uppercase text-bench-muted">{season2 ? SEASON_2_INDEX_PROFILE : LOCAL_INTELLIGENCE_INDEX_PROFILE}</div>
                 <ModularAxisProfile axes={run.axes} className="mt-1 block font-mono text-sm text-bench-text" />
                 <div className="mt-1">{season2
-                  ? "Weighted headline profile: Tool use 20%, Knowledge 24%, Instruction 24%, Coding 24%, Math 8%."
+                  ? "Weighted headline profile: Agentic 25%, Knowledge 22.5%, Instruction 22.5%, Coding 22.5%, Math 7.5%."
                   : "Weighted headline profile: Agentic 40%, Knowledge 15%, Instruction 15%, Tool 10%, Coding 15%, Math 5%."}</div>
               </div>
             </>

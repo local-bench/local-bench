@@ -786,7 +786,7 @@ def test_board_rejects_mixed_ranked_index_versions(tmp_path: Path) -> None:
     write_run(paths["runs"] / "season-2.json", _bounded_final_v4_run())
     write_run(paths["runs"] / "season-1.json", _bounded_final_v3_run())
 
-    with pytest.raises(BoardBuildError, match="mixed ranked index_version labels: index-v3.0, index-v4.0"):
+    with pytest.raises(BoardBuildError, match="mixed ranked index_version labels: index-v3.0, index-v4.1"):
         build_board(
             runs_dir=paths["runs"],
             curation_path=paths["curation"],

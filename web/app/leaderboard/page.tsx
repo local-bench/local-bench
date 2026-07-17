@@ -70,7 +70,7 @@ export default async function LeaderboardPage() {
               methodology
             </Link>
             . Note: {season2
-              ? "the Tool use axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the facet breakdown."
+              ? "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the facet breakdown."
               : "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the Static Index."}
           </div>
         </div>

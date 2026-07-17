@@ -7,9 +7,9 @@ export const BOARD_SCOPE_SUBTITLE =
 export const STATIC_SCOPE_TITLE = "Static Index | static-suite-v2";
 export const STATIC_SCOPE_SUBTITLE =
   "Secondary, provisional track while agentic verification is pending: Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. It never competes with the six-axis Local Intelligence Index.";
-export const SEASON_2_SCOPE_TITLE = "Local Intelligence Index | index-v4.0";
+export const SEASON_2_SCOPE_TITLE = "Local Intelligence Index | index-v4.1";
 export const SEASON_2_SCOPE_SUBTITLE =
-  "Headline = 0.20 Tool use + 0.24 Knowledge + 0.24 Instruction + 0.24 Coding + 0.08 Math. Tool use is bench-normalized across its declared facets; ranks require the complete season-2 profile.";
+  "Headline = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math. Agentic is bench-normalized across its declared facets; ranks require the complete season-2 profile.";
 
 export function BoardScopeHeader({
   mode = "full",

@@ -28,8 +28,9 @@ describe("tool-calling presentation", () => {
     // When: the model variant table is rendered.
     const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model }));
 
-    // Then: the visible table uses the season-2 Tool use label and measured score.
-    expect(html).toContain("Tool use");
+    // Then: the visible table uses the season-2 macro-axis label (Agentic, key tool_use)
+    // and the measured score.
+    expect(html).toContain("Agentic");
     expect(html).toContain(formatScore(toolUse.point));
     expect(html).not.toContain("JSON gate");
   });

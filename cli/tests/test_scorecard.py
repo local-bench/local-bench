@@ -38,7 +38,7 @@ def test_scorecard_identity_is_deterministic_and_self_describing() -> None:
     assert first == second
     assert len(first["scorecard_id"]) == 64  # full sha256 hex
     assert first["registry_digest"] == registry_digest()
-    assert first["scorecard_version"] == "5"
+    assert first["scorecard_version"] == "6"
     assert first["lane_spec_digest"] == lane_spec_digest("capped-thinking-v1")
     assert first["execution_profile_id"] is None
     assert first["execution_profile_digest"] is None

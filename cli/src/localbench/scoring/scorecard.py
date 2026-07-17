@@ -37,7 +37,9 @@ from localbench.scoring.axes import AXES, Axis
 
 # Human-facing scorecard label. BUMP whenever the scoring object changes deliberately
 # (a weight edit, a scorer-version bump, a CI-method change).
-SCORECARD_VERSION: Final = "5"
+# "6" = index-v4.1 reweight (tool_use 0.20->0.25, others scaled by 15/16) plus the
+# "Tool Use"->"Agentic" display rename (display is hashed into the registry digest).
+SCORECARD_VERSION: Final = "6"
 
 # How interval estimates are produced (part of scoring identity; the iteration count is
 # a per-call parameter, not part of identity).

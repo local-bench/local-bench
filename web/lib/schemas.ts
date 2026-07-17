@@ -249,7 +249,10 @@ const SeasonBridgeSchema = z.object({
     composite_v3: ScoreSchema,
   }).passthrough(),
   season_2: z.object({
-    index_version: z.literal("index-v4.0"),
+    // Both season-2 editorial scales: index-v4.0 (20/24/24/24/8, pre-reweight
+    // history) and index-v4.1 (25/22.5/22.5/22.5/7.5). Bridges regenerated
+    // after the v4.1 re-score carry v4.1; committed v4.0 bridges stay parseable.
+    index_version: z.enum(["index-v4.0", "index-v4.1"]),
     composite_v4: ScoreSchema,
   }).passthrough(),
 }).passthrough();

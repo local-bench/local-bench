@@ -32,7 +32,7 @@ def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
         "Knowledge",
         "Instruction-Following",
         "Math",
-        "Tool Use",
+        "Agentic",
         "Coding",
     )
     assert headline_web_axes() == (
@@ -48,12 +48,12 @@ def test_headline_weights_sum_to_one_and_other_roles_are_zero() -> None:
 
 def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> None:
     assert DOMAIN_WEIGHTS == domain_weights()
-    assert DOMAIN_WEIGHTS["Knowledge"] == 0.24
-    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.24
-    assert DOMAIN_WEIGHTS["Math"] == 0.08
+    assert DOMAIN_WEIGHTS["Knowledge"] == 0.225
+    assert DOMAIN_WEIGHTS["Instruction-Following"] == 0.225
+    assert DOMAIN_WEIGHTS["Math"] == 0.075
     assert DOMAIN_WEIGHTS["Long-Context"] == 0.0
-    assert DOMAIN_WEIGHTS["Tool Use"] == 0.20
-    assert DOMAIN_WEIGHTS["Coding"] == 0.24
+    assert DOMAIN_WEIGHTS["Agentic"] == 0.25
+    assert DOMAIN_WEIGHTS["Coding"] == 0.225
     assert BENCH_DOMAINS["mmlu_pro"] == "Knowledge"
     assert BENCH_DOMAINS["supergpqa"] == "Knowledge"
     assert BENCH_DOMAINS["ifbench"] == "Instruction-Following"
@@ -62,8 +62,8 @@ def test_domain_weights_and_bench_domains_are_derived_from_the_registry() -> Non
     assert BENCH_DOMAINS["amo"] == "Math"
     assert BENCH_DOMAINS["genmath"] == "Math"
     assert BENCH_DOMAINS["ruler_32k"] == "Long-Context"
-    assert BENCH_DOMAINS["appworld_c"] == "Tool Use"
-    assert BENCH_DOMAINS["bfcl_multi_turn_base"] == "Tool Use"
+    assert BENCH_DOMAINS["appworld_c"] == "Agentic"
+    assert BENCH_DOMAINS["bfcl_multi_turn_base"] == "Agentic"
     assert BENCH_DOMAINS["bigcodebench_hard"] == "Coding"
     assert BENCH_DOMAINS["lcb"] == "Coding"
     assert BENCH_DOMAINS["tc_json_v1"] == "Call Formatting"
@@ -80,11 +80,11 @@ def test_web_derivations_track_the_registry() -> None:
         "coding",
     )
     assert web_composite_weights() == {
-        "knowledge": 0.24,
-        "instruction": 0.24,
-        "tool_use": 0.20,
-        "math": 0.08,
-        "coding": 0.24,
+        "knowledge": 0.225,
+        "instruction": 0.225,
+        "tool_use": 0.25,
+        "math": 0.075,
+        "coding": 0.225,
     }
     groups = web_source_bench_groups()
     assert groups["knowledge"] == (("mmlu_pro",), ("supergpqa",))
@@ -97,12 +97,12 @@ def test_web_derivations_track_the_registry() -> None:
 def test_tool_use_macro_axis_declares_bench_normalized_facets() -> None:
     axis = next(axis for axis in AXES if axis.key == "tool_use")
 
-    assert axis.display == "Tool Use"
+    assert axis.display == "Agentic"
     assert axis.web_key == "tool_use"
     assert axis.benches == ("appworld_c", "bfcl_multi_turn_base")
     assert axis.legacy_benches == ()
     assert axis.role == "headline"
-    assert axis.weight == 0.20
+    assert axis.weight == 0.25
     assert axis.web_display is True
     assert axis.facets == (
         FacetSpec("agentic", "appworld_c", 10 / 17),
@@ -166,7 +166,7 @@ def test_coding_axis_is_weighted_execution_axis_with_legacy_proxy() -> None:
     assert axis.benches == ("bigcodebench_hard",)
     assert axis.legacy_benches == ("lcb",)
     assert axis.role == "headline"
-    assert axis.weight == 0.24
+    assert axis.weight == 0.225
     assert axis.web_display is True
 
 

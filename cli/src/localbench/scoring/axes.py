@@ -3,8 +3,11 @@
 This is the single source of truth for normal-run axis membership, composite
 weights, web keys, and roles.
 
-Season 2 uses five weighted headline axes. Tool Use is a bench-normalized
-macro-axis whose declared facet weights are independent of item counts.
+Season 2 uses five weighted headline axes. Agentic (structural key `tool_use`,
+renamed from the "Tool Use" display label at the index-v4.1 reweight) is a
+bench-normalized macro-axis whose declared facet weights are independent of
+item counts. Only the DISPLAY label changed: the axis key, web key, bench
+membership, and facet keys are frozen structural identifiers.
 
 Coding is BigCodeBench-Hard Instruct generation with verifier-side execution.
 LiveCodeBench (`lcb`) remains a legacy diagnostic bench and is not pooled into
@@ -49,6 +52,10 @@ class Axis:
     facets: tuple[FacetSpec, ...] = ()
 
 
+# index-v4.1 headline weights (2026-07-17 owner reweight): the tool_use macro-axis
+# rises 0.20 -> 0.25; the 5 points are deducted proportionally from the four other
+# weighted axes (each scaled by 0.75/0.80 = 15/16): 0.24 -> 0.225 (x3), 0.08 -> 0.075.
+# All values are exact 2-3 decimal fractions; sum == 1.0 with no rounding residue.
 AXES: Final[tuple[Axis, ...]] = (
     Axis(
         "knowledge",
@@ -57,7 +64,7 @@ AXES: Final[tuple[Axis, ...]] = (
         ("mmlu_pro",),
         ("supergpqa",),
         "headline",
-        0.24,
+        0.225,
         True,
     ),
     Axis(
@@ -67,7 +74,7 @@ AXES: Final[tuple[Axis, ...]] = (
         ("ifbench",),
         ("ifeval",),
         "headline",
-        0.24,
+        0.225,
         True,
     ),
     Axis(
@@ -77,7 +84,7 @@ AXES: Final[tuple[Axis, ...]] = (
         ("olymmath_hard", "amo"),
         ("genmath",),
         "headline",
-        0.08,
+        0.075,
         True,
     ),
     Axis(
@@ -91,13 +98,17 @@ AXES: Final[tuple[Axis, ...]] = (
         False,
     ),
     Axis(
+        # Structural key stays "tool_use" (stored runs, projections, web data keys,
+        # and the suite-v2 release id depend on it); only the display label is
+        # "Agentic". The internal facet split (10/17 AppWorld agentic execution,
+        # 7/17 BFCL multi-turn tool control) is unchanged by the v4.1 reweight.
         "tool_use",
-        "Tool Use",
+        "Agentic",
         "tool_use",
         ("appworld_c", "bfcl_multi_turn_base"),
         (),
         "headline",
-        0.20,
+        0.25,
         True,
         (
             FacetSpec("agentic", "appworld_c", 0.5882352941176471),
@@ -111,7 +122,7 @@ AXES: Final[tuple[Axis, ...]] = (
         ("bigcodebench_hard",),
         ("lcb",),
         "headline",
-        0.24,
+        0.225,
         True,
     ),
     Axis(

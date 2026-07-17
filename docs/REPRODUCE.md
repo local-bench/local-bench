@@ -1,12 +1,12 @@
 # Reproducing a local-bench run
 
-Updated 2026-07-06. The active headline is **Local Intelligence Index** (`index-v3.0 | 40/15/15/10/15/5`):
+Updated 2026-07-17. The active headline is **Local Intelligence Index** (`index-v4.1 | 25/22.5/22.5/22.5/7.5`):
 
 ```text
-0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool calling + 0.15 Coding + 0.05 Math
+0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math
 ```
 
-The six-axis ranked profile is Agentic / Knowledge / Instruction / Tool calling / Coding / Math. BigCodeBench-Hard execution is the ranked Coding axis. The LiveCodeBench proxy (`lcb`) is a legacy diagnostic only and is never pooled into index-v3.0.
+The five-axis ranked profile is Agentic / Knowledge / Instruction / Coding / Math. Agentic is a bench-normalized macro-axis (AppWorld agentic execution 10/17 + BFCL multi-turn tool control 7/17; data key `tool_use`). BigCodeBench-Hard execution is the ranked Coding axis. The LiveCodeBench proxy (`lcb`) is a legacy diagnostic only and is never pooled into the ranked index. Season-1 rows keep their `index-v3.0 | 40/15/15/10/15/5` scale as history.
 
 ## Prerequisites
 
@@ -96,7 +96,7 @@ before anything publishes.
 
 The ranked Coding axis is BigCodeBench-Hard with verifier-side execution. The submitted bundle carries code artifacts; self-reported execution verdicts are displayed only as diagnostics and never rank.
 
-`lcb`, the old LiveCodeBench output-prediction proxy, remains legacy diagnostic data only and is never pooled into index-v3.0.
+`lcb`, the old LiveCodeBench output-prediction proxy, remains legacy diagnostic data only and is never pooled into any ranked index (index-v3.0 or index-v4.x).
 
 ## 7. Build board and site data
 

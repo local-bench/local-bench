@@ -42,7 +42,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
   const rows = [...points].sort((left, right) => right.score.point - left.score.point);
   // Same season feature-detection rule as indexQualifierForAxes / indexContributions: only
   // season-2 scoring produces the tool_use macro-axis, so any row carrying it means the board
-  // (and therefore this summary) is index-v4.0.
+  // (and therefore this summary) is the season-2 scale (index-v4.1).
   const season2 = rows.some((row) => row.axes["tool_use"] !== undefined);
   const axisKeys: readonly string[] = season2 ? SEASON_2_AXIS_KEYS : SEASON_1_AXIS_KEYS;
   const axisWeights: Readonly<Record<string, number>> = season2 ? SEASON_2_AXIS_WEIGHTS : INDEX_AXIS_WEIGHTS;
@@ -90,7 +90,8 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
               {axisKeys.map((axis) => (
                 <th key={axis} className="px-3 py-3">
                   <AxisDot axis={axis} />
-                  {axisLabel(axis)} {Math.round((axisWeights[axis] ?? 0) * 100)}%
+                  {/* One decimal for non-whole index-v4.1 weights (22.5%, 7.5%); whole percents stay bare. */}
+                  {axisLabel(axis)} {Math.round((axisWeights[axis] ?? 0) * 1000) / 10}%
                   {axis === "tool_use" ? (
                     <span className="block font-mono text-[10px] font-normal normal-case tracking-normal text-bench-muted">
                       {TOOL_USE_FACET_QUALIFIER}

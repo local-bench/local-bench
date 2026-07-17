@@ -23,7 +23,9 @@ function staticWeights(): Record<string, number> {
 }
 
 function percent(weight: number): string {
-  return `${Math.round(weight * 100)}%`;
+  // Keep one decimal when the weight is not a whole percent (22.5%, 7.5%),
+  // matching the index-v4.1 methodology copy; whole percents stay bare (25%).
+  return `${Math.round(weight * 1000) / 10}%`;
 }
 
 function requiredWeight(weights: Record<string, number>, key: string): number {
@@ -62,7 +64,7 @@ describe("MethodologyPage", () => {
     // The intro must describe the CURRENT (season-2) sortable number, derived from the same
     // weight constants the contribution rail uses so intro copy can never drift from scoring.
     expect(text).toContain(
-      `${percent(SEASON_2_AXIS_WEIGHTS.tool_use)} Tool use, ${percent(SEASON_2_AXIS_WEIGHTS.knowledge)} Knowledge, ${percent(
+      `${percent(SEASON_2_AXIS_WEIGHTS.tool_use)} Agentic, ${percent(SEASON_2_AXIS_WEIGHTS.knowledge)} Knowledge, ${percent(
         SEASON_2_AXIS_WEIGHTS.instruction,
       )} Instruction-Following, ${percent(SEASON_2_AXIS_WEIGHTS.coding)} Coding, and ${percent(SEASON_2_AXIS_WEIGHTS.math)} Math`,
     );
@@ -101,7 +103,7 @@ describe("MethodologyPage", () => {
   it("documents the season-2 macro-axis, diagnostics, Option-D anchors, and bridge guard", async () => {
     const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
 
-    expect(text).toContain("Season 2 · index-v4.0");
+    expect(text).toContain("Season 2 · index-v4.1");
     expect(text).toContain("bench-normalized weighted mean");
     expect(text).toContain("not item-count pooling");
     expect(text).toContain("AppWorld Test-Normal");

@@ -12,7 +12,13 @@ from localbench.suite_release import (
 )
 
 INDEX_VERSION_V3: Final = "index-v3.0"
-INDEX_VERSION_V4: Final = "index-v4.0"
+# index-v4.1 = the 2026-07-17 editorial reweight of the season-2 scale (Agentic
+# macro-axis 0.20 -> 0.25, remaining headline axes scaled by 15/16). index-v4.0
+# rows (20/24/24/24/8) are a distinct historical scale; they must be re-scored
+# to carry this label. NOTE: the frozen accepted-projection v2 contract enum
+# only admits index-v3.0/index-v4.0, so community submissions on this label
+# require the projection-contract rev tracked in the v4.1 landing checklist.
+INDEX_VERSION_V4: Final = "index-v4.1"
 SEASON_2_COVERAGE_PROFILE_ID: Final = "full-exec-tooluse-5axis-v2"
 
 

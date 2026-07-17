@@ -12,9 +12,13 @@ type SeasonScoredRow = {
 };
 
 export const INDEX_VERSION_V3 = "index-v3.0";
-export const INDEX_VERSION_V4 = "index-v4.0";
-export const SEASON_2_INDEX_QUALIFIER = "index-v4.0 | 20/24/24/24/8";
-export const SEASON_2_INDEX_PROFILE = "Profile: Tool use / Knowledge / Instruction / Coding / Math";
+// index-v4.1 (2026-07-17 reweight): the Agentic macro-axis (structural key
+// "tool_use" — data keys never changed) rose 20% -> 25%; the other four
+// headline axes were scaled by 15/16 (24 -> 22.5 x3, 8 -> 7.5). index-v4.0
+// (20/24/24/24/8, axis label "Tool use") is a distinct historical scale.
+export const INDEX_VERSION_V4 = "index-v4.1";
+export const SEASON_2_INDEX_QUALIFIER = "index-v4.1 | 25/22.5/22.5/22.5/7.5";
+export const SEASON_2_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Coding / Math";
 
 export const SEASON_2_HEADLINE_AXES = [
   "tool_use",
@@ -24,12 +28,14 @@ export const SEASON_2_HEADLINE_AXES = [
   "math",
 ] as const;
 
-export const TOOL_USE_WEIGHT = 0.2;
+// Identifiers keep the TOOL_USE_* prefix because they mirror the frozen
+// structural key "tool_use"; the user-facing label is "Agentic".
+export const TOOL_USE_WEIGHT = 0.25;
 
 export const TOOL_USE_FACETS = [
   {
     key: "agentic",
-    label: "Agentic",
+    label: "AppWorld (agentic execution)",
     bench: "appworld_c",
     weight: 10 / 17,
     construct: "Observation-conditioned iterative agency (AppWorld Test-Normal task-goal completion)",

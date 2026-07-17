@@ -1,4 +1,4 @@
-"""Fail-closed composition of a season-2 Tool Use facet backfill campaign."""
+"""Fail-closed composition of a season-2 Agentic (`tool_use`) facet backfill campaign."""
 
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ def compose_facet_backfill(
     )
     rescored = rescore_record_season2(result)
     if rescored.get("index_version") != INDEX_VERSION_V4:
-        raise FacetBackfillError("season-2 rescore did not bind index-v4.0")
+        raise FacetBackfillError(f"season-2 rescore did not bind {INDEX_VERSION_V4}")
     if rescored.get("missing_headline_axes") != [] or rescored.get("composite_v4") is None:
         raise FacetBackfillError("season-2 rescore did not produce a strict complete composite")
     result["season2_rescore"] = rescored

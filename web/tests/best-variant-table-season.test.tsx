@@ -6,10 +6,10 @@ import type { BestVariantPoint } from "../lib/best-variant";
 import type { AxisScore } from "../lib/schemas";
 
 // The landing summary table must carry the SAME season identity as the leaderboard it
-// summarizes: season-2 points (tool_use macro-axis present) get the index-v4.0 qualifier and
-// the 20/24/24/24/8 axis columns; a v3-only board keeps the season-1 columns. Regression test
-// for the 2026-07-15 landing/leaderboard mismatch (landing still showed "Index v3.0" +
-// dead Agentic / Tool calling n/a columns after the season-2 cutover).
+// summarizes: season-2 points (tool_use macro-axis present) get the index-v4.1 qualifier and
+// the 25/22.5/22.5/22.5/7.5 axis columns; a v3-only board keeps the season-1 columns.
+// Regression test for the 2026-07-15 landing/leaderboard mismatch (landing still showed
+// "Index v3.0" + dead Agentic / Tool calling n/a columns after the season-2 cutover).
 
 function axis(point: number): AxisScore {
   return {
@@ -63,15 +63,16 @@ describe("BestVariantTable season identity", () => {
     const html = renderToStaticMarkup(
       createElement(BestVariantTable, { points: [fixturePoint(SEASON_2_AXES)] }),
     );
-    expect(html).toContain("index-v4.0 | 20/24/24/24/8");
-    expect(html).toContain("Tool use 20%");
-    expect(html).toContain("agentic 59% · multi-turn tool control 41%");
-    expect(html).toContain("Knowledge 24%");
-    expect(html).toContain("Instruction 24%");
-    expect(html).toContain("Coding 24%");
-    expect(html).toContain("Math 8%");
+    expect(html).toContain("index-v4.1 | 25/22.5/22.5/22.5/7.5");
+    expect(html).toContain("Agentic 25%");
+    expect(html).toContain("appworld (agentic execution) 59% · multi-turn tool control 41%");
+    expect(html).toContain("Knowledge 22.5%");
+    expect(html).toContain("Instruction 22.5%");
+    expect(html).toContain("Coding 22.5%");
+    expect(html).toContain("Math 7.5%");
     expect(html).not.toContain("index-v3.0");
-    expect(html).not.toContain("Agentic");
+    // The season-1 "Tool use" column label and the old Tool-calling axis must not leak in.
+    expect(html).not.toContain("Tool use");
     expect(html).not.toContain("Tool calling");
     // Every season-2 axis is measured in the fixture, so no dead n/a cells may render.
     expect(html).not.toContain("n/a");
@@ -88,7 +89,7 @@ describe("BestVariantTable season identity", () => {
     expect(html).toContain("Tool calling 10%");
     expect(html).toContain("Coding 15%");
     expect(html).toContain("Math 5%");
-    expect(html).not.toContain("index-v4.0");
-    expect(html).not.toContain("agentic 59%");
+    expect(html).not.toContain("index-v4.");
+    expect(html).not.toContain("appworld (agentic execution) 59%");
   });
 });
