@@ -2,15 +2,29 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable
 
 from publication_export import PublicationExportError, canonical_bytes, fetch_live_publication_control
+from publication_materialization import (
+    publication_tree_digest as _publication_tree_digest,
+    replace_community_tree as _replace_community_tree,
+)
+from publication_validation import (
+    IDENTITY_LABEL,
+    LINEAGE_OVERLAY_PATH,
+    SCHEMA_VERSION,
+    group_id_text as _group_id,
+    lineage_overlay as _lineage_overlay,
+    scores as _scores,
+    sha256 as _sha256,
+    validate_community_tree as _validate_community_tree,
+)
 
-IDENTITY_LABEL = "community-declared, identity-unverified"
-MAPPER_VERSION = "community-projection-mapper-v1"
-SCHEMA_VERSION = "localbench.community_publication.v1"
+MAPPER_VERSION = "community-projection-mapper-v2"
 SURFACE_POLICY_PATH = Path(__file__).with_name("publication-surface-policy.json")
 
 
@@ -23,6 +37,7 @@ def merge_publication_bundle(
     surface: str = "production",
     source_run_paths: Iterable[Path] = (),
     build_parameters: dict[str, Any] | None = None,
+    lineage_overlay_path: Path | None = None,
     publication_base_url: str | None = None,
     publication_admin_secret: str | None = None,
 ) -> dict[str, Any]:
@@ -59,15 +74,18 @@ def merge_publication_bundle(
     if surface not in {"production", "previewDeploy"}:
         raise PublicationExportError(f"unknown publication surface: {surface}")
     rows = [row for row in rows if _surface_enabled(surface_policy, row, surface)]
+    overlay_path = lineage_overlay_path or LINEAGE_OVERLAY_PATH
+    overlay_bytes = overlay_path.read_bytes()
+    lineage_by_artifact = _lineage_overlay(json.loads(overlay_bytes))
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     catalog_ids = _catalog_identities(catalog)
     groups: dict[str, list[dict[str, Any]]] = {}
     projections: dict[str, dict[str, Any]] = {}
     for row in rows:
-        group_id = _text(row, "community_model_group_id")
-        if not group_id.startswith("community-group:") or group_id in catalog_ids:
+        group_id = _group_id(_text(row, "community_model_group_id"))
+        if group_id in catalog_ids:
             raise PublicationExportError("catalog/group-id collision")
-        digest = _text(row, "projection_object_sha256")
+        digest = _sha256(_text(row, "projection_object_sha256"), "projection object sha256")
         payload = (bundle_dir / "projections" / f"{digest}.json").read_bytes()
         if _digest(payload) != digest:
             raise PublicationExportError("projection object digest mismatch")
@@ -76,54 +94,88 @@ def merge_publication_bundle(
             raise PublicationExportError("community snapshot contains a trusted projection")
         projections[digest] = projection
         groups.setdefault(group_id, []).append(row)
+    out_dir.mkdir(parents=True, exist_ok=True)
     community_dir = out_dir / "community"
-    groups_dir = community_dir / "groups"
-    groups_dir.mkdir(parents=True, exist_ok=True)
-    index_groups: list[dict[str, Any]] = []
-    for group_id, group_rows in sorted(groups.items()):
-        suffix = group_id.removeprefix("community-group:")
-        artifacts: set[str] = set()
-        variants: list[dict[str, Any]] = []
-        for row in sorted(group_rows, key=lambda value: _text(value, "submission_id")):
-            projection = projections[_text(row, "projection_object_sha256")]
-            model = _object(projection.get("model"), "projection.model")
-            artifact = _text(model, "file_sha256")
-            if artifact in artifacts:
-                raise PublicationExportError("duplicate artifact variant in community group")
-            artifacts.add(artifact)
-            variants.append({
-                "artifact_sha256": artifact,
-                "display_name": model.get("display_name"),
-                "projection_object_sha256": _text(row, "projection_object_sha256"),
+    staged_community = Path(tempfile.mkdtemp(prefix=".community-stage-", dir=out_dir))
+    try:
+        groups_dir = staged_community / "groups"
+        groups_dir.mkdir()
+        index_groups: list[dict[str, Any]] = []
+        for group_id, group_rows in sorted(groups.items()):
+            suffix = group_id.removeprefix("community-group:")
+            artifacts: set[str] = set()
+            variants: list[dict[str, Any]] = []
+            for row in sorted(group_rows, key=lambda value: _text(value, "submission_id")):
+                projection_digest = _sha256(
+                    _text(row, "projection_object_sha256"), "projection object sha256",
+                )
+                projection = projections[projection_digest]
+                model = _object(projection.get("model"), "projection.model")
+                artifact = _sha256(_text(model, "file_sha256"), "artifact sha256")
+                if artifact in artifacts:
+                    raise PublicationExportError("duplicate artifact variant in community group")
+                artifacts.add(artifact)
+                variant = {
+                    "artifact_sha256": artifact,
+                    "display_name": model.get("display_name"),
+                    "projection_object_sha256": projection_digest,
+                    "quant_label": model.get("quant_label"),
+                    "ranked": False,
+                    "scores": _scores(projection.get("scores")),
+                    "submission_id": _text(row, "submission_id"),
+                }
+                lineage = lineage_by_artifact.get(artifact)
+                if lineage is not None:
+                    variant["lineage_enrichment"] = lineage
+                variants.append(variant)
+            group_payload = {
+                "community_model_group_id": group_id,
+                "identity_label": IDENTITY_LABEL,
                 "ranked": False,
-                "scores": projection.get("scores"),
-                "submission_id": _text(row, "submission_id"),
+                "schema_version": SCHEMA_VERSION,
+                "variants": variants,
+            }
+            (groups_dir / f"{suffix}.json").write_bytes(canonical_bytes(group_payload))
+            index_groups.append({
+                "community_model_group_id": group_id,
+                "group_path": f"community/groups/{suffix}.json",
+                "n_variants": len(variants),
             })
-        payload = {"community_model_group_id": group_id, "identity_label": IDENTITY_LABEL, "ranked": False, "schema_version": SCHEMA_VERSION, "variants": variants}
-        (groups_dir / f"{suffix}.json").write_bytes(canonical_bytes(payload))
-        index_groups.append({"community_model_group_id": group_id, "group_path": f"community/groups/{suffix}.json", "n_variants": len(variants)})
-    (community_dir / "index.json").write_bytes(canonical_bytes({"groups": index_groups, "schema_version": SCHEMA_VERSION}))
-    manifest = {
-        "builder_commit": _builder_commit(),
-        "build_parameters": build_parameters or {},
-        "catalog_bytes_digest": _digest(catalog_path.read_bytes()),
-        "frozen_generation_time": snapshot.get("created_at"),
-        "mapper_version": MAPPER_VERSION,
-        "projection_object_sha256s": sorted(projections),
-        "protected_board_bytes_digest": _digest(board_path.read_bytes()),
-        "publication_control": live_control,
-        "schema_version": SCHEMA_VERSION,
-        "source_run_byte_digests": _file_digest_entries(source_run_paths),
-        "snapshot_digest": snapshot.get("snapshot_digest"),
-        "snapshot_id": snapshot.get("snapshot_id"),
-        "surface": surface,
-        "surface_policy_bytes_digest": _digest(SURFACE_POLICY_PATH.read_bytes()),
-    }
-    manifest_digest = _digest(canonical_bytes(manifest))
-    output_tree_digest = _tree_digest(out_dir, exclude={"community/publication-build.json"})
-    record = {"build_input_manifest": manifest, "build_input_manifest_digest": manifest_digest, "output_tree_digest": output_tree_digest}
-    (community_dir / "publication-build.json").write_bytes(canonical_bytes(record))
-    return record
+        (staged_community / "index.json").write_bytes(canonical_bytes({
+            "groups": index_groups,
+            "schema_version": SCHEMA_VERSION,
+        }))
+        manifest = {
+            "builder_commit": _builder_commit(),
+            "build_parameters": build_parameters or {},
+            "catalog_bytes_digest": _digest(catalog_path.read_bytes()),
+            "frozen_generation_time": snapshot.get("created_at"),
+            "lineage_overlay_bytes_digest": _digest(overlay_bytes),
+            "mapper_version": MAPPER_VERSION,
+            "projection_object_sha256s": sorted(projections),
+            "protected_board_bytes_digest": _digest(board_path.read_bytes()),
+            "publication_control": live_control,
+            "schema_version": SCHEMA_VERSION,
+            "source_run_byte_digests": _file_digest_entries(source_run_paths),
+            "snapshot_digest": snapshot.get("snapshot_digest"),
+            "snapshot_id": snapshot.get("snapshot_id"),
+            "surface": surface,
+            "surface_policy_bytes_digest": _digest(SURFACE_POLICY_PATH.read_bytes()),
+        }
+        manifest_digest = _digest(canonical_bytes(manifest))
+        output_tree_digest = _publication_tree_digest(out_dir, staged_community)
+        record = {
+            "build_input_manifest": manifest,
+            "build_input_manifest_digest": manifest_digest,
+            "output_tree_digest": output_tree_digest,
+        }
+        (staged_community / "publication-build.json").write_bytes(canonical_bytes(record))
+        _validate_community_tree(staged_community)
+        _replace_community_tree(staged_community, community_dir)
+        return record
+    finally:
+        if staged_community.exists():
+            shutil.rmtree(staged_community)
 
 
 def _file_digest_entries(paths: Iterable[Path]) -> list[dict[str, str]]:
@@ -161,15 +213,6 @@ def assert_protected_tree_unchanged(before: dict[str, bytes], out_dir: Path) -> 
     if before != after:
         changed = sorted(set(before) ^ set(after) | {key for key in set(before) & set(after) if before[key] != after[key]})
         raise PublicationExportError(f"protected payload changed during community merge: {changed}")
-
-
-def _tree_digest(root: Path, *, exclude: set[str]) -> str:
-    entries = []
-    for path in sorted(item for item in root.rglob("*") if item.is_file()):
-        relative = str(path.relative_to(root)).replace("\\", "/")
-        if relative not in exclude:
-            entries.append({"path": relative, "sha256": _digest(path.read_bytes())})
-    return _digest(canonical_bytes(entries))
 
 
 def _catalog_identities(value: Any) -> set[str]:

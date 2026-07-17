@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local-bench.ai/schemas/community_lineage_overlay_v1.schema.json",
+  "$defs": {
+    "artifactSha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repoId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.\\-]+/[A-Za-z0-9_.\\-]+$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_sha256", "association", "repo", "card_declared_edges", "resolution"],
+      "properties": {
+        "artifact_sha256": { "$ref": "#/$defs/artifactSha256" },
+        "association": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["basis", "artifact_to_repo", "note"],
+          "properties": {
+            "basis": { "const": "maintainer-associated" },
+            "artifact_to_repo": { "const": "unverified" },
+            "note": { "type": "string", "maxLength": 200 }
+          }
+        },
+        "repo": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "revision"],
+          "properties": {
+            "id": { "$ref": "#/$defs/repoId" },
+            "revision": { "$ref": "#/$defs/revision" }
+          }
+        },
+        "card_declared_edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["child", "child_revision", "base", "base_revision", "source"],
+            "properties": {
+              "child": { "$ref": "#/$defs/repoId" },
+              "child_revision": { "$ref": "#/$defs/revision" },
+              "base": { "$ref": "#/$defs/repoId" },
+              "base_revision": {
+                "oneOf": [
+                  { "$ref": "#/$defs/revision" },
+                  { "type": "null" }
+                ]
+              },
+              "source": { "const": "hf-model-card" }
+            }
+          }
+        },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["resolved_at", "status"],
+          "properties": {
+            "resolved_at": { "type": "string", "format": "date-time", "pattern": "Z$" },
+            "status": { "enum": ["complete", "truncated", "partial"] }
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "entries"],
+  "properties": {
+    "schema_version": { "const": "localbench.community_lineage_overlay.v1" },
+    "entries": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/artifactSha256" },
+      "additionalProperties": { "$ref": "#/$defs/entry" }
+    }
+  }
+}
