@@ -80,7 +80,14 @@ def _get_json(url: str, secret: str) -> dict[str, Any]:
 
 
 def _get_bytes(url: str, secret: str) -> bytes:
-    request = urllib.request.Request(url, headers={"x-localbench-admin-secret": secret})
+    # Cloudflare's WAF rejects the default Python-urllib user agent with 403.
+    request = urllib.request.Request(
+        url,
+        headers={
+            "x-localbench-admin-secret": secret,
+            "User-Agent": "localbench-publication-export/1.0",
+        },
+    )
     with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - operator-selected deployment URL
         return response.read()
 
