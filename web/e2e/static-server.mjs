@@ -44,6 +44,18 @@ async function handleRequest(request, response) {
   }
 
   const urlPath = parseUrlPath(request.url ?? "/");
+
+  // /api/* is served by Cloudflare Pages Functions (web/functions) in production; this
+  // harness serves only the static export, so every /api/* fetch is a 404 by design and
+  // components must degrade gracefully (e.g. pending-verification-queue since c9d39f1).
+  // Answer with a terse body instead of streaming 404.html: page fetch() callers discard
+  // the response without reading it, and Chromium never marks the request finished while
+  // the 16KB 404 document sits unread in the stream — which stalls "networkidle" forever.
+  if (urlPath === "/api" || urlPath.startsWith("/api/")) {
+    response.writeHead(404, { "content-type": "application/json; charset=utf-8" });
+    response.end('{"error":"static e2e server: no functions deployed"}');
+    return;
+  }
   const filePath = await findFilePath(urlPath);
 
   if (filePath === null) {

@@ -11,12 +11,34 @@ type BrowserIssue = {
 const ARTIFACT_DIR = path.join(process.cwd(), ".e2e-artifacts");
 const SCREENSHOT_DIR = path.join(ARTIFACT_DIR, "screenshots");
 
+// In production /api/* is served by Cloudflare Pages Functions (web/functions); the e2e
+// static server serves only the export, so every /api/* fetch 404s here by design and the
+// consuming components render their explicit degraded state instead (e.g. the leaderboard
+// pending-verification queue added in c9d39f1 shows "temporarily unavailable"). Allowlist
+// exactly that expected 404 — any other status, path, or console error still fails the test.
+function isExpectedStaticApi404(url: string, status: number): boolean {
+  return status === 404 && isApiPath(url);
+}
+
+function isApiPath(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname;
+    return pathname === "/api" || pathname.startsWith("/api/");
+  } catch {
+    return false;
+  }
+}
+
 export const test = base.extend({
   page: async ({ page }, use) => {
     const browserIssues: BrowserIssue[] = [];
 
     page.on("console", (message) => {
       if (message.type() !== "error") {
+        return;
+      }
+      // The browser logs "Failed to load resource ... 404" for the expected /api/* miss.
+      if (isApiPath(message.location().url) && message.text().includes("status of 404")) {
         return;
       }
       browserIssues.push({
@@ -48,6 +70,9 @@ export const test = base.extend({
 
     page.on("response", (response) => {
       if (response.status() < 400) {
+        return;
+      }
+      if (isExpectedStaticApi404(response.url(), response.status())) {
         return;
       }
       browserIssues.push({

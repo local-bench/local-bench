@@ -24,9 +24,11 @@ const IndexModelSchema = z.object({
   kind: z.enum(["anchor", "community", "maintainer_project"]),
   lane: z.string().nullable(),
   model_label: z.string(),
+  origin: z.string().optional(),
   ranked: z.boolean(),
   score_status: z.string(),
   slug: z.string(),
+  trust_label: z.string().optional(),
 });
 
 const IndexDataSchema = z.object({
@@ -38,18 +40,39 @@ const ModelRunSchema = z.object({
   composite: ScoreSchema.nullable(),
   diagnostic_composite: ScoreSchema.nullable().optional(),
   lane: z.string().nullable(),
+  origin: z.string().optional(),
   quant_label: z.string().nullable().optional(),
   ranked: z.boolean().optional(),
   run_id: z.string().nullable(),
   score_status: z.string(),
+  trust_label: z.string().optional(),
 });
 
 const ModelDataSchema = z.object({
+  catalog_id: z.string().nullable().optional(),
   kind: z.enum(["anchor", "community", "maintainer_project"]),
   model_label: z.string(),
   runs: z.array(ModelRunSchema),
   slug: z.string(),
 });
+
+// model_catalog.json entries — only the lineage fields the family-row derivation needs
+// (mirrors CatalogModelSchema in web/lib/schemas.ts, incl. the model_kind "base" default).
+const CatalogModelSchema = z
+  .object({
+    base_model: z.union([z.string(), z.array(z.string())]).nullable().optional(),
+    id: z.string(),
+    model_kind: z.string().optional().default("base"),
+    slug: z.string(),
+  })
+  .passthrough();
+
+const CatalogFileSchema = z.union([
+  z.array(CatalogModelSchema),
+  z.object({ models: z.array(CatalogModelSchema) }).passthrough(),
+]);
+
+type CatalogModel = z.infer<typeof CatalogModelSchema>;
 
 const RunDataFileSchema = z.object({
   axes: AxesSchema,
@@ -115,8 +138,19 @@ export async function readCompareRuns(): Promise<readonly CompareRun[]> {
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
+        // Mirrors getCompareConfigs in web/lib/compare.ts: since 532c9b9 only the trusted
+        // population is offered as a compare config (untrusted re-scored ladder runs are out).
+        if (!isTrustedPopulation(run)) {
+          return [];
+        }
         const score = scoreForRun(run);
-        if (run.run_id === null || run.quant_label === null || run.quant_label === undefined || score === null) {
+        if (
+          run.run_id === null ||
+          run.quant_label === null ||
+          run.quant_label === undefined ||
+          run.quant_label.trim() === "" ||
+          score === null
+        ) {
           return [];
         }
         return [
@@ -136,11 +170,27 @@ export async function readCompareRuns(): Promise<readonly CompareRun[]> {
     .sort(compareRuns);
 }
 
+// Mirrors web/lib/trusted-population.ts (532c9b9 "isolate trusted ranking population"):
+// only the project-anchor population may affect ranks, representatives, or provenance.
+export function isTrustedPopulation(row: { readonly origin?: string; readonly trust_label?: string }): boolean {
+  return row.origin === "project_anchor" && row.trust_label === "project_anchor";
+}
+
+export function isTrustedRankedPopulation(row: {
+  readonly origin?: string;
+  readonly ranked?: boolean;
+  readonly trust_label?: string;
+}): boolean {
+  return row.ranked === true && isTrustedPopulation(row);
+}
+
 export function rankedCurrentModels(models: readonly IndexModel[]): readonly IndexModel[] {
+  // Mirrors isFullIndexRow in web/lib/leaderboard-score.ts: since 532c9b9 the ranked board
+  // additionally gates rows through the trusted ranked population.
   return models.filter(
     (model) =>
       model.score_status === "measured" &&
-      model.ranked &&
+      isTrustedRankedPopulation(model) &&
       model.lane === HEADLINE_LANE &&
       model.demo !== true &&
       model.composite !== null,
@@ -153,6 +203,121 @@ export function retiredDiagnosticModels(models: readonly IndexModel[]): readonly
 
 export function runIds(runs: readonly ModelRun[]): readonly string[] {
   return runs.flatMap((run) => (run.run_id === null ? [] : [run.run_id]));
+}
+
+// Family variant rows on model pages (467b9e8 "show family variant profiles"): the variant
+// board also lists lineage-related models' runs, each with its own /run receipt link, gated
+// to measured headline-lane trusted-ranked runs (components/model-variant-board.tsx, f54ea9d).
+// The lineage walk mirrors catalogLineageFamilyEntries in web/lib/catalog-lineage.ts.
+export async function familyReceiptRunIds(slug: string): Promise<readonly string[]> {
+  const catalogModels = await readCatalogModels();
+  const byId = new Map(catalogModels.map((entry) => [entry.id, entry]));
+  const model = await readModelData(slug);
+  const catalogEntry =
+    catalogModels.find((entry) => entry.slug === slug) ??
+    (model.catalog_id === null || model.catalog_id === undefined ? undefined : byId.get(model.catalog_id));
+  if (catalogEntry === undefined) {
+    return [];
+  }
+  const familySlugs = lineageFamilyEntries(catalogEntry, catalogModels, byId).map((entry) => entry.slug);
+  const ids: string[] = [];
+  for (const familySlug of familySlugs) {
+    const familyModel = await readModelData(familySlug);
+    for (const run of familyModel.runs) {
+      // Family rows render only measured headline-lane trusted-ranked runs; the receipt
+      // link additionally needs a run id and a displayable composite.
+      if (
+        run.score_status === "measured" &&
+        run.lane === HEADLINE_LANE &&
+        isTrustedRankedPopulation(run) &&
+        run.run_id !== null &&
+        run.composite !== null
+      ) {
+        ids.push(run.run_id);
+      }
+    }
+  }
+  return ids;
+}
+
+async function readCatalogModels(): Promise<readonly CatalogModel[]> {
+  // Same source the site reads at build time (getCatalogFile in web/lib/data.ts):
+  // model_catalog.json sits one level above public/data.
+  const contents = await readFile(path.join(process.cwd(), "model_catalog.json"), "utf8");
+  const parsed = CatalogFileSchema.parse(JSON.parse(contents));
+  return Array.isArray(parsed) ? parsed : parsed.models;
+}
+
+function catalogBaseIds(entry: CatalogModel): readonly string[] {
+  if (typeof entry.base_model === "string") {
+    return [entry.base_model];
+  }
+  return entry.base_model ?? [];
+}
+
+function catalogBaseEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): CatalogModel | undefined {
+  const baseId = catalogBaseIds(entry)[0] ?? null;
+  return baseId === null ? undefined : byId.get(baseId);
+}
+
+function catalogIsDerivativeEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): boolean {
+  return entry.model_kind !== "base" || catalogBaseEntry(entry, byId) !== undefined;
+}
+
+function catalogRootEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): CatalogModel {
+  const visited = new Set<string>([entry.id]);
+  let current = entry;
+  while (true) {
+    const baseId = catalogBaseIds(current)[0] ?? null;
+    if (baseId === null) {
+      return current;
+    }
+    const base = byId.get(baseId);
+    if (base === undefined || visited.has(base.id)) {
+      return current;
+    }
+    visited.add(base.id);
+    current = base;
+  }
+}
+
+function catalogDescendsFrom(
+  entry: CatalogModel,
+  ancestorId: string,
+  byId: ReadonlyMap<string, CatalogModel>,
+  visited: Set<string> = new Set([entry.id]),
+): boolean {
+  for (const baseId of catalogBaseIds(entry)) {
+    if (baseId === ancestorId) {
+      return true;
+    }
+    const base = byId.get(baseId);
+    if (base !== undefined && !visited.has(base.id)) {
+      visited.add(base.id);
+      if (catalogDescendsFrom(base, ancestorId, byId, visited)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function lineageFamilyEntries(
+  catalogEntry: CatalogModel,
+  catalogModels: readonly CatalogModel[],
+  byId: ReadonlyMap<string, CatalogModel>,
+): readonly CatalogModel[] {
+  const base = catalogBaseEntry(catalogEntry, byId);
+  if (base !== undefined && catalogIsDerivativeEntry(catalogEntry, byId)) {
+    const root = catalogRootEntry(catalogEntry, byId);
+    return root.id === catalogEntry.id ? [] : [root];
+  }
+  return catalogModels.filter(
+    (entry) =>
+      entry.id !== catalogEntry.id &&
+      catalogDescendsFrom(entry, catalogEntry.id, byId) &&
+      catalogIsDerivativeEntry(entry, byId),
+  );
 }
 
 export function scoreForRun(run: ModelRun): Score | null {

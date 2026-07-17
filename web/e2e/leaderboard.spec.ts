@@ -17,7 +17,12 @@ test("renders exactly the current-lane ranked rows and keeps retired diagnostics
   await expect(page.getByText(/Ranked rows are complete runs on the current index/i)).toBeVisible();
 
   for (const row of rankedRows) {
-    const modelRow = leaderboard.locator("tbody tr").filter({ hasText: row.model_label });
+    // Key each row off its exact model-page link: since 6bceda1 a fine-tune's row also
+    // carries a "Fine-tune of <base>" lineage chip, so whole-row text matching would hit
+    // the base model's name in the derivative's row too.
+    const modelRow = leaderboard
+      .locator("tbody tr")
+      .filter({ has: page.getByRole("link", { name: row.model_label, exact: true }) });
     await expect(modelRow).toHaveCount(1);
     await expect(modelRow).toContainText(row.composite?.point.toFixed(1) ?? "");
   }

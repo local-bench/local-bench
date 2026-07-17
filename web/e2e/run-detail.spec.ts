@@ -102,6 +102,10 @@ function axisLabel(axis: string): string {
       return "Math";
     case "tool_calling":
       return "Tool calling";
+    case "tool_use":
+      // Season-2 macro-axis: the structural key stays "tool_use", the display label became
+      // "Agentic" with the index-v4.1 rename (c59a970; see axisLabel in web/lib/axis-config.ts).
+      return "Agentic";
     default:
       return axis;
   }
