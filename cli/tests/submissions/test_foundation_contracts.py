@@ -84,9 +84,11 @@ def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -
         "headline_score": None,
             "partial_composite": 0.7615,
         "partial_composite_scope": "measured_headline_axes",
-            "measured_headline_weight": 0.72,
-            "missing_headline_weight": 0.28,
-            "known_headline_contribution": 0.5483,
+            # index-v4.1 reweight (2026-07-17): donor axes scaled by 15/16, so the
+            # measured/missing split moves while the normalized composite is invariant.
+            "measured_headline_weight": 0.68,
+            "missing_headline_weight": 0.32,
+            "known_headline_contribution": 0.514,
         "rank_scope": "partial-text-code-4axis-v1",
         "composite_static": None,
         "composite_full": None,
