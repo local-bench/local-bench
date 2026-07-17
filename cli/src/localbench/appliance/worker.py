@@ -29,7 +29,7 @@ from localbench.submissions.canon import canonical_json_bytes
 
 APPWORLD_ROOT = Path("/home/lbworker/appworld")
 VENV = Path("/opt/localbench/venv")
-DOWNLOAD_USER_AGENT = "localbench-appliance/0.4.0"
+DOWNLOAD_USER_AGENT = "localbench-appliance/0.4.2"
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -3,7 +3,7 @@
 This is the F3 remedy from the night-run plan review, hardened after the arm's-length
 evidence review (F1): nothing may ship unless the client's pinned manifest digest, the active
 contract, and the worker identity all reconcile with the committed C0 packaging-differential
-evidence for the c0v3-r2 runtime -- AND the differential evidence actually proves two distinct
+evidence for the c0v4-r1 runtime -- AND the differential evidence actually proves two distinct
 installations behaved identically. The gate is written to reject the c0v2 self-comparison
 failure class: hollow verdict maps, missing per-task traces, constant/empty digests, and any
 side whose worker modules did not resolve from its own installation root.
@@ -30,15 +30,15 @@ EVIDENCE_DIR = (
     Path(__file__).resolve().parents[1]
     / "runtime"
     / "release-evidence"
-    / "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v3-r2"
+    / "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v4-r1"
 )
 # Recorded in the release README; the worker wheel the rootfs baked and the differential
 # validated. Bound here so a swapped evidence bundle with a different wheel is rejected.
 RELEASE_WORKER_WHEEL_SHA256 = (
-    "9d2b7962932e6b3b6ae57f338ee3fab4b2233ab48333c7a124b53794d9c6ab3f"
+    "f6a94265d51e766809e5da58e8c66695322d895fcc8561c38b5f75737a98ff45"
 )
 RELEASE_ROOTFS_SHA256 = (
-    "257108fb8b17ec11374acf81d80d24419c677aea7de78dcf9ee8f3ece730ac11"
+    "89cbaee7c3dc3bd832e5da1a7406a83917392ad156af7781112ba4502100fb5c"
 )
 EQUAL_FIELDS = frozenset(
     {

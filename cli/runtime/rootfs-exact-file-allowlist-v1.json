@@ -1,6 +1,6 @@
 {
   "schema": "localbench.rootfs_exact_allowlist_policy.v2",
-  "rootfs_id": "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v3-r2",
+  "rootfs_id": "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v4-r1",
   "max_residue_files": 50,
   "residue_justifications": {
     "boot/microcode.cpio": "CPU microcode early-initramfs cpio retained byte-identical from the Ubuntu cloud-image base; inert under WSL, which never boots an initramfs (reviewed 2026-07-16)",
