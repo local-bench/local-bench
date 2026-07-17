@@ -169,7 +169,7 @@ export const ACCEPTED_PROJECTION_SUITE_RELEASE_IDS = [
   "suite-v1-static-core-diag-v1",
   "suite-v2-full-exec-tooluse-5axis-v2",
 ] as const;
-export const ACCEPTED_PROJECTION_INDEX_VERSIONS = ["index-v3.0", "index-v4.0"] as const;
+export const ACCEPTED_PROJECTION_INDEX_VERSIONS = ["index-v3.0", "index-v4.0", "index-v4.1"] as const;
 export const ACCEPTED_PROJECTION_RESCORE_MODE_KEYS = [
   "amo",
   "appworld_c",
