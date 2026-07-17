@@ -1,5 +1,5 @@
 {
-  "board_sha256": "e67b20db97553186eb3e8989b1d886de5269c90eb312d5eac422d63a75d402f0",
+  "board_sha256": "5803ce4344624312fc501b78e8b1ab1a43093e69919841c2d8788bdf796098c8",
   "ci_method": "stratified-nonparametric-bootstrap-percentile",
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
   "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
@@ -7,8 +7,8 @@
   "execution_profile_id": null,
   "extractor_version": null,
   "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-  "generated_at": "2026-07-16T21:16:30.017697+00:00",
-  "index_version": "index-v4.0",
+  "generated_at": "2026-07-17T04:30:00+00:00",
+  "index_version": "index-v4.1",
   "item_set_hashes": {
     "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
     "bfcl.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
@@ -26,7 +26,7 @@
   "lane_spec_id": "capped-thinking-v1",
   "profile_catalog_digest": "14929303e739622e0352e66e6accd24f6efc43460ea72216bff8c111982d4452",
   "reasoning_registry_hash": "910cee258a631062a801650b72f38cb745e0ada8a320028ac3cfbbb24745136d",
-  "registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+  "registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
   "sampling_pins": {
     "min_p": null,
     "seed": null,
@@ -34,9 +34,9 @@
     "top_k": null,
     "top_p": null
   },
-  "scorecard_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
-  "scorecard_version": "5",
-  "scorer_git_commit": "805eda99e560180013ffbde0596402f83d2fd4e0",
+  "scorecard_id": "449ef68c32830590ca1373281877821e0234a8e4e5061e531f36c323a2fd5c73",
+  "scorecard_version": "6",
+  "scorer_git_commit": "0637beecaae16d92a8ecad250fb80a854b3761bf",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",
@@ -55,7 +55,7 @@
     "supergpqa": "1",
     "tc_json_v1": "1"
   },
-  "scoring_version": "5",
+  "scoring_version": "6",
   "skipped_runs": [
     {
       "file": "gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2.json",

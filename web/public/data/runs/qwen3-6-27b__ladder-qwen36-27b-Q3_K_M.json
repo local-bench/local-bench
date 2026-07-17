@@ -146,8 +146,8 @@
   "run_id": "qwen3-6-27b__ladder-qwen36-27b-Q3_K_M",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "05683459db69c1dedcad36c4727004d8543e306098788c7a79ff269825c23a12",
-    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+    "current_id": "449ef68c32830590ca1373281877821e0234a8e4e5061e531f36c323a2fd5c73",
+    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
     "drift": true,
     "execution_profile_id": null,
     "id": "59c8f3cd3e8d8dc4b5c778e701d22911fc18fdde4bf5d919ecd8beb5f9142a0f",

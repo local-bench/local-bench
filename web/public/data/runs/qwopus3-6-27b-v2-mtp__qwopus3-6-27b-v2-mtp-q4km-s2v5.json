@@ -120,20 +120,20 @@
     }
   },
   "composite": {
-    "hi": 47.92899088798103,
-    "hi_raw": 0.4792899088798103,
-    "lo": 42.33152543040187,
-    "lo_raw": 0.4233152543040187,
-    "point": 45.12494541039189,
-    "point_raw": 0.45124945410391887
+    "hi": 46.10909164556549,
+    "hi_raw": 0.4610909164556549,
+    "lo": 40.42161414657037,
+    "lo_raw": 0.4042161414657037,
+    "point": 43.26695249871298,
+    "point_raw": 0.43266952498712985
   },
   "composite_full": {
-    "hi": 47.92899088798103,
-    "hi_raw": 0.4792899088798103,
-    "lo": 42.33152543040187,
-    "lo_raw": 0.4233152543040187,
-    "point": 45.12494541039189,
-    "point_raw": 0.45124945410391887
+    "hi": 46.10909164556549,
+    "hi_raw": 0.4610909164556549,
+    "lo": 40.42161414657037,
+    "lo_raw": 0.4042161414657037,
+    "point": 43.26695249871298,
+    "point_raw": 0.43266952498712985
   },
   "composite_static": {
     "hi": 55.62104131542001,
@@ -271,7 +271,7 @@
   ],
   "est_cost_usd": null,
   "has_code_artifacts": true,
-  "index_version": "index-v4.0",
+  "index_version": "index-v4.1",
   "item_set_hashes": {
     "bfcl.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
     "bfcl_multi_turn_long_context.jsonl": "c6f642197ab070573fc353bb7265e7efc813addc27eb59b66358830b68b6a1b2",
@@ -460,14 +460,14 @@
   "ranked": true,
   "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5",
   "scorecard": {
-    "current_id": "8a635b24c58446714f48d970ef1016f4002784ca7a43aed5876f4ee7cd610d76",
-    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+    "current_id": "b392cd77a95c46a87641910a0a775b482151d499ffb9e5920c7e7a4e5420618c",
+    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
     "drift": true,
     "execution_profile_id": "generic_think_tags_8192_v1",
-    "id": "fd23d6575332b8ecb8ab569910321d223f0f0e5b58f16103f91ba55f7be702a5",
-    "registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+    "id": "d7ba660a32a9abf9a3e6ef469f3e33e2c6b655de9331e3af7a4fed493fd0491c",
+    "registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
     "registry_drift": false,
-    "version": "5"
+    "version": "6"
   },
   "static_index_version": "static-suite-v3",
   "suite_version": "suite-v2",

@@ -79,8 +79,31 @@ describe("static data access", () => {
     // Season 2 folds agentic and multi-turn control into the tool_use macro-axis.
     expect(proof?.axes["agentic"]).toBeUndefined();
     expect(proof?.axes["tool_use"]?.point).toBeCloseTo(12.33, 1);
-    expect(proof?.composite_full?.point).toBeCloseTo(44.01, 1);
+    expect(proof?.composite_full?.point).toBeCloseTo(42.03, 1);
     expect(proof?.composite_static?.point).toBeCloseTo(51.93, 1);
+  });
+
+  it("carries all five index-v4.1 ranked composites in the reweighted order", async () => {
+    const index = await getIndexData();
+    const ranked = index.models.filter((m) => m.ranked);
+    // index-v4.1 landing (2026-07-17): Agentic 25%, donors scaled by 15/16. Full-precision
+    // composites drop ~2 points from v4.0; rank order is unchanged by construction.
+    const expected: readonly (readonly [string, number])[] = [
+      ["gemma-4-31b-it", 53.12],
+      ["qwen3-6-27b", 44.35],
+      ["qwopus3-6-27b-v2-mtp", 43.27],
+      ["qwen3-6-35b-a3b", 42.12],
+      ["gemma-4-12b-it", 42.03],
+    ];
+    const byComposite = [...ranked].sort(
+      (a, b) => (b.composite_full?.point ?? 0) - (a.composite_full?.point ?? 0),
+    );
+    expect(byComposite.map((m) => m.slug)).toEqual(expected.map(([slug]) => slug));
+    for (const [slug, composite] of expected) {
+      const row = ranked.find((m) => m.slug === slug);
+      expect(row?.composite_full?.point).toBeCloseTo(composite, 1);
+      expect(row?.index_version).toBe("index-v4.1");
+    }
   });
 
   it("keeps a catalog-only model as quant shells while measured runs add run-detail params", async () => {

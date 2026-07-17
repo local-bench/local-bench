@@ -418,8 +418,8 @@
   "ranked": false,
   "run_id": "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2",
   "scorecard": {
-    "current_id": "4911710b0f946a6c303d9aebb6304adf070193758f0ff5d0ec485e6c6a66863b",
-    "current_registry_digest": "753b85707b8a10ce6a0152a077067df62f757a81544f3f88eaaca8413dd94e5f",
+    "current_id": "b8d70a8a2c80adb2baf50c70582c2794df05a12f771ba6f8100cb6f8e56ca83c",
+    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
     "drift": true,
     "execution_profile_id": "gemma4_channel_8192_v1",
     "id": "39edac7728bdff434b56074d7b5b8538f4e4619dc39cb4a175058968ea26e53c",
