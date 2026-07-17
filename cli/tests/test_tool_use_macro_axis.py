@@ -45,8 +45,8 @@ def test_board_point_ci_and_source_allocation_honor_facets() -> None:
 
     assert axes["tool_use"]["point_raw"] == pytest.approx(10 / 17)
     assert axes["tool_use"]["raw_accuracy"] == pytest.approx(10 / 17)
-    assert source_weights["appworld_c"] == pytest.approx(2 / 17)
-    assert source_weights["bfcl_multi_turn_base"] == pytest.approx(7 / 85)
+    assert source_weights["appworld_c"] == pytest.approx(5 / 34)
+    assert source_weights["bfcl_multi_turn_base"] == pytest.approx(7 / 68)
     assert "tc_json_v1" not in source_weights
 
 
