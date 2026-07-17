@@ -16732,6 +16732,38 @@
         }
       ],
       "distills": []
+    },
+    {
+      "id": "prism-ml/Ternary-Bonsai-27B",
+      "slug": "bonsai-27b-ternary",
+      "display_name": "Bonsai 27B Ternary",
+      "family": "Qwen3.6",
+      "org": "prism-ml",
+      "params_b": 27,
+      "is_moe": false,
+      "reasoning_capable": true,
+      "license": "apache-2.0",
+      "base_model": "Qwen/Qwen3.6-27B",
+      "model_kind": "finetune",
+      "popularity": {
+        "downloads": 200774,
+        "likes": 636
+      },
+      "gguf_repo": "prism-ml/Ternary-Bonsai-27B-gguf",
+      "quants": [
+        {
+          "label": "Q2_0",
+          "bpw": 2.1,
+          "file_gb": 7.2,
+          "vram_gb_8k": 9.5,
+          "gguf_repo": "prism-ml/Ternary-Bonsai-27B-gguf",
+          "revision": "20e435f518bd5b882795954aba81e80a91894321",
+          "filename": "Ternary-Bonsai-27B-Q2_0.gguf",
+          "file_size_bytes": 7165121600,
+          "file_sha256": "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757"
+        }
+      ],
+      "distills": []
     }
   ]
 }
