@@ -46,6 +46,15 @@ Sanity: coding shows ~141 scoreable, a REAL pass rate (not 0%, not 100%). The 7 
 (bcbh-006/007/014/035/074/096/104) are auto-excluded. AST-rejected gens show as conformance
 failures, not zeros.
 
+**Community-submission verification (2026-07-17):** when the receipt is destined for
+`submit admin-verify`/`verify-submission --coding-verified`, point `--pending-run` at the
+**exact submitted bundle file** (the bytes whose sha256 the server pinned), NOT the local run
+output. Admission binds `receipt.source_run_sha256` to the submitted-bundle bytes
+(admission_coding.py `_admission_source_hashes`); a receipt produced against the local run file
+fails with "coding verifier receipt is not bound to the submitted run". Also pass WSL paths
+(`/mnt/c/...`) for both `--pending-run` and `--out` — Windows `C:\` paths raise
+FileNotFoundError inside the verifier.
+
 ## 2. Re-score under the current scorer (no model re-run)
 The run's inline scores were computed at gen time; re-derive the stamped scorecard identity +
 budget audit from the current canonical functions (generations are hash-pinned, untouched).

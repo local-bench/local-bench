@@ -20,7 +20,7 @@ from localbench.scoring.axis_status import (
 from localbench.scoring.editorial import index_version_for_coverage_profile
 from localbench.scoring.public_rescore import score_public_item
 from localbench.submissions.bundle_input import load_result_bundle_input
-from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash, sha256_bytes, sha256_file
+from localbench.submissions.canon import jcs_json_bytes, jcs_json_hash, sha256_bytes, sha256_file
 from localbench.submissions.contracts import ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION
 from localbench.submissions.foundation import (
     VALIDATOR_VERSION,
@@ -50,14 +50,18 @@ GRANDFATHERED_ATTESTED_BUNDLE_SHA256S = frozenset(
 
 
 def canonical_projection_bytes(projection: JsonObject) -> bytes:
-    """Exact immutable object bytes (no trailing newline)."""
+    """Exact immutable object bytes (no trailing newline).
+
+    Must byte-match the Worker's canonicalJson re-serialization of the parsed
+    projection (submission-canonical.ts), hence JCS/ECMA number formatting.
+    """
     validate_accepted_result_projection(projection)
-    return canonical_json_bytes(projection)
+    return jcs_json_bytes(projection)
 
 
 def projection_object_sha256(projection: JsonObject) -> str:
     """Content address of the exact canonical bytes stored in object storage."""
-    return sha256_bytes(canonical_json_bytes(projection))
+    return sha256_bytes(jcs_json_bytes(projection))
 
 
 def rescore_bundle(
@@ -504,11 +508,11 @@ def _receipt_references(bundle: JsonObject) -> JsonObject:
 
 def _artifact_hashes(path: Path, projection: JsonObject) -> JsonObject:
     hashable = _projection_for_hash(projection)
-    projection_sha = canonical_json_hash(hashable)
+    projection_sha = jcs_json_hash(hashable)
     return {
         "bundle_sha256": sha256_file(path),
         "projection_sha256": projection_sha,
-        "public_artifact_manifest_sha256": canonical_json_hash(
+        "public_artifact_manifest_sha256": jcs_json_hash(
             {"projection_sha256": projection_sha, "bundle_sha256": sha256_file(path)},
         ),
     }
