@@ -3,6 +3,7 @@ import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { formatCi, formatCompactNumber, formatDuration } from "@/lib/format";
+import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
 // Replication-time panel (oracle-amended spec, 2026-07-15): the landing card that answers
@@ -12,7 +13,8 @@ import type { BestVariantPoint } from "@/lib/best-variant";
 //
 // Scope facts (item count, rig) are board-level and not carried on BestVariantPoint; keep in
 // sync with the methodology page until the board manifest exposes them to the web layer.
-const PANEL_SCOPE = "Season 2 · index v4.0 · 1,457 items · RTX 5090 reference rig";
+// The index version derives from the shared season constant so a reweight bump cannot drift.
+const PANEL_SCOPE = `Season 2 · ${INDEX_VERSION_V4.replace("-v", " v")} · 1,457 items · RTX 5090 reference rig`;
 const LIMITATION = "Elapsed time for this exact full-suite run; not a general model-speed measurement.";
 
 // Render gates: the comparative chart renders only while timing coverage honestly represents
