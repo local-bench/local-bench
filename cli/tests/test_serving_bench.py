@@ -25,6 +25,7 @@ from localbench.serving.llama_cpp import (
     BuildIdentity,
     LlamaCppLaunchConfig,
     collect_build_identity,
+    reconcile_agent_isolation,
     strict_llama_cpp_argv,
     validate_strict_argv_supported,
 )
@@ -141,6 +142,45 @@ def test_llama_cpp_strict_argv_for_capped_thinking_enables_budget(tmp_path: Path
     assert flag_value(argv, "--reasoning-budget") == "8192"
     assert flag_value(argv, "--reasoning-format") == "deepseek"
     assert "auto" not in argv
+
+
+def test_reconcile_agent_isolation_keeps_flag_on_modern_builds(tmp_path: Path) -> None:
+    # Given: a mainline build whose help exposes --no-agent.
+    argv = strict_llama_cpp_argv(_launch_config(tmp_path))
+    help_text = "--no-webui  --no-agent disable server-side agent execution  --log-file"
+
+    # When/Then: argv is unchanged and validation would still require the flag.
+    assert reconcile_agent_isolation(argv, help_text) == argv
+    assert "--no-agent" in reconcile_agent_isolation(argv, help_text)
+
+
+def test_reconcile_agent_isolation_drops_flag_when_feature_absent(tmp_path: Path) -> None:
+    # Given: a build (e.g. the PrismML ternary fork, base b9594) that predates
+    # the agent feature entirely: no agent flag surface in --help at all.
+    argv = strict_llama_cpp_argv(_launch_config(tmp_path))
+    help_text = "--no-webui disable webui  --log-file  --reasoning  --reasoning-budget"
+
+    # When: argv is reconciled against the feature surface.
+    reconciled = reconcile_agent_isolation(argv, help_text)
+
+    # Then: only --no-agent is dropped (isolation holds inherently) and the
+    # remaining strict argv validates against this help text.
+    assert "--no-agent" not in reconciled
+    assert [token for token in argv if token != "--no-agent"] == reconciled
+
+
+def test_reconcile_agent_isolation_rejects_agent_surface_without_disable(tmp_path: Path) -> None:
+    # Given: a hypothetical build with agent flags but no --no-agent disable.
+    argv = strict_llama_cpp_argv(_launch_config(tmp_path))
+    help_text = "--agent enable agent  --agent-timeout N  --no-webui  --log-file"
+
+    # When: argv is reconciled.
+    reconciled = reconcile_agent_isolation(argv, help_text)
+
+    # Then: --no-agent stays in argv and strict validation fails closed.
+    assert "--no-agent" in reconciled
+    with pytest.raises(RuntimeError, match="required strict flags"):
+        validate_strict_argv_supported(reconciled, help_text)
 
 
 def test_llama_cpp_reasoning_mapping_for_answer_only_lane() -> None:

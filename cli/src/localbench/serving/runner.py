@@ -45,6 +45,7 @@ from localbench.serving.fingerprint import resume_identity, server_fingerprint
 from localbench.serving.llama_cpp import (
     LlamaCppLaunchConfig,
     collect_build_identity,
+    reconcile_agent_isolation,
     strict_llama_cpp_argv,
     validate_strict_argv_supported,
 )
@@ -142,6 +143,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         reasoning_format=reasoning_config.reasoning_format,
     )
     argv = strict_llama_cpp_argv(launch_config)
+    argv = reconcile_agent_isolation(argv, build.help_text)
     validate_strict_argv_supported(argv, build.help_text)
     env_allowlist = {"CUDA_VISIBLE_DEVICES": "0"}
     safe_argv = redacted_argv(argv)

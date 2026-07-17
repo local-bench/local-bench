@@ -1,6 +1,31 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 - 2026-07-17
+
+### Custom-runtime support: agent-isolation reconciliation
+
+- `--no-agent` is now reconciled against the server's actual feature surface:
+  builds whose `--help` exposes no agent feature at all (e.g. the PrismML
+  ternary fork, base b9594) cannot enable server-side agent execution, so the
+  flag is inherently satisfied and is dropped from the launch argv instead of
+  failing the strict-flag gate. Builds that expose agent flags without a
+  `--no-agent` disable are still rejected, and modern mainline builds are
+  unchanged. Provenance is unaffected: build identity records the full help
+  text + sha256 and the fingerprint records the argv actually used.
+- The strict-flag rejection message now names a known-good mainline build
+  (b10050+) instead of leaving the minimum requirement unstated.
+
+First exercised by Bonsai-27B ternary (`Q2_0` group-128 GGUF) on the PrismML
+llama.cpp fork - the first non-stock-runtime model benchmarked end-to-end
+through the public CLI.
+
+### JCS projection digests (first-exercise fix)
+
+- Projection object/semantic digests are now computed over JCS/ECMA-formatted
+  canonical bytes matching the Worker's `canonicalJson` re-serialization.
+  Python's `json.dumps` float formatting ("0.0", "1e+16") cannot survive a
+  JSON round-trip through the server and 409'd the first real accepted
+  verification (`projection_object_sha_mismatch`).
 
 ### Agentic axis rename + index-v4.1 reweight (owner directive 2026-07-17)
 

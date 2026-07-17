@@ -122,10 +122,33 @@ def strict_llama_cpp_argv(config: LlamaCppLaunchConfig) -> list[str]:
     return argv
 
 
+def reconcile_agent_isolation(argv: list[str], help_text: str) -> list[str]:
+    """Drop --no-agent for servers that predate the agent feature.
+
+    The strict argv disables server-side agent execution wherever it exists. A
+    build whose help exposes no agent surface at all cannot enable it, so the
+    isolation the flag enforces holds inherently -- and passing the unknown
+    flag would abort server startup. Builds that expose agent flags without a
+    --no-agent disable keep the flag in argv and are rejected by
+    validate_strict_argv_supported. Provenance is preserved either way: the
+    build identity records the full help text and its sha256, and the server
+    fingerprint records the argv actually used.
+    """
+    if "--no-agent" in help_text:
+        return argv
+    if "--agent" in help_text:
+        return argv
+    return [token for token in argv if token != "--no-agent"]
+
+
 def validate_strict_argv_supported(argv: list[str], help_text: str) -> None:
     missing = sorted({token for token in argv if token.startswith("--") and token not in help_text})
     if missing:
-        raise RuntimeError(f"llama-server help does not expose required strict flags: {', '.join(missing)}")
+        hint = (
+            " (use a llama.cpp build that exposes these flags -- mainline b10050+ is known good -- "
+            "or, for --no-agent, any build whose help shows no agent feature at all)"
+        )
+        raise RuntimeError(f"llama-server help does not expose required strict flags: {', '.join(missing)}{hint}")
     auto_values = [token for token in argv if token == "auto"]
     if auto_values:
         raise RuntimeError("strict llama.cpp argv contains forbidden auto value")
