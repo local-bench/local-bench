@@ -19,6 +19,9 @@ out/
 .env.*
 *.key
 
+# Shadow-repro CI evidence output (scripts/ci/shadow_compare.py --emit-dir)
+shadow-ci-out*/
+
 # Run outputs & local data (raw transcripts can be large)
 runs/
 !cli/runs/

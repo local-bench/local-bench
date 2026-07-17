@@ -1,0 +1,172 @@
+# Shadow reproducibility CI (read-only; see docs in scripts/ci/shadow_compare.py)
+#
+# On every publish push, rebuild the board + site data from the committed run records
+# on a clean runner and fail visibly if the published bytes cannot be reproduced.
+# This workflow has NO write authority: contents:read token, zero secrets, no deploy.
+# A red run blocks nothing mechanically — it creates a runbook obligation only
+# ("if shadow CI is red after a publish, investigate before the next publish").
+#
+# Repository guard: this file rides along into the PUBLIC snapshot repo unless pruned
+# (publish-snapshot.ps1 prunes .github/workflows as belt-and-braces); the snapshot
+# excludes run records, so the job would sit permanently red there. Both jobs are
+# therefore hard-gated to the private deploy repo.
+#
+# Calibration -> active transition:
+#   - Calibration: run via workflow_dispatch on windows-latest (closest to the
+#     workstation that produced the committed bytes; artifacts verified LF-only
+#     2026-07-17, so a later ubuntu move is expected to byte-match).
+#   - Active: flip the `rebuild` job to ubuntu-latest (1x minutes billing,
+#     ~60 publishes/mo fits the free tier), keep windows + determinism-x2 as
+#     dispatch/weekly jobs.
+#
+# Actions policy: first-party actions/* plus astral-sh/setup-uv only, all pinned by
+# full commit SHA. No other third-party actions.
+
+name: shadow-repro
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: shadow-repro-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  rebuild:
+    # Guard: never run outside the private deploy repo (see header).
+    if: github.repository == 'Papa-midnight-dev/local-bench-site'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      # windows-latest defaults core.autocrlf=true, which would CRLF-rewrite every
+      # checked-out LF file and break all byte hashes. Must be set BEFORE checkout.
+      - name: Pin line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout (with parent, for the rank diff)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Set up node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # CPython pinned to the interpreter line that produced the committed bytes.
+      - name: Sync CLI environment
+        run: uv sync --project cli --python 3.14
+
+      - name: Rebuild board from committed run records
+        run: uv run --project cli python -m localbench.cli board --no-check-parity
+
+      - name: Rebuild site data
+        run: uv run --project cli python web/build_data.py
+
+      # mtime-based; trivially fresh right after a rebuild. Kept to mirror the
+      # workstation flow — an ERROR here is still signal, a pass is not.
+      - name: Data freshness (vacuous in CI)
+        run: uv run --project cli python web/check_data_freshness.py
+
+      - name: Shadow compare (rebuilt vs committed)
+        run: uv run --project cli python scripts/ci/shadow_compare.py --emit-dir shadow-ci-out
+
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: shadow-repro-rebuild
+          path: shadow-ci-out/
+
+      # Web gates hash the RAW committed board against the launch-freeze pin
+      # (web/tests/data-integrity.test.ts), so the regenerated files must be
+      # restored to committed bytes before any web gate runs.
+      - name: Restore regenerated files to committed bytes
+        run: |
+          git restore --source=HEAD --worktree -- cli/runs/board web/public/data
+          leftover=$(git status --porcelain | grep -v '^?? shadow-ci-out' || true)
+          if [ -n "$leftover" ]; then
+            echo "tree not pristine after restore:"
+            echo "$leftover"
+            exit 1
+          fi
+
+      - name: Site-board parity
+        run: uv run --project cli pytest cli/tests/test_site_parity.py -q
+
+      - name: Install web dependencies
+        run: npm ci
+        working-directory: web
+
+      - name: Web unit suite
+        run: npm run test
+        working-directory: web
+
+      - name: Web typecheck
+        run: npm run typecheck
+        working-directory: web
+
+      - name: Web static build
+        run: npm run build
+        working-directory: web
+
+  # Proves run-to-run determinism on fresh machines (not merely matches-what-we-
+  # committed): a second fresh runner rebuilds the board and its normalized hash
+  # must equal job A's. Dispatch-only to conserve minutes; consider weekly at ACTIVE.
+  determinism-x2:
+    if: github.repository == 'Papa-midnight-dev/local-bench-site' && github.event_name == 'workflow_dispatch'
+    needs: rebuild
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Pin line endings
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Sync CLI environment
+        run: uv sync --project cli --python 3.14
+
+      - name: Rebuild board from committed run records
+        run: uv run --project cli python -m localbench.cli board --no-check-parity
+
+      - name: Shadow compare (second independent rebuild)
+        run: uv run --project cli python scripts/ci/shadow_compare.py --emit-dir shadow-ci-out-b
+
+      - name: Download job A evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: shadow-repro-rebuild
+          path: shadow-ci-out-a/
+
+      - name: Determinism check (A vs B normalized board hash)
+        run: |
+          uv run --project cli python scripts/ci/shadow_compare.py \
+            --check-normalized-match shadow-ci-out-a/release-manifest.json shadow-ci-out-b/release-manifest.json
+
+      - name: Upload evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: shadow-repro-determinism
+          path: shadow-ci-out-b/

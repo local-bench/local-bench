@@ -78,6 +78,10 @@ $SelfRelPath   = 'scripts\publish-snapshot.ps1'   # excluded from the snapshot
 # Whole directories, matched by path relative to the source root (case-insensitive).
 $PathPrunes = @(
     '.git',                    # git history -- snapshot is history-free by design
+    '.github\workflows',       # shadow-repro CI rides only the private deploy repo
+                               # (snapshot excludes run records -> would sit red);
+                               # belt-and-braces on top of the workflow's repo guard
+    'shadow-ci-out',           # local shadow-CI evidence output (also gitignored)
     'web\node_modules',        # npm dependency cache
     'web\.next',               # Next.js build output
     'web\out',                 # static export output

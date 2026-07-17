@@ -46,6 +46,8 @@ Directory prunes (path-anchored, relative to repo root):
 | `cli/.venv/`, `cli/build/` | Virtualenv, Python build artifacts |
 | `cli/$tmpdir/` | Stray literal-`$tmpdir` scratch dir (exists on disk) |
 | `cli/runs/` (ENTIRE dir) | Run artifacts are not for the public repo. Single re-include: `cli/runs/board/board_v1.json` (frozen fixture, git blob `3d058e60…`, required by `cli/tests/test_site_parity.py` and `cli/tests/submissions/test_wave2_static_composite.py`). NOTE: this also drops the 9 git-TRACKED `cli/runs/vast/*.json` receipts and `board_v1.manifest.json` / `board_v2*` / `launch_freeze_v1.json` — no test references them; re-include explicitly if that changes |
+| `.github/workflows/` | Shadow-repro CI rides only the private deploy repo (the snapshot excludes run records, so the workflow would sit permanently red); belt-and-braces on top of the workflow's `if: github.repository ==` guard |
+| `shadow-ci-out/` | Local shadow-CI evidence output (`scripts/ci/shadow_compare.py --emit-dir`); the wider `shadow-ci-out*/` family is gitignored, which the snapshot walker also honors |
 | `docs/deploy/` | Private ops docs: deployment ids, Cloudflare state, bypass-token paths, the private deploy repo name — and this manifest |
 | `docs/briefs/` | Internal agent build briefs full of machine paths |
 | `runs/`, `tmp/`, `data/` (top level) | Local run/monitor artifacts, scratch, dataset cache |
