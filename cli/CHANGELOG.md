@@ -26,6 +26,10 @@ through the public CLI.
   Python's `json.dumps` float formatting ("0.0", "1e+16") cannot survive a
   JSON round-trip through the server and 409'd the first real accepted
   verification (`projection_object_sha_mismatch`).
+- Verdict attestations (the other client-signed surface the server
+  re-serializes before verifying) sign and digest over the same JCS bytes.
+  Byte-identical for the current bool-only verdicts; closes the latent
+  divergence a future numeric verdict field would have triggered.
 
 ### Agentic axis rename + index-v4.1 reweight (owner directive 2026-07-17)
 

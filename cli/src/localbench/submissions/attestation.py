@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from localbench._types import JsonObject
-from localbench.submissions.canon import canonical_json_hash
-from localbench.submissions.crypto import sign_manifest_payload, verify_manifest_signature
+from localbench.submissions.canon import jcs_json_bytes, jcs_json_hash
+from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
 ATTESTATION_SCHEMA = "localbench.verdict_attestation.v1"
 ATTESTATION_KEY_ID = "localbench-attester-2026-07"
@@ -26,20 +26,30 @@ def sign_verdict_attestation(
     attested_at: str | None = None,
     key_id: str = ATTESTATION_KEY_ID,
 ) -> JsonObject:
+    # Attestations are the one client-signed surface the server re-serializes
+    # before verifying (submission-zt1-decision.ts re-derives digests and checks
+    # the signature over canonicalJson(payload)), so digests and signed bytes
+    # must use the JCS canonical form. Identical to the legacy form for the
+    # current bool-only verdicts; diverges the moment a numeric field appears.
     payload: JsonObject = {
         "schema": ATTESTATION_SCHEMA,
         "bench": bench,
         "task_id": task_id,
         "run_id": run_id,
         "verdict": dict(verdict),
-        "verdict_sha256": canonical_json_hash(verdict),
+        "verdict_sha256": jcs_json_hash(verdict),
         "attested_at": attested_at or _utc_now(),
         "key_id": key_id,
     }
+    key = load_private_key(signing_key_path)
     return {
         "payload": payload,
-        "payload_sha256": canonical_json_hash(payload),
-        "signature": sign_manifest_payload(payload, signing_key_path),
+        "payload_sha256": jcs_json_hash(payload),
+        "signature": {
+            "algorithm": "Ed25519",
+            "public_key": key.public_key.hex(),
+            "signature": sign_bytes(jcs_json_bytes(payload), signing_key_path),
+        },
     }
 
 
@@ -60,12 +70,15 @@ def verify_verdict_attestation(
     public_key = signature.get("public_key")
     if not isinstance(public_key, str) or public_key.lower() != expected.lower():
         return False
-    if record.get("payload_sha256") != canonical_json_hash(payload):
+    if record.get("payload_sha256") != jcs_json_hash(payload):
         return False
     verdict = payload.get("verdict")
-    if not isinstance(verdict, dict) or payload.get("verdict_sha256") != canonical_json_hash(verdict):
+    if not isinstance(verdict, dict) or payload.get("verdict_sha256") != jcs_json_hash(verdict):
         return False
-    return verify_manifest_signature({"payload": payload, "signature": signature})
+    signature_hex = signature.get("signature")
+    if signature.get("algorithm") != "Ed25519" or not isinstance(signature_hex, str):
+        return False
+    return verify_bytes(jcs_json_bytes(payload), signature_hex, public_key)
 
 
 def expected_attester_public_key_hex(override: str | None = None) -> str | None:

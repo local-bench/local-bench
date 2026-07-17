@@ -80,3 +80,17 @@ def test_jcs_hash_pinned_against_worker() -> None:
 def test_jcs_integral_float_and_int_collide() -> None:
     # JSON.parse cannot distinguish 1.0 from 1; the canonical form must not either.
     assert jcs_json_bytes({"v": 1.0}) == jcs_json_bytes({"v": 1})
+
+
+def test_jcs_rejects_bytes() -> None:
+    with pytest.raises(TypeError, match="bytes"):
+        jcs_json_bytes({"v": b"raw"})
+
+
+def test_ecma_number_rejects_bool() -> None:
+    with pytest.raises(TypeError, match="booleans"):
+        _ecma_number_str(True)
+
+
+def test_jcs_bools_serialize_as_json_booleans() -> None:
+    assert jcs_json_bytes({"t": True, "f": False}) == b'{"f":false,"t":true}'

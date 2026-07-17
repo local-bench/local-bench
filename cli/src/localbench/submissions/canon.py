@@ -55,6 +55,8 @@ def _emit_jcs(value: JsonValue, out: list[str]) -> None:
         out.append(json.dumps(value, ensure_ascii=False))
     elif isinstance(value, (int, float)):
         out.append(_ecma_number_str(value))
+    elif isinstance(value, (bytes, bytearray)):
+        raise TypeError("jcs canonical JSON does not support bytes")
     elif isinstance(value, Sequence):
         out.append("[")
         for index, item in enumerate(value):
@@ -77,6 +79,8 @@ def _emit_jcs(value: JsonValue, out: list[str]) -> None:
 
 
 def _ecma_number_str(value: int | float) -> str:
+    if isinstance(value, bool):
+        raise TypeError("booleans are not numbers; route through _emit_jcs")
     if isinstance(value, int):
         if abs(value) >= _JS_SAFE_INT_LIMIT:
             raise ValueError(f"integer {value} exceeds the JS safe range; digest would diverge")

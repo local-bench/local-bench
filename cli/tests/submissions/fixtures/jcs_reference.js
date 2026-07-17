@@ -8,7 +8,7 @@ function canonicalJson(value) {
 const crypto = require("crypto");
 const v1 = {
   zeta: [0.0, 1.0, 0.07692307692307693, 1e16, 1e-7, null, true, false],
-  alpha: { nested: { rate: 0.0, count: 1311, label: "a\"b\\c\nend" } },
+  alpha: { nested: { rate: 0.0, count: 1311, label: "a\"b\\c\nend\u001f" } },
   Beta: "unicode é中文 raw",
   empty_obj: {},
   empty_arr: [],
