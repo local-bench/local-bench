@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.2 - 2026-07-18
+
+### Agentic appliance c0v4
+
+- The pinned agentic sandbox appliance moves to c0v4 with a 0.4.2 worker.
+  0.4.1 hosts fail closed against the c0v3-r2 appliance (its baked worker is
+  0.4.0, and worker/host distribution versions must match exactly), which made
+  agentic scoring unreachable on 0.4.1; installing 0.4.2 and re-running
+  `setup-agentic` provisions the matching runtime.
+
 ## 0.4.1 - 2026-07-17
 
 ### Custom-runtime support: agent-isolation reconciliation
