@@ -65,7 +65,7 @@
     {
       "axes": {},
       "best_run_id": null,
-      "catalog_id": "prism-ml/Ternary-Bonsai-27B",
+      "catalog_id": "prism-ml/Ternary-Bonsai-27B-unpacked",
       "composite": null,
       "demo": false,
       "est_cost_usd": null,

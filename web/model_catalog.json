@@ -16734,7 +16734,7 @@
       "distills": []
     },
     {
-      "id": "prism-ml/Ternary-Bonsai-27B",
+      "id": "prism-ml/Ternary-Bonsai-27B-unpacked",
       "slug": "bonsai-27b-ternary",
       "display_name": "Bonsai 27B Ternary",
       "family": "Qwen3.6",
