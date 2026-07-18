@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { TrustTierChip } from "@/components/leaderboard-provenance";
+import { SubmitterChip } from "@/components/submitter-chip";
 import { useLiveCommunityRows } from "@/components/community-live-state";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import {
@@ -131,7 +132,14 @@ export function SubmissionsTable({
                     ? row.modelLabel
                     : <Link className="hover:text-bench-accent" href={row.communityDetailPath}>{row.modelLabel}</Link>}
                 </td>
-                <td className="px-4 py-3 text-bench-muted">{row.submitterLabel}</td>
+                <td className="px-4 py-3 text-bench-muted">
+                  <SubmitterChip
+                    displayName={row.submitterDisplayName}
+                    emptyLabel="not provided"
+                    githubLogin={row.submitterGithubLogin}
+                    keyFingerprint={row.submitterKeyFingerprint}
+                  />
+                </td>
                 <td className="px-4 py-3">
                   <span className="font-semibold text-bench-text">{row.stateLabel}</span>
                   {row.reasonLabel === null ? null : <span className="mt-1 block text-xs text-bench-worse">{row.reasonLabel}</span>}

@@ -7,6 +7,7 @@ import {
   AttributionChip,
   TrustTierChip,
 } from "@/components/leaderboard-provenance";
+import { SubmitterChip } from "@/components/submitter-chip";
 import { formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 
@@ -59,7 +60,13 @@ export function CommunityLeaderboardRow({
           <div className="mt-1"><TrustTierChip trustLabel={row.trust.trust_label} /></div>
         )}
         <div className="mt-1 max-w-[150px] text-[10px] leading-4 text-bench-muted">
-          {submitterLabel(row) ?? "not independently verified"}
+          <SubmitterChip
+            displayName={row.submitterDisplayName}
+            emptyLabel="not independently verified"
+            githubLogin={row.submitterGithubLogin}
+            keyFingerprint={row.submitterKeyFingerprint}
+            prefix="submitted by "
+          />
         </div>
       </td>
       <td className="px-3 py-3">
@@ -108,16 +115,6 @@ function CommunityAxisCell({ axis, row }: { readonly axis: string; readonly row:
       <div className="mt-1 font-mono text-[10px] text-bench-muted">n={value.n}</div>
     </td>
   );
-}
-
-function submitterLabel(row: CommunityBoardRow): string | null {
-  if (row.submitterDisplayName !== null && row.submitterDisplayName !== undefined) {
-    return `submitted by ${row.submitterDisplayName}`;
-  }
-  if (row.submitterKeyFingerprint !== null && row.submitterKeyFingerprint !== undefined) {
-    return `submitted by key:${row.submitterKeyFingerprint}`;
-  }
-  return null;
 }
 
 function UnavailableCell({ axis = false }: { readonly axis?: boolean }) {

@@ -32,6 +32,7 @@ function lifecycleRow(submissionId: string, overrides: Record<string, unknown>) 
     status: "pending_verification",
     submission_id: submissionId,
     submitter_display_name: "Ada",
+    github_login: "octocat",
     validated_at: "2026-07-18T02:00:00Z",
     ...overrides,
   };
@@ -102,6 +103,9 @@ describe("public submissions lifecycle", () => {
     expect(html).toContain("Load more");
     expect(html).toContain("Held for review");
     expect(html).toContain("Unsafe metadata");
+    expect(html).toContain("@octocat");
+    expect(html).toContain("Ada");
+    expect(html).not.toContain('href="https://github.com/');
   });
 
   it("renders bounded rejection reasons and a published tier on submission detail", () => {
