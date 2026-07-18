@@ -46,24 +46,15 @@ import {
 } from "./vs-base";
 import { HEADLINE_LANE } from "./leaderboard-score";
 
-const DATA_DIR = join(process.cwd(), "public", "data");
+export {
+  COMMUNITY_GROUP_PLACEHOLDER_ID,
+  getCommunityGroup,
+  getCommunityGroupStaticParams,
+  getCommunityGroups,
+  type CommunityGroupData,
+} from "./community-data";
 
-const CommunityGroupSchema = z.object({
-  community_model_group_id: z.string().regex(/^community-group:[0-9a-f]{32}$/),
-  identity_label: z.literal("community-declared, identity-unverified"),
-  ranked: z.literal(false),
-  schema_version: z.literal("localbench.community_publication.v1"),
-  variants: z.array(z.object({
-    artifact_sha256: z.string().regex(/^[0-9a-f]{64}$/),
-    display_name: z.string().nullable(),
-    projection_object_sha256: z.string().regex(/^[0-9a-f]{64}$/),
-    ranked: z.literal(false),
-    scores: z.record(z.string(), z.unknown()),
-    submission_id: z.string().min(1),
-  })),
-});
-const CommunityIndexSchema = z.object({ groups: z.array(z.object({ community_model_group_id: z.string(), group_path: z.string(), n_variants: z.number().int().nonnegative() })) });
-export type CommunityGroupData = z.infer<typeof CommunityGroupSchema>;
+const DATA_DIR = join(process.cwd(), "public", "data");
 
 export type AnchorReference = {
   readonly axes: Record<string, AxisScore>;
@@ -174,26 +165,6 @@ export async function getPartialCoverageBoard(): Promise<readonly BoardEntryRow[
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return [];
     }
-    throw error;
-  }
-}
-
-export async function getCommunityGroup(groupId: string): Promise<CommunityGroupData> {
-  return readJson(["community", "groups", `${groupId}.json`], CommunityGroupSchema);
-}
-
-// output: "export" refuses a dynamic route with zero static params, so while no community
-// group has been published the route emits one reserved placeholder path instead. Real group
-// ids are 32-hex, so the placeholder can never collide with one.
-export const COMMUNITY_GROUP_PLACEHOLDER_ID = "not-yet-published";
-
-export async function getCommunityGroupStaticParams(): Promise<readonly { readonly groupId: string }[]> {
-  try {
-    const index = await readJson(["community", "index.json"], CommunityIndexSchema);
-    if (index.groups.length === 0) return [{ groupId: COMMUNITY_GROUP_PLACEHOLDER_ID }];
-    return index.groups.map((group) => ({ groupId: group.community_model_group_id.replace("community-group:", "") }));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [{ groupId: COMMUNITY_GROUP_PLACEHOLDER_ID }];
     throw error;
   }
 }
