@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  communityBoardRows,
+  communityRowsForModel,
   huggingFaceRepoUrl,
   parseCommunityGroup,
 } from "../lib/community-data";
@@ -90,5 +92,36 @@ describe("community static-data boundary", () => {
     const unknown = groupFixture();
     Object.assign(firstVariant(unknown).scores, { unexpected: 0.5 });
     expect(parseCommunityGroup(unknown)).toBeNull();
+  });
+
+  it("projects validated groups into unranked board rows without re-parsing", () => {
+    const parsed = parseCommunityGroup(groupFixture());
+    if (parsed === null) throw new Error("expected validated community group");
+
+    const rows = communityBoardRows([parsed]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      detailPath: "/community/model/11111111111111111111111111111111",
+      displayName: "Qwythos-9B v2",
+      identityLabel: "community-declared, identity-unverified",
+      partialComposite: 0.4171,
+      ranked: false,
+    });
+  });
+
+  it("associates Qwythos with Qwen3.5 family pages from validated lineage only", () => {
+    const parsed = parseCommunityGroup(groupFixture());
+    if (parsed === null) throw new Error("expected validated community group");
+    const rows = communityBoardRows([parsed]);
+
+    expect(communityRowsForModel(rows, {
+      catalogId: "Qwen/Qwen3.5-9B",
+      family: "Qwen3.5",
+    })).toHaveLength(1);
+    expect(communityRowsForModel(rows, {
+      catalogId: "google/gemma-3-4b-it",
+      family: "Gemma 3",
+    })).toEqual([]);
   });
 });

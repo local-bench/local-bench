@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { CommunityFamilyResults } from "@/components/community-family-results";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
@@ -8,6 +9,7 @@ import { ProvenanceLabels } from "@/components/leaderboard-provenance";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
+import { communityRowsForModel, getCommunityBoardRows } from "@/lib/community-data";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { isTrustedPopulation, isTrustedRankedPopulation, selectTrustedHeaderSource } from "@/lib/trusted-population";
 
@@ -26,6 +28,10 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
   const { model, anchorRuns, familyModels, lineage, vsBaseComparisons } = await getModelPageData(slug);
+  const communityRows = await getCommunityBoardRows();
+  const communityFamilyRows = communityRows === null
+    ? []
+    : communityRowsForModel(communityRows, { catalogId: model.catalog_id, family: model.family });
   // Only current-index (headline lane) runs inform this page. Retired-lane runs stay
   // reachable by direct /run URL but are not surfaced here (owner call, 2026-07-09 —
   // migration bookkeeping reads as noise to visitors who never saw the old index).
@@ -94,6 +100,7 @@ export default async function ModelPage({ params }: PageProps) {
       </header>
       <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
       <ModelVariantBoard model={model} familyModels={familyModels} />
+      <CommunityFamilyResults rows={communityFamilyRows} />
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
     </main>
   );

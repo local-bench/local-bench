@@ -98,6 +98,24 @@ const CommunityIndexSchema = z.object({
 
 export type CommunityGroupData = z.infer<typeof CommunityGroupSchema>;
 export type HuggingFaceRepoId = z.infer<typeof RepoIdSchema>;
+export type CommunityBoardRow = {
+  readonly artifactSha256: string;
+  readonly detailPath: string;
+  readonly displayName: string;
+  readonly identityLabel: CommunityGroupData["identity_label"];
+  readonly lineage: CommunityGroupData["variants"][number]["lineage_enrichment"];
+  readonly measuredHeadlineWeight: number | null;
+  readonly missingHeadlineWeight: number | null;
+  readonly partialComposite: number | null;
+  readonly quantLabel: string | null;
+  readonly ranked: false;
+  readonly submissionId: string;
+};
+
+export type CommunityModelTarget = {
+  readonly catalogId: string | null | undefined;
+  readonly family: string;
+};
 
 export const COMMUNITY_GROUP_PLACEHOLDER_ID = "not-yet-published";
 
@@ -148,6 +166,60 @@ export async function getCommunityGroups(): Promise<readonly CommunityGroupData[
     groups.push(group);
   }
   return groups;
+}
+
+export function communityBoardRows(groups: readonly CommunityGroupData[]): readonly CommunityBoardRow[] {
+  return groups.flatMap((group) => {
+    const groupId = group.community_model_group_id.replace("community-group:", "");
+    return group.variants.map((variant) => ({
+      artifactSha256: variant.artifact_sha256,
+      detailPath: `/community/model/${groupId}`,
+      displayName: variant.display_name ?? "Community-declared variant",
+      identityLabel: group.identity_label,
+      lineage: variant.lineage_enrichment,
+      measuredHeadlineWeight: variant.scores.measured_headline_weight ?? null,
+      missingHeadlineWeight: variant.scores.missing_headline_weight ?? null,
+      partialComposite: variant.scores.partial_composite ?? null,
+      quantLabel: variant.quant_label,
+      ranked: false,
+      submissionId: variant.submission_id,
+    }));
+  });
+}
+
+export async function getCommunityBoardRows(): Promise<readonly CommunityBoardRow[] | null> {
+  const groups = await getCommunityGroups();
+  return groups === null ? null : communityBoardRows(groups);
+}
+
+export function communityRowsForModel(
+  rows: readonly CommunityBoardRow[],
+  target: CommunityModelTarget,
+): readonly CommunityBoardRow[] {
+  const familyKey = normalizedFamily(target.family);
+  return rows.filter((row) => {
+    const lineage = row.lineage;
+    if (lineage === undefined) return false;
+    const repositories = [
+      lineage.repo.id,
+      ...lineage.card_declared_edges.flatMap((edge) => [edge.base, edge.child]),
+    ];
+    if (
+      target.catalogId !== null
+      && target.catalogId !== undefined
+      && repositories.some((repoId) => repoId === target.catalogId)
+    ) {
+      return true;
+    }
+    return familyKey.length > 0 && repositories.some((repoId) => {
+      const repoName = repoId.split("/").at(-1) ?? repoId;
+      return normalizedFamily(repoName).includes(familyKey);
+    });
+  });
+}
+
+function normalizedFamily(value: string): string {
+  return value.toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "");
 }
 
 export async function getCommunityGroupStaticParams(): Promise<readonly { readonly groupId: string }[]> {

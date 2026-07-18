@@ -41,9 +41,23 @@ export function RunByCell({ model }: { readonly model: IndexModel }) {
     return <span className="text-xs text-bench-muted">submitted by {submitter}</span>;
   }
   if (model.score_status === "measured" && !model.demo) {
-    return <span className="font-mono text-xs text-bench-text">local-bench</span>;
+    return <AttributionChip source="local-bench" />;
   }
   return <span className="font-mono text-xs text-bench-muted">—</span>;
+}
+
+export function AttributionChip({ source }: { readonly source: "community" | "local-bench" }) {
+  const community = source === "community";
+  return (
+    <span
+      className={community
+        ? "inline-flex rounded border border-bench-muted/40 bg-bench-muted/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-muted"
+        : "inline-flex rounded border border-bench-accent/35 bg-bench-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-accent"}
+      title={community ? "Community submission; not independently verified" : "Benchmark run by local-bench"}
+    >
+      {source}
+    </span>
+  );
 }
 
 function agenticChip(model: ProvenanceModel) {
