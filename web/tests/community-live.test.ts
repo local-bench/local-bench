@@ -70,6 +70,7 @@ function liveRow(overrides: Partial<LiveBoardRow> = {}): LiveBoardRow {
 
 function envelope(rows: readonly unknown[]) {
   return {
+    board_digest: "f".repeat(64),
     edge_block_revision: 2,
     generated_at: "2026-07-18T04:00:10Z",
     omitted_rows: 0,
