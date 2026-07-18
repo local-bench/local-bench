@@ -1,5 +1,12 @@
 import { getAllStaticRoutes } from "./data";
-import { test, visitAndCapture } from "./fixtures";
+import { expect, test, visitAndCapture, visitRoute } from "./fixtures";
+
+test("submissions renders with its navigation entry", async ({ page }) => {
+  await visitRoute(page, "/submissions");
+
+  await expect(page.getByRole("heading", { name: "Submission lifecycle" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Submissions" })).toHaveAttribute("href", "/submissions");
+});
 
 test("all static routes render HTTP 200 without browser runtime failures", async ({ page }) => {
   const routes = await getAllStaticRoutes();

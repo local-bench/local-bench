@@ -333,6 +333,7 @@ export async function getAllStaticRoutes(): Promise<readonly StaticRoute[]> {
   const contentRoutes: readonly StaticRoute[] = [
     { path: "/", screenshotName: "route-home" },
     { path: "/leaderboard", screenshotName: "route-leaderboard" },
+    { path: "/submissions", screenshotName: "route-submissions" },
     { path: "/compare", screenshotName: "route-compare" },
     { path: "/methodology", screenshotName: "route-methodology" },
   ];

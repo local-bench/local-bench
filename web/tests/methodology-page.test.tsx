@@ -113,4 +113,12 @@ describe("MethodologyPage", () => {
     expect(text).toContain("the only sanctioned pairing");
     expect(text).toContain("A partial v4 composite is never displayed or ranked");
   });
+
+  it("discloses the attribution fields exposed by the live community board", async () => {
+    const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
+
+    expect(text).toContain("Attribution as trust");
+    expect(text).toContain("submitter display name and key fingerprint");
+    expect(text).toContain("per-axis sample counts and confidence intervals");
+  });
 });

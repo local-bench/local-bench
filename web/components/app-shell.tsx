@@ -27,6 +27,9 @@ export function AppShell({
               <Link href="/community" className="hover:text-bench-text">
                 Community
               </Link>
+              <Link href="/submissions" className="hover:text-bench-text">
+                Submissions
+              </Link>
               <Link href="/compare" className="hover:text-bench-text">
                 Compare
               </Link>
