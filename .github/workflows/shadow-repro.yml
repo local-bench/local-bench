@@ -112,6 +112,14 @@ jobs:
         run: npm ci
         working-directory: web
 
+      # The publication blackbox gate drives a real browser; without installed
+      # browsers Playwright hangs and the suite dies on timeouts (observed on the
+      # first four live runs, 2026-07-18). On a later ubuntu move this becomes
+      # `npx playwright install --with-deps chromium`.
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+        working-directory: web
+
       - name: Web unit suite
         run: npm run test
         working-directory: web
