@@ -47,12 +47,11 @@ describe("ZT-1 automatic publish decisions", () => {
     // When: the verifier applies an accepted status update.
     const response = await verifyAccepted(env, submissionId);
 
-    // Then: ZT-1 leaves the row preview-visible and eligible for the daily publish batch.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       board_identity_key: "qwen3-4b",
       identity_class: "known_artifact",
-      publish_state: "preview",
+      publish_state: "published",
       zt1_decision: "publishable",
     });
     await expectDecisionLog(env, submissionId, "auto_accept", "publishable");
@@ -76,8 +75,9 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(await response.json()).toMatchObject({
       board_identity_key: KNOWN_HASH,
       identity_class: "unverified",
-      provisional_reason: "unknown_identity",
-      zt1_decision: "provisional",
+      provisional_reason: null,
+      publish_state: "published",
+      zt1_decision: "publishable",
     });
   }, 15_000);
 
@@ -98,11 +98,11 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(await response.json()).toMatchObject({
       publish_state: "hidden",
       zt1_decision: "escalated",
-      zt1_decision_reason: "duplicate_flag",
+      zt1_decision_reason: "duplicate_artifact",
     });
   }, 15_000);
 
-  it("does not auto-trust a community submission's self-declared verifier coding", async () => {
+  it("keeps community verifier claims self-reported without holding publication", async () => {
     // Given: a COMMUNITY bundle self-declares verdict_source:"verifier" on all coding items. The
     // in-process coding sentinel is forgeable (docs/reports/coding-exec-framewalk-forgery-2026-07-07.md),
     // so a community "verifier" claim is self-reported and must not be auto-accepted. (origin is
@@ -120,12 +120,11 @@ describe("ZT-1 automatic publish decisions", () => {
     // When: the verifier accepts the submission.
     const response = await verifyAccepted(env, submissionId);
 
-    // Then: the forged "verifier" claim is NOT auto-accepted — it escalates to hidden for review.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      publish_state: "hidden",
-      zt1_decision: "escalated",
-      zt1_decision_reason: "coding_self_reported_exec",
+      publish_state: "published",
+      zt1_coding_state: "self_reported_exec",
+      zt1_decision: "publishable",
     });
   }, 15_000);
 
@@ -177,10 +176,7 @@ describe("ZT-1 automatic publish decisions", () => {
     expect(body["zt1_decision_reason"]).not.toBe("coding_self_reported_exec");
   }, 15_000);
 
-  it("escalates community coding with an empty/unverified code_artifact (no generated_unverified bypass)", async () => {
-    // The forged-"verifier" path was closed first, but a community submitter could still dodge
-    // review with an EMPTY code_artifact: null verdict_source -> old generated_unverified ->
-    // publishable, while claiming passing items. Any community coding now escalates regardless.
+  it("keeps empty community coding evidence pending without holding publication", async () => {
     const env = await createZt1Env();
     await enableAutoPublish(env);
     const bundle = bundleFor({ fileSha: UNKNOWN_HASH, score: 45 });
@@ -195,9 +191,9 @@ describe("ZT-1 automatic publish decisions", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      publish_state: "hidden",
-      zt1_decision: "escalated",
-      zt1_decision_reason: "coding_self_reported_exec",
+      publish_state: "published",
+      zt1_coding_state: "self_reported_exec",
+      zt1_decision: "publishable",
     });
   }, 15_000);
 
@@ -215,14 +211,14 @@ describe("ZT-1 automatic publish decisions", () => {
     // When: the accepted status update is applied.
     const response = await verifyAccepted(env, submissionId);
 
-    // Then: the board identity is keyed by artifact hash with an unverified provisional label.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       board_display_label: "community-declared · identity unverified · Ava Bench",
       board_identity_key: UNKNOWN_HASH,
       identity_class: "unverified",
-      provisional_reason: "unknown_identity",
-      zt1_decision: "provisional",
+      provisional_reason: null,
+      publish_state: "published",
+      zt1_decision: "publishable",
     });
   }, 15_000);
 
@@ -281,7 +277,7 @@ describe("ZT-1 automatic publish decisions", () => {
     });
   }, 15_000);
 
-  it("marks self-reported agentic rows provisional", async () => {
+  it("publishes self-reported agentic rows with a visible trust flag", async () => {
     // Given: an otherwise low-impact accepted bundle carries an agentic result.
     const env = await createZt1Env();
     await enableAutoPublish(env);
@@ -294,16 +290,14 @@ describe("ZT-1 automatic publish decisions", () => {
     // When: verification accepts the bundle.
     const response = await verifyAccepted(env, submissionId);
 
-    // Then: the row is visible only as a 24-hour provisional row.
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toMatchObject({
-      provisional_reason: "self_reported_agentic",
-      publish_state: "preview",
-      zt1_decision: "provisional",
+      provisional_reason: null,
+      publish_state: "published",
+      zt1_decision: "publishable",
+      zt1_decision_reason: expect.stringContaining("self_reported_agentic"),
     });
-    expect(Date.parse(String(body.provisional_until))).toBeGreaterThan(Date.now() + 23 * 60 * 60 * 1000);
-    expect(Date.parse(String(body.provisional_until))).toBeLessThan(Date.now() + 25 * 60 * 60 * 1000);
   }, 15_000);
 
   it.each([
@@ -312,7 +306,7 @@ describe("ZT-1 automatic publish decisions", () => {
     ["family_number_one", seedFamilyScores("BenchFam", [59])],
     ["beats_prior_number_one", seedBoardScores(1, { scoreAt: 1, value: 60 })],
     ["first_page_first_time_key", seedBoardScores(9, { scoreAt: 9, value: 50 })],
-  ])("marks %s high-impact rows provisional", async (reason, seed) => {
+  ])("publishes %s high-impact rows with an audit flag", async (reason, seed) => {
     // Given: existing board rows make the accepted row high-impact for one trigger.
     const env = await createZt1Env();
     await enableAutoPublish(env);
@@ -328,16 +322,14 @@ describe("ZT-1 automatic publish decisions", () => {
     // When: verification accepts it.
     const response = await verifyAccepted(env, submissionId);
 
-    // Then: it is visible only as provisional and excluded from batch promotion.
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body).toMatchObject({
-      provisional_reason: expect.stringContaining(reason),
-      publish_state: "preview",
-      zt1_decision: "provisional",
+      provisional_reason: null,
+      publish_state: "published",
+      zt1_decision: "publishable",
+      zt1_decision_reason: expect.stringContaining(reason),
     });
-    const minimumWindowHours = reason === "first_page_first_time_key" ? 23 : 71;
-    expect(Date.parse(String(body.provisional_until))).toBeGreaterThan(Date.now() + minimumWindowHours * 60 * 60 * 1000);
   }, 15_000);
 
   it("ignores partial-only public scores for headline impact flags", async () => {
@@ -359,7 +351,7 @@ describe("ZT-1 automatic publish decisions", () => {
     // Then: zt1 does not compare the headline score against the retired partial pool.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      publish_state: "preview",
+      publish_state: "published",
       zt1_decision: "publishable",
     });
   }, 15_000);
@@ -374,10 +366,13 @@ describe("ZT-1 automatic publish decisions", () => {
     const response = await verifyAccepted(env, submissionId);
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ provisional_reason: expect.stringContaining("top_10_overall") });
+    expect(await response.json()).toMatchObject({
+      publish_state: "published",
+      zt1_decision_reason: expect.stringContaining("top_10_overall"),
+    });
   }, 15_000);
 
-  it("keeps new provisional decisions hidden when the provisional preview cap is full", async () => {
+  it("publishes a new eligible decision even when the retired preview lane is full", async () => {
     // Given: the incoming provisional preview lane is already at capacity.
     const env = await createZt1Env();
     await enableAutoPublish(env);
@@ -395,12 +390,11 @@ describe("ZT-1 automatic publish decisions", () => {
     // When: another accepted row receives a provisional ZT-1 decision.
     const response = await verifyAccepted(env, submissionId);
 
-    // Then: it remains hidden instead of increasing the provisional preview count.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      publish_state: "hidden",
-      zt1_decision: "provisional",
-      zt1_decision_reason: "unknown_identity",
+      publish_state: "published",
+      zt1_decision: "publishable",
+      zt1_decision_reason: expect.stringContaining("unknown_identity"),
     });
     const preview = await env.DB.prepare("select count(*) as count from submissions where publish_state = 'preview' and zt1_decision = 'provisional'").first();
     expect(preview).toMatchObject({ count: 50 });
@@ -498,12 +492,10 @@ describe("ZT-1 automatic publish decisions", () => {
   }, 15_000);
 
   it.each([
-    ["pending_gt_20", async (env: SubmissionApiEnv) => seedPending(env, 21)],
-    ["submissions_24h_gt_50", async (env: SubmissionApiEnv) => seedRecentSubmissions(env, 51)],
-    ["r2_ingress_24h_gt_2gib", async (env: SubmissionApiEnv) => seedIngress(env, 2_147_483_649)],
-    ["escalations_24h_gt_10", async (env: SubmissionApiEnv) => seedDecisionRows(env, 11, "escalated")],
-    ["accepts_24h_gt_10", async (env: SubmissionApiEnv) => seedAcceptedRows(env, 11)],
-    ["sybil_pattern_flag", async (env: SubmissionApiEnv) => seedFlaggedRow(env, "sybil_pattern")],
+    ["oldest_pending_age_gt_6h", seedOldPending],
+    ["reject_rate_24h_gt_50pct", seedRejectRate],
+    ["upload_bytes_24h_gt_8gib", async (env: SubmissionApiEnv) => seedIngress(env, 8 * 1024 * 1024 * 1024 + 1)],
+    ["accepts_24h_gt_200", async (env: SubmissionApiEnv) => seedAcceptedRows(env, 201)],
   ])("freezes auto-publish on %s", async (alarm, seed) => {
     // Given: one freeze threshold is breached.
     const env = await createZt1Env();
@@ -542,9 +534,9 @@ describe("ZT-1 automatic publish decisions", () => {
   }, 15_000);
 
   it("keeps a security disable when cooldown expires but an alarm is still firing", async () => {
-    // Given: security disabled auto-publish before the cooldown and pending rows still breach an alarm.
+    // Given: security disabled auto-publish before the cooldown and an old pending row still breaches an alarm.
     const env = await createZt1Env();
-    await seedPending(env, 21);
+    await seedOldPending(env);
     await setAutoPublishDisabled(env, "security", "2000-01-01T00:00:00.000Z");
 
     // When: the batch starts.
@@ -553,7 +545,7 @@ describe("ZT-1 automatic publish decisions", () => {
     // Then: the security disable remains sticky for the active anomaly and the clock is reset.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      alarms: [expect.objectContaining({ reason: "pending_gt_20" })],
+      alarms: [expect.objectContaining({ reason: "oldest_pending_age_gt_6h" })],
       auto_publish: "off",
       promoted: [],
     });
@@ -958,6 +950,19 @@ async function seedPending(env: SubmissionApiEnv, count: number): Promise<void> 
   }
 }
 
+async function seedOldPending(env: SubmissionApiEnv): Promise<void> {
+  await seedPending(env, 1);
+  await env.DB.prepare("update submissions set uploaded_at = datetime('now', '-7 hours') where submission_id = 'pending_0'")
+    .run();
+}
+
+async function seedRejectRate(env: SubmissionApiEnv): Promise<void> {
+  for (let index = 0; index < 20; index += 1) {
+    await seedRejected(env, `reject_alarm_${index}`, "schema_violation");
+  }
+  await seedAcceptedRows(env, 10);
+}
+
 async function seedRecentSubmissions(env: SubmissionApiEnv, count: number): Promise<void> {
   for (let index = 0; index < count; index += 1) {
     await seedStatusRow(env, `recent_${index}`, "ticketed");
@@ -969,9 +974,16 @@ async function seedIngress(env: SubmissionApiEnv, bytes: number): Promise<void> 
 }
 
 async function seedAcceptedRows(env: SubmissionApiEnv, count: number): Promise<void> {
-  for (let index = 0; index < count; index += 1) {
-    await seedAcceptedDecision(env, `accepted_alarm_${index}`, "publishable");
-  }
+  await env.DB.prepare(
+    `with recursive n(x) as (select 1 union all select x + 1 from n where x < ?)
+     insert into submissions (
+       submission_id, origin, status, raw_bundle_sha256, idempotency_key,
+       publish_state, validated_at, zt1_decision
+     ) select
+       'accepted_alarm_' || x, 'community', 'accepted', printf('%064x', x + 900000),
+       printf('%064x', x + 900000), 'preview', datetime('now'), 'publishable'
+     from n`,
+  ).bind(count).run();
 }
 
 async function seedDecisionRows(env: SubmissionApiEnv, count: number, decision: string): Promise<void> {

@@ -35,6 +35,31 @@ export function hasValidAdminSecret(request: Request, env: { readonly ADMIN_API_
   return expected.length > 0 && provided === expected;
 }
 
+export type ValidatorRouteAuth =
+  | { readonly actor: "auto-validator" | "maintainer"; readonly kind: "authorized" }
+  | { readonly kind: "blocked"; readonly response: Response };
+
+export function authorizeValidatorRoute(
+  request: Request,
+  env: { readonly ADMIN_API_SECRET?: string; readonly VALIDATOR_API_SECRET?: string },
+): ValidatorRouteAuth {
+  if (hasValidAdminSecret(request, env)) {
+    return { actor: "maintainer", kind: "authorized" };
+  }
+  const provided = (request.headers.get("x-localbench-validator-secret") ?? "").trim();
+  if (provided.length === 0) {
+    return { kind: "blocked", response: adminBlocked(request, env) ?? jsonResponse(401, { code: "unauthorized", error: "unauthorized" }) };
+  }
+  const expected = (env.VALIDATOR_API_SECRET ?? "").trim();
+  if (expected.length === 0) {
+    return { kind: "blocked", response: jsonResponse(503, { code: "validator_api_disabled", error: "validator API is disabled" }) };
+  }
+  if (provided !== expected) {
+    return { kind: "blocked", response: jsonResponse(401, { code: "unauthorized", error: "unauthorized" }) };
+  }
+  return { actor: "auto-validator", kind: "authorized" };
+}
+
 export type ErrorLogContext = {
   readonly error: unknown;
   readonly leg: string;

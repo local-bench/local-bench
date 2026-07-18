@@ -53,10 +53,13 @@ export async function persistZt1Decision(
   submissionId: string,
   plan: Zt1DecisionPlan,
 ): Promise<void> {
-  const publishState = await publishStateForDecision(env, plan);
   const flagsJson = await zt1FlagsForDecision(env, submissionId, plan);
-  const revisionRow = await env.DB.prepare("select state_revision from submissions where submission_id = ?").bind(submissionId).first();
+  const revisionRow = await env.DB.prepare("select state_revision, publish_state from submissions where submission_id = ?").bind(submissionId).first();
   const revision = numeric(revisionRow?.["state_revision"]);
+  const currentPublishState = text(revisionRow?.["publish_state"]);
+  const publishState = currentPublishState === "published" && plan.zt1Decision === "publishable"
+    ? "published"
+    : await publishStateForDecision(env, plan);
   if (env.DB.batch === undefined) throw new Error("D1 batch support is required for ZT-1 decisions");
   const results = await env.DB.batch([
     env.DB.prepare(
@@ -155,14 +158,42 @@ async function currentFreezeAlarms(env: SubmissionApiEnv): Promise<readonly Free
     return [];
   }
   const alarms = [
-    await thresholdAlarm(env, "pending_gt_20", "select count(*) from submissions where status = 'pending_verification'", 20),
-    await thresholdAlarm(env, "submissions_24h_gt_50", "select count(*) from submissions where created_at >= datetime('now', '-24 hours')", 50),
-    await thresholdAlarm(env, "r2_ingress_24h_gt_2gib", "select coalesce(sum(raw_bundle_size_bytes), 0) from submissions where uploaded_at >= datetime('now', '-24 hours')", 2 * GIB),
-    await thresholdAlarm(env, "escalations_24h_gt_10", "select count(*) from submissions where zt1_decision = 'escalated' and zt1_decided_at >= datetime('now', '-24 hours')", 10),
-    await thresholdAlarm(env, "accepts_24h_gt_10", "select count(*) from submissions where status = 'accepted' and validated_at >= datetime('now', '-24 hours')", 10),
-    await thresholdAlarm(env, "sybil_pattern_flag", "select count(*) from submissions where zt1_flags_json like '%sybil_pattern%'", 0),
+    await thresholdAlarm(
+      env,
+      "oldest_pending_age_gt_6h",
+      "select count(*) from submissions where status = 'pending_verification' and coalesce(uploaded_at, created_at) < datetime('now', '-6 hours')",
+      0,
+    ),
+    await rejectRateAlarm(env),
+    await thresholdAlarm(
+      env,
+      "upload_bytes_24h_gt_8gib",
+      "select coalesce(sum(raw_bundle_size_bytes), 0) from submissions where uploaded_at >= datetime('now', '-24 hours')",
+      8 * GIB,
+    ),
+    await thresholdAlarm(
+      env,
+      "accepts_24h_gt_200",
+      "select count(*) from submissions where status = 'accepted' and validated_at >= datetime('now', '-24 hours')",
+      200,
+    ),
   ].filter((alarm): alarm is FreezeAlarm => alarm !== null);
   return alarms;
+}
+
+async function rejectRateAlarm(env: SubmissionApiEnv): Promise<FreezeAlarm | null> {
+  const row = await env.DB.prepare(
+    `select
+       sum(case when status = 'rejected' then 1 else 0 end) as rejects,
+       sum(case when status = 'accepted' then 1 else 0 end) as accepts
+     from submissions
+     where status in ('accepted', 'rejected') and validated_at >= datetime('now', '-24 hours')`,
+  ).first();
+  const rejects = numeric(row?.["rejects"] ?? 0);
+  const accepts = numeric(row?.["accepts"] ?? 0);
+  return rejects >= 20 && rejects / (rejects + accepts) > 0.5
+    ? { count: rejects, reason: "reject_rate_24h_gt_50pct", threshold: 20 }
+    : null;
 }
 
 export async function publishBatch(env: SubmissionApiEnv): Promise<PublishBatchManifest> {
@@ -289,8 +320,8 @@ async function publishStateForDecision(env: SubmissionApiEnv, plan: Zt1DecisionP
   if (plan.zt1Decision === "escalated") {
     return "hidden";
   }
-  if (plan.zt1Decision !== "provisional") {
-    return "preview";
+  if (plan.zt1Decision === "publishable") {
+    return "hidden";
   }
   const row = await env.DB.prepare(
     "select count(*) as count from submissions where publish_state = 'preview' and zt1_decision = 'provisional'",

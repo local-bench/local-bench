@@ -11,7 +11,7 @@ export const SUBMISSION_STATUSES = [
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
 export const ALLOWED_SUBMISSION_TRANSITIONS = {
-  accepted: ["withdrawn", "suppressed"],
+  accepted: ["accepted", "withdrawn", "suppressed"],
   expired: [],
   pending_verification: ["accepted", "rejected", "expired"],
   rejected: [],

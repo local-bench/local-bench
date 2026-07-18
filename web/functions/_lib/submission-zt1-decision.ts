@@ -70,10 +70,10 @@ export async function zt1DecisionForAcceptedSubmission(
     score,
   };
   if (!metadataSanitizes(model)) {
-    return escalatedPlan("display_metadata_unsafe", identity, codingState, details);
+    return escalatedPlan("unsafe_metadata", identity, codingState, details);
   }
   if (row.duplicate_of !== null) {
-    return escalatedPlan("duplicate_flag", identity, codingState, details);
+    return escalatedPlan("duplicate_artifact", identity, codingState, details);
   }
   const flags = await moderationFlags(env, row.submission_id);
   const blockingFlag = flags.find((flag) => flag !== "sybil_pattern");
@@ -82,9 +82,6 @@ export async function zt1DecisionForAcceptedSubmission(
   }
   if (identity.identityClass === "protected") {
     return escalatedPlan("protected_identity", identity, codingState, details);
-  }
-  if (codingState === "self_reported_exec") {
-    return escalatedPlan("coding_self_reported_exec", identity, codingState, details);
   }
   const impact = await highImpactReasons(env, row, model, score, identity.identityClass, agenticState);
   if (impact.reasons.length > 0) {
@@ -95,10 +92,10 @@ export async function zt1DecisionForAcceptedSubmission(
       codingState,
       details: { ...details, impact_window_hours: impact.windowHours },
       identityClass: identity.identityClass,
-      provisionalReason: reason,
-      provisionalUntil: new Date(Date.now() + impact.windowHours * 60 * 60 * 1000).toISOString(),
-      reason,
-      zt1Decision: "provisional",
+      provisionalReason: null,
+      provisionalUntil: null,
+      reason: `publishable_with_flags:${reason}`,
+      zt1Decision: "publishable",
     };
   }
   return {
@@ -208,11 +205,11 @@ async function codingStateFor(env: SubmissionApiEnv, row: SubmissionRow, bundle:
   if (row.origin === "community" && await hasCurrentMaintainerCodingAttestation(env, row, bundle)) {
     return "verifier";
   }
-  // ANY community coding is self-reported and escalated for maintainer review, regardless of
+  // ANY community coding is self-reported and remains pending verification, regardless of
   // verdict_source. The coding score derives from per-item correctness (build_data_axes.py), NOT
   // from code_artifact, so a null/empty/missing verdict_source is NOT a safe "generated but not
   // run" signal — a submitter can claim passing coding items with an empty `code_artifact` and,
-  // under the old `generated_unverified` path, dodge review. There is no coding-bound attestation
+  // under the old `generated_unverified` path, overstate trust. There is no coding-bound attestation
   // yet; see docs/reports/coding-exec-worker-marshalling-spec-2026-07-07.md for the path to trusted
   // community coding. `generated_unverified` is retired here (kept in the type for compatibility).
   return "self_reported_exec";

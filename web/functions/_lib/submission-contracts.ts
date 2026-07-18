@@ -41,6 +41,7 @@ export type SubmissionApiEnv = {
   readonly R2_SECRET_ACCESS_KEY?: string;
   readonly SUBMISSIONS: R2BucketBinding;
   readonly TURNSTILE_ENABLED?: string;
+  readonly VALIDATOR_API_SECRET?: string;
   readonly ZT1_KNOWN_ARTIFACTS_JSON?: string;
   readonly ZT1_PROTECTED_KEYS_JSON?: string;
   readonly ZT1_PROTECTED_MODEL_PATTERNS_JSON?: string;
@@ -89,10 +90,17 @@ const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const HfRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
 const Ed25519SignatureSchema = z.string().regex(/^[0-9a-f]{128}$/);
-// Display-only submitter credit: 2-40 chars, alphanumeric at both ends, interior may
+// Display-only submitter credit: 2-80 chars, alphanumeric at both ends, interior may
 // add space . _ ' - (no slashes/colons, so it cannot smuggle a URL). Identity stays
-// the Ed25519 key; admin acceptance is the moderation gate before anything publishes.
-const SubmitterDisplayNameSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,38}[A-Za-z0-9]$/);
+// the Ed25519 key and the value remains subject to post-publication moderation.
+const UnsafeTextPattern = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
+function boundedSafeString(maxLength: number, minLength = 0): z.ZodString {
+  return z.string().min(minLength).max(maxLength).refine((value) => !UnsafeTextPattern.test(value), {
+    message: "text contains prohibited control or bidi characters",
+  });
+}
+export const SubmitterDisplayNameSchema = boundedSafeString(80, 2)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,78}[A-Za-z0-9]$/);
 const RemovedBundleFields = ["schema", "composite", "trust_tier", "serving_verification_level", "source", "output_path"] as const;
 const PopSchema = z.object({
   signature: Ed25519SignatureSchema,
@@ -144,6 +152,7 @@ export const TicketRequestSchema = z.object({
 
 export const UploadTargetRequestSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
+  size_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
   ticket_id: z.string().min(1),
   upload_capability: UploadCapabilitySchema,
 });
@@ -189,38 +198,39 @@ const AcceptedProjectionRescoreModesShape = Object.fromEntries(
 const AcceptedResultProjectionV2BaseSchema = z.object({
   schema_version: z.literal(ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION),
   model: z.object({
-    display_name: z.string().nullable(), declared_name: z.string().nullable(), file_sha256: Sha256Schema.nullable(),
-    file_size_bytes: z.number().int().positive().nullable().optional(), file_name: z.string().nullable().optional(),
-    family: z.string().nullable().optional(), quant_label: z.string().nullable().optional(), format: z.string().nullable().optional(),
+    display_name: boundedSafeString(120).nullable(), declared_name: boundedSafeString(120).nullable(), file_sha256: Sha256Schema.nullable(),
+    file_size_bytes: z.number().int().positive().nullable().optional(), file_name: boundedSafeString(140).nullable().optional(),
+    family: boundedSafeString(64).nullable().optional(), quant_label: boundedSafeString(32).nullable().optional(), format: boundedSafeString(64).nullable().optional(),
     tokenizer_digest: Sha256Schema.nullable().optional(), chat_template_digest: Sha256Schema.nullable().optional(),
     identity_status: z.enum(["unverified", "maintainer_verified"]),
     model_system_key: z.string().regex(/^(artifact|legacy-project-anchor):[0-9a-f]{64}$/),
   }).strict(),
   lineage: z.object({
-    base_model: z.array(z.string().min(1)).refine(
+    base_model: z.array(boundedSafeString(140, 1)).max(8).refine(
       (items) => new Set(items).size === items.length,
       { message: "lineage.base_model must contain unique items" },
     ),
   }).strict(),
   runtime: z.object({
-    name: z.string().min(1), version: z.string().min(1), kv_cache_quant: z.string().nullable().optional(),
+    name: boundedSafeString(120, 1), version: boundedSafeString(120, 1), kv_cache_quant: boundedSafeString(64, 1).nullable().optional(),
     ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),
-    build_flags: z.string().nullable().optional(),
+    build_flags: boundedSafeString(500).nullable().optional(),
   }).strict(),
   suite_release_id: z.enum(ACCEPTED_PROJECTION_SUITE_RELEASE_IDS),
   suite_manifest_sha256: Sha256Schema,
-  scorecard_id: z.string().min(1), coverage_profile_id: z.string().min(1),
+  scorecard_id: boundedSafeString(120, 1), coverage_profile_id: boundedSafeString(120, 1),
   index_version: z.enum(ACCEPTED_PROJECTION_INDEX_VERSIONS).optional(), headline_complete: z.boolean(),
   scores: z.object({
     headline_score: NullableScoreSchema, partial_composite: ScoreSchema,
     partial_composite_scope: z.literal("measured_headline_axes"), measured_headline_weight: ScoreSchema,
     missing_headline_weight: ScoreSchema, known_headline_contribution: ScoreSchema, rank_scope: z.string().min(1),
-    composite_static: NullableScoreSchema.optional(), composite_full: NullableScoreSchema.optional(), static_index_version: z.string().min(1).optional(),
+    composite_static: NullableScoreSchema.optional(), composite_full: NullableScoreSchema.optional(), static_index_version: boundedSafeString(120, 1).optional(),
   }).strict(),
-  axes: z.record(z.string(), ProjectionAxisSchema).refine((axes) => Object.keys(axes).length > 0),
+  axes: z.record(boundedSafeString(40, 1), ProjectionAxisSchema)
+    .refine((axes) => Object.keys(axes).length > 0 && Object.keys(axes).length <= 16),
   conformance: z.object({
-    status: z.string().min(1).optional(), n_scored: z.number().int().nonnegative().optional(),
-    worst_bench: z.string().nullable().optional(), reasons: z.array(z.string()).optional(),
+    status: boundedSafeString(80, 1).optional(), n_scored: z.number().int().nonnegative().optional(),
+    worst_bench: boundedSafeString(120, 1).nullable().optional(), reasons: z.array(boundedSafeString(300)).optional(),
     per_bench: z.record(z.string(), z.unknown()).optional(),
   }).strict(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict(),
@@ -228,9 +238,13 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   origin: z.enum(["project_anchor", "community"]),
   trust_label: z.enum(["project_anchor", "community_self_submitted", "community_re_scored"]),
   verification_level: z.literal("bundle_rescored"), agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
-  provenance_notes: z.array(z.string()).optional(),
+  provenance_notes: z.array(boundedSafeString(300)).optional(),
   rescore_modes: z.object(AcceptedProjectionRescoreModesShape).strict(),
-  validator: z.object({ validator_version: z.string().min(1), commit: z.string().nullable(), validated_at: z.iso.datetime() }).strict(),
+  validator: z.object({
+    validator_version: boundedSafeString(120, 1),
+    commit: boundedSafeString(120, 1).nullable(),
+    validated_at: z.iso.datetime(),
+  }).strict(),
 }).strict();
 
 const SUITE_MANIFESTS: Readonly<Record<string, string>> = {
@@ -242,6 +256,9 @@ const SUITE_MANIFESTS: Readonly<Record<string, string>> = {
 };
 
 export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSchema.superRefine((projection, context) => {
+  if (containsUnsafeText(projection)) {
+    context.addIssue({ code: "custom", message: "projection contains prohibited control or bidi characters" });
+  }
   const expectedManifest = SUITE_MANIFESTS[projection.suite_release_id];
   if (expectedManifest !== undefined && expectedManifest !== projection.suite_manifest_sha256) {
     context.addIssue({ code: "custom", message: "suite release manifest mismatch" });
@@ -254,19 +271,43 @@ export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSc
   }
 });
 
-export const StatusUpdateSchema = z
-  .object({
-    accepted: z.boolean(),
+function containsUnsafeText(value: unknown): boolean {
+  if (typeof value === "string") return UnsafeTextPattern.test(value);
+  if (Array.isArray(value)) return value.some(containsUnsafeText);
+  if (typeof value !== "object" || value === null) return false;
+  return Object.entries(value).some(([key, entry]) => UnsafeTextPattern.test(key) || containsUnsafeText(entry));
+}
+
+export const REJECTION_REASON_CODES = [
+  "bundle_unreadable",
+  "manifest_invalid",
+  "schema_violation",
+  "suite_mismatch",
+  "identity_mismatch",
+  "rescore_failed",
+  "item_count_mismatch",
+  "sampler_violation",
+  "signature_invalid",
+  "size_violation",
+  "internal_error",
+  "metadata_unsafe",
+] as const;
+
+const AcceptedStatusUpdateSchema = z.object({
+    accepted: z.literal(true),
     blocking_reasons: z.array(z.string()),
+    expected_state_revision: z.number().int().nonnegative().optional(),
+    operation: z.enum(["initial_decision", "projection_refresh"]),
     projection_path: z.string().min(1),
     projection: AcceptedResultProjectionV2Schema,
     projection_object_sha256: Sha256Schema,
     projection_sha256: Sha256Schema,
+    previous_projection_object_sha256: Sha256Schema.optional(),
     raw_bundle_sha256: Sha256Schema,
-    reason: z.string().min(1),
+    reason: boundedSafeString(300, 1),
     schema_version: z.literal(STATUS_UPDATE_SCHEMA_VERSION),
-    status: z.enum(["accepted", "rejected"]),
-    validated_at: z.string().min(1),
+    status: z.literal("accepted"),
+    validated_at: z.iso.datetime(),
     validator_commit: z.string().nullable().optional(),
     validator_version: z.string().min(1),
     maintainer_attestation: z.object({
@@ -274,14 +315,42 @@ export const StatusUpdateSchema = z
       decision: z.enum(["verified", "not_verified"]),
       maintainer_key_id: z.string().min(1).max(120),
     }).optional(),
-  })
-  .refine((update) => update.accepted === (update.status === "accepted"), {
-    message: "accepted must match status",
-  });
+  }).strict();
+
+const RejectedStatusUpdateSchema = z.object({
+  accepted: z.literal(false),
+  operation: z.literal("initial_decision"),
+  raw_bundle_sha256: Sha256Schema,
+  reason_code: z.enum(REJECTION_REASON_CODES),
+  reason_detail: boundedSafeString(300, 1).optional(),
+  status: z.literal("rejected"),
+  validated_at: z.iso.datetime(),
+  validator_commit: boundedSafeString(120, 1).nullable().optional(),
+  validator_version: boundedSafeString(120, 1),
+}).strict();
+
+export const StatusUpdateSchema = z.discriminatedUnion("status", [
+  AcceptedStatusUpdateSchema,
+  RejectedStatusUpdateSchema,
+]).superRefine((update, context) => {
+  if (update.status !== "accepted") return;
+  const hasExpectedRevision = update.expected_state_revision !== undefined;
+  const hasPreviousProjection = update.previous_projection_object_sha256 !== undefined;
+  if (update.operation === "projection_refresh" && (!hasExpectedRevision || !hasPreviousProjection)) {
+    context.addIssue({ code: "custom", message: "projection refresh concurrency guards are required" });
+  }
+  if (update.operation === "initial_decision" && (hasExpectedRevision || hasPreviousProjection)) {
+    context.addIssue({ code: "custom", message: "initial decision cannot include refresh concurrency guards" });
+  }
+});
 
 export const PublishStateDecisionSchema = z.object({
   publish_state: z.enum(["hidden", "preview", "published"]),
 });
+
+export const DisplayNameUpdateSchema = z.object({
+  display_name: SubmitterDisplayNameSchema,
+}).strict();
 
 export const ModerationReasonSchema = z.object({
   reason: z.string().min(1).max(500),
@@ -395,6 +464,7 @@ export const SubmissionRowSchema = z.object({
   origin: z.enum(["project_anchor", "community"]),
   projection_sha256: z.string().nullable(),
   projection_object_sha256: z.string().nullable().optional().default(null),
+  published_at: z.string().nullable().optional().default(null),
   publish_state: z.enum(["hidden", "preview", "published"]),
   raw_bundle_r2_key: z.string().nullable(),
   raw_bundle_sha256: Sha256Schema,
@@ -410,6 +480,7 @@ export const SubmissionRowSchema = z.object({
   suite_release_id: z.string().nullable(),
   ticket_id: z.string().nullable(),
   uploaded_at: z.string().nullable(),
+  validated_at: z.string().nullable().optional().default(null),
   upload_capability_sha256: Sha256Schema.nullable().optional().default(null),
 });
 
