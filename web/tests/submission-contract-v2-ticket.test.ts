@@ -334,10 +334,10 @@ describe("submission contract v2 ticket route", () => {
   }, 30_000);
 
   it("caps tickets behind the pending-review limit with an honest non-timer rejection", async () => {
-    // Given: one public key already has five submissions sitting in pending_verification.
+    // Given: one public key already has ten submissions sitting in pending_verification.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 10; index += 1) {
       const bundleSha = `${index.toString(16).padStart(63, "0")}b`;
       const minted = await issueTicket({
         env,
@@ -353,10 +353,10 @@ describe("submission contract v2 ticket route", () => {
         .run();
     }
 
-    // When: the same key asks for a sixth ticket.
+    // When: the same key asks for an eleventh ticket.
     const response = await issueTicket({
       env,
-      request: jsonRequest("/api/submissions/tickets", communityTicketBody(`${"5".padStart(63, "0")}b`, key), {
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(`${"a".padStart(63, "0")}b`, key), {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
@@ -364,7 +364,7 @@ describe("submission contract v2 ticket route", () => {
     // Then: rejected with the review-gated code, not a misleading retry_after timer.
     expect(response.status).toBe(429);
     const body = await response.json();
-    expect(body).toMatchObject({ code: "pending_review_limit", pending_limit: 5 });
+    expect(body).toMatchObject({ code: "pending_review_limit", pending_limit: 10 });
     expect(body).not.toHaveProperty("retry_after_seconds");
   }, 30_000);
 

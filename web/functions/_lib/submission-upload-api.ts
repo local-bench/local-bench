@@ -1,12 +1,13 @@
-import { UploadTargetRequestSchema, type SubmissionApiEnv } from "./submission-contracts";
+import { MAX_UPLOAD_BYTES, UploadTargetRequestSchema, type SubmissionApiEnv } from "./submission-contracts";
 import { jsonResponse } from "./submission-api-support";
 import { sha256Hex } from "./submission-canonical";
 import { clientIp, reject, ticketExpired } from "./submission-api-common";
-import { rateLimited } from "./submission-rate-limit";
+import { consumeRateBudget, rateLimited } from "./submission-rate-limit";
 import { rawBundleMetadata, signedUploadUrl } from "./submission-storage";
 import { rowBySubmissionId } from "./submission-store";
 
 const REQUEST_UPLOADS_PER_IP_PER_HOUR = 60;
+const DAILY_UPLOAD_BYTE_BUDGET = 8 * 1024 * 1024 * 1024;
 
 export async function handleRequestUploadTarget(request: Request, env: SubmissionApiEnv): Promise<Response> {
   const parsed = UploadTargetRequestSchema.safeParse(await request.json());
@@ -48,6 +49,19 @@ export async function handleRequestUploadTarget(request: Request, env: Submissio
   const target = await signedUploadUrl(env, parsed.data.raw_bundle_sha256);
   if (target.kind === "disabled") {
     return jsonResponse(503, { code: "r2_signing_disabled", error: "R2 upload signing is disabled" });
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  const budget = await consumeRateBudget(env, {
+    amount: parsed.data.size_bytes ?? MAX_UPLOAD_BYTES,
+    key: `upload_bytes:${day}`,
+    limit: DAILY_UPLOAD_BYTE_BUDGET,
+    windowSeconds: 24 * 60 * 60,
+  });
+  if (budget.limited) {
+    return Response.json({ code: "upload_byte_budget_exceeded", retry_after_seconds: budget.retryAfterSeconds }, {
+      headers: { "cache-control": "no-store", "retry-after": String(budget.retryAfterSeconds) },
+      status: 429,
+    });
   }
   return jsonResponse(200, {
     bucket: target.bucketName,

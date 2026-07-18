@@ -276,6 +276,11 @@ follows; where §§1–11 conflict with this section, this section wins.
    projection fields. The daemon wraps its entire verify path in a catch-all:
    any load/validation/rescore exception → terminal `rejected` POST with a
    mapped reason code. Re-POST of an identical rejection is a 200 no-op.
+   The server/documentation enum is `bundle_unreadable`, `manifest_invalid`,
+   `schema_violation`, `suite_mismatch`, `identity_mismatch`, `rescore_failed`,
+   `item_count_mismatch`, `sampler_violation`, `signature_invalid`,
+   `size_violation`, `internal_error`, plus `metadata_unsafe` for the dedicated
+   ZT-1 metadata-safety mapping in amendment 4.
 2. **Ingest budgets** (F1): community-model-group creation moves behind the same
    PoP + rate-limit envelope as ticket issuance (group row created only after
    checks pass; the standalone endpoint gains per-IP 10/day + PoP requirement or

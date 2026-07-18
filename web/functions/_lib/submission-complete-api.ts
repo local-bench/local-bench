@@ -6,7 +6,7 @@ import {
 } from "./submission-contracts";
 import { jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
 import { isSyntaxError, reject, ticketExpired } from "./submission-api-common";
-import { rawBundleMetadata, verifyRawBundle } from "./submission-storage";
+import { rawBundleKey, rawBundleMetadata, verifyRawBundle } from "./submission-storage";
 import { markPendingVerification, publicSubmission, rowBySubmissionId } from "./submission-store";
 
 export async function handleFinalizeSubmission(
@@ -32,6 +32,7 @@ export async function handleFinalizeSubmission(
     return row.response;
   }
   if (row.value.raw_bundle_sha256 !== parsed.data.raw_bundle_sha256) {
+    await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
     return jsonResponse(409, { code: "bundle_sha_mismatch", error: "raw_bundle_sha256 does not match ticket" });
   }
   if (row.value.status === "pending_verification") {
@@ -52,6 +53,7 @@ export async function handleFinalizeSubmission(
       return jsonResponse(metadata.status, { code: metadata.code, error: metadata.error });
     }
     if (metadata.size !== null && metadata.size > MAX_UPLOAD_BYTES) {
+      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
       return reject(413, "bundle_too_large", row.value.origin, "POST /api/submissions/:submissionId/complete", {
         code: "bundle_too_large",
         error: "uploaded bundle exceeds the server upload limit",
@@ -59,6 +61,9 @@ export async function handleFinalizeSubmission(
     }
     const verification = await verifyRawBundle(env, parsed.data.raw_bundle_sha256);
     if (verification.kind !== "ok") {
+      if (verification.code !== "raw_bundle_missing") {
+        await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
+      }
       if (verification.status === 413) {
         return reject(413, verification.code, row.value.origin, "POST /api/submissions/:submissionId/complete", {
           code: verification.code,
@@ -73,6 +78,7 @@ export async function handleFinalizeSubmission(
       verification.sizeBytes,
     );
     if (admission.kind === "error") {
+      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
       const status = admission.code === "submission_not_ticketed" ? 409 : 429;
       return reject(status, admission.code, row.value.origin, "POST /api/submissions/:submissionId/complete", {
         code: admission.code,

@@ -30,7 +30,7 @@ const TICKETS_PER_PUBLIC_KEY_PER_DAY = 20;
 const TICKETS_PER_IP_PER_HOUR = 30;
 const TICKETS_PER_IP_PREFIX_PER_DAY = 60;
 const TICKETS_GLOBAL_PER_DAY = 400;
-const PENDING_VERIFICATION_PER_PUBLIC_KEY = 5;
+const PENDING_VERIFICATION_PER_PUBLIC_KEY = 10;
 
 export async function handleIssueSubmissionTicket(request: Request, env: SubmissionApiEnv): Promise<Response> {
   const origin = hasValidAdminSecret(request, env) ? "project_anchor" : "community";
@@ -111,22 +111,6 @@ async function communityTicketRejection(
       error: "unknown suite release",
     }, body.bundle_sha256, `public_key:${publicKey}`);
   }
-  if (body.community_model_group_id === undefined) {
-    const legacyGroupId = `community-group:${crypto.randomUUID().replaceAll("-", "")}`;
-    await env.DB.prepare(
-      "insert into community_model_groups (community_model_group_id, declared_model_name) values (?, ?)",
-    ).bind(legacyGroupId, body.declared_model_slug ?? "legacy-client submission").run();
-    body.community_model_group_id = legacyGroupId;
-  }
-  const group = await env.DB.prepare(
-    "select community_model_group_id from community_model_groups where community_model_group_id = ?",
-  ).bind(body.community_model_group_id).first();
-  if (group === null) {
-    return reject(400, "unknown_community_model_group", origin, "POST /api/submissions/tickets", {
-      code: "unknown_community_model_group",
-      error: "community model group must be server-issued",
-    }, body.bundle_sha256, `public_key:${publicKey}`);
-  }
   const popResult = await verifyTicketPop(
     publicKey,
     body.bundle_sha256,
@@ -167,6 +151,22 @@ async function communityTicketRejection(
         `you have ${PENDING_VERIFICATION_PER_PUBLIC_KEY} submissions awaiting maintainer review; ` +
         "this clears when one is reviewed, not with time",
       pending_limit: PENDING_VERIFICATION_PER_PUBLIC_KEY,
+    }, body.bundle_sha256, `public_key:${publicKey}`);
+  }
+  if (body.community_model_group_id === undefined) {
+    const legacyGroupId = `community-group:${crypto.randomUUID().replaceAll("-", "")}`;
+    await env.DB.prepare(
+      "insert into community_model_groups (community_model_group_id, declared_model_name) values (?, ?)",
+    ).bind(legacyGroupId, body.declared_model_slug ?? "legacy-client submission").run();
+    body.community_model_group_id = legacyGroupId;
+  }
+  const group = await env.DB.prepare(
+    "select community_model_group_id from community_model_groups where community_model_group_id = ?",
+  ).bind(body.community_model_group_id).first();
+  if (group === null) {
+    return reject(400, "unknown_community_model_group", origin, "POST /api/submissions/tickets", {
+      code: "unknown_community_model_group",
+      error: "community model group must be server-issued",
     }, body.bundle_sha256, `public_key:${publicKey}`);
   }
   return null;

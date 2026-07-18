@@ -4,6 +4,7 @@ import { recordSubmissionTransition } from "./submission-store";
 
 type GcRow = {
   readonly publish_state: string;
+  readonly raw_bundle_sha256: string;
   readonly raw_bundle_r2_key: string | null;
   readonly status: string;
   readonly submission_id: string;
@@ -53,7 +54,7 @@ export async function handleGcSubmissions(request: Request, env: SubmissionApiEn
 async function stalePendingRows(env: SubmissionApiEnv): Promise<readonly GcRow[]> {
   return gcRows(
     await env.DB.prepare(
-      `select submission_id, status, publish_state, raw_bundle_r2_key
+      `select submission_id, status, publish_state, raw_bundle_sha256, raw_bundle_r2_key
        from submissions
        where status = 'pending_verification'
          and uploaded_at is not null
@@ -74,7 +75,7 @@ async function requestJsonOrEmptyObject(request: Request): Promise<unknown> {
 async function expiredTicketRows(env: SubmissionApiEnv): Promise<readonly GcRow[]> {
   return gcRows(
     await env.DB.prepare(
-      `select submission_id, status, publish_state, raw_bundle_r2_key
+      `select submission_id, status, publish_state, raw_bundle_sha256, raw_bundle_r2_key
        from submissions
        where status = 'ticketed'
          and uploaded_at is null
@@ -88,12 +89,12 @@ async function expiredTicketRows(env: SubmissionApiEnv): Promise<readonly GcRow[
 async function rejectedRawRows(env: SubmissionApiEnv): Promise<readonly GcRow[]> {
   return gcRows(
     await env.DB.prepare(
-      `select submission_id, status, publish_state, raw_bundle_r2_key
+      `select submission_id, status, publish_state, raw_bundle_sha256, raw_bundle_r2_key
        from submissions
        where status = 'rejected'
          and raw_bundle_r2_key is not null
          and validated_at is not null
-         and validated_at < datetime('now', '-14 days')
+         and validated_at < datetime('now', '-7 days')
        order by submission_id`,
     ).all(),
   );
@@ -102,7 +103,7 @@ async function rejectedRawRows(env: SubmissionApiEnv): Promise<readonly GcRow[]>
 async function acceptedRawRows(env: SubmissionApiEnv): Promise<readonly GcRow[]> {
   return gcRows(
     await env.DB.prepare(
-      `select submission_id, status, publish_state, raw_bundle_r2_key
+      `select submission_id, status, publish_state, raw_bundle_sha256, raw_bundle_r2_key
        from submissions
        where status = 'accepted'
          and raw_bundle_r2_key is not null
@@ -115,7 +116,8 @@ async function acceptedRawRows(env: SubmissionApiEnv): Promise<readonly GcRow[]>
 
 async function applyExpiredTickets(env: SubmissionApiEnv, rows: readonly GcRow[]): Promise<void> {
   for (const row of rows) {
-    await env.DB.prepare("update submissions set status = 'expired', publish_state = 'hidden' where submission_id = ?")
+    await deleteRawBundleIfUnshared(env, row);
+    await env.DB.prepare("update submissions set status = 'expired', publish_state = 'hidden', raw_bundle_r2_key = null where submission_id = ?")
       .bind(row.submission_id)
       .run();
     await recordSubmissionTransition(env, {
@@ -131,7 +133,7 @@ async function applyExpiredTickets(env: SubmissionApiEnv, rows: readonly GcRow[]
 
 async function applyStalePending(env: SubmissionApiEnv, rows: readonly GcRow[]): Promise<void> {
   for (const row of rows) {
-    if (row.raw_bundle_r2_key !== null) await env.SUBMISSIONS.delete(row.raw_bundle_r2_key);
+    await deleteRawBundleIfUnshared(env, row);
     await env.DB.prepare(
       "update submissions set status = 'expired', status_reason = ?, publish_state = 'hidden', raw_bundle_r2_key = null where submission_id = ? and status = 'pending_verification'",
     )
@@ -150,9 +152,7 @@ async function applyStalePending(env: SubmissionApiEnv, rows: readonly GcRow[]):
 
 async function applyRawDeletes(env: SubmissionApiEnv, rows: readonly GcRow[], reason: string): Promise<void> {
   for (const row of rows) {
-    if (row.raw_bundle_r2_key !== null) {
-      await env.SUBMISSIONS.delete(row.raw_bundle_r2_key);
-    }
+    await deleteRawBundleIfUnshared(env, row);
     await env.DB.prepare("update submissions set raw_bundle_r2_key = null where submission_id = ?")
       .bind(row.submission_id)
       .run();
@@ -177,10 +177,22 @@ function bucket(rows: readonly GcRow[]): GcBucket {
 function gcRows(rows: { readonly results: readonly Record<string, unknown>[] }): readonly GcRow[] {
   return rows.results.map((row) => ({
     publish_state: text(row, "publish_state"),
+    raw_bundle_sha256: text(row, "raw_bundle_sha256"),
     raw_bundle_r2_key: nullableText(row, "raw_bundle_r2_key"),
     status: text(row, "status"),
     submission_id: text(row, "submission_id"),
   }));
+}
+
+async function deleteRawBundleIfUnshared(env: SubmissionApiEnv, row: GcRow): Promise<void> {
+  if (row.raw_bundle_r2_key === null) return;
+  const shared = await env.DB.prepare(
+    `select 1 as referenced from submissions
+     where submission_id <> ? and raw_bundle_sha256 = ?
+       and status not in ('rejected', 'expired', 'withdrawn', 'suppressed', 'superseded')
+     limit 1`,
+  ).bind(row.submission_id, row.raw_bundle_sha256).first();
+  if (shared === null) await env.SUBMISSIONS.delete(row.raw_bundle_r2_key);
 }
 
 function text(row: Record<string, unknown>, key: string): string {

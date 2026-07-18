@@ -15,6 +15,21 @@ export type TestKeyPair = {
   readonly signMessage: (message: string) => string;
 };
 
+export function communityGroupBody(
+  declaredModelName: string,
+  key: TestKeyPair,
+  timestamp = new Date().toISOString(),
+): Record<string, unknown> {
+  return {
+    declared_model_name: declaredModelName,
+    pop: {
+      signature: key.signMessage(`localbench.community_group_pop.v1\n${declaredModelName}\n${timestamp}`),
+      timestamp,
+    },
+    public_key: key.publicKeyHex,
+  };
+}
+
 export function communityTicketBody(
   bundleSha: string,
   key: TestKeyPair,

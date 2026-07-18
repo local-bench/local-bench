@@ -2,6 +2,7 @@ import { ModerationReasonSchema, type RouteParams, type SubmissionApiEnv } from 
 import { adminBlocked, jsonResponse, routeRow } from "./submission-api-support";
 import { InvalidTransitionError } from "./submission-state";
 import { publicSubmission, rowBySubmissionId, transitionAcceptedToTerminal } from "./submission-store";
+import { rebuildCommunityLiveBoard } from "./community-live-board";
 
 export async function handleSuppressSubmission(
   request: Request,
@@ -39,6 +40,7 @@ async function handleAcceptedTerminal(
   }
   try {
     await transitionAcceptedToTerminal(env, row.value.submission_id, toStatus, parsed.data.reason);
+    await rebuildCommunityLiveBoard(env);
   } catch (error) {
     if (error instanceof InvalidTransitionError) {
       return invalidTransition(error);

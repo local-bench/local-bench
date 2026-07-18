@@ -294,6 +294,7 @@ export function statusUpdate(
   return {
     accepted: status === "accepted",
     blocking_reasons: [],
+    operation: "initial_decision",
     projection_path: "out/projection.json",
     projection,
     projection_object_sha256: sha256Hex(canonicalJson(projection)),

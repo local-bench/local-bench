@@ -1,8 +1,6 @@
 import {
-  ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
   RESULT_BUNDLE_SCHEMA_VERSION,
   SubmissionRowSchema,
-  type StatusUpdate,
   type SubmissionApiEnv,
   type SubmissionEnvelope,
   type SubmissionRow,
@@ -11,7 +9,7 @@ import { sha256Hex } from "./submission-canonical";
 import { InvalidTransitionError, assertTransition, type SubmissionStatus } from "./submission-state";
 import { rawBundleKey } from "./submission-storage";
 
-export type TransitionActor = "system" | "maintainer" | "gc";
+export type TransitionActor = "system" | "maintainer" | "auto-validator" | "gc";
 
 export type TransitionRecord = {
   readonly actor: TransitionActor;
@@ -51,8 +49,8 @@ export type PendingQueueResult = {
   readonly totalPending: number;
 };
 
-export const PENDING_VERIFICATION_GLOBAL_LIMIT = 20;
-export const PENDING_VERIFICATION_PER_SUBMITTER_LIMIT = 5;
+export const PENDING_VERIFICATION_GLOBAL_LIMIT = 200;
+export const PENDING_VERIFICATION_PER_SUBMITTER_LIMIT = 10;
 
 export type PendingAdmissionResult =
   | { readonly kind: "ok" }
@@ -173,72 +171,6 @@ async function diagnosePendingAdmissionFailure(
     return { code: "global_pending_limit", kind: "error" };
   }
   return { code: "submission_not_ticketed", kind: "error" };
-}
-
-export async function applyStatusUpdate(
-  env: SubmissionApiEnv,
-  submissionId: string,
-  update: StatusUpdate,
-  projectionR2Key: string | null,
-): Promise<void> {
-  const current = await requiredRow(env, submissionId);
-  assertTransition(current.status, update.status);
-  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for verification acceptance");
-  const updateStatement = env.DB.prepare(
-    `update submissions set
-      status = ?, status_reason = ?, validator_version = ?, validator_commit = ?, validated_at = ?,
-      projection_schema_version = case when ? = 'accepted' then ? else projection_schema_version end,
-      projection_sha256 = case when ? = 'accepted' then ? else projection_sha256 end,
-      projection_object_sha256 = case when ? = 'accepted' then ? else projection_object_sha256 end,
-      projection_r2_key = case when ? = 'accepted' then ? else projection_r2_key end,
-      redaction_status = case when ? = 'accepted' then 'public_projection_only' else redaction_status end,
-      state_revision = state_revision + 1
-      where submission_id = ? and status = 'pending_verification' and state_revision = ?`,
-  )
-    .bind(
-      update.status,
-      update.reason,
-      update.validator_version,
-      update.validator_commit ?? null,
-      update.validated_at,
-      update.status,
-      ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
-      update.status,
-      update.projection_sha256,
-      update.status,
-      update.projection_object_sha256,
-      update.status,
-      projectionR2Key,
-      update.status,
-      submissionId,
-      current.state_revision,
-    );
-  const transitionStatement = env.DB.prepare(
-    `insert into submission_transitions
-      (submission_id, from_status, to_status, publish_state, actor, reason, state_revision)
-     select ?, ?, ?, ?, 'maintainer', ?, ? where changes() = 1`,
-  ).bind(submissionId, current.status, update.status, current.publish_state, update.reason, current.state_revision + 1);
-  const revisionStatement = env.DB.prepare(
-    "update publication_control set publication_revision = publication_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1",
-  );
-  const statements = [updateStatement, transitionStatement, revisionStatement];
-  if (update.status === "accepted" && update.maintainer_attestation !== undefined) {
-    statements.push(env.DB.prepare(
-      `insert into maintainer_verification_attestations (
-        submission_id, raw_bundle_sha256, projection_object_sha256, coding_receipt_sha256,
-        suite_release_id, suite_manifest_sha256, maintainer_key_id, decision, revision
-      ) select ?, ?, ?, ?, ?, ?, ?, ?, ? where changes() = 1`,
-    ).bind(
-      submissionId, update.raw_bundle_sha256, update.projection_object_sha256,
-      update.maintainer_attestation.coding_receipt_sha256, current.suite_release_id,
-      current.suite_manifest_sha256, update.maintainer_attestation.maintainer_key_id,
-      update.maintainer_attestation.decision, current.state_revision + 1,
-    ));
-  }
-  const results = await env.DB.batch(statements);
-  if (results[0]?.meta?.changes !== 1) {
-    throw new InvalidTransitionError(current.status, update.status);
-  }
 }
 
 export async function updatePublishState(
@@ -502,7 +434,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
 
 function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "status"): string {
   return `select submission_id, ticket_id, status, created_at, declared_model_slug, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
-    raw_bundle_size_bytes, projection_sha256, projection_object_sha256, publish_state, suite_release_id, suite_manifest_sha256,
+    raw_bundle_size_bytes, projection_sha256, projection_object_sha256, publish_state, published_at, validated_at, suite_release_id, suite_manifest_sha256,
     origin, submitter_id, submitter_display_name, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason,
     upload_capability_sha256, state_revision
     from submissions where ${column} = ?`;
