@@ -106,6 +106,11 @@ const PopSchema = z.object({
   signature: Ed25519SignatureSchema,
   timestamp: z.string().min(1),
 });
+export const CommunityModelGroupRequestSchema = z.object({
+  declared_model_name: boundedSafeString(120, 1).refine((value) => !/[<>]/u.test(value)),
+  pop: PopSchema,
+  public_key: Ed25519PublicKeySchema,
+}).strict();
 const CatalogSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
 const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
 export const CommunityModelGroupIdSchema = z.string().regex(/^community-group:[0-9a-f]{32}$/);

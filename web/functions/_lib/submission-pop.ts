@@ -34,6 +34,18 @@ export async function verifyTicketPop(
   return await verifyEd25519(publicKeyHex, pop.signature, message) ? "ok" : "invalid";
 }
 
+export async function verifyCommunityGroupPop(
+  publicKeyHex: string,
+  declaredModelName: string,
+  pop: TicketPop,
+): Promise<PopVerificationResult> {
+  const timestampMilliseconds = Date.parse(pop.timestamp);
+  if (!Number.isFinite(timestampMilliseconds)) return "invalid";
+  if (Math.abs(Date.now() - timestampMilliseconds) > POP_MAX_AGE_MILLISECONDS) return "stale";
+  const message = `localbench.community_group_pop.v1\n${declaredModelName}\n${pop.timestamp}`;
+  return await verifyEd25519(publicKeyHex, pop.signature, message) ? "ok" : "invalid";
+}
+
 export async function verifyEd25519(publicKeyHex: string, signatureHex: string, message: string | Uint8Array<ArrayBuffer>): Promise<boolean> {
   try {
     const publicKey = await crypto.subtle.importKey("raw", hexBytes(publicKeyHex), "Ed25519", false, ["verify"]);

@@ -10,17 +10,19 @@ import {
   issueEnvelope,
   jsonRequest,
 } from "./submission-test-support";
+import { communityGroupBody, testKeyPair } from "./submission-contract-v2-support";
 
 const GIB = 1024 * 1024 * 1024;
 
 describe("publish-then-moderate ingest budgets", () => {
   it("rate-limits community model-group creation to ten per IP per day", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
     const statuses: number[] = [];
     for (let index = 0; index < 11; index += 1) {
       const response = await handleCreateCommunityModelGroup(jsonRequest(
         "/api/community-model-groups",
-        { declared_model_name: `Fixture group ${index}` },
+        communityGroupBody(`Fixture group ${index}`, key),
         { "CF-Connecting-IP": "192.0.2.10" },
       ), env);
       statuses.push(response.status);
