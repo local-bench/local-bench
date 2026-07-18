@@ -6,6 +6,10 @@ const SHA256_RE = /^[0-9a-f]{64}$/u;
 const REVISION_RE = /^[0-9a-f]{40}$/u;
 const SUBMISSION_ID_RE = /^ticket_[0-9a-f]{32}$/u;
 const FINGERPRINT_RE = /^[0-9a-f]{12}$/u;
+// GitHub login grammar (1-39 chars, alphanumeric with interior hyphens) enforced
+// exactly at the public boundary so a verified-looking handle can never be a
+// 40-char or hyphen-edged spoof.
+const GITHUB_LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u;
 const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
 
 function safeText(maxCodePoints: number, minCodePoints = 0) {
@@ -129,7 +133,7 @@ export const LiveBoardRowSchema = z.object({
   submission_id: z.string().regex(SUBMISSION_ID_RE),
   submitter: z.object({
     display_name: safeText(80).nullable(),
-    github_login: safeText(40, 1).nullable().optional(),
+    github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
     key_fingerprint: z.string().regex(FINGERPRINT_RE).nullable(),
   }).strict().readonly(),
   suite_release_id: IdSchema,

@@ -20,14 +20,24 @@ export class GithubOAuthStoreError extends Error {
   }
 }
 
+// Per-isolate memo (keyed by the D1 binding so tests with distinct envs never share
+// state): the accounts schema only ever gets ADDED within an isolate's life, so a
+// confirmed-ready result is safe to cache; a not-yet-ready result is never cached so
+// a rolling migration is picked up. Removes two sqlite_master/pragma probes per
+// ticket/board/lifecycle request once the schema is present.
+const attributionSchemaReady = new WeakSet<object>();
+
 export async function githubAttributionAvailable(env: SubmissionApiEnv): Promise<boolean> {
+  if (attributionSchemaReady.has(env.DB)) return true;
   const tables = await env.DB.prepare(
     "select count(*) as count from sqlite_master where type = 'table' and name in ('accounts', 'account_keys')",
   ).first();
   const column = await env.DB.prepare(
     "select count(*) as count from pragma_table_info('submissions') where name = 'github_login'",
   ).first();
-  return tables?.["count"] === 2 && column?.["count"] === 1;
+  const ready = tables?.["count"] === 2 && column?.["count"] === 1;
+  if (ready) attributionSchemaReady.add(env.DB);
+  return ready;
 }
 
 export async function storeGithubDeviceCode(
@@ -91,9 +101,13 @@ export async function bindGithubAccount(
 ): Promise<AccountAttribution> {
   const candidateAccountId = `acct_${crypto.randomUUID().replaceAll("-", "")}`;
   const githubUserId = String(user.id);
+  // Ordinary binding must NEVER clear revoked_at: a revoked account (e.g. after a
+  // key compromise) stays dark until an explicit admin recovery, so binding a new
+  // key cannot silently reactivate an account whose historical keys are still
+  // present in account_keys. Only the login label is refreshed on conflict.
   await env.DB.prepare(
     `insert into accounts (account_id, github_user_id, github_login) values (?, ?, ?)
-     on conflict(github_user_id) do update set github_login = excluded.github_login, revoked_at = null`,
+     on conflict(github_user_id) do update set github_login = excluded.github_login`,
   ).bind(candidateAccountId, githubUserId, user.login).run();
   const account = await env.DB.prepare("select account_id from accounts where github_user_id = ?")
     .bind(githubUserId)
@@ -128,6 +142,12 @@ export async function storeGithubOAuthState(
   stateHandle: string,
   expiresAt: string,
 ): Promise<void> {
+  // Opportunistically evict already-expired states so abandoned authorize starts
+  // cannot accumulate unbounded (they are otherwise removed only when their exact
+  // handle reaches the callback).
+  await env.DB.prepare("delete from github_oauth_states where expires_at <= ?")
+    .bind(new Date().toISOString())
+    .run();
   await env.DB.prepare("insert into github_oauth_states (state_handle, expires_at) values (?, ?)")
     .bind(stateHandle, expiresAt)
     .run();

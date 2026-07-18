@@ -17,6 +17,7 @@ const InstantSchema = safeText(40, 20).regex(ISO_INSTANT_RE)
   .refine((value) => !Number.isNaN(Date.parse(value)), "must be an ISO instant");
 const CursorSchema = safeText(512, 1);
 const ReasonCodeSchema = safeText(32, 1);
+const GITHUB_LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u;
 
 const LifecycleRowSchema = z.object({
   created_at: InstantSchema,
@@ -28,7 +29,7 @@ const LifecycleRowSchema = z.object({
   status: safeText(40, 1),
   submission_id: safeText(140, 1),
   submitter_display_name: safeText(80, 1).nullable(),
-  github_login: safeText(40, 1).nullable().optional(),
+  github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
   validated_at: InstantSchema.nullable(),
 }).strict().readonly();
 

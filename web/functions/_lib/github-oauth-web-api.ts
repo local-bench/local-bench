@@ -12,13 +12,16 @@ import { clientIp } from "./submission-api-common";
 import { rateLimited } from "./submission-rate-limit";
 
 const OAUTH_STATE_TTL_MILLISECONDS = 10 * 60 * 1000;
+const STARTS_PER_IP_PER_HOUR = 30;
 const CALLBACKS_PER_IP_PER_HOUR = 30;
 const STATE_PATTERN = /^state_[0-9a-f]{32}$/u;
 
-export async function handleGithubStart(_request: Request, env: SubmissionApiEnv): Promise<Response> {
+export async function handleGithubStart(request: Request, env: SubmissionApiEnv): Promise<Response> {
   const disabled = oauthDisabledResponse(env);
   if (disabled !== null) return disabled;
   if (githubClientSecret(env) === null) return jsonResponse(503, { code: "oauth_not_configured" });
+  const limit = await rateLimited(env, `oauth:start:ip:${clientIp(request)}`, STARTS_PER_IP_PER_HOUR, 60 * 60);
+  if (limit.limited) return oauthRateLimitResponse(limit.retryAfterSeconds);
   const stateHandle = `state_${crypto.randomUUID().replaceAll("-", "")}`;
   await storeGithubOAuthState(
     env,
