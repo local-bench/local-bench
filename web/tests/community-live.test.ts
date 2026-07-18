@@ -49,7 +49,7 @@ function liveRow(overrides: Partial<LiveBoardRow> = {}): LiveBoardRow {
       static_index_version: "static-suite-v3",
     },
     submission_id: SUBMISSION_ID,
-    submitter: { display_name: "Ada", key_fingerprint: "abcdef123456" },
+    submitter: { display_name: "Ada", github_login: "octocat", key_fingerprint: "abcdef123456" },
     suite_release_id: "suite-v2-full-exec-tooluse-5axis-v2",
     timestamps: {
       published_at: "2026-07-18T04:00:00Z",
@@ -115,6 +115,7 @@ function bakedRow(overrides: Partial<CommunityBoardRow> = {}): CommunityBoardRow
     ranked: false,
     submissionId: SUBMISSION_ID,
     submitterDisplayName: null,
+    submitterGithubLogin: null,
     submitterKeyFingerprint: null,
     timestamps: null,
     trust: null,
@@ -143,7 +144,14 @@ describe("community live board boundary", () => {
       ...liveRow(),
       axes: Object.fromEntries(Array.from({ length: 17 }, (_, index) => [`axis-${index}`, { ci: null, n: 1, score: 0.5, status: "measured" }])),
     })],
-    ["bad fingerprint", () => ({ ...liveRow(), submitter: { display_name: "Ada", key_fingerprint: "not-hex" } })],
+    ["bad fingerprint", () => ({
+      ...liveRow(),
+      submitter: { display_name: "Ada", github_login: "octocat", key_fingerprint: "not-hex" },
+    })],
+    ["bidi github login", () => ({
+      ...liveRow(),
+      submitter: { display_name: "Ada", github_login: "octo\u202e", key_fingerprint: "abcdef123456" },
+    })],
   ])("drops a row containing %s", (_name, makeRow) => {
     const parsed = parseCommunityLiveBoard(envelope([makeRow()]));
 
@@ -165,6 +173,7 @@ describe("community live reconciliation", () => {
       lineage: bakedLineage,
       partialComposite: 0.5,
       submitterDisplayName: "Ada",
+      submitterGithubLogin: "octocat",
       trust: { trust_label: "community_re_scored" },
     });
   });

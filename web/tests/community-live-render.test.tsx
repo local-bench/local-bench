@@ -46,6 +46,7 @@ describe("live-only community links", () => {
           ...liveOnlyRow,
           axes: { coding: { ci: null, n: 0, score: null, status: "not_measured" } },
           submitterDisplayName: "Ada",
+          submitterGithubLogin: "octocat",
           submitterKeyFingerprint: "abcdef123456",
           trust: {
             agentic_provenance: "self_reported",
@@ -65,7 +66,9 @@ describe("live-only community links", () => {
     expect(html).not.toContain(">0.0</td>");
     expect(html).toContain("re-scored");
     expect(html).toContain("self-reported");
-    expect(html).toContain("submitted by Ada");
+    expect(html).toContain("submitted by @octocat");
+    expect(html).toContain("Ada");
+    expect(html).not.toContain('href="https://github.com/');
   });
 
   it("renders live freshness, held-back rows, and honest snapshot fallback copy", () => {
@@ -94,6 +97,8 @@ describe("live-only community links", () => {
           coding: { ci: null, n: 0, score: null, status: "not_measured" },
           knowledge: { ci: [0.4, 0.6], n: 20, score: 0.5, status: "measured" },
         },
+        submitterDisplayName: "Ada",
+        submitterGithubLogin: "octocat",
         submitterKeyFingerprint: "abcdef123456",
         trust: {
           agentic_provenance: "self_reported",
@@ -108,7 +113,9 @@ describe("live-only community links", () => {
 
     expect(html).toContain("knowledge 50.0 · n=20");
     expect(html).toContain("coding pending verification");
-    expect(html).toContain("key:abcdef123456");
+    expect(html).toContain("@octocat");
+    expect(html).toContain("Ada");
+    expect(html).not.toContain('href="https://github.com/');
     expect(html).toContain("re-scored");
   });
 });

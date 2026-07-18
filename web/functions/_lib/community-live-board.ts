@@ -5,6 +5,7 @@ import { canonicalJson, sha256Hex } from "./submission-canonical";
 import { rateLimited } from "./submission-rate-limit";
 import { projectionKey } from "./submission-storage";
 import { zt1Available } from "./submission-zt1-store";
+import { githubAttributionAvailable } from "./github-oauth-store";
 
 export const COMMUNITY_LIVE_BOARD_KEY = "board/community-live.json";
 const BOARD_CACHE_SECONDS = 60;
@@ -14,6 +15,7 @@ const BOARD_ROW_LIMIT = 500;
 type EligibleRow = {
   readonly communityModelGroupId: string;
   readonly createdAt: string;
+  readonly githubLogin: string | null;
   readonly projectionObjectSha256: string;
   readonly publishedAt: string;
   readonly submissionId: string;
@@ -94,9 +96,13 @@ export async function handleAdminCommunityBoardRebuild(request: Request, env: Su
 }
 
 async function eligibleRows(env: SubmissionApiEnv): Promise<readonly EligibleRow[]> {
-  const hasZt1 = await zt1Available(env);
+  const [hasGithubAttribution, hasZt1] = await Promise.all([
+    githubAttributionAvailable(env),
+    zt1Available(env),
+  ]);
   const result = await env.DB.prepare(
-    `select s.submission_id, s.submitter_id, s.submitter_display_name, s.created_at,
+    `select s.submission_id, s.submitter_id, s.submitter_display_name,
+      ${hasGithubAttribution ? "s.github_login" : "null as github_login"}, s.created_at,
       s.validated_at, s.published_at, s.projection_object_sha256,
       s.community_model_group_id, ${hasZt1 ? "s.zt1_coding_state" : "null as zt1_coding_state"}
      from submissions s
@@ -110,6 +116,7 @@ async function eligibleRows(env: SubmissionApiEnv): Promise<readonly EligibleRow
   return result.results.map((row) => ({
     communityModelGroupId: text(row, "community_model_group_id"),
     createdAt: text(row, "created_at"),
+    githubLogin: nullableText(row, "github_login"),
     projectionObjectSha256: text(row, "projection_object_sha256"),
     publishedAt: text(row, "published_at"),
     submissionId: text(row, "submission_id"),
@@ -149,6 +156,7 @@ function liveBoardRow(row: EligibleRow, projection: ReturnType<typeof AcceptedRe
     submission_id: row.submissionId,
     submitter: {
       display_name: row.submitterDisplayName,
+      github_login: row.githubLogin,
       key_fingerprint: keyFingerprint(row.submitterId),
     },
     suite_release_id: projection.suite_release_id,

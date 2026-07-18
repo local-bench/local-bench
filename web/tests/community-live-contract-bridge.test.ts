@@ -54,10 +54,10 @@ describe("community live board contract bridge (Track A output vs Track B parser
     for (const [index, state] of states.entries()) {
       await env.DB.prepare(
         `insert into submissions (
-          submission_id, origin, submitter_id, submitter_display_name, declared_model_slug,
+          submission_id, origin, submitter_id, submitter_display_name, github_login, declared_model_slug,
           status, status_reason, raw_bundle_sha256, idempotency_key, publish_state,
           published_at, validated_at, created_at
-        ) values (?, 'community', ?, 'Bridge Submitter', 'bridge-model', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) values (?, 'community', ?, 'Bridge Submitter', 'octocat', 'bridge-model', ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         state.id,
         `public_key:${index.toString(16).padStart(64, "0")}`,
@@ -81,5 +81,6 @@ describe("community live board contract bridge (Track A output vs Track B parser
     expect(rejected?.reason_code).toBe("schema_violation");
     const published = page?.submissions.find((entry) => entry.publish_state === "published");
     expect(published?.submission_id).toBe(`ticket_${"d".repeat(32)}`);
+    expect(published?.github_login).toBe("octocat");
   });
 });

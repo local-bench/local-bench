@@ -2,6 +2,7 @@
 
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { AgenticProvenanceChip, AttributionChip, TrustTierChip } from "@/components/leaderboard-provenance";
+import { SubmitterChip } from "@/components/submitter-chip";
 import type { CommunityBoardRow, CommunityGroupData, CommunityLineage } from "@/lib/community-data";
 import { huggingFaceRepoUrl } from "@/lib/community-links";
 import { formatScore } from "@/lib/format";
@@ -97,7 +98,12 @@ export function CommunityDetailRows({
               unranked · {row.quantLabel ?? "quant unavailable"} · artifact {row.artifactSha256.slice(0, 16)}
             </p>
             <p className="mt-2 font-mono text-xs text-bench-muted">
-              submission {row.submissionId} · {submitterLabel(row)}
+              submission {row.submissionId} · <SubmitterChip
+                displayName={row.submitterDisplayName}
+                emptyLabel="submitter unavailable"
+                githubLogin={row.submitterGithubLogin}
+                keyFingerprint={row.submitterKeyFingerprint}
+              />
             </p>
             <dl className="mt-4 grid gap-2 sm:grid-cols-2">
               {Object.entries(row.axes ?? {}).sort(([left], [right]) => left.localeCompare(right)).map(([axis, value]) => (
@@ -119,14 +125,6 @@ export function CommunityDetailRows({
       </section>
     </>
   );
-}
-
-function submitterLabel(row: CommunityBoardRow): string {
-  if (row.submitterDisplayName !== null && row.submitterDisplayName !== undefined) return row.submitterDisplayName;
-  if (row.submitterKeyFingerprint !== null && row.submitterKeyFingerprint !== undefined) {
-    return `key:${row.submitterKeyFingerprint}`;
-  }
-  return "submitter unavailable";
 }
 
 function LineageSection({

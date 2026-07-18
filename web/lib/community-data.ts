@@ -140,6 +140,7 @@ export type CommunityBoardRow = {
   readonly ranked: false;
   readonly submissionId: string;
   readonly submitterDisplayName?: string | null;
+  readonly submitterGithubLogin?: string | null;
   readonly submitterKeyFingerprint?: string | null;
   readonly timestamps?: LiveBoardRow["timestamps"] | null;
   readonly trust?: LiveBoardRow["trust"] | null;
@@ -213,6 +214,7 @@ export function communityBoardRows(groups: readonly CommunityGroupData[]): reado
       ranked: false,
       submissionId: variant.submission_id,
       submitterDisplayName: null,
+      submitterGithubLogin: null,
       submitterKeyFingerprint: null,
       timestamps: null,
       trust: null,

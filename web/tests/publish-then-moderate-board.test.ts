@@ -20,6 +20,7 @@ import {
   MIGRATION_0012,
   MIGRATION_0013,
   MIGRATION_0014,
+  MIGRATION_0015,
   RAW_BUNDLE_SHA,
   SUITE_MANIFEST_SHA,
   SUITE_RELEASE_ID,
@@ -43,7 +44,11 @@ afterEach(() => {
 describe("materialized community live board", () => {
   it("builds the bounded public contract and omits missing projections", async () => {
     const env = await boardEnv();
-    await insertBoardFixture(env, { submissionId: "ticket_fixture_board_a", publishedAt: "2026-07-18 01:00:00" });
+    await insertBoardFixture(env, {
+      githubLogin: "fixture-user",
+      submissionId: "ticket_fixture_board_a",
+      publishedAt: "2026-07-18 01:00:00",
+    });
     await insertBoardFixture(env, {
       projectionMissing: true,
       rawSha: "b".repeat(64),
@@ -64,6 +69,7 @@ describe("materialized community live board", () => {
       group_path: `community/groups/${"1".repeat(32)}.json`,
       origin: "community",
       submission_id: "ticket_fixture_board_a",
+      submitter: { github_login: "fixture-user" },
     });
     expect(JSON.stringify(payload)).not.toMatch(/r2_key|zt1_|capability|admin|upload_/i);
     expect(payload.board_digest).toMatch(/^[0-9a-f]{64}$/);
@@ -161,11 +167,13 @@ async function boardEnv() {
     migrations: [
       MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008,
       MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0012, MIGRATION_0013, MIGRATION_0014,
+      MIGRATION_0015,
     ],
   });
 }
 
 type BoardFixture = {
+  readonly githubLogin?: string;
   readonly projectionMissing?: boolean;
   readonly publishedAt: string;
   readonly rawSha?: string;
@@ -182,13 +190,13 @@ async function insertBoardFixture(env: Awaited<ReturnType<typeof boardEnv>>, fix
   }
   await env.DB.prepare(
     `insert into submissions (
-      submission_id, origin, submitter_id, submitter_display_name, status, raw_bundle_sha256,
+      submission_id, origin, submitter_id, submitter_display_name, github_login, status, raw_bundle_sha256,
       idempotency_key, publish_state, published_at, validated_at, suite_release_id,
       suite_manifest_sha256, projection_sha256, projection_object_sha256, projection_r2_key,
       community_model_group_id, state_revision, zt1_decision, zt1_coding_state
-    ) values (?, 'community', ?, 'Fixture Submitter', 'accepted', ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, ?, 1, 'publishable', 'self_reported_exec')`,
+    ) values (?, 'community', ?, 'Fixture Submitter', ?, 'accepted', ?, ?, 'published', ?, ?, ?, ?, ?, ?, ?, ?, 1, 'publishable', 'self_reported_exec')`,
   ).bind(
-    fixture.submissionId, `public_key:${"d".repeat(64)}`, rawSha, rawSha,
+    fixture.submissionId, `public_key:${"d".repeat(64)}`, fixture.githubLogin ?? null, rawSha, rawSha,
     fixture.publishedAt, "2026-07-18 00:00:00", SUITE_RELEASE_ID, SUITE_MANIFEST_SHA,
     projection.artifact_hashes.projection_sha256, objectSha, projectionKey(objectSha),
     TEST_COMMUNITY_GROUP_ID,

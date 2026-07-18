@@ -80,6 +80,7 @@ function mergeCommunityRow(
     ranked: false,
     submissionId: live.submission_id,
     submitterDisplayName: live.submitter.display_name,
+    submitterGithubLogin: live.submitter.github_login ?? null,
     submitterKeyFingerprint: live.submitter.key_fingerprint,
     timestamps: live.timestamps,
     trust: live.trust,

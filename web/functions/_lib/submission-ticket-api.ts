@@ -13,6 +13,7 @@ import { hasValidAdminSecret, jsonResponse } from "./submission-api-support";
 import { clientIp, isRecord, isSyntaxError, reject, type SubmissionOrigin } from "./submission-api-common";
 import { verifyTicketPop } from "./submission-pop";
 import { rateLimited } from "./submission-rate-limit";
+import { accountAttributionForPublicKey, githubAttributionAvailable } from "./github-oauth-store";
 import {
   countPendingVerificationForSubmitter,
   insertTicketedSubmission,
@@ -65,13 +66,25 @@ export async function handleIssueSubmissionTicket(request: Request, env: Submiss
     return adminRejection;
   }
   const ticket = ticketEnvelope(parsed.data, origin);
+  const hasGithubAttribution = await githubAttributionAvailable(env);
+  // GitHub attribution is resolved ONLY on the community path, where the public_key
+  // has been proof-of-possession verified by communityTicketRejection. The admin
+  // (project_anchor) path skips PoP, so an admin-secret holder must not be able to
+  // stamp a victim's bound key by supplying it here. Also skipped when the flag is
+  // off (no keys can be bound), avoiding the account lookup entirely.
+  const attribution = origin === "community"
+      && env.GITHUB_OAUTH_ENABLED === "on"
+      && parsed.data.public_key !== undefined
+      && hasGithubAttribution
+    ? await accountAttributionForPublicKey(env, parsed.data.public_key)
+    : null;
   const existing = await rowByRawBundleSha(env, ticket.bundle_sha256);
   if (existing === null) {
-    await insertTicketedSubmission(env, ticket);
+    await insertTicketedSubmission(env, ticket, attribution, hasGithubAttribution);
     return jsonResponse(201, ticket);
   }
   if (existing.status === "ticketed" && existing.uploaded_at === null && existing.submitter_id === ticket.submitter_id) {
-    await rotateTicketedSubmission(env, existing.submission_id, ticket);
+    await rotateTicketedSubmission(env, existing.submission_id, ticket, attribution, hasGithubAttribution);
     return jsonResponse(200, ticket);
   }
   return reject(409, "bundle_already_submitted", origin, "POST /api/submissions/tickets", {

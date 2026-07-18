@@ -2,6 +2,7 @@ import { REJECTION_REASON_CODES, type SubmissionApiEnv } from "./submission-cont
 import { jsonResponse } from "./submission-api-support";
 import { clientIp } from "./submission-api-common";
 import { rateLimited } from "./submission-rate-limit";
+import { githubAttributionAvailable } from "./github-oauth-store";
 
 const PAGE_SIZE = 50;
 const CACHE_SECONDS = 60;
@@ -34,7 +35,10 @@ export async function handleSubmissionLifecycleList(request: Request, env: Submi
       status: 429,
     });
   }
-  const rows = cursor === null ? await firstPage(env) : await pageAfter(env, cursor);
+  const hasGithubAttribution = await githubAttributionAvailable(env);
+  const rows = cursor === null
+    ? await firstPage(env, hasGithubAttribution)
+    : await pageAfter(env, cursor, hasGithubAttribution);
   const page = rows.slice(0, PAGE_SIZE);
   const last = page[page.length - 1];
   const response = Response.json({
@@ -47,23 +51,33 @@ export async function handleSubmissionLifecycleList(request: Request, env: Submi
   return response;
 }
 
-async function firstPage(env: SubmissionApiEnv): Promise<readonly Record<string, unknown>[]> {
-  const result = await env.DB.prepare(`${selectLifecycleRows()} order by created_at desc, submission_id asc limit ?`)
+async function firstPage(
+  env: SubmissionApiEnv,
+  hasGithubAttribution: boolean,
+): Promise<readonly Record<string, unknown>[]> {
+  const result = await env.DB.prepare(
+    `${selectLifecycleRows(hasGithubAttribution)} order by created_at desc, submission_id asc limit ?`,
+  )
     .bind(PAGE_SIZE + 1).all();
   return result.results;
 }
 
-async function pageAfter(env: SubmissionApiEnv, cursor: Cursor): Promise<readonly Record<string, unknown>[]> {
+async function pageAfter(
+  env: SubmissionApiEnv,
+  cursor: Cursor,
+  hasGithubAttribution: boolean,
+): Promise<readonly Record<string, unknown>[]> {
   const result = await env.DB.prepare(
-    `${selectLifecycleRows()}
+    `${selectLifecycleRows(hasGithubAttribution)}
      where created_at < ? or (created_at = ? and submission_id > ?)
      order by created_at desc, submission_id asc limit ?`,
   ).bind(cursor.createdAt, cursor.createdAt, cursor.submissionId, PAGE_SIZE + 1).all();
   return result.results;
 }
 
-function selectLifecycleRows(): string {
-  return `select submission_id, declared_model_slug, submitter_display_name, status, publish_state,
+function selectLifecycleRows(hasGithubAttribution: boolean): string {
+  return `select submission_id, declared_model_slug, submitter_display_name,
+    ${hasGithubAttribution ? "github_login" : "null as github_login"}, status, publish_state,
     status_reason, created_at, validated_at, published_at, zt1_decision from submissions`;
 }
 
@@ -80,6 +94,7 @@ function publicLifecycleRow(row: Record<string, unknown>) {
     status,
     submission_id: text(row, "submission_id"),
     submitter_display_name: nullableText(row, "submitter_display_name"),
+    github_login: nullableText(row, "github_login"),
     validated_at: nullableIso(row, "validated_at"),
   };
 }
