@@ -1,17 +1,34 @@
 import Link from "next/link";
 import { BenchmarkOnramp } from "@/components/benchmark-onramp";
 import { BestVariantVramScatter } from "@/components/best-variant-scatter";
-import { BestVariantTable } from "@/components/best-variant-table";
 import { HeroBanner } from "@/components/hero-banner";
+import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { ReplicationTimePanel } from "@/components/replication-time-panel";
-import { getHomePageData, getOnrampCatalog } from "@/lib/data";
 import { selectBestModelVariantPoints, selectBestVariantPoints } from "@/lib/best-variant";
+import { getCommunityBoardRows } from "@/lib/community-data";
+import {
+  getAgenticBySlug,
+  getFineTuneBaseBySlug,
+  getHomePageData,
+  getOnrampCatalog,
+} from "@/lib/data";
+import { splitLeaderboard } from "@/lib/leaderboard";
+import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export default async function HomePage() {
-  const { anchorRuns, catalogModels, rigCandidates } = await getHomePageData();
-  const catalog = await getOnrampCatalog();
+  const [{ anchorRuns, catalogModels, index, rigCandidates }, catalog, agenticBySlug, communityRows] = await Promise.all([
+    getHomePageData(),
+    getOnrampCatalog(),
+    getAgenticBySlug(),
+    getCommunityBoardRows(),
+  ]);
   const bestVariantPoints = selectBestVariantPoints(rigCandidates, { catalogModels });
   const bestModelVariantPoints = selectBestModelVariantPoints(rigCandidates);
+  const { ranked } = splitLeaderboard(index.models);
+  const rankedForDisplay = index.index_version === INDEX_VERSION_V4
+    ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
+    : ranked;
+  const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -24,7 +41,13 @@ export default async function HomePage() {
             them into the base family would shift every rank label below them. */}
         <ReplicationTimePanel points={bestModelVariantPoints} />
       </div>
-      <BestVariantTable points={bestModelVariantPoints} />
+      <HomeLeaderboard
+        models={rankedForDisplay}
+        agenticBySlug={agenticBySlug}
+        communityRows={communityRows ?? []}
+        fineTuneBaseBySlug={fineTuneBaseBySlug}
+        indexVersion={index.index_version}
+      />
       <div id="run-it-yourself" className="scroll-mt-24">
         <BenchmarkOnramp catalog={catalog.models} popularityAsOf={catalog.popularityAsOf} />
       </div>

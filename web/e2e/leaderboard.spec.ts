@@ -1,8 +1,10 @@
 import { rankedCurrentModels, readIndexData, retiredDiagnosticModels } from "./data";
 import { expect, test, visitRoute } from "./fixtures";
+import { getCommunityBoardRows } from "../lib/community-data";
 
 test("renders exactly the current-lane ranked rows and keeps retired diagnostics off the page", async ({ page }) => {
   const index = await readIndexData();
+  const communityRows = await getCommunityBoardRows();
   const rankedRows = rankedCurrentModels(index.models);
   const retiredRows = retiredDiagnosticModels(index.models);
   test.setTimeout(Math.max(30_000, index.models.length * 500));
@@ -12,9 +14,10 @@ test("renders exactly the current-lane ranked rows and keeps retired diagnostics
   await expect(page.getByRole("heading", { name: "Ranked board" })).toBeVisible();
   const leaderboard = page.getByTestId("full-leaderboard");
   await expect(leaderboard).toBeVisible();
-  await expect(leaderboard.locator("tbody tr")).toHaveCount(rankedRows.length);
+  await expect(leaderboard.locator("tbody tr")).toHaveCount(rankedRows.length + (communityRows?.length ?? 0));
+  await expect(leaderboard.locator('tbody tr[data-source="community"]')).toHaveCount(communityRows?.length ?? 0);
   await expect(leaderboard.getByRole("button", { name: "Time/answer" })).toBeVisible();
-  await expect(page.getByText(/Ranked rows are complete runs on the current index/i)).toBeVisible();
+  await expect(page.getByText(/Ranked rows are complete local-bench runs on the current index/i)).toBeVisible();
 
   for (const row of rankedRows) {
     // Key each row off its exact model-page link: since 6bceda1 a fine-tune's row also
@@ -26,6 +29,13 @@ test("renders exactly the current-lane ranked rows and keeps retired diagnostics
     await expect(modelRow).toHaveCount(1);
     await expect(modelRow).toContainText(row.composite?.point.toFixed(1) ?? "");
   }
+
+  await leaderboard.getByRole("button", { name: "local-bench runs" }).click();
+  await expect(leaderboard.locator("tbody tr")).toHaveCount(rankedRows.length);
+  await leaderboard.getByRole("button", { name: "community" }).click();
+  await expect(leaderboard.locator("tbody tr")).toHaveCount(communityRows?.length ?? 0);
+  await leaderboard.getByRole("button", { name: "All" }).click();
+  await expect(leaderboard.locator("tbody tr")).toHaveCount(rankedRows.length + (communityRows?.length ?? 0));
 
   // Retired-lane diagnostics have no section on the leaderboard (owner call 2026-07-09);
   // their receipts stay reachable by direct /run URL only.

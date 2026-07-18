@@ -5,7 +5,6 @@ const SITE_URL = "https://local-bench.ai";
 const STATIC_PATHS = [
   "/",
   "/leaderboard/",
-  "/community/",
   "/submissions/",
   "/submission/",
   "/compare/",

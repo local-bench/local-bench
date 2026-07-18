@@ -22,11 +22,7 @@ export type LeaderboardSortOptions = {
   readonly scoreMode?: LeaderboardScoreMode;
 };
 
-type CompareContext = {
-  readonly agenticBySlug: ReadonlyMap<string, AgenticModel>;
-  readonly key: SortKey;
-  readonly scoreMode: LeaderboardScoreMode;
-};
+export type LeaderboardSortValue = number | string | null;
 
 export function sortLeaderboardRows(
   models: readonly IndexModel[],
@@ -34,18 +30,16 @@ export function sortLeaderboardRows(
   options: LeaderboardSortOptions = {},
 ): readonly IndexModel[] {
   const direction = sort.direction === "asc" ? 1 : -1;
-  const context: CompareContext = {
-    agenticBySlug: options.agenticBySlug ?? EMPTY_AGENTIC,
-    key: sort.key,
-    scoreMode: options.scoreMode ?? "full",
-  };
   const seasonGroups = new Map<string, IndexModel[]>();
   for (const model of models) {
     const version = displayIndexVersion(model);
     seasonGroups.set(version, [...(seasonGroups.get(version) ?? []), model]);
   }
   return [...seasonGroups.values()].flatMap((group) =>
-    group.sort((left, right) => compareRows(left, right, context) * direction),
+    group.sort((left, right) => compareLeaderboardSortValues(
+      leaderboardSortValue(left, sort.key, options),
+      leaderboardSortValue(right, sort.key, options),
+    ) * direction),
   );
 }
 
@@ -76,35 +70,45 @@ export function buildLaneRanks(
   return ranks;
 }
 
-function compareRows(left: IndexModel, right: IndexModel, context: CompareContext): number {
-  switch (context.key) {
+export function leaderboardSortValue(
+  model: IndexModel,
+  key: SortKey,
+  options: LeaderboardSortOptions = {},
+): LeaderboardSortValue {
+  switch (key) {
     case "model":
-      return left.model_label.localeCompare(right.model_label);
+      return model.model_label;
     case "composite":
-      return nullableNumber(scoreForMode(left, context.scoreMode)?.point ?? null) - nullableNumber(scoreForMode(right, context.scoreMode)?.point ?? null);
+      return scoreForMode(model, options.scoreMode ?? "full")?.point ?? null;
     case STATIC_INDEX_SORT_KEY:
-      return nullableNumber(left.composite_static?.point ?? null) - nullableNumber(right.composite_static?.point ?? null);
+      return model.composite_static?.point ?? null;
     case AGENTIC_SORT_KEY:
-      return nullableNumber(context.agenticBySlug.get(left.slug)?.asr_pct ?? null) - nullableNumber(context.agenticBySlug.get(right.slug)?.asr_pct ?? null);
+      return (options.agenticBySlug ?? EMPTY_AGENTIC).get(model.slug)?.asr_pct ?? null;
     case "tokens":
-      return nullableNumber(left.tokens_to_answer_median) - nullableNumber(right.tokens_to_answer_median);
+      return model.tokens_to_answer_median;
     case "hardware":
-      return (left.gpu?.name ?? "").localeCompare(right.gpu?.name ?? "");
+      return model.gpu?.name ?? "";
     case "runtime":
-      return runtimeSortLabel(left.runtime).localeCompare(runtimeSortLabel(right.runtime));
+      return runtimeSortLabel(model.runtime);
     case "user":
-      return displaySubmitter(left).localeCompare(displaySubmitter(right));
+      return displaySubmitter(model);
     case "latency":
-      return nullableNumber(left.latency_s_median ?? null) - nullableNumber(right.latency_s_median ?? null);
+      return model.latency_s_median ?? null;
     case "benchtime":
-      return nullableNumber(left.wall_time_seconds ?? null) - nullableNumber(right.wall_time_seconds ?? null);
+      return model.wall_time_seconds ?? null;
     default:
-      return compareAxis(left, right, context.key);
+      return model.axes[key]?.point ?? null;
   }
 }
 
-function compareAxis(left: IndexModel, right: IndexModel, axis: string): number {
-  return (left.axes[axis]?.point ?? Number.NEGATIVE_INFINITY) - (right.axes[axis]?.point ?? Number.NEGATIVE_INFINITY);
+export function compareLeaderboardSortValues(
+  left: LeaderboardSortValue,
+  right: LeaderboardSortValue,
+): number {
+  if (typeof left === "string" && typeof right === "string") return left.localeCompare(right);
+  if (typeof left === "number" && typeof right === "number") return left - right;
+  return nullableNumber(typeof left === "number" ? left : null)
+    - nullableNumber(typeof right === "number" ? right : null);
 }
 
 function displaySubmitter(model: IndexModel): string {

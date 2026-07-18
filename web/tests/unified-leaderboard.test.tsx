@@ -1,10 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { HomeLeaderboard, filterUnifiedLeaderboardRows } from "../components/home-leaderboard";
-import { communityBoardRows, parseCommunityGroup } from "../lib/community-data";
+import {
+  HomeLeaderboard,
+  filterUnifiedLeaderboardRows,
+  sortUnifiedLeaderboardRows,
+} from "../components/home-leaderboard";
+import { communityBoardRows, parseCommunityGroup, type CommunityBoardRow } from "../lib/community-data";
 import { IndexModelSchema, type IndexModel } from "../lib/schemas";
 
-const rankedRows = [1, 2, 3, 4, 5].map(rankedModel);
+const rankedRows = [60, 51, 40, 30, null].map((score, index) => rankedModel(index + 1, score));
 const communityGroup = parseCommunityGroup({
   community_model_group_id: `community-group:${"1".repeat(32)}`,
   identity_label: "community-declared, identity-unverified",
@@ -20,7 +24,7 @@ const communityGroup = parseCommunityGroup({
       known_headline_contribution: 0.3128,
       measured_headline_weight: 0.75,
       missing_headline_weight: 0.25,
-      partial_composite: 0.4171,
+      partial_composite: 0.5696,
       partial_composite_scope: "measured_headline_axes",
     },
     submission_id: "ticket_visible",
@@ -29,36 +33,84 @@ const communityGroup = parseCommunityGroup({
 
 if (communityGroup === null) throw new Error("unified leaderboard fixture must validate");
 const communityRows = communityBoardRows([communityGroup]);
+const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) => ({
+  ...row,
+  axes: {
+    agentic: { ci: [0.4, 0.5], n: 10, score: 0.45, status: "measured" },
+    coding: { ci: null, n: 0, score: null, status: "not_measured" },
+    instruction: { ci: [0.5, 0.6], n: 10, score: 0.55, status: "measured" },
+    knowledge: { ci: [0.6, 0.7], n: 10, score: 0.65, status: "measured" },
+    math: { ci: [0.7, 0.8], n: 10, score: 0.75, status: "measured" },
+    tool_use: { ci: null, n: 0, score: null, status: "not_measured" },
+  },
+  trust: {
+    agentic_provenance: "self_reported",
+    coding_state: "pending",
+    replicated: false,
+    tier: "re-scored",
+    trust_label: "community_re_scored",
+    verification_level: "bundle_rescored",
+  },
+}));
 
 describe("unified leaderboard community rows", () => {
-  it("renders the community badge and detail link without assigning a rank number", () => {
+  it("renders the trust tier in the rank cell and marks partial axis coverage", () => {
     const html = renderToStaticMarkup(
-      <HomeLeaderboard models={rankedRows} communityRows={communityRows} indexVersion="index-v4.1" />,
+      <HomeLeaderboard models={rankedRows} communityRows={liveCommunityRows} indexVersion="index-v4.1" />,
     );
     const rowStart = html.indexOf('data-testid="community-row-ticket_visible"');
     const rowEnd = html.indexOf("</tr>", rowStart);
     const rowHtml = html.slice(rowStart, rowEnd);
+    const rankCellHtml = rowHtml.slice(rowHtml.indexOf("<td"), rowHtml.indexOf("</td>") + 5);
 
     expect(rowStart).toBeGreaterThan(-1);
     expect(rowHtml).toContain("Qwythos-9B v2");
     expect(rowHtml).toContain("community");
     expect(rowHtml).toContain("not independently verified");
     expect(rowHtml).toContain('href="/community/model/11111111111111111111111111111111"');
-    expect(rowHtml).toContain(">—</td>");
-    expect(rowHtml).not.toContain(">6</td>");
+    expect(rowHtml).toContain("re-scored");
+    expect(rowHtml).toContain("4/6 axes");
+    expect(html).toContain("Swipe horizontally for scores and axes");
+    expect(rankCellHtml).not.toContain("—");
+    expect(rankCellHtml).not.toMatch(/>\d+</u);
     expect(rowHtml.indexOf(">community</span>")).toBeLessThan(
       rowHtml.indexOf("partial over measured headline axes"),
     );
   });
 
-  it("keeps ranked ordering unchanged when community rows are present", () => {
-    const withoutCommunity = filterUnifiedLeaderboardRows(rankedRows, [], "all");
-    const withCommunity = filterUnifiedLeaderboardRows(rankedRows, communityRows, "all");
+  it("interleaves community scores between ranked rows and keeps null scores last", () => {
+    const rows = filterUnifiedLeaderboardRows(rankedRows, liveCommunityRows, "all");
+    const sorted = sortUnifiedLeaderboardRows(rows, { key: "composite", direction: "desc" });
 
-    expect(withCommunity.ranked.map((row) => row.slug)).toEqual(
-      withoutCommunity.ranked.map((row) => row.slug),
-    );
-    expect(withCommunity.community.map((row) => row.partialComposite)).toEqual([0.4171]);
+    expect(sorted.map((row) => row.source === "local-bench" ? row.model.slug : row.row.submissionId)).toEqual([
+      "ranked-1",
+      "ticket_visible",
+      "ranked-2",
+      "ranked-3",
+      "ranked-4",
+      "ranked-5",
+    ]);
+  });
+
+  it("sorts live community axes on the same percentage scale as ranked axes", () => {
+    const rankedWithInstruction: IndexModel = {
+      ...rankedModel(6, 50),
+      axes: {
+        instruction: {
+          hi: 51,
+          lo: 49,
+          n: 10,
+          n_errors: 0,
+          n_no_answer: 0,
+          point: 50,
+          raw_accuracy: 0.5,
+        },
+      },
+    };
+    const rows = filterUnifiedLeaderboardRows([rankedWithInstruction], liveCommunityRows, "all");
+    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction", direction: "desc" });
+
+    expect(sorted.map((row) => row.source)).toEqual(["community", "local-bench"]);
   });
 
   it("filters All, local-bench runs, and community without mixing row populations", () => {
@@ -66,14 +118,23 @@ describe("unified leaderboard community rows", () => {
     const local = filterUnifiedLeaderboardRows(rankedRows, communityRows, "local-bench");
     const community = filterUnifiedLeaderboardRows(rankedRows, communityRows, "community");
 
-    expect(all).toMatchObject({ ranked: { length: 5 }, community: { length: 1 } });
-    expect(local).toMatchObject({ ranked: { length: 5 }, community: { length: 0 } });
-    expect(community).toMatchObject({ ranked: { length: 0 }, community: { length: 1 } });
+    expect(all.map((row) => row.source)).toEqual([
+      "local-bench",
+      "local-bench",
+      "local-bench",
+      "local-bench",
+      "local-bench",
+      "community",
+    ]);
+    expect(local).toHaveLength(5);
+    expect(local.every((row) => row.source === "local-bench")).toBe(true);
+    expect(community).toHaveLength(1);
+    expect(community.every((row) => row.source === "community")).toBe(true);
   });
 
   it("keeps the ranked count at five and omits suppressed fixture rows", () => {
     const html = renderToStaticMarkup(
-      <HomeLeaderboard models={rankedRows} communityRows={communityRows} indexVersion="index-v4.1" />,
+      <HomeLeaderboard models={rankedRows} communityRows={liveCommunityRows} indexVersion="index-v4.1" />,
     );
 
     expect(html).toContain("5 ranked");
@@ -82,16 +143,17 @@ describe("unified leaderboard community rows", () => {
     expect(html).toContain(">All</button>");
     expect(html).toContain("local-bench runs");
     expect(html).not.toContain("Suppressed fixture model");
-    expect(html.indexOf("Ranked Model 5")).toBeLessThan(html.indexOf("Qwythos-9B v2"));
+    expect(html.indexOf("Ranked Model 1")).toBeLessThan(html.indexOf("Qwythos-9B v2"));
+    expect(html.indexOf("Qwythos-9B v2")).toBeLessThan(html.indexOf("Ranked Model 2"));
   });
 });
 
-function rankedModel(position: number): IndexModel {
+function rankedModel(position: number, score: number | null): IndexModel {
   const slug = `ranked-${position}`;
   return IndexModelSchema.parse({
     axes: {},
     best_run_id: `${slug}-run`,
-    composite: { hi: 101 - position, lo: 99 - position, point: 100 - position },
+    composite: score === null ? null : { hi: score + 0.01, lo: score - 0.01, point: score },
     demo: false,
     est_cost_usd: null,
     family: "Fixture",

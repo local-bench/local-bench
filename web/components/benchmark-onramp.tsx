@@ -150,7 +150,7 @@ export function BenchmarkOnramp({
         managed AppWorld harness.
       </p>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
+      <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
         <label className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor="onramp-vram">
           I have
           <select

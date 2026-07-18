@@ -55,14 +55,16 @@ const visible = parseCommunityGroup({
 if (visible === null) throw new Error("visible community fixture must validate");
 
 describe("community listing", () => {
-  it("links the generic Community surface from site navigation", () => {
+  it("keeps Submissions in navigation without a Community destination", () => {
     const html = renderToStaticMarkup(
       <AppShell indexVersion="index-v3.0" suiteVersion="suite-v1" usesDemoData={false}>
         <div>content</div>
       </AppShell>,
     );
-    expect(html).toContain('href="/community"');
-    expect(html).toContain(">Community<");
+    expect(html).not.toContain('href="/community"');
+    expect(html).not.toContain(">Community<");
+    expect(html).toContain('href="/submissions"');
+    expect(html).toContain(">Submissions<");
   });
 
   it("renders visible post-suppression fixture data and omits the suppressed fixture", () => {
