@@ -392,3 +392,29 @@ def test_suite_dir_override_wins_over_cache_resolution(tmp_path: Path) -> None:
     )
     assert daemon.run_cycle(process_listing="") == "ok"
     assert seen == [override]
+
+
+def test_allow_bench_concurrent_bypasses_process_guard_but_honors_pause(tmp_path: Path) -> None:
+    row = {
+        "submission_id": "sub-1",
+        "status": "pending_verification",
+        "origin": "community",
+        "suite_release_id": "suite-v1-static-exec-5axis-v1",
+    }
+    daemon = auto_validator.AutoValidator(
+        auto_validator.Config(
+            site="https://example.test",
+            suite_dir=tmp_path / "suite",
+            validator_secret="validator-super-secret",
+            root_dir=tmp_path / "state",
+            allow_bench_concurrent=True,
+        ),
+        api=FakeApi([row], {"sub-1": row}),
+        verify=lambda *args, **kwargs: _accepted_update(),
+        post=lambda *args, **kwargs: {"status": "accepted", "published": True},
+        append_log=lambda **kwargs: None,
+    )
+    assert daemon.run_cycle(process_listing="llama-server.exe  1234 running") == "ok"
+    daemon.config.pause_file.parent.mkdir(parents=True, exist_ok=True)
+    daemon.config.pause_file.touch()
+    assert daemon.run_cycle(process_listing="") == "guarded"

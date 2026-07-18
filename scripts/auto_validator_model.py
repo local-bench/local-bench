@@ -108,6 +108,7 @@ class Config:
     coding_image: str | None = None
     receipt_signing_key: Path | None = None
     suite_cache_root: Path | None = None
+    allow_bench_concurrent: bool = False
 
     @property
     def effective_work_dir(self) -> Path:

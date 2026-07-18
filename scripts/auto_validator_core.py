@@ -65,7 +65,8 @@ class AutoValidator:
         self.log_sink(scrub_text(message, self.config.validator_secret))
 
     def run_cycle(self, *, process_listing: str | None = None) -> str:
-        if guard_tripped(self.config.pause_file, process_listing=process_listing):
+        effective_listing = "" if self.config.allow_bench_concurrent else process_listing
+        if guard_tripped(self.config.pause_file, process_listing=effective_listing):
             self.log("guard: bench-active")
             return "guarded"
         try:

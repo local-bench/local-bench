@@ -51,6 +51,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--validator-commit")
+    parser.add_argument("--allow-bench-concurrent", action="store_true")
     parser.add_argument("--coding-pass", action="store_true")
     parser.add_argument("--coding-image")
     parser.add_argument("--receipt-signing-key", type=Path)
@@ -70,6 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         site=args.site,
         suite_dir=args.suite_dir,
         suite_cache_root=suite_cache_root,
+        allow_bench_concurrent=args.allow_bench_concurrent,
         validator_secret=secret,
         root_dir=root,
         work_dir=args.work_dir,
