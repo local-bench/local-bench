@@ -64,6 +64,12 @@ export function LeaderboardRankedRow({
         )}
         <ProvenanceLabels model={model} />
       </td>
+      <td
+        className="px-3 py-3"
+        title="Who ran this benchmark — local-bench for project-run rows, the submitter for community submissions"
+      >
+        <RunByCell model={model} />
+      </td>
       <td className="px-3 py-3">
         {score === null ? <NoScoreCell /> : <CompositeCell model={model} score={score} scoreMode={scoreMode} />}
       </td>
@@ -83,12 +89,6 @@ export function LeaderboardRankedRow({
       <td className="px-3 py-3 font-mono text-bench-text">{formatInteger(model.tokens_to_answer_median)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">{formatLatencySeconds(model.latency_s_median ?? null)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">{formatDuration(model.wall_time_seconds ?? null)}</td>
-      <td
-        className="px-3 py-3"
-        title="Who ran this benchmark — local-bench for project-run rows, the submitter for community submissions"
-      >
-        <RunByCell model={model} />
-      </td>
     </tr>
   );
 }

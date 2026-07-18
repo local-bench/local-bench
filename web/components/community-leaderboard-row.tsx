@@ -42,6 +42,10 @@ export function CommunityLeaderboardRow({
         <div className="mt-1 text-[10px] uppercase text-bench-muted">{row.identityLabel}</div>
       </td>
       <td className="px-3 py-3">
+        <AttributionChip source="community" />
+        <div className="mt-1 max-w-[150px] text-[10px] leading-4 text-bench-muted">not independently verified</div>
+      </td>
+      <td className="px-3 py-3">
         <div className="min-w-[150px]">
           <span className="font-mono text-lg font-semibold text-bench-text">
             {row.partialComposite === null ? "unavailable" : formatScore(row.partialComposite * 100)}
@@ -60,10 +64,6 @@ export function CommunityLeaderboardRow({
       <UnavailableCell />
       <UnavailableCell />
       <UnavailableCell />
-      <td className="px-3 py-3">
-        <AttributionChip source="community" />
-        <div className="mt-1 max-w-[150px] text-[10px] leading-4 text-bench-muted">not independently verified</div>
-      </td>
     </tr>
   );
 }

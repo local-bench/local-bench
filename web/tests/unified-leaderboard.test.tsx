@@ -46,6 +46,9 @@ describe("unified leaderboard community rows", () => {
     expect(rowHtml).toContain('href="/community/model/11111111111111111111111111111111"');
     expect(rowHtml).toContain(">—</td>");
     expect(rowHtml).not.toContain(">6</td>");
+    expect(rowHtml.indexOf(">community</span>")).toBeLessThan(
+      rowHtml.indexOf("partial over measured headline axes"),
+    );
   });
 
   it("keeps ranked ordering unchanged when community rows are present", () => {

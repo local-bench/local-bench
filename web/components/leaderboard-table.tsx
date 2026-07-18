@@ -52,6 +52,7 @@ export function LeaderboardTable({
           <tr>
             <th className="px-3 py-3 font-semibold">{scoreMode === "static" ? "Status" : "Rank"}</th>
             <SortableHeader label="Model" sortKey="model" sort={sort} onSort={setSort} />
+            <SortableHeader label="Run by" sortKey="user" sort={sort} onSort={setSort} />
             <SortableHeader label={<CompositeHeaderLabel scoreMode={scoreMode} season2={season2} />} sortKey="composite" sort={sort} onSort={setSort} />
             {showStaticIndexColumn ? (
               <SortableHeader label={<StaticIndexHeaderLabel />} sortKey={STATIC_INDEX_SORT_KEY} sort={sort} onSort={setSort} />
@@ -73,7 +74,6 @@ export function LeaderboardTable({
             <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
             <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
             <SortableHeader label="Full bench time" sortKey="benchtime" sort={sort} onSort={setSort} />
-            <SortableHeader label="Run by" sortKey="user" sort={sort} onSort={setSort} />
           </tr>
         </thead>
         <tbody>
