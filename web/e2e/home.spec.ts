@@ -20,6 +20,17 @@ test("leads with the graph + unified board, on-ramp below", async ({ page }) => 
   expect(onrampBox?.y ?? 0).toBeGreaterThan(scatterBox?.y ?? 0);
 });
 
+test("keeps homepage content inside the mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  await visitRoute(page, "/");
+
+  const viewport = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(viewport.scrollWidth).toBe(viewport.clientWidth);
+});
+
 test("the on-ramp emits a board-comparable recipe", async ({ page }) => {
   await visitRoute(page, "/");
 
