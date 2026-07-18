@@ -29,6 +29,23 @@ test("keeps homepage content inside the mobile viewport", async ({ page }) => {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(viewport.scrollWidth).toBe(viewport.clientWidth);
+
+  const onramp = page.getByTestId("benchmark-onramp");
+  const popularButtonWidths = await onramp.locator('a[aria-label$="GGUF repo on Hugging Face"]').evaluateAll((links) =>
+    links.flatMap((link) => {
+      const button = link.parentElement?.querySelector("button");
+      return button === null || button === undefined ? [] : [button.getBoundingClientRect().width];
+    }),
+  );
+  expect(popularButtonWidths.length).toBeGreaterThan(0);
+  expect(Math.min(...popularButtonWidths)).toBeGreaterThan(200);
+
+  const scrollCue = page.getByText(/Swipe horizontally for scores and axes/i);
+  await expect(scrollCue).toBeVisible();
+  await page.setViewportSize({ width: 768, height: 900 });
+  await expect(scrollCue).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(scrollCue).toBeVisible();
 });
 
 test("the on-ramp emits a board-comparable recipe", async ({ page }) => {

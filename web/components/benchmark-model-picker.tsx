@@ -147,12 +147,12 @@ export function ModelPicker(props: {
           </div>
         </div>
         {props.popular.map((entry) => (
-          <div key={entry.model.slug} className="flex items-stretch gap-2">
+          <div key={entry.model.slug} className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap">
             <button
               type="button"
               onClick={() => props.onPopular(entry.model.slug)}
               className={[
-                "flex min-w-0 grow items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors",
+                "flex min-w-0 basis-full grow items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors sm:basis-0",
                 entry.model.slug === activeSlug
                   ? "border-bench-accent bg-bench-accent/10 text-bench-text"
                   : "border-bench-line text-bench-muted hover:border-bench-accent/60",

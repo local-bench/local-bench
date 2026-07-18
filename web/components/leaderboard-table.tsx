@@ -42,7 +42,7 @@ export function LeaderboardTable({
 }: LeaderboardTableProps) {
   return (
     <div>
-      <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent md:hidden">
+      <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent 2xl:hidden">
         Swipe horizontally for scores and axes →
       </p>
       <div className="overflow-x-auto">

@@ -116,6 +116,12 @@ describe("BoardIndexChart", () => {
     }
   });
 
+  it("cues horizontal scrolling when ranked bars extend past the viewport", () => {
+    const html = render([rankedModel({ slug: "scroll-cue", label: "Scroll Cue" })]);
+
+    expect(html).toContain("Swipe horizontally to see all ranked bars");
+  });
+
   it("puts the uncertainty range in the tooltip instead of drawing whiskers", () => {
     const html = render([rankedModel({ slug: "ci-row", composite: score(50, 20, 80) })]);
 

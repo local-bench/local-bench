@@ -52,6 +52,9 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
         )}
         <p className="sr-only">The ranked table below lists the same data in sortable text.</p>
       </div>
+      <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent md:hidden">
+        Swipe horizontally to see all ranked bars →
+      </p>
       <div className="overflow-x-auto px-3 pb-4 pt-4">
         <div className="relative" style={{ width }}>
           <svg
