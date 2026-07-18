@@ -66,7 +66,7 @@ const LineageEnrichmentSchema = z.object({
     base_revision: RevisionSchema.nullable(),
     child: RepoIdSchema,
     child_revision: RevisionSchema,
-    source: z.literal("hf-model-card"),
+    source: z.enum(["hf-model-card", "maintainer-asserted"]),
   }).strict().readonly()).max(8).readonly(),
   repo: z.object({ id: RepoIdSchema, revision: RevisionSchema }).strict().readonly(),
   resolution: z.object({

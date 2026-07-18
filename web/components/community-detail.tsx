@@ -157,7 +157,9 @@ function LineageSection({
         {lineage.card_declared_edges.map((edge, index) => (
           <li key={`${edge.child}@${edge.child_revision}`} className="rounded border border-bench-line p-3 text-sm text-bench-text">
             <span className="font-mono text-xs uppercase text-bench-muted">
-              Layer {index + 2} — repository owner’s model-card claim
+              Layer {index + 2} — {edge.source === "maintainer-asserted"
+                ? "maintainer-asserted lineage (not declared on the model card)"
+                : "repository owner’s model-card claim"}
             </span>
             <p className="mt-1">
               {edge.child} @ {edge.child_revision.slice(0, 7)} → {edge.base} @ {edge.base_revision?.slice(0, 7) ?? "unresolved"}

@@ -51,7 +51,7 @@ const LineageEntrySchema = z.object({
     base_revision: RevisionSchema.nullable(),
     child: RepoIdSchema,
     child_revision: RevisionSchema,
-    source: z.literal("hf-model-card"),
+    source: z.enum(["hf-model-card", "maintainer-asserted"]),
   }).strict().readonly()).readonly(),
   repo: z.object({
     id: RepoIdSchema,
@@ -115,7 +115,7 @@ export type CommunityLineage = {
     readonly base_revision: string | null;
     readonly child: string;
     readonly child_revision: string;
-    readonly source: "hf-model-card";
+    readonly source: "hf-model-card" | "maintainer-asserted";
   }[];
   readonly repo: { readonly id: string; readonly revision: string };
   readonly resolution: {

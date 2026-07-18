@@ -6,7 +6,7 @@
       "association": {
         "basis": "maintainer-associated",
         "artifact_to_repo": "unverified",
-        "note": "Ternary-Bonsai-27B Q2_0 GGUF; HF card declares NO base_model - the Qwen/Qwen3.6-27B edge is maintainer-asserted from the PrismML whitepaper + owner direction; architecture class (qwen3_5) and tokenizer fingerprint are consistent with that lineage"
+        "note": "HF card declares no base_model; Qwen3.6-27B edge is maintainer-asserted (PrismML whitepaper + owner direction); qwen3_5 architecture + tokenizer fingerprint consistent"
       },
       "repo": {
         "id": "prism-ml/Ternary-Bonsai-27B-unpacked",

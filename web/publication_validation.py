@@ -78,7 +78,7 @@ def _lineage_entry(value: Any, artifact_sha256: str) -> dict[str, Any]:
             if not isinstance(base_revision, str):
                 raise PublicationExportError("lineage overlay edge base revision must be a string or null")
             _revision(base_revision, "lineage overlay edge base revision")
-        if edge.get("source") != "hf-model-card":
+        if edge.get("source") not in ("hf-model-card", "maintainer-asserted"):
             raise PublicationExportError("lineage overlay edge source is unsupported")
     resolution = _object(entry.get("resolution"), "lineage overlay resolution")
     _exact_keys(resolution, {"resolved_at", "status"}, "lineage overlay resolution")
