@@ -11,6 +11,10 @@ from localbench.submissions.client import AdminVerificationRequest, SiteCredenti
 
 from auto_validator_model import ApiError, ConflictError, JsonObject, json_object
 
+# Cloudflare's WAF rejects anonymous python-urllib user agents (same class of
+# block previously hit by the publication exporter and appliance downloader).
+USER_AGENT = "localbench-auto-validator/0.1"
+
 
 class StdlibApi:
     def __init__(self, site: str, validator_secret: str) -> None:
@@ -33,7 +37,7 @@ class StdlibApi:
         quoted = urllib.parse.quote(submission_id, safe="")
         request = urllib.request.Request(
             f"{self.site}/api/admin/submissions/{quoted}/bundle",
-            headers={"x-localbench-validator-secret": self.validator_secret},
+            headers={"User-Agent": USER_AGENT, "x-localbench-validator-secret": self.validator_secret},
         )
         try:
             with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
@@ -45,7 +49,9 @@ class StdlibApi:
         destination.write_bytes(data)
 
     def _json_request(self, path: str, *, authenticated: bool) -> JsonObject:
-        headers = {"x-localbench-validator-secret": self.validator_secret} if authenticated else {}
+        headers = {"User-Agent": USER_AGENT}
+        if authenticated:
+            headers["x-localbench-validator-secret"] = self.validator_secret
         request = urllib.request.Request(f"{self.site}{path}", headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
@@ -67,6 +73,7 @@ class ValidatorHeaderTransport(submission_client.httpx.BaseTransport):
             if key.lower() != "x-localbench-admin-secret"
         }
         headers["x-localbench-validator-secret"] = self.secret
+        headers["User-Agent"] = USER_AGENT
         wire_request = urllib.request.Request(
             str(request.url),
             data=request.read() or None,
