@@ -108,7 +108,7 @@ export const LiveBoardRowSchema = z.object({
   coverage_profile_id: IdSchema,
   group_path: safeText(140, 1),
   headline_complete: z.boolean(),
-  index_version: safeText(32, 1),
+  index_version: safeText(32, 1).nullable(),
   lineage: z.object({ base_model: z.array(RepoIdSchema).max(8).readonly() }).strict().readonly(),
   lineage_enrichment: LineageEnrichmentSchema.optional(),
   model: z.object({
@@ -153,6 +153,7 @@ export const LiveBoardRowSchema = z.object({
 });
 
 export const LiveBoardEnvelopeSchema = z.object({
+  board_digest: Sha256Schema,
   edge_block_revision: z.number().int().nonnegative(),
   generated_at: TimestampSchema,
   omitted_rows: z.number().int().nonnegative().optional().default(0),
