@@ -15,29 +15,24 @@ const HELD_ID = `ticket_${"3".repeat(32)}`;
 
 const payload = {
   next_cursor: "cursor-2",
-  schema_version: "localbench.submission_lifecycle_list.v1",
   submissions: [
     lifecycleRow(PUBLISHED_ID, { publish_state: "published", status: "accepted" }),
-    lifecycleRow(REJECTED_ID, { reason_code: "unsafe_metadata", status: "rejected" }),
+    lifecycleRow(REJECTED_ID, { reason_code: "metadata_unsafe", status: "rejected" }),
     lifecycleRow(HELD_ID, { held_for_review: true, status: "accepted" }),
   ],
 };
 
 function lifecycleRow(submissionId: string, overrides: Record<string, unknown>) {
   return {
-    community_model_group_id: `community-group:${"4".repeat(32)}`,
+    created_at: "2026-07-18T01:00:00Z",
     declared_model_slug: "fixture-model",
     held_for_review: false,
+    published_at: null,
     publish_state: "hidden",
-    reason_code: null,
     status: "pending_verification",
     submission_id: submissionId,
     submitter_display_name: "Ada",
-    timestamps: {
-      published_at: null,
-      submitted_at: "2026-07-18T01:00:00Z",
-      updated_at: "2026-07-18T02:00:00Z",
-    },
+    validated_at: "2026-07-18T02:00:00Z",
     ...overrides,
   };
 }
@@ -90,7 +85,7 @@ describe("public submissions lifecycle", () => {
   });
 
   it("humanizes known reason codes and passes through bounded unknown codes", () => {
-    expect(reasonCodeLabel("unsafe_metadata")).toBe("Unsafe metadata");
+    expect(reasonCodeLabel("metadata_unsafe")).toBe("Unsafe metadata");
     expect(reasonCodeLabel("future_code")).toBe("future_code");
   });
 
@@ -113,7 +108,7 @@ describe("public submissions lifecycle", () => {
     const rejected = renderToStaticMarkup(<SubmissionDetails value={{
       publish_state: "hidden",
       raw_bundle_sha256: "a".repeat(64),
-      reason_code: "unsafe_metadata",
+      reason_code: "metadata_unsafe",
       status: "rejected",
       submission_id: REJECTED_ID,
     }} />);

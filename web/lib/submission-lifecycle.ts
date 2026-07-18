@@ -5,7 +5,6 @@ import { trustTierLabel } from "@/lib/community-live";
 
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
-const GROUP_ID_RE = /^community-group:[0-9a-f]{32}$/u;
 
 function safeText(maxCodePoints: number, minCodePoints = 0) {
   return z.string().refine(
@@ -20,24 +19,20 @@ const CursorSchema = safeText(512, 1);
 const ReasonCodeSchema = safeText(32, 1);
 
 const LifecycleRowSchema = z.object({
-  community_model_group_id: safeText(140, 1).regex(GROUP_ID_RE).nullable(),
+  created_at: InstantSchema,
   declared_model_slug: safeText(120, 1).nullable(),
   held_for_review: z.boolean(),
+  published_at: InstantSchema.nullable(),
   publish_state: z.enum(["hidden", "preview", "published"]),
-  reason_code: ReasonCodeSchema.nullable(),
+  reason_code: ReasonCodeSchema.nullable().optional(),
   status: safeText(40, 1),
   submission_id: safeText(140, 1),
   submitter_display_name: safeText(80, 1).nullable(),
-  timestamps: z.object({
-    published_at: InstantSchema.nullable(),
-    submitted_at: InstantSchema,
-    updated_at: InstantSchema,
-  }).strict().readonly(),
+  validated_at: InstantSchema.nullable(),
 }).strict().readonly();
 
 const LifecyclePageSchema = z.object({
   next_cursor: CursorSchema.nullable(),
-  schema_version: z.literal("localbench.submission_lifecycle_list.v1"),
   submissions: z.array(LifecycleRowSchema).max(50).readonly(),
 }).strict().readonly();
 
@@ -60,12 +55,18 @@ export type SubmissionDisplayRow = {
 };
 
 const REASON_CODE_LABELS: Readonly<Record<string, string>> = {
-  artifact_mismatch: "Artifact mismatch",
-  duplicate_submission: "Duplicate submission",
-  invalid_bundle: "Invalid bundle",
-  policy_violation: "Policy violation",
-  unsafe_metadata: "Unsafe metadata",
-  verification_failed: "Verification failed",
+  bundle_unreadable: "Bundle unreadable",
+  identity_mismatch: "Identity mismatch",
+  internal_error: "Internal error",
+  item_count_mismatch: "Item count mismatch",
+  manifest_invalid: "Invalid manifest",
+  metadata_unsafe: "Unsafe metadata",
+  rescore_failed: "Re-score failed",
+  sampler_violation: "Sampler violation",
+  schema_violation: "Schema violation",
+  signature_invalid: "Invalid signature",
+  size_violation: "Size violation",
+  suite_mismatch: "Suite mismatch",
 };
 
 export function parseSubmissionLifecyclePage(value: unknown): SubmissionLifecyclePage | null {
@@ -90,10 +91,10 @@ export function mergeSubmissionLifecycleRows(
     return {
       communityDetailPath: community?.detailPath ?? null,
       modelLabel: community?.displayName ?? row.declared_model_slug ?? "model unavailable",
-      reasonLabel: row.reason_code === null ? null : reasonCodeLabel(row.reason_code),
+      reasonLabel: row.reason_code == null ? null : reasonCodeLabel(row.reason_code),
       stateLabel: lifecycleStateLabel(row),
       submissionId: row.submission_id,
-      submittedAt: row.timestamps.submitted_at,
+      submittedAt: row.created_at,
       submitterLabel: row.submitter_display_name
         ?? community?.submitterDisplayName
         ?? (community?.submitterKeyFingerprint ? `key:${community.submitterKeyFingerprint}` : "not provided"),
