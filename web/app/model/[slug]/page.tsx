@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { CatalogOnlyNotice } from "@/components/catalog-only-notice";
 import { CommunityFamilyResultsLive } from "@/components/community-family-results";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
@@ -27,7 +28,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns, familyModels, lineage, vsBaseComparisons } = await getModelPageData(slug);
+  const { model, anchorRuns, catalogOnly, familyModels, lineage, queued, vsBaseComparisons } = await getModelPageData(slug);
   const communityRows = await getCommunityBoardRows();
   const communityFamilyRows = communityRows === null
     ? []
@@ -98,6 +99,7 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
         </div>
       </header>
+      {catalogOnly ? <CatalogOnlyNotice queued={queued} /> : null}
       <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
       <ModelVariantBoard model={model} familyModels={familyModels} />
       <CommunityFamilyResultsLive
