@@ -12,6 +12,7 @@ import {
   SEASON_2_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AXIS_CONFIG } from "@/lib/axis-config";
+import { getCommunityBoardRows } from "@/lib/community-data";
 import { axisLabel } from "@/lib/format";
 import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getPartialCoverageBoard } from "@/lib/data";
 import { splitLeaderboard } from "@/lib/leaderboard";
@@ -23,6 +24,7 @@ export default async function LeaderboardPage() {
     getAgenticBySlug(),
     getPartialCoverageBoard(),
   ]);
+  const communityRows = await getCommunityBoardRows();
   const { ranked, staticComposite, catalog } = splitLeaderboard(index.models);
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
@@ -64,8 +66,8 @@ export default async function LeaderboardPage() {
           </div>
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
-            Ranked rows are complete runs on the current index. Partial or unscored entries are listed separately
-            below and never mix into the rank — see{" "}
+            Ranked rows are complete local-bench runs on the current index. Validated community publication rows
+            share the table for visibility but stay unranked and never enter the Index math — see{" "}
             <Link href="/methodology" className="text-bench-accent hover:underline">
               methodology
             </Link>
@@ -75,7 +77,13 @@ export default async function LeaderboardPage() {
           </div>
         </div>
         <BoardIndexChart models={rankedForDisplay} />
-        <HomeLeaderboard models={rankedForDisplay} agenticBySlug={agenticBySlug} fineTuneBaseBySlug={fineTuneBaseBySlug} indexVersion={index.index_version} />
+        <HomeLeaderboard
+          models={rankedForDisplay}
+          agenticBySlug={agenticBySlug}
+          communityRows={communityRows ?? []}
+          fineTuneBaseBySlug={fineTuneBaseBySlug}
+          indexVersion={index.index_version}
+        />
         {/* The no-agentic lane renders only once it has rows — an empty second ranking
             table reads as a competing benchmark instead of a fallback lane. */}
         {staticComposite.length > 0 ? (
