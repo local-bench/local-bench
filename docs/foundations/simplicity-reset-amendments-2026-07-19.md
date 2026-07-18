@@ -83,6 +83,28 @@ P5. **Complexity budgets** (until ≥100 community rows or 2 substantiated abuse
 ## Flag for owner (non-blocking)
 F1. One-time review of the six datasets' redistribution terms before treating full raw
     bundles as permanently public (LCB already carries the LeetCode source notice).
+    **DONE 2026-07-19** — findings: `scratchpad/dataset-licensing-review-2026-07-19.md`.
+    Verdict: no NC/research-only/share-alike terms anywhere; no license restricts model
+    outputs. Root NOTICE refreshed same day (stale block B promoted to A; AppWorld
+    rider entry added; SuperGPQA ODC-BY attribution now satisfied). Follow-through
+    amendments below.
+
+## Licensing follow-through (from F1 findings)
+C4. **Strip `request.messages` from submitted/public bundles** (Track CLI, QA round).
+    `bundle.py:_item_record` currently embeds full rendered prompts in items.jsonl —
+    redundant (reconstructable from the public suite + item_id), a large size win, and
+    it removes benchmark item text (incl. LeetCode-shadowed lcb text on legacy suites)
+    from the public-bundle surface entirely. Verification does not need it
+    (re-scoring grades responses against suite sources fetched separately).
+    Plus a GUARD TEST: agentic (appworld_c) bundle items must stay content-free
+    (empty requests, no response_text, verdict+hashes only) — this is what keeps us
+    compliant with AppWorld's encrypted-redistribution rider by construction.
+F2. At the NEXT suite release cut (not before — existing releases are hash-locked):
+    restore the ATTRIBUTION/NOTICE/LICENSES file set inside the release dir (the three
+    exec-era releases ship none), and drop the five zero-weight legacy item files
+    (supergpqa/bfcl/bfcl_multi_turn/ruler_32k/lcb) from the new release — removes the
+    two MEDIUM-risk surfaces (lcb LeetCode shadow, supergpqa) from future serving.
+    Never remove files from ALREADY-RELEASED suite dirs (breaks suite_hash binding).
 
 ## Sharpened release test (adopted)
 The reset is complete only when Bonsai-27B and Qwythos-9B submit through EXACTLY the

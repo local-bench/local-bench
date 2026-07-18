@@ -10,14 +10,16 @@ datasets, and adapts third-party verifier code. Each upstream carries its own
 license, which continues to apply in full. Full third-party license texts are
 in the LICENSES/ directory; a per-dataset redistribution analysis is in
 docs/foundations/license-inventory-v1.md. Upstream licenses below were
-verified against the upstream Hugging Face card / repository on 2026-07-04
-unless noted.
+verified against the upstream Hugging Face card / repository on 2026-07-04,
+and re-verified 2026-07-19 (dataset licensing review; scratchpad/
+dataset-licensing-review-2026-07-19.md) unless noted.
 
 
 ------------------------------------------------------------------------------
 A. REDISTRIBUTED PUBLICLY
    (the public CLI suite bundle cli/src/localbench/data/suites/core-text-v1/
-   and the site-served suite releases, e.g. suite-v1-text-code-agentic-5axis-v1)
+   and the site-served suite releases, including the active
+   suite-v1-full-exec-6axis-v1)
 ------------------------------------------------------------------------------
 
 - MMLU-Pro by TIGER-Lab, distributed under the MIT License.
@@ -36,7 +38,47 @@ A. REDISTRIBUTED PUBLICLY
     * The dataset includes output data generated from third-party models that
       are subject to separate terms governing their use.
   Note: this attributes the DATASET (ODC-BY-1.0). The IFBench/IFEval-derived
-  verifier CODE is separately Apache-2.0 (see block C).
+  verifier CODE is separately Apache-2.0 (see block B).
+
+- AMO-Bench by Meituan (meituan-longcat), distributed under the MIT License.
+  Source: https://huggingface.co/datasets/meituan-longcat/AMO-Bench
+  Revision: 2f422616c25d862984408fbbfaed63a961e8e025
+  (Build-gated against the upstream card. Served in site suite releases as
+  amo.jsonl; part of the headline math axis.)
+
+- OlymMATH (en-hard) by RUC-AIBOX, distributed under the MIT License.
+  Source: https://huggingface.co/datasets/RUC-AIBOX/OlymMATH
+  Revision: 2c6532ea2cf929ac1c421532af5951553eaee727
+  (Build-gated against the upstream card. Served in site suite releases as
+  olymmath_hard.jsonl; part of the headline math axis.)
+
+- SuperGPQA by m-a-p, distributed under the Open Data Commons Attribution
+  License (ODC-BY-1.0).
+  Source: https://huggingface.co/datasets/m-a-p/SuperGPQA
+  Revision: 4430d4458112c7d4497fdcf94d7cc223313d6acf
+  (Build-gated against the upstream card. Full ODC-BY-1.0 text:
+  LICENSES/IFBench-ODC-BY-1.0.txt — the same license text applies.
+  supergpqa.jsonl remains present in served suite releases as a
+  zero-weight legacy item set; this entry satisfies its ODC-BY
+  attribution requirement.)
+
+- BigCodeBench-Hard by BigCode, used for the headline coding axis
+  (bigcodebench_hard.jsonl, served in site suite releases; generated code is
+  executed inside a sandboxed docker evaluator).
+  Dataset: https://huggingface.co/datasets/bigcode/bigcodebench-hard
+           (revision 298d2cc7b96612e15e47313c3603ee124cee0c1f)
+  Harness: https://github.com/bigcode-project/bigcodebench (Apache-2.0).
+  As of 2026-07-19 the bigcodebench-hard subset card still carries no
+  explicit license metadata; it is a subset of bigcode/bigcodebench, whose
+  card declares Apache-2.0, and is treated here as Apache-2.0 on that basis.
+
+- RULER NIAH task pattern by NVIDIA, Apache License, Version 2.0
+  (algorithmic pattern only).
+  Source: https://github.com/NVIDIA/RULER (paper: arXiv:2404.06654)
+  The shipped ruler_32k.jsonl items (present in served suite releases as a
+  zero-weight legacy item set) are LOCALLY GENERATED synthetic data — no
+  upstream RULER code, prompts, or haystack data are vendored — so this is
+  attribution of the algorithmic pattern, not redistribution.
 
 - Berkeley Function-Calling Leaderboard (BFCL) by Gorilla LLM / UC Berkeley,
   distributed under the Apache License, Version 2.0 (dataset and eval code).
@@ -50,7 +92,9 @@ A. REDISTRIBUTED PUBLICLY
   reformatting, and locally authored conformance items).
 
 - LiveCodeBench (test_generation subset, contest window
-  2023-12-01..2024-03-02), used for the lcb output-prediction coding items.
+  2023-12-01..2024-03-02), used for the lcb output-prediction coding items
+  (lcb.jsonl remains present in served suite releases as a zero-weight
+  legacy item set).
   Dataset: https://huggingface.co/datasets/livecodebench/test_generation
            (revision 6f3ac40bbecf81eba15899139d279b077f2816fd)
   The upstream Hugging Face card's license metadata is the generic "cc"
@@ -64,48 +108,21 @@ A. REDISTRIBUTED PUBLICLY
   flag lcb.jsonl accordingly rather than treating redistribution terms as
   fully settled.
 
-
-------------------------------------------------------------------------------
-B. REDISTRIBUTED IN THE SOURCE REPOSITORY ONLY
-   (suite/v1/ — git-tracked; not in the public CLI wheel)
-------------------------------------------------------------------------------
-
-- AMO-Bench by Meituan (meituan-longcat), distributed under the MIT License.
-  Source: https://huggingface.co/datasets/meituan-longcat/AMO-Bench
-  Revision: 2f422616c25d862984408fbbfaed63a961e8e025
-  (Build-gated against the upstream card.)
-
-- OlymMATH (en-hard) by RUC-AIBOX, distributed under the MIT License.
-  Source: https://huggingface.co/datasets/RUC-AIBOX/OlymMATH
-  Revision: 2c6532ea2cf929ac1c421532af5951553eaee727
-  (Build-gated against the upstream card.)
-
-- SuperGPQA by m-a-p, distributed under the Open Data Commons Attribution
-  License (ODC-BY-1.0).
-  Source: https://huggingface.co/datasets/m-a-p/SuperGPQA
-  Revision: 4430d4458112c7d4497fdcf94d7cc223313d6acf
-  (Build-gated against the upstream card. Full ODC-BY-1.0 text:
-  LICENSES/IFBench-ODC-BY-1.0.txt — the same license text applies.)
-
-- BigCodeBench-Hard by BigCode (opt-in code-execution module; not part of
-  the headline Index and not served by the site).
-  Dataset: https://huggingface.co/datasets/bigcode/bigcodebench-hard
-           (revision 298d2cc7b96612e15e47313c3603ee124cee0c1f)
-  Harness: https://github.com/bigcode-project/bigcodebench (Apache-2.0).
-  As of 2026-07-04 the bigcodebench-hard subset card carries no explicit
-  license metadata; it is a subset of bigcode/bigcodebench, whose card
-  declares Apache-2.0, and is treated here as Apache-2.0 on that basis.
-
-- RULER NIAH task pattern by NVIDIA, Apache License, Version 2.0
-  (algorithmic pattern only).
-  Source: https://github.com/NVIDIA/RULER (paper: arXiv:2404.06654)
-  The shipped ruler_32k.jsonl items are LOCALLY GENERATED synthetic data —
-  no upstream RULER code, prompts, or haystack data are vendored — so this
-  is attribution of the algorithmic pattern, not redistribution.
+- AppWorld by StonyBrookNLP, used for the headline agentic axis (appworld_c).
+  Source: https://github.com/StonyBrookNLP/appworld
+  NO AppWorld data is redistributed by this project: suite releases contain
+  no appworld item files; the AppWorld environment and its task data are
+  fetched from upstream on the user's machine at appliance provisioning time;
+  and submission bundles carry only per-task verdicts and hashes (no task
+  content, empty requests, no response text) for agentic items.
+  Upstream license: Apache License, Version 2.0, WITH an upstream rider that
+  public redistribution of the protected task-data portion (or derivatives)
+  must be in encrypted form. This project's no-redistribution posture
+  complies with that rider by construction.
 
 
 ------------------------------------------------------------------------------
-C. ADAPTED VERIFIER / SCORER CODE (compiled into the CLI; not dataset items)
+B. ADAPTED VERIFIER / SCORER CODE (compiled into the CLI; not dataset items)
 ------------------------------------------------------------------------------
 
 - IFEval verifier semantics, adapted from Google Research's
