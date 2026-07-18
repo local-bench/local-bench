@@ -86,7 +86,7 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
       return null;
     default: {
       const axis = row.axes?.[key];
-      return axis?.status === "measured" ? axis.score : null;
+      return axis?.status === "measured" && axis.score !== null ? axis.score * 100 : null;
     }
   }
 }

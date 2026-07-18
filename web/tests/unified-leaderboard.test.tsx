@@ -92,6 +92,27 @@ describe("unified leaderboard community rows", () => {
     ]);
   });
 
+  it("sorts live community axes on the same percentage scale as ranked axes", () => {
+    const rankedWithInstruction: IndexModel = {
+      ...rankedModel(6, 50),
+      axes: {
+        instruction: {
+          hi: 51,
+          lo: 49,
+          n: 10,
+          n_errors: 0,
+          n_no_answer: 0,
+          point: 50,
+          raw_accuracy: 0.5,
+        },
+      },
+    };
+    const rows = filterUnifiedLeaderboardRows([rankedWithInstruction], liveCommunityRows, "all");
+    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction", direction: "desc" });
+
+    expect(sorted.map((row) => row.source)).toEqual(["community", "local-bench"]);
+  });
+
   it("filters All, local-bench runs, and community without mixing row populations", () => {
     const all = filterUnifiedLeaderboardRows(rankedRows, communityRows, "all");
     const local = filterUnifiedLeaderboardRows(rankedRows, communityRows, "local-bench");
