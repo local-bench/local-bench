@@ -131,7 +131,7 @@ def test_fifth_api_failure_writes_alert_with_scrubbed_error(tmp_path: Path) -> N
     assert "[REDACTED]" in alert
 
 
-def test_dry_run_verifies_but_posts_nothing(tmp_path: Path) -> None:
+def test_dry_run_verifies_but_posts_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     verified: list[str] = []
 
     def verify(*args: object, **kwargs: object) -> dict[str, object]:
@@ -146,6 +146,7 @@ def test_dry_run_verifies_but_posts_nothing(tmp_path: Path) -> None:
     assert daemon.run_cycle(process_listing="") == "ok"
     assert verified == ["yes"]
     assert not daemon.config.intent_file.exists()
+    assert "dry-run would POST submission_id=sub-1" in capsys.readouterr().out
 
 
 def test_status_change_skips_download_and_verify(tmp_path: Path) -> None:

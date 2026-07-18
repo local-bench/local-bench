@@ -112,7 +112,9 @@ class AutoValidator:
             )
             update = rejection_update(code, detail)
         if self.config.dry_run:
-            self.log(f"dry-run would POST submission_id={submission_id} payload={json.dumps(update, sort_keys=True)}")
+            message = f"dry-run would POST submission_id={submission_id} payload={json.dumps(update, sort_keys=True)}"
+            print(message)
+            self.log(message)
             self._archive_work(work, result_kind)
             return "ok"
         try:
