@@ -99,6 +99,14 @@ function boundedSafeString(maxLength: number, minLength = 0): z.ZodString {
     message: "text contains prohibited control or bidi characters",
   });
 }
+// Multiline-tolerant bound for fields that legitimately carry line breaks/tabs
+// (llama.cpp build_flags); still bans every other control and all bidi marks.
+const UnsafeMultilineTextPattern = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
+function boundedMultilineSafeString(maxLength: number, minLength = 0): z.ZodString {
+  return z.string().min(minLength).max(maxLength).refine((value) => !UnsafeMultilineTextPattern.test(value), {
+    message: "text contains prohibited control or bidi characters",
+  });
+}
 export const SubmitterDisplayNameSchema = boundedSafeString(80, 2)
   .regex(/^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,78}[A-Za-z0-9]$/);
 const RemovedBundleFields = ["schema", "composite", "trust_tier", "serving_verification_level", "source", "output_path"] as const;
@@ -219,7 +227,7 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   runtime: z.object({
     name: boundedSafeString(120, 1), version: boundedSafeString(120, 1), kv_cache_quant: boundedSafeString(64, 1).nullable().optional(),
     ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),
-    build_flags: boundedSafeString(500).nullable().optional(),
+    build_flags: boundedMultilineSafeString(500).nullable().optional(),
   }).strict(),
   suite_release_id: z.enum(ACCEPTED_PROJECTION_SUITE_RELEASE_IDS),
   suite_manifest_sha256: Sha256Schema,
@@ -276,8 +284,14 @@ export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSc
   }
 });
 
+// Deep-scan variant: legitimate projection VALUES carry line breaks and tabs
+// (llama.cpp multi-line build_flags is the canonical case), so those three are
+// permitted in values; every other C0/C1 control and all bidi controls remain
+// banned, and KEYS stay fully strict.
+const UnsafeProjectionValuePattern = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
+
 function containsUnsafeText(value: unknown): boolean {
-  if (typeof value === "string") return UnsafeTextPattern.test(value);
+  if (typeof value === "string") return UnsafeProjectionValuePattern.test(value);
   if (Array.isArray(value)) return value.some(containsUnsafeText);
   if (typeof value !== "object" || value === null) return false;
   return Object.entries(value).some(([key, entry]) => UnsafeTextPattern.test(key) || containsUnsafeText(entry));
