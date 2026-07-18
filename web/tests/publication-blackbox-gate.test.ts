@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createServer } from "node:http";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
@@ -34,8 +34,22 @@ const communityDir = join(process.cwd(), "public", "data", "community");
 const tempRoot = mkdtempSync(join(tmpdir(), "b2a-blackbox-"));
 let admissionSequence = 0;
 
+// public/data/community holds COMMITTED publication data since 2026-07-18. The
+// serve/DOM assertions still need fixture output installed at the real path, so
+// snapshot the committed tree up front and restore it on teardown instead of
+// deleting it (the old bare rmSync silently stripped the committed files from
+// the working tree on every suite run).
+const committedCommunityBackup = join(tempRoot, "committed-community-backup");
+const hadCommittedCommunity = existsSync(communityDir);
+if (hadCommittedCommunity) {
+  cpSync(communityDir, committedCommunityBackup, { recursive: true });
+}
+
 afterAll(() => {
   rmSync(communityDir, { force: true, recursive: true });
+  if (hadCommittedCommunity) {
+    cpSync(committedCommunityBackup, communityDir, { recursive: true });
+  }
   rmSync(tempRoot, { force: true, recursive: true });
 });
 
