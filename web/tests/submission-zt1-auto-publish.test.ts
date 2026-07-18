@@ -246,6 +246,29 @@ describe("ZT-1 automatic publish decisions", () => {
     });
   }, 15_000);
 
+  it("does not escalate a fine-tune whose FAMILY fingerprint matches a protected pattern", async () => {
+    // Given: an innocuously named fine-tune that legitimately declares a
+    // protected base family (the core publish-then-moderate submission case).
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const submissionId = await ticketWithBundle(env, bundleFor({
+      displayName: "bonsai-27b-ternary",
+      family: "Qwen3",
+      fileSha: UNKNOWN_HASH,
+      score: 58,
+    }));
+
+    // When: verification accepts the bundle.
+    const response = await verifyAccepted(env, submissionId);
+
+    // Then: family membership alone never trips the impersonation hold.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      publish_state: "published",
+      zt1_decision: "publishable",
+    });
+  }, 15_000);
+
   it("escalates protected identities from verified submitter keys", async () => {
     // Given: a verified submitter key is mapped to a protected vendor identity.
     const env = await createZt1Env();
@@ -1023,3 +1046,37 @@ async function seedStatusRow(
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+
+describe("zt1 escalation resolve path", () => {
+  it("maintainer resolve publishes a held row and is not repeatable", async () => {
+    const { handleZt1Resolve } = await import("../functions/_lib/submission-zt1-resolve-api");
+    const env = await createZt1Env();
+    await enableAutoPublish(env);
+    const submissionId = await ticketWithBundle(env, bundleFor({
+      displayName: "Qwen3 4B Official",
+      family: "Qwen3",
+      fileSha: UNKNOWN_HASH,
+      score: 58,
+    }));
+    const accepted = await verifyAccepted(env, submissionId);
+    expect(accepted.status).toBe(200);
+    expect(await accepted.json()).toMatchObject({ zt1_decision: "escalated", publish_state: "hidden" });
+
+    const resolve = await handleZt1Resolve(
+      jsonRequest(`/api/admin/submissions/${submissionId}/zt1-resolve`, { reason: "identity reviewed - distinct artifact" }, { "x-localbench-admin-secret": ADMIN_SECRET }),
+      env,
+      { submissionId },
+    );
+    expect(resolve.status).toBe(200);
+    expect(await resolve.json()).toMatchObject({ publish_state: "published" });
+
+    const again = await handleZt1Resolve(
+      jsonRequest(`/api/admin/submissions/${submissionId}/zt1-resolve`, { reason: "repeat" }, { "x-localbench-admin-secret": ADMIN_SECRET }),
+      env,
+      { submissionId },
+    );
+    expect(again.status).toBe(409);
+    expect(await again.json()).toMatchObject({ code: "not_escalated" });
+  }, 20_000);
+});

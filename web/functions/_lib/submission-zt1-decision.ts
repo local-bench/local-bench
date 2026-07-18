@@ -389,7 +389,11 @@ function protectedIdentity(env: SubmissionApiEnv, row: SubmissionRow, model: Mod
     return protectedKeyLabel;
   }
   const patterns = protectedPatterns(env);
-  const haystack = `${model.displayName} ${model.family ?? ""}`.toLowerCase();
+  // Protection targets NAME claims (impersonation/squatting). The family
+  // FINGERPRINT is deliberately excluded: declaring a base family is the
+  // legitimate core of fine-tune/quant submissions (publish-then-moderate
+  // design s1 — identity is evidence-derived, never family-derived).
+  const haystack = model.displayName.toLowerCase();
   // Self-declared names are escalation-only and never grant positive trust.
   return patterns.some((pattern) => haystack.includes(pattern.toLowerCase())) ? model.artifactHash ?? "protected" : null;
 }

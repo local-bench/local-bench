@@ -369,6 +369,31 @@ async function repeatedIdentityInRecentWindow(env: SubmissionApiEnv, submissionI
   return numeric(row?.["count"]) >= SYBIL_IDENTITY_SUBMISSIONS_24H;
 }
 
+export async function resolveEscalatedDecision(
+  env: SubmissionApiEnv,
+  submissionId: string,
+  reason: string,
+): Promise<boolean> {
+  const result = await env.DB.prepare(
+    `update submissions
+     set zt1_decision = 'publishable', zt1_decision_reason = null, state_revision = state_revision + 1
+     where submission_id = ? and zt1_decision = 'escalated'`,
+  )
+    .bind(submissionId)
+    .run();
+  const changed = (result.meta?.changes ?? 0) > 0;
+  if (changed) {
+    await recordDecisionLog(env, {
+      actor: "maintainer",
+      details: {},
+      event: "zt1_resolved",
+      reason,
+      submissionId,
+    });
+  }
+  return changed;
+}
+
 async function recordAlarm(env: SubmissionApiEnv, alarm: FreezeAlarm): Promise<void> {
   await recordDecisionLog(env, {
     actor: "security",
