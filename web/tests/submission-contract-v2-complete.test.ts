@@ -274,7 +274,7 @@ describe("submission contract v2 upload and complete routes", () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
     const pending: Array<{ bundleJson: string; bundleSha: string; ticketId: string }> = [];
-    for (let index = 0; index < 6; index += 1) {
+    for (let index = 0; index < 11; index += 1) {
       const modelSha = index.toString(16).padStart(64, "0");
       const bundleJson = JSON.stringify(signedResultBundle(key, {}, modelSha));
       const bundleSha = sha256Hex(bundleJson);
@@ -301,22 +301,22 @@ describe("submission contract v2 upload and complete routes", () => {
       }));
     }
 
-    expect(responses.slice(0, 5).every((response) => response.status === 200)).toBe(true);
-    expect(responses[5]?.status).toBe(429);
-    expect(await responses[5]?.json()).toMatchObject({ code: "pending_review_limit" });
-  }, 30_000);
+    expect(responses.slice(0, 10).every((response) => response.status === 200)).toBe(true);
+    expect(responses[10]?.status).toBe(429);
+    expect(await responses[10]?.json()).toMatchObject({ code: "pending_review_limit" });
+  }, 60_000);
 
   it("enforces the global pending admission cap at finalization", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
-    for (let index = 0; index < 20; index += 1) {
-      const sha = index.toString(16).padStart(64, "0");
-      await env.DB.prepare(
-        `insert into submissions (
-          submission_id, origin, submitter_id, ticket_id, status, raw_bundle_sha256,
-          idempotency_key, publish_state, uploaded_at, model_identity_digest
-        ) values (?, 'community', ?, ?, 'pending_verification', ?, ?, 'hidden', datetime('now'), ?)`,
-      ).bind(`pending_${index}`, `public_key:${sha}`, `pending_${index}`, sha, sha, sha).run();
-    }
+    await env.DB.prepare(
+      `with recursive n(x) as (select 1 union all select x + 1 from n where x < 200)
+       insert into submissions (
+         submission_id, origin, submitter_id, ticket_id, status, raw_bundle_sha256,
+         idempotency_key, publish_state, uploaded_at, model_identity_digest
+       ) select 'pending_' || x, 'community', 'public_key:' || printf('%064x', x),
+         'pending_' || x, 'pending_verification', printf('%064x', x), printf('%064x', x),
+         'hidden', datetime('now'), printf('%064x', x) from n`,
+    ).run();
     const envelope = await issueEnvelope(env);
     await env.SUBMISSIONS.put(rawBundleKey(RAW_BUNDLE_SHA), RESULT_BUNDLE_JSON);
 
