@@ -1,30 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { z } from "zod";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { useLiveCommunityRows } from "@/components/community-live-state";
+import { TrustTierChip } from "@/components/leaderboard-provenance";
+import type { CommunityBoardRow } from "@/lib/community-data";
+import { reasonCodeLabel } from "@/lib/submission-lifecycle";
+import {
+  SubmissionStatusSchema,
+  type HistoryItem,
+  type SubmissionStatus,
+} from "@/lib/submission-status";
 import { PUBLISH_COPY, statusCopy } from "./status-copy";
 
-const HistoryItemSchema = z.object({
-  actor: z.string(),
-  created_at: z.string(),
-  reason: z.string().optional(),
-  to_status: z.string(),
-});
-
-const SubmissionStatusSchema = z.object({
-  history: z.array(HistoryItemSchema).optional(),
-  publish_state: z.enum(["hidden", "preview", "published"]),
-  raw_bundle_sha256: z.string(),
-  status: z.string(),
-  status_reason: z.string().nullable().optional(),
-  submission_id: z.string(),
-  suite_release_id: z.string().nullable().optional(),
-  submitter_display_name: z.string().nullable().optional(),
-});
-
-type SubmissionStatus = z.infer<typeof SubmissionStatusSchema>;
-type HistoryItem = z.infer<typeof HistoryItemSchema>;
+const EMPTY_COMMUNITY_ROWS: readonly CommunityBoardRow[] = [];
 
 type LoadState =
   | { readonly kind: "empty" }
@@ -37,6 +26,7 @@ export default function SubmissionPage() {
   const [query, setQuery] = useState("");
   const [state, setState] = useState<LoadState>({ kind: "empty" });
   const requestSequence = useRef(0);
+  const community = useLiveCommunityRows(EMPTY_COMMUNITY_ROWS);
 
   useEffect(() => {
     const initial = new URLSearchParams(window.location.search).get("id")?.trim() ?? "";
@@ -110,12 +100,12 @@ export default function SubmissionPage() {
         </button>
       </form>
 
-      {renderState(state)}
+      {renderState(state, community.rows)}
     </main>
   );
 }
 
-function renderState(state: LoadState) {
+function renderState(state: LoadState, communityRows: readonly CommunityBoardRow[]) {
   switch (state.kind) {
     case "empty":
       return (
@@ -140,14 +130,29 @@ function renderState(state: LoadState) {
     case "error":
       return <StatusPanel tone="text-bench-worse" title="Fetch error" body={state.message} />;
     case "loaded":
-      return <SubmissionDetails value={state.value} />;
+      return (
+        <SubmissionDetails
+          liveRow={communityRows.find((row) => row.submissionId === state.value.submission_id)}
+          value={state.value}
+        />
+      );
     default:
       return assertNever(state);
   }
 }
 
-function SubmissionDetails({ value }: { readonly value: SubmissionStatus }) {
+export function SubmissionDetails({
+  liveRow,
+  value,
+}: {
+  readonly liveRow?: CommunityBoardRow | undefined;
+  readonly value: SubmissionStatus;
+}) {
   const copy = statusCopy(value.status);
+  const reason = value.reason_code === null || value.reason_code === undefined
+    ? value.status_reason
+    : reasonCodeLabel(value.reason_code);
+  const trustLabel = value.trust_label ?? value.tier ?? liveRow?.trust?.trust_label ?? null;
   return (
     <section className="grid gap-5">
       <div className="rounded-lg border border-bench-line bg-bench-panel p-5">
@@ -158,9 +163,15 @@ function SubmissionDetails({ value }: { readonly value: SubmissionStatus }) {
         <p className="mt-4 rounded-md border border-bench-line bg-bench-panel-2 p-3 text-sm text-bench-muted">
           {PUBLISH_COPY[value.publish_state]}
         </p>
-        {value.status === "rejected" && value.status_reason ? (
+        {value.publish_state === "published" && trustLabel !== null ? (
+          <div className="mt-3 flex items-center gap-2 text-sm text-bench-muted">
+            <span>Published tier</span>
+            <TrustTierChip trustLabel={trustLabel} />
+          </div>
+        ) : null}
+        {value.status === "rejected" && reason ? (
           <p className="mt-3 rounded-md border border-bench-worse/40 bg-bench-worse/[0.08] p-3 text-sm text-bench-worse">
-            {value.status_reason}
+            {reason}
           </p>
         ) : null}
       </div>
@@ -169,7 +180,7 @@ function SubmissionDetails({ value }: { readonly value: SubmissionStatus }) {
         <h2 className="text-lg font-semibold text-bench-text">Bundle</h2>
         <dl className="mt-4 grid gap-3 text-sm">
           <Detail label="submission_id" value={value.submission_id} />
-          <Detail label="raw_bundle_sha256" value={value.raw_bundle_sha256} />
+          <Detail label="raw_bundle_sha256" value={value.raw_bundle_sha256 ?? "n/a"} />
           <Detail label="suite_release_id" value={value.suite_release_id ?? "n/a"} />
           <Detail label="submitter_display_name" value={value.submitter_display_name ?? "n/a"} />
         </dl>
