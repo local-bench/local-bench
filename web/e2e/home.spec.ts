@@ -1,12 +1,16 @@
 import { expect, test, visitRoute } from "./fixtures";
+import { getCommunityBoardRows } from "../lib/community-data";
 
-test("leads with the graph + summary board, on-ramp below", async ({ page }) => {
+test("leads with the graph + unified board, on-ramp below", async ({ page }) => {
+  const communityRows = await getCommunityBoardRows();
   await visitRoute(page, "/");
 
   await expect(page.getByTestId("best-variant-scatter")).toBeVisible();
-  await expect(page.getByTestId("best-variant-table")).toBeVisible();
+  await expect(page.getByTestId("best-variant-table")).toHaveCount(0);
+  await expect(page.getByTestId("full-leaderboard")).toBeVisible();
+  await expect(page.getByTestId("full-leaderboard").locator('tbody tr[data-source="community"]'))
+    .toHaveCount(communityRows?.length ?? 0);
   await expect(page.getByTestId("benchmark-onramp")).toBeVisible();
-  await expect(page.getByTestId("full-leaderboard")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /View full leaderboard/i })).toBeVisible();
 
   const scatterBox = await page.getByTestId("best-variant-scatter").boundingBox();
