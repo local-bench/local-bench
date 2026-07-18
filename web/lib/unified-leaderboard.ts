@@ -73,7 +73,7 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
     case "model":
       return row.displayName;
     case "composite":
-      return row.partialComposite;
+      return row.partialComposite === null ? null : row.partialComposite * 100;
     case "user":
       return row.submitterDisplayName ?? row.submitterKeyFingerprint ?? "";
     case STATIC_INDEX_SORT_KEY:

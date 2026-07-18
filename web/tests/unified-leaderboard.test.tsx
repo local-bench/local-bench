@@ -8,7 +8,7 @@ import {
 import { communityBoardRows, parseCommunityGroup, type CommunityBoardRow } from "../lib/community-data";
 import { IndexModelSchema, type IndexModel } from "../lib/schemas";
 
-const rankedRows = [0.6, 0.51, 0.4, 0.3, null].map((score, index) => rankedModel(index + 1, score));
+const rankedRows = [60, 51, 40, 30, null].map((score, index) => rankedModel(index + 1, score));
 const communityGroup = parseCommunityGroup({
   community_model_group_id: `community-group:${"1".repeat(32)}`,
   identity_label: "community-declared, identity-unverified",
