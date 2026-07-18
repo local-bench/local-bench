@@ -19,7 +19,9 @@ export function CommunityLeaderboardRow({
   showAgenticColumn,
   showStaticIndexColumn,
 }: CommunityRowProps) {
-  const navigate = () => window.location.assign(row.detailPath);
+  const navigate = () => {
+    if (row.detailPath !== null) window.location.assign(row.detailPath);
+  };
   const openOnEnter = (event: KeyboardEvent<HTMLTableRowElement>) => {
     if (event.key === "Enter") navigate();
   };
@@ -27,17 +29,23 @@ export function CommunityLeaderboardRow({
     <tr
       data-testid={`community-row-${row.submissionId}`}
       data-source="community"
-      data-href={row.detailPath}
-      tabIndex={0}
-      onClick={navigate}
-      onKeyDown={openOnEnter}
-      className="cursor-pointer border-t-2 border-bench-line-strong bg-white/[0.018] align-middle text-bench-muted transition-colors hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+      data-href={row.detailPath ?? undefined}
+      tabIndex={row.detailPath === null ? undefined : 0}
+      onClick={row.detailPath === null ? undefined : navigate}
+      onKeyDown={row.detailPath === null ? undefined : openOnEnter}
+      className={`${row.detailPath === null ? "" : "cursor-pointer hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"} border-t-2 border-bench-line-strong bg-white/[0.018] align-middle text-bench-muted transition-colors`}
     >
       <td className="px-3 py-3 font-mono text-bench-muted" title="Community rows are not ranked">—</td>
       <td className="px-3 py-3">
-        <Link href={row.detailPath} className="font-semibold text-bench-text hover:text-bench-accent">
-          {row.displayName}
-        </Link>
+        {row.detailPath === null ? (
+          <span className="font-semibold text-bench-text" title="detail page publishes with the next site deploy">
+            {row.displayName}
+          </span>
+        ) : (
+          <Link href={row.detailPath} className="font-semibold text-bench-text hover:text-bench-accent">
+            {row.displayName}
+          </Link>
+        )}
         <div className="mt-0.5 font-mono text-xs text-bench-muted">{row.quantLabel ?? "quant unavailable"}</div>
         <div className="mt-1 text-[10px] uppercase text-bench-muted">{row.identityLabel}</div>
       </td>

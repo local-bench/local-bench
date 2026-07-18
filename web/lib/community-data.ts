@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import type { LiveBoardRow } from "./community-live-schema";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
@@ -98,18 +99,46 @@ const CommunityIndexSchema = z.object({
 
 export type CommunityGroupData = z.infer<typeof CommunityGroupSchema>;
 export type HuggingFaceRepoId = z.infer<typeof RepoIdSchema>;
+export type CommunityLineage = {
+  readonly artifact_sha256: string;
+  readonly association: {
+    readonly artifact_to_repo: "unverified";
+    readonly basis: "maintainer-associated";
+    readonly note: string;
+  };
+  readonly card_declared_edges: readonly {
+    readonly base: string;
+    readonly base_revision: string | null;
+    readonly child: string;
+    readonly child_revision: string;
+    readonly source: "hf-model-card";
+  }[];
+  readonly repo: { readonly id: string; readonly revision: string };
+  readonly resolution: {
+    readonly resolved_at: string;
+    readonly status: "complete" | "truncated" | "partial";
+  };
+};
 export type CommunityBoardRow = {
   readonly artifactSha256: string;
-  readonly detailPath: string;
+  readonly axes?: LiveBoardRow["axes"];
+  readonly communityModelGroupId?: string;
+  readonly declaredBaseModels?: readonly string[];
+  readonly detailPath: string | null;
   readonly displayName: string;
   readonly identityLabel: CommunityGroupData["identity_label"];
-  readonly lineage: CommunityGroupData["variants"][number]["lineage_enrichment"];
+  readonly lineage: CommunityLineage | undefined;
+  readonly live?: LiveBoardRow;
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
   readonly partialComposite: number | null;
   readonly quantLabel: string | null;
   readonly ranked: false;
   readonly submissionId: string;
+  readonly submitterDisplayName?: string | null;
+  readonly submitterKeyFingerprint?: string | null;
+  readonly timestamps?: LiveBoardRow["timestamps"] | null;
+  readonly trust?: LiveBoardRow["trust"] | null;
 };
 
 export type CommunityModelTarget = {
@@ -173,6 +202,9 @@ export function communityBoardRows(groups: readonly CommunityGroupData[]): reado
     const groupId = group.community_model_group_id.replace("community-group:", "");
     return group.variants.map((variant) => ({
       artifactSha256: variant.artifact_sha256,
+      axes: {},
+      communityModelGroupId: group.community_model_group_id,
+      declaredBaseModels: [],
       detailPath: `/community/model/${groupId}`,
       displayName: variant.display_name ?? "Community-declared variant",
       identityLabel: group.identity_label,
@@ -183,6 +215,10 @@ export function communityBoardRows(groups: readonly CommunityGroupData[]): reado
       quantLabel: variant.quant_label,
       ranked: false,
       submissionId: variant.submission_id,
+      submitterDisplayName: null,
+      submitterKeyFingerprint: null,
+      timestamps: null,
+      trust: null,
     }));
   });
 }
@@ -199,11 +235,10 @@ export function communityRowsForModel(
   const familyKey = normalizedFamily(target.family);
   return rows.filter((row) => {
     const lineage = row.lineage;
-    if (lineage === undefined) return false;
-    const repositories = [
-      lineage.repo.id,
-      ...lineage.card_declared_edges.flatMap((edge) => [edge.base, edge.child]),
-    ];
+    const repositories = lineage === undefined
+      ? [...(row.declaredBaseModels ?? [])]
+      : [lineage.repo.id, ...lineage.card_declared_edges.flatMap((edge) => [edge.base, edge.child])];
+    if (repositories.length === 0) return false;
     if (
       target.catalogId !== null
       && target.catalogId !== undefined

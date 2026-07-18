@@ -30,12 +30,21 @@ export function CommunityFamilyResults({ rows }: { readonly rows: readonly Commu
                   {row.quantLabel ?? "quant unavailable"} · not independently verified
                 </p>
               </div>
-              <Link
-                href={row.detailPath}
-                className="rounded border border-bench-line px-2.5 py-1.5 text-sm font-medium text-bench-accent transition-colors hover:border-bench-accent hover:text-bench-text"
-              >
-                View community record
-              </Link>
+              {row.detailPath === null ? (
+                <span
+                  className="rounded border border-bench-line px-2.5 py-1.5 text-sm font-medium text-bench-muted"
+                  title="detail page publishes with the next site deploy"
+                >
+                  Detail available next deploy
+                </span>
+              ) : (
+                <Link
+                  href={row.detailPath}
+                  className="rounded border border-bench-line px-2.5 py-1.5 text-sm font-medium text-bench-accent transition-colors hover:border-bench-accent hover:text-bench-text"
+                >
+                  View community record
+                </Link>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-bench-muted">
               <span>partial {percentage(row.partialComposite)}</span>
