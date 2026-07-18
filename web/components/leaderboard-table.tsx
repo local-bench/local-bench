@@ -41,8 +41,12 @@ export function LeaderboardTable({
   sort,
 }: LeaderboardTableProps) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-[1280px] border-collapse text-sm">
+    <div>
+      <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent md:hidden">
+        Swipe horizontally for scores and axes →
+      </p>
+      <div className="overflow-x-auto">
+        <table className="min-w-[1280px] border-collapse text-sm">
         <caption className="sr-only">
           Local-bench and community rows share one score-sorted table. Community rows never receive a rank.
         </caption>
@@ -107,7 +111,8 @@ export function LeaderboardTable({
             }
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

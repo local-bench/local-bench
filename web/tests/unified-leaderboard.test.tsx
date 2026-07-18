@@ -70,6 +70,7 @@ describe("unified leaderboard community rows", () => {
     expect(rowHtml).toContain('href="/community/model/11111111111111111111111111111111"');
     expect(rowHtml).toContain("re-scored");
     expect(rowHtml).toContain("4/6 axes");
+    expect(html).toContain("Swipe horizontally for scores and axes");
     expect(rankCellHtml).not.toContain("—");
     expect(rankCellHtml).not.toMatch(/>\d+</u);
     expect(rowHtml.indexOf(">community</span>")).toBeLessThan(
