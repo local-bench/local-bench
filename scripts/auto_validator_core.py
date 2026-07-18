@@ -88,6 +88,9 @@ class AutoValidator:
         if fresh.get("status") != "pending_verification":
             self.log(f"skip: status-changed submission_id={submission_id}")
             return "ok"
+        suite_dir = self._resolve_suite_dir(fresh, submission_id)
+        if suite_dir is None:
+            return "ok"
         work = self._new_work_entry(submission_id)
         bundle = work / "bundle.lbsub.zip"
         projection = work / "projection.json"
@@ -96,7 +99,7 @@ class AutoValidator:
             self.api.download_bundle(submission_id, bundle)
             verified = self.verify(
                 bundle,
-                suite_dir=self.config.suite_dir,
+                suite_dir=suite_dir,
                 projection_out=projection,
                 validated_at=utc_now(),
                 validator_commit=self.config.validator_commit,
@@ -127,6 +130,22 @@ class AutoValidator:
         self._archive_work(work, result_kind)
         self.consecutive_api_failures = 0
         return "ok"
+
+    def _resolve_suite_dir(self, fresh: JsonObject, submission_id: str) -> Path | None:
+        if self.config.suite_dir is not None:
+            return self.config.suite_dir
+        release_id = text(fresh.get("suite_release_id"))
+        root = self.config.suite_cache_root
+        if not release_id or root is None:
+            self.log(f"skip: suite-unresolvable submission_id={submission_id} suite={release_id or 'unknown'}")
+            return None
+        release_root = root / release_id
+        candidates = sorted(path for path in release_root.iterdir() if path.is_dir()) if release_root.is_dir() else []
+        if len(candidates) == 1:
+            return candidates[0]
+        reason = "suite-unavailable" if not candidates else "suite-ambiguous"
+        self.log(f"skip: {reason} submission_id={submission_id} suite={release_id} candidates={len(candidates)}")
+        return None
 
     def _post_and_log(self, submission_id: str, update: JsonObject, *, action: str) -> JsonObject:
         attempt_id = uuid.uuid4().hex

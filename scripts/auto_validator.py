@@ -43,7 +43,8 @@ __all__ = [
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="FIFO publish-then-moderate auto-validator")
     parser.add_argument("--site", required=True)
-    parser.add_argument("--suite-dir", required=True, type=Path)
+    parser.add_argument("--suite-dir", type=Path)
+    parser.add_argument("--suite-cache-root", type=Path)
     parser.add_argument("--validator-secret-file", required=True, type=Path)
     parser.add_argument("--work-dir", type=Path)
     parser.add_argument("--interval", type=int, default=120)
@@ -58,13 +59,17 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.coding_pass and args.suite_dir is None:
+        raise ConfigurationError("--coding-pass requires an explicit --suite-dir")
     secret = args.validator_secret_file.read_text(encoding="utf-8").strip()
     if not secret:
         raise ConfigurationError("validator secret file is empty")
     root = Path.home() / ".localbench" / "auto-validator"
+    suite_cache_root = args.suite_cache_root or (Path.home() / ".cache" / "localbench" / "suites")
     config = Config(
         site=args.site,
         suite_dir=args.suite_dir,
+        suite_cache_root=suite_cache_root,
         validator_secret=secret,
         root_dir=root,
         work_dir=args.work_dir,

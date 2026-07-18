@@ -19,7 +19,18 @@ script, not part of the packaged CLI.
 Run continuously at the default 120-second interval:
 
 ```powershell
-C:\Users\Michael\lb-user-runs\venv-042-pypi\Scripts\python.exe scripts\auto_validator.py --site https://local-bench.ai --suite-dir C:\Users\Michael\lb-user-runs\suite\v1 --validator-secret-file C:\Users\Michael\lb-user-runs\secrets\validator-api-secret.txt --interval 120
+C:\Users\Michael\lb-user-runs\venv-042-pypi\Scripts\python.exe scripts\auto_validator.py --site https://local-bench.ai --validator-secret-file C:\Users\Michael\.localbench\local-bench-validator-secret.txt --interval 120
+```
+
+Suite resolution: with no `--suite-dir`, each submission's suite is resolved from the
+local registered-bundle cache (`~/.cache/localbench/suites/<suite_release_id>/<hash>/`,
+populated by `localbench fetch-suite`; override the root with `--suite-cache-root`).
+A submission whose suite bundle is not cached (or is ambiguous) is SKIPPED with a log
+line — never rejected — and stays pending until the bundle is fetched. Passing
+`--suite-dir` forces one directory for every submission (single-suite operation and
+the coding pass, which requires it).
+
+```text
 ```
 
 For a one-cycle smoke check, add `--once`. For a verification-only rehearsal,

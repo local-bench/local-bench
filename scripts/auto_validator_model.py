@@ -99,7 +99,7 @@ class AppendLogCall(Protocol):
 @dataclass(frozen=True, slots=True)
 class Config:
     site: str
-    suite_dir: Path
+    suite_dir: Path | None
     validator_secret: str
     root_dir: Path
     work_dir: Path | None = None
@@ -107,6 +107,7 @@ class Config:
     validator_commit: str | None = None
     coding_image: str | None = None
     receipt_signing_key: Path | None = None
+    suite_cache_root: Path | None = None
 
     @property
     def effective_work_dir(self) -> Path:

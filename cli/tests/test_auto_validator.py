@@ -40,13 +40,20 @@ class FakeApi:
         destination.write_bytes(b"bundle")
 
 
-def _config(tmp_path: Path, *, dry_run: bool = False) -> object:
+def _config(
+    tmp_path: Path,
+    *,
+    dry_run: bool = False,
+    suite_dir: Path | None | str = "default",
+    suite_cache_root: Path | None = None,
+) -> object:
     return auto_validator.Config(
         site="https://example.test",
-        suite_dir=tmp_path / "suite",
+        suite_dir=(tmp_path / "suite") if suite_dir == "default" else suite_dir,
         validator_secret="validator-super-secret",
         root_dir=tmp_path / "state",
         dry_run=dry_run,
+        suite_cache_root=suite_cache_root,
     )
 
 
@@ -67,9 +74,11 @@ def _daemon(
     post: Callable[..., dict[str, object]] | None = None,
     append: Callable[..., object] | None = None,
     dry_run: bool = False,
+    suite_dir: Path | None | str = "default",
+    suite_cache_root: Path | None = None,
 ) -> object:
     return auto_validator.AutoValidator(
-        _config(tmp_path, dry_run=dry_run),
+        _config(tmp_path, dry_run=dry_run, suite_dir=suite_dir, suite_cache_root=suite_cache_root),
         api=api,
         verify=verify or (lambda *args, **kwargs: _accepted_update()),
         post=post or (lambda *args, **kwargs: {"status": "accepted", "published": True}),
@@ -310,3 +319,76 @@ def test_accepted_but_unpublished_is_success(tmp_path: Path) -> None:
     assert daemon.run_cycle(process_listing="") == "ok"
     assert daemon.consecutive_api_failures == 0
     assert decisions[0]["reason"] == "accepted"
+
+
+def test_suite_resolution_uses_cached_bundle_for_submission_suite(tmp_path: Path) -> None:
+    cache = tmp_path / "suites"
+    bundle_dir = cache / "suite-v1-static-exec-5axis-v1" / ("a" * 64)
+    bundle_dir.mkdir(parents=True)
+    seen: list[Path] = []
+
+    def verify(*args: object, **kwargs: object) -> dict[str, object]:
+        seen.append(kwargs["suite_dir"])
+        return _accepted_update()
+
+    row = {
+        "submission_id": "sub-1",
+        "status": "pending_verification",
+        "origin": "community",
+        "suite_release_id": "suite-v1-static-exec-5axis-v1",
+    }
+    daemon = _daemon(
+        tmp_path,
+        FakeApi([row], {"sub-1": row}),
+        verify=verify,
+        suite_dir=None,
+        suite_cache_root=cache,
+    )
+    assert daemon.run_cycle(process_listing="") == "ok"
+    assert seen == [bundle_dir]
+
+
+def test_suite_resolution_skips_not_rejects_when_bundle_missing(tmp_path: Path) -> None:
+    posted: list[object] = []
+    row = {
+        "submission_id": "sub-1",
+        "status": "pending_verification",
+        "origin": "community",
+        "suite_release_id": "suite-v1-full-exec-6axis-v1",
+    }
+    api = FakeApi([row], {"sub-1": row})
+    daemon = _daemon(
+        tmp_path,
+        api,
+        post=lambda *args, **kwargs: posted.append(args) or {"status": "accepted"},
+        suite_dir=None,
+        suite_cache_root=tmp_path / "suites",
+    )
+    assert daemon.run_cycle(process_listing="") == "ok"
+    assert posted == []
+    assert api.downloads == []
+
+
+def test_suite_dir_override_wins_over_cache_resolution(tmp_path: Path) -> None:
+    override = tmp_path / "explicit-suite"
+    seen: list[Path] = []
+
+    def verify(*args: object, **kwargs: object) -> dict[str, object]:
+        seen.append(kwargs["suite_dir"])
+        return _accepted_update()
+
+    row = {
+        "submission_id": "sub-1",
+        "status": "pending_verification",
+        "origin": "community",
+        "suite_release_id": "suite-v1-static-exec-5axis-v1",
+    }
+    daemon = _daemon(
+        tmp_path,
+        FakeApi([row], {"sub-1": row}),
+        verify=verify,
+        suite_dir=override,
+        suite_cache_root=tmp_path / "suites",
+    )
+    assert daemon.run_cycle(process_listing="") == "ok"
+    assert seen == [override]
