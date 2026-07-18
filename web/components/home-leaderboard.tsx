@@ -7,11 +7,12 @@ import { LeaderboardTable } from "@/components/leaderboard-table";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { type LeaderboardScoreMode } from "@/lib/leaderboard-score";
-import { buildLaneRanks, sortLeaderboardRows, type SortState } from "@/lib/leaderboard-sort";
+import { buildLaneRanks, type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 import { INDEX_VERSION_V4, isSeason2Board } from "@/lib/scoring-seasons";
 import {
   filterUnifiedLeaderboardRows,
+  sortUnifiedLeaderboardRows,
   type UnifiedLeaderboardFilter,
 } from "@/lib/unified-leaderboard";
 
@@ -20,7 +21,7 @@ const EMPTY_COMMUNITY: readonly CommunityBoardRow[] = [];
 const EMPTY_LINEAGE: ReadonlyMap<string, string> = new Map();
 
 export { sortLeaderboardRows } from "@/lib/leaderboard-sort";
-export { filterUnifiedLeaderboardRows } from "@/lib/unified-leaderboard";
+export { filterUnifiedLeaderboardRows, sortUnifiedLeaderboardRows } from "@/lib/unified-leaderboard";
 
 type HomeLeaderboardProps = {
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
@@ -43,19 +44,19 @@ export function HomeLeaderboard({
   const [filter, setFilter] = useState<UnifiedLeaderboardFilter>("all");
   const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full");
   const axisKeys = useMemo(() => axisColumns(models), [models]);
-  const sortedModels = useMemo(
-    () => sortLeaderboardRows(models, sort, { agenticBySlug, scoreMode }),
-    [models, sort, agenticBySlug, scoreMode],
-  );
   const visibleRows = useMemo(
-    () => filterUnifiedLeaderboardRows(sortedModels, liveCommunity.rows, scoreMode === "full" ? filter : "local-bench"),
-    [sortedModels, liveCommunity.rows, scoreMode, filter],
+    () => sortUnifiedLeaderboardRows(
+      filterUnifiedLeaderboardRows(models, liveCommunity.rows, scoreMode === "full" ? filter : "local-bench"),
+      sort,
+      { agenticBySlug, scoreMode },
+    ),
+    [models, liveCommunity.rows, scoreMode, filter, sort, agenticBySlug],
   );
   const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
   const season2 = scoreMode === "full" && isSeason2Board(models, indexVersion);
   const showAgenticColumn = scoreMode === "full" && !season2;
   const showStaticIndexColumn = scoreMode === "full" && !season2;
-  const empty = visibleRows.ranked.length === 0 && visibleRows.community.length === 0;
+  const empty = visibleRows.length === 0;
 
   return (
     <div
@@ -87,10 +88,9 @@ export function HomeLeaderboard({
         <LeaderboardTable
           agenticBySlug={agenticBySlug}
           axisKeys={axisKeys}
-          communityRows={visibleRows.community}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           laneRanks={laneRanks}
-          models={visibleRows.ranked}
+          rows={visibleRows}
           scoreMode={scoreMode}
           season2={season2}
           setSort={setSort}

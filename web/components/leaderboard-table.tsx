@@ -8,18 +8,17 @@ import {
   ToolUseHeaderLabel,
 } from "@/components/leaderboard-table-cells";
 import { axisLabel } from "@/lib/format";
-import type { CommunityBoardRow } from "@/lib/community-data";
 import type { LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { AGENTIC_SORT_KEY, STATIC_INDEX_SORT_KEY, type SortState } from "@/lib/leaderboard-sort";
-import type { AgenticModel, IndexModel } from "@/lib/schemas";
+import type { AgenticModel } from "@/lib/schemas";
+import type { UnifiedLeaderboardRow } from "@/lib/unified-leaderboard";
 
 type LeaderboardTableProps = {
   readonly agenticBySlug: ReadonlyMap<string, AgenticModel>;
   readonly axisKeys: readonly string[];
-  readonly communityRows: readonly CommunityBoardRow[];
   readonly fineTuneBaseBySlug: ReadonlyMap<string, string>;
   readonly laneRanks: ReadonlyMap<string, number>;
-  readonly models: readonly IndexModel[];
+  readonly rows: readonly UnifiedLeaderboardRow[];
   readonly scoreMode: LeaderboardScoreMode;
   readonly season2: boolean;
   readonly setSort: (sort: SortState) => void;
@@ -31,10 +30,9 @@ type LeaderboardTableProps = {
 export function LeaderboardTable({
   agenticBySlug,
   axisKeys,
-  communityRows,
   fineTuneBaseBySlug,
   laneRanks,
-  models,
+  rows,
   scoreMode,
   season2,
   setSort,
@@ -46,7 +44,7 @@ export function LeaderboardTable({
     <div className="overflow-x-auto">
       <table className="min-w-[1280px] border-collapse text-sm">
         <caption className="sr-only">
-          Ranked local-bench rows appear first. Community rows are visible but never receive a rank.
+          Local-bench and community rows share one score-sorted table. Community rows never receive a rank.
         </caption>
         <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
           <tr>
@@ -77,31 +75,43 @@ export function LeaderboardTable({
           </tr>
         </thead>
         <tbody>
-          {models.map((model) => (
-            <LeaderboardRankedRow
-              key={model.slug}
-              agentic={agenticBySlug.get(model.slug)}
-              axisKeys={axisKeys}
-              fineTuneBaseName={fineTuneBaseBySlug.get(model.slug)}
-              laneRank={laneRanks.get(model.slug)}
-              model={model}
-              scoreMode={scoreMode}
-              season2={season2}
-              showAgenticColumn={showAgenticColumn}
-              showStaticIndexColumn={showStaticIndexColumn}
-            />
-          ))}
-          {communityRows.map((row) => (
-            <CommunityLeaderboardRow
-              key={row.artifactSha256}
-              axisKeys={axisKeys}
-              row={row}
-              showAgenticColumn={showAgenticColumn}
-              showStaticIndexColumn={showStaticIndexColumn}
-            />
-          ))}
+          {rows.map((entry) => {
+            switch (entry.source) {
+              case "local-bench":
+                return (
+                  <LeaderboardRankedRow
+                    key={entry.model.slug}
+                    agentic={agenticBySlug.get(entry.model.slug)}
+                    axisKeys={axisKeys}
+                    fineTuneBaseName={fineTuneBaseBySlug.get(entry.model.slug)}
+                    laneRank={laneRanks.get(entry.model.slug)}
+                    model={entry.model}
+                    scoreMode={scoreMode}
+                    season2={season2}
+                    showAgenticColumn={showAgenticColumn}
+                    showStaticIndexColumn={showStaticIndexColumn}
+                  />
+                );
+              case "community":
+                return (
+                  <CommunityLeaderboardRow
+                    key={entry.row.artifactSha256}
+                    axisKeys={axisKeys}
+                    row={entry.row}
+                    showAgenticColumn={showAgenticColumn}
+                    showStaticIndexColumn={showStaticIndexColumn}
+                  />
+                );
+              default:
+                return assertNever(entry);
+            }
+          })}
         </tbody>
       </table>
     </div>
   );
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled leaderboard row: ${String(value)}`);
 }
