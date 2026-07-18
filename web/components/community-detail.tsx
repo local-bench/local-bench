@@ -1,4 +1,31 @@
-import { huggingFaceRepoUrl, type CommunityGroupData } from "@/lib/community-data";
+"use client";
+
+import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
+import { AgenticProvenanceChip, AttributionChip, TrustTierChip } from "@/components/leaderboard-provenance";
+import type { CommunityBoardRow, CommunityGroupData, CommunityLineage } from "@/lib/community-data";
+import { huggingFaceRepoUrl } from "@/lib/community-links";
+import { formatScore } from "@/lib/format";
+
+export function CommunityDetailLive({
+  bakedRows,
+  group,
+  groupId,
+}: {
+  readonly bakedRows: readonly CommunityBoardRow[];
+  readonly group: CommunityGroupData | null;
+  readonly groupId: string;
+}) {
+  const state = useLiveCommunityRows(bakedRows);
+  const liveRows = state.kind === "live"
+    ? state.rows.filter((row) => row.communityModelGroupId === groupId)
+    : null;
+  return (
+    <div className="space-y-3">
+      <CommunityFreshness state={state} />
+      {liveRows === null ? <CommunityDetail group={group} /> : <CommunityDetailRows groupId={groupId} rows={liveRows} />}
+    </div>
+  );
+}
 
 export function CommunityDetail({ group }: { readonly group: CommunityGroupData | null }) {
   if (group === null) {
@@ -35,10 +62,77 @@ export function CommunityDetail({ group }: { readonly group: CommunityGroupData 
   );
 }
 
+export function CommunityDetailRows({
+  groupId,
+  rows,
+}: {
+  readonly groupId: string;
+  readonly rows: readonly CommunityBoardRow[];
+}) {
+  return (
+    <>
+      <header className="border-b border-bench-line pb-5">
+        <p className="font-mono text-xs uppercase text-bench-accent">Unranked community lane</p>
+        <h1 className="mt-2 text-3xl font-semibold text-bench-text">Community model group</h1>
+        <p className="mt-1 font-mono text-xs text-bench-muted">{groupId}</p>
+      </header>
+      <section className="grid gap-4" data-testid="community-variants">
+        {rows.length === 0 ? (
+          <p className="rounded border border-bench-line bg-bench-panel p-4 text-sm text-bench-muted">
+            No rows from this group are present on the current live board.
+          </p>
+        ) : rows.map((row) => (
+          <article key={row.submissionId} className="rounded border border-bench-line bg-bench-panel p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-bench-text">{row.displayName}</h2>
+              <AttributionChip source="community" />
+              {row.trust === null || row.trust === undefined ? null : (
+                <>
+                  <TrustTierChip trustLabel={row.trust.trust_label} />
+                  <AgenticProvenanceChip value={row.trust.agentic_provenance} />
+                </>
+              )}
+            </div>
+            <p className="mt-1 font-mono text-xs uppercase text-bench-muted">
+              unranked · {row.quantLabel ?? "quant unavailable"} · artifact {row.artifactSha256.slice(0, 16)}
+            </p>
+            <p className="mt-2 font-mono text-xs text-bench-muted">
+              submission {row.submissionId} · {submitterLabel(row)}
+            </p>
+            <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+              {Object.entries(row.axes ?? {}).sort(([left], [right]) => left.localeCompare(right)).map(([axis, value]) => (
+                <div key={axis} className="rounded border border-bench-line/70 bg-bench-bg/35 px-3 py-2">
+                  <dt className="font-mono text-[10px] uppercase text-bench-muted">{axis}</dt>
+                  <dd className="mt-1 font-mono text-sm text-bench-text">
+                    {axis === "coding" && value.status !== "measured"
+                      ? "coding pending verification"
+                      : value.status === "measured" && value.score !== null
+                        ? `${axis} ${formatScore(value.score * 100)} · n=${value.n}`
+                        : `${axis} ${value.status.replace("_", " ")}`}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            {row.lineage === undefined ? null : <LineageSection lineage={row.lineage} />}
+          </article>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function submitterLabel(row: CommunityBoardRow): string {
+  if (row.submitterDisplayName !== null && row.submitterDisplayName !== undefined) return row.submitterDisplayName;
+  if (row.submitterKeyFingerprint !== null && row.submitterKeyFingerprint !== undefined) {
+    return `key:${row.submitterKeyFingerprint}`;
+  }
+  return "submitter unavailable";
+}
+
 function LineageSection({
   lineage,
 }: {
-  readonly lineage: NonNullable<CommunityGroupData["variants"][number]["lineage_enrichment"]>;
+  readonly lineage: CommunityLineage;
 }) {
   return (
     <section className="mt-5 border-t border-bench-line pt-4" aria-label="HF model-card-declared lineage (unverified)">

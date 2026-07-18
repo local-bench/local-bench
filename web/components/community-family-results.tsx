@@ -1,7 +1,28 @@
+"use client";
+
 import Link from "next/link";
+import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { AttributionChip } from "@/components/leaderboard-provenance";
 import { formatScore } from "@/lib/format";
-import type { CommunityBoardRow } from "@/lib/community-data";
+import { communityRowsForModel } from "@/lib/community-family";
+import type { CommunityBoardRow, CommunityModelTarget } from "@/lib/community-data";
+
+export function CommunityFamilyResultsLive({
+  rows,
+  target,
+}: {
+  readonly rows: readonly CommunityBoardRow[];
+  readonly target: CommunityModelTarget;
+}) {
+  const state = useLiveCommunityRows(rows);
+  const visible = state.kind === "live" ? communityRowsForModel(state.rows, target) : rows;
+  return (
+    <div className="space-y-2">
+      <CommunityFreshness state={state} />
+      <CommunityFamilyResults rows={visible} />
+    </div>
+  );
+}
 
 export function CommunityFamilyResults({ rows }: { readonly rows: readonly CommunityBoardRow[] }) {
   if (rows.length === 0) return null;
@@ -30,12 +51,21 @@ export function CommunityFamilyResults({ rows }: { readonly rows: readonly Commu
                   {row.quantLabel ?? "quant unavailable"} · not independently verified
                 </p>
               </div>
-              <Link
-                href={row.detailPath}
-                className="rounded border border-bench-line px-2.5 py-1.5 text-sm font-medium text-bench-accent transition-colors hover:border-bench-accent hover:text-bench-text"
-              >
-                View community record
-              </Link>
+              {row.detailPath === null ? (
+                <span
+                  className="rounded border border-bench-line px-2.5 py-1.5 text-sm font-medium text-bench-muted"
+                  title="detail page publishes with the next site deploy"
+                >
+                  Detail available next deploy
+                </span>
+              ) : (
+                <Link
+                  href={row.detailPath}
+                  className="rounded border border-bench-line px-2.5 py-1.5 text-sm font-medium text-bench-accent transition-colors hover:border-bench-accent hover:text-bench-text"
+                >
+                  View community record
+                </Link>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs text-bench-muted">
               <span>partial {percentage(row.partialComposite)}</span>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BoardScopeHeader } from "@/components/board-scope-header";
+import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { LeaderboardTable } from "@/components/leaderboard-table";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
@@ -40,14 +41,15 @@ export function HomeLeaderboard({
 }: HomeLeaderboardProps) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const [filter, setFilter] = useState<UnifiedLeaderboardFilter>("all");
+  const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full");
   const axisKeys = useMemo(() => axisColumns(models), [models]);
   const sortedModels = useMemo(
     () => sortLeaderboardRows(models, sort, { agenticBySlug, scoreMode }),
     [models, sort, agenticBySlug, scoreMode],
   );
   const visibleRows = useMemo(
-    () => filterUnifiedLeaderboardRows(sortedModels, communityRows, scoreMode === "full" ? filter : "local-bench"),
-    [sortedModels, communityRows, scoreMode, filter],
+    () => filterUnifiedLeaderboardRows(sortedModels, liveCommunity.rows, scoreMode === "full" ? filter : "local-bench"),
+    [sortedModels, liveCommunity.rows, scoreMode, filter],
   );
   const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
   const season2 = scoreMode === "full" && isSeason2Board(models, indexVersion);
@@ -65,11 +67,14 @@ export function HomeLeaderboard({
       <BoardScopeHeader mode={scoreMode} indexVersion={season2 ? INDEX_VERSION_V4 : indexVersion} />
       {scoreMode === "full" ? (
         <LeaderboardFilter
-          communityCount={communityRows.length}
+          communityCount={liveCommunity.rows.length}
           filter={filter}
           rankedCount={models.length}
           setFilter={setFilter}
         />
+      ) : null}
+      {scoreMode === "full" ? (
+        <div className="border-b border-bench-line px-3 py-2"><CommunityFreshness state={liveCommunity} /></div>
       ) : null}
       {empty ? (
         <div className="px-4 py-8 text-sm leading-6 text-bench-muted">

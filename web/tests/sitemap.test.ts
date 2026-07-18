@@ -6,6 +6,14 @@ const CURRENT_RUN_ID = "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q4kxl-s2v5";
 const LEGACY_RUN_ID = "qwen3-6-35b-a3b__qwen3.6-35b-a3b-q4";
 
 describe("sitemap run URLs", () => {
+  it("advertises the public community and submission lifecycle routes", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
+
+    expect(urls).toContain("https://local-bench.ai/community/");
+    expect(urls).toContain("https://local-bench.ai/submission/");
+    expect(urls).toContain("https://local-bench.ai/submissions/");
+  });
+
   it("omits previous-index receipts from sitemap while keeping the pages buildable", async () => {
     // Given static run params still include all published receipt pages.
     const runParams = await getRunStaticParams();

@@ -293,12 +293,23 @@ export default async function MethodologyPage() {
             displayed only as diagnostics.
           </li>
           <li>
-            <span className="text-bench-text">Moderation: nothing auto-publishes.</span> Every submission lands
-            as pending. The maintainer reviews it — including plausibility of self-reported agentic results
-            against the independently re-scored static axes — and must explicitly accept it before the board is
-            regenerated and deployed.
+            <span className="text-bench-text">Moderation: publish after automatic verification.</span> Submissions
+            that clear the machine-verifiable gates publish without waiting for human review. Suppression, flags,
+            spot checks, and trust-tier upgrades happen after publication; held rows remain visible in the public
+            lifecycle without appearing on the board.
           </li>
         </ul>
+      </section>
+
+      <section className="space-y-4 text-bench-muted">
+        <h2 className="text-xl font-semibold text-bench-text">Attribution as trust</h2>
+        <p>
+          The live community payload exposes the submitter display name and key fingerprint, submission and
+          validation timestamps, per-axis sample counts and confidence intervals, and the row&apos;s trust state.
+          These fields are public because attribution is part of the trust model: readers can distinguish
+          re-scored, self-reported, and later-upgraded evidence while new verified results publish without waiting
+          for manual review.
+        </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
@@ -308,7 +319,7 @@ export default async function MethodologyPage() {
           plausible transcripts, and no server-side check proves which model — or whose hardware — actually
           produced a bundle. Re-scoring closes the cheapest fraud (claimed static scores that don&apos;t match the
           transcripts), signed attestations make the project&apos;s own agentic verdicts tamper-evident, and
-          manual review is the backstop for everything else; but a determined submitter could still fabricate a
+          after-the-fact moderation is the backstop for everything else; but a determined submitter could still fabricate a
           self-reported agentic result, which is exactly why the board labels it self-reported rather than
           verified. Coding execution is stricter: self-reported execution verdicts never rank. Until then, treat labels as
           what they are: re-scored means recomputed from your transcripts, attested means cryptographically signed by the

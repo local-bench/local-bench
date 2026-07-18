@@ -45,6 +45,7 @@ import {
   type VsBaseSide,
 } from "./vs-base";
 import { HEADLINE_LANE } from "./leaderboard-score";
+import { getCommunityBoardRows, type CommunityBoardRow } from "./community-data";
 
 export {
   COMMUNITY_GROUP_PLACEHOLDER_ID,
@@ -55,6 +56,12 @@ export {
 } from "./community-data";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
+// Keep this small list aligned with entries explicitly marked queued in docs/benchmark-queue.md.
+const QUEUED_MODEL_SLUGS: ReadonlySet<string> = new Set([
+  "bonsai-27b-ternary",
+  "ornith-1-0-9b",
+  "qwen3-5-9b",
+]);
 
 export type AnchorReference = {
   readonly axes: Record<string, AxisScore>;
@@ -75,8 +82,10 @@ type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & {
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly catalogOnly: boolean;
   readonly familyModels: readonly ModelFamilyScatterModel[];
   readonly lineage: ModelLineage | null;
+  readonly queued: boolean;
   readonly vsBaseComparisons: readonly VsBaseComparison[];
 };
 
@@ -140,6 +149,31 @@ export async function getIndexData(): Promise<IndexData> {
 export async function getModelData(slug: string): Promise<ModelDataWithConfiguredAxes> {
   const model = await readJson(["models", `${slug}.json`], ModelDataSchema);
   return model as ModelDataWithConfiguredAxes;
+}
+
+async function getModelDataIfExists(slug: string): Promise<ModelDataWithConfiguredAxes | null> {
+  try {
+    return await getModelData(slug);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
+function catalogModelShell(entry: CatalogModel): ModelDataWithConfiguredAxes {
+  return ModelDataSchema.parse({
+    catalog_id: entry.id,
+    demo: false,
+    family: entry.family ?? entry.display_name,
+    gguf_repo: entry.gguf_repo ?? null,
+    kind: "community",
+    license: entry.license ?? null,
+    model_kind: entry.model_kind,
+    model_label: entry.display_name,
+    org: entry.org ?? null,
+    runs: [],
+    slug: entry.slug,
+  }) as ModelDataWithConfiguredAxes;
 }
 
 export async function getAgenticBySlug(): Promise<ReadonlyMap<string, AgenticModel>> {
@@ -372,24 +406,30 @@ async function getModelFamilyScatterModels({
   if (catalogEntry === undefined) {
     return [];
   }
-  return Promise.all(
-    catalogLineageFamilyEntries({ byId, catalogEntry, catalogModels }).map(async ({ entry, relation }) => ({
-      model: await getModelData(entry.slug),
-      relation,
-    })),
+  const familyModels = await Promise.all(
+    catalogLineageFamilyEntries({ byId, catalogEntry, catalogModels }).map(async ({ entry, relation }) => {
+      const model = await getModelDataIfExists(entry.slug);
+      return model === null ? null : { model, relation };
+    }),
   );
+  return familyModels.filter((entry): entry is ModelFamilyScatterModel => entry !== null);
 }
 
 export async function getModelPageData(slug: string): Promise<ModelPageData> {
-  const [model, anchorRuns, index, catalog] = await Promise.all([
-    getModelData(slug),
+  const [storedModel, anchorRuns, index, catalog] = await Promise.all([
+    getModelDataIfExists(slug),
     getAnchorReferences(),
     getIndexData(),
     getCatalogFile(),
   ]);
   const byId = catalogModelMap(catalog.models);
+  const catalogBySlug = catalog.models.find((entry) => entry.slug === slug);
+  if (storedModel === null && catalogBySlug === undefined) {
+    throw new Error(`model page data is unavailable for ${slug}`);
+  }
+  const model = storedModel ?? catalogModelShell(catalogBySlug as CatalogModel);
   const catalogEntry =
-    catalog.models.find((entry) => entry.slug === slug) ??
+    catalogBySlug ??
     (model.catalog_id ? byId.get(model.catalog_id) : undefined);
   const baseModelId = catalogEntry === undefined ? null : catalogBaseId(catalogEntry);
   const base = baseModelId === null ? undefined : byId.get(baseModelId);
@@ -414,7 +454,15 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
     byId,
   });
   const familyModels = await getModelFamilyScatterModels({ byId, catalogEntry, catalogModels: catalog.models });
-  return { model, anchorRuns, familyModels, lineage, vsBaseComparisons };
+  return {
+    model,
+    anchorRuns,
+    catalogOnly: storedModel === null,
+    familyModels,
+    lineage,
+    queued: QUEUED_MODEL_SLUGS.has(slug),
+    vsBaseComparisons,
+  };
 }
 
 export async function getFineTuneComparePresets(): Promise<readonly FineTuneComparePreset[]> {
@@ -454,8 +502,36 @@ export async function getHomePageData(): Promise<HomePageData> {
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {
-  const index = await getIndexData();
-  return index.models.map((model) => ({ slug: model.slug }));
+  const [index, catalog, communityRows] = await Promise.all([
+    getIndexData(),
+    getCatalogFile(),
+    getCommunityBoardRows(),
+  ]);
+  const indexSlugs = new Set(index.models.map((model) => model.slug));
+  const communityBaseSlugs = communityBaseModelSlugs(communityRows ?? [], catalog.models, indexSlugs);
+  return [
+    ...index.models.map((model) => ({ slug: model.slug })),
+    ...communityBaseSlugs.map((slug) => ({ slug })),
+  ];
+}
+
+export function communityBaseModelSlugs(
+  communityRows: readonly CommunityBoardRow[],
+  catalogModels: readonly CatalogModel[],
+  existingSlugs: ReadonlySet<string>,
+): readonly string[] {
+  const catalogById = new Map(catalogModels.map((model) => [model.id, model] as const));
+  const result = new Set<string>();
+  for (const row of communityRows) {
+    const baseIds = row.lineage === undefined
+      ? row.declaredBaseModels ?? []
+      : row.lineage.card_declared_edges.map((edge) => edge.base);
+    for (const baseId of baseIds) {
+      const slug = catalogById.get(baseId)?.slug;
+      if (slug !== undefined && !existingSlugs.has(slug)) result.add(slug);
+    }
+  }
+  return [...result].sort((left, right) => left.localeCompare(right));
 }
 
 export async function getRunStaticParams(): Promise<readonly RunStaticParam[]> {

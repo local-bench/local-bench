@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CommunityFamilyResults } from "@/components/community-family-results";
+import { CatalogOnlyNotice } from "@/components/catalog-only-notice";
+import { CommunityFamilyResultsLive } from "@/components/community-family-results";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
@@ -27,7 +28,7 @@ export async function generateStaticParams(): Promise<{ slug: string }[]> {
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns, familyModels, lineage, vsBaseComparisons } = await getModelPageData(slug);
+  const { model, anchorRuns, catalogOnly, familyModels, lineage, queued, vsBaseComparisons } = await getModelPageData(slug);
   const communityRows = await getCommunityBoardRows();
   const communityFamilyRows = communityRows === null
     ? []
@@ -98,9 +99,13 @@ export default async function ModelPage({ params }: PageProps) {
           ) : null}
         </div>
       </header>
+      {catalogOnly ? <CatalogOnlyNotice queued={queued} /> : null}
       <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
       <ModelVariantBoard model={model} familyModels={familyModels} />
-      <CommunityFamilyResults rows={communityFamilyRows} />
+      <CommunityFamilyResultsLive
+        rows={communityFamilyRows}
+        target={{ catalogId: model.catalog_id, family: model.family }}
+      />
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
     </main>
   );
