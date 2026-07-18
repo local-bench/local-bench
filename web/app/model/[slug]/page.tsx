@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CommunityFamilyResults } from "@/components/community-family-results";
+import { CommunityFamilyResultsLive } from "@/components/community-family-results";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
@@ -100,7 +100,10 @@ export default async function ModelPage({ params }: PageProps) {
       </header>
       <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
       <ModelVariantBoard model={model} familyModels={familyModels} />
-      <CommunityFamilyResults rows={communityFamilyRows} />
+      <CommunityFamilyResultsLive
+        rows={communityFamilyRows}
+        target={{ catalogId: model.catalog_id, family: model.family }}
+      />
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
     </main>
   );

@@ -1,8 +1,8 @@
-import { CommunityListing } from "@/components/community-listing";
-import { getCommunityGroups } from "@/lib/community-data";
+import { CommunityListingLive } from "@/components/community-listing";
+import { getCommunityBoardRows, getCommunityGroups } from "@/lib/community-data";
 
 export default async function CommunityPage() {
-  const groups = await getCommunityGroups();
+  const [groups, bakedRows] = await Promise.all([getCommunityGroups(), getCommunityBoardRows()]);
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-8">
       <header className="border-b border-bench-line pb-5">
@@ -12,7 +12,7 @@ export default async function CommunityPage() {
           Published, unranked community benchmark records. Identity and lineage labels describe evidence, not verification.
         </p>
       </header>
-      <CommunityListing groups={groups} />
+      <CommunityListingLive bakedRows={bakedRows ?? []} groups={groups} />
     </main>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { trustTierLabel } from "@/lib/community-live";
 import type { AgenticProvenance, IndexModel } from "@/lib/schemas";
 
 type ProvenanceModel = {
@@ -18,7 +19,7 @@ export function ProvenanceLabels({ model }: { readonly model: ProvenanceModel })
   return <div className="mt-2 flex flex-wrap gap-1.5">{agentic}{staticTrust}</div>;
 }
 
-function staticTrustChip(model: ProvenanceModel) {
+export function staticTrustChip(model: ProvenanceModel) {
   if (model.axes["agentic"] !== undefined || model.composite_static == null) return null;
   const verified = model.trust_label === "project_anchor" && model.verdict_source === "verifier";
   return (
@@ -29,6 +30,34 @@ function staticTrustChip(model: ProvenanceModel) {
     >
       {verified ? "maintainer-verified" : "provenance pending"}
     </Link>
+  );
+}
+
+export function TrustTierChip({ trustLabel }: { readonly trustLabel: string }) {
+  const known = trustLabel === "project_anchor"
+    || trustLabel === "community_re_scored"
+    || trustLabel === "community_self_submitted";
+  return (
+    <span className={known
+      ? "inline-flex rounded border border-bench-accent/35 bg-bench-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-accent"
+      : "inline-flex rounded border border-bench-muted/40 bg-bench-muted/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-muted"}
+    >
+      {trustTierLabel(trustLabel)}
+    </span>
+  );
+}
+
+export function AgenticProvenanceChip({ value }: { readonly value: string }) {
+  if (value === "none") return null;
+  const known = value === "project_attested" || value === "self_reported"
+    || value === "attested" || value === "self-reported";
+  return (
+    <span className={known
+      ? "inline-flex rounded border border-bench-accent/45 bg-bench-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-accent"
+      : "inline-flex rounded border border-bench-muted/40 bg-bench-muted/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-muted"}
+    >
+      {agenticProvenanceLabel(value)}
+    </span>
   );
 }
 
@@ -75,19 +104,11 @@ function agenticChip(model: ProvenanceModel) {
   );
 }
 
-function agenticProvenanceLabel(value: AgenticProvenance): string {
-  switch (value) {
-    case "none":
-      return "";
-    case "project_attested":
-      return "attested";
-    case "self_reported":
-      return "self-reported";
-    default:
-      return assertNever(value);
-  }
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Unhandled agentic provenance: ${String(value)}`);
+export function agenticProvenanceLabel(value: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    none: "",
+    project_attested: "attested",
+    self_reported: "self-reported",
+  };
+  return labels[value] ?? value;
 }

@@ -2,6 +2,10 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { LiveBoardRow } from "./community-live-schema";
+import { communityRowsForModel } from "./community-family";
+import { huggingFaceRepoUrl } from "./community-links";
+
+export { communityRowsForModel, huggingFaceRepoUrl };
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
@@ -153,13 +157,6 @@ export function parseCommunityGroup(value: unknown): CommunityGroupData | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function huggingFaceRepoUrl(repoId: HuggingFaceRepoId): string {
-  const components = repoId.split("/", 2);
-  const owner = components[0] ?? "";
-  const name = components[1] ?? "";
-  return `https://huggingface.co/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
-}
-
 async function readUnknown(segments: readonly string[]): Promise<unknown | null> {
   try {
     const parsed: unknown = JSON.parse(await readFile(join(DATA_DIR, ...segments), "utf8"));
@@ -226,35 +223,6 @@ export function communityBoardRows(groups: readonly CommunityGroupData[]): reado
 export async function getCommunityBoardRows(): Promise<readonly CommunityBoardRow[] | null> {
   const groups = await getCommunityGroups();
   return groups === null ? null : communityBoardRows(groups);
-}
-
-export function communityRowsForModel(
-  rows: readonly CommunityBoardRow[],
-  target: CommunityModelTarget,
-): readonly CommunityBoardRow[] {
-  const familyKey = normalizedFamily(target.family);
-  return rows.filter((row) => {
-    const lineage = row.lineage;
-    const repositories = lineage === undefined
-      ? [...(row.declaredBaseModels ?? [])]
-      : [lineage.repo.id, ...lineage.card_declared_edges.flatMap((edge) => [edge.base, edge.child])];
-    if (repositories.length === 0) return false;
-    if (
-      target.catalogId !== null
-      && target.catalogId !== undefined
-      && repositories.some((repoId) => repoId === target.catalogId)
-    ) {
-      return true;
-    }
-    return familyKey.length > 0 && repositories.some((repoId) => {
-      const repoName = repoId.split("/").at(-1) ?? repoId;
-      return normalizedFamily(repoName).includes(familyKey);
-    });
-  });
-}
-
-function normalizedFamily(value: string): string {
-  return value.toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "");
 }
 
 export async function getCommunityGroupStaticParams(): Promise<readonly { readonly groupId: string }[]> {

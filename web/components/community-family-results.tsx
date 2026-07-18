@@ -1,7 +1,28 @@
+"use client";
+
 import Link from "next/link";
+import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { AttributionChip } from "@/components/leaderboard-provenance";
 import { formatScore } from "@/lib/format";
-import type { CommunityBoardRow } from "@/lib/community-data";
+import { communityRowsForModel } from "@/lib/community-family";
+import type { CommunityBoardRow, CommunityModelTarget } from "@/lib/community-data";
+
+export function CommunityFamilyResultsLive({
+  rows,
+  target,
+}: {
+  readonly rows: readonly CommunityBoardRow[];
+  readonly target: CommunityModelTarget;
+}) {
+  const state = useLiveCommunityRows(rows);
+  const visible = state.kind === "live" ? communityRowsForModel(state.rows, target) : rows;
+  return (
+    <div className="space-y-2">
+      <CommunityFreshness state={state} />
+      <CommunityFamilyResults rows={visible} />
+    </div>
+  );
+}
 
 export function CommunityFamilyResults({ rows }: { readonly rows: readonly CommunityBoardRow[] }) {
   if (rows.length === 0) return null;

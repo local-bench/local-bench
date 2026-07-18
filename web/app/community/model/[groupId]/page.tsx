@@ -1,5 +1,10 @@
-import { CommunityDetail } from "@/components/community-detail";
-import { COMMUNITY_GROUP_PLACEHOLDER_ID, getCommunityGroup, getCommunityGroupStaticParams } from "@/lib/community-data";
+import { CommunityDetailLive } from "@/components/community-detail";
+import {
+  COMMUNITY_GROUP_PLACEHOLDER_ID,
+  communityBoardRows,
+  getCommunityGroup,
+  getCommunityGroupStaticParams,
+} from "@/lib/community-data";
 
 export const dynamicParams = false;
 
@@ -21,9 +26,14 @@ export default async function CommunityModelPage({ params }: { readonly params: 
     );
   }
   const group = await getCommunityGroup(groupId);
+  const bakedRows = group === null ? [] : communityBoardRows([group]);
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-5 py-8">
-      <CommunityDetail group={group} />
+      <CommunityDetailLive
+        bakedRows={bakedRows}
+        group={group}
+        groupId={`community-group:${groupId}`}
+      />
     </main>
   );
 }

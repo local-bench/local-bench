@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseCommunityLiveBoard,
   reconcileCommunityRows,
+  trustTierLabel,
   type LiveBoardRow,
 } from "../lib/community-live";
 import type { CommunityBoardRow } from "../lib/community-data";
@@ -179,5 +180,12 @@ describe("community live reconciliation", () => {
 
   it("drops a baked row absent after a successful live fetch", () => {
     expect(reconcileCommunityRows([bakedRow()], [])).toEqual([]);
+  });
+
+  it("maps known trust labels and safely passes through bounded unknown labels", () => {
+    expect(trustTierLabel("project_anchor")).toBe("maintainer-run");
+    expect(trustTierLabel("community_re_scored")).toBe("re-scored");
+    expect(trustTierLabel("community_self_submitted")).toBe("self-reported");
+    expect(trustTierLabel("future-tier")).toBe("future-tier");
   });
 });
