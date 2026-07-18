@@ -31,9 +31,14 @@ export type R2BucketBinding = {
   put(key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream, options?: { readonly onlyIf?: { readonly etagDoesNotMatch?: string } }): Promise<unknown>;
 };
 
+export type OutboundFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
 export type SubmissionApiEnv = {
   readonly ADMIN_API_SECRET?: string;
   readonly DB: D1DatabaseBinding;
+  readonly GITHUB_FETCH?: OutboundFetch;
+  readonly GITHUB_OAUTH_CLIENT_SECRET?: string;
+  readonly GITHUB_OAUTH_ENABLED?: string;
   readonly LOCALBENCH_PUBLIC_BASE_URL?: string;
   readonly R2_ACCESS_KEY_ID?: string;
   readonly R2_ACCOUNT_ID?: string;
@@ -475,11 +480,13 @@ export const PublishabilityPreflightRequestSchema = z
   });
 
 export const SubmissionRowSchema = z.object({
+  account_id: z.string().nullable().optional().default(null),
   bundle_schema_version: z.string().nullable(),
   created_at: z.string(),
   declared_model_slug: z.string().nullable().optional().default(null),
   duplicate_of: z.string().nullable(),
   expires_at: z.string().nullable(),
+  github_login: z.string().nullable().optional().default(null),
   origin: z.enum(["project_anchor", "community"]),
   projection_sha256: z.string().nullable(),
   projection_object_sha256: z.string().nullable().optional().default(null),

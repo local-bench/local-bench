@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   MIGRATION_0001,
@@ -14,6 +15,7 @@ import {
   MIGRATION_0012,
   MIGRATION_0013,
   MIGRATION_0014,
+  MIGRATION_0015,
   applyMigration,
   columnCount,
   createEnv,
@@ -22,6 +24,32 @@ import {
 } from "./submission-test-support";
 
 describe("submission D1 migrations", () => {
+  it("adds GitHub accounts, opaque OAuth handles, and submission attribution columns", async () => {
+    // Given: Track D's append-only migration is expected after the existing schema.
+    const migrationUrl = new URL("../migrations/0015_accounts.sql", import.meta.url);
+    expect(existsSync(migrationUrl)).toBe(true);
+    const migration = readFileSync(migrationUrl, "utf-8");
+    const env = await createEnv({
+      includeAdminSecret: true,
+      includeR2Secrets: true,
+      migrations: [
+        MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009,
+        MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014,
+      ],
+    });
+
+    // When: migration 0015 is applied to the current D1 schema.
+    await applyMigration(env.DB, migration);
+
+    // Then: account binding and single-use OAuth state have dedicated storage.
+    expect(await tableExists(env.DB, "accounts")).toBe(true);
+    expect(await tableExists(env.DB, "account_keys")).toBe(true);
+    expect(await tableExists(env.DB, "github_oauth_device_codes")).toBe(true);
+    expect(await tableExists(env.DB, "github_oauth_states")).toBe(true);
+    expect(await columnCount(env.DB, "submissions", "account_id")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "github_login")).toBe(1);
+  });
+
   it("reconciles historical migrations through the contract-v2 schema", async () => {
     // Given: a fresh D1 database applies the historical 0001 schema before the incompatible 0002.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
@@ -77,6 +105,7 @@ describe("submission D1 migrations", () => {
       ["0012_maintainer_attestations.sql", MIGRATION_0012],
       ["0013_community_model_groups.sql", MIGRATION_0013],
       ["0014_projection_storage_fences.sql", MIGRATION_0014],
+      ["0015_accounts.sql", MIGRATION_0015],
     ] as const;
 
     await applyWithWranglerLedger(env.DB, migrations);
@@ -91,8 +120,9 @@ describe("submission D1 migrations", () => {
     expect(await tableExists(env.DB, "maintainer_verification_attestations")).toBe(true);
     expect(await tableExists(env.DB, "community_model_groups")).toBe(true);
     expect(await tableExists(env.DB, "projection_storage_fences")).toBe(true);
+    expect(await tableExists(env.DB, "accounts")).toBe(true);
     const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
-    expect(applied?.["count"]).toBe(13);
+    expect(applied?.["count"]).toBe(14);
   }, 15_000);
 });
 
