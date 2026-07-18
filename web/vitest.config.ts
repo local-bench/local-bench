@@ -9,6 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    maxWorkers: 4,
     testTimeout: 20_000,
     setupFiles: ["./tests/setup.ts"],
     // Library unit tests (tests/) plus component render tests (components/*.test.tsx). Component
