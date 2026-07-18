@@ -13,6 +13,7 @@ import { hasValidAdminSecret, jsonResponse } from "./submission-api-support";
 import { clientIp, isRecord, isSyntaxError, reject, type SubmissionOrigin } from "./submission-api-common";
 import { verifyTicketPop } from "./submission-pop";
 import { rateLimited } from "./submission-rate-limit";
+import { accountAttributionForPublicKey, githubAttributionAvailable } from "./github-oauth-store";
 import {
   countPendingVerificationForSubmitter,
   insertTicketedSubmission,
@@ -65,13 +66,17 @@ export async function handleIssueSubmissionTicket(request: Request, env: Submiss
     return adminRejection;
   }
   const ticket = ticketEnvelope(parsed.data, origin);
+  const hasGithubAttribution = await githubAttributionAvailable(env);
+  const attribution = parsed.data.public_key === undefined || !hasGithubAttribution
+    ? null
+    : await accountAttributionForPublicKey(env, parsed.data.public_key);
   const existing = await rowByRawBundleSha(env, ticket.bundle_sha256);
   if (existing === null) {
-    await insertTicketedSubmission(env, ticket);
+    await insertTicketedSubmission(env, ticket, attribution, hasGithubAttribution);
     return jsonResponse(201, ticket);
   }
   if (existing.status === "ticketed" && existing.uploaded_at === null && existing.submitter_id === ticket.submitter_id) {
-    await rotateTicketedSubmission(env, existing.submission_id, ticket);
+    await rotateTicketedSubmission(env, existing.submission_id, ticket, attribution, hasGithubAttribution);
     return jsonResponse(200, ticket);
   }
   return reject(409, "bundle_already_submitted", origin, "POST /api/submissions/tickets", {

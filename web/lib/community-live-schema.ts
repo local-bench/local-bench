@@ -129,6 +129,7 @@ export const LiveBoardRowSchema = z.object({
   submission_id: z.string().regex(SUBMISSION_ID_RE),
   submitter: z.object({
     display_name: safeText(80).nullable(),
+    github_login: safeText(40, 1).nullable().optional(),
     key_fingerprint: z.string().regex(FINGERPRINT_RE).nullable(),
   }).strict().readonly(),
   suite_release_id: IdSchema,

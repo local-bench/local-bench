@@ -28,6 +28,7 @@ const LifecycleRowSchema = z.object({
   status: safeText(40, 1),
   submission_id: safeText(140, 1),
   submitter_display_name: safeText(80, 1).nullable(),
+  github_login: safeText(40, 1).nullable().optional(),
   validated_at: InstantSchema.nullable(),
 }).strict().readonly();
 
@@ -49,7 +50,9 @@ export type SubmissionDisplayRow = {
   readonly stateLabel: string;
   readonly submissionId: string;
   readonly submittedAt: string;
-  readonly submitterLabel: string;
+  readonly submitterDisplayName: string | null;
+  readonly submitterGithubLogin: string | null;
+  readonly submitterKeyFingerprint: string | null;
   readonly tierLabel: string | null;
   readonly trustLabel: string | null;
 };
@@ -95,9 +98,9 @@ export function mergeSubmissionLifecycleRows(
       stateLabel: lifecycleStateLabel(row),
       submissionId: row.submission_id,
       submittedAt: row.created_at,
-      submitterLabel: row.submitter_display_name
-        ?? community?.submitterDisplayName
-        ?? (community?.submitterKeyFingerprint ? `key:${community.submitterKeyFingerprint}` : "not provided"),
+      submitterDisplayName: row.submitter_display_name ?? community?.submitterDisplayName ?? null,
+      submitterGithubLogin: row.github_login ?? community?.submitterGithubLogin ?? null,
+      submitterKeyFingerprint: community?.submitterKeyFingerprint ?? null,
       tierLabel: trustLabel === null ? null : trustTierLabel(trustLabel),
       trustLabel,
     };

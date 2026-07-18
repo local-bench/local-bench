@@ -8,6 +8,7 @@ import {
 import { sha256Hex } from "./submission-canonical";
 import { InvalidTransitionError, assertTransition, type SubmissionStatus } from "./submission-state";
 import { rawBundleKey } from "./submission-storage";
+import type { AccountAttribution } from "./github-oauth-store";
 
 export type TransitionActor = "system" | "maintainer" | "auto-validator" | "gc";
 
@@ -56,20 +57,27 @@ export type PendingAdmissionResult =
   | { readonly kind: "ok" }
   | { readonly kind: "error"; readonly code: "global_pending_limit" | "pending_review_limit" | "submission_not_ticketed" };
 
-export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: SubmissionEnvelope): Promise<void> {
+export async function insertTicketedSubmission(
+  env: SubmissionApiEnv,
+  ticket: SubmissionEnvelope,
+  attribution: AccountAttribution | null,
+  hasGithubAttribution: boolean,
+): Promise<void> {
   const uploadCapabilitySha256 = await sha256Hex(ticket.upload_capability);
   await env.DB.prepare(
     `insert into submissions (
-      submission_id, origin, submitter_id, submitter_display_name, declared_model_slug, ticket_id, status, bundle_schema_version,
+      submission_id, origin, submitter_id, submitter_display_name,
+      ${hasGithubAttribution ? "account_id, github_login," : ""} declared_model_slug, ticket_id, status, bundle_schema_version,
       raw_bundle_sha256, raw_bundle_r2_key, suite_release_id, suite_manifest_sha256, expires_at, idempotency_key,
       upload_capability_sha256, community_model_group_id
-    ) values (?, ?, ?, ?, ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) values (?, ?, ?, ?, ${hasGithubAttribution ? "?, ?," : ""} ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       ticket.ticket_id,
       ticket.origin,
       ticket.submitter_id,
       ticket.submitter_display_name ?? null,
+      ...(hasGithubAttribution ? [attribution?.accountId ?? null, attribution?.githubLogin ?? null] : []),
       ticket.declared_model_slug ?? null,
       ticket.ticket_id,
       RESULT_BUNDLE_SCHEMA_VERSION,
@@ -93,11 +101,18 @@ export async function insertTicketedSubmission(env: SubmissionApiEnv, ticket: Su
   });
 }
 
-export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSubmissionId: string, ticket: SubmissionEnvelope): Promise<void> {
+export async function rotateTicketedSubmission(
+  env: SubmissionApiEnv,
+  currentSubmissionId: string,
+  ticket: SubmissionEnvelope,
+  attribution: AccountAttribution | null,
+  hasGithubAttribution: boolean,
+): Promise<void> {
   const uploadCapabilitySha256 = await sha256Hex(ticket.upload_capability);
   await env.DB.prepare(
     `update submissions set
-      submission_id = ?, ticket_id = ?, submitter_id = ?, submitter_display_name = ?, declared_model_slug = ?, origin = ?, suite_release_id = ?,
+      submission_id = ?, ticket_id = ?, submitter_id = ?, submitter_display_name = ?,
+      ${hasGithubAttribution ? "account_id = ?, github_login = ?," : ""} declared_model_slug = ?, origin = ?, suite_release_id = ?,
       suite_manifest_sha256 = ?, expires_at = ?, bundle_schema_version = ?, upload_capability_sha256 = ?, community_model_group_id = ?
       where submission_id = ?`,
   )
@@ -106,6 +121,7 @@ export async function rotateTicketedSubmission(env: SubmissionApiEnv, currentSub
       ticket.ticket_id,
       ticket.submitter_id,
       ticket.submitter_display_name ?? null,
+      ...(hasGithubAttribution ? [attribution?.accountId ?? null, attribution?.githubLogin ?? null] : []),
       ticket.declared_model_slug ?? null,
       ticket.origin,
       ticket.expected_suite_release_id,
