@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import argparse
 import json
+import re
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 from localbench._types import JsonObject, JsonValue
 from localbench.submissions.archive import json_object_from_bytes, unpack_bundle
@@ -16,6 +19,7 @@ from localbench.suite_resolver import SuiteResolutionError, resolve_suite_dir
 # Top-level fields excluded from the signed payload — matches the server's
 # run_payload_sha256 exclusion list (submission contract v2 AS-BUILT).
 _UNSIGNED_TOP_LEVEL_FIELDS = ("signature", "envelope", "submission_envelope")
+_REPO_ID_RE: Final = re.compile(r"[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+")
 
 DEFAULT_SITE = "https://local-bench.ai"
 KEY_BACKUP_LINE = "this key is your leaderboard identity — back it up."
@@ -52,6 +56,12 @@ class LocatedRun:
 
 class SubmitInputError(Exception):
     pass
+
+
+def parse_hugging_face_repo_id(value: str) -> str:
+    if len(value) > 140 or _REPO_ID_RE.fullmatch(value) is None:
+        raise argparse.ArgumentTypeError("must be a Hugging Face repo id in namespace/repo form")
+    return value
 
 
 def default_signing_key_path() -> Path:
@@ -103,6 +113,7 @@ def prepare_bundle(
     suite_dir: Path | None,
     signing_key: Path,
     temp_dir: Path,
+    base_model: str | None = None,
 ) -> BundleInfo:
     source = run or bundle
     if source is None:
@@ -113,7 +124,7 @@ def prepare_bundle(
             "archives (zips are the offline verification format); pass the run JSON "
             "or its campaign directory",
         )
-    if bundle is not None:
+    if bundle is not None and base_model is None:
         return bundle_info(source, None)
     located = locate_run(source)
     prepared = _prepare_run_upload(
@@ -121,6 +132,7 @@ def prepare_bundle(
         suite_dir=suite_dir,
         signing_key=signing_key,
         temp_dir=temp_dir,
+        base_model=base_model,
     )
     return bundle_info(prepared, located.inferred_line)
 
@@ -131,9 +143,14 @@ def _prepare_run_upload(
     suite_dir: Path | None,
     signing_key: Path,
     temp_dir: Path,
+    base_model: str | None,
 ) -> Path:
     run_record = json_object_from_bytes(run_path.read_bytes(), str(run_path))
     manifest = _object(run_record.get("manifest"))
+    if base_model is not None:
+        model = _object(manifest.get("model"))
+        model["base_model"] = base_model
+        manifest["model"] = model
     suite = _object(manifest.get("suite"))
     if _text(suite.get("suite_release_id")) is None or _text(suite.get("suite_manifest_sha256")) is None:
         resolved_suite_dir = suite_dir or _resolve_run_suite_dir(suite)
@@ -142,7 +159,7 @@ def _prepare_run_upload(
             raise SubmitInputError("bundle manifest missing suite_release_id or suite_manifest_sha256")
         suite.update(pair)
         manifest["suite"] = suite
-        run_record["manifest"] = manifest
+    run_record["manifest"] = manifest
     payload = {key: value for key, value in run_record.items() if key not in _UNSIGNED_TOP_LEVEL_FIELDS}
     signed: JsonObject = dict(payload)
     signed["signature"] = sign_manifest_payload(payload, signing_key)

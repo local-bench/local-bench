@@ -128,6 +128,7 @@ from localbench.submissions.submit_run_inputs import (
     SubmitInputError,
     bundle_info,
     locate_run,
+    parse_hugging_face_repo_id,
 )
 from localbench.submissions.foundation import (
     rescore_bundle as rescore_result_bundle,
@@ -623,6 +624,7 @@ def _parser() -> argparse.ArgumentParser:
     submit_run_parser.add_argument("--suite-dir", type=Path)
     submit_run_parser.add_argument("--signing-key", type=Path)
     submit_run_parser.add_argument("--display-name")
+    submit_run_parser.add_argument("--base-model", type=parse_hugging_face_repo_id)
     submit_run_parser.add_argument("--dry-run", action="store_true")
     _add_bypass_args(submit_run_parser)
     validate_bundle_parser = subparsers.add_parser(
@@ -2230,6 +2232,7 @@ def _submit_run(args: argparse.Namespace) -> int:
                 bypass_token=_bypass_token(args),
                 bypass_token_file=None,
                 dry_run=args.dry_run,
+                base_model=args.base_model,
             ),
         )
     except (SubmitRunError, SubmissionValidationError, OSError, json.JSONDecodeError, ValueError) as error:

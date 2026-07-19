@@ -58,6 +58,28 @@ def test_projection_runtime_uses_nulls_for_missing_sources() -> None:
     assert projected == {"backend": None, "name": "llama.cpp", "version": None}
 
 
+def test_projection_lineage_uses_manifest_base_model_declaration() -> None:
+    # Given: a run manifest with a declared Hugging Face base model.
+    manifest = {"model": {"base_model": "Qwen/Qwen3.6-27B"}}
+
+    # When: the accepted-result lineage block is projected.
+    projected = projection_mod._projection_lineage(manifest)
+
+    # Then: the declaration is retained as a one-entry lineage list.
+    assert projected == {"base_model": ["Qwen/Qwen3.6-27B"]}
+
+
+def test_projection_lineage_is_empty_without_a_manifest_declaration() -> None:
+    # Given: a run manifest without a base-model declaration.
+    manifest = {"model": {"family": "Qwen3.6"}}
+
+    # When: the accepted-result lineage block is projected.
+    projected = projection_mod._projection_lineage(manifest)
+
+    # Then: no lineage identity is invented.
+    assert projected == {"base_model": []}
+
+
 def test_projection_hardware_uses_first_gpu_and_rounds_vram_gb() -> None:
     projected = projection_mod._projection_hardware(
         {"hardware": {"gpus": [{"name": "RTX 4090", "vram_mb": 24564}, {"name": "ignored"}]}},

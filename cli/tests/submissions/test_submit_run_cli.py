@@ -72,6 +72,9 @@ async def test_submit_run_packs_tickets_uploads_and_prints_publish_summary(
         assert request.accepted_result_projection is not None
         assert request.accepted_result_projection["origin"] == "community"
         assert request.accepted_result_projection["trust_label"] == "community_self_submitted"
+        assert request.accepted_result_projection["lineage"] == {
+            "base_model": ["Qwen/Qwen3.6-27B"],
+        }
         return {"submission_id": "sub_123", "status": "pending_verification"}
 
     def fake_status(request: submit_mod.SubmissionStatusRequest) -> dict[str, str]:
@@ -95,6 +98,8 @@ async def test_submit_run_packs_tickets_uploads_and_prints_publish_summary(
             str(fixtures.key_path),
             "--display-name",
             "Alice",
+            "--base-model",
+            "Qwen/Qwen3.6-27B",
         ],
     )
 
@@ -277,6 +282,32 @@ def test_submit_run_default_key_autogen_reuses_key_and_explicit_missing_errors(
     assert "this key is your leaderboard identity — back it up." in first_output
     assert "this key is your leaderboard identity" not in second_output
     assert "signing key does not exist" in missing_output
+
+
+def test_submit_run_rejects_invalid_base_model_repo_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a finished bundle and a base-model value outside the repository-id contract.
+    _isolate_home(monkeypatch, tmp_path)
+    bundle = _write_prepacked_bundle(tmp_path / "bundle-run.json")
+
+    # When: submit run parses the invalid declaration.
+    with pytest.raises(SystemExit) as exit_info:
+        main([
+            "submit",
+            "run",
+            "--bundle",
+            str(bundle),
+            "--base-model",
+            "not-a-repo-id",
+            "--dry-run",
+        ])
+
+    # Then: argparse rejects the value before submission preparation.
+    assert exit_info.value.code == 2
+    assert "Hugging Face repo id" in capsys.readouterr().err
 
 
 def test_submit_run_rejects_unregistered_suite_pair_before_ticket(

@@ -63,6 +63,7 @@ class SubmitRunOptions:
     bypass_token: str | None
     bypass_token_file: Path | None
     dry_run: bool
+    base_model: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +108,7 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
                 suite_dir=options.suite_dir,
                 signing_key=key.path,
                 temp_dir=Path(temp_name),
+                base_model=options.base_model,
             )
             lines.extend(bundle_lines(bundle))
             if not result_bundle_headline_complete(load_result_bundle_input(bundle.path).record):
