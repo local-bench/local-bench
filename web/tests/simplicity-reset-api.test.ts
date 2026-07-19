@@ -199,7 +199,7 @@ describe("simplicity reset publish-on-submit API", () => {
     });
     const parsedBoard = parseCommunityLiveBoard(boardBody);
     expect(parsedBoard?.rows[0]).toMatchObject({ headlineComplete: true });
-    expect(parsedBoard?.rows[0]?.trust).toBeNull();
+    expect(parsedBoard?.rows[0]).not.toHaveProperty("trust");
     expect(reconcileCommunityRows([], parsedBoard?.rows ?? [])[0]).toMatchObject({ headlineComplete: true });
   });
 
