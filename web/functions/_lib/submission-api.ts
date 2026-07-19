@@ -18,7 +18,6 @@ import {
 export { handleFinalizeSubmission } from "./submission-complete-api";
 export { handleIssueSubmissionTicket } from "./submission-ticket-api";
 export { handleRequestUploadTarget } from "./submission-upload-api";
-export { handleApplyVerificationUpdate } from "./submission-verification-api";
 export type { SubmissionApiEnv } from "./submission-contracts";
 
 export async function handleSubmissionStatus(env: SubmissionApiEnv, params: RouteParams): Promise<Response> {

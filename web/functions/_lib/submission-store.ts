@@ -42,18 +42,6 @@ export type AcceptedFeedRow = {
   readonly validated_at: string | null;
 };
 
-export type PendingQueueRow = {
-  readonly declared_model_slug: string | null;
-  readonly queued_at: string;
-  readonly submission_id: string;
-  readonly suite_release_id: string | null;
-};
-
-export type PendingQueueResult = {
-  readonly rows: readonly PendingQueueRow[];
-  readonly totalPending: number;
-};
-
 type AcceptedProjection = z.infer<typeof AcceptedResultProjectionV2Schema>;
 
 export async function insertTicketedSubmission(
@@ -294,48 +282,6 @@ export function ticketEnvelopeFromRow(row: SubmissionRow): SubmissionEnvelope | 
   if (row.ticket_envelope_json === null) return null;
   const value: unknown = JSON.parse(row.ticket_envelope_json);
   return SubmissionEnvelopeSchema.parse(value);
-}
-
-export async function listPendingVerificationQueue(
-  env: SubmissionApiEnv,
-  limit: number,
-): Promise<PendingQueueResult> {
-  const rows = await env.DB.prepare(
-    `select submission_id, declared_model_slug, suite_release_id,
-            coalesce(uploaded_at, created_at) as queued_at,
-            count(*) over () as total_pending
-     from submissions
-     where status = 'pending_verification'
-     order by coalesce(uploaded_at, created_at) asc, created_at asc, submission_id asc
-     limit ?`,
-  )
-    .bind(limit)
-    .all();
-  const mapped = rows.results.map((row) => ({
-    declared_model_slug: nullableText(row, "declared_model_slug"),
-    queued_at: text(row, "queued_at"),
-    submission_id: text(row, "submission_id"),
-    suite_release_id: nullableText(row, "suite_release_id"),
-  }));
-  const total = rows.results[0]?.["total_pending"];
-  return { rows: mapped, totalPending: typeof total === "number" ? total : 0 };
-}
-
-export async function pendingVerificationPosition(
-  env: SubmissionApiEnv,
-  submissionId: string,
-): Promise<{ readonly position: number; readonly totalPending: number } | null> {
-  const row = await env.DB.prepare(
-    `select position, total_pending from (
-       select submission_id,
-              row_number() over (order by coalesce(uploaded_at, created_at) asc, created_at asc, submission_id asc) as position,
-              count(*) over () as total_pending
-       from submissions where status = 'pending_verification'
-     ) where submission_id = ?`,
-  ).bind(submissionId).first();
-  const position = row?.["position"];
-  const totalPending = row?.["total_pending"];
-  return typeof position === "number" && typeof totalPending === "number" ? { position, totalPending } : null;
 }
 
 export async function listSubmissionsByStatus(
