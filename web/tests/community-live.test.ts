@@ -224,6 +224,12 @@ describe("community live reconciliation", () => {
     expect(merged).toMatchObject({ detailPath: null, displayName: "Live model" });
   });
 
+  it("includes a live-published project-anchor row before the next static bake", () => {
+    const [merged] = reconcileCommunityRows([], [liveRow({ origin: "project_anchor" })]);
+
+    expect(merged).toMatchObject({ displayName: "Live model", submissionId: SUBMISSION_ID });
+  });
+
   it("keeps live lineage enrichment when no baked row exists", () => {
     const [merged] = reconcileCommunityRows([], [liveRow({ lineage_enrichment: bakedLineage })]);
 

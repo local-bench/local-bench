@@ -86,6 +86,34 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).toMatchObject({ code: "bundle_too_large" });
   });
 
+  it("rejects an uploaded object above its ticket-specific cap", async () => {
+    // Given: a ticket capped at one byte has a matching declaration but a larger real R2 object.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const envelope = await issueEnvelope(
+      env,
+      RAW_BUNDLE_SHA,
+      { max_upload_bytes: 1 },
+      RESULT_BUNDLE_JSON.length,
+    );
+    await env.SUBMISSIONS.put(rawBundleKey(RAW_BUNDLE_SHA), RESULT_BUNDLE_JSON);
+
+    // When: completion reconciles the uploaded object's actual size.
+    const response = await completeSubmission({
+      env,
+      params: { submissionId: envelope.ticket_id },
+      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
+        raw_bundle_sha256: RAW_BUNDLE_SHA,
+        upload_capability: envelope.upload_capability,
+      }),
+    });
+
+    // Then: the object is rejected against the persisted ticket envelope cap.
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ code: "upload_exceeds_ticket_limit" });
+    expect(await env.SUBMISSIONS.get(rawBundleKey(RAW_BUNDLE_SHA))).toBeNull();
+  });
+
   it("admits content-addressed binary bytes for maintainer-side semantic rejection", async () => {
     // Given: R2 contains non-JSON bytes at the content-addressed key.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });

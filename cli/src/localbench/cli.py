@@ -114,6 +114,7 @@ from localbench.submissions.client import (
     upload_submission_bundle,
 )
 from localbench.submissions.crypto import load_private_key, sign_bytes
+from localbench.submissions.client_projection import build_client_reported_projection
 from localbench.submissions.keys import Ed25519SeedError, write_private_key
 from localbench.submissions.submit_run import (
     DEFAULT_SITE,
@@ -563,6 +564,7 @@ def _parser() -> argparse.ArgumentParser:
     upload_parser.add_argument("--site", required=True)
     upload_parser.add_argument("--ticket", required=True, type=Path)
     upload_parser.add_argument("--bundle", required=True, type=Path)
+    upload_parser.add_argument("--suite-dir", type=Path)
     _add_bypass_args(upload_parser)
     status_parser = submit_subparsers.add_parser("status", help="poll online submission status")
     status_parser.add_argument("ticket_id")
@@ -2180,14 +2182,21 @@ def _submit_pack(args: argparse.Namespace) -> int:
 def _submit_upload(args: argparse.Namespace) -> int:
     try:
         envelope = read_submission_envelope(args.ticket)
+        projection = build_client_reported_projection(
+            args.bundle,
+            envelope,
+            suite_dir=args.suite_dir,
+            validated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        )
         result = upload_submission_bundle(
             SubmissionUploadRequest(
                 bundle_path=args.bundle,
                 credentials=_site_credentials(args),
                 envelope=envelope,
+                accepted_result_projection=projection,
             ),
         )
-    except (SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
+    except (SubmitInputError, SubmissionValidationError, OSError, json.JSONDecodeError, httpx.HTTPError) as error:
         print(f"error      {error}")
         return 2
     print(f"submission {result.get('submission_id', envelope['ticket_id'])}")

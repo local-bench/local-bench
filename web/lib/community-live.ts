@@ -20,7 +20,7 @@ export function reconcileCommunityRows(
   const bakedBySubmission = new Map(baked.map((row) => [row.submissionId, row]));
   return live
     .map((row): AdaptedBoardRow => isAdaptedBoardRow(row) ? row : adaptLegacyBoardRow(row))
-    .filter((row) => row.origin === "community")
+    .filter((row) => row.origin === "community" || row.origin === "project_anchor")
     .map((row) => mergeCommunityRow(bakedBySubmission.get(row.submissionId), row));
 }
 

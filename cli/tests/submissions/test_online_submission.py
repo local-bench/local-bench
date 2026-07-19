@@ -523,7 +523,11 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
     def fake_upload(request: cli_mod.SubmissionUploadRequest) -> dict[str, str]:
         assert request.bundle_path == bundle
         assert request.envelope["ticket_id"] == "ticket_fixture"
+        assert request.accepted_result_projection is not None
         return {"status": "pending_verification", "submission_id": "ticket_fixture"}
+
+    def fake_projection(*_args, **_kwargs) -> dict[str, object]:
+        return {"origin": "project_anchor"}
 
     def fake_status(request: cli_mod.SubmissionStatusRequest) -> dict[str, str]:
         assert request.credentials.site == "https://local-bench.ai"
@@ -532,6 +536,7 @@ def test_cli_submit_online_keygen_ticket_upload_and_status(
 
     monkeypatch.setattr(cli_mod, "request_submission_ticket", fake_ticket)
     monkeypatch.setattr(cli_mod, "upload_submission_bundle", fake_upload)
+    monkeypatch.setattr(cli_mod, "build_client_reported_projection", fake_projection)
     monkeypatch.setattr(cli_mod, "get_submission_status", fake_status)
 
     # When: a user drives the online submission commands in order.

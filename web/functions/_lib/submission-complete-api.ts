@@ -19,6 +19,7 @@ import {
   publishSubmittedSubmission,
   rejectSubmittedSubmission,
   rowBySubmissionId,
+  ticketEnvelopeFromRow,
 } from "./submission-store";
 
 export async function handleFinalizeSubmission(
@@ -71,6 +72,7 @@ export async function handleFinalizeSubmission(
     return rejectComplete(env, row.value.submission_id, "schema_violation", 409);
   }
   try {
+    const ticketUploadLimit = ticketEnvelopeFromRow(row.value)?.max_upload_bytes ?? MAX_UPLOAD_BYTES;
     const metadata = await rawBundleMetadata(env, parsed.data.raw_bundle_sha256);
     if (metadata.kind !== "ok") {
       return jsonResponse(metadata.status, { code: metadata.code, error: metadata.error });
@@ -78,6 +80,10 @@ export async function handleFinalizeSubmission(
     if (metadata.size !== null && metadata.size > MAX_UPLOAD_BYTES) {
       await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
       return rejectComplete(env, row.value.submission_id, "bundle_too_large", 413);
+    }
+    if (metadata.size !== null && metadata.size > ticketUploadLimit) {
+      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
+      return rejectComplete(env, row.value.submission_id, "upload_exceeds_ticket_limit", 413);
     }
     if (metadata.size !== null && metadata.size !== row.value.upload_declared_size_bytes) {
       await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
@@ -96,6 +102,10 @@ export async function handleFinalizeSubmission(
     if (verification.sizeBytes !== row.value.upload_declared_size_bytes) {
       await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
       return rejectComplete(env, row.value.submission_id, "upload_size_mismatch", 413);
+    }
+    if (verification.sizeBytes > ticketUploadLimit) {
+      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
+      return rejectComplete(env, row.value.submission_id, "upload_exceeds_ticket_limit", 413);
     }
     const publishRejection = publishProjectionRejection(parsed.data.accepted_result_projection, row.value);
     if (publishRejection !== null) {
@@ -154,7 +164,7 @@ export async function handleFinalizeSubmission(
 async function rejectComplete(
   env: SubmissionApiEnv,
   submissionId: string,
-  reason: PublishProjectionRejection | "bundle_too_large" | "upload_size_mismatch",
+  reason: PublishProjectionRejection | "bundle_too_large" | "upload_exceeds_ticket_limit" | "upload_size_mismatch",
   status: number,
 ): Promise<Response> {
   const current = await rowBySubmissionId(env, submissionId);
@@ -174,10 +184,11 @@ async function rejectComplete(
 }
 
 function completeRejectionMessage(
-  reason: PublishProjectionRejection | "bundle_too_large" | "upload_size_mismatch",
+  reason: PublishProjectionRejection | "bundle_too_large" | "upload_exceeds_ticket_limit" | "upload_size_mismatch",
 ): string {
   if (reason === "incomplete_run") return "all six headline axes must be measured";
   if (reason === "bundle_too_large") return "uploaded bundle exceeds the server upload limit";
+  if (reason === "upload_exceeds_ticket_limit") return "uploaded bundle exceeds the ticket-specific byte limit";
   if (reason === "upload_size_mismatch") return "uploaded bundle size does not match the signed declaration";
   return "submission projection is invalid";
 }

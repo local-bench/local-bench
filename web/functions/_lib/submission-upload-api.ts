@@ -1,5 +1,6 @@
 import {
   SUBMISSIONS_BUCKET_NAME,
+  MAX_UPLOAD_BYTES,
   UploadTargetRequestSchema,
   type SubmissionApiEnv,
   type SubmissionRow,
@@ -15,7 +16,7 @@ import {
   signedUploadUrl,
   type SignedUploadTarget,
 } from "./submission-storage";
-import { rowBySubmissionId } from "./submission-store";
+import { rowBySubmissionId, ticketEnvelopeFromRow } from "./submission-store";
 
 const REQUEST_UPLOADS_PER_IP_PER_HOUR = 60;
 const DAILY_UPLOAD_BYTE_BUDGET = 8 * 1024 * 1024 * 1024;
@@ -48,6 +49,13 @@ export async function handleRequestUploadTarget(request: Request, env: Submissio
     return reject(410, "ticket_expired", row.origin, "POST /api/submissions/request-upload", {
       code: "ticket_expired",
       error: "submission ticket expired",
+    }, row.raw_bundle_sha256, row.submitter_id ?? undefined);
+  }
+  const ticketUploadLimit = ticketEnvelopeFromRow(row)?.max_upload_bytes ?? MAX_UPLOAD_BYTES;
+  if (parsed.data.size_bytes > ticketUploadLimit) {
+    return reject(413, "upload_exceeds_ticket_limit", row.origin, "POST /api/submissions/request-upload", {
+      code: "upload_exceeds_ticket_limit",
+      error: "upload exceeds the ticket-specific byte limit",
     }, row.raw_bundle_sha256, row.submitter_id ?? undefined);
   }
   const storedTarget = uploadTargetFromRow(env, row);

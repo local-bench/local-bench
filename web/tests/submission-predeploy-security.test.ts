@@ -109,6 +109,32 @@ describe("submission pre-deploy security regressions", () => {
     expect(counter).toMatchObject({ count: RESULT_BUNDLE_JSON.length });
   });
 
+  it("rejects a declaration above the ticket cap without charging the daily budget", async () => {
+    // Given: an admin-issued ticket carries a cap below the global object limit.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const envelope = await issueEnvelope(env, RAW_BUNDLE_SHA, { max_upload_bytes: 1 });
+
+    // When: the holder requests an upload target above that ticket-specific cap.
+    const response = await requestUpload({
+      env,
+      request: jsonRequest("/api/submissions/request-upload", {
+        raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: 2,
+        ticket_id: envelope.ticket_id,
+        upload_capability: envelope.upload_capability,
+      }),
+    });
+
+    // Then: the typed rejection occurs before the atomic daily budget mutation.
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ code: "upload_exceeds_ticket_limit" });
+    const day = new Date().toISOString().slice(0, 10);
+    const counter = await env.DB.prepare("select count from rate_counters where bucket_key = ?")
+      .bind(`upload_bytes:${day}`)
+      .first();
+    expect(counter).toBeNull();
+  });
+
   it("does not charge replayed upload-target requests rejected by the daily budget", async () => {
     // Given: a live ticket after the daily upload-byte budget is exhausted.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });

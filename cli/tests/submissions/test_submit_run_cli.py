@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 from datetime import UTC, datetime
@@ -185,6 +186,56 @@ async def test_one_shot_submit_builds_community_projection_from_ticket_origin(
     )
 
     # Then: one-shot uses the ticket's authoritative community origin.
+    assert code == 0
+
+
+@pytest.mark.anyio
+async def test_submit_upload_builds_projection_with_the_shared_real_builder(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a real publishable result bundle, suite, and ticket envelope.
+    import localbench.cli as cli_mod
+
+    fixtures = await build_submission_fixtures(tmp_path)
+    _mark_site_release(fixtures.run_path)
+    record = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    record["manifest"]["runtime"] = {"name": "test-runtime", "version": "1", "backend": "test"}
+    fixtures.run_path.write_text(json.dumps(record), encoding="utf-8")
+    bundle_sha = hashlib.sha256(fixtures.run_path.read_bytes()).hexdigest()
+    ticket_path = tmp_path / "ticket.json"
+    ticket_path.write_text(
+        json.dumps(_envelope(bundle_sha, "ab" * 32, "sub_upload")),
+        encoding="utf-8",
+    )
+
+    def fake_upload(request: cli_mod.SubmissionUploadRequest) -> dict[str, str]:
+        projection = request.accepted_result_projection
+        assert projection is not None
+        assert projection["origin"] == "community"
+        assert projection["trust_label"] == "community_self_submitted"
+        assert projection["runtime"] == {"name": "test-runtime", "version": "1", "backend": "test"}
+        return {"submission_id": "sub_upload", "status": "published"}
+
+    monkeypatch.setattr(cli_mod, "upload_submission_bundle", fake_upload)
+
+    # When: the advertised low-level upload command is invoked.
+    code = main(
+        [
+            "submit",
+            "upload",
+            "--site",
+            "https://local-bench.ai",
+            "--ticket",
+            str(ticket_path),
+            "--bundle",
+            str(fixtures.run_path),
+            "--suite-dir",
+            str(fixtures.suite_dir),
+        ],
+    )
+
+    # Then: completion receives the same client-reported projection as submit run.
     assert code == 0
 
 

@@ -18,6 +18,7 @@ import {
   MIGRATION_0015,
   MIGRATION_0016,
   MIGRATION_0017,
+  MIGRATION_0018,
   applyMigration,
   columnCount,
   createEnv,
@@ -110,6 +111,7 @@ describe("submission D1 migrations", () => {
       ["0015_accounts.sql", MIGRATION_0015],
       ["0016_client_reported_projection.sql", MIGRATION_0016],
       ["0017_submission_upload_security.sql", MIGRATION_0017],
+      ["0018_repair_maintainer_attestation_fk.sql", MIGRATION_0018],
     ] as const;
 
     await applyWithWranglerLedger(env.DB, migrations);
@@ -128,7 +130,7 @@ describe("submission D1 migrations", () => {
     expect(await tableExists(env.DB, "projection_storage_fences")).toBe(true);
     expect(await tableExists(env.DB, "accounts")).toBe(true);
     const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
-    expect(applied?.["count"]).toBe(16);
+    expect(applied?.["count"]).toBe(17);
   }, 15_000);
 
   it("relaxes verification_level without losing legacy rows", async () => {
@@ -165,6 +167,32 @@ describe("submission D1 migrations", () => {
       verification_level: "client_reported",
     });
   });
+
+  it("replays 0001 through 0018 with foreign keys enabled and repairs attestation bindings", async () => {
+    // Given: the production migration sequence starts from 0001 with SQLite FK enforcement enabled.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true, migrations: [] });
+    await env.DB.prepare("pragma foreign_keys = on").run();
+    await applyMigration(env.DB, MIGRATION_0001);
+    await applyMigration(env.DB, MIGRATION_0002, { allowErrors: true });
+
+    // When: every reconcile and additive migration through the repair is applied in order.
+    for (const migration of [
+      MIGRATION_0003, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0007,
+      MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0012,
+      MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016, MIGRATION_0017,
+      MIGRATION_0018,
+    ]) {
+      await applyMigration(env.DB, migration);
+    }
+
+    // Then: the live attestation table references submissions and the database has no FK violations.
+    const foreignKeys = await env.DB.prepare(
+      "select \"table\" as target_table from pragma_foreign_key_list('maintainer_verification_attestations')",
+    ).all();
+    const violations = await env.DB.prepare("pragma foreign_key_check").all();
+    expect(foreignKeys.results).toContainEqual({ target_table: "submissions" });
+    expect(violations.results).toEqual([]);
+  }, 15_000);
 });
 
 async function applyWithWranglerLedger(

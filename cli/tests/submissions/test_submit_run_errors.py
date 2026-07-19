@@ -19,12 +19,8 @@ _MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2
 @pytest.fixture(autouse=True)
 def _client_projection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        "localbench.submissions.submit_run.client_reported_projection",
+        "localbench.submissions.submit_run.build_client_reported_projection",
         lambda *args, **kwargs: {"verification_level": "client_reported"},
-    )
-    monkeypatch.setattr(
-        "localbench.submissions.submit_run._resolve_run_suite_dir",
-        lambda suite: Path("."),
     )
 
 
@@ -99,6 +95,7 @@ def test_submit_run_remints_once_after_ticket_expired(
     ("payload", "expected", "exit_code"),
     [
         ({"code": "rate_limited", "retry_after_seconds": 17}, "rate_limited retry_after_seconds=17", 3),
+        ({"code": "upload_byte_budget_exceeded", "retry_after_seconds": 17}, "rate_limited retry_after_seconds=17", 3),
         ({"code": "pop_stale"}, "check your system clock (server allows ±10 minutes)", 2),
     ],
 )
@@ -117,7 +114,7 @@ def test_submit_run_maps_ticket_errors_to_human_lines(
     key = _key(tmp_path)
 
     def fake_ticket(request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
-        status = 429 if payload["code"] == "rate_limited" else 400
+        status = 429 if payload["code"] in {"rate_limited", "upload_byte_budget_exceeded"} else 400
         raise _http_error(status, payload)
 
     monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)

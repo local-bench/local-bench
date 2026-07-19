@@ -21,11 +21,11 @@ from localbench.submissions.client import (
     request_submission_ticket,
     upload_submission_bundle,
 )
+from localbench.submissions.client_projection import build_client_reported_projection
 from localbench.submissions.crypto import sign_bytes
 from localbench.submissions.foundation import is_site_released_suite_pair, site_released_suite_pairs
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.foundation import result_bundle_headline_complete
-from localbench.submissions.projection import client_reported_projection
 from localbench.submissions.submit_run_inputs import (
     DEFAULT_SITE,
     BundleInfo,
@@ -37,7 +37,6 @@ from localbench.submissions.submit_run_inputs import (
     key_lines,
     prepare_bundle,
     read_config,
-    _resolve_run_suite_dir,
     resolve_key,
     submit_config_path,
     write_config,
@@ -119,31 +118,23 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
                 lines.extend(dry_run_lines(site, key.public_key, display_name, bundle))
                 return SubmitRunResult(exit_code=0, lines=tuple(lines))
             _precheck_registered_suite_pair(bundle)
-            record = load_result_bundle_input(bundle.path).record
-            manifest = record.get("manifest")
-            suite = manifest.get("suite") if isinstance(manifest, dict) else None
-            projection_suite_dir = (
-                options.suite_dir
-                if options.suite_dir is not None
-                else _resolve_run_suite_dir(suite if isinstance(suite, dict) else {})
-            )
             validated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
             ticket = _request_ticket(site, options, key, display_name, bundle)
-            projection = client_reported_projection(
+            projection = build_client_reported_projection(
                 bundle.path,
-                suite_dir=projection_suite_dir,
+                ticket,
                 validated_at=validated_at,
-                origin=ticket["origin"],
+                suite_dir=options.suite_dir,
             )
             try:
                 upload = _upload_bundle(site, options, ticket, bundle.path, projection)
             except TicketExpiredError:
                 ticket = _request_ticket(site, options, key, display_name, bundle)
-                projection = client_reported_projection(
+                projection = build_client_reported_projection(
                     bundle.path,
-                    suite_dir=projection_suite_dir,
+                    ticket,
+                    suite_dir=options.suite_dir,
                     validated_at=validated_at,
-                    origin=ticket["origin"],
                 )
                 try:
                     upload = _upload_bundle(site, options, ticket, bundle.path, projection)
@@ -269,7 +260,7 @@ def _mapped_http_error(error: httpx.HTTPStatusError, leg: str) -> Exception:
         raise AlreadySubmittedError(_text(payload.get("submission_id")) or "unknown")
     if error.response.status_code == 410 and code == "ticket_expired":
         return TicketExpiredError()
-    if error.response.status_code == 429 and code == "rate_limited":
+    if error.response.status_code == 429 and code in {"rate_limited", "upload_byte_budget_exceeded"}:
         retry_after = payload.get("retry_after_seconds")
         return SubmitRunError(f"rate_limited retry_after_seconds={retry_after}", exit_code=3)
     if error.response.status_code == 429 and code == "pending_review_limit":
