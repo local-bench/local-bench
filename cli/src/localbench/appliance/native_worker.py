@@ -51,8 +51,8 @@ def native_worker_argv(spec: NativeWorkerSpec) -> tuple[str, ...]:
         str(spec.rootfs),
         "/",
         "--bind",
-        str(spec.rootfs / "home/lbworker/appworld"),
-        "/home/lbworker/appworld",
+        str(spec.rootfs / "home/lbworker"),
+        "/home/lbworker",
     ]
     if spec.writable:
         argv.extend(
