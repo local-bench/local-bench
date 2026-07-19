@@ -1,4 +1,29 @@
 import { z } from "zod";
+import { AcceptedResultProjectionV2Schema } from "./accepted-result-projection-contract";
+import { RESULT_BUNDLE_SCHEMA_VERSION } from "./result-bundle-contract";
+
+export {
+  ACCEPTED_PROJECTION_INDEX_VERSIONS,
+  ACCEPTED_PROJECTION_RESCORE_MODE_KEYS,
+  ACCEPTED_PROJECTION_SUITE_RELEASE_IDS,
+  ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
+  AcceptedResultProjectionV2Schema,
+} from "./accepted-result-projection-contract";
+export {
+  ONE_SHOT_IDENTITY_SCHEMA_VERSION,
+  PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION,
+  PublishabilityPreflightRequestSchema,
+  RESULT_BUNDLE_SCHEMA_VERSION,
+  ResultBundleSchema,
+  type PublishabilityPreflightRequest,
+  type ResultBundle,
+} from "./result-bundle-contract";
+export {
+  REJECTION_REASON_CODES,
+  STATUS_UPDATE_SCHEMA_VERSION,
+  StatusUpdateSchema,
+  type StatusUpdate,
+} from "./submission-status-contract";
 
 export type SqlValue = string | number | null;
 
@@ -77,22 +102,16 @@ export type SubmissionEnvelope = {
   readonly upload_capability: string;
 };
 
-export const RESULT_BUNDLE_SCHEMA_VERSION = "localbench.result_bundle.v1";
 export const SUBMISSION_ENVELOPE_SCHEMA_VERSION = "localbench.submission_envelope.v2";
-export const STATUS_UPDATE_SCHEMA_VERSION = "localbench.submission_status_update.v1";
-export const ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION = "localbench.accepted_result_projection.v2";
-export const ONE_SHOT_IDENTITY_SCHEMA_VERSION = "localbench.one_shot_identity.v1";
-export const PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION = "localbench.publishability_preflight.v1";
 // Admission streams bounded R2 chunks into DigestStream, so peak memory is O(chunk)
-// in bundle size and is independent of this 64 MiB storage/abuse cap.
-export const MAX_UPLOAD_BYTES = 67_108_864;
+// in bundle size and is independent of this 50 MiB storage/abuse cap.
+export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 export const DEFAULT_MAX_UPLOAD_BYTES = MAX_UPLOAD_BYTES;
 export const DEFAULT_SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 export const DEFAULT_SUITE_MANIFEST_SHA256 = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
 export const SUBMISSIONS_BUCKET_NAME = "localbench-submissions";
 
 const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
-const HfRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const Ed25519PublicKeySchema = z.string().regex(/^[0-9a-f]{64}$/);
 const Ed25519SignatureSchema = z.string().regex(/^[0-9a-f]{128}$/);
 // Display-only submitter credit: 2-80 chars, alphanumeric at both ends, interior may
@@ -104,17 +123,8 @@ function boundedSafeString(maxLength: number, minLength = 0): z.ZodString {
     message: "text contains prohibited control or bidi characters",
   });
 }
-// Multiline-tolerant bound for fields that legitimately carry line breaks/tabs
-// (llama.cpp build_flags); still bans every other control and all bidi marks.
-const UnsafeMultilineTextPattern = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
-function boundedMultilineSafeString(maxLength: number, minLength = 0): z.ZodString {
-  return z.string().min(minLength).max(maxLength).refine((value) => !UnsafeMultilineTextPattern.test(value), {
-    message: "text contains prohibited control or bidi characters",
-  });
-}
 export const SubmitterDisplayNameSchema = boundedSafeString(80, 2)
   .regex(/^[A-Za-z0-9][A-Za-z0-9 ._'-]{0,78}[A-Za-z0-9]$/);
-const RemovedBundleFields = ["schema", "composite", "trust_tier", "serving_verification_level", "source", "output_path"] as const;
 const PopSchema = z.object({
   signature: Ed25519SignatureSchema,
   timestamp: z.string().min(1),
@@ -127,33 +137,6 @@ export const CommunityModelGroupRequestSchema = z.object({
 const CatalogSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
 const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
 export const CommunityModelGroupIdSchema = z.string().regex(/^community-group:[0-9a-f]{32}$/);
-const ScoreSchema = z.number().min(0).max(1);
-const NullableScoreSchema = ScoreSchema.nullable();
-
-const OneShotArtifactSchema = z.object({
-  filename: z.string().min(1),
-  quant_label: z.string().min(1),
-  repo_id: z.string().min(1),
-  revision: HfRevisionSchema,
-  sha256: Sha256Schema,
-  size_bytes: z.number().int().positive().nullable().optional(),
-});
-
-const OneShotIdentityEnvelopeSchema = z
-  .object({
-    artifact: OneShotArtifactSchema,
-    catalog_model_id: z.string().min(1).nullable().optional(),
-    cli_version: z.string().min(1),
-    local_only: z.boolean(),
-    publishable: z.boolean(),
-    requested_model: z.string().min(1),
-    schema_version: z.literal(ONE_SHOT_IDENTITY_SCHEMA_VERSION),
-    source: z.literal("one_shot"),
-    suite_manifest_sha256: Sha256Schema,
-    suite_release_id: z.string().min(1),
-  })
-  .passthrough();
-
 export const TicketRequestSchema = z.object({
   accepted_suite_terms: z.literal(true),
   bundle_sha256: Sha256Schema,
@@ -181,197 +164,9 @@ const CompleteRequestBaseSchema = z.object({
   size_bytes: z.number().int().positive().optional(),
 });
 
-const ProjectionAxisSchema = z.object({
-  ci: z.tuple([ScoreSchema, ScoreSchema]).nullable(),
-  n: z.number().int().min(0).max(10_000_000),
-  score: NullableScoreSchema,
-  status: z.enum(["measured", "not_measured", "invalid"]),
-}).strict();
-const RescoreModeSchema = z.enum(["rescored", "verdict_carried"]);
-export const ACCEPTED_PROJECTION_SUITE_RELEASE_IDS = [
-  "suite-v1-partial-text-code-4axis-v1",
-  "suite-v1-text-code-agentic-5axis-v1",
-  "suite-v1-full-exec-6axis-v1",
-  "suite-v1-static-exec-5axis-v1",
-  "suite-v1-static-core-diag-v1",
-  "suite-v2-full-exec-tooluse-5axis-v2",
-] as const;
-export const ACCEPTED_PROJECTION_INDEX_VERSIONS = ["index-v3.0", "index-v4.0", "index-v4.1"] as const;
-export const ACCEPTED_PROJECTION_RESCORE_MODE_KEYS = [
-  "amo",
-  "appworld_c",
-  "bfcl",
-  "bfcl_multi_turn_base",
-  "bfcl_multi_turn_long_context",
-  "bigcodebench_hard",
-  "ifbench",
-  "lcb",
-  "mmlu_pro",
-  "olymmath_hard",
-  "tc_json_v1",
-] as const;
-const AcceptedProjectionRescoreModesShape = Object.fromEntries(
-  ACCEPTED_PROJECTION_RESCORE_MODE_KEYS.map((key) => [key, RescoreModeSchema.optional()]),
-);
-const AcceptedResultProjectionV2BaseSchema = z.object({
-  schema_version: z.literal(ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION),
-  model: z.object({
-    display_name: boundedSafeString(120).nullable(), declared_name: boundedSafeString(120).nullable(), file_sha256: Sha256Schema.nullable(),
-    file_size_bytes: z.number().int().positive().nullable().optional(), file_name: boundedSafeString(140).nullable().optional(),
-    family: boundedSafeString(64).nullable().optional(), quant_label: boundedSafeString(32).nullable().optional(), format: boundedSafeString(64).nullable().optional(),
-    tokenizer_digest: Sha256Schema.nullable().optional(), chat_template_digest: Sha256Schema.nullable().optional(),
-    identity_status: z.enum(["unverified", "maintainer_verified"]),
-    model_system_key: z.string().regex(/^(artifact|legacy-project-anchor):[0-9a-f]{64}$/),
-  }).strict(),
-  lineage: z.object({
-    base_model: z.array(boundedSafeString(140, 1)).max(8).refine(
-      (items) => new Set(items).size === items.length,
-      { message: "lineage.base_model must contain unique items" },
-    ),
-  }).strict(),
-  runtime: z.object({
-    name: boundedSafeString(120, 1), version: boundedSafeString(120, 1), kv_cache_quant: boundedSafeString(64, 1).nullable().optional(),
-    ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),
-    build_flags: boundedMultilineSafeString(500).nullable().optional(),
-  }).strict(),
-  suite_release_id: z.enum(ACCEPTED_PROJECTION_SUITE_RELEASE_IDS),
-  suite_manifest_sha256: Sha256Schema,
-  scorecard_id: boundedSafeString(120, 1), coverage_profile_id: boundedSafeString(120, 1),
-  index_version: z.enum(ACCEPTED_PROJECTION_INDEX_VERSIONS).optional(), headline_complete: z.boolean(),
-  scores: z.object({
-    headline_score: NullableScoreSchema, partial_composite: ScoreSchema,
-    partial_composite_scope: z.literal("measured_headline_axes"), measured_headline_weight: ScoreSchema,
-    missing_headline_weight: ScoreSchema, known_headline_contribution: ScoreSchema, rank_scope: z.string().min(1),
-    composite_static: NullableScoreSchema.optional(), composite_full: NullableScoreSchema.optional(), static_index_version: boundedSafeString(120, 1).optional(),
-  }).strict(),
-  axes: z.record(boundedSafeString(40, 1), ProjectionAxisSchema)
-    .refine((axes) => Object.keys(axes).length > 0 && Object.keys(axes).length <= 16),
-  conformance: z.object({
-    status: boundedSafeString(80, 1).optional(), n_scored: z.number().int().nonnegative().optional(),
-    worst_bench: boundedSafeString(120, 1).nullable().optional(), reasons: z.array(boundedSafeString(300)).optional(),
-    per_bench: z.record(z.string(), z.unknown()).optional(),
-  }).strict(),
-  receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict(),
-  artifact_hashes: z.object({ bundle_sha256: Sha256Schema, projection_sha256: Sha256Schema, public_artifact_manifest_sha256: Sha256Schema }).strict(),
-  origin: z.enum(["project_anchor", "community"]),
-  trust_label: z.enum(["project_anchor", "community_self_submitted", "community_re_scored"]),
-  verification_level: z.enum(["bundle_rescored", "spot_reproduced", "client_reported"]),
-  agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
-  provenance_notes: z.array(boundedSafeString(300)).optional(),
-  rescore_modes: z.object(AcceptedProjectionRescoreModesShape).strict(),
-  validator: z.object({
-    validator_version: boundedSafeString(120, 1),
-    commit: boundedSafeString(120, 1).nullable(),
-    validated_at: z.iso.datetime(),
-  }).strict(),
-}).strict();
-
-const SUITE_MANIFESTS: Readonly<Record<string, string>> = {
-  "suite-v1-full-exec-6axis-v1": "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468",
-  "suite-v1-static-exec-5axis-v1": "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64",
-  "suite-v1-partial-text-code-4axis-v1": "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
-  "suite-v1-text-code-agentic-5axis-v1": "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f",
-  "suite-v1-static-core-diag-v1": "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69",
-};
-
-export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSchema.superRefine((projection, context) => {
-  if (containsUnsafeText(projection)) {
-    context.addIssue({ code: "custom", message: "projection contains prohibited control or bidi characters" });
-  }
-  const expectedManifest = SUITE_MANIFESTS[projection.suite_release_id];
-  if (expectedManifest !== undefined && expectedManifest !== projection.suite_manifest_sha256) {
-    context.addIssue({ code: "custom", message: "suite release manifest mismatch" });
-  }
-  if (projection.origin === "community" && (
-    projection.model.identity_status !== "unverified" || projection.model.file_sha256 === null ||
-    !projection.model.model_system_key.startsWith("artifact:")
-  )) {
-    context.addIssue({ code: "custom", message: "community projection identity is invalid" });
-  }
-});
-
 export const CompleteRequestSchema = CompleteRequestBaseSchema.extend({
   accepted_result_projection: AcceptedResultProjectionV2Schema,
 }).strict();
-
-// Deep-scan variant: legitimate projection VALUES carry line breaks and tabs
-// (llama.cpp multi-line build_flags is the canonical case), so those three are
-// permitted in values; every other C0/C1 control and all bidi controls remain
-// banned, and KEYS stay fully strict.
-const UnsafeProjectionValuePattern = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
-
-function containsUnsafeText(value: unknown): boolean {
-  if (typeof value === "string") return UnsafeProjectionValuePattern.test(value);
-  if (Array.isArray(value)) return value.some(containsUnsafeText);
-  if (typeof value !== "object" || value === null) return false;
-  return Object.entries(value).some(([key, entry]) => UnsafeTextPattern.test(key) || containsUnsafeText(entry));
-}
-
-export const REJECTION_REASON_CODES = [
-  "bundle_unreadable",
-  "manifest_invalid",
-  "schema_violation",
-  "suite_mismatch",
-  "identity_mismatch",
-  "rescore_failed",
-  "item_count_mismatch",
-  "sampler_violation",
-  "signature_invalid",
-  "size_violation",
-  "internal_error",
-  "metadata_unsafe",
-] as const;
-
-const AcceptedStatusUpdateSchema = z.object({
-    accepted: z.literal(true),
-    blocking_reasons: z.array(z.string()),
-    expected_state_revision: z.number().int().nonnegative().optional(),
-    operation: z.enum(["initial_decision", "projection_refresh"]),
-    projection_path: z.string().min(1),
-    projection: AcceptedResultProjectionV2Schema,
-    projection_object_sha256: Sha256Schema,
-    projection_sha256: Sha256Schema,
-    previous_projection_object_sha256: Sha256Schema.optional(),
-    raw_bundle_sha256: Sha256Schema,
-    reason: boundedSafeString(300, 1),
-    schema_version: z.literal(STATUS_UPDATE_SCHEMA_VERSION),
-    status: z.literal("accepted"),
-    validated_at: z.iso.datetime(),
-    validator_commit: z.string().nullable().optional(),
-    validator_version: z.string().min(1),
-    maintainer_attestation: z.object({
-      coding_receipt_sha256: Sha256Schema,
-      decision: z.enum(["verified", "not_verified"]),
-      maintainer_key_id: z.string().min(1).max(120),
-    }).optional(),
-  }).strict();
-
-const RejectedStatusUpdateSchema = z.object({
-  accepted: z.literal(false),
-  operation: z.literal("initial_decision"),
-  raw_bundle_sha256: Sha256Schema,
-  reason_code: z.enum(REJECTION_REASON_CODES),
-  reason_detail: boundedSafeString(300, 1).optional(),
-  status: z.literal("rejected"),
-  validated_at: z.iso.datetime(),
-  validator_commit: boundedSafeString(120, 1).nullable().optional(),
-  validator_version: boundedSafeString(120, 1),
-}).strict();
-
-export const StatusUpdateSchema = z.discriminatedUnion("status", [
-  AcceptedStatusUpdateSchema,
-  RejectedStatusUpdateSchema,
-]).superRefine((update, context) => {
-  if (update.status !== "accepted") return;
-  const hasExpectedRevision = update.expected_state_revision !== undefined;
-  const hasPreviousProjection = update.previous_projection_object_sha256 !== undefined;
-  if (update.operation === "projection_refresh" && (!hasExpectedRevision || !hasPreviousProjection)) {
-    context.addIssue({ code: "custom", message: "projection refresh concurrency guards are required" });
-  }
-  if (update.operation === "initial_decision" && (hasExpectedRevision || hasPreviousProjection)) {
-    context.addIssue({ code: "custom", message: "initial decision cannot include refresh concurrency guards" });
-  }
-});
 
 export const PublishStateDecisionSchema = z.object({
   publish_state: z.enum(["hidden", "preview", "published"]),
@@ -394,95 +189,6 @@ export const OpsSettingsUpdateSchema = z.object({
 export const GcRequestSchema = z.object({
   apply: z.boolean().default(false),
 });
-
-export const ResultBundleSchema = z
-  .object({
-    axis_status: z.record(z.string(), z.unknown()),
-    benches: z.record(z.string(), z.unknown()),
-    conformance: z.record(z.string(), z.unknown()),
-    headline_complete: z.boolean(),
-    items: z.array(z.unknown()),
-    manifest: z
-      .object({
-        integrity: z.object({ publishable: z.boolean() }).passthrough(),
-        provenance: z.record(z.string(), z.unknown()),
-        suite: z
-          .object({
-            coverage_profile_id: z.string().min(1),
-            suite_manifest_sha256: Sha256Schema,
-            suite_release_id: z.string().min(1),
-          })
-          .passthrough(),
-      })
-      .passthrough(),
-    model: z.record(z.string(), z.unknown()),
-    producer: z.string().min(1),
-    run_finished_at: z.string().min(1),
-    run_started_at: z.string().min(1),
-    schema_version: z.literal(RESULT_BUNDLE_SCHEMA_VERSION),
-    scores: z.object({
-      headline_score: z.number().nullable(),
-      known_headline_contribution: z.number(),
-      measured_headline_weight: z.number(),
-      missing_headline_weight: z.number(),
-      partial_composite: z.number(),
-      partial_composite_scope: z.literal("measured_headline_axes"),
-      rank_scope: z.string().min(1),
-    }),
-    serving_mode: z.string().min(1),
-    tier: z.string().min(1),
-    totals: z.record(z.string(), z.unknown()),
-    warnings: z.array(z.unknown()),
-  })
-  .passthrough()
-  .superRefine((bundle, context) => {
-    for (const field of RemovedBundleFields) {
-      if (field in bundle) {
-        context.addIssue({ code: "custom", message: `removed result_bundle_v1 field: ${field}` });
-      }
-    }
-    if ("canonical" in bundle.manifest.integrity) {
-      context.addIssue({ code: "custom", message: "use manifest.integrity.publishable, not canonical" });
-    }
-  });
-
-export const PublishabilityPreflightRequestSchema = z
-  .object({
-    artifact: OneShotArtifactSchema,
-    catalog_model_id: z.string().min(1).nullable().optional(),
-    cli_version: z.string().min(1),
-    identity_envelope: OneShotIdentityEnvelopeSchema,
-    quant_label: z.string().min(1),
-    result_bundle: ResultBundleSchema.optional(),
-    schema_version: z.literal(PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION),
-    source: z.literal("one_shot"),
-    suite_manifest_sha256: Sha256Schema,
-    suite_release_id: z.string().min(1),
-  })
-  .passthrough()
-  .superRefine((preflight, context) => {
-    if (preflight.identity_envelope.suite_release_id !== preflight.suite_release_id) {
-      context.addIssue({ code: "custom", message: "identity envelope suite_release_id mismatch" });
-    }
-    if (preflight.identity_envelope.suite_manifest_sha256 !== preflight.suite_manifest_sha256) {
-      context.addIssue({ code: "custom", message: "identity envelope suite_manifest_sha256 mismatch" });
-    }
-    if (preflight.identity_envelope.artifact.revision !== preflight.artifact.revision) {
-      context.addIssue({ code: "custom", message: "identity envelope artifact revision mismatch" });
-    }
-    if (preflight.identity_envelope.artifact.sha256 !== preflight.artifact.sha256) {
-      context.addIssue({ code: "custom", message: "identity envelope artifact sha256 mismatch" });
-    }
-    if (preflight.result_bundle !== undefined) {
-      const suite = preflight.result_bundle.manifest.suite;
-      if (suite.suite_release_id !== preflight.suite_release_id) {
-        context.addIssue({ code: "custom", message: "result bundle suite_release_id mismatch" });
-      }
-      if (suite.suite_manifest_sha256 !== preflight.suite_manifest_sha256) {
-        context.addIssue({ code: "custom", message: "result bundle suite_manifest_sha256 mismatch" });
-      }
-    }
-  });
 
 export const SubmissionRowSchema = z.object({
   account_id: z.string().nullable().optional().default(null),
@@ -516,7 +222,4 @@ export const SubmissionRowSchema = z.object({
 });
 
 export type TicketRequest = z.infer<typeof TicketRequestSchema>;
-export type PublishabilityPreflightRequest = z.infer<typeof PublishabilityPreflightRequestSchema>;
-export type ResultBundle = z.infer<typeof ResultBundleSchema>;
-export type StatusUpdate = z.infer<typeof StatusUpdateSchema>;
 export type SubmissionRow = z.infer<typeof SubmissionRowSchema>;

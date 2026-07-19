@@ -73,8 +73,8 @@ describe("submission raw bundle storage", () => {
       kind: "error",
       status: 413,
     });
-    expect(emitted).toBeGreaterThanOrEqual(65);
-    expect(emitted).toBeLessThanOrEqual(66);
+    expect(emitted).toBeGreaterThanOrEqual(51);
+    expect(emitted).toBeLessThanOrEqual(52);
   });
 
   it("keeps bundle-materializing helpers out of the admission modules", () => {

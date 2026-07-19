@@ -1,9 +1,9 @@
 import {
-  AcceptedResultProjectionV2Schema,
   DEFAULT_SUITE_MANIFEST_SHA256,
   DEFAULT_SUITE_RELEASE_ID,
   type SubmissionRow,
 } from "./submission-contracts";
+import { AcceptedResultProjectionV2Schema } from "./accepted-result-projection-contract";
 import type { z } from "zod";
 
 export const HEADLINE_AXES = [
@@ -14,6 +14,17 @@ export const HEADLINE_AXES = [
   "math",
   "tool_calling",
 ] as const;
+
+type HeadlineAxis = (typeof HEADLINE_AXES)[number];
+
+const INDEX_V41_WEIGHTS: Readonly<Record<HeadlineAxis, number>> = {
+  agentic: 0.25,
+  coding: 0.225,
+  instruction_following: 0.225,
+  knowledge: 0.225,
+  math: 0.075,
+  tool_calling: 0,
+};
 
 type Projection = z.infer<typeof AcceptedResultProjectionV2Schema>;
 
@@ -65,5 +76,12 @@ export function isCompleteProjection(projection: Projection): boolean {
 }
 
 export function projectionComposite(projection: Projection): number {
+  if (isCompleteProjection(projection)) return indexV41Composite(projection);
   return projection.scores.composite_full ?? projection.scores.headline_score ?? projection.scores.partial_composite;
+}
+
+export function indexV41Composite(projection: Projection): number {
+  const weighted = HEADLINE_AXES.reduce((total, axis) =>
+    total + (projection.axes[axis]?.score ?? 0) * INDEX_V41_WEIGHTS[axis], 0);
+  return Math.floor(weighted * 10_000 + 0.5) / 10_000;
 }

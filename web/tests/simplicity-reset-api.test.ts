@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { canonicalJson } from "../functions/_lib/submission-canonical";
-import { AcceptedResultProjectionV2Schema } from "../functions/_lib/submission-contracts";
-import { rawBundleKey } from "../functions/_lib/submission-storage";
+import { AcceptedResultProjectionV2Schema, type SubmissionApiEnv } from "../functions/_lib/submission-contracts";
+import { COMMUNITY_LIVE_BOARD_KEY } from "../functions/_lib/community-live-board";
+import { projectionKey, rawBundleKey } from "../functions/_lib/submission-storage";
 import { parseCommunityLiveBoard, reconcileCommunityRows } from "../lib/community-live";
 import { onRequestPost as suppressSubmission } from "../functions/api/admin/submissions/[submissionId]/suppress";
 import { onRequestGet as getBoard } from "../functions/api/board/community.json";
@@ -41,6 +42,104 @@ import {
 const AXES = ["agentic", "coding", "instruction_following", "knowledge", "math", "tool_calling"] as const;
 
 describe("simplicity reset publish-on-submit API", () => {
+  it("rejects submitter-supplied link fields while accepting structured HF identity", () => {
+    const projection = clientProjection("b".repeat(64), {
+      hf: {
+        filename: "weights/model.gguf",
+        repo: "localbench/reset-fixture",
+        revision: "c".repeat(40),
+      },
+    });
+    const model = projection["model"];
+    if (typeof model !== "object" || model === null || Array.isArray(model)) {
+      throw new TypeError("projection fixture model must be a record");
+    }
+    const withLink = structuredClone(projection);
+    const linkedModel = withLink["model"];
+    if (typeof linkedModel !== "object" || linkedModel === null || Array.isArray(linkedModel)) {
+      throw new TypeError("cloned projection fixture model must be a record");
+    }
+    Object.assign(linkedModel, { artifact_url: "https://example.invalid/model.gguf" });
+
+    expect(AcceptedResultProjectionV2Schema.safeParse(projection).success).toBe(true);
+    expect(AcceptedResultProjectionV2Schema.safeParse(withLink).success).toBe(false);
+  });
+
+  it("recomputes and persists the authoritative index-v4.1 composite from all six axes", async () => {
+    // Given: a complete projection carries structured HF identity but advisory composites drift from its axes.
+    const env = await createResetEnv();
+    const key = testKeyPair();
+    const bundleJson = JSON.stringify(signedResultBundle(key));
+    const bundleSha = sha256Hex(bundleJson);
+    const ticket = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(bundleSha, key), {
+        "CF-Connecting-IP": TEST_IP,
+      }),
+    });
+    const submissionId = requiredString(await ticket.json(), "ticket_id");
+    await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
+    const projection = clientProjection(bundleSha, {
+      axisScores: {
+        agentic: 0.9,
+        coding: 0.7,
+        instruction_following: 0.6,
+        knowledge: 0.8,
+        math: 0.4,
+        tool_calling: 0.2,
+      },
+      clientComposite: 0.5,
+      hf: {
+        filename: "weights/model-q4_k_m.gguf",
+        repo: "localbench/reset-fixture",
+        revision: "c".repeat(40),
+      },
+    });
+
+    // When: the client completes through the ordinary community path.
+    const response = await completeAndRebuild({
+      env,
+      params: { submissionId },
+      request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
+        accepted_result_projection: projection,
+        raw_bundle_sha256: bundleSha,
+      }),
+    });
+
+    // Then: the stored projection, D1 reference, and ranking surface all use the server result.
+    expect(response.status).toBe(200);
+    const storedRow = await env.DB.prepare(
+      "select projection_object_sha256, projection_sha256 from submissions where submission_id = ?",
+    ).bind(submissionId).first();
+    const objectSha = requiredString(storedRow, "projection_object_sha256");
+    const storedObject = await env.SUBMISSIONS.get(projectionKey(objectSha));
+    expect(storedObject).not.toBeNull();
+    const storedProjection = AcceptedResultProjectionV2Schema.parse(
+      JSON.parse(await new Response(storedObject?.body).text()),
+    );
+    expect(storedProjection.scores).toMatchObject({
+      composite_full: 0.7275,
+      headline_score: 0.7275,
+      partial_composite: 0.7275,
+    });
+    expect(storedProjection.model.hf).toEqual({
+      filename: "weights/model-q4_k_m.gguf",
+      repo: "localbench/reset-fixture",
+      revision: "c".repeat(40),
+    });
+    expect(storedProjection.normalization_annotations).toEqual([{
+      client_values: { composite_full: 0.5, headline_score: 0.5, partial_composite: 0.5 },
+      code: "client_composite_drift",
+      fields: ["headline_score", "partial_composite", "composite_full"],
+      server_value: 0.7275,
+    }]);
+    expect(storedRow).toMatchObject({ projection_sha256: storedProjection.artifact_hashes.projection_sha256 });
+    const board = await getBoard({ env, request: new Request("https://local-bench.ai/api/board/community.json") });
+    expect(await board.json()).toMatchObject({
+      rows: [{ model: { hf: storedProjection.model.hf }, ranked: true, scores: { headline_score: 0.7275 } }],
+    });
+  });
+
   it("publishes and ranks a complete client projection in the materialized board in the same flow", async () => {
     // Given: a community ticket and its content-addressed raw bundle are ready to complete.
     const env = await createResetEnv();
@@ -58,7 +157,7 @@ describe("simplicity reset publish-on-submit API", () => {
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
     // When: the client submits its complete accepted_result_projection.v2.
-    const response = await completeSubmission({
+    const response = await completeAndRebuild({
       env,
       params: { submissionId },
       request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
@@ -88,12 +187,48 @@ describe("simplicity reset publish-on-submit API", () => {
         origin: "community",
         ranked: true,
         submission_id: submissionId,
-        trust: { chip: "self-reported" },
       }],
     });
     const parsedBoard = parseCommunityLiveBoard(boardBody);
-    expect(parsedBoard?.rows[0]).toMatchObject({ ranked: true, trust: { chip: "self-reported" } });
+    expect(parsedBoard?.rows[0]).toMatchObject({ ranked: true });
+    expect(parsedBoard?.rows[0]?.trust).toBeUndefined();
     expect(reconcileCommunityRows([], parsedBoard?.rows ?? [])[0]).toMatchObject({ ranked: true });
+  });
+
+  it("returns the published response when the post-publish board rebuild fails", async () => {
+    // Given: publication storage works but the materialized board write will reject.
+    const baseEnv = await createResetEnv();
+    const env = boardWriteFailureEnv(baseEnv);
+    const key = testKeyPair();
+    const bundleJson = JSON.stringify(signedResultBundle(key));
+    const bundleSha = sha256Hex(bundleJson);
+    const ticket = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(bundleSha, key), {
+        "CF-Connecting-IP": TEST_IP,
+      }),
+    });
+    const submissionId = requiredString(await ticket.json(), "ticket_id");
+    await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
+    const backgroundTasks: Promise<unknown>[] = [];
+    const context = {
+      env,
+      params: { submissionId },
+      request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
+        accepted_result_projection: clientProjection(bundleSha),
+        raw_bundle_sha256: bundleSha,
+      }),
+      waitUntil: (task: Promise<unknown>) => { backgroundTasks.push(task); },
+    };
+
+    // When: completion publishes the D1 row and schedules materialization.
+    const response = await completeSubmission(context);
+
+    // Then: the response remains successful and the contained background failure is observable only as completed work.
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "published" });
+    expect(backgroundTasks).toHaveLength(1);
+    await expect(Promise.all(backgroundTasks)).resolves.toHaveLength(1);
   });
 
   it("rejects a projection missing one headline axis as incomplete_run", async () => {
@@ -110,10 +245,10 @@ describe("simplicity reset publish-on-submit API", () => {
     });
     const submissionId = requiredString(await ticket.json(), "ticket_id");
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
-    const projection = clientProjection(bundleSha, ["tool_calling"]);
+    const projection = clientProjection(bundleSha, { omittedAxes: ["tool_calling"] });
 
     // When: the client completes the submission.
-    const response = await completeSubmission({
+    const response = await completeAndRebuild({
       env,
       params: { submissionId },
       request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
@@ -148,7 +283,7 @@ describe("simplicity reset publish-on-submit API", () => {
     });
     const submissionId = requiredString(await ticket.json(), "ticket_id");
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
-    await completeSubmission({
+    await completeAndRebuild({
       env,
       params: { submissionId },
       request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
@@ -173,19 +308,21 @@ describe("simplicity reset publish-on-submit API", () => {
     expect(await board.json()).toMatchObject({ rows: [] });
   });
 
-  it("interleaves maintainer and community rows by composite with one origin-derived chip", async () => {
+  it("interleaves both origins with only a project-run badge and explicitly unverified handles", async () => {
     // Given: one maintainer run and one community run have distinct complete projections.
     const env = await createResetEnv();
     const anchorBundle = JSON.stringify({ fixture: "maintainer" });
     const anchorSha = sha256Hex(anchorBundle);
-    const anchorTicket = await issueEnvelope(env, anchorSha);
+    const anchorTicket = await issueEnvelope(env, anchorSha, { submitter_display_name: "Anchor Operator" });
     await env.SUBMISSIONS.put(rawBundleKey(anchorSha), anchorBundle);
     const key = testKeyPair();
     const communityBundle = JSON.stringify(signedResultBundle(key, { fixture: "community" }));
     const communitySha = sha256Hex(communityBundle);
     const communityTicket = await issueTicket({
       env,
-      request: jsonRequest("/api/submissions/tickets", communityTicketBody(communitySha, key), {
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(communitySha, key, {
+        submitter_display_name: "Community Runner",
+      }), {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
@@ -193,7 +330,7 @@ describe("simplicity reset publish-on-submit API", () => {
     await env.SUBMISSIONS.put(rawBundleKey(communitySha), communityBundle);
 
     // When: both clients complete, with the community score higher than the maintainer score.
-    await completeSubmission({
+    await completeAndRebuild({
       env,
       params: { submissionId: anchorTicket.ticket_id },
       request: jsonRequest(`/api/submissions/${anchorTicket.ticket_id}/complete`, {
@@ -201,7 +338,7 @@ describe("simplicity reset publish-on-submit API", () => {
         raw_bundle_sha256: anchorSha,
       }),
     });
-    await completeSubmission({
+    await completeAndRebuild({
       env,
       params: { submissionId: communityId },
       request: jsonRequest(`/api/submissions/${communityId}/complete`, {
@@ -210,7 +347,7 @@ describe("simplicity reset publish-on-submit API", () => {
       }),
     });
 
-    // Then: one board orders both origins by composite and exposes no trust-tier fields.
+    // Then: one board orders both origins by composite without assigning a community trust tier.
     const response = await getBoard({ env, request: new Request("https://local-bench.ai/api/board/community.json") });
     const body = await response.json();
     expect(body).toMatchObject({ rows: [
@@ -218,10 +355,14 @@ describe("simplicity reset publish-on-submit API", () => {
       { origin: "project_anchor", scores: { composite_full: 0.61 } },
     ] });
     const rows = requiredRows(body);
-    expect(rows.map((row) => row["trust"])).toEqual([
-      { chip: "self-reported" },
-      { chip: "maintainer-run" },
-    ]);
+    expect(rows[0]).not.toHaveProperty("badge");
+    expect(rows[0]?.["submitter"]).toMatchObject({ unverified_handle: "Community Runner" });
+    expect(rows[1]).toMatchObject({
+      badge: "project-run",
+      submitter: { unverified_handle: "Anchor Operator" },
+    });
+    expect(rows.every((row) => !("trust" in row))).toBe(true);
+    expect(JSON.stringify(rows)).not.toMatch(/self-reported|maintainer-run|re-scored|maintainer_verified/u);
     const parsed = parseCommunityLiveBoard(body);
     expect(parsed?.droppedRows).toBe(0);
     expect(parsed?.rows.map((row) => row.origin)).toEqual(["community", "project_anchor"]);
@@ -234,7 +375,7 @@ describe("simplicity reset publish-on-submit API", () => {
     const bundleSha = sha256Hex(bundle);
     const ticket = await issueEnvelope(env, bundleSha);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundle);
-    await completeSubmission({
+    await completeAndRebuild({
       env,
       params: { submissionId: ticket.ticket_id },
       request: jsonRequest(`/api/submissions/${ticket.ticket_id}/complete`, {
@@ -291,15 +432,29 @@ function createResetEnv() {
   });
 }
 
-function clientProjection(bundleSha: string, omittedAxes: readonly (typeof AXES)[number][] = []): Record<string, unknown> {
+type ClientProjectionOptions = {
+  readonly axisScores?: Readonly<Record<(typeof AXES)[number], number>>;
+  readonly clientComposite?: number;
+  readonly hf?: {
+    readonly filename: string;
+    readonly repo: string;
+    readonly revision: string;
+  };
+  readonly omittedAxes?: readonly (typeof AXES)[number][];
+};
+
+function clientProjection(bundleSha: string, options: ClientProjectionOptions = {}): Record<string, unknown> {
+  const omittedAxes = options.omittedAxes ?? [];
   const measuredAxes = AXES.filter((axis) => !omittedAxes.includes(axis));
   const complete = measuredAxes.length === AXES.length;
+  const clientComposite = options.clientComposite ?? 0.71;
   const hashable = {
     schema_version: "localbench.accepted_result_projection.v2",
     model: {
       declared_name: "Reset Community Model",
       display_name: "Reset Community Model",
       file_sha256: "a".repeat(64),
+      ...(options.hf === undefined ? {} : { hf: options.hf }),
       identity_status: "unverified",
       model_system_key: `artifact:${"a".repeat(64)}`,
     },
@@ -312,19 +467,19 @@ function clientProjection(bundleSha: string, omittedAxes: readonly (typeof AXES)
     index_version: "index-v4.1",
     headline_complete: complete,
     scores: {
-      headline_score: complete ? 0.71 : null,
-      partial_composite: 0.71,
+      headline_score: complete ? clientComposite : null,
+      partial_composite: clientComposite,
       partial_composite_scope: "measured_headline_axes",
       measured_headline_weight: complete ? 1 : 0.85,
       missing_headline_weight: complete ? 0 : 0.15,
-      known_headline_contribution: complete ? 0.71 : 0.6035,
+      known_headline_contribution: complete ? clientComposite : clientComposite * 0.85,
       rank_scope: "full-exec-6axis-v1",
-      composite_full: complete ? 0.71 : null,
+      composite_full: complete ? clientComposite : null,
     },
     axes: Object.fromEntries(measuredAxes.map((axis) => [axis, {
-      ci: [0.69, 0.73],
+      ci: null,
       n: 10,
-      score: 0.71,
+      score: options.axisScores?.[axis] ?? 0.71,
       status: "measured",
     }])),
     conformance: { status: "passed" },
@@ -382,4 +537,30 @@ function requiredRows(value: unknown, key = "rows"): readonly Record<string, unk
     throw new Error(`${key} must contain objects`);
   }
   return rows;
+}
+
+function boardWriteFailureEnv(env: SubmissionApiEnv): SubmissionApiEnv {
+  return {
+    ...env,
+    SUBMISSIONS: {
+      delete: (key) => env.SUBMISSIONS.delete(key),
+      get: (key) => env.SUBMISSIONS.get(key),
+      put: async (key, value, options) => {
+        if (key === COMMUNITY_LIVE_BOARD_KEY) throw new TypeError("board write fixture failure");
+        return env.SUBMISSIONS.put(key, value, options);
+      },
+    },
+  };
+}
+
+async function completeAndRebuild(
+  context: Parameters<typeof completeSubmission>[0],
+): Promise<Response> {
+  const tasks: Promise<unknown>[] = [];
+  const response = await completeSubmission({
+    ...context,
+    waitUntil: (task) => { tasks.push(task); },
+  });
+  await Promise.all(tasks);
+  return response;
 }

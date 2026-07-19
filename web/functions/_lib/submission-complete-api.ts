@@ -22,6 +22,7 @@ export async function handleFinalizeSubmission(
   request: Request,
   env: SubmissionApiEnv,
   params: RouteParams,
+  context: { readonly waitUntil?: (task: Promise<unknown>) => void } = {},
 ): Promise<Response> {
   const row = await routeRow(env, params);
   if (row.kind !== "ok") {
@@ -102,17 +103,27 @@ export async function handleFinalizeSubmission(
         env,
         row.value.submission_id,
         verification.sizeBytes,
-        parsed.data.accepted_result_projection,
+        projection.projection,
         projection.objectSha256,
         projectionR2Key,
       ),
     );
-    await rebuildCommunityLiveBoard(env);
+    context.waitUntil?.(
+      rebuildCommunityLiveBoard(env).catch((error) => {
+        logSubmissionError("community_board_rebuild_failed", {
+          error,
+          leg: "post_publish_board_rebuild",
+          route: "POST /api/submissions/:submissionId/complete",
+          submission_id: row.value.submission_id,
+        });
+      }),
+    );
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     return jsonResponse(200, publicSubmission(updated ?? row.value));
   } catch (error) {
+    const loggedError = error instanceof Error ? error : new Error(String(error));
     logSubmissionError("submission_finalize_failed", {
-      error,
+      error: loggedError,
       leg: "publish_submitted_projection",
       route: "POST /api/submissions/:submissionId/complete",
       submission_id: row.value.submission_id,

@@ -151,11 +151,13 @@ function liveBoardRow(
       display_name: projection.model.display_name,
       family: projection.model.family ?? null,
       file_sha256: projection.model.file_sha256,
-      identity_status: projection.model.identity_status,
+      ...(projection.model.hf === undefined ? {} : { hf: projection.model.hf }),
       model_system_key: projection.model.model_system_key,
       quant_label: projection.model.quant_label ?? null,
     },
     origin: row.origin,
+    ...(row.origin === "project_anchor" ? { badge: "project-run" } : {}),
+    normalization_annotations: projection.normalization_annotations ?? [],
     provenance_notes: projection.provenance_notes ?? [],
     receipt_references: projection.receipt_references,
     ranked: complete,
@@ -164,18 +166,15 @@ function liveBoardRow(
     scores: projection.scores,
     submission_id: row.submissionId,
     submitter: {
-      display_name: row.submitterDisplayName,
       github_login: row.githubLogin,
       key_fingerprint: keyFingerprint(row.submitterId),
+      unverified_handle: row.submitterDisplayName,
     },
     suite_release_id: projection.suite_release_id,
     timestamps: {
       published_at: d1TimestampToIso(row.publishedAt),
       submitted_at: d1TimestampToIso(row.createdAt),
       validated_at: d1TimestampToIso(row.validatedAt),
-    },
-    trust: {
-      chip: row.origin === "project_anchor" ? "maintainer-run" : "self-reported",
     },
   } as const;
 }

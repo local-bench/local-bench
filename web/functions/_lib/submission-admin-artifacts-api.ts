@@ -17,7 +17,11 @@ export async function handleDownloadSubmissionBundle(
     return jsonResponse(404, { code: "raw_bundle_not_found", error: "raw submission bundle not found" });
   }
   return new Response(object.body, {
-    headers: { "cache-control": "no-store", "content-type": "application/json" },
+    headers: {
+      "cache-control": "no-store",
+      "content-disposition": `attachment; filename="localbench-bundle-${row.value.raw_bundle_sha256}.json"`,
+      "content-type": "application/octet-stream",
+    },
     status: 200,
   });
 }

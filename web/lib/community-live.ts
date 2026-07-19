@@ -80,7 +80,7 @@ function mergeCommunityRow(
     quantLabel: live.model.quant_label,
     ranked: live.ranked ?? false,
     submissionId: live.submission_id,
-    submitterDisplayName: live.submitter.display_name,
+    submitterDisplayName: live.submitter.unverified_handle ?? live.submitter.display_name ?? null,
     submitterGithubLogin: live.submitter.github_login ?? null,
     submitterKeyFingerprint: live.submitter.key_fingerprint,
     timestamps: live.timestamps,

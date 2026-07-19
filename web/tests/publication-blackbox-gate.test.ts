@@ -159,9 +159,25 @@ async function admitAcceptedPublished(
       size_bytes: bundleBytes.length,
     }),
   });
-  expect(complete.status).toBe(200);
-  expect(await complete.json()).toMatchObject({ status: "published" });
-  return { artifactSha, projectionObjectSha: sha256Hex(canonicalJson(projection)), submissionId: ticket.ticket_id };
+  const completeBody = await complete.json();
+  expect(complete.status, JSON.stringify({ completeBody, displayName })).toBe(200);
+  expect(completeBody).toMatchObject({ status: "published" });
+  const clientProjectionObjectSha = sha256Hex(canonicalJson(projection));
+  const acceptedRow = await env.DB.prepare(
+    "select projection_object_sha256 from submissions where submission_id = ?",
+  ).bind(ticket.ticket_id).first();
+  const persistedObjectSha = acceptedRow?.["projection_object_sha256"];
+  const projectionObjectSha = typeof persistedObjectSha === "string" ? persistedObjectSha : null;
+  expect(projectionObjectSha).toBeTruthy();
+  expect(projectionObjectSha).not.toBe(clientProjectionObjectSha);
+  if (!projectionObjectSha) {
+    throw new Error("accepted row omitted the persisted projection object SHA");
+  }
+  return {
+    artifactSha,
+    projectionObjectSha,
+    submissionId: ticket.ticket_id,
+  };
 }
 
 async function createSnapshot(env: Awaited<ReturnType<typeof createEnv>>): Promise<any> {

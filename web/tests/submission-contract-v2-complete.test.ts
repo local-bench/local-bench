@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handleFinalizeSubmission } from "../functions/_lib/submission-api";
+import { MAX_UPLOAD_BYTES } from "../functions/_lib/submission-contracts";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { onRequestPost as completeSubmission } from "../functions/api/submissions/[submissionId]/complete";
 import { onRequestPost as requestUpload } from "../functions/api/submissions/request-upload";
@@ -24,6 +25,10 @@ import {
 } from "./submission-contract-v2-support";
 
 describe("submission contract v2 upload and complete routes", () => {
+  it("caps raw bundles at the 50 MiB resource envelope", () => {
+    expect(MAX_UPLOAD_BYTES).toBe(50 * 1024 * 1024);
+  });
+
   it("rejects expired tickets at request-upload and complete", async () => {
     // Given: an issued ticket is past its server-side expiry.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
@@ -103,9 +108,7 @@ describe("submission contract v2 upload and complete routes", () => {
   });
 
   it("accepts community bundles containing dynamic benches with a community-origin row", async () => {
-    // Given: a community ticket targets the 5-axis release and the uploaded bundle includes appworld_c.
-    // (Owner decision 2026-07-04: community submissions carry all five axes; agentic verdicts are
-    // labeled self-reported at rescore and rows only publish after manual admin acceptance.)
+    // Given: a community ticket and complete uploaded bundle include the dynamic appworld_c bench.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
     const bundle = signedResultBundle(key);
@@ -139,12 +142,14 @@ describe("submission contract v2 upload and complete routes", () => {
     });
   });
 
-  it("does not require a bundle signature the shipped client does not produce", async () => {
-    // Given: the ticket key differs from the signed bundle public key.
+  it("accepts an unsigned bundle whose item request omits messages", async () => {
+    // Given: the content-addressed bundle has no top-level signature and prompt text is stripped.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const ticketKey = testKeyPair();
-    const bundleKey = testKeyPair();
-    const bundleJson = JSON.stringify(signedResultBundle(bundleKey));
+    const bundle = signedResultBundle(testKeyPair());
+    delete bundle["signature"];
+    bundle["items"] = [{ id: "mmlu_pro-1", request: { item_id: "mmlu_pro-1" }, response_text: "A" }];
+    const bundleJson = JSON.stringify(bundle);
     const bundleSha = sha256Hex(bundleJson);
     const ticket = await issueTicket({
       env,
@@ -171,7 +176,7 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).toMatchObject({ status: "published" });
   });
 
-  it("defers bundle payload signature semantics to maintainer verification", async () => {
+  it("continues to accept signed bundles without gating on payload signature semantics", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
     const bundle = signedResultBundle(key);
@@ -225,8 +230,8 @@ describe("submission contract v2 upload and complete routes", () => {
     expect(await response.json()).not.toMatchObject({ submission_id: envelope.ticket_id });
   });
 
-  it("defers exact GGUF identity dedupe to maintainer verification", async () => {
-    // Given: two signed bundles differ only by their top-level signature public key.
+  it("publishes distinct bundles for the same artifact SHA as independent reproductions", async () => {
+    // Given: two byte-distinct bundles identify the same model artifact.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const firstKey = testKeyPair();
     const secondKey = testKeyPair();
@@ -271,7 +276,7 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
 
-    // Then: both distinct content-addressed runs publish without server re-scoring.
+    // Then: both content-addressed runs publish without dedupe or data collapse.
     expect(secondResponse.status).toBe(200);
     expect(await secondResponse.json()).toMatchObject({ status: "published" });
     const row = await env.DB.prepare("select duplicate_of, model_identity_digest from submissions where submission_id = ?")
