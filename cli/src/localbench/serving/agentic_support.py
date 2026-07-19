@@ -8,8 +8,8 @@ from typing import Final
 from localbench._types import JsonObject
 
 AGENTIC_SETUP_MESSAGE: Final = (
-    "The agentic axis needs the AppWorld harness, which is not yet publicly installable; "
-    "a managed runtime is coming. Re-run with --static-only to run the other five axes now. "
+    "The agentic axis needs the managed AppWorld harness. "
+    "Run `localbench setup-agentic` before starting the six-axis benchmark. "
 )
 
 

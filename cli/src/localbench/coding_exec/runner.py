@@ -1,7 +1,7 @@
 """In-container task runner (STANDALONE, stdlib-only).
 
-This file is mounted READ-ONLY into the hardened sandbox container and executed by the
-container's Python — so it must not import anything outside the stdlib. For each task it
+This file is passed as the container's `python -c` program with task JSON on stdin, so no
+host files are mounted and it must not import anything outside the stdlib. For each task it
 runs the assembled self-executing program (generation + tests + trusted epilogue) in a
 FRESH subprocess and records the exit code: 0 = all tests passed. The runner process
 itself never imports or executes the untrusted generation, so it cannot be corrupted by
@@ -147,8 +147,11 @@ def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     tasks_path = args[0]
     timeout = float(args[1]) if len(args) > 1 else 30.0
-    with open(tasks_path, encoding="utf-8") as handle:
-        tasks = json.load(handle)
+    if tasks_path == "-":
+        tasks = json.load(sys.stdin)
+    else:
+        with open(tasks_path, encoding="utf-8") as handle:
+            tasks = json.load(handle)
     results = [{"id": task["id"], **run_program(task["program"], timeout=timeout)} for task in tasks]
     print(json.dumps({"schema": SCHEMA, "results": results}))
     return 0

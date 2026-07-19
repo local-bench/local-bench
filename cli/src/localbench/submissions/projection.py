@@ -4,7 +4,7 @@ import copy
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import assert_never
+from typing import Literal, assert_never
 
 from localbench._scoring import BenchAggregate, ScoredItem, aggregate
 from localbench._suite import read_json_object
@@ -13,11 +13,16 @@ from localbench.coding_exec.receipt import CodingVerificationResult
 from localbench.coding_exec.score import BENCH as CODING_BENCH
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
+    axis_key_for_bench,
     measured_axis,
     not_measured_axis,
     parse_axis_status_block,
 )
-from localbench.scoring.editorial import index_version_for_coverage_profile
+from localbench.scoring.editorial import (
+    CURRENT_COVERAGE_PROFILE_IDS,
+    OLDER_INDEX_VERSIONS,
+    index_version_for_coverage_profile,
+)
 from localbench.scoring.public_rescore import score_public_item
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import jcs_json_bytes, jcs_json_hash, sha256_bytes, sha256_file
@@ -40,6 +45,7 @@ from localbench.submissions.validate import (
     SubmissionValidationError,
     suite_item_index,
 )
+from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE
 
 GRANDFATHERED_ATTESTED_BUNDLE_SHA256S = frozenset(
     {
@@ -78,6 +84,25 @@ def rescore_bundle(
         origin=origin,
         admission=False,
         coding_verification=None,
+        verification_level="bundle_rescored",
+    )
+
+
+def client_reported_projection(
+    path: Path,
+    *,
+    suite_dir: Path,
+    validated_at: str,
+    origin: SubmissionOrigin = "project_anchor",
+) -> JsonObject:
+    return _rescore_bundle(
+        path,
+        suite_dir=suite_dir,
+        validated_at=validated_at,
+        origin=origin,
+        admission=False,
+        coding_verification=None,
+        verification_level="client_reported",
     )
 
 
@@ -96,6 +121,7 @@ def rescore_admission_bundle(
         origin=origin,
         admission=True,
         coding_verification=coding_verification,
+        verification_level="bundle_rescored",
     )
 
 
@@ -107,6 +133,7 @@ def _rescore_bundle(
     origin: SubmissionOrigin,
     admission: bool,
     coding_verification: CodingVerificationResult | None,
+    verification_level: Literal["bundle_rescored", "client_reported"],
 ) -> JsonObject:
     loaded = load_result_bundle_input(path)
     bundle_sha256 = sha256_file(path)
@@ -115,8 +142,15 @@ def _rescore_bundle(
     suite_items = _suite_items(bundle, suite_dir)
     dynamic_benches = _dynamic_benches(suite_dir, suite_items)
     source_items = _items(bundle)
-    items = _scored_items(source_items, suite_items, dynamic_benches)
+    carried_benches = dynamic_benches | _locally_graded_benches(source_items)
+    items = _scored_items(source_items, suite_items, carried_benches)
     axis_status = parse_axis_status_block(_object(bundle.get("axis_status")))
+    axis_status = _axis_status_from_dynamic_verdicts(
+        axis_status,
+        source_items,
+        dynamic_benches,
+        _suite_axes(_object(bundle.get("manifest"))),
+    )
     if admission:
         items, axis_status = _admission_coding_inputs(
             items,
@@ -138,7 +172,7 @@ def _rescore_bundle(
         bundle_sha256=bundle_sha256,
         validated_at=validated_at,
         rescore_modes={
-            bench: ("verdict_carried" if bench in dynamic_benches else "rescored")
+            bench: ("verdict_carried" if bench in carried_benches else "rescored")
             for bench in sorted(benches)
         }
         | (
@@ -148,6 +182,7 @@ def _rescore_bundle(
         ),
         origin=origin,
         provenance=provenance,
+        verification_level=verification_level,
     )
     if admission:
         projection["receipt_references"] = {
@@ -230,6 +265,18 @@ def _dynamic_benches(
     candidate-axis benches (weight 0) stay ineligible so absent axes can't be smuggled
     in as unscoreable items.
     """
+    static_benches = {bench for bench, _item_id in suite_items}
+    release_manifest_path = suite_dir / SUITE_RELEASE_MANIFEST_FILE
+    if release_manifest_path.exists():
+        release_manifest = read_json_object(release_manifest_path)
+        coverage = release_manifest.get("coverage_profile")
+        benches = coverage.get("benches") if isinstance(coverage, dict) else None
+        if not isinstance(benches, list) or not all(isinstance(bench, str) for bench in benches):
+            raise SubmissionValidationError(
+                "suite release manifest coverage_profile.benches must be a string array",
+            )
+        return frozenset(bench for bench in benches if bench not in static_benches)
+
     scorecard_path = suite_dir / "SCORECARD.json"
     if not scorecard_path.exists():
         # Older/dev suites ship no scorecard registry -> no verdict-carried eligibility,
@@ -237,7 +284,6 @@ def _dynamic_benches(
         return frozenset()
     scorecard = read_json_object(scorecard_path)
     registry = scorecard.get("registry")
-    static_benches = {bench for bench, _item_id in suite_items}
     dynamic: set[str] = set()
     if isinstance(registry, list):
         for entry in registry:
@@ -252,6 +298,65 @@ def _dynamic_benches(
                 if isinstance(bench, str) and bench not in static_benches
             )
     return frozenset(dynamic)
+
+
+def _locally_graded_benches(items: list[JsonObject]) -> frozenset[str]:
+    coding_items = [item for item in items if item.get("bench") == CODING_BENCH]
+    if not coding_items or not all(_locally_graded_coding_item(item) for item in coding_items):
+        return frozenset()
+    return frozenset({CODING_BENCH})
+
+
+def _axis_status_from_dynamic_verdicts(
+    axis_status: AxisStatusBlock,
+    items: list[JsonObject],
+    dynamic_benches: frozenset[str],
+    suite_axes: Mapping[str, JsonValue] | None,
+) -> AxisStatusBlock:
+    adjusted = copy.deepcopy(axis_status)
+    carried = carried_from_result_items(items, dynamic_benches)
+    benches_by_axis: dict[str, set[str]] = {}
+    for bench in dynamic_benches:
+        axis = axis_key_for_bench(bench)
+        if axis not in adjusted["axes"]:
+            axis = axis_key_for_bench(bench, suite_axes)
+        benches_by_axis.setdefault(axis, set()).add(bench)
+    for axis, benches in benches_by_axis.items():
+        complete = all(
+            any(item.get("bench") == bench for item in items)
+            and sum(item.get("bench") == bench for item in items)
+            == sum(verdict.bench == bench for verdict in carried)
+            for bench in benches
+        )
+        if complete:
+            adjusted["axes"][axis] = measured_axis(axis)
+    return adjusted
+
+
+def _locally_graded_coding_item(item: JsonObject) -> bool:
+    artifact = item.get("code_artifact")
+    if not isinstance(artifact, dict):
+        return False
+    verdict = artifact.get("verdict")
+    image = artifact.get("image_digest")
+    if (
+        artifact.get("verdict_source") == "verifier"
+        and isinstance(verdict, dict)
+        and isinstance(verdict.get("passed"), bool)
+        and isinstance(image, str)
+        and "@sha256:" in image
+    ):
+        return True
+    scoring = item.get("client_scoring")
+    failure_kind = item.get("failure_kind")
+    if not isinstance(failure_kind, str) and isinstance(scoring, dict):
+        failure_kind = scoring.get("failure_kind")
+    conformance = artifact.get("conformance_status")
+    return (
+        failure_kind == "coding_ast_rejected"
+        and isinstance(conformance, dict)
+        and conformance.get("failure") == "coding_ast_rejected"
+    )
 
 
 def _agentic_provenance(
@@ -291,6 +396,7 @@ def _projection(
     rescore_modes: Mapping[str, str],
     origin: SubmissionOrigin,
     provenance: AgenticProvenanceResult,
+    verification_level: Literal["bundle_rescored", "client_reported"],
 ) -> JsonObject:
     manifest = _object(bundle.get("manifest"))
     suite = _object(manifest.get("suite"))
@@ -298,11 +404,11 @@ def _projection(
     coverage_profile_id = str(suite.get("coverage_profile_id"))
     index_version = index_version_for_coverage_profile(coverage_profile_id)
     carried_index_version = bundle.get("index_version")
-    if carried_index_version is not None and carried_index_version != index_version:
-        raise ValueError(
-            "result bundle index_version does not match its coverage_profile_id: "
-            f"{carried_index_version!r} != {index_version!r}",
-        )
+    relabel_note = _index_relabel_note(
+        carried_index_version,
+        coverage_profile_id=coverage_profile_id,
+        current_index_version=index_version,
+    )
     scores = score_summary(benches, axis_status, suite_axes=_suite_axes(manifest))
     projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
@@ -316,7 +422,11 @@ def _projection(
         "index_version": index_version,
         "headline_complete": scores.get("headline_score") is not None,
         "scores": scores,
-        "axes": axis_projection(benches, axis_status),
+        "axes": axis_projection(
+            benches,
+            axis_status,
+            coverage_profile_id=coverage_profile_id,
+        ),
         "conformance": _object(bundle.get("conformance")),
         "receipt_references": _receipt_references(bundle),
         "artifact_hashes": {
@@ -326,7 +436,7 @@ def _projection(
         },
         "origin": origin,
         "trust_label": _trust_label(origin),
-        "verification_level": "bundle_rescored",
+        "verification_level": verification_level,
         "agentic_provenance": provenance.label,
         # Per-bench honesty marker: "rescored" = recomputed from suite sources here;
         # "verdict_carried" = the bundle's own verdicts (dynamic bench, no static source).
@@ -337,9 +447,32 @@ def _projection(
             "validated_at": validated_at,
         },
     }
-    if provenance.notes:
-        projection["provenance_notes"] = list(provenance.notes)
+    provenance_notes = list(provenance.notes)
+    if relabel_note is not None:
+        provenance_notes.append(relabel_note)
+    if provenance_notes:
+        projection["provenance_notes"] = provenance_notes
     return projection
+
+
+def _index_relabel_note(
+    carried_index_version: JsonValue | None,
+    *,
+    coverage_profile_id: str,
+    current_index_version: str,
+) -> str | None:
+    if carried_index_version is None or carried_index_version == current_index_version:
+        return None
+    if (
+        isinstance(carried_index_version, str)
+        and carried_index_version in OLDER_INDEX_VERSIONS
+        and coverage_profile_id in CURRENT_COVERAGE_PROFILE_IDS
+    ):
+        return f"index_relabeled_from:{carried_index_version}"
+    raise ValueError(
+        "result bundle index_version does not match its coverage_profile_id: "
+        f"{carried_index_version!r} != {current_index_version!r}",
+    )
 
 
 def _scored_items(
@@ -352,17 +485,16 @@ def _scored_items(
     for item in items:
         bench = _required_string(item.get("bench"), "bench")
         item_id = _required_string(item.get("id"), "id")
-        suite_item = suite_items.get((bench, item_id))
-        if suite_item is None:
-            if bench not in dynamic_benches:
-                raise SubmissionValidationError(f"unknown item: {bench}/{item_id}")
+        if bench in dynamic_benches:
             key = (bench, item_id)
             if key in seen_dynamic:
-                # A carried verdict repeated N times would inflate the axis unchecked.
                 raise SubmissionValidationError(f"duplicate item: {bench}/{item_id}")
             seen_dynamic.add(key)
             scored.append(_verdict_carried_item(item, bench, item_id))
             continue
+        suite_item = suite_items.get((bench, item_id))
+        if suite_item is None:
+            raise SubmissionValidationError(f"unknown item: {bench}/{item_id}")
         detail = score_public_item(
             bench,
             suite_item.source,

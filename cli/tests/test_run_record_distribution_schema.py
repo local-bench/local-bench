@@ -81,8 +81,9 @@ def test_run_record_emits_result_bundle_v1_fields(tmp_path: Path) -> None:
             "sampler.top_k_unpinned",
             "sampler.seed_unpinned",
             "model.identity_missing",
-            "runtime.identity_missing",
-            "suite.not_site_released",
+                "runtime.identity_missing",
+                "suite.not_site_released",
+                "incomplete_run",
         ]
         assert json.loads(output_path.read_text(encoding="utf-8")) == record
 
@@ -232,7 +233,10 @@ def test_publishable_lane_pins_sampler_and_records_identity(tmp_path: Path) -> N
             "parallel_slots": 1,
             "build_flags": "cuda",
         }
-        assert record["manifest"]["integrity"]["blocking_reasons"] == ["suite.not_site_released"]
+        assert record["manifest"]["integrity"]["blocking_reasons"] == [
+            "suite.not_site_released",
+            "incomplete_run",
+        ]
         assert record["manifest"]["integrity"]["missing_required_fields"] == []
 
     asyncio.run(scenario())

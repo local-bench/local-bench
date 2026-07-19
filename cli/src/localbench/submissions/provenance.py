@@ -55,12 +55,15 @@ def carried_from_result_items(
 ) -> list[CarriedVerdict]:
     return [
         CarriedVerdict(
-            bench=str(item["bench"]),
-            task_id=str(item["id"]),
-            correct=bool(item.get("correct")),
+            bench=item["bench"],
+            task_id=item["id"],
+            correct=item["correct"],
         )
         for item in items
-        if item.get("bench") in dynamic_benches and isinstance(item.get("id"), str)
+        if item.get("bench") in dynamic_benches
+        and isinstance(item.get("bench"), str)
+        and isinstance(item.get("id"), str)
+        and isinstance(item.get("correct"), bool)
     ]
 
 
@@ -75,8 +78,10 @@ def carried_from_submission_items(
         scoring = item.get("client_scoring")
         if bench not in dynamic_benches or not isinstance(bench, str) or not isinstance(task_id, str):
             continue
-        correct = scoring.get("correct") if isinstance(scoring, dict) else False
-        carried.append(CarriedVerdict(bench=bench, task_id=task_id, correct=bool(correct)))
+        correct = scoring.get("correct") if isinstance(scoring, dict) else None
+        if not isinstance(correct, bool):
+            continue
+        carried.append(CarriedVerdict(bench=bench, task_id=task_id, correct=correct))
     return carried
 
 

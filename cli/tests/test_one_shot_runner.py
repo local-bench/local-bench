@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ import localbench.cli as cli_mod
 import localbench.exit_codes as exit_codes
 import localbench.one_shot.runner as one_shot_runner
 from localbench.appliance.worker import APPWORLD_ROOT, VENV
+from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
 from localbench.exit_codes import EXIT_COMPLETE, EXIT_USER_INTERRUPTED
 from localbench.one_shot.runner import (
     SleepGapMonitor,
@@ -19,7 +21,6 @@ from localbench.one_shot.runner import (
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
 from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
-from localbench.suite_resolver import STATIC_EXEC_SUITE_ID
 from localbench.submissions.submit_run import SubmitRunOptions
 from one_shot_fixtures import REV_A, TOKENIZER_REV_A
 from one_shot_runner_fakes import _args, _deps
@@ -56,6 +57,16 @@ def test_cli_bench_positional_model_dispatches_one_shot(monkeypatch: pytest.Monk
     assert captured.one_shot_model == "qwen3-6-27b"
     assert captured.one_shot_submit is False
     assert captured.llama_server_path == Path("llama-server.exe")
+
+
+def test_cli_bench_no_longer_accepts_static_only(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        cli_mod.main(["bench", "qwen3-6-27b", "--static-only"])
+
+    assert raised.value.code == 2
+    assert "unrecognized arguments: --static-only" in capsys.readouterr().err
 
 
 def test_advanced_bench_still_requires_manual_model_inputs(capsys: pytest.CaptureFixture[str]) -> None:
@@ -95,19 +106,120 @@ def test_one_shot_missing_agentic_harness_fails_before_model_download(
     assert deps.bench_runner.options is None
     error = capsys.readouterr().err
     assert "AppWorld harness" in error
-    assert "not yet publicly installable" in error
-    assert "managed runtime" in error
-    assert "--static-only" in error
+    assert "localbench setup-agentic" in error
     assert "No model download or benchmark work has started" in error
 
 
-@pytest.mark.parametrize("static_only", [False, True])
-def test_one_shot_resolves_selected_suite_before_any_model_asset_download(
+def test_one_shot_missing_docker_fails_before_model_download(
     tmp_path: Path,
-    static_only: bool,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    deps = replace(
+        _deps(tmp_path),
+        coding_docker_env=DockerEnv(
+            platform="windows",
+            desktop=False,
+            rootless=False,
+            runsc_available=False,
+            runc_version=None,
+            available=False,
+        ),
+    )
+
+    code = run_one_shot_bench(
+        _args(tmp_path),
+        cli_version="0.4.3.dev0",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == exit_codes.EXIT_PREFLIGHT_FAILED
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+    assert "Docker is unavailable" in capsys.readouterr().err
+
+
+def test_one_shot_rejects_unenforced_sandbox_controls_before_model_download(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     deps = _deps(tmp_path)
-    args = _args(tmp_path, static_only=static_only)
+
+    def bad_control_report(
+        _argv: list[str],
+        _timeout_seconds: float,
+        _max_output_bytes: int,
+        _stdin_bytes: bytes,
+    ) -> RawRunResult:
+        report = {
+            "uid": 65534,
+            "rootfs_read_only": True,
+            "tmpfs": True,
+            "tmpfs_bytes": 64 * 1024 * 1024,
+            "interfaces": ["lo"],
+            "cap_eff": 0,
+            "no_new_privs": 1,
+            "seccomp": 0,
+            "pids_max": 256,
+            "memory_max": 2 * 1024 * 1024 * 1024,
+            "cpu_quota": 100000,
+            "cpu_period": 100000,
+        }
+        return RawRunResult(
+            exit_code=0,
+            stdout=json.dumps(report).encode(),
+            stderr=b"",
+            timed_out=False,
+        )
+
+    deps.coding_sandbox_runner = bad_control_report
+    code = run_one_shot_bench(
+        _args(tmp_path),
+        cli_version="0.4.3.dev0",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == exit_codes.EXIT_PREFLIGHT_FAILED
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+    assert "seccomp" in capsys.readouterr().err
+
+
+def test_one_shot_requires_explicit_untrusted_code_consent_before_download(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    deps = _deps(tmp_path)
+    args = _args(tmp_path)
+    args.allow_untrusted_code = False
+
+    code = run_one_shot_bench(
+        args,
+        cli_version="0.4.3.dev0",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == exit_codes.EXIT_PREFLIGHT_FAILED
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+    error = capsys.readouterr().err
+    assert "model-generated code" in error
+    assert "--allow-untrusted-code" in error
+
+
+def test_one_shot_resolves_selected_suite_before_any_model_asset_download(
+    tmp_path: Path,
+) -> None:
+    deps = _deps(tmp_path)
+    args = _args(tmp_path)
     args.suite_dir = tmp_path / "missing-suite"
 
     code = run_one_shot_bench(
@@ -189,42 +301,36 @@ def test_one_shot_revalidates_agentic_setup_after_download_before_serving(
     assert "No model download or benchmark work has started" not in error
 
 
-def test_one_shot_static_only_uses_five_axis_identity_without_agentic_preflight(
+def test_one_shot_always_uses_full_identity_and_agentic_preflight(
     tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Given an explicit partial-run request and an agentic preflight that must never be called.
     deps = _deps(tmp_path)
+    original_preflight = deps.agentic_preflight
+    calls = 0
 
-    def unexpected_agentic_preflight(*_args, **_kwargs):
-        raise AssertionError("static-only attempted agentic preflight")
+    def recording_agentic_preflight(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        assert original_preflight is not None
+        return original_preflight(*args, **kwargs)
 
-    deps.agentic_preflight = unexpected_agentic_preflight
+    deps.agentic_preflight = recording_agentic_preflight
 
-    # When the one-shot run executes in static-only mode.
     code = run_one_shot_bench(
-        _args(tmp_path, static_only=True),
+        _args(tmp_path),
         cli_version="0.3.1",
         deps=deps,
         is_tty=False,
         input_fn=lambda: "",
     )
 
-    # Then the established five-axis suite identity is used and the consequence is upfront.
     assert code == EXIT_COMPLETE
+    assert calls == 2
     assert deps.bench_runner.options is not None
-    assert deps.bench_runner.options.suite == STATIC_EXEC_SUITE_ID
-    assert deps.bench_runner.options.bench == (
-        "mmlu_pro,ifbench,tc_json_v1,bigcodebench_hard,olymmath_hard,amo"
-    )
+    assert deps.bench_runner.options.suite == FULL_EXEC_SUITE_RELEASE_ID
     lock = json.loads((tmp_path / "plan.lock.json").read_text(encoding="utf-8"))
-    assert lock["suite_release_id"] == STATIC_EXEC_SUITE_ID
-    assert lock["suite_manifest_sha256"] == "4e240f8cffe8826ef1fd723f54b4b789d93990851d838818bce0954a38c61d64"
-    output = capsys.readouterr().out
-    banner = "This run will NOT be eligible for the full six-axis index; it can appear as a measured/static row."
-    assert banner in output
-    assert output.index(banner) < output.index("resolve")
+    assert lock["suite_release_id"] == FULL_EXEC_SUITE_RELEASE_ID
+    assert lock["suite_manifest_sha256"] == FULL_EXEC_SUITE_MANIFEST_SHA256
 
 
 def test_one_shot_runner_prompts_submit_default_no_and_builds_bounded_final_options(
@@ -293,32 +399,22 @@ def test_one_shot_submit_true_uses_existing_submit_finished_run_path(
     assert "submission sub_fake" in capsys.readouterr().out
 
 
-def test_static_one_shot_submission_fails_closed_on_identity_or_coverage_drift(
+def test_one_shot_submission_rejects_incomplete_post_grading_run(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     deps = _deps(tmp_path)
 
-    def invalid_static_record(options) -> dict[str, object]:
-        record: dict[str, object] = {
-            "manifest": {
-                "suite": {
-                    "coverage_profile_id": "full-exec-6axis-v1",
-                    "suite_release_id": FULL_EXEC_SUITE_RELEASE_ID,
-                    "suite_manifest_sha256": FULL_EXEC_SUITE_MANIFEST_SHA256,
-                },
-            },
-            "benches": {"appworld_c": {}},
-            "scores": {"headline_score": 0.0},
-            "warnings": [],
-        }
-        (tmp_path / "localbench-run.json").write_text(json.dumps(record), encoding="utf-8")
+    def incomplete_grader(run_path, suite_dir, *, image, docker_env):
+        record = json.loads(run_path.read_text(encoding="utf-8"))
+        record["headline_complete"] = False
+        run_path.write_text(json.dumps(record), encoding="utf-8")
         return record
 
-    deps.bench_runner = invalid_static_record
+    deps.coding_grader = incomplete_grader
 
     code = run_one_shot_bench(
-        _args(tmp_path, one_shot_submit=True, static_only=True),
+        _args(tmp_path, one_shot_submit=True),
         cli_version="0.3.1",
         deps=deps,
         is_tty=False,
@@ -328,8 +424,7 @@ def test_static_one_shot_submission_fails_closed_on_identity_or_coverage_drift(
     assert code == 2
     assert deps.submitter.calls == []
     error = capsys.readouterr().err
-    assert "static submission identity mismatch" in error
-    assert "appworld_c must be absent" in error
+    assert "incomplete_run" in error
 
 
 def test_one_shot_offline_forces_local_only_and_skips_publishability_preflight(

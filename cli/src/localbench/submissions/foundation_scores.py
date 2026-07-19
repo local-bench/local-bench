@@ -18,6 +18,25 @@ from localbench.scoring.axis_status import AxisStatusBlock
 from localbench.suite_release import coverage_profile_for_benches
 
 _SCORE_PRECISION: Final = 4
+_WEIGHT_PRECISION: Final = 3
+_FULL_EXEC_PROFILE_ID: Final = "full-exec-6axis-v1"
+_FULL_EXEC_REQUIRED_AXES: Final = frozenset(
+    {"knowledge", "instruction_following", "math", "agentic", "tool_calling", "coding"},
+)
+_FULL_EXEC_WEIGHTS: Final[dict[str, float]] = {
+    "knowledge": 0.225,
+    "instruction_following": 0.225,
+    "math": 0.075,
+    "agentic": 0.25,
+    "coding": 0.225,
+}
+_FULL_EXEC_BENCHES: Final[dict[str, tuple[str, ...]]] = {
+    "knowledge": ("mmlu_pro",),
+    "instruction_following": ("ifbench",),
+    "math": ("olymmath_hard", "amo"),
+    "agentic": ("appworld_c",),
+    "coding": ("bigcodebench_hard",),
+}
 
 
 def score_summary(
@@ -26,16 +45,30 @@ def score_summary(
     *,
     suite_axes: Mapping[str, JsonValue] | None = None,
 ) -> JsonObject:
-    measured = _measured_headline_weight(axis_status)
-    partial = _round_score(composite(benches, axis_status, suite_axes))
-    headline_complete = measured >= 1.0
     profile = coverage_profile_for_benches(set(benches))
+    full_exec = profile.profile_id == _FULL_EXEC_PROFILE_ID
+    measured = (
+        _full_exec_measured_weight(axis_status)
+        if full_exec
+        else _measured_headline_weight(axis_status)
+    )
+    raw_partial = (
+        _full_exec_composite(benches, axis_status)
+        if full_exec
+        else composite(benches, axis_status, suite_axes)
+    )
+    partial = _round_score(min(1.0, max(0.0, raw_partial)))
+    headline_complete = (
+        _full_exec_complete(axis_status)
+        if full_exec
+        else measured >= 1.0
+    )
     summary: JsonObject = {
         "headline_score": partial if headline_complete else None,
         "partial_composite": partial,
         "partial_composite_scope": "measured_headline_axes",
-        "measured_headline_weight": _round_fixed(measured, 2),
-        "missing_headline_weight": _round_fixed(max(0.0, 1.0 - measured), 2),
+        "measured_headline_weight": _round_fixed(measured, _WEIGHT_PRECISION),
+        "missing_headline_weight": _round_fixed(max(0.0, 1.0 - measured), _WEIGHT_PRECISION),
         "known_headline_contribution": _round_score(partial * measured),
         "rank_scope": profile.rank_scope,
         "composite_static": _strict_composite(
@@ -45,12 +78,16 @@ def score_summary(
             required_axes=frozenset(STATIC_SUITE_WEIGHTS),
             weights=static_suite_domain_weights(),
         ),
-        "composite_full": _strict_composite(
-            benches,
-            axis_status,
-            suite_axes,
-            required_axes=frozenset(axis.key for axis in AXES if axis.role == "headline"),
-            weights=None,
+        "composite_full": (
+            partial
+            if full_exec and headline_complete
+            else _strict_composite(
+                benches,
+                axis_status,
+                suite_axes,
+                required_axes=frozenset(axis.key for axis in AXES if axis.role == "headline"),
+                weights=None,
+            )
         ),
     }
     if summary["composite_static"] is not None:
@@ -61,11 +98,26 @@ def score_summary(
 def axis_projection(
     benches: Mapping[str, BenchAggregate],
     axis_status: AxisStatusBlock,
+    *,
+    coverage_profile_id: str | None = None,
 ) -> JsonObject:
     projection: JsonObject = {}
+    inferred_profile_id = coverage_profile_for_benches(set(benches)).profile_id
+    full_exec = (coverage_profile_id or inferred_profile_id) == _FULL_EXEC_PROFILE_ID
     for axis in AXES:
-        aggregate = _axis_aggregate(axis, benches)
-        status = axis_status["axes"].get(axis.key, {"status": "not_measured"})
+        aggregate = (
+            benches.get("appworld_c")
+            if full_exec and axis.key == "tool_use"
+            else _axis_aggregate(axis, benches)
+        )
+        status_key = (
+            "agentic"
+            if full_exec and axis.key == "tool_use"
+            else "tool_calling"
+            if full_exec and axis.key == "call_formatting"
+            else axis.key
+        )
+        status = axis_status["axes"].get(status_key, {"status": "not_measured"})
         if aggregate is None:
             projection[axis.key] = {
                 "score": None,
@@ -90,6 +142,51 @@ def _measured_headline_weight(axis_status: AxisStatusBlock) -> float:
         if axis.role == "headline"
         and axis_status["axes"].get(axis.key, {}).get("status") == "measured"
     )
+
+
+def _full_exec_complete(axis_status: AxisStatusBlock) -> bool:
+    return all(
+        axis_status["axes"].get(axis, {}).get("status") == "measured"
+        for axis in _FULL_EXEC_REQUIRED_AXES
+    )
+
+
+def _full_exec_measured_weight(axis_status: AxisStatusBlock) -> float:
+    return sum(
+        weight
+        for axis, weight in _FULL_EXEC_WEIGHTS.items()
+        if axis_status["axes"].get(axis, {}).get("status") == "measured"
+    )
+
+
+def _full_exec_composite(
+    benches: Mapping[str, BenchAggregate],
+    axis_status: AxisStatusBlock,
+) -> float:
+    weighted_score = 0.0
+    measured_weight = 0.0
+    for axis, weight in _FULL_EXEC_WEIGHTS.items():
+        if axis_status["axes"].get(axis, {}).get("status") != "measured":
+            continue
+        score = _pooled_score(benches, _FULL_EXEC_BENCHES[axis])
+        if score is None:
+            continue
+        weighted_score += score * weight
+        measured_weight += weight
+    if not measured_weight:
+        return 0.0
+    return min(1.0, max(0.0, weighted_score / measured_weight))
+
+
+def _pooled_score(
+    benches: Mapping[str, BenchAggregate],
+    names: tuple[str, ...],
+) -> float | None:
+    selected = [benches[name] for name in names if name in benches]
+    n = sum(aggregate["n"] for aggregate in selected)
+    if n <= 0:
+        return None
+    return sum(aggregate["chance_corrected"] * aggregate["n"] for aggregate in selected) / n
 
 
 def _strict_composite(

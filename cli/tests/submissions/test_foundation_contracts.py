@@ -209,7 +209,7 @@ def test_pilot_fixture_validates_not_publishable_with_exact_blockers() -> None:
     ]
 
 
-def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(tmp_path: Path) -> None:
+def test_synthetic_partial_bundle_keeps_only_completeness_blocker_after_identity_is_valid(tmp_path: Path) -> None:
     # Given: two site-released synthetic result bundles, one with publishable identity and one empty.
     populated = tmp_path / "populated.json"
     empty = tmp_path / "empty.json"
@@ -226,9 +226,9 @@ def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(t
     populated_result = validate_submission_bundle(populated)
     empty_result = validate_submission_bundle(empty)
 
-    # Then: the populated bundle clears the sampler/model/runtime blockers.
-    assert populated_result["publishable"] is True
-    assert populated_result["blocking_reasons"] == []
+    # Then: the populated partial bundle clears identity blockers but remains incomplete.
+    assert populated_result["publishable"] is False
+    assert populated_result["blocking_reasons"] == ["incomplete_run"]
     assert populated_result["missing_required_fields"] == []
 
     # And: absent fields still produce the exact blocker codes.
@@ -238,6 +238,7 @@ def test_synthetic_bundle_validation_clears_sampler_model_and_runtime_blockers(t
         "sampler.seed_unpinned",
         "model.identity_missing",
         "runtime.identity_missing",
+        "incomplete_run",
     ]
 
 
@@ -273,7 +274,7 @@ def test_result_bundle_normalization_preserves_optional_perf_and_item_timings() 
     bundle = normalize_result_bundle(record)
     validation = validate_result_bundle(bundle)
 
-    assert validation.blocking_reasons == []
+    assert validation.blocking_reasons == ["incomplete_run"]
     assert bundle["perf"] == perf
     assert bundle["items"] == [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
 
@@ -293,7 +294,7 @@ def test_normalized_published_record_contains_no_absolute_local_paths() -> None:
     }
     record["agentic_run"] = {
         "wsl_identity": {
-            "localbench_distribution_version": "0.4.2",
+            "localbench_distribution_version": "0.4.3.dev0",
             "worker_content_sha256": "b" * 64,
             "venv_path": "/home/michael/venv",
             "bwrap_path": "/home/michael/bin/bwrap",
@@ -346,7 +347,7 @@ def test_missing_manifest_version_normalizes_to_installed_version_not_legacy_def
 
     bundle = normalize_result_bundle(record)
 
-    assert bundle["manifest"]["provenance"]["cli_version"] == "0.4.2"
+    assert bundle["manifest"]["provenance"]["cli_version"] == "0.4.3.dev0"
 
 
 @_REQUIRES_PILOT
@@ -429,8 +430,8 @@ def test_validate_submission_bundle_accepts_structured_determinism_policy(
     result = validate_submission_bundle(path)
 
     # Then: a structured policy counts as present — no crash, no missing-policy blocker.
-    assert result["publishable"] is True
-    assert result["blocking_reasons"] == []
+    assert result["publishable"] is False
+    assert result["blocking_reasons"] == ["incomplete_run"]
 
 
 def _synthetic_result_bundle(*, identity: bool) -> dict[str, object]:

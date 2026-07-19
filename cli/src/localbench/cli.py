@@ -89,6 +89,7 @@ from localbench.scoring.axes import (
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
+from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
 from localbench.submissions.decision_log import (
     DecisionLogError,
@@ -121,7 +122,12 @@ from localbench.submissions.submit_run import (
     default_signing_key_path,
     submit_finished_run,
 )
-from localbench.submissions.submit_run_inputs import BundleInfo, SubmitInputError, bundle_info
+from localbench.submissions.submit_run_inputs import (
+    BundleInfo,
+    SubmitInputError,
+    bundle_info,
+    locate_run,
+)
 from localbench.submissions.foundation import (
     rescore_bundle as rescore_result_bundle,
     validate_submission_bundle as validate_result_bundle_file,
@@ -237,6 +243,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _kld(args)
     if args.command == "code":
         return _code(args)
+    if args.command == "grade-coding":
+        return _grade_coding(args)
     if args.command == "board":
         return _board(args)
     if args.command == "land-run":
@@ -480,6 +488,11 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--threads", type=int, default=8)
     bench_parser.add_argument("--threads-batch", type=int, default=8)
     bench_parser.add_argument("--yes", action="store_true", help="accept non-submission one-shot prompts")
+    bench_parser.add_argument(
+        "--allow-untrusted-code",
+        action="store_true",
+        help="consent to restricted-container execution of model-generated code",
+    )
     submit_choice = bench_parser.add_mutually_exclusive_group()
     submit_choice.add_argument("--submit", dest="one_shot_submit", action="store_true", default=None)
     submit_choice.add_argument("--no-submit", dest="one_shot_submit", action="store_false")
@@ -487,11 +500,6 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--vram-gb", type=float, help="usable VRAM budget for one-shot quant selection")
     bench_parser.add_argument("--llama-server-path", type=Path, help="llama-server binary for one-shot mode")
     bench_parser.add_argument("--offline", action="store_true", help="run one-shot local-only without site preflight")
-    bench_parser.add_argument(
-        "--static-only",
-        action="store_true",
-        help="run the five non-agentic axes; not eligible for the full six-axis index",
-    )
     bench_parser.add_argument("--allow-sleep-risk", action="store_true")
     bench_parser.add_argument("--purge-model", action="store_true")
     bench_parser.add_argument("--accept-suite-terms", action="store_true")
@@ -690,7 +698,7 @@ def _parser() -> argparse.ArgumentParser:
     code_parser.add_argument("--pending-run", type=Path, help="execute pending code artifacts in an existing run")
     code_parser.add_argument("--suite-dir", type=Path, help="suite dir (defaults to suite/v1)")
     code_parser.add_argument("--image", default=DEFAULT_IMAGE,
-                             help="bigcode evaluate Docker image; SHOULD be digest-pinned (repo@sha256:...)")
+                             help="digest-pinned bigcode evaluate Docker image (repo@sha256:...)")
     code_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
     code_parser.add_argument("--concurrency", type=int, default=4)
     code_parser.add_argument("--provider", choices=provider_choices(), default="local")
@@ -707,11 +715,23 @@ def _parser() -> argparse.ArgumentParser:
                              help="per-task wall-clock seconds inside the sandbox")
     code_parser.add_argument("--runtime", help="extra-isolation container runtime, e.g. runsc (gVisor) on Linux")
     code_parser.add_argument(
-        "--allow-unsafe-sandbox",
+        "--allow-untrusted-code",
         action="store_true",
-        help="override the fail-closed gate and run on rootful bare-Linux Docker with no second "
-        "isolation boundary (NOT recommended — install gVisor or use rootless Docker instead)",
+        help="consent to restricted-container execution of model-generated code",
     )
+    grade_coding_parser = subparsers.add_parser(
+        "grade-coding",
+        help="grade coding artifacts in an existing run or result bundle",
+    )
+    grade_coding_input = grade_coding_parser.add_mutually_exclusive_group(required=True)
+    grade_coding_input.add_argument("--run", type=Path, help="run JSON or campaign directory to grade in place")
+    grade_coding_input.add_argument("--bundle", type=Path, help="result bundle JSON or .lbsub.zip to grade")
+    grade_coding_parser.add_argument("--suite-dir", required=True, type=Path)
+    grade_coding_parser.add_argument("--out", type=Path, help="output JSON (defaults to in-place for --run)")
+    grade_coding_parser.add_argument("--image", default=DEFAULT_IMAGE)
+    grade_coding_parser.add_argument("--per-task-timeout", type=int, default=30)
+    grade_coding_parser.add_argument("--runtime")
+    grade_coding_parser.add_argument("--allow-untrusted-code", action="store_true")
     board_parser = subparsers.add_parser(
         "board",
         help="build scorer-side board_v2.json and release manifest",
@@ -1182,8 +1202,6 @@ def _setup_agentic(args: argparse.Namespace) -> int:
 
 
 def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
-    if bool(getattr(args, "static_only", False)):
-        return "--static-only requires a one-shot model positional argument"
     missing: list[str] = []
     if getattr(args, "runtime", None) is None:
         missing.append("--runtime")
@@ -2442,8 +2460,9 @@ def _kld(args: argparse.Namespace) -> int:
 
 def _code(args: argparse.Namespace) -> int:
     print(OPT_IN_WARNING)
-    if "@sha256:" not in args.image:
-        print(f"warning    image '{args.image}' is not digest-pinned; pin repo@sha256:... before a ranked run")
+    if not args.allow_untrusted_code:
+        print("error      explicit consent required: pass --allow-untrusted-code")
+        return 2
     if args.pending_run is None and (args.endpoint is None or args.model is None):
         print("error      --endpoint and --model are required unless --pending-run is used")
         return 2
@@ -2461,7 +2480,7 @@ def _code(args: argparse.Namespace) -> int:
         reasoning_effort=_reasoning_effort(args.reasoning_effort),
         per_task_timeout=args.per_task_timeout,
         runtime=args.runtime,
-        allow_unsafe_sandbox=args.allow_unsafe_sandbox,
+        allow_untrusted_code=True,
         receipt_signing_key=args.receipt_signing_key,
     )
     try:
@@ -2479,6 +2498,43 @@ def _code(args: argparse.Namespace) -> int:
         _print_coding_summary(run)
     else:
         print(f"output     {args.out or args.pending_run}")
+    return 0
+
+
+def _grade_coding(args: argparse.Namespace) -> int:
+    print(OPT_IN_WARNING)
+    if not args.allow_untrusted_code:
+        print("error      explicit consent required: pass --allow-untrusted-code")
+        return 2
+    try:
+        if args.run is not None:
+            run_path = locate_run(args.run).path
+            output_path = args.out or run_path
+            return _grade_coding_path(args, run_path, output_path)
+        loaded = load_result_bundle_input(args.bundle)
+        output_path = args.out or args.bundle.with_name(f"{args.bundle.stem}.coding-graded.json")
+        with tempfile.TemporaryDirectory(prefix="localbench-grade-coding-") as temp_name:
+            run_path = Path(temp_name) / "localbench-run.json"
+            write_json_file(run_path, loaded.record)
+            return _grade_coding_path(args, run_path, output_path)
+    except (CodingExecError, SubmissionValidationError, SubmitInputError, OSError) as error:
+        print(f"error      {error}")
+        return 2
+
+
+def _grade_coding_path(args: argparse.Namespace, run_path: Path, output_path: Path) -> int:
+    config = CodingExecConfig(
+        endpoint="",
+        model="existing-run-coding-grader",
+        suite_dir=args.suite_dir,
+        image=args.image,
+        out=None if output_path == run_path else output_path,
+        per_task_timeout=args.per_task_timeout,
+        runtime=args.runtime,
+        allow_untrusted_code=True,
+    )
+    execute_pending_artifacts(run_path, config)
+    print(f"output     {output_path}")
     return 0
 
 

@@ -159,14 +159,26 @@ def _item_record(
     source_item: JsonObject,
     request: JsonObject,
 ) -> JsonObject:
-    return {
+    if bench == "appworld_c":
+        return {
+            "schema_version": "localbench.submission-item.v1",
+            "sequence_index": index,
+            "bench": bench,
+            "item_id": item_id,
+            "suite_item_sha256": canonical_json_hash(source_item),
+            "request": {},
+            "response": {},
+            "usage": {},
+            "timing": {},
+            "client_scoring": {"correct": item.get("correct")},
+        }
+    record: JsonObject = {
         "schema_version": "localbench.submission-item.v1",
         "sequence_index": index,
         "bench": bench,
         "item_id": item_id,
         "suite_item_sha256": canonical_json_hash(source_item),
         "request": {
-            "messages": request.get("messages") if isinstance(request.get("messages"), list) else [],
             "sampling_params": _object(request.get("sampling_params")),
             "max_tokens": request.get("max_tokens"),
         },
@@ -188,6 +200,9 @@ def _item_record(
             "failure_kind": item.get("failure_kind"),
         },
     }
+    if isinstance(item.get("code_artifact"), dict):
+        record["code_artifact"] = _object(item.get("code_artifact"))
+    return record
 
 
 def _read_run(path: Path) -> JsonObject:

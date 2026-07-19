@@ -82,7 +82,7 @@
     "artifact_hashes": {"type": "object", "additionalProperties": false, "required": ["bundle_sha256", "projection_sha256", "public_artifact_manifest_sha256"], "properties": {"bundle_sha256": {"$ref": "#/$defs/digest"}, "projection_sha256": {"$ref": "#/$defs/digest"}, "public_artifact_manifest_sha256": {"$ref": "#/$defs/digest"}}},
     "origin": {"enum": ["project_anchor", "community"]},
     "trust_label": {"enum": ["project_anchor", "community_self_submitted", "community_re_scored"]},
-    "verification_level": {"const": "bundle_rescored"}, "agentic_provenance": {"enum": ["none", "project_attested", "self_reported"]},
+    "verification_level": {"enum": ["bundle_rescored", "client_reported"]}, "agentic_provenance": {"enum": ["none", "project_attested", "self_reported"]},
     "provenance_notes": {"type": "array", "items": {"type": "string"}},
     "rescore_modes": {
       "type": "object", "additionalProperties": false,

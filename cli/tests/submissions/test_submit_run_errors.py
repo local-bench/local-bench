@@ -10,8 +10,22 @@ import pytest
 from localbench.cli import main
 from localbench.submissions.keys import write_private_key
 
+from .test_submit_run_cli import _mark_complete
+
 _RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1"
 _MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f"
+
+
+@pytest.fixture(autouse=True)
+def _client_projection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "localbench.submissions.submit_run.client_reported_projection",
+        lambda *args, **kwargs: {"verification_level": "client_reported"},
+    )
+    monkeypatch.setattr(
+        "localbench.submissions.submit_run._resolve_run_suite_dir",
+        lambda suite: Path("."),
+    )
 
 
 def test_submit_run_maps_already_submitted_to_successful_info(
@@ -182,6 +196,7 @@ def _bundle(tmp_path: Path) -> Path:
         },
         "signature": {"algorithm": "Ed25519", "public_key": "ab" * 32, "signature": "cd" * 64},
     }
+    _mark_complete(run)
     path.write_text(json.dumps(run), encoding="utf-8")
     return path
 

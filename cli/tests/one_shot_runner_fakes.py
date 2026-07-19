@@ -5,10 +5,9 @@ import json
 from pathlib import Path
 
 from localbench.appliance.worker import APPWORLD_ROOT, VENV
+from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
 from localbench.one_shot.download import DownloadError
 from localbench.one_shot.runner import OneShotRunnerDeps
-from localbench.one_shot.serve_plan import STATIC_EXEC_BENCHES
-from localbench.one_shot.types import STATIC_EXEC_SUITE_IDENTITY
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.submissions.submit_run import SubmitRunOptions, SubmitRunResult
@@ -98,17 +97,6 @@ class _BenchRunner:
         self.options = options
         run_path = self._run_dir / "localbench-run.json"
         record: dict[str, object] = {"scores": {"headline_score": 0.73}, "warnings": []}
-        if options.suite == STATIC_EXEC_SUITE_IDENTITY.release_id:
-            record.update({
-                "manifest": {
-                    "suite": {
-                        "coverage_profile_id": "static-exec-5axis-v1",
-                        "suite_release_id": STATIC_EXEC_SUITE_IDENTITY.release_id,
-                        "suite_manifest_sha256": STATIC_EXEC_SUITE_IDENTITY.manifest_sha256,
-                    },
-                },
-                "benches": {bench: {} for bench in STATIC_EXEC_BENCHES},
-            })
         run_path.write_text(json.dumps(record), encoding="utf-8")
         return record
 
@@ -120,6 +108,25 @@ class _Submitter:
     def __call__(self, options: SubmitRunOptions) -> SubmitRunResult:
         self.calls.append(options)
         return SubmitRunResult(exit_code=0, lines=("submission sub_fake",))
+
+
+class _CodingGrader:
+    def __init__(self) -> None:
+        self.calls: list[tuple[Path, Path, str]] = []
+
+    def __call__(
+        self,
+        run_path: Path,
+        suite_dir: Path,
+        *,
+        image: str,
+        docker_env: DockerEnv,
+    ) -> dict[str, object]:
+        self.calls.append((run_path, suite_dir, image))
+        record = json.loads(run_path.read_text(encoding="utf-8"))
+        record["headline_complete"] = True
+        run_path.write_text(json.dumps(record), encoding="utf-8")
+        return record
 
 
 class _RawArtifactResolver:
@@ -149,6 +156,34 @@ def _agentic_preflight(_options, _root: Path) -> WslPreflightResult:
     )
 
 
+def _coding_sandbox_runner(
+    _argv: list[str],
+    _timeout_seconds: float,
+    _max_output_bytes: int,
+    _stdin_bytes: bytes,
+) -> RawRunResult:
+    report = {
+        "uid": 65534,
+        "rootfs_read_only": True,
+        "tmpfs": True,
+        "tmpfs_bytes": 64 * 1024 * 1024,
+        "interfaces": ["lo"],
+        "cap_eff": 0,
+        "no_new_privs": 1,
+        "seccomp": 2,
+        "pids_max": 256,
+        "memory_max": 2 * 1024 * 1024 * 1024,
+        "cpu_quota": 100000,
+        "cpu_period": 100000,
+    }
+    return RawRunResult(
+        exit_code=0,
+        stdout=json.dumps(report).encode(),
+        stderr=b"",
+        timed_out=False,
+    )
+
+
 def _deps(tmp_path: Path) -> OneShotRunnerDeps:
     return OneShotRunnerDeps(
         catalog_loader=_CatalogLoader(),
@@ -158,6 +193,15 @@ def _deps(tmp_path: Path) -> OneShotRunnerDeps:
         submitter=_Submitter(),
         raw_artifact_resolver=_RawArtifactResolver(),
         agentic_preflight=_agentic_preflight,
+        coding_docker_env=DockerEnv(
+            platform="windows",
+            desktop=True,
+            rootless=False,
+            runsc_available=False,
+            runc_version=(1, 2, 0),
+        ),
+        coding_sandbox_runner=_coding_sandbox_runner,
+        coding_grader=_CodingGrader(),
     )
 
 
@@ -167,7 +211,6 @@ def _args(
     one_shot_submit: bool | None = False,
     offline: bool = False,
     resume: Path | None = None,
-    static_only: bool = False,
 ) -> argparse.Namespace:
     return argparse.Namespace(
         one_shot_model="qwen3-6-27b",
@@ -177,8 +220,8 @@ def _args(
         quant="Q4_K_M",
         vram_gb=24.0,
         offline=offline,
-        static_only=static_only,
         allow_sleep_risk=False,
+        allow_untrusted_code=True,
         purge_model=False,
         llama_server_path=Path("llama-server.exe"),
         server_bin=None,
@@ -190,11 +233,7 @@ def _args(
             / "web"
             / "public"
             / "suites"
-            / (
-                "suite-v1-static-exec-5axis-v1"
-                if static_only
-                else "suite-v1-full-exec-6axis-v1"
-            )
+            / "suite-v1-full-exec-6axis-v1"
         ),
         suite_source=None,
         max_items=None,

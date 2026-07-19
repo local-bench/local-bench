@@ -35,10 +35,10 @@ def _rescore_item(
 ) -> ScoredItem:
     bench = _string_or_error(item.get("bench"), "bench")
     item_id = _string_or_error(item.get("item_id"), "item_id")
+    if bench in dynamic_benches:
+        return _verdict_carried_item(item, bench, item_id)
     suite_item = suite_items.get((bench, item_id))
     if suite_item is None:
-        if bench in dynamic_benches:
-            return _verdict_carried_item(item, bench, item_id)
         raise SubmissionValidationError(f"unknown item: {bench}/{item_id}")
     response = _object(item.get("response"))
     timing = _object(item.get("timing"))

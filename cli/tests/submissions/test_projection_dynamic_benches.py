@@ -18,10 +18,13 @@ from pathlib import Path
 import pytest
 
 from localbench.submissions.projection import (
+    _axis_status_from_dynamic_verdicts,
     _bench_aggregates,
     _dynamic_benches,
+    _locally_graded_benches,
     _scored_items,
 )
+from localbench.scoring.axis_status import axis_status_for_benches
 from localbench.submissions.validate import SubmissionValidationError, SuiteItem
 
 
@@ -84,6 +87,35 @@ def test_dynamic_benches_are_headline_axes_without_static_sources(tmp_path: Path
     assert dynamic == frozenset({"dynbench"})
 
 
+def test_dynamic_benches_come_from_release_manifest_coverage(tmp_path: Path) -> None:
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+    (suite_dir / "suite_release_manifest.json").write_text(
+        json.dumps(
+            {
+                "coverage_profile": {
+                    "benches": ["statbench", "dynbench", "candidate_without_items"],
+                },
+            },
+        ),
+        encoding="utf-8",
+    )
+    (suite_dir / "SCORECARD.json").write_text(
+        json.dumps(
+            {
+                "registry": [
+                    {"key": "agentic", "role": "headline", "benches": ["wrong_fallback"]},
+                ],
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    dynamic = _dynamic_benches(suite_dir, _static_suite_items())
+
+    assert dynamic == frozenset({"dynbench", "candidate_without_items"})
+
+
 def test_scored_items_carries_dynamic_verdicts_verbatim() -> None:
     items = [_dynamic_item("t1", correct=True), _dynamic_item("t2", correct=False)]
 
@@ -91,6 +123,33 @@ def test_scored_items_carries_dynamic_verdicts_verbatim() -> None:
 
     assert [(item["id"], item["correct"]) for item in scored] == [("t1", True), ("t2", False)]
     assert all(item["bench"] == "dynbench" for item in scored)
+
+
+def test_locally_graded_static_coding_verdict_is_carried() -> None:
+    suite_items = {
+        ("bigcodebench_hard", "code-1"): SuiteItem(
+            bench="bigcodebench_hard",
+            item_id="code-1",
+            source={"id": "code-1", "answer": "would-rescore-false"},
+            baseline=0.0,
+            item_sha256="0" * 64,
+        ),
+    }
+    item = {
+        **_dynamic_item("code-1", correct=True),
+        "bench": "bigcodebench_hard",
+        "code_artifact": {
+            "verdict_source": "verifier",
+            "image_digest": "image@sha256:" + "a" * 64,
+            "verdict": {"passed": True},
+        },
+    }
+
+    carried = _locally_graded_benches([item])
+    scored = _scored_items([item], suite_items, carried)
+
+    assert carried == frozenset({"bigcodebench_hard"})
+    assert scored[0]["correct"] is True
 
 
 def test_scored_items_still_rejects_unknown_bench() -> None:
@@ -137,3 +196,19 @@ def test_bench_aggregates_carried_bench_uses_zero_baseline() -> None:
     # Zero baseline: no guess-rate correction on a verdict bench.
     assert agg["chance_corrected"] == 0.5
     assert agg["n_errors"] == 0
+
+
+def test_dynamic_axis_status_requires_every_verdict_to_be_well_formed() -> None:
+    items = [_dynamic_item("t1", correct=True), _dynamic_item("t2", correct=False)]
+    items[1]["correct"] = None
+    suite_axes = {"agentic": {"benches": ["dynbench"]}}
+    status = axis_status_for_benches((), suite_axes)
+
+    adjusted = _axis_status_from_dynamic_verdicts(
+        status,
+        items,
+        frozenset({"dynbench"}),
+        suite_axes,
+    )
+
+    assert adjusted["axes"]["agentic"]["status"] == "not_measured"

@@ -10,6 +10,7 @@ from localbench.scoring.comparison_guard import lineage_composite_delta
 from localbench.scoring.editorial import (
     INDEX_VERSION_V3,
     INDEX_VERSION_V4,
+    index_version_for_benches,
     index_version_for_coverage_profile,
 )
 from localbench.scoring.paired_delta import compare_runs
@@ -22,10 +23,24 @@ def test_editorial_label_is_keyed_by_coverage_profile_identity() -> None:
         index_version_for_coverage_profile("full-exec-tooluse-5axis-v2")
         == INDEX_VERSION_V4
     )
-    assert index_version_for_coverage_profile("full-exec-6axis-v1") == INDEX_VERSION_V3
+    assert index_version_for_coverage_profile("full-exec-6axis-v1") == INDEX_VERSION_V4
     assert (
         index_version_for_coverage_profile("static-exec-5axis-v1") == INDEX_VERSION_V3
     )
+
+
+def test_editorial_label_maps_complete_six_axis_benches_to_current_index() -> None:
+    benches = {
+        "mmlu_pro",
+        "ifbench",
+        "tc_json_v1",
+        "bigcodebench_hard",
+        "olymmath_hard",
+        "amo",
+        "appworld_c",
+    }
+
+    assert index_version_for_benches(benches) == INDEX_VERSION_V4
 
 
 def test_season2_rescore_complete_record_emits_v4_strict_composite_and_facets() -> None:

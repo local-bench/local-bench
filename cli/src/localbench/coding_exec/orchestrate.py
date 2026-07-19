@@ -14,15 +14,15 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import tempfile
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Final, TypedDict
+from typing import Final, TypedDict, cast
 
 import httpx
 
 from localbench._requests import utc_now
+from localbench._scoring import BenchAggregate
 from localbench._suite import item_hashes, read_json_object, render_benches, suite_version
 from localbench._types import JsonObject
 from localbench.coding_exec.ast_gate import ASTGateResult, check_ast_gate
@@ -40,7 +40,7 @@ from localbench.coding_exec.sandbox import (
     DockerEnv,
     SandboxLimits,
     docker_run_argv,
-    preflight_checks,
+    preflight_sandbox_controls,
     probe_docker_env,
     run_sandboxed,
 )
@@ -49,10 +49,15 @@ from localbench.coding_exec.score import BENCH, CodingExecScore, score_coding_ex
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
 from localbench.scoring.scorecard import scorecard_identity
+from localbench.scoring.axis_status import AxisStatusBlock, axis_status_for_benches
+from localbench.submissions.foundation import result_bundle_headline_complete
+from localbench.submissions.foundation_scores import score_summary
 
 SCHEMA: Final = "localbench-coding-exec-v1"
-# bigcode's evaluation image; SHOULD be digest-pinned (repo@sha256:...) before a real run.
-DEFAULT_IMAGE: Final = "bigcodebench/bigcodebench-evaluate:latest"
+DEFAULT_IMAGE: Final = (
+    "bigcodebench/bigcodebench-evaluate@sha256:"
+    "a3cd34ec3840a49d6b7afb240f4bdd47c350bc5991043fd0a91773830f7cd405"
+)
 _CONTAINER_OVERHEAD_SECONDS: Final = 300
 
 
@@ -77,7 +82,7 @@ class CodingExecConfig:
     per_task_timeout: int = 30
     limits: SandboxLimits = SandboxLimits()
     runtime: str | None = None
-    allow_unsafe_sandbox: bool = False  # explicit override for the rootful-bare-Linux fail-closed gate
+    allow_untrusted_code: bool = False
     receipt_signing_key: Path | None = None
 
 
@@ -90,6 +95,35 @@ class CodingExecRun(TypedDict):
     output_path: str
 
 
+def _preflight_coding_sandbox(
+    config: CodingExecConfig,
+    docker_env: DockerEnv | None,
+    sandbox_runner: SandboxRunner | None,
+) -> tuple[CodingExecConfig, tuple[str, ...]]:
+    if not config.allow_untrusted_code:
+        raise CodingExecError(
+            f"{OPT_IN_WARNING} Refusing to continue without explicit consent; "
+            "pass --allow-untrusted-code."
+        )
+    env = docker_env if docker_env is not None else probe_docker_env()
+    preflight = preflight_sandbox_controls(
+        config.image,
+        env,
+        limits=config.limits,
+        runtime=config.runtime,
+        runner=sandbox_runner,
+    )
+    if not preflight.ok:
+        raise CodingExecError(
+            "sandbox preflight failed — refusing to run model-generated code: "
+            + "; ".join(preflight.blockers)
+        )
+    return (
+        replace(config, runtime=config.runtime or preflight.runtime),
+        tuple(f"sandbox: {note}" for note in preflight.warnings),
+    )
+
+
 async def run_coding_exec(
     config: CodingExecConfig,
     *,
@@ -97,22 +131,9 @@ async def run_coding_exec(
     sandbox_runner: SandboxRunner | None = None,
     docker_env: DockerEnv | None = None,
 ) -> CodingExecRun:
+    config, preflight_warnings = _preflight_coding_sandbox(config, docker_env, sandbox_runner)
     suite = read_json_object(config.suite_dir / "suite.json")
-    warnings: list[str] = []
-
-    # SECURITY GATE (fail fast, before the generation pass): refuse to execute untrusted
-    # model code unless the host has a sufficient sandbox boundary. `docker_env` is injected
-    # in tests; a real run probes the host. preflight may auto-select gVisor as the runtime.
-    env = docker_env if docker_env is not None else probe_docker_env()
-    preflight = preflight_checks(env, allow_unsafe=config.allow_unsafe_sandbox)
-    warnings.extend(f"sandbox: {note}" for note in preflight.warnings)
-    if not preflight.ok:
-        raise CodingExecError(
-            "sandbox preflight failed — refusing to run model-generated code: "
-            + "; ".join(preflight.blockers)
-            + " (override with allow_unsafe_sandbox if you accept the risk)"
-        )
-    config = replace(config, runtime=config.runtime or preflight.runtime)
+    warnings = list(preflight_warnings)
 
     rendered = render_benches(BENCH, config.tier, config.max_items, config.suite_dir, suite, warnings)
     if not rendered:
@@ -160,15 +181,7 @@ def execute_pending_artifacts(
     sandbox_runner: SandboxRunner | None = None,
     docker_env: DockerEnv | None = None,
 ) -> JsonObject:
-    env = docker_env if docker_env is not None else probe_docker_env()
-    preflight = preflight_checks(env, allow_unsafe=config.allow_unsafe_sandbox)
-    if not preflight.ok:
-        raise CodingExecError(
-            "sandbox preflight failed — refusing to run model-generated code: "
-            + "; ".join(preflight.blockers)
-            + " (override with allow_unsafe_sandbox if you accept the risk)"
-        )
-    config = replace(config, runtime=config.runtime or preflight.runtime)
+    config, _warnings = _preflight_coding_sandbox(config, docker_env, sandbox_runner)
     source_bytes = run_path.read_bytes()
     run = read_json_object(run_path)
     suite = read_json_object(config.suite_dir / "suite.json")
@@ -211,6 +224,8 @@ def execute_pending_artifacts(
     if not tasks:
         if rejected_any:
             _refresh_bigcodebench_aggregate(run)
+        if _coding_items_fully_graded(run):
+            _refresh_run_after_coding(run)
         _attach_receipt_if_requested(run, source_bytes=source_bytes, config=config)
         write_json(run, config.out or run_path)
         return run
@@ -229,6 +244,8 @@ def execute_pending_artifacts(
             )
             item["correct"] = bool(result.get("passed"))
     _refresh_bigcodebench_aggregate(run)
+    if _coding_items_fully_graded(run):
+        _refresh_run_after_coding(run)
     _attach_receipt_if_requested(run, source_bytes=source_bytes, config=config)
     output_path = config.out or run_path
     write_json(run, output_path)
@@ -327,28 +344,61 @@ def _refresh_bigcodebench_aggregate(run: JsonObject) -> None:
     }
 
 
+def _refresh_run_after_coding(run: JsonObject) -> None:
+    benches = run.get("benches")
+    if not isinstance(benches, dict):
+        return
+    manifest = run.get("manifest")
+    suite = manifest.get("suite") if isinstance(manifest, dict) else None
+    membership = suite.get("axis_membership") if isinstance(suite, dict) else None
+    suite_axes = (
+        {axis: {"benches": names} for axis, names in membership.items()}
+        if isinstance(membership, dict)
+        else None
+    )
+    axis_status = axis_status_for_benches(benches, suite_axes)
+    run["axis_status"] = cast(JsonObject, axis_status)
+    run["scores"] = score_summary(
+        cast(dict[str, BenchAggregate], benches),
+        cast(AxisStatusBlock, axis_status),
+        suite_axes=suite_axes,
+    )
+    run["headline_complete"] = result_bundle_headline_complete(run)
+
+
+def _coding_items_fully_graded(run: JsonObject) -> bool:
+    items = [item for item in _run_items(run) if item.get("bench") == BENCH]
+    return bool(items) and all(
+        item.get("failure_kind") == "coding_ast_rejected"
+        or (
+            isinstance(item.get("code_artifact"), dict)
+            and item["code_artifact"].get("verdict_source") == "verifier"
+        )
+        for item in items
+    )
+
+
 def _execute(
     tasks: list[JsonObject],
     config: CodingExecConfig,
     sandbox_runner: SandboxRunner | None,
 ) -> list[JsonObject]:
     runner_path = Path(runner_module.__file__).resolve()
+    runner_source = runner_path.read_text(encoding="utf-8")
     container_seconds = config.per_task_timeout * len(tasks) + _CONTAINER_OVERHEAD_SECONDS
     limits = replace(config.limits, wall_clock_seconds=container_seconds)
-    with tempfile.TemporaryDirectory() as work:
-        tasks_path = Path(work) / "tasks.json"
-        tasks_path.write_text(json.dumps(tasks), encoding="utf-8")
-        argv = docker_run_argv(
-            config.image,
-            ["python", "/work/runner.py", "/work/tasks.json", str(config.per_task_timeout)],
-            limits=limits,
-            read_only_mounts=[
-                (str(runner_path), "/work/runner.py"),
-                (str(tasks_path), "/work/tasks.json"),
-            ],
-            runtime=config.runtime,
-        )
-        result = run_sandboxed(argv, limits=limits, runner=sandbox_runner)
+    argv = docker_run_argv(
+        config.image,
+        ["python", "-c", runner_source, "-", str(config.per_task_timeout)],
+        limits=limits,
+        runtime=config.runtime,
+    )
+    result = run_sandboxed(
+        argv,
+        limits=limits,
+        runner=sandbox_runner,
+        stdin_bytes=json.dumps(tasks).encode("utf-8"),
+    )
     if result["timed_out"] or result["exit_code"] != 0:
         raise CodingExecError(
             f"sandbox container failed (exit={result['exit_code']}, timed_out={result['timed_out']}): "
@@ -375,8 +425,6 @@ def ranked_eligibility(config: CodingExecConfig) -> tuple[bool, list[str]]:
     reasons: list[str] = []
     if "@sha256:" not in config.image:
         reasons.append("image not digest-pinned (repo@sha256:...) — container runtime + deps not locked")
-    if config.allow_unsafe_sandbox:
-        reasons.append("allow_unsafe_sandbox override used — sandbox isolation not guaranteed")
     return (not reasons, reasons)
 
 
@@ -398,7 +446,7 @@ def _manifest(
         "ranked_eligible": ranked_eligible,
         "ranked_ineligible_reasons": ranked_reasons,
         "runtime": config.runtime,
-        "allow_unsafe_sandbox": config.allow_unsafe_sandbox,
+        "untrusted_code_consent": config.allow_untrusted_code,
         "model": config.model,
         "suite_version": suite_version(suite),
         "item_set_hashes": item_hashes(config.suite_dir, [f"{BENCH}.jsonl"]),

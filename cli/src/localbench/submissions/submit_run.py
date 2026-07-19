@@ -22,6 +22,9 @@ from localbench.submissions.client import (
 )
 from localbench.submissions.crypto import sign_bytes
 from localbench.submissions.foundation import is_site_released_suite_pair, site_released_suite_pairs
+from localbench.submissions.bundle_input import load_result_bundle_input
+from localbench.submissions.foundation import result_bundle_headline_complete
+from localbench.submissions.projection import client_reported_projection
 from localbench.submissions.submit_run_inputs import (
     DEFAULT_SITE,
     BundleInfo,
@@ -33,6 +36,7 @@ from localbench.submissions.submit_run_inputs import (
     key_lines,
     prepare_bundle,
     read_config,
+    _resolve_run_suite_dir,
     resolve_key,
     submit_config_path,
     write_config,
@@ -105,17 +109,35 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
                 temp_dir=Path(temp_name),
             )
             lines.extend(bundle_lines(bundle))
+            if not result_bundle_headline_complete(load_result_bundle_input(bundle.path).record):
+                raise SubmitInputError(
+                    "incomplete_run: submissions require all six headline axes; "
+                    "finish coding and agentic grading before submitting",
+                )
             if options.dry_run:
                 lines.extend(dry_run_lines(site, key.public_key, display_name, bundle))
                 return SubmitRunResult(exit_code=0, lines=tuple(lines))
             _precheck_registered_suite_pair(bundle)
+            record = load_result_bundle_input(bundle.path).record
+            manifest = record.get("manifest")
+            suite = manifest.get("suite") if isinstance(manifest, dict) else None
+            projection_suite_dir = (
+                options.suite_dir
+                if options.suite_dir is not None
+                else _resolve_run_suite_dir(suite if isinstance(suite, dict) else {})
+            )
+            projection = client_reported_projection(
+                bundle.path,
+                suite_dir=projection_suite_dir,
+                validated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            )
             ticket = _request_ticket(site, options, key, display_name, bundle)
             try:
-                upload = _upload_bundle(site, options, ticket, bundle.path)
+                upload = _upload_bundle(site, options, ticket, bundle.path, projection)
             except TicketExpiredError:
                 ticket = _request_ticket(site, options, key, display_name, bundle)
                 try:
-                    upload = _upload_bundle(site, options, ticket, bundle.path)
+                    upload = _upload_bundle(site, options, ticket, bundle.path, projection)
                 except TicketExpiredError as error:
                     raise SubmitRunError("ticket expired again after rotation") from error
             submission_id = _text(upload.get("submission_id")) or ticket["ticket_id"]
@@ -197,6 +219,7 @@ def _upload_bundle(
     options: SubmitRunOptions,
     envelope: dict[str, JsonValue],
     bundle_path: Path,
+    projection: JsonObject,
 ) -> JsonObject:
     try:
         return upload_submission_bundle(
@@ -204,6 +227,7 @@ def _upload_bundle(
                 bundle_path=bundle_path,
                 credentials=SiteCredentials(site=site, bypass_token=_bypass_token(options)),
                 envelope=envelope,
+                accepted_result_projection=projection,
             ),
         )
     except httpx.RequestError as error:

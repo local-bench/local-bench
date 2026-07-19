@@ -122,7 +122,7 @@ class HttpDownloader:
             timeout=120,
             verify=verify,
             trust_env=True,
-            headers={"user-agent": "localbench-appliance/0.4.2"},
+            headers={"user-agent": "localbench-appliance/0.4.3.dev0"},
         )
 
     def get(self, url: str, *, maximum_bytes: int) -> bytes:
