@@ -267,6 +267,24 @@ def test_native_materialization_rejects_archive_path_traversal(tmp_path: Path) -
     assert not (tmp_path / "outside").exists()
 
 
+def test_native_provisioning_copies_host_dns_into_rootfs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import localbench.appliance.native_provisioner as native_provisioner_module
+
+    resolv = tmp_path / "host-resolv.conf"
+    resolv.write_text("nameserver 1.1.1.1\n", encoding="utf-8")
+    monkeypatch.setattr(
+        native_provisioner_module, "_HOST_DNS_FILES", (resolv,), raising=False
+    )
+    provisioner, _boundary, runtime_dir = _native_provisioner(tmp_path, monkeypatch)
+
+    provisioner.ensure_active()
+
+    copied = runtime_dir / "rootfs/etc/host-resolv.conf"
+    assert copied.read_text(encoding="utf-8") == "nameserver 1.1.1.1\n"
+
+
 def test_native_materialization_extracts_relative_links_to_absolute_symlinks(
     tmp_path: Path,
 ) -> None:

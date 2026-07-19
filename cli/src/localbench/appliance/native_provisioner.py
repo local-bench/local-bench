@@ -24,6 +24,12 @@ from localbench.appliance.provisioner import (
 )
 from localbench.persistence import atomic_write_json
 
+# The rootfs ships without resolv.conf (WSL injects its own); the provisioning
+# jail keeps / read-only, so host DNS config is copied into the materialized
+# rootfs before launch instead of bind-mounted. Non-critical paths - the
+# post-provision re-verification still gates every critical hash.
+_HOST_DNS_FILES = (Path("/etc/resolv.conf"), Path("/etc/hosts"))
+
 
 class NativeApplianceProvisioner:
     def __init__(self, owner: ApplianceProvisioner) -> None:
@@ -131,6 +137,11 @@ class NativeApplianceProvisioner:
 
     def _provision_appworld(self, rootfs: Path, manifest: JsonObject) -> None:
         environment = self._worker_environment()
+        for source in _HOST_DNS_FILES:
+            if source.is_file():
+                destination = rootfs / "etc" / source.name
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(source.read_bytes())
         ca = self.owner.environ.get("LOCALBENCH_CA_BUNDLE")
         if ca:
             source = Path(ca).expanduser()

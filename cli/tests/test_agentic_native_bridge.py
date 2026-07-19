@@ -149,13 +149,10 @@ def test_linux_managed_process_identity_anchors_outer_bwrap(
     )
 
 
-def test_native_provisioning_mounts_host_dns_without_unsharing_network(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_native_provisioning_keeps_network_without_binding_host_paths(
+    tmp_path: Path,
 ) -> None:
     rootfs = _active_native_runtime(tmp_path / "LocalBench")
-    resolv = tmp_path / "resolv.conf"
-    resolv.write_text("nameserver 1.1.1.1\n", encoding="utf-8")
-    monkeypatch.setattr(native_worker, "_NETWORK_FILES", (resolv,), raising=False)
 
     argv = native_worker.native_worker_argv(
         native_worker.NativeWorkerSpec(
@@ -176,7 +173,6 @@ def test_native_provisioning_mounts_host_dns_without_unsharing_network(
     assert any(
         tuple(argv[index : index + 3]) == venv_binding for index in range(len(argv) - 2)
     )
-    dns_binding = ("--ro-bind", str(resolv), str(resolv))
-    assert any(
-        tuple(argv[index : index + 3]) == dns_binding for index in range(len(argv) - 2)
-    )
+    for index, token in enumerate(argv):
+        if token in {"--ro-bind", "--bind"}:
+            assert argv[index + 1].startswith(str(rootfs))

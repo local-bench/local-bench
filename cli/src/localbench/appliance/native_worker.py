@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
 
 from localbench.appliance.provisioner import (
     CommandResult,
@@ -14,8 +13,6 @@ from localbench.scoring.agentic_exec.sandbox_policy import (
     mandatory_bubblewrap_isolation,
     provisioning_bubblewrap_isolation,
 )
-
-_NETWORK_FILES: Final = (Path("/etc/resolv.conf"), Path("/etc/hosts"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,10 +62,6 @@ def native_worker_argv(spec: NativeWorkerSpec) -> tuple[str, ...]:
                 "/opt/localbench/venv",
             ]
         )
-    if spec.network:
-        for path in _NETWORK_FILES:
-            if path.is_file():
-                argv.extend(("--ro-bind", str(path), str(path)))
     argv.extend(
         [
             "--proc",
