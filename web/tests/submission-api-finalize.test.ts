@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { handleFinalizeSubmission } from "../functions/_lib/submission-api";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv } from "../functions/_lib/submission-contracts";
-import { resultBundle as fullResultBundle } from "./submission-test-support";
+import { completeProjection, resultBundle as fullResultBundle } from "./submission-test-support";
 
 const TICKET_ID = "ticket_unit_finalize";
 const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -26,8 +26,8 @@ describe("handleFinalizeSubmission", () => {
     // Then: the route returns the same contract error as other invalid complete requests.
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
-      code: "invalid_complete_request",
-      error: "invalid upload completion request",
+      code: "schema_violation",
+      error: "submission projection is invalid",
     });
   });
 
@@ -39,9 +39,10 @@ describe("handleFinalizeSubmission", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     try {
-      // When: finalization reaches the D1 pending-verification update.
+      // When: finalization reaches the atomic D1 publication update.
       const response = await handleFinalizeSubmission(
         jsonRequest(`/api/submissions/${TICKET_ID}/complete`, {
+          accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
           raw_bundle_sha256: RAW_BUNDLE_SHA,
           size_bytes: RESULT_BUNDLE_JSON.length,
         }),
@@ -58,7 +59,7 @@ describe("handleFinalizeSubmission", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         "submission_finalize_failed",
         expect.objectContaining({
-          leg: "mark_pending_verification",
+          leg: "publish_submitted_projection",
           route: "POST /api/submissions/:submissionId/complete",
           submission_id: TICKET_ID,
         }),
@@ -74,21 +75,26 @@ type FakeEnvOptions = {
 };
 
 function fakeEnv(options: FakeEnvOptions): SubmissionApiEnv {
-  const bundleBytes = new TextEncoder().encode(RESULT_BUNDLE_JSON);
+  const objects = new Map<string, string>([[rawBundleKey(RAW_BUNDLE_SHA), RESULT_BUNDLE_JSON]]);
   return {
     DB: new FakeD1Database(options),
     SUBMISSIONS: {
-      delete: async () => undefined,
+      delete: async (key: string) => { objects.delete(key); },
       get: async (key: string) => {
-        if (key !== rawBundleKey(RAW_BUNDLE_SHA)) {
+        const value = objects.get(key);
+        if (value === undefined) {
           return null;
         }
+        const bytes = new TextEncoder().encode(value);
         return {
-          body: new ReadableStream({ start: (controller) => { controller.enqueue(bundleBytes); controller.close(); } }),
-          text: async () => RESULT_BUNDLE_JSON,
+          body: new ReadableStream({ start: (controller) => { controller.enqueue(bytes); controller.close(); } }),
+          size: bytes.byteLength,
         };
       },
-      put: async () => undefined,
+      put: async (key: string, value: string | ArrayBuffer | ArrayBufferView | Blob | ReadableStream) => {
+        if (typeof value !== "string") throw new TypeError("fake R2 accepts string fixtures only");
+        objects.set(key, value);
+      },
     },
   };
 }
@@ -100,6 +106,10 @@ class FakeD1Database implements D1DatabaseBinding {
 
   async exec(): Promise<unknown> {
     return undefined;
+  }
+
+  async batch(statements: readonly D1PreparedStatement[]) {
+    return Promise.all(statements.map((statement) => statement.run()));
   }
 
   prepare(query: string): D1PreparedStatement {
@@ -132,11 +142,11 @@ class FakeD1Statement implements D1PreparedStatement {
     return null;
   }
 
-  async run(): Promise<{ readonly success: boolean }> {
+  async run(): Promise<{ readonly success: boolean; readonly meta: { readonly changes: number } }> {
     if (this.query.includes("update submissions set") && this.options.runErrorMessage !== undefined) {
       throw new SyntaxError(this.options.runErrorMessage);
     }
-    return { success: true };
+    return { meta: { changes: 1 }, success: true };
   }
 
   async all(): Promise<{ readonly results: readonly Record<string, unknown>[] }> {

@@ -43,7 +43,10 @@ describe("publish-then-moderate admin APIs", () => {
         request: getRequest(`/api/admin/submissions/${envelope.ticket_id}/bundle`, headers),
       });
       expect(response.status).toBe(200);
-      expect(response.headers.get("content-type")).toBe("application/json");
+      expect(response.headers.get("content-type")).toBe("application/octet-stream");
+      expect(response.headers.get("content-disposition")).toBe(
+        `attachment; filename="localbench-bundle-${RAW_BUNDLE_SHA}.json"`,
+      );
       expect(await response.text()).toBe(RESULT_BUNDLE_JSON);
     }
   });

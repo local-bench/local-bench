@@ -26,6 +26,10 @@ const TimestampSchema = z.string().regex(ISO_8601_RE).refine((value) => !Number.
 const IdSchema = safeText(140, 1);
 const AxisKeySchema = safeText(40, 1);
 const RepoIdSchema = safeText(140, 1);
+const HfRepoSchema = safeText(140, 3).regex(/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/u);
+const HfFilenameSchema = safeText(240, 1).refine(
+  (value) => !value.startsWith("/") && !value.includes("\\") && !value.includes("://") && !value.split("/").includes(".."),
+);
 
 const ScoresSchema = z.object({
   composite_full: ScoreSchema.nullable().optional(),
@@ -105,12 +109,51 @@ const RescoreModesSchema = z.object({
   tc_json_v1: z.enum(["rescored", "verdict_carried"]).optional(),
 }).strict().readonly();
 
+const OriginChipSchema = z.enum(["maintainer-run", "self-reported"]);
+const LegacyLiveTrustSchema = z.object({
+  agentic_provenance: safeText(32, 1),
+  chip: OriginChipSchema.optional(),
+  coding_state: safeText(32, 1),
+  replicated: z.boolean(),
+  tier: safeText(32, 1),
+  trust_label: safeText(32, 1),
+  verification_level: safeText(32, 1),
+}).strict();
+const OriginChipTrustSchema = z.object({ chip: OriginChipSchema }).strict();
+type NormalizedLiveTrust = {
+  readonly agentic_provenance: string;
+  readonly chip?: "maintainer-run" | "self-reported";
+  readonly coding_state: string;
+  readonly replicated: boolean;
+  readonly tier: string;
+  readonly trust_label: string;
+  readonly verification_level: string;
+};
+const LiveTrustSchema = z.union([OriginChipTrustSchema, LegacyLiveTrustSchema]).transform((trust): NormalizedLiveTrust => {
+  if ("agentic_provenance" in trust) {
+    return {
+      ...trust,
+      chip: trust.chip ?? (trust.trust_label === "project_anchor" ? "maintainer-run" : "self-reported"),
+    };
+  }
+  return {
+    agentic_provenance: trust.chip === "maintainer-run" ? "attested" : "self-reported",
+    chip: trust.chip,
+    coding_state: "client-reported",
+    replicated: false,
+    tier: trust.chip,
+    trust_label: trust.chip === "maintainer-run" ? "project_anchor" : "community_self_submitted",
+    verification_level: "client_reported",
+  };
+});
+
 export const LiveBoardRowSchema = z.object({
   axes: AxesSchema,
-  community_model_group_id: z.string().regex(GROUP_ID_RE),
+  badge: z.literal("project-run").optional(),
+  community_model_group_id: z.string().regex(GROUP_ID_RE).optional(),
   conformance: ConformanceSchema,
   coverage_profile_id: IdSchema,
-  group_path: safeText(140, 1),
+  group_path: safeText(140, 1).optional(),
   headline_complete: z.boolean(),
   index_version: safeText(32, 1).nullable(),
   lineage: z.object({ base_model: z.array(RepoIdSchema).max(8).readonly() }).strict().readonly(),
@@ -120,21 +163,34 @@ export const LiveBoardRowSchema = z.object({
     display_name: safeText(120).nullable(),
     family: safeText(64).nullable(),
     file_sha256: Sha256Schema,
-    identity_status: z.enum(["unverified", "maintainer_verified"]),
+    hf: z.object({ filename: HfFilenameSchema, repo: HfRepoSchema, revision: RevisionSchema }).strict().readonly().optional(),
+    identity_status: z.enum(["unverified", "maintainer_verified"]).optional(),
     model_system_key: z.string().regex(/^artifact:[0-9a-f]{64}$/u),
     quant_label: safeText(32).nullable(),
   }).strict().readonly(),
-  origin: z.literal("community"),
+  origin: z.enum(["community", "project_anchor"]),
+  normalization_annotations: z.array(z.object({
+    client_values: z.object({
+      composite_full: ScoreSchema.nullable(),
+      headline_score: ScoreSchema.nullable(),
+      partial_composite: ScoreSchema,
+    }).strict().readonly(),
+    code: z.literal("client_composite_drift"),
+    fields: z.array(z.enum(["headline_score", "partial_composite", "composite_full"])).min(1).max(3).readonly(),
+    server_value: ScoreSchema,
+  }).strict().readonly()).max(1).readonly().optional(),
   provenance_notes: z.array(safeText(300)).max(16).readonly().optional(),
+  ranked: z.boolean().optional(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict().readonly(),
   rescore_modes: RescoreModesSchema,
   scorecard_id: IdSchema,
   scores: ScoresSchema,
   submission_id: z.string().regex(SUBMISSION_ID_RE),
   submitter: z.object({
-    display_name: safeText(80).nullable(),
+    display_name: safeText(80).nullable().optional(),
     github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
     key_fingerprint: z.string().regex(FINGERPRINT_RE).nullable(),
+    unverified_handle: safeText(80).nullable().optional(),
   }).strict().readonly(),
   suite_release_id: IdSchema,
   timestamps: z.object({
@@ -142,17 +198,25 @@ export const LiveBoardRowSchema = z.object({
     submitted_at: TimestampSchema,
     validated_at: TimestampSchema,
   }).strict().readonly(),
-  trust: z.object({
-    agentic_provenance: safeText(32, 1),
-    coding_state: safeText(32, 1),
-    replicated: z.boolean(),
-    tier: safeText(32, 1),
-    trust_label: safeText(32, 1),
-    verification_level: safeText(32, 1),
-  }).strict().readonly(),
+  trust: LiveTrustSchema.optional(),
 }).strict().readonly().superRefine((row, context) => {
-  const suffix = row.community_model_group_id.replace("community-group:", "");
-  if (row.group_path !== `community/groups/${suffix}.json`) {
+  if (row.trust === undefined) {
+    if (row.origin === "project_anchor" && row.badge !== "project-run") {
+      context.addIssue({ code: "custom", message: "project rows require the project-run badge" });
+    }
+    if (row.origin === "community" && row.badge !== undefined) {
+      context.addIssue({ code: "custom", message: "community rows must remain unmarked" });
+    }
+  } else {
+    const expectedChip = row.origin === "project_anchor" ? "maintainer-run" : "self-reported";
+    if (row.trust.chip !== expectedChip) {
+      context.addIssue({ code: "custom", message: "legacy trust chip must be derived from origin" });
+    }
+  }
+  if (row.origin === "community" && (row.community_model_group_id === undefined || row.group_path === undefined)) {
+    context.addIssue({ code: "custom", message: "community rows require a model group" });
+  }
+  if (row.community_model_group_id !== undefined && row.group_path !== `community/groups/${row.community_model_group_id.replace("community-group:", "")}.json`) {
     context.addIssue({ code: "custom", message: "group_path must match community_model_group_id" });
   }
 });

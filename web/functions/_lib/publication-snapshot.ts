@@ -43,9 +43,10 @@ export async function handleCreatePublicationSnapshot(request: Request, env: Sub
         suite_release_id, suite_manifest_sha256, coalesce(zt1_decision, 'maintainer'),
         coalesce(zt1_coding_state, 'unverified'), community_model_group_id
       from submissions
-      where status = 'accepted' and origin = 'community' and publish_state in ('preview', 'published')
+      where origin = 'community'
+        and (status = 'published' or (status = 'accepted' and publish_state in ('preview', 'published')))
         and projection_object_sha256 is not null and projection_r2_key is not null
-        and community_model_group_id is not null and coalesce(zt1_decision, '') <> 'escalated'
+        and community_model_group_id is not null
       order by coalesce(validated_at, created_at) asc, submission_id asc`,
     ).bind(snapshotId),
   ];

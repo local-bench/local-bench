@@ -22,7 +22,7 @@ const GITHUB_LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u;
 const LifecycleRowSchema = z.object({
   created_at: InstantSchema,
   declared_model_slug: safeText(120, 1).nullable(),
-  held_for_review: z.boolean(),
+  held_for_review: z.boolean().optional(),
   published_at: InstantSchema.nullable(),
   publish_state: z.enum(["hidden", "preview", "published"]),
   reason_code: ReasonCodeSchema.nullable().optional(),
@@ -109,7 +109,6 @@ export function mergeSubmissionLifecycleRows(
 }
 
 function lifecycleStateLabel(row: SubmissionLifecycleRow): string {
-  if (row.held_for_review) return "Held for review";
   if (row.publish_state === "published") return "Published";
   return statusCopy(row.status).label;
 }

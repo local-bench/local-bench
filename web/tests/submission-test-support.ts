@@ -21,6 +21,7 @@ export const MIGRATION_0012 = readFileSync(new URL("../migrations/0012_maintaine
 export const MIGRATION_0013 = readFileSync(new URL("../migrations/0013_community_model_groups.sql", import.meta.url), "utf-8");
 export const MIGRATION_0014 = readFileSync(new URL("../migrations/0014_projection_storage_fences.sql", import.meta.url), "utf-8");
 export const MIGRATION_0015 = readFileSync(new URL("../migrations/0015_accounts.sql", import.meta.url), "utf-8");
+export const MIGRATION_0016 = readFileSync(new URL("../migrations/0016_client_reported_projection.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const TEST_COMMUNITY_GROUP_ID = `community-group:${"1".repeat(32)}`;
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -89,7 +90,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  const migrations = options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015];
+  const migrations = options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016];
   for (const migration of migrations) {
     await applyMigration(bindings.DB, migration);
   }
@@ -307,6 +308,85 @@ export function statusUpdate(
     validated_at: "2026-06-30T00:00:00Z",
     validator_commit: "440f540",
     validator_version: "localbench.submission-validator.v1",
+  };
+}
+
+export function completeProjection(
+  rawBundleSha: string,
+  origin: "community" | "project_anchor",
+  score = 0.71,
+): Record<string, unknown> {
+  const axes = ["agentic", "coding", "instruction_following", "knowledge", "math", "tool_calling"] as const;
+  const hashable = {
+    schema_version: "localbench.accepted_result_projection.v2",
+    model: {
+      declared_name: "Complete Fixture Model",
+      display_name: "Complete Fixture Model",
+      file_sha256: "a".repeat(64),
+      identity_status: origin === "community" ? "unverified" : "maintainer_verified",
+      model_system_key: `artifact:${"a".repeat(64)}`,
+    },
+    lineage: { base_model: ["Base Model"] },
+    runtime: { name: "llama.cpp", version: "b-reset" },
+    suite_release_id: SUITE_RELEASE_ID,
+    suite_manifest_sha256: SUITE_MANIFEST_SHA,
+    scorecard_id: "local-intelligence-index-v4.1",
+    coverage_profile_id: "full-exec-6axis-v1",
+    index_version: "index-v4.1",
+    headline_complete: true,
+    scores: {
+      headline_score: score,
+      partial_composite: score,
+      partial_composite_scope: "measured_headline_axes",
+      measured_headline_weight: 1,
+      missing_headline_weight: 0,
+      known_headline_contribution: score,
+      rank_scope: "full-exec-6axis-v1",
+      composite_full: score,
+    },
+    axes: Object.fromEntries(axes.map((axis) => [axis, {
+      ci: [Math.max(0, score - 0.02), Math.min(1, score + 0.02)],
+      n: 10,
+      score,
+      status: "measured",
+    }])),
+    conformance: { status: "passed" },
+    receipt_references: { coding_receipt_sha256: "b".repeat(64) },
+    artifact_hashes: {
+      bundle_sha256: rawBundleSha,
+      projection_sha256: "",
+      public_artifact_manifest_sha256: "",
+    },
+    origin,
+    trust_label: origin === "community" ? "community_self_submitted" : "project_anchor",
+    verification_level: "client_reported",
+    agentic_provenance: origin === "community" ? "self_reported" : "project_attested",
+    rescore_modes: {
+      amo: "rescored",
+      appworld_c: "verdict_carried",
+      bigcodebench_hard: "verdict_carried",
+      ifbench: "rescored",
+      mmlu_pro: "rescored",
+      olymmath_hard: "rescored",
+      tc_json_v1: "rescored",
+    },
+    validator: {
+      validator_version: "localbench-cli-0.4.3.dev0",
+      commit: "reset-api-test",
+      validated_at: "2026-07-19T00:00:00Z",
+    },
+  } as const;
+  const projectionSha = sha256Hex(canonicalJson(hashable));
+  return {
+    ...hashable,
+    artifact_hashes: {
+      bundle_sha256: rawBundleSha,
+      projection_sha256: projectionSha,
+      public_artifact_manifest_sha256: sha256Hex(canonicalJson({
+        bundle_sha256: rawBundleSha,
+        projection_sha256: projectionSha,
+      })),
+    },
   };
 }
 

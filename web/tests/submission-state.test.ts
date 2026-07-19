@@ -7,8 +7,8 @@ import {
 } from "../functions/_lib/submission-state";
 
 describe("submission state machine", () => {
-  it("allows every declared ZT-0 lifecycle transition", () => {
-    // Given: the approved ZT-0 status vocabulary and transition map.
+  it("allows every declared lifecycle and legacy-read transition", () => {
+    // Given: the active reset vocabulary plus compatibility transitions for legacy rows.
     const allowed = Object.entries(ALLOWED_SUBMISSION_TRANSITIONS);
 
     // When / Then: every target in the map is accepted by the shared assertion.
@@ -20,7 +20,7 @@ describe("submission state machine", () => {
   });
 
   it("rejects representative forbidden lifecycle transitions with a typed conflict", () => {
-    // Given: transitions that skip moderation, leave terminal states, or republish a removed row.
+    // Given: transitions that bypass completeness, leave terminal states, or republish a suppressed row.
     const forbidden = [
       ["ticketed", "accepted"],
       ["pending_verification", "suppressed"],
@@ -44,6 +44,7 @@ describe("submission state machine", () => {
     for (const status of SUBMISSION_STATUSES) {
       expect(isSubmissionStatus(status)).toBe(true);
     }
-    expect(isSubmissionStatus("published")).toBe(false);
+    expect(isSubmissionStatus("published")).toBe(true);
+    expect(isSubmissionStatus("submitted_junk")).toBe(false);
   });
 });

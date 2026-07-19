@@ -130,14 +130,14 @@ export type CommunityBoardRow = {
   readonly declaredBaseModels?: readonly string[];
   readonly detailPath: string | null;
   readonly displayName: string;
-  readonly identityLabel: CommunityGroupData["identity_label"];
+  readonly identityLabel: CommunityGroupData["identity_label"] | "maintainer-run";
   readonly lineage: CommunityLineage | undefined;
   readonly live?: LiveBoardRow;
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
   readonly partialComposite: number | null;
   readonly quantLabel: string | null;
-  readonly ranked: false;
+  readonly ranked: boolean;
   readonly submissionId: string;
   readonly submitterDisplayName?: string | null;
   readonly submitterGithubLogin?: string | null;

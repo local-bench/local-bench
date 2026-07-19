@@ -16,6 +16,7 @@ import {
   MIGRATION_0013,
   MIGRATION_0014,
   MIGRATION_0015,
+  MIGRATION_0016,
   applyMigration,
   columnCount,
   createEnv,
@@ -106,6 +107,7 @@ describe("submission D1 migrations", () => {
       ["0013_community_model_groups.sql", MIGRATION_0013],
       ["0014_projection_storage_fences.sql", MIGRATION_0014],
       ["0015_accounts.sql", MIGRATION_0015],
+      ["0016_client_reported_projection.sql", MIGRATION_0016],
     ] as const;
 
     await applyWithWranglerLedger(env.DB, migrations);
@@ -122,8 +124,43 @@ describe("submission D1 migrations", () => {
     expect(await tableExists(env.DB, "projection_storage_fences")).toBe(true);
     expect(await tableExists(env.DB, "accounts")).toBe(true);
     const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
-    expect(applied?.["count"]).toBe(14);
+    expect(applied?.["count"]).toBe(15);
   }, 15_000);
+
+  it("relaxes verification_level without losing legacy rows", async () => {
+    // Given: the pre-reset schema contains a suppressed legacy row using an old verification value.
+    const env = await createEnv({
+      includeAdminSecret: true,
+      includeR2Secrets: true,
+      migrations: [
+        MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008,
+        MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0012, MIGRATION_0013,
+        MIGRATION_0014, MIGRATION_0015,
+      ],
+    });
+    const legacySha = "d".repeat(64);
+    await env.DB.prepare(
+      `insert into submissions (
+        submission_id, origin, status, status_reason, raw_bundle_sha256, idempotency_key,
+        verification_level, publish_state
+      ) values ('legacy_suppressed', 'community', 'suppressed', 'legacy evidence', ?, ?, 'bundle_rescored', 'hidden')`,
+    ).bind(legacySha, legacySha).run();
+
+    // When: the additive relaxation migration is applied.
+    await applyMigration(env.DB, MIGRATION_0016);
+    await env.DB.prepare("update submissions set verification_level = 'client_reported' where submission_id = 'legacy_suppressed'").run();
+
+    // Then: the legacy row and suppression state survive while the new value is accepted.
+    const row = await env.DB.prepare(
+      "select submission_id, status, status_reason, verification_level from submissions where submission_id = 'legacy_suppressed'",
+    ).first();
+    expect(row).toMatchObject({
+      status: "suppressed",
+      status_reason: "legacy evidence",
+      submission_id: "legacy_suppressed",
+      verification_level: "client_reported",
+    });
+  });
 });
 
 async function applyWithWranglerLedger(
