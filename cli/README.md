@@ -2,9 +2,10 @@
 
 CLI benchmark runner for [local-bench.ai](https://local-bench.ai) — a community quality
 leaderboard for local AI setups. It benchmarks GGUF models served by llama.cpp (or any
-OpenAI-compatible endpoint), scores them on the six-axis Local Intelligence Index
-(Agentic, Knowledge, Instruction-Following, Tool calling, execution-verified Coding, Math),
-and packs signed, reproducible result bundles you can submit for maintainer review.
+OpenAI-compatible endpoint), scores them on the five-axis Local Intelligence Index
+(Agentic, Knowledge, Instruction-Following, execution-verified Coding, Math — with
+call-formatting and long-context tracked as unweighted diagnostics), and packs signed,
+reproducible result bundles that publish to the board immediately on submission.
 
 ## Quickstart
 
@@ -35,7 +36,7 @@ localbench bench \
   --allow-untrusted-code \
   --ctx 32768 --seed 1234 --out runs/my-bench
 
-# 5. Submit for maintainer review (nothing auto-publishes)
+# 5. Submit — complete runs publish to the board immediately, attributed to you
 localbench submit run --run runs/my-bench
 ```
 
@@ -57,9 +58,10 @@ runs. Publishable bounded-final-v2 runs require a 32k server context.
 
 - Suites are hash-pinned releases; sampler settings are pinned (greedy, seeded).
 - Coding is BigCodeBench-Hard, executed locally in a network-disabled, digest-pinned Docker
-  sandbox with no host mounts; coding and agentic verdicts are carried as client-reported evidence
-  for review.
+  sandbox with no host mounts; coding and agentic verdicts are carried as client-reported
+  evidence and labeled as such on the board.
 - Every number on the board links to a receipt with the full run manifest.
-- Nothing ranks without maintainer review.
+- Complete runs publish and rank immediately, attributed to the submitter; maintainers
+  moderate post-hoc and can suppress rows that fail scrutiny.
 
 Methodology: <https://local-bench.ai/methodology>

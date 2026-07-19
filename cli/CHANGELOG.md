@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.3 - 2026-07-20
+
+- Projections now carry run environment provenance (runtime name/version/backend, first
+  GPU + VRAM, decode throughput, wall time, median completion tokens) so board rows can
+  show hardware and runtime for community submissions.
+- `submit upload` builds and sends the same client-reported projection as `submit run`
+  (previously it burned the bundle digest on a guaranteed server rejection), and
+  `submit run --base-model <hf-repo>` records declared lineage in the projection.
+- Ticket-specific upload byte limits are enforced server-side at request-upload and at
+  completion reconcile; `upload_byte_budget_exceeded` now maps to the retryable 429 exit.
+- Coding completeness predicates are shared between grading finalize and projection, so
+  extraction-failure items count as terminally graded everywhere.
+- README and CLI copy describe publish-on-submit (rows publish immediately with
+  attribution and post-hoc moderation) and the five-headline-axis index.
+
 ## 0.4.3.dev0 - 2026-07-19
 
 - Corrects the unequal Agentic scoring protocol in index-v4.2: every ranked row now uses AppWorld task-goal completion on the same fixed 96-task subset. The 25% weight is unchanged; BFCL v3 multi-turn base remains available as a frozen, unweighted diagnostic. Raw inference outputs are unchanged and no model is re-run.
