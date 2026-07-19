@@ -58,9 +58,10 @@ describe("public submission lifecycle listing", () => {
     expect(new Set([...firstBody.submissions, ...secondBody.submissions]
       .map((row: { submission_id: string }) => row.submission_id)).size).toBe(55);
     expect(serialized).not.toMatch(/r2_key|zt1_|capability|admin|upload_/i);
-    const held = [...firstBody.submissions, ...secondBody.submissions]
+    const legacyEscalated = [...firstBody.submissions, ...secondBody.submissions]
       .find((row: { submission_id: string }) => row.submission_id === "ticket_fixture_lifecycle_01");
-    expect(held).toMatchObject({ held_for_review: true, publish_state: "published", status: "accepted" });
+    expect(legacyEscalated).toMatchObject({ publish_state: "published", status: "accepted" });
+    expect(legacyEscalated).not.toHaveProperty("held_for_review");
     const rejected = [...firstBody.submissions, ...secondBody.submissions]
       .find((row: { submission_id: string }) => row.submission_id === "ticket_fixture_lifecycle_00");
     expect(rejected).toMatchObject({ reason_code: "schema_violation", status: "rejected" });

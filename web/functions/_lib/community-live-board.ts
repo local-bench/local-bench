@@ -4,8 +4,8 @@ import { clientIp, parseJson } from "./submission-api-common";
 import { canonicalJson, sha256Hex } from "./submission-canonical";
 import { rateLimited } from "./submission-rate-limit";
 import { projectionKey } from "./submission-storage";
-import { zt1Available } from "./submission-zt1-store";
 import { githubAttributionAvailable } from "./github-oauth-store";
+import { isCompleteProjection, projectionComposite } from "./submission-publish-validation";
 
 export const COMMUNITY_LIVE_BOARD_KEY = "board/community-live.json";
 const BOARD_CACHE_SECONDS = 60;
@@ -13,17 +13,19 @@ const BOARD_MISSES_PER_IP_PER_MINUTE = 30;
 const BOARD_ROW_LIMIT = 500;
 
 type EligibleRow = {
-  readonly communityModelGroupId: string;
+  readonly communityModelGroupId: string | null;
   readonly createdAt: string;
   readonly githubLogin: string | null;
+  readonly origin: "community" | "project_anchor";
   readonly projectionObjectSha256: string;
   readonly publishedAt: string;
   readonly submissionId: string;
   readonly submitterDisplayName: string | null;
   readonly submitterId: string | null;
   readonly validatedAt: string;
-  readonly zt1CodingState: string | null;
 };
+
+type AcceptedProjection = ReturnType<typeof AcceptedResultProjectionV2Schema.parse>;
 
 export async function rebuildCommunityLiveBoard(env: SubmissionApiEnv) {
   const [eligible, control] = await Promise.all([
@@ -32,7 +34,7 @@ export async function rebuildCommunityLiveBoard(env: SubmissionApiEnv) {
       "select publication_revision, edge_block_revision from publication_control where singleton = 1",
     ).first(),
   ]);
-  const rows = [];
+  const materialized: Array<{ readonly complete: boolean; readonly projection: AcceptedProjection; readonly row: EligibleRow }> = [];
   let omittedRows = 0;
   for (const row of eligible) {
     const projection = await loadProjection(env, row.projectionObjectSha256);
@@ -40,8 +42,13 @@ export async function rebuildCommunityLiveBoard(env: SubmissionApiEnv) {
       omittedRows += 1;
       continue;
     }
-    rows.push(liveBoardRow(row, projection));
+    materialized.push({ complete: isCompleteProjection(projection), projection, row });
   }
+  materialized.sort((left, right) =>
+    Number(right.complete) - Number(left.complete)
+      || projectionComposite(right.projection) - projectionComposite(left.projection)
+      || left.row.submissionId.localeCompare(right.row.submissionId));
+  const rows = materialized.map(({ complete, projection, row }) => liveBoardRow(row, projection, complete));
   const withoutDigest = {
     edge_block_revision: numericOrZero(control?.["edge_block_revision"]),
     generated_at: new Date().toISOString(),
@@ -96,45 +103,46 @@ export async function handleAdminCommunityBoardRebuild(request: Request, env: Su
 }
 
 async function eligibleRows(env: SubmissionApiEnv): Promise<readonly EligibleRow[]> {
-  const [hasGithubAttribution, hasZt1] = await Promise.all([
-    githubAttributionAvailable(env),
-    zt1Available(env),
-  ]);
+  const hasGithubAttribution = await githubAttributionAvailable(env);
   const result = await env.DB.prepare(
     `select s.submission_id, s.submitter_id, s.submitter_display_name,
       ${hasGithubAttribution ? "s.github_login" : "null as github_login"}, s.created_at,
       s.validated_at, s.published_at, s.projection_object_sha256,
-      s.community_model_group_id, ${hasZt1 ? "s.zt1_coding_state" : "null as zt1_coding_state"}
+      s.community_model_group_id, s.origin
      from submissions s
-     where s.origin = 'community' and s.status = 'accepted' and s.publish_state = 'published'
-       and s.projection_object_sha256 is not null and s.community_model_group_id is not null
-       ${hasZt1 ? "and coalesce(s.zt1_decision, '') <> 'escalated'" : ""}
+     where (s.status = 'published' or (s.status = 'accepted' and s.publish_state = 'published'))
+       and s.projection_object_sha256 is not null
        and not exists (select 1 from publication_edge_blocks b where b.submission_id = s.submission_id)
      order by s.published_at desc, s.submission_id asc
      limit ?`,
   ).bind(BOARD_ROW_LIMIT).all();
   return result.results.map((row) => ({
-    communityModelGroupId: text(row, "community_model_group_id"),
+    communityModelGroupId: nullableText(row, "community_model_group_id"),
     createdAt: text(row, "created_at"),
     githubLogin: nullableText(row, "github_login"),
+    origin: submissionOrigin(row),
     projectionObjectSha256: text(row, "projection_object_sha256"),
     publishedAt: text(row, "published_at"),
     submissionId: text(row, "submission_id"),
     submitterDisplayName: nullableText(row, "submitter_display_name"),
     submitterId: nullableText(row, "submitter_id"),
     validatedAt: text(row, "validated_at"),
-    zt1CodingState: nullableText(row, "zt1_coding_state"),
   }));
 }
 
-function liveBoardRow(row: EligibleRow, projection: ReturnType<typeof AcceptedResultProjectionV2Schema.parse>) {
-  const groupSuffix = row.communityModelGroupId.slice("community-group:".length);
+function liveBoardRow(
+  row: EligibleRow,
+  projection: ReturnType<typeof AcceptedResultProjectionV2Schema.parse>,
+  complete: boolean,
+) {
   return {
     axes: projection.axes,
-    community_model_group_id: row.communityModelGroupId,
+    ...(row.communityModelGroupId === null ? {} : {
+      community_model_group_id: row.communityModelGroupId,
+      group_path: `community/groups/${row.communityModelGroupId.slice("community-group:".length)}.json`,
+    }),
     conformance: projection.conformance,
     coverage_profile_id: projection.coverage_profile_id,
-    group_path: `community/groups/${groupSuffix}.json`,
     headline_complete: projection.headline_complete,
     index_version: projection.index_version ?? null,
     lineage: projection.lineage,
@@ -147,9 +155,10 @@ function liveBoardRow(row: EligibleRow, projection: ReturnType<typeof AcceptedRe
       model_system_key: projection.model.model_system_key,
       quant_label: projection.model.quant_label ?? null,
     },
-    origin: "community",
+    origin: row.origin,
     provenance_notes: projection.provenance_notes ?? [],
     receipt_references: projection.receipt_references,
+    ranked: complete,
     rescore_modes: projection.rescore_modes,
     scorecard_id: projection.scorecard_id,
     scores: projection.scores,
@@ -166,14 +175,15 @@ function liveBoardRow(row: EligibleRow, projection: ReturnType<typeof AcceptedRe
       validated_at: d1TimestampToIso(row.validatedAt),
     },
     trust: {
-      agentic_provenance: projection.agentic_provenance === "project_attested" ? "attested" : "self-reported",
-      coding_state: row.zt1CodingState === "verifier" ? "verified" : "pending",
-      replicated: false,
-      tier: projection.trust_label === "community_re_scored" ? "re-scored" : "self-reported",
-      trust_label: projection.trust_label,
-      verification_level: projection.verification_level,
+      chip: row.origin === "project_anchor" ? "maintainer-run" : "self-reported",
     },
   } as const;
+}
+
+function submissionOrigin(row: Record<string, unknown>): "community" | "project_anchor" {
+  const value = row["origin"];
+  if (value === "community" || value === "project_anchor") return value;
+  throw new Error("origin must be a submission origin");
 }
 
 async function loadProjection(

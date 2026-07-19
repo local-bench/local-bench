@@ -105,12 +105,50 @@ const RescoreModesSchema = z.object({
   tc_json_v1: z.enum(["rescored", "verdict_carried"]).optional(),
 }).strict().readonly();
 
+const OriginChipSchema = z.enum(["maintainer-run", "self-reported"]);
+const LegacyLiveTrustSchema = z.object({
+  agentic_provenance: safeText(32, 1),
+  chip: OriginChipSchema.optional(),
+  coding_state: safeText(32, 1),
+  replicated: z.boolean(),
+  tier: safeText(32, 1),
+  trust_label: safeText(32, 1),
+  verification_level: safeText(32, 1),
+}).strict();
+const OriginChipTrustSchema = z.object({ chip: OriginChipSchema }).strict();
+type NormalizedLiveTrust = {
+  readonly agentic_provenance: string;
+  readonly chip?: "maintainer-run" | "self-reported";
+  readonly coding_state: string;
+  readonly replicated: boolean;
+  readonly tier: string;
+  readonly trust_label: string;
+  readonly verification_level: string;
+};
+const LiveTrustSchema = z.union([OriginChipTrustSchema, LegacyLiveTrustSchema]).transform((trust): NormalizedLiveTrust => {
+  if ("agentic_provenance" in trust) {
+    return {
+      ...trust,
+      chip: trust.chip ?? (trust.trust_label === "project_anchor" ? "maintainer-run" : "self-reported"),
+    };
+  }
+  return {
+    agentic_provenance: trust.chip === "maintainer-run" ? "attested" : "self-reported",
+    chip: trust.chip,
+    coding_state: "client-reported",
+    replicated: false,
+    tier: trust.chip,
+    trust_label: trust.chip === "maintainer-run" ? "project_anchor" : "community_self_submitted",
+    verification_level: "client_reported",
+  };
+});
+
 export const LiveBoardRowSchema = z.object({
   axes: AxesSchema,
-  community_model_group_id: z.string().regex(GROUP_ID_RE),
+  community_model_group_id: z.string().regex(GROUP_ID_RE).optional(),
   conformance: ConformanceSchema,
   coverage_profile_id: IdSchema,
-  group_path: safeText(140, 1),
+  group_path: safeText(140, 1).optional(),
   headline_complete: z.boolean(),
   index_version: safeText(32, 1).nullable(),
   lineage: z.object({ base_model: z.array(RepoIdSchema).max(8).readonly() }).strict().readonly(),
@@ -124,8 +162,9 @@ export const LiveBoardRowSchema = z.object({
     model_system_key: z.string().regex(/^artifact:[0-9a-f]{64}$/u),
     quant_label: safeText(32).nullable(),
   }).strict().readonly(),
-  origin: z.literal("community"),
+  origin: z.enum(["community", "project_anchor"]),
   provenance_notes: z.array(safeText(300)).max(16).readonly().optional(),
+  ranked: z.boolean().optional(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict().readonly(),
   rescore_modes: RescoreModesSchema,
   scorecard_id: IdSchema,
@@ -142,17 +181,16 @@ export const LiveBoardRowSchema = z.object({
     submitted_at: TimestampSchema,
     validated_at: TimestampSchema,
   }).strict().readonly(),
-  trust: z.object({
-    agentic_provenance: safeText(32, 1),
-    coding_state: safeText(32, 1),
-    replicated: z.boolean(),
-    tier: safeText(32, 1),
-    trust_label: safeText(32, 1),
-    verification_level: safeText(32, 1),
-  }).strict().readonly(),
+  trust: LiveTrustSchema,
 }).strict().readonly().superRefine((row, context) => {
-  const suffix = row.community_model_group_id.replace("community-group:", "");
-  if (row.group_path !== `community/groups/${suffix}.json`) {
+  const expectedChip = row.origin === "project_anchor" ? "maintainer-run" : "self-reported";
+  if (row.trust.chip !== expectedChip) {
+    context.addIssue({ code: "custom", message: "trust chip must be derived from origin" });
+  }
+  if (row.origin === "community" && (row.community_model_group_id === undefined || row.group_path === undefined)) {
+    context.addIssue({ code: "custom", message: "community rows require a model group" });
+  }
+  if (row.community_model_group_id !== undefined && row.group_path !== `community/groups/${row.community_model_group_id.replace("community-group:", "")}.json`) {
     context.addIssue({ code: "custom", message: "group_path must match community_model_group_id" });
   }
 });

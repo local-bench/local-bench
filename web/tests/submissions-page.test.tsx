@@ -72,7 +72,7 @@ describe("public submissions lifecycle", () => {
     expect(rows).toMatchObject([
       { communityDetailPath: `/community/model/${"4".repeat(32)}`, stateLabel: "Published", tierLabel: "re-scored" },
       { reasonLabel: "Unsafe metadata", stateLabel: "Rejected" },
-      { stateLabel: "Held for review" },
+      { stateLabel: "Accepted" },
     ]);
   });
 
@@ -101,7 +101,7 @@ describe("public submissions lifecycle", () => {
     expect(html).toContain(`/submission?id=${PUBLISHED_ID}`);
     expect(html).toContain(`/community/model/${"4".repeat(32)}`);
     expect(html).toContain("Load more");
-    expect(html).toContain("Held for review");
+    expect(html).not.toContain("Held for review");
     expect(html).toContain("Unsafe metadata");
     expect(html).toContain("@octocat");
     expect(html).toContain("Ada");

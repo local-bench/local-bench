@@ -37,10 +37,10 @@ describe("community live board contract bridge (Track A output vs Track B parser
     const row = LiveBoardRowSchema.parse(envelope.rows[0]);
     expect(row.submission_id).toBe(BRIDGE_SUBMISSION_ID);
     expect(row.origin).toBe("community");
-    expect(row.trust.tier === "re-scored" || row.trust.tier === "self-reported").toBe(true);
-    expect(row.trust.coding_state === "pending" || row.trust.coding_state === "verified").toBe(true);
+    expect(row.trust.chip).toBe("self-reported");
+    expect(row.community_model_group_id).toBeDefined();
     expect(row.group_path).toBe(
-      `community/groups/${row.community_model_group_id.replace("community-group:", "")}.json`,
+      `community/groups/${row.community_model_group_id?.replace("community-group:", "")}.json`,
     );
   });
 

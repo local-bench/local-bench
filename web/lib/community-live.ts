@@ -60,24 +60,25 @@ function mergeCommunityRow(
   live: LiveBoardRow,
   bakedGroupIds: ReadonlySet<string>,
 ): CommunityBoardRow {
-  const groupSuffix = live.community_model_group_id.replace("community-group:", "");
+  const groupId = live.community_model_group_id;
+  const groupSuffix = groupId?.replace("community-group:", "") ?? null;
   const bakedLineage = baked?.lineage;
   const lineage = bakedLineage ?? live.lineage_enrichment;
   return {
     artifactSha256: live.model.file_sha256,
     axes: live.axes,
-    communityModelGroupId: live.community_model_group_id,
+    ...(groupId === undefined ? {} : { communityModelGroupId: groupId }),
     declaredBaseModels: bakedLineage === undefined ? live.lineage.base_model : (baked?.declaredBaseModels ?? []),
-    detailPath: bakedGroupIds.has(live.community_model_group_id) ? `/community/model/${groupSuffix}` : null,
+    detailPath: groupId !== undefined && bakedGroupIds.has(groupId) ? `/community/model/${groupSuffix}` : null,
     displayName: live.model.display_name ?? live.model.declared_name ?? "Community-declared variant",
-    identityLabel: baked?.identityLabel ?? "community-declared, identity-unverified",
+    identityLabel: baked?.identityLabel ?? (live.origin === "project_anchor" ? "maintainer-run" : "community-declared, identity-unverified"),
     lineage,
     live,
     measuredHeadlineWeight: live.scores.measured_headline_weight,
     missingHeadlineWeight: live.scores.missing_headline_weight,
     partialComposite: live.scores.partial_composite,
     quantLabel: live.model.quant_label,
-    ranked: false,
+    ranked: live.ranked ?? false,
     submissionId: live.submission_id,
     submitterDisplayName: live.submitter.display_name,
     submitterGithubLogin: live.submitter.github_login ?? null,

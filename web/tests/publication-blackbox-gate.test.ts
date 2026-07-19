@@ -15,8 +15,6 @@ import {
 import { projectionKey } from "../functions/_lib/submission-storage";
 import { transitionAcceptedToTerminal } from "../functions/_lib/submission-store";
 import { getCommunityGroup } from "../lib/data";
-import { onRequestPost as applyDecision } from "../functions/api/admin/submissions/[submissionId]/decision";
-import { onRequestPost as applyVerification } from "../functions/api/admin/submissions/[submissionId]/verification";
 import { onRequestPost as completeSubmission } from "../functions/api/submissions/[submissionId]/complete";
 import { onRequestPost as requestUpload } from "../functions/api/submissions/request-upload";
 import { onRequestPost as issueTicket } from "../functions/api/submissions/tickets";
@@ -24,12 +22,12 @@ import { onRequestGet as exportProjection } from "../functions/api/admin/publica
 import { communityTicketBody, signedResultBundle, testKeyPair } from "./submission-contract-v2-support";
 import {
   ADMIN_SECRET, MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009,
-  MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, TEST_COMMUNITY_GROUP_ID, createEnv, getRequest, jsonRequest, sha256Hex, statusUpdate,
+  MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016, TEST_COMMUNITY_GROUP_ID, completeProjection, createEnv, getRequest, jsonRequest, sha256Hex,
   type IssuedEnvelope,
 } from "./submission-test-support";
 
 const SUFFIX = TEST_COMMUNITY_GROUP_ID.replace("community-group:", "");
-const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014];
+const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016];
 const communityDir = join(process.cwd(), "public", "data", "community");
 const tempRoot = mkdtempSync(join(tmpdir(), "b2a-blackbox-"));
 let admissionSequence = 0;
@@ -147,30 +145,23 @@ async function admitAcceptedPublished(
   expect(target.upload_headers).toEqual({ "if-none-match": "*" });
   expect(await env.SUBMISSIONS.get(target.r2_key)).toBeNull();
   await env.SUBMISSIONS.put(target.r2_key, bundleBytes, { onlyIf: { etagDoesNotMatch: "*" } });
+  const projection: any = completeProjection(rawSha, "community");
+  projection.model.display_name = displayName;
+  projection.model.declared_name = displayName;
+  projection.model.file_sha256 = artifactSha;
+  projection.model.model_system_key = `artifact:${artifactSha}`;
+  rehashProjection(projection);
   const complete = await completeSubmission({
     env, params: { submissionId: ticket.ticket_id },
-    request: jsonRequest(`/api/submissions/${ticket.ticket_id}/complete`, { raw_bundle_sha256: rawSha, size_bytes: bundleBytes.length }),
+    request: jsonRequest(`/api/submissions/${ticket.ticket_id}/complete`, {
+      accepted_result_projection: projection,
+      raw_bundle_sha256: rawSha,
+      size_bytes: bundleBytes.length,
+    }),
   });
   expect(complete.status).toBe(200);
-  expect(await complete.json()).toMatchObject({ status: "pending_verification" });
-
-  const update: any = statusUpdate("accepted", rawSha, "community");
-  update.projection.model.display_name = displayName;
-  update.projection.model.declared_name = displayName;
-  update.projection.model.file_sha256 = artifactSha;
-  update.projection.model.model_system_key = `artifact:${artifactSha}`;
-  rehashStatusUpdate(update);
-  const verification = await applyVerification({
-    env, params: { submissionId: ticket.ticket_id },
-    request: jsonRequest(`/api/admin/submissions/${ticket.ticket_id}/verification`, update, { "x-localbench-admin-secret": ADMIN_SECRET }),
-  });
-  expect(verification.status).toBe(200);
-  const decision = await applyDecision({
-    env, params: { submissionId: ticket.ticket_id },
-    request: jsonRequest(`/api/admin/submissions/${ticket.ticket_id}/decision`, { publish_state: "published" }, { "x-localbench-admin-secret": ADMIN_SECRET }),
-  });
-  expect(decision.status).toBe(200);
-  return { artifactSha, projectionObjectSha: update.projection_object_sha256, submissionId: ticket.ticket_id };
+  expect(await complete.json()).toMatchObject({ status: "published" });
+  return { artifactSha, projectionObjectSha: sha256Hex(canonicalJson(projection)), submissionId: ticket.ticket_id };
 }
 
 async function createSnapshot(env: Awaited<ReturnType<typeof createEnv>>): Promise<any> {
@@ -328,8 +319,7 @@ function activate(env: Awaited<ReturnType<typeof createEnv>>, snapshot: any): Pr
   );
 }
 
-function rehashStatusUpdate(update: any): void {
-  const projection: any = update.projection;
+function rehashProjection(projection: any): void {
   projection.artifact_hashes.projection_sha256 = "";
   projection.artifact_hashes.public_artifact_manifest_sha256 = "";
   const semantic = sha256Hex(canonicalJson(projection));
@@ -337,6 +327,4 @@ function rehashStatusUpdate(update: any): void {
   projection.artifact_hashes.public_artifact_manifest_sha256 = sha256Hex(canonicalJson({
     bundle_sha256: projection.artifact_hashes.bundle_sha256, projection_sha256: semantic,
   }));
-  update.projection_sha256 = semantic;
-  update.projection_object_sha256 = sha256Hex(canonicalJson(projection));
 }

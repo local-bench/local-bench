@@ -78,7 +78,7 @@ async function pageAfter(
 function selectLifecycleRows(hasGithubAttribution: boolean): string {
   return `select submission_id, declared_model_slug, submitter_display_name,
     ${hasGithubAttribution ? "github_login" : "null as github_login"}, status, publish_state,
-    status_reason, created_at, validated_at, published_at, zt1_decision from submissions`;
+    status_reason, created_at, validated_at, published_at from submissions`;
 }
 
 function publicLifecycleRow(row: Record<string, unknown>) {
@@ -87,7 +87,6 @@ function publicLifecycleRow(row: Record<string, unknown>) {
   return {
     created_at: d1TimestampToIso(text(row, "created_at")),
     declared_model_slug: nullableText(row, "declared_model_slug"),
-    held_for_review: nullableText(row, "zt1_decision") === "escalated",
     publish_state: text(row, "publish_state"),
     ...(status === "rejected" ? { reason_code: reason !== null && rejectionReasons.has(reason) ? reason : null } : {}),
     published_at: nullableIso(row, "published_at"),
