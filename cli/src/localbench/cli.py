@@ -364,7 +364,7 @@ def _parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--cuda-version")
     run_parser.add_argument("--runner-build-id")
     setup_parser = subparsers.add_parser(
-        "setup-agentic", help="prewarm, inspect, remove, or prune the managed WSL appliance"
+        "setup-agentic", help="prewarm, inspect, remove, or prune the managed agentic appliance"
     )
     setup_action = setup_parser.add_mutually_exclusive_group()
     setup_action.add_argument("--list", action="store_true", dest="list_runtimes")
@@ -2361,6 +2361,28 @@ def _submit_verify_offline(args: argparse.Namespace) -> int:
 def _doctor(args: argparse.Namespace) -> int:
     print(f"python    {sys.version.split()[0]}")
     print(f"cache     {suite_cache_root(args.cache_dir)}")
+    try:
+        provisioner = ApplianceProvisioner()
+        runtimes = provisioner.list_runtimes()
+    except ProvisioningError as error:
+        print(f"agentic  unavailable ({error.code})")
+    else:
+        pointer = provisioner._read_json(provisioner.root / "active.json") or {}
+        active_runtime_id = pointer.get("runtime_id")
+        active = next(
+            (
+                runtime
+                for runtime in runtimes
+                if runtime.get("state") == "active"
+                and runtime.get("runtime_id") == active_runtime_id
+            ),
+            None,
+        )
+        if active is None:
+            print("agentic  no managed runtime")
+        else:
+            host = "WSL2" if isinstance(active.get("distro_name"), str) else "native Linux"
+            print(f"agentic  {active.get('runtime_id')} active ({host})")
     try:
         ref = resolve_suite_dir(suite_id=args.suite, cache_root=args.cache_dir)
     except SuiteResolutionError as error:

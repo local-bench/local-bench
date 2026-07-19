@@ -100,6 +100,32 @@ def provenance_from_identity(identity: JsonObject) -> JsonObject:
         for key, value in identity.items()
         if key not in {"venv_path", "bwrap_path", "appworld_root"}
     }
+    if identity.get("runtime_topology") == "native-linux-bubblewrap":
+        return {
+            "topology": {
+                "scorecard_assembly": "single-campaign-no-merge",
+                "model_call_location": "linux_campaign_process",
+                "agentic_worker_location": "native_rootfs_bubblewrap",
+            },
+            "native_linux_identity": published_identity,
+            "agentic_sandbox_identity": {
+                "bubblewrap_sha256": _string(identity.get("bwrap_sha256")),
+                "bubblewrap_version": _string(identity.get("bwrap_version")),
+                "appworld_root_path_sha256": _string(
+                    identity.get("appworld_root_path_sha256")
+                ),
+                "appworld_root_filesystem": _string(
+                    identity.get("appworld_root_filesystem")
+                ),
+            },
+            "single_campaign_integrity": {
+                "merge_step_used": False,
+            },
+            "agentic_verdict_channel": {
+                **FINALIZATION_PROVENANCE,
+                "trust_note": "host-derived+direct-finalize-v1",
+            },
+        }
     return {
         "topology": {
             "scorecard_assembly": "single-campaign-no-merge",

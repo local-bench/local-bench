@@ -22,6 +22,7 @@ from localbench.appliance.provisioner import FINAL_DISTRO_PREFIX, ProvisioningEr
 from localbench.appliance.worker import APPWORLD_ROOT, VENV
 from localbench._types import JsonObject
 from localbench.scoring.agentic_exec import benchmark as appworld_bench
+from localbench.scoring.agentic_exec import worker_resolution
 from localbench.scoring.agentic_exec import wsl_process
 from localbench.scoring.agentic_exec import wsl_proxy
 from localbench.scoring.agentic_exec.loop_types import FailureClass
@@ -370,9 +371,9 @@ def test_validate_worker_argv_accepts_the_real_managed_config(
     managed_distro = f"{FINAL_DISTRO_PREFIX}{PINNED_RUNTIME_ID}"
     active = {"schema": "localbench.appliance_active.v1", "runtime_id": PINNED_RUNTIME_ID, "distro_name": managed_distro}
     state = {"schema": "localbench.appliance_state.v1", "runtime_id": PINNED_RUNTIME_ID, "state": "active", "distro_name": managed_distro}
-    monkeypatch.setattr(wsl_process, "appliance_root", lambda _environ: Path("/fake"))
+    monkeypatch.setattr(worker_resolution, "appliance_root", lambda _environ: Path("/fake"))
     monkeypatch.setattr(
-        wsl_process,
+        worker_resolution,
         "_read_runtime_json",
         lambda path: active if path.name == "active.json" else state,
     )

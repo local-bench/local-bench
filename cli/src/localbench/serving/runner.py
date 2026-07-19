@@ -1294,7 +1294,12 @@ def preflight_agentic_if_needed(
     try:
         appliance_identity: JsonObject | None = None
         appliance_identity_digest: str | None = None
-        if sys.platform == "win32":
+        managed_appliance = sys.platform == "win32" or (
+            sys.platform.startswith("linux")
+            and options.wsl_venv_python is None
+            and options.appworld_root is None
+        )
+        if managed_appliance:
             appliance_result = ApplianceProvisioner().ensure_active()
             identity_value = appliance_result.get("agentic_runtime_identity")
             digest_value = appliance_result.get("agentic_runtime_identity_sha256")

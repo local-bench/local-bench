@@ -102,10 +102,18 @@ class WslSandboxProxy(AbstractContextManager[SandboxLike]):
             hello = self._request({"op": "hello"}, timeout_s=self.config.op_timeout_s)
             if self._worker_token is not None:
                 try:
+                    reported_process = hello.get("process")
+                    if self.config.native_rootfs is not None and isinstance(
+                        reported_process, dict
+                    ):
+                        reported_process = {
+                            **reported_process,
+                            "host_pid": self._require_proc().pid,
+                        }
                     self._worker_pin = verify_reported_worker_process(
                         self.config,
                         token=self._worker_token,
-                        reported=hello.get("process"),
+                        reported=reported_process,
                     )
                 except TeardownError as error:
                     raise WslTransportError(

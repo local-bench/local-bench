@@ -207,11 +207,32 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
     if not appworld_version:
         raise WorkerPreflightError("appworld package not importable")
     os_release = _os_release()
+    release = platform.release()
+    native_managed = (
+        os.environ.get("LOCALBENCH_RUNTIME_TOPOLOGY") == "native-linux-bubblewrap"
+    )
+    inside_wsl = not native_managed and bool(
+        os.environ.get("WSL_DISTRO_NAME")
+        or os.environ.get("WSL_INTEROP")
+        or "microsoft" in release.casefold()
+    )
+    topology: JsonObject
+    if inside_wsl:
+        topology = {
+            "wsl_kernel": release,
+            "wsl_distro": os.environ.get("WSL_DISTRO_NAME", os_release.get("ID", "")),
+            "wsl_os_release": os_release.get("PRETTY_NAME", ""),
+            "appworld_root_under_mnt": root_under_mnt,
+        }
+    else:
+        topology = {
+            "runtime_topology": "native-linux-bubblewrap",
+            "linux_kernel": release,
+            "linux_os_release": os_release.get("PRETTY_NAME", ""),
+        }
     return {
         **worker_implementation_identity(),
-        "wsl_kernel": platform.release(),
-        "wsl_distro": os.environ.get("WSL_DISTRO_NAME", os_release.get("ID", "")),
-        "wsl_os_release": os_release.get("PRETTY_NAME", ""),
+        **topology,
         "python_version": platform.python_version(),
         "venv_path": sys.prefix,
         "venv_path_sha256": _text_sha256(sys.prefix),
@@ -221,7 +242,6 @@ def collect_identity(appworld_root: str | None = None) -> JsonObject:
         "bwrap_version": _command_output([bwrap, "--version"]),
         "appworld_root": root_posix,
         "appworld_root_path_sha256": _text_sha256(root_posix),
-        "appworld_root_under_mnt": root_under_mnt,
         "appworld_root_filesystem": _filesystem_type(root_posix),
         "appworld_version": appworld_version,
         "appworld_package_sha256": _verified_appworld_tree_sha256(),
