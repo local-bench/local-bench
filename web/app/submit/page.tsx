@@ -272,8 +272,8 @@ export default function SubmitPage() {
           <h2 className="text-lg font-semibold text-bench-text">What stays local</h2>
           <p className="mt-3 leading-7 text-bench-muted">
             Model weights, API keys, server credentials, and your private signing key — the server
-            only ever sees your public key and signatures. Do not submit a run if the transcript
-            contains anything you are unwilling to share with maintainer review.
+            only ever sees your public key and signatures. Submissions publish immediately, so do
+            not submit a run if the transcript contains anything you are unwilling to make public.
           </p>
         </div>
       </section>

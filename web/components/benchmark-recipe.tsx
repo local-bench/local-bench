@@ -197,7 +197,7 @@ function ClassicRecipeBody({ recipe }: { readonly recipe: Recipe }) {
       <CommandBlock title="Step 3 · benchmark it (second terminal)" command={recipe.benchCommand} />
       <CommandBlock title="Step 4 · submit to the board" command={recipe.submitCommand} />
       <p className="font-mono text-[11px] text-bench-muted">
-        Prints your submission id. Nothing publishes until maintainer review.
+        Prints your submission id. Complete runs publish immediately, then are subject to post-hoc moderation.
       </p>
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         Do not change sampling, context, or prompt-template settings unless the recipe says so. VRAM values are

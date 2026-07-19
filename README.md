@@ -41,8 +41,8 @@ localbench submit run --run runs/my-run.json
 Use `--hf-model-id` and `cache-tokenizer` when you know the exact tokenizer repo. If no exact HF tokenizer repo exists, omit `cache-tokenizer` and replace `--hf-model-id <hf-model-id>` with `--gguf-repo-only`. The site recipe pins an exact CLI version for suite-sha reproducibility; the README install stays unpinned.
 
 Submissions are identified by an Ed25519 key generated on first submit — no
-account, no email. Nothing publishes without maintainer review; see
-https://local-bench.ai/submit for the full loop and what the trust labels mean.
+account, no email. Complete runs publish immediately and are subject to post-hoc
+moderation; see https://local-bench.ai/submit for the full loop and what the labels mean.
 Working from source instead: `pip install -e cli`.
 
 ## Status

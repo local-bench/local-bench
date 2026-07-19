@@ -248,7 +248,7 @@ export function BenchmarkOnramp({
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
           Public recipes use the measured/static suite. Full six-axis runs fail fast unless the managed AppWorld flags are
-          configured. Submissions are signed and reviewed before anything publishes —{" "}
+          configured. Submissions are signed and publish immediately, subject to post-hoc moderation —{" "}
           <Link href="/submit" className="text-bench-accent underline">
             how to submit
           </Link>{" "}
