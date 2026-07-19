@@ -30,12 +30,6 @@
    "score": 0.7306,
    "status": "measured"
   },
-  "long_context": {
-   "ci": null,
-   "n": 0,
-   "score": null,
-   "status": "not_measured"
-  },
   "math": {
    "ci": null,
    "n": 139,

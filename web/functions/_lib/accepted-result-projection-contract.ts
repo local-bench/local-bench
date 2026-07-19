@@ -32,7 +32,25 @@ const ProjectionAxisSchema = z.object({
   n: z.number().int().min(0).max(10_000_000),
   score: NullableScoreSchema,
   status: z.enum(["measured", "not_measured", "invalid"]),
-}).strict();
+}).strict().superRefine((axis, context) => {
+  if (axis.ci !== null && (axis.score === null || axis.ci[0] > axis.score || axis.score > axis.ci[1])) {
+    context.addIssue({ code: "custom", message: "axis confidence interval must contain its score" });
+  }
+  if (axis.status === "measured" && (axis.score === null || axis.n === 0)) {
+    context.addIssue({ code: "custom", message: "measured axis requires a score and samples" });
+  }
+  if (axis.status === "not_measured" && axis.score !== null) {
+    context.addIssue({ code: "custom", message: "not-measured axis cannot carry a score" });
+  }
+});
+const ProjectionAxesSchema = z.object({
+  agentic: ProjectionAxisSchema.optional(),
+  coding: ProjectionAxisSchema.optional(),
+  instruction_following: ProjectionAxisSchema.optional(),
+  knowledge: ProjectionAxisSchema.optional(),
+  math: ProjectionAxisSchema.optional(),
+  tool_calling: ProjectionAxisSchema.optional(),
+}).strict().refine((axes) => Object.keys(axes).length > 0);
 const RescoreModeSchema = z.enum(["rescored", "verdict_carried"]);
 
 export const ACCEPTED_PROJECTION_SUITE_RELEASE_IDS = [
@@ -71,6 +89,27 @@ const NormalizationAnnotationSchema = z.object({
   fields: z.array(CompositeFieldSchema).min(1).max(3).refine((fields) => new Set(fields).size === fields.length),
   server_value: ScoreSchema,
 }).strict();
+const ConformanceScalarSchema = z.union([
+  z.boolean(),
+  z.number(),
+  boundedMultilineSafeString(300),
+  z.null(),
+]);
+
+function boundedConformanceValue(depth: number): z.ZodType<unknown> {
+  if (depth === 0) return ConformanceScalarSchema;
+  const child = boundedConformanceValue(depth - 1);
+  return z.union([
+    ConformanceScalarSchema,
+    z.array(child).max(64),
+    z.record(boundedSafeString(120, 1), child).refine((value) => Object.keys(value).length <= 64),
+  ]);
+}
+
+const ConformancePerBenchSchema = z.record(
+  boundedSafeString(120, 1),
+  boundedConformanceValue(4),
+).refine((value) => Object.keys(value).length <= 64);
 
 const AcceptedResultProjectionV2BaseSchema = z.object({
   schema_version: z.literal(ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION),
@@ -101,15 +140,14 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   scores: z.object({
     headline_score: NullableScoreSchema, partial_composite: ScoreSchema,
     partial_composite_scope: z.literal("measured_headline_axes"), measured_headline_weight: ScoreSchema,
-    missing_headline_weight: ScoreSchema, known_headline_contribution: ScoreSchema, rank_scope: z.string().min(1),
+    missing_headline_weight: ScoreSchema, known_headline_contribution: ScoreSchema, rank_scope: boundedSafeString(120, 1),
     composite_static: NullableScoreSchema.optional(), composite_full: NullableScoreSchema.optional(), static_index_version: boundedSafeString(120, 1).optional(),
   }).strict(),
-  axes: z.record(boundedSafeString(40, 1), ProjectionAxisSchema)
-    .refine((axes) => Object.keys(axes).length > 0 && Object.keys(axes).length <= 16),
+  axes: ProjectionAxesSchema,
   conformance: z.object({
     status: boundedSafeString(80, 1).optional(), n_scored: z.number().int().nonnegative().optional(),
-    worst_bench: boundedSafeString(120, 1).nullable().optional(), reasons: z.array(boundedSafeString(300)).optional(),
-    per_bench: z.record(z.string(), z.unknown()).optional(),
+    worst_bench: boundedSafeString(120, 1).nullable().optional(), reasons: z.array(boundedSafeString(300)).max(32).optional(),
+    per_bench: ConformancePerBenchSchema.optional(),
   }).strict(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict(),
   artifact_hashes: z.object({ bundle_sha256: Sha256Schema, projection_sha256: Sha256Schema, public_artifact_manifest_sha256: Sha256Schema }).strict(),
@@ -118,7 +156,7 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   verification_level: z.enum(["bundle_rescored", "spot_reproduced", "client_reported"]),
   agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
   normalization_annotations: z.array(NormalizationAnnotationSchema).max(1).optional(),
-  provenance_notes: z.array(boundedSafeString(300)).optional(),
+  provenance_notes: z.array(boundedSafeString(300)).max(128).optional(),
   rescore_modes: z.object(AcceptedProjectionRescoreModesShape).strict(),
   validator: z.object({
     validator_version: boundedSafeString(120, 1),

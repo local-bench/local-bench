@@ -16,11 +16,11 @@ import {
 } from "./submission-test-support";
 
 describe("public submission lifecycle listing", () => {
-  it("paginates every lifecycle state with a sanitized keyset cursor", async () => {
+  it("paginates public lifecycle rows with a sanitized keyset cursor", async () => {
     const env = await lifecycleEnv();
     for (let index = 0; index < 55; index += 1) {
       const id = `ticket_fixture_lifecycle_${String(index).padStart(2, "0")}`;
-      const status = index === 0 ? "rejected" : index === 1 ? "accepted" : "pending_verification";
+      const status = "accepted";
       await env.DB.prepare(
         `insert into submissions (
           submission_id, origin, submitter_id, submitter_display_name, declared_model_slug,
@@ -31,12 +31,12 @@ describe("public submission lifecycle listing", () => {
         id,
         `public_key:${index.toString(16).padStart(64, "0")}`,
         status,
-        status === "rejected" ? "schema_violation" : null,
+        null,
         index.toString(16).padStart(64, "0"),
         index.toString(16).padStart(64, "0"),
-        status === "accepted" ? "published" : "hidden",
-        status === "accepted" ? "2026-07-18 00:00:00" : null,
-        status === "pending_verification" ? null : "2026-07-18 00:00:00",
+        "published",
+        "2026-07-18 00:00:00",
+        "2026-07-18 00:00:00",
         `2026-07-17 00:${String(index).padStart(2, "0")}:00`,
         index === 1 ? "escalated" : null,
       ).run();
@@ -62,9 +62,6 @@ describe("public submission lifecycle listing", () => {
       .find((row: { submission_id: string }) => row.submission_id === "ticket_fixture_lifecycle_01");
     expect(legacyEscalated).toMatchObject({ publish_state: "published", status: "accepted" });
     expect(legacyEscalated).not.toHaveProperty("held_for_review");
-    const rejected = [...firstBody.submissions, ...secondBody.submissions]
-      .find((row: { submission_id: string }) => row.submission_id === "ticket_fixture_lifecycle_00");
-    expect(rejected).toMatchObject({ reason_code: "schema_violation", status: "rejected" });
   });
 
   it("rejects malformed cursors", async () => {

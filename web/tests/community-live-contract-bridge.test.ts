@@ -78,9 +78,7 @@ describe("community live board contract bridge (Track A output vs Track B parser
     expect(response.status).toBe(200);
     const page = parseSubmissionLifecyclePage(await response.json());
     expect(page).not.toBeNull();
-    expect(page?.submissions.length).toBe(3);
-    const rejected = page?.submissions.find((entry) => entry.status === "rejected");
-    expect(rejected?.reason_code).toBe("schema_violation");
+    expect(page?.submissions.length).toBe(1);
     const published = page?.submissions.find((entry) => entry.publish_state === "published");
     expect(published?.submission_id).toBe(`ticket_${"d".repeat(32)}`);
     expect(published?.github_login).toBe("octocat");

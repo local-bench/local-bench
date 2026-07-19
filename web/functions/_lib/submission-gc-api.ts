@@ -105,7 +105,7 @@ async function acceptedRawRows(env: SubmissionApiEnv): Promise<readonly GcRow[]>
     await env.DB.prepare(
       `select submission_id, status, publish_state, raw_bundle_sha256, raw_bundle_r2_key
        from submissions
-       where status = 'accepted'
+       where status in ('accepted', 'published')
          and raw_bundle_r2_key is not null
          and uploaded_at is not null
          and uploaded_at < datetime('now', '-90 days')

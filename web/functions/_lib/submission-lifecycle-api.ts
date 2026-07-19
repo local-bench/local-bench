@@ -1,4 +1,4 @@
-import { REJECTION_REASON_CODES, type SubmissionApiEnv } from "./submission-contracts";
+import type { SubmissionApiEnv } from "./submission-contracts";
 import { jsonResponse } from "./submission-api-support";
 import { clientIp } from "./submission-api-common";
 import { rateLimited } from "./submission-rate-limit";
@@ -7,7 +7,6 @@ import { githubAttributionAvailable } from "./github-oauth-store";
 const PAGE_SIZE = 50;
 const CACHE_SECONDS = 60;
 const MISSES_PER_IP_PER_MINUTE = 30;
-const rejectionReasons = new Set<string>(REJECTION_REASON_CODES);
 
 type Cursor = {
   readonly createdAt: string;
@@ -69,7 +68,7 @@ async function pageAfter(
 ): Promise<readonly Record<string, unknown>[]> {
   const result = await env.DB.prepare(
     `${selectLifecycleRows(hasGithubAttribution)}
-     where created_at < ? or (created_at = ? and submission_id > ?)
+     and (created_at < ? or (created_at = ? and submission_id > ?))
      order by created_at desc, submission_id asc limit ?`,
   ).bind(cursor.createdAt, cursor.createdAt, cursor.submissionId, PAGE_SIZE + 1).all();
   return result.results;
@@ -78,17 +77,16 @@ async function pageAfter(
 function selectLifecycleRows(hasGithubAttribution: boolean): string {
   return `select submission_id, declared_model_slug, submitter_display_name,
     ${hasGithubAttribution ? "github_login" : "null as github_login"}, status, publish_state,
-    status_reason, created_at, validated_at, published_at from submissions`;
+    status_reason, created_at, validated_at, published_at from submissions
+    where status = 'published' or (status = 'accepted' and publish_state = 'published')`;
 }
 
 function publicLifecycleRow(row: Record<string, unknown>) {
   const status = text(row, "status");
-  const reason = nullableText(row, "status_reason");
   return {
     created_at: d1TimestampToIso(text(row, "created_at")),
     declared_model_slug: nullableText(row, "declared_model_slug"),
     publish_state: text(row, "publish_state"),
-    ...(status === "rejected" ? { reason_code: reason !== null && rejectionReasons.has(reason) ? reason : null } : {}),
     published_at: nullableIso(row, "published_at"),
     status,
     submission_id: text(row, "submission_id"),
