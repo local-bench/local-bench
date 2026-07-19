@@ -1,4 +1,5 @@
 import type { CommunityBoardRow } from "./community-data";
+import { isFullIndexRow } from "./leaderboard-score";
 import {
   AGENTIC_SORT_KEY,
   compareLeaderboardSortValues,
@@ -11,30 +12,24 @@ import {
 } from "./leaderboard-sort";
 import type { IndexModel } from "./schemas";
 
-export const UNIFIED_LEADERBOARD_FILTERS = ["all", "local-bench", "community"] as const;
-export type UnifiedLeaderboardFilter = (typeof UNIFIED_LEADERBOARD_FILTERS)[number];
-
 export type UnifiedLeaderboardRow =
+  | { readonly model: IndexModel; readonly rank: number; readonly source: "local-bench" }
+  | { readonly rank: number; readonly row: CommunityBoardRow; readonly source: "community" };
+
+type UnrankedUnifiedRow =
   | { readonly model: IndexModel; readonly source: "local-bench" }
   | { readonly row: CommunityBoardRow; readonly source: "community" };
 
 export function filterUnifiedLeaderboardRows(
   ranked: readonly IndexModel[],
   community: readonly CommunityBoardRow[],
-  filter: UnifiedLeaderboardFilter,
 ): readonly UnifiedLeaderboardRow[] {
-  const rankedRows = ranked.map((model): UnifiedLeaderboardRow => ({ model, source: "local-bench" }));
-  const communityRows = community.map((row): UnifiedLeaderboardRow => ({ row, source: "community" }));
-  switch (filter) {
-    case "all":
-      return [...rankedRows, ...communityRows];
-    case "local-bench":
-      return rankedRows;
-    case "community":
-      return communityRows;
-    default:
-      return assertNever(filter);
-  }
+  const completeCommunity = community.filter((row) => row.headlineComplete && row.compositeFull !== null);
+  const rows: UnrankedUnifiedRow[] = [
+    ...ranked.filter(isFullIndexRow).map((model) => ({ model, source: "local-bench" as const })),
+    ...completeCommunity.map((row) => ({ row, source: "community" as const })),
+  ].sort((left, right) => scoreValue(right) - scoreValue(left));
+  return rows.map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
 export function sortUnifiedLeaderboardRows(
@@ -73,7 +68,7 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
     case "model":
       return row.displayName;
     case "composite":
-      return row.partialComposite === null ? null : row.partialComposite * 100;
+      return row.compositeFull === null ? null : normalizePercent(row.compositeFull);
     case "user":
       return row.submitterDisplayName ?? row.submitterKeyFingerprint ?? "";
     case STATIC_INDEX_SORT_KEY:
@@ -86,9 +81,26 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
       return null;
     default: {
       const axis = row.axes?.[key];
-      return axis?.status === "measured" && axis.score !== null ? axis.score * 100 : null;
+      return axis?.status === "measured" && axis.score !== null && axis.score !== undefined
+        ? normalizePercent(axis.score)
+        : null;
     }
   }
+}
+
+function scoreValue(row: UnrankedUnifiedRow): number {
+  switch (row.source) {
+    case "local-bench":
+      return row.model.composite_full?.point ?? row.model.composite?.point ?? Number.NEGATIVE_INFINITY;
+    case "community":
+      return row.row.compositeFull === null ? Number.NEGATIVE_INFINITY : normalizePercent(row.row.compositeFull);
+    default:
+      return assertNever(row);
+  }
+}
+
+function normalizePercent(value: number): number {
+  return value <= 1 ? value * 100 : value;
 }
 
 function unifiedDisplayName(row: UnifiedLeaderboardRow): string {

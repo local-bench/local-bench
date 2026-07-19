@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LAUNCH_FREEZE, shortHash } from "@/components/launch-freeze";
+import { publicProtocolLabel } from "@/lib/board-adapter";
 
 export function AppShell({
   children,
@@ -15,14 +16,17 @@ export function AppShell({
   return (
     <div className="relative z-10 flex min-h-screen flex-col">
       <header className="sticky top-0 z-20 border-b border-bench-line bg-bench-bg/85 backdrop-blur">
-        <nav className="mx-auto flex w-full max-w-[1480px] items-center justify-between gap-4 px-5 py-3 lg:px-8">
+        <nav className="mx-auto flex w-full max-w-[1480px] flex-col items-start justify-between gap-3 px-5 py-3 sm:flex-row sm:items-center sm:gap-4 lg:px-8">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
             <Link href="/" className="neon-heading text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
               local-bench
             </Link>
             <div className="flex flex-wrap gap-4 text-sm text-bench-muted">
+              <Link href="/#families" className="font-medium text-bench-text hover:text-bench-accent">
+                Model families
+              </Link>
               <Link href="/leaderboard" className="hover:text-bench-text">
-                Full board
+                Global board
               </Link>
               <Link href="/submissions" className="hover:text-bench-text">
                 Submissions
@@ -41,8 +45,8 @@ export function AppShell({
               </Link>
             </div>
           </div>
-          <span className="font-mono text-xs uppercase text-bench-accent">
-            {suiteVersion ?? "scoreless catalog"} / {indexVersion}
+          <span className="shrink-0 whitespace-nowrap font-mono text-xs uppercase text-bench-accent">
+            {suiteVersion ?? "scoreless catalog"} / {publicProtocolLabel(indexVersion)}
           </span>
         </nav>
         {usesDemoData ? (
@@ -51,7 +55,7 @@ export function AppShell({
           </div>
         ) : null}
       </header>
-      <div className="flex-1">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
       <footer className="mt-10 border-t border-bench-line bg-bench-bg/60">
         <div className="mx-auto w-full max-w-[1480px] px-5 py-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

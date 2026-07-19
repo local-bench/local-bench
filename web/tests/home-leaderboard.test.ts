@@ -13,6 +13,14 @@ const AXIS_SCORE = {
   point: 85,
   raw_accuracy: 0.85,
 } as const;
+const FULL_AXES = {
+  agentic: AXIS_SCORE,
+  coding: AXIS_SCORE,
+  instruction: AXIS_SCORE,
+  knowledge: AXIS_SCORE,
+  math: AXIS_SCORE,
+  tool_calling: AXIS_SCORE,
+};
 
 describe("home leaderboard runtime column", () => {
   it("renders runtime name plus version and a dash when absent", () => {
@@ -67,14 +75,13 @@ describe("home leaderboard provenance labels", () => {
     expect(legacy).not.toHaveProperty("agentic_provenance");
   });
 
-  it("renders the attested chip and local-bench run-by credit for project-run five-axis rows", () => {
+  it("renders the single project-run badge for project-owned rows", () => {
     const html = renderToStaticMarkup(
       createElement(HomeLeaderboard, {
         models: [
           IndexModelSchema.parse({
             ...rawModel("gemma", "Gemma Ranked", undefined),
             agentic_provenance: "project_attested",
-            axes: { agentic: AXIS_SCORE },
             origin: "project_anchor",
             trust_label: "project_anchor",
           }),
@@ -83,11 +90,8 @@ describe("home leaderboard provenance labels", () => {
     );
 
     expect(html).toContain("Run by");
-    expect(html).toContain("local-bench");
-    expect(html).toContain("attested");
-    expect(html).not.toContain("project anchor");
-    expect(html).not.toContain("Community-reported");
-    expect(html).toContain('href="/methodology"');
+    expect(html.match(/project run/giu)).toHaveLength(1);
+    expect(html).not.toContain("attested");
   });
 
   it("renders community agentic provenance and submitter display names as plain text", () => {
@@ -97,7 +101,6 @@ describe("home leaderboard provenance labels", () => {
           IndexModelSchema.parse({
             ...rawModel("community", "Community Row", undefined),
             agentic_provenance: "self_reported",
-            axes: { agentic: AXIS_SCORE },
             origin: "community",
             submitter_display_name: "Quant Cowboy",
             trust_label: "community_re_scored",
@@ -106,12 +109,11 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).toContain("self-reported");
-    expect(html).toContain("submitted by Quant Cowboy");
-    expect(html).not.toMatch(/<a[^>]*>submitted by Quant Cowboy<\/a>/);
+    expect(html).toContain("submitted as Quant Cowboy — unverified");
+    expect(html).not.toContain("self-reported");
   });
 
-  it("shows a placeholder run-by for rows that nobody has measured yet", () => {
+  it("keeps incomplete catalog shells off the ranked board", () => {
     const html = renderToStaticMarkup(
       createElement(HomeLeaderboard, {
         models: [
@@ -125,8 +127,8 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).not.toContain("local-bench</span>");
-    expect(html).toContain("be the first to benchmark");
+    expect(html).not.toContain("Catalog Shell");
+    expect(html).toContain("0 complete ranked runs");
   });
 
   it("sorts static-composite mode by composite_static instead of composite_full", () => {
@@ -191,7 +193,7 @@ describe("home leaderboard provenance labels", () => {
       }),
     );
 
-    expect(html).not.toContain("secondary track");
+    expect(html).not.toContain("static-suite-v2 · secondary track");
   });
 
   it("renders a fine-tune chip when the lineage map covers a row", () => {
@@ -227,7 +229,7 @@ function rawModel(
   runtime: IndexModel["runtime"],
 ): Record<string, unknown> {
   const row = {
-    axes: {},
+    axes: FULL_AXES,
     best_run_id: RunIdSchema.parse(`${slug}-run`),
     composite: { hi: 90, lo: 80, point: 85 },
     demo: false,
@@ -235,7 +237,7 @@ function rawModel(
     family: "Fixture",
     gpu: null,
     kind: "community",
-    lane: "capped-thinking",
+    lane: "bounded-final-v2",
     model_label: label,
     n_runs: 1,
     ranked: true,

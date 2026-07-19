@@ -51,13 +51,11 @@ describe("model page community family results", () => {
     }));
     rowsMock.mockRestore();
 
-    expect(html).toContain("Community results for this family");
+    expect(html).toContain("Reported runs");
     expect(html).toContain("Qwythos-9B v2");
-    expect(html).toContain("community");
-    expect(html).toContain("not independently verified");
-    expect(html).toContain("HF model-card-declared lineage (unverified)");
-    expect(html).toContain("does not imply endorsement by the base model author");
-    expect(html).toContain('href="/community/model/11111111111111111111111111111111"');
+    expect(html).toContain("Reported artifact lineage");
+    expect(html).toContain("historical incomplete report");
+    expect(html).not.toContain("/community/model/");
     expect(html).not.toContain("Suppressed fixture model");
   });
 });

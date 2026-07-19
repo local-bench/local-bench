@@ -55,12 +55,11 @@ function webTextFiles(dir: string): readonly string[] {
 }
 
 describe("MethodologyPage", () => {
-  it("describes execution/re-execution, current axes, and coding trust", async () => {
+  it("describes execution, current axes, and honest publication trust", async () => {
     const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
     const stat = staticWeights();
 
     expect(text).toContain("execution");
-    expect(text).toContain("re-execution");
     // The intro must describe the CURRENT (season-2) sortable number, derived from the same
     // weight constants the contribution rail uses so intro copy can never drift from scoring.
     expect(text).toContain(
@@ -80,9 +79,8 @@ describe("MethodologyPage", () => {
       )} Coding, and ${percent(requiredWeight(stat, "math"))} Math`,
     );
     expect(text).toContain("BigCodeBench-Hard Instruct execution pass rate");
-    expect(text).toContain(
-      "Every ranked bundle must include code artifacts; the ranked Coding score is produced by maintainer project re-execution in a hardened rootless sandbox, so submitters do not need Docker and self-reported execution verdicts never rank.",
-    );
+    expect(text).toContain("Coding and Agentic evidence travel with the bundle");
+    expect(text).toContain("not independently reproduced by default");
     expect(text).toContain("141 sandbox-scoreable BigCodeBench-Hard items");
     expect(text).toContain("lcb, the old LiveCodeBench output-prediction proxy, is legacy diagnostic data");
     expect(text).toContain("Static-Core");
@@ -91,6 +89,9 @@ describe("MethodologyPage", () => {
     expect(text).toContain("snapshot Merkle identity and per-file hashes");
     expect(text).toContain("localbench bench --runtime vllm --model-ref hf://");
     expect(text).toContain("&lt;repo&gt;@&lt;revision&gt;");
+    expect(text).toContain("Swipe horizontally for all methodology columns");
+    expect(text).toContain("Agentic headroom is deliberate.</span> Low agentic scores");
+    expect(text).toContain("Names are details, not identity proof.</span> An optional free-text handle");
   });
 
   it("does not retain the old Qwen/Gemma-only eligibility sentence anywhere under web", () => {
@@ -103,7 +104,8 @@ describe("MethodologyPage", () => {
   it("documents the season-2 macro-axis, diagnostics, Option-D anchors, and bridge guard", async () => {
     const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
 
-    expect(text).toContain("Season 2 · index-v4.1");
+    expect(text).toContain("Season 2 · LB-2026-07");
+    expect(text).toContain("LB-2026-07 (scorecard-v6)");
     expect(text).toContain("bench-normalized weighted mean");
     expect(text).toContain("not item-count pooling");
     expect(text).toContain("AppWorld Test-Normal");
@@ -114,11 +116,10 @@ describe("MethodologyPage", () => {
     expect(text).toContain("A partial v4 composite is never displayed or ranked");
   });
 
-  it("discloses the attribution fields exposed by the live community board", async () => {
+  it("discloses the evidence retained for community reports", async () => {
     const text = normalizeText(renderToStaticMarkup(await MethodologyPage()));
 
-    expect(text).toContain("Attribution as trust");
-    expect(text).toContain("submitter display name and key fingerprint");
-    expect(text).toContain("per-axis sample counts and confidence intervals");
+    expect(text).toContain("structured model artifact identity");
+    expect(text).toContain("axis scores, sample counts, confidence intervals, and downloadable evidence");
   });
 });

@@ -109,12 +109,15 @@ export function BestVariantVramScatter({
         </div>
         <div className="font-mono text-xs text-bench-muted">{points.length} famil{points.length === 1 ? "y" : "ies"}</div>
       </div>
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent lg:hidden">
+        Swipe horizontally to inspect the full chart &rarr;
+      </p>
       <div className="overflow-x-auto">
         <svg
           role="group"
           aria-label={describe(points)}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="h-auto w-full min-w-[340px] sm:min-w-[820px]"
+          className="h-auto w-full min-w-[820px]"
         >
           <rect width={WIDTH} height={HEIGHT} className="fill-bench-panel" />
           {Y_TICKS.map((tick) => {

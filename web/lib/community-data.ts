@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import type { LiveBoardRow } from "./community-live-schema";
+import type { AdaptedBoardRow } from "./board-adapter";
 import { communityRowsForModel } from "./community-family";
 import { huggingFaceRepoUrl } from "./community-links";
 
@@ -125,25 +125,30 @@ export type CommunityLineage = {
 };
 export type CommunityBoardRow = {
   readonly artifactSha256: string;
-  readonly axes?: LiveBoardRow["axes"];
+  readonly axes?: AdaptedBoardRow["axes"];
   readonly communityModelGroupId?: string;
+  readonly compositeFull: number | null;
   readonly declaredBaseModels?: readonly string[];
   readonly detailPath: string | null;
   readonly displayName: string;
+  readonly family: string | null;
+  readonly globalRank: number | null;
+  readonly headlineComplete: boolean;
   readonly identityLabel: CommunityGroupData["identity_label"];
+  readonly indexVersion: string | null;
   readonly lineage: CommunityLineage | undefined;
-  readonly live?: LiveBoardRow;
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
+  readonly origin?: "community";
+  readonly ranked?: false;
   readonly partialComposite: number | null;
   readonly quantLabel: string | null;
-  readonly ranked: false;
   readonly submissionId: string;
   readonly submitterDisplayName?: string | null;
   readonly submitterGithubLogin?: string | null;
   readonly submitterKeyFingerprint?: string | null;
-  readonly timestamps?: LiveBoardRow["timestamps"] | null;
-  readonly trust?: LiveBoardRow["trust"] | null;
+  readonly timestamps?: AdaptedBoardRow["timestamps"];
+  readonly trust?: AdaptedBoardRow["trust"];
 };
 
 export type CommunityModelTarget = {
@@ -197,21 +202,25 @@ export async function getCommunityGroups(): Promise<readonly CommunityGroupData[
 
 export function communityBoardRows(groups: readonly CommunityGroupData[]): readonly CommunityBoardRow[] {
   return groups.flatMap((group) => {
-    const groupId = group.community_model_group_id.replace("community-group:", "");
     return group.variants.map((variant) => ({
       artifactSha256: variant.artifact_sha256,
       axes: {},
       communityModelGroupId: group.community_model_group_id,
+      compositeFull: variant.scores.composite_full ?? variant.scores.headline_score ?? null,
       declaredBaseModels: [],
-      detailPath: `/community/model/${groupId}`,
+      detailPath: null,
       displayName: variant.display_name ?? "Community-declared variant",
+      family: null,
+      globalRank: null,
+      headlineComplete: variant.scores.composite_full !== null && variant.scores.composite_full !== undefined,
       identityLabel: group.identity_label,
+      indexVersion: null,
       lineage: variant.lineage_enrichment,
       measuredHeadlineWeight: variant.scores.measured_headline_weight ?? null,
       missingHeadlineWeight: variant.scores.missing_headline_weight ?? null,
+      origin: "community" as const,
       partialComposite: variant.scores.partial_composite ?? null,
       quantLabel: variant.quant_label,
-      ranked: false,
       submissionId: variant.submission_id,
       submitterDisplayName: null,
       submitterGithubLogin: null,

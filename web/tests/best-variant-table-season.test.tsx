@@ -63,14 +63,14 @@ describe("BestVariantTable season identity", () => {
     const html = renderToStaticMarkup(
       createElement(BestVariantTable, { points: [fixturePoint(SEASON_2_AXES)] }),
     );
-    expect(html).toContain("index-v4.1 | 25/22.5/22.5/22.5/7.5");
+    expect(html).toContain("LB-2026-07 | 25/22.5/22.5/22.5/7.5");
     expect(html).toContain("Agentic 25%");
     expect(html).toContain("appworld (agentic execution) 59% · multi-turn tool control 41%");
     expect(html).toContain("Knowledge 22.5%");
     expect(html).toContain("Instruction 22.5%");
     expect(html).toContain("Coding 22.5%");
     expect(html).toContain("Math 7.5%");
-    expect(html).not.toContain("index-v3.0");
+    expect(html).not.toContain("index-v4.1");
     // The season-1 "Tool use" column label and the old Tool-calling axis must not leak in.
     expect(html).not.toContain("Tool use");
     expect(html).not.toContain("Tool calling");

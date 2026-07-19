@@ -305,10 +305,17 @@ async function assertServeAndDom(env: Awaited<ReturnType<typeof createEnv>>, exp
     const group = await getCommunityGroup(SUFFIX);
     expect(group?.variants).toHaveLength(expectedVariants);
     const page = await browser.newPage();
-    await page.goto(`http://127.0.0.1:${port}/community/model/${SUFFIX}`, { waitUntil: "domcontentloaded" });
-    expect(await page.locator("main").textContent()).toContain("community-declared, identity-unverified");
-    expect(await page.locator("article").count()).toBe(expectedVariants);
-    expect((await page.locator("article").allTextContents()).every((value) => value.includes("unranked"))).toBe(true);
+    await page.goto(`http://127.0.0.1:${port}/leaderboard`, { waitUntil: "domcontentloaded" });
+    const communityRows = page.locator('tr[data-source="community"]');
+    const expectedRankedVariants = group?.variants.filter((variant) => typeof variant.scores.composite_full === "number").length ?? 0;
+    expect(await communityRows.count()).toBe(expectedRankedVariants);
+    expect(await page.locator("main").textContent()).toContain("Every complete project and community run shares this ranking");
+    expect((await communityRows.locator("td:first-child").allTextContents()).every((value) => /^\d+$/u.test(value.trim()))).toBe(true);
+    expect((await communityRows.allTextContents()).every((value) => value.includes("common composite") && !value.includes("project run"))).toBe(true);
+    if (expectedRankedVariants > 0) {
+      expect(await communityRows.first().textContent()).toContain("submitted as submitter not provided");
+      expect(await communityRows.first().textContent()).toContain("unverified");
+    }
   } finally {
     await browser.close();
     server.kill();

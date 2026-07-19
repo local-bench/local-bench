@@ -17,6 +17,7 @@ import {
   SEASON_2_INDEX_QUALIFIER,
 } from "@/lib/scoring-seasons";
 import type { IndexModel } from "@/lib/schemas";
+import { publicProtocolLabel } from "@/lib/board-adapter";
 
 export function RankMarker({ rank, provisional = false }: { readonly rank: number | undefined; readonly provisional?: boolean }) {
   if (provisional) {
@@ -50,7 +51,7 @@ export function StaticIndexCell({ model }: { readonly model: IndexModel }) {
         ? "mt-1 inline-flex rounded-full border border-bench-accent/30 bg-bench-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-accent"
         : "mt-1 inline-flex rounded-full border border-bench-warn/40 bg-bench-warn/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-warn"}
       >
-        {status}
+        {status === "verified" ? "complete" : status}
       </span>
     </div>
   );
@@ -91,7 +92,7 @@ export function CompositeCell({
 export function SeasonBadge({ indexVersion }: { readonly indexVersion: string }) {
   return (
     <span className="rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
-      {indexVersion}
+      {publicProtocolLabel(indexVersion)}
     </span>
   );
 }

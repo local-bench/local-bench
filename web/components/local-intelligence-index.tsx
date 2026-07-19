@@ -1,10 +1,11 @@
 import { formatScore } from "@/lib/format";
+import { publicProtocolLabel } from "@/lib/board-adapter";
 import type { AxisScore } from "@/lib/schemas";
 
 export const LOCAL_INTELLIGENCE_INDEX_NAME = "Local Intelligence Index";
 export const LOCAL_INTELLIGENCE_INDEX_QUALIFIER = "index-v3.0 | 40/15/15/10/15/5";
 export const LOCAL_INTELLIGENCE_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Tool calling / Coding / Math";
-export const SEASON_2_INDEX_QUALIFIER = "index-v4.1 | 25/22.5/22.5/22.5/7.5";
+export const SEASON_2_INDEX_QUALIFIER = `${publicProtocolLabel("index-v4.1")} | 25/22.5/22.5/22.5/7.5`;
 export const SEASON_2_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Coding / Math";
 
 const HEADLINE_AXES = [

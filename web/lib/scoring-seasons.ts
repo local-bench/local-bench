@@ -1,4 +1,5 @@
 import type { AxisScore, IndexModel, Score } from "./schemas";
+import { publicProtocolLabel } from "./board-adapter";
 
 type SeasonScoredRow = {
   readonly axes: Record<string, AxisScore>;
@@ -17,7 +18,7 @@ export const INDEX_VERSION_V3 = "index-v3.0";
 // headline axes were scaled by 15/16 (24 -> 22.5 x3, 8 -> 7.5). index-v4.0
 // (20/24/24/24/8, axis label "Tool use") is a distinct historical scale.
 export const INDEX_VERSION_V4 = "index-v4.1";
-export const SEASON_2_INDEX_QUALIFIER = "index-v4.1 | 25/22.5/22.5/22.5/7.5";
+export const SEASON_2_INDEX_QUALIFIER = `${publicProtocolLabel(INDEX_VERSION_V4)} | 25/22.5/22.5/22.5/7.5`;
 export const SEASON_2_INDEX_PROFILE = "Profile: Agentic / Knowledge / Instruction / Coding / Math";
 
 export const SEASON_2_HEADLINE_AXES = [

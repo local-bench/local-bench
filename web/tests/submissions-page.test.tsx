@@ -40,9 +40,14 @@ function lifecycleRow(submissionId: string, overrides: Record<string, unknown>) 
 
 const publishedCommunityRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
-  detailPath: `/community/model/${"4".repeat(32)}`,
+  compositeFull: 0.5,
+  detailPath: "/model/fixture-model",
   displayName: "Published model",
+  family: "Fixture",
+  globalRank: 1,
+  headlineComplete: true,
   identityLabel: "community-declared, identity-unverified",
+  indexVersion: "index-v4.1",
   lineage: undefined,
   measuredHeadlineWeight: 1,
   missingHeadlineWeight: 0,
@@ -70,7 +75,7 @@ describe("public submissions lifecycle", () => {
 
     expect(parsed.nextCursor).toBe("cursor-2");
     expect(rows).toMatchObject([
-      { communityDetailPath: `/community/model/${"4".repeat(32)}`, stateLabel: "Published", tierLabel: "re-scored" },
+      { communityDetailPath: "/model/fixture-model", stateLabel: "Published" },
       { reasonLabel: "Unsafe metadata", stateLabel: "Rejected" },
       { stateLabel: "Held for review" },
     ]);
@@ -99,16 +104,15 @@ describe("public submissions lifecycle", () => {
     );
 
     expect(html).toContain(`/submission?id=${PUBLISHED_ID}`);
-    expect(html).toContain(`/community/model/${"4".repeat(32)}`);
+    expect(html).toContain("/model/fixture-model");
     expect(html).toContain("Load more");
     expect(html).toContain("Held for review");
     expect(html).toContain("Unsafe metadata");
-    expect(html).toContain("@octocat");
-    expect(html).toContain("Ada");
+    expect(html).toContain("submitted as Ada — unverified");
     expect(html).not.toContain('href="https://github.com/');
   });
 
-  it("renders bounded rejection reasons and a published tier on submission detail", () => {
+  it("renders bounded rejection reasons and plain submitter detail", () => {
     const rejected = renderToStaticMarkup(<SubmissionDetails value={{
       publish_state: "hidden",
       raw_bundle_sha256: "a".repeat(64),
@@ -121,10 +125,12 @@ describe("public submissions lifecycle", () => {
       raw_bundle_sha256: "b".repeat(64),
       status: "accepted",
       submission_id: PUBLISHED_ID,
+      submitter_display_name: "Ada",
       trust_label: "community_re_scored",
     }} />);
 
     expect(rejected).toContain("Unsafe metadata");
-    expect(published).toContain("re-scored");
+    expect(published).toContain("submitted as Ada — unverified");
+    expect(published).not.toContain("re-scored");
   });
 });

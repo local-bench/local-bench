@@ -12,7 +12,7 @@ export const LAUNCH_FREEZE = {
     { label: "LiveCodeBench proxy (legacy diagnostic, 129 items)", file: "lcb.jsonl", sha256: "b9069940394e90cf7bd9a756d5b1907b38c088b56b8467ab5f97d2a9f160bdcf" },
   ],
   headlineDefinition:
-    "Index (index-v4.1) = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math, under the bounded-final-v2 lane. Agentic folds AppWorld (agentic execution) and multi-turn tool control; Coding is BigCodeBench-Hard with verifier-side execution.",
+    "Index (LB-2026-07) = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math, under the bounded-final-v2 lane. Agentic folds AppWorld (agentic execution) and multi-turn tool control; Coding is BigCodeBench-Hard with sandbox execution evidence.",
   candidateDefinition:
     "Long-Context remains a candidate axis; LiveCodeBench is a legacy diagnostic. Rows measured under earlier lanes (capped-thinking) stay on model pages as diagnostics and never rank.",
   determinismWording:

@@ -1,47 +1,56 @@
 import { describe, expect, it } from "vitest";
 import { selectBestVariantPoints } from "../lib/best-variant";
-import { splitLeaderboard } from "../lib/leaderboard";
-import { buildLaneRanks } from "../lib/leaderboard-sort";
-import { selectTrustedHeaderSource } from "../lib/trusted-population";
+import { filterUnifiedLeaderboardRows } from "../lib/unified-leaderboard";
 import type { RigMatchCandidate } from "../lib/rig-match";
 import { IndexModelSchema } from "../lib/schemas";
 
-describe("trusted ranked population exclusion", () => {
-  it("an arbitrarily high community score cannot change ranks, representatives, or a maintainer header", () => {
-    const trusted = indexRow("maintainer", 55, "project_anchor", "project_anchor");
-    const adversary = indexRow("community-adversary", 100, "community", "community_self_submitted");
-    const baselineRanks = buildLaneRanks([trusted], "full");
-    const attackedRanks = buildLaneRanks([trusted, adversary], "full");
-    expect(splitLeaderboard([trusted, adversary]).ranked.map((row) => row.slug)).toEqual(["maintainer"]);
-    expect(attackedRanks).toEqual(baselineRanks);
+describe("complete community population", () => {
+  it("ranks a complete community row by score instead of excluding it by origin", () => {
+    const project = indexRow("project", 55, "project_anchor", "project_anchor");
+    const community = indexRow("community", 100, "community", "community_self_submitted");
+    const rows = filterUnifiedLeaderboardRows([project, community], []);
 
-    const candidates = [rigCandidate("maintainer", 55, "project_anchor", "project_anchor"), rigCandidate("community-adversary", 100, "community", "community_self_submitted")];
-    expect(selectBestVariantPoints(candidates).map((point) => point.modelSlug)).toEqual(["maintainer"]);
-    const headerRows = [
-      { origin: "community", ranked: true, trust_label: "community_self_submitted", label: "attacker" },
-      { origin: "project_anchor", ranked: true, trust_label: "project_anchor", label: "maintainer" },
+    expect(rows.map((row) => row.source === "local-bench" ? row.model.slug : row.row.submissionId)).toEqual([
+      "community",
+      "project",
+    ]);
+    expect(rows.map((row) => row.rank)).toEqual([1, 2]);
+
+    const candidates = [
+      rigCandidate("project", 55, "project_anchor", "project_anchor"),
+      rigCandidate("community", 100, "community", "community_self_submitted"),
     ];
-    expect(selectTrustedHeaderSource(headerRows)?.label).toBe("maintainer");
+    expect(selectBestVariantPoints(candidates).map((point) => point.modelSlug).sort()).toEqual(["community", "project"]);
   });
 });
 
 function score(point: number) { return { hi: point, lo: point, point }; }
 function axisScore(point: number) { return { ...score(point), n: 1, n_errors: 0, n_no_answer: 0, raw_accuracy: point / 100 }; }
+function axes(point: number) {
+  return {
+    agentic: axisScore(point),
+    coding: axisScore(point),
+    instruction: axisScore(point),
+    knowledge: axisScore(point),
+    math: axisScore(point),
+    tool_calling: axisScore(point),
+  };
+}
 
-function indexRow(slug: string, point: number, origin: string, trust_label: string) {
+function indexRow(slug: string, point: number, origin: string, trustLabel: string) {
   return IndexModelSchema.parse({
-    axes: { knowledge: axisScore(point) }, best_run_id: `${slug}-run`, composite: score(point), composite_full: score(point),
+    axes: axes(point), best_run_id: `${slug}-run`, composite: score(point), composite_full: score(point),
     demo: false, est_cost_usd: null, family: "Fixture", kind: "community",
-    lane: "bounded-final-v2", model_label: slug, n_runs: 1, origin, ranked: true, replicated: false,
-    score_status: "measured" as const, slug, tier: "standard", tokens_to_answer_median: null, trust_label,
+    lane: "bounded-final-v2", model_label: slug, n_runs: 1, origin, ranked: false, replicated: false,
+    score_status: "measured" as const, slug, tier: "standard", tokens_to_answer_median: null, trust_label: trustLabel,
   });
 }
 
 function rigCandidate(modelSlug: string, point: number, origin: string, trustLabel: string): RigMatchCandidate {
   return {
-    axes: { knowledge: axisScore(point) }, demo: false, family: "Fixture", kind: "community",
+    axes: axes(point), demo: false, family: "Fixture", kind: "community",
     lane: "bounded-final-v2", modelLabel: modelSlug, modelSlug, nItems: 100, nRuns: 2, origin,
-    quantLabel: "Q4_K_M", ranked: true, runId: `${modelSlug}-run`, score: score(point), scoreStatus: "measured" as const,
+    quantLabel: "Q4_K_M", ranked: false, runId: `${modelSlug}-run`, score: score(point), scoreStatus: "measured" as const,
     tier: "standard", tokS: 10, latencySMedian: 1, wallTimeSeconds: 2, trustLabel,
     vramFootprintGb: 8, vramRequiredGb8k: null,
   };

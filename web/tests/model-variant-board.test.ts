@@ -12,6 +12,7 @@ describe("model variant board runtime display", () => {
     expect(html).toContain("Runtime");
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b1234");
+    expect(html).toContain("Swipe horizontally for all variant metrics");
     expect(html).not.toContain("decode tok/s");
   });
 
@@ -136,7 +137,7 @@ describe("model variant board runtime display", () => {
     expect(familyRow).not.toContain("sweet spot");
   });
 
-  it("does not render or select an untrusted community run as best or sweet spot", () => {
+  it("includes a complete community run in the family ranking", () => {
     const base = fixtureModel();
     const trusted = base.runs[0];
     if (trusted === undefined) throw new Error("fixture missing run");
@@ -152,8 +153,8 @@ describe("model variant board runtime display", () => {
     const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: { ...base, runs: [trusted, adversary] } }));
     expect(html).toContain("fixture-run");
     expect(html).toContain(">best<");
-    expect(html).not.toContain("community-adversary");
-    expect(html).not.toContain("adversary-runtime");
+    expect(html).toContain("community-adversary");
+    expect(html).toContain("adversary-runtim...");
   });
 });
 
@@ -166,7 +167,7 @@ function fixtureModel(): ModelData {
     model_label: "Fixture Model",
     runs: [
       {
-        axes: {},
+        axes: configuredAxes(),
         composite: { hi: 90, lo: 80, point: 85 },
         demo: false,
         est_cost_usd: null,
@@ -199,7 +200,7 @@ function fixtureModel(): ModelData {
 }
 
 function configuredAxes(): ModelDataWithConfiguredAxes["runs"][number]["axes"] {
-  const emptyAxis: AxisScore = { hi: 0, lo: 0, n: 0, n_errors: 0, n_no_answer: 0, point: 0, raw_accuracy: 0 };
+  const emptyAxis: AxisScore = { hi: 0, lo: 0, n: 1, n_errors: 0, n_no_answer: 0, point: 0, raw_accuracy: 0 };
   return {
     agentic: emptyAxis,
     coding: emptyAxis,

@@ -15,7 +15,7 @@ export function EngineProvenance({ provenance }: { readonly provenance: ServingP
       {provenance.runtime_identity_sha256 === null ? null : <p className="mt-1 break-all font-mono text-xs">runtime identity: {provenance.runtime_identity_sha256}</p>}
       {provenance.dependency_lock_sha256 === null ? null : <p className="mt-1 break-all font-mono text-xs">dependency lock: {provenance.dependency_lock_sha256}</p>}
       <p className="mt-1 font-mono text-xs">
-        determinism canary: {deterministic.two_start_canary_passed ? "passed" : "not recorded"} · engine evidence: {deterministic.engine_log_semantic_verdict ? "verified" : "not verified"}
+        determinism canary: {deterministic.two_start_canary_passed ? "passed" : "not recorded"} · engine evidence: {deterministic.engine_log_semantic_verdict ? "present" : "not recorded"}
       </p>
       <p className="mt-1 font-mono text-xs">
         model dtype: {numerics.dtype ?? "n/a"} · KV cache: {numerics.kv_cache_quant ?? "n/a"} · SSM cache: {numerics.mamba_ssm_cache_dtype ?? "n/a"} · declared SSM: {numerics.model_config_mamba_ssm_dtype ?? "n/a"}

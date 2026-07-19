@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AgenticCell } from "@/components/agentic-column";
 import { DemoBadge } from "@/components/badges";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
-import { ProvenanceLabels, RunByCell } from "@/components/leaderboard-provenance";
+import { RunByCell } from "@/components/leaderboard-provenance";
 import { AxisMiniBar } from "@/components/score-bar";
 import {
   CompositeCell,
@@ -62,7 +62,6 @@ export function LeaderboardRankedRow({
             Fine-tune of {fineTuneBaseName}
           </span>
         )}
-        <ProvenanceLabels model={model} />
       </td>
       <td
         className="px-3 py-3"

@@ -1,88 +1,70 @@
-import type { CommunityBoardRow } from "./community-data";
 import {
-  LiveBoardEnvelopeSchema,
-  LiveBoardRowSchema,
+  adaptLegacyBoardRow,
+  parseBoardEnvelope,
+  type AdaptedBoardRow,
   type LiveBoardRow,
-} from "./community-live-schema";
+  type ParsedBoardEnvelope,
+} from "./board-adapter";
+import type { CommunityBoardRow } from "./community-data";
 
-export type { LiveBoardRow } from "./community-live-schema";
+export type { LiveBoardRow } from "./board-adapter";
 
-export type ParsedCommunityLiveBoard = {
-  readonly droppedRows: number;
-  readonly edgeBlockRevision: number;
-  readonly generatedAt: string;
-  readonly publicationRevision: number;
-  readonly rows: readonly LiveBoardRow[];
-};
-
-export const LIVE_TRUST_TIER_LABELS: Readonly<Record<string, string>> = {
-  community_re_scored: "re-scored",
-  community_self_submitted: "self-reported",
-  project_anchor: "maintainer-run",
-};
-
-export function trustTierLabel(trustLabel: string): string {
-  return LIVE_TRUST_TIER_LABELS[trustLabel] ?? trustLabel;
-}
-
-export function parseCommunityLiveBoard(value: unknown): ParsedCommunityLiveBoard | null {
-  const envelope = LiveBoardEnvelopeSchema.safeParse(value);
-  if (!envelope.success) return null;
-  const rows: LiveBoardRow[] = [];
-  let droppedRows = envelope.data.omitted_rows;
-  for (const valueRow of envelope.data.rows) {
-    const row = LiveBoardRowSchema.safeParse(valueRow);
-    if (row.success) rows.push(row.data);
-    else droppedRows += 1;
-  }
-  return {
-    droppedRows,
-    edgeBlockRevision: envelope.data.edge_block_revision,
-    generatedAt: envelope.data.generated_at,
-    publicationRevision: envelope.data.publication_revision,
-    rows,
-  };
+export function parseCommunityLiveBoard(value: unknown): ParsedBoardEnvelope | null {
+  return parseBoardEnvelope(value);
 }
 
 export function reconcileCommunityRows(
   baked: readonly CommunityBoardRow[],
-  live: readonly LiveBoardRow[],
+  live: readonly (AdaptedBoardRow | LiveBoardRow)[],
 ): readonly CommunityBoardRow[] {
   const bakedBySubmission = new Map(baked.map((row) => [row.submissionId, row]));
-  const bakedGroupIds = new Set(
-    baked.flatMap((row) => row.communityModelGroupId === undefined ? [] : [row.communityModelGroupId]),
-  );
-  return live.map((row) => mergeCommunityRow(bakedBySubmission.get(row.submission_id), row, bakedGroupIds));
+  return live
+    .map((row): AdaptedBoardRow => isAdaptedBoardRow(row) ? row : adaptLegacyBoardRow(row))
+    .filter((row) => row.origin === "community")
+    .map((row) => mergeCommunityRow(bakedBySubmission.get(row.submissionId), row));
 }
 
 function mergeCommunityRow(
   baked: CommunityBoardRow | undefined,
-  live: LiveBoardRow,
-  bakedGroupIds: ReadonlySet<string>,
+  live: AdaptedBoardRow,
 ): CommunityBoardRow {
-  const groupSuffix = live.community_model_group_id.replace("community-group:", "");
-  const bakedLineage = baked?.lineage;
-  const lineage = bakedLineage ?? live.lineage_enrichment;
   return {
-    artifactSha256: live.model.file_sha256,
+    artifactSha256: live.artifactSha256,
     axes: live.axes,
-    communityModelGroupId: live.community_model_group_id,
-    declaredBaseModels: bakedLineage === undefined ? live.lineage.base_model : (baked?.declaredBaseModels ?? []),
-    detailPath: bakedGroupIds.has(live.community_model_group_id) ? `/community/model/${groupSuffix}` : null,
-    displayName: live.model.display_name ?? live.model.declared_name ?? "Community-declared variant",
+    ...(live.communityModelGroupId === undefined ? {} : { communityModelGroupId: live.communityModelGroupId }),
+    compositeFull: live.compositeFull,
+    declaredBaseModels: baked?.declaredBaseModels ?? live.declaredBaseModels,
+    detailPath: baked?.detailPath?.startsWith("/model/") === true ? baked.detailPath : null,
+    displayName: live.displayName,
+    family: live.family,
+    globalRank: live.globalRank,
+    headlineComplete: live.headlineComplete,
     identityLabel: baked?.identityLabel ?? "community-declared, identity-unverified",
-    lineage,
-    live,
-    measuredHeadlineWeight: live.scores.measured_headline_weight,
-    missingHeadlineWeight: live.scores.missing_headline_weight,
-    partialComposite: live.scores.partial_composite,
-    quantLabel: live.model.quant_label,
-    ranked: false,
-    submissionId: live.submission_id,
-    submitterDisplayName: live.submitter.display_name,
-    submitterGithubLogin: live.submitter.github_login ?? null,
-    submitterKeyFingerprint: live.submitter.key_fingerprint,
-    timestamps: live.timestamps,
-    trust: live.trust,
+    indexVersion: live.indexVersion,
+    lineage: baked?.lineage,
+    measuredHeadlineWeight: measuredWeight(live),
+    missingHeadlineWeight: live.headlineComplete ? 0 : baked?.missingHeadlineWeight ?? null,
+    origin: "community",
+    partialComposite: live.compositeFull ?? baked?.partialComposite ?? null,
+    quantLabel: live.quantLabel,
+    submissionId: live.submissionId,
+    submitterDisplayName: live.submitterDisplayName,
+    submitterGithubLogin: live.submitterGithubLogin,
+    submitterKeyFingerprint: live.submitterKeyFingerprint,
+    ...(live.timestamps === null ? {} : { timestamps: live.timestamps }),
+    ...(live.trust === null ? {} : { trust: live.trust }),
   };
+}
+
+function isAdaptedBoardRow(row: AdaptedBoardRow | LiveBoardRow): row is AdaptedBoardRow {
+  return typeof row.artifactSha256 === "string"
+    && typeof row.displayName === "string"
+    && typeof row.headlineComplete === "boolean"
+    && typeof row.submissionId === "string";
+}
+
+function measuredWeight(row: AdaptedBoardRow): number | null {
+  if (row.headlineComplete) return 1;
+  const measured = Object.values(row.axes).filter((axis) => axis.status === "measured").length;
+  return measured === 0 ? null : measured / 5;
 }

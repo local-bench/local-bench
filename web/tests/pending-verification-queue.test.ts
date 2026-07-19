@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { onRequestGet } from "../functions/api/submissions/queue";
-import { parseQueue } from "../components/pending-verification-queue";
+import { parseQueue } from "../lib/submission-queue";
 import { createEnv } from "./submission-test-support";
 
 describe("pending verification queue", () => {

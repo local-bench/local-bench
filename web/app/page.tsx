@@ -2,17 +2,19 @@ import Link from "next/link";
 import { BenchmarkOnramp } from "@/components/benchmark-onramp";
 import { BestVariantVramScatter } from "@/components/best-variant-scatter";
 import { HeroBanner } from "@/components/hero-banner";
+import { FamilyDirectory } from "@/components/family-directory";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { ReplicationTimePanel } from "@/components/replication-time-panel";
 import { selectBestModelVariantPoints, selectBestVariantPoints } from "@/lib/best-variant";
 import { getCommunityBoardRows } from "@/lib/community-data";
+import { communityRowsWithFamilyPaths } from "@/lib/community-family";
 import {
   getAgenticBySlug,
   getFineTuneBaseBySlug,
   getHomePageData,
   getOnrampCatalog,
 } from "@/lib/data";
-import { splitLeaderboard } from "@/lib/leaderboard";
+import { isFullIndexRow } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export default async function HomePage() {
@@ -24,15 +26,17 @@ export default async function HomePage() {
   ]);
   const bestVariantPoints = selectBestVariantPoints(rigCandidates, { catalogModels });
   const bestModelVariantPoints = selectBestModelVariantPoints(rigCandidates);
-  const { ranked } = splitLeaderboard(index.models);
+  const ranked = index.models.filter(isFullIndexRow);
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
   const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
+  const communityRowsForDisplay = communityRows === null ? [] : communityRowsWithFamilyPaths(communityRows, index.models);
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <HeroBanner />
+      <FamilyDirectory models={index.models} />
       {/* Side-by-side only when the scatter keeps its useful width (xl+); stacked below that. */}
       <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:items-stretch">
         <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
@@ -44,7 +48,7 @@ export default async function HomePage() {
       <HomeLeaderboard
         models={rankedForDisplay}
         agenticBySlug={agenticBySlug}
-        communityRows={communityRows ?? []}
+        communityRows={communityRowsForDisplay}
         fineTuneBaseBySlug={fineTuneBaseBySlug}
         indexVersion={index.index_version}
       />
@@ -55,7 +59,7 @@ export default async function HomePage() {
         href="/leaderboard"
         className="rounded-lg border border-bench-line bg-bench-panel/82 px-5 py-4 text-center font-semibold text-bench-text transition-colors hover:border-bench-accent hover:text-bench-accent"
       >
-        View full leaderboard →
+        View global comparison →
       </Link>
     </main>
   );

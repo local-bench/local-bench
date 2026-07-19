@@ -53,12 +53,12 @@ describe("ReplicationTimePanel", () => {
   it("keeps the misread guard in visible text and pins the season scope", () => {
     const html = render(livePoints());
     expect(html).toContain("this is not an inference-speed ranking.");
-    expect(html).toContain("Season 2 · index v4.1 · 1,457 items · RTX 5090 reference rig");
+    expect(html).toContain("Season 2 · LB-2026-07 · 1,457 items · RTX 5090 reference rig");
     expect(html).toContain("Estimate a full-suite run");
   });
 
   it("states full coverage as a census", () => {
-    expect(render(livePoints())).toContain("5 of 5 ranked best variants have verified timing");
+    expect(render(livePoints())).toContain("5 of 5 ranked best variants have recorded timing");
   });
 
   it("marks only the shortest run with the flame, run-oriented copy", () => {
@@ -81,7 +81,7 @@ describe("ReplicationTimePanel", () => {
   it("lists an untimed row without a bar and discloses structural missingness", () => {
     const points = [...livePoints(), point({ modelSlug: "community-x", modelLabel: "Community X", runId: "f", score: { point: 43.5, lo: 41.0, hi: 45.5 }, wallTimeSeconds: null })];
     const html = render(points);
-    expect(html).toContain("5 of 6 ranked best variants have verified timing");
+    expect(html).toContain("5 of 6 ranked best variants have recorded timing");
     expect(html).toContain("Community X");
     expect(html).toContain("Timing unavailable in the board record for 1 ranked variant.");
     expect(html).toContain("Season 2 community submissions do not ingest timing fields.");

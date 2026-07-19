@@ -37,8 +37,10 @@ describe("community live board contract bridge (Track A output vs Track B parser
     const row = LiveBoardRowSchema.parse(envelope.rows[0]);
     expect(row.submission_id).toBe(BRIDGE_SUBMISSION_ID);
     expect(row.origin).toBe("community");
-    expect(row.trust.tier === "re-scored" || row.trust.tier === "self-reported").toBe(true);
-    expect(row.trust.coding_state === "pending" || row.trust.coding_state === "verified").toBe(true);
+    const trust = row.trust;
+    if (trust === undefined) throw new Error("bridge row must carry server trust evidence");
+    expect(trust["tier"] === "re-scored" || trust["tier"] === "self-reported").toBe(true);
+    expect(trust["coding_state"] === "pending" || trust["coding_state"] === "verified").toBe(true);
     expect(row.group_path).toBe(
       `community/groups/${row.community_model_group_id.replace("community-group:", "")}.json`,
     );

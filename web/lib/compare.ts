@@ -8,8 +8,9 @@ import {
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import type { AxisScore, ModelData, Score } from "./schemas";
-import { isTrustedPopulation } from "./trusted-population";
+import type { CommunityBoardRow } from "./community-data";
 import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
+import { isTrustedPopulation } from "./trusted-population";
 
 export type CompareCoverage = "full" | "partial";
 export type CompareScoreScope = "current-index" | "previous-index";
@@ -23,6 +24,7 @@ export type CompareConfig = {
   readonly id: string;
   readonly lane: string | null;
   readonly modelLabel: string;
+  readonly modelHref: string | null;
   readonly modelSlug: string;
   readonly quantLabel: string;
   readonly runId: string;
@@ -43,9 +45,10 @@ export type AxisDelta = {
 
 export function getCompareConfigs(
   models: readonly ModelData[],
+  communityRows: readonly CommunityBoardRow[] = [],
   contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
 ): readonly CompareConfig[] {
-  return models
+  const stored = models
     .filter((model) => model.kind === "community")
     .flatMap((model) =>
       model.runs.flatMap((run) => {
@@ -72,6 +75,7 @@ export function getCompareConfigs(
             id: run.run_id,
             lane: run.lane,
             modelLabel: model.model_label,
+            modelHref: `/model/${model.slug}`,
             modelSlug: model.slug,
             quantLabel: run.quant_label,
             runId: run.run_id,
@@ -81,8 +85,31 @@ export function getCompareConfigs(
           },
         ];
       }),
-    )
-    .sort(compareConfigs);
+    );
+  const community = communityRows.flatMap((row): readonly CompareConfig[] => {
+    if (!row.headlineComplete || row.compositeFull === null || !isNonEmptyString(row.quantLabel)) return [];
+    const axes = communityAxes(row);
+    const point = normalizePercent(row.compositeFull);
+    const modelSlug = row.detailPath?.replace(/^\/model\//u, "") ?? "";
+    return [{
+      axes,
+      composite: { hi: point, lo: point, point },
+      coverage: "full",
+      demo: false,
+      fitTierGb: null,
+      id: row.submissionId,
+      lane: HEADLINE_LANE,
+      modelLabel: row.displayName,
+      modelHref: row.detailPath,
+      modelSlug,
+      quantLabel: row.quantLabel,
+      runId: row.submissionId,
+      scoreScope: "current-index",
+      tokS: null,
+      vramEstimate: null,
+    }];
+  });
+  return [...stored, ...community].sort(compareConfigs);
 }
 
 export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readonly AxisDelta[] {
@@ -138,4 +165,26 @@ function winnerFor(delta: number): "left" | "right" | "tie" {
     return "tie";
   }
   return delta > 0 ? "left" : "right";
+}
+
+function communityAxes(row: CommunityBoardRow): Record<string, AxisScore> {
+  return Object.fromEntries(Object.entries(row.axes ?? {}).flatMap(([key, axis]) => {
+    if (axis.status !== "measured" || axis.score === null || axis.score === undefined) return [];
+    const point = normalizePercent(axis.score);
+    const lo = axis.ci?.[0] === undefined ? point : normalizePercent(axis.ci[0]);
+    const hi = axis.ci?.[1] === undefined ? point : normalizePercent(axis.ci[1]);
+    return [[key, {
+      hi,
+      lo,
+      n: axis.n,
+      n_errors: 0,
+      n_no_answer: 0,
+      point,
+      raw_accuracy: axis.score <= 1 ? axis.score : axis.score / 100,
+    }]];
+  }));
+}
+
+function normalizePercent(value: number): number {
+  return value <= 1 ? value * 100 : value;
 }

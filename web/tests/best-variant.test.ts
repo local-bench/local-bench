@@ -53,7 +53,7 @@ describe("selectBestVariantPoints", () => {
     expect(points[0]?.runId).toBe("a-q4");
   });
 
-  it("excludes demo, anchor, unmeasured, unranked, and quick-tier candidates", () => {
+  it("excludes demo, anchor, and unmeasured candidates while ignoring retired rank and tier flags", () => {
     const points = selectBestVariantPoints([
       candidate({ modelSlug: "demo", demo: true }),
       candidate({ modelSlug: "anchor", kind: "anchor" }),
@@ -62,7 +62,7 @@ describe("selectBestVariantPoints", () => {
       candidate({ modelSlug: "quick", tier: "quick" }),
       candidate({ modelSlug: "ok", runId: "ok-r" }),
     ]);
-    expect(points.map((point) => point.modelSlug)).toEqual(["ok"]);
+    expect(points.map((point) => point.modelSlug).sort()).toEqual(["ok", "partial", "quick"]);
   });
 
   it("excludes non-headline lanes (headline is the bounded-final scoped view)", () => {

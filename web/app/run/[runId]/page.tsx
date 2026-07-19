@@ -53,7 +53,7 @@ export default async function RunPage({ params }: PageProps) {
   if (runId === NO_RUNS_STATIC_EXPORT_SENTINEL) {
     return (
       <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
-        <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Run receipts" }]} />
+        <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Run receipts" }]} />
         <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
           <p className="font-mono text-xs uppercase text-bench-accent">scoreless catalog</p>
           <h1 className="mt-2 text-3xl font-semibold text-bench-text">No run receipts yet</h1>
@@ -81,7 +81,7 @@ export default async function RunPage({ params }: PageProps) {
     <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
       <Breadcrumbs
         items={[
-          { label: "Leaderboard", href: "/" },
+          { label: "Model families", href: "/" },
           { label: run.model_label, href: `/model/${runId.split("__")[0]}` },
           { label: "Run" },
         ]}
