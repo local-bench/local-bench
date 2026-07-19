@@ -4,7 +4,7 @@ from localbench._types import JsonObject, JsonValue
 from localbench.submissions.submit_run_inputs import BundleInfo
 
 SELF_REPORTED_LINE = "community submissions are labeled self-reported on the agentic axis"
-REVIEW_LINE = "the maintainer reviews every submission before anything publishes."
+REVIEW_LINE = "Published immediately; subject to post-hoc moderation."
 
 
 def dry_run_lines(site: str, public_key: str, display_name: str | None, bundle: BundleInfo) -> list[str]:

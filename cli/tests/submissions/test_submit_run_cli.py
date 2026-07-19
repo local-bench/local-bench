@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import argparse
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from localbench.cli import main
+from localbench.one_shot.submission import OneShotSubmitContext, maybe_submit
+from localbench.one_shot.types import (
+    FULL_EXEC_SUITE_IDENTITY,
+    OneShotArtifact,
+    ResolvedOneShotModel,
+)
 from localbench.submissions.crypto import load_private_key
 
 from .fixtures import build_submission_fixtures
@@ -16,7 +24,7 @@ _MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2
 
 
 @pytest.mark.anyio
-async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
+async def test_submit_run_packs_tickets_uploads_and_prints_publish_summary(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -60,7 +68,9 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
         assert uploaded["manifest"]["suite"]["suite_release_id"] == _RELEASE_ID
         assert uploaded["manifest"]["suite"]["suite_manifest_sha256"] == _MANIFEST_SHA
         assert uploaded["signature"]["public_key"] == expected_public_key
-        assert request.accepted_result_projection == {"verification_level": "client_reported"}
+        assert request.accepted_result_projection is not None
+        assert request.accepted_result_projection["origin"] == "community"
+        assert request.accepted_result_projection["trust_label"] == "community_self_submitted"
         return {"submission_id": "sub_123", "status": "pending_verification"}
 
     def fake_status(request: submit_mod.SubmissionStatusRequest) -> dict[str, str]:
@@ -70,11 +80,6 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
     monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)
     monkeypatch.setattr(submit_mod, "upload_submission_bundle", fake_upload)
     monkeypatch.setattr(submit_mod, "get_submission_status", fake_status)
-    monkeypatch.setattr(
-        submit_mod,
-        "client_reported_projection",
-        lambda *args, **kwargs: {"verification_level": "client_reported"},
-    )
 
     # When: the one-command submit path is driven from the CLI.
     code = main(
@@ -101,9 +106,86 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
     assert "status_url https://local-bench.ai/submission?id=sub_123" in output
     assert "status     pending_verification" in output
     assert "community submissions are labeled self-reported on the agentic axis" in output
-    assert "the maintainer reviews every submission before anything publishes." in output
+    assert "Published immediately; subject to post-hoc moderation." in output
     config = json.loads((tmp_path / "home" / ".localbench" / "submit.json").read_text(encoding="utf-8"))
     assert config == {"display_name": "Alice", "site": "https://local-bench.ai"}
+
+
+@pytest.mark.anyio
+async def test_one_shot_submit_builds_community_projection_from_ticket_origin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a completed one-shot run and a server ticket assigning community origin.
+    import localbench.submissions.submit_run as submit_mod
+
+    _isolate_home(monkeypatch, tmp_path)
+    fixtures = await build_submission_fixtures(tmp_path)
+    run_path = tmp_path / "localbench-run.json"
+    shutil.copyfile(fixtures.run_path, run_path)
+    _mark_site_release(run_path)
+
+    def fake_ticket(request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
+        return _envelope(request.raw_bundle_sha256, request.public_key or "", "sub_one_shot")
+
+    def fake_upload(request: submit_mod.SubmissionUploadRequest) -> dict[str, str]:
+        assert request.accepted_result_projection is not None
+        assert request.accepted_result_projection["origin"] == "community"
+        assert request.accepted_result_projection["trust_label"] == "community_self_submitted"
+        return {"submission_id": "sub_one_shot", "status": "published"}
+
+    def fake_status(request: submit_mod.SubmissionStatusRequest) -> dict[str, str]:
+        return {"submission_id": request.ticket_id, "status": "published"}
+
+    monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)
+    monkeypatch.setattr(submit_mod, "upload_submission_bundle", fake_upload)
+    monkeypatch.setattr(submit_mod, "get_submission_status", fake_status)
+
+    # When: the one-shot submission adapter drives the shared submit path.
+    code = maybe_submit(
+        OneShotSubmitContext(
+            args=argparse.Namespace(
+                site="https://local-bench.ai",
+                suite_dir=fixtures.suite_dir,
+                signing_key=fixtures.key_path,
+                display_name=None,
+                bypass_token=None,
+                bypass_token_file=None,
+            ),
+            run_root=tmp_path,
+            submit_choice=True,
+            resolved=ResolvedOneShotModel(
+                requested="fixture-model",
+                model_id="fixture-model",
+                display_name="Fixture Model",
+                family=None,
+                source_kind="catalog",
+                catalog_model_id="fixture-model",
+                tokenizer_repo=None,
+                tokenizer_revision=None,
+                artifact=OneShotArtifact(
+                    repo_id="owner/fixture",
+                    filename="fixture.gguf",
+                    revision="a" * 40,
+                    quant_label="Q4_K_M",
+                    sha256="b" * 64,
+                    size_bytes=1,
+                    vram_required_gb_8k=None,
+                    vram_required_gb_32k=None,
+                ),
+                local_only=False,
+                publishable=True,
+                blocking_reasons=(),
+            ),
+            submitter=None,
+            input_fn=lambda: "",
+            record={"headline_complete": True},
+            suite_identity=FULL_EXEC_SUITE_IDENTITY,
+        ),
+    )
+
+    # Then: one-shot uses the ticket's authoritative community origin.
+    assert code == 0
 
 
 def test_submit_run_default_key_autogen_reuses_key_and_explicit_missing_errors(

@@ -12,6 +12,7 @@ from localbench._types import JsonObject, JsonValue
 from localbench.http_errors import response_error_detail
 from localbench.submissions.client import (
     SiteCredentials,
+    SubmissionEnvelope,
     SubmissionStatusRequest,
     SubmissionTicketRequest,
     SubmissionUploadRequest,
@@ -126,16 +127,24 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
                 if options.suite_dir is not None
                 else _resolve_run_suite_dir(suite if isinstance(suite, dict) else {})
             )
+            validated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            ticket = _request_ticket(site, options, key, display_name, bundle)
             projection = client_reported_projection(
                 bundle.path,
                 suite_dir=projection_suite_dir,
-                validated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                validated_at=validated_at,
+                origin=ticket["origin"],
             )
-            ticket = _request_ticket(site, options, key, display_name, bundle)
             try:
                 upload = _upload_bundle(site, options, ticket, bundle.path, projection)
             except TicketExpiredError:
                 ticket = _request_ticket(site, options, key, display_name, bundle)
+                projection = client_reported_projection(
+                    bundle.path,
+                    suite_dir=projection_suite_dir,
+                    validated_at=validated_at,
+                    origin=ticket["origin"],
+                )
                 try:
                     upload = _upload_bundle(site, options, ticket, bundle.path, projection)
                 except TicketExpiredError as error:
@@ -176,7 +185,7 @@ def _request_ticket(
     key: KeyIdentity,
     display_name: str | None,
     bundle: BundleInfo,
-) -> dict[str, JsonValue]:
+) -> SubmissionEnvelope:
     pop = _pop(bundle, key.path)
     request = SubmissionTicketRequest(
         credentials=SiteCredentials(site=site, bypass_token=_bypass_token(options)),
@@ -217,7 +226,7 @@ def _pop(bundle: BundleInfo, signing_key: Path) -> TicketProofOfPossession:
 def _upload_bundle(
     site: str,
     options: SubmitRunOptions,
-    envelope: dict[str, JsonValue],
+    envelope: SubmissionEnvelope,
     bundle_path: Path,
     projection: JsonObject,
 ) -> JsonObject:
