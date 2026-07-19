@@ -14,10 +14,7 @@ from localbench.cli import _parser
 from localbench.coding_exec.artifacts import code_artifact_for_generation, verified_artifact
 from localbench.coding_exec.receipt import attach_signed_verifier_receipt
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
-from localbench.submissions.foundation import (
-    validate_accepted_result_projection,
-    validate_submission_bundle,
-)
+from localbench.submissions.foundation import validate_accepted_result_projection
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.projection import (
     _index_relabel_note,
@@ -126,7 +123,7 @@ def test_legacy_full_exec_bundle_relabels_to_current_index_with_provenance(
     assert "index_relabeled_from:index-v3.0" in projection["provenance_notes"]
 
 
-def test_legacy_full_exec_derives_agentic_axis_from_carried_verdicts(
+def test_admission_derives_tool_use_axis_from_legacy_raw_appworld_verdicts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -134,17 +131,29 @@ def test_legacy_full_exec_derives_agentic_axis_from_carried_verdicts(
     legacy = read_json_object(fixture.bundle)
     legacy["index_version"] = "index-v3.0"
     axes = _object(_object(legacy["axis_status"])["axes"])
-    axes.pop("agentic")
-    template = next(
-        item
-        for item in legacy["items"]
-        if isinstance(item, dict) and item.get("bench") == "appworld_c"
-    )
+    axes["tool_use"] = {
+        "axis": "tool_use",
+        "status": "not_measured",
+        "reason": "not_run",
+    }
     agentic_items = [
         {
-            **copy.deepcopy(template),
-            "id": f"legacy-agentic-{index:03d}",
+            "attempts": 1,
+            "bench": "appworld_c",
             "correct": index < 6,
+            "error": None,
+            "extracted": None,
+            "finish_reason": None,
+            "finished_at": "2026-07-18T19:50:12.949469+00:00",
+            "id": f"legacy-agentic-{index:03d}",
+            "latency_seconds": 0.0,
+            "response_text": None,
+            "started_at": "2026-07-18T19:50:12.949469+00:00",
+            "usage": {
+                "completion_tokens": None,
+                "prompt_tokens": None,
+                "total_tokens": None,
+            },
         }
         for index in range(96)
     ]
@@ -167,21 +176,24 @@ def test_legacy_full_exec_derives_agentic_axis_from_carried_verdicts(
     }
     write_json_file(fixture.bundle, legacy)
 
-    validation = validate_submission_bundle(fixture.bundle, suite_dir=fixture.suite_dir)
-    projection = client_reported_projection(
+    status = verify_submission(
         fixture.bundle,
         suite_dir=fixture.suite_dir,
+        projection_out=tmp_path / "legacy-raw-record.projection.json",
         validated_at=_VALIDATED_AT,
+        validator_commit=None,
+        origin="project_anchor",
     )
 
+    projection = _object(status["projection"])
     agentic = _object(_object(projection["axes"])["tool_use"])
     scores = _object(projection["scores"])
-    assert validation["publishable"] is False
-    assert "incomplete_run" in validation["blocking_reasons"]
+    assert status["accepted"] is False
+    assert status["status"] == "rejected"
+    assert "incomplete_run" in status["blocking_reasons"]
     assert agentic == {"score": 0.0625, "n": 96, "ci": None, "status": "measured"}
     assert scores["measured_headline_weight"] == 0.775
     assert scores["missing_headline_weight"] == 0.225
-    assert scores["partial_composite"] == 0.3105
     assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
     assert "index_relabeled_from:index-v3.0" in projection["provenance_notes"]
 

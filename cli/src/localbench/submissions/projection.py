@@ -317,7 +317,9 @@ def _axis_status_from_dynamic_verdicts(
     carried = carried_from_result_items(items, dynamic_benches)
     benches_by_axis: dict[str, set[str]] = {}
     for bench in dynamic_benches:
-        axis = axis_key_for_bench(bench, suite_axes)
+        axis = axis_key_for_bench(bench)
+        if axis not in adjusted["axes"]:
+            axis = axis_key_for_bench(bench, suite_axes)
         benches_by_axis.setdefault(axis, set()).add(bench)
     for axis, benches in benches_by_axis.items():
         complete = all(
@@ -420,7 +422,11 @@ def _projection(
         "index_version": index_version,
         "headline_complete": scores.get("headline_score") is not None,
         "scores": scores,
-        "axes": axis_projection(benches, axis_status),
+        "axes": axis_projection(
+            benches,
+            axis_status,
+            coverage_profile_id=coverage_profile_id,
+        ),
         "conformance": _object(bundle.get("conformance")),
         "receipt_references": _receipt_references(bundle),
         "artifact_hashes": {

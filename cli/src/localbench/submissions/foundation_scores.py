@@ -98,9 +98,12 @@ def score_summary(
 def axis_projection(
     benches: Mapping[str, BenchAggregate],
     axis_status: AxisStatusBlock,
+    *,
+    coverage_profile_id: str | None = None,
 ) -> JsonObject:
     projection: JsonObject = {}
-    full_exec = coverage_profile_for_benches(set(benches)).profile_id == _FULL_EXEC_PROFILE_ID
+    inferred_profile_id = coverage_profile_for_benches(set(benches)).profile_id
+    full_exec = (coverage_profile_id or inferred_profile_id) == _FULL_EXEC_PROFILE_ID
     for axis in AXES:
         aggregate = (
             benches.get("appworld_c")
