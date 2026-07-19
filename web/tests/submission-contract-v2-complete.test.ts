@@ -43,6 +43,7 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
         ticket_id: envelope.ticket_id,
         upload_capability: envelope.upload_capability,
       }),
@@ -54,6 +55,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -73,6 +75,7 @@ describe("submission contract v2 upload and complete routes", () => {
       jsonRequest(`/api/submissions/${RAW_BUNDLE_SHA}/complete`, {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        upload_capability: `upload_${"a".repeat(32)}`,
       }),
       env,
       { submissionId: "ticket_oversize" },
@@ -88,7 +91,7 @@ describe("submission contract v2 upload and complete routes", () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const binary = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
     const binarySha = await sha256Bytes(binary);
-    const envelope = await issueEnvelope(env, binarySha);
+    const envelope = await issueEnvelope(env, binarySha, {}, binary.byteLength);
     await env.SUBMISSIONS.put(rawBundleKey(binarySha), binary);
 
     // When: the complete route reads the object.
@@ -99,6 +102,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(binarySha, "project_anchor"),
         raw_bundle_sha256: binarySha,
         size_bytes: binary.byteLength,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -121,6 +125,9 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
     const envelope = await ticket.json();
+    await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+      .bind(bundleJson.length, envelope.ticket_id)
+      .run();
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
     // When: the community submitter finalizes the upload.
@@ -131,6 +138,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(bundleSha, "community"),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -158,6 +166,9 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
     const envelope = await ticket.json();
+    await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+      .bind(bundleJson.length, envelope.ticket_id)
+      .run();
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
     // When: finalization checks only the ticket-bound content address.
@@ -168,6 +179,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(bundleSha, "community"),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -190,6 +202,9 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
     const envelope = await ticket.json();
+    await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+      .bind(bundleJson.length, envelope.ticket_id)
+      .run();
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
     const response = await completeSubmission({
@@ -199,6 +214,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(bundleSha, "community"),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -222,6 +238,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -253,6 +270,12 @@ describe("submission contract v2 upload and complete routes", () => {
       }),
     });
     const secondEnvelope = await secondTicket.json();
+    await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+      .bind(firstJson.length, firstEnvelope.ticket_id)
+      .run();
+    await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+      .bind(secondJson.length, secondEnvelope.ticket_id)
+      .run();
     await env.SUBMISSIONS.put(rawBundleKey(firstSha), firstJson);
     await env.SUBMISSIONS.put(rawBundleKey(secondSha), secondJson);
 
@@ -264,6 +287,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(firstSha, "community"),
         raw_bundle_sha256: firstSha,
         size_bytes: firstJson.length,
+        upload_capability: firstEnvelope.upload_capability,
       }),
     });
     const secondResponse = await completeSubmission({
@@ -273,6 +297,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(secondSha, "community"),
         raw_bundle_sha256: secondSha,
         size_bytes: secondJson.length,
+        upload_capability: secondEnvelope.upload_capability,
       }),
     });
 
@@ -288,7 +313,7 @@ describe("submission contract v2 upload and complete routes", () => {
   it("does not impose the deleted pending-review cap on pre-minted tickets", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
-    const pending: Array<{ bundleJson: string; bundleSha: string; ticketId: string }> = [];
+    const pending: Array<{ bundleJson: string; bundleSha: string; ticketId: string; uploadCapability: string }> = [];
     for (let index = 0; index < 11; index += 1) {
       const modelSha = index.toString(16).padStart(64, "0");
       const bundleJson = JSON.stringify(signedResultBundle(key, {}, modelSha));
@@ -300,8 +325,16 @@ describe("submission contract v2 upload and complete routes", () => {
         }),
       });
       const envelope = await ticket.json();
+      await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+        .bind(bundleJson.length, envelope.ticket_id)
+        .run();
       await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
-      pending.push({ bundleJson, bundleSha, ticketId: envelope.ticket_id });
+      pending.push({
+        bundleJson,
+        bundleSha,
+        ticketId: envelope.ticket_id,
+        uploadCapability: envelope.upload_capability,
+      });
     }
 
     const responses: Response[] = [];
@@ -313,6 +346,7 @@ describe("submission contract v2 upload and complete routes", () => {
           accepted_result_projection: completeProjection(item.bundleSha, "community"),
           raw_bundle_sha256: item.bundleSha,
           size_bytes: item.bundleJson.length,
+          upload_capability: item.uploadCapability,
         }),
       }));
     }
@@ -342,6 +376,7 @@ describe("submission contract v2 upload and complete routes", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 

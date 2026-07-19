@@ -1,4 +1,4 @@
-import { generateKeyPairSync, sign } from "node:crypto";
+import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import type { D1DatabaseBinding, D1PreparedStatement, SqlValue, SubmissionApiEnv } from "../functions/_lib/submission-contracts";
 import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { canonicalJson } from "../functions/_lib/submission-canonical";
@@ -9,6 +9,7 @@ export const FIVE_AXIS_SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9
 const FOUR_AXIS_SUITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1";
 const FOUR_AXIS_SUITE_MANIFEST_SHA = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7";
 export const TEST_IP = "203.0.113.9";
+const OVERSIZE_UPLOAD_CAPABILITY = `upload_${"a".repeat(32)}`;
 
 export type TestKeyPair = {
   readonly publicKeyHex: string;
@@ -134,6 +135,12 @@ export function oversizeEnv(): SubmissionApiEnv {
 class SingleRowDatabase implements D1DatabaseBinding {
   constructor(private readonly row: Record<string, unknown>) {}
 
+  async batch(
+    statements: readonly D1PreparedStatement[],
+  ): Promise<readonly { readonly success: boolean; readonly meta?: { readonly changes?: number } }[]> {
+    return statements.map(() => ({ success: true, meta: { changes: 1 } }));
+  }
+
   async exec(): Promise<unknown> {
     return undefined;
   }
@@ -198,5 +205,7 @@ function ticketRow(): Record<string, unknown> {
     suite_release_id: FOUR_AXIS_SUITE_RELEASE_ID,
     ticket_id: "ticket_oversize",
     uploaded_at: null,
+    upload_capability_sha256: createHash("sha256").update(OVERSIZE_UPLOAD_CAPABILITY).digest("hex"),
+    upload_declared_size_bytes: 1,
   };
 }

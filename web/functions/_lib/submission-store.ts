@@ -1,6 +1,7 @@
 import {
   ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
   RESULT_BUNDLE_SCHEMA_VERSION,
+  SubmissionEnvelopeSchema,
   SubmissionRowSchema,
   type AcceptedResultProjectionV2Schema,
   type SubmissionApiEnv,
@@ -53,13 +54,6 @@ export type PendingQueueResult = {
   readonly totalPending: number;
 };
 
-export const PENDING_VERIFICATION_GLOBAL_LIMIT = 200;
-export const PENDING_VERIFICATION_PER_SUBMITTER_LIMIT = 10;
-
-export type PendingAdmissionResult =
-  | { readonly kind: "ok" }
-  | { readonly kind: "error"; readonly code: "global_pending_limit" | "pending_review_limit" | "submission_not_ticketed" };
-
 type AcceptedProjection = z.infer<typeof AcceptedResultProjectionV2Schema>;
 
 export async function insertTicketedSubmission(
@@ -67,15 +61,16 @@ export async function insertTicketedSubmission(
   ticket: SubmissionEnvelope,
   attribution: AccountAttribution | null,
   hasGithubAttribution: boolean,
-): Promise<void> {
+): Promise<boolean> {
   const uploadCapabilitySha256 = await sha256Hex(ticket.upload_capability);
-  await env.DB.prepare(
+  const inserted = await env.DB.prepare(
     `insert into submissions (
       submission_id, origin, submitter_id, submitter_display_name,
       ${hasGithubAttribution ? "account_id, github_login," : ""} declared_model_slug, ticket_id, status, bundle_schema_version,
       raw_bundle_sha256, raw_bundle_r2_key, suite_release_id, suite_manifest_sha256, expires_at, idempotency_key,
-      upload_capability_sha256, community_model_group_id
-    ) values (?, ?, ?, ?, ${hasGithubAttribution ? "?, ?," : ""} ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      upload_capability_sha256, community_model_group_id, ticket_envelope_json
+    ) values (?, ?, ?, ?, ${hasGithubAttribution ? "?, ?," : ""} ?, ?, 'ticketed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    on conflict(raw_bundle_sha256) do nothing`,
   )
     .bind(
       ticket.ticket_id,
@@ -94,8 +89,10 @@ export async function insertTicketedSubmission(
       ticket.bundle_sha256,
       uploadCapabilitySha256,
       ticket.community_model_group_id ?? null,
+      JSON.stringify(ticket),
     )
     .run();
+  if (inserted.meta?.changes !== 1) return false;
   await recordSubmissionTransition(env, {
     actor: "system",
     fromStatus: null,
@@ -104,6 +101,7 @@ export async function insertTicketedSubmission(
     submissionId: ticket.ticket_id,
     toStatus: "ticketed",
   });
+  return true;
 }
 
 export async function rotateTicketedSubmission(
@@ -118,7 +116,8 @@ export async function rotateTicketedSubmission(
     `update submissions set
       submission_id = ?, ticket_id = ?, submitter_id = ?, submitter_display_name = ?,
       ${hasGithubAttribution ? "account_id = ?, github_login = ?," : ""} declared_model_slug = ?, origin = ?, suite_release_id = ?,
-      suite_manifest_sha256 = ?, expires_at = ?, bundle_schema_version = ?, upload_capability_sha256 = ?, community_model_group_id = ?
+      suite_manifest_sha256 = ?, expires_at = ?, bundle_schema_version = ?, upload_capability_sha256 = ?, community_model_group_id = ?,
+      ticket_envelope_json = ?, upload_declared_size_bytes = null, upload_target_url = null
       where submission_id = ?`,
   )
     .bind(
@@ -135,46 +134,10 @@ export async function rotateTicketedSubmission(
       RESULT_BUNDLE_SCHEMA_VERSION,
       uploadCapabilitySha256,
       ticket.community_model_group_id ?? null,
+      JSON.stringify(ticket),
       currentSubmissionId,
     )
     .run();
-}
-
-export async function markPendingVerification(
-  env: SubmissionApiEnv,
-  submissionId: string,
-  sizeBytes: number,
-): Promise<PendingAdmissionResult> {
-  const current = await requiredRow(env, submissionId);
-  assertTransition(current.status, "pending_verification");
-  const update = await env.DB.prepare(
-    `update submissions set
-      uploaded_at = datetime('now'), status = 'pending_verification', raw_bundle_size_bytes = ?,
-      upload_capability_sha256 = null
-      where submission_id = ? and status = 'ticketed' and uploaded_at is null
-        and (select count(*) from submissions where submitter_id = ? and status = 'pending_verification') < ?
-        and (select count(*) from submissions where status = 'pending_verification') < ?`,
-  )
-    .bind(
-      sizeBytes,
-      submissionId,
-      current.submitter_id,
-      PENDING_VERIFICATION_PER_SUBMITTER_LIMIT,
-      PENDING_VERIFICATION_GLOBAL_LIMIT,
-    )
-    .run();
-  if (update.meta?.changes === 0) {
-    return diagnosePendingAdmissionFailure(env, current);
-  }
-  await recordSubmissionTransition(env, {
-    actor: "system",
-    fromStatus: current.status,
-    publishState: current.publish_state,
-    reason: "upload completed",
-    submissionId,
-    toStatus: "pending_verification",
-  });
-  return { kind: "ok" };
 }
 
 export async function publishSubmittedSubmission(
@@ -192,7 +155,7 @@ export async function publishSubmittedSubmission(
     env.DB.prepare(
       `update submissions set
         uploaded_at = datetime('now'), status = 'published', status_reason = 'complete',
-        raw_bundle_size_bytes = ?, upload_capability_sha256 = null,
+        raw_bundle_size_bytes = ?, ticket_envelope_json = null, upload_target_url = null,
         validator_version = ?, validator_commit = ?, validated_at = ?,
         projection_schema_version = ?, projection_sha256 = ?, projection_object_sha256 = ?, projection_r2_key = ?,
         scorecard_id = ?, model_identity_digest = ?, trust_label = ?, verification_level = ?,
@@ -236,7 +199,8 @@ export async function rejectSubmittedSubmission(
   if (env.DB.batch === undefined) throw new Error("D1 batch support is required for submission rejection");
   const results = await env.DB.batch([
     env.DB.prepare(
-      `update submissions set status = 'rejected', status_reason = ?, upload_capability_sha256 = null,
+      `update submissions set status = 'rejected', status_reason = ?, validated_at = datetime('now'),
+       upload_capability_sha256 = null, ticket_envelope_json = null, upload_target_url = null,
        state_revision = state_revision + 1 where submission_id = ? and status = 'ticketed' and state_revision = ?`,
     ).bind(reason, submissionId, current.state_revision),
     env.DB.prepare(
@@ -245,23 +209,6 @@ export async function rejectSubmittedSubmission(
     ).bind(submissionId, current.status, reason, current.state_revision + 1),
   ]);
   if (results[0]?.meta?.changes !== 1) throw new InvalidTransitionError(current.status, "rejected");
-}
-
-async function diagnosePendingAdmissionFailure(
-  env: SubmissionApiEnv,
-  current: SubmissionRow,
-): Promise<PendingAdmissionResult> {
-  const refreshed = await rowBySubmissionId(env, current.submission_id);
-  if (refreshed === null || refreshed.status !== "ticketed" || refreshed.uploaded_at !== null) {
-    return { code: "submission_not_ticketed", kind: "error" };
-  }
-  if (current.submitter_id !== null && await countPendingVerificationForSubmitter(env, current.submitter_id) >= PENDING_VERIFICATION_PER_SUBMITTER_LIMIT) {
-    return { code: "pending_review_limit", kind: "error" };
-  }
-  if (await countPendingVerification(env) >= PENDING_VERIFICATION_GLOBAL_LIMIT) {
-    return { code: "global_pending_limit", kind: "error" };
-  }
-  return { code: "submission_not_ticketed", kind: "error" };
 }
 
 export async function updatePublishState(
@@ -343,22 +290,10 @@ export async function rowByRawBundleSha(env: SubmissionApiEnv, rawBundleSha256: 
   );
 }
 
-export async function countPendingVerificationForSubmitter(env: SubmissionApiEnv, submitterId: string): Promise<number> {
-  const row = await env.DB.prepare(
-    "select count(*) as count from submissions where submitter_id = ? and status = 'pending_verification'",
-  )
-    .bind(submitterId)
-    .first();
-  const count = row?.["count"];
-  return typeof count === "number" ? count : 0;
-}
-
-export async function countPendingVerification(env: SubmissionApiEnv): Promise<number> {
-  const row = await env.DB.prepare(
-    "select count(*) as count from submissions where status = 'pending_verification'",
-  ).first();
-  const count = row?.["count"];
-  return typeof count === "number" ? count : 0;
+export function ticketEnvelopeFromRow(row: SubmissionRow): SubmissionEnvelope | null {
+  if (row.ticket_envelope_json === null) return null;
+  const value: unknown = JSON.parse(row.ticket_envelope_json);
+  return SubmissionEnvelopeSchema.parse(value);
 }
 
 export async function listPendingVerificationQueue(
@@ -527,7 +462,7 @@ function rowSelectSql(column: "submission_id" | "raw_bundle_sha256" | "status"):
   return `select submission_id, ticket_id, status, created_at, declared_model_slug, bundle_schema_version, raw_bundle_sha256, raw_bundle_r2_key,
     raw_bundle_size_bytes, projection_sha256, projection_object_sha256, publish_state, published_at, validated_at, suite_release_id, suite_manifest_sha256,
     origin, submitter_id, submitter_display_name, uploaded_at, expires_at, run_payload_sha256, duplicate_of, status_reason,
-    upload_capability_sha256, state_revision
+    upload_capability_sha256, ticket_envelope_json, upload_declared_size_bytes, upload_target_url, state_revision
     from submissions where ${column} = ?`;
 }
 

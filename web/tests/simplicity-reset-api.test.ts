@@ -24,6 +24,7 @@ import {
   MIGRATION_0014,
   MIGRATION_0015,
   MIGRATION_0016,
+  MIGRATION_0017,
   SUITE_MANIFEST_SHA,
   SUITE_RELEASE_ID,
   createEnv,
@@ -77,7 +78,10 @@ describe("simplicity reset publish-on-submit API", () => {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
-    const submissionId = requiredString(await ticket.json(), "ticket_id");
+    const ticketBody = await ticket.json();
+    const submissionId = requiredString(ticketBody, "ticket_id");
+    const uploadCapability = requiredString(ticketBody, "upload_capability");
+    await prepareDirectUpload(env, submissionId, bundleJson.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
     const projection = clientProjection(bundleSha, {
       axisScores: {
@@ -103,6 +107,7 @@ describe("simplicity reset publish-on-submit API", () => {
       request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
         accepted_result_projection: projection,
         raw_bundle_sha256: bundleSha,
+        upload_capability: uploadCapability,
       }),
     });
 
@@ -154,6 +159,8 @@ describe("simplicity reset publish-on-submit API", () => {
     });
     const ticketBody = await ticket.json();
     const submissionId = requiredString(ticketBody, "ticket_id");
+    const uploadCapability = requiredString(ticketBody, "upload_capability");
+    await prepareDirectUpload(env, submissionId, bundleJson.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
 
     // When: the client submits its complete accepted_result_projection.v2.
@@ -164,6 +171,7 @@ describe("simplicity reset publish-on-submit API", () => {
         accepted_result_projection: clientProjection(bundleSha),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
+        upload_capability: uploadCapability,
       }),
     });
 
@@ -190,9 +198,9 @@ describe("simplicity reset publish-on-submit API", () => {
       }],
     });
     const parsedBoard = parseCommunityLiveBoard(boardBody);
-    expect(parsedBoard?.rows[0]).toMatchObject({ ranked: true });
-    expect(parsedBoard?.rows[0]?.trust).toBeUndefined();
-    expect(reconcileCommunityRows([], parsedBoard?.rows ?? [])[0]).toMatchObject({ ranked: true });
+    expect(parsedBoard?.rows[0]).toMatchObject({ headlineComplete: true });
+    expect(parsedBoard?.rows[0]?.trust).toBeNull();
+    expect(reconcileCommunityRows([], parsedBoard?.rows ?? [])[0]).toMatchObject({ headlineComplete: true });
   });
 
   it("returns the published response when the post-publish board rebuild fails", async () => {
@@ -208,7 +216,10 @@ describe("simplicity reset publish-on-submit API", () => {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
-    const submissionId = requiredString(await ticket.json(), "ticket_id");
+    const ticketBody = await ticket.json();
+    const submissionId = requiredString(ticketBody, "ticket_id");
+    const uploadCapability = requiredString(ticketBody, "upload_capability");
+    await prepareDirectUpload(env, submissionId, bundleJson.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
     const backgroundTasks: Promise<unknown>[] = [];
     const context = {
@@ -217,6 +228,7 @@ describe("simplicity reset publish-on-submit API", () => {
       request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
         accepted_result_projection: clientProjection(bundleSha),
         raw_bundle_sha256: bundleSha,
+        upload_capability: uploadCapability,
       }),
       waitUntil: (task: Promise<unknown>) => { backgroundTasks.push(task); },
     };
@@ -243,7 +255,10 @@ describe("simplicity reset publish-on-submit API", () => {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
-    const submissionId = requiredString(await ticket.json(), "ticket_id");
+    const ticketBody = await ticket.json();
+    const submissionId = requiredString(ticketBody, "ticket_id");
+    const uploadCapability = requiredString(ticketBody, "upload_capability");
+    await prepareDirectUpload(env, submissionId, bundleJson.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
     const projection = clientProjection(bundleSha, { omittedAxes: ["tool_calling"] });
 
@@ -255,6 +270,7 @@ describe("simplicity reset publish-on-submit API", () => {
         accepted_result_projection: projection,
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
+        upload_capability: uploadCapability,
       }),
     });
 
@@ -281,7 +297,10 @@ describe("simplicity reset publish-on-submit API", () => {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
-    const submissionId = requiredString(await ticket.json(), "ticket_id");
+    const ticketBody = await ticket.json();
+    const submissionId = requiredString(ticketBody, "ticket_id");
+    const uploadCapability = requiredString(ticketBody, "upload_capability");
+    await prepareDirectUpload(env, submissionId, bundleJson.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
     await completeAndRebuild({
       env,
@@ -289,6 +308,7 @@ describe("simplicity reset publish-on-submit API", () => {
       request: jsonRequest(`/api/submissions/${submissionId}/complete`, {
         accepted_result_projection: clientProjection(bundleSha),
         raw_bundle_sha256: bundleSha,
+        upload_capability: uploadCapability,
       }),
     });
 
@@ -313,7 +333,12 @@ describe("simplicity reset publish-on-submit API", () => {
     const env = await createResetEnv();
     const anchorBundle = JSON.stringify({ fixture: "maintainer" });
     const anchorSha = sha256Hex(anchorBundle);
-    const anchorTicket = await issueEnvelope(env, anchorSha, { submitter_display_name: "Anchor Operator" });
+    const anchorTicket = await issueEnvelope(
+      env,
+      anchorSha,
+      { submitter_display_name: "Anchor Operator" },
+      anchorBundle.length,
+    );
     await env.SUBMISSIONS.put(rawBundleKey(anchorSha), anchorBundle);
     const key = testKeyPair();
     const communityBundle = JSON.stringify(signedResultBundle(key, { fixture: "community" }));
@@ -326,7 +351,10 @@ describe("simplicity reset publish-on-submit API", () => {
         "CF-Connecting-IP": TEST_IP,
       }),
     });
-    const communityId = requiredString(await communityTicket.json(), "ticket_id");
+    const communityEnvelope = await communityTicket.json();
+    const communityId = requiredString(communityEnvelope, "ticket_id");
+    const communityUploadCapability = requiredString(communityEnvelope, "upload_capability");
+    await prepareDirectUpload(env, communityId, communityBundle.length);
     await env.SUBMISSIONS.put(rawBundleKey(communitySha), communityBundle);
 
     // When: both clients complete, with the community score higher than the maintainer score.
@@ -336,6 +364,7 @@ describe("simplicity reset publish-on-submit API", () => {
       request: jsonRequest(`/api/submissions/${anchorTicket.ticket_id}/complete`, {
         accepted_result_projection: completeProjection(anchorSha, "project_anchor", 0.61),
         raw_bundle_sha256: anchorSha,
+        upload_capability: anchorTicket.upload_capability,
       }),
     });
     await completeAndRebuild({
@@ -344,6 +373,7 @@ describe("simplicity reset publish-on-submit API", () => {
       request: jsonRequest(`/api/submissions/${communityId}/complete`, {
         accepted_result_projection: completeProjection(communitySha, "community", 0.83),
         raw_bundle_sha256: communitySha,
+        upload_capability: communityUploadCapability,
       }),
     });
 
@@ -373,7 +403,7 @@ describe("simplicity reset publish-on-submit API", () => {
     const env = await createResetEnv();
     const bundle = JSON.stringify({ fixture: "lifecycle" });
     const bundleSha = sha256Hex(bundle);
-    const ticket = await issueEnvelope(env, bundleSha);
+    const ticket = await issueEnvelope(env, bundleSha, {}, bundle.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundle);
     await completeAndRebuild({
       env,
@@ -381,6 +411,7 @@ describe("simplicity reset publish-on-submit API", () => {
       request: jsonRequest(`/api/submissions/${ticket.ticket_id}/complete`, {
         accepted_result_projection: completeProjection(bundleSha, "project_anchor"),
         raw_bundle_sha256: bundleSha,
+        upload_capability: ticket.upload_capability,
       }),
     });
 
@@ -428,6 +459,7 @@ function createResetEnv() {
       MIGRATION_0014,
       MIGRATION_0015,
       MIGRATION_0016,
+      MIGRATION_0017,
     ],
   });
 }
@@ -563,4 +595,10 @@ async function completeAndRebuild(
   });
   await Promise.all(tasks);
   return response;
+}
+
+async function prepareDirectUpload(env: SubmissionApiEnv, submissionId: string, sizeBytes: number): Promise<void> {
+  await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+    .bind(sizeBytes, submissionId)
+    .run();
 }

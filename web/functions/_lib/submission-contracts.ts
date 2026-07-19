@@ -82,26 +82,6 @@ export type RouteParams = {
   readonly submissionId?: string;
 };
 
-export type SubmissionEnvelope = {
-  readonly accepted_suite_terms: true;
-  readonly allowed_schema: typeof RESULT_BUNDLE_SCHEMA_VERSION;
-  readonly bundle_sha256: string;
-  readonly community_model_group_id?: string;
-  readonly declared_model_slug?: string;
-  readonly expected_suite_manifest_sha256: string | null;
-  readonly expected_suite_release_id: string | null;
-  readonly expires_at: string;
-  readonly expiry: string;
-  readonly max_upload_bytes: number;
-  readonly one_use: true;
-  readonly origin: "project_anchor" | "community";
-  readonly schema_version: typeof SUBMISSION_ENVELOPE_SCHEMA_VERSION;
-  readonly submitter_display_name?: string;
-  readonly submitter_id: string;
-  readonly ticket_id: string;
-  readonly upload_capability: string;
-};
-
 export const SUBMISSION_ENVELOPE_SCHEMA_VERSION = "localbench.submission_envelope.v2";
 // Admission streams bounded R2 chunks into DigestStream, so peak memory is O(chunk)
 // in bundle size and is independent of this 50 MiB storage/abuse cap.
@@ -135,8 +115,28 @@ export const CommunityModelGroupRequestSchema = z.object({
   public_key: Ed25519PublicKeySchema,
 }).strict();
 const CatalogSlugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
-const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
+export const UploadCapabilitySchema = z.string().regex(/^upload_[0-9a-f]{32}$/);
 export const CommunityModelGroupIdSchema = z.string().regex(/^community-group:[0-9a-f]{32}$/);
+export const SubmissionEnvelopeSchema = z.object({
+  accepted_suite_terms: z.literal(true),
+  allowed_schema: z.literal(RESULT_BUNDLE_SCHEMA_VERSION),
+  bundle_sha256: Sha256Schema,
+  community_model_group_id: CommunityModelGroupIdSchema.optional(),
+  declared_model_slug: CatalogSlugSchema.optional(),
+  expected_suite_manifest_sha256: Sha256Schema.nullable(),
+  expected_suite_release_id: z.string().min(1).nullable(),
+  expires_at: z.iso.datetime(),
+  expiry: z.iso.datetime(),
+  max_upload_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES),
+  one_use: z.literal(true),
+  origin: z.enum(["project_anchor", "community"]),
+  schema_version: z.literal(SUBMISSION_ENVELOPE_SCHEMA_VERSION),
+  submitter_display_name: SubmitterDisplayNameSchema.optional(),
+  submitter_id: z.string().min(1),
+  ticket_id: z.string().min(1),
+  upload_capability: UploadCapabilitySchema,
+}).strict();
+export type SubmissionEnvelope = z.infer<typeof SubmissionEnvelopeSchema>;
 export const TicketRequestSchema = z.object({
   accepted_suite_terms: z.literal(true),
   bundle_sha256: Sha256Schema,
@@ -153,13 +153,14 @@ export const TicketRequestSchema = z.object({
 
 export const UploadTargetRequestSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
-  size_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).optional(),
+  size_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES),
   ticket_id: z.string().min(1),
   upload_capability: UploadCapabilitySchema,
-});
+}).strict();
 
 const CompleteRequestBaseSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
+  upload_capability: UploadCapabilitySchema,
   // Advisory CLI field only; actual R2 metadata is the authority for the structured 413 path.
   size_bytes: z.number().int().positive().optional(),
 });
@@ -216,9 +217,12 @@ export const SubmissionRowSchema = z.object({
   suite_manifest_sha256: Sha256Schema.nullable(),
   suite_release_id: z.string().nullable(),
   ticket_id: z.string().nullable(),
+  ticket_envelope_json: z.string().nullable().optional().default(null),
   uploaded_at: z.string().nullable(),
+  upload_declared_size_bytes: z.number().int().positive().max(MAX_UPLOAD_BYTES).nullable().optional().default(null),
   validated_at: z.string().nullable().optional().default(null),
   upload_capability_sha256: Sha256Schema.nullable().optional().default(null),
+  upload_target_url: z.string().url().nullable().optional().default(null),
 });
 
 export type TicketRequest = z.infer<typeof TicketRequestSchema>;

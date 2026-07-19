@@ -17,6 +17,7 @@ import {
   MIGRATION_0014,
   MIGRATION_0015,
   MIGRATION_0016,
+  MIGRATION_0017,
   applyMigration,
   columnCount,
   createEnv,
@@ -108,6 +109,7 @@ describe("submission D1 migrations", () => {
       ["0014_projection_storage_fences.sql", MIGRATION_0014],
       ["0015_accounts.sql", MIGRATION_0015],
       ["0016_client_reported_projection.sql", MIGRATION_0016],
+      ["0017_submission_upload_security.sql", MIGRATION_0017],
     ] as const;
 
     await applyWithWranglerLedger(env.DB, migrations);
@@ -118,13 +120,15 @@ describe("submission D1 migrations", () => {
     expect(await columnCount(env.DB, "submissions", "zt1_decision")).toBe(1);
     expect(await columnCount(env.DB, "submissions", "state_revision")).toBe(1);
     expect(await columnCount(env.DB, "submissions", "projection_object_sha256")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "upload_declared_size_bytes")).toBe(1);
+    expect(await columnCount(env.DB, "submissions", "upload_target_url")).toBe(1);
     expect(await tableExists(env.DB, "publication_snapshots")).toBe(true);
     expect(await tableExists(env.DB, "maintainer_verification_attestations")).toBe(true);
     expect(await tableExists(env.DB, "community_model_groups")).toBe(true);
     expect(await tableExists(env.DB, "projection_storage_fences")).toBe(true);
     expect(await tableExists(env.DB, "accounts")).toBe(true);
     const applied = await env.DB.prepare("select count(*) as count from d1_migrations").first();
-    expect(applied?.["count"]).toBe(15);
+    expect(applied?.["count"]).toBe(16);
   }, 15_000);
 
   it("relaxes verification_level without losing legacy rows", async () => {

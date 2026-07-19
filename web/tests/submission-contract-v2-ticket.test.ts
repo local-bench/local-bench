@@ -269,6 +269,7 @@ describe("submission contract v2 ticket route", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: 1,
         ticket_id: rotatedBody.ticket_id,
         upload_capability: rotatedBody.upload_capability,
       }),
@@ -278,6 +279,7 @@ describe("submission contract v2 ticket route", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: 1,
         ticket_id: firstBody.ticket_id,
         upload_capability: firstBody.upload_capability,
       }),
@@ -333,7 +335,7 @@ describe("submission contract v2 ticket route", () => {
     expect(await responses[20]?.json()).toMatchObject({ code: "rate_limited" });
   }, 30_000);
 
-  it("caps tickets behind the pending-review limit with an honest non-timer rejection", async () => {
+  it("does not gate new tickets on legacy pending-review rows", async () => {
     // Given: one public key already has ten submissions sitting in pending_verification.
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
@@ -361,11 +363,10 @@ describe("submission contract v2 ticket route", () => {
       }),
     });
 
-    // Then: rejected with the review-gated code, not a misleading retry_after timer.
-    expect(response.status).toBe(429);
+    // Then: publish-on-submit admission ignores the retired maintainer-review queue cap.
+    expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body).toMatchObject({ code: "pending_review_limit", pending_limit: 10 });
-    expect(body).not.toHaveProperty("retry_after_seconds");
+    expect(body).toMatchObject({ origin: "community", upload_capability: expect.any(String) });
   }, 30_000);
 
   it("rate-limits community ticket mints after the IPv4 prefix daily cap", async () => {

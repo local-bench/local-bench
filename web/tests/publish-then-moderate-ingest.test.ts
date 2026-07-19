@@ -34,15 +34,17 @@ describe("publish-then-moderate ingest budgets", () => {
 
   it("deletes the uploaded R2 object after a byte-digest failure", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
-    const envelope = await issueEnvelope(env);
+    const mismatchedBytes = "synthetic mismatched bytes";
+    const envelope = await issueEnvelope(env, RAW_BUNDLE_SHA, {}, mismatchedBytes.length);
     const key = `submissions/raw/${RAW_BUNDLE_SHA}.json`;
-    await env.SUBMISSIONS.put(key, "synthetic mismatched bytes");
+    await env.SUBMISSIONS.put(key, mismatchedBytes);
     const response = await completeSubmission({
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        upload_capability: envelope.upload_capability,
       }),
     });
     expect(response.status).toBe(400);

@@ -22,6 +22,7 @@ export const MIGRATION_0013 = readFileSync(new URL("../migrations/0013_community
 export const MIGRATION_0014 = readFileSync(new URL("../migrations/0014_projection_storage_fences.sql", import.meta.url), "utf-8");
 export const MIGRATION_0015 = readFileSync(new URL("../migrations/0015_accounts.sql", import.meta.url), "utf-8");
 export const MIGRATION_0016 = readFileSync(new URL("../migrations/0016_client_reported_projection.sql", import.meta.url), "utf-8");
+export const MIGRATION_0017 = readFileSync(new URL("../migrations/0017_submission_upload_security.sql", import.meta.url), "utf-8");
 export const ADMIN_SECRET = "test-admin-secret";
 export const TEST_COMMUNITY_GROUP_ID = `community-group:${"1".repeat(32)}`;
 export const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
@@ -90,7 +91,7 @@ export async function createEnv(options: TestEnvOptions): Promise<SubmissionApiE
   });
   miniflares.push(miniflare);
   const bindings = await miniflare.getBindings<SubmissionApiEnv>();
-  const migrations = options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016];
+  const migrations = options.migrations ?? [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016, MIGRATION_0017];
   for (const migration of migrations) {
     await applyMigration(bindings.DB, migration);
   }
@@ -118,6 +119,7 @@ export async function issueEnvelope(
   env: SubmissionApiEnv,
   rawBundleSha = RAW_BUNDLE_SHA,
   overrides: Record<string, unknown> = {},
+  declaredSizeBytes = RESULT_BUNDLE_JSON.length,
 ): Promise<IssuedEnvelope> {
   const response = await issueTicket({
     env,
@@ -132,6 +134,9 @@ export async function issueEnvelope(
   if (!isIssuedEnvelope(body)) {
     throw new Error("ticket response did not include ticket_id");
   }
+  await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+    .bind(declaredSizeBytes, body.ticket_id)
+    .run();
   return body;
 }
 

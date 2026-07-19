@@ -12,6 +12,7 @@ import {
   MIGRATION_0011,
   MIGRATION_0013,
   MIGRATION_0014,
+  MIGRATION_0017,
   RAW_BUNDLE_SHA,
   RESULT_BUNDLE_JSON,
   SUITE_MANIFEST_SHA,
@@ -63,7 +64,7 @@ async function alarmEnv() {
     includeR2Secrets: true,
     migrations: [
       MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008,
-      MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014,
+      MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0017,
     ],
   });
   await env.DB.prepare("update ops_settings set value = 'on' where key = 'auto_publish'").run();

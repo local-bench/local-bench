@@ -13,6 +13,14 @@ type R2SigningConfig = {
   readonly secretAccessKey: string;
 };
 
+export type SignedUploadTarget = {
+  readonly bucketName: string;
+  readonly kind: "ok";
+  readonly r2Key: string;
+  readonly uploadHeaders: Readonly<Record<string, string>>;
+  readonly uploadUrl: string;
+};
+
 export type RawBundleVerification =
   | { readonly kind: "ok"; readonly sizeBytes: number }
   | { readonly kind: "error"; readonly code: string; readonly error: string; readonly status: number };
@@ -75,8 +83,8 @@ export async function verifyRawBundle(env: SubmissionApiEnv, rawBundleSha256: st
   return { kind: "ok", sizeBytes };
 }
 
-export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: string): Promise<
-  | { readonly kind: "ok"; readonly bucketName: string; readonly r2Key: string; readonly uploadHeaders: Readonly<Record<string, string>>; readonly uploadUrl: string }
+export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: string, sizeBytes: number): Promise<
+  | SignedUploadTarget
   | { readonly kind: "disabled" }
 > {
   const signing = r2SigningConfig(env);
@@ -86,11 +94,13 @@ export async function signedUploadUrl(env: SubmissionApiEnv, rawBundleSha256: st
   const r2Key = rawBundleKey(rawBundleSha256);
   // R2's PutObject compatibility supports this conditional create header, but
   // not x-amz-checksum-sha256. Finalization hashes the uploaded object bytes.
-  const uploadHeaders = {
-    "if-none-match": "*",
-  };
+  const uploadHeaders = signedUploadHeaders(sizeBytes);
   const uploadUrl = await signedR2Url(signing, r2Key, uploadHeaders);
   return { bucketName: signing.bucketName, kind: "ok", r2Key, uploadHeaders, uploadUrl };
+}
+
+export function signedUploadHeaders(sizeBytes: number): Readonly<Record<string, string>> {
+  return { "content-length": String(sizeBytes), "if-none-match": "*" };
 }
 
 export function rawBundleKey(rawBundleSha256: string): string {
