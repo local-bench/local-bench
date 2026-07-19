@@ -1,5 +1,5 @@
 {
-  "board_sha256": "5803ce4344624312fc501b78e8b1ab1a43093e69919841c2d8788bdf796098c8",
+  "board_sha256": "ea1e80c9efc2dfc8575f56b786f54fc8a74fc5b64c865bf4d94d1ed3bd04a06e",
   "ci_method": "stratified-nonparametric-bootstrap-percentile",
   "dataset_version": "dataset-pins-via-suite-item-set-hashes",
   "dataset_version_note": "No standalone dataset version is exposed; suite item_set_hashes are the dataset pins.",
@@ -7,8 +7,8 @@
   "execution_profile_id": null,
   "extractor_version": null,
   "extractor_version_note": "No standalone answer-extractor version is exposed; scorer_versions carry scorer identity.",
-  "generated_at": "2026-07-17T04:30:00+00:00",
-  "index_version": "index-v4.1",
+  "generated_at": "2026-07-19T15:00:00+00:00",
+  "index_version": "index-v4.2",
   "item_set_hashes": {
     "amo.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
     "bfcl.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
@@ -26,7 +26,7 @@
   "lane_spec_id": "capped-thinking-v1",
   "profile_catalog_digest": "14929303e739622e0352e66e6accd24f6efc43460ea72216bff8c111982d4452",
   "reasoning_registry_hash": "910cee258a631062a801650b72f38cb745e0ada8a320028ac3cfbbb24745136d",
-  "registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
+  "registry_digest": "fb5b77eb36d70508f4329e46a0746979758b3420ce9db48ec60a2711d72656c8",
   "sampling_pins": {
     "min_p": null,
     "seed": null,
@@ -34,9 +34,9 @@
     "top_k": null,
     "top_p": null
   },
-  "scorecard_id": "449ef68c32830590ca1373281877821e0234a8e4e5061e531f36c323a2fd5c73",
+  "scorecard_id": "14eae8b27e03bb3e8b23d8cd232b005977f597044329d028ad4513b0101602de",
   "scorecard_version": "6",
-  "scorer_git_commit": "0637beecaae16d92a8ecad250fb80a854b3761bf",
+  "scorer_git_commit": "24ec20ce8dbe9ac325dc4ee8bf87610954342427",
   "scorer_versions": {
     "amo": "1",
     "appworld_c": "1",

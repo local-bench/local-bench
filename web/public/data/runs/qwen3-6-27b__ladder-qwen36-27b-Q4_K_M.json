@@ -27,6 +27,27 @@
       "point_raw": 0.820389690225671,
       "raw_accuracy": 0.84,
       "termination_rate": 0.995
+    },
+    "tool_use": {
+      "ambiguous_or_contaminated_final_rate": null,
+      "budget_cap_hit_rate": null,
+      "conditional_accuracy": 0.14583333333333334,
+      "empty_final_rate": null,
+      "hi": 24.731182795698924,
+      "hi_raw": 0.24731182795698925,
+      "leaked_reasoning_rate": null,
+      "lo": 6.122448979591836,
+      "lo_raw": 0.061224489795918366,
+      "measurement_truncation_rate": null,
+      "n": 96,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "no_final_answer_rate": null,
+      "point": 14.583333333333334,
+      "point_raw": 0.14583333333333334,
+      "raw_accuracy": 0.14583333333333334,
+      "termination_rate": 1.0,
+      "truncation_rate": null
     }
   },
   "composite": null,
@@ -71,12 +92,12 @@
     "coding not measured in this run; axis omitted"
   ],
   "diagnostic_composite": {
-    "hi": 78.11564510696878,
-    "hi_raw": 0.7811564510696878,
-    "lo": 71.50824247270606,
-    "lo_raw": 0.7150824247270606,
-    "point": 74.86302192624954,
-    "point_raw": 0.7486302192624954
+    "hi": 57.424843883850116,
+    "hi_raw": 0.5742484388385012,
+    "lo": 49.59293795798254,
+    "lo_raw": 0.4959293795798254,
+    "point": 53.33456171449376,
+    "point_raw": 0.5333456171449376
   },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
