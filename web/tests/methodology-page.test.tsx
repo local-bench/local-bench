@@ -110,7 +110,7 @@ describe("MethodologyPage", () => {
     expect(text).toContain("fixed 96-task subset");
     expect(text).toContain("seeded stratified recipe");
     expect(text).toContain("Raw inference outputs are unchanged; no model was re-run");
-    expect(text).toContain("53.12</td><td class=\"px-3 py-2 font-mono text-bench-accent\">51.31");
+    expect(text).toContain("53.12</td><td class=\"px-3 py-2 font-mono text-bench-accent\">51.69");
     expect(text).toContain("href=\"/data/archive/index-v4.1.json\"");
     expect(text).toContain("href=\"/data/archive/agentic-v4.1.json\"");
     expect(text).toContain("BFCL v3 multi-turn base — frozen snapshot");

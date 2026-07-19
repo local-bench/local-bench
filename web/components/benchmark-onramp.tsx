@@ -145,9 +145,9 @@ export function BenchmarkOnramp({
         </div>
       </div>
       <p className="mt-3 max-w-3xl text-base leading-7 text-bench-muted">
-        Choose your VRAM, model, and runtime. The public command runs the five non-agentic axes with
-        <code className="font-mono text-bench-text"> --static-only</code>; full six-axis execution currently requires a
-        managed AppWorld harness.
+        Choose your VRAM, model, and runtime. The public command runs the complete suite — publishable rows
+        need every headline axis, which requires Docker for the coding sandbox and the managed AppWorld
+        harness (<code className="font-mono text-bench-text">localbench setup-agentic</code>) for Agentic.
       </p>
 
       <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[170px_minmax(0,1fr)_220px]">
@@ -247,7 +247,7 @@ export function BenchmarkOnramp({
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded border border-bench-line bg-bench-panel-2/60 p-3 text-sm text-bench-muted">
         <span>
-          Public recipes use the measured/static suite. Full six-axis runs fail fast unless the managed AppWorld flags are
+          Full-suite runs fail fast before model download unless Docker and the managed AppWorld harness are
           configured. Submissions are signed and publish immediately, subject to post-hoc moderation —{" "}
           <Link href="/submit" className="text-bench-accent underline">
             how to submit

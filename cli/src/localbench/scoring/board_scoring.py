@@ -509,7 +509,10 @@ def _axes_and_samples(
             continue
         aggregates = [object_value(benches.get(bench), f"benches.{bench}") for bench in source_names]
         expected_counts = (
-            {bench: int_value(aggregate.get("n"), f"{bench}.n") for bench, aggregate in zip(source_names, aggregates, strict=True)}
+            {
+                bench: _expected_scoreable_n(bench, aggregate, item_groups.get(bench, ()))
+                for bench, aggregate in zip(source_names, aggregates, strict=True)
+            }
             if pad_missing_items
             else None
         )
@@ -557,7 +560,10 @@ def _axes_and_samples(
         )
         axis_score |= {
             "raw_accuracy": raw_accuracy,
-            "n": sum(int_value(aggregate.get("n"), "bench.n") for aggregate in aggregates),
+            # n counts the same per-item evidence the point/raw/CI derive from
+            # (sandbox-scoreable only for coding; padded missing items included),
+            # never the run's claimed aggregate n, which legacy records inflate.
+            "n": sum(len(samples[bench]["correct"]) for bench in source_names),
             "n_errors": sum(int_value(aggregate.get("n_errors"), "bench.n_errors") for aggregate in aggregates),
             "n_no_answer": sum(int_value(aggregate.get("n_extraction_failures"), "bench.n_extraction_failures") for aggregate in aggregates) + no_answer,
         }
@@ -710,6 +716,26 @@ def _historical_v3_projection(
             source_groups=INDEX_V3_SOURCE_GROUPS,
         ),
     }
+
+
+def _expected_scoreable_n(bench: str, aggregate: JsonObject, items: Sequence[JsonObject]) -> int:
+    """Padding target for missing items, counted over SCOREABLE items only.
+
+    Legacy coding aggregates (no n_unscoreable key) stored an inclusive n that
+    counted the sandbox-unscoreable items, so subtract the unscoreable items
+    actually present in the record; modern aggregates already exclude them.
+    Everything downstream (sampling, points, methodology) is over the
+    sandbox-scoreable denominator.
+    """
+    expected = int_value(aggregate.get("n"), f"{bench}.n")
+    if bench != CODING_BENCH or "n_unscoreable" in aggregate:
+        return expected
+    present_unscoreable = sum(
+        1
+        for item in items
+        if isinstance(item.get("id"), str) and item["id"] in SANDBOX_UNSCOREABLE_BCBH
+    )
+    return max(0, expected - present_unscoreable)
 
 
 def _sample_parts(

@@ -428,7 +428,7 @@ function buildOneCommandLead(
   quant: OnrampCatalogQuant,
   source: BenchmarkRecipeSource,
 ): BenchmarkRecipeLead {
-  const command = `localbench bench ${shellArg(oneCommandTarget(model, source))} --quant ${shellArg(quant.label)} --static-only`;
+  const command = `localbench bench ${shellArg(oneCommandTarget(model, source))} --quant ${shellArg(quant.label)} --allow-untrusted-code`;
   if (source === "paste") {
     return { kind: "local-only", command };
   }

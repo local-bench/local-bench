@@ -42,7 +42,7 @@ export default function SubmitPage() {
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
         <p>
           Works on Windows, Linux, or macOS for the public static path — you need Python 3.11+ and a
-          llama.cpp server binary. The full six-axis lane additionally requires Windows with WSL2 for
+          llama.cpp server binary. The Agentic axis additionally requires Windows with WSL2 for
           the managed agentic harness. For the one-command path, put{" "}
           <code className="font-mono text-bench-text">llama-server</code> on PATH from{" "}
           <a

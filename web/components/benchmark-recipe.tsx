@@ -65,7 +65,7 @@ function RequirementsLine() {
   return (
     <p className="font-mono text-[11px] leading-5 text-bench-muted">
       Tested on Windows 11; any OS that runs Python 3.11+ and llama-server on PATH works for the
-      public static path, while the full six-axis lane also needs Windows with WSL2. Install
+      public path, while the Agentic axis currently also needs Windows with WSL2. Install
       llama.cpp from{" "}
       <a
         href="https://github.com/ggerganov/llama.cpp/releases"
@@ -88,7 +88,7 @@ function RecipeMetadata({ recipe }: { readonly recipe: Recipe }) {
         <span>
           {recipe.lead.kind === "unavailable"
             ? `Managed full path · ${recipe.lane} · suite-v1-full-exec-6axis-v1`
-            : "Public path · measured/static · suite-v1-static-exec-5axis-v1"}
+            : "Public path · full suite · suite-v1-full-exec-6axis-v1"}
         </span>
         {recipe.runtimeId !== "vllm" && recipe.ggufRepo !== null ? (
           <a
@@ -141,7 +141,7 @@ function OneCommandLead({
       <RequirementsLine />
       {localOnly ? (
         <p className="font-mono text-[11px] leading-5 text-bench-warn">
-          Raw Hugging Face repos run local-only in localbench 0.3.2. The managed path below is publishable when you
+          Raw Hugging Face repos run local-only. The managed path below is publishable when you
           can provide the model file and identity metadata.
         </p>
       ) : (
@@ -151,10 +151,9 @@ function OneCommandLead({
         </p>
       )}
       <p className="font-mono text-[11px] leading-5 text-bench-warn">
-        Public path: <span className="font-mono text-bench-text">--static-only</span> runs the five non-agentic axes and
-        is not eligible for the full six-axis index. Full execution fails fast before model download unless both
-        <span className="font-mono text-bench-text"> --wsl-venv-python</span> and
-        <span className="font-mono text-bench-text"> --appworld-root</span> configure the managed AppWorld harness.
+        Publishable rows require every headline axis. The run fails fast before model download unless Docker
+        (coding sandbox) and the managed AppWorld harness from{" "}
+        <span className="font-mono text-bench-text">localbench setup-agentic</span> are available.
       </p>
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         Non-TTY runs must pass explicit <span className="font-mono text-bench-text">--yes</span>,{" "}

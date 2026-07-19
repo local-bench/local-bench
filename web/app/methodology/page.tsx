@@ -89,11 +89,11 @@ const CANDIDATE_SOURCES: readonly Attribution[] = [
 ];
 
 const V42_RESCORE_ROWS = [
-  { model: "Gemma 4 31B IT", before: 53.12, after: 51.31 },
-  { model: "Qwen3.6 27B", before: 44.35, after: 42.94 },
-  { model: "Qwopus 3.6 27B v2 MTP", before: 43.27, after: 41.76 },
-  { model: "Qwen3.6 35B A3B", before: 42.12, after: 40.71 },
-  { model: "Gemma 4 12B IT", before: 42.03, after: 39.99 },
+  { model: "Gemma 4 31B IT", before: 53.12, after: 51.69 },
+  { model: "Qwen3.6 27B", before: 44.35, after: 43.22 },
+  { model: "Qwopus 3.6 27B v2 MTP", before: 43.27, after: 42.08 },
+  { model: "Qwen3.6 35B A3B", before: 42.12, after: 41.01 },
+  { model: "Gemma 4 12B IT", before: 42.03, after: 40.29 },
 ] as const;
 
 function AttributionRow({ source }: { readonly source: Attribution }) {

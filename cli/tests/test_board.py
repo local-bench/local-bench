@@ -935,3 +935,40 @@ def _bounded_final_v4_run() -> dict:
     record = _bounded_final_v3_run()
     record["index_version"] = INDEX_VERSION_V4
     return record
+
+
+def test_coding_padding_targets_the_sandbox_scoreable_denominator() -> None:
+    # Given: 100 correct + 41 wrong scoreable items plus every sandbox-unscoreable id,
+    # under a LEGACY aggregate whose stored n inclusively counted the unscoreable items.
+    import pytest
+
+    from localbench.coding_exec.score import SANDBOX_UNSCOREABLE_BCBH
+    from localbench.scoring.board_scoring import _axes_and_samples
+
+    unscoreable = sorted(SANDBOX_UNSCOREABLE_BCBH)
+    scoreable_total = 141
+    correct_n = 100
+    items = [
+        {"id": f"ok-{n}", "bench": "bigcodebench_hard", "correct": True, "error": None, "finish_reason": "stop"}
+        for n in range(correct_n)
+    ]
+    items += [
+        {"id": f"bad-{n}", "bench": "bigcodebench_hard", "correct": False, "error": None, "finish_reason": "stop"}
+        for n in range(scoreable_total - correct_n)
+    ]
+    items += [
+        {"id": item_id, "bench": "bigcodebench_hard", "correct": False, "error": None, "finish_reason": "stop"}
+        for item_id in unscoreable
+    ]
+    inclusive_n = scoreable_total + len(unscoreable)
+    legacy = {"bigcodebench_hard": {"n": inclusive_n, "n_errors": 0, "n_extraction_failures": 0, "raw_accuracy": correct_n / inclusive_n}}
+
+    # When: axes are composed with padding from either aggregate generation.
+    legacy_axes, _ = _axes_and_samples(legacy, items, {}, 50, pad_missing_items=True, display_axes=["coding"])
+    modern = {"bigcodebench_hard": {**legacy["bigcodebench_hard"], "n": scoreable_total, "n_unscoreable": len(unscoreable)}}
+    modern_axes, _ = _axes_and_samples(modern, items, {}, 50, pad_missing_items=True, display_axes=["coding"])
+
+    # Then: both generations score over the sandbox-scoreable denominator with a matching n.
+    for axes in (legacy_axes, modern_axes):
+        assert axes["coding"]["n"] == scoreable_total
+        assert axes["coding"]["raw_accuracy"] == pytest.approx(correct_n / scoreable_total)

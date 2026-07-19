@@ -33,10 +33,10 @@ export const EXPECTED_SEASON_2_DENOMINATORS = {
   tool_use: 96,
   knowledge: 400,
   instruction: 294,
-  // Project-row axis n counts SUITE ITEMS (148 bigcodebench_hard items, sentinels
-  // included) — the community projection's coding n=141 is its scored-item count
-  // under a different semantics and is exempt from this project-row check.
-  coding: 148,
+  // Coding is scored over the 141 sandbox-scoreable BigCodeBench-Hard items in
+  // BOTH lanes (the 7 network/data-dependent items are excluded, per the public
+  // methodology); legacy inclusive-n aggregates are normalized at rescore time.
+  coding: 141,
   math: 139,
 } as const satisfies Readonly<Record<(typeof SEASON_2_HEADLINE_AXES)[number], number>>;
 

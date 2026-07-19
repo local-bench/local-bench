@@ -12,8 +12,14 @@ export const PUBLISH_COPY = {
 } satisfies Record<"hidden" | "preview" | "published", string>;
 
 const STATUS_COPY = {
+  published: {
+    body: "The submission validated and published to the board in the same request, attributed to the submitter.",
+    label: "Published",
+    next: "The row is live and ranked when complete; maintainers moderate post-hoc and can suppress rows.",
+    tone: "text-bench-better",
+  },
   accepted: {
-    body: "The maintainer accepted the verifier result. Publication is still controlled separately by publish_state.",
+    body: "A maintainer-reviewed legacy submission. Publication is still controlled separately by publish_state.",
     label: "Accepted",
     next: "If publish_state is hidden, the row is not on the board yet. Preview and published rows can be inspected publicly.",
     tone: "text-bench-better",

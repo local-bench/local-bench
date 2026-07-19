@@ -79,21 +79,21 @@ describe("static data access", () => {
     // index-v4.2: the tool_use structural key carries the AppWorld-only Agentic axis.
     expect(proof?.axes["agentic"]).toBeUndefined();
     expect(proof?.axes["tool_use"]?.point).toBeCloseTo(4.17, 1);
-    expect(proof?.composite_full?.point).toBeCloseTo(39.99, 1);
-    expect(proof?.composite_static?.point).toBeCloseTo(51.93, 1);
+    expect(proof?.composite_full?.point).toBeCloseTo(40.29, 1);
+    expect(proof?.composite_static?.point).toBeCloseTo(52.34, 1);
   });
 
   it("carries all five index-v4.2 ranked composites in the corrected order", async () => {
     const index = await getIndexData();
     const ranked = index.models.filter((m) => m.ranked);
     // index-v4.2 (2026-07-19): Agentic becomes AppWorld-only (measurement-hygiene
-    // correction); composites drop 1.4-2.0 points from v4.1 with rank order unchanged.
+    // correction); composites reflect AppWorld-only Agentic and the 141-item coding denominator with rank order unchanged.
     const expected: readonly (readonly [string, number])[] = [
-      ["gemma-4-31b-it", 51.31],
-      ["qwen3-6-27b", 42.94],
-      ["qwopus3-6-27b-v2-mtp", 41.76],
-      ["qwen3-6-35b-a3b", 40.71],
-      ["gemma-4-12b-it", 39.99],
+      ["gemma-4-31b-it", 51.69],
+      ["qwen3-6-27b", 43.22],
+      ["qwopus3-6-27b-v2-mtp", 42.08],
+      ["qwen3-6-35b-a3b", 41.01],
+      ["gemma-4-12b-it", 40.29],
     ];
     const byComposite = [...ranked].sort(
       (a, b) => (b.composite_full?.point ?? 0) - (a.composite_full?.point ?? 0),

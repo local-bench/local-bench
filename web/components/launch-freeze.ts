@@ -1,7 +1,7 @@
 export const LAUNCH_FREEZE = {
-  asOfDate: "2026-07-19",
+  asOfDate: "2026-07-20",
   scorecardVersion: "scorecard-v6",
-  boardSha256: "ea1e80c9efc2dfc8575f56b786f54fc8a74fc5b64c865bf4d94d1ed3bd04a06e",
+  boardSha256: "c2687d46ac442415641d0478257f3c6d16d583f7113ed8481b2a5a3e1a459a3c",
   itemSetHashes: [
     { label: "MMLU-Pro (Knowledge, 400 items)", file: "mmlu_pro.jsonl", sha256: "129b8d9726eab3676ca30d58fac23af4e07407eb537b9bfa10d4d24434b26ba4" },
     { label: "IFBench (Instruction, 294 items)", file: "ifbench.jsonl", sha256: "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257" },

@@ -46,7 +46,7 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
           </p>
         ) : (
           <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
-            Each bar is one ranked variant, colored by model family. Hover or focus a bar for its six-axis breakdown
+            Each bar is one ranked variant, colored by model family. Hover or focus a bar for its per-axis breakdown
             and the score&apos;s uncertainty range.
           </p>
         )}

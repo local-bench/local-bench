@@ -22,11 +22,11 @@ RECORDS_DIR: Final = REPO / "runs" / "bench" / "season-2-backfill"
 PROTOCOL_PATH: Final = REPO / "protocol" / "index-v4.2.json"
 
 EXPECTED: Final = {
-    "gemma-4-12b-it-qat-ud-q4-k-xl": (4.17, 39.99),
-    "gemma-4-31b-it-q4-k-m": (10.42, 51.31),
-    "qwen3-6-27b-q4-k-m": (8.33, 42.94),
-    "qwen3-6-35b-a3b-ud-q4-k-m": (6.25, 40.71),
-    "qwopus3-6-27b-v2-mtp-q4-k-m": (9.38, 41.76),
+    "gemma-4-12b-it-qat-ud-q4-k-xl": (4.17, 40.29),
+    "gemma-4-31b-it-q4-k-m": (10.42, 51.69),
+    "qwen3-6-27b-q4-k-m": (8.33, 43.22),
+    "qwen3-6-35b-a3b-ud-q4-k-m": (6.25, 41.01),
+    "qwopus3-6-27b-v2-mtp-q4-k-m": (9.38, 42.08),
 }
 
 ALLOWED_POINTERS: Final = {
@@ -34,6 +34,10 @@ ALLOWED_POINTERS: Final = {
     "$.season2_rescore.source_index_version",
     "$.season2_rescore.index_version",
     "$.season2_rescore.axes.tool_use",
+    "$.season2_rescore.axes.coding",
+    "$.season2_rescore.axes.knowledge",
+    "$.season2_rescore.axes.instruction",
+    "$.season2_rescore.axes.math",
     "$.season2_rescore.composite_v4",
     "$.season2_rescore.scorecard_id",
     "$.season2_rescore.registry_digest",
@@ -185,7 +189,7 @@ def prepare_records(
 
         rescored = rescore_record_season2(record)
         assert rescored["index_version"] == INDEX_VERSION_V4_2
-        assert rescored["source_index_version"] == "index-v4.1"
+        assert rescored["source_index_version"] in ("index-v4.1", "index-v4.2")
         assert rescored["missing_headline_axes"] == []
         tool_use = rescored["axes"]["tool_use"]
         assert tool_use["n"] == 96

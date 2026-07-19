@@ -14,6 +14,9 @@
   extraction-failure items count as terminally graded everywhere.
 - README and CLI copy describe publish-on-submit (rows publish immediately with
   attribution and post-hoc moderation) and the five-headline-axis index.
+- The Coding axis is scored over the 141 sandbox-scoreable BigCodeBench-Hard items in
+  both lanes, matching the published methodology; legacy aggregates that inclusively
+  counted the 7 network-dependent items are normalized at rescore time.
 - Known limitation, now documented: `setup-agentic` requires a Windows host with
   managed WSL2 (it fails fast with `localappdata_missing` elsewhere); Linux-native
   host support for the agentic appliance is a tracked roadmap item.

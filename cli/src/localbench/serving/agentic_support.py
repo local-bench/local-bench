@@ -9,7 +9,7 @@ from localbench._types import JsonObject
 
 AGENTIC_SETUP_MESSAGE: Final = (
     "The agentic axis needs the managed AppWorld harness. "
-    "Run `localbench setup-agentic` before starting the six-axis benchmark. "
+    "Run `localbench setup-agentic` before starting the full-suite benchmark. "
 )
 
 
