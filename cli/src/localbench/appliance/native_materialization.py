@@ -72,9 +72,16 @@ def _normalized_member_path(member: tarfile.TarInfo) -> PurePosixPath:
 def _rootfs_filter(member: tarfile.TarInfo, destination: str) -> tarfile.TarInfo | None:
     if not (member.isreg() or member.isdir() or member.issym() or member.islnk()):
         return None
-    if member.issym() and PurePosixPath(member.linkname).is_absolute():
+    if member.issym():
+        # data_filter realpath-resolves relative link targets through symlinks
+        # already on disk, so a relative link to an absolute rootfs symlink
+        # (Ubuntu's /etc/ssl/certs chains) is misread as an escape. Symlinks are
+        # checked lexically instead: absolute targets resolve inside the jail at
+        # runtime, and the member pre-scan forbids extracting through any symlink.
+        path = _normalized_member_path(member)
+        _assert_symlink_target_contained(path, member)
         return member.replace(
-            name=str(_normalized_member_path(member)),
+            name=str(path),
             mode=None,
             uid=None,
             gid=None,
@@ -83,6 +90,22 @@ def _rootfs_filter(member: tarfile.TarInfo, destination: str) -> tarfile.TarInfo
             deep=False,
         )
     return tarfile.data_filter(member, destination)
+
+
+def _assert_symlink_target_contained(
+    path: PurePosixPath, member: tarfile.TarInfo
+) -> None:
+    link = PurePosixPath(member.linkname)
+    if link.is_absolute():
+        return
+    depth = len(path.parent.parts)
+    for part in link.parts:
+        if part == "..":
+            depth -= 1
+            if depth < 0:
+                raise ValueError(f"symlink escapes rootfs: {member.name}")
+        elif part != ".":
+            depth += 1
 
 
 def verify_materialized_rootfs(rootfs: Path, manifest: JsonObject) -> None:

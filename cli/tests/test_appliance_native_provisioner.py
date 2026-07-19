@@ -12,7 +12,11 @@ import pytest
 
 import localbench.appliance.provisioner as provisioner_module
 from localbench.appliance.manifest import PINNED_RUNTIME_ID
-from localbench.appliance.native_materialization import materialize_rootfs
+from localbench.appliance.native_materialization import (
+    _rootfs_filter,
+    _validated_rootfs_members,
+    materialize_rootfs,
+)
 from localbench.appliance.provisioner import (
     ApplianceProvisioner,
     CommandResult,
@@ -255,6 +259,62 @@ def test_native_materialization_rejects_archive_path_traversal(tmp_path: Path) -
 
     assert caught.value.code == "rootfs_materialization_failed"
     assert not (tmp_path / "outside").exists()
+
+
+def test_native_materialization_extracts_relative_links_to_absolute_symlinks(
+    tmp_path: Path,
+) -> None:
+    stream = io.BytesIO()
+    with tarfile.open(fileobj=stream, mode="w") as archive:
+        _tar_entry(
+            archive, "./usr/share/ca-certificates/mozilla/GTS_Root_R4.crt", b"cert\n"
+        )
+        pem = tarfile.TarInfo("./etc/ssl/certs/GTS_Root_R4.pem")
+        pem.type = tarfile.SYMTYPE
+        pem.linkname = "/usr/share/ca-certificates/mozilla/GTS_Root_R4.crt"
+        archive.addfile(pem)
+        hashed = tarfile.TarInfo("./etc/ssl/certs/a3418fda.0")
+        hashed.type = tarfile.SYMTYPE
+        hashed.linkname = "GTS_Root_R4.pem"
+        archive.addfile(hashed)
+    tar_path = tmp_path / "rootfs.tar"
+    tar_path.write_bytes(stream.getvalue())
+    destination = tmp_path / "rootfs"
+    destination.mkdir()
+
+    with tarfile.open(tar_path, mode="r:") as source:
+        source.extractall(
+            destination,
+            members=_validated_rootfs_members(source),
+            filter=_rootfs_filter,
+        )
+
+    if os.name != "nt":
+        assert (destination / "etc/ssl/certs/GTS_Root_R4.pem").readlink() == Path(
+            "/usr/share/ca-certificates/mozilla/GTS_Root_R4.crt"
+        )
+        assert (destination / "etc/ssl/certs/a3418fda.0").readlink() == Path(
+            "GTS_Root_R4.pem"
+        )
+
+
+def test_native_materialization_rejects_relative_symlink_escape(
+    tmp_path: Path,
+) -> None:
+    stream = io.BytesIO()
+    with tarfile.open(fileobj=stream, mode="w") as archive:
+        evil = tarfile.TarInfo("./etc/evil")
+        evil.type = tarfile.SYMTYPE
+        evil.linkname = "../../outside"
+        archive.addfile(evil)
+    tar_path = tmp_path / "rootfs.tar"
+    tar_path.write_bytes(stream.getvalue())
+
+    with pytest.raises(ProvisioningError) as caught:
+        materialize_rootfs(tar_path, tmp_path / "rootfs", {})
+
+    assert caught.value.code == "rootfs_materialization_failed"
+    assert "escapes rootfs" in caught.value.detail
 
 
 def test_native_active_runtime_rechecks_materialized_critical_hashes(
