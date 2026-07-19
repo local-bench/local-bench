@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -9,9 +12,24 @@ import { publicProtocolLabel } from "@/lib/board-adapter";
 import {
   INDEX_VERSION_V4,
   SEASON_2_DIAGNOSTICS,
-  TOOL_USE_FACETS,
   TOOL_USE_WEIGHT,
 } from "@/lib/scoring-seasons";
+
+type ProtocolView = {
+  readonly canonical_sha256: string;
+  readonly agentic_protocol: {
+    readonly ordered_task_ids_sha256: string;
+    readonly seed: number;
+    readonly selection_recipe_sha256: string;
+    readonly selection_version: string;
+    readonly split: string;
+    readonly subset_sha256: string;
+  };
+};
+
+const protocol = JSON.parse(
+  readFileSync(path.join(process.cwd(), "..", "protocol", "index-v4.2.json"), "utf-8"),
+) as ProtocolView;
 
 type Attribution = {
   readonly name: string;
@@ -21,7 +39,7 @@ type Attribution = {
 };
 
 const HEADLINE_SOURCES: readonly Attribution[] = [
-  { name: "AppWorld-C", owner: "AppWorld authors", license: "Apache-2.0", role: "Agentic-execution facet of the Agentic macro-axis (task-success module)." },
+  { name: "AppWorld-C", owner: "AppWorld authors", license: "Apache-2.0", role: "Agentic task-goal completion axis (96-task fixed subset)." },
   { name: "MMLU-Pro", owner: "TIGER-Lab", license: "MIT", role: "Knowledge axis item set (400 items)." },
   {
     name: "IFBench",
@@ -34,12 +52,6 @@ const HEADLINE_SOURCES: readonly Attribution[] = [
     owner: "Google Research",
     license: "Apache-2.0",
     role: "Instruction-following verifier logic adapted into the local-bench scorer.",
-  },
-  {
-    name: "TC-JSON v1",
-    owner: "local-bench + Gorilla LLM / UC Berkeley",
-    license: "Apache-2.0",
-    role: "Tool-calling axis item set and structural JSON scorer (330 items).",
   },
   {
     name: "BigCodeBench-Hard Instruct",
@@ -63,12 +75,26 @@ const HEADLINE_SOURCES: readonly Attribution[] = [
 
 const CANDIDATE_SOURCES: readonly Attribution[] = [
   {
+    name: "TC-JSON v1",
+    owner: "local-bench + Gorilla LLM / UC Berkeley",
+    license: "Apache-2.0",
+    role: "Unweighted call-formatting diagnostic and structural JSON scorer.",
+  },
+  {
     name: "LiveCodeBench / RULER / BFCL expansions",
     owner: "LiveCodeBench authors / NVIDIA / Gorilla LLM and UC Berkeley",
     license: "various open licenses",
     role: "Legacy or candidate diagnostic modules credited in their suite manifests.",
   },
 ];
+
+const V42_RESCORE_ROWS = [
+  { model: "Gemma 4 31B IT", before: 53.12, after: 51.31 },
+  { model: "Qwen3.6 27B", before: 44.35, after: 42.94 },
+  { model: "Qwopus 3.6 27B v2 MTP", before: 43.27, after: 41.76 },
+  { model: "Qwen3.6 35B A3B", before: 42.12, after: 40.71 },
+  { model: "Gemma 4 12B IT", before: 42.03, after: 39.99 },
+] as const;
 
 function AttributionRow({ source }: { readonly source: Attribution }) {
   return (
@@ -106,65 +132,76 @@ export default async function MethodologyPage() {
       <section id="season-2" className="space-y-4 rounded-lg border border-bench-accent/30 bg-bench-panel/55 p-5 text-bench-muted">
         <div>
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-            Season 2 · {publicProtocolLabel(INDEX_VERSION_V4)}
+            Protocol v4.2 · {publicProtocolLabel(INDEX_VERSION_V4)}
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-bench-text">Agentic macro-axis</h2>
+          <h2 className="mt-1 text-xl font-semibold text-bench-text">One scoring protocol for every ranked row</h2>
         </div>
         <p>
-          Season 2 replaces the separate season-1 Agentic and Tool-calling headline axes with one Agentic macro-axis
-          (structural data key <span className="font-mono">tool_use</span>, public axis label under {publicProtocolLabel(INDEX_VERSION_V4)}) worth{" "}
-          {Math.round(TOOL_USE_WEIGHT * 100)}% of the full Index. Its facets are first scored independently, then
-          combined using the declared facet weights below. This is a <span className="font-semibold text-bench-text">bench-normalized weighted mean</span>,
-          not item-count pooling: a bench with more test items does not silently gain more influence.
+          Community and project rows must be scored identically. The previous Agentic axis blended AppWorld with a
+          benchmark that community runs could not execute, so the two populations were ranked on unequal compositions.
+          Protocol v4.2 corrects that comparability defect by making Agentic AppWorld-only everywhere. The structural
+          key remains <span className="font-mono">tool_use</span>, and its {Math.round(TOOL_USE_WEIGHT * 100)}% headline
+          weight does not change.
         </p>
-        <div className="overflow-hidden rounded border border-bench-line">
-          <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent sm:hidden">
-            Swipe horizontally for all methodology columns &rarr;
+        <p>
+          Agentic measures AppWorld task-goal completion under the published runner: a fixed 96-task subset from{" "}
+          <span className="font-mono">{protocol.agentic_protocol.split}</span>, selected with seeded stratified recipe{" "}
+          <span className="font-mono">{protocol.agentic_protocol.selection_version}</span> and seed{" "}
+          <span className="font-mono">{protocol.agentic_protocol.seed}</span>. The subset is identical for every row.
+          The published protocol exposes counts and hashes, never upstream task contents.
+        </p>
+        <dl className="grid gap-2 rounded border border-bench-line bg-bench-bg/45 p-3 text-xs sm:grid-cols-2">
+          <div><dt className="text-bench-muted">Subset sha256</dt><dd className="break-all font-mono text-bench-text">{protocol.agentic_protocol.subset_sha256}</dd></div>
+          <div><dt className="text-bench-muted">Ordered task-ID sha256</dt><dd className="break-all font-mono text-bench-text">{protocol.agentic_protocol.ordered_task_ids_sha256}</dd></div>
+          <div><dt className="text-bench-muted">Selection recipe sha256</dt><dd className="break-all font-mono text-bench-text">{protocol.agentic_protocol.selection_recipe_sha256}</dd></div>
+          <div><dt className="text-bench-muted">Protocol manifest sha256</dt><dd className="break-all font-mono text-bench-text">{protocol.canonical_sha256}</dd></div>
+        </dl>
+
+        <div className="space-y-2 border-t border-bench-line pt-4">
+          <h3 className="text-lg font-semibold text-bench-text">Correction impact</h3>
+          <p>
+            Raw inference outputs are unchanged; no model was re-run. Existing item verdicts were re-scored under the
+            equal v4.2 protocol. The rank order is unchanged.
           </p>
-          <div className="overflow-x-auto">
-            <table className="min-w-[680px] border-collapse text-sm">
-            <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-bench-text/85">
-              <tr>
-                <th className="px-3 py-2">Sub-facet</th>
-                <th className="px-3 py-2">Bench</th>
-                <th className="px-3 py-2">Declared weight</th>
-                <th className="px-3 py-2">Construct</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TOOL_USE_FACETS.map((facet) => (
-                <tr key={facet.key} className="border-t border-bench-line/70">
-                  <td className="px-3 py-2 font-semibold text-bench-text">{facet.label}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{facet.bench}</td>
-                  <td className="px-3 py-2 font-mono">{Math.round(facet.weight * 100)}%</td>
-                  <td className="px-3 py-2">{facet.construct}</td>
-                </tr>
-              ))}
-            </tbody>
+          <p className="font-mono text-[10px] uppercase tracking-wide text-bench-accent sm:hidden">
+            Swipe horizontally for v4.1 and v4.2 scores &rarr;
+          </p>
+          <div className="overflow-x-auto rounded border border-bench-line">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-bench-text/85">
+                <tr><th className="px-3 py-2">Model</th><th className="px-3 py-2">v4.1</th><th className="px-3 py-2">v4.2</th></tr>
+              </thead>
+              <tbody>
+                {V42_RESCORE_ROWS.map((row) => (
+                  <tr key={row.model} className="border-t border-bench-line/70">
+                    <td className="px-3 py-2 font-semibold text-bench-text">{row.model}</td>
+                    <td className="px-3 py-2 font-mono">{row.before.toFixed(2)}</td>
+                    <td className="px-3 py-2 font-mono text-bench-accent">{row.after.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
+          <p className="text-sm">
+            Archived v4.1 snapshots: <a className="text-bench-accent underline" href="/data/archive/index-v4.1.json">board JSON</a>{" "}
+            and <a className="text-bench-accent underline" href="/data/archive/agentic-v4.1.json">Agentic JSON</a>.
+          </p>
         </div>
-        <p className="text-sm">
-          These are the final ratio-preserving weights after calibration. The table and board breakdown read the same
-          constants, so the published split remains a one-place definition.
-        </p>
 
         <div className="space-y-2 border-t border-bench-line pt-4">
           <h3 className="text-lg font-semibold text-bench-text">Unweighted diagnostics</h3>
           <p>
-            {SEASON_2_DIAGNOSTICS.map((diagnostic) => diagnostic.label).join(", ")} are displayed when a result carries
-            them. They are never weighted and never used for ranking. Call formatting remains coverage-required and
-            powers the separate tc_json conformance gate; the other diagnostics are opt-in and not coverage-required.
-            BFCL single-turn overlaps the call-formatting material; BFCL multi-turn long-context and RULER 32K also mix
-            capability with context and cache limits, so they remain diagnostic evidence rather than headline score inputs.
+            {SEASON_2_DIAGNOSTICS.map((diagnostic) => diagnostic.label).join(", ")} are displayed when measured and shown
+            as not measured when absent. They are never weighted, never zero-filled, and never used for ranking. BFCL v3
+            multi-turn base is retained as a frozen, version-pinned diagnostic.
           </p>
         </div>
 
         <div className="space-y-2 border-t border-bench-line pt-4">
           <h3 className="text-lg font-semibold text-bench-text">Season 1 → 2 bridge</h3>
           <p>
-            Index-v3.0 and index-v4.x composites are different editorial scales and are never directly compared
-            (as are index-v4.0 and {publicProtocolLabel(INDEX_VERSION_V4)}, which weight the same axes differently).
+            Index-v3.0 and index-v4.x composites are different editorial scales and are never directly compared.
+            Index-v4.0, index-v4.1, and {publicProtocolLabel(INDEX_VERSION_V4)} are also distinct protocol snapshots.
             Lineage deltas and ordinary compare views require matching index versions. The versioned season bridge is
             the only sanctioned pairing: for an artifact measured completely in both seasons, it presents the frozen
             v3 composite beside the full v4 composite without treating their numerical gap as a performance delta.
@@ -264,7 +301,7 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What publication means</h2>
         <p>
-          Community-reported results publish immediately after the complete six-axis contract, suite pins, schema,
+          Community-reported results publish immediately after the complete five-headline-axis contract, suite pins, schema,
           size limits, and duplicate-retry checks pass. The site preserves the submitted identity, protocol, scores,
           and evidence bundle, computes the common composite, and suppresses rows when problems are demonstrated.
           Results are not independently reproduced by default.
@@ -410,12 +447,11 @@ export default async function MethodologyPage() {
         <h2 className="text-xl font-semibold text-bench-text">Editorial versioning</h2>
         <p>
           Domain weights are explicit editorial choices tied to named releases: {publicProtocolLabel(INDEX_VERSION_V4)}{" "}
-          (scorecard-v6) for the
-          current five-axis Index (Agentic raised to 25% from index-v4.0&apos;s 20%, the other four axes scaled by
-          15/16), index-v4.0 (scorecard-v5) for the initial season-2 scale, index-v3.0 for the season-1 six-axis
-          Index, static-suite-v2 for the ranked no-agentic Index, and static-core diagnostic for the unranked
-          no-sandbox profile. Weights live in the scorer axis registry and are hashed into the scorecard, so history
-          cannot be silently re-scored under the same label.
+          (scorecard-v6) is the current five-axis Index with AppWorld-only Agentic. Index-v4.1 retains the same
+          headline weights but its unequal Agentic composition is archived; index-v4.0 is the initial season-2 scale,
+          and index-v3.0 is the season-1 six-axis Index. Static-suite-v2 remains the ranked no-agentic Index, while
+          static-core is an unranked no-sandbox diagnostic. Weights and membership live in the versioned protocol
+          manifest and scorer registry, so history cannot be silently re-scored under the same label.
         </p>
       </section>
     </main>

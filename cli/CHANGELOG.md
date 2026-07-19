@@ -2,12 +2,13 @@
 
 ## 0.4.3.dev0 - 2026-07-19
 
-- Requires complete six-axis runs for submission and removes the partial `--static-only` path.
+- Corrects the unequal Agentic scoring protocol in index-v4.2: every ranked row now uses AppWorld task-goal completion on the same fixed 96-task subset. The 25% weight is unchanged; BFCL v3 multi-turn base remains available as a frozen, unweighted diagnostic. Raw inference outputs are unchanged and no model is re-run.
+- Requires complete five-headline-axis runs for submission and removes the partial `--static-only` path.
 - Grades coding locally in the pinned, network-disabled Docker sandbox before submission; adds
   `grade-coding` for existing run JSON and offline bundles.
 - Sends the raw bundle with its client-reported v2 projection and preserves carried coding and
   agentic verdicts through offline verification.
-- Maps the complete six-axis editorial profile to index-v4.1 and derives dynamic benches from
+- Maps the complete five-headline-axis editorial profile to index-v4.2 and derives dynamic benches from
   the suite release manifest, with legacy SCORECARD fallback.
 
 ## 0.4.2 - 2026-07-18

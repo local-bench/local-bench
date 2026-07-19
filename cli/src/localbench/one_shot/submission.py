@@ -41,7 +41,7 @@ def maybe_submit(context: OneShotSubmitContext) -> int:
         return EXIT_COMPLETE
     if context.record.get("headline_complete") is not True:
         raise SuiteResolutionError(
-            "incomplete_run: one-shot submission requires all six headline axes; "
+            "incomplete_run: one-shot submission requires all five headline axes; "
             "finish coding and agentic grading before submitting",
         )
     result = (context.submitter or submit_finished_run)(_submit_options(context.args, context.run_root))

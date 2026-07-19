@@ -111,7 +111,7 @@ def submit_finished_run(options: SubmitRunOptions) -> SubmitRunResult:
             lines.extend(bundle_lines(bundle))
             if not result_bundle_headline_complete(load_result_bundle_input(bundle.path).record):
                 raise SubmitInputError(
-                    "incomplete_run: submissions require all six headline axes; "
+                    "incomplete_run: submissions require all five headline axes; "
                     "finish coding and agentic grading before submitting",
                 )
             if options.dry_run:
