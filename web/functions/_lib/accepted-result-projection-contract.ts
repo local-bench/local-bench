@@ -191,6 +191,7 @@ const SUITE_MANIFESTS: Readonly<Record<string, string>> = {
   "suite-v1-partial-text-code-4axis-v1": "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7",
   "suite-v1-text-code-agentic-5axis-v1": "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f",
   "suite-v1-static-core-diag-v1": "f2f8c9a67df3adea5cec463fc156ccae073ea9deb54d4487d72b9826fe385c69",
+  "suite-v2-full-exec-tooluse-5axis-v2": "81420326194941f2dc2ec9146e5fc0dc06a8dca574b582a46ee6e0a1f7d1c734",
 };
 
 export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSchema.superRefine((projection, context) => {

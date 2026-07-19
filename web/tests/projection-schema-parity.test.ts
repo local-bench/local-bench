@@ -21,13 +21,16 @@ describe("accepted projection v2 TypeScript/JSON-schema parity", () => {
     expect([...ACCEPTED_PROJECTION_RESCORE_MODE_KEYS]).toEqual(Object.keys(canonical.properties.rescore_modes.properties));
   });
 
-  it("accepts a season-2 projection with split-bench rescore provenance", () => {
+  it("pins the season-2 manifest while accepting split-bench rescore provenance", () => {
     const update: any = statusUpdate("accepted", "a".repeat(64), "community");
     update.projection.suite_release_id = "suite-v2-full-exec-tooluse-5axis-v2";
     update.projection.suite_manifest_sha256 = "b".repeat(64);
     update.projection.index_version = "index-v4.0";
     update.projection.rescore_modes.bfcl_multi_turn_base = "rescored";
     update.projection.rescore_modes.bfcl_multi_turn_long_context = "verdict_carried";
+    expect(AcceptedResultProjectionV2Schema.safeParse(update.projection).success).toBe(false);
+
+    update.projection.suite_manifest_sha256 = "81420326194941f2dc2ec9146e5fc0dc06a8dca574b582a46ee6e0a1f7d1c734";
     expect(AcceptedResultProjectionV2Schema.safeParse(update.projection).success).toBe(true);
   });
 
