@@ -12,14 +12,14 @@ reproducible result bundles that publish to the board immediately on submission.
 ```bash
 pip install "local-bench-ai[hf]"   # Python 3.11+
 
-# 1. Fetch the complete six-axis suite (hash-verified)
+# 1. Fetch the complete benchmark suite (hash-verified)
 localbench fetch-suite --site https://local-bench.ai \
   --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms
 
 # 2. Cache the tokenizer/chat template for offline identity
 localbench cache-tokenizer <hf-model-id>
 
-# 3. Run all six axes; explicitly consent to restricted model-generated code execution
+# 3. Run the full suite; explicitly consent to restricted model-generated code execution
 localbench bench <catalog-model-or-hf-repo> \
   --llama-server-path <path-to-llama-server> \
   --allow-untrusted-code
@@ -40,7 +40,7 @@ localbench bench \
 localbench submit run --run runs/my-bench
 ```
 
-Full six-axis execution requires the AppWorld harness (`localbench setup-agentic`) and Docker.
+Full-suite execution requires the AppWorld harness (`localbench setup-agentic`) and Docker.
 `--allow-untrusted-code` acknowledges the warning that model-generated code executes in a
 restricted container. Before model download, the CLI actively verifies its non-root,
 network-disabled, read-only, capability-free, seccomp-filtered, resource-bounded sandbox; missing
