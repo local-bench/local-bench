@@ -15,8 +15,8 @@ export function FamilyDirectory({ models }: { readonly models: readonly IndexMod
   return (
     <section id="families" className="scroll-mt-24 overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82">
       <div className="border-b border-bench-line px-5 py-4">
-        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Primary view</p>
-        <h2 className="mt-1 text-2xl font-semibold text-bench-text">Browse by model family</h2>
+        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Primary browse path</p>
+        <h1 className="mt-1 text-2xl font-semibold text-bench-text">Browse by model family</h1>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
           Start with the base-model family, then compare its fine-tunes, distills, quants, reported runs, VRAM,
           and per-axis results in one place.

@@ -10,6 +10,7 @@ describe("sitemap run URLs", () => {
     const urls = (await sitemap()).map((entry) => entry.url);
 
     expect(urls).not.toContain("https://local-bench.ai/community/");
+    expect(urls).toContain("https://local-bench.ai/families/");
     expect(urls).toContain("https://local-bench.ai/submission/");
     expect(urls).toContain("https://local-bench.ai/submissions/");
   });

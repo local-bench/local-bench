@@ -37,6 +37,23 @@ describe("community results use the model-family namespace", () => {
     expect(html).toContain('href="/submissions"');
   });
 
+  it("links the first destination in the header to the model-family directory", () => {
+    // Given: the application shell is rendered with its standard navigation.
+    // When: the header markup is generated.
+    const html = renderToStaticMarkup(
+      <AppShell indexVersion="index-v3.0" suiteVersion="suite-v1" usesDemoData={false}>
+        <div>content</div>
+      </AppShell>,
+    );
+    const familiesLink = html.search(/<a[^>]*href="\/families"[^>]*>Model families<\/a>/u);
+    const leaderboardLink = html.indexOf('href="/leaderboard"');
+
+    // Then: families remains the emphasized first destination and no legacy fragment link remains.
+    expect(familiesLink).toBeGreaterThan(-1);
+    expect(familiesLink).toBeLessThan(leaderboardLink);
+    expect(html).not.toContain('href="/#families"');
+  });
+
   it("renders the reported run, axes, and submitter on the family surface", () => {
     const html = renderToStaticMarkup(<CommunityFamilyResults rows={[familyRow]} />);
     expect(html).toContain("Reported runs");
