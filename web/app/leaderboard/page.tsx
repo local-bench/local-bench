@@ -12,7 +12,7 @@ import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { communityRowsWithFamilyPaths } from "@/lib/community-family";
 import { axisLabel } from "@/lib/format";
-import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData } from "@/lib/data";
+import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
 import { isFullIndexRow } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4, SEASON_2_HEADLINE_AXES } from "@/lib/scoring-seasons";
 import { publicProtocolLabel } from "@/lib/board-adapter";
@@ -22,14 +22,19 @@ export default async function LeaderboardPage() {
     getIndexData(),
     getAgenticBySlug(),
   ]);
-  const communityRows = await getCommunityBoardRows();
+  const [communityRows, communityCatalogModels] = await Promise.all([
+    getCommunityBoardRows(),
+    getIndexModelsWithArtifacts(index.models),
+  ]);
   const ranked = index.models.filter(isFullIndexRow);
   const catalog = index.models.filter((model) => !isFullIndexRow(model));
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
   const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
-  const communityRowsForDisplay = communityRows === null ? [] : communityRowsWithFamilyPaths(communityRows, index.models);
+  const communityRowsForDisplay = communityRows === null
+    ? []
+    : communityRowsWithFamilyPaths(communityRows, communityCatalogModels);
   const season2 = index.index_version === INDEX_VERSION_V4;
   // On a season-2 board the copy must list the season-2 headline axes; the v3 axis palette
   // (AXIS_CONFIG) still names Agentic / Tool calling, which legacy diagnostic rows carry.

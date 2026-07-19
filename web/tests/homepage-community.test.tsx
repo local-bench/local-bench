@@ -12,6 +12,7 @@ const rankedModel = IndexModelSchema.parse({
     tool_use: { hi: 61, lo: 59, n: 10, n_errors: 0, n_no_answer: 0, point: 60, raw_accuracy: 0.6 },
   },
   best_run_id: "homepage-ranked-run",
+  catalog_id: "Qwen/Qwen3.6-27B",
   composite: { hi: 0.61, lo: 0.59, point: 0.6 },
   demo: false,
   est_cost_usd: null,
@@ -32,13 +33,31 @@ const rankedModel = IndexModelSchema.parse({
   trust_label: "project_anchor",
 });
 
+const bonsaiCatalogModel = IndexModelSchema.parse({
+  ...rankedModel,
+  axes: {},
+  best_run_id: null,
+  catalog_id: "prism-ml/Ternary-Bonsai-27B-unpacked",
+  composite: null,
+  family: "Qwen3.6",
+  kind: "community",
+  model_label: "Bonsai 27B Ternary",
+  n_runs: 0,
+  ranked: false,
+  score_status: "missing",
+  slug: "bonsai-27b-ternary",
+  tier: null,
+  tokens_to_answer_median: null,
+});
+
 const communityRow: CommunityBoardRow = {
-  artifactSha256: "a".repeat(64),
+  artifactSha256: "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
   axes: {},
   compositeFull: 0.57,
+  declaredBaseModels: ["Qwen/Qwen3.6-27B"],
   detailPath: null,
-  displayName: "Homepage Community Model",
-  family: "Fixture",
+  displayName: "Bonsai 27B Ternary",
+  family: "qwen35",
   globalRank: null,
   headlineComplete: true,
   identityLabel: "community-declared, identity-unverified",
@@ -58,7 +77,11 @@ vi.mock("@/lib/data", () => ({
   getHomePageData: async () => ({
     anchorRuns: [],
     catalogModels: [],
-    index: { index_version: "index-v4.1", models: [rankedModel] },
+    communityCatalogModels: [
+      { ...rankedModel, artifactSha256s: [] },
+      { ...bonsaiCatalogModel, artifactSha256s: [communityRow.artifactSha256] },
+    ],
+    index: { index_version: "index-v4.1", models: [rankedModel, bonsaiCatalogModel] },
     rigAnchors: [],
     rigCandidates: [],
   }),
@@ -77,7 +100,14 @@ describe("homepage unified board", () => {
 
     expect(html).toContain('data-testid="full-leaderboard"');
     expect(html).toContain('data-testid="community-row-homepage-community-ticket"');
-    expect(html).toContain("Homepage Community Model");
+    expect(html).toContain("Bonsai 27B Ternary");
+  });
+
+  it("uses detail artifact identity before declared base lineage for the community route", async () => {
+    const html = renderToStaticMarkup(await HomePage());
+
+    expect(html).toContain('data-href="/model/bonsai-27b-ternary"');
+    expect(html).not.toContain('data-href="/model/homepage-ranked"');
   });
 
   it("keeps the landing page free of the families launchpad and directory", async () => {

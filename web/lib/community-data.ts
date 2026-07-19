@@ -126,6 +126,7 @@ export type CommunityLineage = {
 export type CommunityBoardRow = {
   readonly artifactSha256: string;
   readonly axes?: AdaptedBoardRow["axes"];
+  readonly catalogFamily?: string;
   readonly communityModelGroupId?: string;
   readonly compositeFull: number | null;
   readonly declaredBaseModels?: readonly string[];
@@ -155,8 +156,11 @@ export type CommunityBoardRow = {
 };
 
 export type CommunityModelTarget = {
+  readonly artifactSha256s?: readonly string[];
   readonly catalogId: string | null | undefined;
   readonly family: string;
+  readonly modelLabel?: string;
+  readonly slug?: string;
 };
 
 export const COMMUNITY_GROUP_PLACEHOLDER_ID = "not-yet-published";

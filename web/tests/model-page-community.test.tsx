@@ -58,4 +58,43 @@ describe("model page community family results", () => {
     expect(html).not.toContain("/community/model/");
     expect(html).not.toContain("Suppressed fixture model");
   });
+
+  it("shows a lineage-free reported run on the catalog model page by artifact SHA", async () => {
+    // Given: a public row whose only catalog identity is the Bonsai artifact SHA.
+    const shaOnlyGroup = communityData.parseCommunityGroup({
+      community_model_group_id: `community-group:${"2".repeat(32)}`,
+      identity_label: "community-declared, identity-unverified",
+      ranked: false,
+      schema_version: "localbench.community_publication.v2",
+      variants: [{
+        artifact_sha256: "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
+        display_name: "Opaque community declaration",
+        projection_object_sha256: "c".repeat(64),
+        quant_label: "Q2_0",
+        ranked: false,
+        scores: {
+          measured_headline_weight: 0.53,
+          missing_headline_weight: 0.48,
+          partial_composite: 0.5696,
+        },
+        submission_id: "ticket_bonsai_sha_only",
+      }],
+    });
+    if (shaOnlyGroup === null) throw new Error("SHA-only model page fixture must validate");
+    const rowsMock = vi.spyOn(communityData, "getCommunityBoardRows").mockResolvedValue(
+      communityData.communityBoardRows([shaOnlyGroup]),
+    );
+
+    // When: the catalog model page is rendered.
+    const { default: ModelPage } = await import("../app/model/[slug]/page");
+    const html = renderToStaticMarkup(await ModelPage({
+      params: Promise.resolve({ slug: "bonsai-27b-ternary" }),
+    }));
+    rowsMock.mockRestore();
+
+    // Then: the artifact-matched reported run appears on that model page.
+    expect(html).toContain("Reported runs");
+    expect(html).toContain("Opaque community declaration");
+    expect(html).toContain("ticket_bonsai_sha_only");
+  });
 });

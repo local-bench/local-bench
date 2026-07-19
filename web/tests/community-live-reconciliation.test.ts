@@ -126,6 +126,15 @@ describe("community live reconciliation", () => {
     });
   });
 
+  it("preserves the catalog family through a successful live refresh", () => {
+    const [merged] = reconcileCommunityRows(
+      [bakedRow({ catalogFamily: "Qwen3.6", family: "qwen35" })],
+      [liveRow({ model: { ...liveRow().model, family: "qwen35" } })],
+    );
+
+    expect(merged).toMatchObject({ catalogFamily: "Qwen3.6", family: "qwen35" });
+  });
+
   it("appends a live-only row without a detail link for an unbaked group", () => {
     const groupSuffix = "2".repeat(32);
     const [merged] = reconcileCommunityRows([], [liveRow({

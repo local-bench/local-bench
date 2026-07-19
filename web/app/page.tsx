@@ -18,7 +18,7 @@ import { selectLandingBestPerBase } from "@/lib/landing-best-per-base";
 import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export default async function HomePage() {
-  const [{ anchorRuns, catalogModels, index, rigCandidates }, catalog, agenticBySlug, communityRows] = await Promise.all([
+  const [{ anchorRuns, catalogModels, communityCatalogModels, index, rigCandidates }, catalog, agenticBySlug, communityRows] = await Promise.all([
     getHomePageData(),
     getOnrampCatalog(),
     getAgenticBySlug(),
@@ -31,7 +31,9 @@ export default async function HomePage() {
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
-  const communityRowsForDisplay = communityRows === null ? [] : communityRowsWithFamilyPaths(communityRows, index.models);
+  const communityRowsForDisplay = communityRows === null
+    ? []
+    : communityRowsWithFamilyPaths(communityRows, communityCatalogModels);
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">

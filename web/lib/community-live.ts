@@ -31,6 +31,7 @@ function mergeCommunityRow(
   return {
     artifactSha256: live.artifactSha256,
     axes: live.axes,
+    ...(baked?.catalogFamily === undefined ? {} : { catalogFamily: baked.catalogFamily }),
     ...(live.communityModelGroupId === undefined ? {} : { communityModelGroupId: live.communityModelGroupId }),
     compositeFull: live.compositeFull,
     declaredBaseModels: baked?.declaredBaseModels ?? live.declaredBaseModels,

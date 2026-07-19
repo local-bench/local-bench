@@ -374,7 +374,12 @@ export const ModelRunSchema = z.object({
   demo: DemoFlagSchema,
 }).superRefine((row, ctx) => requireValidVllmProvenance(row, ctx));
 
+const ModelArtifactSchema = z.object({
+  file_sha256: FullSha256Schema,
+}).passthrough();
+
 export const ModelDataSchema = z.object({
+  artifacts: z.array(ModelArtifactSchema).optional(),
   slug: ModelSlugSchema,
   catalog_id: z.string().nullable().optional(),
   model_label: z.string(),

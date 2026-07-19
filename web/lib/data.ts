@@ -111,8 +111,13 @@ export type HomePageData = {
   readonly index: IndexData;
   readonly anchorRuns: readonly AnchorReference[];
   readonly catalogModels: readonly CatalogModel[];
+  readonly communityCatalogModels: readonly IndexModelWithArtifacts[];
   readonly rigAnchors: readonly RigMatchAnchor[];
   readonly rigCandidates: readonly RigMatchCandidate[];
+};
+
+export type IndexModelWithArtifacts = IndexModel & {
+  readonly artifactSha256s: readonly string[];
 };
 
 export type ModelStaticParam = {
@@ -149,6 +154,13 @@ export async function getIndexData(): Promise<IndexData> {
 export async function getModelData(slug: string): Promise<ModelDataWithConfiguredAxes> {
   const model = await readJson(["models", `${slug}.json`], ModelDataSchema);
   return model as ModelDataWithConfiguredAxes;
+}
+
+export async function getIndexModelsWithArtifacts(
+  models: readonly IndexModel[],
+): Promise<readonly IndexModelWithArtifacts[]> {
+  const details = await Promise.all(models.map((model) => getModelData(model.slug)));
+  return joinIndexModelArtifacts(models, details);
 }
 
 async function getModelDataIfExists(slug: string): Promise<ModelDataWithConfiguredAxes | null> {
@@ -498,7 +510,25 @@ export async function getHomePageData(): Promise<HomePageData> {
   const rigCandidates = models.flatMap((model) =>
     model.runs.map((run) => toRigMatchCandidate(model, run)),
   );
-  return { anchorRuns, catalogModels: catalog.models, index, rigAnchors, rigCandidates };
+  return {
+    anchorRuns,
+    catalogModels: catalog.models,
+    communityCatalogModels: joinIndexModelArtifacts(index.models, models),
+    index,
+    rigAnchors,
+    rigCandidates,
+  };
+}
+
+function joinIndexModelArtifacts(
+  indexModels: readonly IndexModel[],
+  details: readonly ModelData[],
+): readonly IndexModelWithArtifacts[] {
+  const detailsBySlug = new Map(details.map((model) => [model.slug, model]));
+  return indexModels.map((model) => ({
+    ...model,
+    artifactSha256s: detailsBySlug.get(model.slug)?.artifacts?.map((artifact) => artifact.file_sha256) ?? [],
+  }));
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {

@@ -4,6 +4,8 @@ import { CommunityFamilyResults } from "../components/community-family-results";
 import { CommunityLeaderboardRow } from "../components/community-leaderboard-row";
 import { CommunityFreshness } from "../components/community-live-state";
 import type { CommunityBoardRow } from "../lib/community-data";
+import { communityRowsWithFamilyPaths } from "../lib/community-family";
+import { IndexModelSchema } from "../lib/schemas";
 
 const liveOnlyRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
@@ -28,6 +30,51 @@ const liveOnlyRow: CommunityBoardRow = {
 };
 
 describe("live-only community links", () => {
+  it("renders the joined catalog family and its logo without overwriting the declared family", () => {
+    // Given: a row whose free-text family differs from the exact catalog name match.
+    const catalogModel = IndexModelSchema.parse({
+      axes: {},
+      best_run_id: null,
+      catalog_id: "prism-ml/Ternary-Bonsai-27B-unpacked",
+      composite: null,
+      demo: false,
+      est_cost_usd: null,
+      family: "Qwen3.6",
+      kind: "community",
+      lane: "answer-only",
+      model_label: "Bonsai 27B Ternary",
+      n_runs: 0,
+      ranked: false,
+      replicated: false,
+      score_status: "missing",
+      slug: "bonsai-27b-ternary",
+      tier: null,
+      tokens_to_answer_median: null,
+    });
+    const [joined] = communityRowsWithFamilyPaths([
+      { ...liveOnlyRow, displayName: "bonsai-27b-ternary", family: "qwen35" },
+    ], [catalogModel]);
+    if (joined === undefined) throw new Error("expected joined community row");
+
+    // When: the joined board row is rendered.
+    const html = renderToStaticMarkup(
+      <table><tbody><CommunityLeaderboardRow
+        axisKeys={[]}
+        rank={1}
+        row={joined}
+        showAgenticColumn={false}
+        showStaticIndexColumn={false}
+      /></tbody></table>,
+    );
+
+    // Then: display and logo use catalog family while the adapter's declared family remains untouched.
+    expect(joined.family).toBe("qwen35");
+    expect(html).toContain('data-href="/model/bonsai-27b-ternary"');
+    expect(html).toContain('src="/logos/qwen.jpg"');
+    expect(html).toContain(">Qwen3.6</div>");
+    expect(html).not.toContain(">qwen35</div>");
+  });
+
   it("renders a live-only row as plain text with the next-deploy tooltip", () => {
     const html = renderToStaticMarkup(
       <table><tbody><CommunityLeaderboardRow

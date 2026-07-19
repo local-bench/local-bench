@@ -27,6 +27,7 @@ export function CommunityLeaderboardRow({
   showAgenticColumn,
   showStaticIndexColumn,
 }: CommunityRowProps) {
+  const displayFamily = row.catalogFamily ?? row.family;
   const navigate = () => {
     if (row.detailPath !== null) window.location.assign(row.detailPath);
   };
@@ -46,7 +47,7 @@ export function CommunityLeaderboardRow({
       <td className="px-3 py-3 font-mono text-bench-muted">{rank}</td>
       <td className="px-3 py-3">
         <span className="flex items-center gap-2">
-          <FamilyLogoMark familyName={row.family} modelLabel={row.displayName} size={16} />
+          <FamilyLogoMark familyName={displayFamily} modelLabel={row.displayName} size={16} />
           {row.detailPath === null ? (
             <span className="font-semibold text-bench-text" title="family detail unavailable for this row">
               {row.displayName}
@@ -59,7 +60,7 @@ export function CommunityLeaderboardRow({
           {row.indexVersion === null ? null : <SeasonBadge indexVersion={row.indexVersion} />}
         </span>
         <div className="mt-0.5 font-mono text-xs text-bench-muted">{row.quantLabel ?? "quant unavailable"}</div>
-        <div className="text-xs text-bench-muted">{row.family ?? row.identityLabel}</div>
+        <div className="text-xs text-bench-muted">{displayFamily ?? row.identityLabel}</div>
         {row.declaredBaseModels?.[0] === undefined ? null : (
           <span className="mt-1 inline-block rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
             Fine-tune of {row.declaredBaseModels[0]}
