@@ -137,6 +137,22 @@
         "point": 61.00260116795033,
         "point_raw": 0.6100260116795033
       },
+      "diagnostics": {
+        "call_formatting": {
+          "conditional_accuracy": 0.7545454545454545,
+          "hi": 80.0,
+          "hi_raw": 0.8,
+          "lo": 70.60606060606061,
+          "lo_raw": 0.706060606060606,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 5,
+          "point": 75.45454545454545,
+          "point_raw": 0.7545454545454545,
+          "raw_accuracy": 0.7545454545454545,
+          "termination_rate": 1.0
+        }
+      },
       "est_cost_usd": null,
       "file_gb": 84.8,
       "hardware": {
@@ -268,6 +284,22 @@
         "lo_raw": 0.5491369110946565,
         "point": 59.72292428184364,
         "point_raw": 0.5972292428184364
+      },
+      "diagnostics": {
+        "call_formatting": {
+          "conditional_accuracy": 0.7454545454545455,
+          "hi": 79.0909090909091,
+          "hi_raw": 0.7909090909090909,
+          "lo": 69.6969696969697,
+          "lo_raw": 0.696969696969697,
+          "n": 330,
+          "n_errors": 0,
+          "n_no_answer": 5,
+          "point": 74.54545454545455,
+          "point_raw": 0.7454545454545455,
+          "raw_accuracy": 0.7454545454545455,
+          "termination_rate": 1.0
+        }
       },
       "est_cost_usd": null,
       "file_gb": 65.6,

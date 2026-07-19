@@ -243,6 +243,22 @@
     "long_context not measured in this run; axis omitted",
     "agentic not measured in this run; axis omitted"
   ],
+  "diagnostics": {
+    "call_formatting": {
+      "conditional_accuracy": 0.2604501607717042,
+      "hi": 29.09090909090909,
+      "hi_raw": 0.2909090909090909,
+      "lo": 20.0,
+      "lo_raw": 0.2,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 204,
+      "point": 24.545454545454547,
+      "point_raw": 0.24545454545454545,
+      "raw_accuracy": 0.24545454545454545,
+      "termination_rate": 0.9424242424242424
+    }
+  },
   "est_cost_usd": null,
   "has_code_artifacts": true,
   "index_version": "index-v3.0",
@@ -418,8 +434,8 @@
   "ranked": false,
   "run_id": "gemma-4-12b-it__gemma-4-12b-it-qat-ud-q2kxl-bounded-final-v2",
   "scorecard": {
-    "current_id": "b8d70a8a2c80adb2baf50c70582c2794df05a12f771ba6f8100cb6f8e56ca83c",
-    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
+    "current_id": "d3b304e1e85170836426f4395affac8f318e9c84a9ae8763b06dd3e069ab7682",
+    "current_registry_digest": "fb5b77eb36d70508f4329e46a0746979758b3420ce9db48ec60a2711d72656c8",
     "drift": true,
     "execution_profile_id": "gemma4_channel_8192_v1",
     "id": "39edac7728bdff434b56074d7b5b8538f4e4619dc39cb4a175058968ea26e53c",

@@ -135,6 +135,22 @@
     "point": 60.550135906981254,
     "point_raw": 0.6055013590698125
   },
+  "diagnostics": {
+    "call_formatting": {
+      "conditional_accuracy": 0.7393939393939394,
+      "hi": 78.48484848484848,
+      "hi_raw": 0.7848484848484848,
+      "lo": 69.0909090909091,
+      "lo_raw": 0.6909090909090909,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 2,
+      "point": 73.93939393939394,
+      "point_raw": 0.7393939393939394,
+      "raw_accuracy": 0.7393939393939394,
+      "termination_rate": 1.0
+    }
+  },
   "est_cost_usd": null,
   "index_version": "index-v3.0",
   "item_set_hashes": {
@@ -208,8 +224,8 @@
   "run_id": "gemma-4-12b-it__gemma-4-12b-it-BF16",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "449ef68c32830590ca1373281877821e0234a8e4e5061e531f36c323a2fd5c73",
-    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
+    "current_id": "14eae8b27e03bb3e8b23d8cd232b005977f597044329d028ad4513b0101602de",
+    "current_registry_digest": "fb5b77eb36d70508f4329e46a0746979758b3420ce9db48ec60a2711d72656c8",
     "drift": true,
     "execution_profile_id": null,
     "id": "cfbc3d38f2ab34126bcd7969f39eea56880e19b2dec7afdc987332097233db0e",

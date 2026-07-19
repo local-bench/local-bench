@@ -2,74 +2,123 @@
   "agentic_provenance": "project_attested",
   "axes": {
     "coding": {
+      "ambiguous_or_contaminated_final_rate": 0.0,
+      "budget_cap_hit_rate": 0.0,
       "conditional_accuracy": 0.28378378378378377,
+      "empty_final_rate": 0.0,
       "hi": 35.810810810810814,
       "hi_raw": 0.3581081081081081,
+      "leaked_reasoning_rate": 0.0,
       "lo": 20.945945945945947,
       "lo_raw": 0.20945945945945946,
+      "measurement_truncation_rate": 0.0,
       "n": 148,
       "n_errors": 0,
-      "n_no_answer": 0,
+      "n_no_answer": 7,
+      "no_final_answer_rate": 0.0,
       "point": 28.37837837837838,
       "point_raw": 0.28378378378378377,
       "raw_accuracy": 0.28378378378378377,
-      "termination_rate": 1.0
+      "termination_rate": 1.0,
+      "truncation_rate": 0.0
     },
     "instruction": {
+      "ambiguous_or_contaminated_final_rate": 0.0,
+      "budget_cap_hit_rate": 0.061224489795918366,
       "conditional_accuracy": 0.6159420289855072,
+      "empty_final_rate": 0.0,
       "hi": 63.26530612244898,
       "hi_raw": 0.6326530612244898,
+      "leaked_reasoning_rate": 0.0,
       "lo": 52.04081632653062,
       "lo_raw": 0.5204081632653061,
+      "measurement_truncation_rate": 0.0,
       "n": 294,
       "n_errors": 0,
       "n_no_answer": 0,
+      "no_final_answer_rate": 0.0,
       "point": 57.82312925170068,
       "point_raw": 0.5782312925170068,
       "raw_accuracy": 0.5782312925170068,
-      "termination_rate": 0.9387755102040817
+      "termination_rate": 0.9387755102040817,
+      "truncation_rate": 0.061224489795918366
     },
     "knowledge": {
+      "ambiguous_or_contaminated_final_rate": 0.0,
+      "budget_cap_hit_rate": 0.03,
       "conditional_accuracy": 0.8505154639175259,
+      "empty_final_rate": 0.0,
       "hi": 84.28409789474622,
       "hi_raw": 0.8428409789474622,
+      "leaked_reasoning_rate": 0.0,
       "lo": 76.14550573309694,
       "lo_raw": 0.7614550573309694,
+      "measurement_truncation_rate": 0.0,
       "n": 400,
       "n_errors": 0,
       "n_no_answer": 12,
+      "no_final_answer_rate": 0.0,
       "point": 80.35512236843277,
       "point_raw": 0.8035512236843277,
       "raw_accuracy": 0.825,
-      "termination_rate": 0.97
+      "termination_rate": 0.97,
+      "truncation_rate": 0.03
     },
     "math": {
+      "ambiguous_or_contaminated_final_rate": 0.0,
+      "budget_cap_hit_rate": 0.3898717948717949,
       "conditional_accuracy": 0.3543609556799005,
+      "empty_final_rate": 0.0,
       "hi": 33.093525179856115,
       "hi_raw": 0.33093525179856115,
+      "leaked_reasoning_rate": 0.0,
       "lo": 18.705035971223023,
       "lo_raw": 0.18705035971223022,
+      "measurement_truncation_rate": 0.0,
       "n": 139,
       "n_errors": 0,
       "n_no_answer": 37,
+      "no_final_answer_rate": 0.0,
       "point": 25.899280575539567,
       "point_raw": 0.2589928057553957,
       "raw_accuracy": 0.2589928057553957,
-      "termination_rate": 0.697841726618705
+      "termination_rate": 0.697841726618705,
+      "truncation_rate": 0.3898717948717949
     },
     "tool_use": {
-      "conditional_accuracy": 0.14383561643835616,
-      "hi": 22.224610555684727,
-      "hi_raw": 0.22224610555684726,
-      "lo": 9.403274711946635,
-      "lo_raw": 0.09403274711946635,
-      "n": 146,
+      "ambiguous_or_contaminated_final_rate": 0.0,
+      "budget_cap_hit_rate": 0.0,
+      "conditional_accuracy": 0.09375,
+      "empty_final_rate": 1.0,
+      "facets": {
+        "agentic": {
+          "bench": "appworld_c",
+          "hi": 17.348047914818086,
+          "hi_raw": 0.17348047914818085,
+          "lo": 3.0927835051546393,
+          "lo_raw": 0.030927835051546393,
+          "n": 96,
+          "point": 9.375,
+          "point_raw": 0.09375,
+          "raw_accuracy": 0.09375,
+          "weight": 1.0
+        }
+      },
+      "hi": 17.348047914818086,
+      "hi_raw": 0.17348047914818085,
+      "leaked_reasoning_rate": 0.0,
+      "lo": 3.0927835051546393,
+      "lo_raw": 0.030927835051546393,
+      "measurement_truncation_rate": 0.0,
+      "n": 96,
       "n_errors": 0,
       "n_no_answer": 0,
-      "point": 15.397058823529411,
-      "point_raw": 0.1539705882352941,
-      "raw_accuracy": 0.14383561643835616,
-      "termination_rate": 1.0
+      "no_final_answer_rate": 1.0,
+      "point": 9.375,
+      "point_raw": 0.09375,
+      "raw_accuracy": 0.09375,
+      "termination_rate": 1.0,
+      "truncation_rate": 0.0
     }
   },
   "axis_status": {
@@ -120,20 +169,20 @@
     }
   },
   "composite": {
-    "hi": 46.10909164556549,
-    "hi_raw": 0.4610909164556549,
-    "lo": 40.42161414657037,
-    "lo_raw": 0.4042161414657037,
-    "point": 43.26695249871298,
-    "point_raw": 0.43266952498712985
+    "hi": 44.74540051452666,
+    "hi_raw": 0.44745400514526656,
+    "lo": 38.89372233304964,
+    "lo_raw": 0.3889372233304964,
+    "point": 41.76143779283063,
+    "point_raw": 0.4176143779283063
   },
   "composite_full": {
-    "hi": 46.10909164556549,
-    "hi_raw": 0.4610909164556549,
-    "lo": 40.42161414657037,
-    "lo_raw": 0.4042161414657037,
-    "point": 43.26695249871298,
-    "point_raw": 0.43266952498712985
+    "hi": 44.74540051452666,
+    "hi_raw": 0.44745400514526656,
+    "lo": 38.89372233304964,
+    "lo_raw": 0.3889372233304964,
+    "point": 41.76143779283063,
+    "point_raw": 0.4176143779283063
   },
   "composite_static": {
     "hi": 55.62104131542001,
@@ -269,11 +318,42 @@
   "data_warnings": [
     "coding chance_corrected differs from item-derived mean; stale/inconsistent run JSON"
   ],
+  "diagnostics": {
+    "call_formatting": {
+      "conditional_accuracy": 0.7393939393939394,
+      "hi": 78.48484848484848,
+      "hi_raw": 0.7848484848484848,
+      "lo": 69.0909090909091,
+      "lo_raw": 0.6909090909090909,
+      "n": 330,
+      "n_errors": 0,
+      "n_no_answer": 1,
+      "point": 73.93939393939394,
+      "point_raw": 0.7393939393939394,
+      "raw_accuracy": 0.7393939393939394,
+      "termination_rate": 1.0
+    },
+    "multi_turn_tool_control": {
+      "conditional_accuracy": 0.24,
+      "hi": 36.0,
+      "hi_raw": 0.36,
+      "lo": 12.0,
+      "lo_raw": 0.12,
+      "n": 50,
+      "n_errors": 0,
+      "n_no_answer": 0,
+      "point": 24.0,
+      "point_raw": 0.24,
+      "raw_accuracy": 0.24,
+      "termination_rate": 1.0
+    }
+  },
   "est_cost_usd": null,
   "has_code_artifacts": true,
-  "index_version": "index-v4.1",
+  "index_version": "index-v4.2",
   "item_set_hashes": {
     "bfcl.jsonl": "26d990d589db8a8b2a70b23c592ea0aff9df8287d9509a2fadd98d1b72661e17",
+    "bfcl_multi_turn_base.jsonl": "41e5691e87d5c46f12ea19e2bcfe45cb019d83b279c6f1a640bf7ab203c3eec2",
     "bfcl_multi_turn_long_context.jsonl": "c6f642197ab070573fc353bb7265e7efc813addc27eb59b66358830b68b6a1b2",
     "coding.jsonl": "33635febb89ab6cb8f06e139bc33932ada89d90e32ce03820ad7f15712e19b8e",
     "instruction.jsonl": "40dc0b3e14270d61e9deae13f30f70f04d1d65a304340a7b6fe29cf4a5c51257",
@@ -281,8 +361,7 @@
     "math-part2.jsonl": "8126598901f0e2be27b2a4fed97fded7b2c43aa37ca3ecb580527ad11a15e53b",
     "math.jsonl": "98e79f1da84680345224f48fc7d1ed8b220e76cfd0525da1c494633d1abd1904",
     "ruler_32k.jsonl": "0bede1810663a7164e68f3008248d78ba247fb677440f06b3e1c63b8781b0540",
-    "tc_json_v1.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74",
-    "tool_use.jsonl": "41e5691e87d5c46f12ea19e2bcfe45cb019d83b279c6f1a640bf7ab203c3eec2"
+    "tc_json_v1.jsonl": "571b3c4064b523174900883c786df4fdbb6c2a8924a148620a167415d67afd74"
   },
   "kind": "maintainer_project",
   "manifest_summary": {
@@ -321,6 +400,12 @@
     },
     "sampling": {
       "by_bench": {
+        "bfcl_multi_turn_base": {
+          "max_tokens": 16384,
+          "seed": 1234,
+          "temperature": 0.0,
+          "top_k": 1
+        },
         "coding": {
           "max_tokens": 16384,
           "seed": 1234,
@@ -346,12 +431,6 @@
           "top_k": 1
         },
         "tc_json_v1": {
-          "max_tokens": 16384,
-          "seed": 1234,
-          "temperature": 0.0,
-          "top_k": 1
-        },
-        "tool_use": {
           "max_tokens": 16384,
           "seed": 1234,
           "temperature": 0.0,
@@ -460,13 +539,13 @@
   "ranked": true,
   "run_id": "qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5",
   "scorecard": {
-    "current_id": "b392cd77a95c46a87641910a0a775b482151d499ffb9e5920c7e7a4e5420618c",
-    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
+    "current_id": "75e14399a154674740cd3b8fb592ba093c260420eb2aa6a4ed1d12b570cd352d",
+    "current_registry_digest": "fb5b77eb36d70508f4329e46a0746979758b3420ce9db48ec60a2711d72656c8",
     "drift": true,
     "execution_profile_id": "generic_think_tags_8192_v1",
     "id": "d7ba660a32a9abf9a3e6ef469f3e33e2c6b655de9331e3af7a4fed493fd0491c",
     "registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
-    "registry_drift": false,
+    "registry_drift": true,
     "version": "6"
   },
   "static_index_version": "static-suite-v3",
@@ -487,7 +566,7 @@
   "verdict_source": "verifier",
   "worst_axis": {
     "bench": "tool_use",
-    "point": 15.397058823529411,
-    "point_raw": 0.1539705882352941
+    "point": 9.375,
+    "point_raw": 0.09375
   }
 }

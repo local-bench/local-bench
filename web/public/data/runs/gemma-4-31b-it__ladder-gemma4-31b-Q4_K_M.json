@@ -145,8 +145,8 @@
   "run_id": "gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M",
   "score_status": "measured",
   "scorecard": {
-    "current_id": "449ef68c32830590ca1373281877821e0234a8e4e5061e531f36c323a2fd5c73",
-    "current_registry_digest": "08628dd163f2ae6cc2e1d46b5016536441222eebf1746719b5a8e756b69f11c4",
+    "current_id": "14eae8b27e03bb3e8b23d8cd232b005977f597044329d028ad4513b0101602de",
+    "current_registry_digest": "fb5b77eb36d70508f4329e46a0746979758b3420ce9db48ec60a2711d72656c8",
     "drift": true,
     "execution_profile_id": null,
     "id": "eab7934471ee63246c72005f149ab41fe54468e76f59bb4440103c988c498483",
