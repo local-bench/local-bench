@@ -7,7 +7,11 @@ import pytest
 
 from localbench._scoring import BenchAggregate
 from localbench.scoring.axis_status import axis_status_for_benches, mark_axis_not_measured
-from localbench.submissions.foundation_scores import axis_projection, score_summary
+from localbench.submissions.foundation_scores import (
+    axis_projection,
+    projection_score_summary,
+    score_summary,
+)
 
 
 def test_score_summary_emits_static_and_full_composites_with_strict_presence() -> None:
@@ -82,14 +86,24 @@ def test_full_exec_six_axis_uses_current_index_with_agentic_counted() -> None:
     }
     status = axis_status_for_benches(benches, suite_axes)
 
-    summary = score_summary(benches, status, suite_axes=suite_axes)
-    axes = axis_projection(benches, status)
+    summary = projection_score_summary(
+        benches,
+        status,
+        suite_axes=suite_axes,
+        coverage_profile_id="full-exec-6axis-v1",
+    )
+    axes = axis_projection(
+        benches,
+        status,
+        coverage_profile_id="full-exec-6axis-v1",
+        suite_axes=suite_axes,
+    )
 
     assert summary["headline_score"] == pytest.approx(0.525)
     assert summary["composite_full"] == pytest.approx(0.525)
     assert summary["measured_headline_weight"] == 1.0
-    assert axes["tool_use"]["score"] == pytest.approx(0.75)
-    assert axes["call_formatting"]["score"] == pytest.approx(0.5)
+    assert axes["agentic"]["score"] == pytest.approx(0.75)
+    assert axes["tool_calling"]["score"] == pytest.approx(0.5)
 
 
 def test_frozen_board_v1_blob_hash_is_unchanged() -> None:

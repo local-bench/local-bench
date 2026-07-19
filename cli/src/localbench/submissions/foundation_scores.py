@@ -29,6 +29,7 @@ _FULL_EXEC_WEIGHTS: Final[dict[str, float]] = {
     "math": 0.075,
     "agentic": 0.25,
     "coding": 0.225,
+    "tool_calling": 0.0,
 }
 _FULL_EXEC_BENCHES: Final[dict[str, tuple[str, ...]]] = {
     "knowledge": ("mmlu_pro",),
@@ -36,6 +37,7 @@ _FULL_EXEC_BENCHES: Final[dict[str, tuple[str, ...]]] = {
     "math": ("olymmath_hard", "amo"),
     "agentic": ("appworld_c",),
     "coding": ("bigcodebench_hard",),
+    "tool_calling": ("tc_json_v1",),
 }
 
 
@@ -95,12 +97,48 @@ def score_summary(
     return summary
 
 
+def projection_score_summary(
+    benches: Mapping[str, BenchAggregate],
+    axis_status: AxisStatusBlock,
+    *,
+    suite_axes: Mapping[str, JsonValue] | None,
+    coverage_profile_id: str,
+) -> JsonObject:
+    summary = score_summary(benches, axis_status, suite_axes=suite_axes)
+    if coverage_profile_id != _FULL_EXEC_PROFILE_ID or suite_axes is None:
+        return summary
+    axes = axis_projection(
+        benches,
+        axis_status,
+        coverage_profile_id=coverage_profile_id,
+        suite_axes=suite_axes,
+    )
+    measured = _projected_headline_weight(axes)
+    partial = _round_score(_projected_headline_composite(axes))
+    complete = _projected_headline_complete(axes)
+    summary.update(
+        {
+            "headline_score": partial if complete else None,
+            "partial_composite": partial,
+            "measured_headline_weight": _round_fixed(measured, _WEIGHT_PRECISION),
+            "missing_headline_weight": _round_fixed(max(0.0, 1.0 - measured), _WEIGHT_PRECISION),
+            "known_headline_contribution": partial,
+            "rank_scope": _FULL_EXEC_PROFILE_ID,
+            "composite_full": partial if complete else None,
+        },
+    )
+    return summary
+
+
 def axis_projection(
     benches: Mapping[str, BenchAggregate],
     axis_status: AxisStatusBlock,
     *,
     coverage_profile_id: str | None = None,
+    suite_axes: Mapping[str, JsonValue] | None = None,
 ) -> JsonObject:
+    if suite_axes is not None:
+        return _canonical_axis_projection(benches, axis_status, suite_axes)
     projection: JsonObject = {}
     inferred_profile_id = coverage_profile_for_benches(set(benches)).profile_id
     full_exec = (coverage_profile_id or inferred_profile_id) == _FULL_EXEC_PROFILE_ID
@@ -133,6 +171,43 @@ def axis_projection(
             "status": status["status"],
         }
     return projection
+
+
+def _canonical_axis_projection(
+    benches: Mapping[str, BenchAggregate],
+    axis_status: AxisStatusBlock,
+    suite_axes: Mapping[str, JsonValue],
+) -> JsonObject:
+    projection: JsonObject = {}
+    for axis, raw_spec in suite_axes.items():
+        names = _suite_axis_benches(raw_spec)
+        selected = [benches[name] for name in names if name in benches]
+        n = sum(aggregate["n"] for aggregate in selected)
+        status = axis_status["axes"].get(axis, {"status": "not_measured"})["status"]
+        score = (
+            _bounded_score(
+                sum(aggregate["chance_corrected"] * aggregate["n"] for aggregate in selected)
+                / n,
+            )
+            if status == "measured" and n > 0
+            else None
+        )
+        projection[axis] = {
+            "score": score,
+            "n": n,
+            "ci": None,
+            "status": status,
+        }
+    return projection
+
+
+def _suite_axis_benches(raw_spec: JsonValue) -> tuple[str, ...]:
+    if not isinstance(raw_spec, dict):
+        return ()
+    raw_benches = raw_spec.get("benches")
+    if not isinstance(raw_benches, list):
+        return ()
+    return tuple(bench for bench in raw_benches if isinstance(bench, str))
 
 
 def _measured_headline_weight(axis_status: AxisStatusBlock) -> float:
@@ -176,6 +251,44 @@ def _full_exec_composite(
     if not measured_weight:
         return 0.0
     return min(1.0, max(0.0, weighted_score / measured_weight))
+
+
+def _projected_headline_complete(axes: JsonObject) -> bool:
+    return all(_projection_axis_measured(axes, axis) for axis in _FULL_EXEC_REQUIRED_AXES)
+
+
+def _projected_headline_weight(axes: JsonObject) -> float:
+    return sum(
+        weight
+        for axis, weight in _FULL_EXEC_WEIGHTS.items()
+        if _projection_axis_measured(axes, axis)
+    )
+
+
+def _projected_headline_composite(axes: JsonObject) -> float:
+    weighted_score = 0.0
+    for axis, weight in _FULL_EXEC_WEIGHTS.items():
+        projected = _projection_axis(axes, axis)
+        score = projected.get("score")
+        if projected.get("status") != "measured" or not isinstance(score, int | float):
+            continue
+        weighted_score += score * weight
+    return min(1.0, max(0.0, weighted_score))
+
+
+def _projection_axis_measured(axes: JsonObject, axis: str) -> bool:
+    projected = _projection_axis(axes, axis)
+    return (
+        projected.get("status") == "measured"
+        and isinstance(projected.get("score"), int | float)
+        and isinstance(projected.get("n"), int)
+        and projected["n"] > 0
+    )
+
+
+def _projection_axis(axes: JsonObject, axis: str) -> JsonObject:
+    value = axes.get(axis)
+    return value if isinstance(value, dict) else {}
 
 
 def _pooled_score(
@@ -238,6 +351,10 @@ def _axis_aggregate(
 
 def _round_score(value: float) -> float:
     return _round_fixed(value, _SCORE_PRECISION)
+
+
+def _bounded_score(value: float) -> float:
+    return _round_score(min(1.0, max(0.0, value)))
 
 
 def _round_fixed(value: float, places: int) -> float:
