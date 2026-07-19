@@ -832,6 +832,13 @@ def _ranked_v3(
     manifest = object_or_empty(run.get("manifest"))
     suite = object_or_empty(manifest.get("suite"))
     scorecard = object_or_empty(manifest.get("scorecard"))
+    rescore = object_or_empty(run.get("season2_rescore"))
+    rescore_is_current = text_value(rescore.get("index_version")) == text_value(run.get("index_version"))
+    recorded_scorecard_id = (
+        text_value(rescore.get("scorecard_id"))
+        if rescore_is_current
+        else text_value(scorecard.get("scorecard_id"))
+    )
     profile_id = text_value(scorecard.get("execution_profile_id"))
     profile_digest = text_value(scorecard.get("execution_profile_digest"))
     expected_profile_digest = None if profile_id is None else ranked_execution_profiles().get(profile_id)
@@ -840,6 +847,9 @@ def _ranked_v3(
         {}
         if profile_id is None or lane_spec_id not in BOUNDED_FINAL_LANE_SPEC_IDS
         else scorecard_identity(profile_id, lane_spec_id=lane_spec_id)
+    )
+    expected_recorded_scorecard_id = text_value(
+        (scorecard_identity() if rescore_is_current else expected_scorecard).get("scorecard_id")
     )
     return (
         source["kind"] != "anchor"
@@ -852,7 +862,7 @@ def _ranked_v3(
         and profile_digest == expected_profile_digest
         and lane_spec_id in BOUNDED_FINAL_LANE_SPEC_IDS
         and scorecard.get("lane_spec_digest") == lane_spec_digest(lane_spec_id)
-        and scorecard.get("scorecard_id") == expected_scorecard.get("scorecard_id")
+        and recorded_scorecard_id == expected_recorded_scorecard_id
         and _audit_status(run, "prompt_audit") == "canonical"
         and _audit_status(run, "budget_audit") == "exact"
         and _audit_status(run, "sampler_audit") == "deterministic"

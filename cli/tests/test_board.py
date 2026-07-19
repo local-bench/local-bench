@@ -190,6 +190,7 @@ def test_v4_composed_record_uses_hardened_ranked_gate(tmp_path: Path) -> None:
     from localbench.scoring.axes import headline_web_axes
     from localbench.scoring.board import build_board
     from localbench.scoring.editorial import INDEX_VERSION_V4
+    from localbench.scoring.scorecard import scorecard_identity
 
     paths = write_inputs(
         tmp_path,
@@ -202,7 +203,15 @@ def test_v4_composed_record_uses_hardened_ranked_gate(tmp_path: Path) -> None:
             )
         ],
     )
-    write_run(paths["runs"] / "season-2.json", _bounded_final_v4_run())
+    record = _bounded_final_v4_run()
+    manifest = object_value(record["manifest"])
+    manifest_scorecard = object_value(manifest["scorecard"])
+    record["season2_rescore"] = {
+        "index_version": INDEX_VERSION_V4,
+        "scorecard_id": scorecard_identity()["scorecard_id"],
+    }
+    manifest_scorecard["scorecard_id"] = "stale-pre-rescore-identity"
+    write_run(paths["runs"] / "season-2.json", record)
 
     board = build_board(
         runs_dir=paths["runs"],
@@ -774,7 +783,6 @@ def test_mixed_board_uses_ranked_version_and_retains_cross_season_anchor_system(
 def test_board_rejects_mixed_ranked_index_versions(tmp_path: Path) -> None:
     from localbench.lane_spec import BOUNDED_FINAL_V2_LANE_SPEC_ID
     from localbench.scoring.board import BoardBuildError, build_board
-    from localbench.scoring.editorial import INDEX_VERSION_V4
 
     paths = write_inputs(
         tmp_path,

@@ -1,7 +1,7 @@
 {
   "schema_version": "localbench.protocol_manifest.v1",
   "protocol_id": "index-v4.2",
-  "canonical_sha256": "45416b98cd17b691e9858a02cc74b510d2b8a16aa5d2585d4672212f8044a416",
+  "canonical_sha256": "a8bd506545970ec0748f53fd2d1b53920a0e1af28b94962b44b9a2bddbbf2496",
   "public_tag": "LB-2026-07.2",
   "headline_axis_order": [
     "tool_use",

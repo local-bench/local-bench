@@ -33,6 +33,7 @@ Gaps noted where the two artifacts structurally differ:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -44,8 +45,18 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # board_v2.json is the LIVE scorer artifact the site renders (agentic-led Index v2.0).
 # board_v1.json is the FROZEN historical K+I artifact and is NOT what the web renders;
 # the site-parity contract is therefore against board_v2.json.
-BOARD_PATH = REPO_ROOT / "cli" / "runs" / "board" / "board_v2.json"
-INDEX_PATH = REPO_ROOT / "web" / "public" / "data" / "index.json"
+BOARD_PATH = Path(
+    os.environ.get(
+        "LOCALBENCH_BOARD_PATH",
+        REPO_ROOT / "cli" / "runs" / "board" / "board_v2.json",
+    ),
+)
+INDEX_PATH = Path(
+    os.environ.get(
+        "LOCALBENCH_INDEX_PATH",
+        REPO_ROOT / "web" / "public" / "data" / "index.json",
+    ),
+)
 
 # Tolerance matches the one used inside check_board_parity().
 TOLERANCE = 1e-6

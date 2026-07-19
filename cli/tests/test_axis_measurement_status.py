@@ -38,7 +38,7 @@ def test_composite_when_axis_not_measured_excludes_weight_instead_of_zero(
     status = axis_status_for_benches(benches)
     mark_axis_not_measured(
         status,
-        "agentic",
+        "tool_use",
         reason="sandbox_unavailable",
         detail="bubblewrap is unavailable",
     )
