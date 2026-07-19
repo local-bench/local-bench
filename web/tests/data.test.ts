@@ -76,24 +76,24 @@ describe("static data access", () => {
       static_index_version: "static-suite-v3",
       trust_label: "project_anchor",
     });
-    // Season 2 folds agentic and multi-turn control into the tool_use macro-axis.
+    // index-v4.2: the tool_use structural key carries the AppWorld-only Agentic axis.
     expect(proof?.axes["agentic"]).toBeUndefined();
-    expect(proof?.axes["tool_use"]?.point).toBeCloseTo(12.33, 1);
-    expect(proof?.composite_full?.point).toBeCloseTo(42.03, 1);
+    expect(proof?.axes["tool_use"]?.point).toBeCloseTo(4.17, 1);
+    expect(proof?.composite_full?.point).toBeCloseTo(39.99, 1);
     expect(proof?.composite_static?.point).toBeCloseTo(51.93, 1);
   });
 
-  it("carries all five index-v4.1 ranked composites in the reweighted order", async () => {
+  it("carries all five index-v4.2 ranked composites in the corrected order", async () => {
     const index = await getIndexData();
     const ranked = index.models.filter((m) => m.ranked);
-    // index-v4.1 landing (2026-07-17): Agentic 25%, donors scaled by 15/16. Full-precision
-    // composites drop ~2 points from v4.0; rank order is unchanged by construction.
+    // index-v4.2 (2026-07-19): Agentic becomes AppWorld-only (measurement-hygiene
+    // correction); composites drop 1.4-2.0 points from v4.1 with rank order unchanged.
     const expected: readonly (readonly [string, number])[] = [
-      ["gemma-4-31b-it", 53.12],
-      ["qwen3-6-27b", 44.35],
-      ["qwopus3-6-27b-v2-mtp", 43.27],
-      ["qwen3-6-35b-a3b", 42.12],
-      ["gemma-4-12b-it", 42.03],
+      ["gemma-4-31b-it", 51.31],
+      ["qwen3-6-27b", 42.94],
+      ["qwopus3-6-27b-v2-mtp", 41.76],
+      ["qwen3-6-35b-a3b", 40.71],
+      ["gemma-4-12b-it", 39.99],
     ];
     const byComposite = [...ranked].sort(
       (a, b) => (b.composite_full?.point ?? 0) - (a.composite_full?.point ?? 0),
@@ -102,7 +102,7 @@ describe("static data access", () => {
     for (const [slug, composite] of expected) {
       const row = ranked.find((m) => m.slug === slug);
       expect(row?.composite_full?.point).toBeCloseTo(composite, 1);
-      expect(row?.index_version).toBe("index-v4.1");
+      expect(row?.index_version).toBe("index-v4.2");
     }
   });
 

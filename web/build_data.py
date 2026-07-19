@@ -155,7 +155,11 @@ def main(argv: list[str] | None = None) -> int:
             build_options["publication_bundle"] = publication_bundle
             build_options["publication_base_url"] = publication_base_url
         build_static_data(sources, out_dir, **build_options)
-        _build_agentic_column(out_dir)
+        _build_agentic_column(
+            out_dir,
+            maintainer_curated=sources.resolve()
+            == (ROOT / "web" / "data_sources.json").resolve(),
+        )
     except (DataBuildError, OSError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"build_data: {exc}", file=sys.stderr)
         return 2
@@ -174,9 +178,13 @@ def _extract_build_data_flags(argv: list[str]) -> BuildDataFlags:
     return BuildDataFlags(argv=filtered, allow_lineage_gaps=allow_lineage_gaps)
 
 
-def _build_agentic_column(out_dir: Path) -> None:
+def _build_agentic_column(out_dir: Path, *, maintainer_curated: bool) -> None:
     from build_agentic import DEFAULT_RECORDS_DIR, build_agentic
-    payload = build_agentic(records_dir=DEFAULT_RECORDS_DIR, index_path=out_dir / "index.json")
+    payload = build_agentic(
+        records_dir=DEFAULT_RECORDS_DIR,
+        index_path=out_dir / "index.json",
+        require_all_records=maintainer_curated,
+    )
     agentic_path = out_dir / "agentic.json"
     with agentic_path.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)

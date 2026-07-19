@@ -34,7 +34,9 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def build_agentic(*, records_dir: Path, index_path: Path) -> dict[str, object]:
+def build_agentic(
+    *, records_dir: Path, index_path: Path, require_all_records: bool = False
+) -> dict[str, object]:
     protocol = _read_object(PROTOCOL_PATH)
     agentic_protocol = _require_object(
         protocol.get("agentic_protocol"), "protocol.agentic_protocol"
@@ -65,9 +67,11 @@ def build_agentic(*, records_dir: Path, index_path: Path) -> dict[str, object]:
         record = _read_object(path)
         row = rows_by_stem.get(path.stem)
         if row is None:
-            raise AgenticBuildError(
-                f"{path.name}: no matching best_run_id in index.json"
-            )
+            if require_all_records:
+                raise AgenticBuildError(
+                    f"{path.name}: no matching best_run_id in index.json"
+                )
+            continue
         slug = _require_text(row.get("slug"), f"{path.name}: slug")
         label = _require_text(row.get("model_label"), f"{path.name}: model_label")
         agentic_run = _require_object(
