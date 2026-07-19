@@ -69,7 +69,7 @@ describe("live-only community links", () => {
       /></tbody></table>,
     );
 
-    expect(html).toContain("not measured");
+    expect(html).toContain("n/a");
     expect(html).not.toContain(">0.0</td>");
     expect(html).toContain("submitted as Ada — unverified");
     expect(html).not.toContain("re-scored");
@@ -98,6 +98,52 @@ describe("live-only community links", () => {
     expect(html).toContain("71.0");
     expect(html).toContain("66.0");
     expect(html).toContain("81.0");
+  });
+
+  it("renders community rows with ranked-row score visuals, family identity, protocol, and hidden sample metadata", () => {
+    const html = renderToStaticMarkup(
+      <table><tbody><CommunityLeaderboardRow
+        axisKeys={["agentic", "knowledge"]}
+        rank={1}
+        row={{
+          ...liveOnlyRow,
+          axes: {
+            agentic: { ci: [0.21, 0.25], n: 400, score: 0.234, status: "measured" },
+            knowledge: { ci: [0.48, 0.52], n: 200, score: 0.5, status: "measured" },
+            long_context: { ci: null, n: 32, score: 0.61, status: "measured" },
+            tool_calling: { ci: null, n: 80, score: 0.72, status: "measured" },
+          },
+          compositeFull: 0.444,
+          declaredBaseModels: ["Qwen/Qwen3.6-27B"],
+          detailPath: "/model/qwen3-6-27b",
+          displayName: "Qwopus 27B",
+          family: "Qwen3.6",
+          hardware: { gpu_name: "NVIDIA GeForce RTX 5090", vram_gb: 32 },
+          perf: { decode_tps: 71.5, tokens_to_answer_median: 512, wall_time_seconds: 3660 },
+          runtime: { backend: "cuda", name: "llama.cpp", version: "b7421" },
+        }}
+        showAgenticColumn={false}
+        showStaticIndexColumn={false}
+      /></tbody></table>,
+    );
+    const visibleText = html.replace(/<[^>]+>/gu, "");
+
+    expect(html).toContain('src="/logos/qwen.jpg"');
+    expect(html).toContain('title="Qwen (Alibaba)"');
+    expect(html).toContain("LB-2026-07");
+    expect(html).toContain("Fine-tune of Qwen/Qwen3.6-27B");
+    expect(html).toContain("h-1.5 overflow-hidden rounded-full");
+    expect(html).toContain("h-1 overflow-hidden rounded-full");
+    expect(html).toContain('title="n=400 scored items"');
+    expect(visibleText).not.toContain("n=");
+    expect(html).toContain("AppWorld facet only");
+    expect(html).toContain("Call formatting (tc_json)");
+    expect(html).toContain("RULER 32K");
+    expect(html).toContain("llama.cpp");
+    expect(html).toContain("b7421");
+    expect(html).toContain("RTX 5090 · 32 GB");
+    expect(html).toContain("512");
+    expect(html).toContain("1 h");
   });
 
   it("renders live freshness, held-back rows, and honest snapshot fallback copy", () => {

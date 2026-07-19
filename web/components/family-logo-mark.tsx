@@ -1,19 +1,19 @@
-import { orgLogoForModelLabel } from "@/lib/family-logo";
+import { orgLogoForFamilyName, orgLogoForModelLabel } from "@/lib/family-logo";
 
 // Small org mark next to a model name. Decorative (alt is empty — the model name it sits
-// beside carries the meaning); the org name is exposed as a title tooltip. Renders nothing
-// when the label doesn't carry a first-party org name, so callers keep their color-dot
-// fallback and community fine-tunes are never stamped with the base org's logo.
+// beside carries the meaning); the org name is exposed as a title tooltip.
 export function FamilyLogoMark({
+  familyName,
   modelLabel,
   size = 16,
   className,
 }: {
+  readonly familyName?: string | null;
   readonly modelLabel: string | null | undefined;
   readonly size?: number;
   readonly className?: string;
 }) {
-  const logo = orgLogoForModelLabel(modelLabel);
+  const logo = orgLogoForFamilyName(familyName) ?? orgLogoForModelLabel(modelLabel);
   if (logo === null) {
     return null;
   }

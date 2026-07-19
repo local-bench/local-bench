@@ -5,7 +5,7 @@ import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatInteger, formatScore } from "@/lib/format";
 import { scoreForMode, staticIndexStatus, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { type SortKey, type SortState } from "@/lib/leaderboard-sort";
-import { runtimeDisplay } from "@/lib/runtime-display";
+import { runtimeDisplay, type RuntimeDisplayInput } from "@/lib/runtime-display";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import {
   INDEX_VERSION_V4,
@@ -173,7 +173,7 @@ export function SortableHeader({
   );
 }
 
-export function RuntimeCell({ runtime }: { readonly runtime: IndexModel["runtime"] }) {
+export function RuntimeCell({ runtime }: { readonly runtime: RuntimeDisplayInput | null | undefined }) {
   const display = runtimeDisplay(runtime);
   if (display === null) {
     return <span className="font-mono text-xs text-bench-muted">—</span>;
@@ -207,7 +207,7 @@ export function CompositeHeaderLabel({ scoreMode, season2 }: { readonly scoreMod
 
 export function axisColumns(models: readonly IndexModel[]): readonly string[] {
   if (models.some((model) => displayIndexVersion(model) === INDEX_VERSION_V4)) {
-    return ["agentic", "knowledge", "instruction_following", "coding", "math", "tool_calling"];
+    return ["agentic", "knowledge", "instruction_following", "coding", "math"];
   }
   const present = new Set<string>();
   for (const model of models) {

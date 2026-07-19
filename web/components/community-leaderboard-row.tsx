@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import type { KeyboardEvent } from "react";
+import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
+import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
 import { boardAxisValue } from "@/lib/board-adapter";
-import { formatScore } from "@/lib/format";
+import { formatDuration, formatGpuShort, formatInteger, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
+import type { AxisScore, Score } from "@/lib/schemas";
 
 type CommunityRowProps = {
   readonly axisKeys: readonly string[];
@@ -36,69 +40,122 @@ export function CommunityLeaderboardRow({
       tabIndex={row.detailPath === null ? undefined : 0}
       onClick={row.detailPath === null ? undefined : navigate}
       onKeyDown={row.detailPath === null ? undefined : openOnEnter}
-      className={`${row.detailPath === null ? "" : "cursor-pointer hover:bg-white/[0.045] focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"} border-t-2 border-bench-line-strong bg-white/[0.018] align-middle text-bench-muted transition-colors`}
+      className={`${row.detailPath === null ? "" : "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"} border-t border-bench-line/75 bg-white/[0.018] align-middle transition-colors hover:bg-white/[0.035]`}
     >
       <td className="px-3 py-3 font-mono text-bench-muted">{rank}</td>
       <td className="px-3 py-3">
-        {row.detailPath === null ? (
-          <span className="font-semibold text-bench-text" title="family detail unavailable for this row">
-            {row.displayName}
-          </span>
-        ) : (
-          <Link href={row.detailPath} className="font-semibold text-bench-text hover:text-bench-accent">
-            {row.displayName}
-          </Link>
-        )}
+        <span className="flex items-center gap-2">
+          <FamilyLogoMark familyName={row.family} modelLabel={row.displayName} size={16} />
+          {row.detailPath === null ? (
+            <span className="font-semibold text-bench-text" title="family detail unavailable for this row">
+              {row.displayName}
+            </span>
+          ) : (
+            <Link href={row.detailPath} className="font-semibold text-bench-text hover:text-bench-accent">
+              {row.displayName}
+            </Link>
+          )}
+          {row.indexVersion === null ? null : <SeasonBadge indexVersion={row.indexVersion} />}
+        </span>
         <div className="mt-0.5 font-mono text-xs text-bench-muted">{row.quantLabel ?? "quant unavailable"}</div>
-        <div className="mt-1 text-[10px] text-bench-muted">{row.family ?? row.identityLabel}</div>
+        <div className="text-xs text-bench-muted">{row.family ?? row.identityLabel}</div>
+        {row.declaredBaseModels?.[0] === undefined ? null : (
+          <span className="mt-1 inline-block rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
+            Fine-tune of {row.declaredBaseModels[0]}
+          </span>
+        )}
       </td>
-      <td className="px-3 py-3">
+      <td
+        className="px-3 py-3"
+        title="Who ran this benchmark — local-bench for project-run rows, the submitter for community submissions"
+      >
         <div className="max-w-[180px]">
           <SubmissionIdentity displayName={row.submitterDisplayName} />
         </div>
       </td>
       <td className="px-3 py-3">
-        <div className="min-w-[150px]">
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono text-lg font-semibold text-bench-text">
-              {row.compositeFull === null ? "unavailable" : formatScore(normalizePercent(row.compositeFull))}
-            </span>
-          </div>
+        {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">n/a</span> : (
+          <div className="min-w-[132px]">
+            <ScoreBar score={normalizedScore(row.compositeFull)} />
           <div className="mt-0.5 text-[10px] text-bench-muted">common composite · complete run</div>
-        </div>
+          </div>
+        )}
       </td>
       {showStaticIndexColumn ? <UnavailableCell /> : null}
       {axisKeys.map((axis) => <CommunityAxisCell key={axis} axis={axis} row={row} />)}
       {showAgenticColumn ? (
         <td className="px-3 py-3">
-          <CommunityAxisValue axis="agentic" row={row} />
+          <CommunityAxisBar axis="agentic" row={row} />
         </td>
       ) : null}
+      <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
+      <td className="px-3 py-3 font-mono text-xs text-bench-text">
+        {row.hardware?.gpu_name === null || row.hardware?.gpu_name === undefined || row.hardware.gpu_name === ""
+          ? <span className="text-[10px] text-bench-muted">—</span>
+          : formatGpuShort({ name: row.hardware.gpu_name, vram_gb: row.hardware.vram_gb })}
+      </td>
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {row.perf?.tokens_to_answer_median === null || row.perf?.tokens_to_answer_median === undefined
+          ? <span className="text-[10px] text-bench-muted">—</span>
+          : formatInteger(row.perf.tokens_to_answer_median)}
+      </td>
       <UnavailableCell />
-      <UnavailableCell />
-      <UnavailableCell />
-      <UnavailableCell />
-      <UnavailableCell />
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {row.perf?.wall_time_seconds === null || row.perf?.wall_time_seconds === undefined
+          ? <span className="text-[10px] text-bench-muted">—</span>
+          : formatDuration(row.perf.wall_time_seconds)}
+      </td>
     </tr>
   );
 }
 
 function CommunityAxisCell({ axis, row }: { readonly axis: string; readonly row: CommunityBoardRow }) {
-  return <td className="px-3 py-3"><CommunityAxisValue axis={axis} row={row} /></td>;
+  return (
+    <td className="px-3 py-3">
+      {axis === "agentic" ? <CommunityAgenticCell row={row} /> : <CommunityAxisBar axis={axis} row={row} />}
+    </td>
+  );
 }
 
-function CommunityAxisValue({ axis, row }: { readonly axis: string; readonly row: CommunityBoardRow }) {
+function CommunityAxisBar({ axis, row }: { readonly axis: string; readonly row: CommunityBoardRow }) {
   const value = boardAxisValue(row.axes ?? {}, axis);
-  if (value === undefined) return <span className="font-mono text-[10px] text-bench-muted">—</span>;
-  if (value.status !== "measured" || value.score === null || value.score === undefined) {
-    return <span className="font-mono text-[10px] text-bench-muted">{value.status.replace("_", " ")}</span>;
-  }
+  const score = communityAxisScore(value);
   return (
-    <div>
-      <div className="min-w-[96px] font-mono text-sm font-semibold text-bench-text">
-        {formatScore(normalizePercent(value.score))}
-      </div>
-      <div className="mt-1 font-mono text-[10px] text-bench-muted">n={value.n}</div>
+    <div title={score === undefined ? undefined : `n=${score.n} scored items`}>
+      <AxisMiniBar score={score} axis={axis} />
+    </div>
+  );
+}
+
+function CommunityAgenticCell({ row }: { readonly row: CommunityBoardRow }) {
+  return (
+    <div className="min-w-[150px]">
+      <CommunityAxisBar axis="agentic" row={row} />
+      <div className="mt-1 font-mono text-[10px] text-bench-muted">AppWorld facet only</div>
+      <details className="mt-1 text-[10px] text-bench-muted">
+        <summary className="cursor-pointer font-mono text-bench-accent">facet breakdown</summary>
+        <dl className="mt-1 grid gap-1">
+          <dt className="font-semibold uppercase text-bench-muted">Diagnostics · unweighted</dt>
+          <DiagnosticValue label="Call formatting (tc_json)" value={boardAxisValue(row.axes ?? {}, "tool_calling")} />
+          <DiagnosticValue label="RULER 32K" value={boardAxisValue(row.axes ?? {}, "long_context")} />
+        </dl>
+      </details>
+    </div>
+  );
+}
+
+function DiagnosticValue({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: ReturnType<typeof boardAxisValue<NonNullable<CommunityBoardRow["axes"]>[string]>>;
+}) {
+  const score = communityAxisScore(value);
+  return (
+    <div className="flex justify-between gap-3">
+      <dt>{label}</dt>
+      <dd className="font-mono text-bench-text">{score === undefined ? "n/a" : formatScore(score.point)}</dd>
     </div>
   );
 }
@@ -113,4 +170,29 @@ function UnavailableCell() {
 
 function normalizePercent(value: number): number {
   return value <= 1 ? value * 100 : value;
+}
+
+function normalizedScore(value: number): Score {
+  const point = normalizePercent(value);
+  return { point, lo: point, hi: point };
+}
+
+function communityAxisScore(
+  value: NonNullable<CommunityBoardRow["axes"]>[string] | undefined,
+): AxisScore | undefined {
+  if (value === undefined || value.status !== "measured" || value.score === null || value.score === undefined || value.n === 0) {
+    return undefined;
+  }
+  const point = normalizePercent(value.score);
+  const lo = normalizePercent(value.ci?.[0] ?? value.score);
+  const hi = normalizePercent(value.ci?.[1] ?? value.score);
+  return {
+    point,
+    lo,
+    hi,
+    raw_accuracy: value.score <= 1 ? value.score : value.score / 100,
+    n: value.n,
+    n_errors: 0,
+    n_no_answer: 0,
+  };
 }

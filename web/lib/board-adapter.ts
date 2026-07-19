@@ -45,6 +45,18 @@ const TIMESTAMPS = z.object({
 const LINEAGE = z.object({
   base_model: z.array(SAFE_TEXT).max(8).readonly().default([]),
 }).passthrough().readonly();
+const RUNTIME = z.object({
+  backend: safeText(120).nullable(),
+  name: safeText(120).nullable(),
+  version: safeText(120).nullable(),
+}).passthrough().readonly();
+const HARDWARE = z.object({ gpu_name: safeText(160).nullable(), vram_gb: z.number().finite().nonnegative().nullable() })
+  .passthrough().readonly();
+const PERF = z.object({
+  decode_tps: z.number().finite().nonnegative().nullable(),
+  tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
+  wall_time_seconds: z.number().finite().nonnegative().nullable(),
+}).passthrough().readonly();
 const LINEAGE_ENRICHMENT = z.object({
   artifact_sha256: SHA256,
   association: z.object({
@@ -99,14 +111,17 @@ const UnifiedBoardRowSchema = z.object({
   community_model_group_id: SAFE_TEXT.optional(),
   global_rank: z.number().int().positive().nullable().optional(),
   headline_complete: z.boolean(),
+  hardware: HARDWARE.optional().catch(undefined),
   index_version: SAFE_TEXT.nullable().optional(),
   lineage: LINEAGE.optional(),
   lineage_enrichment: LINEAGE_ENRICHMENT.optional(),
   model: MODEL,
   origin: z.enum(["community", "project_anchor"]),
+  perf: PERF.optional().catch(undefined),
   rank: z.number().int().positive().nullable().optional(),
   ranked: z.boolean().optional(),
   scores: SCORES,
+  runtime: RUNTIME.optional().catch(undefined),
   submission_id: SAFE_TEXT,
   submitter: SUBMITTER.optional().default({}),
   timestamps: TIMESTAMPS.nullable().optional(),
@@ -133,12 +148,15 @@ export type AdaptedBoardRow = {
   readonly displayName: string;
   readonly family: string | null;
   readonly globalRank: number | null;
+  readonly hardware?: z.infer<typeof HARDWARE>;
   readonly headlineComplete: boolean;
   readonly indexVersion: string | null;
   readonly lineageEnrichment: z.infer<typeof LINEAGE_ENRICHMENT> | undefined;
   readonly origin: "community" | "project_anchor";
+  readonly perf?: z.infer<typeof PERF>;
   readonly quantLabel: string | null;
   readonly ranked: boolean;
+  readonly runtime?: z.infer<typeof RUNTIME>;
   readonly submissionId: string;
   readonly submitterDisplayName: string | null;
   readonly submitterGithubLogin: string | null;
@@ -193,12 +211,15 @@ function adaptRow(row: z.infer<typeof UnifiedBoardRowSchema>): AdaptedBoardRow {
     displayName: row.model.display_name ?? row.model.declared_name ?? "Reported model",
     family: row.model.family ?? null,
     globalRank: row.global_rank ?? row.rank ?? null,
+    ...(row.hardware === undefined ? {} : { hardware: row.hardware }),
     headlineComplete: row.headline_complete,
     indexVersion: row.index_version ?? null,
     lineageEnrichment: row.lineage_enrichment,
     origin: row.origin,
+    ...(row.perf === undefined ? {} : { perf: row.perf }),
     quantLabel: row.model.quant_label ?? null,
     ranked: row.ranked ?? row.headline_complete,
+    ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
     submissionId: row.submission_id,
     submitterDisplayName: row.submitter.display_name ?? row.submitter.unverified_handle ?? null,
     submitterGithubLogin: row.submitter.github_login ?? null,

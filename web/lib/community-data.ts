@@ -133,6 +133,7 @@ export type CommunityBoardRow = {
   readonly displayName: string;
   readonly family: string | null;
   readonly globalRank: number | null;
+  readonly hardware?: AdaptedBoardRow["hardware"];
   readonly headlineComplete: boolean;
   readonly identityLabel: CommunityGroupData["identity_label"];
   readonly indexVersion: string | null;
@@ -140,7 +141,9 @@ export type CommunityBoardRow = {
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
   readonly origin?: "community";
+  readonly perf?: AdaptedBoardRow["perf"];
   readonly ranked?: boolean;
+  readonly runtime?: AdaptedBoardRow["runtime"];
   readonly partialComposite: number | null;
   readonly quantLabel: string | null;
   readonly submissionId: string;

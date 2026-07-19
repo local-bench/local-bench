@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { formatScore } from "@/lib/format";
+import { familySlug } from "@/lib/family-slug";
 import { isFullIndexRow } from "@/lib/leaderboard-score";
 import type { IndexModel } from "@/lib/schemas";
 
@@ -24,7 +25,7 @@ export function FamilyDirectory({ models }: { readonly models: readonly IndexMod
       </div>
       <div className="grid gap-px bg-bench-line sm:grid-cols-2 xl:grid-cols-3">
         {families.map((summary) => (
-          <article key={summary.family} className="bg-bench-panel p-4">
+          <article id={familySlug(summary.family)} key={summary.family} className="scroll-mt-48 bg-bench-panel p-4 sm:scroll-mt-32 lg:scroll-mt-24">
             <div className="flex items-center gap-2">
               <FamilyLogoMark modelLabel={summary.family} size={20} />
               <h3 className="font-semibold text-bench-text">{summary.family}</h3>

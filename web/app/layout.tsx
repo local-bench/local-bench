@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { getIndexData } from "@/lib/data";
+import { compareFamilyNames } from "@/lib/family-slug";
 import "./globals.css";
 
 const title = "local-bench";
@@ -32,11 +33,12 @@ export default async function RootLayout({
 }>) {
   const index = await getIndexData();
   const usesDemoData = index.models.some((model) => model.demo);
+  const families = [...new Set(index.models.map((model) => model.family))].sort(compareFamilyNames);
 
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <AppShell suiteVersion={index.suite_version} indexVersion={index.index_version} usesDemoData={usesDemoData}>
+        <AppShell families={families} suiteVersion={index.suite_version} indexVersion={index.index_version} usesDemoData={usesDemoData}>
           {children}
         </AppShell>
       </body>
