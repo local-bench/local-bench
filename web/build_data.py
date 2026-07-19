@@ -266,10 +266,20 @@ def _board_context() -> BoardContext:
     )
 
 
-def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_interval: JsonObject, board: dict[str, JsonObject]) -> None:
-    """For EVERY quant run of a board-ranked model, replace the web build's RE-DERIVED composite
-    and headline-axis intervals with the board's verbatim PER-SYSTEM values (matched by run_id).
-    board_v2 is the single source of truth: its per-quant composites are ALL on the agentic-led
+def _apply_board_intervals(
+    slug: str,
+    run_id: str,
+    axes: JsonObject,
+    composite_interval: JsonObject,
+    board: dict[str, JsonObject],
+    *,
+    protected_axes: frozenset[str] = frozenset(),
+    protect_composite: bool = False,
+) -> None:
+    """For every quant run of a board-ranked model, replace unprotected re-derived composite
+    and headline-axis intervals with the board's verbatim per-system values (matched by run_id).
+    Version-matched rescore artifacts protect their authoritative axis/composite at the caller.
+    Otherwise board_v2 is the source of truth: its per-quant composites are on the agentic-led
     Index scale, so stamping every system keeps the leaderboard, the landing scatter, and the
     model-page quant ladder on ONE scale. (Previously only `best_run_id` was stamped -> the best
     variant showed the agentic-led Index while sibling quants kept a re-bootstrapped K+I-only
@@ -282,21 +292,50 @@ def _apply_board_intervals(slug: str, run_id: str, axes: JsonObject, composite_i
     system = _board_system_for_run(board_model, run_id)
     if system is None:
         return
-    composite_interval.update(_board_interval(_object(system.get("composite"), f"board.{slug}.system.composite")))
+    if not protect_composite:
+        composite_interval.update(_board_interval(_object(system.get("composite"), f"board.{slug}.system.composite")))
     board_axes = _object(system.get("axes"), f"board.{slug}.system.axes")
     # Support both board generations: v1/v3 names the legacy tool axis
     # ``tool_calling`` while v4 projects the season-2 ``tool_use`` macro-axis.
     for axis in dict.fromkeys((*_BOARD_AXES, *headline_web_axes())):
-        if axis not in board_axes:
+        if axis not in board_axes or axis in protected_axes:
             continue
         board_axis = _object(board_axes[axis], f"board.{slug}.system.axes.{axis}")
         if axis in axes:
-            _object(axes[axis], f"axes.{axis}").update(_board_interval(board_axis))
+            rendered_axis = _object(axes[axis], f"axes.{axis}")
+            rendered_n = _int_or_none(rendered_axis.get("n"))
+            board_n = _int_or_none(board_axis.get("n"))
+            if rendered_n is not None and board_n is not None and rendered_n != board_n:
+                raise DataBuildError(
+                    f"refusing mixed axis composition for {slug}/{run_id} {axis}: "
+                    f"emitted n={rendered_n}, board interval source n={board_n}"
+                )
+            rendered_axis.update(_board_interval(board_axis))
         else:
             # The web suite run does not compute this axis (agentic comes from the opt-in
             # AppWorld lane, NOT suite-v1), so inject the board's axis object wholesale -> it
             # renders as a first-class axis on the leaderboard, model page, and run receipt.
             axes[axis] = dict(board_axis)
+
+
+def _season_2_rescore_projection(run: JsonObject) -> tuple[JsonObject, JsonObject] | None:
+    raw_rescore = run.get("season2_rescore")
+    if not isinstance(raw_rescore, dict):
+        return None
+    if _text(raw_rescore.get("index_version")) != SEASON_2_INDEX_VERSION:
+        return None
+    raw_axes = _object(raw_rescore.get("axes"), "season2_rescore.axes")
+    rescore_axes: JsonObject = {}
+    for axis, value in raw_axes.items():
+        rescored_axis = dict(_object(value, f"season2_rescore.axes.{axis}"))
+        _int(rescored_axis.get("n"), f"season2_rescore.axes.{axis}.n")
+        _number(rescored_axis.get("point"), f"season2_rescore.axes.{axis}.point")
+        rescore_axes[axis] = rescored_axis
+    _object(rescore_axes.get("tool_use"), "season2_rescore.axes.tool_use")
+    composite = dict(_object(raw_rescore.get("composite_v4"), "season2_rescore.composite_v4"))
+    _number(composite.get("point"), "season2_rescore.composite_v4.point")
+    _number(composite.get("point_raw"), "season2_rescore.composite_v4.point_raw")
+    return rescore_axes, composite
 
 
 def _board_conformance_gates(slug: str, run_id: str, board: dict[str, JsonObject]) -> JsonObject | None:
@@ -536,22 +575,44 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
         _DIAGNOSTIC_SOURCE_GROUPS,
     )
     composite = build_composite(run, axes, effective_benches, effective_weights)
+    rescore_projection = _season_2_rescore_projection(run)
+    if rescore_projection is not None and effective_index_version != SEASON_2_INDEX_VERSION:
+        raise DataBuildError(
+            f"season2_rescore is {SEASON_2_INDEX_VERSION} but run index is {effective_index_version}"
+        )
     # Pure-renderer override: for EVERY quant of a board-ranked model, swap the re-bootstrapped
     # composite and headline-axis intervals for the board's verbatim per-system values (matched
     # by run_id), so the leaderboard, the landing scatter, and the model-page quant ladder all
     # render the board's single agentic-led Index scale. No-op for unranked rows / unmatched
     # runs. See _apply_board_intervals.
     composite_interval = _object(composite["interval"], "composite.interval")
-    _apply_board_intervals(slug, run_id, axes, composite_interval, board.models_by_slug)
+    protected_axes = frozenset(rescore_projection[0]) if rescore_projection is not None else frozenset()
+    _apply_board_intervals(
+        slug,
+        run_id,
+        axes,
+        composite_interval,
+        board.models_by_slug,
+        protected_axes=protected_axes,
+        protect_composite=rescore_projection is not None,
+    )
     conformance_gates = _board_conformance_gates(slug, run_id, board.models_by_slug) if not season_2 else None
     headline_complete = all(axis in axes for axis in headline_axes)
     static_composite = build_composite(run, axes, static_axes, static_weights) if all(axis in axes for axis in static_axes) else None
     board_composite_full, board_composite_static, board_static_index_version = _board_composites_for_run(
         slug, run_id, board.models_by_slug
     )
+    if rescore_projection is not None:
+        rescored_axes, rescored_composite = rescore_projection
+        axes.update(rescored_axes)
+        composite_interval.clear()
+        composite_interval.update(rescored_composite)
     computed_composite_full = dict(composite_interval) if headline_complete else None
     computed_composite_static = dict(_object(static_composite["interval"], "static_composite.interval")) if static_composite is not None else None
-    composite_full = board_composite_full if board_composite_full is not None else computed_composite_full
+    if rescore_projection is not None:
+        composite_full = dict(rescore_projection[1])
+    else:
+        composite_full = board_composite_full if board_composite_full is not None else computed_composite_full
     composite_static = board_composite_static if board_composite_static is not None else computed_composite_static
     static_index_version = (board_static_index_version or STATIC_SUITE_INDEX_VERSION) if composite_static is not None else None
     annotations = _source_annotations(source, axes, headline_complete)
@@ -607,7 +668,12 @@ def _build_run(source: JsonObject, *, order: int, iters: int, benches: tuple[str
     if perf:
         detail["perf"] = perf
         model_row["perf"] = perf
-    return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite["raw_point"], "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
+    composite_raw = (
+        _number(rescore_projection[1].get("point_raw"), "season2_rescore.composite_v4.point_raw")
+        if rescore_projection is not None
+        else composite["raw_point"]
+    )
+    return {"catalog_id": _text(source.get("model_id")), "composite_raw": composite_raw, "detail": detail, "family": family, "index_row": index_row, "kind": kind, "model_label": model_label, "model_row": model_row, "order": order, "run_id": run_id, "slug": slug, "suite_version": detail["suite_version"]}
 
 
 def _build_agentic_only_run(source: JsonObject, *, order: int) -> JsonObject:

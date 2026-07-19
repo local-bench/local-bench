@@ -652,6 +652,230 @@ def test_build_data_carries_board_conformance_gate_to_index_and_model_rows(
     assert _object(_object(run_detail["conformance_gates"])["tc_json_v1"]) == gate
 
 
+def test_build_run_uses_version_matched_season2_rescore_on_every_surface(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    run_path = tmp_path / "rescored-run.json"
+    items = [
+        _synthetic_item("mmlu-pro-001", "mmlu_pro", True),
+        _synthetic_item("ifbench-001", "ifbench", True),
+        _synthetic_item("olymmath-hard-001", "olymmath_hard", True),
+        _synthetic_item("amo-001", "amo", False),
+        _synthetic_item("appworld-c-001", "appworld_c", False),
+        _synthetic_item("bigcodebench-hard-001", "bigcodebench_hard", True),
+    ]
+    run = _synthetic_run(items)
+    run["index_version"] = "index-v4.2"
+    run["benches"] = {
+        bench: _synthetic_aggregate(items, bench)
+        for bench in (
+            "mmlu_pro",
+            "ifbench",
+            "olymmath_hard",
+            "amo",
+            "appworld_c",
+            "bigcodebench_hard",
+        )
+    }
+    run["composite"] = None
+    run["agentic_run"] = _healthy_agentic_run()
+    rescored_axis: JsonObject = {
+        "n": 96,
+        "n_errors": 0,
+        "n_no_answer": 0,
+        "point": 10.5,
+        "point_raw": 0.105,
+        "raw_accuracy": 0.105,
+    }
+    rescored_coding: JsonObject = {
+        "n": 141,
+        "n_errors": 0,
+        "n_no_answer": 0,
+        "point": 70.0,
+        "point_raw": 0.7,
+        "raw_accuracy": 0.7,
+    }
+    rescored_composite: JsonObject = {
+        "hi": 54.0,
+        "hi_raw": 0.54,
+        "lo": 48.0,
+        "lo_raw": 0.48,
+        "point": 51.0,
+        "point_raw": 0.51,
+    }
+    run["season2_rescore"] = {
+        "index_version": "index-v4.2",
+        "axes": {"coding": rescored_coding, "tool_use": rescored_axis},
+        "composite_v4": rescored_composite,
+    }
+    run_path.write_text(json.dumps(run), encoding="utf-8")
+    source = builder._source(
+        {
+            "family": "Synthetic",
+            "file": str(run_path),
+            "kind": "maintainer_project",
+            "model_label": "Rescored Model",
+            "origin": "project_anchor",
+            "reasoning_lane": "test",
+            "trust_label": "project_anchor",
+            "vram_footprint_gb": 1.0,
+        },
+        0,
+    )
+    run_id = "rescored-model__rescored-run"
+    stale_interval: JsonObject = {
+        "hi": 25.0,
+        "hi_raw": 0.25,
+        "lo": 11.0,
+        "lo_raw": 0.11,
+        "point": 17.66,
+        "point_raw": 0.1766,
+    }
+    board = builder.BoardContext(
+        headline_lane="test",
+        models_by_slug={
+            "rescored-model": {
+                "best_run_id": run_id,
+                "composite_full": stale_interval,
+                "systems": [
+                    {
+                        "axes": {
+                            "coding": stale_interval | {"n": 148},
+                            "tool_use": stale_interval | {"n": 146},
+                        },
+                        "composite": stale_interval,
+                        "run_id": run_id,
+                    },
+                ],
+            },
+        },
+    )
+
+    composed = builder._build_run(
+        source,
+        order=0,
+        iters=20,
+        benches=builder.BENCHES,
+        weights=builder.COMPOSITE_WEIGHTS,
+        board=board,
+    )
+
+    for surface in ("detail", "model_row", "index_row"):
+        row = _object(composed[surface])
+        assert set(_object(row["axes"])) == {
+            "coding",
+            "instruction",
+            "knowledge",
+            "math",
+            "tool_use",
+        }
+        assert _object(_object(row["axes"])["coding"]) == rescored_coding
+        assert _object(_object(row["axes"])["tool_use"]) == rescored_axis
+        assert _object(row["composite_full"]) == rescored_composite
+        assert _object(row["composite"]) == rescored_composite
+    assert _number(composed["composite_raw"]) == rescored_composite["point_raw"]
+
+
+def test_apply_board_intervals_rejects_mixed_axis_membership() -> None:
+    builder = _build_data_module()
+    run_id = "mixed-model__run"
+    axes: JsonObject = {
+        "tool_use": {
+            "n": 96,
+            "point": 10.5,
+            "point_raw": 0.105,
+            "raw_accuracy": 0.105,
+        },
+    }
+    composite: JsonObject = {
+        "hi": 54.0,
+        "hi_raw": 0.54,
+        "lo": 48.0,
+        "lo_raw": 0.48,
+        "point": 51.0,
+        "point_raw": 0.51,
+    }
+    stale_interval: JsonObject = {
+        "hi": 25.0,
+        "hi_raw": 0.25,
+        "lo": 11.0,
+        "lo_raw": 0.11,
+        "n": 146,
+        "point": 17.66,
+        "point_raw": 0.1766,
+    }
+    board: dict[str, JsonObject] = {
+        "mixed-model": {
+            "systems": [
+                {
+                    "axes": {"tool_use": stale_interval},
+                    "composite": stale_interval,
+                    "run_id": run_id,
+                },
+            ],
+        },
+    }
+
+    with pytest.raises(builder.DataBuildError, match=r"tool_use.*n=96.*n=146"):
+        builder._apply_board_intervals("mixed-model", run_id, axes, composite, board)
+
+
+def test_build_run_without_season2_rescore_keeps_unmatched_community_composition(tmp_path: Path) -> None:
+    builder = _build_data_module()
+    run_path = tmp_path / "community-run.json"
+    items = [
+        _synthetic_item("mmlu-pro-001", "mmlu_pro", True),
+        _synthetic_item("ifbench-001", "ifbench", True),
+        _synthetic_item("olymmath-hard-001", "olymmath_hard", True),
+        _synthetic_item("amo-001", "amo", False),
+        _synthetic_item("appworld-c-001", "appworld_c", False),
+        _synthetic_item("bigcodebench-hard-001", "bigcodebench_hard", True),
+    ]
+    run = _synthetic_run(items)
+    run["index_version"] = "index-v4.2"
+    run["benches"] = {
+        bench: _synthetic_aggregate(items, bench)
+        for bench in (
+            "mmlu_pro",
+            "ifbench",
+            "olymmath_hard",
+            "amo",
+            "appworld_c",
+            "bigcodebench_hard",
+        )
+    }
+    run["composite"] = None
+    run["agentic_run"] = _healthy_agentic_run()
+    run_path.write_text(json.dumps(run), encoding="utf-8")
+    source = builder._source(
+        {
+            "family": "Synthetic",
+            "file": str(run_path),
+            "kind": "community",
+            "model_label": "Community Model",
+            "reasoning_lane": "test",
+            "trust_label": "community_self_submitted",
+            "vram_footprint_gb": 1.0,
+        },
+        0,
+    )
+    board = builder.BoardContext(headline_lane="test", models_by_slug={})
+
+    composed = builder._build_run(
+        source,
+        order=0,
+        iters=20,
+        benches=builder.BENCHES,
+        weights=builder.COMPOSITE_WEIGHTS,
+        board=board,
+    )
+
+    tool_use = _object(_object(_object(composed["detail"])["axes"])["tool_use"])
+    assert _number(tool_use["point"]) == 0.0
+    assert _number(tool_use["n"]) == 1
+    composite_full = _object(_object(composed["detail"])["composite_full"])
+    assert _number(composite_full["point"]) == 71.25
+
+
 def test_build_data_carries_runtime_to_index_model_and_run_rows(tmp_path: Path) -> None:
     # Given: a synthetic run whose manifest records the serving runtime identity.
     builder = _build_data_module()
@@ -1039,6 +1263,30 @@ def _harness_dominated_agentic_run() -> JsonObject:
         "campaign": True,
         "single_pass": False,
         "mean_asr": 0.0,
+        "subset_size": 1,
+        "diagnostics": diagnostics,
+        "runs": [{"run_index": 1, "results_path": "agentic/run1.json", **diagnostics}],
+    }
+
+
+def _healthy_agentic_run() -> JsonObject:
+    diagnostics: JsonObject = {
+        "tasks_total": 1,
+        "tasks_succeeded": 1,
+        "infra_failure_rate": 0.0,
+        "infra_timeout_rate": 0.0,
+        "outcome_counts": {
+            "success": 1,
+            "failure": 0,
+            "cap_exceeded": 0,
+            "no_final_answer": 0,
+            "harness_error": 0,
+        },
+    }
+    return {
+        "campaign": True,
+        "single_pass": False,
+        "mean_asr": 1.0,
         "subset_size": 1,
         "diagnostics": diagnostics,
         "runs": [{"run_index": 1, "results_path": "agentic/run1.json", **diagnostics}],
