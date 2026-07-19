@@ -80,12 +80,12 @@ describe("buildRecipe", () => {
     expect(recipe.lane).toBe("bounded-final-v2");
     expect(recipe.lead).toEqual({
       kind: "publishable",
-      command: "localbench bench qwen3-8b --quant Q4_K_M --static-only",
+      command: "localbench bench qwen3-8b --quant Q4_K_M --allow-untrusted-code",
     });
     expect(recipe.ggufRepo).toBe("MaziyarPanahi/Qwen3-8B-GGUF");
     expect(recipe.model).toBe(selected);
     expect(recipe.setupCommand).toBe(
-      'pip install "local-bench-ai[hf]==0.3.2"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
+      'pip install "local-bench-ai[hf]"\nlocalbench fetch-suite --site https://local-bench.ai --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms\nlocalbench cache-tokenizer Qwen/Qwen3-8B',
     );
     expect(recipe.submitCommand).toBe("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
     expect(recipe.servedModelName).toBe("MaziyarPanahi/Qwen3-8B-GGUF:Q4_K_M");
@@ -139,7 +139,7 @@ describe("buildRecipe", () => {
 
     expect(recipe.lead).toEqual({
       kind: "local-only",
-      command: "localbench bench bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF --quant Q4_K_M --static-only",
+      command: "localbench bench bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF --quant Q4_K_M --allow-untrusted-code",
     });
     expect(recipe.identityMode).toBe("basic");
     expect(recipe.setupCommand).not.toContain("cache-tokenizer");
@@ -188,7 +188,7 @@ describe("buildRecipe", () => {
 
     expect(recipe.lead).toEqual({
       kind: "local-only",
-      command: "localbench bench bartowski/QwQ-32B-GGUF --quant Q5_K_M --static-only",
+      command: "localbench bench bartowski/QwQ-32B-GGUF --quant Q5_K_M --allow-untrusted-code",
     });
     expect(recipe.identityMode).toBe("full");
     expect(recipe.setupCommand).toContain("localbench cache-tokenizer Qwen/QwQ-32B");
@@ -275,6 +275,6 @@ describe("buildRecipe", () => {
       reason: "This catalog quant is missing artifact pins, so the one-command flow fails closed.",
     });
     expect(recipe.benchCommand).toContain("localbench run");
-    expect(recipe.setupCommand).toContain('local-bench-ai[hf]==0.3.2');
+    expect(recipe.setupCommand).toContain('local-bench-ai[hf]');
   });
 });
