@@ -50,3 +50,5 @@ catalog-refresh-out/
 
 # wrangler CLI local cache (account metadata — never commit)
 .wrangler/
+
+scripts/_gate_work/

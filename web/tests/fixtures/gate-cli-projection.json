@@ -1,0 +1,311 @@
+{
+ "agentic_provenance": "self_reported",
+ "artifact_hashes": {
+  "bundle_sha256": "a707ae3f1e351e61467f03b3fae3be90fc8d9015122b4987b123146d83aad02a",
+  "projection_sha256": "f32ef13e4c448c4c7d679c572b15c9c7d264ce405acb5a58b26305a65ca6c89e",
+  "public_artifact_manifest_sha256": "63a1de37bd3bc05e52fb849762c1a49dcb28e53bc21ee8ee42bb483b9c57b19c"
+ },
+ "axes": {
+  "agentic": {
+   "ci": null,
+   "n": 96,
+   "score": 0.0625,
+   "status": "measured"
+  },
+  "coding": {
+   "ci": null,
+   "n": 141,
+   "score": 0.3333,
+   "status": "measured"
+  },
+  "instruction_following": {
+   "ci": null,
+   "n": 294,
+   "score": 0.5578,
+   "status": "measured"
+  },
+  "knowledge": {
+   "ci": null,
+   "n": 400,
+   "score": 0.7306,
+   "status": "measured"
+  },
+  "long_context": {
+   "ci": null,
+   "n": 0,
+   "score": null,
+   "status": "not_measured"
+  },
+  "math": {
+   "ci": null,
+   "n": 139,
+   "score": 0.1223,
+   "status": "measured"
+  },
+  "tool_calling": {
+   "ci": null,
+   "n": 330,
+   "score": 0.6818,
+   "status": "measured"
+  }
+ },
+ "conformance": {
+  "n_scored": 1311,
+  "per_bench": {
+   "amo": {
+    "ambiguous_or_contaminated_final_rate": 0.0,
+    "budget_cap_hit_rate": 0.23076923076923078,
+    "empty_final_rate": 0.0,
+    "forced": false,
+    "leaked_reasoning_rate": 0.0,
+    "measurement_truncation_rate": 0.0,
+    "n_scored": 39,
+    "no_final_answer_rate": 0.0,
+    "reasons": [
+     "budget_cap_hit_rate=23% - visible scored cap hits, not exclusions"
+    ],
+    "status": "headline-comparable",
+    "truncation_rate": 0.23076923076923078
+   },
+   "bigcodebench_hard": {
+    "ambiguous_or_contaminated_final_rate": 0.0,
+    "budget_cap_hit_rate": 0.006756756756756757,
+    "empty_final_rate": 0.0,
+    "forced": false,
+    "leaked_reasoning_rate": 0.0,
+    "measurement_truncation_rate": 0.0,
+    "n_scored": 148,
+    "no_final_answer_rate": 0.0,
+    "reasons": [
+     "budget_cap_hit_rate=1% - visible scored cap hits, not exclusions"
+    ],
+    "status": "headline-comparable",
+    "truncation_rate": 0.006756756756756757
+   },
+   "ifbench": {
+    "ambiguous_or_contaminated_final_rate": 0.0,
+    "budget_cap_hit_rate": 0.07482993197278912,
+    "empty_final_rate": 0.0,
+    "forced": false,
+    "leaked_reasoning_rate": 0.0,
+    "measurement_truncation_rate": 0.0,
+    "n_scored": 294,
+    "no_final_answer_rate": 0.0,
+    "reasons": [
+     "budget_cap_hit_rate=7% - visible scored cap hits, not exclusions"
+    ],
+    "status": "headline-comparable",
+    "truncation_rate": 0.07482993197278912
+   },
+   "mmlu_pro": {
+    "ambiguous_or_contaminated_final_rate": 0.0,
+    "budget_cap_hit_rate": 0.01,
+    "empty_final_rate": 0.0,
+    "forced": false,
+    "leaked_reasoning_rate": 0.0,
+    "measurement_truncation_rate": 0.0,
+    "n_scored": 400,
+    "no_final_answer_rate": 0.0,
+    "reasons": [
+     "budget_cap_hit_rate=1% - visible scored cap hits, not exclusions"
+    ],
+    "status": "headline-comparable",
+    "truncation_rate": 0.01
+   },
+   "olymmath_hard": {
+    "ambiguous_or_contaminated_final_rate": 0.0,
+    "budget_cap_hit_rate": 0.07,
+    "empty_final_rate": 0.0,
+    "forced": false,
+    "leaked_reasoning_rate": 0.0,
+    "measurement_truncation_rate": 0.0,
+    "n_scored": 100,
+    "no_final_answer_rate": 0.0,
+    "reasons": [
+     "budget_cap_hit_rate=7% - visible scored cap hits, not exclusions"
+    ],
+    "status": "headline-comparable",
+    "truncation_rate": 0.07
+   },
+   "tc_json_v1": {
+    "ambiguous_or_contaminated_final_rate": 0.0,
+    "budget_cap_hit_rate": 0.0,
+    "empty_final_rate": 0.0,
+    "forced": false,
+    "leaked_reasoning_rate": 0.0,
+    "measurement_truncation_rate": 0.0,
+    "n_scored": 330,
+    "no_final_answer_rate": 0.0,
+    "reasons": [],
+    "status": "headline-comparable",
+    "truncation_rate": 0.0
+   }
+  },
+  "reasons": [],
+  "status": "headline-comparable",
+  "worst_bench": null
+ },
+ "coverage_profile_id": "full-exec-6axis-v1",
+ "headline_complete": true,
+ "index_version": "index-v4.1",
+ "lineage": {
+  "base_model": []
+ },
+ "model": {
+  "chat_template_digest": "5c5c2567af60e8b6a5cb02dcdcb19775bbe046ee909fca1a04beed873078be7c",
+  "declared_name": "bonsai-27b-ternary",
+  "display_name": "bonsai-27b-ternary",
+  "family": "qwen35",
+  "file_name": "Ternary-Bonsai-27B-Q2_0.gguf",
+  "file_sha256": "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
+  "file_size_bytes": 7165121600,
+  "format": "GGUF",
+  "identity_status": "unverified",
+  "model_system_key": "artifact:868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
+  "quant_label": "Q2_0",
+  "tokenizer_digest": "feb2807e06a7673426c43e5dea2f27d93647a993dcf4d2d1b08cdec45eaded09"
+ },
+ "origin": "community",
+ "provenance_notes": [
+  "attestation_missing:appworld_c/a30375d_1",
+  "attestation_missing:appworld_c/ccf4b82_1",
+  "attestation_missing:appworld_c/0de03ea_2",
+  "attestation_missing:appworld_c/552869a_1",
+  "attestation_missing:appworld_c/d6ac34d_3",
+  "attestation_missing:appworld_c/90adc3f_3",
+  "attestation_missing:appworld_c/a30375d_3",
+  "attestation_missing:appworld_c/0d01c76_1",
+  "attestation_missing:appworld_c/2d9f728_2",
+  "attestation_missing:appworld_c/13547f5_2",
+  "attestation_missing:appworld_c/522e5e5_2",
+  "attestation_missing:appworld_c/042a9fc_3",
+  "attestation_missing:appworld_c/59fae45_2",
+  "attestation_missing:appworld_c/3aa1a22_2",
+  "attestation_missing:appworld_c/652485c_3",
+  "attestation_missing:appworld_c/cef9191_2",
+  "attestation_missing:appworld_c/634f342_1",
+  "attestation_missing:appworld_c/9016950_1",
+  "attestation_missing:appworld_c/425a494_2",
+  "attestation_missing:appworld_c/3d9a636_1",
+  "attestation_missing:appworld_c/986aa4e_3",
+  "attestation_missing:appworld_c/afc4005_1",
+  "attestation_missing:appworld_c/b6d1104_1",
+  "attestation_missing:appworld_c/652485c_1",
+  "attestation_missing:appworld_c/166f4ff_1",
+  "attestation_missing:appworld_c/ffe6d5e_1",
+  "attestation_missing:appworld_c/6b6ca61_2",
+  "attestation_missing:appworld_c/21abae1_3",
+  "attestation_missing:appworld_c/325d6ec_1",
+  "attestation_missing:appworld_c/2c544f9_3",
+  "attestation_missing:appworld_c/dac78d9_2",
+  "attestation_missing:appworld_c/ccf4b82_3",
+  "attestation_missing:appworld_c/d18139b_2",
+  "attestation_missing:appworld_c/09b0ee6_2",
+  "attestation_missing:appworld_c/634f342_3",
+  "attestation_missing:appworld_c/042a9fc_1",
+  "attestation_missing:appworld_c/425a494_1",
+  "attestation_missing:appworld_c/325d6ec_3",
+  "attestation_missing:appworld_c/f861c32_2",
+  "attestation_missing:appworld_c/1150ed6_1",
+  "attestation_missing:appworld_c/9ef798c_2",
+  "attestation_missing:appworld_c/b9c5c9a_3",
+  "attestation_missing:appworld_c/1150ed6_2",
+  "attestation_missing:appworld_c/c77c005_2",
+  "attestation_missing:appworld_c/6f4b9a5_3",
+  "attestation_missing:appworld_c/13547f5_1",
+  "attestation_missing:appworld_c/c77c005_3",
+  "attestation_missing:appworld_c/9016950_2",
+  "attestation_missing:appworld_c/59fae45_1",
+  "attestation_missing:appworld_c/8749218_1",
+  "attestation_missing:appworld_c/2c544f9_1",
+  "attestation_missing:appworld_c/31dc501_3",
+  "attestation_missing:appworld_c/9ef798c_3",
+  "attestation_missing:appworld_c/2c544f9_2",
+  "attestation_missing:appworld_c/59fae45_3",
+  "attestation_missing:appworld_c/9ef798c_1",
+  "attestation_missing:appworld_c/0a9d82a_2",
+  "attestation_missing:appworld_c/cef9191_3",
+  "attestation_missing:appworld_c/522e5e5_1",
+  "attestation_missing:appworld_c/8ce6779_3",
+  "attestation_missing:appworld_c/5a83b05_3",
+  "attestation_missing:appworld_c/3aa1a22_1",
+  "attestation_missing:appworld_c/8ce6779_1",
+  "attestation_missing:appworld_c/552869a_2",
+  "attestation_missing:appworld_c/270f1ff_3",
+  "attestation_missing:appworld_c/32616b5_1",
+  "attestation_missing:appworld_c/7847649_2",
+  "attestation_missing:appworld_c/0d01c76_3",
+  "attestation_missing:appworld_c/986aa4e_2",
+  "attestation_missing:appworld_c/166f4ff_2",
+  "attestation_missing:appworld_c/325d6ec_2",
+  "attestation_missing:appworld_c/32616b5_2",
+  "attestation_missing:appworld_c/afc4005_2",
+  "attestation_missing:appworld_c/0d01c76_2",
+  "attestation_missing:appworld_c/6b6ca61_1",
+  "attestation_missing:appworld_c/1150ed6_3",
+  "attestation_missing:appworld_c/270f1ff_1",
+  "attestation_missing:appworld_c/b9c5c9a_2",
+  "attestation_missing:appworld_c/21abae1_2",
+  "attestation_missing:appworld_c/634f342_2",
+  "attestation_missing:appworld_c/0a9d82a_1",
+  "attestation_missing:appworld_c/13547f5_3",
+  "attestation_missing:appworld_c/ffe6d5e_3",
+  "attestation_missing:appworld_c/0de03ea_1",
+  "attestation_missing:appworld_c/fd1f8fa_2",
+  "attestation_missing:appworld_c/ccf4b82_2",
+  "attestation_missing:appworld_c/652485c_2",
+  "attestation_missing:appworld_c/024c982_2",
+  "attestation_missing:appworld_c/d6ac34d_2",
+  "attestation_missing:appworld_c/3b8fb7a_1",
+  "attestation_missing:appworld_c/dac78d9_1",
+  "attestation_missing:appworld_c/b6d1104_2",
+  "attestation_missing:appworld_c/83a7951_1",
+  "attestation_missing:appworld_c/fd1f8fa_1",
+  "attestation_missing:appworld_c/3aa1a22_3",
+  "attestation_missing:appworld_c/9dabbc9_3",
+  "index_relabeled_from:index-v3.0"
+ ],
+ "receipt_references": {
+  "coding_receipt_sha256": null
+ },
+ "rescore_modes": {
+  "amo": "rescored",
+  "appworld_c": "verdict_carried",
+  "bigcodebench_hard": "verdict_carried",
+  "ifbench": "rescored",
+  "mmlu_pro": "rescored",
+  "olymmath_hard": "rescored",
+  "tc_json_v1": "rescored"
+ },
+ "runtime": {
+  "build_flags": "version: 1 (38c66ad)\nbuilt with MSVC 19.44.35228.0 for Windows AMD64",
+  "ctx_len_configured": 32768,
+  "kv_cache_quant": "k=f16,v=f16",
+  "name": "llama.cpp",
+  "parallel_slots": 1,
+  "version": "b1"
+ },
+ "schema_version": "localbench.accepted_result_projection.v2",
+ "scorecard_id": "d7ba660a32a9abf9a3e6ef469f3e33e2c6b655de9331e3af7a4fed493fd0491c",
+ "scores": {
+  "composite_full": 0.3897,
+  "composite_static": 0.4988,
+  "headline_score": 0.3897,
+  "known_headline_contribution": 0.3897,
+  "measured_headline_weight": 1.0,
+  "missing_headline_weight": 0.0,
+  "partial_composite": 0.3897,
+  "partial_composite_scope": "measured_headline_axes",
+  "rank_scope": "full-exec-6axis-v1",
+  "static_index_version": "static-suite-v3"
+ },
+ "suite_manifest_sha256": "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468",
+ "suite_release_id": "suite-v1-full-exec-6axis-v1",
+ "trust_label": "community_self_submitted",
+ "validator": {
+  "commit": null,
+  "validated_at": "2026-07-19T13:00:00Z",
+  "validator_version": "localbench.submission-validator.v1"
+ },
+ "verification_level": "client_reported"
+}
