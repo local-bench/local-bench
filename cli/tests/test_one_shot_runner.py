@@ -21,7 +21,7 @@ from localbench.one_shot.runner import (
 )
 from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
 from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
-from localbench.submissions.submit_run import SubmitRunOptions
+from localbench.submissions.submit_run import SubmitRunError, SubmitRunOptions, SubmitRunResult
 from one_shot_fixtures import REV_A, TOKENIZER_REV_A
 from one_shot_runner_fakes import _args, _deps
 
@@ -397,6 +397,32 @@ def test_one_shot_submit_true_uses_existing_submit_finished_run_path(
         ),
     ]
     assert "submission sub_fake" in capsys.readouterr().out
+
+
+def test_one_shot_submit_error_returns_declared_exit_code(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: an ordinary rate-limit failure from the submission path.
+    deps = _deps(tmp_path)
+
+    def rate_limited(_options: SubmitRunOptions) -> SubmitRunResult:
+        raise SubmitRunError("rate_limited retry_after_seconds=17", exit_code=3)
+
+    deps.submitter = rate_limited
+
+    # When: a completed one-shot run attempts submission.
+    code = run_one_shot_bench(
+        _args(tmp_path, one_shot_submit=True),
+        cli_version="0.2.5",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    # Then: the declared submit exit code and error reach the user.
+    assert code == 3
+    assert "rate_limited retry_after_seconds=17" in capsys.readouterr().err
 
 
 def test_one_shot_submission_rejects_incomplete_post_grading_run(

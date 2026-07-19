@@ -71,7 +71,7 @@ from localbench.suite_release import (
 )
 from localbench.suite_resolver import resolve_suite_dir
 from localbench.suite_verify import read_json_object
-from localbench.submissions.submit_run import DEFAULT_SITE
+from localbench.submissions.submit_run import DEFAULT_SITE, SubmitRunError
 
 
 class BenchRunner(Protocol):
@@ -283,6 +283,9 @@ def run_one_shot_bench(
     ) as error:
         print(f"error      {error}", file=sys.stderr)
         return 2
+    except SubmitRunError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return error.exit_code
     except Exception as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG
