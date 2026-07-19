@@ -15,7 +15,7 @@ from localbench.cli import main
 from localbench.coding_exec.orchestrate import (
     CodingExecConfig,
     CodingExecError,
-    _refresh_run_after_coding,
+    execute_pending_artifacts,
     ranked_eligibility,
     run_coding_exec,
 )
@@ -190,7 +190,105 @@ def test_ranked_eligibility_rejects_unpinned_image() -> None:
     assert ranked_eligibility(pinned) == (True, [])
 
 
-def test_coding_grade_completes_full_run_scores() -> None:
+def test_grade_coding_finalize_stamps_mixed_terminal_items_complete(tmp_path: Path) -> None:
+    run = _full_run_with_coding_items(
+        [
+            {
+                "id": "bcbh-001",
+                "bench": "bigcodebench_hard",
+                "correct": True,
+                "code_artifact": {
+                    "verdict_source": "verifier",
+                    "image_digest": "image@sha256:" + "a" * 64,
+                    "verdict": {"passed": True},
+                },
+            },
+            {
+                "id": "bcbh-002",
+                "bench": "bigcodebench_hard",
+                "correct": False,
+                "failure_kind": "coding_ast_rejected",
+                "code_artifact": {
+                    "verdict": None,
+                    "verdict_source": None,
+                    "conformance_status": {
+                        "status": "failed",
+                        "failure": "coding_ast_rejected",
+                    },
+                },
+            },
+            {
+                "id": "bcbh-119",
+                "bench": "bigcodebench_hard",
+                "correct": False,
+                "failure_kind": "ambiguous_extraction:truncated_fence",
+                "code_artifact": {
+                    "extraction_status": {
+                        "status": "ambiguous",
+                        "failure": "truncated_fence",
+                    },
+                    "verdict": None,
+                    "verdict_source": None,
+                },
+            },
+        ],
+    )
+    run_path = tmp_path / "mixed-terminal.json"
+    run_path.write_text(json.dumps(run) + "\n", encoding="utf-8")
+
+    graded = execute_pending_artifacts(
+        run_path,
+        CodingExecConfig(
+            endpoint="",
+            model="",
+            suite_dir=_SUITE_V1,
+            out=tmp_path / "graded.json",
+            allow_untrusted_code=True,
+        ),
+        sandbox_runner=_fake_sandbox,
+        docker_env=_GVISOR_HOST,
+    )
+
+    assert graded["axis_status"]["axes"]["coding"]["status"] == "measured"
+    assert graded["headline_complete"] is True
+    assert graded["scores"]["headline_score"] == pytest.approx(0.7625)
+
+
+def test_grade_coding_finalize_keeps_ungraded_pending_item_incomplete(tmp_path: Path) -> None:
+    run = _full_run_with_coding_items(
+        [
+            {
+                "id": "bcbh-001",
+                "bench": "bigcodebench_hard",
+                "correct": False,
+                "code_artifact": {
+                    "verdict": None,
+                    "verdict_source": None,
+                },
+            },
+        ],
+    )
+    run_path = tmp_path / "pending.json"
+    run_path.write_text(json.dumps(run) + "\n", encoding="utf-8")
+
+    graded = execute_pending_artifacts(
+        run_path,
+        CodingExecConfig(
+            endpoint="",
+            model="",
+            suite_dir=_SUITE_V1,
+            out=tmp_path / "graded.json",
+            allow_untrusted_code=True,
+        ),
+        sandbox_runner=_fake_sandbox,
+        docker_env=_GVISOR_HOST,
+    )
+
+    assert graded["axis_status"]["axes"]["coding"]["status"] == "generated_unverified"
+    assert graded["headline_complete"] is False
+
+
+def _full_run_with_coding_items(items: list[JsonObject]) -> JsonObject:
     benches = {
         "mmlu_pro": _bench_aggregate(1.0),
         "ifbench": _bench_aggregate(1.0),
@@ -200,7 +298,7 @@ def test_coding_grade_completes_full_run_scores() -> None:
         "amo": _bench_aggregate(1.0),
         "appworld_c": _bench_aggregate(0.5),
     }
-    run = {
+    return {
         "manifest": {
             "suite": {
                 "axis_membership": {
@@ -213,6 +311,7 @@ def test_coding_grade_completes_full_run_scores() -> None:
                 },
             },
         },
+        "items": items,
         "benches": benches,
         "axis_status": {
             "schema_version": "localbench.axis-status.v1",
@@ -233,13 +332,8 @@ def test_coding_grade_completes_full_run_scores() -> None:
                 },
             },
         },
+        "headline_complete": False,
     }
-
-    _refresh_run_after_coding(run)
-
-    assert run["axis_status"]["axes"]["coding"]["status"] == "measured"
-    assert run["headline_complete"] is True
-    assert run["scores"]["headline_score"] == pytest.approx(0.7625)
 
 
 def _bench_aggregate(score: float) -> dict[str, float | int]:

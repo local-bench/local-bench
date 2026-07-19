@@ -33,6 +33,7 @@ from localbench.coding_exec.artifacts import (
     verdict_from_runner_result,
 )
 from localbench.coding_exec.extract import extract_code_result
+from localbench.coding_exec.grading import coding_item_fully_graded
 from localbench.coding_exec.program import assemble_program
 from localbench.coding_exec.sandbox import (
     MANDATORY_SECURITY_FLAGS,
@@ -368,14 +369,7 @@ def _refresh_run_after_coding(run: JsonObject) -> None:
 
 def _coding_items_fully_graded(run: JsonObject) -> bool:
     items = [item for item in _run_items(run) if item.get("bench") == BENCH]
-    return bool(items) and all(
-        item.get("failure_kind") == "coding_ast_rejected"
-        or (
-            isinstance(item.get("code_artifact"), dict)
-            and item["code_artifact"].get("verdict_source") == "verifier"
-        )
-        for item in items
-    )
+    return bool(items) and all(coding_item_fully_graded(item) for item in items)
 
 
 def _execute(

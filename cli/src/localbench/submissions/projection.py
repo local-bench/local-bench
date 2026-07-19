@@ -10,6 +10,7 @@ from localbench._scoring import BenchAggregate, ScoredItem, aggregate
 from localbench._suite import read_json_object
 from localbench._types import JsonObject, JsonValue, Usage
 from localbench.coding_exec.receipt import CodingVerificationResult
+from localbench.coding_exec.grading import coding_item_fully_graded
 from localbench.coding_exec.score import BENCH as CODING_BENCH
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
@@ -302,7 +303,7 @@ def _dynamic_benches(
 
 def _locally_graded_benches(items: list[JsonObject]) -> frozenset[str]:
     coding_items = [item for item in items if item.get("bench") == CODING_BENCH]
-    if not coding_items or not all(_locally_graded_coding_item(item) for item in coding_items):
+    if not coding_items or not all(coding_item_fully_graded(item) for item in coding_items):
         return frozenset()
     return frozenset({CODING_BENCH})
 
@@ -331,41 +332,6 @@ def _axis_status_from_dynamic_verdicts(
         if complete:
             adjusted["axes"][axis] = measured_axis(axis)
     return adjusted
-
-
-def _locally_graded_coding_item(item: JsonObject) -> bool:
-    artifact = item.get("code_artifact")
-    if not isinstance(artifact, dict):
-        return False
-    verdict = artifact.get("verdict")
-    image = artifact.get("image_digest")
-    if (
-        artifact.get("verdict_source") == "verifier"
-        and isinstance(verdict, dict)
-        and isinstance(verdict.get("passed"), bool)
-        and isinstance(image, str)
-        and "@sha256:" in image
-    ):
-        return True
-    extraction = artifact.get("extraction_status")
-    if (
-        isinstance(extraction, dict)
-        and isinstance(extraction.get("status"), str)
-        and extraction["status"] != "ok"
-        and verdict is None
-        and artifact.get("verdict_source") is None
-    ):
-        return True
-    scoring = item.get("client_scoring")
-    failure_kind = item.get("failure_kind")
-    if not isinstance(failure_kind, str) and isinstance(scoring, dict):
-        failure_kind = scoring.get("failure_kind")
-    conformance = artifact.get("conformance_status")
-    return (
-        failure_kind == "coding_ast_rejected"
-        and isinstance(conformance, dict)
-        and conformance.get("failure") == "coding_ast_rejected"
-    )
 
 
 def _agentic_provenance(
