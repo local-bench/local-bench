@@ -6,19 +6,38 @@ import {
 import { RAW_BUNDLE_SHA, completeProjection } from "./submission-test-support";
 
 describe("accepted projection security bounds", () => {
-  it("rejects axes outside the canonical suite allowlist", () => {
-    // Given: an otherwise valid projection with an extra attacker-named axis.
+  it("accepts a structurally valid diagnostic axis beyond the six headline axes", () => {
+    // Given: a projection carrying a not-measured diagnostic axis (e.g. long_context),
+    // which suites legitimately emit and the CLI includes; the composite ignores it.
     const projection = validProjection();
-    const agentic = projection.axes.agentic;
-    if (agentic === undefined) throw new Error("complete fixture must include agentic");
 
     // When: the projection contract parses the axis map.
     const result = AcceptedResultProjectionV2Schema.safeParse({
       ...projection,
-      axes: { ...projection.axes, attacker_axis: agentic },
+      axes: { ...projection.axes, long_context: { ci: null, n: 0, score: null, status: "not_measured" } },
     });
 
-    // Then: unknown axis names are rejected.
+    // Then: diagnostic axes are permitted (only headline axes are weighted).
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an axis map larger than the sixteen-axis bound", () => {
+    // Given: a projection padded past the axis-count bound with valid diagnostic axes.
+    const projection = validProjection();
+    const extras = Object.fromEntries(
+      Array.from({ length: 17 }, (_, index) => [
+        `diag_${index}`,
+        { ci: null, n: 0, score: null, status: "not_measured" },
+      ]),
+    );
+
+    // When: the projection contract parses the oversized axis map.
+    const result = AcceptedResultProjectionV2Schema.safeParse({
+      ...projection,
+      axes: { ...projection.axes, ...extras },
+    });
+
+    // Then: the axis-count bound is enforced.
     expect(result.success).toBe(false);
   });
 
