@@ -25,6 +25,7 @@ from localbench.submissions.projection import (
     _scored_items,
 )
 from localbench.scoring.axis_status import axis_status_for_benches
+from localbench.submissions.foundation_scores import axis_projection
 from localbench.submissions.validate import SubmissionValidationError, SuiteItem
 
 
@@ -212,3 +213,28 @@ def test_dynamic_axis_status_requires_every_verdict_to_be_well_formed() -> None:
     )
 
     assert adjusted["axes"]["agentic"]["status"] == "not_measured"
+
+
+def test_dynamic_axis_projects_under_canonical_manifest_name() -> None:
+    items = [_dynamic_item("t1", correct=True), _dynamic_item("t2", correct=False)]
+    suite_items = _static_suite_items()
+    dynamic_benches = frozenset({"dynbench"})
+    suite_axes = {"agentic": {"benches": ["dynbench"]}}
+    status = axis_status_for_benches((), suite_axes)
+    adjusted = _axis_status_from_dynamic_verdicts(
+        status,
+        items,
+        dynamic_benches,
+        suite_axes,
+    )
+    benches = _bench_aggregates(
+        _scored_items(items, suite_items, dynamic_benches),
+        suite_items,
+        dynamic_benches,
+    )
+
+    projected = axis_projection(benches, adjusted, suite_axes=suite_axes)
+
+    assert projected == {
+        "agentic": {"score": 0.5, "n": 2, "ci": None, "status": "measured"},
+    }

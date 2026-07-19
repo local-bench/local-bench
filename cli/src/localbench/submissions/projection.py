@@ -32,7 +32,7 @@ from localbench.submissions.foundation import (
     normalize_result_bundle,
     validate_accepted_result_projection,
 )
-from localbench.submissions.foundation_scores import axis_projection, score_summary
+from localbench.submissions.foundation_scores import axis_projection, projection_score_summary
 from localbench.submissions.origin import SubmissionOrigin
 from localbench.submissions.provenance import (
     AgenticProvenanceResult,
@@ -409,7 +409,19 @@ def _projection(
         coverage_profile_id=coverage_profile_id,
         current_index_version=index_version,
     )
-    scores = score_summary(benches, axis_status, suite_axes=_suite_axes(manifest))
+    suite_axes = _suite_axes(manifest)
+    scores = projection_score_summary(
+        benches,
+        axis_status,
+        suite_axes=suite_axes,
+        coverage_profile_id=coverage_profile_id,
+    )
+    axes = axis_projection(
+        benches,
+        axis_status,
+        coverage_profile_id=coverage_profile_id,
+        suite_axes=suite_axes,
+    )
     projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
         "model": _projection_model(bundle, manifest, origin, bundle_sha256),
@@ -422,11 +434,7 @@ def _projection(
         "index_version": index_version,
         "headline_complete": scores.get("headline_score") is not None,
         "scores": scores,
-        "axes": axis_projection(
-            benches,
-            axis_status,
-            coverage_profile_id=coverage_profile_id,
-        ),
+        "axes": axes,
         "conformance": _object(bundle.get("conformance")),
         "receipt_references": _receipt_references(bundle),
         "artifact_hashes": {

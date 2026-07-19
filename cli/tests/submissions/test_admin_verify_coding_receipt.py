@@ -30,6 +30,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _RELEASED_SUITE = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-full-exec-6axis-v1"
 _VALIDATED_AT = "2026-07-14T00:00:00Z"
 _IMAGE_DIGEST = "bigcodebench/bigcodebench-evaluate@sha256:" + "a" * 64
+_HEADLINE_WEIGHTS = {
+    "knowledge": 0.225,
+    "instruction_following": 0.225,
+    "math": 0.075,
+    "agentic": 0.25,
+    "coding": 0.225,
+    "tool_calling": 0.0,
+}
 
 
 def test_full_exec_receipt_projects_verified_coding_as_measured(
@@ -97,6 +105,11 @@ def test_submitter_projection_carries_locally_graded_coding_and_agentic(
     assert projection["verification_level"] == "client_reported"
     assert projection["headline_complete"] is True
     assert projection["index_version"] == "index-v4.1"
+    axes = _object(projection["axes"])
+    scores = _object(projection["scores"])
+    assert set(axes) == {*_HEADLINE_WEIGHTS, "long_context"}
+    assert scores["headline_score"] == _weighted_headline(axes)
+    assert scores["partial_composite"] == _weighted_headline(axes)
     assert _object(projection["rescore_modes"])["bigcodebench_hard"] == "verdict_carried"
     assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
     validate_accepted_result_projection(projection)
@@ -186,12 +199,15 @@ def test_admission_derives_tool_use_axis_from_legacy_raw_appworld_verdicts(
     )
 
     projection = _object(status["projection"])
-    agentic = _object(_object(projection["axes"])["tool_use"])
+    axes = _object(projection["axes"])
+    agentic = _object(axes["agentic"])
     scores = _object(projection["scores"])
     assert status["accepted"] is False
     assert status["status"] == "rejected"
     assert "incomplete_run" in status["blocking_reasons"]
     assert agentic == {"score": 0.0625, "n": 96, "ci": None, "status": "measured"}
+    assert _object(axes["tool_calling"])["status"] == "measured"
+    assert scores["partial_composite"] == _weighted_headline(axes)
     assert scores["measured_headline_weight"] == 0.775
     assert scores["missing_headline_weight"] == 0.225
     assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
@@ -559,3 +575,13 @@ def _full_exec_fixture(
 def _object(value: JsonValue) -> JsonObject:
     assert isinstance(value, dict)
     return value
+
+
+def _weighted_headline(axes: JsonObject) -> float:
+    return round(
+        sum(
+            weight * float(_object(axes[axis])["score"] or 0.0)
+            for axis, weight in _HEADLINE_WEIGHTS.items()
+        ),
+        4,
+    )
