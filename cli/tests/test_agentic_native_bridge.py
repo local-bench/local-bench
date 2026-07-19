@@ -176,3 +176,22 @@ def test_native_provisioning_keeps_network_without_binding_host_paths(
     for index, token in enumerate(argv):
         if token in {"--ro-bind", "--bind"}:
             assert argv[index + 1].startswith(str(rootfs))
+
+
+def test_native_isolation_policy_matches_sandbox_inline_flags() -> None:
+    # sandbox.py (a contract-covered module) inlines these five mandatory flags;
+    # native_worker.py uses the shared sandbox_policy helper. Keep both expressing
+    # the SAME isolation so the WSL jail and the native jail cannot silently drift.
+    from localbench.scoring.agentic_exec.sandbox_policy import (
+        mandatory_bubblewrap_isolation,
+    )
+
+    assert mandatory_bubblewrap_isolation("sandbox") == (
+        "--unshare-all",
+        "--die-with-parent",
+        "--new-session",
+        "--cap-drop",
+        "ALL",
+        "--hostname",
+        "sandbox",
+    )
