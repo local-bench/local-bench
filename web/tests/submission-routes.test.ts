@@ -15,6 +15,7 @@ import {
   RESULT_BUNDLE_JSON,
   SUITE_MANIFEST_SHA,
   SUITE_RELEASE_ID,
+  completeProjection,
   createEnv,
   getRequest,
   issueEnvelope,
@@ -129,6 +130,7 @@ describe("submission route contracts", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: 23,
       }),
@@ -205,14 +207,9 @@ describe("submission route contracts", () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const envelope = await issueEnvelope(env);
     await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);
-    await completeSubmission({
-      env,
-      params: { submissionId: envelope.ticket_id },
-      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
-        raw_bundle_sha256: RAW_BUNDLE_SHA,
-        size_bytes: 1234,
-      }),
-    });
+    await env.DB.prepare(
+      "update submissions set status = 'pending_verification', uploaded_at = datetime('now') where submission_id = ?",
+    ).bind(envelope.ticket_id).run();
     const update = statusUpdate("accepted");
 
     // When: the admin verification route applies the offline verifier status update.

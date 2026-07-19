@@ -175,7 +175,7 @@ export const UploadTargetRequestSchema = z.object({
   upload_capability: UploadCapabilitySchema,
 });
 
-export const CompleteRequestSchema = z.object({
+const CompleteRequestBaseSchema = z.object({
   raw_bundle_sha256: Sha256Schema,
   // Advisory CLI field only; actual R2 metadata is the authority for the structured 413 path.
   size_bytes: z.number().int().positive().optional(),
@@ -255,7 +255,8 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
   artifact_hashes: z.object({ bundle_sha256: Sha256Schema, projection_sha256: Sha256Schema, public_artifact_manifest_sha256: Sha256Schema }).strict(),
   origin: z.enum(["project_anchor", "community"]),
   trust_label: z.enum(["project_anchor", "community_self_submitted", "community_re_scored"]),
-  verification_level: z.literal("bundle_rescored"), agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
+  verification_level: z.enum(["bundle_rescored", "spot_reproduced", "client_reported"]),
+  agentic_provenance: z.enum(["none", "project_attested", "self_reported"]),
   provenance_notes: z.array(boundedSafeString(300)).optional(),
   rescore_modes: z.object(AcceptedProjectionRescoreModesShape).strict(),
   validator: z.object({
@@ -288,6 +289,10 @@ export const AcceptedResultProjectionV2Schema = AcceptedResultProjectionV2BaseSc
     context.addIssue({ code: "custom", message: "community projection identity is invalid" });
   }
 });
+
+export const CompleteRequestSchema = CompleteRequestBaseSchema.extend({
+  accepted_result_projection: AcceptedResultProjectionV2Schema,
+}).strict();
 
 // Deep-scan variant: legitimate projection VALUES carry line breaks and tabs
 // (llama.cpp multi-line build_flags is the canonical case), so those three are

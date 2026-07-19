@@ -1,10 +1,13 @@
 import {
+  ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
   RESULT_BUNDLE_SCHEMA_VERSION,
   SubmissionRowSchema,
+  type AcceptedResultProjectionV2Schema,
   type SubmissionApiEnv,
   type SubmissionEnvelope,
   type SubmissionRow,
 } from "./submission-contracts";
+import type { z } from "zod";
 import { sha256Hex } from "./submission-canonical";
 import { InvalidTransitionError, assertTransition, type SubmissionStatus } from "./submission-state";
 import { rawBundleKey } from "./submission-storage";
@@ -56,6 +59,8 @@ export const PENDING_VERIFICATION_PER_SUBMITTER_LIMIT = 10;
 export type PendingAdmissionResult =
   | { readonly kind: "ok" }
   | { readonly kind: "error"; readonly code: "global_pending_limit" | "pending_review_limit" | "submission_not_ticketed" };
+
+type AcceptedProjection = z.infer<typeof AcceptedResultProjectionV2Schema>;
 
 export async function insertTicketedSubmission(
   env: SubmissionApiEnv,
@@ -172,6 +177,76 @@ export async function markPendingVerification(
   return { kind: "ok" };
 }
 
+export async function publishSubmittedSubmission(
+  env: SubmissionApiEnv,
+  submissionId: string,
+  sizeBytes: number,
+  projection: AcceptedProjection,
+  projectionObjectSha256: string,
+  projectionR2Key: string,
+): Promise<void> {
+  const current = await requiredRow(env, submissionId);
+  assertTransition(current.status, "published");
+  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for publish-on-submit");
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `update submissions set
+        uploaded_at = datetime('now'), status = 'published', status_reason = 'complete',
+        raw_bundle_size_bytes = ?, upload_capability_sha256 = null,
+        validator_version = ?, validator_commit = ?, validated_at = ?,
+        projection_schema_version = ?, projection_sha256 = ?, projection_object_sha256 = ?, projection_r2_key = ?,
+        scorecard_id = ?, model_identity_digest = ?, trust_label = ?, verification_level = ?,
+        redaction_status = 'public_projection_only', publish_state = 'published', published_at = datetime('now'),
+        state_revision = state_revision + 1
+       where submission_id = ? and status = 'ticketed' and uploaded_at is null and state_revision = ?`,
+    ).bind(
+      sizeBytes,
+      projection.validator.validator_version,
+      projection.validator.commit,
+      projection.validator.validated_at,
+      ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
+      projection.artifact_hashes.projection_sha256,
+      projectionObjectSha256,
+      projectionR2Key,
+      projection.scorecard_id,
+      projection.model.file_sha256,
+      projection.trust_label,
+      projection.verification_level,
+      submissionId,
+      current.state_revision,
+    ),
+    env.DB.prepare(
+      "update publication_control set publication_revision = publication_revision + 1, updated_at = datetime('now') where singleton = 1 and changes() = 1",
+    ),
+    env.DB.prepare(
+      `insert into submission_transitions (submission_id, from_status, to_status, publish_state, actor, reason, state_revision)
+       select ?, ?, 'published', 'published', 'system', 'complete projection submitted', ? where changes() = 1`,
+    ).bind(submissionId, current.status, current.state_revision + 1),
+  ]);
+  if (results[0]?.meta?.changes !== 1) throw new InvalidTransitionError(current.status, "published");
+}
+
+export async function rejectSubmittedSubmission(
+  env: SubmissionApiEnv,
+  submissionId: string,
+  reason: string,
+): Promise<void> {
+  const current = await requiredRow(env, submissionId);
+  assertTransition(current.status, "rejected");
+  if (env.DB.batch === undefined) throw new Error("D1 batch support is required for submission rejection");
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `update submissions set status = 'rejected', status_reason = ?, upload_capability_sha256 = null,
+       state_revision = state_revision + 1 where submission_id = ? and status = 'ticketed' and state_revision = ?`,
+    ).bind(reason, submissionId, current.state_revision),
+    env.DB.prepare(
+      `insert into submission_transitions (submission_id, from_status, to_status, publish_state, actor, reason, state_revision)
+       select ?, ?, 'rejected', 'hidden', 'system', ?, ? where changes() = 1`,
+    ).bind(submissionId, current.status, reason, current.state_revision + 1),
+  ]);
+  if (results[0]?.meta?.changes !== 1) throw new InvalidTransitionError(current.status, "rejected");
+}
+
 async function diagnosePendingAdmissionFailure(
   env: SubmissionApiEnv,
   current: SubmissionRow,
@@ -226,8 +301,8 @@ export async function transitionAcceptedToTerminal(
   if (env.DB.batch === undefined) throw new Error("D1 batch support is required for suppression");
   const results = await env.DB.batch([
     env.DB.prepare(
-      "update submissions set status = ?, status_reason = ?, publish_state = 'hidden', state_revision = state_revision + 1 where submission_id = ? and status = 'accepted' and state_revision = ?",
-    ).bind(toStatus, reason, submissionId, current.state_revision),
+      "update submissions set status = ?, status_reason = ?, publish_state = 'hidden', state_revision = state_revision + 1 where submission_id = ? and status = ? and state_revision = ?",
+    ).bind(toStatus, reason, submissionId, current.status, current.state_revision),
     env.DB.prepare(
       `update publication_control set
          publication_revision = publication_revision + 1,
@@ -440,7 +515,7 @@ export function publicSubmission(row: SubmissionRow): Record<string, string | nu
     status: row.status,
     submission_id: row.submission_id,
     suite_release_id: row.suite_release_id,
-    submitter_display_name: row.status === "accepted" ? row.submitter_display_name : null,
+    submitter_display_name: row.status === "accepted" || row.status === "published" ? row.submitter_display_name : null,
   };
   if (row.status === "rejected") {
     result["status_reason"] = row.status_reason;

@@ -2,6 +2,7 @@ export const SUBMISSION_STATUSES = [
   "ticketed",
   "pending_verification",
   "accepted",
+  "published",
   "rejected",
   "withdrawn",
   "suppressed",
@@ -14,9 +15,10 @@ export const ALLOWED_SUBMISSION_TRANSITIONS = {
   accepted: ["accepted", "withdrawn", "suppressed"],
   expired: [],
   pending_verification: ["accepted", "rejected", "expired"],
+  published: ["suppressed"],
   rejected: [],
   suppressed: [],
-  ticketed: ["pending_verification", "expired"],
+  ticketed: ["pending_verification", "published", "rejected", "expired"],
   withdrawn: [],
 } as const satisfies Record<SubmissionStatus, readonly SubmissionStatus[]>;
 

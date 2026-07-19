@@ -6,6 +6,7 @@ import { onRequestPost as runGc } from "../functions/api/admin/gc";
 import {
   ADMIN_SECRET,
   RAW_BUNDLE_SHA,
+  completeProjection,
   createEnv,
   issueEnvelope,
   jsonRequest,
@@ -40,6 +41,7 @@ describe("publish-then-moderate ingest budgets", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
       }),
     });

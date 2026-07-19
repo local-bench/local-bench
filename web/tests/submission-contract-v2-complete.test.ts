@@ -7,6 +7,7 @@ import { onRequestPost as issueTicket } from "../functions/api/submissions/ticke
 import {
   RAW_BUNDLE_SHA,
   RESULT_BUNDLE_JSON,
+  completeProjection,
   createEnv,
   issueEnvelope,
   jsonRequest,
@@ -45,6 +46,7 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
       }),
@@ -64,6 +66,7 @@ describe("submission contract v2 upload and complete routes", () => {
     // When: finalization checks the uploaded object.
     const response = await handleFinalizeSubmission(
       jsonRequest(`/api/submissions/${RAW_BUNDLE_SHA}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
       }),
       env,
@@ -88,14 +91,15 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(binarySha, "project_anchor"),
         raw_bundle_sha256: binarySha,
         size_bytes: binary.byteLength,
       }),
     });
 
-    // Then: the Worker does not parse the bytes; maintainer verification owns semantics.
+    // Then: the Worker trusts the client projection without parsing or re-scoring the bundle.
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ status: "pending_verification" });
+    expect(await response.json()).toMatchObject({ status: "published" });
   });
 
   it("accepts community bundles containing dynamic benches with a community-origin row", async () => {
@@ -121,16 +125,17 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(bundleSha, "community"),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
       }),
     });
 
-    // Then: the dynamic item is accepted into pending_verification and origin stays server-derived.
+    // Then: the complete dynamic projection publishes and origin stays server-derived.
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       origin: "community",
-      status: "pending_verification",
+      status: "published",
     });
   });
 
@@ -155,6 +160,7 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(bundleSha, "community"),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
       }),
@@ -162,7 +168,7 @@ describe("submission contract v2 upload and complete routes", () => {
 
     // Then: ticket-time proof of possession remains the only admission signature check.
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ status: "pending_verification" });
+    expect(await response.json()).toMatchObject({ status: "published" });
   });
 
   it("defers bundle payload signature semantics to maintainer verification", async () => {
@@ -185,13 +191,14 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(bundleSha, "community"),
         raw_bundle_sha256: bundleSha,
         size_bytes: bundleJson.length,
       }),
     });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ status: "pending_verification" });
+    expect(await response.json()).toMatchObject({ status: "published" });
   });
 
   it("does not return another row for a cross-id complete probe", async () => {
@@ -207,6 +214,7 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: `probe_${envelope.ticket_id}` },
       request: jsonRequest(`/api/submissions/probe_${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
       }),
@@ -248,6 +256,7 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: firstEnvelope.ticket_id },
       request: jsonRequest(`/api/submissions/${firstEnvelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(firstSha, "community"),
         raw_bundle_sha256: firstSha,
         size_bytes: firstJson.length,
       }),
@@ -256,21 +265,22 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: secondEnvelope.ticket_id },
       request: jsonRequest(`/api/submissions/${secondEnvelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(secondSha, "community"),
         raw_bundle_sha256: secondSha,
         size_bytes: secondJson.length,
       }),
     });
 
-    // Then: both content-addressed blobs enter the capped queue without parsing model identity.
+    // Then: both distinct content-addressed runs publish without server re-scoring.
     expect(secondResponse.status).toBe(200);
-    expect(await secondResponse.json()).toMatchObject({ status: "pending_verification" });
+    expect(await secondResponse.json()).toMatchObject({ status: "published" });
     const row = await env.DB.prepare("select duplicate_of, model_identity_digest from submissions where submission_id = ?")
       .bind(secondEnvelope.ticket_id)
       .first();
-    expect(row).toMatchObject({ duplicate_of: null, model_identity_digest: null });
+    expect(row).toMatchObject({ duplicate_of: null, model_identity_digest: "a".repeat(64) });
   }, 15_000);
 
-  it("enforces the per-key pending cap atomically at finalization after tickets are pre-minted", async () => {
+  it("does not impose the deleted pending-review cap on pre-minted tickets", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const key = testKeyPair();
     const pending: Array<{ bundleJson: string; bundleSha: string; ticketId: string }> = [];
@@ -295,18 +305,18 @@ describe("submission contract v2 upload and complete routes", () => {
         env,
         params: { submissionId: item.ticketId },
         request: jsonRequest(`/api/submissions/${item.ticketId}/complete`, {
+          accepted_result_projection: completeProjection(item.bundleSha, "community"),
           raw_bundle_sha256: item.bundleSha,
           size_bytes: item.bundleJson.length,
         }),
       }));
     }
 
-    expect(responses.slice(0, 10).every((response) => response.status === 200)).toBe(true);
-    expect(responses[10]?.status).toBe(429);
-    expect(await responses[10]?.json()).toMatchObject({ code: "pending_review_limit" });
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(await responses[10]?.json()).toMatchObject({ status: "published" });
   }, 60_000);
 
-  it("enforces the global pending admission cap at finalization", async () => {
+  it("publishes while legacy pending rows remain readable", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     await env.DB.prepare(
       `with recursive n(x) as (select 1 union all select x + 1 from n where x < 200)
@@ -324,12 +334,13 @@ describe("submission contract v2 upload and complete routes", () => {
       env,
       params: { submissionId: envelope.ticket_id },
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
       }),
     });
 
-    expect(response.status).toBe(429);
-    expect(await response.json()).toMatchObject({ code: "global_pending_limit" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "published" });
   }, 15_000);
 });

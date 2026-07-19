@@ -6,36 +6,28 @@ import {
 } from "./submission-contracts";
 import { jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
 import { isSyntaxError, reject, ticketExpired } from "./submission-api-common";
+import { rebuildCommunityLiveBoard } from "./community-live-board";
+import { persistProjectionAndReference } from "./publication-storage";
+import { publishProjectionRejection, type PublishProjectionRejection } from "./submission-publish-validation";
+import { validateSubmittedProjection } from "./submission-projection-validation";
 import { rawBundleKey, rawBundleMetadata, verifyRawBundle } from "./submission-storage";
-import { markPendingVerification, publicSubmission, rowBySubmissionId } from "./submission-store";
+import {
+  publicSubmission,
+  publishSubmittedSubmission,
+  rejectSubmittedSubmission,
+  rowBySubmissionId,
+} from "./submission-store";
 
 export async function handleFinalizeSubmission(
   request: Request,
   env: SubmissionApiEnv,
   params: RouteParams,
 ): Promise<Response> {
-  let requestBody: unknown;
-  try {
-    requestBody = await request.json();
-  } catch (error) {
-    if (isSyntaxError(error)) {
-      return invalidCompleteRequest();
-    }
-    throw error;
-  }
-  const parsed = CompleteRequestSchema.safeParse(requestBody);
-  if (!parsed.success) {
-    return invalidCompleteRequest();
-  }
   const row = await routeRow(env, params);
   if (row.kind !== "ok") {
     return row.response;
   }
-  if (row.value.raw_bundle_sha256 !== parsed.data.raw_bundle_sha256) {
-    await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
-    return jsonResponse(409, { code: "bundle_sha_mismatch", error: "raw_bundle_sha256 does not match ticket" });
-  }
-  if (row.value.status === "pending_verification") {
+  if (row.value.status === "published") {
     return jsonResponse(200, publicSubmission(row.value));
   }
   if (row.value.status !== "ticketed" || row.value.uploaded_at !== null) {
@@ -46,6 +38,23 @@ export async function handleFinalizeSubmission(
       code: "ticket_expired",
       error: "submission ticket expired",
     }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
+  }
+  let requestBody: unknown;
+  try {
+    requestBody = await request.json();
+  } catch (error) {
+    if (isSyntaxError(error)) {
+      return rejectComplete(env, row.value.submission_id, "schema_violation", 400);
+    }
+    throw error;
+  }
+  const parsed = CompleteRequestSchema.safeParse(requestBody);
+  if (!parsed.success) {
+    return rejectComplete(env, row.value.submission_id, "schema_violation", 400);
+  }
+  if (row.value.raw_bundle_sha256 !== parsed.data.raw_bundle_sha256) {
+    await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
+    return rejectComplete(env, row.value.submission_id, "schema_violation", 409);
   }
   try {
     const metadata = await rawBundleMetadata(env, parsed.data.raw_bundle_sha256);
@@ -72,25 +81,39 @@ export async function handleFinalizeSubmission(
       }
       return jsonResponse(verification.status, { code: verification.code, error: verification.error });
     }
-    const admission = await markPendingVerification(
-      env,
-      row.value.submission_id,
-      verification.sizeBytes,
-    );
-    if (admission.kind === "error") {
-      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
-      const status = admission.code === "submission_not_ticketed" ? 409 : 429;
-      return reject(status, admission.code, row.value.origin, "POST /api/submissions/:submissionId/complete", {
-        code: admission.code,
-        error: admissionError(admission.code),
-      }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
+    const publishRejection = publishProjectionRejection(parsed.data.accepted_result_projection, row.value);
+    if (publishRejection !== null) {
+      return rejectComplete(
+        env,
+        row.value.submission_id,
+        publishRejection,
+        publishRejection === "incomplete_run" ? 422 : 409,
+      );
     }
+    const projection = await validateSubmittedProjection(parsed.data.accepted_result_projection, row.value);
+    if (projection.kind === "invalid") {
+      return rejectComplete(env, row.value.submission_id, "schema_violation", 409);
+    }
+    await persistProjectionAndReference(
+      env,
+      projection.objectSha256,
+      projection.canonicalBytes,
+      (projectionR2Key) => publishSubmittedSubmission(
+        env,
+        row.value.submission_id,
+        verification.sizeBytes,
+        parsed.data.accepted_result_projection,
+        projection.objectSha256,
+        projectionR2Key,
+      ),
+    );
+    await rebuildCommunityLiveBoard(env);
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     return jsonResponse(200, publicSubmission(updated ?? row.value));
   } catch (error) {
     logSubmissionError("submission_finalize_failed", {
       error,
-      leg: "mark_pending_verification",
+      leg: "publish_submitted_projection",
       route: "POST /api/submissions/:submissionId/complete",
       submission_id: row.value.submission_id,
     });
@@ -98,14 +121,24 @@ export async function handleFinalizeSubmission(
   }
 }
 
-function admissionError(code: string): string {
-  switch (code) {
-    case "pending_review_limit": return "submitter pending-review admission limit reached";
-    case "global_pending_limit": return "global pending-review admission limit reached";
-    default: return "submission ticket is already consumed";
+async function rejectComplete(
+  env: SubmissionApiEnv,
+  submissionId: string,
+  reason: PublishProjectionRejection,
+  status: number,
+): Promise<Response> {
+  const current = await rowBySubmissionId(env, submissionId);
+  if (current === null) {
+    return jsonResponse(404, { code: "unknown_submission", error: "unknown submission" });
   }
-}
-
-function invalidCompleteRequest(): Response {
-  return jsonResponse(400, { code: "invalid_complete_request", error: "invalid upload completion request" });
+  if (current.status === "ticketed") {
+    await rejectSubmittedSubmission(env, submissionId, reason);
+  }
+  const updated = await rowBySubmissionId(env, submissionId);
+  return jsonResponse(status, {
+    code: reason,
+    error: reason === "incomplete_run" ? "all six headline axes must be measured" : "submission projection is invalid",
+    status: updated?.status ?? current.status,
+    submission_id: submissionId,
+  });
 }
