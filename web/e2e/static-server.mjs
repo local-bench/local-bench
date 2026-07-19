@@ -47,7 +47,7 @@ async function handleRequest(request, response) {
 
   // /api/* is served by Cloudflare Pages Functions (web/functions) in production; this
   // harness serves only the static export, so every /api/* fetch is a 404 by design and
-  // components must degrade gracefully (e.g. pending-verification-queue since c9d39f1).
+  // components must degrade gracefully.
   // Answer with a terse body instead of streaming 404.html: page fetch() callers discard
   // the response without reading it, and Chromium never marks the request finished while
   // the 16KB 404 document sits unread in the stream — which stalls "networkidle" forever.
