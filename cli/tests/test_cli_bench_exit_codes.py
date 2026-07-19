@@ -53,7 +53,7 @@ def test_bench_returns_dedicated_exit_for_missing_agentic_setup(
     assert code == EXIT_AGENTIC_SETUP_REQUIRED
     error = capsys.readouterr().err
     assert "AppWorld harness" in error
-    assert "--static-only" in error
+    assert "localbench setup-agentic" in error
     assert "No model download or benchmark work has started" in error
 
 

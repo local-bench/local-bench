@@ -235,7 +235,11 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
             case ("POST", "https://local-bench.ai/api/submissions/ticket_fixture/complete"):
                 site_call_headers.append(request.headers)
                 body = json.loads(request.content)
-                assert body == {"raw_bundle_sha256": bundle_sha, "size_bytes": len(bundle_bytes)}
+                assert body == {
+                    "raw_bundle_sha256": bundle_sha,
+                    "size_bytes": len(bundle_bytes),
+                    "accepted_result_projection": {"verification_level": "client_reported"},
+                }
                 return httpx.Response(
                     200,
                     json={
@@ -277,7 +281,12 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
         transport,
     )
     upload_submission_bundle(
-        SubmissionUploadRequest(bundle_path=bundle, credentials=credentials, envelope=ticket),
+        SubmissionUploadRequest(
+            bundle_path=bundle,
+            credentials=credentials,
+            envelope=ticket,
+            accepted_result_projection={"verification_level": "client_reported"},
+        ),
         transport,
     )
     status = get_submission_status(

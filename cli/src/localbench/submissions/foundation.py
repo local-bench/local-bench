@@ -35,6 +35,10 @@ from localbench.version import installed_package_version
 VALIDATION_SCHEMA_VERSION: Final = "localbench.submission_validation.v1"
 VALIDATOR_VERSION: Final = "localbench.submission-validator.v1"
 SERVING_MODE_EXTERNAL: Final = "external_openai_compatible_endpoint"
+PUBLISHABLE_COVERAGE_PROFILE_ID: Final = "full-exec-6axis-v1"
+PUBLISHABLE_AXIS_KEYS: Final = frozenset(
+    {"knowledge", "instruction_following", "math", "agentic", "tool_calling", "coding"},
+)
 
 _REMOVED_RESULT_FIELDS: Final = frozenset(
     {
@@ -193,6 +197,17 @@ def validate_submission_bundle(
     }
 
 
+def result_bundle_headline_complete(record: JsonObject) -> bool:
+    benches = _benches(record)
+    if coverage_profile_for_benches(set(benches)).profile_id != PUBLISHABLE_COVERAGE_PROFILE_ID:
+        return False
+    raw_axes = _object(_object(record.get("axis_status")).get("axes"))
+    return all(
+        _object(raw_axes.get(axis)).get("status") == "measured"
+        for axis in PUBLISHABLE_AXIS_KEYS
+    )
+
+
 def validate_submission_envelope(envelope: JsonObject) -> None:
     if envelope.get("schema_version") != SUBMISSION_ENVELOPE_SCHEMA_VERSION:
         raise SubmissionValidationError("submission envelope schema_version is not supported")
@@ -333,6 +348,8 @@ def _blocking_reasons(
         reasons.append("suite.not_site_released")
     if _requires_code_artifacts(declared_suite, record) and _has_missing_code_artifacts(record):
         reasons.append("missing_code_artifacts")
+    if not result_bundle_headline_complete(record):
+        reasons.append("incomplete_run")
     # Tuple membership, not set: orchestrated manifests record determinism_policy as a
     # structured object, which is unhashable and only needs to count as "present".
     if reasons == [] and sampling.get("determinism_policy") in (None, ""):

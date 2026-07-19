@@ -18,11 +18,12 @@ import tempfile
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Final, TypedDict
+from typing import Final, TypedDict, cast
 
 import httpx
 
 from localbench._requests import utc_now
+from localbench._scoring import BenchAggregate
 from localbench._suite import item_hashes, read_json_object, render_benches, suite_version
 from localbench._types import JsonObject
 from localbench.coding_exec.ast_gate import ASTGateResult, check_ast_gate
@@ -49,10 +50,15 @@ from localbench.coding_exec.score import BENCH, CodingExecScore, score_coding_ex
 from localbench.providers import ReasoningEffort, provider_for_name
 from localbench.runner import run_benchmark, write_json
 from localbench.scoring.scorecard import scorecard_identity
+from localbench.scoring.axis_status import AxisStatusBlock, axis_status_for_benches
+from localbench.submissions.foundation import result_bundle_headline_complete
+from localbench.submissions.foundation_scores import score_summary
 
 SCHEMA: Final = "localbench-coding-exec-v1"
-# bigcode's evaluation image; SHOULD be digest-pinned (repo@sha256:...) before a real run.
-DEFAULT_IMAGE: Final = "bigcodebench/bigcodebench-evaluate:latest"
+DEFAULT_IMAGE: Final = (
+    "bigcodebench/bigcodebench-evaluate@sha256:"
+    "a3cd34ec3840a49d6b7afb240f4bdd47c350bc5991043fd0a91773830f7cd405"
+)
 _CONTAINER_OVERHEAD_SECONDS: Final = 300
 
 
@@ -211,6 +217,8 @@ def execute_pending_artifacts(
     if not tasks:
         if rejected_any:
             _refresh_bigcodebench_aggregate(run)
+        if _coding_items_fully_graded(run):
+            _refresh_run_after_coding(run)
         _attach_receipt_if_requested(run, source_bytes=source_bytes, config=config)
         write_json(run, config.out or run_path)
         return run
@@ -229,6 +237,8 @@ def execute_pending_artifacts(
             )
             item["correct"] = bool(result.get("passed"))
     _refresh_bigcodebench_aggregate(run)
+    if _coding_items_fully_graded(run):
+        _refresh_run_after_coding(run)
     _attach_receipt_if_requested(run, source_bytes=source_bytes, config=config)
     output_path = config.out or run_path
     write_json(run, output_path)
@@ -325,6 +335,40 @@ def _refresh_bigcodebench_aggregate(run: JsonObject) -> None:
         "termination_rate": termination_rate,
         "conditional_accuracy": score["raw_accuracy"] / termination_rate if termination_rate else 0.0,
     }
+
+
+def _refresh_run_after_coding(run: JsonObject) -> None:
+    benches = run.get("benches")
+    if not isinstance(benches, dict):
+        return
+    manifest = run.get("manifest")
+    suite = manifest.get("suite") if isinstance(manifest, dict) else None
+    membership = suite.get("axis_membership") if isinstance(suite, dict) else None
+    suite_axes = (
+        {axis: {"benches": names} for axis, names in membership.items()}
+        if isinstance(membership, dict)
+        else None
+    )
+    axis_status = axis_status_for_benches(benches, suite_axes)
+    run["axis_status"] = cast(JsonObject, axis_status)
+    run["scores"] = score_summary(
+        cast(dict[str, BenchAggregate], benches),
+        cast(AxisStatusBlock, axis_status),
+        suite_axes=suite_axes,
+    )
+    run["headline_complete"] = result_bundle_headline_complete(run)
+
+
+def _coding_items_fully_graded(run: JsonObject) -> bool:
+    items = [item for item in _run_items(run) if item.get("bench") == BENCH]
+    return bool(items) and all(
+        item.get("failure_kind") == "coding_ast_rejected"
+        or (
+            isinstance(item.get("code_artifact"), dict)
+            and item["code_artifact"].get("verdict_source") == "verifier"
+        )
+        for item in items
+    )
 
 
 def _execute(

@@ -159,7 +159,7 @@ def _item_record(
     source_item: JsonObject,
     request: JsonObject,
 ) -> JsonObject:
-    return {
+    record: JsonObject = {
         "schema_version": "localbench.submission-item.v1",
         "sequence_index": index,
         "bench": bench,
@@ -188,6 +188,9 @@ def _item_record(
             "failure_kind": item.get("failure_kind"),
         },
     }
+    if isinstance(item.get("code_artifact"), dict):
+        record["code_artifact"] = _object(item.get("code_artifact"))
+    return record
 
 
 def _read_run(path: Path) -> JsonObject:

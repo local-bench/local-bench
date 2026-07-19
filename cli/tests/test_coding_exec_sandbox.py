@@ -9,6 +9,7 @@ from localbench.coding_exec import (
     SandboxLimits,
     docker_run_argv,
     preflight_checks,
+    probe_docker_env,
     run_sandboxed,
 )
 
@@ -22,6 +23,7 @@ def _env(
     rootless: bool = False,
     runsc_available: bool = False,
     runc_version: tuple[int, int, int] | None = (1, 2, 0),
+    available: bool = True,
 ) -> DockerEnv:
     return DockerEnv(
         platform=platform,
@@ -29,6 +31,7 @@ def _env(
         rootless=rootless,
         runsc_available=runsc_available,
         runc_version=runc_version,
+        available=available,
     )
 
 
@@ -86,6 +89,25 @@ def test_preflight_blocks_rootful_bare_linux_without_a_second_boundary() -> None
     assert result.ok is False
     assert result.runtime is None
     assert any("rootful" in b for b in result.blockers)
+
+
+def test_preflight_blocks_when_docker_is_unavailable() -> None:
+    result = preflight_checks(_env(platform="windows", available=False))
+
+    assert result.ok is False
+    assert result.blockers == ("Docker is unavailable; install and start Docker before benchmarking",)
+
+
+def test_probe_marks_docker_unavailable_when_server_version_is_empty() -> None:
+    env = probe_docker_env(lambda _argv: "")
+
+    assert env.available is False
+
+
+def test_probe_does_not_treat_docker_daemon_error_as_a_server_version() -> None:
+    env = probe_docker_env(lambda _argv: "error during connect: Docker daemon is not running")
+
+    assert env.available is False
 
 
 def test_preflight_selects_gvisor_runtime_when_available() -> None:

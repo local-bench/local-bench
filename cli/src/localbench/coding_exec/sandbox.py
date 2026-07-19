@@ -121,6 +121,7 @@ class DockerEnv:
     rootless: bool  # rootless Docker or userns-remap active
     runsc_available: bool  # gVisor ("runsc") registered as a Docker runtime
     runc_version: tuple[int, int, int] | None  # None = couldn't determine
+    available: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +144,13 @@ def preflight_checks(env: DockerEnv, *, allow_unsafe: bool = False) -> Preflight
     warnings: list[str] = []
     blockers: list[str] = []
     runtime: str | None = None
+    if not env.available:
+        return PreflightResult(
+            ok=False,
+            runtime=None,
+            warnings=(),
+            blockers=("Docker is unavailable; install and start Docker before benchmarking",),
+        )
     native_linux = env.platform == "linux" and not env.desktop
 
     # 1. Second-boundary decision + runtime selection.
@@ -194,6 +202,7 @@ def probe_docker_env(run_text: Callable[[list[str]], str] | None = None) -> Dock
         else "windows" if raw.startswith("win")
         else raw
     )
+    server_version = run(["docker", "version", "--format", "{{.Server.Version}}"])
     info = run(["docker", "info", "--format", "{{json .}}"])
     desktop = "Docker Desktop" in info or "desktop-linux" in info
     rootless = "rootless" in info.lower()
@@ -207,6 +216,7 @@ def probe_docker_env(run_text: Callable[[list[str]], str] | None = None) -> Dock
         rootless=rootless,
         runsc_available=runsc_available,
         runc_version=runc_version,
+        available=re.fullmatch(r"\d+(?:\.\d+)+(?:[-+][0-9A-Za-z.-]+)?", server_version.strip()) is not None,
     )
 
 

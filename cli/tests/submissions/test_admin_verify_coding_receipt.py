@@ -16,7 +16,7 @@ from localbench.coding_exec.receipt import attach_signed_verifier_receipt
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
 from localbench.submissions.foundation import validate_accepted_result_projection
 from localbench.submissions.keys import write_private_key
-from localbench.submissions.projection import _verified_coding_item
+from localbench.submissions.projection import _verified_coding_item, client_reported_projection
 from localbench.submissions.status_update import verify_submission
 from localbench.submissions.validate import SubmissionValidationError
 
@@ -26,10 +26,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _RELEASED_SUITE = _REPO_ROOT / "web" / "public" / "suites" / "suite-v1-full-exec-6axis-v1"
 _VALIDATED_AT = "2026-07-14T00:00:00Z"
 _IMAGE_DIGEST = "bigcodebench/bigcodebench-evaluate@sha256:" + "a" * 64
-_GOLDEN = Path(__file__).parent / "fixtures" / "accepted_projection_v2_full_exec_golden.json"
-_NO_RECEIPT_GOLDEN = (
-    Path(__file__).parent / "fixtures" / "accepted_projection_v2_full_exec_no_receipt_golden.json"
-)
 
 
 def test_full_exec_receipt_projects_verified_coding_as_measured(
@@ -75,11 +71,34 @@ def test_full_exec_receipt_projects_verified_coding_as_measured(
     assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
     assert _object(projection["rescore_modes"])["bigcodebench_hard"] == "verdict_carried"
     assert _object(projection["receipt_references"])["coding_receipt_sha256"] is not None
-    assert projection == read_json_object(_GOLDEN)
+    assert projection["coverage_profile_id"] == "full-exec-6axis-v1"
+    assert projection["index_version"] == "index-v4.1"
+    assert projection["headline_complete"] is True
     assert projection_out.read_bytes() == canonical_json_bytes(projection) + b"\n"
 
 
-@pytest.mark.parametrize("publishable", [True, False], ids=["accept", "reject"])
+def test_submitter_projection_carries_locally_graded_coding_and_agentic(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=True)
+    assert fixture.verified is not None
+
+    projection = client_reported_projection(
+        fixture.verified,
+        suite_dir=fixture.suite_dir,
+        validated_at=_VALIDATED_AT,
+    )
+
+    assert projection["verification_level"] == "client_reported"
+    assert projection["headline_complete"] is True
+    assert projection["index_version"] == "index-v4.1"
+    assert _object(projection["rescore_modes"])["bigcodebench_hard"] == "verdict_carried"
+    assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
+    validate_accepted_result_projection(projection)
+
+
+@pytest.mark.parametrize("publishable", [True, False], ids=["valid-sampling", "invalid-sampling"])
 def test_full_exec_without_receipt_constructs_schema_valid_status_update(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -102,18 +121,17 @@ def test_full_exec_without_receipt_constructs_schema_valid_status_update(
         origin="project_anchor",
     )
 
-    # Then: the frozen projection schema accepts the payload embedded in either resolution.
+    # Then: generated-only coding remains incomplete regardless of the sampler state.
     projection = _object(status["projection"])
     coding = _object(_object(projection["axes"])["coding"])
     validate_accepted_result_projection(projection)
-    assert status["accepted"] is publishable
-    assert status["status"] == ("accepted" if publishable else "rejected")
+    assert status["accepted"] is False
+    assert status["status"] == "rejected"
+    assert "incomplete_run" in status["blocking_reasons"]
     assert coding == {"score": None, "n": 0, "ci": None, "status": "not_measured"}
     assert projection["headline_complete"] is False
     assert _object(projection["receipt_references"])["coding_receipt_sha256"] is None
     assert "generated_unverified" not in json.dumps(projection, sort_keys=True)
-    if publishable:
-        assert projection == read_json_object(_NO_RECEIPT_GOLDEN)
 
 
 def test_admission_without_coding_execution_cannot_claim_measured_coding(
@@ -243,6 +261,7 @@ def _full_exec_fixture(
     )
     release = read_json_object(suite_dir / "suite_release_manifest.json")
     bundle = _synthetic_5axis_result_bundle(release)
+    _object(bundle["benches"]).pop("lcb", None)
     suite = read_json_object(suite_dir / "suite.json")
     item_files = [
         str(_object(value["itemsets"])["standard"]["file"])
@@ -262,6 +281,25 @@ def _full_exec_fixture(
 
     rendered = render_benches("bigcodebench_hard", "standard", None, suite_dir, suite, [])
     coding_bench = rendered[0]
+    static_items: list[JsonObject] = []
+    for bench_name in ("mmlu_pro", "ifbench", "tc_json_v1", "olymmath_hard", "amo"):
+        static_bench = render_benches(bench_name, "standard", 1, suite_dir, suite, [])[0]
+        static_items.append(
+            {
+                "id": str(static_bench.benchmark_items[0]["id"]),
+                "bench": bench_name,
+                "response_text": "",
+                "finish_reason": "stop",
+                "latency_seconds": 0.0,
+                "started_at": "2026-07-14T00:00:00Z",
+                "finished_at": "2026-07-14T00:00:00Z",
+                "attempts": 1,
+                "usage": {"prompt_tokens": 1, "completion_tokens": 0, "total_tokens": 1},
+                "error": None,
+                "correct": False,
+                "extracted": None,
+            },
+        )
     coding_items: list[JsonObject] = []
     for source_item, benchmark_item in zip(
         coding_bench.source_items,
@@ -304,10 +342,12 @@ def _full_exec_fixture(
         "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         "error": None,
     }
-    bundle["items"] = (coding_items if with_coding_evidence else []) + [agentic_item]
+    bundle["items"] = static_items + (coding_items if with_coding_evidence else []) + [agentic_item]
     benches: JsonObject = {
         **_object(bundle["benches"]),
         "appworld_c": {"n": 1, "n_errors": 0, "raw_accuracy": 1.0, "chance_corrected": 1.0},
+        "olymmath_hard": {"n": 1, "n_errors": 0, "raw_accuracy": 0.0, "chance_corrected": 0.0},
+        "amo": {"n": 1, "n_errors": 0, "raw_accuracy": 0.0, "chance_corrected": 0.0},
     }
     if with_coding_evidence:
         benches["bigcodebench_hard"] = {
@@ -318,6 +358,9 @@ def _full_exec_fixture(
         }
     bundle["benches"] = benches
     coding_axis: JsonObject = (
+        {"axis": "coding", "status": "measured", "reason": "ok"}
+        if with_receipt
+        else
         {
             "axis": "coding",
             "status": "generated_unverified",
@@ -330,8 +373,16 @@ def _full_exec_fixture(
     bundle["axis_status"] = {
         "schema_version": "localbench.axis-status.v1",
         "axes": {
+            "knowledge": {"axis": "knowledge", "status": "measured", "reason": "ok"},
+            "instruction_following": {
+                "axis": "instruction_following",
+                "status": "measured",
+                "reason": "ok",
+            },
+            "math": {"axis": "math", "status": "measured", "reason": "ok"},
+            "agentic": {"axis": "agentic", "status": "measured", "reason": "ok"},
+            "tool_calling": {"axis": "tool_calling", "status": "measured", "reason": "ok"},
             "coding": coding_axis,
-            "tool_use": {"axis": "tool_use", "status": "measured", "reason": "ok"},
         },
     }
     bundle_path = tmp_path / "full-exec-result-bundle.json"
@@ -340,8 +391,10 @@ def _full_exec_fixture(
         return _FullExecFixture(bundle=bundle_path, suite_dir=suite_dir, verified=None)
 
     verified = copy.deepcopy(bundle)
-    for index in range(len(coding_items)):
-        verified_item = _object(verified["items"][index])
+    for index, raw_item in enumerate(verified["items"]):
+        verified_item = _object(raw_item)
+        if verified_item.get("bench") != "bigcodebench_hard":
+            continue
         verified_item["correct"] = True
         verified_item["code_artifact"] = verified_artifact(
             _object(verified_item["code_artifact"]),

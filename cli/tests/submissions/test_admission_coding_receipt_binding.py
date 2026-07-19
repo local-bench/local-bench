@@ -63,7 +63,8 @@ def test_admission_rejects_duplicate_receipt_item(
     fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=True)
     assert fixture.verified is not None
     verified = read_json_object(fixture.verified)
-    verified["items"] = [*verified["items"], copy.deepcopy(verified["items"][0])]
+    coding_item = next(item for item in verified["items"] if item.get("bench") == "bigcodebench_hard")
+    verified["items"] = [*verified["items"], copy.deepcopy(coding_item)]
     write_json_file(fixture.verified, verified)
 
     # When / Then: duplicate IDs are a typed verification failure.
@@ -79,7 +80,7 @@ def test_admission_rejects_extra_receipt_item(
     fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=True)
     assert fixture.verified is not None
     verified = read_json_object(fixture.verified)
-    extra = copy.deepcopy(verified["items"][0])
+    extra = copy.deepcopy(next(item for item in verified["items"] if item.get("bench") == "bigcodebench_hard"))
     _object(extra)["id"] = "bcbh-untrusted-extra"
     verified["items"] = [*verified["items"], extra]
     write_json_file(fixture.verified, verified)
@@ -97,7 +98,8 @@ def test_admission_rejects_generation_content_mismatch(
     fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=True)
     assert fixture.verified is not None
     bundle = read_json_object(fixture.bundle)
-    _object(bundle["items"][0])["response_text"] = "def task_func():\n    return 'different'"
+    coding_item = next(item for item in bundle["items"] if item.get("bench") == "bigcodebench_hard")
+    _object(coding_item)["response_text"] = "def task_func():\n    return 'different'"
     write_json_file(fixture.bundle, bundle)
 
     # When / Then: semantic generation identity is mandatory per coding ID.

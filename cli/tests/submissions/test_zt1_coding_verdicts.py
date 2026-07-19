@@ -8,7 +8,7 @@ from localbench.submissions.foundation import validate_submission_bundle
 from .test_5axis_suite_release import _synthetic_5axis_result_bundle
 
 
-def test_validate_submission_bundle_keeps_null_coding_verdicts_publishable_on_other_axes(
+def test_validate_submission_bundle_rejects_null_coding_verdict_as_incomplete(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -70,6 +70,6 @@ def test_validate_submission_bundle_keeps_null_coding_verdicts_publishable_on_ot
     # When: the submission validator runs the publishability gate.
     result = validate_submission_bundle(bundle_path)
 
-    # Then: missing verifier verdicts do not become a hard reject; ZT-1 handles ranking visibility.
-    assert result["publishable"] is True
-    assert result["blocking_reasons"] == []
+    # Then: generated-only coding cannot pass the six-axis submission gate.
+    assert result["publishable"] is False
+    assert result["blocking_reasons"] == ["incomplete_run"]

@@ -21,7 +21,9 @@ _SITE_5AXIS_MANIFEST = (
 )
 
 
-def test_validate_submission_bundle_accepts_site_released_5axis_suite(tmp_path: Path) -> None:
+def test_validate_submission_bundle_rejects_site_released_5axis_suite_as_incomplete(
+    tmp_path: Path,
+) -> None:
     # Given: a synthetic bundle that declares the site-served 5-axis release identity.
     manifest = _read_json(_SITE_5AXIS_MANIFEST)
     bundle_path = tmp_path / "five-axis-result-bundle.json"
@@ -33,9 +35,9 @@ def test_validate_submission_bundle_accepts_site_released_5axis_suite(tmp_path: 
     # When: the authoritative validate-submission-bundle path validates it.
     result = validate_submission_bundle(bundle_path)
 
-    # Then: the release clears all publishability blockers.
-    assert result["publishable"] is True
-    assert result["blocking_reasons"] == []
+    # Then: a previously publishable five-axis release is no longer submittable.
+    assert result["publishable"] is False
+    assert result["blocking_reasons"] == ["incomplete_run"]
     assert result["missing_required_fields"] == []
 
 

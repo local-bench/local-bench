@@ -89,6 +89,7 @@ from localbench.scoring.axes import (
 from localbench.scoring.board import BoardBuildError, write_board
 from localbench.scoring.board_support import DEFAULT_OUT_V2, DEFAULT_RUNS_DIR
 from localbench.submissions.bundle import pack_submission_bundle
+from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
 from localbench.submissions.decision_log import (
     DecisionLogError,
@@ -121,7 +122,12 @@ from localbench.submissions.submit_run import (
     default_signing_key_path,
     submit_finished_run,
 )
-from localbench.submissions.submit_run_inputs import BundleInfo, SubmitInputError, bundle_info
+from localbench.submissions.submit_run_inputs import (
+    BundleInfo,
+    SubmitInputError,
+    bundle_info,
+    locate_run,
+)
 from localbench.submissions.foundation import (
     rescore_bundle as rescore_result_bundle,
     validate_submission_bundle as validate_result_bundle_file,
@@ -237,6 +243,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _kld(args)
     if args.command == "code":
         return _code(args)
+    if args.command == "grade-coding":
+        return _grade_coding(args)
     if args.command == "board":
         return _board(args)
     if args.command == "land-run":
@@ -487,11 +495,6 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--vram-gb", type=float, help="usable VRAM budget for one-shot quant selection")
     bench_parser.add_argument("--llama-server-path", type=Path, help="llama-server binary for one-shot mode")
     bench_parser.add_argument("--offline", action="store_true", help="run one-shot local-only without site preflight")
-    bench_parser.add_argument(
-        "--static-only",
-        action="store_true",
-        help="run the five non-agentic axes; not eligible for the full six-axis index",
-    )
     bench_parser.add_argument("--allow-sleep-risk", action="store_true")
     bench_parser.add_argument("--purge-model", action="store_true")
     bench_parser.add_argument("--accept-suite-terms", action="store_true")
@@ -712,6 +715,19 @@ def _parser() -> argparse.ArgumentParser:
         help="override the fail-closed gate and run on rootful bare-Linux Docker with no second "
         "isolation boundary (NOT recommended — install gVisor or use rootless Docker instead)",
     )
+    grade_coding_parser = subparsers.add_parser(
+        "grade-coding",
+        help="grade coding artifacts in an existing run or result bundle",
+    )
+    grade_coding_input = grade_coding_parser.add_mutually_exclusive_group(required=True)
+    grade_coding_input.add_argument("--run", type=Path, help="run JSON or campaign directory to grade in place")
+    grade_coding_input.add_argument("--bundle", type=Path, help="result bundle JSON or .lbsub.zip to grade")
+    grade_coding_parser.add_argument("--suite-dir", required=True, type=Path)
+    grade_coding_parser.add_argument("--out", type=Path, help="output JSON (defaults to in-place for --run)")
+    grade_coding_parser.add_argument("--image", default=DEFAULT_IMAGE)
+    grade_coding_parser.add_argument("--per-task-timeout", type=int, default=30)
+    grade_coding_parser.add_argument("--runtime")
+    grade_coding_parser.add_argument("--allow-unsafe-sandbox", action="store_true")
     board_parser = subparsers.add_parser(
         "board",
         help="build scorer-side board_v2.json and release manifest",
@@ -1182,8 +1198,6 @@ def _setup_agentic(args: argparse.Namespace) -> int:
 
 
 def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:
-    if bool(getattr(args, "static_only", False)):
-        return "--static-only requires a one-shot model positional argument"
     missing: list[str] = []
     if getattr(args, "runtime", None) is None:
         missing.append("--runtime")
@@ -2479,6 +2493,39 @@ def _code(args: argparse.Namespace) -> int:
         _print_coding_summary(run)
     else:
         print(f"output     {args.out or args.pending_run}")
+    return 0
+
+
+def _grade_coding(args: argparse.Namespace) -> int:
+    try:
+        if args.run is not None:
+            run_path = locate_run(args.run).path
+            output_path = args.out or run_path
+            return _grade_coding_path(args, run_path, output_path)
+        loaded = load_result_bundle_input(args.bundle)
+        output_path = args.out or args.bundle.with_name(f"{args.bundle.stem}.coding-graded.json")
+        with tempfile.TemporaryDirectory(prefix="localbench-grade-coding-") as temp_name:
+            run_path = Path(temp_name) / "localbench-run.json"
+            write_json_file(run_path, loaded.record)
+            return _grade_coding_path(args, run_path, output_path)
+    except (CodingExecError, SubmissionValidationError, SubmitInputError, OSError) as error:
+        print(f"error      {error}")
+        return 2
+
+
+def _grade_coding_path(args: argparse.Namespace, run_path: Path, output_path: Path) -> int:
+    config = CodingExecConfig(
+        endpoint="",
+        model="existing-run-coding-grader",
+        suite_dir=args.suite_dir,
+        image=args.image,
+        out=None if output_path == run_path else output_path,
+        per_task_timeout=args.per_task_timeout,
+        runtime=args.runtime,
+        allow_unsafe_sandbox=args.allow_unsafe_sandbox,
+    )
+    execute_pending_artifacts(run_path, config)
+    print(f"output     {output_path}")
     return 0
 
 

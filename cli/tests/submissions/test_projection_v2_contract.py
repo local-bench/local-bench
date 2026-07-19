@@ -35,6 +35,13 @@ def test_object_hash_and_semantic_hash_are_explicitly_distinct_domains() -> None
     assert object_hash != projection["artifact_hashes"]["projection_sha256"]  # type: ignore[index]
 
 
+def test_v2_schema_accepts_submitter_side_client_reported_projection() -> None:
+    projection = _fixture("accepted_projection_v2_golden.json")
+    projection["verification_level"] = "client_reported"
+
+    validate_accepted_result_projection(projection)
+
+
 @pytest.mark.parametrize("mutation", ["extra", "nan", "digest", "suite_pair"])
 def test_v2_schema_fails_closed_on_adversarial_contract_mutations(mutation: str) -> None:
     projection = _fixture("accepted_projection_v2_golden.json")

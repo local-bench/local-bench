@@ -78,6 +78,7 @@ class SubmissionUploadRequest:
     bundle_path: Path
     credentials: SiteCredentials
     envelope: SubmissionEnvelope
+    accepted_result_projection: JsonObject | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,13 +153,19 @@ def upload_submission_bundle(
             headers={"content-type": "application/json", **target.get("upload_headers", {})},
         )
         raise_for_status_with_body(upload_response)
+        complete_body: JsonObject = {
+            "raw_bundle_sha256": bundle_sha,
+            "size_bytes": len(bundle),
+        }
+        if request.accepted_result_projection is not None:
+            complete_body["accepted_result_projection"] = request.accepted_result_projection
         complete_response = client.post(
             _site_url(
                 request.credentials.site,
                 f"/api/submissions/{request.envelope['ticket_id']}/complete",
             ),
             headers=_site_headers(request.credentials),
-            json={"raw_bundle_sha256": bundle_sha, "size_bytes": len(bundle)},
+            json=complete_body,
         )
         raise_for_status_with_body(complete_response)
         return _json_object(complete_response.json())

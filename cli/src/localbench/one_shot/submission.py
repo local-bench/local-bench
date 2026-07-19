@@ -7,11 +7,9 @@ from pathlib import Path
 from typing import Protocol
 
 from localbench.exit_codes import EXIT_COMPLETE
-from localbench.one_shot.serve_plan import STATIC_EXEC_BENCHES
 from localbench.one_shot.types import (
     OneShotSuiteIdentity,
     ResolvedOneShotModel,
-    STATIC_EXEC_SUITE_IDENTITY,
 )
 from localbench.suite_errors import SuiteResolutionError
 from localbench.submissions.submit_run import DEFAULT_SITE, SubmitRunOptions, SubmitRunResult, submit_finished_run
@@ -41,40 +39,15 @@ def maybe_submit(context: OneShotSubmitContext) -> int:
     if should_submit is not True:
         print("submit    skipped")
         return EXIT_COMPLETE
-    if context.suite_identity == STATIC_EXEC_SUITE_IDENTITY:
-        _assert_static_submission_identity(context.record)
+    if context.record.get("headline_complete") is not True:
+        raise SuiteResolutionError(
+            "incomplete_run: one-shot submission requires all six headline axes; "
+            "finish coding and agentic grading before submitting",
+        )
     result = (context.submitter or submit_finished_run)(_submit_options(context.args, context.run_root))
     for line in result.lines:
         print(line)
     return result.exit_code if result.exit_code != 0 else EXIT_COMPLETE
-
-
-def _assert_static_submission_identity(record: dict[str, object]) -> None:
-    manifest = record.get("manifest")
-    suite = manifest.get("suite") if isinstance(manifest, dict) else None
-    benches = record.get("benches")
-    actual_benches = set(benches) if isinstance(benches, dict) else set()
-    expected_benches = set(STATIC_EXEC_BENCHES)
-    if not isinstance(suite, dict):
-        raise SuiteResolutionError("static submission is missing manifest.suite identity")
-    checks = {
-        "coverage_profile_id": "static-exec-5axis-v1",
-        "suite_release_id": STATIC_EXEC_SUITE_IDENTITY.release_id,
-        "suite_manifest_sha256": STATIC_EXEC_SUITE_IDENTITY.manifest_sha256,
-    }
-    mismatches = [
-        f"{key}={suite.get(key)!r} expected {expected!r}"
-        for key, expected in checks.items()
-        if suite.get(key) != expected
-    ]
-    if actual_benches != expected_benches:
-        mismatches.append(
-            f"benches={sorted(actual_benches)!r} expected {sorted(expected_benches)!r}",
-        )
-    if "appworld_c" in actual_benches:
-        mismatches.append("appworld_c must be absent")
-    if mismatches:
-        raise SuiteResolutionError("static submission identity mismatch: " + "; ".join(mismatches))
 
 
 def _submit_options(args: argparse.Namespace, run_root: Path) -> SubmitRunOptions:

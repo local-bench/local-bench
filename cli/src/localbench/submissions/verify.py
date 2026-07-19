@@ -40,11 +40,13 @@ def verify_bundle_offline(
     from localbench.submissions.projection import (  # noqa: PLC0415
         GRANDFATHERED_ATTESTED_BUNDLE_SHA256S,
         _dynamic_benches,
+        _locally_graded_benches,
     )
 
     dynamic_benches = _dynamic_benches(suite_dir, expected)
-    validate_items_match_suite(bundle.items, expected, dynamic_benches)
-    recomputed = recompute_public_scores(bundle.items, expected, dynamic_benches)
+    carried_benches = dynamic_benches | _locally_graded_benches(bundle.items)
+    validate_items_match_suite(bundle.items, expected, carried_benches)
+    recomputed = recompute_public_scores(bundle.items, expected, carried_benches)
     divergence = compare_client_divergence(bundle.items, recomputed)
     trust = offline_trust_state()
     provenance = evaluate_agentic_provenance(

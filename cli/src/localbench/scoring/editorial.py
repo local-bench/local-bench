@@ -20,6 +20,12 @@ INDEX_VERSION_V3: Final = "index-v3.0"
 # enum is never narrowed after public exposure.
 INDEX_VERSION_V4: Final = "index-v4.1"
 SEASON_2_COVERAGE_PROFILE_ID: Final = "full-exec-tooluse-5axis-v2"
+CURRENT_COVERAGE_PROFILE_IDS: Final = frozenset(
+    {
+        SEASON_2_COVERAGE_PROFILE_ID,
+        "full-exec-6axis-v1",
+    },
+)
 
 
 def index_version_for_coverage_profile(profile_id: str) -> str:
@@ -27,16 +33,12 @@ def index_version_for_coverage_profile(profile_id: str) -> str:
     if profile_id == "custom-partial-v1":
         return INDEX_VERSION_V3
     profile = coverage_profile_for_id(profile_id)
-    return (
-        INDEX_VERSION_V4
-        if profile.profile_id == SEASON_2_COVERAGE_PROFILE_ID
-        else INDEX_VERSION_V3
-    )
+    return INDEX_VERSION_V4 if profile.profile_id in CURRENT_COVERAGE_PROFILE_IDS else INDEX_VERSION_V3
 
 
 def index_version_for_benches(benches: set[str]) -> str:
     profile = coverage_profile_for_benches(benches)
-    if profile.profile_id == SEASON_2_COVERAGE_PROFILE_ID:
+    if profile.profile_id in CURRENT_COVERAGE_PROFILE_IDS:
         return INDEX_VERSION_V4
     return INDEX_VERSION_V3
 

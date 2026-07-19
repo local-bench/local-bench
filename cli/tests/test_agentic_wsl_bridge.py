@@ -100,7 +100,7 @@ def test_worker_frame_round_trip_and_oversized_rejection() -> None:
 def test_local_worker_implementation_identity_hashes_installed_sources() -> None:
     identity = worker_implementation_identity()
 
-    assert identity["localbench_distribution_version"] == "0.4.2"
+    assert identity["localbench_distribution_version"] == "0.4.3.dev0"
     assert len(identity["worker_content_sha256"]) == 64
     module_hashes = identity["worker_module_sha256"]
     assert isinstance(module_hashes, dict)

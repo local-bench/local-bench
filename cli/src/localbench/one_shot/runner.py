@@ -9,9 +9,17 @@ from typing import Protocol
 import anyio
 
 from localbench._types import JsonObject
+from localbench.coding_exec.orchestrate import (
+    CodingExecConfig,
+    CodingExecError,
+    DEFAULT_IMAGE,
+    execute_pending_artifacts,
+)
+from localbench.coding_exec.sandbox import DockerEnv, preflight_checks, probe_docker_env
 from localbench.exit_codes import (
     EXIT_AGENTIC_SETUP_REQUIRED,
     EXIT_INTERNAL_RUNNER_BUG,
+    EXIT_PREFLIGHT_FAILED,
     EXIT_USER_INTERRUPTED,
 )
 from localbench.one_shot.catalog import CatalogResolutionError
@@ -40,7 +48,6 @@ from localbench.one_shot.tokenizer_pin import TokenizerPlanRequest, prepare_toke
 from localbench.one_shot.types import (
     FULL_EXEC_SUITE_IDENTITY,
     OneShotSuiteIdentity,
-    STATIC_EXEC_SUITE_IDENTITY,
 )
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import (
@@ -69,6 +76,17 @@ class AgenticPreflight(Protocol):
     def __call__(self, options: ServeBenchOptions, root: Path) -> WslPreflightResult | None: ...
 
 
+class CodingGrader(Protocol):
+    def __call__(
+        self,
+        run_path: Path,
+        suite_dir: Path,
+        *,
+        image: str,
+        docker_env: DockerEnv,
+    ) -> JsonObject: ...
+
+
 @dataclass(slots=True)
 class OneShotRunnerDeps:
     catalog_loader: CatalogLoader | None = None
@@ -79,6 +97,8 @@ class OneShotRunnerDeps:
     raw_artifact_resolver: RawArtifactResolver | None = None
     sleep_monitor: "SleepGapMonitor | None" = None
     agentic_preflight: AgenticPreflight | None = None
+    coding_docker_env: DockerEnv | None = None
+    coding_grader: CodingGrader | None = None
 
 
 def run_one_shot_bench(
@@ -104,11 +124,6 @@ def run_one_shot_bench(
             offline=bool(getattr(args, "offline", False)),
         )
         suite_identity = _suite_identity(args)
-        if suite_identity == STATIC_EXEC_SUITE_IDENTITY:
-            print(
-                "This run will NOT be eligible for the full six-axis index; "
-                "it can appear as a measured/static row.",
-            )
         suite_ref = resolve_suite_dir(
             suite_id=suite_identity.release_id,
             suite_dir=getattr(args, "suite_dir", None),
@@ -117,6 +132,12 @@ def run_one_shot_bench(
             cache_root=getattr(args, "cache_dir", None),
         )
         _verify_suite_identity(suite_ref.path, suite_identity)
+        coding_docker_env = dependencies.coding_docker_env or probe_docker_env()
+        coding_preflight = preflight_checks(coding_docker_env)
+        if not coding_preflight.ok:
+            raise CodingExecError("coding preflight failed: " + "; ".join(coding_preflight.blockers))
+        for warning in coding_preflight.warnings:
+            print(f"preflight coding sandbox: {warning}")
         resolved = resolve_one_shot(
             args,
             choices.vram_gb,
@@ -205,6 +226,12 @@ def run_one_shot_bench(
             gguf_repo_only=resolved.tokenizer_repo is None,
         ))
         monitor.checkpoint()
+        record = (dependencies.coding_grader or _grade_coding_run)(
+            root / "localbench-run.json",
+            suite_ref.path,
+            image=DEFAULT_IMAGE,
+            docker_env=coding_docker_env,
+        )
         print_scorecard(record)
         return maybe_submit(
             OneShotSubmitContext(
@@ -227,6 +254,9 @@ def run_one_shot_bench(
     except AgenticSetupError as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_AGENTIC_SETUP_REQUIRED
+    except CodingExecError as error:
+        print(f"error      {error}", file=sys.stderr)
+        return EXIT_PREFLIGHT_FAILED
     except (
         CatalogResolutionError,
         OneShotChoiceError,
@@ -251,9 +281,27 @@ def _default_bench_runner(options: ServeBenchOptions) -> JsonObject:
     return anyio.run(run_orchestrated_bench, options)
 
 
+def _grade_coding_run(
+    run_path: Path,
+    suite_dir: Path,
+    *,
+    image: str,
+    docker_env: DockerEnv,
+) -> JsonObject:
+    return execute_pending_artifacts(
+        run_path,
+        CodingExecConfig(
+            endpoint="",
+            model="one-shot-coding-grader",
+            suite_dir=suite_dir,
+            image=image,
+            out=run_path,
+        ),
+        docker_env=docker_env,
+    )
+
+
 def _suite_identity(args: argparse.Namespace) -> OneShotSuiteIdentity:
-    if bool(getattr(args, "static_only", False)):
-        return STATIC_EXEC_SUITE_IDENTITY
     return FULL_EXEC_SUITE_IDENTITY
 
 

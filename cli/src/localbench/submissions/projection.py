@@ -4,7 +4,7 @@ import copy
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import assert_never
+from typing import Literal, assert_never
 
 from localbench._scoring import BenchAggregate, ScoredItem, aggregate
 from localbench._suite import read_json_object
@@ -40,6 +40,7 @@ from localbench.submissions.validate import (
     SubmissionValidationError,
     suite_item_index,
 )
+from localbench.suite_release import SUITE_RELEASE_MANIFEST_FILE
 
 GRANDFATHERED_ATTESTED_BUNDLE_SHA256S = frozenset(
     {
@@ -78,6 +79,25 @@ def rescore_bundle(
         origin=origin,
         admission=False,
         coding_verification=None,
+        verification_level="bundle_rescored",
+    )
+
+
+def client_reported_projection(
+    path: Path,
+    *,
+    suite_dir: Path,
+    validated_at: str,
+    origin: SubmissionOrigin = "project_anchor",
+) -> JsonObject:
+    return _rescore_bundle(
+        path,
+        suite_dir=suite_dir,
+        validated_at=validated_at,
+        origin=origin,
+        admission=False,
+        coding_verification=None,
+        verification_level="client_reported",
     )
 
 
@@ -96,6 +116,7 @@ def rescore_admission_bundle(
         origin=origin,
         admission=True,
         coding_verification=coding_verification,
+        verification_level="bundle_rescored",
     )
 
 
@@ -107,6 +128,7 @@ def _rescore_bundle(
     origin: SubmissionOrigin,
     admission: bool,
     coding_verification: CodingVerificationResult | None,
+    verification_level: Literal["bundle_rescored", "client_reported"],
 ) -> JsonObject:
     loaded = load_result_bundle_input(path)
     bundle_sha256 = sha256_file(path)
@@ -115,7 +137,8 @@ def _rescore_bundle(
     suite_items = _suite_items(bundle, suite_dir)
     dynamic_benches = _dynamic_benches(suite_dir, suite_items)
     source_items = _items(bundle)
-    items = _scored_items(source_items, suite_items, dynamic_benches)
+    carried_benches = dynamic_benches | _locally_graded_benches(source_items)
+    items = _scored_items(source_items, suite_items, carried_benches)
     axis_status = parse_axis_status_block(_object(bundle.get("axis_status")))
     if admission:
         items, axis_status = _admission_coding_inputs(
@@ -138,7 +161,7 @@ def _rescore_bundle(
         bundle_sha256=bundle_sha256,
         validated_at=validated_at,
         rescore_modes={
-            bench: ("verdict_carried" if bench in dynamic_benches else "rescored")
+            bench: ("verdict_carried" if bench in carried_benches else "rescored")
             for bench in sorted(benches)
         }
         | (
@@ -148,6 +171,7 @@ def _rescore_bundle(
         ),
         origin=origin,
         provenance=provenance,
+        verification_level=verification_level,
     )
     if admission:
         projection["receipt_references"] = {
@@ -230,6 +254,18 @@ def _dynamic_benches(
     candidate-axis benches (weight 0) stay ineligible so absent axes can't be smuggled
     in as unscoreable items.
     """
+    static_benches = {bench for bench, _item_id in suite_items}
+    release_manifest_path = suite_dir / SUITE_RELEASE_MANIFEST_FILE
+    if release_manifest_path.exists():
+        release_manifest = read_json_object(release_manifest_path)
+        coverage = release_manifest.get("coverage_profile")
+        benches = coverage.get("benches") if isinstance(coverage, dict) else None
+        if not isinstance(benches, list) or not all(isinstance(bench, str) for bench in benches):
+            raise SubmissionValidationError(
+                "suite release manifest coverage_profile.benches must be a string array",
+            )
+        return frozenset(bench for bench in benches if bench not in static_benches)
+
     scorecard_path = suite_dir / "SCORECARD.json"
     if not scorecard_path.exists():
         # Older/dev suites ship no scorecard registry -> no verdict-carried eligibility,
@@ -237,7 +273,6 @@ def _dynamic_benches(
         return frozenset()
     scorecard = read_json_object(scorecard_path)
     registry = scorecard.get("registry")
-    static_benches = {bench for bench, _item_id in suite_items}
     dynamic: set[str] = set()
     if isinstance(registry, list):
         for entry in registry:
@@ -252,6 +287,39 @@ def _dynamic_benches(
                 if isinstance(bench, str) and bench not in static_benches
             )
     return frozenset(dynamic)
+
+
+def _locally_graded_benches(items: list[JsonObject]) -> frozenset[str]:
+    coding_items = [item for item in items if item.get("bench") == CODING_BENCH]
+    if not coding_items or not all(_locally_graded_coding_item(item) for item in coding_items):
+        return frozenset()
+    return frozenset({CODING_BENCH})
+
+
+def _locally_graded_coding_item(item: JsonObject) -> bool:
+    artifact = item.get("code_artifact")
+    if not isinstance(artifact, dict):
+        return False
+    verdict = artifact.get("verdict")
+    image = artifact.get("image_digest")
+    if (
+        artifact.get("verdict_source") == "verifier"
+        and isinstance(verdict, dict)
+        and isinstance(verdict.get("passed"), bool)
+        and isinstance(image, str)
+        and "@sha256:" in image
+    ):
+        return True
+    scoring = item.get("client_scoring")
+    failure_kind = item.get("failure_kind")
+    if not isinstance(failure_kind, str) and isinstance(scoring, dict):
+        failure_kind = scoring.get("failure_kind")
+    conformance = artifact.get("conformance_status")
+    return (
+        failure_kind == "coding_ast_rejected"
+        and isinstance(conformance, dict)
+        and conformance.get("failure") == "coding_ast_rejected"
+    )
 
 
 def _agentic_provenance(
@@ -291,6 +359,7 @@ def _projection(
     rescore_modes: Mapping[str, str],
     origin: SubmissionOrigin,
     provenance: AgenticProvenanceResult,
+    verification_level: Literal["bundle_rescored", "client_reported"],
 ) -> JsonObject:
     manifest = _object(bundle.get("manifest"))
     suite = _object(manifest.get("suite"))
@@ -326,7 +395,7 @@ def _projection(
         },
         "origin": origin,
         "trust_label": _trust_label(origin),
-        "verification_level": "bundle_rescored",
+        "verification_level": verification_level,
         "agentic_provenance": provenance.label,
         # Per-bench honesty marker: "rescored" = recomputed from suite sources here;
         # "verdict_carried" = the bundle's own verdicts (dynamic bench, no static source).
@@ -352,17 +421,16 @@ def _scored_items(
     for item in items:
         bench = _required_string(item.get("bench"), "bench")
         item_id = _required_string(item.get("id"), "id")
-        suite_item = suite_items.get((bench, item_id))
-        if suite_item is None:
-            if bench not in dynamic_benches:
-                raise SubmissionValidationError(f"unknown item: {bench}/{item_id}")
+        if bench in dynamic_benches:
             key = (bench, item_id)
             if key in seen_dynamic:
-                # A carried verdict repeated N times would inflate the axis unchecked.
                 raise SubmissionValidationError(f"duplicate item: {bench}/{item_id}")
             seen_dynamic.add(key)
             scored.append(_verdict_carried_item(item, bench, item_id))
             continue
+        suite_item = suite_items.get((bench, item_id))
+        if suite_item is None:
+            raise SubmissionValidationError(f"unknown item: {bench}/{item_id}")
         detail = score_public_item(
             bench,
             suite_item.source,

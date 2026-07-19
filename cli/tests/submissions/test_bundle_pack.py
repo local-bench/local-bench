@@ -85,6 +85,34 @@ async def test_pack_records_manifest_counts_and_file_hashes(tmp_path: Path) -> N
 
 
 @pytest.mark.anyio
+async def test_pack_carries_local_coding_verdict_metadata(tmp_path: Path) -> None:
+    fixtures = await build_submission_fixtures(tmp_path)
+    run = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    run["items"][0]["code_artifact"] = {
+        "verdict_source": "verifier",
+        "image_digest": "image@sha256:" + "a" * 64,
+        "verdict": {"passed": True},
+    }
+    fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
+    out = tmp_path / "coding.lbsub.zip"
+
+    pack_submission_bundle(
+        run_path=fixtures.run_path,
+        suite_dir=fixtures.suite_dir,
+        model_name="fixture-model",
+        signing_key_path=fixtures.key_path,
+        out_path=out,
+        offline=True,
+        created_at="2026-06-24T00:00:00Z",
+        run_nonce="fixed-nonce",
+    )
+
+    with zipfile.ZipFile(out, "r") as archive:
+        item = json.loads(archive.read("items.jsonl").decode("utf-8").strip())
+    assert item["code_artifact"] == run["items"][0]["code_artifact"]
+
+
+@pytest.mark.anyio
 async def test_pack_carries_agentic_runtime_identity_additively(tmp_path: Path) -> None:
     # Given: a run record carrying C4 identity values sourced by the shared real-artifact fixture.
     fixtures = await build_submission_fixtures(tmp_path)

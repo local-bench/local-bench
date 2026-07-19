@@ -10,6 +10,7 @@ from localbench.submissions.crypto import load_private_key
 from localbench.suite_resolver import SuiteRef
 
 from .fixtures import build_submission_fixtures
+from .test_submit_run_cli import _mark_complete
 
 _RELEASE_ID = "suite-v1-text-code-agentic-5axis-v1"
 _MANIFEST_SHA = "1b6a716050edd24fee4f0f0bea748407ee3fcd4d61622d69232943cc315f0a2f"
@@ -31,6 +32,7 @@ async def test_submit_run_auto_resolves_suite_from_run_record_when_suite_dir_is_
     suite = run["manifest"]["suite"]
     suite.pop("suite_release_id", None)
     suite.pop("suite_manifest_sha256", None)
+    _mark_complete(run)
     fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
     (fixtures.suite_dir / "suite_release_manifest.json").write_text(
         json.dumps({"suite_release_id": _RELEASE_ID, "suite_manifest_sha256": _MANIFEST_SHA}),
@@ -72,6 +74,11 @@ async def test_submit_run_auto_resolves_suite_from_run_record_when_suite_dir_is_
     monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)
     monkeypatch.setattr(submit_mod, "upload_submission_bundle", fake_upload)
     monkeypatch.setattr(submit_mod, "get_submission_status", fake_status)
+    monkeypatch.setattr(
+        submit_mod,
+        "client_reported_projection",
+        lambda *args, **kwargs: {"verification_level": "client_reported"},
+    )
 
     # When: the user submits the run JSON without passing --suite-dir.
     code = main(
@@ -88,7 +95,7 @@ async def test_submit_run_auto_resolves_suite_from_run_record_when_suite_dir_is_
     # Then: the suite id in the run resolves the cached suite and the upload proceeds.
     output = capsys.readouterr().out
     assert code == 0
-    assert resolved_suite_ids == ["fixture-suite-v1"]
+    assert resolved_suite_ids == ["fixture-suite-v1", "fixture-suite-v1"]
     assert uploaded_bundles
     assert "submission sub_auto" in output
 

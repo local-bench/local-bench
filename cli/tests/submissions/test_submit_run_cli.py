@@ -60,6 +60,7 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
         assert uploaded["manifest"]["suite"]["suite_release_id"] == _RELEASE_ID
         assert uploaded["manifest"]["suite"]["suite_manifest_sha256"] == _MANIFEST_SHA
         assert uploaded["signature"]["public_key"] == expected_public_key
+        assert request.accepted_result_projection == {"verification_level": "client_reported"}
         return {"submission_id": "sub_123", "status": "pending_verification"}
 
     def fake_status(request: submit_mod.SubmissionStatusRequest) -> dict[str, str]:
@@ -69,6 +70,11 @@ async def test_submit_run_packs_tickets_uploads_and_prints_review_summary(
     monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)
     monkeypatch.setattr(submit_mod, "upload_submission_bundle", fake_upload)
     monkeypatch.setattr(submit_mod, "get_submission_status", fake_status)
+    monkeypatch.setattr(
+        submit_mod,
+        "client_reported_projection",
+        lambda *args, **kwargs: {"verification_level": "client_reported"},
+    )
 
     # When: the one-command submit path is driven from the CLI.
     code = main(
@@ -174,6 +180,34 @@ def test_submit_run_rejects_unregistered_suite_pair_before_ticket(
     assert "Traceback" not in output
 
 
+def test_submit_run_rejects_incomplete_bundle_before_ticket(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    import localbench.submissions.submit_run as submit_mod
+
+    _isolate_home(monkeypatch, tmp_path)
+    bundle = _write_prepacked_bundle(tmp_path / "partial-run.json")
+    record = json.loads(bundle.read_text(encoding="utf-8"))
+    record["benches"].pop("appworld_c")
+    bundle.write_text(json.dumps(record), encoding="utf-8")
+    ticket_requested = False
+
+    def fake_ticket(_request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
+        nonlocal ticket_requested
+        ticket_requested = True
+        return {}
+
+    monkeypatch.setattr(submit_mod, "request_submission_ticket", fake_ticket)
+
+    code = main(["submit", "run", "--bundle", str(bundle)])
+
+    assert code == 2
+    assert ticket_requested is False
+    assert "incomplete_run" in capsys.readouterr().out
+
+
 def test_submit_run_reads_config_and_rejects_malformed_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -209,6 +243,7 @@ def _mark_site_release(run_path: Path) -> None:
     suite = run["manifest"]["suite"]
     suite["suite_release_id"] = _RELEASE_ID
     suite["suite_manifest_sha256"] = _MANIFEST_SHA
+    _mark_complete(run)
     run_path.write_text(json.dumps(run, indent=2), encoding="utf-8")
 
 
@@ -223,8 +258,41 @@ def _write_prepacked_bundle(path: Path, *, release_id: str = _RELEASE_ID, manife
         },
         "signature": {"algorithm": "Ed25519", "public_key": "ab" * 32, "signature": "cd" * 64},
     }
+    _mark_complete(run)
     path.write_text(json.dumps(run), encoding="utf-8")
     return path
+
+
+def _mark_complete(run: dict[str, object]) -> None:
+    run["benches"] = {
+        bench: {"n": 1, "raw_accuracy": 1.0, "chance_corrected": 1.0}
+        for bench in (
+            "mmlu_pro",
+            "ifbench",
+            "tc_json_v1",
+            "bigcodebench_hard",
+            "olymmath_hard",
+            "amo",
+            "appworld_c",
+        )
+    }
+    run["axis_status"] = {
+        "schema_version": "localbench.axis-status.v1",
+        "axes": {
+            axis: {"axis": axis, "status": "measured", "reason": "ok"}
+            for axis in (
+                "knowledge",
+                "instruction_following",
+                "math",
+                "agentic",
+                "tool_calling",
+                "coding",
+            )
+        },
+    }
+    run["headline_complete"] = True
+    run.setdefault("scores", {})
+    run.setdefault("items", [])
 
 
 def _envelope(bundle_sha: str, public_key: str, ticket_id: str) -> dict[str, object]:

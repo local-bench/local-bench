@@ -308,13 +308,13 @@ def test_orchestrated_llama_cpp_final_writer_emits_compliant_publishable_bundle(
         written = json.loads((out_dir / "localbench-run.json").read_text(encoding="utf-8"))
         validation = validate_submission_bundle(out_dir / "localbench-run.json")
 
-        # Then: the serialized result_bundle_v1 has no banned writer fields and remains publishable.
+        # Then: the writer stays compliant, while the partial fixture remains incomplete.
         assert BANNED_RESULT_BUNDLE_FIELDS.isdisjoint(written)
         assert BANNED_RESULT_BUNDLE_FIELDS.isdisjoint(updated)
         assert written["serving"]["trust_tier"] == "orchestrated-pinned-artifacts-v1"
         assert written["serving"]["verification_level"] == "orchestrated-pinned-artifacts-v1"
-        assert validation["publishable"] is True
-        assert validation["blocking_reasons"] == []
+        assert validation["publishable"] is False
+        assert validation["blocking_reasons"] == ["incomplete_run"]
 
     asyncio.run(scenario())
 
