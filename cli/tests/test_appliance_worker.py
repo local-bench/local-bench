@@ -301,3 +301,24 @@ def test_official_appworld_record_identity_is_path_independent_and_detects_mutat
     source.write_bytes(b"OFFICIAL = False\n")
     with pytest.raises(RuntimeError, match="distribution (size|hash) mismatch"):
         wsl_worker._verified_appworld_tree_sha256()
+
+
+def test_can_set_root_treats_unmapped_userns_root_as_unescalatable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _einval(_uid: int) -> None:
+        raise OSError(22, "Invalid argument")
+
+    monkeypatch.setattr(appliance_worker.os, "setuid", _einval, raising=False)
+    assert appliance_worker._can_set_root() is False
+
+    def _eperm(_uid: int) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(appliance_worker.os, "setuid", _eperm, raising=False)
+    assert appliance_worker._can_set_root() is False
+
+    monkeypatch.setattr(
+        appliance_worker.os, "setuid", lambda _uid: None, raising=False
+    )
+    assert appliance_worker._can_set_root() is True

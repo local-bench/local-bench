@@ -440,9 +440,11 @@ def _listening_sockets() -> frozenset[tuple[str, str]]:
 
 
 def _can_set_root() -> bool:
+    # Any failure means escalation is impossible: EPERM outside a user
+    # namespace, EINVAL inside one where uid 0 is unmapped (native bubblewrap).
     try:
         os.setuid(0)
-    except PermissionError:
+    except OSError:
         return False
     return True
 
