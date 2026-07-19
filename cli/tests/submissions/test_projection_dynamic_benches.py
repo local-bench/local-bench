@@ -18,11 +18,13 @@ from pathlib import Path
 import pytest
 
 from localbench.submissions.projection import (
+    _axis_status_from_dynamic_verdicts,
     _bench_aggregates,
     _dynamic_benches,
     _locally_graded_benches,
     _scored_items,
 )
+from localbench.scoring.axis_status import axis_status_for_benches
 from localbench.submissions.validate import SubmissionValidationError, SuiteItem
 
 
@@ -194,3 +196,19 @@ def test_bench_aggregates_carried_bench_uses_zero_baseline() -> None:
     # Zero baseline: no guess-rate correction on a verdict bench.
     assert agg["chance_corrected"] == 0.5
     assert agg["n_errors"] == 0
+
+
+def test_dynamic_axis_status_requires_every_verdict_to_be_well_formed() -> None:
+    items = [_dynamic_item("t1", correct=True), _dynamic_item("t2", correct=False)]
+    items[1]["correct"] = None
+    suite_axes = {"agentic": {"benches": ["dynbench"]}}
+    status = axis_status_for_benches((), suite_axes)
+
+    adjusted = _axis_status_from_dynamic_verdicts(
+        status,
+        items,
+        frozenset({"dynbench"}),
+        suite_axes,
+    )
+
+    assert adjusted["axes"]["agentic"]["status"] == "not_measured"

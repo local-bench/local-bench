@@ -13,6 +13,7 @@ from localbench.coding_exec.receipt import CodingVerificationResult
 from localbench.coding_exec.score import BENCH as CODING_BENCH
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
+    axis_key_for_bench,
     measured_axis,
     not_measured_axis,
     parse_axis_status_block,
@@ -144,6 +145,12 @@ def _rescore_bundle(
     carried_benches = dynamic_benches | _locally_graded_benches(source_items)
     items = _scored_items(source_items, suite_items, carried_benches)
     axis_status = parse_axis_status_block(_object(bundle.get("axis_status")))
+    axis_status = _axis_status_from_dynamic_verdicts(
+        axis_status,
+        source_items,
+        dynamic_benches,
+        _suite_axes(_object(bundle.get("manifest"))),
+    )
     if admission:
         items, axis_status = _admission_coding_inputs(
             items,
@@ -298,6 +305,30 @@ def _locally_graded_benches(items: list[JsonObject]) -> frozenset[str]:
     if not coding_items or not all(_locally_graded_coding_item(item) for item in coding_items):
         return frozenset()
     return frozenset({CODING_BENCH})
+
+
+def _axis_status_from_dynamic_verdicts(
+    axis_status: AxisStatusBlock,
+    items: list[JsonObject],
+    dynamic_benches: frozenset[str],
+    suite_axes: Mapping[str, JsonValue] | None,
+) -> AxisStatusBlock:
+    adjusted = copy.deepcopy(axis_status)
+    carried = carried_from_result_items(items, dynamic_benches)
+    benches_by_axis: dict[str, set[str]] = {}
+    for bench in dynamic_benches:
+        axis = axis_key_for_bench(bench, suite_axes)
+        benches_by_axis.setdefault(axis, set()).add(bench)
+    for axis, benches in benches_by_axis.items():
+        complete = all(
+            any(item.get("bench") == bench for item in items)
+            and sum(item.get("bench") == bench for item in items)
+            == sum(verdict.bench == bench for verdict in carried)
+            for bench in benches
+        )
+        if complete:
+            adjusted["axes"][axis] = measured_axis(axis)
+    return adjusted
 
 
 def _locally_graded_coding_item(item: JsonObject) -> bool:

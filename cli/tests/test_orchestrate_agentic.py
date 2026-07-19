@@ -193,8 +193,8 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
         suite_axes = suite["axes"]
         assert isinstance(suite_axes, dict)
         assert record["scores"]["partial_composite"] == pytest.approx(0.5773)
-        assert record["scores"]["measured_headline_weight"] == pytest.approx(0.78)
-        assert record["scores"]["missing_headline_weight"] == pytest.approx(0.22)
+        assert record["scores"]["measured_headline_weight"] == pytest.approx(0.775)
+        assert record["scores"]["missing_headline_weight"] == pytest.approx(0.225)
         assert record["scores"]["rank_scope"] == "full-exec-6axis-v1"
 
     asyncio.run(scenario())

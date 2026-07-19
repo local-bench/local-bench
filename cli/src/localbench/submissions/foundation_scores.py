@@ -18,6 +18,7 @@ from localbench.scoring.axis_status import AxisStatusBlock
 from localbench.suite_release import coverage_profile_for_benches
 
 _SCORE_PRECISION: Final = 4
+_WEIGHT_PRECISION: Final = 3
 _FULL_EXEC_PROFILE_ID: Final = "full-exec-6axis-v1"
 _FULL_EXEC_REQUIRED_AXES: Final = frozenset(
     {"knowledge", "instruction_following", "math", "agentic", "tool_calling", "coding"},
@@ -66,8 +67,8 @@ def score_summary(
         "headline_score": partial if headline_complete else None,
         "partial_composite": partial,
         "partial_composite_scope": "measured_headline_axes",
-        "measured_headline_weight": _round_fixed(measured, 2),
-        "missing_headline_weight": _round_fixed(max(0.0, 1.0 - measured), 2),
+        "measured_headline_weight": _round_fixed(measured, _WEIGHT_PRECISION),
+        "missing_headline_weight": _round_fixed(max(0.0, 1.0 - measured), _WEIGHT_PRECISION),
         "known_headline_contribution": _round_score(partial * measured),
         "rank_scope": profile.rank_scope,
         "composite_static": _strict_composite(

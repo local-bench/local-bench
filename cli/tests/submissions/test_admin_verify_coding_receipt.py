@@ -14,7 +14,10 @@ from localbench.cli import _parser
 from localbench.coding_exec.artifacts import code_artifact_for_generation, verified_artifact
 from localbench.coding_exec.receipt import attach_signed_verifier_receipt
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
-from localbench.submissions.foundation import validate_accepted_result_projection
+from localbench.submissions.foundation import (
+    validate_accepted_result_projection,
+    validate_submission_bundle,
+)
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.projection import (
     _index_relabel_note,
@@ -120,6 +123,66 @@ def test_legacy_full_exec_bundle_relabels_to_current_index_with_provenance(
 
     assert projection["coverage_profile_id"] == "full-exec-6axis-v1"
     assert projection["index_version"] == "index-v4.1"
+    assert "index_relabeled_from:index-v3.0" in projection["provenance_notes"]
+
+
+def test_legacy_full_exec_derives_agentic_axis_from_carried_verdicts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=False)
+    legacy = read_json_object(fixture.bundle)
+    legacy["index_version"] = "index-v3.0"
+    axes = _object(_object(legacy["axis_status"])["axes"])
+    axes.pop("agentic")
+    template = next(
+        item
+        for item in legacy["items"]
+        if isinstance(item, dict) and item.get("bench") == "appworld_c"
+    )
+    agentic_items = [
+        {
+            **copy.deepcopy(template),
+            "id": f"legacy-agentic-{index:03d}",
+            "correct": index < 6,
+        }
+        for index in range(96)
+    ]
+    legacy["items"] = [
+        item
+        for item in legacy["items"]
+        if not (isinstance(item, dict) and item.get("bench") == "appworld_c")
+    ] + agentic_items
+    mmlu_item = next(
+        item
+        for item in legacy["items"]
+        if isinstance(item, dict) and item.get("bench") == "mmlu_pro"
+    )
+    _object(mmlu_item)["response_text"] = "H"
+    _object(legacy["benches"])["appworld_c"] = {
+        "n": 96,
+        "n_errors": 0,
+        "raw_accuracy": 0.0625,
+        "chance_corrected": 0.0625,
+    }
+    write_json_file(fixture.bundle, legacy)
+
+    validation = validate_submission_bundle(fixture.bundle, suite_dir=fixture.suite_dir)
+    projection = client_reported_projection(
+        fixture.bundle,
+        suite_dir=fixture.suite_dir,
+        validated_at=_VALIDATED_AT,
+    )
+
+    agentic = _object(_object(projection["axes"])["tool_use"])
+    scores = _object(projection["scores"])
+    assert validation["publishable"] is False
+    assert "incomplete_run" in validation["blocking_reasons"]
+    assert agentic == {"score": 0.0625, "n": 96, "ci": None, "status": "measured"}
+    assert scores["measured_headline_weight"] == 0.775
+    assert scores["missing_headline_weight"] == 0.225
+    assert scores["partial_composite"] == 0.3105
+    assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
     assert "index_relabeled_from:index-v3.0" in projection["provenance_notes"]
 
 
