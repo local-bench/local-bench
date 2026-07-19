@@ -6,14 +6,16 @@
     "nullableDigest": {"oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
     "score": {"type": "number", "minimum": 0, "maximum": 1},
     "nullableScore": {"oneOf": [{"$ref": "#/$defs/score"}, {"type": "null"}]},
+    "safeText": {"type": "string", "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f\\u202a-\\u202e\\u2066-\\u2069]*$"},
+    "safeMultilineText": {"type": "string", "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f-\\u009f\\u202a-\\u202e\\u2066-\\u2069]*$"},
     "jsonValue": {
       "oneOf": [
-        {"type": "null"}, {"type": "boolean"}, {"type": "number"}, {"type": "string"},
+        {"type": "null"}, {"type": "boolean"}, {"type": "number"}, {"$ref": "#/$defs/safeMultilineText"},
         {"type": "array", "items": {"$ref": "#/$defs/jsonValue"}},
-        {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}}
+        {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"$ref": "#/$defs/jsonValue"}}
       ]
     },
-    "jsonObject": {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}},
+    "jsonObject": {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"$ref": "#/$defs/jsonValue"}},
     "axis": {
       "type": "object", "additionalProperties": false,
       "required": ["ci", "n", "score", "status"],
@@ -34,26 +36,26 @@
       "type": "object", "additionalProperties": false,
       "required": ["display_name", "declared_name", "file_sha256", "identity_status", "model_system_key"],
       "properties": {
-        "display_name": {"type": ["string", "null"]}, "declared_name": {"type": ["string", "null"]},
+        "display_name": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 120}, {"type": "null"}]}, "declared_name": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 120}, {"type": "null"}]},
         "file_sha256": {"$ref": "#/$defs/nullableDigest"}, "file_size_bytes": {"type": ["integer", "null"], "minimum": 1},
-        "file_name": {"type": ["string", "null"]}, "family": {"type": ["string", "null"]},
-        "quant_label": {"type": ["string", "null"]}, "format": {"type": ["string", "null"]},
+        "file_name": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 140}, {"type": "null"}]}, "family": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 64}, {"type": "null"}]},
+        "quant_label": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 32}, {"type": "null"}]}, "format": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 64}, {"type": "null"}]},
         "tokenizer_digest": {"$ref": "#/$defs/nullableDigest"}, "chat_template_digest": {"$ref": "#/$defs/nullableDigest"},
         "identity_status": {"enum": ["unverified", "maintainer_verified"]},
         "model_system_key": {"type": "string", "pattern": "^(artifact|legacy-project-anchor):[0-9a-f]{64}$"}
       }
     },
-    "lineage": {"type": "object", "additionalProperties": false, "required": ["base_model"], "properties": {"base_model": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}}},
+    "lineage": {"type": "object", "additionalProperties": false, "required": ["base_model"], "properties": {"base_model": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 140}}}},
     "runtime": {
       "type": "object", "additionalProperties": false, "required": ["name", "version"],
       "properties": {
-        "name": {"type": "string", "minLength": 1}, "version": {"type": "string", "minLength": 1},
-        "kv_cache_quant": {"type": ["string", "null"]}, "ctx_len_configured": {"type": ["integer", "null"], "minimum": 1},
-        "parallel_slots": {"type": ["integer", "null"], "minimum": 1}, "build_flags": {"type": ["string", "null"]}
+        "name": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, "version": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "kv_cache_quant": {"oneOf": [{"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 64}, {"type": "null"}]}, "ctx_len_configured": {"type": ["integer", "null"], "minimum": 1},
+        "parallel_slots": {"type": ["integer", "null"], "minimum": 1}, "build_flags": {"oneOf": [{"$ref": "#/$defs/safeMultilineText", "maxLength": 500}, {"type": "null"}]}
       }
     },
     "suite_release_id": {"enum": ["suite-v1-partial-text-code-4axis-v1", "suite-v1-text-code-agentic-5axis-v1", "suite-v1-full-exec-6axis-v1", "suite-v1-static-exec-5axis-v1", "suite-v1-static-core-diag-v1", "suite-v2-full-exec-tooluse-5axis-v2"]}, "suite_manifest_sha256": {"$ref": "#/$defs/digest"},
-    "scorecard_id": {"type": "string", "minLength": 1}, "coverage_profile_id": {"type": "string", "minLength": 1},
+    "scorecard_id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, "coverage_profile_id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
     "index_version": {"enum": ["index-v3.0", "index-v4.0", "index-v4.1"]},
     "headline_complete": {"type": "boolean"},
     "scores": {
@@ -63,19 +65,19 @@
         "headline_score": {"$ref": "#/$defs/nullableScore"}, "partial_composite": {"$ref": "#/$defs/score"},
         "partial_composite_scope": {"const": "measured_headline_axes"}, "measured_headline_weight": {"$ref": "#/$defs/score"},
         "missing_headline_weight": {"$ref": "#/$defs/score"}, "known_headline_contribution": {"$ref": "#/$defs/score"},
-        "rank_scope": {"type": "string", "minLength": 1}, "composite_static": {"$ref": "#/$defs/nullableScore"},
-        "composite_full": {"$ref": "#/$defs/nullableScore"}, "static_index_version": {"type": "string", "minLength": 1}
+        "rank_scope": {"$ref": "#/$defs/safeMultilineText", "minLength": 1}, "composite_static": {"$ref": "#/$defs/nullableScore"},
+        "composite_full": {"$ref": "#/$defs/nullableScore"}, "static_index_version": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}
       }
     },
-    "axes": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/axis"}},
+    "axes": {"type": "object", "minProperties": 1, "maxProperties": 16, "propertyNames": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 40}, "additionalProperties": {"$ref": "#/$defs/axis"}},
     "conformance": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "status": {"type": "string", "minLength": 1},
+        "status": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 80},
         "n_scored": {"type": "integer", "minimum": 0},
-        "worst_bench": {"type": ["string", "null"]},
-        "reasons": {"type": "array", "items": {"type": "string"}},
-        "per_bench": {"type": "object", "additionalProperties": {"$ref": "#/$defs/jsonValue"}}
+        "worst_bench": {"oneOf": [{"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, {"type": "null"}]},
+        "reasons": {"type": "array", "items": {"$ref": "#/$defs/safeText", "maxLength": 300}},
+        "per_bench": {"$ref": "#/$defs/jsonObject"}
       }
     },
     "receipt_references": {"type": "object", "additionalProperties": false, "required": ["coding_receipt_sha256"], "properties": {"coding_receipt_sha256": {"$ref": "#/$defs/nullableDigest"}}},
@@ -83,7 +85,7 @@
     "origin": {"enum": ["project_anchor", "community"]},
     "trust_label": {"enum": ["project_anchor", "community_self_submitted", "community_re_scored"]},
     "verification_level": {"enum": ["bundle_rescored", "client_reported"]}, "agentic_provenance": {"enum": ["none", "project_attested", "self_reported"]},
-    "provenance_notes": {"type": "array", "items": {"type": "string"}},
+    "provenance_notes": {"type": "array", "items": {"$ref": "#/$defs/safeText", "maxLength": 300}},
     "rescore_modes": {
       "type": "object", "additionalProperties": false,
       "properties": {
@@ -95,7 +97,7 @@
         "olymmath_hard": {"enum": ["rescored", "verdict_carried"]}, "tc_json_v1": {"enum": ["rescored", "verdict_carried"]}
       }
     },
-    "validator": {"type": "object", "additionalProperties": false, "required": ["validator_version", "commit", "validated_at"], "properties": {"validator_version": {"type": "string", "minLength": 1}, "commit": {"type": ["string", "null"]}, "validated_at": {"type": "string", "format": "date-time"}}}
+    "validator": {"type": "object", "additionalProperties": false, "required": ["validator_version", "commit", "validated_at"], "properties": {"validator_version": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, "commit": {"oneOf": [{"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, {"type": "null"}]}, "validated_at": {"type": "string", "format": "date-time"}}}
   },
   "allOf": [
     {"if": {"properties": {"origin": {"const": "community"}}}, "then": {"properties": {"model": {"properties": {"identity_status": {"const": "unverified"}, "file_sha256": {"$ref": "#/$defs/digest"}, "model_system_key": {"pattern": "^artifact:[0-9a-f]{64}$"}}}}}},

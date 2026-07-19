@@ -10,7 +10,7 @@ import httpx
 
 from localbench._types import JsonObject, JsonValue
 from localbench.http_errors import raise_for_status_with_body
-from localbench.submissions.origin import normalize_origin
+from localbench.submissions.origin import SubmissionOrigin, normalize_origin
 from localbench.submissions.validate import SubmissionValidationError
 
 PublishState = Literal["hidden", "preview", "published"]
@@ -25,7 +25,7 @@ class SubmissionEnvelope(TypedDict):
     expiry: str
     max_upload_bytes: int
     one_use: bool
-    origin: str
+    origin: SubmissionOrigin
     schema_version: str
     submitter_id: str
     ticket_id: str
@@ -137,6 +137,7 @@ def upload_submission_bundle(
             headers=_site_headers(request.credentials),
             json={
                 "raw_bundle_sha256": bundle_sha,
+                "size_bytes": len(bundle),
                 "ticket_id": request.envelope["ticket_id"],
                 "upload_capability": request.envelope["upload_capability"],
             },

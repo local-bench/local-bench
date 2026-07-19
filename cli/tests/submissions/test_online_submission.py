@@ -214,6 +214,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                 site_call_headers.append(request.headers)
                 assert json.loads(request.content) == {
                     "raw_bundle_sha256": bundle_sha,
+                    "size_bytes": len(bundle_bytes),
                     "ticket_id": "ticket_fixture",
                     "upload_capability": "upload_" + ("1" * 32),
                 }
