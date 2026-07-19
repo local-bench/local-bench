@@ -27,6 +27,30 @@ describe("publish-then-moderate admin APIs", () => {
     expect(response.status).toBe(200);
   });
 
+  it("defaults the admin list to published submissions", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const published = await issueEnvelope(env, "1".repeat(64));
+    const legacyPending = await issueEnvelope(env, "2".repeat(64));
+    await env.DB.prepare(
+      "update submissions set status = 'published', publish_state = 'published' where submission_id = ?",
+    ).bind(published.ticket_id).run();
+    await env.DB.prepare(
+      "update submissions set status = 'pending_verification' where submission_id = ?",
+    ).bind(legacyPending.ticket_id).run();
+
+    const response = await listAdminSubmissions({
+      env,
+      request: getRequest("/api/admin/submissions", {
+        "x-localbench-admin-secret": ADMIN_SECRET,
+      }),
+    });
+    const payload = await response.json();
+
+    expect(payload.submissions.map((row: { readonly submission_id: string }) => row.submission_id)).toEqual([
+      published.ticket_id,
+    ]);
+  });
+
   it("streams a raw bundle to admin and validator credentials", async () => {
     const base = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const env = { ...base, VALIDATOR_API_SECRET: VALIDATOR_SECRET };
