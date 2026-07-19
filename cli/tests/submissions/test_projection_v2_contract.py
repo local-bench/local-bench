@@ -46,6 +46,51 @@ def test_v2_schema_accepts_submitter_side_client_reported_projection() -> None:
     validate_accepted_result_projection(projection)
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    ["model_name", "runtime_name", "axis_count", "axis_key", "unsafe_text"],
+)
+def test_v2_schema_rejects_values_outside_server_bounds(mutation: str) -> None:
+    projection = _fixture("accepted_projection_v2_golden.json")
+    model = projection["model"]
+    runtime = projection["runtime"]
+    axes = projection["axes"]
+    assert isinstance(model, dict)
+    assert isinstance(runtime, dict)
+    assert isinstance(axes, dict)
+    if mutation == "model_name":
+        model["display_name"] = "m" * 121
+    elif mutation == "runtime_name":
+        runtime["name"] = "r" * 121
+    elif mutation == "axis_count":
+        axis = axes["knowledge"]
+        projection["axes"] = {f"axis-{index}": axis for index in range(17)}
+    elif mutation == "axis_key":
+        axis = axes["knowledge"]
+        projection["axes"] = {"a" * 41: axis}
+    else:
+        projection["conformance"] = {"reasons": ["unsafe\u202evalue"]}
+
+    with pytest.raises(SubmissionValidationError, match="accepted projection invalid"):
+        validate_accepted_result_projection(projection)
+
+
+def test_v2_schema_accepts_values_at_server_bounds() -> None:
+    projection = _fixture("accepted_projection_v2_golden.json")
+    model = projection["model"]
+    runtime = projection["runtime"]
+    axes = projection["axes"]
+    assert isinstance(model, dict)
+    assert isinstance(runtime, dict)
+    assert isinstance(axes, dict)
+    model["display_name"] = "m" * 120
+    runtime["name"] = "r" * 120
+    axis = axes["knowledge"]
+    projection["axes"] = {f"{'a' * 35}{index:05d}": axis for index in range(16)}
+
+    validate_accepted_result_projection(projection)
+
+
 def test_full_exec_projection_uses_canonical_axes_as_composite_inputs() -> None:
     benches = {
         "mmlu_pro": _aggregate(raw_accuracy=0.8, chance_corrected=0.6),
