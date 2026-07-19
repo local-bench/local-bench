@@ -2,7 +2,7 @@ import { jsonResponse } from "./submission-api-support";
 import { canonicalJson, sha256Hex } from "./submission-canonical";
 import type { AcceptedResultProjectionV2Schema } from "./accepted-result-projection-contract";
 import type { StatusUpdate, SubmissionRow } from "./submission-contracts";
-import { indexV41Composite } from "./submission-publish-validation";
+import { indexV42Composite } from "./submission-publish-validation";
 import type { z } from "zod";
 
 type AcceptedUpdate = Extract<StatusUpdate, { readonly status: "accepted" }>;
@@ -88,7 +88,7 @@ async function normalizedProjection(
   projection: AcceptedProjection,
   rawBundleSha256: string,
 ): Promise<ProjectionValidation> {
-  const serverValue = indexV41Composite(projection);
+  const serverValue = indexV42Composite(projection);
   const clientValues = {
     composite_full: projection.scores.composite_full ?? null,
     headline_score: projection.scores.headline_score,

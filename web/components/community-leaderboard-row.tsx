@@ -10,6 +10,7 @@ import { boardAxisValue } from "@/lib/board-adapter";
 import { formatDuration, formatGpuShort, formatInteger, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { AxisScore, Score } from "@/lib/schemas";
+import { SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
 
 type CommunityRowProps = {
   readonly axisKeys: readonly string[];
@@ -129,15 +130,23 @@ function CommunityAxisBar({ axis, row }: { readonly axis: string; readonly row: 
 
 function CommunityAgenticCell({ row }: { readonly row: CommunityBoardRow }) {
   return (
-    <div className="min-w-[150px]">
+    <div className="min-w-[220px]">
       <CommunityAxisBar axis="agentic" row={row} />
-      <div className="mt-1 font-mono text-[10px] text-bench-muted">AppWorld facet only</div>
+      <div className="mt-1 font-mono text-[10px] text-bench-muted">AppWorld task-goal completion</div>
       <details className="mt-1 text-[10px] text-bench-muted">
-        <summary className="cursor-pointer font-mono text-bench-accent">facet breakdown</summary>
+        <summary className="cursor-pointer font-mono text-bench-accent">diagnostics</summary>
         <dl className="mt-1 grid gap-1">
           <dt className="font-semibold uppercase text-bench-muted">Diagnostics · unweighted</dt>
-          <DiagnosticValue label="Call formatting (tc_json)" value={boardAxisValue(row.axes ?? {}, "tool_calling")} />
-          <DiagnosticValue label="RULER 32K" value={boardAxisValue(row.axes ?? {}, "long_context")} />
+          {SEASON_2_DIAGNOSTICS.map((diagnostic) => (
+            <DiagnosticValue
+              key={diagnostic.key}
+              label={diagnostic.label}
+              value={
+                boardAxisValue(row.axes ?? {}, diagnostic.key)
+                ?? boardAxisValue(row.axes ?? {}, diagnostic.bench)
+              }
+            />
+          ))}
         </dl>
       </details>
     </div>
@@ -155,7 +164,9 @@ function DiagnosticValue({
   return (
     <div className="flex justify-between gap-3">
       <dt>{label}</dt>
-      <dd className="font-mono text-bench-text">{score === undefined ? "n/a" : formatScore(score.point)}</dd>
+      <dd className="whitespace-nowrap font-mono text-bench-text">
+        {score === undefined ? "not measured" : formatScore(score.point)}
+      </dd>
     </div>
   );
 }

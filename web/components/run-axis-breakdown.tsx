@@ -1,7 +1,7 @@
 import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, clampScore, formatCi, formatScore } from "@/lib/format";
 import type { Axis, AxisScore, RunDetail } from "@/lib/schemas";
-import { hasCompleteSeason2Coverage } from "@/lib/scoring-seasons";
+import { hasCompleteSeason2Coverage, SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
 
 export function RunAxisBreakdown({ run }: { readonly run: RunDetail }) {
   // Canonical axis order first, then any extra measured axes outside the config. An axis
@@ -26,15 +26,38 @@ export function RunAxisBreakdown({ run }: { readonly run: RunDetail }) {
           );
         })}
       </div>
+      {season2 ? (
+        <div className="mt-5 border-t border-bench-line pt-5">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-bench-muted">Diagnostics · unweighted</h3>
+          <div className="mt-2 space-y-2">
+            {SEASON_2_DIAGNOSTICS.map((diagnostic) => {
+              const score = run.diagnostics?.[diagnostic.key]
+                ?? run.axes[diagnostic.key]
+                ?? run.axes[diagnostic.bench];
+              return score === undefined || score.n === 0 ? (
+                <NotMeasuredAxis key={diagnostic.key} axis={diagnostic.key} label={diagnostic.label} />
+              ) : (
+                <AxisWhisker
+                  key={diagnostic.key}
+                  axis={diagnostic.key}
+                  label={diagnostic.label}
+                  score={score}
+                  highlighted={false}
+                />
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function NotMeasuredAxis({ axis }: { readonly axis: Axis }) {
+function NotMeasuredAxis({ axis, label }: { readonly axis: Axis; readonly label?: string }) {
   return (
     <div className="p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div className="font-semibold text-bench-text">{axisLabel(axis)}</div>
+        <div className="font-semibold text-bench-text">{label ?? axisLabel(axis)}</div>
         <div className="font-mono text-xs text-bench-muted">— not measured</div>
       </div>
     </div>
@@ -45,10 +68,12 @@ function AxisWhisker({
   axis,
   score,
   highlighted,
+  label,
 }: {
   readonly axis: Axis;
   readonly score: AxisScore;
   readonly highlighted: boolean;
+  readonly label?: string;
 }) {
   const lo = clampScore(score.lo);
   const hi = clampScore(score.hi);
@@ -58,7 +83,7 @@ function AxisWhisker({
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <div>
           <div className="font-semibold text-bench-text">
-            {axisLabel(axis)}
+            {label ?? axisLabel(axis)}
             {highlighted ? <span className="ml-2 text-xs uppercase text-bench-warn-soft">worst axis</span> : null}
           </div>
           <div className="text-xs text-bench-muted">

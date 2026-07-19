@@ -61,7 +61,7 @@ export default async function LeaderboardPage() {
           <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
             Every complete project and community run shares this ranking and the same composite. The global view is a
             cross-family reference; <Link href="/families" className="text-bench-accent hover:underline">browse model families</Link> to choose among related variants. Note: {season2
-              ? "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the facet breakdown."
+              ? "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and unweighted diagnostics."
               : "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the Static Index."}
           </div>
         </div>

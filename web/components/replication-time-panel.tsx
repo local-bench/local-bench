@@ -12,7 +12,7 @@ import type { BestVariantPoint } from "@/lib/best-variant";
 //
 // Scope facts (item count, rig) are board-level and not carried on BestVariantPoint; keep in
 // sync with the methodology page until the board manifest exposes them to the web layer.
-const PANEL_SCOPE = "Season 2 · LB-2026-07 · 1,457 items · RTX 5090 reference rig";
+const PANEL_SCOPE = "Season 2 · LB-2026-07.2 · 1,457 carried items · RTX 5090 reference rig";
 const LIMITATION = "Elapsed time for this exact full-suite run; not a general model-speed measurement.";
 
 // Render gates: the comparative chart renders only while timing coverage honestly represents

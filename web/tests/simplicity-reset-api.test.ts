@@ -260,7 +260,7 @@ describe("simplicity reset publish-on-submit API", () => {
     const uploadCapability = requiredString(ticketBody, "upload_capability");
     await prepareDirectUpload(env, submissionId, bundleJson.length);
     await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
-    const projection = clientProjection(bundleSha, { omittedAxes: ["tool_calling"] });
+    const projection = clientProjection(bundleSha, { omittedAxes: ["math"] });
 
     // When: the client completes the submission.
     const response = await completeAndRebuild({
@@ -276,7 +276,11 @@ describe("simplicity reset publish-on-submit API", () => {
 
     // Then: the row is terminally rejected and never reaches the board.
     expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({ code: "incomplete_run", status: "rejected" });
+    expect(await response.json()).toMatchObject({
+      code: "incomplete_run",
+      error: "all 5 headline axes must be measured",
+      status: "rejected",
+    });
     const row = await env.DB.prepare("select status, status_reason, publish_state from submissions where submission_id = ?")
       .bind(submissionId)
       .first();

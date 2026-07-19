@@ -350,6 +350,17 @@ def test_build_data_coding_axis_uses_sandbox_scoreable_denominator(tmp_path: Pat
     )
 
 
+def test_build_data_diagnostics_follow_protocol_manifest() -> None:
+    builder = _build_data_module()
+    protocol = _object(_read_json(ROOT / "protocol" / "index-v4.2.json"))
+
+    assert builder.SEASON_2_INDEX_VERSION == "index-v4.2"
+    assert builder._DIAGNOSTIC_SOURCE_GROUPS == {
+        _string(diagnostic["key"]): ((_string(diagnostic["bench"]),),)
+        for diagnostic in _objects(protocol["diagnostics"])
+    }
+
+
 def test_ranked_coding_provenance_guard_blocks_self_reported_coding() -> None:
     # Enforce "community/self-reported coding never ranks" IN CODE. A ranked row whose composite
     # includes the CODING AXIS must be maintainer-verified (trust_label project_anchor AND

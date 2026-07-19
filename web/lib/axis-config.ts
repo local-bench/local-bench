@@ -44,7 +44,7 @@ export function isAxisKey(key: string): boolean {
 
 export function axisLabel(key: string): string {
   // Season-2 macro-axis: structural key stays "tool_use", display label is
-  // "Agentic" (index-v4.1 rename). The season-1 "agentic" key in AXIS_CONFIG
+  // "Agentic" (index-v4.1 rename, AppWorld-only in v4.2). The season-1 "agentic" key in AXIS_CONFIG
   // keeps the same word for its historical AppWorld-only axis; the two keys
   // never render in the same table (axis lists branch on season).
   if (key === "tool_use") return "Agentic";

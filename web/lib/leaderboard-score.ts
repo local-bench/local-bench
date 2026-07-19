@@ -1,5 +1,10 @@
 import type { IndexModel, Score } from "./schemas";
-import { hasCompleteSeason2Coverage, headlineScoreForDisplay, INDEX_VERSION_V4 } from "./scoring-seasons";
+import {
+  hasCompleteSeason2Coverage,
+  headlineScoreForDisplay,
+  INDEX_VERSION_V4_1,
+  INDEX_VERSION_V4_2,
+} from "./scoring-seasons";
 
 export type LeaderboardScoreMode = "full" | "static";
 
@@ -35,7 +40,9 @@ export function isFullIndexRow(model: IndexModel): boolean {
 }
 
 export function hasCompleteHeadlineCoverage(model: IndexModel): boolean {
-  if (model.index_version === INDEX_VERSION_V4) return hasCompleteSeason2Coverage(model);
+  if (model.index_version === INDEX_VERSION_V4_1 || model.index_version === INDEX_VERSION_V4_2) {
+    return hasCompleteSeason2Coverage(model);
+  }
   return ["agentic", "knowledge", "instruction", "tool_calling", "coding", "math"].every((axis) => {
     const score = model.axes[axis];
     return score !== undefined && score.n > 0;

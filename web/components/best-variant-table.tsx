@@ -12,7 +12,6 @@ import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { axisLabel, formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
-import { TOOL_USE_FACET_QUALIFIER } from "@/lib/scoring-seasons";
 import type { BestVariantPoint } from "@/lib/best-variant";
 import type { AxisScore } from "@/lib/schemas";
 
@@ -42,7 +41,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
   const rows = [...points].sort((left, right) => right.score.point - left.score.point);
   // Same season feature-detection rule as indexQualifierForAxes / indexContributions: only
   // season-2 scoring produces the tool_use macro-axis, so any row carrying it means the board
-  // (and therefore this summary) is the season-2 scale (index-v4.1).
+  // (and therefore this summary) is the current season-2 scale.
   const season2 = rows.some((row) => row.axes["tool_use"] !== undefined);
   const axisKeys: readonly string[] = season2 ? SEASON_2_AXIS_KEYS : SEASON_1_AXIS_KEYS;
   const axisWeights: Readonly<Record<string, number>> = season2 ? SEASON_2_AXIS_WEIGHTS : INDEX_AXIS_WEIGHTS;
@@ -90,11 +89,11 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
               {axisKeys.map((axis) => (
                 <th key={axis} className="px-3 py-3">
                   <AxisDot axis={axis} />
-                  {/* One decimal for non-whole index-v4.1 weights (22.5%, 7.5%); whole percents stay bare. */}
+                  {/* One decimal for non-whole season-2 weights (22.5%, 7.5%); whole percents stay bare. */}
                   {axisLabel(axis)} {Math.round((axisWeights[axis] ?? 0) * 1000) / 10}%
                   {axis === "tool_use" ? (
                     <span className="block font-mono text-[10px] font-normal normal-case tracking-normal text-bench-muted">
-                      {TOOL_USE_FACET_QUALIFIER}
+                      AppWorld task-goal completion
                     </span>
                   ) : null}
                 </th>

@@ -8,9 +8,8 @@ import { type SortKey, type SortState } from "@/lib/leaderboard-sort";
 import { runtimeDisplay, type RuntimeDisplayInput } from "@/lib/runtime-display";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import {
-  INDEX_VERSION_V4,
-  TOOL_USE_FACET_QUALIFIER,
-  TOOL_USE_FACETS,
+  INDEX_VERSION_V4_1,
+  INDEX_VERSION_V4_2,
   diagnosticScores,
   displayIndexVersion,
   legacyBridgeScore,
@@ -99,12 +98,7 @@ export function SeasonBadge({ indexVersion }: { readonly indexVersion: string })
 
 export function ToolUseHeaderLabel() {
   return (
-    <span className="flex flex-col gap-0.5 leading-tight">
-      <span>{axisLabel("tool_use")}</span>
-      <span className="font-mono text-[10px] font-normal normal-case tracking-normal text-bench-muted">
-        {TOOL_USE_FACET_QUALIFIER}
-      </span>
-    </span>
+    <span>{axisLabel("tool_use")} — AppWorld task-goal completion</span>
   );
 }
 
@@ -114,32 +108,30 @@ export function ToolUseCell({ model }: { readonly model: IndexModel }) {
     return <span className="font-mono text-xs text-bench-muted">n/a</span>;
   }
   const diagnostics = diagnosticScores(model);
+  // Baked axis blocks carry n and point but not a success counter, so the displayed
+  // integer count is recovered from the exact AppWorld rate and fixed denominator.
+  const successes = Math.round(score.point * score.n / 100);
   return (
-    <div className="min-w-[150px]">
-      <AxisMiniBar score={score} axis="tool_use" />
+    <div className="min-w-[220px]">
+      <AxisMiniBar
+        score={score}
+        axis="tool_use"
+        value={`${successes}/${score.n} — ${formatScore(score.point)}%`}
+      />
       <details className="mt-1 text-[10px] text-bench-muted">
-        <summary className="cursor-pointer font-mono text-bench-accent">facet breakdown</summary>
+        <summary className="cursor-pointer font-mono text-bench-accent">diagnostics</summary>
         <dl className="mt-1 grid gap-1">
-          {TOOL_USE_FACETS.map((facet) => {
-            const facetScore = score.facets?.[facet.key];
-            return (
-              <div key={facet.key} className="flex justify-between gap-3">
-                <dt>{facet.label} · {Math.round(facet.weight * 100)}%</dt>
-                <dd className="font-mono text-bench-text">{facetScore === undefined ? "n/a" : formatScore(facetScore.point)}</dd>
+          <div className="border-t border-bench-line/70 pt-1">
+            <dt className="font-semibold uppercase text-bench-muted">Diagnostics · unweighted</dt>
+            {diagnostics.map((diagnostic) => (
+              <div key={diagnostic.key} className="flex justify-between gap-3">
+                <dt>{diagnostic.label}</dt>
+                <dd className="whitespace-nowrap font-mono text-bench-text">
+                  {diagnostic.score === undefined ? "not measured" : `${formatScore(diagnostic.score.point)}%`}
+                </dd>
               </div>
-            );
-          })}
-          {diagnostics.length === 0 ? null : (
-            <div className="mt-1 border-t border-bench-line/70 pt-1">
-              <dt className="font-semibold uppercase text-bench-muted">Diagnostics · unweighted</dt>
-              {diagnostics.map((diagnostic) => (
-                <div key={diagnostic.key} className="flex justify-between gap-3">
-                  <dt>{diagnostic.label}</dt>
-                  <dd className="font-mono text-bench-text">{formatScore(diagnostic.score.point)}</dd>
-                </div>
-              ))}
-            </div>
-          )}
+            ))}
+          </div>
         </dl>
       </details>
     </div>
@@ -206,7 +198,10 @@ export function CompositeHeaderLabel({ scoreMode, season2 }: { readonly scoreMod
 }
 
 export function axisColumns(models: readonly IndexModel[]): readonly string[] {
-  if (models.some((model) => displayIndexVersion(model) === INDEX_VERSION_V4)) {
+  if (models.some((model) => {
+    const version = displayIndexVersion(model);
+    return version === INDEX_VERSION_V4_1 || version === INDEX_VERSION_V4_2;
+  })) {
     return ["agentic", "knowledge", "instruction_following", "coding", "math"];
   }
   const present = new Set<string>();

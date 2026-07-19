@@ -26,24 +26,23 @@ describe("additive season board display", () => {
     expect(explicit).toBe(legacy);
   });
 
-  it("feature-detects a complete v4 row, replaces the old columns, and surfaces facets, diagnostics, and bridge scale", () => {
+  it("feature-detects a complete v4.2 row and surfaces AppWorld counts, diagnostics, and bridge scale", () => {
     const row = season2Fixture("v4", 64, 41);
     const html = renderToStaticMarkup(
       createElement(HomeLeaderboard, { models: [row], indexVersion: INDEX_VERSION_V4 }),
     );
 
-    expect(html).toContain("LB-2026-07");
-    expect(html).not.toContain("index-v4.1");
-    expect(html).toContain("Agentic");
+    expect(html).toContain("LB-2026-07.2");
+    expect(html).not.toContain("index-v4.2");
+    expect(html).toContain("Agentic — AppWorld task-goal completion");
     expect(html).not.toContain("Tool calling");
     expect(html).not.toContain("Static Index");
-    expect(html).toContain("facet breakdown");
-    expect(html).toContain("AppWorld (agentic execution) · 59%");
-    expect(html).toContain("Multi-turn tool control · 41%");
-    // Column header carries the facet split without expanding the breakdown (owner ask, 07-15).
-    expect(html).toContain("appworld (agentic execution) 59% · multi-turn tool control 41%");
+    expect(html).not.toContain("facet breakdown");
+    expect(html).toContain("10/96 — 10.4%");
     expect(html).toContain("Diagnostics · unweighted");
     expect(html).toContain("BFCL single-turn");
+    expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
+    expect(html).toContain("not measured");
     expect(html).toContain("index-v3.0 bridge 41.0");
   });
 
@@ -101,10 +100,11 @@ function season2Fixture(slug: string, v4Point: number, v3Point: number): IndexMo
     axes: {
       tool_use: {
         ...SCORE,
-        point: 55,
+        n: 96,
+        point: 10.42,
+        raw_accuracy: 10 / 96,
         facets: {
-          agentic: facet(50, "appworld_c", 10 / 17),
-          multi_turn_tool_control: facet(60, "bfcl_multi_turn_base", 7 / 17),
+          agentic: facet(10.42, "appworld_c", 1),
         },
       },
       knowledge: SCORE,
@@ -113,6 +113,9 @@ function season2Fixture(slug: string, v4Point: number, v3Point: number): IndexMo
       math: SCORE,
       call_formatting: { ...SCORE, point: 45 },
       bfcl_single_turn: { ...SCORE, point: 44 },
+    },
+    diagnostics: {
+      multi_turn_tool_control: { ...SCORE, n: 50, point: 24, raw_accuracy: 0.24 },
     },
   });
 }

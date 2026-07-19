@@ -161,7 +161,7 @@ def _axis_from_benches(
         warnings.append(f"{axis} chance_corrected differs from item-derived mean; stale/inconsistent run JSON")
     ci = bootstrap.stratified_mean_ci(axis_values, [value for bench in source_names for value in strata.get(bench, [])], iters=iters, seed=SEED)
     axis_score: JsonObject = score_interval(point, ci["lo"], ci["hi"]) | {
-        "n": sum(n_by_bench),
+        "n": len(axis_values),
         "n_errors": sum(_int(aggregate.get("n_errors"), f"{bench}.n_errors") for bench, aggregate in zip(source_names, aggregates, strict=True)),
         "n_no_answer": sum(_int(aggregate.get("n_extraction_failures"), f"{bench}.n_extraction_failures") + no_answer.get(bench, 0) for bench, aggregate in zip(source_names, aggregates, strict=True)),
         "raw_accuracy": _weighted_bench_value(source_names, aggregates, n_by_bench, "raw_accuracy"),

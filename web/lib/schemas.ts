@@ -249,10 +249,7 @@ const SeasonBridgeSchema = z.object({
     composite_v3: ScoreSchema,
   }).passthrough(),
   season_2: z.object({
-    // Both season-2 editorial scales: index-v4.0 (20/24/24/24/8, pre-reweight
-    // history) and index-v4.1 (25/22.5/22.5/22.5/7.5). Bridges regenerated
-    // after the v4.1 re-score carry v4.1; committed v4.0 bridges stay parseable.
-    index_version: z.enum(["index-v4.0", "index-v4.1"]),
+    index_version: z.enum(["index-v4.0", "index-v4.1", "index-v4.2"]),
     composite_v4: ScoreSchema,
   }).passthrough(),
 }).passthrough();
@@ -314,8 +311,8 @@ export const IndexDataSchema = z.object({
   models: z.array(IndexModelSchema),
 });
 
-// Supplementary "Agentic" column data from web/public/data/agentic.json. Ranked Index math still
-// comes from the board axis registry; this join only displays historical AppWorld-C funnel ASR.
+// Supplementary "Agentic" column data from web/public/data/agentic.json. Ranked Index math and
+// this display both originate from the ranked records' AppWorld item verdicts.
 export const AgenticModelSchema = z.object({
   asr: z.number(),
   asr_pct: z.number(),
@@ -347,6 +344,7 @@ export const ModelRunSchema = z.object({
   index_version: z.string().optional(),
   season_bridge: SeasonBridgeSchema.optional(),
   axes: AxesSchema,
+  diagnostics: AxesSchema.optional(),
   axis_status: AxisStatusSchema.optional(),
   tier: z.string().nullable(),
   lane: z.string().nullable(),
@@ -422,6 +420,7 @@ export const RunDetailSchema = z.object({
   legacy_composite: ScoreSchema.nullable().optional(),
   season_bridge: SeasonBridgeSchema.optional(),
   axes: AxesSchema,
+  diagnostics: AxesSchema.optional(),
   axis_status: AxisStatusSchema.optional(),
   worst_axis: z.object({
     bench: z.string(),

@@ -46,7 +46,7 @@ const ProjectionAxisSchema = z.object({
 });
 // Headline axes are weighted by the index; suites also emit diagnostic axes
 // (e.g. long_context, not_measured) that the CLI includes and the composite ignores.
-// Bound the record for safety but do not allowlist names to the six headline axes,
+// Bound the record for safety but do not allowlist names to the five headline axes,
 // or every real submission carrying a diagnostic axis would be rejected.
 const ProjectionAxesSchema = z.record(boundedSafeString(40, 1), ProjectionAxisSchema)
   .refine((axes) => Object.keys(axes).length > 0 && Object.keys(axes).length <= 16, {
@@ -62,7 +62,7 @@ export const ACCEPTED_PROJECTION_SUITE_RELEASE_IDS = [
   "suite-v1-static-core-diag-v1",
   "suite-v2-full-exec-tooluse-5axis-v2",
 ] as const;
-export const ACCEPTED_PROJECTION_INDEX_VERSIONS = ["index-v3.0", "index-v4.0", "index-v4.1"] as const;
+export const ACCEPTED_PROJECTION_INDEX_VERSIONS = ["index-v3.0", "index-v4.0", "index-v4.1", "index-v4.2"] as const;
 export const ACCEPTED_PROJECTION_RESCORE_MODE_KEYS = [
   "amo",
   "appworld_c",

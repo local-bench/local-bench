@@ -34,7 +34,7 @@ describe("accepted projection security bounds", () => {
     expect(result.success).toBe(true);
   });
 
-  it("accepts a structurally valid diagnostic axis beyond the six headline axes", () => {
+  it("accepts a structurally valid diagnostic axis beyond the five headline axes", () => {
     // Given: a projection carrying a not-measured diagnostic axis (e.g. long_context),
     // which suites legitimately emit and the CLI includes; the composite ignores it.
     const projection = validProjection();

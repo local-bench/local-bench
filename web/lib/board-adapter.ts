@@ -197,7 +197,9 @@ export function adaptLegacyBoardRow(value: LiveBoardRow): AdaptedBoardRow {
 }
 
 export function publicProtocolLabel(indexVersion: string | null | undefined): string {
-  return indexVersion === "index-v4.1" ? "LB-2026-07" : indexVersion ?? "protocol unavailable";
+  if (indexVersion === "index-v4.2") return "LB-2026-07.2";
+  if (indexVersion === "index-v4.1") return "LB-2026-07";
+  return indexVersion ?? "protocol unavailable";
 }
 
 function adaptRow(row: z.infer<typeof UnifiedBoardRowSchema>): AdaptedBoardRow {

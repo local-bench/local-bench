@@ -10,7 +10,7 @@ export const INDEX_AXIS_WEIGHTS = {
   math: 0.05,
 } as const satisfies Readonly<Record<AxisKey, number>>;
 
-// index-v4.1 weights — MUST match cli/src/localbench/scoring/axes.py AXES.
+// index-v4.2 weights — MUST match cli/src/localbench/scoring/axes.py AXES.
 // Agentic macro-axis (key tool_use) 0.25; the other four = old values x 15/16.
 export const SEASON_2_AXIS_WEIGHTS = {
   knowledge: 0.225,

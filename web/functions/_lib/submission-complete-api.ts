@@ -10,7 +10,11 @@ import { isRecord, reject, ticketExpired } from "./submission-api-common";
 import { completionRateLimit, readCompletionBody } from "./submission-complete-guard";
 import { rebuildCommunityLiveBoard } from "./community-live-board";
 import { persistProjectionAndReference } from "./publication-storage";
-import { publishProjectionRejection, type PublishProjectionRejection } from "./submission-publish-validation";
+import {
+  HEADLINE_AXIS_COUNT,
+  publishProjectionRejection,
+  type PublishProjectionRejection,
+} from "./submission-publish-validation";
 import { validateSubmittedProjection } from "./submission-projection-validation";
 import { sha256Hex } from "./submission-canonical";
 import { rawBundleKey, rawBundleMetadata, verifyRawBundle } from "./submission-storage";
@@ -186,7 +190,7 @@ async function rejectComplete(
 function completeRejectionMessage(
   reason: PublishProjectionRejection | "bundle_too_large" | "upload_exceeds_ticket_limit" | "upload_size_mismatch",
 ): string {
-  if (reason === "incomplete_run") return "all six headline axes must be measured";
+  if (reason === "incomplete_run") return `all ${HEADLINE_AXIS_COUNT} headline axes must be measured`;
   if (reason === "bundle_too_large") return "uploaded bundle exceeds the server upload limit";
   if (reason === "upload_exceeds_ticket_limit") return "uploaded bundle exceeds the ticket-specific byte limit";
   if (reason === "upload_size_mismatch") return "uploaded bundle size does not match the signed declaration";

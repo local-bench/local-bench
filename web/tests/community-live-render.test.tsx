@@ -136,9 +136,11 @@ describe("live-only community links", () => {
     expect(html).toContain("h-1 overflow-hidden rounded-full");
     expect(html).toContain('title="n=400 scored items"');
     expect(visibleText).not.toContain("n=");
-    expect(html).toContain("AppWorld facet only");
-    expect(html).toContain("Call formatting (tc_json)");
+    expect(html).toContain("AppWorld task-goal completion");
+    expect(html).toContain("Call formatting");
+    expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
     expect(html).toContain("RULER 32K");
+    expect(html).toContain("not measured");
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b7421");
     expect(html).toContain("RTX 5090 · 32 GB");

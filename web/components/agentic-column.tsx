@@ -2,7 +2,7 @@ import { axisColor } from "@/lib/axis-config";
 import type { AgenticModel, AxisScore } from "@/lib/schemas";
 
 export const AGENTIC_COLUMN_TOOLTIP =
-  "Agentic | AppWorld-C interactive API-coding success rate | 40% of the Local Intelligence Index | " +
+  "Agentic | AppWorld task-goal completion on the fixed 96-task subset | 25% of the Local Intelligence Index | " +
   "Near-floor for all current local entrants, so it separates today's rows by only a few points — " +
   "compare the per-axis columns and the Static Index alongside the headline composite";
 
