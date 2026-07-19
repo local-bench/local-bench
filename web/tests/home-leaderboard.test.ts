@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HomeLeaderboard, sortLeaderboardRows } from "../components/home-leaderboard";
+import { ProjectRunBadge } from "../components/leaderboard-provenance";
 import { IndexModelSchema, ModelSlugSchema, RunIdSchema, type IndexModel } from "../lib/schemas";
 
 const AXIS_SCORE = {
@@ -92,6 +93,18 @@ describe("home leaderboard provenance labels", () => {
     expect(html).toContain("Run by");
     expect(html.match(/project run/giu)).toHaveLength(1);
     expect(html).not.toContain("attested");
+  });
+
+  it("uses the server-owned badge before the legacy origin fallback", () => {
+    const authoritative = renderToStaticMarkup(
+      createElement(ProjectRunBadge, { badge: "project-run", origin: "community" }),
+    );
+    const legacy = renderToStaticMarkup(
+      createElement(ProjectRunBadge, { origin: "project_anchor" }),
+    );
+
+    expect(authoritative).toContain("project run");
+    expect(legacy).toContain("project run");
   });
 
   it("renders community agentic provenance and submitter display names as plain text", () => {

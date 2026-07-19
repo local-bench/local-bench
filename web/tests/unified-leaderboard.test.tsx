@@ -43,11 +43,12 @@ const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) 
   indexVersion: "index-v4.1",
   submitterDisplayName: "Ada",
   axes: {
-    coding: { ci: [0.4, 0.5], n: 10, score: 0.45, status: "measured" },
-    instruction: { ci: [0.5, 0.6], n: 10, score: 0.55, status: "measured" },
+    agentic: { ci: [0.4, 0.5], n: 10, score: 0.41, status: "measured" },
+    coding: { ci: [0.4, 0.5], n: 10, score: 0.42, status: "measured" },
+    instruction_following: { ci: [0.5, 0.6], n: 10, score: 0.55, status: "measured" },
     knowledge: { ci: [0.6, 0.7], n: 10, score: 0.65, status: "measured" },
     math: { ci: [0.7, 0.8], n: 10, score: 0.75, status: "measured" },
-    tool_use: { ci: [0.4, 0.5], n: 10, score: 0.45, status: "measured" },
+    tool_calling: { ci: [0.4, 0.5], n: 10, score: 0.85, status: "measured" },
   },
   trust: {
     agentic_provenance: "self_reported",
@@ -73,6 +74,12 @@ describe("unified leaderboard community rows", () => {
     expect(rowHtml).toContain("Qwythos-9B v2");
     expect(rowHtml).toContain("submitted as Ada — unverified");
     expect(rowHtml).toContain('href="/model/ranked-2"');
+    expect(rowHtml).toContain("41.0");
+    expect(rowHtml).toContain("42.0");
+    expect(rowHtml).toContain("55.0");
+    expect(rowHtml).toContain("65.0");
+    expect(rowHtml).toContain("75.0");
+    expect(rowHtml).toContain("85.0");
     expect(rowHtml).not.toContain("re-scored");
     expect(html).toContain("Swipe horizontally for scores and axes");
     expect(rankCellHtml).not.toContain("—");
@@ -97,7 +104,7 @@ describe("unified leaderboard community rows", () => {
       ...rankedModel(6, 50),
       axes: {
         ...rankedModel(6, 50).axes,
-        instruction: {
+        instruction_following: {
           hi: 51,
           lo: 49,
           n: 10,
@@ -109,7 +116,7 @@ describe("unified leaderboard community rows", () => {
       },
     };
     const rows = filterUnifiedLeaderboardRows([rankedWithInstruction], liveCommunityRows);
-    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction", direction: "desc" });
+    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction_following", direction: "desc" });
 
     expect(sorted.map((row) => row.source)).toEqual(["community", "local-bench"]);
   });
@@ -119,16 +126,16 @@ describe("unified leaderboard community rows", () => {
     if (fixture === undefined) throw new Error("missing live community fixture");
     const fraction = {
       ...fixture,
-      axes: { ...fixture.axes, instruction: { ci: null, n: 10, score: 0.9, status: "measured" as const } },
+      axes: { ...fixture.axes, instruction_following: { ci: null, n: 10, score: 0.9, status: "measured" as const } },
       submissionId: "ticket_fraction",
     };
     const percentage = {
       ...fixture,
-      axes: { ...fixture.axes, instruction: { ci: null, n: 10, score: 42, status: "measured" as const } },
+      axes: { ...fixture.axes, instruction_following: { ci: null, n: 10, score: 42, status: "measured" as const } },
       submissionId: "ticket_percentage",
     };
     const rows = filterUnifiedLeaderboardRows([], [percentage, fraction]);
-    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction", direction: "desc" });
+    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction_following", direction: "desc" });
 
     expect(sorted.map((row) => row.source === "community" ? row.row.submissionId : row.model.slug)).toEqual([
       "ticket_fraction",

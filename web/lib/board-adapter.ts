@@ -8,6 +8,7 @@ function safeText(maxCodePoints: number) {
 const SAFE_TEXT = safeText(300);
 const SCORE = z.number().finite().min(0).max(100);
 const TIMESTAMP = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
+const SHA256 = z.string().regex(/^[0-9a-f]{64}$/u);
 const AXIS = z.object({
   ci: z.tuple([SCORE, SCORE]).nullable().optional(),
   n: z.number().int().nonnegative().max(10_000_000).default(0),
@@ -34,6 +35,7 @@ const SUBMITTER = z.object({
   display_name: safeText(80).nullable().optional(),
   github_login: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u).nullable().optional(),
   key_fingerprint: z.string().regex(/^[0-9a-f]{12}$/u).nullable().optional(),
+  unverified_handle: safeText(80).nullable().optional(),
 }).passthrough().readonly();
 const TIMESTAMPS = z.object({
   published_at: TIMESTAMP,
@@ -43,9 +45,33 @@ const TIMESTAMPS = z.object({
 const LINEAGE = z.object({
   base_model: z.array(SAFE_TEXT).max(8).readonly().default([]),
 }).passthrough().readonly();
+const LINEAGE_ENRICHMENT = z.object({
+  artifact_sha256: SHA256,
+  association: z.object({
+    artifact_to_repo: z.literal("unverified"),
+    basis: z.literal("maintainer-associated"),
+    note: SAFE_TEXT,
+  }).passthrough().readonly(),
+  card_declared_edges: z.array(z.object({
+    base: SAFE_TEXT,
+    base_revision: z.string().regex(/^[0-9a-f]{40}$/u).nullable(),
+    child: SAFE_TEXT,
+    child_revision: z.string().regex(/^[0-9a-f]{40}$/u),
+    source: z.enum(["hf-model-card", "maintainer-asserted"]),
+  }).passthrough().readonly()).readonly(),
+  repo: z.object({
+    id: SAFE_TEXT,
+    revision: z.string().regex(/^[0-9a-f]{40}$/u),
+  }).passthrough().readonly(),
+  resolution: z.object({
+    resolved_at: TIMESTAMP,
+    status: z.enum(["complete", "truncated", "partial"]),
+  }).passthrough().readonly(),
+}).passthrough().readonly();
 
 export const LiveBoardRowSchema = z.object({
   axes: AXES,
+  badge: z.literal("project-run").optional(),
   community_model_group_id: SAFE_TEXT,
   conformance: z.record(z.string(), z.unknown()).default({}),
   coverage_profile_id: SAFE_TEXT,
@@ -53,7 +79,7 @@ export const LiveBoardRowSchema = z.object({
   headline_complete: z.boolean(),
   index_version: SAFE_TEXT.nullable(),
   lineage: LINEAGE,
-  lineage_enrichment: z.record(z.string(), z.unknown()).optional(),
+  lineage_enrichment: LINEAGE_ENRICHMENT.optional(),
   model: MODEL,
   origin: z.enum(["community", "project_anchor"]),
   receipt_references: z.record(z.string(), z.unknown()).default({}),
@@ -69,15 +95,17 @@ export const LiveBoardRowSchema = z.object({
 
 const UnifiedBoardRowSchema = z.object({
   axes: AXES.default({}),
+  badge: z.literal("project-run").optional(),
   community_model_group_id: SAFE_TEXT.optional(),
   global_rank: z.number().int().positive().nullable().optional(),
   headline_complete: z.boolean(),
   index_version: SAFE_TEXT.nullable().optional(),
   lineage: LINEAGE.optional(),
-  lineage_enrichment: z.record(z.string(), z.unknown()).optional(),
+  lineage_enrichment: LINEAGE_ENRICHMENT.optional(),
   model: MODEL,
   origin: z.enum(["community", "project_anchor"]),
   rank: z.number().int().positive().nullable().optional(),
+  ranked: z.boolean().optional(),
   scores: SCORES,
   submission_id: SAFE_TEXT,
   submitter: SUBMITTER.optional().default({}),
@@ -98,6 +126,7 @@ export type LiveBoardRow = z.infer<typeof LiveBoardRowSchema>;
 export type AdaptedBoardRow = {
   readonly artifactSha256: string;
   readonly axes: z.infer<typeof AXES>;
+  readonly badge?: "project-run";
   readonly communityModelGroupId: string | undefined;
   readonly compositeFull: number | null;
   readonly declaredBaseModels: readonly string[];
@@ -106,15 +135,16 @@ export type AdaptedBoardRow = {
   readonly globalRank: number | null;
   readonly headlineComplete: boolean;
   readonly indexVersion: string | null;
-  readonly lineageEnrichment: Readonly<Record<string, unknown>> | undefined;
+  readonly lineageEnrichment: z.infer<typeof LINEAGE_ENRICHMENT> | undefined;
   readonly origin: "community" | "project_anchor";
   readonly quantLabel: string | null;
+  readonly ranked: boolean;
   readonly submissionId: string;
   readonly submitterDisplayName: string | null;
   readonly submitterGithubLogin: string | null;
   readonly submitterKeyFingerprint: string | null;
   readonly timestamps: z.infer<typeof TIMESTAMPS> | null;
-  readonly trust: Readonly<Record<string, unknown>> | null;
+  readonly trust?: Readonly<Record<string, unknown>>;
 };
 
 export type ParsedBoardEnvelope = {
@@ -155,7 +185,8 @@ export function publicProtocolLabel(indexVersion: string | null | undefined): st
 function adaptRow(row: z.infer<typeof UnifiedBoardRowSchema>): AdaptedBoardRow {
   return {
     artifactSha256: row.model.file_sha256,
-    axes: row.axes,
+    axes: normalizeAxes(row.axes),
+    ...(row.badge === undefined ? {} : { badge: row.badge }),
     communityModelGroupId: row.community_model_group_id,
     compositeFull: row.scores.composite_full ?? row.scores.headline_score ?? row.scores.composite ?? null,
     declaredBaseModels: row.lineage?.base_model ?? [],
@@ -167,11 +198,46 @@ function adaptRow(row: z.infer<typeof UnifiedBoardRowSchema>): AdaptedBoardRow {
     lineageEnrichment: row.lineage_enrichment,
     origin: row.origin,
     quantLabel: row.model.quant_label ?? null,
+    ranked: row.ranked ?? row.headline_complete,
     submissionId: row.submission_id,
-    submitterDisplayName: row.submitter.display_name ?? null,
+    submitterDisplayName: row.submitter.display_name ?? row.submitter.unverified_handle ?? null,
     submitterGithubLogin: row.submitter.github_login ?? null,
     submitterKeyFingerprint: row.submitter.key_fingerprint ?? null,
     timestamps: row.timestamps ?? null,
-    trust: row.trust ?? null,
+    ...(row.trust === undefined ? {} : { trust: row.trust }),
   };
+}
+
+const LEGACY_AXIS_NAMES: Readonly<Record<string, string>> = {
+  call_formatting: "tool_calling",
+  instruction: "instruction_following",
+  tool_use: "agentic",
+};
+
+export function canonicalBoardAxisName(axis: string): string {
+  return LEGACY_AXIS_NAMES[axis] ?? axis;
+}
+
+export function boardAxisValue<T>(axes: Readonly<Record<string, T>>, axis: string): T | undefined {
+  const canonical = canonicalBoardAxisName(axis);
+  const canonicalValue = axes[canonical];
+  if (canonicalValue !== undefined) return canonicalValue;
+  for (const [legacy, canonicalName] of Object.entries(LEGACY_AXIS_NAMES)) {
+    if (canonicalName !== canonical) continue;
+    const legacyValue = axes[legacy];
+    if (legacyValue !== undefined) return legacyValue;
+  }
+  return undefined;
+}
+
+function normalizeAxes(axes: z.infer<typeof AXES>): z.infer<typeof AXES> {
+  const normalized = { ...axes };
+  for (const [legacy, canonical] of Object.entries(LEGACY_AXIS_NAMES)) {
+    const legacyAxis = normalized[legacy];
+    if (legacyAxis !== undefined && normalized[canonical] === undefined) {
+      normalized[canonical] = legacyAxis;
+    }
+    delete normalized[legacy];
+  }
+  return normalized;
 }

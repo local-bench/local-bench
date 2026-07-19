@@ -41,18 +41,19 @@ function mergeCommunityRow(
     headlineComplete: live.headlineComplete,
     identityLabel: baked?.identityLabel ?? "community-declared, identity-unverified",
     indexVersion: live.indexVersion,
-    lineage: baked?.lineage,
+    lineage: baked?.lineage ?? live.lineageEnrichment,
     measuredHeadlineWeight: measuredWeight(live),
     missingHeadlineWeight: live.headlineComplete ? 0 : baked?.missingHeadlineWeight ?? null,
     origin: "community",
     partialComposite: live.compositeFull ?? baked?.partialComposite ?? null,
     quantLabel: live.quantLabel,
+    ranked: live.ranked,
     submissionId: live.submissionId,
     submitterDisplayName: live.submitterDisplayName,
     submitterGithubLogin: live.submitterGithubLogin,
     submitterKeyFingerprint: live.submitterKeyFingerprint,
     ...(live.timestamps === null ? {} : { timestamps: live.timestamps }),
-    ...(live.trust === null ? {} : { trust: live.trust }),
+    ...(live.trust === undefined ? {} : { trust: live.trust }),
   };
 }
 
@@ -66,5 +67,5 @@ function isAdaptedBoardRow(row: AdaptedBoardRow | LiveBoardRow): row is AdaptedB
 function measuredWeight(row: AdaptedBoardRow): number | null {
   if (row.headlineComplete) return 1;
   const measured = Object.values(row.axes).filter((axis) => axis.status === "measured").length;
-  return measured === 0 ? null : measured / 5;
+  return measured === 0 ? null : measured / 6;
 }

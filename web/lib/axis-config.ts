@@ -21,6 +21,7 @@ const DEFAULT_AXIS_COLOR = "#3fd0d48c";
 
 const COLORS: ReadonlyMap<string, string> = new Map([
   ...AXIS_CONFIG.map((axis) => [axis.key, axis.color] as const),
+  ["instruction_following", "#b388ff"],
   ["tool_use", "#ffb627"],
 ]);
 
@@ -32,7 +33,10 @@ export type AxisKey = (typeof AXIS_CONFIG)[number]["key"];
 
 export const AXIS_KEYS: readonly AxisKey[] = AXIS_CONFIG.map((axis) => axis.key);
 
-const LABELS: ReadonlyMap<string, string> = new Map(AXIS_CONFIG.map((axis) => [axis.key, axis.label]));
+const LABELS: ReadonlyMap<string, string> = new Map([
+  ...AXIS_CONFIG.map((axis) => [axis.key, axis.label] as const),
+  ["instruction_following", "Instruction following"],
+]);
 
 export function isAxisKey(key: string): boolean {
   return LABELS.has(key);

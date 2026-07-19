@@ -4,6 +4,7 @@ import {
   reconcileCommunityRows,
   type LiveBoardRow,
 } from "../lib/community-live";
+import { axisLabel } from "../lib/axis-config";
 import type { CommunityBoardRow } from "../lib/community-data";
 
 const GROUP_ID = `community-group:${"1".repeat(32)}`;
@@ -165,6 +166,37 @@ describe("community live board boundary", () => {
   it("tolerates additive envelope fields", () => {
     expect(parseCommunityLiveBoard({ ...envelope([liveRow()]), unexpected: true })).toMatchObject({ droppedRows: 0 });
   });
+
+  it("adapts the final submitter handle and server-owned project badge", () => {
+    const parsed = parseCommunityLiveBoard(envelope([{
+      ...liveRow({ origin: "project_anchor" }),
+      badge: "project-run",
+      submitter: { github_login: null, key_fingerprint: null, unverified_handle: "Ada Runner" },
+    }]));
+
+    expect(parsed?.rows[0]).toMatchObject({
+      badge: "project-run",
+      submitterDisplayName: "Ada Runner",
+    });
+  });
+
+  it("normalizes legacy live axis keys without overriding canonical values", () => {
+    const parsed = parseCommunityLiveBoard(envelope([liveRow({
+      axes: {
+        agentic: { ci: null, n: 1, score: 0.8, status: "measured" },
+        call_formatting: { ci: null, n: 1, score: 0.6, status: "measured" },
+        tool_use: { ci: null, n: 1, score: 0.4, status: "measured" },
+      },
+    })]));
+
+    expect(parsed?.rows[0]?.axes).toMatchObject({
+      agentic: { score: 0.8 },
+      tool_calling: { score: 0.6 },
+    });
+    expect(parsed?.rows[0]?.axes).not.toHaveProperty("tool_use");
+    expect(parsed?.rows[0]?.axes).not.toHaveProperty("call_formatting");
+    expect(axisLabel("instruction_following")).toBe("Instruction following");
+  });
 });
 
 describe("community live reconciliation", () => {
@@ -190,6 +222,31 @@ describe("community live reconciliation", () => {
     })]);
 
     expect(merged).toMatchObject({ detailPath: null, displayName: "Live model" });
+  });
+
+  it("keeps live lineage enrichment when no baked row exists", () => {
+    const [merged] = reconcileCommunityRows([], [liveRow({ lineage_enrichment: bakedLineage })]);
+
+    expect(merged?.lineage).toEqual(bakedLineage);
+  });
+
+  it("uses all six axes when estimating legacy partial measured weight", () => {
+    const measured = { ci: null, n: 1, score: 0.5, status: "measured" as const };
+    const missing = { ci: null, n: 0, score: null, status: "not_measured" as const };
+    const [merged] = reconcileCommunityRows([], [liveRow({
+      axes: {
+        agentic: measured,
+        coding: measured,
+        instruction_following: measured,
+        knowledge: missing,
+        math: missing,
+        tool_calling: missing,
+      },
+      headline_complete: false,
+      scores: { composite_full: null },
+    })]);
+
+    expect(merged?.measuredHeadlineWeight).toBe(0.5);
   });
 
   it("drops a baked row absent after a successful live fetch", () => {

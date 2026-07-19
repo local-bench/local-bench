@@ -258,6 +258,7 @@ const SeasonBridgeSchema = z.object({
 }).passthrough();
 
 export const IndexModelSchema = z.object({
+  badge: z.literal("project-run").optional(),
   slug: ModelSlugSchema,
   catalog_id: z.string().nullable().optional(),
   model_label: z.string(),

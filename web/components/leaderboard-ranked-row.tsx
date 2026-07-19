@@ -14,6 +14,7 @@ import {
   ToolUseCell,
 } from "@/components/leaderboard-table-cells";
 import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds } from "@/lib/format";
+import { boardAxisValue } from "@/lib/board-adapter";
 import { scoreForMode, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { displayIndexVersion } from "@/lib/scoring-seasons";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
@@ -75,9 +76,9 @@ export function LeaderboardRankedRow({
       {showStaticIndexColumn ? <td className="px-3 py-3"><StaticIndexCell model={model} /></td> : null}
       {axisKeys.map((axisKey) => (
         <td key={axisKey} className="px-3 py-3">
-          {axisKey === "tool_use"
+          {season2 && axisKey === "agentic"
             ? <ToolUseCell model={model} />
-            : <AxisMiniBar score={model.axes[axisKey]} axis={axisKey} />}
+            : <AxisMiniBar score={boardAxisValue(model.axes, axisKey)} axis={axisKey} />}
         </td>
       ))}
       {showAgenticColumn ? (

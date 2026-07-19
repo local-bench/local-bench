@@ -1,4 +1,5 @@
 import type { CommunityBoardRow } from "./community-data";
+import { boardAxisValue } from "./board-adapter";
 import { isFullIndexRow } from "./leaderboard-score";
 import {
   AGENTIC_SORT_KEY,
@@ -80,7 +81,7 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
     case "benchtime":
       return null;
     default: {
-      const axis = row.axes?.[key];
+      const axis = boardAxisValue(row.axes ?? {}, key);
       return axis?.status === "measured" && axis.score !== null && axis.score !== undefined
         ? normalizePercent(axis.score)
         : null;

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { KeyboardEvent } from "react";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { boardAxisValue } from "@/lib/board-adapter";
 import { formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 
@@ -87,7 +88,7 @@ function CommunityAxisCell({ axis, row }: { readonly axis: string; readonly row:
 }
 
 function CommunityAxisValue({ axis, row }: { readonly axis: string; readonly row: CommunityBoardRow }) {
-  const value = row.axes?.[axis];
+  const value = boardAxisValue(row.axes ?? {}, axis);
   if (value === undefined) return <span className="font-mono text-[10px] text-bench-muted">—</span>;
   if (value.status !== "measured" || value.score === null || value.score === undefined) {
     return <span className="font-mono text-[10px] text-bench-muted">{value.status.replace("_", " ")}</span>;

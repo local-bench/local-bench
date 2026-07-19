@@ -1,4 +1,5 @@
 import { runtimeSortLabel } from "./runtime-display";
+import { boardAxisValue } from "./board-adapter";
 import { scoreForMode, type LeaderboardScoreMode } from "./leaderboard-score";
 import type { AgenticModel, IndexModel } from "./schemas";
 import { isTrustedPopulation } from "./trusted-population";
@@ -97,7 +98,7 @@ export function leaderboardSortValue(
     case "benchtime":
       return model.wall_time_seconds ?? null;
     default:
-      return model.axes[key]?.point ?? null;
+      return boardAxisValue(model.axes, key)?.point ?? null;
   }
 }
 

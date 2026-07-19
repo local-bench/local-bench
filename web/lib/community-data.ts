@@ -140,7 +140,7 @@ export type CommunityBoardRow = {
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
   readonly origin?: "community";
-  readonly ranked?: false;
+  readonly ranked?: boolean;
   readonly partialComposite: number | null;
   readonly quantLabel: string | null;
   readonly submissionId: string;
@@ -148,7 +148,7 @@ export type CommunityBoardRow = {
   readonly submitterGithubLogin?: string | null;
   readonly submitterKeyFingerprint?: string | null;
   readonly timestamps?: AdaptedBoardRow["timestamps"];
-  readonly trust?: AdaptedBoardRow["trust"];
+  readonly trust?: AdaptedBoardRow["trust"] | null;
 };
 
 export type CommunityModelTarget = {

@@ -77,6 +77,29 @@ describe("live-only community links", () => {
     expect(html).not.toContain('href="https://github.com/');
   });
 
+  it("renders canonical live axes under legacy baked board columns", () => {
+    const html = renderToStaticMarkup(
+      <table><tbody><CommunityLeaderboardRow
+        axisKeys={["tool_use", "instruction", "tool_calling"]}
+        rank={1}
+        row={{
+          ...liveOnlyRow,
+          axes: {
+            agentic: { ci: null, n: 10, score: 0.71, status: "measured" },
+            instruction_following: { ci: null, n: 10, score: 0.66, status: "measured" },
+            tool_calling: { ci: null, n: 10, score: 0.81, status: "measured" },
+          },
+        }}
+        showAgenticColumn={false}
+        showStaticIndexColumn={false}
+      /></tbody></table>,
+    );
+
+    expect(html).toContain("71.0");
+    expect(html).toContain("66.0");
+    expect(html).toContain("81.0");
+  });
+
   it("renders live freshness, held-back rows, and honest snapshot fallback copy", () => {
     const live = renderToStaticMarkup(<CommunityFreshness state={{
       droppedRows: 2,

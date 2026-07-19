@@ -18,10 +18,18 @@ const AXES = {
   math: axis(54),
   tool_use: axis(42),
 };
+const LIVE_AXES = {
+  agentic: axis(42),
+  coding: axis(58),
+  instruction_following: axis(62),
+  knowledge: axis(66),
+  math: axis(54),
+  tool_calling: axis(10),
+};
 
 const COMPLETE_COMMUNITY_ROW: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
-  axes: Object.fromEntries(Object.entries(AXES).map(([key, value]) => [key, {
+  axes: Object.fromEntries(Object.entries(LIVE_AXES).map(([key, value]) => [key, {
     ci: [value.lo / 100, value.hi / 100],
     n: value.n,
     score: value.point / 100,
@@ -55,7 +63,7 @@ describe("Simplicity Reset SITE contract", () => {
     const parsed = parseCommunityLiveBoard({
       generated_at: "2026-07-19T00:00:00Z",
       rows: [{
-        axes: Object.fromEntries(Object.entries(AXES).map(([key, value]) => [key, {
+        axes: Object.fromEntries(Object.entries(LIVE_AXES).map(([key, value]) => [key, {
           ci: [value.lo / 100, value.hi / 100],
           n: value.n,
           score: value.point / 100,
@@ -73,13 +81,19 @@ describe("Simplicity Reset SITE contract", () => {
         origin: "community",
         scores: { composite_full: 0.57, headline_score: 0.57 },
         submission_id: `ticket_${"2".repeat(32)}`,
-        submitter: { display_name: "Ada" },
+        submitter: { unverified_handle: "Ada" },
       }],
     });
 
     expect(parsed).toMatchObject({
       droppedRows: 0,
-      rows: [{ globalRank: 2, headlineComplete: true, origin: "community" }],
+      rows: [{
+        axes: expect.objectContaining({ agentic: expect.anything(), tool_calling: expect.anything() }),
+        globalRank: 2,
+        headlineComplete: true,
+        origin: "community",
+        submitterDisplayName: "Ada",
+      }],
     });
   });
 

@@ -60,7 +60,7 @@ export function LeaderboardTable({
             {axisKeys.map((axis) => (
               <SortableHeader
                 key={axis}
-                label={axis === "tool_use" ? <ToolUseHeaderLabel /> : axisLabel(axis)}
+                label={season2 && axis === "agentic" ? <ToolUseHeaderLabel /> : axisLabel(axis)}
                 sortKey={axis}
                 sort={sort}
                 onSort={setSort}

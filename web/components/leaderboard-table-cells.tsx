@@ -207,9 +207,7 @@ export function CompositeHeaderLabel({ scoreMode, season2 }: { readonly scoreMod
 
 export function axisColumns(models: readonly IndexModel[]): readonly string[] {
   if (models.some((model) => displayIndexVersion(model) === INDEX_VERSION_V4)) {
-    return ["tool_use", "knowledge", "instruction", "coding", "math"].filter((axis) =>
-      models.some((model) => model.axes[axis] !== undefined),
-    );
+    return ["agentic", "knowledge", "instruction_following", "coding", "math", "tool_calling"];
   }
   const present = new Set<string>();
   for (const model of models) {
