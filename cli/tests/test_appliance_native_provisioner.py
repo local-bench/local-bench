@@ -42,8 +42,12 @@ def _native_release() -> tuple[bytes, dict[str, object], dict[str, object]]:
     package = b"native-worker\n"
     package_digest = hashlib.sha256(package).digest()
     encoded = base64.urlsafe_b64encode(package_digest).rstrip(b"=").decode("ascii")
+    script = b"#!/opt/localbench/venv/bin/python\n"
+    script_digest = hashlib.sha256(script).digest()
+    script_encoded = base64.urlsafe_b64encode(script_digest).rstrip(b"=").decode("ascii")
     record = (
         f"localbench/__init__.py,sha256={encoded},{len(package)}\n"
+        f"../../../bin/localbench,sha256={script_encoded},{len(script)}\n"
         "local_bench_ai-0.4.3.dist-info/RECORD,,\n"
     ).encode()
     record_digest = hashlib.sha256(record).hexdigest()
@@ -51,6 +55,7 @@ def _native_release() -> tuple[bytes, dict[str, object], dict[str, object]]:
         [
             ["local_bench_ai-0.4.3.dist-info/RECORD", record_digest, len(record)],
             ["localbench/__init__.py", package_digest.hex(), len(package)],
+            ["../../../bin/localbench", script_digest.hex(), len(script)],
         ]
     )
     entrypoint = b"#!/bin/sh\n"
@@ -72,6 +77,7 @@ def _native_release() -> tuple[bytes, dict[str, object], dict[str, object]]:
             ("./etc/wsl.conf", wsl_conf, 0o644),
             ("./opt/localbench/bin/localbench-worker", entrypoint, 0o755),
             ("./opt/localbench/venv/bin/python", b"python\n", 0o755),
+            ("./opt/localbench/venv/bin/localbench", script, 0o755),
             (
                 "./opt/localbench/venv/lib/python3.12/site-packages/localbench/__init__.py",
                 package,

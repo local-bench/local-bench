@@ -154,7 +154,11 @@ def _worker_tree_sha(rootfs: Path) -> str:
             "runtime_mutated", "worker RECORD missing", "Reprovision"
         )
     record = records[0]
-    package_root = record.parent.parent.resolve()
+    package_root = record.parent.parent
+    # The builder admits every RECORD path inside the venv (console scripts are
+    # recorded as ../../../bin/...), so containment is venv-scoped and lexical
+    # to byte-match the signed worker_wheel_tree_sha256.
+    venv_root = Path(os.path.normpath(str(rootfs / "opt/localbench/venv")))
     entries: list[tuple[str, str, int]] = []
     try:
         rows = csv.reader(record.read_text(encoding="utf-8").splitlines())
@@ -162,8 +166,8 @@ def _worker_tree_sha(rootfs: Path) -> str:
             normalized = relative.replace("\\", "/")
             if normalized.endswith((".pyc", ".pyo")) or "/__pycache__/" in normalized:
                 continue
-            path = (package_root / normalized).resolve()
-            if not path.is_relative_to(package_root) or not path.is_file():
+            path = Path(os.path.normpath(str(package_root / normalized)))
+            if not path.is_relative_to(venv_root) or not path.is_file():
                 raise ProvisioningError("runtime_mutated", normalized, "Reprovision")
             data = path.read_bytes()
             digest = hashlib.sha256(data).digest()
