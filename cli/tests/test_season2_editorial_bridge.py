@@ -43,7 +43,7 @@ def test_editorial_label_maps_complete_six_axis_benches_to_current_index() -> No
     assert index_version_for_benches(benches) == INDEX_VERSION_V4
 
 
-def test_season2_rescore_complete_record_emits_v4_strict_composite_and_facets() -> None:
+def test_season2_rescore_complete_record_emits_v4_strict_composite_and_appworld_facet() -> None:
     record = run_record(
         bigcode_correct=(True, False), math_correct=(True, False), lcb_correct=None
     )
@@ -56,13 +56,10 @@ def test_season2_rescore_complete_record_emits_v4_strict_composite_and_facets() 
     assert rescored["coverage_profile_id"] == "full-exec-tooluse-5axis-v2"
     assert rescored["missing_headline_axes"] == []
     assert rescored["composite_v4"] is not None
-    assert set(rescored["axes"]["tool_use"]["facets"]) == {  # type: ignore[index]
-        "agentic",
-        "multi_turn_tool_control",
-    }
+    assert set(rescored["axes"]["tool_use"]["facets"]) == {"agentic"}  # type: ignore[index]
 
 
-def test_season2_rescore_missing_tool_facet_omits_tool_use_and_strict_composite() -> (
+def test_season2_rescore_without_bfcl_diagnostic_keeps_tool_use_and_strict_composite() -> (
     None
 ):
     record = run_record(
@@ -76,9 +73,9 @@ def test_season2_rescore_missing_tool_facet_omits_tool_use_and_strict_composite(
 
     rescored = rescore_record_season2(record, bootstrap_iters=25)
 
-    assert "tool_use" not in rescored["axes"]
-    assert rescored["missing_headline_axes"] == ["tool_use"]
-    assert rescored["composite_v4"] is None
+    assert "tool_use" in rescored["axes"]
+    assert rescored["missing_headline_axes"] == []
+    assert rescored["composite_v4"] is not None
 
 
 def test_bridge_entry_maps_old_agentic_and_tool_calling_to_tool_use_facets() -> None:

@@ -1,0 +1,242 @@
+{
+  "schema_version": "localbench.protocol_manifest.v1",
+  "protocol_id": "index-v4.2",
+  "canonical_sha256": "45416b98cd17b691e9858a02cc74b510d2b8a16aa5d2585d4672212f8044a416",
+  "public_tag": "LB-2026-07.2",
+  "headline_axis_order": [
+    "tool_use",
+    "knowledge",
+    "instruction_following",
+    "coding",
+    "math"
+  ],
+  "web_axis_columns": [
+    "agentic",
+    "knowledge",
+    "instruction_following",
+    "coding",
+    "math"
+  ],
+  "qualifier_weights": "25/22.5/22.5/22.5/7.5",
+  "headline_axis_count": 5,
+  "expected_denominators": {
+    "tool_use": 96,
+    "knowledge": 400,
+    "instruction": 294,
+    "coding": 141,
+    "math": 139
+  },
+  "axes": [
+    {
+      "key": "knowledge",
+      "display": "Knowledge",
+      "web_key": "knowledge",
+      "benches": [
+        "mmlu_pro"
+      ],
+      "legacy_benches": [
+        "supergpqa"
+      ],
+      "role": "headline",
+      "weight": 0.225,
+      "web_display": true,
+      "facets": []
+    },
+    {
+      "key": "instruction_following",
+      "display": "Instruction-Following",
+      "web_key": "instruction",
+      "benches": [
+        "ifbench"
+      ],
+      "legacy_benches": [
+        "ifeval"
+      ],
+      "role": "headline",
+      "weight": 0.225,
+      "web_display": true,
+      "facets": []
+    },
+    {
+      "key": "math",
+      "display": "Math",
+      "web_key": "math",
+      "benches": [
+        "olymmath_hard",
+        "amo"
+      ],
+      "legacy_benches": [
+        "genmath"
+      ],
+      "role": "headline",
+      "weight": 0.075,
+      "web_display": true,
+      "facets": []
+    },
+    {
+      "key": "long_context",
+      "display": "Long-Context",
+      "web_key": "long_context",
+      "benches": [
+        "ruler_32k"
+      ],
+      "legacy_benches": [],
+      "role": "candidate",
+      "weight": 0.0,
+      "web_display": false,
+      "facets": []
+    },
+    {
+      "key": "tool_use",
+      "display": "Agentic",
+      "web_key": "tool_use",
+      "benches": [
+        "appworld_c"
+      ],
+      "legacy_benches": [],
+      "role": "headline",
+      "weight": 0.25,
+      "web_display": true,
+      "facets": [
+        {
+          "key": "agentic",
+          "bench": "appworld_c",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "key": "coding",
+      "display": "Coding",
+      "web_key": "coding",
+      "benches": [
+        "bigcodebench_hard"
+      ],
+      "legacy_benches": [
+        "lcb"
+      ],
+      "role": "headline",
+      "weight": 0.225,
+      "web_display": true,
+      "facets": []
+    },
+    {
+      "key": "call_formatting",
+      "display": "Call Formatting",
+      "web_key": "call_formatting",
+      "benches": [
+        "tc_json_v1"
+      ],
+      "legacy_benches": [],
+      "role": "experimental",
+      "weight": 0.0,
+      "web_display": false,
+      "facets": []
+    },
+    {
+      "key": "bfcl_single_turn",
+      "display": "BFCL Single-Turn",
+      "web_key": "bfcl_single_turn",
+      "benches": [
+        "bfcl"
+      ],
+      "legacy_benches": [],
+      "role": "experimental",
+      "weight": 0.0,
+      "web_display": false,
+      "facets": []
+    },
+    {
+      "key": "bfcl_multi_turn_base",
+      "display": "BFCL v3 Multi-Turn Base (frozen snapshot)",
+      "web_key": "bfcl_multi_turn_base",
+      "benches": [
+        "bfcl_multi_turn_base"
+      ],
+      "legacy_benches": [],
+      "role": "experimental",
+      "weight": 0.0,
+      "web_display": false,
+      "facets": []
+    },
+    {
+      "key": "bfcl_multi_turn_long_context",
+      "display": "BFCL Multi-Turn Long-Context",
+      "web_key": "bfcl_multi_turn_long_context",
+      "benches": [
+        "bfcl_multi_turn_long_context"
+      ],
+      "legacy_benches": [],
+      "role": "experimental",
+      "weight": 0.0,
+      "web_display": false,
+      "facets": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "key": "call_formatting",
+      "label": "Call formatting",
+      "bench": "tc_json_v1"
+    },
+    {
+      "key": "bfcl_single_turn",
+      "label": "BFCL single-turn",
+      "bench": "bfcl"
+    },
+    {
+      "key": "multi_turn_tool_control",
+      "label": "BFCL v3 multi-turn base — frozen snapshot",
+      "bench": "bfcl_multi_turn_base"
+    },
+    {
+      "key": "bfcl_multi_turn_long_context",
+      "label": "BFCL multi-turn long-context",
+      "bench": "bfcl_multi_turn_long_context"
+    },
+    {
+      "key": "long_context",
+      "label": "RULER 32K",
+      "bench": "ruler_32k"
+    }
+  ],
+  "agentic_protocol": {
+    "bench": "appworld_c",
+    "metric": "task-goal completion",
+    "task_denominator": 96,
+    "split": "test_normal",
+    "seed": 20260624,
+    "selection_version": "v1",
+    "selection_recipe": "seeded stratified selection by difficulty band and primary app",
+    "subset_sha256": "7aabcf2af32300cf8769ce63cdc09353e7eab3a8681386d46fb0747950c85095",
+    "ordered_task_ids_sha256": "16394237615c06aa419135cca2543ab66957a6af092e7da817565d3518ee648c",
+    "selection_recipe_sha256": "b785b74c00d7e24b48826a04003b198f123ecd4fc948d0670b3215984111e3e0",
+    "semantic_task_sha256": "e0389b48c3ea240efcb28f397cd7d304d93718d1be943fb6d93bf3d2c8f63fb8"
+  },
+  "scorecard_version": "6",
+  "scorer_versions": {
+    "amo": "1",
+    "appworld_c": "1",
+    "bfcl": "1",
+    "bfcl_multi_turn_base": "1",
+    "bfcl_multi_turn_long_context": "1",
+    "bigcodebench_hard": "1+bcbh-scoreable-v1+bigcodebench-ast-gate-v2+bigcodebench-invert-control-sentinel-v2",
+    "ifbench": "1",
+    "mmlu_pro": "1",
+    "olymmath_hard": "1",
+    "ruler_32k": "1",
+    "tc_json_v1": "1"
+  },
+  "evaluator_versions": {
+    "appworld_c": {
+      "appworld": "0.1.3.post1",
+      "worker_protocol": "localbench.agentic-worker.v1",
+      "worker_version": "0.4.2"
+    },
+    "bigcodebench_hard": {
+      "scoreable_revision": "bcbh-scoreable-v1",
+      "ast_gate_revision": "bigcodebench-ast-gate-v2",
+      "sentinel_revision": "bigcodebench-invert-control-sentinel-v2"
+    }
+  }
+}

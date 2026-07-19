@@ -3,11 +3,9 @@
 This is the single source of truth for normal-run axis membership, composite
 weights, web keys, and roles.
 
-Season 2 uses five weighted headline axes. Agentic (structural key `tool_use`,
-renamed from the "Tool Use" display label at the index-v4.1 reweight) is a
-bench-normalized macro-axis whose declared facet weights are independent of
-item counts. Only the DISPLAY label changed: the axis key, web key, bench
-membership, and facet keys are frozen structural identifiers.
+Season 2 uses five weighted headline axes. Agentic keeps the structural key
+`tool_use`; index-v4.2 defines it as AppWorld task-goal completion only. BFCL
+multi-turn base remains representable as a frozen, unweighted diagnostic.
 
 Coding is BigCodeBench-Hard Instruct generation with verifier-side execution.
 LiveCodeBench (`lcb`) remains a legacy diagnostic bench and is not pooled into
@@ -52,9 +50,8 @@ class Axis:
     facets: tuple[FacetSpec, ...] = ()
 
 
-# index-v4.1 headline weights (2026-07-17 owner reweight): the tool_use macro-axis
-# rises 0.20 -> 0.25; the 5 points are deducted proportionally from the four other
-# weighted axes (each scaled by 0.75/0.80 = 15/16): 0.24 -> 0.225 (x3), 0.08 -> 0.075.
+# index-v4.2 keeps the index-v4.1 headline weights. The measurement-hygiene
+# correction changes only Agentic membership: AppWorld-C is the whole 0.25 axis.
 # All values are exact 2-3 decimal fractions; sum == 1.0 with no rounding residue.
 AXES: Final[tuple[Axis, ...]] = (
     Axis(
@@ -98,22 +95,18 @@ AXES: Final[tuple[Axis, ...]] = (
         False,
     ),
     Axis(
-        # Structural key stays "tool_use" (stored runs, projections, web data keys,
-        # and the suite-v2 release id depend on it); only the display label is
-        # "Agentic". The internal facet split (10/17 AppWorld agentic execution,
-        # 7/17 BFCL multi-turn tool control) is unchanged by the v4.1 reweight.
+        # Structural key stays "tool_use" because stored runs, projections, and
+        # web data depend on it. index-v4.2 makes the public Agentic construct
+        # exactly the AppWorld-C task-goal-completion measurement.
         "tool_use",
         "Agentic",
         "tool_use",
-        ("appworld_c", "bfcl_multi_turn_base"),
+        ("appworld_c",),
         (),
         "headline",
         0.25,
         True,
-        (
-            FacetSpec("agentic", "appworld_c", 0.5882352941176471),
-            FacetSpec("multi_turn_tool_control", "bfcl_multi_turn_base", 0.4117647058823529),
-        ),
+        (FacetSpec("agentic", "appworld_c", 1.0),),
     ),
     Axis(
         "coding",
@@ -140,6 +133,16 @@ AXES: Final[tuple[Axis, ...]] = (
         "BFCL Single-Turn",
         "bfcl_single_turn",
         ("bfcl",),
+        (),
+        "experimental",
+        0.0,
+        False,
+    ),
+    Axis(
+        "bfcl_multi_turn_base",
+        "BFCL v3 Multi-Turn Base (frozen snapshot)",
+        "bfcl_multi_turn_base",
+        ("bfcl_multi_turn_base",),
         (),
         "experimental",
         0.0,

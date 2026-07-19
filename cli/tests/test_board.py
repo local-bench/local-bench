@@ -310,7 +310,7 @@ def test_appworld_c_agentic_facet_contributes_to_tool_use_macro_axis(tmp_path: P
         + (weights["instruction"] * float_value(instruction["point_raw"]))
         + (weights["coding"] * float_value(coding["point_raw"]))
     ) / (weights["tool_use"] + weights["knowledge"] + weights["instruction"] + weights["coding"])
-    assert tool_use["n"] == 6
+    assert tool_use["n"] == 4
     assert tool_use["raw_accuracy"] == pytest.approx(0.5)
     assert composite["point_raw"] == pytest.approx(expected)
     # AppWorld-C uses a SINGLE stratum + scenario cluster so the bootstrap resamples
@@ -461,8 +461,8 @@ def test_inline_agentic_campaign_wins_over_sidecar(tmp_path: Path) -> None:
     # provenance is surfaced on the row.
     model = objects_value(board["models"])[0]
     tool_use = object_value(object_value(model["axes"])["tool_use"])
-    assert tool_use["n"] == 6
-    assert tool_use["raw_accuracy"] == pytest.approx(11 / 17)
+    assert tool_use["n"] == 4
+    assert tool_use["raw_accuracy"] == pytest.approx(0.75)
     provenance = object_value(model["agentic_run"])
     assert provenance["mean_asr"] == pytest.approx(0.75)
     assert provenance["campaign"] is True
@@ -540,7 +540,7 @@ def test_inline_agentic_campaign_with_harness_dominated_diagnostics_is_skipped(t
     assert "inline appworld_c diagnostics are harness dominated" in string_value(inline_skip["reason"])
 
 
-def test_tool_use_axis_surfaces_from_complete_inline_facets(tmp_path: Path) -> None:
+def test_call_formatting_diagnostic_does_not_change_agentic_axis(tmp_path: Path) -> None:
     # Given: a run carrying the inline tc_json_v1 bench (Stage 3b tool-calling axis).
     from localbench.scoring.board import build_board
 
@@ -558,13 +558,13 @@ def test_tool_use_axis_surfaces_from_complete_inline_facets(tmp_path: Path) -> N
         bootstrap_iters=50,
     )
 
-    # Then: tool_use surfaces from both headline facets with declared weights.
+    # Then: the AppWorld-only headline score ignores the call-formatting diagnostic.
     model = objects_value(board["models"])[0]
     axes = object_value(model["axes"])
     assert "tool_use" in axes
     tool = object_value(axes["tool_use"])
     assert_axis(tool)
-    assert tool["n"] == 4
+    assert tool["n"] == 2
     assert tool["raw_accuracy"] == pytest.approx(0.5)
 
 
@@ -786,7 +786,7 @@ def test_board_rejects_mixed_ranked_index_versions(tmp_path: Path) -> None:
     write_run(paths["runs"] / "season-2.json", _bounded_final_v4_run())
     write_run(paths["runs"] / "season-1.json", _bounded_final_v3_run())
 
-    with pytest.raises(BoardBuildError, match="mixed ranked index_version labels: index-v3.0, index-v4.1"):
+    with pytest.raises(BoardBuildError, match="mixed ranked index_version labels: index-v3.0, index-v4.2"):
         build_board(
             runs_dir=paths["runs"],
             curation_path=paths["curation"],

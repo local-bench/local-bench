@@ -123,11 +123,9 @@ def test_v2_tool_use_profile_resolves_and_tracks_live_registry() -> None:
     )
     assert manifest["suite_release_id"] == "suite-v2-full-exec-tooluse-5axis-v2"
     assert manifest["coverage_profile_id"] == profile.profile_id
-    assert manifest["axis_membership"]["tool_use"] == [
-        "appworld_c",
-        "bfcl_multi_turn_base",
-    ]
+    assert manifest["axis_membership"]["tool_use"] == ["appworld_c"]
     assert manifest["axis_membership"]["call_formatting"] == ["tc_json_v1"]
+    assert manifest["axis_membership"]["bfcl_multi_turn_base"] == ["bfcl_multi_turn_base"]
     registry = manifest["axis_membership"]
     assert "agentic" not in registry
     assert "tool_calling" not in registry

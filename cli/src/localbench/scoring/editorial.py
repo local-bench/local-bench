@@ -12,14 +12,15 @@ from localbench.suite_release import (
 )
 
 INDEX_VERSION_V3: Final = "index-v3.0"
-# index-v4.1 = the 2026-07-17 editorial reweight of the season-2 scale (Agentic
-# macro-axis 0.20 -> 0.25, remaining headline axes scaled by 15/16). index-v4.0
-# rows (20/24/24/24/8) are a distinct historical scale; they must be re-scored
-# to carry this label. The frozen accepted-projection v2 contract enum admits
-# index-v3.0/index-v4.0/index-v4.1 (owner-gated additive rev, 2026-07-17); the
-# enum is never narrowed after public exposure.
-INDEX_VERSION_V4: Final = "index-v4.1"
-OLDER_INDEX_VERSIONS: Final = frozenset({INDEX_VERSION_V3, "index-v4.0"})
+# index-v4.1 is the 2026-07-17 season-2 reweight. index-v4.2 keeps those weights
+# and corrects Agentic to AppWorld-only so project and community rows use the
+# same protocol. Historical public labels remain accepted and are never narrowed.
+INDEX_VERSION_V4_1: Final = "index-v4.1"
+INDEX_VERSION_V4_2: Final = "index-v4.2"
+INDEX_VERSION_V4: Final = INDEX_VERSION_V4_2
+OLDER_INDEX_VERSIONS: Final = frozenset(
+    {INDEX_VERSION_V3, "index-v4.0", INDEX_VERSION_V4_1}
+)
 SEASON_2_COVERAGE_PROFILE_ID: Final = "full-exec-tooluse-5axis-v2"
 CURRENT_COVERAGE_PROFILE_IDS: Final = frozenset(
     {

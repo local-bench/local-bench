@@ -12,23 +12,23 @@ from localbench.scoring.axes import web_composite_weights
 from localbench.submissions.foundation_scores import axis_projection, score_summary
 
 
-def test_normal_run_composite_honors_facets_under_skewed_item_counts() -> None:
+def test_normal_run_composite_uses_appworld_only() -> None:
     benches = _skewed_tool_use_benches()
 
-    assert composite(benches) == pytest.approx(10 / 17)
+    assert composite(benches) == pytest.approx(1.0)
 
 
-def test_submission_projection_honors_facets_under_skewed_item_counts() -> None:
+def test_submission_projection_uses_appworld_only() -> None:
     benches = _skewed_tool_use_benches()
     status = axis_status_for_benches(benches)
 
     projection = axis_projection(benches, status)
 
-    assert projection["tool_use"]["score"] == pytest.approx(10 / 17, abs=1e-4)
-    assert projection["tool_use"]["n"] == 146
+    assert projection["tool_use"]["score"] == pytest.approx(1.0, abs=1e-4)
+    assert projection["tool_use"]["n"] == 96
 
 
-def test_board_point_ci_and_source_allocation_honor_facets() -> None:
+def test_board_point_ci_and_source_allocation_use_appworld_only() -> None:
     benches = _json_benches(_skewed_tool_use_benches())
     items = [
         *_items("appworld_c", [True] * 96),
@@ -43,21 +43,22 @@ def test_board_point_ci_and_source_allocation_honor_facets() -> None:
         web_composite_weights(),
     )
 
-    assert axes["tool_use"]["point_raw"] == pytest.approx(10 / 17)
-    assert axes["tool_use"]["raw_accuracy"] == pytest.approx(10 / 17)
-    assert source_weights["appworld_c"] == pytest.approx(5 / 34)
-    assert source_weights["bfcl_multi_turn_base"] == pytest.approx(7 / 68)
+    assert axes["tool_use"]["point_raw"] == pytest.approx(1.0)
+    assert axes["tool_use"]["raw_accuracy"] == pytest.approx(1.0)
+    assert axes["tool_use"]["n"] == 96
+    assert source_weights["appworld_c"] == pytest.approx(0.25)
+    assert "bfcl_multi_turn_base" not in source_weights
     assert "tc_json_v1" not in source_weights
 
 
-def test_missing_tool_use_facet_fails_closed_in_all_cli_paths() -> None:
+def test_missing_appworld_facet_fails_closed_in_all_cli_paths() -> None:
     benches = _skewed_tool_use_benches()
-    del benches["bfcl_multi_turn_base"]
+    del benches["appworld_c"]
     status = axis_status_for_benches(benches)
     board_axes, samples = board_scoring._axes_and_samples(
         _json_benches(benches),
         [
-            *_items("appworld_c", [True] * 96),
+            *_items("bfcl_multi_turn_base", [False] * 50),
             *_items("tc_json_v1", [False] * 330),
         ],
         {},
@@ -82,6 +83,7 @@ def test_experimental_benches_never_enter_composite() -> None:
     with_diagnostics = {
         **weighted,
         "bfcl": _aggregate(300, 1.0),
+        "bfcl_multi_turn_base": _aggregate(50, 1.0),
         "bfcl_multi_turn_long_context": _aggregate(50, 1.0),
     }
 
@@ -89,6 +91,7 @@ def test_experimental_benches_never_enter_composite() -> None:
     assert composite(
         {
             "bfcl": _aggregate(300, 1.0),
+            "bfcl_multi_turn_base": _aggregate(50, 1.0),
             "bfcl_multi_turn_long_context": _aggregate(50, 1.0),
             "tc_json_v1": _aggregate(330, 1.0),
         },

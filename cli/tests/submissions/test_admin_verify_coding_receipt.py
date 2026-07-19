@@ -84,7 +84,7 @@ def test_full_exec_receipt_projects_verified_coding_as_measured(
     assert _object(projection["rescore_modes"])["bigcodebench_hard"] == "verdict_carried"
     assert _object(projection["receipt_references"])["coding_receipt_sha256"] is not None
     assert projection["coverage_profile_id"] == "full-exec-6axis-v1"
-    assert projection["index_version"] == "index-v4.1"
+    assert projection["index_version"] == "index-v4.2"
     assert projection["headline_complete"] is True
     assert projection_out.read_bytes() == canonical_json_bytes(projection) + b"\n"
 
@@ -104,7 +104,7 @@ def test_submitter_projection_carries_locally_graded_coding_and_agentic(
 
     assert projection["verification_level"] == "client_reported"
     assert projection["headline_complete"] is True
-    assert projection["index_version"] == "index-v4.1"
+    assert projection["index_version"] == "index-v4.2"
     axes = _object(projection["axes"])
     scores = _object(projection["scores"])
     assert set(axes) == {*_HEADLINE_WEIGHTS, "long_context"}
@@ -132,7 +132,7 @@ def test_legacy_full_exec_bundle_relabels_to_current_index_with_provenance(
     )
 
     assert projection["coverage_profile_id"] == "full-exec-6axis-v1"
-    assert projection["index_version"] == "index-v4.1"
+    assert projection["index_version"] == "index-v4.2"
     assert "index_relabeled_from:index-v3.0" in projection["provenance_notes"]
 
 

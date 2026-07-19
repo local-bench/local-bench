@@ -67,13 +67,11 @@ def test_composer_happy_path_passes_coverage_rescore_and_preserves_original(
     assert original_path.read_bytes() == before
     assert out_path.is_file()
     assert len(result["items"]) == 1_457
-    assert result["index_version"] == "index-v4.1"
+    assert result["index_version"] == "index-v4.2"
     assert result["season2_rescore"]["missing_headline_axes"] == []
     assert result["season2_rescore"]["composite_v4"] is not None
-    assert set(result["season2_rescore"]["axes"]["tool_use"]["facets"]) == {
-        "agentic",
-        "multi_turn_tool_control",
-    }
+    assert set(result["season2_rescore"]["axes"]["tool_use"]["facets"]) == {"agentic"}
+    assert result["benches"]["bfcl_multi_turn_base"]["n"] == 50
     assert result["facet_backfill"]["attached_item_count"] == 50
     assert result["facet_backfill"]["partial_campaign_status"]["completeness_check"] == (
         "complete-and-exact-item-count"
