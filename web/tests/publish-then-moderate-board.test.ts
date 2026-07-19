@@ -76,6 +76,38 @@ describe("materialized community live board", () => {
     expect(payload.board_digest).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it("copies optional run-environment blocks and keeps legacy rows valid", async () => {
+    // Given: one current projection with environment summaries and one legacy projection without them.
+    const env = await boardEnv();
+    await insertBoardFixture(env, {
+      environment: "present",
+      publishedAt: "2026-07-18 02:00:00",
+      submissionId: "ticket_fixture_environment",
+    });
+    await insertBoardFixture(env, {
+      environment: "absent",
+      publishedAt: "2026-07-18 01:00:00",
+      rawSha: "e".repeat(64),
+      submissionId: "ticket_fixture_legacy",
+    });
+
+    // When: the public board object is rebuilt from stored projections.
+    const payload = await rebuildCommunityLiveBoard(env);
+
+    // Then: current rows carry the blocks and the legacy row remains present without them.
+    const current = payload.rows.find((row) => row.submission_id === "ticket_fixture_environment");
+    const legacy = payload.rows.find((row) => row.submission_id === "ticket_fixture_legacy");
+    expect(current).toMatchObject({
+      hardware: { gpu_name: "NVIDIA RTX 4090", vram_gb: 24 },
+      perf: { decode_tps: 81.25, tokens_to_answer_median: 128, wall_time_seconds: 900.5 },
+      runtime: { backend: "cuda", name: "llama.cpp", version: "b9852" },
+    });
+    expect(legacy).toBeDefined();
+    expect(legacy).not.toHaveProperty("runtime");
+    expect(legacy).not.toHaveProperty("hardware");
+    expect(legacy).not.toHaveProperty("perf");
+  });
+
   it("serves the R2 object through one bare-path cache key and rejects query parameters", async () => {
     const env = await boardEnv();
     await insertBoardFixture(env, { submissionId: "ticket_fixture_cache", publishedAt: "2026-07-18 01:00:00" });
@@ -174,6 +206,7 @@ async function boardEnv() {
 }
 
 type BoardFixture = {
+  readonly environment?: "absent" | "present";
   readonly githubLogin?: string;
   readonly projectionMissing?: boolean;
   readonly publishedAt: string;
@@ -184,7 +217,18 @@ type BoardFixture = {
 async function insertBoardFixture(env: Awaited<ReturnType<typeof boardEnv>>, fixture: BoardFixture): Promise<void> {
   const rawSha = fixture.rawSha ?? RAW_BUNDLE_SHA;
   const update = statusUpdate("accepted", rawSha, "community");
-  const projection = AcceptedResultProjectionV2Schema.parse(update["projection"]);
+  const baseProjection = AcceptedResultProjectionV2Schema.parse(update["projection"]);
+  const { runtime: _runtime, ...withoutEnvironment } = baseProjection;
+  const projection = AcceptedResultProjectionV2Schema.parse(fixture.environment === "absent"
+    ? withoutEnvironment
+    : fixture.environment === "present"
+      ? {
+          ...baseProjection,
+          hardware: { gpu_name: "NVIDIA RTX 4090", vram_gb: 24 },
+          perf: { decode_tps: 81.25, tokens_to_answer_median: 128, wall_time_seconds: 900.5 },
+          runtime: { backend: "cuda", name: "llama.cpp", version: "b9852" },
+        }
+      : baseProjection);
   const objectSha = await sha256Hex(canonicalJson(projection));
   if (fixture.projectionMissing !== true) {
     await env.SUBMISSIONS.put(projectionKey(objectSha), canonicalJson(projection));

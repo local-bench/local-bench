@@ -3,7 +3,9 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Mapping
+from math import isfinite
 from pathlib import Path
+from statistics import median
 from typing import Literal, assert_never
 
 from localbench._scoring import BenchAggregate, ScoredItem, aggregate
@@ -402,6 +404,8 @@ def _projection(
         "model": _projection_model(bundle, manifest, origin, bundle_sha256),
         "lineage": _projection_lineage(manifest),
         "runtime": _projection_runtime(manifest),
+        "hardware": _projection_hardware(manifest),
+        "perf": _projection_perf(bundle),
         "suite_release_id": str(suite.get("suite_release_id")),
         "suite_manifest_sha256": str(suite.get("suite_manifest_sha256")),
         "scorecard_id": str(scorecard.get("scorecard_id")),
@@ -596,23 +600,41 @@ def _projection_lineage(manifest: JsonObject) -> JsonObject:
     return {"base_model": values}
 
 
-# The frozen AcceptedResultProjectionV2 runtime object is additionalProperties: false. Bundles
-# legitimately carry MORE runtime provenance than the projection contract (the harness added
-# "backend" after the schema froze — every 2026-07 full-exec bundle has it), so the projection
-# takes exactly the contract's view. Drift-guarded by a test against the schema's property set.
-_RUNTIME_PROJECTION_KEYS = (
-    "build_flags",
-    "ctx_len_configured",
-    "kv_cache_quant",
-    "name",
-    "parallel_slots",
-    "version",
-)
-
-
 def _projection_runtime(manifest: JsonObject) -> JsonObject:
     runtime = _object(manifest.get("runtime"))
-    return {key: runtime[key] for key in _RUNTIME_PROJECTION_KEYS if key in runtime}
+    return {
+        "name": _optional_string(runtime.get("name")),
+        "version": _optional_string(runtime.get("version")),
+        "backend": _optional_string(runtime.get("backend")),
+    }
+
+
+def _projection_hardware(manifest: JsonObject) -> JsonObject:
+    hardware = _object(manifest.get("hardware"))
+    gpus = hardware.get("gpus")
+    gpu = _object(gpus[0]) if isinstance(gpus, list) and gpus else {}
+    vram_mb = _nullable_nonnegative_number(gpu.get("vram_mb"))
+    return {
+        "gpu_name": _optional_string(gpu.get("name")),
+        "vram_gb": None if vram_mb is None else round(vram_mb / 1024, 1),
+    }
+
+
+def _projection_perf(bundle: JsonObject) -> JsonObject:
+    completion_tokens = [
+        tokens
+        for item in _items(bundle)
+        if (tokens := _usage(item.get("usage"))["completion_tokens"]) is not None and tokens >= 0
+    ]
+    return {
+        "decode_tps": _nullable_nonnegative_number(_object(bundle.get("perf")).get("decode_tps")),
+        "wall_time_seconds": _nullable_nonnegative_number(
+            _object(bundle.get("totals")).get("wall_time_seconds"),
+        ),
+        "tokens_to_answer_median": (
+            float(median(completion_tokens)) if completion_tokens else None
+        ),
+    }
 
 
 def _receipt_references(bundle: JsonObject) -> JsonObject:
@@ -713,3 +735,10 @@ def _nullable_int(value: JsonValue | None) -> int | None:
     if isinstance(value, bool):
         return None
     return value if isinstance(value, int) else None
+
+
+def _nullable_nonnegative_number(value: JsonValue | None) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+        return None
+    number = float(value)
+    return number if isfinite(number) else None

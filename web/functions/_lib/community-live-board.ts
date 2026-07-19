@@ -151,6 +151,9 @@ function liveBoardRow(
     headline_complete: projection.headline_complete,
     index_version: projection.index_version ?? null,
     lineage: projection.lineage,
+    ...(projection.runtime === undefined ? {} : { runtime: projection.runtime }),
+    ...(projection.hardware === undefined ? {} : { hardware: projection.hardware }),
+    ...(projection.perf === undefined ? {} : { perf: projection.perf }),
     model: {
       declared_name: projection.model.declared_name,
       display_name: projection.model.display_name,

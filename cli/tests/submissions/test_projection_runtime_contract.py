@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from localbench.submissions.projection import _RUNTIME_PROJECTION_KEYS, _projection_runtime
+import localbench.submissions.projection as projection_mod
 
 _SCHEMA_PATH = (
     Path(__file__).resolve().parents[2]
@@ -37,21 +37,49 @@ _REAL_BUNDLE_RUNTIME = {
 }
 
 
-def test_runtime_projection_keys_match_frozen_schema() -> None:
+def test_run_environment_projection_blocks_are_optional_in_schema() -> None:
     schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
-    runtime_schema = schema["properties"]["runtime"]
-    assert runtime_schema["additionalProperties"] is False
-    assert tuple(sorted(runtime_schema["properties"].keys())) == _RUNTIME_PROJECTION_KEYS
+    assert "runtime" not in schema["required"]
+    assert "hardware" not in schema["required"]
+    assert "perf" not in schema["required"]
 
 
-def test_projection_runtime_drops_post_freeze_bundle_keys() -> None:
-    projected = _projection_runtime({"runtime": dict(_REAL_BUNDLE_RUNTIME)})
-    assert "backend" not in projected
+def test_projection_runtime_emits_the_frozen_board_summary() -> None:
+    projected = projection_mod._projection_runtime({"runtime": dict(_REAL_BUNDLE_RUNTIME)})
     assert projected == {
-        key: value for key, value in _REAL_BUNDLE_RUNTIME.items() if key != "backend"
+        "backend": "cuda",
+        "name": "llama.cpp",
+        "version": "b9852/fd1a05791",
     }
 
 
-def test_projection_runtime_keeps_only_present_keys() -> None:
-    projected = _projection_runtime({"runtime": {"name": "llama.cpp", "version": "b9852"}})
-    assert projected == {"name": "llama.cpp", "version": "b9852"}
+def test_projection_runtime_uses_nulls_for_missing_sources() -> None:
+    projected = projection_mod._projection_runtime({"runtime": {"name": "llama.cpp"}})
+    assert projected == {"backend": None, "name": "llama.cpp", "version": None}
+
+
+def test_projection_hardware_uses_first_gpu_and_rounds_vram_gb() -> None:
+    projected = projection_mod._projection_hardware(
+        {"hardware": {"gpus": [{"name": "RTX 4090", "vram_mb": 24564}, {"name": "ignored"}]}},
+    )
+    assert projected == {"gpu_name": "RTX 4090", "vram_gb": 24.0}
+
+
+def test_projection_perf_uses_totals_and_median_item_completion_tokens() -> None:
+    projected = projection_mod._projection_perf(
+        {
+            "items": [
+                {"usage": {"completion_tokens": 9}},
+                {"usage": {"completion_tokens": 3}},
+                {"usage": {"completion_tokens": None}},
+                {"usage": {"completion_tokens": 6}},
+            ],
+            "perf": {"decode_tps": 81.25},
+            "totals": {"wall_time_seconds": 12},
+        },
+    )
+    assert projected == {
+        "decode_tps": 81.25,
+        "tokens_to_answer_median": 6.0,
+        "wall_time_seconds": 12.0,
+    }

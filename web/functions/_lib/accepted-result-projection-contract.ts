@@ -6,6 +6,7 @@ const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const HfRevisionSchema = z.string().regex(/^[0-9a-f]{40}$/);
 const ScoreSchema = z.number().min(0).max(1);
 const NullableScoreSchema = ScoreSchema.nullable();
+const NullableNonnegativeNumberSchema = z.number().finite().nonnegative().nullable();
 const UnsafeTextPattern = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const UnsafeMultilineTextPattern = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const UnsafeProjectionValuePattern = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
@@ -111,6 +112,20 @@ const ConformancePerBenchSchema = z.record(
   boundedConformanceValue(4),
 ).refine((value) => Object.keys(value).length <= 64);
 
+const RunEnvironmentRuntimeSchema = z.object({
+  backend: boundedSafeString(120).nullable(),
+  name: boundedSafeString(120).nullable(),
+  version: boundedSafeString(120).nullable(),
+}).strict();
+
+const LegacyRuntimeSchema = z.object({
+  name: boundedSafeString(120, 1), version: boundedSafeString(120, 1),
+  kv_cache_quant: boundedSafeString(64, 1).nullable().optional(),
+  ctx_len_configured: z.number().int().positive().nullable().optional(),
+  parallel_slots: z.number().int().positive().nullable().optional(),
+  build_flags: boundedMultilineSafeString(500).nullable().optional(),
+}).strict();
+
 const AcceptedResultProjectionV2BaseSchema = z.object({
   schema_version: z.literal(ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION),
   model: z.object({
@@ -128,11 +143,16 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
       { message: "lineage.base_model must contain unique items" },
     ),
   }).strict(),
-  runtime: z.object({
-    name: boundedSafeString(120, 1), version: boundedSafeString(120, 1), kv_cache_quant: boundedSafeString(64, 1).nullable().optional(),
-    ctx_len_configured: z.number().int().positive().nullable().optional(), parallel_slots: z.number().int().positive().nullable().optional(),
-    build_flags: boundedMultilineSafeString(500).nullable().optional(),
-  }).strict(),
+  runtime: z.union([RunEnvironmentRuntimeSchema, LegacyRuntimeSchema]).optional(),
+  hardware: z.object({
+    gpu_name: boundedSafeString(160).nullable(),
+    vram_gb: NullableNonnegativeNumberSchema,
+  }).strict().optional(),
+  perf: z.object({
+    decode_tps: NullableNonnegativeNumberSchema,
+    wall_time_seconds: NullableNonnegativeNumberSchema,
+    tokens_to_answer_median: NullableNonnegativeNumberSchema,
+  }).strict().optional(),
   suite_release_id: z.enum(ACCEPTED_PROJECTION_SUITE_RELEASE_IDS),
   suite_manifest_sha256: Sha256Schema,
   scorecard_id: boundedSafeString(120, 1), coverage_profile_id: boundedSafeString(120, 1),

@@ -6,6 +6,34 @@ import {
 import { RAW_BUNDLE_SHA, completeProjection } from "./submission-test-support";
 
 describe("accepted projection security bounds", () => {
+  it("accepts a legacy projection without run-environment summary blocks", () => {
+    // Given: an old CLI projection omits all three additive summary blocks.
+    const projection = completeProjection(RAW_BUNDLE_SHA, "project_anchor");
+    const { runtime: _runtime, ...withoutEnvironment } = projection;
+
+    // When: the legacy projection crosses the current server boundary.
+    const result = AcceptedResultProjectionV2Schema.safeParse(withoutEnvironment);
+
+    // Then: additive provenance does not become a publication requirement.
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts bounded run-environment summary blocks", () => {
+    // Given: a current CLI projection carries the coordinated board wire shape.
+    const projection = completeProjection(RAW_BUNDLE_SHA, "project_anchor");
+
+    // When: the projection crosses the server boundary with all summary blocks.
+    const result = AcceptedResultProjectionV2Schema.safeParse({
+      ...projection,
+      hardware: { gpu_name: "NVIDIA RTX 4090", vram_gb: 24 },
+      perf: { decode_tps: 81.25, tokens_to_answer_median: 128, wall_time_seconds: 900.5 },
+      runtime: { backend: "cuda", name: "llama.cpp", version: "b9852" },
+    });
+
+    // Then: every bounded block is accepted without affecting scores.
+    expect(result.success).toBe(true);
+  });
+
   it("accepts a structurally valid diagnostic axis beyond the six headline axes", () => {
     // Given: a projection carrying a not-measured diagnostic axis (e.g. long_context),
     // which suites legitimately emit and the CLI includes; the composite ignores it.

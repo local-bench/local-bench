@@ -29,7 +29,7 @@
   },
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "model", "lineage", "runtime", "suite_release_id", "suite_manifest_sha256", "scorecard_id", "coverage_profile_id", "headline_complete", "scores", "axes", "conformance", "receipt_references", "artifact_hashes", "origin", "trust_label", "verification_level", "agentic_provenance", "rescore_modes", "validator"],
+  "required": ["schema_version", "model", "lineage", "suite_release_id", "suite_manifest_sha256", "scorecard_id", "coverage_profile_id", "headline_complete", "scores", "axes", "conformance", "receipt_references", "artifact_hashes", "origin", "trust_label", "verification_level", "agentic_provenance", "rescore_modes", "validator"],
   "properties": {
     "schema_version": {"const": "localbench.accepted_result_projection.v2"},
     "model": {
@@ -46,12 +46,37 @@
       }
     },
     "lineage": {"type": "object", "additionalProperties": false, "required": ["base_model"], "properties": {"base_model": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 140}}}},
-    "runtime": {
-      "type": "object", "additionalProperties": false, "required": ["name", "version"],
+    "runtime": {"oneOf": [
+      {
+        "type": "object", "additionalProperties": false, "required": ["name", "version", "backend"],
+        "properties": {
+          "name": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 120}, {"type": "null"}]},
+          "version": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 120}, {"type": "null"}]},
+          "backend": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 120}, {"type": "null"}]}
+        }
+      },
+      {
+        "type": "object", "additionalProperties": false, "required": ["name", "version"],
+        "properties": {
+          "name": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, "version": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+          "kv_cache_quant": {"oneOf": [{"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 64}, {"type": "null"}]}, "ctx_len_configured": {"type": ["integer", "null"], "minimum": 1},
+          "parallel_slots": {"type": ["integer", "null"], "minimum": 1}, "build_flags": {"oneOf": [{"$ref": "#/$defs/safeMultilineText", "maxLength": 500}, {"type": "null"}]}
+        }
+      }
+    ]},
+    "hardware": {
+      "type": "object", "additionalProperties": false, "required": ["gpu_name", "vram_gb"],
       "properties": {
-        "name": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}, "version": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
-        "kv_cache_quant": {"oneOf": [{"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 64}, {"type": "null"}]}, "ctx_len_configured": {"type": ["integer", "null"], "minimum": 1},
-        "parallel_slots": {"type": ["integer", "null"], "minimum": 1}, "build_flags": {"oneOf": [{"$ref": "#/$defs/safeMultilineText", "maxLength": 500}, {"type": "null"}]}
+        "gpu_name": {"oneOf": [{"$ref": "#/$defs/safeText", "maxLength": 160}, {"type": "null"}]},
+        "vram_gb": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "perf": {
+      "type": "object", "additionalProperties": false, "required": ["decode_tps", "wall_time_seconds", "tokens_to_answer_median"],
+      "properties": {
+        "decode_tps": {"type": ["number", "null"], "minimum": 0},
+        "wall_time_seconds": {"type": ["number", "null"], "minimum": 0},
+        "tokens_to_answer_median": {"type": ["number", "null"], "minimum": 0}
       }
     },
     "suite_release_id": {"enum": ["suite-v1-partial-text-code-4axis-v1", "suite-v1-text-code-agentic-5axis-v1", "suite-v1-full-exec-6axis-v1", "suite-v1-static-exec-5axis-v1", "suite-v1-static-core-diag-v1", "suite-v2-full-exec-tooluse-5axis-v2"]}, "suite_manifest_sha256": {"$ref": "#/$defs/digest"},
