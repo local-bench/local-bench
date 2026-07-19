@@ -99,6 +99,7 @@ describe("submission route contracts", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
         ticket_id: envelope.ticket_id,
         upload_capability: envelope.upload_capability,
       }),
@@ -116,6 +117,7 @@ describe("submission route contracts", () => {
     expect(target.upload_url).toContain("X-Amz-Signature=");
     expect(target.upload_url).toContain(`/localbench-submissions/submissions/raw/${RAW_BUNDLE_SHA}.json`);
     expect(target.upload_headers).toEqual({
+      "content-length": String(RESULT_BUNDLE_JSON.length),
       "if-none-match": "*",
     });
     expect(target.upload_url).not.toContain("x-amz-checksum");
@@ -123,7 +125,7 @@ describe("submission route contracts", () => {
 
   it("verifies the declared bundle SHA from uploaded bytes before admission", async () => {
     const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
-    const envelope = await issueEnvelope(env);
+    const envelope = await issueEnvelope(env, RAW_BUNDLE_SHA, {}, 23);
     await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, "attacker-authored bytes");
 
     const response = await completeSubmission({
@@ -133,6 +135,7 @@ describe("submission route contracts", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: 23,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -152,6 +155,7 @@ describe("submission route contracts", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
         ticket_id: envelope.ticket_id,
       }),
     });
@@ -159,6 +163,7 @@ describe("submission route contracts", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
         ticket_id: envelope.ticket_id,
         upload_capability: `upload_${"f".repeat(32)}`,
       }),
@@ -168,6 +173,7 @@ describe("submission route contracts", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
         ticket_id: envelope.ticket_id,
         upload_capability: envelope.upload_capability,
       }),
@@ -189,6 +195,7 @@ describe("submission route contracts", () => {
       env,
       request: jsonRequest("/api/submissions/request-upload", {
         raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: RESULT_BUNDLE_JSON.length,
         ticket_id: envelope.ticket_id,
         upload_capability: envelope.upload_capability,
       }),
@@ -255,7 +262,11 @@ describe("submission route contracts", () => {
     await env.SUBMISSIONS.put(`submissions/raw/${RAW_BUNDLE_SHA}.json`, RESULT_BUNDLE_JSON);
     await completeSubmission({
       env, params: { submissionId: envelope.ticket_id },
-      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, { raw_bundle_sha256: RAW_BUNDLE_SHA, size_bytes: 1234 }),
+      request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, {
+        raw_bundle_sha256: RAW_BUNDLE_SHA,
+        size_bytes: 1234,
+        upload_capability: envelope.upload_capability,
+      }),
     });
     const update: any = structuredClone(statusUpdate("accepted"));
     mutate(update.projection);

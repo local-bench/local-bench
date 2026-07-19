@@ -15,10 +15,10 @@ import { verifyTicketPop } from "./submission-pop";
 import { rateLimited } from "./submission-rate-limit";
 import { accountAttributionForPublicKey, githubAttributionAvailable } from "./github-oauth-store";
 import {
-  countPendingVerificationForSubmitter,
   insertTicketedSubmission,
   rotateTicketedSubmission,
   rowByRawBundleSha,
+  ticketEnvelopeFromRow,
 } from "./submission-store";
 import { suiteByReleasePair } from "./suite-catalog";
 
@@ -31,7 +31,6 @@ const TICKETS_PER_PUBLIC_KEY_PER_DAY = 20;
 const TICKETS_PER_IP_PER_HOUR = 30;
 const TICKETS_PER_IP_PREFIX_PER_DAY = 60;
 const TICKETS_GLOBAL_PER_DAY = 400;
-const PENDING_VERIFICATION_PER_PUBLIC_KEY = 10;
 
 export async function handleIssueSubmissionTicket(request: Request, env: SubmissionApiEnv): Promise<Response> {
   const origin = hasValidAdminSecret(request, env) ? "project_anchor" : "community";
@@ -80,18 +79,21 @@ export async function handleIssueSubmissionTicket(request: Request, env: Submiss
     : null;
   const existing = await rowByRawBundleSha(env, ticket.bundle_sha256);
   if (existing === null) {
-    await insertTicketedSubmission(env, ticket, attribution, hasGithubAttribution);
-    return jsonResponse(201, ticket);
+    if (await insertTicketedSubmission(env, ticket, attribution, hasGithubAttribution)) {
+      return jsonResponse(201, ticket);
+    }
+    const raced = await rowByRawBundleSha(env, ticket.bundle_sha256);
+    if (raced !== null && raced.status === "ticketed" && raced.uploaded_at === null && raced.submitter_id === ticket.submitter_id) {
+      const racedTicket = ticketEnvelopeFromRow(raced);
+      if (racedTicket !== null) return jsonResponse(200, racedTicket);
+    }
+    return bundleAlreadySubmitted(origin, ticket, raced);
   }
   if (existing.status === "ticketed" && existing.uploaded_at === null && existing.submitter_id === ticket.submitter_id) {
     await rotateTicketedSubmission(env, existing.submission_id, ticket, attribution, hasGithubAttribution);
     return jsonResponse(200, ticket);
   }
-  return reject(409, "bundle_already_submitted", origin, "POST /api/submissions/tickets", {
-    code: "bundle_already_submitted",
-    status: existing.status,
-    submission_id: existing.submission_id,
-  }, ticket.bundle_sha256, ticket.submitter_id);
+  return bundleAlreadySubmitted(origin, ticket, existing);
 }
 
 async function communityTicketRejection(
@@ -154,17 +156,6 @@ async function communityTicketRejection(
   const publicKeyLimit = await rateLimited(env, `tickets:pubkey:${publicKey}`, TICKETS_PER_PUBLIC_KEY_PER_DAY, 24 * 60 * 60);
   if (publicKeyLimit.limited) {
     return rateLimitResponse(publicKeyLimit.retryAfterSeconds, origin, body.bundle_sha256, `public_key:${publicKey}`);
-  }
-  if (await countPendingVerificationForSubmitter(env, `public_key:${publicKey}`) >= PENDING_VERIFICATION_PER_PUBLIC_KEY) {
-    // Deliberately NOT the rate_limited shape: this cap clears when the maintainer decides a
-    // pending submission, not with time, so a retry_after_seconds hint would be misleading.
-    return reject(429, "pending_review_limit", origin, "POST /api/submissions/tickets", {
-      code: "pending_review_limit",
-      error:
-        `you have ${PENDING_VERIFICATION_PER_PUBLIC_KEY} submissions awaiting maintainer review; ` +
-        "this clears when one is reviewed, not with time",
-      pending_limit: PENDING_VERIFICATION_PER_PUBLIC_KEY,
-    }, body.bundle_sha256, `public_key:${publicKey}`);
   }
   if (body.community_model_group_id === undefined) {
     const legacyGroupId = `community-group:${crypto.randomUUID().replaceAll("-", "")}`;
@@ -232,6 +223,18 @@ function invalidTicket(origin: SubmissionOrigin, bundleSha256?: string, submitte
     code: "invalid_ticket_request",
     error: "invalid submission ticket request",
   }, bundleSha256, submitterId);
+}
+
+function bundleAlreadySubmitted(
+  origin: SubmissionOrigin,
+  ticket: SubmissionEnvelope,
+  existing: Awaited<ReturnType<typeof rowByRawBundleSha>>,
+): Response {
+  return reject(409, "bundle_already_submitted", origin, "POST /api/submissions/tickets", {
+    code: "bundle_already_submitted",
+    status: existing?.status ?? "unknown",
+    submission_id: existing?.submission_id ?? null,
+  }, ticket.bundle_sha256, ticket.submitter_id);
 }
 
 function rateLimitResponse(

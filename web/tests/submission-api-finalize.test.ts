@@ -10,6 +10,7 @@ const SUITE_RELEASE_ID = "suite-v1-full-exec-6axis-v1";
 const SUITE_MANIFEST_SHA = "c4098df81440c4489ee8c6d6967f3a5d6f9d6941810779abd135326ad734f468";
 const RESULT_BUNDLE_JSON = JSON.stringify(fullResultBundle({ semanticFull: true }));
 const RAW_BUNDLE_SHA = sha256Hex(RESULT_BUNDLE_JSON);
+const UPLOAD_CAPABILITY = `upload_${"a".repeat(32)}`;
 
 describe("handleFinalizeSubmission", () => {
   it("returns the complete-request JSON error when the request body is malformed JSON", async () => {
@@ -45,6 +46,7 @@ describe("handleFinalizeSubmission", () => {
           accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
           raw_bundle_sha256: RAW_BUNDLE_SHA,
           size_bytes: RESULT_BUNDLE_JSON.length,
+          upload_capability: UPLOAD_CAPABILITY,
         }),
         env,
         { submissionId: TICKET_ID },
@@ -176,6 +178,8 @@ function ticketRow(): Record<string, unknown> {
     suite_release_id: SUITE_RELEASE_ID,
     ticket_id: TICKET_ID,
     uploaded_at: null,
+    upload_capability_sha256: sha256Hex(UPLOAD_CAPABILITY),
+    upload_declared_size_bytes: RESULT_BUNDLE_JSON.length,
   };
 }
 

@@ -42,7 +42,7 @@ describe("gate: CLI-generated projection passes server validation", () => {
     const { meta } = loadFixture();
     const row = {
       origin: parsed.origin,
-      raw_bundle_sha256: meta.raw_bundle_sha256,
+      raw_bundle_sha256: meta["raw_bundle_sha256"],
       suite_manifest_sha256: parsed.suite_manifest_sha256,
       suite_release_id: parsed.suite_release_id,
     } as never;

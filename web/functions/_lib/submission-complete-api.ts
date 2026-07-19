@@ -1,15 +1,18 @@
 import {
   CompleteRequestSchema,
   MAX_UPLOAD_BYTES,
+  UploadCapabilitySchema,
   type RouteParams,
   type SubmissionApiEnv,
 } from "./submission-contracts";
 import { jsonResponse, logSubmissionError, routeRow } from "./submission-api-support";
-import { isSyntaxError, reject, ticketExpired } from "./submission-api-common";
+import { isRecord, reject, ticketExpired } from "./submission-api-common";
+import { completionRateLimit, readCompletionBody } from "./submission-complete-guard";
 import { rebuildCommunityLiveBoard } from "./community-live-board";
 import { persistProjectionAndReference } from "./publication-storage";
 import { publishProjectionRejection, type PublishProjectionRejection } from "./submission-publish-validation";
 import { validateSubmittedProjection } from "./submission-projection-validation";
+import { sha256Hex } from "./submission-canonical";
 import { rawBundleKey, rawBundleMetadata, verifyRawBundle } from "./submission-storage";
 import {
   publicSubmission,
@@ -24,9 +27,28 @@ export async function handleFinalizeSubmission(
   params: RouteParams,
   context: { readonly waitUntil?: (task: Promise<unknown>) => void } = {},
 ): Promise<Response> {
+  const requestBody = await readCompletionBody(request);
+  if (requestBody.kind === "too_large") {
+    return jsonResponse(413, { code: "completion_body_too_large", error: "completion request body is too large" });
+  }
+  if (requestBody.kind === "invalid") {
+    return invalidCompleteRequest();
+  }
   const row = await routeRow(env, params);
   if (row.kind !== "ok") {
     return row.response;
+  }
+  const limited = await completionRateLimit(request, env, row.value);
+  if (limited !== null) return limited;
+  const capability = isRecord(requestBody.value)
+    ? UploadCapabilitySchema.safeParse(requestBody.value["upload_capability"])
+    : { success: false } as const;
+  if (
+    !capability.success ||
+    row.value.upload_capability_sha256 === null ||
+    await sha256Hex(capability.data) !== row.value.upload_capability_sha256
+  ) {
+    return jsonResponse(403, { code: "upload_capability_invalid", error: "upload capability is invalid" });
   }
   if (row.value.status === "published") {
     return jsonResponse(200, publicSubmission(row.value));
@@ -40,16 +62,7 @@ export async function handleFinalizeSubmission(
       error: "submission ticket expired",
     }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
   }
-  let requestBody: unknown;
-  try {
-    requestBody = await request.json();
-  } catch (error) {
-    if (isSyntaxError(error)) {
-      return rejectComplete(env, row.value.submission_id, "schema_violation", 400);
-    }
-    throw error;
-  }
-  const parsed = CompleteRequestSchema.safeParse(requestBody);
+  const parsed = CompleteRequestSchema.safeParse(requestBody.value);
   if (!parsed.success) {
     return rejectComplete(env, row.value.submission_id, "schema_violation", 400);
   }
@@ -64,10 +77,11 @@ export async function handleFinalizeSubmission(
     }
     if (metadata.size !== null && metadata.size > MAX_UPLOAD_BYTES) {
       await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
-      return reject(413, "bundle_too_large", row.value.origin, "POST /api/submissions/:submissionId/complete", {
-        code: "bundle_too_large",
-        error: "uploaded bundle exceeds the server upload limit",
-      }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
+      return rejectComplete(env, row.value.submission_id, "bundle_too_large", 413);
+    }
+    if (metadata.size !== null && metadata.size !== row.value.upload_declared_size_bytes) {
+      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
+      return rejectComplete(env, row.value.submission_id, "upload_size_mismatch", 413);
     }
     const verification = await verifyRawBundle(env, parsed.data.raw_bundle_sha256);
     if (verification.kind !== "ok") {
@@ -75,12 +89,13 @@ export async function handleFinalizeSubmission(
         await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
       }
       if (verification.status === 413) {
-        return reject(413, verification.code, row.value.origin, "POST /api/submissions/:submissionId/complete", {
-          code: verification.code,
-          error: verification.error,
-        }, row.value.raw_bundle_sha256, row.value.submitter_id ?? undefined);
+        return rejectComplete(env, row.value.submission_id, "bundle_too_large", 413);
       }
       return jsonResponse(verification.status, { code: verification.code, error: verification.error });
+    }
+    if (verification.sizeBytes !== row.value.upload_declared_size_bytes) {
+      await env.SUBMISSIONS.delete(rawBundleKey(row.value.raw_bundle_sha256));
+      return rejectComplete(env, row.value.submission_id, "upload_size_mismatch", 413);
     }
     const publishRejection = publishProjectionRejection(parsed.data.accepted_result_projection, row.value);
     if (publishRejection !== null) {
@@ -121,6 +136,10 @@ export async function handleFinalizeSubmission(
     const updated = await rowBySubmissionId(env, row.value.submission_id);
     return jsonResponse(200, publicSubmission(updated ?? row.value));
   } catch (error) {
+    const published = await rowBySubmissionId(env, row.value.submission_id);
+    if (published?.status === "published") {
+      return jsonResponse(200, publicSubmission(published));
+    }
     const loggedError = error instanceof Error ? error : new Error(String(error));
     logSubmissionError("submission_finalize_failed", {
       error: loggedError,
@@ -135,7 +154,7 @@ export async function handleFinalizeSubmission(
 async function rejectComplete(
   env: SubmissionApiEnv,
   submissionId: string,
-  reason: PublishProjectionRejection,
+  reason: PublishProjectionRejection | "bundle_too_large" | "upload_size_mismatch",
   status: number,
 ): Promise<Response> {
   const current = await rowBySubmissionId(env, submissionId);
@@ -148,8 +167,21 @@ async function rejectComplete(
   const updated = await rowBySubmissionId(env, submissionId);
   return jsonResponse(status, {
     code: reason,
-    error: reason === "incomplete_run" ? "all six headline axes must be measured" : "submission projection is invalid",
+    error: completeRejectionMessage(reason),
     status: updated?.status ?? current.status,
     submission_id: submissionId,
   });
+}
+
+function completeRejectionMessage(
+  reason: PublishProjectionRejection | "bundle_too_large" | "upload_size_mismatch",
+): string {
+  if (reason === "incomplete_run") return "all six headline axes must be measured";
+  if (reason === "bundle_too_large") return "uploaded bundle exceeds the server upload limit";
+  if (reason === "upload_size_mismatch") return "uploaded bundle size does not match the signed declaration";
+  return "submission projection is invalid";
+}
+
+function invalidCompleteRequest(): Response {
+  return jsonResponse(400, { code: "schema_violation", error: "submission projection is invalid" });
 }

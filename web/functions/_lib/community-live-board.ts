@@ -141,7 +141,12 @@ function liveBoardRow(
       community_model_group_id: row.communityModelGroupId,
       group_path: `community/groups/${row.communityModelGroupId.slice("community-group:".length)}.json`,
     }),
-    conformance: projection.conformance,
+    conformance: {
+      ...(projection.conformance.n_scored === undefined ? {} : { n_scored: projection.conformance.n_scored }),
+      ...(projection.conformance.reasons === undefined ? {} : { reasons: projection.conformance.reasons }),
+      ...(projection.conformance.status === undefined ? {} : { status: projection.conformance.status }),
+      ...(projection.conformance.worst_bench === undefined ? {} : { worst_bench: projection.conformance.worst_bench }),
+    },
     coverage_profile_id: projection.coverage_profile_id,
     headline_complete: projection.headline_complete,
     index_version: projection.index_version ?? null,

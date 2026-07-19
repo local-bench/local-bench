@@ -22,12 +22,12 @@ import { onRequestGet as exportProjection } from "../functions/api/admin/publica
 import { communityTicketBody, signedResultBundle, testKeyPair } from "./submission-contract-v2-support";
 import {
   ADMIN_SECRET, MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009,
-  MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016, TEST_COMMUNITY_GROUP_ID, completeProjection, createEnv, getRequest, jsonRequest, sha256Hex,
+  MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016, MIGRATION_0017, TEST_COMMUNITY_GROUP_ID, completeProjection, createEnv, getRequest, jsonRequest, sha256Hex,
   type IssuedEnvelope,
 } from "./submission-test-support";
 
 const SUFFIX = TEST_COMMUNITY_GROUP_ID.replace("community-group:", "");
-const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016];
+const MIGRATIONS = [MIGRATION_0002, MIGRATION_0004, MIGRATION_0005, MIGRATION_0006, MIGRATION_0008, MIGRATION_0009, MIGRATION_0010, MIGRATION_0011, MIGRATION_0013, MIGRATION_0014, MIGRATION_0015, MIGRATION_0016, MIGRATION_0017];
 const communityDir = join(process.cwd(), "public", "data", "community");
 const tempRoot = mkdtempSync(join(tmpdir(), "b2a-blackbox-"));
 let admissionSequence = 0;
@@ -137,12 +137,16 @@ async function admitAcceptedPublished(
   const targetResponse = await requestUpload({
     env,
     request: jsonRequest("/api/submissions/request-upload", {
-      raw_bundle_sha256: rawSha, ticket_id: ticket.ticket_id, upload_capability: ticket.upload_capability,
+      raw_bundle_sha256: rawSha, size_bytes: bundleBytes.length, ticket_id: ticket.ticket_id,
+      upload_capability: ticket.upload_capability,
     }, { "cf-connecting-ip": sourceIp }),
   });
   expect(targetResponse.status).toBe(200);
   const target = await targetResponse.json() as { r2_key: string; upload_headers: Record<string, string> };
-  expect(target.upload_headers).toEqual({ "if-none-match": "*" });
+  expect(target.upload_headers).toEqual({
+    "content-length": String(bundleBytes.length),
+    "if-none-match": "*",
+  });
   expect(await env.SUBMISSIONS.get(target.r2_key)).toBeNull();
   await env.SUBMISSIONS.put(target.r2_key, bundleBytes, { onlyIf: { etagDoesNotMatch: "*" } });
   const projection: any = completeProjection(rawSha, "community");
@@ -157,6 +161,7 @@ async function admitAcceptedPublished(
       accepted_result_projection: projection,
       raw_bundle_sha256: rawSha,
       size_bytes: bundleBytes.length,
+      upload_capability: ticket.upload_capability,
     }),
   });
   const completeBody = await complete.json();

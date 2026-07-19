@@ -31,6 +31,7 @@ describe("submission finalize route contracts", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
     const second = await completeSubmission({
@@ -40,6 +41,7 @@ describe("submission finalize route contracts", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -65,7 +67,7 @@ describe("submission finalize route contracts", () => {
     const mismatchedBundle = resultBundle({ suiteReleaseId: "suite-v1-other-release" });
     const mismatchedBundleJson = JSON.stringify(mismatchedBundle);
     const mismatchedBundleSha = sha256Hex(mismatchedBundleJson);
-    const envelope = await issueEnvelope(env, mismatchedBundleSha);
+    const envelope = await issueEnvelope(env, mismatchedBundleSha, {}, mismatchedBundleJson.length);
     await env.SUBMISSIONS.put(`submissions/raw/${mismatchedBundleSha}.json`, mismatchedBundleJson);
 
     // When: the complete route verifies the raw content address and the separately supplied projection.
@@ -76,6 +78,7 @@ describe("submission finalize route contracts", () => {
         accepted_result_projection: completeProjection(mismatchedBundleSha, "project_anchor"),
         raw_bundle_sha256: mismatchedBundleSha,
         size_bytes: mismatchedBundleJson.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -111,6 +114,7 @@ describe("submission finalize route contracts", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -135,6 +139,7 @@ describe("submission finalize route contracts", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
@@ -174,6 +179,7 @@ describe("submission finalize route contracts", () => {
         accepted_result_projection: completeProjection(RAW_BUNDLE_SHA, "project_anchor"),
         raw_bundle_sha256: RAW_BUNDLE_SHA,
         size_bytes: RESULT_BUNDLE_JSON.length,
+        upload_capability: envelope.upload_capability,
       }),
     });
 
