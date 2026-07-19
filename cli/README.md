@@ -41,9 +41,13 @@ localbench submit run --run runs/my-bench
 ```
 
 Full-suite execution requires the AppWorld harness (`localbench setup-agentic`) and Docker.
-The agentic harness currently provisions its sandboxed appliance from a **Windows host with
-managed WSL2** (`setup-agentic` fails fast elsewhere); Linux-native host support is tracked
-as a roadmap item. The other axes run wherever llama.cpp and Docker do.
+Agentic runs use the same signed, pinned appliance on both supported host paths: Windows
+hosts run it through managed WSL2, while Linux hosts materialize it natively and launch it
+under mandatory bubblewrap isolation. The other axes run wherever llama.cpp and Docker do.
+Runtime attestations preserve the shared canonical identity fields on both paths. Worker
+topology evidence is conditional: Windows/WSL emits `wsl_distro`, `wsl_kernel`, and
+`appworld_root_under_mnt`; native Linux emits `runtime_topology`, `linux_kernel`, and
+`linux_os_release` and omits those WSL-only fields.
 `--allow-untrusted-code` acknowledges the warning that model-generated code executes in a
 restricted container. Before model download, the CLI actively verifies its non-root,
 network-disabled, read-only, capability-free, seccomp-filtered, resource-bounded sandbox; missing
