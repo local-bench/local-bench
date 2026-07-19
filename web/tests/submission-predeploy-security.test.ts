@@ -39,13 +39,17 @@ describe("submission pre-deploy security regressions", () => {
       request: jsonRequest(`/api/submissions/${envelope.ticket_id}/complete`, body),
     });
 
-    // Then: neither D1 submission state nor the R2 object changes.
+    // Then: neither D1 submission state, its rate budget, nor the R2 object changes.
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ code: "upload_capability_invalid" });
     const row = await env.DB.prepare("select status, uploaded_at from submissions where submission_id = ?")
       .bind(envelope.ticket_id)
       .first();
     expect(row).toMatchObject({ status: "ticketed", uploaded_at: null });
+    const counter = await env.DB.prepare("select count from rate_counters where bucket_key = ?")
+      .bind(`complete:submission:${envelope.ticket_id}`)
+      .first();
+    expect(counter).toBeNull();
     expect(await env.SUBMISSIONS.get(rawBundleKey(RAW_BUNDLE_SHA))).not.toBeNull();
   });
 
@@ -103,6 +107,40 @@ describe("submission pre-deploy security regressions", () => {
       .bind(`upload_bytes:${day}`)
       .first();
     expect(counter).toMatchObject({ count: RESULT_BUNDLE_JSON.length });
+  });
+
+  it("does not charge replayed upload-target requests rejected by the daily budget", async () => {
+    // Given: a live ticket after the daily upload-byte budget is exhausted.
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const envelope = await issueEnvelope(env);
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const windowStartSeconds = nowSeconds - (nowSeconds % (24 * 60 * 60));
+    const day = new Date().toISOString().slice(0, 10);
+    const budgetKey = `upload_bytes:${day}`;
+    const dailyBudget = 8 * 1024 * 1024 * 1024;
+    await env.DB.prepare(
+      "insert into rate_counters (bucket_key, window_start, count) values (?, ?, ?)",
+    ).bind(budgetKey, new Date(windowStartSeconds * 1000).toISOString(), dailyBudget).run();
+    const body = {
+      raw_bundle_sha256: RAW_BUNDLE_SHA,
+      size_bytes: RESULT_BUNDLE_JSON.length,
+      ticket_id: envelope.ticket_id,
+      upload_capability: envelope.upload_capability,
+    };
+
+    // When: the client repeats the same over-budget upload-target request.
+    const first = await requestUpload({ env, request: jsonRequest("/api/submissions/request-upload", body) });
+    const second = await requestUpload({ env, request: jsonRequest("/api/submissions/request-upload", body) });
+
+    // Then: both requests are rejected without increasing the persisted daily charge.
+    expect(first.status).toBe(429);
+    expect(second.status).toBe(429);
+    expect(await first.json()).toMatchObject({ code: "upload_byte_budget_exceeded" });
+    expect(await second.json()).toMatchObject({ code: "upload_byte_budget_exceeded" });
+    const counter = await env.DB.prepare("select count from rate_counters where bucket_key = ?")
+      .bind(budgetKey)
+      .first();
+    expect(counter).toMatchObject({ count: dailyBudget });
   });
 
   it("rejects an oversized upload declaration without charging a one-byte budget", async () => {

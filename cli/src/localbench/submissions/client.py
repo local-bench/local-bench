@@ -157,6 +157,7 @@ def upload_submission_bundle(
         complete_body: JsonObject = {
             "raw_bundle_sha256": bundle_sha,
             "size_bytes": len(bundle),
+            "upload_capability": request.envelope["upload_capability"],
         }
         if request.accepted_result_projection is not None:
             complete_body["accepted_result_projection"] = request.accepted_result_projection

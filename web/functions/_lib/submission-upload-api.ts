@@ -80,11 +80,13 @@ export async function handleRequestUploadTarget(request: Request, env: Submissio
     env.DB.prepare(
       `insert into rate_counters (bucket_key, window_start, count)
        select ?, ?, ? where exists (
-         select 1 from submissions where submission_id = ? and status = 'ticketed' and upload_target_url is null
+         select 1 from submissions
+         where submission_id = ? and status = 'ticketed' and uploaded_at is null and upload_target_url is null
        )
        on conflict(bucket_key) do update set
          window_start = ?,
-         count = (case when rate_counters.window_start = ? then rate_counters.count else 0 end) + ?`,
+         count = (case when rate_counters.window_start = ? then rate_counters.count else 0 end) + ?
+       where (case when rate_counters.window_start = ? then rate_counters.count else 0 end) + ? <= ?`,
     ).bind(
       budgetKey,
       windowStart,
@@ -93,18 +95,18 @@ export async function handleRequestUploadTarget(request: Request, env: Submissio
       windowStart,
       windowStart,
       parsed.data.size_bytes,
+      windowStart,
+      parsed.data.size_bytes,
+      DAILY_UPLOAD_BYTE_BUDGET,
     ),
     env.DB.prepare(
       `update submissions set upload_declared_size_bytes = ?, upload_target_url = ?
        where submission_id = ? and status = 'ticketed' and uploaded_at is null and upload_target_url is null
-         and (select count from rate_counters where bucket_key = ? and window_start = ?) <= ?`,
+         and changes() = 1`,
     ).bind(
       parsed.data.size_bytes,
       target.uploadUrl,
       row.submission_id,
-      budgetKey,
-      windowStart,
-      DAILY_UPLOAD_BYTE_BUDGET,
     ),
   ]);
   if (results[1]?.meta?.changes === 1) {
@@ -120,7 +122,10 @@ export async function handleRequestUploadTarget(request: Request, env: Submissio
   const counter = await env.DB.prepare(
     "select count from rate_counters where bucket_key = ? and window_start = ?",
   ).bind(budgetKey, windowStart).first();
-  if (typeof counter?.["count"] === "number" && counter["count"] > DAILY_UPLOAD_BYTE_BUDGET) {
+  if (
+    typeof counter?.["count"] === "number" &&
+    counter["count"] + parsed.data.size_bytes > DAILY_UPLOAD_BYTE_BUDGET
+  ) {
     return Response.json({ code: "upload_byte_budget_exceeded", retry_after_seconds: retryAfterSeconds }, {
       headers: { "cache-control": "no-store", "retry-after": String(retryAfterSeconds) },
       status: 429,

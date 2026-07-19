@@ -38,8 +38,6 @@ export async function handleFinalizeSubmission(
   if (row.kind !== "ok") {
     return row.response;
   }
-  const limited = await completionRateLimit(request, env, row.value);
-  if (limited !== null) return limited;
   const capability = isRecord(requestBody.value)
     ? UploadCapabilitySchema.safeParse(requestBody.value["upload_capability"])
     : { success: false } as const;
@@ -50,6 +48,8 @@ export async function handleFinalizeSubmission(
   ) {
     return jsonResponse(403, { code: "upload_capability_invalid", error: "upload capability is invalid" });
   }
+  const limited = await completionRateLimit(request, env, row.value);
+  if (limited !== null) return limited;
   if (row.value.status === "published") {
     return jsonResponse(200, publicSubmission(row.value));
   }

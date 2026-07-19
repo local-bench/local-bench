@@ -239,6 +239,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                 assert body == {
                     "raw_bundle_sha256": bundle_sha,
                     "size_bytes": len(bundle_bytes),
+                    "upload_capability": "upload_" + ("1" * 32),
                     "accepted_result_projection": {"verification_level": "client_reported"},
                 }
                 return httpx.Response(
