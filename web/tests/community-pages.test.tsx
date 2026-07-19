@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AppShell } from "../components/app-shell";
 import { CommunityFamilyResults } from "../components/community-family-results";
 import type { CommunityBoardRow } from "../lib/community-data";
+import { compareFamilyNames } from "../lib/family-slug";
 
 const familyRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
@@ -28,7 +29,7 @@ const familyRow: CommunityBoardRow = {
 describe("community results use the model-family namespace", () => {
   it("keeps Submissions in navigation without a Community destination", () => {
     const html = renderToStaticMarkup(
-      <AppShell indexVersion="index-v3.0" suiteVersion="suite-v1" usesDemoData={false}>
+      <AppShell families={["Qwen3.6", "DeepSeek V3"]} indexVersion="index-v3.0" suiteVersion="suite-v1" usesDemoData={false}>
         <div>content</div>
       </AppShell>,
     );
@@ -37,21 +38,29 @@ describe("community results use the model-family namespace", () => {
     expect(html).toContain('href="/submissions"');
   });
 
-  it("links the first destination in the header to the model-family directory", () => {
+  it("renders the first destination as a family dropdown with directory and deep links", () => {
     // Given: the application shell is rendered with its standard navigation.
     // When: the header markup is generated.
     const html = renderToStaticMarkup(
-      <AppShell indexVersion="index-v3.0" suiteVersion="suite-v1" usesDemoData={false}>
+      <AppShell families={["DeepSeek V3", "Qwen3.6"]} indexVersion="index-v3.0" suiteVersion="suite-v1" usesDemoData={false}>
         <div>content</div>
       </AppShell>,
     );
-    const familiesLink = html.search(/<a[^>]*href="\/families"[^>]*>Model families<\/a>/u);
+    const familiesSummary = html.search(/<summary[^>]*>Model families<\/summary>/u);
     const leaderboardLink = html.indexOf('href="/leaderboard"');
 
-    // Then: families remains the emphasized first destination and no legacy fragment link remains.
-    expect(familiesLink).toBeGreaterThan(-1);
-    expect(familiesLink).toBeLessThan(leaderboardLink);
+    // Then: families remains the emphasized first destination and exposes every directory target.
+    expect(familiesSummary).toBeGreaterThan(-1);
+    expect(familiesSummary).toBeLessThan(leaderboardLink);
+    expect(html).toContain('href="/families">All families →</a>');
+    expect(html).toContain('href="/families#deepseek-v3"');
+    expect(html).toContain('href="/families#qwen3-6"');
+    expect(html).toContain("sticky top-0");
     expect(html).not.toContain('href="/#families"');
+  });
+
+  it("sorts family names in user-visible alphabetical order", () => {
+    expect(["GLM 5", "GPT OSS", "Gemma 3"].sort(compareFamilyNames)).toEqual(["Gemma 3", "GLM 5", "GPT OSS"]);
   });
 
   it("renders the reported run, axes, and submitter on the family surface", () => {

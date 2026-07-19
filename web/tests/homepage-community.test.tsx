@@ -80,15 +80,14 @@ describe("homepage unified board", () => {
     expect(html).toContain("Homepage Community Model");
   });
 
-  it("keeps the legacy families anchor as a launchpad without rendering the directory", async () => {
+  it("keeps the landing page free of the families launchpad and directory", async () => {
     // Given: the landing page has one indexed model family.
     // When: the page is prerendered.
     const html = renderToStaticMarkup(await HomePage());
 
-    // Then: the old fragment lands on the new semantic launchpad, not the full family grid.
-    expect(html).toMatch(/<nav[^>]*id="families"[^>]*aria-label="Browse model families"/u);
-    expect(html).toContain('href="/families"');
-    expect(html).toContain("Browse 1 family →");
+    // Then: family browsing consumes no landing-page real estate.
+    expect(html).not.toMatch(/<nav[^>]*id="families"/u);
+    expect(html).not.toContain("Browse 1 family →");
     expect(html).not.toContain("Browse by model family");
     expect(html).not.toContain("Primary browse path");
   });

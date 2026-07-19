@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { LAUNCH_FREEZE, shortHash } from "@/components/launch-freeze";
 import { publicProtocolLabel } from "@/lib/board-adapter";
+import { familySlug } from "@/lib/family-slug";
 
 export function AppShell({
   children,
+  families,
   usesDemoData,
   suiteVersion,
   indexVersion,
 }: {
   readonly children: React.ReactNode;
+  readonly families: readonly string[];
   readonly usesDemoData: boolean;
   readonly suiteVersion: string | null;
   readonly indexVersion: string;
@@ -17,14 +20,32 @@ export function AppShell({
     <div className="relative z-10 flex min-h-screen flex-col">
       <header className="sticky top-0 z-20 border-b border-bench-line bg-bench-bg/85 backdrop-blur">
         <nav className="mx-auto flex w-full max-w-[1480px] flex-col items-start justify-between gap-3 px-5 py-3 sm:flex-row sm:items-center sm:gap-4 lg:px-8">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+          <div className="flex w-full flex-wrap items-center gap-x-6 gap-y-1 sm:w-auto">
             <Link href="/" className="neon-heading text-lg font-bold tracking-tight transition-opacity hover:opacity-80">
               local-bench
             </Link>
             <div className="flex flex-wrap gap-4 text-sm text-bench-muted">
-              <Link href="/families" className="font-medium text-bench-text hover:text-bench-accent">
-                Model families
-              </Link>
+              <details className="relative w-full sm:w-auto">
+                <summary className="cursor-pointer list-none font-medium text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent [&::-webkit-details-marker]:hidden">
+                  Model families
+                </summary>
+                <div className="z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded border border-bench-line bg-bench-panel p-1 sm:absolute sm:left-0 sm:w-64">
+                  <Link href="/families" className="sticky top-0 z-10 block rounded bg-bench-panel px-3 py-2 font-semibold text-bench-text hover:bg-white/[0.04] hover:text-bench-accent">
+                    All families →
+                  </Link>
+                  <div className="border-t border-bench-line pt-1">
+                    {families.map((family) => (
+                      <Link
+                        key={family}
+                        href={`/families#${familySlug(family)}`}
+                        className="block rounded px-3 py-2 text-bench-muted hover:bg-white/[0.04] hover:text-bench-text"
+                      >
+                        {family}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </details>
               <Link href="/leaderboard" className="hover:text-bench-text">
                 Global board
               </Link>

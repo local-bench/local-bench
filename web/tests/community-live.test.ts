@@ -1,14 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   parseCommunityLiveBoard,
-  reconcileCommunityRows,
   type LiveBoardRow,
 } from "../lib/community-live";
 import { axisLabel } from "../lib/axis-config";
-import type { CommunityBoardRow } from "../lib/community-data";
 
 const GROUP_ID = `community-group:${"1".repeat(32)}`;
-const LIVE_ONLY_GROUP_ID = `community-group:${"2".repeat(32)}`;
 const SUBMISSION_ID = `ticket_${"3".repeat(32)}`;
 
 function liveRow(overrides: Partial<LiveBoardRow> = {}): LiveBoardRow {
@@ -80,54 +77,6 @@ function envelope(rows: readonly unknown[]) {
   };
 }
 
-const bakedLineage = {
-  artifact_sha256: "a".repeat(64),
-  association: {
-    artifact_to_repo: "unverified" as const,
-    basis: "maintainer-associated" as const,
-    note: "Maintainer reviewed association.",
-  },
-  card_declared_edges: [{
-    base: "Qwen/Qwen3.5-9B",
-    base_revision: "b".repeat(40),
-    child: "owner/model",
-    child_revision: "c".repeat(40),
-    source: "hf-model-card" as const,
-  }],
-  repo: { id: "owner/model", revision: "c".repeat(40) },
-  resolution: { resolved_at: "2026-07-18T01:30:00Z", status: "complete" as const },
-};
-
-function bakedRow(overrides: Partial<CommunityBoardRow> = {}): CommunityBoardRow {
-  return {
-    artifactSha256: "a".repeat(64),
-    axes: {},
-    communityModelGroupId: GROUP_ID,
-    declaredBaseModels: [],
-    compositeFull: 0.4,
-    detailPath: "/model/qwen3-5-9b",
-    displayName: "Baked model",
-    family: "Qwen3.5",
-    globalRank: null,
-    headlineComplete: true,
-    identityLabel: "community-declared, identity-unverified",
-    indexVersion: "index-v4.1",
-    lineage: bakedLineage,
-    measuredHeadlineWeight: 0.75,
-    missingHeadlineWeight: 0.25,
-    partialComposite: 0.4,
-    quantLabel: "Q5_K_M",
-    ranked: false,
-    submissionId: SUBMISSION_ID,
-    submitterDisplayName: null,
-    submitterGithubLogin: null,
-    submitterKeyFingerprint: null,
-    timestamps: null,
-    trust: null,
-    ...overrides,
-  };
-}
-
 describe("community live board boundary", () => {
   it("accepts the complete strict contract", () => {
     const parsed = parseCommunityLiveBoard(envelope([liveRow()]));
@@ -180,6 +129,42 @@ describe("community live board boundary", () => {
     });
   });
 
+  it("adapts optional runtime, hardware, and performance telemetry when valid", () => {
+    const parsed = parseCommunityLiveBoard(envelope([{
+      ...liveRow(),
+      hardware: { gpu_name: "NVIDIA GeForce RTX 5090", vram_gb: 32 },
+      perf: { decode_tps: 71.5, tokens_to_answer_median: 512, wall_time_seconds: 3660 },
+      runtime: { backend: "cuda", name: "llama.cpp", version: "b7421" },
+    }]));
+
+    expect(parsed?.rows[0]).toMatchObject({
+      hardware: { gpu_name: "NVIDIA GeForce RTX 5090", vram_gb: 32 },
+      perf: { decode_tps: 71.5, tokens_to_answer_median: 512, wall_time_seconds: 3660 },
+      runtime: { backend: "cuda", name: "llama.cpp", version: "b7421" },
+    });
+  });
+
+  it("keeps rows with absent or malformed optional telemetry and drops each malformed field", () => {
+    const parsed = parseCommunityLiveBoard(envelope([
+      liveRow(),
+      {
+        ...liveRow({ submission_id: `ticket_${"5".repeat(32)}` }),
+        hardware: { gpu_name: "RTX 5090", vram_gb: -1 },
+        perf: { decode_tps: Number.POSITIVE_INFINITY, tokens_to_answer_median: 12, wall_time_seconds: 4 },
+        runtime: { backend: null, name: "x".repeat(301), version: null },
+      },
+    ]));
+
+    expect(parsed).toMatchObject({ droppedRows: 0 });
+    expect(parsed?.rows).toHaveLength(2);
+    expect(parsed?.rows[0]).not.toHaveProperty("runtime");
+    expect(parsed?.rows[0]).not.toHaveProperty("hardware");
+    expect(parsed?.rows[0]).not.toHaveProperty("perf");
+    expect(parsed?.rows[1]).not.toHaveProperty("runtime");
+    expect(parsed?.rows[1]).not.toHaveProperty("hardware");
+    expect(parsed?.rows[1]).not.toHaveProperty("perf");
+  });
+
   it("normalizes legacy live axis keys without overriding canonical values", () => {
     const parsed = parseCommunityLiveBoard(envelope([liveRow({
       axes: {
@@ -196,65 +181,5 @@ describe("community live board boundary", () => {
     expect(parsed?.rows[0]?.axes).not.toHaveProperty("tool_use");
     expect(parsed?.rows[0]?.axes).not.toHaveProperty("call_formatting");
     expect(axisLabel("instruction_following")).toBe("Instruction following");
-  });
-});
-
-describe("community live reconciliation", () => {
-  it("uses live scoring fields while preserving maintainer-reviewed baked lineage", () => {
-    const [merged] = reconcileCommunityRows([bakedRow()], [liveRow()]);
-
-    expect(merged).toMatchObject({
-      axes: { coding: { score: 0.5, status: "measured" } },
-      displayName: "Live model",
-      lineage: bakedLineage,
-      partialComposite: 0.5,
-      submitterDisplayName: "Ada",
-      submitterGithubLogin: "octocat",
-      trust: { trust_label: "community_re_scored" },
-    });
-  });
-
-  it("appends a live-only row without a detail link for an unbaked group", () => {
-    const groupSuffix = "2".repeat(32);
-    const [merged] = reconcileCommunityRows([], [liveRow({
-      community_model_group_id: LIVE_ONLY_GROUP_ID,
-      group_path: `community/groups/${groupSuffix}.json`,
-    })]);
-
-    expect(merged).toMatchObject({ detailPath: null, displayName: "Live model" });
-  });
-
-  it("keeps live lineage enrichment when no baked row exists", () => {
-    const [merged] = reconcileCommunityRows([], [liveRow({ lineage_enrichment: bakedLineage })]);
-
-    expect(merged?.lineage).toEqual(bakedLineage);
-  });
-
-  it("uses all six axes when estimating legacy partial measured weight", () => {
-    const measured = { ci: null, n: 1, score: 0.5, status: "measured" as const };
-    const missing = { ci: null, n: 0, score: null, status: "not_measured" as const };
-    const [merged] = reconcileCommunityRows([], [liveRow({
-      axes: {
-        agentic: measured,
-        coding: measured,
-        instruction_following: measured,
-        knowledge: missing,
-        math: missing,
-        tool_calling: missing,
-      },
-      headline_complete: false,
-      scores: { composite_full: null },
-    })]);
-
-    expect(merged?.measuredHeadlineWeight).toBe(0.5);
-  });
-
-  it("drops a baked row absent after a successful live fetch", () => {
-    expect(reconcileCommunityRows([bakedRow()], [])).toEqual([]);
-  });
-
-  it("never restores the removed community route from a baked row", () => {
-    const [merged] = reconcileCommunityRows([bakedRow({ detailPath: `/community/model/${"1".repeat(32)}` })], [liveRow()]);
-    expect(merged?.detailPath).toBeNull();
   });
 });

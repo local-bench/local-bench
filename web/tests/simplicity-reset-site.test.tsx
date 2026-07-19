@@ -173,7 +173,7 @@ describe("Simplicity Reset SITE contract", () => {
 
   it("maps the active internal index to LB-2026-07 on public surfaces", () => {
     const html = renderToStaticMarkup(
-      <AppShell indexVersion="index-v4.1" suiteVersion="suite-v1-full-exec-6axis-v1" usesDemoData={false}>
+      <AppShell families={["Fixture"]} indexVersion="index-v4.1" suiteVersion="suite-v1-full-exec-6axis-v1" usesDemoData={false}>
         <div>content</div>
       </AppShell>,
     );

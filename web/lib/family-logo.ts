@@ -1,9 +1,5 @@
 // Organization marks shown next to model names as scanning aids (the artificialanalysis.ai
 // pattern). Assets are the orgs' own Hugging Face avatars, bundled under public/logos/.
-// Matching runs on the MODEL LABEL, not the weights family: family encodes lineage, so a
-// community fine-tune like Qwopus carries family "Qwen3.6" — keying on the label means only
-// models that carry the org's own name ("Qwen3.6 27B", "Gemma 4 12B") get the mark, and
-// fine-tunes with their own names keep the color-dot fallback instead of a misattributed logo.
 // Names/logos identify the model's maker; listing is evaluation, not endorsement (see footer).
 
 export type OrgLogo = {
@@ -29,4 +25,11 @@ export function orgLogoForModelLabel(modelLabel: string | null | undefined): Org
     return null;
   }
   return RULES.find((rule) => rule.pattern.test(modelLabel))?.logo ?? null;
+}
+
+export function orgLogoForFamilyName(family: string | null | undefined): OrgLogo | null {
+  if (family === null || family === undefined) {
+    return null;
+  }
+  return RULES.find((rule) => rule.pattern.test(family))?.logo ?? null;
 }
