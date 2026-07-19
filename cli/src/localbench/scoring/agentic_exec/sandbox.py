@@ -43,6 +43,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from localbench.scoring.agentic_exec.sandbox_policy import mandatory_bubblewrap_isolation
+
 # Path, inside the jail, where the RPC socket directory is bind-mounted.
 _JAIL_RPC_DIR = "/rpc"
 _JAIL_RPC_SOCKET = "/rpc/rpc.sock"
@@ -331,11 +333,7 @@ class AppWorldSandbox:
 
         bwrap_argv = [
             bwrap,
-            "--unshare-all",            # new user/ipc/pid/uts/cgroup/mount/NET namespaces
-            "--die-with-parent",        # SIGKILL the jail if the orchestrator dies
-            "--new-session",            # detach controlling terminal (anti-TIOCSTI)
-            "--cap-drop", "ALL",        # drop every capability (belt; userns already empties them)
-            "--hostname", "sandbox",
+            *mandatory_bubblewrap_isolation("sandbox"),
             "--ro-bind", "/usr", "/usr",
             "--symlink", "usr/bin", "/bin",
             "--symlink", "usr/lib", "/lib",

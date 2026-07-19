@@ -28,7 +28,6 @@ from localbench.appliance.manifest import (
     MANIFEST_URL,
     MAX_MANIFEST_BYTES,
     PINNED_RUNTIME_ID,
-    REQUIRED_CRITICAL_HASHES,
     RUNTIME_PUBLIC_KEYS,
     RuntimeManifestError,
     verify_manifest_bytes,
@@ -39,11 +38,6 @@ from localbench.appliance.trust import (
     TrustMetadataError,
     admit_trust_metadata,
     load_trust_state,
-)
-from localbench.appliance.runtime_identity import (
-    agentic_runtime_identity_from_sources,
-    agentic_runtime_identity_object,
-    agentic_runtime_identity_sha256,
 )
 from localbench.persistence import atomic_write_bytes, atomic_write_json
 from localbench.submissions.canon import canonical_json_hash
@@ -209,6 +203,10 @@ class ApplianceProvisioner:
     def ensure_active(self, runtime_id: str = PINNED_RUNTIME_ID) -> JsonObject:
         _validate_runtime_id(runtime_id)
         validate_storage_root(self.root, self.environ)
+        if platform.system() == "Linux":
+            from localbench.appliance.native_provisioner import NativeApplianceProvisioner
+
+            return NativeApplianceProvisioner(self).ensure_active(runtime_id)
         runtime_dir = self.root / "WSL" / runtime_id
         with runtime_lock(self.root / "inventory.lock"):
             with runtime_lock(self.root / "locks" / f"{runtime_id}.lock"):
@@ -243,6 +241,10 @@ class ApplianceProvisioner:
                 return self._resume(runtime_dir, state, manifest)
 
     def list_runtimes(self) -> list[JsonObject]:
+        if platform.system() == "Linux":
+            from localbench.appliance.native_provisioner import NativeApplianceProvisioner
+
+            return NativeApplianceProvisioner(self).list_runtimes()
         base = self.root / "WSL"
         if not base.exists():
             return []
@@ -257,6 +259,13 @@ class ApplianceProvisioner:
 
     def remove(self, runtime_id: str, *, confirm_active: bool = False) -> None:
         _validate_runtime_id(runtime_id)
+        if platform.system() == "Linux":
+            from localbench.appliance.native_provisioner import NativeApplianceProvisioner
+
+            NativeApplianceProvisioner(self).remove(
+                runtime_id, confirm_active=confirm_active
+            )
+            return
         runtime_dir = self.root / "WSL" / runtime_id
         if not (runtime_dir / "state.json").exists():
             return
@@ -286,6 +295,12 @@ class ApplianceProvisioner:
             shutil.rmtree(tombstone, ignore_errors=False)
 
     def prune(self, *, pinned_runtime_id: str = PINNED_RUNTIME_ID) -> list[str]:
+        if platform.system() == "Linux":
+            from localbench.appliance.native_provisioner import NativeApplianceProvisioner
+
+            return NativeApplianceProvisioner(self).prune(
+                pinned_runtime_id=pinned_runtime_id
+            )
         active = self._read_json(self.root / "active.json") or {}
         runtimes = self.list_runtimes()
         pinned = next(
@@ -744,74 +759,9 @@ class ApplianceProvisioner:
             raise ProvisioningError(
                 "runtime_handshake_failed", _decode(result.stderr), "Reprovision"
             )
-        expected_hashes = _object(manifest["critical_hashes"])
-        observed_hashes = identity.get("critical_hashes", {})
-        if not isinstance(observed_hashes, dict) or set(observed_hashes) != set(
-            REQUIRED_CRITICAL_HASHES
-        ):
-            raise ProvisioningError(
-                "critical_hash_set_invalid", "worker set differs", "Reprovision"
-            )
-        if identity.get("critical_hashes") != expected_hashes:
-            raise ProvisioningError(
-                "runtime_mutated", "critical hash mismatch", "Reprovision"
-            )
-        if identity.get("execution_contract_sha256") != manifest.get(
-            "execution_contract_sha256"
-        ):
-            raise ProvisioningError(
-                "execution_contract_mismatch", "worker contract differs", "Reprovision"
-            )
-        tasks = _object(manifest["task_identity"])
-        for field in (
-            "ordered_task_ids_sha256",
-            "selection_recipe_sha256",
-            "semantic_task_sha256",
-        ):
-            if identity.get(field) != tasks.get(field):
-                raise ProvisioningError("task_contract_mismatch", field, "Reprovision")
-        required = {
-            "runtime_id": manifest["runtime_id"],
-            "protocol_version": _object(manifest["worker"])["protocol_version"],
-            "uid": "lbworker",
-            "gid": "lbworker",
-            "mnt_c_absent": True,
-            "interop_blocked": True,
-            "windows_path_absent": True,
-        }
-        for field, expected in required.items():
-            if identity.get(field) != expected:
-                raise ProvisioningError(
-                    "runtime_identity_mismatch", field, "Reprovision"
-                )
-        expected_python = str(_object(manifest["python"])["version"])
-        if identity.get("python_version") != expected_python:
-            raise ProvisioningError(
-                "runtime_identity_mismatch", "python_version", "Reprovision"
-            )
-        expected_bubblewrap = str(_object(manifest["bubblewrap"])["version"])
-        if identity.get("bubblewrap_version") not in {
-            expected_bubblewrap,
-            f"bubblewrap {expected_bubblewrap}",
-        }:
-            raise ProvisioningError(
-                "runtime_identity_mismatch", "bubblewrap_version", "Reprovision"
-            )
-        for field, critical_field in (
-            ("appworld_package_sha256", "appworld_installed_tree_sha256"),
-            ("appworld_data_sha256", "appworld_data_tree_sha256"),
-        ):
-            if identity.get(field) != expected_hashes.get(critical_field):
-                raise ProvisioningError(
-                    "runtime_identity_mismatch", field, "Reprovision"
-                )
-        components = agentic_runtime_identity_from_sources(manifest, identity)
-        runtime_identity = agentic_runtime_identity_object(components)
-        identity["agentic_runtime_identity"] = runtime_identity
-        identity["agentic_runtime_identity_sha256"] = (
-            agentic_runtime_identity_sha256(runtime_identity)
-        )
-        return identity
+        from localbench.appliance.handshake import accept_handshake_identity
+
+        return accept_handshake_identity(manifest, identity)
 
     def _assert_owned(self, distro: str, runtime_id: str) -> None:
         result = self._exec(
@@ -956,6 +906,21 @@ class ApplianceProvisioner:
 
 
 def appliance_root(environ: Mapping[str, str]) -> Path:
+    if platform.system() == "Linux":
+        data_home = environ.get("XDG_DATA_HOME")
+        if data_home:
+            return Path(data_home) / "LocalBench"
+        home = environ.get("HOME")
+        if home:
+            return Path(home) / ".local" / "share" / "LocalBench"
+        try:
+            return Path.home() / ".local" / "share" / "LocalBench"
+        except RuntimeError as error:
+            raise ProvisioningError(
+                "xdg_data_home_missing",
+                "XDG_DATA_HOME and HOME are unset",
+                "Set XDG_DATA_HOME or repair the Linux user profile",
+            ) from error
     value = environ.get("LOCALAPPDATA")
     if not value:
         raise ProvisioningError(
@@ -967,6 +932,8 @@ def appliance_root(environ: Mapping[str, str]) -> Path:
 
 
 def validate_storage_root(path: Path, environ: Mapping[str, str]) -> None:
+    if platform.system() != "Windows":
+        return
     resolved = path.resolve()
     for variable in ("OneDrive", "OneDriveCommercial", "OneDriveConsumer"):
         cloud = environ.get(variable)
