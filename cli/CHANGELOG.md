@@ -14,6 +14,9 @@
   extraction-failure items count as terminally graded everywhere.
 - README and CLI copy describe publish-on-submit (rows publish immediately with
   attribution and post-hoc moderation) and the five-headline-axis index.
+- Known limitation, now documented: `setup-agentic` requires a Windows host with
+  managed WSL2 (it fails fast with `localappdata_missing` elsewhere); Linux-native
+  host support for the agentic appliance is a tracked roadmap item.
 
 ## 0.4.3.dev0 - 2026-07-19
 
