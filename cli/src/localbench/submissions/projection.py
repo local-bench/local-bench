@@ -347,6 +347,15 @@ def _locally_graded_coding_item(item: JsonObject) -> bool:
         and "@sha256:" in image
     ):
         return True
+    extraction = artifact.get("extraction_status")
+    if (
+        isinstance(extraction, dict)
+        and isinstance(extraction.get("status"), str)
+        and extraction["status"] != "ok"
+        and verdict is None
+        and artifact.get("verdict_source") is None
+    ):
+        return True
     scoring = item.get("client_scoring")
     failure_kind = item.get("failure_kind")
     if not isinstance(failure_kind, str) and isinstance(scoring, dict):

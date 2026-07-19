@@ -153,6 +153,69 @@ def test_locally_graded_static_coding_verdict_is_carried() -> None:
     assert scored[0]["correct"] is True
 
 
+def test_locally_graded_coding_accepts_every_terminal_artifact_state() -> None:
+    verifier_item = {
+        **_dynamic_item("bcbh-001", correct=True),
+        "bench": "bigcodebench_hard",
+        "code_artifact": {
+            "verdict_source": "verifier",
+            "image_digest": "image@sha256:" + "a" * 64,
+            "verdict": {"passed": True},
+        },
+    }
+    ast_rejected_item = {
+        **_dynamic_item("bcbh-002", correct=False),
+        "bench": "bigcodebench_hard",
+        "failure_kind": "coding_ast_rejected",
+        "code_artifact": {
+            "verdict": None,
+            "verdict_source": None,
+            "conformance_status": {
+                "status": "failed",
+                "failure": "coding_ast_rejected",
+            },
+        },
+    }
+    extraction_failure_item = {
+        **_dynamic_item("bcbh-119", correct=False),
+        "bench": "bigcodebench_hard",
+        "failure_kind": "ambiguous_extraction:truncated_fence",
+        "code_artifact": {
+            "extraction_status": {
+                "status": "ambiguous",
+                "failure": "truncated_fence",
+            },
+            "extracted_code": None,
+            "sanitized_code": None,
+            "assembled_program_sha256": None,
+            "verdict": None,
+            "verdict_source": None,
+            "image_digest": None,
+        },
+    }
+
+    assert _locally_graded_benches(
+        [verifier_item, ast_rejected_item, extraction_failure_item],
+    ) == frozenset({"bigcodebench_hard"})
+
+
+def test_locally_graded_coding_rejects_extraction_ok_without_verdict() -> None:
+    pending_item = {
+        **_dynamic_item("bcbh-001", correct=False),
+        "bench": "bigcodebench_hard",
+        "code_artifact": {
+            "extracted_code": "def task_func(x):\n    return x",
+            "sanitized_code": "def task_func(x):\n    return x",
+            "assembled_program_sha256": "b" * 64,
+            "verdict": None,
+            "verdict_source": None,
+            "image_digest": None,
+        },
+    }
+
+    assert _locally_graded_benches([pending_item]) == frozenset()
+
+
 def test_scored_items_still_rejects_unknown_bench() -> None:
     items = [{**_dynamic_item("t1", correct=True), "bench": "madeupbench"}]
 
