@@ -530,7 +530,7 @@ def test_build_data_main_passes_allow_lineage_gaps_flag(
         (output_dir / "index.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(builder, "build_static_data", fake_build_static_data)
-    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir: None)
+    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir, *, maintainer_curated=False: None)
 
     code = builder.main(
         [
@@ -1057,7 +1057,7 @@ def test_build_data_main_reports_absolute_out_dir_when_outside_repo(
         (output_dir / "index.json").write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(builder, "build_static_data", fake_build_static_data)
-    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir: None)
+    monkeypatch.setattr(builder, "_build_agentic_column", lambda _out_dir, *, maintainer_curated=False: None)
 
     # When: the CLI entrypoint completes.
     code = builder.main(["--sources", str(sources), "--out", str(out_dir), "--iters", "1"])
