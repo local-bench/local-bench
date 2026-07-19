@@ -59,10 +59,7 @@ function mergeCommunityRow(
 }
 
 function isAdaptedBoardRow(row: AdaptedBoardRow | LiveBoardRow): row is AdaptedBoardRow {
-  return typeof row.artifactSha256 === "string"
-    && typeof row.displayName === "string"
-    && typeof row.headlineComplete === "boolean"
-    && typeof row.submissionId === "string";
+  return "artifactSha256" in row;
 }
 
 function measuredWeight(row: AdaptedBoardRow): number | null {

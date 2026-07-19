@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LiveBoardEnvelopeSchema, LiveBoardRowSchema } from "../lib/community-live-schema";
+import { LiveBoardEnvelopeSchema, LiveBoardRowSchema } from "../lib/board-adapter";
 import { COMMUNITY_LIVE_BOARD_KEY } from "../functions/_lib/community-live-board";
 import { SubmissionEnvelopeSchema } from "../functions/_lib/submission-contracts";
 import { rawBundleKey } from "../functions/_lib/submission-storage";

@@ -146,7 +146,11 @@ describe("community live reconciliation", () => {
   });
 
   it("includes a live-published project-anchor row before the next static bake", () => {
-    const [merged] = reconcileCommunityRows([], [liveRow({ origin: "project_anchor" })]);
+    const [merged] = reconcileCommunityRows([], [liveRow({
+      badge: "project-run",
+      origin: "project_anchor",
+      trust: undefined,
+    })]);
 
     expect(merged).toMatchObject({ displayName: "Live model", submissionId: SUBMISSION_ID });
   });
@@ -170,7 +174,7 @@ describe("community live reconciliation", () => {
         tool_calling: missing,
       },
       headline_complete: false,
-      scores: { composite_full: null },
+      scores: { ...liveRow().scores, composite_full: null, headline_score: null },
     })]);
 
     expect(merged?.measuredHeadlineWeight).toBe(0.5);

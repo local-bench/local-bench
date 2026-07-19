@@ -6,7 +6,7 @@ import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
-import { boardAxisValue } from "@/lib/board-adapter";
+import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
 import { formatDuration, formatGpuShort, formatInteger, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { AxisScore, Score } from "@/lib/schemas";
@@ -180,12 +180,8 @@ function UnavailableCell() {
   );
 }
 
-function normalizePercent(value: number): number {
-  return value <= 1 ? value * 100 : value;
-}
-
 function normalizedScore(value: number): Score {
-  const point = normalizePercent(value);
+  const point = toDisplayScore(value);
   return { point, lo: point, hi: point };
 }
 
@@ -195,9 +191,9 @@ function communityAxisScore(
   if (value === undefined || value.status !== "measured" || value.score === null || value.score === undefined || value.n === 0) {
     return undefined;
   }
-  const point = normalizePercent(value.score);
-  const lo = normalizePercent(value.ci?.[0] ?? value.score);
-  const hi = normalizePercent(value.ci?.[1] ?? value.score);
+  const point = toDisplayScore(value.score);
+  const lo = toDisplayScore(value.ci?.[0] ?? value.score);
+  const hi = toDisplayScore(value.ci?.[1] ?? value.score);
   return {
     point,
     lo,

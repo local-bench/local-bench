@@ -1,4 +1,5 @@
 import { AXIS_KEYS, type AxisKey } from "./axis-config";
+import { toDisplayScore } from "./board-adapter";
 import {
   DEFAULT_CONTEXT_TOKENS,
   estimateVramRequirement,
@@ -89,7 +90,7 @@ export function getCompareConfigs(
   const community = communityRows.flatMap((row): readonly CompareConfig[] => {
     if (!row.headlineComplete || row.compositeFull === null || !isNonEmptyString(row.quantLabel)) return [];
     const axes = communityAxes(row);
-    const point = normalizePercent(row.compositeFull);
+    const point = toDisplayScore(row.compositeFull);
     const modelSlug = row.detailPath?.replace(/^\/model\//u, "") ?? "";
     return [{
       axes,
@@ -170,9 +171,9 @@ function winnerFor(delta: number): "left" | "right" | "tie" {
 function communityAxes(row: CommunityBoardRow): Record<string, AxisScore> {
   return Object.fromEntries(Object.entries(row.axes ?? {}).flatMap(([key, axis]) => {
     if (axis.status !== "measured" || axis.score === null || axis.score === undefined) return [];
-    const point = normalizePercent(axis.score);
-    const lo = axis.ci?.[0] === undefined ? point : normalizePercent(axis.ci[0]);
-    const hi = axis.ci?.[1] === undefined ? point : normalizePercent(axis.ci[1]);
+    const point = toDisplayScore(axis.score);
+    const lo = axis.ci?.[0] === undefined ? point : toDisplayScore(axis.ci[0]);
+    const hi = axis.ci?.[1] === undefined ? point : toDisplayScore(axis.ci[1]);
     return [[key, {
       hi,
       lo,
@@ -183,8 +184,4 @@ function communityAxes(row: CommunityBoardRow): Record<string, AxisScore> {
       raw_accuracy: axis.score <= 1 ? axis.score : axis.score / 100,
     }]];
   }));
-}
-
-function normalizePercent(value: number): number {
-  return value <= 1 ? value * 100 : value;
 }

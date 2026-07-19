@@ -5,6 +5,7 @@ import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { communityRowsForModel } from "@/lib/community-family";
 import type { CommunityBoardRow, CommunityLineage, CommunityModelTarget } from "@/lib/community-data";
 import { huggingFaceRepoUrl } from "@/lib/community-links";
+import { toDisplayScore } from "@/lib/board-adapter";
 import { axisLabel, formatScore } from "@/lib/format";
 
 export function CommunityFamilyResultsLive({
@@ -53,7 +54,7 @@ function ReportedRun({ row }: { readonly row: CommunityBoardRow }) {
         <div className="text-right font-mono text-xs">
           {row.headlineComplete && row.compositeFull !== null ? (
             <>
-              <div className="font-semibold text-bench-text">{formatScore(normalizePercent(row.compositeFull))}</div>
+              <div className="font-semibold text-bench-text">{formatScore(toDisplayScore(row.compositeFull))}</div>
               <div className="text-bench-muted">{row.globalRank === null ? "complete ranked run" : `global rank #${row.globalRank}`}</div>
             </>
           ) : <div className="text-bench-warn">historical incomplete report</div>}
@@ -68,7 +69,7 @@ function ReportedRun({ row }: { readonly row: CommunityBoardRow }) {
             <dt className="font-mono text-[10px] uppercase text-bench-muted">{axisLabel(axis)}</dt>
             <dd className="mt-1 font-mono text-sm text-bench-text">
               {value.status === "measured" && value.score !== null && value.score !== undefined
-                ? `${formatScore(normalizePercent(value.score))} · n=${value.n}`
+                ? `${formatScore(toDisplayScore(value.score))} · n=${value.n}`
                 : value.status.replace("_", " ")}
             </dd>
           </div>
@@ -108,8 +109,4 @@ function LineageDetails({ lineage }: { readonly lineage: CommunityLineage }) {
       </ol>
     </section>
   );
-}
-
-function normalizePercent(value: number): number {
-  return value <= 1 ? value * 100 : value;
 }
