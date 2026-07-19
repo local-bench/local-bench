@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BenchmarkOnramp } from "@/components/benchmark-onramp";
 import { BestVariantVramScatter } from "@/components/best-variant-scatter";
 import { HeroBanner } from "@/components/hero-banner";
-import { FamilyDirectory } from "@/components/family-directory";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { ReplicationTimePanel } from "@/components/replication-time-panel";
 import { selectBestModelVariantPoints, selectBestVariantPoints } from "@/lib/best-variant";
@@ -32,11 +31,27 @@ export default async function HomePage() {
     : ranked;
   const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
   const communityRowsForDisplay = communityRows === null ? [] : communityRowsWithFamilyPaths(communityRows, index.models);
+  const familyCount = new Set(index.models.map((model) => model.family)).size;
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <HeroBanner />
-      <FamilyDirectory models={index.models} />
+      <nav
+        id="families"
+        aria-label="Browse model families"
+        className="scroll-mt-24 rounded-lg border border-bench-line bg-bench-panel/82 px-5 py-3"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-6 text-bench-muted">
+            <span className="font-semibold text-bench-text">Model families</span>
+            {" — "}
+            Trace base models through their fine-tunes, distills, and quants.
+          </p>
+          <Link href="/families" className="shrink-0 font-semibold text-bench-text hover:text-bench-accent">
+            Browse {familyCount} {familyCount === 1 ? "family" : "families"} →
+          </Link>
+        </div>
+      </nav>
       {/* Side-by-side only when the scatter keeps its useful width (xl+); stacked below that. */}
       <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:items-stretch">
         <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />

@@ -72,12 +72,24 @@ vi.mock("@/lib/community-data", () => ({
 import HomePage from "../app/page";
 
 describe("homepage unified board", () => {
-  it("renders a community row in the same board markup as ranked rows", async () => {
+  it("renders a complete community row in the unified board", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
     expect(html).toContain('data-testid="full-leaderboard"');
-    expect(html).toContain("Homepage Ranked Model");
     expect(html).toContain('data-testid="community-row-homepage-community-ticket"');
     expect(html).toContain("Homepage Community Model");
+  });
+
+  it("keeps the legacy families anchor as a launchpad without rendering the directory", async () => {
+    // Given: the landing page has one indexed model family.
+    // When: the page is prerendered.
+    const html = renderToStaticMarkup(await HomePage());
+
+    // Then: the old fragment lands on the new semantic launchpad, not the full family grid.
+    expect(html).toMatch(/<nav[^>]*id="families"[^>]*aria-label="Browse model families"/u);
+    expect(html).toContain('href="/families"');
+    expect(html).toContain("Browse 1 family →");
+    expect(html).not.toContain("Browse by model family");
+    expect(html).not.toContain("Primary browse path");
   });
 });

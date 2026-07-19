@@ -22,7 +22,7 @@ export function AppShell({
               local-bench
             </Link>
             <div className="flex flex-wrap gap-4 text-sm text-bench-muted">
-              <Link href="/#families" className="font-medium text-bench-text hover:text-bench-accent">
+              <Link href="/families" className="font-medium text-bench-text hover:text-bench-accent">
                 Model families
               </Link>
               <Link href="/leaderboard" className="hover:text-bench-text">

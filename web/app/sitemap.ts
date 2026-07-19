@@ -4,6 +4,7 @@ import { getIndexData, getSitemapRunStaticParams } from "@/lib/data";
 const SITE_URL = "https://local-bench.ai";
 const STATIC_PATHS = [
   "/",
+  "/families/",
   "/leaderboard/",
   "/submissions/",
   "/submission/",
