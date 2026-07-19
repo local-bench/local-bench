@@ -9,4 +9,6 @@ def test_production_manifest_emits_installed_package_version() -> None:
     context = SimpleNamespace(runner_build_id=None)
     provenance = _provenance(context, {})  # type: ignore[arg-type]
 
-    assert provenance["cli_version"] == "0.4.3.dev0"
+    import importlib.metadata
+
+    assert provenance["cli_version"] == importlib.metadata.version("local-bench-ai")

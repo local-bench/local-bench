@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 from pathlib import Path
 
@@ -298,7 +299,7 @@ def test_normalized_published_record_contains_no_absolute_local_paths() -> None:
     }
     record["agentic_run"] = {
         "wsl_identity": {
-            "localbench_distribution_version": "0.4.3.dev0",
+            "localbench_distribution_version": importlib.metadata.version("local-bench-ai"),
             "worker_content_sha256": "b" * 64,
             "venv_path": "/home/michael/venv",
             "bwrap_path": "/home/michael/bin/bwrap",
@@ -351,7 +352,7 @@ def test_missing_manifest_version_normalizes_to_installed_version_not_legacy_def
 
     bundle = normalize_result_bundle(record)
 
-    assert bundle["manifest"]["provenance"]["cli_version"] == "0.4.3.dev0"
+    assert bundle["manifest"]["provenance"]["cli_version"] == importlib.metadata.version("local-bench-ai")
 
 
 @_REQUIRES_PILOT
