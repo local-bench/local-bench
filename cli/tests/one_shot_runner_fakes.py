@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from localbench.appliance.worker import APPWORLD_ROOT, VENV
-from localbench.coding_exec.sandbox import DockerEnv
+from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
 from localbench.one_shot.download import DownloadError
 from localbench.one_shot.runner import OneShotRunnerDeps
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
@@ -156,6 +156,34 @@ def _agentic_preflight(_options, _root: Path) -> WslPreflightResult:
     )
 
 
+def _coding_sandbox_runner(
+    _argv: list[str],
+    _timeout_seconds: float,
+    _max_output_bytes: int,
+    _stdin_bytes: bytes,
+) -> RawRunResult:
+    report = {
+        "uid": 65534,
+        "rootfs_read_only": True,
+        "tmpfs": True,
+        "tmpfs_bytes": 64 * 1024 * 1024,
+        "interfaces": ["lo"],
+        "cap_eff": 0,
+        "no_new_privs": 1,
+        "seccomp": 2,
+        "pids_max": 256,
+        "memory_max": 2 * 1024 * 1024 * 1024,
+        "cpu_quota": 100000,
+        "cpu_period": 100000,
+    }
+    return RawRunResult(
+        exit_code=0,
+        stdout=json.dumps(report).encode(),
+        stderr=b"",
+        timed_out=False,
+    )
+
+
 def _deps(tmp_path: Path) -> OneShotRunnerDeps:
     return OneShotRunnerDeps(
         catalog_loader=_CatalogLoader(),
@@ -172,6 +200,7 @@ def _deps(tmp_path: Path) -> OneShotRunnerDeps:
             runsc_available=False,
             runc_version=(1, 2, 0),
         ),
+        coding_sandbox_runner=_coding_sandbox_runner,
         coding_grader=_CodingGrader(),
     )
 
@@ -192,6 +221,7 @@ def _args(
         vram_gb=24.0,
         offline=offline,
         allow_sleep_risk=False,
+        allow_untrusted_code=True,
         purge_model=False,
         llama_server_path=Path("llama-server.exe"),
         server_bin=None,

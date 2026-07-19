@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from localbench.submissions.bundle import pack_submission_bundle
+from localbench.submissions.rescore import recompute_public_scores
 from localbench.appliance.runtime_identity import (
     agentic_runtime_identity_object,
     agentic_runtime_identity_sha256,
@@ -82,6 +83,75 @@ async def test_pack_records_manifest_counts_and_file_hashes(tmp_path: Path) -> N
     assert files["items.jsonl"]["sha256"] == hashlib.sha256(
         zipfile.ZipFile(out, "r").read("items.jsonl"),
     ).hexdigest()
+    with zipfile.ZipFile(out, "r") as archive:
+        item = json.loads(archive.read("items.jsonl").decode("utf-8").strip())
+    assert "messages" not in item["request"]
+
+
+@pytest.mark.anyio
+async def test_pack_keeps_agentic_items_content_free(tmp_path: Path) -> None:
+    fixtures = await build_submission_fixtures(tmp_path)
+    run = json.loads(fixtures.run_path.read_text(encoding="utf-8"))
+    run["items"].append(
+        {
+            "id": "appworld-fixture-1",
+            "bench": "appworld_c",
+            "response_text": "third-party task content must not ship",
+            "finish_reason": "stop",
+            "error": None,
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            "latency_seconds": 1.0,
+            "started_at": "2026-06-24T00:00:00Z",
+            "finished_at": "2026-06-24T00:00:01Z",
+            "attempts": 1,
+            "correct": True,
+            "extracted": "private task answer",
+            "failure_kind": None,
+        },
+    )
+    fixtures.run_path.write_text(json.dumps(run), encoding="utf-8")
+    out = tmp_path / "agentic-content-free.lbsub.zip"
+
+    pack_submission_bundle(
+        run_path=fixtures.run_path,
+        suite_dir=fixtures.suite_dir,
+        model_name="fixture-model",
+        signing_key_path=fixtures.key_path,
+        out_path=out,
+        offline=True,
+        created_at="2026-06-24T00:00:00Z",
+        run_nonce="fixed-nonce",
+    )
+
+    with zipfile.ZipFile(out, "r") as archive:
+        items = [
+            json.loads(line)
+            for line in archive.read("items.jsonl").decode("utf-8").splitlines()
+        ]
+    agentic = next(item for item in items if item["bench"] == "appworld_c")
+    assert agentic["request"] == {}
+    assert agentic["response"] == {}
+    assert agentic["usage"] == {}
+    assert agentic["timing"] == {}
+    assert agentic["client_scoring"] == {"correct": True}
+    assert "response_text" not in json.dumps(agentic, sort_keys=True)
+    assert "third-party task content" not in json.dumps(agentic, sort_keys=True)
+    assert "private task answer" not in json.dumps(agentic, sort_keys=True)
+    rescored = recompute_public_scores(
+        [agentic],
+        {},
+        dynamic_benches=frozenset({"appworld_c"}),
+    )
+    assert rescored["items"] == [
+        {
+            "id": "appworld-fixture-1",
+            "bench": "appworld_c",
+            "extracted": None,
+            "correct": True,
+            "finish_reason": None,
+            "error": None,
+        },
+    ]
 
 
 @pytest.mark.anyio

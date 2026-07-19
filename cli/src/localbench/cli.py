@@ -488,6 +488,11 @@ def _parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--threads", type=int, default=8)
     bench_parser.add_argument("--threads-batch", type=int, default=8)
     bench_parser.add_argument("--yes", action="store_true", help="accept non-submission one-shot prompts")
+    bench_parser.add_argument(
+        "--allow-untrusted-code",
+        action="store_true",
+        help="consent to restricted-container execution of model-generated code",
+    )
     submit_choice = bench_parser.add_mutually_exclusive_group()
     submit_choice.add_argument("--submit", dest="one_shot_submit", action="store_true", default=None)
     submit_choice.add_argument("--no-submit", dest="one_shot_submit", action="store_false")
@@ -693,7 +698,7 @@ def _parser() -> argparse.ArgumentParser:
     code_parser.add_argument("--pending-run", type=Path, help="execute pending code artifacts in an existing run")
     code_parser.add_argument("--suite-dir", type=Path, help="suite dir (defaults to suite/v1)")
     code_parser.add_argument("--image", default=DEFAULT_IMAGE,
-                             help="bigcode evaluate Docker image; SHOULD be digest-pinned (repo@sha256:...)")
+                             help="digest-pinned bigcode evaluate Docker image (repo@sha256:...)")
     code_parser.add_argument("--tier", choices=("quick", "standard"), default="standard")
     code_parser.add_argument("--concurrency", type=int, default=4)
     code_parser.add_argument("--provider", choices=provider_choices(), default="local")
@@ -710,10 +715,9 @@ def _parser() -> argparse.ArgumentParser:
                              help="per-task wall-clock seconds inside the sandbox")
     code_parser.add_argument("--runtime", help="extra-isolation container runtime, e.g. runsc (gVisor) on Linux")
     code_parser.add_argument(
-        "--allow-unsafe-sandbox",
+        "--allow-untrusted-code",
         action="store_true",
-        help="override the fail-closed gate and run on rootful bare-Linux Docker with no second "
-        "isolation boundary (NOT recommended — install gVisor or use rootless Docker instead)",
+        help="consent to restricted-container execution of model-generated code",
     )
     grade_coding_parser = subparsers.add_parser(
         "grade-coding",
@@ -727,7 +731,7 @@ def _parser() -> argparse.ArgumentParser:
     grade_coding_parser.add_argument("--image", default=DEFAULT_IMAGE)
     grade_coding_parser.add_argument("--per-task-timeout", type=int, default=30)
     grade_coding_parser.add_argument("--runtime")
-    grade_coding_parser.add_argument("--allow-unsafe-sandbox", action="store_true")
+    grade_coding_parser.add_argument("--allow-untrusted-code", action="store_true")
     board_parser = subparsers.add_parser(
         "board",
         help="build scorer-side board_v2.json and release manifest",
@@ -2456,8 +2460,9 @@ def _kld(args: argparse.Namespace) -> int:
 
 def _code(args: argparse.Namespace) -> int:
     print(OPT_IN_WARNING)
-    if "@sha256:" not in args.image:
-        print(f"warning    image '{args.image}' is not digest-pinned; pin repo@sha256:... before a ranked run")
+    if not args.allow_untrusted_code:
+        print("error      explicit consent required: pass --allow-untrusted-code")
+        return 2
     if args.pending_run is None and (args.endpoint is None or args.model is None):
         print("error      --endpoint and --model are required unless --pending-run is used")
         return 2
@@ -2475,7 +2480,7 @@ def _code(args: argparse.Namespace) -> int:
         reasoning_effort=_reasoning_effort(args.reasoning_effort),
         per_task_timeout=args.per_task_timeout,
         runtime=args.runtime,
-        allow_unsafe_sandbox=args.allow_unsafe_sandbox,
+        allow_untrusted_code=True,
         receipt_signing_key=args.receipt_signing_key,
     )
     try:
@@ -2497,6 +2502,10 @@ def _code(args: argparse.Namespace) -> int:
 
 
 def _grade_coding(args: argparse.Namespace) -> int:
+    print(OPT_IN_WARNING)
+    if not args.allow_untrusted_code:
+        print("error      explicit consent required: pass --allow-untrusted-code")
+        return 2
     try:
         if args.run is not None:
             run_path = locate_run(args.run).path
@@ -2522,7 +2531,7 @@ def _grade_coding_path(args: argparse.Namespace, run_path: Path, output_path: Pa
         out=None if output_path == run_path else output_path,
         per_task_timeout=args.per_task_timeout,
         runtime=args.runtime,
-        allow_unsafe_sandbox=args.allow_unsafe_sandbox,
+        allow_untrusted_code=True,
     )
     execute_pending_artifacts(run_path, config)
     print(f"output     {output_path}")

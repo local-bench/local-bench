@@ -12,7 +12,7 @@ import localbench.cli as cli_mod
 import localbench.exit_codes as exit_codes
 import localbench.one_shot.runner as one_shot_runner
 from localbench.appliance.worker import APPWORLD_ROOT, VENV
-from localbench.coding_exec.sandbox import DockerEnv
+from localbench.coding_exec.sandbox import DockerEnv, RawRunResult
 from localbench.exit_codes import EXIT_COMPLETE, EXIT_USER_INTERRUPTED
 from localbench.one_shot.runner import (
     SleepGapMonitor,
@@ -139,6 +139,80 @@ def test_one_shot_missing_docker_fails_before_model_download(
     assert deps.hf_client.snapshot_calls == []
     assert deps.bench_runner.options is None
     assert "Docker is unavailable" in capsys.readouterr().err
+
+
+def test_one_shot_rejects_unenforced_sandbox_controls_before_model_download(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    deps = _deps(tmp_path)
+
+    def bad_control_report(
+        _argv: list[str],
+        _timeout_seconds: float,
+        _max_output_bytes: int,
+        _stdin_bytes: bytes,
+    ) -> RawRunResult:
+        report = {
+            "uid": 65534,
+            "rootfs_read_only": True,
+            "tmpfs": True,
+            "tmpfs_bytes": 64 * 1024 * 1024,
+            "interfaces": ["lo"],
+            "cap_eff": 0,
+            "no_new_privs": 1,
+            "seccomp": 0,
+            "pids_max": 256,
+            "memory_max": 2 * 1024 * 1024 * 1024,
+            "cpu_quota": 100000,
+            "cpu_period": 100000,
+        }
+        return RawRunResult(
+            exit_code=0,
+            stdout=json.dumps(report).encode(),
+            stderr=b"",
+            timed_out=False,
+        )
+
+    deps.coding_sandbox_runner = bad_control_report
+    code = run_one_shot_bench(
+        _args(tmp_path),
+        cli_version="0.4.3.dev0",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == exit_codes.EXIT_PREFLIGHT_FAILED
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+    assert "seccomp" in capsys.readouterr().err
+
+
+def test_one_shot_requires_explicit_untrusted_code_consent_before_download(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    deps = _deps(tmp_path)
+    args = _args(tmp_path)
+    args.allow_untrusted_code = False
+
+    code = run_one_shot_bench(
+        args,
+        cli_version="0.4.3.dev0",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    assert code == exit_codes.EXIT_PREFLIGHT_FAILED
+    assert deps.hf_client.revision_calls == []
+    assert deps.hf_client.snapshot_calls == []
+    assert deps.bench_runner.options is None
+    error = capsys.readouterr().err
+    assert "model-generated code" in error
+    assert "--allow-untrusted-code" in error
 
 
 def test_one_shot_resolves_selected_suite_before_any_model_asset_download(

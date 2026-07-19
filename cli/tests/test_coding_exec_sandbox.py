@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import json
+import sys
 from collections.abc import Sequence
 
+import pytest
+
+import localbench.coding_exec.sandbox as sandbox_mod
+from localbench._types import JsonValue
 from localbench.coding_exec import (
     MANDATORY_SECURITY_FLAGS,
     DockerEnv,
     RawRunResult,
     SandboxLimits,
+    default_runner,
     docker_run_argv,
     preflight_checks,
     probe_docker_env,
@@ -46,6 +53,11 @@ def test_docker_run_argv_includes_every_mandatory_security_flag() -> None:
     argv = docker_run_argv(_IMAGE, ["python", "-c", "print(1)"])
     for flag in MANDATORY_SECURITY_FLAGS:
         assert _contains(argv, flag), f"missing mandatory hardening flag: {flag}"
+
+
+def test_docker_run_argv_rejects_unpinned_images() -> None:
+    with pytest.raises(ValueError, match="digest-pinned"):
+        docker_run_argv("ghcr.io/bigcode-project/evaluation-harness:latest", ["true"])
 
 
 def test_docker_run_argv_disables_swap_and_bounds_tmpfs() -> None:
@@ -130,10 +142,80 @@ def test_preflight_passes_on_docker_desktop_vm_boundary() -> None:
         assert result.runtime is None
 
 
-def test_preflight_override_downgrades_blocker_to_warning() -> None:
-    result = preflight_checks(_env(runsc_available=False, rootless=False), allow_unsafe=True)
+def test_active_preflight_observes_every_container_control() -> None:
+    report = _enforced_control_report()
+
+    def runner(
+        _argv: list[str],
+        _timeout_seconds: float,
+        _max_output_bytes: int,
+        _stdin_bytes: bytes = b"",
+    ) -> RawRunResult:
+        return RawRunResult(
+            exit_code=0,
+            stdout=json.dumps(report).encode(),
+            stderr=b"",
+            timed_out=False,
+        )
+
+    result = sandbox_mod.preflight_sandbox_controls(
+        _IMAGE,
+        _env(platform="windows", desktop=True),
+        runner=runner,
+    )
+
     assert result.ok is True
-    assert any("OVERRIDE" in w for w in result.warnings)
+    assert result.blockers == ()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("uid", 0),
+        ("rootfs_read_only", False),
+        ("tmpfs", False),
+        ("interfaces", ["eth0", "lo"]),
+        ("cap_eff", 1),
+        ("no_new_privs", 0),
+        ("seccomp", 0),
+        ("pids_max", 512),
+        ("memory_max", None),
+        ("cpu_quota", None),
+    ],
+)
+def test_active_preflight_fails_closed_when_a_control_is_not_enforced(
+    field: str,
+    value: JsonValue,
+) -> None:
+    report = _enforced_control_report()
+    report[field] = value
+
+    def runner(
+        _argv: list[str],
+        _timeout_seconds: float,
+        _max_output_bytes: int,
+        _stdin_bytes: bytes = b"",
+    ) -> RawRunResult:
+        return RawRunResult(
+            exit_code=0,
+            stdout=json.dumps(report).encode(),
+            stderr=b"",
+            timed_out=False,
+        )
+
+    result = sandbox_mod.preflight_sandbox_controls(
+        _IMAGE,
+        _env(platform="windows", desktop=True),
+        runner=runner,
+    )
+
+    assert result.ok is False
+    assert any(field in blocker for blocker in result.blockers)
+
+
+def test_preflight_has_no_unsafe_override() -> None:
+    with pytest.raises(TypeError):
+        preflight_checks(_env(runsc_available=False, rootless=False), allow_unsafe=True)
 
 
 def test_preflight_blocks_vulnerable_runc_on_native_linux() -> None:
@@ -157,16 +239,13 @@ def test_docker_run_argv_adds_gvisor_runtime_when_requested() -> None:
     assert "--runtime" not in docker_run_argv(_IMAGE, ["true"])
 
 
-def test_docker_run_argv_mounts_are_read_only_and_image_command_last() -> None:
-    argv = docker_run_argv(
-        _IMAGE,
-        ["python", "/work/run.py"],
-        read_only_mounts=[("/host/gen.py", "/work/run.py")],
-    )
-    assert _contains(argv, ["--volume", "/host/gen.py:/work/run.py:ro"])
-    # The image digest then the command come last (nothing executes before the sandbox flags).
-    assert argv[-3:] == [_IMAGE, "python", "/work/run.py"]
-    assert all(not part.endswith(":rw") for part in argv)
+def test_docker_run_argv_rejects_all_host_mounts() -> None:
+    with pytest.raises(ValueError, match="host mounts"):
+        docker_run_argv(
+            _IMAGE,
+            ["python", "/work/run.py"],
+            read_only_mounts=[("/host/gen.py", "/work/run.py")],
+        )
 
 
 def test_docker_run_argv_overrides_image_entrypoint() -> None:
@@ -202,10 +281,65 @@ def test_run_sandboxed_maps_timeout_and_exit_code() -> None:
     assert result["output_truncated"] is False
 
 
+def test_default_runner_streams_stdin_without_a_host_mount() -> None:
+    raw = default_runner(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())"],
+        2.0,
+        1024,
+        b"task-json-over-stdin",
+    )
+
+    assert raw.exit_code == 0
+    assert raw.stdout == b"task-json-over-stdin"
+    assert raw.timed_out is False
+    assert raw.truncated is False
+
+
+def test_default_runner_force_kills_on_output_and_runtime_limits() -> None:
+    output_limited = default_runner(
+        [sys.executable, "-c", "import sys; sys.stdout.write('x' * 10000); sys.stdout.flush()"],
+        2.0,
+        32,
+    )
+    timed = default_runner(
+        [sys.executable, "-c", "import time; time.sleep(5)"],
+        0.05,
+        1024,
+    )
+
+    assert output_limited.truncated is True
+    assert len(output_limited.stdout) == 32
+    assert output_limited.exit_code != 0
+    assert timed.timed_out is True
+    assert timed.exit_code != 0
+
+
 def _fake(*, stdout: bytes = b"", stderr: bytes = b"", exit_code: int = 0, timed_out: bool = False, truncated: bool = False):
-    def runner(argv: list[str], timeout_seconds: float, max_output_bytes: int) -> RawRunResult:
+    def runner(
+        argv: list[str],
+        timeout_seconds: float,
+        max_output_bytes: int,
+        stdin_bytes: bytes,
+    ) -> RawRunResult:
         return RawRunResult(
             exit_code=exit_code, stdout=stdout, stderr=stderr, timed_out=timed_out, truncated=truncated
         )
 
     return runner
+
+
+def _enforced_control_report() -> dict[str, JsonValue]:
+    return {
+        "uid": 65534,
+        "rootfs_read_only": True,
+        "tmpfs": True,
+        "tmpfs_bytes": 64 * 1024 * 1024,
+        "interfaces": ["lo"],
+        "cap_eff": 0,
+        "no_new_privs": 1,
+        "seccomp": 2,
+        "pids_max": 256,
+        "memory_max": 2 * 1024 * 1024 * 1024,
+        "cpu_quota": 100000,
+        "cpu_period": 100000,
+    }

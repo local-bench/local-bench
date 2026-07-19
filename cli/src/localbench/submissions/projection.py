@@ -17,7 +17,11 @@ from localbench.scoring.axis_status import (
     not_measured_axis,
     parse_axis_status_block,
 )
-from localbench.scoring.editorial import index_version_for_coverage_profile
+from localbench.scoring.editorial import (
+    CURRENT_COVERAGE_PROFILE_IDS,
+    OLDER_INDEX_VERSIONS,
+    index_version_for_coverage_profile,
+)
 from localbench.scoring.public_rescore import score_public_item
 from localbench.submissions.bundle_input import load_result_bundle_input
 from localbench.submissions.canon import jcs_json_bytes, jcs_json_hash, sha256_bytes, sha256_file
@@ -367,11 +371,11 @@ def _projection(
     coverage_profile_id = str(suite.get("coverage_profile_id"))
     index_version = index_version_for_coverage_profile(coverage_profile_id)
     carried_index_version = bundle.get("index_version")
-    if carried_index_version is not None and carried_index_version != index_version:
-        raise ValueError(
-            "result bundle index_version does not match its coverage_profile_id: "
-            f"{carried_index_version!r} != {index_version!r}",
-        )
+    relabel_note = _index_relabel_note(
+        carried_index_version,
+        coverage_profile_id=coverage_profile_id,
+        current_index_version=index_version,
+    )
     scores = score_summary(benches, axis_status, suite_axes=_suite_axes(manifest))
     projection: JsonObject = {
         "schema_version": ACCEPTED_RESULT_PROJECTION_SCHEMA_VERSION,
@@ -406,9 +410,32 @@ def _projection(
             "validated_at": validated_at,
         },
     }
-    if provenance.notes:
-        projection["provenance_notes"] = list(provenance.notes)
+    provenance_notes = list(provenance.notes)
+    if relabel_note is not None:
+        provenance_notes.append(relabel_note)
+    if provenance_notes:
+        projection["provenance_notes"] = provenance_notes
     return projection
+
+
+def _index_relabel_note(
+    carried_index_version: JsonValue | None,
+    *,
+    coverage_profile_id: str,
+    current_index_version: str,
+) -> str | None:
+    if carried_index_version is None or carried_index_version == current_index_version:
+        return None
+    if (
+        isinstance(carried_index_version, str)
+        and carried_index_version in OLDER_INDEX_VERSIONS
+        and coverage_profile_id in CURRENT_COVERAGE_PROFILE_IDS
+    ):
+        return f"index_relabeled_from:{carried_index_version}"
+    raise ValueError(
+        "result bundle index_version does not match its coverage_profile_id: "
+        f"{carried_index_version!r} != {current_index_version!r}",
+    )
 
 
 def _scored_items(

@@ -16,7 +16,11 @@ from localbench.coding_exec.receipt import attach_signed_verifier_receipt
 from localbench.submissions.canon import canonical_json_bytes, write_json_file
 from localbench.submissions.foundation import validate_accepted_result_projection
 from localbench.submissions.keys import write_private_key
-from localbench.submissions.projection import _verified_coding_item, client_reported_projection
+from localbench.submissions.projection import (
+    _index_relabel_note,
+    _verified_coding_item,
+    client_reported_projection,
+)
 from localbench.submissions.status_update import verify_submission
 from localbench.submissions.validate import SubmissionValidationError
 
@@ -96,6 +100,54 @@ def test_submitter_projection_carries_locally_graded_coding_and_agentic(
     assert _object(projection["rescore_modes"])["bigcodebench_hard"] == "verdict_carried"
     assert _object(projection["rescore_modes"])["appworld_c"] == "verdict_carried"
     validate_accepted_result_projection(projection)
+
+
+def test_legacy_full_exec_bundle_relabels_to_current_index_with_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=True)
+    assert fixture.verified is not None
+    legacy = read_json_object(fixture.verified)
+    legacy["index_version"] = "index-v3.0"
+    write_json_file(fixture.verified, legacy)
+
+    projection = client_reported_projection(
+        fixture.verified,
+        suite_dir=fixture.suite_dir,
+        validated_at=_VALIDATED_AT,
+    )
+
+    assert projection["coverage_profile_id"] == "full-exec-6axis-v1"
+    assert projection["index_version"] == "index-v4.1"
+    assert "index_relabeled_from:index-v3.0" in projection["provenance_notes"]
+
+
+def test_current_profile_rejects_unknown_or_newer_carried_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _full_exec_fixture(tmp_path, monkeypatch, with_receipt=True)
+    assert fixture.verified is not None
+    mismatched = read_json_object(fixture.verified)
+    mismatched["index_version"] = "index-v5.0"
+    write_json_file(fixture.verified, mismatched)
+
+    with pytest.raises(ValueError, match="index_version does not match"):
+        client_reported_projection(
+            fixture.verified,
+            suite_dir=fixture.suite_dir,
+            validated_at=_VALIDATED_AT,
+        )
+
+
+def test_noncurrent_profile_rejects_an_older_label_mismatch() -> None:
+    with pytest.raises(ValueError, match="index_version does not match"):
+        _index_relabel_note(
+            "index-v4.0",
+            coverage_profile_id="static-exec-5axis-v1",
+            current_index_version="index-v3.0",
+        )
 
 
 @pytest.mark.parametrize("publishable", [True, False], ids=["valid-sampling", "invalid-sampling"])

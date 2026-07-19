@@ -15,7 +15,13 @@ from localbench.coding_exec.orchestrate import (
     DEFAULT_IMAGE,
     execute_pending_artifacts,
 )
-from localbench.coding_exec.sandbox import DockerEnv, preflight_checks, probe_docker_env
+from localbench.coding_exec.sandbox import (
+    OPT_IN_WARNING,
+    DockerEnv,
+    Runner as SandboxRunner,
+    preflight_sandbox_controls,
+    probe_docker_env,
+)
 from localbench.exit_codes import (
     EXIT_AGENTIC_SETUP_REQUIRED,
     EXIT_INTERNAL_RUNNER_BUG,
@@ -98,6 +104,7 @@ class OneShotRunnerDeps:
     sleep_monitor: "SleepGapMonitor | None" = None
     agentic_preflight: AgenticPreflight | None = None
     coding_docker_env: DockerEnv | None = None
+    coding_sandbox_runner: SandboxRunner | None = None
     coding_grader: CodingGrader | None = None
 
 
@@ -113,6 +120,12 @@ def run_one_shot_bench(
     site = str(getattr(args, "site", None) or DEFAULT_SITE)
     root = run_root(args)
     try:
+        print(OPT_IN_WARNING)
+        if not bool(getattr(args, "allow_untrusted_code", False)):
+            raise CodingExecError(
+                "Refusing to execute model-generated code without explicit consent; "
+                "pass --allow-untrusted-code."
+            )
         choices = validate_one_shot_choices(
             is_tty=sys.stdin.isatty() if is_tty is None else is_tty,
             yes=bool(getattr(args, "yes", False)),
@@ -133,7 +146,11 @@ def run_one_shot_bench(
         )
         _verify_suite_identity(suite_ref.path, suite_identity)
         coding_docker_env = dependencies.coding_docker_env or probe_docker_env()
-        coding_preflight = preflight_checks(coding_docker_env)
+        coding_preflight = preflight_sandbox_controls(
+            DEFAULT_IMAGE,
+            coding_docker_env,
+            runner=dependencies.coding_sandbox_runner,
+        )
         if not coding_preflight.ok:
             raise CodingExecError("coding preflight failed: " + "; ".join(coding_preflight.blockers))
         for warning in coding_preflight.warnings:
@@ -296,6 +313,7 @@ def _grade_coding_run(
             suite_dir=suite_dir,
             image=image,
             out=run_path,
+            allow_untrusted_code=True,
         ),
         docker_env=docker_env,
     )

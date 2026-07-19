@@ -19,6 +19,7 @@ INDEX_VERSION_V3: Final = "index-v3.0"
 # index-v3.0/index-v4.0/index-v4.1 (owner-gated additive rev, 2026-07-17); the
 # enum is never narrowed after public exposure.
 INDEX_VERSION_V4: Final = "index-v4.1"
+OLDER_INDEX_VERSIONS: Final = frozenset({INDEX_VERSION_V3, "index-v4.0"})
 SEASON_2_COVERAGE_PROFILE_ID: Final = "full-exec-tooluse-5axis-v2"
 CURRENT_COVERAGE_PROFILE_IDS: Final = frozenset(
     {

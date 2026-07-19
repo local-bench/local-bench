@@ -245,8 +245,12 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
                     json={
                         "raw_bundle_sha256": bundle_sha,
                         "raw_bundle_size_bytes": len(bundle_bytes),
-                        "status": "pending_verification",
+                        "status": "published",
                         "submission_id": "ticket_fixture",
+                        "accepted_result_projection": {
+                            "verification_level": "client_reported",
+                            "scores": {"headline_score": 0.8125, "composite_full": 0.8125},
+                        },
                     },
                 )
             case ("GET", "https://local-bench.ai/api/submissions/ticket_fixture"):
@@ -280,7 +284,7 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
         ),
         transport,
     )
-    upload_submission_bundle(
+    upload = upload_submission_bundle(
         SubmissionUploadRequest(
             bundle_path=bundle,
             credentials=credentials,
@@ -297,6 +301,11 @@ def test_submission_client_requests_ticket_uploads_bundle_and_polls_status(tmp_p
     # Then: upload goes directly to R2, while the app API receives metadata only.
     assert ticket["ticket_id"] == "ticket_fixture"
     assert seen_upload == bundle_bytes
+    assert upload["status"] == "published"
+    assert upload["accepted_result_projection"] == {
+        "verification_level": "client_reported",
+        "scores": {"headline_score": 0.8125, "composite_full": 0.8125},
+    }
     assert status["status"] == "pending_verification"
     assert [headers["x-localbench-bypass"] for headers in site_call_headers] == ["private-token"] * 4
 
