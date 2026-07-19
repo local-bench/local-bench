@@ -76,7 +76,7 @@ async def test_submit_run_auto_resolves_suite_from_run_record_when_suite_dir_is_
     monkeypatch.setattr(submit_mod, "get_submission_status", fake_status)
     monkeypatch.setattr(
         submit_mod,
-        "client_reported_projection",
+        "build_client_reported_projection",
         lambda *args, **kwargs: {"verification_level": "client_reported"},
     )
 
@@ -93,9 +93,11 @@ async def test_submit_run_auto_resolves_suite_from_run_record_when_suite_dir_is_
     )
 
     # Then: the suite id in the run resolves the cached suite and the upload proceeds.
+    # (One resolution via the CLI input path; the projection builder resolves internally
+    # and is mocked out above, so it contributes no call.)
     output = capsys.readouterr().out
     assert code == 0
-    assert resolved_suite_ids == ["fixture-suite-v1", "fixture-suite-v1"]
+    assert resolved_suite_ids == ["fixture-suite-v1"]
     assert uploaded_bundles
     assert "submission sub_auto" in output
 

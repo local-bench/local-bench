@@ -154,6 +154,10 @@ export const LiveBoardRowSchema = z.object({
   conformance: ConformanceSchema,
   coverage_profile_id: IdSchema,
   group_path: safeText(140, 1).optional(),
+  hardware: z.object({
+    gpu_name: safeText(160).nullable(),
+    vram_gb: z.number().finite().nonnegative().nullable(),
+  }).strict().readonly().optional(),
   headline_complete: z.boolean(),
   index_version: safeText(32, 1).nullable(),
   lineage: z.object({ base_model: z.array(RepoIdSchema).max(8).readonly() }).strict().readonly(),
@@ -179,10 +183,26 @@ export const LiveBoardRowSchema = z.object({
     fields: z.array(z.enum(["headline_score", "partial_composite", "composite_full"])).min(1).max(3).readonly(),
     server_value: ScoreSchema,
   }).strict().readonly()).max(1).readonly().optional(),
+  perf: z.object({
+    decode_tps: z.number().finite().nonnegative().nullable(),
+    tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
+    wall_time_seconds: z.number().finite().nonnegative().nullable(),
+  }).strict().readonly().optional(),
   provenance_notes: z.array(safeText(300)).max(16).readonly().optional(),
   ranked: z.boolean().optional(),
   receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict().readonly(),
   rescore_modes: RescoreModesSchema,
+  // Board objects carry whichever runtime view their stored projection used: the legacy
+  // six-key contract view or the current {name, version, backend} block. Accept the union.
+  runtime: z.object({
+    backend: safeText(120).nullable().optional(),
+    build_flags: safeText(300).nullable().optional(),
+    ctx_len_configured: z.number().int().nonnegative().nullable().optional(),
+    kv_cache_quant: safeText(120).nullable().optional(),
+    name: safeText(120).nullable().optional(),
+    parallel_slots: z.number().int().nonnegative().nullable().optional(),
+    version: safeText(120).nullable().optional(),
+  }).strict().readonly().optional(),
   scorecard_id: IdSchema,
   scores: ScoresSchema,
   submission_id: z.string().regex(SUBMISSION_ID_RE),

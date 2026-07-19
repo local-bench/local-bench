@@ -38,6 +38,9 @@ _BLOCKING_REASONS = [
     "model.identity_missing",
     "runtime.identity_missing",
     "suite.not_site_released",
+    # The publish-on-submit reset gates publication on all headline axes being
+    # measured; the 4-axis pilot can never satisfy it, so it blocks here too.
+    "incomplete_run",
 ]
 _SITE_RELEASE_ID = "suite-v1-partial-text-code-4axis-v1"
 _SITE_MANIFEST_SHA256 = "95f86098b23d4055b563f1ba015c005350a6f7a1d721489b26c6c1d86e8054e7"
@@ -84,10 +87,11 @@ def test_result_bundle_normalization_moves_auth_and_trust_out_of_measurement() -
         "headline_score": None,
             "partial_composite": 0.7615,
         "partial_composite_scope": "measured_headline_axes",
-            # index-v4.1 reweight (2026-07-17): donor axes scaled by 15/16, so the
-            # measured/missing split moves while the normalized composite is invariant.
-            "measured_headline_weight": 0.68,
-            "missing_headline_weight": 0.32,
+            # index-v4.1 weights at the contract's 3-decimal weight precision:
+            # measured = knowledge + instruction + coding = 0.225 * 3 = 0.675, and
+            # known_headline_contribution is 0.7615 * 0.675 = 0.514.
+            "measured_headline_weight": 0.675,
+            "missing_headline_weight": 0.325,
             "known_headline_contribution": 0.514,
         "rank_scope": "partial-text-code-4axis-v1",
         "composite_static": None,
@@ -400,9 +404,12 @@ def test_offline_foundation_cli_commands_write_artifacts(tmp_path: Path) -> None
 def test_pilot_rescore_reproduces_numbers_and_is_byte_identical() -> None:
     first = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
     second = rescore_bundle(_PILOT, suite_dir=_SUITE_V1, validated_at="2026-06-30T00:00:00Z")
-    assert first["axes"]["knowledge"]["score"] == 0.7725
+    # Re-frozen 2026-07-19 against the deployed reset scoring: canonical axis names
+    # (tool_use split into agentic + tool_calling) and the re-extracted mmlu_pro value.
+    assert first["axes"]["knowledge"]["score"] == 0.7446
     assert first["axes"]["instruction_following"]["score"] == 0.6871
-    assert first["axes"]["tool_use"]["score"] is None
+    assert first["axes"]["agentic"]["score"] is None
+    assert first["axes"]["tool_calling"]["score"] == 0.7364
     assert first["axes"]["coding"]["score"] == 0.8527
     assert first["scores"]["partial_composite"] == 0.7615
     assert canonical_json_bytes(first) == canonical_json_bytes(second)

@@ -23,6 +23,9 @@ _BLOCKING_REASONS = [
     "model.identity_missing",
     "runtime.identity_missing",
     "suite.not_site_released",
+    # The publish-on-submit reset gates publication on all headline axes being
+    # measured; the 4-axis pilot can never satisfy it, so it blocks here too.
+    "incomplete_run",
 ]
 _VALIDATED_AT = "2026-06-30T00:00:00Z"
 
@@ -71,10 +74,13 @@ def test_verify_submission_rejects_pilot_with_exact_blockers(tmp_path: Path) -> 
     }
 
 
-def test_verify_submission_accepts_publishable_fixture_with_byte_identical_projection(
+def test_verify_submission_blocks_identity_cured_fixture_only_on_completeness(
     tmp_path: Path,
 ) -> None:
-    # Given: a synthetic publishable local result bundle derived from the pilot responses.
+    # Given: a pilot-derived bundle whose sampler/model/runtime/suite blockers are all
+    # cured. Under publish-on-submit a 4-axis partial run can never be publishable, so
+    # the ONLY remaining blocker must be the completeness gate — and the projection
+    # bytes must still match the authoritative rescorer exactly.
     bundle = write_publishable_fixture(tmp_path / "publishable-run.json")
     projection_out = tmp_path / "publishable.projection.json"
     status_out = tmp_path / "publishable.status.json"
@@ -108,10 +114,10 @@ def test_verify_submission_accepts_publishable_fixture_with_byte_identical_proje
     status = read_json(status_out)
     assert code == 0
     assert projection_out.read_bytes() == canonical_json_bytes(expected_projection) + b"\n"
-    assert status["accepted"] is True
-    assert status["status"] == "accepted"
-    assert status["reason"] == "publishable"
-    assert status["blocking_reasons"] == []
+    assert status["accepted"] is False
+    assert status["status"] == "rejected"
+    assert status["reason"] == "incomplete_run"
+    assert status["blocking_reasons"] == ["incomplete_run"]
     assert status["projection_sha256"] == expected_projection["artifact_hashes"]["projection_sha256"]
 
 
