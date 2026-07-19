@@ -655,7 +655,7 @@ wheels = [
 
 [[package]]
 name = "local-bench-ai"
-version = "0.4.3.dev0"
+version = "0.4.3"
 source = { editable = "." }
 dependencies = [
     { name = "anyio" },
