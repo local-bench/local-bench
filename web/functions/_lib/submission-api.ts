@@ -18,7 +18,6 @@ import {
 export { handleFinalizeSubmission } from "./submission-complete-api";
 export { handleIssueSubmissionTicket } from "./submission-ticket-api";
 export { handleRequestUploadTarget } from "./submission-upload-api";
-export { handleApplyVerificationUpdate } from "./submission-verification-api";
 export type { SubmissionApiEnv } from "./submission-contracts";
 
 export async function handleSubmissionStatus(env: SubmissionApiEnv, params: RouteParams): Promise<Response> {
@@ -36,7 +35,7 @@ export async function handleAdminListSubmissions(request: Request, env: Submissi
   const auth = authorizeValidatorRoute(request, env);
   if (auth.kind === "blocked") return auth.response;
   const url = new URL(request.url);
-  const status = url.searchParams.get("status") ?? "pending_verification";
+  const status = url.searchParams.get("status") ?? "published";
   const requestedLimit = Number(url.searchParams.get("limit") ?? "20");
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), 100) : 20;
   const rows = await listSubmissionsByStatus(env, status, limit);

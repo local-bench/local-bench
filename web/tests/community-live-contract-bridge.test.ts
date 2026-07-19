@@ -1,33 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { LiveBoardEnvelopeSchema, LiveBoardRowSchema } from "../lib/community-live-schema";
+import { LiveBoardEnvelopeSchema, LiveBoardRowSchema } from "../lib/board-adapter";
+import { COMMUNITY_LIVE_BOARD_KEY } from "../functions/_lib/community-live-board";
+import { SubmissionEnvelopeSchema } from "../functions/_lib/submission-contracts";
+import { rawBundleKey } from "../functions/_lib/submission-storage";
 import { parseSubmissionLifecyclePage } from "../lib/submission-lifecycle";
+import { onRequestPost as completeSubmission } from "../functions/api/submissions/[submissionId]/complete";
 import { onRequestGet as listLifecycle } from "../functions/api/submissions/list";
-import { RAW_BUNDLE_SHA, RESULT_BUNDLE_JSON, getRequest, statusUpdate } from "./submission-test-support";
-import { insertPendingFixture, ptmEnv, storedBoard, verifyUpdate } from "./publish-then-moderate-test-support";
-
-// Cross-track contract bridge: Track A's REAL pipeline output (verification POST
-// -> auto-publish -> materialized board object) must parse byte-for-byte under
-// Track B's strict client schemas. Both sides were built independently against
-// design doc s6/s12; this test is the seam's regression lock.
-const BRIDGE_SUBMISSION_ID = `ticket_${"a".repeat(32)}`;
+import { onRequestPost as issueTicket } from "../functions/api/submissions/tickets";
+import { completeProjection, createEnv, getRequest, jsonRequest, sha256Hex } from "./submission-test-support";
+import { TEST_IP, communityTicketBody, signedResultBundle, testKeyPair } from "./submission-contract-v2-support";
 
 describe("community live board contract bridge (Track A output vs Track B parser)", () => {
-  it("materialized board from a real auto-published verification parses under the client schemas", async () => {
-    const env = await ptmEnv(true);
-    await insertPendingFixture(env, {
-      rawJson: RESULT_BUNDLE_JSON,
-      rawSha: RAW_BUNDLE_SHA,
-      submissionId: BRIDGE_SUBMISSION_ID,
+  it("materialized board from a real completed submission parses under the client schemas", async () => {
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
+    const key = testKeyPair();
+    const bundleJson = JSON.stringify(signedResultBundle(key));
+    const bundleSha = sha256Hex(bundleJson);
+    const ticketResponse = await issueTicket({
+      env,
+      request: jsonRequest("/api/submissions/tickets", communityTicketBody(bundleSha, key, {
+        submitter_display_name: "Fixture Submitter",
+      }), {
+        "CF-Connecting-IP": TEST_IP,
+      }),
     });
-
-    const response = await verifyUpdate(env, {
-      submissionId: BRIDGE_SUBMISSION_ID,
-      update: statusUpdate("accepted", RAW_BUNDLE_SHA, "community"),
+    const ticket = SubmissionEnvelopeSchema.parse(await ticketResponse.json());
+    await env.DB.prepare("update submissions set upload_declared_size_bytes = ? where submission_id = ?")
+      .bind(bundleJson.length, ticket.ticket_id)
+      .run();
+    await env.SUBMISSIONS.put(rawBundleKey(bundleSha), bundleJson);
+    const backgroundTasks: Promise<unknown>[] = [];
+    const response = await completeSubmission({
+      env,
+      params: { submissionId: ticket.ticket_id },
+      request: jsonRequest(`/api/submissions/${ticket.ticket_id}/complete`, {
+        accepted_result_projection: completeProjection(bundleSha, "community"),
+        raw_bundle_sha256: bundleSha,
+        upload_capability: ticket.upload_capability,
+      }),
+      waitUntil: (task) => { backgroundTasks.push(task); },
     });
+    await Promise.all(backgroundTasks);
     expect(response.status).toBe(200);
 
-    const board = await storedBoard(env);
-    expect(board).not.toBeNull();
+    const storedBoard = await env.SUBMISSIONS.get(COMMUNITY_LIVE_BOARD_KEY);
+    expect(storedBoard).not.toBeNull();
+    const board: unknown = JSON.parse(await new Response(storedBoard?.body).text());
 
     const envelope = LiveBoardEnvelopeSchema.parse(board);
     expect(envelope.schema_version).toBe("localbench.community_live_board.v1");
@@ -35,7 +53,7 @@ describe("community live board contract bridge (Track A output vs Track B parser
     expect(envelope.omitted_rows).toBe(0);
 
     const row = LiveBoardRowSchema.parse(envelope.rows[0]);
-    expect(row.submission_id).toBe(BRIDGE_SUBMISSION_ID);
+    expect(row.submission_id).toBe(ticket.ticket_id);
     expect(row.origin).toBe("community");
     expect(row.badge).toBeUndefined();
     expect(row.trust).toBeUndefined();
@@ -47,7 +65,7 @@ describe("community live board contract bridge (Track A output vs Track B parser
   });
 
   it("lifecycle listing from the real endpoint parses under the client lifecycle schema", async () => {
-    const env = await ptmEnv(true);
+    const env = await createEnv({ includeAdminSecret: true, includeR2Secrets: true });
     const states = [
       { id: `ticket_${"b".repeat(32)}`, publishState: "hidden", reason: null, status: "pending_verification" },
       { id: `ticket_${"c".repeat(32)}`, publishState: "hidden", reason: "schema_violation", status: "rejected" },

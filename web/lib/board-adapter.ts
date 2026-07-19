@@ -1,146 +1,351 @@
 import { z } from "zod";
 
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
-function safeText(maxCodePoints: number) {
-  return z.string().refine((value) => [...value].length <= maxCodePoints, `must contain at most ${maxCodePoints} code points`)
-    .refine((value) => !UNSAFE_TEXT_RE.test(value), "contains unsafe text characters");
+const GROUP_ID_RE = /^community-group:[0-9a-f]{32}$/u;
+const SHA256_RE = /^[0-9a-f]{64}$/u;
+const REVISION_RE = /^[0-9a-f]{40}$/u;
+const SUBMISSION_ID_RE = /^ticket_[0-9a-f]{32}$/u;
+const FINGERPRINT_RE = /^[0-9a-f]{12}$/u;
+// GitHub login grammar (1-39 chars, alphanumeric with interior hyphens) enforced
+// exactly at the public boundary so a verified-looking handle can never be a
+// 40-char or hyphen-edged spoof.
+const GITHUB_LOGIN_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u;
+const ISO_8601_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
+
+function safeText(maxCodePoints: number, minCodePoints = 0) {
+  return z.string().refine(
+    (value) => [...value].length >= minCodePoints && [...value].length <= maxCodePoints,
+    `must contain ${minCodePoints}-${maxCodePoints} code points`,
+  ).refine((value) => !UNSAFE_TEXT_RE.test(value), "contains unsafe text characters");
 }
-const SAFE_TEXT = safeText(300);
-const SCORE = z.number().finite().min(0).max(100);
-const TIMESTAMP = z.string().refine((value) => !Number.isNaN(Date.parse(value)));
-const SHA256 = z.string().regex(/^[0-9a-f]{64}$/u);
-const AXIS = z.object({
-  ci: z.tuple([SCORE, SCORE]).nullable().optional(),
+
+const WireScoreSchema = z.number().finite().min(0).max(1);
+
+export function toDisplayScore(value: number): number {
+  return value <= 1 ? value * 100 : value;
+}
+const Sha256Schema = z.string().regex(SHA256_RE);
+const RevisionSchema = z.string().regex(REVISION_RE);
+const TimestampSchema = z.string().regex(ISO_8601_RE).refine((value) => !Number.isNaN(Date.parse(value)));
+const IdSchema = safeText(140, 1);
+const AxisKeySchema = safeText(40, 1);
+const RepoIdSchema = safeText(140, 1);
+const HfRepoSchema = safeText(140, 3).regex(/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/u);
+const HfFilenameSchema = safeText(240, 1).refine(
+  (value) => !value.startsWith("/") && !value.includes("\\") && !value.includes("://") && !value.split("/").includes(".."),
+);
+
+const ScoresSchema = z.object({
+  composite_full: WireScoreSchema.nullable().optional(),
+  composite_static: WireScoreSchema.nullable().optional(),
+  headline_score: WireScoreSchema.nullable(),
+  known_headline_contribution: WireScoreSchema,
+  measured_headline_weight: WireScoreSchema,
+  missing_headline_weight: WireScoreSchema,
+  n: z.number().int().nonnegative().optional(),
+  partial_composite: WireScoreSchema,
+  partial_composite_scope: z.literal("measured_headline_axes"),
+  rank_scope: safeText(120, 1),
+  static_index_version: safeText(120, 1).optional(),
+}).strict().readonly();
+
+const AxisSchema = z.object({
+  ci: z.tuple([WireScoreSchema, WireScoreSchema]).nullable(),
+  n: z.number().int().nonnegative().max(10_000_000),
+  score: WireScoreSchema.nullable(),
+  status: z.enum(["measured", "not_measured", "invalid"]),
+}).strict().readonly();
+
+const AxesSchema = z.record(AxisKeySchema, AxisSchema).superRefine((axes, context) => {
+  if (Object.keys(axes).length > 16) {
+    context.addIssue({ code: "custom", message: "axes must contain at most 16 entries" });
+  }
+}).readonly();
+
+const LineageEnrichmentSchema = z.object({
+  artifact_sha256: Sha256Schema,
+  association: z.object({
+    artifact_to_repo: z.literal("unverified"),
+    basis: z.literal("maintainer-associated"),
+    note: safeText(300),
+  }).strict().readonly(),
+  card_declared_edges: z.array(z.object({
+    base: RepoIdSchema,
+    base_revision: RevisionSchema.nullable(),
+    child: RepoIdSchema,
+    child_revision: RevisionSchema,
+    source: z.enum(["hf-model-card", "maintainer-asserted"]),
+  }).strict().readonly()).max(8).readonly(),
+  repo: z.object({ id: RepoIdSchema, revision: RevisionSchema }).strict().readonly(),
+  resolution: z.object({
+    resolved_at: TimestampSchema,
+    status: z.enum(["complete", "truncated", "partial"]),
+  }).strict().readonly(),
+}).strict().readonly();
+
+function safeJson(value: unknown): boolean {
+  if (typeof value === "string") return !UNSAFE_TEXT_RE.test(value);
+  if (Array.isArray(value)) return value.every(safeJson);
+  if (typeof value !== "object" || value === null) return true;
+  return Object.entries(value).every(([key, child]) => !UNSAFE_TEXT_RE.test(key) && safeJson(child));
+}
+
+const SafeJsonSchema = z.json().refine(safeJson, "contains unsafe text characters");
+const ConformanceSchema = z.object({
+  n_scored: z.number().int().nonnegative().optional(),
+  per_bench: z.record(AxisKeySchema, SafeJsonSchema).optional(),
+  reasons: z.array(safeText(300)).max(24).readonly().optional(),
+  status: safeText(32, 1).optional(),
+  worst_bench: safeText(120, 1).nullable().optional(),
+}).strict().readonly();
+
+const RescoreModesSchema = z.object({
+  amo: z.enum(["rescored", "verdict_carried"]).optional(),
+  appworld_c: z.enum(["rescored", "verdict_carried"]).optional(),
+  bfcl: z.enum(["rescored", "verdict_carried"]).optional(),
+  bfcl_multi_turn_base: z.enum(["rescored", "verdict_carried"]).optional(),
+  bfcl_multi_turn_long_context: z.enum(["rescored", "verdict_carried"]).optional(),
+  bigcodebench_hard: z.enum(["rescored", "verdict_carried"]).optional(),
+  ifbench: z.enum(["rescored", "verdict_carried"]).optional(),
+  lcb: z.enum(["rescored", "verdict_carried"]).optional(),
+  mmlu_pro: z.enum(["rescored", "verdict_carried"]).optional(),
+  olymmath_hard: z.enum(["rescored", "verdict_carried"]).optional(),
+  tc_json_v1: z.enum(["rescored", "verdict_carried"]).optional(),
+}).strict().readonly();
+
+const OriginChipSchema = z.enum(["maintainer-run", "self-reported"]);
+const LegacyLiveTrustSchema = z.object({
+  agentic_provenance: safeText(32, 1),
+  chip: OriginChipSchema.optional(),
+  coding_state: safeText(32, 1),
+  replicated: z.boolean(),
+  tier: safeText(32, 1),
+  trust_label: safeText(32, 1),
+  verification_level: safeText(32, 1),
+}).strict();
+const OriginChipTrustSchema = z.object({ chip: OriginChipSchema }).strict();
+type NormalizedLiveTrust = {
+  readonly agentic_provenance: string;
+  readonly chip?: "maintainer-run" | "self-reported";
+  readonly coding_state: string;
+  readonly replicated: boolean;
+  readonly tier: string;
+  readonly trust_label: string;
+  readonly verification_level: string;
+};
+const LiveTrustSchema = z.union([OriginChipTrustSchema, LegacyLiveTrustSchema]).transform((trust): NormalizedLiveTrust => {
+  if ("agentic_provenance" in trust) {
+    return {
+      ...trust,
+      chip: trust.chip ?? (trust.trust_label === "project_anchor" ? "maintainer-run" : "self-reported"),
+    };
+  }
+  return {
+    agentic_provenance: trust.chip === "maintainer-run" ? "attested" : "self-reported",
+    chip: trust.chip,
+    coding_state: "client-reported",
+    replicated: false,
+    tier: trust.chip,
+    trust_label: trust.chip === "maintainer-run" ? "project_anchor" : "community_self_submitted",
+    verification_level: "client_reported",
+  };
+});
+
+export const LiveBoardRowSchema = z.object({
+  axes: AxesSchema,
+  badge: z.literal("project-run").optional(),
+  community_model_group_id: z.string().regex(GROUP_ID_RE).optional(),
+  conformance: ConformanceSchema,
+  coverage_profile_id: IdSchema,
+  group_path: safeText(140, 1).optional(),
+  hardware: z.object({
+    gpu_name: safeText(160).nullable(),
+    vram_gb: z.number().finite().nonnegative().nullable(),
+  }).strict().readonly().optional(),
+  headline_complete: z.boolean(),
+  index_version: safeText(32, 1).nullable(),
+  lineage: z.object({ base_model: z.array(RepoIdSchema).max(8).readonly() }).strict().readonly(),
+  lineage_enrichment: LineageEnrichmentSchema.optional(),
+  model: z.object({
+    declared_name: safeText(120).nullable(),
+    display_name: safeText(120).nullable(),
+    family: safeText(64).nullable(),
+    file_sha256: Sha256Schema,
+    hf: z.object({ filename: HfFilenameSchema, repo: HfRepoSchema, revision: RevisionSchema }).strict().readonly().optional(),
+    identity_status: z.enum(["unverified", "maintainer_verified"]).optional(),
+    model_system_key: z.string().regex(/^artifact:[0-9a-f]{64}$/u),
+    quant_label: safeText(32).nullable(),
+  }).strict().readonly(),
+  origin: z.enum(["community", "project_anchor"]),
+  normalization_annotations: z.array(z.object({
+    client_values: z.object({
+      composite_full: WireScoreSchema.nullable(),
+      headline_score: WireScoreSchema.nullable(),
+      partial_composite: WireScoreSchema,
+    }).strict().readonly(),
+    code: z.literal("client_composite_drift"),
+    fields: z.array(z.enum(["headline_score", "partial_composite", "composite_full"])).min(1).max(3).readonly(),
+    server_value: WireScoreSchema,
+  }).strict().readonly()).max(1).readonly().optional(),
+  perf: z.object({
+    decode_tps: z.number().finite().nonnegative().nullable(),
+    tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
+    wall_time_seconds: z.number().finite().nonnegative().nullable(),
+  }).strict().readonly().optional(),
+  provenance_notes: z.array(safeText(300)).max(16).readonly().optional(),
+  ranked: z.boolean().optional(),
+  receipt_references: z.object({ coding_receipt_sha256: Sha256Schema.nullable() }).strict().readonly(),
+  rescore_modes: RescoreModesSchema,
+  // Board objects carry whichever runtime view their stored projection used: the legacy
+  // six-key contract view or the current {name, version, backend} block. Accept the union.
+  runtime: z.object({
+    backend: safeText(120).nullable().optional(),
+    build_flags: safeText(300).nullable().optional(),
+    ctx_len_configured: z.number().int().nonnegative().nullable().optional(),
+    kv_cache_quant: safeText(120).nullable().optional(),
+    name: safeText(120).nullable().optional(),
+    parallel_slots: z.number().int().nonnegative().nullable().optional(),
+    version: safeText(120).nullable().optional(),
+  }).strict().readonly().optional(),
+  scorecard_id: IdSchema,
+  scores: ScoresSchema,
+  submission_id: z.string().regex(SUBMISSION_ID_RE),
+  submitter: z.object({
+    display_name: safeText(80).nullable().optional(),
+    github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
+    key_fingerprint: z.string().regex(FINGERPRINT_RE).nullable(),
+    unverified_handle: safeText(80).nullable().optional(),
+  }).strict().readonly(),
+  suite_release_id: IdSchema,
+  timestamps: z.object({
+    published_at: TimestampSchema,
+    submitted_at: TimestampSchema,
+    validated_at: TimestampSchema,
+  }).strict().readonly(),
+  trust: LiveTrustSchema.optional(),
+}).strict().readonly().superRefine((row, context) => {
+  if (row.trust === undefined) {
+    if (row.origin === "project_anchor" && row.badge !== "project-run") {
+      context.addIssue({ code: "custom", message: "project rows require the project-run badge" });
+    }
+    if (row.origin === "community" && row.badge !== undefined) {
+      context.addIssue({ code: "custom", message: "community rows must remain unmarked" });
+    }
+  } else {
+    const expectedChip = row.origin === "project_anchor" ? "maintainer-run" : "self-reported";
+    if (row.trust.chip !== expectedChip) {
+      context.addIssue({ code: "custom", message: "legacy trust chip must be derived from origin" });
+    }
+  }
+  if (row.origin === "community" && (row.community_model_group_id === undefined || row.group_path === undefined)) {
+    context.addIssue({ code: "custom", message: "community rows require a model group" });
+  }
+  if (row.community_model_group_id !== undefined && row.group_path !== `community/groups/${row.community_model_group_id.replace("community-group:", "")}.json`) {
+    context.addIssue({ code: "custom", message: "group_path must match community_model_group_id" });
+  }
+});
+
+export const LiveBoardEnvelopeSchema = z.object({
+  board_digest: Sha256Schema,
+  edge_block_revision: z.number().int().nonnegative(),
+  generated_at: TimestampSchema,
+  omitted_rows: z.number().int().nonnegative().optional().default(0),
+  publication_revision: z.number().int().nonnegative(),
+  rows: z.array(z.unknown()).max(500).readonly(),
+  schema_version: z.literal("localbench.community_live_board.v1"),
+}).strict().readonly();
+
+const CompatibleScoreSchema = z.number().finite().min(0).max(100);
+const CompatibleAxisSchema = z.object({
+  ci: z.tuple([CompatibleScoreSchema, CompatibleScoreSchema]).nullable().optional().default(null),
   n: z.number().int().nonnegative().max(10_000_000).default(0),
-  score: SCORE.nullable().optional(),
+  score: CompatibleScoreSchema.nullable().optional().default(null),
   status: z.enum(["measured", "not_measured", "invalid"]).default("measured"),
 }).passthrough().readonly();
-const AXES = z.record(SAFE_TEXT, AXIS).refine((axes) => Object.keys(axes).length <= 16);
-const SCORES = z.object({
-  composite: SCORE.nullable().optional(),
-  composite_full: SCORE.nullable().optional(),
-  headline_score: SCORE.nullable().optional(),
-  measured_headline_weight: SCORE.optional(),
-  missing_headline_weight: SCORE.optional(),
-  partial_composite: SCORE.nullable().optional(),
+const CompatibleAxesSchema = z.record(safeText(300), CompatibleAxisSchema)
+  .refine((axes) => Object.keys(axes).length <= 16)
+  .readonly();
+const CompatibleScoresSchema = z.object({
+  composite: CompatibleScoreSchema.nullable().optional(),
+  composite_full: CompatibleScoreSchema.nullable().optional(),
+  headline_score: CompatibleScoreSchema.nullable().optional(),
+  measured_headline_weight: CompatibleScoreSchema.optional(),
+  missing_headline_weight: CompatibleScoreSchema.optional(),
+  partial_composite: CompatibleScoreSchema.nullable().optional(),
 }).passthrough().readonly();
-const MODEL = z.object({
+const CompatibleModelSchema = z.object({
   declared_name: safeText(120).nullable().optional(),
   display_name: safeText(120).nullable().optional(),
   family: safeText(64).nullable().optional(),
-  file_sha256: z.string().regex(/^[0-9a-f]{64}$/u),
+  file_sha256: Sha256Schema,
   quant_label: safeText(32).nullable().optional(),
 }).passthrough().readonly();
-const SUBMITTER = z.object({
+const CompatibleSubmitterSchema = z.object({
   display_name: safeText(80).nullable().optional(),
-  github_login: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u).nullable().optional(),
-  key_fingerprint: z.string().regex(/^[0-9a-f]{12}$/u).nullable().optional(),
+  github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
+  key_fingerprint: z.string().regex(FINGERPRINT_RE).nullable().optional(),
   unverified_handle: safeText(80).nullable().optional(),
 }).passthrough().readonly();
-const TIMESTAMPS = z.object({
-  published_at: TIMESTAMP,
-  submitted_at: TIMESTAMP,
-  validated_at: TIMESTAMP.optional(),
+const CompatibleTimestampsSchema = z.object({
+  published_at: TimestampSchema,
+  submitted_at: TimestampSchema,
+  validated_at: TimestampSchema.optional(),
 }).passthrough().readonly();
-const LINEAGE = z.object({
-  base_model: z.array(SAFE_TEXT).max(8).readonly().default([]),
+const CompatibleLineageSchema = z.object({
+  base_model: z.array(safeText(300)).max(8).readonly().default([]),
 }).passthrough().readonly();
-const RUNTIME = z.object({
+const CompatibleRuntimeSchema = z.object({
   backend: safeText(120).nullable(),
   name: safeText(120).nullable(),
   version: safeText(120).nullable(),
 }).passthrough().readonly();
-const HARDWARE = z.object({ gpu_name: safeText(160).nullable(), vram_gb: z.number().finite().nonnegative().nullable() })
-  .passthrough().readonly();
-const PERF = z.object({
+const CompatibleHardwareSchema = z.object({
+  gpu_name: safeText(160).nullable(),
+  vram_gb: z.number().finite().nonnegative().nullable(),
+}).passthrough().readonly();
+const CompatiblePerfSchema = z.object({
   decode_tps: z.number().finite().nonnegative().nullable(),
   tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
   wall_time_seconds: z.number().finite().nonnegative().nullable(),
 }).passthrough().readonly();
-const LINEAGE_ENRICHMENT = z.object({
-  artifact_sha256: SHA256,
-  association: z.object({
-    artifact_to_repo: z.literal("unverified"),
-    basis: z.literal("maintainer-associated"),
-    note: SAFE_TEXT,
-  }).passthrough().readonly(),
-  card_declared_edges: z.array(z.object({
-    base: SAFE_TEXT,
-    base_revision: z.string().regex(/^[0-9a-f]{40}$/u).nullable(),
-    child: SAFE_TEXT,
-    child_revision: z.string().regex(/^[0-9a-f]{40}$/u),
-    source: z.enum(["hf-model-card", "maintainer-asserted"]),
-  }).passthrough().readonly()).readonly(),
-  repo: z.object({
-    id: SAFE_TEXT,
-    revision: z.string().regex(/^[0-9a-f]{40}$/u),
-  }).passthrough().readonly(),
-  resolution: z.object({
-    resolved_at: TIMESTAMP,
-    status: z.enum(["complete", "truncated", "partial"]),
-  }).passthrough().readonly(),
-}).passthrough().readonly();
-
-export const LiveBoardRowSchema = z.object({
-  axes: AXES,
+const CompatibleBoardRowSchema = z.object({
+  axes: CompatibleAxesSchema.default({}),
   badge: z.literal("project-run").optional(),
-  community_model_group_id: SAFE_TEXT,
-  conformance: z.record(z.string(), z.unknown()).default({}),
-  coverage_profile_id: SAFE_TEXT,
-  group_path: SAFE_TEXT,
-  headline_complete: z.boolean(),
-  index_version: SAFE_TEXT.nullable(),
-  lineage: LINEAGE,
-  lineage_enrichment: LINEAGE_ENRICHMENT.optional(),
-  model: MODEL,
-  origin: z.enum(["community", "project_anchor"]),
-  receipt_references: z.record(z.string(), z.unknown()).default({}),
-  rescore_modes: z.record(z.string(), z.unknown()).default({}),
-  scorecard_id: SAFE_TEXT,
-  scores: SCORES,
-  submission_id: SAFE_TEXT,
-  submitter: SUBMITTER,
-  suite_release_id: SAFE_TEXT,
-  timestamps: TIMESTAMPS,
-  trust: z.record(z.string(), z.unknown()).optional(),
-}).passthrough().readonly();
-
-const UnifiedBoardRowSchema = z.object({
-  axes: AXES.default({}),
-  badge: z.literal("project-run").optional(),
-  community_model_group_id: SAFE_TEXT.optional(),
+  community_model_group_id: safeText(300).optional(),
   global_rank: z.number().int().positive().nullable().optional(),
   headline_complete: z.boolean(),
-  hardware: HARDWARE.optional().catch(undefined),
-  index_version: SAFE_TEXT.nullable().optional(),
-  lineage: LINEAGE.optional(),
-  lineage_enrichment: LINEAGE_ENRICHMENT.optional(),
-  model: MODEL,
+  hardware: CompatibleHardwareSchema.optional().catch(undefined),
+  index_version: safeText(300).nullable().optional(),
+  lineage: CompatibleLineageSchema.optional(),
+  lineage_enrichment: LineageEnrichmentSchema.optional(),
+  model: CompatibleModelSchema,
   origin: z.enum(["community", "project_anchor"]),
-  perf: PERF.optional().catch(undefined),
+  perf: CompatiblePerfSchema.optional().catch(undefined),
   rank: z.number().int().positive().nullable().optional(),
   ranked: z.boolean().optional(),
-  scores: SCORES,
-  runtime: RUNTIME.optional().catch(undefined),
-  submission_id: SAFE_TEXT,
-  submitter: SUBMITTER.optional().default({}),
-  timestamps: TIMESTAMPS.nullable().optional(),
+  runtime: CompatibleRuntimeSchema.optional().catch(undefined),
+  scores: CompatibleScoresSchema,
+  submission_id: safeText(300),
+  submitter: CompatibleSubmitterSchema.optional().default({}),
+  timestamps: CompatibleTimestampsSchema.nullable().optional(),
   trust: z.record(z.string(), z.unknown()).optional(),
 }).passthrough().readonly();
-
-export const LiveBoardEnvelopeSchema = z.object({
+const CompatibleBoardEnvelopeSchema = z.object({
   edge_block_revision: z.number().int().nonnegative().optional().default(0),
-  generated_at: TIMESTAMP,
+  generated_at: TimestampSchema,
   omitted_rows: z.number().int().nonnegative().optional().default(0),
   publication_revision: z.number().int().nonnegative().optional().default(0),
   rows: z.array(z.unknown()).max(1_000).readonly(),
-  schema_version: SAFE_TEXT.optional().default("localbench.board.v1"),
+  schema_version: safeText(300).optional().default("localbench.board.v1"),
 }).passthrough().readonly();
 
+type CompatibleBoardRow = z.infer<typeof CompatibleBoardRowSchema>;
+
 export type LiveBoardRow = z.infer<typeof LiveBoardRowSchema>;
+
 export type AdaptedBoardRow = {
   readonly artifactSha256: string;
-  readonly axes: z.infer<typeof AXES>;
+  readonly axes: LiveBoardRow["axes"];
   readonly badge?: "project-run";
   readonly communityModelGroupId: string | undefined;
   readonly compositeFull: number | null;
@@ -148,21 +353,21 @@ export type AdaptedBoardRow = {
   readonly displayName: string;
   readonly family: string | null;
   readonly globalRank: number | null;
-  readonly hardware?: z.infer<typeof HARDWARE>;
+  readonly hardware?: NonNullable<LiveBoardRow["hardware"]>;
   readonly headlineComplete: boolean;
   readonly indexVersion: string | null;
-  readonly lineageEnrichment: z.infer<typeof LINEAGE_ENRICHMENT> | undefined;
+  readonly lineageEnrichment: NonNullable<LiveBoardRow["lineage_enrichment"]> | undefined;
   readonly origin: "community" | "project_anchor";
-  readonly perf?: z.infer<typeof PERF>;
+  readonly perf?: NonNullable<LiveBoardRow["perf"]>;
   readonly quantLabel: string | null;
   readonly ranked: boolean;
-  readonly runtime?: z.infer<typeof RUNTIME>;
+  readonly runtime?: NonNullable<LiveBoardRow["runtime"]>;
   readonly submissionId: string;
   readonly submitterDisplayName: string | null;
   readonly submitterGithubLogin: string | null;
   readonly submitterKeyFingerprint: string | null;
-  readonly timestamps: z.infer<typeof TIMESTAMPS> | null;
-  readonly trust?: Readonly<Record<string, unknown>>;
+  readonly timestamps: CompatibleBoardRow["timestamps"] | null;
+  readonly trust?: NonNullable<LiveBoardRow["trust"]> | Readonly<Record<string, unknown>>;
 };
 
 export type ParsedBoardEnvelope = {
@@ -174,13 +379,14 @@ export type ParsedBoardEnvelope = {
 };
 
 export function parseBoardEnvelope(value: unknown): ParsedBoardEnvelope | null {
+  if (!isStrictLiveBoardEnvelope(value)) return parseCompatibleBoardEnvelope(value);
   const envelope = LiveBoardEnvelopeSchema.safeParse(value);
   if (!envelope.success) return null;
   const rows: AdaptedBoardRow[] = [];
   let droppedRows = envelope.data.omitted_rows;
   for (const candidate of envelope.data.rows) {
-    const parsed = UnifiedBoardRowSchema.safeParse(candidate);
-    if (parsed.success) rows.push(adaptRow(parsed.data));
+    const parsed = LiveBoardRowSchema.safeParse(candidate);
+    if (parsed.success) rows.push(adaptStrictRow(parsed.data));
     else droppedRows += 1;
   }
   return {
@@ -193,7 +399,7 @@ export function parseBoardEnvelope(value: unknown): ParsedBoardEnvelope | null {
 }
 
 export function adaptLegacyBoardRow(value: LiveBoardRow): AdaptedBoardRow {
-  return adaptRow(UnifiedBoardRowSchema.parse(value));
+  return adaptStrictRow(LiveBoardRowSchema.parse(value));
 }
 
 export function publicProtocolLabel(indexVersion: string | null | undefined): string {
@@ -202,7 +408,62 @@ export function publicProtocolLabel(indexVersion: string | null | undefined): st
   return indexVersion ?? "protocol unavailable";
 }
 
-function adaptRow(row: z.infer<typeof UnifiedBoardRowSchema>): AdaptedBoardRow {
+function isStrictLiveBoardEnvelope(value: unknown): boolean {
+  return typeof value === "object"
+    && value !== null
+    && "schema_version" in value
+    && value.schema_version === "localbench.community_live_board.v1";
+}
+
+function parseCompatibleBoardEnvelope(value: unknown): ParsedBoardEnvelope | null {
+  const envelope = CompatibleBoardEnvelopeSchema.safeParse(value);
+  if (!envelope.success) return null;
+  const rows: AdaptedBoardRow[] = [];
+  let droppedRows = envelope.data.omitted_rows;
+  for (const candidate of envelope.data.rows) {
+    const parsed = CompatibleBoardRowSchema.safeParse(candidate);
+    if (parsed.success) rows.push(adaptCompatibleRow(parsed.data));
+    else droppedRows += 1;
+  }
+  return {
+    droppedRows,
+    edgeBlockRevision: envelope.data.edge_block_revision,
+    generatedAt: envelope.data.generated_at,
+    publicationRevision: envelope.data.publication_revision,
+    rows,
+  };
+}
+
+function adaptStrictRow(row: LiveBoardRow): AdaptedBoardRow {
+  return {
+    artifactSha256: row.model.file_sha256,
+    axes: normalizeAxes(row.axes),
+    ...(row.badge === undefined ? {} : { badge: row.badge }),
+    communityModelGroupId: row.community_model_group_id,
+    compositeFull: row.scores.composite_full ?? row.scores.headline_score ?? null,
+    declaredBaseModels: row.lineage.base_model,
+    displayName: row.model.display_name ?? row.model.declared_name ?? "Reported model",
+    family: row.model.family ?? null,
+    globalRank: null,
+    ...(row.hardware === undefined ? {} : { hardware: row.hardware }),
+    headlineComplete: row.headline_complete,
+    indexVersion: row.index_version ?? null,
+    lineageEnrichment: row.lineage_enrichment,
+    origin: row.origin,
+    ...(row.perf === undefined ? {} : { perf: row.perf }),
+    quantLabel: row.model.quant_label ?? null,
+    ranked: row.ranked ?? row.headline_complete,
+    ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
+    submissionId: row.submission_id,
+    submitterDisplayName: row.submitter.display_name ?? row.submitter.unverified_handle ?? null,
+    submitterGithubLogin: row.submitter.github_login ?? null,
+    submitterKeyFingerprint: row.submitter.key_fingerprint ?? null,
+    timestamps: row.timestamps ?? null,
+    ...(row.trust === undefined ? {} : { trust: row.trust }),
+  };
+}
+
+function adaptCompatibleRow(row: CompatibleBoardRow): AdaptedBoardRow {
   return {
     artifactSha256: row.model.file_sha256,
     axes: normalizeAxes(row.axes),
@@ -253,7 +514,7 @@ export function boardAxisValue<T>(axes: Readonly<Record<string, T>>, axis: strin
   return undefined;
 }
 
-function normalizeAxes(axes: z.infer<typeof AXES>): z.infer<typeof AXES> {
+function normalizeAxes<T>(axes: Readonly<Record<string, T>>): Readonly<Record<string, T>> {
   const normalized = { ...axes };
   for (const [legacy, canonical] of Object.entries(LEGACY_AXIS_NAMES)) {
     const legacyAxis = normalized[legacy];

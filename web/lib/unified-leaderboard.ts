@@ -1,5 +1,5 @@
 import type { CommunityBoardRow } from "./community-data";
-import { boardAxisValue } from "./board-adapter";
+import { boardAxisValue, toDisplayScore } from "./board-adapter";
 import { isFullIndexRow } from "./leaderboard-score";
 import {
   AGENTIC_SORT_KEY,
@@ -69,7 +69,7 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
     case "model":
       return row.displayName;
     case "composite":
-      return row.compositeFull === null ? null : normalizePercent(row.compositeFull);
+      return row.compositeFull === null ? null : toDisplayScore(row.compositeFull);
     case "user":
       return row.submitterDisplayName ?? row.submitterKeyFingerprint ?? "";
     case STATIC_INDEX_SORT_KEY:
@@ -83,7 +83,7 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
     default: {
       const axis = boardAxisValue(row.axes ?? {}, key);
       return axis?.status === "measured" && axis.score !== null && axis.score !== undefined
-        ? normalizePercent(axis.score)
+        ? toDisplayScore(axis.score)
         : null;
     }
   }
@@ -94,15 +94,12 @@ function scoreValue(row: UnrankedUnifiedRow): number {
     case "local-bench":
       return row.model.composite_full?.point ?? row.model.composite?.point ?? Number.NEGATIVE_INFINITY;
     case "community":
-      return row.row.compositeFull === null ? Number.NEGATIVE_INFINITY : normalizePercent(row.row.compositeFull);
+      return row.row.compositeFull === null ? Number.NEGATIVE_INFINITY : toDisplayScore(row.row.compositeFull);
     default:
       return assertNever(row);
   }
 }
 
-function normalizePercent(value: number): number {
-  return value <= 1 ? value * 100 : value;
-}
 
 function unifiedDisplayName(row: UnifiedLeaderboardRow): string {
   switch (row.source) {

@@ -1,29 +1,15 @@
 import { jsonResponse } from "./submission-api-support";
 import { canonicalJson, sha256Hex } from "./submission-canonical";
 import type { AcceptedResultProjectionV2Schema } from "./accepted-result-projection-contract";
-import type { StatusUpdate, SubmissionRow } from "./submission-contracts";
+import type { SubmissionRow } from "./submission-contracts";
 import { indexV42Composite } from "./submission-publish-validation";
 import type { z } from "zod";
-
-type AcceptedUpdate = Extract<StatusUpdate, { readonly status: "accepted" }>;
 
 export type ProjectionValidation =
   | { readonly canonicalBytes: string; readonly kind: "valid"; readonly objectSha256: string; readonly projection: AcceptedProjection }
   | { readonly kind: "invalid"; readonly response: Response };
 
 type AcceptedProjection = z.infer<typeof AcceptedResultProjectionV2Schema>;
-
-export async function validateAcceptedProjection(
-  update: AcceptedUpdate,
-  row: SubmissionRow,
-): Promise<ProjectionValidation> {
-  return validateProjectionBindings(
-    update.projection,
-    update.projection_object_sha256,
-    update.projection_sha256,
-    row,
-  );
-}
 
 export async function validateSubmittedProjection(
   projection: AcceptedProjection,

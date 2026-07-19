@@ -3,6 +3,7 @@ import {
   parseCommunityLiveBoard,
   type LiveBoardRow,
 } from "../lib/community-live";
+import { toDisplayScore } from "../lib/board-adapter";
 import { axisLabel } from "../lib/axis-config";
 
 const GROUP_ID = `community-group:${"1".repeat(32)}`;
@@ -112,13 +113,13 @@ describe("community live board boundary", () => {
     expect(parsed).toMatchObject({ droppedRows: 1, rows: [] });
   });
 
-  it("tolerates additive envelope fields", () => {
-    expect(parseCommunityLiveBoard({ ...envelope([liveRow()]), unexpected: true })).toMatchObject({ droppedRows: 0 });
+  it("rejects additive envelope fields at the strict boundary", () => {
+    expect(parseCommunityLiveBoard({ ...envelope([liveRow()]), unexpected: true })).toBeNull();
   });
 
   it("adapts the final submitter handle and server-owned project badge", () => {
     const parsed = parseCommunityLiveBoard(envelope([{
-      ...liveRow({ origin: "project_anchor" }),
+      ...liveRow({ origin: "project_anchor", trust: undefined }),
       badge: "project-run",
       submitter: { github_login: null, key_fingerprint: null, unverified_handle: "Ada Runner" },
     }]));
@@ -144,7 +145,7 @@ describe("community live board boundary", () => {
     });
   });
 
-  it("keeps rows with absent or malformed optional telemetry and drops each malformed field", () => {
+  it("keeps rows with absent telemetry and drops a row with malformed optional telemetry", () => {
     const parsed = parseCommunityLiveBoard(envelope([
       liveRow(),
       {
@@ -155,14 +156,15 @@ describe("community live board boundary", () => {
       },
     ]));
 
-    expect(parsed).toMatchObject({ droppedRows: 0 });
-    expect(parsed?.rows).toHaveLength(2);
+    expect(parsed).toMatchObject({ droppedRows: 1 });
+    expect(parsed?.rows).toHaveLength(1);
     expect(parsed?.rows[0]).not.toHaveProperty("runtime");
     expect(parsed?.rows[0]).not.toHaveProperty("hardware");
     expect(parsed?.rows[0]).not.toHaveProperty("perf");
-    expect(parsed?.rows[1]).not.toHaveProperty("runtime");
-    expect(parsed?.rows[1]).not.toHaveProperty("hardware");
-    expect(parsed?.rows[1]).not.toHaveProperty("perf");
+  });
+
+  it("normalizes wire fractions without rescaling display scores", () => {
+    expect([toDisplayScore(0.5), toDisplayScore(50)]).toEqual([50, 50]);
   });
 
   it("normalizes legacy live axis keys without overriding canonical values", () => {
