@@ -255,6 +255,92 @@ export const LiveBoardEnvelopeSchema = z.object({
   schema_version: z.literal("localbench.community_live_board.v1"),
 }).strict().readonly();
 
+const CompatibleScoreSchema = z.number().finite().min(0).max(100);
+const CompatibleAxisSchema = z.object({
+  ci: z.tuple([CompatibleScoreSchema, CompatibleScoreSchema]).nullable().optional().default(null),
+  n: z.number().int().nonnegative().max(10_000_000).default(0),
+  score: CompatibleScoreSchema.nullable().optional().default(null),
+  status: z.enum(["measured", "not_measured", "invalid"]).default("measured"),
+}).passthrough().readonly();
+const CompatibleAxesSchema = z.record(safeText(300), CompatibleAxisSchema)
+  .refine((axes) => Object.keys(axes).length <= 16)
+  .readonly();
+const CompatibleScoresSchema = z.object({
+  composite: CompatibleScoreSchema.nullable().optional(),
+  composite_full: CompatibleScoreSchema.nullable().optional(),
+  headline_score: CompatibleScoreSchema.nullable().optional(),
+  measured_headline_weight: CompatibleScoreSchema.optional(),
+  missing_headline_weight: CompatibleScoreSchema.optional(),
+  partial_composite: CompatibleScoreSchema.nullable().optional(),
+}).passthrough().readonly();
+const CompatibleModelSchema = z.object({
+  declared_name: safeText(120).nullable().optional(),
+  display_name: safeText(120).nullable().optional(),
+  family: safeText(64).nullable().optional(),
+  file_sha256: Sha256Schema,
+  quant_label: safeText(32).nullable().optional(),
+}).passthrough().readonly();
+const CompatibleSubmitterSchema = z.object({
+  display_name: safeText(80).nullable().optional(),
+  github_login: z.string().regex(GITHUB_LOGIN_RE).nullable().optional(),
+  key_fingerprint: z.string().regex(FINGERPRINT_RE).nullable().optional(),
+  unverified_handle: safeText(80).nullable().optional(),
+}).passthrough().readonly();
+const CompatibleTimestampsSchema = z.object({
+  published_at: TimestampSchema,
+  submitted_at: TimestampSchema,
+  validated_at: TimestampSchema.optional(),
+}).passthrough().readonly();
+const CompatibleLineageSchema = z.object({
+  base_model: z.array(safeText(300)).max(8).readonly().default([]),
+}).passthrough().readonly();
+const CompatibleRuntimeSchema = z.object({
+  backend: safeText(120).nullable(),
+  name: safeText(120).nullable(),
+  version: safeText(120).nullable(),
+}).passthrough().readonly();
+const CompatibleHardwareSchema = z.object({
+  gpu_name: safeText(160).nullable(),
+  vram_gb: z.number().finite().nonnegative().nullable(),
+}).passthrough().readonly();
+const CompatiblePerfSchema = z.object({
+  decode_tps: z.number().finite().nonnegative().nullable(),
+  tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
+  wall_time_seconds: z.number().finite().nonnegative().nullable(),
+}).passthrough().readonly();
+const CompatibleBoardRowSchema = z.object({
+  axes: CompatibleAxesSchema.default({}),
+  badge: z.literal("project-run").optional(),
+  community_model_group_id: safeText(300).optional(),
+  global_rank: z.number().int().positive().nullable().optional(),
+  headline_complete: z.boolean(),
+  hardware: CompatibleHardwareSchema.optional().catch(undefined),
+  index_version: safeText(300).nullable().optional(),
+  lineage: CompatibleLineageSchema.optional(),
+  lineage_enrichment: LineageEnrichmentSchema.optional(),
+  model: CompatibleModelSchema,
+  origin: z.enum(["community", "project_anchor"]),
+  perf: CompatiblePerfSchema.optional().catch(undefined),
+  rank: z.number().int().positive().nullable().optional(),
+  ranked: z.boolean().optional(),
+  runtime: CompatibleRuntimeSchema.optional().catch(undefined),
+  scores: CompatibleScoresSchema,
+  submission_id: safeText(300),
+  submitter: CompatibleSubmitterSchema.optional().default({}),
+  timestamps: CompatibleTimestampsSchema.nullable().optional(),
+  trust: z.record(z.string(), z.unknown()).optional(),
+}).passthrough().readonly();
+const CompatibleBoardEnvelopeSchema = z.object({
+  edge_block_revision: z.number().int().nonnegative().optional().default(0),
+  generated_at: TimestampSchema,
+  omitted_rows: z.number().int().nonnegative().optional().default(0),
+  publication_revision: z.number().int().nonnegative().optional().default(0),
+  rows: z.array(z.unknown()).max(1_000).readonly(),
+  schema_version: safeText(300).optional().default("localbench.board.v1"),
+}).passthrough().readonly();
+
+type CompatibleBoardRow = z.infer<typeof CompatibleBoardRowSchema>;
+
 export type LiveBoardRow = z.infer<typeof LiveBoardRowSchema>;
 
 export type AdaptedBoardRow = {
@@ -280,8 +366,8 @@ export type AdaptedBoardRow = {
   readonly submitterDisplayName: string | null;
   readonly submitterGithubLogin: string | null;
   readonly submitterKeyFingerprint: string | null;
-  readonly timestamps: LiveBoardRow["timestamps"] | null;
-  readonly trust?: NonNullable<LiveBoardRow["trust"]>;
+  readonly timestamps: CompatibleBoardRow["timestamps"] | null;
+  readonly trust?: NonNullable<LiveBoardRow["trust"]> | Readonly<Record<string, unknown>>;
 };
 
 export type ParsedBoardEnvelope = {
@@ -293,13 +379,14 @@ export type ParsedBoardEnvelope = {
 };
 
 export function parseBoardEnvelope(value: unknown): ParsedBoardEnvelope | null {
+  if (!isStrictLiveBoardEnvelope(value)) return parseCompatibleBoardEnvelope(value);
   const envelope = LiveBoardEnvelopeSchema.safeParse(value);
   if (!envelope.success) return null;
   const rows: AdaptedBoardRow[] = [];
   let droppedRows = envelope.data.omitted_rows;
   for (const candidate of envelope.data.rows) {
     const parsed = LiveBoardRowSchema.safeParse(candidate);
-    if (parsed.success) rows.push(adaptRow(parsed.data));
+    if (parsed.success) rows.push(adaptStrictRow(parsed.data));
     else droppedRows += 1;
   }
   return {
@@ -312,7 +399,7 @@ export function parseBoardEnvelope(value: unknown): ParsedBoardEnvelope | null {
 }
 
 export function adaptLegacyBoardRow(value: LiveBoardRow): AdaptedBoardRow {
-  return adaptRow(LiveBoardRowSchema.parse(value));
+  return adaptStrictRow(LiveBoardRowSchema.parse(value));
 }
 
 export function publicProtocolLabel(indexVersion: string | null | undefined): string {
@@ -321,7 +408,33 @@ export function publicProtocolLabel(indexVersion: string | null | undefined): st
   return indexVersion ?? "protocol unavailable";
 }
 
-function adaptRow(row: LiveBoardRow): AdaptedBoardRow {
+function isStrictLiveBoardEnvelope(value: unknown): boolean {
+  return typeof value === "object"
+    && value !== null
+    && "schema_version" in value
+    && value.schema_version === "localbench.community_live_board.v1";
+}
+
+function parseCompatibleBoardEnvelope(value: unknown): ParsedBoardEnvelope | null {
+  const envelope = CompatibleBoardEnvelopeSchema.safeParse(value);
+  if (!envelope.success) return null;
+  const rows: AdaptedBoardRow[] = [];
+  let droppedRows = envelope.data.omitted_rows;
+  for (const candidate of envelope.data.rows) {
+    const parsed = CompatibleBoardRowSchema.safeParse(candidate);
+    if (parsed.success) rows.push(adaptCompatibleRow(parsed.data));
+    else droppedRows += 1;
+  }
+  return {
+    droppedRows,
+    edgeBlockRevision: envelope.data.edge_block_revision,
+    generatedAt: envelope.data.generated_at,
+    publicationRevision: envelope.data.publication_revision,
+    rows,
+  };
+}
+
+function adaptStrictRow(row: LiveBoardRow): AdaptedBoardRow {
   return {
     artifactSha256: row.model.file_sha256,
     axes: normalizeAxes(row.axes),
@@ -332,6 +445,35 @@ function adaptRow(row: LiveBoardRow): AdaptedBoardRow {
     displayName: row.model.display_name ?? row.model.declared_name ?? "Reported model",
     family: row.model.family ?? null,
     globalRank: null,
+    ...(row.hardware === undefined ? {} : { hardware: row.hardware }),
+    headlineComplete: row.headline_complete,
+    indexVersion: row.index_version ?? null,
+    lineageEnrichment: row.lineage_enrichment,
+    origin: row.origin,
+    ...(row.perf === undefined ? {} : { perf: row.perf }),
+    quantLabel: row.model.quant_label ?? null,
+    ranked: row.ranked ?? row.headline_complete,
+    ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
+    submissionId: row.submission_id,
+    submitterDisplayName: row.submitter.display_name ?? row.submitter.unverified_handle ?? null,
+    submitterGithubLogin: row.submitter.github_login ?? null,
+    submitterKeyFingerprint: row.submitter.key_fingerprint ?? null,
+    timestamps: row.timestamps ?? null,
+    ...(row.trust === undefined ? {} : { trust: row.trust }),
+  };
+}
+
+function adaptCompatibleRow(row: CompatibleBoardRow): AdaptedBoardRow {
+  return {
+    artifactSha256: row.model.file_sha256,
+    axes: normalizeAxes(row.axes),
+    ...(row.badge === undefined ? {} : { badge: row.badge }),
+    communityModelGroupId: row.community_model_group_id,
+    compositeFull: row.scores.composite_full ?? row.scores.headline_score ?? row.scores.composite ?? null,
+    declaredBaseModels: row.lineage?.base_model ?? [],
+    displayName: row.model.display_name ?? row.model.declared_name ?? "Reported model",
+    family: row.model.family ?? null,
+    globalRank: row.global_rank ?? row.rank ?? null,
     ...(row.hardware === undefined ? {} : { hardware: row.hardware }),
     headlineComplete: row.headline_complete,
     indexVersion: row.index_version ?? null,
@@ -372,7 +514,7 @@ export function boardAxisValue<T>(axes: Readonly<Record<string, T>>, axis: strin
   return undefined;
 }
 
-function normalizeAxes(axes: LiveBoardRow["axes"]): LiveBoardRow["axes"] {
+function normalizeAxes<T>(axes: Readonly<Record<string, T>>): Readonly<Record<string, T>> {
   const normalized = { ...axes };
   for (const [legacy, canonical] of Object.entries(LEGACY_AXIS_NAMES)) {
     const legacyAxis = normalized[legacy];
