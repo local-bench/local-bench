@@ -7,9 +7,14 @@ import type { CatalogModel } from "../lib/schemas";
 
 const communityRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
-  detailPath: "/community/model/fixture",
+  compositeFull: null,
+  detailPath: "/model/base-model",
   displayName: "Fixture derivative",
+  family: "Fixture",
+  globalRank: null,
+  headlineComplete: false,
   identityLabel: "community-declared, identity-unverified",
+  indexVersion: null,
   lineage: {
     artifact_sha256: "a".repeat(64),
     association: {

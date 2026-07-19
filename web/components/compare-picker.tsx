@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DemoBadge } from "@/components/badges";
-import { CompareCoverageChip, compareCoverageLabel } from "@/components/compare-coverage-chip";
+import { CompareCoverageChip } from "@/components/compare-coverage-chip";
 import {
   ModularAxisProfile,
   LOCAL_INTELLIGENCE_INDEX_NAME,
@@ -71,13 +71,13 @@ export function ComparePicker({
   }
 
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid min-w-0 gap-5">
+      <div className="grid min-w-0 gap-3 md:grid-cols-2">
         <ConfigSelect id="left-config" label="Left config" value={leftId} configs={configs} onChange={setLeftId} />
         <ConfigSelect id="right-config" label="Right config" value={rightId} configs={configs} onChange={setRightId} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
         <ConfigCard config={left} label="Left" linkLabel="Open left model" />
         <ConfigCard config={right} label="Right" linkLabel="Open right model" />
       </div>
@@ -101,8 +101,12 @@ export function ComparePicker({
         <DeltaCard label="tok/s delta" value={formatNullableDelta(left.tokS, right.tokS)} />
       </section>
 
-      <section className="overflow-x-auto rounded border border-bench-line bg-bench-panel-2/70">
-        <table data-testid="compare-axis-deltas" className="min-w-[820px] border-collapse text-sm">
+      <section className="overflow-hidden rounded border border-bench-line bg-bench-panel-2/70">
+        <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent lg:hidden">
+          Swipe horizontally for per-axis deltas &rarr;
+        </p>
+        <div className="overflow-x-auto">
+          <table data-testid="compare-axis-deltas" className="min-w-[820px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
               <th className="px-3 py-3">Axis</th>
@@ -117,7 +121,8 @@ export function ComparePicker({
               <AxisDeltaRow key={delta.axis} delta={delta} left={left} right={right} />
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </section>
     </div>
   );
@@ -139,12 +144,12 @@ function ConfigSelect({
   const currentConfigs = configs.filter(isCurrentIndexConfig);
   const legacyConfigs = configs.filter(isPreviousIndexConfig);
   return (
-    <label className="flex flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor={id}>
+    <label className="flex min-w-0 flex-col gap-1 text-xs font-semibold uppercase text-bench-muted" htmlFor={id}>
       {label}
       <select
         id={id}
         aria-label={label}
-        className="rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-sm text-bench-text outline-none focus:border-bench-accent"
+        className="w-full min-w-0 max-w-full rounded border border-bench-line bg-bench-panel-2 px-3 py-2 font-mono text-sm text-bench-text outline-none focus:border-bench-accent"
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
       >
@@ -172,11 +177,11 @@ function ConfigOptions({ configs, label }: { readonly configs: readonly CompareC
 
 function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConfig; readonly label: string; readonly linkLabel: string }) {
   return (
-    <section className="rounded border border-bench-line bg-bench-panel p-4">
+    <section className="min-w-0 rounded border border-bench-line bg-bench-panel p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-xs uppercase text-bench-muted">{label}</p>
-          <h2 className="mt-1 text-xl font-semibold text-bench-text">{config.modelLabel}</h2>
+          <h2 className="mt-1 break-words text-xl font-semibold text-bench-text">{config.modelLabel}</h2>
           <p className="mt-1 font-mono text-sm text-bench-accent">{config.quantLabel}</p>
         </div>
         {config.demo ? <DemoBadge /> : null}
@@ -193,12 +198,17 @@ function ConfigCard({ config, label, linkLabel }: { readonly config: CompareConf
           }
         />
         <Metric label="Effective VRAM" value={formatGb(config.vramEstimate?.effectiveRequiredGb)} />
-        <Metric label="Fits" value={config.fitTierGb === null ? ">512 GB" : `${config.fitTierGb} GB`} />
+        <Metric
+          label="Fits"
+          value={config.vramEstimate === null ? "n/a" : config.fitTierGb === null ? ">512 GB" : `${config.fitTierGb} GB`}
+        />
         <Metric label="tok/s" value={formatCompactNumber(config.tokS)} />
       </dl>
-      <Link href={`/model/${config.modelSlug}`} className="mt-4 inline-flex text-sm font-semibold text-bench-accent hover:underline">
-        {linkLabel}
-      </Link>
+      {config.modelHref === null ? null : (
+        <Link href={config.modelHref} className="mt-4 inline-flex text-sm font-semibold text-bench-accent hover:underline">
+          {linkLabel}
+        </Link>
+      )}
     </section>
   );
 }
@@ -278,8 +288,7 @@ function findDefaultRight(configs: readonly CompareConfig[], leftId: string | nu
 
 function configLabel(config: CompareConfig): string {
   const demo = config.demo ? " · demo" : "";
-  const scope = isPreviousIndexConfig(config) ? ` · retired lane ${config.lane ?? "unknown"}` : "";
-  return `${config.modelLabel} · ${config.quantLabel} · ${compareCoverageLabel(config.coverage)}${scope}${demo} · ${formatGb(config.vramEstimate?.effectiveRequiredGb)}`;
+  return `${config.modelLabel} · ${config.quantLabel}${demo}`;
 }
 
 function formatSigned(value: number): string {

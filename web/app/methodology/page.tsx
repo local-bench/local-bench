@@ -5,6 +5,7 @@ import {
   SEASON_2_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
+import { publicProtocolLabel } from "@/lib/board-adapter";
 import {
   INDEX_VERSION_V4,
   SEASON_2_DIAGNOSTICS,
@@ -87,10 +88,10 @@ function AttributionRow({ source }: { readonly source: Attribution }) {
 export default async function MethodologyPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Methodology" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-          index-v4.1 | scorecard-v6 methodology
+          {publicProtocolLabel(INDEX_VERSION_V4)} | scorecard-v6 methodology
         </p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">How local-bench scores runs</h1>
         <p className="mt-3 leading-7 text-bench-muted">
@@ -105,19 +106,23 @@ export default async function MethodologyPage() {
       <section id="season-2" className="space-y-4 rounded-lg border border-bench-accent/30 bg-bench-panel/55 p-5 text-bench-muted">
         <div>
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-            Season 2 · {INDEX_VERSION_V4}
+            Season 2 · {publicProtocolLabel(INDEX_VERSION_V4)}
           </p>
           <h2 className="mt-1 text-xl font-semibold text-bench-text">Agentic macro-axis</h2>
         </div>
         <p>
           Season 2 replaces the separate season-1 Agentic and Tool-calling headline axes with one Agentic macro-axis
-          (structural data key <span className="font-mono">tool_use</span>, axis label renamed at index-v4.1) worth{" "}
+          (structural data key <span className="font-mono">tool_use</span>, public axis label under {publicProtocolLabel(INDEX_VERSION_V4)}) worth{" "}
           {Math.round(TOOL_USE_WEIGHT * 100)}% of the full Index. Its facets are first scored independently, then
           combined using the declared facet weights below. This is a <span className="font-semibold text-bench-text">bench-normalized weighted mean</span>,
           not item-count pooling: a bench with more test items does not silently gain more influence.
         </p>
-        <div className="overflow-x-auto rounded border border-bench-line">
-          <table className="min-w-[680px] border-collapse text-sm">
+        <div className="overflow-hidden rounded border border-bench-line">
+          <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent sm:hidden">
+            Swipe horizontally for all methodology columns &rarr;
+          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-[680px] border-collapse text-sm">
             <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-bench-text/85">
               <tr>
                 <th className="px-3 py-2">Sub-facet</th>
@@ -136,7 +141,8 @@ export default async function MethodologyPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
         <p className="text-sm">
           These are the final ratio-preserving weights after calibration. The table and board breakdown read the same
@@ -158,7 +164,7 @@ export default async function MethodologyPage() {
           <h3 className="text-lg font-semibold text-bench-text">Season 1 → 2 bridge</h3>
           <p>
             Index-v3.0 and index-v4.x composites are different editorial scales and are never directly compared
-            (as are index-v4.0 and index-v4.1, which weight the same axes differently).
+            (as are index-v4.0 and {publicProtocolLabel(INDEX_VERSION_V4)}, which weight the same axes differently).
             Lineage deltas and ordinary compare views require matching index versions. The versioned season bridge is
             the only sanctioned pairing: for an artifact measured completely in both seasons, it presents the frozen
             v3 composite beside the full v4 composite without treating their numerical gap as a performance delta.
@@ -182,7 +188,7 @@ export default async function MethodologyPage() {
         <p>
           The static ranked Index removes Agentic and reweights the remaining five axes: 25% Knowledge,
           25% Instruction-Following, 20% Tool calling, 20% Coding, and 10% Math. Static-Core measures only
-          Knowledge, Instruction, Tool calling, and Math; it has no sandbox, no Agentic, and no verified Coding, so it is
+          Knowledge, Instruction, Tool calling, and Math; it has no sandbox, no Agentic, and no executable Coding, so it is
           an unranked diagnostic release and is not comparable to ranked static.
         </p>
         <h3 className="text-lg font-semibold text-bench-text">Why the Index is not a parameter-count score</h3>
@@ -195,7 +201,7 @@ export default async function MethodologyPage() {
           exactly where each model earns or loses its score.
         </p>
         <p>
-          <span className="text-bench-text">Agentic headroom is deliberate.</span> Low agentic scores on today&apos;s
+          <span className="text-bench-text">Agentic headroom is deliberate.</span>{" "}Low agentic scores on today&apos;s
           board are expected: this axis is not rescaled upward to make current models look more spread out, so future
           local models that are genuinely capable agents have room to separate rather than saturating the benchmark.
         </p>
@@ -244,9 +250,9 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Coding execution and trust</h2>
         <p>
-          Every ranked bundle must include code artifacts; the ranked Coding score is produced by maintainer project
-          re-execution in a hardened rootless sandbox, so submitters do not need Docker and self-reported execution
-          verdicts never rank.
+          Every publishable bundle includes Coding results produced on the submitter&apos;s machine in the pinned,
+          network-isolated local-bench sandbox. Coding and Agentic evidence travel with the bundle; the publication
+          service validates the complete projection and does not re-run model-generated code.
         </p>
         <p>
           The Coding axis reports pass rate over the 141 sandbox-scoreable BigCodeBench-Hard items; seven
@@ -256,59 +262,42 @@ export default async function MethodologyPage() {
       </section>
 
       <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">Who submits, and what the labels mean</h2>
+        <h2 className="text-xl font-semibold text-bench-text">What publication means</h2>
         <p>
-          Anyone can submit a run. Submitters are identified by a locally generated Ed25519 key — no account,
-          no email — and accepted rows can carry an optional display name as credit. Every row also carries
-          labels that say exactly how much checking stands behind each number:
+          Community-reported results publish immediately after the complete six-axis contract, suite pins, schema,
+          size limits, and duplicate-retry checks pass. The site preserves the submitted identity, protocol, scores,
+          and evidence bundle, computes the common composite, and suppresses rows when problems are demonstrated.
+          Results are not independently reproduced by default.
         </p>
         <ul className="list-disc space-y-3 pl-5">
           <li>
-            <span className="text-bench-text">Run by: local-bench vs community.</span> Rows the project
-            measured on its own hardware are credited to local-bench; community rows carry the
-            submitter&apos;s credit line. The server derives this; submitters cannot set it.
+            <span className="text-bench-text">One provenance badge.</span>{" "}Only rows whose server-owned origin is
+            <span className="font-mono"> project_anchor</span> receive the <span className="font-mono">project run</span>
+            {" "}badge. Community reports are the unmarked default.
           </li>
           <li>
-            <span className="text-bench-text">Text and math axes: always re-scored.</span> For every accepted bundle —
-            project-run or community — transcript-scored axes are independently recomputed against the frozen,
-            sha256-pinned item sets. A submitted score never enters the board as claimed, so fabricated static scores do
-            not survive.
+            <span className="text-bench-text">Names are details, not identity proof.</span>{" "}An optional free-text handle
+            appears only as &ldquo;submitted as … — unverified&rdquo;. It never replaces the model or artifact identity.
           </li>
           <li>
-            <span className="text-bench-text">Agentic axis: provenance-labeled, not re-scored.</span> Agentic
-            verdicts are produced by live task execution and cannot be recomputed from a transcript after the
-            fact, so carried verdicts wear a provenance label instead.{" "}
-            <span className="text-bench-text">Attested</span> means every carried verdict has a valid Ed25519
-            attestation, signed at the moment the sandbox verdict was accepted and checked against the
-            project&apos;s pinned attester key — project-run rows carry this. (One historical local-bench row, the
-            first ranked run, predates per-verdict signing and is grandfathered as attested by bundle hash;
-            it was produced by the same host-derived verdict path.){" "}
-            <span className="text-bench-text">Self-reported</span> means the verdicts were carried exactly as
-            submitted and counted in the composite without independent verification — community rows carry
-            this today. The label never changes the score; it tells you how much to trust it.
+            <span className="text-bench-text">One ranking rule.</span> Every complete published row enters the same
+            score order. Incomplete legacy records remain available on family pages as history, never as partial board rows.
           </li>
           <li>
-            <span className="text-bench-text">Coding axis: artifact-backed.</span> The submitted bundle carries code
-            artifacts, but the ranked verdict is the maintainer re-execution result. Self-reported execution verdicts are
-            displayed only as diagnostics.
-          </li>
-          <li>
-            <span className="text-bench-text">Moderation: publish after automatic verification.</span> Submissions
-            that clear the machine-verifiable gates publish without waiting for human review. Suppression, flags,
-            spot checks, and trust-tier upgrades happen after publication; held rows remain visible in the public
-            lifecycle without appearing on the board.
+            <span className="text-bench-text">Moderation happens after publication.</span> Evidence-backed problems
+            can trigger a consistency check or independent re-run, and the maintainer suppresses a row when the evidence
+            warrants it. There is no pending truth judgment or promotion tier.
           </li>
         </ul>
       </section>
 
       <section className="space-y-4 text-bench-muted">
-        <h2 className="text-xl font-semibold text-bench-text">Attribution as trust</h2>
+        <h2 className="text-xl font-semibold text-bench-text">Evidence and reproduction</h2>
         <p>
-          The live community payload exposes the submitter display name and key fingerprint, submission and
-          validation timestamps, per-axis sample counts and confidence intervals, and the row&apos;s trust state.
-          These fields are public because attribution is part of the trust model: readers can distinguish
-          re-scored, self-reported, and later-upgraded evidence while new verified results publish without waiting
-          for manual review.
+          Each row keeps its structured model artifact identity, immutable bundle hash, protocol and suite identity,
+          axis scores, sample counts, confidence intervals, and downloadable evidence. Anyone can use
+          <span className="font-mono"> localbench verify</span> for a consistency check or independently re-run the
+          public suite; those are different claims, and the site does not call a consistency check a reproduction.
         </p>
       </section>
 
@@ -317,13 +306,9 @@ export default async function MethodologyPage() {
         <p>
           An OpenAI-compatible endpoint can be a cheat proxy: it can look up public answers and fabricate
           plausible transcripts, and no server-side check proves which model — or whose hardware — actually
-          produced a bundle. Re-scoring closes the cheapest fraud (claimed static scores that don&apos;t match the
-          transcripts), signed attestations make the project&apos;s own agentic verdicts tamper-evident, and
-          after-the-fact moderation is the backstop for everything else; but a determined submitter could still fabricate a
-          self-reported agentic result, which is exactly why the board labels it self-reported rather than
-          verified. Coding execution is stricter: self-reported execution verdicts never rank. Until then, treat labels as
-          what they are: re-scored means recomputed from your transcripts, attested means cryptographically signed by the
-          project at verdict time, self-reported means taken at your word, and none of them proves model identity.
+          produced a bundle. Public evidence and family-page outliers make scrutiny practical, but they do not prove
+          model identity or honest execution. The policy is publish complete reports, audit consequential leaders or
+          evidence-backed disputes, and suppress demonstrated problems.
         </p>
       </section>
 
@@ -334,16 +319,16 @@ export default async function MethodologyPage() {
           Every displayed score carries a bootstrap confidence interval. Repeatability, paired quant-delta, and
           generalization are kept separate. Per-axis confidence intervals are part of the score display; coding deltas
           under about 8-10 raw points are not ranking claims unless rank containment and intervals support that read.
-          Quick-tier fixed-item runs are personal estimates and stay unranked; only Standard-tier runs can be ranked.
+          Incomplete historical runs remain diagnostics. The current board admits only complete protocol runs.
         </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Serving engine lanes</h2>
         <p>
-          Rows identify the serving engine as well as the model format. The community lane remains llama.cpp over a
-          pinned GGUF artifact. Safetensors/NVFP4 rows use the maintainer-operated vLLM lane in WSL2; that lane is not
-          yet a supported community provisioning path and remains so until the appliance ships.
+          Rows identify the serving engine as well as the model format. Community-submitted llama.cpp runs use a pinned
+          GGUF artifact. Safetensors/NVFP4 rows use the project-operated vLLM path in WSL2; that runtime is not yet a
+          supported community provisioning path and remains so until the appliance ships.
         </p>
         <p>
           A vLLM receipt pins the Hugging Face repository and full 40-character revision, the snapshot Merkle identity
@@ -384,7 +369,7 @@ export default async function MethodologyPage() {
           </div>
           <div className="bg-bench-bg px-4 py-3">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Index identity</dt>
-            <dd className="mt-1 text-sm text-bench-text">index-v4.1 / scorecard-v6</dd>
+            <dd className="mt-1 text-sm text-bench-text">{publicProtocolLabel(INDEX_VERSION_V4)} / scorecard-v6</dd>
           </div>
           <div className="bg-bench-bg px-4 py-3 sm:col-span-2">
             <dt className="font-mono text-[11px] uppercase tracking-wide text-bench-muted/70">Board sha256</dt>
@@ -424,7 +409,8 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Editorial versioning</h2>
         <p>
-          Domain weights are explicit editorial choices tied to named releases: index-v4.1 (scorecard-v6) for the
+          Domain weights are explicit editorial choices tied to named releases: {publicProtocolLabel(INDEX_VERSION_V4)}{" "}
+          (scorecard-v6) for the
           current five-axis Index (Agentic raised to 25% from index-v4.0&apos;s 20%, the other four axes scaled by
           15/16), index-v4.0 (scorecard-v5) for the initial season-2 scale, index-v3.0 for the season-1 six-axis
           Index, static-suite-v2 for the ranked no-agentic Index, and static-core diagnostic for the unranked

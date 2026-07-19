@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { CommunityFamilyResults } from "../components/community-family-results";
 import { CommunityLeaderboardRow } from "../components/community-leaderboard-row";
-import { CommunityDetailRows } from "../components/community-detail";
 import { CommunityFreshness } from "../components/community-live-state";
 import type { CommunityBoardRow } from "../lib/community-data";
 
@@ -9,10 +9,15 @@ const liveOnlyRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
   axes: {},
   communityModelGroupId: `community-group:${"1".repeat(32)}`,
+  compositeFull: 0.5,
   declaredBaseModels: [],
   detailPath: null,
   displayName: "Live-only model",
+  family: "Fixture",
+  globalRank: 1,
+  headlineComplete: true,
   identityLabel: "community-declared, identity-unverified",
+  indexVersion: "index-v4.1",
   lineage: undefined,
   measuredHeadlineWeight: 1,
   missingHeadlineWeight: 0,
@@ -27,13 +32,14 @@ describe("live-only community links", () => {
     const html = renderToStaticMarkup(
       <table><tbody><CommunityLeaderboardRow
         axisKeys={[]}
+        rank={1}
         row={liveOnlyRow}
         showAgenticColumn={false}
         showStaticIndexColumn={false}
       /></tbody></table>,
     );
 
-    expect(html).toContain("detail page publishes with the next site deploy");
+    expect(html).toContain("family detail unavailable for this row");
     expect(html).toContain("Live-only model");
     expect(html).not.toContain('href="/community/model/');
   });
@@ -42,6 +48,7 @@ describe("live-only community links", () => {
     const html = renderToStaticMarkup(
       <table><tbody><CommunityLeaderboardRow
         axisKeys={["coding"]}
+        rank={1}
         row={{
           ...liveOnlyRow,
           axes: { coding: { ci: null, n: 0, score: null, status: "not_measured" } },
@@ -62,12 +69,11 @@ describe("live-only community links", () => {
       /></tbody></table>,
     );
 
-    expect(html).toContain("pending verification");
+    expect(html).toContain("not measured");
     expect(html).not.toContain(">0.0</td>");
-    expect(html).toContain("re-scored");
-    expect(html).toContain("self-reported");
-    expect(html).toContain("submitted by @octocat");
-    expect(html).toContain("Ada");
+    expect(html).toContain("submitted as Ada — unverified");
+    expect(html).not.toContain("re-scored");
+    expect(html).not.toContain("self-reported");
     expect(html).not.toContain('href="https://github.com/');
   });
 
@@ -88,10 +94,8 @@ describe("live-only community links", () => {
     expect(snapshot).toContain("live data unavailable");
   });
 
-  it("renders live axis and trust evidence on a community detail record", () => {
-    const html = renderToStaticMarkup(<CommunityDetailRows
-      groupId={`community-group:${"1".repeat(32)}`}
-      rows={[{
+  it("renders live axes and submission details on the family record", () => {
+    const html = renderToStaticMarkup(<CommunityFamilyResults rows={[{
         ...liveOnlyRow,
         axes: {
           coding: { ci: null, n: 0, score: null, status: "not_measured" },
@@ -108,14 +112,13 @@ describe("live-only community links", () => {
           trust_label: "community_re_scored",
           verification_level: "bundle_rescored",
         },
-      }]}
-    />);
+      }]} />);
 
-    expect(html).toContain("knowledge 50.0 · n=20");
-    expect(html).toContain("coding pending verification");
-    expect(html).toContain("@octocat");
-    expect(html).toContain("Ada");
-    expect(html).not.toContain('href="https://github.com/');
-    expect(html).toContain("re-scored");
+    expect(html).toContain("Knowledge");
+    expect(html).toContain("50.0 · n=20");
+    expect(html).toContain("not measured");
+    expect(html).toContain("submitted as Ada — unverified");
+    expect(html).toContain("Per-axis breakdown");
+    expect(html).not.toContain("re-scored");
   });
 });

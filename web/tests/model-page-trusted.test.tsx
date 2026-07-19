@@ -25,15 +25,14 @@ vi.mock("@/lib/data", () => ({
   }),
 }));
 
-describe("model page trusted population", () => {
-  it("renders runtime, scatter, and variant consumers without community rank leakage", async () => {
+describe("model page complete population", () => {
+  it("renders project and community runs on the same family surface", async () => {
     const { default: ModelPage } = await import("../app/model/[slug]/page");
     const element = await ModelPage({ params: Promise.resolve({ slug: "fixture-model" }) });
     const html = renderToStaticMarkup(createElement(() => element));
     expect(html).toContain("trusted-runtime");
     expect(html).toContain("trusted-run");
-    expect(html).not.toContain("community-runtime");
-    expect(html).not.toContain("community-run");
-    expect(html).not.toContain("measured profile");
+    expect(html).toContain("community-runtim...");
+    expect(html).toContain("community-run");
   });
 });

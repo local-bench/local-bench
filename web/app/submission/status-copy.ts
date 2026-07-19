@@ -25,9 +25,9 @@ const STATUS_COPY = {
     tone: "text-bench-muted",
   },
   pending_verification: {
-    body: "The bundle uploaded successfully and is waiting for maintainer verification.",
-    label: "Pending verification",
-    next: "No action is needed unless the maintainer asks for a replacement bundle.",
+    body: "The bundle uploaded successfully and is waiting for automated contract validation.",
+    label: "Validating",
+    next: "No action is needed unless the service reports a contract problem.",
     tone: "text-bench-warn",
   },
   rejected: {

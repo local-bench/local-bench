@@ -21,6 +21,8 @@ const communityGroup = parseCommunityGroup({
     quant_label: "Q4_K_M",
     ranked: false,
     scores: {
+      composite_full: 0.56,
+      headline_score: 0.56,
       known_headline_contribution: 0.3128,
       measured_headline_weight: 0.75,
       missing_headline_weight: 0.25,
@@ -35,13 +37,17 @@ if (communityGroup === null) throw new Error("unified leaderboard fixture must v
 const communityRows = communityBoardRows([communityGroup]);
 const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) => ({
   ...row,
+  detailPath: "/model/ranked-2",
+  family: "Fixture",
+  globalRank: 2,
+  indexVersion: "index-v4.1",
+  submitterDisplayName: "Ada",
   axes: {
-    agentic: { ci: [0.4, 0.5], n: 10, score: 0.45, status: "measured" },
-    coding: { ci: null, n: 0, score: null, status: "not_measured" },
+    coding: { ci: [0.4, 0.5], n: 10, score: 0.45, status: "measured" },
     instruction: { ci: [0.5, 0.6], n: 10, score: 0.55, status: "measured" },
     knowledge: { ci: [0.6, 0.7], n: 10, score: 0.65, status: "measured" },
     math: { ci: [0.7, 0.8], n: 10, score: 0.75, status: "measured" },
-    tool_use: { ci: null, n: 0, score: null, status: "not_measured" },
+    tool_use: { ci: [0.4, 0.5], n: 10, score: 0.45, status: "measured" },
   },
   trust: {
     agentic_provenance: "self_reported",
@@ -54,7 +60,7 @@ const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) 
 }));
 
 describe("unified leaderboard community rows", () => {
-  it("renders the trust tier in the rank cell and marks partial axis coverage", () => {
+  it("renders a numeric rank and plain submission detail in the shared board", () => {
     const html = renderToStaticMarkup(
       <HomeLeaderboard models={rankedRows} communityRows={liveCommunityRows} indexVersion="index-v4.1" />,
     );
@@ -65,21 +71,16 @@ describe("unified leaderboard community rows", () => {
 
     expect(rowStart).toBeGreaterThan(-1);
     expect(rowHtml).toContain("Qwythos-9B v2");
-    expect(rowHtml).toContain("community");
-    expect(rowHtml).toContain("not independently verified");
-    expect(rowHtml).toContain('href="/community/model/11111111111111111111111111111111"');
-    expect(rowHtml).toContain("re-scored");
-    expect(rowHtml).toContain("4/6 axes");
+    expect(rowHtml).toContain("submitted as Ada — unverified");
+    expect(rowHtml).toContain('href="/model/ranked-2"');
+    expect(rowHtml).not.toContain("re-scored");
     expect(html).toContain("Swipe horizontally for scores and axes");
     expect(rankCellHtml).not.toContain("—");
-    expect(rankCellHtml).not.toMatch(/>\d+</u);
-    expect(rowHtml.indexOf(">community</span>")).toBeLessThan(
-      rowHtml.indexOf("partial over measured headline axes"),
-    );
+    expect(rankCellHtml).toMatch(/>2<\/td>/u);
   });
 
   it("interleaves community scores between ranked rows and keeps null scores last", () => {
-    const rows = filterUnifiedLeaderboardRows(rankedRows, liveCommunityRows, "all");
+    const rows = filterUnifiedLeaderboardRows(rankedRows, liveCommunityRows);
     const sorted = sortUnifiedLeaderboardRows(rows, { key: "composite", direction: "desc" });
 
     expect(sorted.map((row) => row.source === "local-bench" ? row.model.slug : row.row.submissionId)).toEqual([
@@ -88,7 +89,6 @@ describe("unified leaderboard community rows", () => {
       "ranked-2",
       "ranked-3",
       "ranked-4",
-      "ranked-5",
     ]);
   });
 
@@ -96,6 +96,7 @@ describe("unified leaderboard community rows", () => {
     const rankedWithInstruction: IndexModel = {
       ...rankedModel(6, 50),
       axes: {
+        ...rankedModel(6, 50).axes,
         instruction: {
           hi: 51,
           lo: 49,
@@ -107,41 +108,54 @@ describe("unified leaderboard community rows", () => {
         },
       },
     };
-    const rows = filterUnifiedLeaderboardRows([rankedWithInstruction], liveCommunityRows, "all");
+    const rows = filterUnifiedLeaderboardRows([rankedWithInstruction], liveCommunityRows);
     const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction", direction: "desc" });
 
     expect(sorted.map((row) => row.source)).toEqual(["community", "local-bench"]);
   });
 
-  it("filters All, local-bench runs, and community without mixing row populations", () => {
-    const all = filterUnifiedLeaderboardRows(rankedRows, communityRows, "all");
-    const local = filterUnifiedLeaderboardRows(rankedRows, communityRows, "local-bench");
-    const community = filterUnifiedLeaderboardRows(rankedRows, communityRows, "community");
+  it("normalizes both fraction and percentage community axis scores before sorting", () => {
+    const fixture = liveCommunityRows[0];
+    if (fixture === undefined) throw new Error("missing live community fixture");
+    const fraction = {
+      ...fixture,
+      axes: { ...fixture.axes, instruction: { ci: null, n: 10, score: 0.9, status: "measured" as const } },
+      submissionId: "ticket_fraction",
+    };
+    const percentage = {
+      ...fixture,
+      axes: { ...fixture.axes, instruction: { ci: null, n: 10, score: 42, status: "measured" as const } },
+      submissionId: "ticket_percentage",
+    };
+    const rows = filterUnifiedLeaderboardRows([], [percentage, fraction]);
+    const sorted = sortUnifiedLeaderboardRows(rows, { key: "instruction", direction: "desc" });
+
+    expect(sorted.map((row) => row.source === "community" ? row.row.submissionId : row.model.slug)).toEqual([
+      "ticket_fraction",
+      "ticket_percentage",
+    ]);
+  });
+
+  it("keeps complete project and community rows in one population", () => {
+    const all = filterUnifiedLeaderboardRows(rankedRows, liveCommunityRows);
 
     expect(all.map((row) => row.source)).toEqual([
       "local-bench",
-      "local-bench",
-      "local-bench",
-      "local-bench",
-      "local-bench",
       "community",
+      "local-bench",
+      "local-bench",
+      "local-bench",
     ]);
-    expect(local).toHaveLength(5);
-    expect(local.every((row) => row.source === "local-bench")).toBe(true);
-    expect(community).toHaveLength(1);
-    expect(community.every((row) => row.source === "community")).toBe(true);
+    expect(all.map((row) => row.rank)).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it("keeps the ranked count at five and omits suppressed fixture rows", () => {
+  it("shows one complete-run count and omits source segregation", () => {
     const html = renderToStaticMarkup(
       <HomeLeaderboard models={rankedRows} communityRows={liveCommunityRows} indexVersion="index-v4.1" />,
     );
 
-    expect(html).toContain("5 ranked");
-    expect(html).toContain("1 community");
-    expect(html).toContain('aria-pressed="true"');
-    expect(html).toContain(">All</button>");
-    expect(html).toContain("local-bench runs");
+    expect(html).toContain("5 complete ranked runs");
+    expect(html).not.toContain("local-bench runs");
     expect(html).not.toContain("Suppressed fixture model");
     expect(html.indexOf("Ranked Model 1")).toBeLessThan(html.indexOf("Qwythos-9B v2"));
     expect(html.indexOf("Qwythos-9B v2")).toBeLessThan(html.indexOf("Ranked Model 2"));
@@ -151,14 +165,22 @@ describe("unified leaderboard community rows", () => {
 function rankedModel(position: number, score: number | null): IndexModel {
   const slug = `ranked-${position}`;
   return IndexModelSchema.parse({
-    axes: {},
+    axes: score === null ? {} : {
+      coding: axisScore(score),
+      instruction: axisScore(score),
+      knowledge: axisScore(score),
+      math: axisScore(score),
+      tool_use: axisScore(score),
+    },
     best_run_id: `${slug}-run`,
     composite: score === null ? null : { hi: score + 0.01, lo: score - 0.01, point: score },
+    composite_full: score === null ? null : { hi: score + 0.01, lo: score - 0.01, point: score },
     demo: false,
     est_cost_usd: null,
     family: "Fixture",
     gpu: null,
     kind: "maintainer_project",
+    index_version: "index-v4.1",
     lane: "bounded-final-v2",
     model_label: `Ranked Model ${position}`,
     n_runs: 1,
@@ -171,4 +193,8 @@ function rankedModel(position: number, score: number | null): IndexModel {
     tokens_to_answer_median: 128,
     trust_label: "project_anchor",
   });
+}
+
+function axisScore(point: number) {
+  return { hi: point + 0.01, lo: point - 0.01, n: 10, n_errors: 0, n_no_answer: 0, point, raw_accuracy: point / 100 };
 }

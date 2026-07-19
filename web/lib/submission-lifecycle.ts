@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { statusCopy } from "@/app/submission/status-copy";
 import type { CommunityBoardRow } from "@/lib/community-data";
-import { trustTierLabel } from "@/lib/community-live";
 
 const UNSAFE_TEXT_RE = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
 const ISO_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
@@ -54,8 +53,6 @@ export type SubmissionDisplayRow = {
   readonly submitterDisplayName: string | null;
   readonly submitterGithubLogin: string | null;
   readonly submitterKeyFingerprint: string | null;
-  readonly tierLabel: string | null;
-  readonly trustLabel: string | null;
 };
 
 const REASON_CODE_LABELS: Readonly<Record<string, string>> = {
@@ -91,7 +88,6 @@ export function mergeSubmissionLifecycleRows(
   const communityBySubmission = new Map(communityRows.map((row) => [row.submissionId, row] as const));
   return lifecycleRows.map((row) => {
     const community = communityBySubmission.get(row.submission_id);
-    const trustLabel = community?.trust?.trust_label ?? null;
     return {
       communityDetailPath: community?.detailPath ?? null,
       modelLabel: community?.displayName ?? row.declared_model_slug ?? "model unavailable",
@@ -102,8 +98,6 @@ export function mergeSubmissionLifecycleRows(
       submitterDisplayName: row.submitter_display_name ?? community?.submitterDisplayName ?? null,
       submitterGithubLogin: row.github_login ?? community?.submitterGithubLogin ?? null,
       submitterKeyFingerprint: community?.submitterKeyFingerprint ?? null,
-      tierLabel: trustLabel === null ? null : trustTierLabel(trustLabel),
-      trustLabel,
     };
   });
 }

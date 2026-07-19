@@ -4,7 +4,13 @@ import type { CommunityBoardRow } from "../lib/community-data";
 import { IndexModelSchema } from "../lib/schemas";
 
 const rankedModel = IndexModelSchema.parse({
-  axes: {},
+  axes: {
+    coding: { hi: 61, lo: 59, n: 10, n_errors: 0, n_no_answer: 0, point: 60, raw_accuracy: 0.6 },
+    instruction: { hi: 61, lo: 59, n: 10, n_errors: 0, n_no_answer: 0, point: 60, raw_accuracy: 0.6 },
+    knowledge: { hi: 61, lo: 59, n: 10, n_errors: 0, n_no_answer: 0, point: 60, raw_accuracy: 0.6 },
+    math: { hi: 61, lo: 59, n: 10, n_errors: 0, n_no_answer: 0, point: 60, raw_accuracy: 0.6 },
+    tool_use: { hi: 61, lo: 59, n: 10, n_errors: 0, n_no_answer: 0, point: 60, raw_accuracy: 0.6 },
+  },
   best_run_id: "homepage-ranked-run",
   composite: { hi: 0.61, lo: 0.59, point: 0.6 },
   demo: false,
@@ -12,6 +18,7 @@ const rankedModel = IndexModelSchema.parse({
   family: "Fixture",
   gpu: null,
   kind: "maintainer_project",
+  index_version: "index-v4.1",
   lane: "bounded-final-v2",
   model_label: "Homepage Ranked Model",
   n_runs: 1,
@@ -28,9 +35,14 @@ const rankedModel = IndexModelSchema.parse({
 const communityRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
   axes: {},
+  compositeFull: 0.57,
   detailPath: null,
   displayName: "Homepage Community Model",
+  family: "Fixture",
+  globalRank: null,
+  headlineComplete: true,
   identityLabel: "community-declared, identity-unverified",
+  indexVersion: "index-v4.1",
   lineage: undefined,
   measuredHeadlineWeight: 0.75,
   missingHeadlineWeight: 0.25,

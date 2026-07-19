@@ -12,7 +12,7 @@ import {
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
 import type { ModelRun } from "@/lib/schemas";
-import { isTrustedRankedPopulation } from "@/lib/trusted-population";
+import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export function ModelScatter({
   model,
@@ -89,7 +89,7 @@ function toScatterRun(
   run: ModelRun,
   options: { readonly label: string; readonly pointKind: QualityVramPointKind },
 ): readonly QualityVramRun[] {
-  if (run.composite === null || run.lane !== HEADLINE_LANE || !isTrustedRankedPopulation(run)) {
+  if (run.composite === null || run.lane !== HEADLINE_LANE || !isCompleteRun(run)) {
     return [];
   }
   const pointBase = {
@@ -99,4 +99,12 @@ function toScatterRun(
     point_label: options.label,
   };
   return run.run_id === null ? [pointBase] : [{ ...pointBase, point_href: `/run/${run.run_id}` }];
+}
+
+function isCompleteRun(run: ModelRun): boolean {
+  if (run.index_version === INDEX_VERSION_V4) return hasCompleteSeason2Coverage(run);
+  return ["agentic", "knowledge", "instruction", "tool_calling", "coding", "math"].every((axis) => {
+    const score = run.axes[axis];
+    return score !== undefined && score.n > 0;
+  });
 }

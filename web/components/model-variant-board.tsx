@@ -13,8 +13,7 @@ import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
-import { isTrustedRankedPopulation } from "@/lib/trusted-population";
-import { displayIndexVersion, headlineScoreForDisplay } from "@/lib/scoring-seasons";
+import { displayIndexVersion, hasCompleteSeason2Coverage, headlineScoreForDisplay, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 type VariantRun = ModelData["runs"][number];
 type OwnVariantRow = {
@@ -43,7 +42,7 @@ export function ModelVariantBoard({
   const isCurrentIndexRun = (run: VariantRun): boolean =>
     run.score_status !== "measured" || run.lane === HEADLINE_LANE;
   const currentRuns = model.runs.filter(
-    (run) => isCurrentIndexRun(run) && (run.score_status !== "measured" || isTrustedRankedPopulation(run)),
+    (run) => isCurrentIndexRun(run),
   );
   const decisionByQuant = new Map<string, QuantDecisionRow>(
     getQuantDecisionRows({ ...model, runs: currentRuns }, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
@@ -52,7 +51,7 @@ export function ModelVariantBoard({
     ]),
   );
   const ownRankedRuns = sortRunsBySeason(
-    currentRuns.filter((run) => run.ranked && headlineScoreForDisplay(run) !== null),
+    currentRuns.filter((run) => isCompleteRun(run) && headlineScoreForDisplay(run) !== null),
   );
   const ownRankByRun = new Map<VariantRun, number>(ownRankedRuns.map((run, index) => [run, rankWithinRunSeason(ownRankedRuns, index) - 1]));
   const ownRows: readonly OwnVariantRow[] = currentRuns.map((run) => ({
@@ -62,13 +61,13 @@ export function ModelVariantBoard({
   }));
   const familyRows: readonly FamilyVariantRow[] = familyModels.flatMap(({ model: familyModel, relation }) =>
     familyModel.runs
-      .filter((run) => run.score_status === "measured" && run.lane === HEADLINE_LANE && isTrustedRankedPopulation(run))
+      .filter((run) => run.score_status === "measured" && run.lane === HEADLINE_LANE && isCompleteRun(run))
       .map((run) => ({ kind: relation, model: familyModel, run })),
   );
   const rows = [...ownRows, ...familyRows];
   const axisKeys = variantAxisColumns(rows.map((row) => row.run));
-  const ranked = sortVariantRowsBySeason(rows.filter((row) => row.run.ranked && headlineScoreForDisplay(row.run) !== null));
-  const partial = rows.filter((row) => !row.run.ranked && row.run.score_status === "measured");
+  const ranked = sortVariantRowsBySeason(rows.filter((row) => isCompleteRun(row.run) && headlineScoreForDisplay(row.run) !== null));
+  const partial = rows.filter((row) => !isCompleteRun(row.run) && row.run.score_status === "measured");
   const pending = ownRows.filter((row) => row.run.composite === null && row.run.score_status !== "measured");
   const hasPerf = rows.some((row) => row.run.perf !== undefined);
   const indexQualifier = indexQualifierForAxes(rows.find((row) => row.run.axes["tool_use"] !== undefined)?.run.axes ?? {});
@@ -83,6 +82,9 @@ export function ModelVariantBoard({
             what your card needs.
           </p>
       </div>
+      <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent 2xl:hidden">
+        Swipe horizontally for all variant metrics &rarr;
+      </p>
       <div className="overflow-x-auto">
         <table data-testid="model-variant-table" className="min-w-[1360px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
@@ -415,6 +417,14 @@ function RuntimeCell({ run }: { readonly run: VariantRun }) {
 
 function formatPerfTps(value: number | null | undefined): string {
   return value === null || value === undefined ? "" : formatCompactNumber(value);
+}
+
+function isCompleteRun(run: VariantRun): boolean {
+  if (run.index_version === INDEX_VERSION_V4) return hasCompleteSeason2Coverage(run);
+  return ["agentic", "knowledge", "instruction", "tool_calling", "coding", "math"].every((axis) => {
+    const score = run.axes[axis];
+    return score !== undefined && score.n > 0;
+  }) && run.composite !== null;
 }
 
 // "Fits" = the smallest GPU VRAM tier a variant runs on at the displayed context (from the

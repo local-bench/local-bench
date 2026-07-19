@@ -17,7 +17,6 @@ type LeaderboardTableProps = {
   readonly agenticBySlug: ReadonlyMap<string, AgenticModel>;
   readonly axisKeys: readonly string[];
   readonly fineTuneBaseBySlug: ReadonlyMap<string, string>;
-  readonly laneRanks: ReadonlyMap<string, number>;
   readonly rows: readonly UnifiedLeaderboardRow[];
   readonly scoreMode: LeaderboardScoreMode;
   readonly season2: boolean;
@@ -31,7 +30,6 @@ export function LeaderboardTable({
   agenticBySlug,
   axisKeys,
   fineTuneBaseBySlug,
-  laneRanks,
   rows,
   scoreMode,
   season2,
@@ -48,7 +46,7 @@ export function LeaderboardTable({
       <div className="overflow-x-auto">
         <table className="min-w-[1280px] border-collapse text-sm">
         <caption className="sr-only">
-          Local-bench and community rows share one score-sorted table. Community rows never receive a rank.
+          Complete project and community runs share one score-sorted ranked table.
         </caption>
         <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
           <tr>
@@ -88,7 +86,7 @@ export function LeaderboardTable({
                     agentic={agenticBySlug.get(entry.model.slug)}
                     axisKeys={axisKeys}
                     fineTuneBaseName={fineTuneBaseBySlug.get(entry.model.slug)}
-                    laneRank={laneRanks.get(entry.model.slug)}
+                    laneRank={entry.rank}
                     model={entry.model}
                     scoreMode={scoreMode}
                     season2={season2}
@@ -101,6 +99,7 @@ export function LeaderboardTable({
                   <CommunityLeaderboardRow
                     key={entry.row.artifactSha256}
                     axisKeys={axisKeys}
+                    rank={entry.rank}
                     row={entry.row}
                     showAgenticColumn={showAgenticColumn}
                     showStaticIndexColumn={showStaticIndexColumn}

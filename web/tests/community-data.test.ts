@@ -94,7 +94,7 @@ describe("community static-data boundary", () => {
     expect(parseCommunityGroup(unknown)).toBeNull();
   });
 
-  it("projects validated groups into unranked board rows without re-parsing", () => {
+  it("projects validated groups without creating a community detail namespace", () => {
     const parsed = parseCommunityGroup(groupFixture());
     if (parsed === null) throw new Error("expected validated community group");
 
@@ -102,11 +102,10 @@ describe("community static-data boundary", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      detailPath: "/community/model/11111111111111111111111111111111",
+      detailPath: null,
       displayName: "Qwythos-9B v2",
       identityLabel: "community-declared, identity-unverified",
       partialComposite: 0.4171,
-      ranked: false,
     });
   });
 
@@ -122,6 +121,10 @@ describe("community static-data boundary", () => {
     expect(communityRowsForModel(rows, {
       catalogId: "google/gemma-3-4b-it",
       family: "Gemma 3",
+    })).toEqual([]);
+    expect(communityRowsForModel(rows, {
+      catalogId: "Qwen/Qwen3-8B",
+      family: "Qwen3",
     })).toEqual([]);
   });
 });

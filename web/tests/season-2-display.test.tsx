@@ -32,7 +32,8 @@ describe("additive season board display", () => {
       createElement(HomeLeaderboard, { models: [row], indexVersion: INDEX_VERSION_V4 }),
     );
 
-    expect(html).toContain("index-v4.1");
+    expect(html).toContain("LB-2026-07");
+    expect(html).not.toContain("index-v4.1");
     expect(html).toContain("Agentic");
     expect(html).not.toContain("Tool calling");
     expect(html).not.toContain("Static Index");

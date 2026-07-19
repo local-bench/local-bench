@@ -14,23 +14,23 @@ export function VsBaseStrip({
   }
 
   return (
-    <section className="grid gap-3" aria-label={label}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section className="grid min-w-0 gap-3" aria-label={label}>
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
         <div>
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">{label}</p>
           <h2 className="text-2xl font-semibold text-bench-text">Fine-tune comparison</h2>
         </div>
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid min-w-0 gap-3">
         {comparisons.map((comparison) => (
           <article
             key={`${comparison.derivative.catalogId}:${comparison.base.catalogId}`}
-            className="rounded border border-bench-line bg-bench-panel p-4"
+            className="min-w-0 rounded border border-bench-line bg-bench-panel p-4"
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-bench-text">{comparison.derivative.displayName}</h3>
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="break-words text-lg font-semibold text-bench-text">{comparison.derivative.displayName}</h3>
                 <p className="text-sm text-bench-muted">Fine-tune of {comparison.base.displayName}</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">

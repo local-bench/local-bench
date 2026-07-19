@@ -1,13 +1,14 @@
 import type { LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
+import { publicProtocolLabel } from "@/lib/board-adapter";
 
 export const BOARD_SCOPE_TITLE = "Local Intelligence Index | index-v3.0";
 export const BOARD_SCOPE_SUBTITLE =
   "Headline = 0.40 Agentic + 0.15 Knowledge + 0.15 Instruction + 0.10 Tool calling + 0.15 Coding + 0.05 Math. Ranks require all headline axes in this scope.";
 export const STATIC_SCOPE_TITLE = "Static Index | static-suite-v2";
 export const STATIC_SCOPE_SUBTITLE =
-  "Secondary, provisional track while agentic verification is pending: Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. It never competes with the six-axis Local Intelligence Index.";
-export const SEASON_2_SCOPE_TITLE = "Local Intelligence Index | index-v4.1";
+  "Historical secondary track: Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. It never competes with the active Local Intelligence Index.";
+export const SEASON_2_SCOPE_TITLE = `Local Intelligence Index | ${publicProtocolLabel(INDEX_VERSION_V4)}`;
 export const SEASON_2_SCOPE_SUBTITLE =
   "Headline = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math. Agentic is bench-normalized across its declared facets; ranks require the complete season-2 profile.";
 

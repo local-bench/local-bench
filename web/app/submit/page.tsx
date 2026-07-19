@@ -4,15 +4,14 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 export default function SubmitPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Submit a run" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Submit a run" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">community submissions</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submit a run</h1>
         <p className="mt-3 leading-7 text-bench-muted">
           Run the frozen suite against your own local model, then submit the signed result bundle with
           one command. No account, no email, no signup — your submission is identified by an Ed25519
-          key generated on your machine, and nothing appears on the board until a maintainer reviews
-          and accepts it.
+          key generated on your machine. Complete reports publish after automated contract checks.
         </p>
       </header>
 
@@ -22,7 +21,7 @@ export default function SubmitPage() {
           There is no signup. The first time you submit, the CLI generates an Ed25519 keypair at{" "}
           <code className="font-mono text-bench-text">~/.localbench/submitter_ed25519.pem</code> and
           prints the public key. That key is your leaderboard identity: every bundle you submit is
-          signed with it, and accepted rows are credited to it. Back the file up — there is no
+          signed with it. Back the file up — there is no
           password reset, and a new key is a new identity.
         </p>
         <p>
@@ -32,8 +31,8 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">_</code>,{" "}
           <code className="font-mono text-bench-text">&apos;</code>, and{" "}
           <code className="font-mono text-bench-text">-</code> allowed in between — no URLs). Accepted
-          rows carry it as your credit line on the board. Display names are plain-text credit, not
-          unique handles.
+          rows show it only in details as “submitted as X — unverified”. Display names are plain-text
+          credit, not unique handles or the primary board identity.
         </p>
       </section>
 
@@ -79,8 +78,8 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">bench</code> resolves the catalog slug and quant,
           checks publishability before downloading, verifies pinned GGUF hashes, starts llama-server
           with the deterministic config, shows progress and ETA, prints the scorecard, and offers
-          submission at the end. The submission prompt defaults to No, and accepted rows still require
-          maintainer review.
+          submission at the end. The submission prompt defaults to No; complete submissions publish
+          after the automated contract checks.
         </p>
         <p className="text-sm">
           Non-interactive shells must be explicit: add{" "}
@@ -175,7 +174,7 @@ export default function SubmitPage() {
   --out runs/qwen3-8b-q4-k-m.json`}
             </pre>
             <p>
-              The ranked board is the bounded-final lane at standard tier: every model gets the same
+              The ranked board uses the bounded-final protocol: every model gets the same
               generated-token budget per item, and <code className="font-mono text-bench-text">--profile auto</code>{" "}
               reads your model&apos;s own chat template to decide whether it thinks (bounded) or answers directly.
               A run must pin its sampler settings to be publishable (
@@ -191,11 +190,11 @@ export default function SubmitPage() {
               generates this exact sequence.
             </p>
             <p>
-              The full ranked release is <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>.
+              The full legacy release is <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>.
               Static-only submitters can use{" "}
-              <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code> and need no Docker:
-              coding artifacts are packed by the CLI and the ranked coding score is produced later by project
-              re-execution. <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> is
+              <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code>:
+              coding evidence is packed by the CLI and preserved with the report.{" "}
+              <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> is
               unranked diagnostic only.
             </p>
 
@@ -233,32 +232,24 @@ export default function SubmitPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What happens after you submit</h2>
         <p>
-          Nothing auto-publishes. Every submission lands as pending; the maintainer reviews it and must
-          explicitly accept it before it can appear on the board. As part of review, transcript-scored
-          axes are re-scored server-side from the transcripts in your bundle, and Coding ranks only after
-          project re-execution of the submitted artifacts. The score you claim is never the score that
-          publishes. Agentic (AppWorld) results are carried as you submitted them and labeled{" "}
-          <span className="text-bench-text">self-reported</span> on the board; they count in the
-          composite but are not independently verified. The public board is regenerated only after
-          these checks, maintainer review, and an explicit deploy.
+          A complete bundle publishes after automated schema, protocol, suite-pin, size, and duplicate-retry checks.
+          The service preserves the submitted identity, scores, protocol, and evidence and computes the common
+          composite. Publication does not mean the project independently reproduced the run. Demonstrated problems
+          can cause a row to be suppressed after publication.
         </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What you can submit</h2>
-        <p>All current release profiles are accepted, with rankability determined by the release identity.</p>
+        <p>Complete runs under the current release enter the common ranking. Incomplete legacy profiles remain diagnostic.</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <span className="text-bench-text">Full 6-axis ranked</span> —{" "}
-            <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>, ranked on
-            index-v3.0: Agentic 40 / Knowledge 15 / Instruction-Following 15 / Tool calling 10 /
-            Coding 15 / Math 5.
+            <span className="text-bench-text">Current complete protocol</span> — every required headline axis,
+            suite pin, artifact identity, and evidence record is present.
           </li>
           <li>
-            <span className="text-bench-text">Static 5-axis ranked</span> —{" "}
-            <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code>, no Agentic,
-            verified Coding, and no submitter Docker requirement. It ranks only against static rows:
-            Knowledge 25 / Instruction-Following 25 / Tool calling 20 / Coding 20 / Math 10.
+            <span className="text-bench-text">Legacy complete protocols</span> — preserved on their original
+            protocol scale for history and never mixed into the active ranking.
           </li>
           <li>
             <span className="text-bench-text">Static-Core diagnostic</span> —{" "}
@@ -289,10 +280,8 @@ export default function SubmitPage() {
 
       <section className="space-y-3 text-bench-muted">
         <p>
-          Labels mean exactly what they say. Re-scored means we recomputed transcript-scored axes from
-          your transcripts; re-executed means Coding was run again by the project; self-reported means
-          we carried your agentic verdicts as submitted. None of it proves model identity, hardware identity,
-          or runtime honesty — see the{" "}
+          Public evidence does not prove model identity, hardware identity, or runtime honesty. The board publishes
+          complete reports, makes their evidence inspectable, and suppresses demonstrated problems — see the{" "}
           <Link href="/methodology" className="text-bench-accent hover:underline">
             methodology page
           </Link>{" "}

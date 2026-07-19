@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useLiveCommunityRows } from "@/components/community-live-state";
-import { TrustTierChip } from "@/components/leaderboard-provenance";
+import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { reasonCodeLabel } from "@/lib/submission-lifecycle";
 import {
@@ -71,7 +71,7 @@ export default function SubmissionPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Submission status" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Submission status" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">submission lifecycle</p>
         <h1 className="mt-2 break-all text-4xl font-semibold text-bench-text">{title}</h1>
@@ -152,7 +152,6 @@ export function SubmissionDetails({
   const reason = value.reason_code === null || value.reason_code === undefined
     ? value.status_reason
     : reasonCodeLabel(value.reason_code);
-  const trustLabel = value.trust_label ?? value.tier ?? liveRow?.trust?.trust_label ?? null;
   return (
     <section className="grid gap-5">
       <div className="rounded-lg border border-bench-line bg-bench-panel p-5">
@@ -163,10 +162,9 @@ export function SubmissionDetails({
         <p className="mt-4 rounded-md border border-bench-line bg-bench-panel-2 p-3 text-sm text-bench-muted">
           {PUBLISH_COPY[value.publish_state]}
         </p>
-        {value.publish_state === "published" && trustLabel !== null ? (
-          <div className="mt-3 flex items-center gap-2 text-sm text-bench-muted">
-            <span>Published tier</span>
-            <TrustTierChip trustLabel={trustLabel} />
+        {value.publish_state === "published" ? (
+          <div className="mt-3 text-sm text-bench-muted">
+            <SubmissionIdentity displayName={value.submitter_display_name ?? liveRow?.submitterDisplayName ?? null} />
           </div>
         ) : null}
         {value.status === "rejected" && reason ? (

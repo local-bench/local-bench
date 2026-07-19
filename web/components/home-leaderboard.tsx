@@ -7,13 +7,13 @@ import { LeaderboardTable } from "@/components/leaderboard-table";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { type LeaderboardScoreMode } from "@/lib/leaderboard-score";
-import { buildLaneRanks, type SortState } from "@/lib/leaderboard-sort";
+import { type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 import { INDEX_VERSION_V4, isSeason2Board } from "@/lib/scoring-seasons";
 import {
   filterUnifiedLeaderboardRows,
   sortUnifiedLeaderboardRows,
-  type UnifiedLeaderboardFilter,
+  type UnifiedLeaderboardRow,
 } from "@/lib/unified-leaderboard";
 
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
@@ -41,18 +41,25 @@ export function HomeLeaderboard({
   indexVersion,
 }: HomeLeaderboardProps) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
-  const [filter, setFilter] = useState<UnifiedLeaderboardFilter>("all");
+  const [family, setFamily] = useState("all");
+  const [size, setSize] = useState("all");
+  const [quant, setQuant] = useState("all");
+  const [ram, setRam] = useState("all");
   const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full");
   const axisKeys = useMemo(() => axisColumns(models), [models]);
+  const allRows = useMemo(
+    () => filterUnifiedLeaderboardRows(models, scoreMode === "full" ? liveCommunity.rows : []),
+    [models, liveCommunity.rows, scoreMode],
+  );
+  const filterOptions = useMemo(() => boardFilterOptions(allRows), [allRows]);
   const visibleRows = useMemo(
     () => sortUnifiedLeaderboardRows(
-      filterUnifiedLeaderboardRows(models, liveCommunity.rows, scoreMode === "full" ? filter : "local-bench"),
+      allRows.filter((row) => matchesFilters(row, { family, size, quant, ram })),
       sort,
       { agenticBySlug, scoreMode },
     ),
-    [models, liveCommunity.rows, scoreMode, filter, sort, agenticBySlug],
+    [allRows, family, size, quant, ram, sort, agenticBySlug, scoreMode],
   );
-  const laneRanks = useMemo(() => buildLaneRanks(models, scoreMode), [models, scoreMode]);
   const season2 = scoreMode === "full" && isSeason2Board(models, indexVersion);
   const showAgenticColumn = scoreMode === "full" && !season2;
   const showStaticIndexColumn = scoreMode === "full" && !season2;
@@ -67,11 +74,17 @@ export function HomeLeaderboard({
     >
       <BoardScopeHeader mode={scoreMode} indexVersion={season2 ? INDEX_VERSION_V4 : indexVersion} />
       {scoreMode === "full" ? (
-        <LeaderboardFilter
-          communityCount={liveCommunity.rows.length}
-          filter={filter}
-          rankedCount={models.length}
-          setFilter={setFilter}
+        <LeaderboardFilters
+          family={family}
+          options={filterOptions}
+          quant={quant}
+          ram={ram}
+          setFamily={setFamily}
+          setQuant={setQuant}
+          setRam={setRam}
+          setSize={setSize}
+          size={size}
+          total={allRows.length}
         />
       ) : null}
       {scoreMode === "full" ? (
@@ -81,7 +94,7 @@ export function HomeLeaderboard({
         <div className="px-4 py-8 text-sm leading-6 text-bench-muted">
           <div className="font-semibold text-bench-text">No rows match this filter</div>
           <div className="mt-1 max-w-3xl">
-            Ranked rows require the complete current profile. Community rows appear after strict publication validation.
+            Complete runs appear here as soon as they publish. Try a broader family, size, quant, or RAM filter.
           </div>
         </div>
       ) : (
@@ -89,7 +102,6 @@ export function HomeLeaderboard({
           agenticBySlug={agenticBySlug}
           axisKeys={axisKeys}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
-          laneRanks={laneRanks}
           rows={visibleRows}
           scoreMode={scoreMode}
           season2={season2}
@@ -103,40 +115,120 @@ export function HomeLeaderboard({
   );
 }
 
-function LeaderboardFilter({
-  communityCount,
-  filter,
-  rankedCount,
-  setFilter,
+type BoardFilterOptions = {
+  readonly families: readonly string[];
+  readonly quants: readonly string[];
+  readonly rams: readonly string[];
+  readonly sizes: readonly string[];
+};
+
+function LeaderboardFilters({
+  family,
+  options,
+  quant,
+  ram,
+  setFamily,
+  setQuant,
+  setRam,
+  setSize,
+  size,
+  total,
 }: {
-  readonly communityCount: number;
-  readonly filter: UnifiedLeaderboardFilter;
-  readonly rankedCount: number;
-  readonly setFilter: (filter: UnifiedLeaderboardFilter) => void;
+  readonly family: string;
+  readonly options: BoardFilterOptions;
+  readonly quant: string;
+  readonly ram: string;
+  readonly setFamily: (value: string) => void;
+  readonly setQuant: (value: string) => void;
+  readonly setRam: (value: string) => void;
+  readonly setSize: (value: string) => void;
+  readonly size: string;
+  readonly total: number;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bench-line px-3 py-3">
-      <div className="flex flex-wrap gap-2" aria-label="Leaderboard source filter">
-        <FilterButton active={filter === "all"} label="All" onClick={() => setFilter("all")} />
-        <FilterButton active={filter === "local-bench"} label="local-bench runs" onClick={() => setFilter("local-bench")} />
-        <FilterButton active={filter === "community"} label="community" onClick={() => setFilter("community")} />
+      <div className="flex flex-wrap gap-2">
+        <BoardFilter label="Family" value={family} values={options.families} onChange={setFamily} />
+        <BoardFilter label="Model size" value={size} values={options.sizes} onChange={setSize} />
+        <BoardFilter label="Quant" value={quant} values={options.quants} onChange={setQuant} />
+        <BoardFilter label="RAM" value={ram} values={options.rams} onChange={setRam} />
       </div>
-      <p className="font-mono text-xs text-bench-muted">{rankedCount} ranked · {communityCount} community</p>
+      <p className="font-mono text-xs text-bench-muted">{total} complete ranked run{total === 1 ? "" : "s"}</p>
     </div>
   );
 }
 
-function FilterButton({ active, label, onClick }: { readonly active: boolean; readonly label: string; readonly onClick: () => void }) {
+function BoardFilter({
+  label,
+  onChange,
+  value,
+  values,
+}: {
+  readonly label: string;
+  readonly onChange: (value: string) => void;
+  readonly value: string;
+  readonly values: readonly string[];
+}) {
   return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={active
-        ? "rounded border border-bench-accent/50 bg-bench-accent/10 px-3 py-1.5 text-xs font-semibold text-bench-accent"
-        : "rounded border border-bench-line px-3 py-1.5 text-xs font-semibold text-bench-muted transition-colors hover:border-bench-line-strong hover:text-bench-text"}
-    >
-      {label}
-    </button>
+    <label className="flex items-center gap-2 rounded border border-bench-line bg-bench-panel-2 px-2 py-1 text-xs text-bench-muted">
+      <span>{label}</span>
+      <select
+        aria-label={`${label} filter`}
+        className="bg-transparent font-mono text-bench-text outline-none"
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      >
+        <option value="all">All</option>
+        {values.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+    </label>
   );
+}
+
+function boardFilterOptions(rows: readonly UnifiedLeaderboardRow[]): BoardFilterOptions {
+  return {
+    families: unique(rows.map(rowFamily)),
+    quants: unique(rows.map(rowQuant)),
+    rams: unique(rows.map(rowRam)),
+    sizes: unique(rows.map(rowSize)),
+  };
+}
+
+function matchesFilters(
+  row: UnifiedLeaderboardRow,
+  filters: { readonly family: string; readonly quant: string; readonly ram: string; readonly size: string },
+): boolean {
+  return (filters.family === "all" || rowFamily(row) === filters.family)
+    && (filters.quant === "all" || rowQuant(row) === filters.quant)
+    && (filters.ram === "all" || rowRam(row) === filters.ram)
+    && (filters.size === "all" || rowSize(row) === filters.size);
+}
+
+function rowFamily(row: UnifiedLeaderboardRow): string | null {
+  return row.source === "local-bench" ? row.model.family : row.row.family;
+}
+
+function rowQuant(row: UnifiedLeaderboardRow): string | null {
+  if (row.source === "community") return row.row.quantLabel;
+  return quantFromText(`${row.model.model_label} ${row.model.best_run_id ?? ""}`);
+}
+
+function rowRam(row: UnifiedLeaderboardRow): string | null {
+  if (row.source === "community") return null;
+  const value = row.model.gpu?.vram_gb;
+  return value === null || value === undefined ? null : `${value} GB`;
+}
+
+function rowSize(row: UnifiedLeaderboardRow): string | null {
+  const label = row.source === "local-bench" ? row.model.model_label : row.row.displayName;
+  const matches = [...label.matchAll(/(\d+(?:\.\d+)?)\s*b\b/giu)];
+  return matches.at(-1)?.[1] === undefined ? null : `${matches.at(-1)?.[1]}B`;
+}
+
+function quantFromText(value: string): string | null {
+  return /\b(?:UD[-_])?Q\d[A-Z0-9_.-]*/iu.exec(value)?.[0] ?? null;
+}
+
+function unique(values: readonly (string | null)[]): readonly string[] {
+  return [...new Set(values.filter((value): value is string => value !== null))].sort((left, right) => left.localeCompare(right));
 }

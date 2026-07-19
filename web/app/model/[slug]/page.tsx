@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { RunByBadge } from "@/components/badges";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CatalogOnlyNotice } from "@/components/catalog-only-notice";
 import { CommunityFamilyResultsLive } from "@/components/community-family-results";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
-import { ProvenanceLabels } from "@/components/leaderboard-provenance";
+import { ProjectRunBadge } from "@/components/leaderboard-provenance";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 import { communityRowsForModel, getCommunityBoardRows } from "@/lib/community-data";
+import { communityRowCatalogIds } from "@/lib/community-family";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
-import { isTrustedPopulation, isTrustedRankedPopulation, selectTrustedHeaderSource } from "@/lib/trusted-population";
+import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export const dynamicParams = false;
 
@@ -39,26 +39,22 @@ export default async function ModelPage({ params }: PageProps) {
   const headlineMeasured = model.runs.filter(
     (run) => run.score_status === "measured" && run.lane === HEADLINE_LANE,
   );
-  const trustedHeadlineMeasured = headlineMeasured.filter(isTrustedPopulation);
-  const rankedRuns = trustedHeadlineMeasured.filter(isTrustedRankedPopulation);
-  const partialRuns = trustedHeadlineMeasured.filter((run) => !run.ranked);
-  // Headline provenance comes from the ranked (representative) run when one exists —
-  // ladder/partial runs sort first in the payload and must not set the headline chip.
-  const hasProvenance = (run: (typeof headlineMeasured)[number]): boolean =>
-    run.origin !== undefined || run.trust_label !== undefined || run.agentic_provenance !== undefined;
-  const provenanceRun = selectTrustedHeaderSource(rankedRuns.filter(hasProvenance));
-  const submitter = trustedHeadlineMeasured.find(
-    (run) => run.submitter_display_name !== null && run.submitter_display_name !== undefined,
-  )?.submitter_display_name;
+  const rankedRuns = headlineMeasured.filter(isCompleteRun);
+  const partialRuns = headlineMeasured.filter((run) => !isCompleteRun(run));
+  const hasProjectRun = rankedRuns.some((run) => run.origin === "project_anchor");
+  const communityCatalogIds = communityRowCatalogIds(communityFamilyRows);
+  const visibleComparisons = vsBaseComparisons.filter(
+    (comparison) => !communityCatalogIds.has(comparison.derivative.catalogId),
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
-      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: model.model_label }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
-          {trustedHeadlineMeasured.length > 0 ? (
+          {hasProjectRun ? (
             <div className="flex flex-wrap gap-2">
-              <RunByBadge submitter={submitter} />
+              <ProjectRunBadge origin="project_anchor" />
             </div>
           ) : null}
           <h1 className="mt-3 flex items-center gap-3 text-4xl font-semibold text-bench-text">
@@ -81,7 +77,6 @@ export default async function ModelPage({ params }: PageProps) {
               )}
             </div>
           ) : null}
-          {provenanceRun === undefined ? null : <ProvenanceLabels model={provenanceRun} />}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {[...new Map(rankedRuns.map((run) => [run.runtime.name, run.runtime])).values()].map((runtime) => (
               <RuntimeBadge key={runtime.name ?? "unknown"} runtime={runtime} />
@@ -106,7 +101,15 @@ export default async function ModelPage({ params }: PageProps) {
         rows={communityFamilyRows}
         target={{ catalogId: model.catalog_id, family: model.family }}
       />
-      <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={vsBaseComparisons} />
+      <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={visibleComparisons} />
     </main>
   );
+}
+
+function isCompleteRun(run: Awaited<ReturnType<typeof getModelPageData>>["model"]["runs"][number]): boolean {
+  if (run.index_version === INDEX_VERSION_V4) return hasCompleteSeason2Coverage(run);
+  return ["agentic", "knowledge", "instruction", "tool_calling", "coding", "math"].every((axis) => {
+    const score = run.axes[axis];
+    return score !== undefined && score.n > 0;
+  }) && run.composite !== null;
 }

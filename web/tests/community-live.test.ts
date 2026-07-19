@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   parseCommunityLiveBoard,
   reconcileCommunityRows,
-  trustTierLabel,
   type LiveBoardRow,
 } from "../lib/community-live";
 import type { CommunityBoardRow } from "../lib/community-data";
@@ -104,9 +103,14 @@ function bakedRow(overrides: Partial<CommunityBoardRow> = {}): CommunityBoardRow
     axes: {},
     communityModelGroupId: GROUP_ID,
     declaredBaseModels: [],
-    detailPath: `/community/model/${"1".repeat(32)}`,
+    compositeFull: 0.4,
+    detailPath: "/model/qwen3-5-9b",
     displayName: "Baked model",
+    family: "Qwen3.5",
+    globalRank: null,
+    headlineComplete: true,
     identityLabel: "community-declared, identity-unverified",
+    indexVersion: "index-v4.1",
     lineage: bakedLineage,
     measuredHeadlineWeight: 0.75,
     missingHeadlineWeight: 0.25,
@@ -127,7 +131,7 @@ describe("community live board boundary", () => {
   it("accepts the complete strict contract", () => {
     const parsed = parseCommunityLiveBoard(envelope([liveRow()]));
 
-    expect(parsed).toMatchObject({ droppedRows: 0, rows: [{ submission_id: SUBMISSION_ID }] });
+    expect(parsed).toMatchObject({ droppedRows: 0, rows: [{ submissionId: SUBMISSION_ID }] });
   });
 
   it("drops one poisoned row without blanking valid rows", () => {
@@ -158,8 +162,8 @@ describe("community live board boundary", () => {
     expect(parsed).toMatchObject({ droppedRows: 1, rows: [] });
   });
 
-  it("rejects an unknown envelope key", () => {
-    expect(parseCommunityLiveBoard({ ...envelope([liveRow()]), unexpected: true })).toBeNull();
+  it("tolerates additive envelope fields", () => {
+    expect(parseCommunityLiveBoard({ ...envelope([liveRow()]), unexpected: true })).toMatchObject({ droppedRows: 0 });
   });
 });
 
@@ -192,10 +196,8 @@ describe("community live reconciliation", () => {
     expect(reconcileCommunityRows([bakedRow()], [])).toEqual([]);
   });
 
-  it("maps known trust labels and safely passes through bounded unknown labels", () => {
-    expect(trustTierLabel("project_anchor")).toBe("maintainer-run");
-    expect(trustTierLabel("community_re_scored")).toBe("re-scored");
-    expect(trustTierLabel("community_self_submitted")).toBe("self-reported");
-    expect(trustTierLabel("future-tier")).toBe("future-tier");
+  it("never restores the removed community route from a baked row", () => {
+    const [merged] = reconcileCommunityRows([bakedRow({ detailPath: `/community/model/${"1".repeat(32)}` })], [liveRow()]);
+    expect(merged?.detailPath).toBeNull();
   });
 });

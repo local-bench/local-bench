@@ -3,7 +3,6 @@ import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { formatCi, formatCompactNumber, formatDuration } from "@/lib/format";
-import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
 // Replication-time panel (oracle-amended spec, 2026-07-15): the landing card that answers
@@ -13,8 +12,7 @@ import type { BestVariantPoint } from "@/lib/best-variant";
 //
 // Scope facts (item count, rig) are board-level and not carried on BestVariantPoint; keep in
 // sync with the methodology page until the board manifest exposes them to the web layer.
-// The index version derives from the shared season constant so a reweight bump cannot drift.
-const PANEL_SCOPE = `Season 2 · ${INDEX_VERSION_V4.replace("-v", " v")} · 1,457 items · RTX 5090 reference rig`;
+const PANEL_SCOPE = "Season 2 · LB-2026-07 · 1,457 items · RTX 5090 reference rig";
 const LIMITATION = "Elapsed time for this exact full-suite run; not a general model-speed measurement.";
 
 // Render gates: the comparative chart renders only while timing coverage honestly represents
@@ -55,7 +53,7 @@ export function ReplicationTimePanel({ points }: { readonly points: readonly Bes
           <span className="font-semibold text-bench-text">this is not an inference-speed ranking.</span>
         </p>
         <p className="mt-1 font-mono text-[11px] text-bench-accent">
-          {timed.length} of {rows.length} ranked best variant{rows.length === 1 ? "" : "s"} have verified timing
+          {timed.length} of {rows.length} ranked best variant{rows.length === 1 ? "" : "s"} have recorded timing
         </p>
       </div>
 
@@ -142,9 +140,7 @@ function PanelBars({
               {row.quantLabel ? <span className="font-mono text-[10px] text-bench-muted-2">{row.quantLabel}</span> : null}
               <span className="ml-auto flex items-baseline gap-1.5">
                 <span
-                  className={`rounded-full border px-1.5 py-px font-mono text-[10px] ${
-                    index === 0 ? "border-bench-accent/50 text-bench-accent" : "border-bench-line-strong text-bench-text"
-                  }`}
+                  className="rounded-full border border-bench-line-strong px-1.5 py-px font-mono text-[10px] text-bench-text"
                 >
                   #{index + 1}
                 </span>

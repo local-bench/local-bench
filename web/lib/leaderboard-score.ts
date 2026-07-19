@@ -1,6 +1,5 @@
 import type { IndexModel, Score } from "./schemas";
-import { isTrustedRankedPopulation } from "./trusted-population";
-import { headlineScoreForDisplay } from "./scoring-seasons";
+import { hasCompleteSeason2Coverage, headlineScoreForDisplay, INDEX_VERSION_V4 } from "./scoring-seasons";
 
 export type LeaderboardScoreMode = "full" | "static";
 
@@ -28,11 +27,19 @@ export function hasAgenticAxis(model: IndexModel): boolean {
 export function isFullIndexRow(model: IndexModel): boolean {
   return (
     model.score_status === "measured" &&
-    isTrustedRankedPopulation(model) &&
     model.lane === HEADLINE_LANE &&
     !model.demo &&
+    hasCompleteHeadlineCoverage(model) &&
     scoreForMode(model, "full") !== null
   );
+}
+
+export function hasCompleteHeadlineCoverage(model: IndexModel): boolean {
+  if (model.index_version === INDEX_VERSION_V4) return hasCompleteSeason2Coverage(model);
+  return ["agentic", "knowledge", "instruction", "tool_calling", "coding", "math"].every((axis) => {
+    const score = model.axes[axis];
+    return score !== undefined && score.n > 0;
+  });
 }
 
 export function isStaticCompositeRow(model: IndexModel): boolean {

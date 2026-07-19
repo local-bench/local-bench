@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { TrustTierChip } from "@/components/leaderboard-provenance";
-import { SubmitterChip } from "@/components/submitter-chip";
+import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { useLiveCommunityRows } from "@/components/community-live-state";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import {
@@ -71,13 +70,12 @@ export function SubmissionsLifecycle() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Leaderboard", href: "/" }, { label: "Submissions" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Submissions" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">public pipeline</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submission lifecycle</h1>
         <p className="mt-3 max-w-3xl leading-7 text-bench-muted">
-          Follow every public submission from receipt through verification, publication, review holds, or rejection.
-          Published tiers come from the live community board.
+          Follow every public submission from receipt through validation, publication, review holds, or rejection.
         </p>
       </header>
 
@@ -116,7 +114,6 @@ export function SubmissionsTable({
               <th className="px-4 py-3">Model</th>
               <th className="px-4 py-3">Submitter</th>
               <th className="px-4 py-3">State</th>
-              <th className="px-4 py-3">Published tier</th>
               <th className="px-4 py-3">Details</th>
             </tr>
           </thead>
@@ -133,19 +130,11 @@ export function SubmissionsTable({
                     : <Link className="hover:text-bench-accent" href={row.communityDetailPath}>{row.modelLabel}</Link>}
                 </td>
                 <td className="px-4 py-3 text-bench-muted">
-                  <SubmitterChip
-                    displayName={row.submitterDisplayName}
-                    emptyLabel="not provided"
-                    githubLogin={row.submitterGithubLogin}
-                    keyFingerprint={row.submitterKeyFingerprint}
-                  />
+                  <SubmissionIdentity displayName={row.submitterDisplayName} />
                 </td>
                 <td className="px-4 py-3">
                   <span className="font-semibold text-bench-text">{row.stateLabel}</span>
                   {row.reasonLabel === null ? null : <span className="mt-1 block text-xs text-bench-worse">{row.reasonLabel}</span>}
-                </td>
-                <td className="px-4 py-3">
-                  {row.trustLabel === null ? <span className="text-bench-muted">—</span> : <TrustTierChip trustLabel={row.trustLabel} />}
                 </td>
                 <td className="px-4 py-3">
                   <Link className="font-semibold text-bench-accent hover:underline" href={`/submission?id=${encodeURIComponent(row.submissionId)}`}>

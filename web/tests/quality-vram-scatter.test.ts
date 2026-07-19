@@ -73,3 +73,29 @@ describe("QualityVramScatter hover tooltip", () => {
     expect(noWallHtml).toContain("to run");
   });
 });
+
+describe("QualityVramScatter point labels", () => {
+  it("keeps chart labels legible on narrow viewports with an overflow cue", () => {
+    const html = render([run({})]);
+
+    expect(html).toContain("Swipe horizontally to inspect the full chart");
+    expect(html).toContain("min-w-[760px]");
+  });
+
+  it("separates labels for nearby family points", () => {
+    const html = render([
+      run({ point_label: "Q4_K_M", vram_footprint_gb: 19.5, composite: { point: 44.4, lo: 41.7, hi: 47.1 } }),
+      run({ point_label: "Qwopus 3.6 27B v2 MTP · Q4_K_M", vram_footprint_gb: 18.1, composite: { point: 43.3, lo: 40.5, hi: 46.1 } }),
+    ]);
+    const baseY = labelY(html, "Q4_K_M");
+    const fineTuneY = labelY(html, "Qwopus 3.6 27B v2 MTP · Q4_K_M");
+
+    expect(Math.abs(baseY - fineTuneY)).toBeGreaterThanOrEqual(14);
+  });
+});
+
+function labelY(html: string, label: string): number {
+  const match = new RegExp(`<text[^>]+y="([0-9.]+)"[^>]*>${label}</text>`, "u").exec(html);
+  if (match?.[1] === undefined) throw new Error(`missing point label ${label}`);
+  return Number(match[1]);
+}

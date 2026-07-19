@@ -61,11 +61,11 @@ describe("SubmitPage", () => {
     expect(html).toContain(full);
     expect(html).toContain(staticExec);
     expect(html).toContain(staticCore);
-    expect(html).toContain("no submitter Docker requirement");
-    expect(html).toContain("project re-execution");
+    expect(html).toContain("Complete reports publish after automated contract checks");
+    expect(html).toContain("Publication does not mean the project independently reproduced the run");
     expect(html).toContain("local-bench.ai/submission?id=");
     expect(html).toContain("signed bundle");
-    expect(html).toContain("Nothing auto-publishes");
+    expect(html).toContain("computes the common composite");
     expect(html).toContain('pip install &quot;local-bench-ai[hf]==0.3.2&quot;');
     expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M");
     expect(html).toContain("offers submission at the end");

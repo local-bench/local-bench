@@ -33,6 +33,13 @@ type ScatterPoint = {
   readonly x: number;
 };
 
+type PointLabelLayout = {
+  readonly label: string;
+  readonly shifted: boolean;
+  readonly x: number;
+  readonly y: number;
+};
+
 export function QualityVramScatter({
   anchorRuns,
   ariaLabel,
@@ -56,6 +63,7 @@ export function QualityVramScatter({
 }) {
   const points = runs.map(toScatterPoint).filter(isScatterPoint);
   const xDomain = getXDomain(points);
+  const pointLabels = layoutPointLabels(points, xDomain);
   const omitted = runs.length - points.length;
   const anchors = layoutAnchors(anchorRuns);
 
@@ -70,8 +78,11 @@ export function QualityVramScatter({
           {omitted} {omittedLabel}
         </div>
       </div>
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent lg:hidden">
+        Swipe horizontally to inspect the full chart &rarr;
+      </p>
       <div className="overflow-x-auto">
-        <svg role="group" aria-label={ariaLabel} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full min-w-[320px] sm:min-w-[760px]">
+        <svg role="group" aria-label={ariaLabel} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full min-w-[760px]">
           <rect width={WIDTH} height={HEIGHT} className="fill-bench-panel" />
           {Y_TICKS.map((tick) => {
             const y = scaleY(tick);
@@ -116,10 +127,11 @@ export function QualityVramScatter({
               </text>
             </g>
           ))}
-          {points.map((point) => {
+          {points.map((point, index) => {
             const cx = scaleX(point.x, xDomain);
             const cy = scaleY(point.run.composite.point);
-            const label = point.run.point_label ?? point.run.quant_label ?? point.run.run_id ?? "catalog shell";
+            const labelLayout = pointLabels[index];
+            const label = labelLayout?.label ?? pointLabel(point);
             // Demo rows carry synthetic wall times, so only real measured runs show a bench time.
             const benchedIn =
               !point.run.demo && typeof point.run.wall_time_seconds === "number"
@@ -138,9 +150,26 @@ export function QualityVramScatter({
                 <circle cx={cx} cy={cy} r="14" fill="transparent" />
                 <PointMarker cx={cx} cy={cy} demo={point.run.demo} kind={pointKind} />
                 {showPointLabels ? (
-                  <text x={cx + 10} y={cy - 10} className="fill-bench-text" fontSize="12">
-                    {label}
-                  </text>
+                  <>
+                    {labelLayout?.shifted === true ? (
+                      <line
+                        aria-hidden
+                        x1={cx + 5}
+                        x2={labelLayout.x - 3}
+                        y1={cy}
+                        y2={labelLayout.y - 4}
+                        className="stroke-bench-muted-2"
+                      />
+                    ) : null}
+                    <text
+                      x={labelLayout?.x ?? cx + 10}
+                      y={labelLayout?.y ?? cy - 10}
+                      className="fill-bench-text"
+                      fontSize="12"
+                    >
+                      {label}
+                    </text>
+                  </>
                 ) : null}
                 <g className="pointer-events-none opacity-0 transition-opacity duration-100 group-hover:opacity-100">
                   <rect
@@ -271,6 +300,46 @@ function toScatterPoint(run: QualityVramRun): ScatterPoint | null {
 
 function isScatterPoint(point: ScatterPoint | null): point is ScatterPoint {
   return point !== null;
+}
+
+function layoutPointLabels(
+  points: readonly ScatterPoint[],
+  domain: { readonly min: number; readonly max: number },
+): readonly PointLabelLayout[] {
+  const boxes: { readonly bottom: number; readonly left: number; readonly right: number; readonly top: number }[] = [];
+  return points.map((point) => {
+    const cx = scaleX(point.x, domain);
+    const cy = scaleY(point.run.composite.point);
+    const label = pointLabel(point);
+    const x = cx + 10;
+    const preferredY = cy - 10;
+    const candidates = [preferredY, cy + 22, cy - 30, cy + 42]
+      .map((value) => Math.min(HEIGHT - PLOT.bottom - 4, Math.max(PLOT.top + 12, value)));
+    const y = candidates.find((candidate) => !boxes.some((box) => labelBoxesOverlap(
+      box,
+      labelBox(x, candidate, label),
+    ))) ?? candidates.at(-1) ?? preferredY;
+    boxes.push(labelBox(x, y, label));
+    return { label, shifted: Math.abs(y - preferredY) > 0.5, x, y };
+  });
+}
+
+function pointLabel(point: ScatterPoint): string {
+  return point.run.point_label ?? point.run.quant_label ?? point.run.run_id ?? "catalog shell";
+}
+
+function labelBox(x: number, y: number, label: string) {
+  return { bottom: y + 4, left: x - 4, right: x + label.length * 6.6 + 4, top: y - 13 };
+}
+
+function labelBoxesOverlap(
+  left: { readonly bottom: number; readonly left: number; readonly right: number; readonly top: number },
+  right: { readonly bottom: number; readonly left: number; readonly right: number; readonly top: number },
+): boolean {
+  return left.left < right.right + 4
+    && left.right + 4 > right.left
+    && left.top < right.bottom + 4
+    && left.bottom + 4 > right.top;
 }
 
 // Axis bounds snap outward to these canonical GPU sizes so every model page's
