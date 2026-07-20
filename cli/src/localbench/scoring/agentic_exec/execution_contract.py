@@ -822,6 +822,13 @@ def load_execution_contract(
         evidence = equivalence.get("evidence_sha256")
         if not isinstance(evidence, list) or not evidence or not all(_is_sha256(item) for item in evidence):
             raise ExecutionContractDriftError("non-empty score equivalence evidence sha256 list", repr(evidence))
+        gate = _object(payload["packaging_correctness_gate"])
+        publication_authority = gate.get("publication_authority")
+        if publication_authority != "signed-release-manifest":
+            raise ExecutionContractDriftError(
+                "signed-release-manifest",
+                str(publication_authority),
+            )
     return contract
 
 

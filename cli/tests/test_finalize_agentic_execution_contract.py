@@ -13,7 +13,10 @@ from localbench.scoring.agentic_exec.execution_contract import (
     V5_CONTRACT_ID,
     load_execution_contract,
 )
-from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash
+from localbench.submissions.canon import (
+    canonical_json_bytes,
+    canonical_json_hash,
+)
 from localbench.submissions.crypto import load_private_key, verify_bytes
 from localbench.submissions.keys import write_private_key
 
@@ -25,6 +28,7 @@ _V4_CONTRACT = (
     / "src/localbench/data/contracts/agentic-execution-contract-aw013p1-pypi28113a7a-v4.json"
 )
 _V4_PAYLOAD_SHA256 = "fbc49a592bb46f047c9785bc9a6036bd64de0ad548597e2ff8ea540b1edfa5ac"
+_V4_FILE_SHA256 = "b722a296899fc8a26b3c5c422ce072fe52b51abf40e432751d273bfd3575bd1c"
 
 sys.path.insert(0, str(_TOOL.parent))
 import finalize_agentic_execution_contract as finalize  # noqa: E402
@@ -33,7 +37,7 @@ import finalize_agentic_execution_contract as finalize  # noqa: E402
 def _dry_run_args(
     tmp_path: Path,
     *,
-    differential_reports: tuple[Path, ...],
+    differential_reports: tuple[Path, ...] = (),
     native_evidence: tuple[Path, ...] = (),
     allow_dirty: bool = True,
 ) -> list[str]:
@@ -168,6 +172,7 @@ def test_dry_run_flips_gate_and_binds_release_evidence(
     payload = json.loads((tmp_path / "out/payload.json").read_text(encoding="utf-8"))
     gate = payload["packaging_correctness_gate"]
     assert gate["status"] == "passed-current-repo-harness-vs-appliance"
+    assert gate["publication_authority"] == "signed-release-manifest"
     assert gate["evidence"] == {
         "candidate_rootfs_sha256": "a" * 64,
         "differential_report_sha256": [
@@ -214,8 +219,8 @@ def test_sign_mode_round_trips_through_real_loader(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: an ephemeral Ed25519 release key trusted for this test only.
-    differential = tmp_path / "differential.json"
-    differential.write_bytes(b"approved differential\n")
+    native = tmp_path / "native.json"
+    native.write_bytes(b"native conformance evidence\n")
     key_path = tmp_path / "test-release-key.pem"
     write_private_key(key_path, seed=bytes(range(32)))
     public_key = load_private_key(key_path).public_key.hex()
@@ -226,7 +231,7 @@ def test_sign_mode_round_trips_through_real_loader(
         "CONTRACT_PUBLIC_KEYS",
         {**execution_contract.CONTRACT_PUBLIC_KEYS, test_key_id: public_key},
     )
-    argv = _dry_run_args(tmp_path, differential_reports=(differential,))
+    argv = _dry_run_args(tmp_path, native_evidence=(native,))
     argv.extend(("--sign", "--signing-key", str(key_path)))
     monkeypatch.setattr(sys, "argv", argv)
 
@@ -256,6 +261,7 @@ def test_committed_v4_contract_still_loads_with_pinned_payload_hash() -> None:
     # Then: its stored and recomputed canonical payload digests retain the release value.
     assert contract["payload_sha256"] == _V4_PAYLOAD_SHA256
     assert canonical_json_hash(contract["payload"]) == _V4_PAYLOAD_SHA256
+    assert hashlib.sha256(_V4_CONTRACT.read_bytes()).hexdigest() == _V4_FILE_SHA256
 
 
 def test_dirty_tracked_tree_is_refused(tmp_path: Path) -> None:

@@ -61,21 +61,25 @@ def extract_successor_payload(
 
     gate = deepcopy(execution_contract._object(payload["packaging_correctness_gate"]))
     gate["status"] = "passed-current-repo-harness-vs-appliance"
-    gate["evidence"] = {
+    gate["publication_authority"] = "signed-release-manifest"
+    gate_evidence: JsonObject = {
         "candidate_rootfs_sha256": metadata.candidate_rootfs_sha256,
         "differential_report_sha256": list(metadata.differential_report_sha256),
         "native_conformance_evidence_sha256": list(
             metadata.native_conformance_evidence_sha256
         ),
     }
+    if not metadata.differential_report_sha256:
+        gate_evidence["differential_status"] = (
+            "pending-post-sign-bound-in-manifest"
+        )
+    gate["evidence"] = gate_evidence
     payload["packaging_correctness_gate"] = gate
 
     lineage = deepcopy(execution_contract._object(payload["identity_lineage"]))
     lineage["predecessor_contract_id"] = metadata.supersedes_contract_id
     lineage["predecessor_payload_sha256"] = metadata.supersedes_payload_sha256
-    lineage["relationship"] = (
-        "c0v5 successor finalized after packaging differential approval"
-    )
+    lineage["relationship"] = "c0v5 successor published by signed release manifest"
     payload["identity_lineage"] = lineage
 
     replaced_prefixes = (

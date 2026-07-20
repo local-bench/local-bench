@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
+import hashlib
+import importlib
 import json
 import re
 import subprocess
@@ -12,7 +15,12 @@ from localbench._types import JsonObject
 from localbench.scoring.agentic_exec.execution_contract import (
     V5_CONTRACT_ID,
     SuccessorContractMetadata,
+    _HOST_SOURCE_MODULES,
     extract_contract_payload,
+)
+from localbench.scoring.agentic_exec.worker_identity import (
+    _WORKER_MODULES,
+    worker_implementation_identity,
 )
 from localbench.submissions.canon import (
     canonical_json_bytes,
@@ -25,6 +33,14 @@ _SHA256_PATTERN: Final = re.compile(r"^[0-9a-f]{64}$")
 _REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 
 
+@dataclass(frozen=True, slots=True)
+class ModuleReportError(RuntimeError):
+    detail: str
+
+    def __str__(self) -> str:
+        return self.detail
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Finalize the human-approved c0v5 execution contract",
@@ -33,7 +49,7 @@ def main() -> int:
     parser.add_argument(
         "--differential-report",
         action="append",
-        required=True,
+        default=[],
         type=Path,
     )
     parser.add_argument(
@@ -67,6 +83,10 @@ def main() -> int:
         parser.error("--signing-key requires --sign")
     if not _SHA256_PATTERN.fullmatch(args.candidate_rootfs_sha256):
         parser.error("--candidate-rootfs-sha256 must be 64 lowercase hex characters")
+    if not args.differential_report and not args.native_conformance_evidence:
+        parser.error(
+            "pre-mark mode requires at least one --native-conformance-evidence"
+        )
 
     predecessor = _load_predecessor(args.supersedes, parser)
     predecessor_payload = predecessor["payload"]
@@ -102,6 +122,7 @@ def main() -> int:
     )
     args.out.mkdir(parents=True, exist_ok=True)
     write_json_file(args.out / "payload.json", payload)
+    write_json_file(args.out / "modules-report.json", _module_report())
     payload_sha256 = canonical_json_hash(payload)
     print(f"payload_sha256={payload_sha256}")
     if args.sign:
@@ -160,6 +181,38 @@ def _load_predecessor(path: Path, parser: argparse.ArgumentParser) -> JsonObject
     if not isinstance(document, dict):
         parser.error("--supersedes must contain a signed contract object")
     return document
+
+
+def _module_report() -> JsonObject:
+    worker_identity = worker_implementation_identity()
+    worker_hashes = worker_identity.get("worker_module_sha256")
+    if not isinstance(worker_hashes, dict):
+        raise ModuleReportError("worker identity omitted worker module hashes")
+    return {
+        "schema": "localbench.execution_contract_modules_report.v1",
+        "worker_modules": {
+            module_name: _module_record(module_name, str(worker_hashes[module_name]))
+            for module_name in _WORKER_MODULES
+        },
+        "host_source_modules": {
+            module_name: _module_record(module_name)
+            for module_name in _HOST_SOURCE_MODULES
+        },
+    }
+
+
+def _module_record(module_name: str, known_sha256: str | None = None) -> JsonObject:
+    module = importlib.import_module(module_name)
+    source = getattr(module, "__file__", None)
+    if not isinstance(source, str) or not source:
+        raise ModuleReportError(f"cannot locate imported module {module_name}")
+    path = Path(source).resolve()
+    sha256 = known_sha256
+    if sha256 is None:
+        sha256 = hashlib.sha256(
+            path.read_bytes().replace(b"\r\n", b"\n")
+        ).hexdigest()
+    return {"path": str(path), "sha256": sha256}
 
 
 if __name__ == "__main__":
