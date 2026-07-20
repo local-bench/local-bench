@@ -75,7 +75,6 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
       return row.submitterDisplayName ?? row.submitterKeyFingerprint ?? "";
     case STATIC_INDEX_SORT_KEY:
     case AGENTIC_SORT_KEY:
-    case "latency":
       return null;
     case "tokens":
       return row.perf?.tokens_to_answer_median ?? null;
@@ -83,6 +82,8 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
       return row.hardware?.gpu_name ?? "";
     case "runtime":
       return runtimeSortLabel(row.runtime);
+    case "latency":
+      return row.perf?.latency_s_median ?? null;
     case "benchtime":
       return row.perf?.wall_time_seconds ?? null;
     default: {

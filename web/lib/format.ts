@@ -40,6 +40,11 @@ export function formatScore(value: number): string {
   return SCORE_FORMAT.format(clampScore(value));
 }
 
+export function formatSignedScore(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${SCORE_FORMAT.format(Math.abs(value))}`;
+}
+
 export function formatCi(score: Score): string {
   return `±${SCORE_FORMAT.format(ciHalfWidth(score))}`;
 }

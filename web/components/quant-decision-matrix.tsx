@@ -5,7 +5,7 @@ import {
   LOCAL_INTELLIGENCE_INDEX_NAME,
   LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
-import { formatCi, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
+import { formatCi, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
 import {
   getQuantDecisionRows,
@@ -184,8 +184,7 @@ function formatDelta(score: Score | null): string {
   if (score.point === 0) {
     return "baseline";
   }
-  const sign = score.point > 0 ? "+" : "";
-  return `${sign}${formatScore(score.point)} ${formatCi(score)}`;
+  return `${formatSignedScore(score.point)} ${formatCi(score)}`;
 }
 
 function formatFitTier(row: QuantDecisionRow): string {

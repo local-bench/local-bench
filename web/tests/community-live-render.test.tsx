@@ -189,6 +189,7 @@ describe("live-only community links", () => {
     expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
     expect(html).toContain("RULER 32K");
     expect(html).not.toContain("not measured");
+    expect(html).toMatch(/RULER 32K<\/dt><dd[^>]*>—<\/dd>/u);
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b7421");
     expect(html).toContain("RTX 5090 · 32 GB");

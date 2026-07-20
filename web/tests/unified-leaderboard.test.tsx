@@ -177,6 +177,28 @@ describe("unified leaderboard community rows", () => {
     expect(sorted[0]?.source === "community" ? sorted[0].row.submissionId : null).toBe(expectedFirst);
   });
 
+  it("sorts optional community latency on the same scale as ranked latency", () => {
+    const fixture = liveCommunityRows[0];
+    if (fixture === undefined) throw new Error("missing live community fixture");
+    const ranked = { ...rankedModel(6, 50), latency_s_median: 20 };
+    const community = {
+      ...fixture,
+      perf: {
+        decode_tps: 60,
+        latency_s_median: 10,
+        tokens_to_answer_median: 512,
+        wall_time_seconds: 3600,
+      },
+    };
+
+    const sorted = sortUnifiedLeaderboardRows(
+      filterUnifiedLeaderboardRows([ranked], [community]),
+      { key: "latency", direction: "asc" },
+    );
+
+    expect(sorted.map((row) => row.source)).toEqual(["community", "local-bench"]);
+  });
+
   it("keeps complete project and community rows in one population", () => {
     const all = filterUnifiedLeaderboardRows(rankedRows, liveCommunityRows);
 

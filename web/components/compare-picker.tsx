@@ -10,7 +10,7 @@ import {
   indexProfileForAxes,
   indexQualifierForAxes,
 } from "@/components/local-intelligence-index";
-import { axisLabel, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
+import { axisLabel, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
 import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
 import type { FineTuneComparePreset } from "@/lib/vs-base";
 
@@ -292,8 +292,7 @@ function configLabel(config: CompareConfig): string {
 }
 
 function formatSigned(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${formatScore(value)}`;
+  return formatSignedScore(value);
 }
 
 function formatNullableDelta(left: number | null, right: number | null): string {
