@@ -101,6 +101,8 @@ describe("homepage unified board", () => {
 
     expect(landing).toContain("Showing the best variant per base family");
     expect(landing).toContain('href="/leaderboard"');
+    expect(landing).toContain("the complete headline profile");
+    expect(leaderboard).toContain("the complete headline profile");
     expect(leaderboard).not.toContain("Showing the best variant per base family");
   });
   it("renders a complete community row in the unified board", async () => {

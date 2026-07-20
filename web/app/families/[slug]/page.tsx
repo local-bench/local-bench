@@ -68,7 +68,7 @@ export default async function FamilyPage({ params }: PageProps) {
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Family catalog</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">All {summary.family} models</h2>
           <p className="mt-1 text-sm leading-6 text-bench-muted">
-            Complete headline runs are listed first by composite score, followed by models awaiting a complete run.
+            Rows with the complete headline profile are listed first by composite score, followed by models awaiting one.
           </p>
         </div>
         <FamilyModelTableLive

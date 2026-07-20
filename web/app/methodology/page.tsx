@@ -322,8 +322,9 @@ export default async function MethodologyPage() {
             appears only as &ldquo;submitted as … — unverified&rdquo;. It never replaces the model or artifact identity.
           </li>
           <li>
-            <span className="text-bench-text">One ranking rule.</span> Every complete published row enters the same
-            score order. Incomplete legacy records remain available on family pages as history, never as partial board rows.
+            <span className="text-bench-text">One ranking rule.</span> Every published row with the complete headline
+            profile enters the same score order. Incomplete legacy records remain available on family pages as history,
+            never as partial board rows.
           </li>
           <li>
             <span className="text-bench-text">Moderation happens after publication.</span> Evidence-backed problems
@@ -361,7 +362,7 @@ export default async function MethodologyPage() {
           Every displayed score carries a bootstrap confidence interval. Repeatability, paired quant-delta, and
           generalization are kept separate. Per-axis confidence intervals are part of the score display; coding deltas
           under about 8-10 raw points are not ranking claims unless rank containment and intervals support that read.
-          Incomplete historical runs remain diagnostics. The current board admits only complete protocol runs.
+          Incomplete historical runs remain diagnostics. The current board admits only rows with the complete headline profile.
         </p>
       </section>
 

@@ -253,7 +253,7 @@ export default function SubmitPage() {
 
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What you can submit</h2>
-        <p>Complete runs under the current release enter the common ranking. Incomplete legacy profiles remain diagnostic.</p>
+        <p>Runs with the complete headline profile enter the common ranking. Incomplete legacy profiles remain diagnostic.</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <span className="text-bench-text">The complete headline profile</span> — every required headline axis,

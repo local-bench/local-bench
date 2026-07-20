@@ -31,8 +31,8 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Leaderboard summary</p>
           <h2 className="mt-1 text-2xl font-semibold text-bench-text">No ranked variants yet</h2>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-bench-muted">
-            Partial benchmark profiles are available on model pages; the Local Intelligence Index ranks only complete
-            measured profiles.
+            Partial benchmark profiles are available on model pages; the Local Intelligence Index ranks only rows with
+            the complete headline profile.
           </p>
         </div>
       </section>
