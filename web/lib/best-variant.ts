@@ -6,12 +6,13 @@ import {
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import {
-  catalogLineageLookup,
-  catalogModelRootForCandidate,
-  catalogWeightsFamilyRootForCandidate,
-  type CatalogLineageLookup,
-  type CatalogLineageRoot,
-} from "./catalog-lineage";
+  buildFamilyResolutionContext,
+  familyResolutionKey,
+  resolveFamily,
+  type FamilyResolution,
+  type FamilyResolutionContext,
+} from "./family-resolution";
+import { selectBestPerFamily } from "./landing-best-per-base";
 import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
@@ -93,28 +94,18 @@ export function selectBestVariantPoints(
   candidates: readonly RigMatchCandidate[],
   options: BestVariantSelectionOptions = {},
 ): readonly BestVariantPoint[] {
-  const catalogLookup = buildCatalogLookup(options.catalogModels);
+  const resolutionContext = buildFamilyResolutionContext(options.catalogModels ?? []);
   return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
-    catalogWeightsFamilyRootForCandidate(candidate, catalogLookup),
-  );
-}
-
-export function selectBestModelVariantPoints(
-  candidates: readonly RigMatchCandidate[],
-  options: BestVariantSelectionOptions = {},
-): readonly BestVariantPoint[] {
-  const catalogLookup = buildCatalogLookup(options.catalogModels);
-  return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
-    catalogModelRootForCandidate(candidate, catalogLookup),
+    familyRootForCandidate(candidate, resolutionContext),
   );
 }
 
 function selectBestPoints(
   candidates: readonly RigMatchCandidate[],
   contextTokens: ContextLengthOption,
-  rootForCandidate: (candidate: EligibleRigMatchCandidate) => CatalogLineageRoot,
+  rootForCandidate: (candidate: EligibleRigMatchCandidate) => ResolvedFamilyRoot,
 ): readonly BestVariantPoint[] {
-  const bestByRoot = new Map<string, BestVariantPoint>();
+  const bestByModel = new Map<string, { readonly point: BestVariantPoint; readonly resolution: FamilyResolution }>();
   for (const candidate of candidates) {
     if (!isEligible(candidate)) {
       continue;
@@ -155,19 +146,44 @@ function selectBestPoints(
       candidate.conformanceGates === undefined
         ? pointBase
         : { ...pointBase, conformanceGates: candidate.conformanceGates };
-    const incumbent = bestByRoot.get(weightsFamilyRoot.key);
-    if (incumbent === undefined || isBetterWithinModel(point, incumbent)) {
-      bestByRoot.set(weightsFamilyRoot.key, point);
+    const incumbent = bestByModel.get(candidate.modelSlug);
+    if (incumbent === undefined || isBetterWithinModel(point, incumbent.point)) {
+      bestByModel.set(candidate.modelSlug, { point, resolution: weightsFamilyRoot.resolution });
     }
   }
-  return markFrontier([...bestByRoot.values()]);
+  const selected = selectBestPerFamily([...bestByModel.values()].map((candidate) => ({
+    displayedComposite: candidate.point.score.point,
+    resolution: candidate.resolution,
+    source: "maintainer" as const,
+    value: candidate.point,
+  })));
+  return markFrontier(selected.map((candidate) => candidate.value));
 }
 
-function buildCatalogLookup(catalogModels: readonly CatalogModel[] | undefined): CatalogLineageLookup | null {
-  if (catalogModels === undefined) {
-    return null;
-  }
-  return catalogLineageLookup(catalogModels);
+type ResolvedFamilyRoot = {
+  readonly key: string;
+  readonly label: string;
+  readonly resolution: FamilyResolution;
+  readonly slug: string | null;
+};
+
+function familyRootForCandidate(
+  candidate: EligibleRigMatchCandidate,
+  context: FamilyResolutionContext,
+): ResolvedFamilyRoot {
+  const resolution = resolveFamily({
+    catalog_id: null,
+    family: candidate.family,
+    model_label: candidate.modelLabel,
+    slug: candidate.modelSlug,
+  }, context);
+  const rootEntry = context.catalog.find((entry) => entry.catalogId === resolution.rootCatalogId);
+  return {
+    key: familyResolutionKey(resolution) ?? candidate.modelSlug,
+    label: rootEntry?.displayName ?? resolution.familyLabel ?? candidate.modelLabel,
+    resolution,
+    slug: resolution.rootSlug ?? candidate.modelSlug,
+  };
 }
 
 export function markFrontier(points: readonly BestVariantPoint[]): readonly BestVariantPoint[] {

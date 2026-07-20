@@ -4,17 +4,17 @@ import { BestVariantVramScatter } from "@/components/best-variant-scatter";
 import { HeroBanner } from "@/components/hero-banner";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
 import { ReplicationTimePanel } from "@/components/replication-time-panel";
-import { selectBestModelVariantPoints, selectBestVariantPoints } from "@/lib/best-variant";
+import { selectBestVariantPoints } from "@/lib/best-variant";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { communityRowsWithFamilyPaths } from "@/lib/community-family";
 import {
   getAgenticBySlug,
-  getFineTuneBaseBySlug,
   getHomePageData,
   getOnrampCatalog,
 } from "@/lib/data";
+import { familyResolutionContext } from "@/lib/family-resolution-data";
+import { familyRootLabelBySlug } from "@/lib/family-resolution";
 import { isFullIndexRow } from "@/lib/leaderboard-score";
-import { selectLandingBestPerBase } from "@/lib/landing-best-per-base";
 import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export default async function HomePage() {
@@ -24,16 +24,16 @@ export default async function HomePage() {
     getAgenticBySlug(),
     getCommunityBoardRows(),
   ]);
+  const resolutionContext = familyResolutionContext(communityCatalogModels);
   const bestVariantPoints = selectBestVariantPoints(rigCandidates, { catalogModels });
-  const bestModelVariantPoints = selectBestModelVariantPoints(rigCandidates);
-  const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
-  const ranked = selectLandingBestPerBase(index.models, fineTuneBaseBySlug).filter(isFullIndexRow);
+  const fineTuneBaseBySlug = familyRootLabelBySlug(index.models, resolutionContext);
+  const ranked = index.models.filter(isFullIndexRow);
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
   const communityRowsForDisplay = communityRows === null
     ? []
-    : communityRowsWithFamilyPaths(communityRows, communityCatalogModels);
+    : communityRowsWithFamilyPaths(communityRows, resolutionContext);
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -41,10 +41,9 @@ export default async function HomePage() {
       {/* Side-by-side only when the scatter keeps its useful width (xl+); stacked below that. */}
       <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:items-stretch">
         <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
-        {/* Per-model points (same population as the ranked table), NOT the scatter's
-            family-rooted points — fine-tunes hold their own leaderboard rank, and folding
-            them into the base family would shift every rank label below them. */}
-        <ReplicationTimePanel points={bestModelVariantPoints} />
+        {/* The panel and ranked table share the canonical family resolver: each catalog root
+            contributes the same winning measured variant, so hidden fine-tunes cannot leak here. */}
+        <ReplicationTimePanel points={bestVariantPoints} />
       </div>
       <HomeLeaderboard
         models={rankedForDisplay}
@@ -52,6 +51,7 @@ export default async function HomePage() {
         communityRows={communityRowsForDisplay}
         fineTuneBaseBySlug={fineTuneBaseBySlug}
         indexVersion={index.index_version}
+        resolutionContext={resolutionContext}
       />
       <div id="run-it-yourself" className="scroll-mt-24">
         <BenchmarkOnramp catalog={catalog.models} popularityAsOf={catalog.popularityAsOf} />

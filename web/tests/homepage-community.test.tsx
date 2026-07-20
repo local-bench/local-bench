@@ -53,7 +53,7 @@ const bonsaiCatalogModel = IndexModelSchema.parse({
 const communityRow: CommunityBoardRow = {
   artifactSha256: "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
   axes: {},
-  compositeFull: 0.57,
+  compositeFull: 0.67,
   declaredBaseModels: ["Qwen/Qwen3.6-27B"],
   detailPath: null,
   displayName: "Bonsai 27B Ternary",
@@ -65,7 +65,7 @@ const communityRow: CommunityBoardRow = {
   lineage: undefined,
   measuredHeadlineWeight: 0.75,
   missingHeadlineWeight: 0.25,
-  partialComposite: 0.57,
+  partialComposite: 0.67,
   quantLabel: "Q4_K_M",
   ranked: false,
   submissionId: "homepage-community-ticket",
@@ -73,7 +73,6 @@ const communityRow: CommunityBoardRow = {
 
 vi.mock("@/lib/data", () => ({
   getAgenticBySlug: async () => new Map(),
-  getFineTuneBaseBySlug: async () => new Map(),
   getHomePageData: async () => ({
     anchorRuns: [],
     catalogModels: [],

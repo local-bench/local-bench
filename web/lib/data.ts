@@ -243,27 +243,6 @@ async function getCatalogFile(): Promise<CatalogFile> {
   return { models: catalog.models, popularityAsOf: catalog.popularity_as_of };
 }
 
-/** slug → base-model display name for index rows whose catalog entry is a fine-tune. */
-export async function getFineTuneBaseBySlug(models: readonly IndexModel[]): Promise<ReadonlyMap<string, string>> {
-  const { models: catalogModels } = await getCatalogFile();
-  const byId = catalogModelMap(catalogModels);
-  const result = new Map<string, string>();
-  for (const model of models) {
-    if (model.catalog_id === null || model.catalog_id === undefined) {
-      continue;
-    }
-    const entry = byId.get(model.catalog_id);
-    if (entry === undefined || !catalogIsDerivativeEntry(entry, byId)) {
-      continue;
-    }
-    const base = catalogBaseEntry(entry, byId);
-    if (base !== undefined) {
-      result.set(model.slug, base.display_name);
-    }
-  }
-  return result;
-}
-
 function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): OnrampCatalogModel {
   const paramsB =
     typeof raw.params_b === "number" ? raw.params_b : raw.params_b ? raw.params_b.total_b ?? null : null;

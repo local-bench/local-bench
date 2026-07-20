@@ -6,7 +6,8 @@ import {
   sortUnifiedLeaderboardRows,
 } from "../components/home-leaderboard";
 import { communityBoardRows, parseCommunityGroup, type CommunityBoardRow } from "../lib/community-data";
-import { IndexModelSchema, type IndexModel } from "../lib/schemas";
+import { buildFamilyResolutionContext } from "../lib/family-resolution";
+import { IndexModelSchema, type CatalogModel, type IndexModel } from "../lib/schemas";
 
 const rankedRows = [60, 51, 40, 30, null].map((score, index) => rankedModel(index + 1, score));
 const communityGroup = parseCommunityGroup({
@@ -212,6 +213,90 @@ describe("unified leaderboard community rows", () => {
     expect(all.map((row) => row.rank)).toEqual([1, 2, 3, 4, 5]);
   });
 
+  it("selects the highest complete representative across maintainer and community variants", () => {
+    // Given: one base, one lower community fine-tune, and one incomplete higher report share a catalog root.
+    const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
+    const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
+    const context = buildFamilyResolutionContext([baseCatalog, tuneCatalog]);
+    const base = rankedCatalogModel(7, 50, baseCatalog);
+    const community = resolvedCommunityRow(45, tuneCatalog.id, baseCatalog.id);
+    const incomplete = { ...resolvedCommunityRow(99, tuneCatalog.id, baseCatalog.id), headlineComplete: false, submissionId: "ticket_incomplete" };
+    const suppressed = IndexModelSchema.parse({
+      ...rankedModel(11, 99),
+      catalog_id: tuneCatalog.id,
+      model_label: "Suppressed tune",
+      ranked: false,
+      score_status: "missing" as const,
+      slug: tuneCatalog.slug,
+    });
+
+    // When: the unified ladder applies best-per-family selection.
+    const selected = filterUnifiedLeaderboardRows([base, suppressed], [community, incomplete], { resolutionContext: context });
+
+    // Then: the base remains and the incomplete report neither wins nor hides it.
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.source === "local-bench" ? selected[0].model.slug : null).toBe(baseCatalog.slug);
+  });
+
+  it("lets a higher community fine-tune represent its catalog family", () => {
+    // Given: a complete community fine-tune outscores its maintainer-run base.
+    const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
+    const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
+    const context = buildFamilyResolutionContext([baseCatalog, tuneCatalog]);
+    const base = rankedCatalogModel(8, 50, baseCatalog);
+    const community = resolvedCommunityRow(60, tuneCatalog.id, baseCatalog.id);
+
+    // When: the unified ladder chooses one representative.
+    const selected = filterUnifiedLeaderboardRows([base], [community], { resolutionContext: context });
+
+    // Then: the community run is the ranked family representative.
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.source === "community" ? selected[0].row.submissionId : null).toBe(community.submissionId);
+  });
+
+  it("prefers a maintainer row when family representatives tie", () => {
+    const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
+    const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
+    const context = buildFamilyResolutionContext([baseCatalog, tuneCatalog]);
+    const base = rankedCatalogModel(12, 50, baseCatalog);
+    const community = resolvedCommunityRow(50, tuneCatalog.id, baseCatalog.id);
+
+    const selected = filterUnifiedLeaderboardRows([base], [community], { resolutionContext: context });
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.source).toBe("local-bench");
+  });
+
+  it("defaults the leaderboard toggle to best-per-family and exposes every complete variant on demand", () => {
+    // Given: a base and fine-tune both qualify for the ranked ladder.
+    const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
+    const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
+    const context = buildFamilyResolutionContext([baseCatalog, tuneCatalog]);
+    const base = rankedCatalogModel(9, 55, baseCatalog);
+    const tune = rankedCatalogModel(10, 54, tuneCatalog);
+
+    // When: the client surface renders its default state and the selector receives all-variants mode.
+    const defaultHtml = renderToStaticMarkup(
+      <HomeLeaderboard
+        allowVariantToggle
+        models={[base, tune]}
+        resolutionContext={context}
+        indexVersion="index-v4.1"
+      />,
+    );
+    const allVariants = filterUnifiedLeaderboardRows([base, tune], [], {
+      resolutionContext: context,
+      variants: "all",
+    });
+
+    // Then: default markup contains only the winner plus the affordance, while all mode contains both rows.
+    expect(defaultHtml).toContain("Show all variants");
+    expect(defaultHtml).toContain("Base Model");
+    expect(defaultHtml).not.toContain("Tune Model");
+    expect(allVariants.map((row) => row.source === "local-bench" ? row.model.slug : row.row.submissionId))
+      .toEqual([baseCatalog.slug, tuneCatalog.slug]);
+  });
+
   it("shows one complete-run count and omits source segregation", () => {
     const html = renderToStaticMarkup(
       <HomeLeaderboard models={rankedRows} communityRows={liveCommunityRows} indexVersion="index-v4.1" />,
@@ -260,4 +345,49 @@ function rankedModel(position: number, score: number | null): IndexModel {
 
 function axisScore(point: number) {
   return { hi: point + 0.01, lo: point - 0.01, n: 10, n_errors: 0, n_no_answer: 0, point, raw_accuracy: point / 100 };
+}
+
+function catalogModel(id: string, slug: string, displayName: string, baseModel?: string): CatalogModel {
+  return {
+    id,
+    slug,
+    display_name: displayName,
+    family: "Fixture",
+    model_kind: baseModel === undefined ? "base" : "finetune",
+    quants: [],
+    ...(baseModel === undefined ? {} : { base_model: baseModel }),
+  };
+}
+
+function rankedCatalogModel(
+  position: number,
+  score: number,
+  catalog: CatalogModel,
+): IndexModel {
+  return IndexModelSchema.parse({
+    ...rankedModel(position, score),
+    catalog_id: catalog.id,
+    model_label: catalog.display_name,
+    slug: catalog.slug,
+  });
+}
+
+function resolvedCommunityRow(
+  compositeFull: number,
+  catalogId: string,
+  rootCatalogId: string,
+): CommunityBoardRow {
+  const fixture = liveCommunityRows[0];
+  if (fixture === undefined) throw new Error("missing live community fixture");
+  return {
+    ...fixture,
+    catalogFamily: "Fixture",
+    chainCatalogIds: [catalogId, rootCatalogId],
+    compositeFull,
+    confidence: "lineage",
+    familyLabel: "Fixture",
+    rootCatalogId,
+    rootSlug: "base-model",
+    submissionId: `ticket_${catalogId.replace(/[^a-z0-9]+/giu, "_").toLowerCase()}`,
+  };
 }

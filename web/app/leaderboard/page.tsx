@@ -12,7 +12,9 @@ import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { communityRowsWithFamilyPaths } from "@/lib/community-family";
 import { axisLabel } from "@/lib/format";
-import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
+import { getAgenticBySlug, getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
+import { familyRootLabelBySlug } from "@/lib/family-resolution";
+import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { isFullIndexRow } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4, SEASON_2_HEADLINE_AXES } from "@/lib/scoring-seasons";
 import { publicProtocolLabel } from "@/lib/board-adapter";
@@ -26,15 +28,16 @@ export default async function LeaderboardPage() {
     getCommunityBoardRows(),
     getIndexModelsWithArtifacts(index.models),
   ]);
+  const resolutionContext = familyResolutionContext(communityCatalogModels);
   const ranked = index.models.filter(isFullIndexRow);
   const catalog = index.models.filter((model) => !isFullIndexRow(model));
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
-  const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
+  const fineTuneBaseBySlug = familyRootLabelBySlug(index.models, resolutionContext);
   const communityRowsForDisplay = communityRows === null
     ? []
-    : communityRowsWithFamilyPaths(communityRows, communityCatalogModels);
+    : communityRowsWithFamilyPaths(communityRows, resolutionContext);
   const season2 = index.index_version === INDEX_VERSION_V4;
   // On a season-2 board the copy must list the season-2 headline axes; the v3 axis palette
   // (AXIS_CONFIG) still names Agentic / Tool calling, which legacy diagnostic rows carry.
@@ -71,11 +74,13 @@ export default async function LeaderboardPage() {
           </div>
         </div>
         <HomeLeaderboard
+          allowVariantToggle
           models={rankedForDisplay}
           agenticBySlug={agenticBySlug}
           communityRows={communityRowsForDisplay}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           indexVersion={index.index_version}
+          resolutionContext={resolutionContext}
         />
         <CatalogShells models={catalog} />
       </section>

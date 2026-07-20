@@ -4,8 +4,13 @@ import { useMemo, useState } from "react";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { LeaderboardTable } from "@/components/leaderboard-table";
+import { LeaderboardVariantToggle } from "@/components/leaderboard-variant-toggle";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
+import {
+  EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  type FamilyResolutionContext,
+} from "@/lib/family-resolution";
 import { type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
@@ -25,31 +30,43 @@ export { filterUnifiedLeaderboardRows, sortUnifiedLeaderboardRows } from "@/lib/
 
 type HomeLeaderboardProps = {
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
+  readonly allowVariantToggle?: boolean;
   readonly communityRows?: readonly CommunityBoardRow[];
   readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
   readonly indexVersion?: string;
   readonly models: readonly IndexModel[];
+  readonly resolutionContext?: FamilyResolutionContext;
   readonly scoreMode?: LeaderboardScoreMode;
 };
 
 export function HomeLeaderboard({
   models,
   agenticBySlug = EMPTY_AGENTIC,
+  allowVariantToggle = false,
   communityRows = EMPTY_COMMUNITY,
   scoreMode = "full",
   fineTuneBaseBySlug = EMPTY_LINEAGE,
   indexVersion,
+  resolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
 }: HomeLeaderboardProps) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const [family, setFamily] = useState("all");
   const [size, setSize] = useState("all");
   const [quant, setQuant] = useState("all");
   const [ram, setRam] = useState("all");
-  const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full");
+  const [showAllVariants, setShowAllVariants] = useState(false);
+  const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full", resolutionContext);
   const axisKeys = useMemo(() => axisColumns(models), [models]);
   const allRows = useMemo(
-    () => filterUnifiedLeaderboardRows(models, scoreMode === "full" ? liveCommunity.rows : []),
-    [models, liveCommunity.rows, scoreMode],
+    () => filterUnifiedLeaderboardRows(
+      models,
+      scoreMode === "full" ? liveCommunity.rows : [],
+      {
+        resolutionContext,
+        variants: showAllVariants ? "all" : "best-per-family",
+      },
+    ),
+    [models, liveCommunity.rows, resolutionContext, scoreMode, showAllVariants],
   );
   const filterOptions = useMemo(() => boardFilterOptions(allRows), [allRows]);
   const visibleRows = useMemo(
@@ -85,6 +102,12 @@ export function HomeLeaderboard({
           setSize={setSize}
           size={size}
           total={allRows.length}
+        />
+      ) : null}
+      {scoreMode === "full" && allowVariantToggle ? (
+        <LeaderboardVariantToggle
+          showAllVariants={showAllVariants}
+          toggle={() => setShowAllVariants((current) => !current)}
         />
       ) : null}
       {scoreMode === "full" ? (
@@ -205,7 +228,9 @@ function matchesFilters(
 }
 
 function rowFamily(row: UnifiedLeaderboardRow): string | null {
-  return row.source === "local-bench" ? row.model.family : row.row.family;
+  return row.source === "local-bench"
+    ? row.model.family
+    : row.row.familyLabel ?? row.row.catalogFamily ?? row.row.family;
 }
 
 function rowQuant(row: UnifiedLeaderboardRow): string | null {

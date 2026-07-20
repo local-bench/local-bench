@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectBestModelVariantPoints, selectBestVariantPoints } from "../lib/best-variant";
+import { selectBestVariantPoints } from "../lib/best-variant";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import type { RigMatchCandidate } from "../lib/rig-match";
 import type { CatalogModel } from "../lib/schemas";
@@ -253,24 +253,10 @@ describe("selectBestVariantPoints", () => {
       ],
       { catalogModels: [base, externalDerivative] },
     );
-    const modelPoints = selectBestModelVariantPoints(
-      [
-        candidate({ modelSlug: base.slug, modelLabel: base.display_name, runId: "base", score: { point: 62, lo: 58, hi: 66 } }),
-        candidate({
-          modelSlug: externalDerivative.slug,
-          modelLabel: externalDerivative.display_name,
-          runId: "external",
-          score: { point: 72, lo: 68, hi: 76 },
-        }),
-      ],
-      { catalogModels: [base, externalDerivative] },
-    );
-
     expect(familyPoints.map((point) => point.modelSlug).sort()).toEqual(["base", "external-tune"]);
     expect(familyPoints.find((point) => point.modelSlug === "external-tune")).toMatchObject({
       weightsFamilyLabel: "External Tune",
       weightsFamilySlug: "external-tune",
     });
-    expect(modelPoints).toHaveLength(2);
   });
 });
