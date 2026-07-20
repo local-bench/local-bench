@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SubmissionsTable } from "../components/submissions-lifecycle";
-import SubmissionPage, { SubmissionDetails } from "../app/submission/page";
+import SubmissionPage from "../app/submission/page";
+import { SubmissionDetails } from "../app/submission/submission-client";
 import SubmissionsPage from "../app/submissions/page";
 import type { CommunityBoardRow } from "../lib/community-data";
 import {
@@ -81,7 +82,7 @@ describe("public submissions lifecycle", () => {
   it("links the submission checker back to the lifecycle board", () => {
     const html = renderToStaticMarkup(<SubmissionPage />);
 
-    expect(html).toContain('href="/submissions"');
+    expect(html).toContain('href="/submissions/"');
     expect(html).toContain("View all submissions");
   });
 

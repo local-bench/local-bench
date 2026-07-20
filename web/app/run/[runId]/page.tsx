@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EngineProvenance } from "@/components/engine-provenance";
@@ -10,6 +11,7 @@ import {
 } from "@/components/local-intelligence-index";
 import { RunAxisBreakdown } from "@/components/run-axis-breakdown";
 import { IfbenchDecomposition } from "@/components/ifbench-decomposition";
+import { LAUNCH_FREEZE } from "@/components/launch-freeze";
 import { presentAxes } from "@/lib/axis-config";
 import { getRunData, getRunStaticParams } from "@/lib/data";
 import {
@@ -25,6 +27,8 @@ import {
   formatScore,
 } from "@/lib/format";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
+import { pageMetadata } from "@/lib/page-metadata";
+import { modelHref } from "@/lib/routes";
 import type { RunDetail } from "@/lib/schemas";
 import {
   SEASON_2_INDEX_PROFILE,
@@ -49,12 +53,29 @@ export async function generateStaticParams(): Promise<{ runId: string }[]> {
   return params.length > 0 ? params : [{ runId: NO_RUNS_STATIC_EXPORT_SENTINEL }];
 }
 
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { runId } = await params;
+  if (runId === NO_RUNS_STATIC_EXPORT_SENTINEL) {
+    return pageMetadata(
+      "Run receipts",
+      "Published local-bench run receipts will include model, quant, benchmark score, runtime, and hardware evidence.",
+    );
+  }
+  const run = await getRunData(runId);
+  const quant = run.manifest_summary.quant ?? "quant unavailable";
+  const title = `${run.model_label} ${quant} run receipt — ${LAUNCH_FREEZE.asOfDate}`;
+  return pageMetadata(
+    title,
+    `${run.model_label} ${quant} local benchmark receipt in the board snapshot dated ${LAUNCH_FREEZE.asOfDate}, with scores, runtime, and hardware evidence.`,
+  );
+}
+
 export default async function RunPage({ params }: PageProps) {
   const { runId } = await params;
   if (runId === NO_RUNS_STATIC_EXPORT_SENTINEL) {
     return (
       <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
-        <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Run receipts" }]} />
+        <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: "Run receipts" }]} />
         <section className="rounded-lg border border-bench-line bg-bench-panel p-5">
           <p className="font-mono text-xs uppercase text-bench-accent">scoreless catalog</p>
           <h1 className="mt-2 text-3xl font-semibold text-bench-text">No run receipts yet</h1>
@@ -83,17 +104,17 @@ export default async function RunPage({ params }: PageProps) {
     <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
       <Breadcrumbs
         items={[
-          { label: "Model families", href: "/families" },
-          { label: run.model_label, href: `/model/${modelSlug}` },
+          { label: "Model families", href: "/families/" },
+          { label: run.model_label, href: modelHref(modelSlug) },
           { label: "Run" },
         ]}
       />
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         <p className="text-bench-muted">
           This receipt lets anyone verify this run against the frozen suite — see{" "}
-          <Link className="font-semibold text-bench-accent hover:underline" href="/methodology">Methodology</Link>.
+          <Link className="font-semibold text-bench-accent hover:underline" href="/methodology/">Methodology</Link>.
         </p>
-        <Link className="font-semibold text-bench-accent hover:underline" href={`/model/${modelSlug}`}>
+        <Link className="font-semibold text-bench-accent hover:underline" href={modelHref(modelSlug)}>
           ← back to {run.model_label}
         </Link>
       </div>

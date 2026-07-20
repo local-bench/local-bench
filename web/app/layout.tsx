@@ -4,16 +4,19 @@ import { getIndexData } from "@/lib/data";
 import { familySummaries } from "@/lib/families";
 import "./globals.css";
 
-const title = "local-bench";
+const title = "local-bench — the local LLM leaderboard";
 // Season-neutral on purpose: the axis lineup changes per index season, and this string is
 // baked into every page's search/social preview.
 const description =
-  "A community quality leaderboard for local and open LLMs: a modular Local Intelligence Index measured judge-free on real local hardware.";
+  "Compare local and open-weight LLMs on a transparent, judge-free benchmark: quality, quants, VRAM, speed, and reproducible run receipts from real local hardware.";
 const siteUrl = "https://local-bench.ai";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title,
+  title: {
+    default: title,
+    template: "%s | local-bench",
+  },
   description,
   alternates: { canonical: "./" },
   openGraph: {
@@ -21,8 +24,9 @@ export const metadata: Metadata = {
     siteName: "local-bench",
     title,
     type: "website",
-    url: `${siteUrl}/`,
+    url: "./",
   },
+  // TODO(owner): add an Open Graph image once a branded social-preview asset exists.
   twitter: { card: "summary" },
 };
 

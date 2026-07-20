@@ -9,6 +9,7 @@ import { getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
 import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { familySummaries, type FamilySummary } from "@/lib/families";
 import { formatScore } from "@/lib/format";
+import { pageMetadata } from "@/lib/page-metadata";
 
 export const dynamicParams = false;
 
@@ -28,10 +29,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const summary = await getFamilySummary(slug);
   if (summary === undefined) notFound();
   const modelLabel = summary.models.length === 1 ? "model" : "models";
-  return {
-    title: `${summary.family} models | local-bench`,
-    description: `Browse ${summary.models.length} ${summary.family} ${modelLabel}, measured results, and catalog entries on local-bench.`,
-  };
+  return pageMetadata(
+    `${summary.family} models and benchmarks`,
+    `Browse ${summary.models.length} ${summary.family} ${modelLabel}, measured results, quants, and VRAM on local-bench.`,
+  );
 }
 
 export default async function FamilyPage({ params }: PageProps) {
@@ -50,7 +51,7 @@ export default async function FamilyPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: summary.family }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: summary.family }]} />
       <header className="rounded-lg border border-bench-line bg-bench-panel/82 p-5">
         <h1 className="flex items-center gap-3 text-4xl font-semibold text-bench-text">
           <FamilyLogoMark familyName={summary.family} modelLabel={summary.family} size={32} />

@@ -1,11 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SubmissionsLifecycle } from "@/components/submissions-lifecycle";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Published submissions",
+  "Follow public local-bench submissions through validation, publication, review holds, and rejection.",
+);
 
 export default function SubmissionsPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Submissions" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: "Submissions" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">public pipeline</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submission lifecycle</h1>

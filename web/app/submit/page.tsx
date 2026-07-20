@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
@@ -7,11 +8,17 @@ import {
   LOCALBENCH_INSTALL_COMMAND,
   LOCALBENCH_TESTED_VERSION,
 } from "@/lib/cli-onboarding";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Submit a benchmark run",
+  "Run the frozen local-bench suite on your hardware and publish a signed, reproducible local LLM benchmark result.",
+);
 
 export default function SubmitPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Submit a run" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: "Submit a run" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">community submissions</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submit a run</h1>
@@ -297,7 +304,7 @@ export default function SubmitPage() {
         <p>
           Public evidence does not prove model identity, hardware identity, or runtime honesty. The board publishes
           complete reports, makes their evidence inspectable, and suppresses demonstrated problems — see the{" "}
-          <Link href="/methodology" className="text-bench-accent hover:underline">
+          <Link href="/methodology/" className="text-bench-accent hover:underline">
             methodology page
           </Link>{" "}
           for what each label does and does not claim.

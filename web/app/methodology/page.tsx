@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import type { Metadata } from "next";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
@@ -15,6 +16,25 @@ import {
   SEASON_2_DIAGNOSTICS,
   TOOL_USE_WEIGHT,
 } from "@/lib/scoring-seasons";
+import { pageMetadata, serializeJsonLd } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Benchmark methodology",
+  "How local-bench scores, ranks, verifies, and publishes reproducible local LLM benchmark runs.",
+);
+
+const DATASET_STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: "local-bench Local Intelligence Index",
+  description: "Judge-free local LLM benchmark scores, axes, runtime, hardware, and model metadata.",
+  distribution: {
+    "@type": "DataDownload",
+    contentUrl: "https://local-bench.ai/data/index.json",
+    encodingFormat: "application/json",
+  },
+  license: "Apache License 2.0",
+} as const;
 
 type ProtocolView = {
   readonly canonical_sha256: string;
@@ -115,7 +135,11 @@ function AttributionRow({ source }: { readonly source: Attribution }) {
 export default async function MethodologyPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Methodology" }]} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(DATASET_STRUCTURED_DATA) }}
+      />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
           {publicProtocolLabel(INDEX_VERSION_V4)} | scorecard-v6 methodology
@@ -129,6 +153,21 @@ export default async function MethodologyPage() {
           season bridge below.
         </p>
       </header>
+
+      {/* <!-- DRAFT: owner review copy --> */}
+      <section id="glossary" className="space-y-4 text-bench-muted">
+        <h2 className="text-xl font-semibold text-bench-text">Glossary</h2>
+        <dl className="grid gap-3">
+          <div><dt className="font-semibold text-bench-text">VRAM @8k</dt><dd>Estimated GPU memory for model weights, an 8k-token KV cache, and runtime headroom.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Fits</dt><dd>The smallest common GPU VRAM tier that is at least as large as the VRAM @8k estimate.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Prefill tok/s</dt><dd>How quickly the runtime reads and processes the prompt before generating an answer.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Decode tok/s</dt><dd>How quickly the runtime generates new answer tokens after processing the prompt.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Tokens/answer</dt><dd>The median number of generated tokens per answer, a practical measure of verbosity.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Wall/bench time</dt><dd>The elapsed time to finish the full benchmark run, including every measured axis.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Lane</dt><dd>A fixed serving-engine and benchmark-protocol configuration used to keep rows comparable.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Headline profile</dt><dd>The complete required set of weighted axes a run must publish before it can receive a rank.</dd></div>
+        </dl>
+      </section>
 
       <section id="season-2" className="space-y-4 rounded-lg border border-bench-accent/30 bg-bench-panel/55 p-5 text-bench-muted">
         <div>
@@ -171,7 +210,12 @@ export default async function MethodologyPage() {
           <p className="font-mono text-[10px] uppercase tracking-wide text-bench-accent sm:hidden">
             Swipe horizontally for v4.1 and v4.2 scores &rarr;
           </p>
-          <div className="overflow-x-auto rounded border border-bench-line">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Protocol correction table — scrolls horizontally"
+            className="overflow-x-auto rounded border border-bench-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+          >
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-bench-text/85">
                 <tr><th className="px-3 py-2">Model</th><th className="px-3 py-2">v4.1</th><th className="px-3 py-2">v4.2</th></tr>
@@ -334,7 +378,7 @@ export default async function MethodologyPage() {
         </ul>
       </section>
 
-      <section className="space-y-4 text-bench-muted">
+      <section id="evidence-and-reproduction" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Evidence and reproduction</h2>
         <p>
           Each row keeps its structured model artifact identity, immutable bundle hash, protocol and suite identity,

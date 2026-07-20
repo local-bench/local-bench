@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CompareLivePicker } from "@/components/compare-live-picker";
 import { getCompareConfigs } from "@/lib/compare";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { getFineTuneComparePresets, getIndexData, getModelData } from "@/lib/data";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Compare local LLM runs",
+  "Compare two local LLM model and quant configurations across benchmark quality, VRAM, speed, and per-axis results.",
+);
 
 export default async function ComparePage() {
   const [index, fineTunePresets, communityRows] = await Promise.all([
@@ -16,7 +23,7 @@ export default async function ComparePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Compare" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: "Compare" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">Head-to-head</p>
         <h1 className="mt-3 text-4xl font-semibold text-bench-text">Compare model configs</h1>

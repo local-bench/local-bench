@@ -305,6 +305,7 @@ export const IndexModelSchema = z.object({
 }).superRefine((row, ctx) => requireValidVllmProvenance(row, ctx));
 
 export const IndexDataSchema = z.object({
+  generated_at: z.string().datetime().optional(),
   generated_note: z.string(),
   suite_version: z.string().nullable(),
   index_version: z.string(),
