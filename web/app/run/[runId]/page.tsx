@@ -98,7 +98,7 @@ export default async function RunPage({ params }: PageProps) {
   const scoreText = visibleScore === null ? "n/a" : formatScore(visibleScore.point);
   const scoreCiText = visibleScore === null ? "CI unavailable" : `${formatCi(visibleScore)} 95% CI`;
   const scoreTitle = run.ranked ? LOCAL_INTELLIGENCE_INDEX_NAME : "Diagnostic score profile";
-  const modelSlug = runId.split("__")[0];
+  const modelSlug = runId.split("__", 1)[0] ?? runId;
 
   return (
     <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
