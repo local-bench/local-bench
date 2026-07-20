@@ -167,7 +167,12 @@ def _verify_evidence(
         raise VerificationError("rootfs sha256 mismatch")
     if evidence.get("worker_wheel_sha256") != worker_wheel_sha256:
         raise VerificationError("worker wheel sha256 mismatch")
-    _verify_module_origins(evidence)
+    # The mutation self-test kills the appliance worker at drift detection, before it
+    # reports module origins (the committed c0v4 self-test evidence has the same shape),
+    # so only the repo side is origin-checked in self-test mode.
+    _verify_module_origins(
+        evidence, sides=("repo", "appliance") if mode == "differential" else ("repo",)
+    )
     if mode == "differential":
         _verify_differential(evidence)
     else:
@@ -213,9 +218,11 @@ def _verify_self_test(evidence: JsonObject) -> None:
         raise VerificationError("self-test designed drift marker is missing")
 
 
-def _verify_module_origins(evidence: JsonObject) -> None:
+def _verify_module_origins(
+    evidence: JsonObject, *, sides: tuple[str, ...] = ("repo", "appliance")
+) -> None:
     per_side = _require_object(evidence, "per_side", "evidence")
-    for side_name in ("repo", "appliance"):
+    for side_name in sides:
         side = _require_object(per_side, side_name, "per_side")
         origins = _require_object(side, "module_origins", f"{side_name} side")
         if side_name == "repo":

@@ -33,7 +33,7 @@ from localbench.scoring.agentic_exec.task_pool import (
 from localbench.submissions.keys import write_private_key
 from localbench.submissions.canon import canonical_json_bytes
 from localbench.submissions.crypto import verify_bytes
-from scripts.build_contract_v4_payload import build_v4_payload
+from scripts.build_contract_v4_payload import V4_CONTRACT_ID, build_v4_payload
 
 
 _CITATION_PATTERN = re.compile(r"^(.+?):(\d+)(?:-(\d+))?$")
@@ -41,6 +41,11 @@ _CONSTRUCTION_MARKERS = {
     "covered_behavior_sha256": (
         '"covered_behavior_sha256": canonical_json_hash(behavior)',
         'base["covered_behavior_sha256"] = canonical_json_hash(behavior)',
+        # The v5 payload cites the finalize tool, which constructs the digest through
+        # its extract_contract_payload(successor_metadata=...) call (the hash itself
+        # is computed one delegation level down in contract_successor). A v6 payload
+        # should cite the contract_successor construction site directly.
+        "extract_contract_payload(",
     ),
 }
 
@@ -126,9 +131,17 @@ def _assert_provenance_citations(payload: dict[str, object], repo: Path) -> None
             )
 
 
-def test_contract_extraction_and_signature_are_deterministic(tmp_path: Path) -> None:
+def test_contract_extraction_and_signature_are_deterministic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     key = tmp_path / "contract.pem"
-    write_private_key(key, seed=bytes(range(32)))
+    public_key = write_private_key(key, seed=bytes(range(32)))
+    # signed_contract reverse-looks-up the key id from the trusted map.
+    monkeypatch.setattr(
+        execution_contract_module,
+        "CONTRACT_PUBLIC_KEYS",
+        {**CONTRACT_PUBLIC_KEYS, "localbench-test-deterministic": public_key},
+    )
     args = {
         "ordered_task_ids": ["task-b", "task-a"],
         "semantic_task_contents": {
@@ -173,8 +186,11 @@ def test_contract_assertion_fails_closed_on_unpassed_packaging_gate(
         "_extract_covered_behavior",
         lambda: (payload["covered_behavior"], {}),
     )
-    with pytest.raises(ExecutionContractDriftError, match="not-yet-passed"):
-        assert_execution_contract(path)
+    # The test payload is v4-shaped while the module default is now v5, so the
+    # contract under test is selected explicitly through the scope mechanism.
+    with execution_contract_scope(path, expected_contract_id=V4_CONTRACT_ID):
+        with pytest.raises(ExecutionContractDriftError, match="not-yet-passed"):
+            assert_execution_contract()
 
 
 def test_task_identity_hashes_respond_only_to_their_own_inputs() -> None:
@@ -429,14 +445,29 @@ def test_successor_contract_truthfully_distinguishes_draft_and_release_gate() ->
         **gate_fields,
         "status": "not-yet-passed",
     }
+    # The signed v5 release gate carries the pre-mark evidence binding (oracle Fork-1
+    # option B): the pre-sign probe rootfs and native-conformance evidence are recorded
+    # in the contract, while the shipping differential is bound by the signed manifest.
     assert release["packaging_correctness_gate"] == {
         **gate_fields,
         "status": "passed-current-repo-harness-vs-appliance",
+        "publication_authority": "signed-release-manifest",
+        "evidence": {
+            "candidate_rootfs_sha256": (
+                "049ebe0667e2e933c04add2dd5ad7ea67a553e091ee89631f1c6c7e83ba38c07"
+            ),
+            "differential_report_sha256": [],
+            "differential_status": "pending-post-sign-bound-in-manifest",
+            "native_conformance_evidence_sha256": [
+                "775bcdd0eb8a6cc8ffcbc97ebf1fd4b65a29c002602e4e522212a74cde9d2e59"
+            ],
+        },
     }
     assert draft["identity_lineage"]["relationship"] == (
         "unsigned C6 successor draft; release signature required before activation"
     )
+    # v5 (oracle Fork-1 option B): publication authority is the signed release
+    # manifest, not the sign-first ceremony statement the v4 lineage carried.
     assert release["identity_lineage"]["relationship"] == (
-        "C6 successor activated under the release signing key; sign-first ceremony -- "
-        "the C0 packaging differential is the mandatory release post-condition"
+        "c0v5 successor published by signed release manifest"
     )

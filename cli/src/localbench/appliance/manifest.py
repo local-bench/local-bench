@@ -58,18 +58,34 @@ class RuntimeManifestError(Exception):
         return f"{self.code}: {self.detail}"
 
 
-def signed_manifest(payload: JsonObject, signing_key: Path) -> JsonObject:
+def signed_manifest(
+    payload: JsonObject, signing_key: Path, *, key_id: str | None = None
+) -> JsonObject:
     from localbench.submissions.crypto import load_private_key, sign_bytes
 
     key = load_private_key(signing_key)
+    public_key = key.public_key.hex()
+    if key_id is None:
+        # Default: the key id is derived from the signing key itself, never assumed —
+        # a key absent from the static trust map cannot be stamped with a trusted id.
+        # Trust-admitted rotated keys (outside the static map) must name their id
+        # explicitly; verification still gates acceptance on the trust document.
+        key_id = next(
+            (kid for kid, pub in RUNTIME_PUBLIC_KEYS.items() if pub == public_key), None
+        )
+    if key_id is None:
+        raise RuntimeManifestError(
+            "runtime_signing_key_untrusted",
+            "signing key is not registered in RUNTIME_PUBLIC_KEYS",
+        )
     payload_digest = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
     return {
         "payload": payload,
         "payload_sha256": payload_digest,
         "signature": {
             "algorithm": "Ed25519",
-            "key_id": RUNTIME_KEY_ID,
-            "public_key": key.public_key.hex(),
+            "key_id": key_id,
+            "public_key": public_key,
             "signature": sign_bytes(
                 MANIFEST_SIGNATURE_DOMAIN + bytes.fromhex(payload_digest), signing_key
             ),

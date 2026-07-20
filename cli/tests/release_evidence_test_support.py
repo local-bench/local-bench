@@ -116,8 +116,17 @@ def make_release(
     write_private_key(key_path, seed=bytes(range(32)))
     public_key = load_private_key(key_path).public_key.hex()
     key_id = "localbench-test-release-evidence"
-    monkeypatch.setattr(execution_contract, "CONTRACT_KEY_ID", key_id)
-    predecessor = load_execution_contract(V4_CONTRACT)
+    # signed_contract derives key_id by reverse lookup of the signing key's public key
+    # in the trusted map, so the test key is admitted to the map under the test key id.
+    monkeypatch.setattr(
+        execution_contract,
+        "CONTRACT_PUBLIC_KEYS",
+        {**execution_contract.CONTRACT_PUBLIC_KEYS, key_id: public_key},
+    )
+    predecessor = load_execution_contract(
+        V4_CONTRACT,
+        expected_contract_id="agentic-execution-contract-aw013p1-pypi28113a7a-v4",
+    )
     predecessor_payload = predecessor["payload"]
     assert isinstance(predecessor_payload, dict)
     payload = extract_contract_payload(

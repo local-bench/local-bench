@@ -106,8 +106,12 @@ class SignedReleaseFixture:
     manifest_signer: Path
 
     def manifest_bytes(self, value: dict[str, object]) -> bytes:
+        # The rotated key is trust-admitted, not in the static map, so its id is named
+        # explicitly (signed_manifest's reverse lookup only covers the static map).
         return canonical_json_bytes(
-            runtime_manifest.signed_manifest(value, self.manifest_signer)
+            runtime_manifest.signed_manifest(
+                value, self.manifest_signer, key_id="rotated-1"
+            )
         ) + b"\n"
 
 

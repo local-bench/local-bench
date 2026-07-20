@@ -16,9 +16,6 @@ import json
 from pathlib import Path
 
 from localbench.appliance.manifest import (
-    PINNED_INITIAL_MANIFEST_SHA256,
-    PINNED_RUNTIME_ID,
-    RUNTIME_KEY_ID,
     RUNTIME_PUBLIC_KEYS,
     verify_manifest_bytes,
 )
@@ -26,11 +23,28 @@ from localbench.scoring.agentic_exec.execution_contract import load_execution_co
 from localbench.scoring.agentic_exec.worker_identity import _WORKER_MODULES
 from localbench.submissions.canon import canonical_json_bytes
 
+# This gate binds the *committed c0v4-r1 evidence bundle*, which is immutable history:
+# 0.4.2 clients pin these exact values forever. The client-side PINNED_* constants have
+# moved on to the current runtime (c0v5+), so every pin here is hardcoded to c0v4-r1
+# rather than imported from localbench.appliance.manifest.
+C0V4_RUNTIME_ID = "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v4-r1"
+C0V4_MANIFEST_SHA256 = "b1c5f0185687a6c97624f33d7d9bb195286202ab451bcdcc6791073e73733122"
+C0V4_MANIFEST_KEY_ID = "localbench-runtime-root-r2-2026-07-machine"
+C0V4_CONTRACT_ID = "agentic-execution-contract-aw013p1-pypi28113a7a-v4"
+
 EVIDENCE_DIR = (
     Path(__file__).resolve().parents[1]
     / "runtime"
     / "release-evidence"
     / "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v4-r1"
+)
+V4_CONTRACT_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "localbench"
+    / "data"
+    / "contracts"
+    / f"{C0V4_CONTRACT_ID}.json"
 )
 # Recorded in the release README; the worker wheel the rootfs baked and the differential
 # validated. Bound here so a swapped evidence bundle with a different wheel is rejected.
@@ -69,8 +83,7 @@ def _load(name: str) -> dict:
 
 def test_client_pin_matches_committed_manifest_bytes() -> None:
     raw = (EVIDENCE_DIR / "manifest.json").read_bytes()
-    assert PINNED_INITIAL_MANIFEST_SHA256 != ""
-    assert hashlib.sha256(raw).hexdigest() == PINNED_INITIAL_MANIFEST_SHA256
+    assert hashlib.sha256(raw).hexdigest() == C0V4_MANIFEST_SHA256
 
 
 def test_committed_manifest_verifies_under_admitted_runtime_key() -> None:
@@ -78,14 +91,16 @@ def test_committed_manifest_verifies_under_admitted_runtime_key() -> None:
     trust = _load("trust-v1.json")
     payload = verify_manifest_bytes(
         raw,
-        expected_runtime_id=PINNED_RUNTIME_ID,
+        expected_runtime_id=C0V4_RUNTIME_ID,
         trust_state=trust.get("payload", trust),
-        expected_manifest_sha256=PINNED_INITIAL_MANIFEST_SHA256,
+        expected_manifest_sha256=C0V4_MANIFEST_SHA256,
     )
-    assert payload["runtime_id"] == PINNED_RUNTIME_ID
+    assert payload["runtime_id"] == C0V4_RUNTIME_ID
     signature = _load("manifest.json")["signature"]
-    assert signature["key_id"] == RUNTIME_KEY_ID
-    assert signature["public_key"] == RUNTIME_PUBLIC_KEYS[RUNTIME_KEY_ID]
+    assert signature["key_id"] == C0V4_MANIFEST_KEY_ID
+    # The c0v4 signing key must stay in the client trust map: 0.4.2 clients verify
+    # the c0v4 manifest against it forever.
+    assert signature["public_key"] == RUNTIME_PUBLIC_KEYS[C0V4_MANIFEST_KEY_ID]
 
 
 def test_committed_differential_proves_distinct_installations() -> None:
@@ -141,8 +156,10 @@ def test_committed_differential_proves_distinct_installations() -> None:
 def test_differential_is_cross_bound_to_the_signed_manifest() -> None:
     evidence = _load("packaging-differential.json")
     manifest_payload = _load("manifest.json")["payload"]
-    contract = load_execution_contract()
-    assert evidence["runtime_id"] == manifest_payload["runtime_id"] == PINNED_RUNTIME_ID
+    contract = load_execution_contract(
+        V4_CONTRACT_PATH, expected_contract_id=C0V4_CONTRACT_ID
+    )
+    assert evidence["runtime_id"] == manifest_payload["runtime_id"] == C0V4_RUNTIME_ID
     assert evidence["rootfs_sha256"] == manifest_payload["rootfs"]["sha256"] == RELEASE_ROOTFS_SHA256
     assert evidence["worker_wheel_sha256"] == RELEASE_WORKER_WHEEL_SHA256
     assert (
@@ -150,7 +167,7 @@ def test_differential_is_cross_bound_to_the_signed_manifest() -> None:
         == manifest_payload["execution_contract_sha256"]
         == contract["payload_sha256"]
     )
-    assert contract["payload"]["contract_id"] == "agentic-execution-contract-aw013p1-pypi28113a7a-v4"
+    assert contract["payload"]["contract_id"] == C0V4_CONTRACT_ID
 
 
 def test_differential_selftest_is_a_bound_negative_control() -> None:
@@ -159,7 +176,7 @@ def test_differential_selftest_is_a_bound_negative_control() -> None:
     assert selftest["verdict"] != "pass"
     # Bind the negative control to this exact release so a stale self-test from an earlier
     # build cannot satisfy the gate.
-    assert selftest["runtime_id"] == PINNED_RUNTIME_ID
+    assert selftest["runtime_id"] == C0V4_RUNTIME_ID
     assert selftest["rootfs_sha256"] == RELEASE_ROOTFS_SHA256
     assert selftest["worker_wheel_sha256"] == RELEASE_WORKER_WHEEL_SHA256
     # The failure must be a designed source-divergence detection, not an unrelated startup

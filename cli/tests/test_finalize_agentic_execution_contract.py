@@ -202,7 +202,10 @@ def test_dry_run_carries_v4_successor_metadata(
 
     # Then: v4 is identified by both its signed id and canonical payload digest.
     payload = json.loads((tmp_path / "out/payload.json").read_text(encoding="utf-8"))
-    predecessor = load_execution_contract(_V4_CONTRACT)
+    predecessor = load_execution_contract(
+        _V4_CONTRACT,
+        expected_contract_id="agentic-execution-contract-aw013p1-pypi28113a7a-v4",
+    )
     assert payload["contract_id"] == V5_CONTRACT_ID
     assert payload["contract_version"] == 5
     assert payload["supersedes_contract_id"] == predecessor["payload"]["contract_id"]
@@ -256,7 +259,10 @@ def test_sign_mode_round_trips_through_real_loader(
 
 def test_committed_v4_contract_still_loads_with_pinned_payload_hash() -> None:
     # Given / When: the immutable v4 artifact is loaded through the production loader.
-    contract = load_execution_contract(_V4_CONTRACT)
+    contract = load_execution_contract(
+        _V4_CONTRACT,
+        expected_contract_id="agentic-execution-contract-aw013p1-pypi28113a7a-v4",
+    )
 
     # Then: its stored and recomputed canonical payload digests retain the release value.
     assert contract["payload_sha256"] == _V4_PAYLOAD_SHA256

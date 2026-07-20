@@ -20,7 +20,7 @@ from localbench.submissions.canon import canonical_json_bytes, canonical_json_ha
 from localbench.scoring.agentic_exec.contract_crypto import load_private_key, sign_bytes, verify_bytes
 from localbench.scoring.agentic_exec.contract_successor import SuccessorContractMetadata, extract_successor_payload
 LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
-CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v4"
+CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v5"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
 LEGACY_CONTRACT_FILENAME: Final = f"{LEGACY_CONTRACT_ID}.json"
@@ -227,13 +227,21 @@ def extract_contract_payload(
 
 def signed_contract(payload: JsonObject, signing_key: Path) -> JsonObject:
     key = load_private_key(signing_key)
+    public_key = key.public_key.hex()
+    key_id = next(
+        (kid for kid, pub in CONTRACT_PUBLIC_KEYS.items() if pub == public_key), None
+    )
+    if key_id is None:
+        raise ExecutionContractDriftError(
+            "a signing key registered in CONTRACT_PUBLIC_KEYS", public_key
+        )
     return {
         "payload": payload,
         "payload_sha256": canonical_json_hash(payload),
         "signature": {
-            "key_id": CONTRACT_KEY_ID,
+            "key_id": key_id,
             "algorithm": "Ed25519",
-            "public_key": key.public_key.hex(),
+            "public_key": public_key,
             "signature": sign_bytes(
                 CONTRACT_SIGNATURE_DOMAIN + canonical_json_bytes(payload), signing_key
             ),
