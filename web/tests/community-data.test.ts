@@ -6,6 +6,7 @@ import {
   parseCommunityGroup,
 } from "../lib/community-data";
 import { communityRowsWithFamilyPaths } from "../lib/community-family";
+import type { IndexModel } from "../lib/schemas";
 
 const artifactSha = "a".repeat(64);
 const projectionSha = "b".repeat(64);
@@ -135,7 +136,7 @@ describe("community static-data boundary", () => {
       catalog_id: "Qwen/Qwen3.5-9B",
       family: "Qwen3.5",
       model_label: "Qwen3.5 9B",
-      slug: "qwen3-5-9b",
+      slug: "qwen3-5-9b" as IndexModel["slug"],
     }]);
 
     expect(communityRowsForModel(rows, {
