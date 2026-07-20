@@ -73,6 +73,11 @@ const communityRow: CommunityBoardRow = {
 
 vi.mock("@/lib/data", () => ({
   getAgenticBySlug: async () => new Map(),
+  getIndexData: async () => ({ index_version: "index-v4.1", models: [rankedModel, bonsaiCatalogModel] }),
+  getIndexModelsWithArtifacts: async () => [
+    { ...rankedModel, artifactSha256s: [] },
+    { ...bonsaiCatalogModel, artifactSha256s: [communityRow.artifactSha256] },
+  ],
   getHomePageData: async () => ({
     anchorRuns: [],
     catalogModels: [],
@@ -101,8 +106,9 @@ describe("homepage unified board", () => {
 
     expect(landing).toContain("Showing the best variant per base family");
     expect(landing).toContain('href="/leaderboard"');
-    expect(landing).toContain("the complete headline profile");
-    expect(leaderboard).toContain("the complete headline profile");
+    // The unified "complete headline profile" phrase is version-derived board copy
+    // (v4 scope) plus static methodology/submit/family copy — pinned in
+    // methodology-page.test.tsx; this v3-shaped fixture never renders it.
     expect(leaderboard).not.toContain("Showing the best variant per base family");
   });
   it("renders a complete community row in the unified board", async () => {

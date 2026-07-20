@@ -12,7 +12,7 @@ describe("CatalogShells", () => {
       demo: false,
       est_cost_usd: null,
       family: "Fixture",
-      kind: "catalog",
+      kind: "community",
       lane: null,
       model_label: "Fixture Model",
       n_runs: 0,

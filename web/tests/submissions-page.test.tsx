@@ -71,8 +71,8 @@ describe("public submissions lifecycle", () => {
   it("server-renders the lifecycle legend, checker, and JavaScript-off guidance", () => {
     const html = renderToStaticMarkup(<SubmissionsPage />);
 
-    expect(html).toContain("received â†’ validated â†’ published â†’ review-hold â†’ rejected");
-    expect(html).toContain('href="/submission/"');
+    expect(html).toContain("received → validated → published → review-hold → rejected");
+    expect(html).toContain('href="/submission"');
     expect(html).toContain("Check a submission");
     expect(html).toContain("<noscript>");
     expect(html).toContain("JavaScript is off");
