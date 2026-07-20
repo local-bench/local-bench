@@ -1,5 +1,12 @@
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import {
+  CLI_PREREQUISITES,
+  CURRENT_RANKED_SUITE,
+  formatCanonicalBenchCommand,
+  LOCALBENCH_INSTALL_COMMAND,
+  LOCALBENCH_TESTED_VERSION,
+} from "@/lib/cli-onboarding";
 
 export default function SubmitPage() {
   return (
@@ -40,10 +47,12 @@ export default function SubmitPage() {
         <h2 className="text-xl font-semibold text-bench-text">The loop</h2>
 
         <h3 className="text-base font-semibold text-bench-text">1. Install the CLI</h3>
+        <p>Tested with local-bench-ai {LOCALBENCH_TESTED_VERSION}. Prerequisites:</p>
+        <ul className="list-disc space-y-1 pl-5">
+          {CLI_PREREQUISITES.map((prerequisite) => <li key={prerequisite}>{prerequisite}</li>)}
+        </ul>
         <p>
-          Works on Windows, Linux, or macOS for the public static path — you need Python 3.11+ and a
-          llama.cpp server binary. The Agentic axis additionally requires Windows with WSL2 for
-          the managed agentic harness. For the one-command path, put{" "}
+          For the one-command path, put{" "}
           <code className="font-mono text-bench-text">llama-server</code> on PATH from{" "}
           <a
             href="https://github.com/ggerganov/llama.cpp/releases"
@@ -56,7 +65,7 @@ export default function SubmitPage() {
           or pass <code className="font-mono text-bench-text">--llama-server-path</code>.
         </p>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`pip install "local-bench-ai[hf]==0.3.2"`}
+          {LOCALBENCH_INSTALL_COMMAND}
         </pre>
         <p className="text-sm text-bench-warn">
           The package name is <code className="font-mono text-bench-text">local-bench-ai</code> — plain{" "}
@@ -72,8 +81,12 @@ export default function SubmitPage() {
 
         <h3 className="text-base font-semibold text-bench-text">2. Bench the catalog model</h3>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {`localbench bench qwen3-8b --quant Q4_K_M`}
+          {formatCanonicalBenchCommand("qwen3-8b", "Q4_K_M")}
         </pre>
+        <p className="text-sm">
+          <code className="font-mono text-bench-text">--allow-untrusted-code</code> runs the benchmark&apos;s coding tasks in the pinned sandbox — see{" "}
+          <Link href="/methodology#coding-trust" className="text-bench-accent hover:underline">Methodology</Link>.
+        </p>
         <p>
           <code className="font-mono text-bench-text">bench</code> resolves the catalog slug and quant,
           checks publishability before downloading, verifies pinned GGUF hashes, starts llama-server
@@ -190,12 +203,11 @@ export default function SubmitPage() {
               generates this exact sequence.
             </p>
             <p>
-              The full legacy release is <code className="font-mono text-bench-text">suite-v1-full-exec-6axis-v1</code>.
-              Static-only submitters can use{" "}
-              <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code>:
-              coding evidence is packed by the CLI and preserved with the report.{" "}
-              <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> is
-              unranked diagnostic only.
+              <code className="font-mono text-bench-text">{CURRENT_RANKED_SUITE}</code> is the current ranked suite.
+              The suite measures six axes; five are weighted in the Index, tool-calling is reported as an unweighted diagnostic.{" "}
+              <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code> and{" "}
+              <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> are static or diagnostic suites;
+              they preserve evidence but do not produce rankable rows.
             </p>
 
             <h3 className="text-base font-semibold text-bench-text">D. Submit manually</h3>
@@ -244,7 +256,7 @@ export default function SubmitPage() {
         <p>Complete runs under the current release enter the common ranking. Incomplete legacy profiles remain diagnostic.</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <span className="text-bench-text">Current complete protocol</span> — every required headline axis,
+            <span className="text-bench-text">The complete headline profile</span> — every required headline axis,
             suite pin, artifact identity, and evidence record is present.
           </li>
           <li>
