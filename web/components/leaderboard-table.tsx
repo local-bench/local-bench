@@ -71,7 +71,12 @@ export function LeaderboardTable({
             ) : null}
             <SortableHeader label="Runtime" sortKey="runtime" sort={sort} onSort={setSort} />
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
-            <SortableHeader label="Tokens" sortKey="tokens" sort={sort} onSort={setSort} />
+            <SortableHeader
+              label={<span title="Median tokens generated per answer (verbosity)">Tokens/answer</span>}
+              sortKey="tokens"
+              sort={sort}
+              onSort={setSort}
+            />
             <SortableHeader label="Time/answer" sortKey="latency" sort={sort} onSort={setSort} />
             <SortableHeader label="Full bench time" sortKey="benchtime" sort={sort} onSort={setSort} />
           </tr>

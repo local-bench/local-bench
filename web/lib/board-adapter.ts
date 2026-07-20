@@ -189,6 +189,7 @@ export const LiveBoardRowSchema = z.object({
   }).strict().readonly()).max(1).readonly().optional(),
   perf: z.object({
     decode_tps: z.number().finite().nonnegative().nullable(),
+    latency_s_median: z.number().finite().nonnegative().nullable().optional(),
     tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
     wall_time_seconds: z.number().finite().nonnegative().nullable(),
   }).strict().readonly().optional(),
@@ -305,6 +306,7 @@ const CompatibleHardwareSchema = z.object({
 }).passthrough().readonly();
 const CompatiblePerfSchema = z.object({
   decode_tps: z.number().finite().nonnegative().nullable(),
+  latency_s_median: z.number().finite().nonnegative().nullable().optional(),
   tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
   wall_time_seconds: z.number().finite().nonnegative().nullable(),
 }).passthrough().readonly();
@@ -357,6 +359,8 @@ export type AdaptedBoardRow = {
   readonly headlineComplete: boolean;
   readonly indexVersion: string | null;
   readonly lineageEnrichment: NonNullable<LiveBoardRow["lineage_enrichment"]> | undefined;
+  readonly measuredHeadlineWeight: number | null;
+  readonly missingHeadlineWeight: number | null;
   readonly origin: "community" | "project_anchor";
   readonly perf?: NonNullable<LiveBoardRow["perf"]>;
   readonly quantLabel: string | null;
@@ -449,6 +453,8 @@ function adaptStrictRow(row: LiveBoardRow): AdaptedBoardRow {
     headlineComplete: row.headline_complete,
     indexVersion: row.index_version ?? null,
     lineageEnrichment: row.lineage_enrichment,
+    measuredHeadlineWeight: row.scores.measured_headline_weight,
+    missingHeadlineWeight: row.scores.missing_headline_weight,
     origin: row.origin,
     ...(row.perf === undefined ? {} : { perf: row.perf }),
     quantLabel: row.model.quant_label ?? null,
@@ -478,6 +484,8 @@ function adaptCompatibleRow(row: CompatibleBoardRow): AdaptedBoardRow {
     headlineComplete: row.headline_complete,
     indexVersion: row.index_version ?? null,
     lineageEnrichment: row.lineage_enrichment,
+    measuredHeadlineWeight: row.scores.measured_headline_weight ?? null,
+    missingHeadlineWeight: row.scores.missing_headline_weight ?? null,
     origin: row.origin,
     ...(row.perf === undefined ? {} : { perf: row.perf }),
     quantLabel: row.model.quant_label ?? null,

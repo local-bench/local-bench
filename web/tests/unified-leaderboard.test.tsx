@@ -82,6 +82,9 @@ describe("unified leaderboard community rows", () => {
     expect(rowHtml).toContain("85.0");
     expect(rowHtml).not.toContain("re-scored");
     expect(html).toContain("Swipe horizontally for scores and axes");
+    expect(html).toContain('title="Median tokens generated per answer (verbosity)"');
+    expect(html).toContain("Tokens/answer");
+    expect(html).not.toContain(">Tokens</");
     expect(rankCellHtml).not.toContain("—");
     expect(rankCellHtml).toMatch(/>2<\/td>/u);
   });
@@ -141,6 +144,59 @@ describe("unified leaderboard community rows", () => {
       "ticket_fraction",
       "ticket_percentage",
     ]);
+  });
+
+  it.each([
+    ["tokens", "desc", "ticket_more"],
+    ["benchtime", "desc", "ticket_more"],
+    ["hardware", "asc", "ticket_less"],
+    ["runtime", "asc", "ticket_more"],
+  ] as const)("sorts community %s telemetry using ranked-row semantics", (key, direction, expectedFirst) => {
+    const fixture = liveCommunityRows[0];
+    if (fixture === undefined) throw new Error("missing live community fixture");
+    const more = {
+      ...fixture,
+      hardware: { gpu_name: "NVIDIA GeForce RTX 5090", vram_gb: 32 },
+      perf: { decode_tps: 60, tokens_to_answer_median: 512, wall_time_seconds: 3600 },
+      runtime: { backend: "cuda", name: "llama.cpp", version: "b7421" },
+      submissionId: "ticket_more",
+    };
+    const less = {
+      ...fixture,
+      hardware: { gpu_name: "NVIDIA GeForce RTX 4090", vram_gb: 24 },
+      perf: { decode_tps: 90, tokens_to_answer_median: 128, wall_time_seconds: 1200 },
+      runtime: { backend: "cuda", name: "vLLM", version: "0.9" },
+      submissionId: "ticket_less",
+    };
+
+    const sorted = sortUnifiedLeaderboardRows(
+      filterUnifiedLeaderboardRows([], [less, more]),
+      { key, direction },
+    );
+
+    expect(sorted[0]?.source === "community" ? sorted[0].row.submissionId : null).toBe(expectedFirst);
+  });
+
+  it("sorts optional community latency on the same scale as ranked latency", () => {
+    const fixture = liveCommunityRows[0];
+    if (fixture === undefined) throw new Error("missing live community fixture");
+    const ranked = { ...rankedModel(6, 50), latency_s_median: 20 };
+    const community = {
+      ...fixture,
+      perf: {
+        decode_tps: 60,
+        latency_s_median: 10,
+        tokens_to_answer_median: 512,
+        wall_time_seconds: 3600,
+      },
+    };
+
+    const sorted = sortUnifiedLeaderboardRows(
+      filterUnifiedLeaderboardRows([ranked], [community]),
+      { key: "latency", direction: "asc" },
+    );
+
+    expect(sorted.map((row) => row.source)).toEqual(["community", "local-bench"]);
   });
 
   it("keeps complete project and community rows in one population", () => {

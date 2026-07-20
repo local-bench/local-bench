@@ -37,7 +37,12 @@ export function ciHalfWidth(score: Score): number {
 }
 
 export function formatScore(value: number): string {
-  return SCORE_FORMAT.format(value);
+  return SCORE_FORMAT.format(clampScore(value));
+}
+
+export function formatSignedScore(value: number): string {
+  const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${sign}${SCORE_FORMAT.format(Math.abs(value))}`;
 }
 
 export function formatCi(score: Score): string {
@@ -131,4 +136,3 @@ export function formatPrimitiveRecord(record: PrimitiveRecord): string {
   const entries = Object.entries(record).map(([key, value]) => `${key}: ${fallbackText(value)}`);
   return entries.length === 0 ? "n/a" : entries.join(", ");
 }
-

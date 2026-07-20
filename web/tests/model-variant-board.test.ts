@@ -98,6 +98,36 @@ describe("model variant board runtime display", () => {
     expect(html).not.toContain("Footprint");
   });
 
+  it("discloses a runtime-footprint VRAM fallback without using it as file size", () => {
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: fixtureModel() }));
+    const cells = firstRankedRowCells(html);
+    const vramCell = cells[9] ?? "";
+    const fileSizeCell = cells[cells.length - 3] ?? "";
+
+    expect(vramCell).toContain('title="runtime footprint (8k figure unavailable)"');
+    expect(vramCell).toContain("12 GB");
+    expect(vramCell).toContain("footprint");
+    expect(fileSizeCell).toContain("—");
+    expect(fileSizeCell).not.toContain("12 GB");
+    expect(fileSizeCell).not.toContain("n/a");
+  });
+
+  it("renders direct VRAM and file-size values without fallback disclosure", () => {
+    const base = fixtureModel();
+    const run = base.runs[0];
+    if (run === undefined) throw new Error("fixture missing run");
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      model: { ...base, runs: [{ ...run, file_gb: 6.5, vram_required_gb_8k: 10 }] },
+    }));
+    const cells = firstRankedRowCells(html);
+    const vramCell = cells[9] ?? "";
+    const fileSizeCell = cells[cells.length - 3] ?? "";
+
+    expect(vramCell).toContain("10 GB");
+    expect(vramCell).not.toContain("runtime footprint");
+    expect(fileSizeCell).toContain("6.5 GB");
+  });
+
   it("renders family rows without letting them become this model's sweet spot", () => {
     const base = fixtureModel();
     const ownRun = base.runs[0];
@@ -209,4 +239,10 @@ function configuredAxes(): ModelDataWithConfiguredAxes["runs"][number]["axes"] {
     math: emptyAxis,
     tool_calling: emptyAxis,
   };
+}
+
+function firstRankedRowCells(html: string): readonly string[] {
+  const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/u)?.[1] ?? "";
+  const row = body.match(/<tr[\s\S]*?<\/tr>/u)?.[0] ?? "";
+  return [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gu)].map((match) => match[1] ?? "");
 }

@@ -172,7 +172,7 @@ export function ModelVariantBoard({
                       <AxisMiniBar score={run.axes[axis]} axis={axis} />
                     </td>
                   ))}
-                  <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono text-bench-text"><VramAt8k run={run} /></td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatFitTier(decision)}</td>
                   {hasPerf ? (
                     <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.prefill_tps)}</td>
@@ -181,7 +181,7 @@ export function ModelVariantBoard({
                     <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.decode_tps)}</td>
                   ) : null}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
-                  <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono text-bench-text">{formatVariantGb(run.file_gb)}</td>
                   <td className="px-3 py-3">
                     <RuntimeCell run={run} />
                   </td>
@@ -222,7 +222,7 @@ export function ModelVariantBoard({
                     <AxisMiniBar score={run.axes[axis]} axis={axis} />
                   </td>
                 ))}
-                <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text"><VramAt8k run={run} /></td>
                 <td className="px-3 py-3 font-mono text-bench-text">n/a</td>
                 {hasPerf ? (
                   <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.prefill_tps)}</td>
@@ -231,7 +231,7 @@ export function ModelVariantBoard({
                   <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.decode_tps)}</td>
                 ) : null}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
-                <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text">{formatVariantGb(run.file_gb)}</td>
                 <td className="px-3 py-3">
                   <RuntimeCell run={run} />
                 </td>
@@ -262,12 +262,12 @@ export function ModelVariantBoard({
                       —
                     </td>
                   ))}
-                  <td className="px-3 py-3 font-mono">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono"><VramAt8k run={run} /></td>
                   <td className="px-3 py-3 font-mono">{formatFitTier(decision)}</td>
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   <td className="px-3 py-3">—</td>
-                  <td className="px-3 py-3 font-mono">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono">{formatVariantGb(run.file_gb)}</td>
                   <td className="px-3 py-3">
                     <RuntimeCell run={run} />
                   </td>
@@ -413,6 +413,22 @@ function RuntimeCell({ run }: { readonly run: VariantRun }) {
       )}
     </span>
   );
+}
+
+function VramAt8k({ run }: { readonly run: VariantRun }) {
+  if (run.vram_required_gb_8k !== null && run.vram_required_gb_8k !== undefined) {
+    return formatGb(run.vram_required_gb_8k);
+  }
+  if (run.vram_footprint_gb === null || run.vram_footprint_gb === undefined) return "—";
+  return (
+    <span title="runtime footprint (8k figure unavailable)">
+      {formatGb(run.vram_footprint_gb)} <span className="text-[10px] text-bench-muted">footprint</span>
+    </span>
+  );
+}
+
+function formatVariantGb(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : formatGb(value);
 }
 
 function formatPerfTps(value: number | null | undefined): string {

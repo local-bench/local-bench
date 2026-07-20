@@ -109,6 +109,23 @@ describe("community static-data boundary", () => {
     });
   });
 
+  it("projects near-consistent coverage shares as exactly 100 percent", () => {
+    const fixture = groupFixture();
+    firstVariant(fixture).scores.measured_headline_weight = 0.53;
+    firstVariant(fixture).scores.missing_headline_weight = 0.48;
+    const parsed = parseCommunityGroup(fixture);
+    if (parsed === null) throw new Error("expected validated community group");
+
+    const [row] = communityBoardRows([parsed]);
+
+    expect(row).toMatchObject({
+      coverageConsistent: true,
+      measuredHeadlineWeight: 0.53,
+      missingHeadlineWeight: 0.47,
+    });
+    expect(((row?.measuredHeadlineWeight ?? 0) + (row?.missingHeadlineWeight ?? 0)) * 100).toBe(100);
+  });
+
   it("associates Qwythos with Qwen3.5 family pages from validated lineage only", () => {
     const parsed = parseCommunityGroup(groupFixture());
     if (parsed === null) throw new Error("expected validated community group");
