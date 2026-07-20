@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { FamilyNavMenu } from "@/components/family-nav-menu";
 import { LAUNCH_FREEZE, shortHash } from "@/components/launch-freeze";
 import { publicProtocolLabel } from "@/lib/board-adapter";
-import { familySlug } from "@/lib/family-slug";
 
 export function AppShell({
   children,
@@ -25,27 +25,7 @@ export function AppShell({
               local-bench
             </Link>
             <div className="flex flex-wrap gap-4 text-sm text-bench-muted">
-              <details className="relative w-full sm:w-auto">
-                <summary className="cursor-pointer list-none font-medium text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent [&::-webkit-details-marker]:hidden">
-                  Model families
-                </summary>
-                <div className="z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded border border-bench-line bg-bench-panel p-1 sm:absolute sm:left-0 sm:w-64">
-                  <Link href="/families" className="sticky top-0 z-10 block rounded bg-bench-panel px-3 py-2 font-semibold text-bench-text hover:bg-white/[0.04] hover:text-bench-accent">
-                    All families →
-                  </Link>
-                  <div className="border-t border-bench-line pt-1">
-                    {families.map((family) => (
-                      <Link
-                        key={family}
-                        href={`/families#${familySlug(family)}`}
-                        className="block rounded px-3 py-2 text-bench-muted hover:bg-white/[0.04] hover:text-bench-text"
-                      >
-                        {family}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </details>
+              <FamilyNavMenu families={families} />
               <Link href="/leaderboard" className="hover:text-bench-text">
                 Global board
               </Link>
