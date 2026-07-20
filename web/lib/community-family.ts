@@ -6,6 +6,7 @@ import {
   type FamilyResolutionContext,
 } from "./family-resolution";
 import type { IndexModel } from "./schemas";
+import { modelHref } from "./routes";
 
 type CommunityCatalogModel = Pick<IndexModel, "catalog_id" | "family" | "model_label" | "slug"> & {
   readonly artifactSha256s?: readonly string[];
@@ -44,7 +45,7 @@ export function communityRowsWithFamilyPaths(
       ...(resolution.familyLabel === null ? {} : { catalogFamily: resolution.familyLabel }),
       chainCatalogIds: resolution.chainCatalogIds,
       confidence: resolution.confidence,
-      detailPath: artifactEntry === undefined ? null : `/model/${artifactEntry.slug}`,
+      detailPath: artifactEntry === undefined ? null : modelHref(artifactEntry.slug),
       familyLabel: resolution.familyLabel,
       lineage: overlayLineage ?? row.lineage,
       rootCatalogId: resolution.rootCatalogId,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
@@ -18,6 +19,12 @@ import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { isFullIndexRow } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4, SEASON_2_HEADLINE_AXES } from "@/lib/scoring-seasons";
 import { publicProtocolLabel } from "@/lib/board-adapter";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Local LLM leaderboard",
+  "Rank local and open-weight LLMs by complete benchmark scores, with per-axis results, runtime, hardware, and run provenance.",
+);
 
 export default async function LeaderboardPage() {
   const [index, agenticBySlug] = await Promise.all([
@@ -34,6 +41,7 @@ export default async function LeaderboardPage() {
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
+  const vramBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.vramRequiredGb8k] as const));
   const fineTuneBaseBySlug = familyRootLabelBySlug(index.models, resolutionContext);
   const communityRowsForDisplay = communityRows === null
     ? []
@@ -68,7 +76,7 @@ export default async function LeaderboardPage() {
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
             Every complete project and community run shares this ranking and the same composite. The global view is a
-            cross-family reference; <Link href="/families" className="text-bench-accent hover:underline">browse model families</Link> to choose among related variants. Note: {season2
+            cross-family reference; <Link href="/families/" className="text-bench-accent hover:underline">browse model families</Link> to choose among related variants. Note: {season2
               ? "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and unweighted diagnostics."
               : "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the Static Index."}
           </div>
@@ -81,6 +89,7 @@ export default async function LeaderboardPage() {
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           indexVersion={index.index_version}
           resolutionContext={resolutionContext}
+          vramBySlug={vramBySlug}
         />
         <CatalogShells models={catalog} />
       </section>

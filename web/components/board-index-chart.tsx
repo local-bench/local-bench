@@ -11,6 +11,7 @@ import {
 } from "@/lib/board-index-chart-layout";
 import { familyStyle } from "@/lib/family-color";
 import { formatScore } from "@/lib/format";
+import { modelHref } from "@/lib/routes";
 import type { IndexModel } from "@/lib/schemas";
 import { hasCompleteSeason2Coverage } from "@/lib/scoring-seasons";
 
@@ -152,7 +153,7 @@ export function BoardIndexChart({ models }: { readonly models: readonly IndexMod
                 {/* Angled label, top-right corner anchored under the bar center (the AA layout). */}
                 <div className="absolute right-1/2 top-1.5 origin-top-right -rotate-[36deg]">
                   <Link
-                    href={`/model/${row.model.slug}`}
+                    href={modelHref(row.model.slug)}
                     className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold leading-4 text-bench-text hover:text-bench-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bench-accent"
                   >
                     <FamilyLogoMark modelLabel={row.model.model_label} size={14} />

@@ -3,6 +3,7 @@ import { HEADLINE_LANE } from "./leaderboard-score";
 import { displayDelta } from "./format";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 import { INDEX_VERSION_V3 } from "./scoring-seasons";
+import { modelHref } from "./routes";
 
 export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
@@ -120,7 +121,7 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
     derivative.row !== null &&
     indexVersion(base.row) !== indexVersion(derivative.row)
   ) {
-    return `/model/${encodeURIComponent(derivative.slug)}#season-bridge`;
+    return `${modelHref(derivative.slug)}#season-bridge`;
   }
   const baseRunId = currentIndexRunId(base.row);
   const derivativeRunId = currentIndexRunId(derivative.row);
@@ -128,7 +129,7 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
     return `/compare?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
   }
   if (hasPreviousIndexDiagnostics(base.row) || hasPreviousIndexDiagnostics(derivative.row)) {
-    return `/model/${encodeURIComponent(derivative.slug)}`;
+    return modelHref(derivative.slug);
   }
   return `/compare?finetune=${encodeURIComponent(derivative.slug)}`;
 }

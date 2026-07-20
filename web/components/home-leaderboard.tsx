@@ -24,6 +24,7 @@ import {
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 const EMPTY_COMMUNITY: readonly CommunityBoardRow[] = [];
 const EMPTY_LINEAGE: ReadonlyMap<string, string> = new Map();
+const EMPTY_VRAM: ReadonlyMap<string, number | null> = new Map();
 
 export { sortLeaderboardRows } from "@/lib/leaderboard-sort";
 export { filterUnifiedLeaderboardRows, sortUnifiedLeaderboardRows } from "@/lib/unified-leaderboard";
@@ -37,6 +38,7 @@ type HomeLeaderboardProps = {
   readonly models: readonly IndexModel[];
   readonly resolutionContext?: FamilyResolutionContext;
   readonly scoreMode?: LeaderboardScoreMode;
+  readonly vramBySlug?: ReadonlyMap<string, number | null>;
 };
 
 export function HomeLeaderboard({
@@ -48,6 +50,7 @@ export function HomeLeaderboard({
   fineTuneBaseBySlug = EMPTY_LINEAGE,
   indexVersion,
   resolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  vramBySlug = EMPTY_VRAM,
 }: HomeLeaderboardProps) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const [family, setFamily] = useState("all");
@@ -132,6 +135,7 @@ export function HomeLeaderboard({
           showAgenticColumn={showAgenticColumn}
           showStaticIndexColumn={showStaticIndexColumn}
           sort={sort}
+          vramBySlug={vramBySlug}
         />
       )}
     </div>
@@ -176,7 +180,7 @@ function LeaderboardFilters({
         <BoardFilter label="Quant" value={quant} values={options.quants} onChange={setQuant} />
         <BoardFilter label="RAM" value={ram} values={options.rams} onChange={setRam} />
       </div>
-      <p className="font-mono text-xs text-bench-muted">{total} complete ranked run{total === 1 ? "" : "s"}</p>
+      <p role="status" className="font-mono text-xs text-bench-muted">{total} complete ranked run{total === 1 ? "" : "s"}</p>
     </div>
   );
 }

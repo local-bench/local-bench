@@ -12,6 +12,7 @@ import type { CommunityBoardRow } from "@/lib/community-data";
 import { familySummaries } from "@/lib/families";
 import type { FamilyResolutionContext } from "@/lib/family-resolution";
 import { formatScore } from "@/lib/format";
+import { familyHref, modelHref } from "@/lib/routes";
 import type { IndexModel } from "@/lib/schemas";
 
 type FamilyDirectoryProps = {
@@ -39,12 +40,13 @@ export function FamilyDirectory({ communityRows, models, resolutionContext }: Fa
           {families.map((summary) => {
             const entries = familyModelListEntries(summary.models, state.rows, summary.family);
             const bestScore = entries.find((entry) => entry.score !== null)?.score ?? null;
+            const benchmarkSlug = summary.models[0]?.model.slug;
             return (
               <article id={summary.slug} key={summary.family} className="scroll-mt-48 bg-bench-panel p-4 sm:scroll-mt-32 lg:scroll-mt-24">
                 <div className="flex items-center gap-2">
                   <FamilyLogoMark modelLabel={summary.family} size={20} />
                   <h2 className="font-semibold text-bench-text">
-                    <Link href={`/families/${summary.slug}`} className="hover:text-bench-accent">
+                    <Link href={familyHref(summary.slug)} className="hover:text-bench-accent">
                       {summary.family}
                     </Link>
                   </h2>
@@ -52,12 +54,15 @@ export function FamilyDirectory({ communityRows, models, resolutionContext }: Fa
                 <p className="mt-2 font-mono text-xs text-bench-muted">
                   {entries.length} model{entries.length === 1 ? "" : "s"}
                   {bestScore === null ? " · awaiting a complete run" : ` · best ${formatScore(bestScore)}`}
+                  {bestScore === null && benchmarkSlug !== undefined ? (
+                    <> · <Link href={`/submit/?model=${encodeURIComponent(benchmarkSlug)}`} className="text-bench-warn hover:underline">benchmark it →</Link></>
+                  ) : null}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {entries.slice(0, 5).map((entry) => entry.source === "maintainer" ? (
                     <Link
                       key={entry.model.slug}
-                      href={`/model/${entry.model.slug}`}
+                      href={modelHref(entry.model.slug)}
                       className="rounded border border-bench-line px-2 py-1 text-xs text-bench-muted hover:border-bench-accent hover:text-bench-text"
                     >
                       {entry.model.model_label}
@@ -71,7 +76,7 @@ export function FamilyDirectory({ communityRows, models, resolutionContext }: Fa
                     </span>
                   ))}
                 </div>
-                <Link href={`/families/${summary.slug}`} className="mt-4 inline-flex text-sm font-semibold text-bench-accent hover:underline">
+                <Link href={familyHref(summary.slug)} className="mt-4 inline-flex text-sm font-semibold text-bench-accent hover:underline">
                   View family →
                 </Link>
               </article>

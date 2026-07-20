@@ -13,9 +13,10 @@ import {
   StaticIndexCell,
   ToolUseCell,
 } from "@/components/leaderboard-table-cells";
-import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds } from "@/lib/format";
+import { formatDuration, formatGb, formatGpuShort, formatInteger, formatLatencySeconds } from "@/lib/format";
 import { boardAxisValue } from "@/lib/board-adapter";
 import { scoreForMode, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
+import { modelHref } from "@/lib/routes";
 import { displayIndexVersion } from "@/lib/scoring-seasons";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 
@@ -29,6 +30,7 @@ type RankedRowProps = {
   readonly season2: boolean;
   readonly showAgenticColumn: boolean;
   readonly showStaticIndexColumn: boolean;
+  readonly vramRequiredGb8k: number | null;
 };
 
 export function LeaderboardRankedRow({
@@ -41,6 +43,7 @@ export function LeaderboardRankedRow({
   season2,
   showAgenticColumn,
   showStaticIndexColumn,
+  vramRequiredGb8k,
 }: RankedRowProps) {
   const score = scoreForMode(model, scoreMode);
   return (
@@ -51,7 +54,7 @@ export function LeaderboardRankedRow({
       <td className="px-3 py-3">
         <span className="flex items-center gap-2">
           <FamilyLogoMark modelLabel={model.model_label} size={16} />
-          <Link href={`/model/${model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
+          <Link href={modelHref(model.slug)} className="font-semibold text-bench-text hover:text-bench-accent">
             {model.model_label}
           </Link>
           {model.demo ? <DemoBadge /> : null}
@@ -84,6 +87,7 @@ export function LeaderboardRankedRow({
       {showAgenticColumn ? (
         <td className="px-3 py-3"><AgenticCell model={agentic} axisScore={model.axes["agentic"]} /></td>
       ) : null}
+      <td className="px-3 py-3 font-mono text-bench-text">{formatGb(vramRequiredGb8k)}</td>
       <td className="px-3 py-3"><RuntimeCell runtime={model.runtime} /></td>
       <td className="px-3 py-3 font-mono text-xs text-bench-text">{formatGpuShort(model.gpu)}</td>
       <td className="px-3 py-3 font-mono text-bench-text">{formatInteger(model.tokens_to_answer_median)}</td>

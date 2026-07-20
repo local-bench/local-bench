@@ -38,7 +38,7 @@ if (communityGroup === null) throw new Error("unified leaderboard fixture must v
 const communityRows = communityBoardRows([communityGroup]);
 const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) => ({
   ...row,
-  detailPath: "/model/ranked-2",
+  detailPath: "/model/ranked-2/",
   family: "Fixture",
   globalRank: 2,
   indexVersion: "index-v4.1",
@@ -62,6 +62,20 @@ const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) 
 }));
 
 describe("unified leaderboard community rows", () => {
+  it("renders trailing-slash model links in the ranked table", () => {
+    const first = rankedRows[0];
+    if (first === undefined) throw new Error("missing ranked fixture");
+
+    const html = renderToStaticMarkup(
+      <HomeLeaderboard models={[first]} vramBySlug={new Map([[first.slug, 18.5]])} />,
+    );
+
+    expect(html).toContain('href="/model/ranked-1/"');
+    expect(html).not.toContain('href="/model/ranked-1"');
+    expect(html).toContain("VRAM @8k");
+    expect(html).toContain("18.5 GB");
+  });
+
   it("renders a numeric rank and plain submission detail in the shared board", () => {
     const html = renderToStaticMarkup(
       <HomeLeaderboard models={rankedRows} communityRows={liveCommunityRows} indexVersion="index-v4.1" />,
@@ -74,7 +88,7 @@ describe("unified leaderboard community rows", () => {
     expect(rowStart).toBeGreaterThan(-1);
     expect(rowHtml).toContain("Qwythos-9B v2");
     expect(rowHtml).toContain("submitted as Ada — unverified");
-    expect(rowHtml).toContain('href="/model/ranked-2"');
+    expect(rowHtml).toContain('href="/model/ranked-2/"');
     expect(rowHtml).toContain("41.0");
     expect(rowHtml).toContain("42.0");
     expect(rowHtml).toContain("55.0");

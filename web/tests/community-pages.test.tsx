@@ -35,7 +35,7 @@ describe("community results use the model-family namespace", () => {
     );
     expect(html).not.toContain('href="/community"');
     expect(html).not.toContain(">Community<");
-    expect(html).toContain('href="/submissions"');
+    expect(html).toContain('href="/submissions/"');
     expect(html).toContain('href="https://github.com/local-bench/local-bench"');
     expect(html).toContain(">GitHub</a>");
   });
@@ -49,14 +49,14 @@ describe("community results use the model-family namespace", () => {
       </AppShell>,
     );
     const familiesSummary = html.search(/<summary[^>]*>Model families<\/summary>/u);
-    const leaderboardLink = html.indexOf('href="/leaderboard"');
+    const leaderboardLink = html.indexOf('href="/leaderboard/"');
 
     // Then: families remains the emphasized first destination and exposes every directory target.
     expect(familiesSummary).toBeGreaterThan(-1);
     expect(familiesSummary).toBeLessThan(leaderboardLink);
-    expect(html).toContain('href="/families">All families →</a>');
-    expect(html).toContain('href="/families/deepseek-v3"');
-    expect(html).toContain('href="/families/qwen3-6"');
+    expect(html).toContain('href="/families/">All families →</a>');
+    expect(html).toContain('href="/families/deepseek-v3/"');
+    expect(html).toContain('href="/families/qwen3-6/"');
     expect(html).toContain("sticky top-0");
     expect(html).not.toContain('href="/#families"');
     expect(html).not.toContain('href="/families#');

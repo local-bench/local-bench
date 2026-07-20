@@ -9,6 +9,7 @@ import {
 } from "@/lib/vram-log-scale";
 import type { AnchorReference } from "@/lib/data";
 import type { BestVariantPoint } from "@/lib/best-variant";
+import { modelHref } from "@/lib/routes";
 
 const WIDTH = 920;
 const HEIGHT = 460;
@@ -98,7 +99,7 @@ export function BestVariantVramScatter({
             {frontier.length >= 3
               ? " The dotted line connects the models that are best at their size — nothing measured is both higher-scoring and smaller on current point estimates."
               : ""}{" "}
-            Hover any point for details.
+            Hover or focus any point for details.
           </p>
           {points.length < 4 ? (
             <p className="mt-1.5 font-mono text-[11px] text-bench-muted-2">
@@ -205,7 +206,7 @@ export function BestVariantVramScatter({
               // CSS-only hover: this is a server component, so the tooltip is an SVG group toggled
               // by group-hover — no client JS. The transparent r=14 circle is the hit target (the
               // visible 6px dot was too small to hover reliably).
-              <a key={point.runId} href={`/model/${point.modelSlug}`} className="group">
+              <a key={point.runId} href={modelHref(point.modelSlug)} className="group">
                 <title>
                   {`${point.modelLabel}${point.quantLabel ? ` (${point.quantLabel})` : ""}: ${formatScore(point.score.point)} — ${
                     qualifier === null ? "" : `${qualifier} — `
@@ -231,7 +232,7 @@ export function BestVariantVramScatter({
                     )}
                   </text>
                 ) : null}
-                <g className="pointer-events-none opacity-0 transition-opacity duration-100 group-hover:opacity-100">
+                <g className="pointer-events-none opacity-0 transition-opacity duration-100 group-hover:opacity-100 group-focus-within:opacity-100">
                   <rect
                     x={tipX}
                     y={tipY}

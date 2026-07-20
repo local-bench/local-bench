@@ -19,8 +19,8 @@ describe("family navigation disclosure", () => {
     // Then: it remains a details/summary disclosure of ordinary links.
     expect(html).toContain("<details");
     expect(html).toContain("<summary");
-    expect(html).toContain('href="/families/deepseek-v3"');
-    expect(html).toContain('href="/families/qwen3-6"');
+    expect(html).toContain('href="/families/deepseek-v3/"');
+    expect(html).toContain('href="/families/qwen3-6/"');
     expect(html).not.toContain('role="menu"');
     expect(html).not.toContain("aria-haspopup");
   });

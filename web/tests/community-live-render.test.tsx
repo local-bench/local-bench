@@ -69,7 +69,7 @@ describe("live-only community links", () => {
 
     // Then: display and logo use catalog family while the adapter's declared family remains untouched.
     expect(joined.family).toBe("qwen35");
-    expect(html).toContain('data-href="/model/bonsai-27b-ternary"');
+    expect(html).toContain('data-href="/model/bonsai-27b-ternary/"');
     expect(html).toContain('src="/logos/qwen.jpg"');
     expect(html).toContain(">Qwen3.6</div>");
     expect(html).not.toContain(">qwen35</div>");
@@ -177,13 +177,13 @@ describe("live-only community links", () => {
     const visibleText = html.replace(/<[^>]+>/gu, "");
 
     expect(html).toContain('src="/logos/qwen.jpg"');
-    expect(html).toContain('title="Qwen (Alibaba)"');
+    expect(html).not.toContain('title="Qwen (Alibaba)"');
     expect(html).toContain("LB-2026-07");
     expect(html).toContain("Fine-tune of Qwen/Qwen3.6-27B");
     expect(html).toContain("h-1.5 overflow-hidden rounded-full");
     expect(html).toContain("h-1 overflow-hidden rounded-full");
     expect(html).toContain('title="n=400 scored items"');
-    expect(visibleText).not.toContain("n=");
+    expect(visibleText).toContain("n=400");
     expect(html).toContain("AppWorld task-goal completion");
     expect(html).toContain("Call formatting");
     expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");

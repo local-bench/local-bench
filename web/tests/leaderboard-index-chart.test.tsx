@@ -112,7 +112,7 @@ describe("BoardIndexChart", () => {
 
     expect(linkedSlugs(html)).toEqual(["alpha", "beta", "gamma"]);
     for (const row of rows) {
-      expect(html.match(new RegExp(`href="/model/${row.slug}"`, "g")) ?? []).toHaveLength(1);
+      expect(html.match(new RegExp(`href="/model/${row.slug}/"`, "g")) ?? []).toHaveLength(1);
     }
   });
 

@@ -11,6 +11,7 @@ import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { resolveRunArtifactMetrics } from "@/lib/model-run-metrics";
 import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decision";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
+import { modelHref, runHref } from "@/lib/routes";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
@@ -83,10 +84,29 @@ export function ModelVariantBoard({
             what your card needs. Ranks are within this family&apos;s variants.
           </p>
       </div>
+      <details className="border-b border-bench-line bg-bench-panel-2/45 px-4 py-3 text-sm text-bench-muted">
+        <summary className="cursor-pointer font-semibold text-bench-accent">Column guide</summary>
+        <div className="mt-3 grid gap-2 leading-6 sm:grid-cols-2">
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">VRAM @8k</Link> — model weights, KV cache, and runtime headroom at 8k context.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Fits</Link> — the smallest common GPU VRAM tier above that estimate.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Prefill tok/s</Link> — prompt-processing speed.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Decode tok/s</Link> — generated-token speed after the prompt.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Overall tok/s</Link> — completion throughput across the full benchmark.</p>
+          <p><span className="text-bench-text">File size</span> — the benchmarked model artifact on disk.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#serving-engine-lanes">Runtime</Link> — the serving engine and version.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#evidence-and-reproduction">Run</Link> — the immutable benchmark receipt.</p>
+        </div>
+        <p className="mt-3 font-semibold text-bench-text">Pick the largest quant whose VRAM @8k fits your card.</p>
+      </details>
       <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent 2xl:hidden">
         Swipe horizontally for all variant metrics &rarr;
       </p>
-      <div className="overflow-x-auto">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Model variant table — scrolls horizontally"
+        className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+      >
         <table data-testid="model-variant-table" className="min-w-[1360px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
@@ -136,7 +156,7 @@ export function ModelVariantBoard({
                 <td colSpan={9 + axisKeys.length + (hasPerf ? 2 : 0)} className="px-3 py-5 text-sm text-bench-muted">
                   No current-index measurements yet.{" "}
                   <Link
-                    href={`/submit?model=${encodeURIComponent(model.slug)}`}
+                    href={`/submit/?model=${encodeURIComponent(model.slug)}`}
                     className="font-mono text-xs text-bench-warn hover:underline"
                   >
                     benchmark it
@@ -191,7 +211,7 @@ export function ModelVariantBoard({
                     {run.run_id === null ? (
                       <span className="font-mono text-xs text-bench-muted">—</span>
                     ) : (
-                      <Link href={`/run/${run.run_id}`} className="font-mono text-xs text-bench-accent hover:underline">
+                      <Link href={runHref(run.run_id)} className="font-mono text-xs text-bench-accent hover:underline">
                         receipt
                       </Link>
                     )}
@@ -236,7 +256,7 @@ export function ModelVariantBoard({
                   {run.run_id === null ? (
                     <span className="font-mono text-xs text-bench-muted">—</span>
                   ) : (
-                    <Link href={`/run/${run.run_id}`} className="font-mono text-xs text-bench-accent hover:underline">
+                    <Link href={runHref(run.run_id)} className="font-mono text-xs text-bench-accent hover:underline">
                       receipt
                     </Link>
                   )}
@@ -302,7 +322,7 @@ function VariantCell({ row, children }: { readonly row: VariantRow; readonly chi
         <Badge tone={lineage.tone} title={lineage.title}>
           {lineage.label}
         </Badge>
-        <Link href={`/model/${row.model.slug}`} className="font-semibold text-bench-accent hover:underline">
+        <Link href={modelHref(row.model.slug)} className="font-semibold text-bench-accent hover:underline">
           {row.model.model_label}
         </Link>
       </span>

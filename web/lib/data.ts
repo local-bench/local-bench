@@ -48,6 +48,7 @@ import { HEADLINE_LANE } from "./leaderboard-score";
 import { getCommunityBoardRows, type CommunityBoardRow } from "./community-data";
 import { buildFamilyResolutionContext, resolveFamily } from "./family-resolution";
 import { overlayLineageByArtifactSha } from "./overlay-lineage";
+import { estimateRunVram } from "./model-run-metrics";
 
 export {
   COMMUNITY_GROUP_PLACEHOLDER_ID,
@@ -120,6 +121,7 @@ export type HomePageData = {
 
 export type IndexModelWithArtifacts = IndexModel & {
   readonly artifactSha256s: readonly string[];
+  readonly vramRequiredGb8k: number | null;
 };
 
 export type ModelStaticParam = {
@@ -506,10 +508,17 @@ function joinIndexModelArtifacts(
   details: readonly ModelData[],
 ): readonly IndexModelWithArtifacts[] {
   const detailsBySlug = new Map(details.map((model) => [model.slug, model]));
-  return indexModels.map((model) => ({
-    ...model,
-    artifactSha256s: detailsBySlug.get(model.slug)?.artifacts?.map((artifact) => artifact.file_sha256) ?? [],
-  }));
+  return indexModels.map((model) => {
+    const detail = detailsBySlug.get(model.slug);
+    const bestRun = detail?.runs.find((run) => run.run_id === model.best_run_id);
+    return {
+      ...model,
+      artifactSha256s: detail?.artifacts?.map((artifact) => artifact.file_sha256) ?? [],
+      vramRequiredGb8k: bestRun === undefined || detail === undefined
+        ? null
+        : estimateRunVram(bestRun, detail.runs)?.effectiveRequiredGb ?? null,
+    };
+  });
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {

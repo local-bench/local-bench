@@ -7,6 +7,7 @@ import {
 } from "@/components/local-intelligence-index";
 import { formatCi, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
+import { runHref } from "@/lib/routes";
 import {
   getQuantDecisionRows,
   type QuantDecisionInputModel,
@@ -32,7 +33,7 @@ export function QuantDecisionMatrix({ model }: { readonly model: QuantDecisionIn
           </p>
         </div>
         <Link
-          href="/compare"
+          href="/compare/"
           className="rounded border border-bench-accent/45 bg-bench-accent/10 px-3 py-2 text-sm font-semibold text-bench-accent hover:bg-bench-accent/15"
         >
           Compare configs
@@ -120,7 +121,7 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
           {row.run?.demo ? <DemoBadge /> : null}
         </div>
         {row.run?.run_id ? (
-          <Link href={`/run/${row.run.run_id}`} className="mt-1 block font-mono text-xs text-bench-accent hover:underline">
+          <Link href={runHref(row.run.run_id)} className="mt-1 block font-mono text-xs text-bench-accent hover:underline">
             {row.run.run_id}
           </Link>
         ) : (

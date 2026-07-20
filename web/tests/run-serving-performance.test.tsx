@@ -46,8 +46,8 @@ describe("RunPage legacy receipts", () => {
     expect(html).toContain("60.8");
     expect(html).toContain("capped-thinking");
     expect(html).toContain("This receipt lets anyone verify this run against the frozen suite");
-    expect(html).toContain('href="/methodology"');
-    expect(html).toContain('href="/model/gemma-4-12b-it"');
+    expect(html).toContain('href="/methodology/"');
+    expect(html).toContain('href="/model/gemma-4-12b-it/"');
     expect(html).toContain("← back to Gemma 4 12B IT");
     expect(html).not.toContain("Local Intelligence Index</div><div class=\"font-mono text-xs text-bench-accent\">index-v3.0");
     expect(html).not.toContain("text-6xl");

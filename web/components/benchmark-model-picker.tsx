@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PasteModelPicker } from "@/components/benchmark-paste-picker";
-import { formatCompactNumber } from "@/lib/format";
+import { formatCompactNumber, formatScore } from "@/lib/format";
 import {
   bestFitForVram,
   isDerivativeModel,
@@ -14,6 +14,7 @@ import {
   type OnrampCatalogQuant,
   type PopularitySort,
 } from "@/lib/onramp";
+import { modelHref } from "@/lib/routes";
 
 export type PickMode = "popular" | "browse" | "paste";
 const COUNT_FORMAT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
@@ -63,7 +64,7 @@ function LineageChip({ model }: { readonly model: OnrampCatalogModel }) {
   return model.baseModelSlug === null ? (
     <span className={className}>{label}</span>
   ) : (
-    <Link href={`/model/${model.baseModelSlug}`} className={className}>
+    <Link href={modelHref(model.baseModelSlug)} className={className}>
       {label}
     </Link>
   );
@@ -111,6 +112,7 @@ export function ModelPicker(props: {
   readonly onPasteHfModelId: (value: string) => void;
   readonly pasteQuant: string;
   readonly onPasteQuant: (value: string) => void;
+  readonly benchmarkedModels: readonly { readonly score: number; readonly slug: string }[];
 }) {
   const [expandedFamilySlug, setExpandedFamilySlug] = useState<string | null>(null);
   const [showAllFamilySlug, setShowAllFamilySlug] = useState<string | null>(null);
@@ -135,6 +137,7 @@ export function ModelPicker(props: {
               <button
                 key={sort}
                 type="button"
+                aria-pressed={props.popularitySort === sort}
                 onClick={() => props.onPopularitySort(sort)}
                 className={[
                   "rounded px-2.5 py-1 text-[11px] font-semibold uppercase transition-colors",
@@ -146,10 +149,16 @@ export function ModelPicker(props: {
             ))}
           </div>
         </div>
+        <p className="text-sm text-bench-muted">
+          Ordered by Hugging Face popularity; only chipped entries have measured local-bench runs.
+        </p>
+        <div className="grid gap-2" role="radiogroup" aria-label="Popular model">
         {props.popular.map((entry) => (
           <div key={entry.model.slug} className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap">
             <button
               type="button"
+              role="radio"
+              aria-checked={entry.model.slug === activeSlug}
               onClick={() => props.onPopular(entry.model.slug)}
               className={[
                 "flex min-w-0 basis-full grow items-center justify-between gap-3 rounded border px-3 py-2 text-left text-sm transition-colors sm:basis-0",
@@ -166,6 +175,10 @@ export function ModelPicker(props: {
               </span>
               <span className="shrink-0 font-mono text-[11px] text-bench-muted">{entry.quant.label}</span>
             </button>
+            <BenchmarkStatus
+              model={entry.model}
+              score={props.benchmarkedModels.find((candidate) => candidate.slug === entry.model.slug)?.score ?? null}
+            />
             {fineTuneLine(entry.model) ? (
               <div className="flex shrink-0 items-center">
                 <LineageChip model={entry.model} />
@@ -184,6 +197,7 @@ export function ModelPicker(props: {
             ) : null}
           </div>
         ))}
+        </div>
         <p className="font-mono text-[10px] text-bench-muted" title={POPULARITY_DISCLAIMER}>
           Hugging Face popularity is repo-level and monthly for downloads · 8k-context estimate; the ranked recipe pins
           32k context — you may need one quant tier smaller.
@@ -347,4 +361,31 @@ export function ModelPicker(props: {
   }
 
   return <PasteModelPicker {...props} />;
+}
+
+function BenchmarkStatus({
+  model,
+  score,
+}: {
+  readonly model: OnrampCatalogModel;
+  readonly score: number | null;
+}) {
+  if (score !== null) {
+    return (
+      <Link
+        href={modelHref(model.slug)}
+        className="flex shrink-0 items-center rounded border border-bench-accent/45 bg-bench-accent/10 px-2 font-mono text-[11px] text-bench-accent hover:border-bench-accent"
+      >
+        benched {formatScore(score)} →
+      </Link>
+    );
+  }
+  return (
+    <Link
+      href={`/submit/?model=${encodeURIComponent(model.slug)}`}
+      className="flex shrink-0 items-center px-1 font-mono text-[11px] text-bench-warn hover:underline"
+    >
+      no run yet — benchmark it
+    </Link>
+  );
 }

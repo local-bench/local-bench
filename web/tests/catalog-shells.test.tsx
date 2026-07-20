@@ -27,7 +27,7 @@ describe("CatalogShells", () => {
     const html = renderToStaticMarkup(<CatalogShells models={[model]} />);
 
     expect(html).toContain("Not yet benchmarked — 1 catalog models on the roadmap");
-    expect(html).toContain('href="/submit"');
+    expect(html).toContain('href="/submit/"');
     expect(html).toContain("be the first to submit a run →");
   });
 });

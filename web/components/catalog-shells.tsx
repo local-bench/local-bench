@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { modelHref } from "@/lib/routes";
 import type { IndexModel } from "@/lib/schemas";
 
 // The ~100 score-less catalog shells live BELOW the ranked board, collapsed by default, so they
@@ -17,7 +18,7 @@ export function CatalogShells({ models }: { readonly models: readonly IndexModel
         Not yet benchmarked — {models.length} catalog models on the roadmap
       </summary>
       <div className="border-t border-bench-line px-4 pt-4">
-        <Link className="text-sm font-semibold text-bench-accent hover:underline" href="/submit">
+        <Link className="text-sm font-semibold text-bench-accent hover:underline" href="/submit/">
           be the first to submit a run →
         </Link>
       </div>
@@ -25,11 +26,11 @@ export function CatalogShells({ models }: { readonly models: readonly IndexModel
         {sorted.map((model) => (
           <li key={model.slug}>
             <Link
-              href={`/model/${model.slug}`}
+              href={modelHref(model.slug)}
               className="flex items-baseline justify-between gap-2 text-bench-muted hover:text-bench-accent"
             >
               <span className="truncate">{model.model_label}</span>
-              <span className="shrink-0 text-xs text-bench-muted/60">{model.family}</span>
+              <span className="shrink-0 text-xs text-bench-muted-2">{model.family}</span>
             </Link>
           </li>
         ))}

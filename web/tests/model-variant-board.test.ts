@@ -235,8 +235,8 @@ describe("model variant board runtime display", () => {
     const familyRow = html.slice(familyStart, familyEnd);
 
     expect(familyRow).toContain("fine-tune");
-    expect(familyRow).toContain('href="/model/qwopus3-6-27b-v2-mtp"');
-    expect(familyRow).toContain('href="/run/qwopus-family-run"');
+    expect(familyRow).toContain('href="/model/qwopus3-6-27b-v2-mtp/"');
+    expect(familyRow).toContain('href="/run/qwopus-family-run/"');
     expect(familyRow).not.toContain("sweet spot");
   });
 

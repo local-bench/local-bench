@@ -105,7 +105,7 @@ describe("homepage unified board", () => {
     const leaderboard = renderToStaticMarkup(await LeaderboardPage());
 
     expect(landing).toContain("Showing the best variant per base family");
-    expect(landing).toContain('href="/leaderboard"');
+    expect(landing).toContain('href="/leaderboard/"');
     // The unified "complete headline profile" phrase is version-derived board copy
     // (v4 scope) plus static methodology/submit/family copy — pinned in
     // methodology-page.test.tsx; this v3-shaped fixture never renders it.
@@ -122,7 +122,7 @@ describe("homepage unified board", () => {
   it("uses detail artifact identity before declared base lineage for the community route", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
-    expect(html).toContain('data-href="/model/bonsai-27b-ternary"');
+    expect(html).toContain('data-href="/model/bonsai-27b-ternary/"');
     expect(html).not.toContain('data-href="/model/homepage-ranked"');
   });
 

@@ -24,7 +24,7 @@ describe("family detail page", () => {
     );
 
     // Then: every model link is present in measured-first, score-descending order.
-    const linkPositions = expectedOrder.map((model) => html.indexOf(`href="/model/${model.slug}"`));
+    const linkPositions = expectedOrder.map((model) => html.indexOf(`href="/model/${model.slug}/"`));
     expect(linkPositions.every((position) => position >= 0)).toBe(true);
     expect(linkPositions).toEqual([...linkPositions].sort((left, right) => left - right));
   });
@@ -38,7 +38,7 @@ describe("family detail page", () => {
     const html = renderToStaticMarkup(await FamilyPage({ params: Promise.resolve(firstParam) }));
 
     // Then: the Model families breadcrumb returns to the directory.
-    expect(html).toContain('href="/families">Model families</a>');
+    expect(html).toContain('href="/families/">Model families</a>');
   });
 
   it("generates every distinct family slug exactly once", async () => {

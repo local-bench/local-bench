@@ -14,7 +14,7 @@ import {
 } from "@/lib/data";
 import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { familyRootLabelBySlug } from "@/lib/family-resolution";
-import { isFullIndexRow } from "@/lib/leaderboard-score";
+import { isFullIndexRow, scoreForMode } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
 export default async function HomePage() {
@@ -31,9 +31,14 @@ export default async function HomePage() {
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
+  const vramBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.vramRequiredGb8k] as const));
   const communityRowsForDisplay = communityRows === null
     ? []
     : communityRowsWithFamilyPaths(communityRows, resolutionContext);
+  const benchmarkedModels = ranked.flatMap((model) => {
+    const score = scoreForMode(model, "full");
+    return score === null ? [] : [{ score: score.point, slug: model.slug }];
+  });
 
   return (
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -48,7 +53,7 @@ export default async function HomePage() {
       <section className="grid gap-2">
         <p className="text-sm text-bench-muted">
           Showing the best variant per base family —{" "}
-          <Link href="/leaderboard" className="font-semibold text-bench-accent hover:underline">full board →</Link>
+          <Link href="/leaderboard/" className="font-semibold text-bench-accent hover:underline">full board →</Link>
         </p>
         <HomeLeaderboard
           models={rankedForDisplay}
@@ -57,13 +62,18 @@ export default async function HomePage() {
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           indexVersion={index.index_version}
           resolutionContext={resolutionContext}
+          vramBySlug={vramBySlug}
         />
       </section>
       <div id="run-it-yourself" className="scroll-mt-24">
-        <BenchmarkOnramp catalog={catalog.models} popularityAsOf={catalog.popularityAsOf} />
+        <BenchmarkOnramp
+          benchmarkedModels={benchmarkedModels}
+          catalog={catalog.models}
+          popularityAsOf={catalog.popularityAsOf}
+        />
       </div>
       <Link
-        href="/leaderboard"
+        href="/leaderboard/"
         className="rounded-lg border border-bench-line bg-bench-panel/82 px-5 py-4 text-center font-semibold text-bench-text transition-colors hover:border-bench-accent hover:text-bench-accent"
       >
         View global comparison →

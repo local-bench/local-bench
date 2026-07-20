@@ -12,6 +12,7 @@ import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { axisLabel, formatCi, formatCompactNumber, formatDuration, formatGb, formatScore } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
+import { modelHref } from "@/lib/routes";
 import type { BestVariantPoint } from "@/lib/best-variant";
 import type { AxisScore } from "@/lib/schemas";
 
@@ -60,7 +61,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
         <p className="mt-1 text-xs leading-5 text-bench-muted">
           Each model&apos;s best ranked variant, scored by the Local Intelligence Index — axis weights are in the
           column headers.{" "}
-          <Link href="/leaderboard" className="text-bench-accent underline hover:text-bench-text">
+          <Link href="/leaderboard/" className="text-bench-accent underline hover:text-bench-text">
             See the full leaderboard
           </Link>{" "}
           for every quant, hardware, and run provenance.
@@ -120,7 +121,7 @@ export function BestVariantTable({ points }: { readonly points: readonly BestVar
                           style={{ backgroundColor: style.color }}
                         />
                       )}
-                      <Link href={`/model/${point.modelSlug}`} className="font-semibold text-bench-text hover:text-bench-accent">
+                      <Link href={modelHref(point.modelSlug)} className="font-semibold text-bench-text hover:text-bench-accent">
                         {point.modelLabel}
                       </Link>
                       {point.quantLabel ? <span className="font-mono text-xs text-bench-muted">{point.quantLabel}</span> : null}

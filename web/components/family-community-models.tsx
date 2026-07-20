@@ -8,6 +8,7 @@ import type { CommunityBoardRow } from "@/lib/community-data";
 import type { FamilyModelSummary } from "@/lib/families";
 import type { FamilyResolutionContext } from "@/lib/family-resolution";
 import { formatScore } from "@/lib/format";
+import { modelHref } from "@/lib/routes";
 
 type FamilyModelTableLiveProps = {
   readonly family: string;
@@ -44,7 +45,12 @@ export function FamilyModelTable({
 }) {
   const entries = familyModelListEntries(models, rows, family);
   return (
-    <div className="overflow-x-auto">
+    <div
+      tabIndex={0}
+      role="region"
+      aria-label={`${family} model results table — scrolls horizontally`}
+      className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+    >
       <table className="min-w-full border-collapse text-sm">
         <thead className="bg-white/[0.03] text-left font-mono text-xs uppercase tracking-wide text-bench-muted">
           <tr>
@@ -126,7 +132,7 @@ export function familyModelListEntries(
   const communityModelPaths = new Set(communityRows.flatMap((row) => row.detailPath === null ? [] : [row.detailPath]));
   return [
     ...models
-      .filter((entry) => entry.score !== null || !communityModelPaths.has(`/model/${entry.model.slug}`))
+      .filter((entry) => entry.score !== null || !communityModelPaths.has(modelHref(entry.model.slug)))
       .map((entry) => ({ ...entry, source: "maintainer" as const })),
     ...communityRows.map((row) => ({
       row,
@@ -148,7 +154,7 @@ function MaintainerFamilyRow({ entry }: { readonly entry: MaintainerFamilyEntry 
   return (
     <tr className="border-t border-bench-line/70">
       <td className="px-5 py-3">
-        <Link href={`/model/${entry.model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
+        <Link href={modelHref(entry.model.slug)} className="font-semibold text-bench-text hover:text-bench-accent">
           {entry.model.model_label}
         </Link>
       </td>

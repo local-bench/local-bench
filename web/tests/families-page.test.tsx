@@ -19,7 +19,7 @@ describe("model families page", () => {
     // Then: the directory heading, a family, and its model link are present.
     expect(html).toContain("Browse by model family");
     expect(html).toContain(firstVisibleModel.family);
-    expect(html).toContain(`href="/families/${firstFamily.slug}"`);
-    expect(html).toContain(`href="/model/${firstVisibleModel.slug}"`);
+    expect(html).toContain(`href="/families/${firstFamily.slug}/"`);
+    expect(html).toContain(`href="/model/${firstVisibleModel.slug}/"`);
   });
 });

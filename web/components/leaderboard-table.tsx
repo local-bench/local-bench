@@ -24,6 +24,7 @@ type LeaderboardTableProps = {
   readonly showAgenticColumn: boolean;
   readonly showStaticIndexColumn: boolean;
   readonly sort: SortState;
+  readonly vramBySlug: ReadonlyMap<string, number | null>;
 };
 
 export function LeaderboardTable({
@@ -37,13 +38,19 @@ export function LeaderboardTable({
   showAgenticColumn,
   showStaticIndexColumn,
   sort,
+  vramBySlug,
 }: LeaderboardTableProps) {
   return (
     <div>
       <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent 2xl:hidden">
         Swipe horizontally for scores and axes →
       </p>
-      <div className="overflow-x-auto">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Leaderboard table — scrolls horizontally"
+        className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+      >
         <table className="min-w-[1280px] border-collapse text-sm">
         <caption className="sr-only">
           Complete project and community runs share one score-sorted ranked table.
@@ -69,6 +76,7 @@ export function LeaderboardTable({
             {showAgenticColumn ? (
               <SortableHeader label={<AgenticHeaderLabel />} sortKey={AGENTIC_SORT_KEY} sort={sort} onSort={setSort} />
             ) : null}
+            <th className="px-3 py-3 font-semibold">VRAM @8k</th>
             <SortableHeader label="Runtime" sortKey="runtime" sort={sort} onSort={setSort} />
             <SortableHeader label="Hardware" sortKey="hardware" sort={sort} onSort={setSort} />
             <SortableHeader
@@ -97,6 +105,7 @@ export function LeaderboardTable({
                     season2={season2}
                     showAgenticColumn={showAgenticColumn}
                     showStaticIndexColumn={showStaticIndexColumn}
+                    vramRequiredGb8k={vramBySlug.get(entry.model.slug) ?? null}
                   />
                 );
               case "community":
@@ -117,6 +126,11 @@ export function LeaderboardTable({
         </tbody>
         </table>
       </div>
+      {axisKeys.includes("agentic") || showAgenticColumn ? (
+        <p className="border-t border-bench-line px-3 py-2 text-xs leading-5 text-bench-muted">
+          Agentic = AppWorld task-goal completion; 25% weight; near-floor scores compress gaps.
+        </p>
+      ) : null}
     </div>
   );
 }

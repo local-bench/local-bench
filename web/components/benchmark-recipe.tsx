@@ -271,7 +271,7 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
       )}
       <p className="font-mono text-xs text-bench-muted">
         See{" "}
-        <Link href="/submit" className="text-bench-accent underline">
+        <Link href="/submit/" className="text-bench-accent underline">
           how to submit
         </Link>{" "}
         for the full loop and trust labels.

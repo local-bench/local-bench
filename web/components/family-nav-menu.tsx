@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { familySlug } from "@/lib/family-slug";
+import { familyHref } from "@/lib/routes";
 
 type FamilyNavDisclosure = {
   open: boolean;
@@ -53,14 +54,14 @@ export function FamilyNavMenu({ families }: { readonly families: readonly string
         Model families
       </summary>
       <div className="z-30 mt-2 max-h-[60vh] w-full overflow-y-auto rounded border border-bench-line bg-bench-panel p-1 sm:absolute sm:left-0 sm:w-64">
-        <Link href="/families" className="sticky top-0 z-10 block rounded bg-bench-panel px-3 py-2 font-semibold text-bench-text hover:bg-white/[0.04] hover:text-bench-accent">
+        <Link href="/families/" className="sticky top-0 z-10 block rounded bg-bench-panel px-3 py-2 font-semibold text-bench-text hover:bg-white/[0.04] hover:text-bench-accent">
           All families →
         </Link>
         <div className="border-t border-bench-line pt-1">
           {families.map((family) => (
             <Link
               key={family}
-              href={`/families/${familySlug(family)}`}
+              href={familyHref(familySlug(family))}
               className="block rounded px-3 py-2 text-bench-muted hover:bg-white/[0.04] hover:text-bench-text"
             >
               {family}

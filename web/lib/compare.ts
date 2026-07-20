@@ -9,6 +9,7 @@ import {
 import { HEADLINE_LANE } from "./leaderboard-score";
 import { displayDelta } from "./format";
 import { estimateRunVram } from "./model-run-metrics";
+import { modelHref } from "./routes";
 import type { AxisScore, ModelData, Score } from "./schemas";
 import type { CommunityBoardRow } from "./community-data";
 import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
@@ -70,7 +71,7 @@ export function getCompareConfigs(
             id: run.run_id,
             lane: run.lane,
             modelLabel: model.model_label,
-            modelHref: `/model/${model.slug}`,
+            modelHref: modelHref(model.slug),
             modelSlug: model.slug,
             quantLabel: run.quant_label,
             runId: run.run_id,

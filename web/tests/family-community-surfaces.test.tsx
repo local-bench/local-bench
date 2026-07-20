@@ -29,7 +29,7 @@ describe("family community surfaces", () => {
     );
 
     expect(html).toContain("Community fine-tune");
-    expect(html).toContain('href="/model/community-fine-tune"');
+    expect(html).toContain('href="/model/community-fine-tune/"');
     expect(html).toContain("submitted as Ada — unverified");
     expect(html).toContain("2 models");
   });
