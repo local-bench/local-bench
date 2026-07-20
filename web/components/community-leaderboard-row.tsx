@@ -170,7 +170,7 @@ function DiagnosticValue({
     <div className="flex justify-between gap-3">
       <dt>{label}</dt>
       <dd className="whitespace-nowrap font-mono text-bench-text">
-        {score === undefined ? "—" : formatScore(score.point)}
+        {score === undefined ? "not measured" : formatScore(score.point)}
       </dd>
     </div>
   );
