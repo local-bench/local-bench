@@ -71,7 +71,7 @@ export default function SubmissionPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Submission status" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Submission status" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">submission lifecycle</p>
         <h1 className="mt-2 break-all text-4xl font-semibold text-bench-text">{title}</h1>

@@ -57,7 +57,7 @@ export default async function ModelPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: model.model_label }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
           {hasProjectRun ? (

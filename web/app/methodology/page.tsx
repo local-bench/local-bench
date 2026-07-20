@@ -114,7 +114,7 @@ function AttributionRow({ source }: { readonly source: Attribution }) {
 export default async function MethodologyPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Methodology" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
           {publicProtocolLabel(INDEX_VERSION_V4)} | scorecard-v6 methodology

@@ -70,7 +70,7 @@ export function SubmissionsLifecycle() {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Submissions" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Submissions" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">public pipeline</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submission lifecycle</h1>

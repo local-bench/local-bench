@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 export default function SubmitPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Submit a run" }]} />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Submit a run" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">community submissions</p>
         <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submit a run</h1>
