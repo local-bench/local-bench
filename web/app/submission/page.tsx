@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useLiveCommunityRows } from "@/components/community-live-state";
@@ -99,6 +100,10 @@ export default function SubmissionPage() {
           Check
         </button>
       </form>
+
+      <Link className="w-fit text-sm font-semibold text-bench-accent hover:underline" href="/submissions">
+        View all submissions →
+      </Link>
 
       {renderState(state, community.rows)}
     </main>

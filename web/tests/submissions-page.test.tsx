@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SubmissionsTable } from "../components/submissions-lifecycle";
-import { SubmissionDetails } from "../app/submission/page";
+import SubmissionPage, { SubmissionDetails } from "../app/submission/page";
+import SubmissionsPage from "../app/submissions/page";
 import type { CommunityBoardRow } from "../lib/community-data";
 import {
   mergeSubmissionLifecycleRows,
@@ -67,6 +68,23 @@ const publishedCommunityRow: CommunityBoardRow = {
 };
 
 describe("public submissions lifecycle", () => {
+  it("server-renders the lifecycle legend, checker, and JavaScript-off guidance", () => {
+    const html = renderToStaticMarkup(<SubmissionsPage />);
+
+    expect(html).toContain("received â†’ validated â†’ published â†’ review-hold â†’ rejected");
+    expect(html).toContain('href="/submission/"');
+    expect(html).toContain("Check a submission");
+    expect(html).toContain("<noscript>");
+    expect(html).toContain("JavaScript is off");
+  });
+
+  it("links the submission checker back to the lifecycle board", () => {
+    const html = renderToStaticMarkup(<SubmissionPage />);
+
+    expect(html).toContain('href="/submissions"');
+    expect(html).toContain("View all submissions");
+  });
+
   it("parses one bounded page and merges live publication evidence", () => {
     const parsed = parseSubmissionLifecyclePage(payload);
     if (parsed === null) throw new Error("lifecycle fixture must parse");

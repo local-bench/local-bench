@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { useLiveCommunityRows } from "@/components/community-live-state";
 import type { CommunityBoardRow } from "@/lib/community-data";
@@ -69,16 +68,7 @@ export function SubmissionsLifecycle() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/families" }, { label: "Submissions" }]} />
-      <header className="border-b border-bench-line pb-5">
-        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">public pipeline</p>
-        <h1 className="mt-2 text-4xl font-semibold text-bench-text">Submission lifecycle</h1>
-        <p className="mt-3 max-w-3xl leading-7 text-bench-muted">
-          Follow every public submission from receipt through validation, publication, review holds, or rejection.
-        </p>
-      </header>
-
+    <>
       {state.kind === "loading" ? <LifecycleNotice title="Loading submissions" body="Fetching the first lifecycle page." /> : null}
       {state.kind === "unavailable" ? <LifecycleNotice title="Lifecycle unavailable" body={state.message} /> : null}
       {state.kind === "ready" ? (
@@ -89,7 +79,7 @@ export function SubmissionsLifecycle() {
           rows={displayRows}
         />
       ) : null}
-    </main>
+    </>
   );
 }
 
