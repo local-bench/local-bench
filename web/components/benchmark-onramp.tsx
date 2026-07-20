@@ -68,9 +68,11 @@ function isRuntimeId(value: string): value is RuntimeId {
 }
 
 export function BenchmarkOnramp({
+  benchmarkedModels,
   catalog,
   popularityAsOf,
 }: {
+  readonly benchmarkedModels: readonly { readonly score: number; readonly slug: string }[];
   readonly catalog: readonly OnrampCatalogModel[];
   readonly popularityAsOf: string | null;
 }) {
@@ -173,6 +175,7 @@ export function BenchmarkOnramp({
               <button
                 key={value}
                 type="button"
+                aria-pressed={mode === value}
                 className={[
                   "rounded px-3 py-1.5 text-sm font-semibold transition-colors",
                   mode === value ? "bg-bench-accent text-bench-bg" : "text-bench-muted hover:text-bench-text",
@@ -216,6 +219,7 @@ export function BenchmarkOnramp({
             onPasteHfModelId={setPasteHfModelId}
             pasteQuant={pasteQuant}
             onPasteQuant={setPasteQuant}
+            benchmarkedModels={benchmarkedModels}
           />
         </div>
 
@@ -249,12 +253,12 @@ export function BenchmarkOnramp({
         <span>
           Full-suite runs fail fast before model download unless Docker and the managed AppWorld harness are
           configured. Submissions are signed and publish immediately, subject to post-hoc moderation —{" "}
-          <Link href="/submit" className="text-bench-accent underline">
+          <Link href="/submit/" className="text-bench-accent underline">
             how to submit
           </Link>{" "}
           has the full loop and what the trust labels mean.
         </span>
-        <Link href="/leaderboard" className="font-semibold text-bench-accent hover:underline">
+        <Link href="/leaderboard/" className="font-semibold text-bench-accent hover:underline">
           Just exploring? See the board →
         </Link>
       </div>

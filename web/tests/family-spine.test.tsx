@@ -54,6 +54,20 @@ describe("community family spine", () => {
     expect(communityBaseModelSlugs([communityRow], catalog, new Set(["base-model"]))).toEqual([]);
   });
 
+  it("adds the artifact owner's catalog route together with its transitive base", () => {
+    const derivative: CatalogModel = {
+      base_model: "Vendor/Base-Model",
+      display_name: "Derivative",
+      id: "Vendor/Derivative",
+      model_kind: "finetune",
+      quants: [{ file_sha256: "a".repeat(64), label: "Q4_K_M" }],
+      slug: "derivative",
+    };
+
+    expect(communityBaseModelSlugs([communityRow], [...catalog, derivative], new Set()))
+      .toEqual(["base-model", "derivative"]);
+  });
+
   it("renders an honest catalog-only note and queue state", () => {
     const queued = renderToStaticMarkup(<CatalogOnlyNotice queued />);
     const unqueued = renderToStaticMarkup(<CatalogOnlyNotice queued={false} />);

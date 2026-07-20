@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
 import type { BenchmarkRecipe as Recipe } from "@/lib/onramp";
+import { CLI_PREREQUISITES, LOCALBENCH_TESTED_VERSION } from "@/lib/cli-onboarding";
 
 const IDENTITY_COPY: Record<Recipe["identityMode"], string> = {
   full: "Identity: full - HF tokenizer/template cached; tokenizer and chat-template digests recorded.",
@@ -63,20 +64,24 @@ function PipNamespaceWarning() {
 
 function RequirementsLine() {
   return (
-    <p className="font-mono text-[11px] leading-5 text-bench-muted">
-      Tested on Windows 11; any OS that runs Python 3.11+ and llama-server on PATH works for the
-      public path, while the Agentic axis currently also needs Windows with WSL2. Install
-      llama.cpp from{" "}
-      <a
-        href="https://github.com/ggerganov/llama.cpp/releases"
-        target="_blank"
-        rel="noreferrer"
-        className="text-bench-accent underline"
-      >
-        github.com/ggerganov/llama.cpp/releases
-      </a>{" "}
-      or pass <span className="font-mono text-bench-text">--llama-server-path</span>.
-    </p>
+    <div className="font-mono text-[11px] leading-5 text-bench-muted">
+      <p>Tested with local-bench-ai {LOCALBENCH_TESTED_VERSION}. Prerequisites:</p>
+      <ul className="mt-1 list-disc pl-5">
+        {CLI_PREREQUISITES.map((prerequisite) => <li key={prerequisite}>{prerequisite}</li>)}
+      </ul>
+      <p className="mt-1">
+        Install llama.cpp from{" "}
+        <a
+          href="https://github.com/ggerganov/llama.cpp/releases"
+          target="_blank"
+          rel="noreferrer"
+          className="text-bench-accent underline"
+        >
+          github.com/ggerganov/llama.cpp/releases
+        </a>{" "}
+        or pass <span className="font-mono text-bench-text">--llama-server-path</span>.
+      </p>
+    </div>
   );
 }
 
@@ -138,6 +143,10 @@ function OneCommandLead({
       <CommandBlock title="Step 1 · install" command={recipe.installCommand} />
       <PipNamespaceWarning />
       <CommandBlock title="Step 2 · bench, score, and optional submit" command={lead.command} />
+      <p className="font-mono text-[11px] leading-5 text-bench-muted">
+        <span className="text-bench-text">--allow-untrusted-code</span> runs the benchmark&apos;s coding tasks in the pinned sandbox — see{" "}
+        <Link href="/methodology/#coding-trust" className="text-bench-accent underline">Methodology</Link>.
+      </p>
       <RequirementsLine />
       {localOnly ? (
         <p className="font-mono text-[11px] leading-5 text-bench-warn">
@@ -262,7 +271,7 @@ export function BenchmarkRecipe({ recipe }: { readonly recipe: Recipe }) {
       )}
       <p className="font-mono text-xs text-bench-muted">
         See{" "}
-        <Link href="/submit" className="text-bench-accent underline">
+        <Link href="/submit/" className="text-bench-accent underline">
           how to submit
         </Link>{" "}
         for the full loop and trust labels.

@@ -18,7 +18,7 @@ function variantBoardHtml(html: string): string {
 describe("ModelPage lineage chip", () => {
   it("links the fine-tune chip when the base has a board row", async () => {
     const html = await renderModel("phi-4-reasoning");
-    expect(html).toContain('href="/model/phi-4"');
+    expect(html).toContain('href="/model/phi-4/"');
     expect(html).toContain("Fine-tune of Phi 4");
   });
 
@@ -52,7 +52,7 @@ describe("ModelPage lineage chip", () => {
 
     expect(html).toContain("Family fine-tunes");
     expect(html).toContain('data-point-kind="family-finetune"');
-    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5"');
+    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5/"');
     expect(html).toContain("Qwopus 3.6 27B v2 MTP");
   });
 
@@ -60,9 +60,9 @@ describe("ModelPage lineage chip", () => {
     const html = variantBoardHtml(await renderModel("qwen3-6-27b"));
 
     expect(html).toContain("fine-tune");
-    expect(html).toContain('href="/model/qwopus3-6-27b-v2-mtp"');
+    expect(html).toContain('href="/model/qwopus3-6-27b-v2-mtp/"');
     expect(html).toContain("Qwopus 3.6 27B v2 MTP");
-    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5"');
+    expect(html).toContain('href="/run/qwopus3-6-27b-v2-mtp__qwopus3-6-27b-v2-mtp-q4km-s2v5/"');
   });
 
   it("plots a fine-tune page's base model current-lane measured runs with receipt links", async () => {
@@ -70,7 +70,7 @@ describe("ModelPage lineage chip", () => {
 
     expect(html).toContain("Base model");
     expect(html).toContain('data-point-kind="base-model"');
-    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-s2v5"');
+    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-s2v5/"');
     expect(html).toContain("Qwen3.6 27B");
   });
 
@@ -78,9 +78,9 @@ describe("ModelPage lineage chip", () => {
     const html = variantBoardHtml(await renderModel("qwopus3-6-27b-v2-mtp"));
 
     expect(html).toContain("base model");
-    expect(html).toContain('href="/model/qwen3-6-27b"');
+    expect(html).toContain('href="/model/qwen3-6-27b/"');
     expect(html).toContain("Qwen3.6 27B");
-    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-s2v5"');
+    expect(html).toContain('href="/run/qwen3-6-27b__qwen3-6-27b-q4km-s2v5/"');
   });
 
   it("renders derivative vs-base missing states without fake numbers", async () => {
@@ -96,7 +96,7 @@ describe("ModelPage lineage chip", () => {
     expect(html).not.toContain("Retired-lane diagnostic receipts");
     expect(html).not.toContain('href="/run/gemma-4-31b-it__ladder-gemma4-31b-Q4_K_M"');
     expect(html).not.toContain("retired-lane");
-    expect(html).toContain('href="/run/gemma-4-31b-it__gemma-4-31b-it-q4km-s2v5"');
+    expect(html).toContain('href="/run/gemma-4-31b-it__gemma-4-31b-it-q4km-s2v5/"');
     expect(html).toContain("benchmark it");
   });
 });

@@ -10,7 +10,7 @@ import {
   indexProfileForAxes,
   indexQualifierForAxes,
 } from "@/components/local-intelligence-index";
-import { axisLabel, formatCompactNumber, formatGb, formatScore } from "@/lib/format";
+import { axisLabel, displayDelta, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
 import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
 import type { FineTuneComparePreset } from "@/lib/vs-base";
 
@@ -94,7 +94,7 @@ export function ComparePicker({
           <DeltaCard
             label={`${LOCAL_INTELLIGENCE_INDEX_NAME} delta`}
             note={`${indexQualifierForAxes(left.axes)}. ${indexProfileForAxes(left.axes)} deltas appear below.`}
-            value={formatSigned(left.composite.point - right.composite.point)}
+            value={formatSigned(displayDelta(left.composite.point, right.composite.point))}
           />
         ) : null}
         <DeltaCard label="VRAM delta" value={formatVramDelta(left, right)} />
@@ -105,7 +105,12 @@ export function ComparePicker({
         <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent lg:hidden">
           Swipe horizontally for per-axis deltas &rarr;
         </p>
-        <div className="overflow-x-auto">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Per-axis comparison table — scrolls horizontally"
+          className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+        >
           <table data-testid="compare-axis-deltas" className="min-w-[820px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
@@ -292,18 +297,17 @@ function configLabel(config: CompareConfig): string {
 }
 
 function formatSigned(value: number): string {
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${formatScore(value)}`;
+  return formatSignedScore(value);
 }
 
 function formatNullableDelta(left: number | null, right: number | null): string {
-  return left === null || right === null ? "n/a" : formatSigned(left - right);
+  return left === null || right === null ? "n/a" : formatSigned(displayDelta(left, right));
 }
 
 function formatVramDelta(left: CompareConfig, right: CompareConfig): string {
   const leftGb = left.vramEstimate?.effectiveRequiredGb ?? null;
   const rightGb = right.vramEstimate?.effectiveRequiredGb ?? null;
-  return leftGb === null || rightGb === null ? "n/a" : formatGb(leftGb - rightGb);
+  return leftGb === null || rightGb === null ? "n/a" : formatGb(displayDelta(leftGb, rightGb));
 }
 
 function isCurrentIndexConfig(config: CompareConfig): boolean {

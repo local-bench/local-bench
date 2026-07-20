@@ -38,7 +38,7 @@ const COMPLETE_COMMUNITY_ROW: CommunityBoardRow = {
   communityModelGroupId: `community-group:${"1".repeat(32)}`,
   compositeFull: 0.57,
   declaredBaseModels: ["Qwen/Qwen3.5-9B"],
-  detailPath: "/model/fixture-9b",
+  detailPath: "/model/fixture-9b/",
   displayName: "Fixture Community 9B",
   family: "Fixture",
   globalRank: 2,
@@ -145,7 +145,7 @@ describe("Simplicity Reset SITE contract", () => {
       runs: [],
       slug: "fixture-project-12b",
     });
-    const configs = getCompareConfigs([model], [{ ...COMPLETE_COMMUNITY_ROW, detailPath: null }]);
+    const configs = getCompareConfigs([model], [COMPLETE_COMMUNITY_ROW]);
     const html = renderToStaticMarkup(
       <ComparePicker
         configs={configs}
@@ -158,12 +158,13 @@ describe("Simplicity Reset SITE contract", () => {
     expect(configs).toContainEqual(expect.objectContaining({
       id: "ticket_fixture",
       modelLabel: "Fixture Community 9B",
-      modelHref: null,
+      modelHref: "/model/fixture-9b/",
+      modelSlug: "fixture-9b",
       quantLabel: "Q4_K_M",
     }));
     expect(html).toContain("Fixture Community 9B");
     expect(html).not.toContain("&gt;512 GB");
-    expect(html).not.toContain("Open left model");
+    expect(html).toContain("Open left model");
     expect(html).toContain("Swipe horizontally for per-axis deltas");
     const optionText = /<option[^>]*value="ticket_fixture"[^>]*>([^<]+)<\/option>/u.exec(html)?.[1] ?? "";
     expect(optionText).toContain("Fixture Community 9B");

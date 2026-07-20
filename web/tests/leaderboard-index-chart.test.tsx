@@ -73,7 +73,7 @@ function render(models: readonly IndexModel[]): string {
 }
 
 function linkedSlugs(html: string): readonly string[] {
-  return Array.from(html.matchAll(/<a [^>]*href="\/model\/([^"]+)"/g), (match) => match[1] ?? "");
+  return Array.from(html.matchAll(/<a [^>]*href="\/model\/([^"]+?)\/?"/g), (match) => match[1] ?? "");
 }
 
 function attrValues(html: string, attribute: string): readonly string[] {
@@ -112,7 +112,7 @@ describe("BoardIndexChart", () => {
 
     expect(linkedSlugs(html)).toEqual(["alpha", "beta", "gamma"]);
     for (const row of rows) {
-      expect(html.match(new RegExp(`href="/model/${row.slug}"`, "g")) ?? []).toHaveLength(1);
+      expect(html.match(new RegExp(`href="/model/${row.slug}/"`, "g")) ?? []).toHaveLength(1);
     }
   });
 

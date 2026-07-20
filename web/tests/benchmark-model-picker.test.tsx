@@ -64,6 +64,7 @@ function baseProps() {
     onPasteHfModelId: vi.fn(),
     pasteQuant: "Q4_K_M",
     onPasteQuant: vi.fn(),
+    benchmarkedModels: [],
   };
 }
 
@@ -79,6 +80,20 @@ describe("ModelPicker", () => {
     expect(html).toContain("↓ 11M downloads/mo · ♥ 420");
     expect(html).toContain("Hugging Face popularity is repo-level");
     expect(html).toContain("ranked recipe pins 32k context");
+    expect(html).toContain("only chipped entries have measured local-bench runs");
+    expect(html).toContain("no run yet — benchmark it");
+  });
+
+  it("links measured popular entries to their trailing-slash model page", () => {
+    const html = renderToStaticMarkup(createElement(ModelPicker, {
+      ...baseProps(),
+      mode: "popular",
+      benchmarkedModels: [{ score: 61.2, slug: "qwen3-8b" }],
+    }));
+
+    expect(html).toContain('href="/model/qwen3-8b/"');
+    expect(html).toContain("benched 61.2 →");
+    expect(html).not.toContain("no run yet — benchmark it");
   });
 
   it("renders base-only browse families with search, original release, and VRAM fit labels", () => {

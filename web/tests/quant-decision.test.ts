@@ -57,6 +57,18 @@ describe("quant decision matrix logic", () => {
     expect(rows.missingQuantLabels).toEqual(["FP16", "Q8_0", "Q6_K", "Q5_K_M", "Q3_K_M", "Q2_K"]);
     expect(rows.rows.find((row) => row.quantLabel === "FP16")?.run).toBeNull();
   });
+
+  it("computes quality deltas from the displayed operands", () => {
+    const model = modelWithRuns([
+      run("Q8_0", 30, 83.44, 89),
+      run("Q6_K", 25, 87.36, 104),
+    ]);
+
+    const rows = getQuantDecisionRows(model, 8192);
+
+    expect(rows.rows.find((row) => row.quantLabel === "Q6_K")?.deltaVsBaseline?.point).toBe(4);
+  });
+
 });
 
 function modelWithRuns(runs: readonly QuantDecisionInputRun[]): QuantDecisionInputModel {

@@ -8,9 +8,9 @@ export const AGENTIC_COLUMN_TOOLTIP =
 
 export function formatAgenticPct(model: AgenticModel | undefined): string {
   if (model === undefined) {
-    return "-";
+    return "—";
   }
-  return `${model.asr_pct.toFixed(1)}%`;
+  return `${Math.min(100, Math.max(0, model.asr_pct)).toFixed(1)}%`;
 }
 
 export function AgenticHeaderLabel() {
@@ -29,7 +29,7 @@ export function AgenticCell({
   readonly axisScore?: AxisScore | undefined;
 }) {
   if (model === undefined && (axisScore === undefined || axisScore.n === 0)) {
-    return <div className="min-w-[88px] font-mono text-xs text-bench-muted" title={AGENTIC_COLUMN_TOOLTIP}>-</div>;
+    return <div className="min-w-[88px] font-mono text-xs text-bench-muted" title={AGENTIC_COLUMN_TOOLTIP}>—</div>;
   }
   const pctValue = model !== undefined ? model.asr_pct : (axisScore?.raw_accuracy ?? 0) * 100;
   const pct = Math.min(100, Math.max(0, pctValue));
@@ -39,7 +39,7 @@ export function AgenticCell({
       : `${axisScore?.n ?? 0} tasks | ranked run`;
   return (
     <div className="min-w-[88px]" title={AGENTIC_COLUMN_TOOLTIP}>
-      <div className="font-mono text-xs text-bench-text">{`${pctValue.toFixed(1)}%`}</div>
+      <div className="font-mono text-xs text-bench-text">{`${pct.toFixed(1)}%`}</div>
       <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: axisColor("agentic") }} />
       </div>

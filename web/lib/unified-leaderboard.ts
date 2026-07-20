@@ -12,6 +12,13 @@ import {
   type SortState,
 } from "./leaderboard-sort";
 import type { IndexModel } from "./schemas";
+import { runtimeSortLabel } from "./runtime-display";
+import {
+  EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  resolveFamily,
+  type FamilyResolutionContext,
+} from "./family-resolution";
+import { selectBestPerFamily } from "./landing-best-per-base";
 
 export type UnifiedLeaderboardRow =
   | { readonly model: IndexModel; readonly rank: number; readonly source: "local-bench" }
@@ -21,15 +28,33 @@ type UnrankedUnifiedRow =
   | { readonly model: IndexModel; readonly source: "local-bench" }
   | { readonly row: CommunityBoardRow; readonly source: "community" };
 
+export type UnifiedLeaderboardFilterOptions = {
+  readonly resolutionContext?: FamilyResolutionContext;
+  readonly variants?: "all" | "best-per-family";
+};
+
 export function filterUnifiedLeaderboardRows(
   ranked: readonly IndexModel[],
   community: readonly CommunityBoardRow[],
+  options: UnifiedLeaderboardFilterOptions = {},
 ): readonly UnifiedLeaderboardRow[] {
   const completeCommunity = community.filter((row) => row.headlineComplete && row.compositeFull !== null);
-  const rows: UnrankedUnifiedRow[] = [
+  const candidates: UnrankedUnifiedRow[] = [
     ...ranked.filter(isFullIndexRow).map((model) => ({ model, source: "local-bench" as const })),
     ...completeCommunity.map((row) => ({ row, source: "community" as const })),
-  ].sort((left, right) => scoreValue(right) - scoreValue(left));
+  ];
+  const context = options.resolutionContext ?? EMPTY_FAMILY_RESOLUTION_CONTEXT;
+  const selected = options.variants === "all"
+    ? candidates
+    : selectBestPerFamily(candidates.map((candidate) => ({
+        displayedComposite: scoreValue(candidate),
+        resolution: candidate.source === "local-bench"
+          ? resolveFamily(candidate.model, context)
+          : resolveFamily(candidate.row, context),
+        source: candidate.source === "local-bench" ? "maintainer" as const : "community" as const,
+        value: candidate,
+      }))).map((candidate) => candidate.value);
+  const rows = [...selected].sort((left, right) => scoreValue(right) - scoreValue(left));
   return rows.map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
@@ -74,12 +99,17 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
       return row.submitterDisplayName ?? row.submitterKeyFingerprint ?? "";
     case STATIC_INDEX_SORT_KEY:
     case AGENTIC_SORT_KEY:
-    case "tokens":
-    case "hardware":
-    case "runtime":
-    case "latency":
-    case "benchtime":
       return null;
+    case "tokens":
+      return row.perf?.tokens_to_answer_median ?? null;
+    case "hardware":
+      return row.hardware?.gpu_name ?? "";
+    case "runtime":
+      return runtimeSortLabel(row.runtime);
+    case "latency":
+      return row.perf?.latency_s_median ?? null;
+    case "benchtime":
+      return row.perf?.wall_time_seconds ?? null;
     default: {
       const axis = boardAxisValue(row.axes ?? {}, key);
       return axis?.status === "measured" && axis.score !== null && axis.score !== undefined
@@ -92,7 +122,9 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
 function scoreValue(row: UnrankedUnifiedRow): number {
   switch (row.source) {
     case "local-bench":
-      return row.model.composite_full?.point ?? row.model.composite?.point ?? Number.NEGATIVE_INFINITY;
+      return toDisplayScore(
+        row.model.composite_full?.point ?? row.model.composite?.point ?? Number.NEGATIVE_INFINITY,
+      );
     case "community":
       return row.row.compositeFull === null ? Number.NEGATIVE_INFINITY : toDisplayScore(row.row.compositeFull);
     default:

@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { getIndexData } from "@/lib/data";
-import { compareFamilyNames } from "@/lib/family-slug";
+import { familySummaries } from "@/lib/families";
 import "./globals.css";
 
-const title = "local-bench";
+const title = "local-bench — the local LLM leaderboard";
 // Season-neutral on purpose: the axis lineup changes per index season, and this string is
 // baked into every page's search/social preview.
 const description =
-  "A community quality leaderboard for local and open LLMs: a modular Local Intelligence Index measured judge-free on real local hardware.";
+  "Compare local and open-weight LLMs on a transparent, judge-free benchmark: quality, quants, VRAM, speed, and reproducible run receipts from real local hardware.";
 const siteUrl = "https://local-bench.ai";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title,
+  title: {
+    default: title,
+    template: "%s | local-bench",
+  },
   description,
   alternates: { canonical: "./" },
   openGraph: {
@@ -21,8 +24,9 @@ export const metadata: Metadata = {
     siteName: "local-bench",
     title,
     type: "website",
-    url: `${siteUrl}/`,
+    url: "./",
   },
+  // TODO(owner): add an Open Graph image once a branded social-preview asset exists.
   twitter: { card: "summary" },
 };
 
@@ -33,7 +37,7 @@ export default async function RootLayout({
 }>) {
   const index = await getIndexData();
   const usesDemoData = index.models.some((model) => model.demo);
-  const families = [...new Set(index.models.map((model) => model.family))].sort(compareFamilyNames);
+  const families = familySummaries(index.models).map((summary) => summary.family);
 
   return (
     <html lang="en">

@@ -3,6 +3,7 @@ import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
 import { formatCi, formatCompactNumber, formatDuration } from "@/lib/format";
+import { modelHref } from "@/lib/routes";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
 // Replication-time panel (oracle-amended spec, 2026-07-15): the landing card that answers
@@ -12,7 +13,7 @@ import type { BestVariantPoint } from "@/lib/best-variant";
 //
 // Scope facts (item count, rig) are board-level and not carried on BestVariantPoint; keep in
 // sync with the methodology page until the board manifest exposes them to the web layer.
-const PANEL_SCOPE = "Season 2 · LB-2026-07.2 · 1,457 carried items · RTX 5090 reference rig";
+const PANEL_SCOPE = "Season 2 · LB-2026-07.2 · measured items only · RTX 5090 reference rig";
 const LIMITATION = "Elapsed time for this exact full-suite run; not a general model-speed measurement.";
 
 // Render gates: the comparative chart renders only while timing coverage honestly represents
@@ -132,7 +133,7 @@ function PanelBars({
                 />
               )}
               <Link
-                href={`/model/${row.modelSlug}`}
+                href={modelHref(row.modelSlug)}
                 className="text-[13px] font-semibold text-bench-text hover:text-bench-accent"
               >
                 {row.modelLabel}
@@ -206,7 +207,7 @@ function PanelBars({
       {rows.length > MAX_LANDING_ROWS ? (
         <p className="mt-2 text-[11px] leading-4 text-bench-muted-2">
           Showing {MAX_LANDING_ROWS} of {rows.length} ranked models —{" "}
-          <Link href="/leaderboard" className="text-bench-accent underline hover:text-bench-text">
+          <Link href="/leaderboard/" className="text-bench-accent underline hover:text-bench-text">
             view all timings in the leaderboard
           </Link>
           .

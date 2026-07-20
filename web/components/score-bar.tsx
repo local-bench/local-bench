@@ -66,12 +66,14 @@ export function AxisMiniBar({
   score,
   axis,
   value,
+  showSampleSize = false,
 }: {
   readonly score: AxisScore | undefined;
   // Axis key selecting the shared axis color, so every mini bar matches the same axis's
   // segment in the index contribution rail. Omitted -> the neutral accent fill.
   readonly axis?: string;
   readonly value?: ReactNode;
+  readonly showSampleSize?: boolean;
 }) {
   if (score === undefined || score.n === 0) {
     return <div className="min-w-[88px] font-mono text-xs text-bench-muted">n/a</div>;
@@ -80,7 +82,7 @@ export function AxisMiniBar({
     <div className="min-w-[88px]">
       <div className="flex items-center justify-between gap-2 font-mono text-xs">
         <span className="text-bench-text">{value ?? formatScore(score.point)}</span>
-        <span className="text-bench-muted">{formatCi(score)}</span>
+        <span className="text-bench-muted">{formatCi(score)}{showSampleSize ? ` · n=${score.n}` : ""}</span>
       </div>
       <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
         <div

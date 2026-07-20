@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CatalogShells } from "@/components/catalog-shells";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
@@ -12,10 +13,18 @@ import { AXIS_CONFIG } from "@/lib/axis-config";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { communityRowsWithFamilyPaths } from "@/lib/community-family";
 import { axisLabel } from "@/lib/format";
-import { getAgenticBySlug, getFineTuneBaseBySlug, getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
+import { getAgenticBySlug, getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
+import { familyRootLabelBySlug } from "@/lib/family-resolution";
+import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { isFullIndexRow } from "@/lib/leaderboard-score";
 import { INDEX_VERSION_V4, SEASON_2_HEADLINE_AXES } from "@/lib/scoring-seasons";
 import { publicProtocolLabel } from "@/lib/board-adapter";
+import { pageMetadata } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Local LLM leaderboard",
+  "Rank local and open-weight LLMs by complete benchmark scores, with per-axis results, runtime, hardware, and run provenance.",
+);
 
 export default async function LeaderboardPage() {
   const [index, agenticBySlug] = await Promise.all([
@@ -26,15 +35,17 @@ export default async function LeaderboardPage() {
     getCommunityBoardRows(),
     getIndexModelsWithArtifacts(index.models),
   ]);
+  const resolutionContext = familyResolutionContext(communityCatalogModels);
   const ranked = index.models.filter(isFullIndexRow);
   const catalog = index.models.filter((model) => !isFullIndexRow(model));
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
-  const fineTuneBaseBySlug = await getFineTuneBaseBySlug(index.models);
+  const vramBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.vramRequiredGb8k] as const));
+  const fineTuneBaseBySlug = familyRootLabelBySlug(index.models, resolutionContext);
   const communityRowsForDisplay = communityRows === null
     ? []
-    : communityRowsWithFamilyPaths(communityRows, communityCatalogModels);
+    : communityRowsWithFamilyPaths(communityRows, resolutionContext);
   const season2 = index.index_version === INDEX_VERSION_V4;
   // On a season-2 board the copy must list the season-2 headline axes; the v3 axis palette
   // (AXIS_CONFIG) still names Agentic / Tool calling, which legacy diagnostic rows carry.
@@ -65,17 +76,20 @@ export default async function LeaderboardPage() {
           {/* Score-less shells are split out below so they can never sort into or dwarf the measured rank. */}
           <div className="rounded-lg border border-bench-line bg-bench-panel/60 p-4 text-sm leading-6 text-bench-muted">
             Every complete project and community run shares this ranking and the same composite. The global view is a
-            cross-family reference; <Link href="/families" className="text-bench-accent hover:underline">browse model families</Link> to choose among related variants. Note: {season2
+            cross-family reference; <Link href="/families/" className="text-bench-accent hover:underline">browse model families</Link> to choose among related variants. Note: {season2
               ? "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and unweighted diagnostics."
               : "the Agentic axis is near-floor for every current local entrant, so it compresses headline gaps — read the composite alongside the per-axis columns and the Static Index."}
           </div>
         </div>
         <HomeLeaderboard
+          allowVariantToggle
           models={rankedForDisplay}
           agenticBySlug={agenticBySlug}
           communityRows={communityRowsForDisplay}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           indexVersion={index.index_version}
+          resolutionContext={resolutionContext}
+          vramBySlug={vramBySlug}
         />
         <CatalogShells models={catalog} />
       </section>

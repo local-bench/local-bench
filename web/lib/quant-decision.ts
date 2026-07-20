@@ -1,11 +1,12 @@
 import {
   DEFAULT_CONTEXT_TOKENS,
-  estimateVramRequirement,
   findMinimumVramTier,
   type ContextLengthOption,
   type VramEstimate,
 } from "./rig-match";
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
+import { displayDelta } from "./format";
+import { estimateRunVram } from "./model-run-metrics";
 import type { QuantOption } from "./quant";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 
@@ -57,7 +58,7 @@ export function getQuantDecisionRows(
   const baselineQuantLabel = fp16Baseline === null ? firstMeasuredQuant(runsByQuant) : "FP16";
   const baseline = baselineQuantLabel === null ? null : runsByQuant.get(baselineQuantLabel) ?? null;
   const rows = QUANT_OPTIONS.map((quantLabel) =>
-    toDecisionRow(quantLabel, runsByQuant.get(quantLabel) ?? null, baselineQuantLabel, baseline, contextTokens),
+    toDecisionRow(quantLabel, runsByQuant.get(quantLabel) ?? null, model.runs, baselineQuantLabel, baseline, contextTokens),
   );
   const sweetSpotQuant = chooseSweetSpot(rows, baseline);
 
@@ -86,20 +87,14 @@ function bestRunsByQuant(runs: readonly QuantDecisionInputRun[]): ReadonlyMap<Qu
 function toDecisionRow(
   quantLabel: QuantOption,
   run: QuantDecisionInputRun | null,
+  siblingRuns: readonly QuantDecisionInputRun[],
   baselineQuantLabel: QuantOption | null,
   baseline: QuantDecisionInputRun | null,
   contextTokens: ContextLengthOption,
 ): QuantDecisionRow {
   const vramEstimate = run === null
     ? null
-    : estimateVramRequirement(
-        {
-          quantLabel,
-          vramFootprintGb: run.vram_footprint_gb,
-          vramRequiredGb8k: run.vram_required_gb_8k ?? null,
-        },
-        contextTokens,
-      );
+    : estimateRunVram(run, siblingRuns, contextTokens);
   return {
     deltaVsBaseline: run?.composite === null || run === null || baseline?.composite === null || baseline === null ? null : deltaScore(run.composite, baseline.composite),
     fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
@@ -167,9 +162,9 @@ function isBetterRun(candidate: QuantDecisionInputRun, current: QuantDecisionInp
 
 function deltaScore(runScore: Score, baselineScore: Score): Score {
   return {
-    hi: runScore.hi - baselineScore.lo,
-    lo: runScore.lo - baselineScore.hi,
-    point: runScore.point - baselineScore.point,
+    hi: displayDelta(runScore.hi, baselineScore.lo),
+    lo: displayDelta(runScore.lo, baselineScore.hi),
+    point: displayDelta(runScore.point, baselineScore.point),
   };
 }
 

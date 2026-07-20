@@ -1,4 +1,5 @@
 import { QUANT_OPTIONS } from "./quant";
+import { formatCanonicalBenchCommand, LOCALBENCH_INSTALL_COMMAND } from "./cli-onboarding";
 
 export type OnrampCatalogQuant = {
   readonly label: string;
@@ -160,7 +161,6 @@ const BENCH_TIME_LARGE_ANCHOR_HOURS = 24;
 const BENCH_TIME_MIN_HOURS = 2;
 const BENCH_TIME_MAX_HOURS = 96;
 const Q4_FILE_GB_TO_PARAMS_B = 1.8;
-const LOCALBENCH_INSTALL_COMMAND = 'pip install "local-bench-ai[hf]"';
 const UNPINNED_ONE_COMMAND_REASON =
   "This catalog quant is missing artifact pins, so the one-command flow fails closed.";
 
@@ -428,7 +428,7 @@ function buildOneCommandLead(
   quant: OnrampCatalogQuant,
   source: BenchmarkRecipeSource,
 ): BenchmarkRecipeLead {
-  const command = `localbench bench ${shellArg(oneCommandTarget(model, source))} --quant ${shellArg(quant.label)} --allow-untrusted-code`;
+  const command = formatCanonicalBenchCommand(shellArg(oneCommandTarget(model, source)), shellArg(quant.label));
   if (source === "paste") {
     return { kind: "local-only", command };
   }

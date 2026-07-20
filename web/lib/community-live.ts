@@ -5,7 +5,13 @@ import {
   type LiveBoardRow,
   type ParsedBoardEnvelope,
 } from "./board-adapter";
+import { normalizeCommunityCoverage } from "./community-coverage";
 import type { CommunityBoardRow } from "./community-data";
+import { communityRowsWithFamilyPaths } from "./community-family";
+import {
+  EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  type FamilyResolutionContext,
+} from "./family-resolution";
 
 export type { LiveBoardRow } from "./board-adapter";
 
@@ -16,18 +22,27 @@ export function parseCommunityLiveBoard(value: unknown): ParsedBoardEnvelope | n
 export function reconcileCommunityRows(
   baked: readonly CommunityBoardRow[],
   live: readonly (AdaptedBoardRow | LiveBoardRow)[],
+  resolutionContext: FamilyResolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
 ): readonly CommunityBoardRow[] {
   const bakedBySubmission = new Map(baked.map((row) => [row.submissionId, row]));
-  return live
+  const merged = live
     .map((row): AdaptedBoardRow => isAdaptedBoardRow(row) ? row : adaptLegacyBoardRow(row))
     .filter((row) => row.origin === "community" || row.origin === "project_anchor")
     .map((row) => mergeCommunityRow(bakedBySubmission.get(row.submissionId), row));
+  return communityRowsWithFamilyPaths(merged, resolutionContext);
 }
 
 function mergeCommunityRow(
   baked: CommunityBoardRow | undefined,
   live: AdaptedBoardRow,
 ): CommunityBoardRow {
+  const hardware = live.hardware ?? baked?.hardware;
+  const perf = live.perf ?? baked?.perf;
+  const runtime = live.runtime ?? baked?.runtime;
+  const coverage = normalizeCommunityCoverage(
+    live.measuredHeadlineWeight ?? measuredWeight(live),
+    live.missingHeadlineWeight ?? (live.headlineComplete ? 0 : baked?.missingHeadlineWeight ?? null),
+  );
   return {
     artifactSha256: live.artifactSha256,
     axes: live.axes,
@@ -35,20 +50,22 @@ function mergeCommunityRow(
     ...(live.communityModelGroupId === undefined ? {} : { communityModelGroupId: live.communityModelGroupId }),
     compositeFull: live.compositeFull,
     declaredBaseModels: baked?.declaredBaseModels ?? live.declaredBaseModels,
-    detailPath: baked?.detailPath?.startsWith("/model/") === true ? baked.detailPath : null,
+    detailPath: null,
     displayName: live.displayName,
     family: live.family,
     globalRank: live.globalRank,
+    ...(hardware === undefined ? {} : { hardware }),
     headlineComplete: live.headlineComplete,
     identityLabel: baked?.identityLabel ?? "community-declared, identity-unverified",
     indexVersion: live.indexVersion,
     lineage: baked?.lineage ?? live.lineageEnrichment,
-    measuredHeadlineWeight: measuredWeight(live),
-    missingHeadlineWeight: live.headlineComplete ? 0 : baked?.missingHeadlineWeight ?? null,
+    ...coverage,
     origin: "community",
     partialComposite: live.compositeFull ?? baked?.partialComposite ?? null,
+    ...(perf === undefined ? {} : { perf }),
     quantLabel: live.quantLabel,
     ranked: live.ranked,
+    ...(runtime === undefined ? {} : { runtime }),
     submissionId: live.submissionId,
     submitterDisplayName: live.submitterDisplayName,
     submitterGithubLogin: live.submitterGithubLogin,

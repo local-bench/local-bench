@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import type { Metadata } from "next";
 
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
@@ -9,11 +10,31 @@ import {
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
 import { publicProtocolLabel } from "@/lib/board-adapter";
+import { CURRENT_RANKED_SUITE } from "@/lib/cli-onboarding";
 import {
   INDEX_VERSION_V4,
   SEASON_2_DIAGNOSTICS,
   TOOL_USE_WEIGHT,
 } from "@/lib/scoring-seasons";
+import { pageMetadata, serializeJsonLd } from "@/lib/page-metadata";
+
+export const metadata: Metadata = pageMetadata(
+  "Benchmark methodology",
+  "How local-bench scores, ranks, verifies, and publishes reproducible local LLM benchmark runs.",
+);
+
+const DATASET_STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  name: "local-bench Local Intelligence Index",
+  description: "Judge-free local LLM benchmark scores, axes, runtime, hardware, and model metadata.",
+  distribution: {
+    "@type": "DataDownload",
+    contentUrl: "https://local-bench.ai/data/index.json",
+    encodingFormat: "application/json",
+  },
+  license: "Apache License 2.0",
+} as const;
 
 type ProtocolView = {
   readonly canonical_sha256: string;
@@ -57,19 +78,19 @@ const HEADLINE_SOURCES: readonly Attribution[] = [
     name: "BigCodeBench-Hard Instruct",
     owner: "BigCodeBench authors",
     license: "Apache-2.0",
-    role: "Coding axis generation tasks scored by hardened execution.",
+    role: "Coding axis generation tasks (141 sandbox-scoreable items) scored by hardened execution.",
   },
   {
     name: "OlymMATH-Hard",
     owner: "OlymMATH authors",
     license: "MIT",
-    role: "Math axis hard olympiad-style item set.",
+    role: "Math axis hard olympiad-style item set (100 items).",
   },
   {
     name: "AMO",
     owner: "AMO-Bench authors",
     license: "MIT",
-    role: "Math axis newly-authored olympiad-style item set.",
+    role: "Math axis newly-authored olympiad-style item set (39 items; Math 139 total).",
   },
 ];
 
@@ -114,7 +135,11 @@ function AttributionRow({ source }: { readonly source: Attribution }) {
 export default async function MethodologyPage() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-7 px-5 py-8 lg:px-8">
-      <Breadcrumbs items={[{ label: "Model families", href: "/" }, { label: "Methodology" }]} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(DATASET_STRUCTURED_DATA) }}
+      />
+      <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: "Methodology" }]} />
       <header className="border-b border-bench-line pb-5">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
           {publicProtocolLabel(INDEX_VERSION_V4)} | scorecard-v6 methodology
@@ -129,6 +154,21 @@ export default async function MethodologyPage() {
         </p>
       </header>
 
+      {/* <!-- DRAFT: owner review copy --> */}
+      <section id="glossary" className="space-y-4 text-bench-muted">
+        <h2 className="text-xl font-semibold text-bench-text">Glossary</h2>
+        <dl className="grid gap-3">
+          <div><dt className="font-semibold text-bench-text">VRAM @8k</dt><dd>Estimated GPU memory for model weights, an 8k-token KV cache, and runtime headroom.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Fits</dt><dd>The smallest common GPU VRAM tier that is at least as large as the VRAM @8k estimate.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Prefill tok/s</dt><dd>How quickly the runtime reads and processes the prompt before generating an answer.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Decode tok/s</dt><dd>How quickly the runtime generates new answer tokens after processing the prompt.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Tokens/answer</dt><dd>The median number of generated tokens per answer, a practical measure of verbosity.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Wall/bench time</dt><dd>The elapsed time to finish the full benchmark run, including every measured axis.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Lane</dt><dd>A fixed serving-engine and benchmark-protocol configuration used to keep rows comparable.</dd></div>
+          <div><dt className="font-semibold text-bench-text">Headline profile</dt><dd>The complete required set of weighted axes a run must publish before it can receive a rank.</dd></div>
+        </dl>
+      </section>
+
       <section id="season-2" className="space-y-4 rounded-lg border border-bench-accent/30 bg-bench-panel/55 p-5 text-bench-muted">
         <div>
           <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
@@ -142,6 +182,10 @@ export default async function MethodologyPage() {
           Protocol v4.2 corrects that comparability defect by making Agentic AppWorld-only everywhere. The structural
           key remains <span className="font-mono">tool_use</span>, and its {Math.round(TOOL_USE_WEIGHT * 100)}% headline
           weight does not change.
+        </p>
+        <p>
+          <span className="font-mono">{CURRENT_RANKED_SUITE}</span> is the current ranked suite. The suite measures six axes;
+          five are weighted in the Index, tool-calling is reported as an unweighted diagnostic.
         </p>
         <p>
           Agentic measures AppWorld task-goal completion under the published runner: a fixed 96-task subset from{" "}
@@ -166,7 +210,12 @@ export default async function MethodologyPage() {
           <p className="font-mono text-[10px] uppercase tracking-wide text-bench-accent sm:hidden">
             Swipe horizontally for v4.1 and v4.2 scores &rarr;
           </p>
-          <div className="overflow-x-auto rounded border border-bench-line">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Protocol correction table — scrolls horizontally"
+            className="overflow-x-auto rounded border border-bench-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+          >
             <table className="w-full min-w-[520px] border-collapse text-sm">
               <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-bench-text/85">
                 <tr><th className="px-3 py-2">Model</th><th className="px-3 py-2">v4.1</th><th className="px-3 py-2">v4.2</th></tr>
@@ -207,8 +256,8 @@ export default async function MethodologyPage() {
             v3 composite beside the full v4 composite without treating their numerical gap as a performance delta.
           </p>
           <p>
-            Under Option D, an anchor without complete season-2 coverage keeps its season-1 label and season-1
-            composite. A partial v4 composite is never displayed or ranked.
+            An anchor without complete season-2 coverage keeps its season-1 label and composite. A partial v4
+            composite is never displayed or ranked.
           </p>
         </div>
       </section>
@@ -284,7 +333,7 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
-      <section className="space-y-4 text-bench-muted">
+      <section id="coding-trust" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Coding execution and trust</h2>
         <p>
           Every publishable bundle includes Coding results produced on the submitter&apos;s machine in the pinned,
@@ -301,7 +350,7 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What publication means</h2>
         <p>
-          Community-reported results publish immediately after the complete five-headline-axis contract, suite pins, schema,
+          Community-reported results publish immediately after the complete headline profile, suite pins, schema,
           size limits, and duplicate-retry checks pass. The site preserves the submitted identity, protocol, scores,
           and evidence bundle, computes the common composite, and suppresses rows when problems are demonstrated.
           Results are not independently reproduced by default.
@@ -317,8 +366,9 @@ export default async function MethodologyPage() {
             appears only as &ldquo;submitted as … — unverified&rdquo;. It never replaces the model or artifact identity.
           </li>
           <li>
-            <span className="text-bench-text">One ranking rule.</span> Every complete published row enters the same
-            score order. Incomplete legacy records remain available on family pages as history, never as partial board rows.
+            <span className="text-bench-text">One ranking rule.</span> Every published row with the complete headline
+            profile enters the same score order. Incomplete legacy records remain available on family pages as history,
+            never as partial board rows.
           </li>
           <li>
             <span className="text-bench-text">Moderation happens after publication.</span> Evidence-backed problems
@@ -328,7 +378,7 @@ export default async function MethodologyPage() {
         </ul>
       </section>
 
-      <section className="space-y-4 text-bench-muted">
+      <section id="evidence-and-reproduction" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Evidence and reproduction</h2>
         <p>
           Each row keeps its structured model artifact identity, immutable bundle hash, protocol and suite identity,
@@ -356,11 +406,11 @@ export default async function MethodologyPage() {
           Every displayed score carries a bootstrap confidence interval. Repeatability, paired quant-delta, and
           generalization are kept separate. Per-axis confidence intervals are part of the score display; coding deltas
           under about 8-10 raw points are not ranking claims unless rank containment and intervals support that read.
-          Incomplete historical runs remain diagnostics. The current board admits only complete protocol runs.
+          Incomplete historical runs remain diagnostics. The current board admits only rows with the complete headline profile.
         </p>
       </section>
 
-      <section className="space-y-4 text-bench-muted">
+      <section id="serving-engine-lanes" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Serving engine lanes</h2>
         <p>
           Rows identify the serving engine as well as the model format. Community-submitted llama.cpp runs use a pinned
@@ -449,8 +499,8 @@ export default async function MethodologyPage() {
           Domain weights are explicit editorial choices tied to named releases: {publicProtocolLabel(INDEX_VERSION_V4)}{" "}
           (scorecard-v6) is the current five-axis Index with AppWorld-only Agentic. Index-v4.1 retains the same
           headline weights but its unequal Agentic composition is archived; index-v4.0 is the initial season-2 scale,
-          and index-v3.0 is the season-1 six-axis Index. Static-suite-v2 remains the ranked no-agentic Index, while
-          static-core is an unranked no-sandbox diagnostic. Weights and membership live in the versioned protocol
+          and index-v3.0 is the season-1 six-axis Index. Static-suite-v2 and static-core remain non-rankable diagnostics;
+          neither can produce an active board row. Weights and membership live in the versioned protocol
           manifest and scorer registry, so history cannot be silently re-scored under the same label.
         </p>
       </section>

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import type { KeyboardEvent } from "react";
+import type { MouseEvent } from "react";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
 import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
-import { formatDuration, formatGpuShort, formatInteger, formatScore } from "@/lib/format";
+import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { AxisScore, Score } from "@/lib/schemas";
 import { SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
@@ -27,22 +27,21 @@ export function CommunityLeaderboardRow({
   showAgenticColumn,
   showStaticIndexColumn,
 }: CommunityRowProps) {
-  const displayFamily = row.catalogFamily ?? row.family;
+  const displayFamily = row.familyLabel ?? row.catalogFamily ?? row.family;
   const navigate = () => {
     if (row.detailPath !== null) window.location.assign(row.detailPath);
   };
-  const openOnEnter = (event: KeyboardEvent<HTMLTableRowElement>) => {
-    if (event.key === "Enter") navigate();
+  const navigateFromRow = (event: MouseEvent<HTMLTableRowElement>) => {
+    if (!shouldNavigateCommunityRow(event.target)) return;
+    navigate();
   };
   return (
     <tr
       data-testid={`community-row-${row.submissionId}`}
       data-source="community"
       data-href={row.detailPath ?? undefined}
-      tabIndex={row.detailPath === null ? undefined : 0}
-      onClick={row.detailPath === null ? undefined : navigate}
-      onKeyDown={row.detailPath === null ? undefined : openOnEnter}
-      className={`${row.detailPath === null ? "" : "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"} border-t border-bench-line/75 bg-white/[0.018] align-middle transition-colors hover:bg-white/[0.035]`}
+      onClick={row.detailPath === null ? undefined : navigateFromRow}
+      className={`${row.detailPath === null ? "" : "cursor-pointer"} border-t border-bench-line/75 bg-white/[0.018] align-middle transition-colors hover:bg-white/[0.035]`}
     >
       <td className="px-3 py-3 font-mono text-bench-muted">{rank}</td>
       <td className="px-3 py-3">
@@ -76,7 +75,7 @@ export function CommunityLeaderboardRow({
         </div>
       </td>
       <td className="px-3 py-3">
-        {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">n/a</span> : (
+        {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">—</span> : (
           <div className="min-w-[132px]">
             <ScoreBar score={normalizedScore(row.compositeFull)} />
           <div className="mt-0.5 text-[10px] text-bench-muted">common composite · complete run</div>
@@ -90,6 +89,7 @@ export function CommunityLeaderboardRow({
           <CommunityAxisBar axis="agentic" row={row} />
         </td>
       ) : null}
+      <UnavailableCell />
       <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
       <td className="px-3 py-3 font-mono text-xs text-bench-text">
         {row.hardware?.gpu_name === null || row.hardware?.gpu_name === undefined || row.hardware.gpu_name === ""
@@ -101,7 +101,11 @@ export function CommunityLeaderboardRow({
           ? <span className="text-[10px] text-bench-muted">—</span>
           : formatInteger(row.perf.tokens_to_answer_median)}
       </td>
-      <UnavailableCell />
+      {/* The accepted projection contract does not publish latency yet; keeping this data-driven
+          lets the column light up automatically when the optional field reaches the board. */}
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {formatLatencySeconds(row.perf?.latency_s_median)}
+      </td>
       <td className="px-3 py-3 font-mono text-bench-text">
         {row.perf?.wall_time_seconds === null || row.perf?.wall_time_seconds === undefined
           ? <span className="text-[10px] text-bench-muted">—</span>
@@ -124,9 +128,17 @@ function CommunityAxisBar({ axis, row }: { readonly axis: string; readonly row: 
   const score = communityAxisScore(value);
   return (
     <div title={score === undefined ? undefined : `n=${score.n} scored items`}>
-      <AxisMiniBar score={score} axis={axis} />
+      <AxisMiniBar score={score} axis={axis} showSampleSize />
     </div>
   );
+}
+
+export function shouldNavigateCommunityRow(target: EventTarget | null): boolean {
+  return target === null || !hasClosest(target) || target.closest("a, summary, details, button") === null;
+}
+
+function hasClosest(target: EventTarget): target is EventTarget & { readonly closest: (selector: string) => unknown } {
+  return "closest" in target && typeof target.closest === "function";
 }
 
 function CommunityAgenticCell({ row }: { readonly row: CommunityBoardRow }) {

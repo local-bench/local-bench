@@ -53,7 +53,7 @@ const bonsaiCatalogModel = IndexModelSchema.parse({
 const communityRow: CommunityBoardRow = {
   artifactSha256: "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
   axes: {},
-  compositeFull: 0.57,
+  compositeFull: 0.67,
   declaredBaseModels: ["Qwen/Qwen3.6-27B"],
   detailPath: null,
   displayName: "Bonsai 27B Ternary",
@@ -65,7 +65,7 @@ const communityRow: CommunityBoardRow = {
   lineage: undefined,
   measuredHeadlineWeight: 0.75,
   missingHeadlineWeight: 0.25,
-  partialComposite: 0.57,
+  partialComposite: 0.67,
   quantLabel: "Q4_K_M",
   ranked: false,
   submissionId: "homepage-community-ticket",
@@ -73,7 +73,11 @@ const communityRow: CommunityBoardRow = {
 
 vi.mock("@/lib/data", () => ({
   getAgenticBySlug: async () => new Map(),
-  getFineTuneBaseBySlug: async () => new Map(),
+  getIndexData: async () => ({ index_version: "index-v4.1", models: [rankedModel, bonsaiCatalogModel] }),
+  getIndexModelsWithArtifacts: async () => [
+    { ...rankedModel, artifactSha256s: [] },
+    { ...bonsaiCatalogModel, artifactSha256s: [communityRow.artifactSha256] },
+  ],
   getHomePageData: async () => ({
     anchorRuns: [],
     catalogModels: [],
@@ -93,8 +97,20 @@ vi.mock("@/lib/community-data", () => ({
 }));
 
 import HomePage from "../app/page";
+import LeaderboardPage from "../app/leaderboard/page";
 
 describe("homepage unified board", () => {
+  it("labels the landing family reduction without adding the caption to the full board", async () => {
+    const landing = renderToStaticMarkup(await HomePage());
+    const leaderboard = renderToStaticMarkup(await LeaderboardPage());
+
+    expect(landing).toContain("Showing the best variant per base family");
+    expect(landing).toContain('href="/leaderboard/"');
+    // The unified "complete headline profile" phrase is version-derived board copy
+    // (v4 scope) plus static methodology/submit/family copy — pinned in
+    // methodology-page.test.tsx; this v3-shaped fixture never renders it.
+    expect(leaderboard).not.toContain("Showing the best variant per base family");
+  });
   it("renders a complete community row in the unified board", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
@@ -106,7 +122,7 @@ describe("homepage unified board", () => {
   it("uses detail artifact identity before declared base lineage for the community route", async () => {
     const html = renderToStaticMarkup(await HomePage());
 
-    expect(html).toContain('data-href="/model/bonsai-27b-ternary"');
+    expect(html).toContain('data-href="/model/bonsai-27b-ternary/"');
     expect(html).not.toContain('data-href="/model/homepage-ranked"');
   });
 

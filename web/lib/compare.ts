@@ -2,12 +2,14 @@ import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { toDisplayScore } from "./board-adapter";
 import {
   DEFAULT_CONTEXT_TOKENS,
-  estimateVramRequirement,
   findMinimumVramTier,
   type ContextLengthOption,
   type VramEstimate,
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
+import { displayDelta } from "./format";
+import { estimateRunVram } from "./model-run-metrics";
+import { modelHref } from "./routes";
 import type { AxisScore, ModelData, Score } from "./schemas";
 import type { CommunityBoardRow } from "./community-data";
 import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
@@ -58,14 +60,7 @@ export function getCompareConfigs(
         if (!isNonEmptyString(run.quant_label) || score === null || run.run_id === null) {
           return [];
         }
-        const vramEstimate = estimateVramRequirement(
-          {
-            quantLabel: run.quant_label,
-            vramFootprintGb: run.vram_footprint_gb,
-            vramRequiredGb8k: run.vram_required_gb_8k ?? null,
-          },
-          contextTokens,
-        );
+        const vramEstimate = estimateRunVram(run, model.runs, contextTokens);
         return [
           {
             axes: run.axes,
@@ -76,7 +71,7 @@ export function getCompareConfigs(
             id: run.run_id,
             lane: run.lane,
             modelLabel: model.model_label,
-            modelHref: `/model/${model.slug}`,
+            modelHref: modelHref(model.slug),
             modelSlug: model.slug,
             quantLabel: run.quant_label,
             runId: run.run_id,
@@ -91,7 +86,7 @@ export function getCompareConfigs(
     if (!row.headlineComplete || row.compositeFull === null || !isNonEmptyString(row.quantLabel)) return [];
     const axes = communityAxes(row);
     const point = toDisplayScore(row.compositeFull);
-    const modelSlug = row.detailPath?.replace(/^\/model\//u, "") ?? "";
+    const modelSlug = modelSlugFromDetailPath(row.detailPath);
     return [{
       axes,
       composite: { hi: point, lo: point, point },
@@ -113,6 +108,12 @@ export function getCompareConfigs(
   return [...stored, ...community].sort(compareConfigs);
 }
 
+function modelSlugFromDetailPath(detailPath: string | null): string {
+  if (detailPath === null) return "";
+  const encodedSlug = detailPath.replace(/^\/model\//u, "").replace(/\/$/u, "");
+  return decodeURIComponent(encodedSlug);
+}
+
 export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readonly AxisDelta[] {
   const axes = left.axes["tool_use"] !== undefined || right.axes["tool_use"] !== undefined
     ? SEASON_2_HEADLINE_AXES
@@ -123,7 +124,7 @@ export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readon
     if (leftScore === undefined || rightScore === undefined) {
       return [];
     }
-    const delta = leftScore.point - rightScore.point;
+    const delta = displayDelta(leftScore.point, rightScore.point);
     return [{ axis, delta, leftScore, rightScore, winner: winnerFor(delta) }];
   });
 }

@@ -68,7 +68,12 @@ export function VsBaseStrip({
             ) : null}
 
             {comparison.axes.length > 0 ? (
-              <div className="mt-4 overflow-x-auto">
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label="Fine-tune versus base table — scrolls horizontally"
+                className="mt-4 overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+              >
                 <table className="min-w-[640px] border-collapse text-sm">
                   <thead className="text-left text-xs uppercase tracking-wider text-bench-text/85">
                     <tr>

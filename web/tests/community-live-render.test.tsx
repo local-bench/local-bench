@@ -53,7 +53,7 @@ describe("live-only community links", () => {
     });
     const [joined] = communityRowsWithFamilyPaths([
       { ...liveOnlyRow, displayName: "bonsai-27b-ternary", family: "qwen35" },
-    ], [catalogModel]);
+    ], [{ ...catalogModel, artifactSha256s: [liveOnlyRow.artifactSha256] }]);
     if (joined === undefined) throw new Error("expected joined community row");
 
     // When: the joined board row is rendered.
@@ -69,7 +69,7 @@ describe("live-only community links", () => {
 
     // Then: display and logo use catalog family while the adapter's declared family remains untouched.
     expect(joined.family).toBe("qwen35");
-    expect(html).toContain('data-href="/model/bonsai-27b-ternary"');
+    expect(html).toContain('data-href="/model/bonsai-27b-ternary/"');
     expect(html).toContain('src="/logos/qwen.jpg"');
     expect(html).toContain(">Qwen3.6</div>");
     expect(html).not.toContain(">qwen35</div>");
@@ -89,6 +89,7 @@ describe("live-only community links", () => {
     expect(html).toContain("family detail unavailable for this row");
     expect(html).toContain("Live-only model");
     expect(html).not.toContain('href="/community/model/');
+    expect(rowCells(html)[7]).toContain("—");
   });
 
   it("renders live axes, attribution, trust, and a non-numeric pending coding state", () => {
@@ -176,18 +177,19 @@ describe("live-only community links", () => {
     const visibleText = html.replace(/<[^>]+>/gu, "");
 
     expect(html).toContain('src="/logos/qwen.jpg"');
-    expect(html).toContain('title="Qwen (Alibaba)"');
+    expect(html).not.toContain('title="Qwen (Alibaba)"');
     expect(html).toContain("LB-2026-07");
     expect(html).toContain("Fine-tune of Qwen/Qwen3.6-27B");
     expect(html).toContain("h-1.5 overflow-hidden rounded-full");
     expect(html).toContain("h-1 overflow-hidden rounded-full");
     expect(html).toContain('title="n=400 scored items"');
-    expect(visibleText).not.toContain("n=");
+    expect(visibleText).toContain("n=400");
     expect(html).toContain("AppWorld task-goal completion");
     expect(html).toContain("Call formatting");
     expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
     expect(html).toContain("RULER 32K");
-    expect(html).toContain("not measured");
+    expect(html).toMatch(/BFCL single-turn<\/dt><dd[^>]*>not measured<\/dd>/u);
+    expect(html).toMatch(/RULER 32K<\/dt><dd[^>]*>61\.0<\/dd>/u);
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b7421");
     expect(html).toContain("RTX 5090 · 32 GB");
@@ -240,3 +242,8 @@ describe("live-only community links", () => {
     expect(html).not.toContain("re-scored");
   });
 });
+
+function rowCells(html: string): readonly string[] {
+  const row = html.match(/<tr[\s\S]*?<\/tr>/u)?.[0] ?? "";
+  return [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gu)].map((match) => match[1] ?? "");
+}

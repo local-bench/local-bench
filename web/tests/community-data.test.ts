@@ -5,6 +5,8 @@ import {
   huggingFaceRepoUrl,
   parseCommunityGroup,
 } from "../lib/community-data";
+import { communityRowsWithFamilyPaths } from "../lib/community-family";
+import type { IndexModel } from "../lib/schemas";
 
 const artifactSha = "a".repeat(64);
 const projectionSha = "b".repeat(64);
@@ -109,10 +111,33 @@ describe("community static-data boundary", () => {
     });
   });
 
+  it("projects near-consistent coverage shares as exactly 100 percent", () => {
+    const fixture = groupFixture();
+    firstVariant(fixture).scores.measured_headline_weight = 0.53;
+    firstVariant(fixture).scores.missing_headline_weight = 0.48;
+    const parsed = parseCommunityGroup(fixture);
+    if (parsed === null) throw new Error("expected validated community group");
+
+    const [row] = communityBoardRows([parsed]);
+
+    expect(row).toMatchObject({
+      coverageConsistent: true,
+      measuredHeadlineWeight: 0.53,
+      missingHeadlineWeight: 0.47,
+    });
+    expect(((row?.measuredHeadlineWeight ?? 0) + (row?.missingHeadlineWeight ?? 0)) * 100).toBe(100);
+  });
+
   it("associates Qwythos with Qwen3.5 family pages from validated lineage only", () => {
     const parsed = parseCommunityGroup(groupFixture());
     if (parsed === null) throw new Error("expected validated community group");
-    const rows = communityBoardRows([parsed]);
+    // Mirror the model page: rows are stamped with family resolution before filtering.
+    const rows = communityRowsWithFamilyPaths(communityBoardRows([parsed]), [{
+      catalog_id: "Qwen/Qwen3.5-9B",
+      family: "Qwen3.5",
+      model_label: "Qwen3.5 9B",
+      slug: "qwen3-5-9b" as IndexModel["slug"],
+    }]);
 
     expect(communityRowsForModel(rows, {
       catalogId: "Qwen/Qwen3.5-9B",

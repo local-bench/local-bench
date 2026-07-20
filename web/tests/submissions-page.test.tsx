@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SubmissionsTable } from "../components/submissions-lifecycle";
-import { SubmissionDetails } from "../app/submission/page";
+import SubmissionPage from "../app/submission/page";
+import { SubmissionDetails } from "../app/submission/submission-client";
+import SubmissionsPage from "../app/submissions/page";
 import type { CommunityBoardRow } from "../lib/community-data";
 import {
   mergeSubmissionLifecycleRows,
@@ -41,7 +43,7 @@ function lifecycleRow(submissionId: string, overrides: Record<string, unknown>) 
 const publishedCommunityRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
   compositeFull: 0.5,
-  detailPath: "/model/fixture-model",
+  detailPath: "/model/fixture-model/",
   displayName: "Published model",
   family: "Fixture",
   globalRank: 1,
@@ -67,6 +69,23 @@ const publishedCommunityRow: CommunityBoardRow = {
 };
 
 describe("public submissions lifecycle", () => {
+  it("server-renders the lifecycle legend, checker, and JavaScript-off guidance", () => {
+    const html = renderToStaticMarkup(<SubmissionsPage />);
+
+    expect(html).toContain("received → validated → published → review-hold → rejected");
+    expect(html).toContain('href="/submission/"');
+    expect(html).toContain("Check a submission");
+    expect(html).toContain("<noscript>");
+    expect(html).toContain("JavaScript is off");
+  });
+
+  it("links the submission checker back to the lifecycle board", () => {
+    const html = renderToStaticMarkup(<SubmissionPage />);
+
+    expect(html).toContain('href="/submissions/"');
+    expect(html).toContain("View all submissions");
+  });
+
   it("parses one bounded page and merges live publication evidence", () => {
     const parsed = parseSubmissionLifecyclePage(payload);
     if (parsed === null) throw new Error("lifecycle fixture must parse");
@@ -75,7 +94,7 @@ describe("public submissions lifecycle", () => {
 
     expect(parsed.nextCursor).toBe("cursor-2");
     expect(rows).toMatchObject([
-      { communityDetailPath: "/model/fixture-model", stateLabel: "Published" },
+      { communityDetailPath: "/model/fixture-model/", stateLabel: "Published" },
       { reasonLabel: "Unsafe metadata", stateLabel: "Rejected" },
       { stateLabel: "Accepted" },
     ]);
@@ -103,8 +122,8 @@ describe("public submissions lifecycle", () => {
       <SubmissionsTable loadingMore={false} nextCursor={parsed.nextCursor} onLoadMore={() => undefined} rows={rows} />,
     );
 
-    expect(html).toContain(`/submission?id=${PUBLISHED_ID}`);
-    expect(html).toContain("/model/fixture-model");
+    expect(html).toContain(`/submission/?id=${PUBLISHED_ID}`);
+    expect(html).toContain("/model/fixture-model/");
     expect(html).toContain("Load more");
     expect(html).not.toContain("Held for review");
     expect(html).toContain("Unsafe metadata");

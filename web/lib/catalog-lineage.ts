@@ -2,22 +2,6 @@ import type { CatalogModel } from "./schemas";
 
 export type CatalogLineageRelation = "family-finetune" | "base-model";
 
-export type CatalogLineageLookup = {
-  readonly byId: ReadonlyMap<string, CatalogModel>;
-  readonly bySlug: ReadonlyMap<string, CatalogModel>;
-};
-
-export type CatalogLineageCandidate = {
-  readonly modelSlug: string;
-  readonly modelLabel: string;
-};
-
-export type CatalogLineageRoot = {
-  readonly key: string;
-  readonly label: string;
-  readonly slug: string | null;
-};
-
 export type CatalogLineageFamilyEntry = {
   readonly entry: CatalogModel;
   readonly relation: CatalogLineageRelation;
@@ -25,13 +9,6 @@ export type CatalogLineageFamilyEntry = {
 
 export function catalogModelMap(catalog: readonly CatalogModel[]): ReadonlyMap<string, CatalogModel> {
   return new Map(catalog.map((model) => [model.id, model]));
-}
-
-export function catalogLineageLookup(catalog: readonly CatalogModel[]): CatalogLineageLookup {
-  return {
-    byId: catalogModelMap(catalog),
-    bySlug: new Map(catalog.map((model) => [model.slug, model])),
-  };
 }
 
 export function catalogBaseIds(entry: CatalogModel): readonly string[] {
@@ -55,44 +32,30 @@ export function catalogIsDerivativeEntry(entry: CatalogModel, byId: ReadonlyMap<
 }
 
 export function catalogRootEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): CatalogModel {
+  return catalogLineageChainEntries(entry, byId).at(-1) ?? entry;
+}
+
+export function catalogLineageChainEntries(
+  entry: CatalogModel,
+  byId: ReadonlyMap<string, CatalogModel>,
+): readonly CatalogModel[] {
   const visited = new Set<string>([entry.id]);
+  const chain: CatalogModel[] = [entry];
   let current = entry;
 
   while (true) {
     const baseId = catalogBaseId(current);
     if (baseId === null) {
-      return current;
+      return chain;
     }
     const base = byId.get(baseId);
     if (base === undefined || visited.has(base.id)) {
-      return current;
+      return chain;
     }
     visited.add(base.id);
+    chain.push(base);
     current = base;
   }
-}
-
-export function catalogRootIdentity(entry: CatalogModel): CatalogLineageRoot {
-  return { key: entry.id, label: entry.display_name, slug: entry.slug };
-}
-
-export function catalogModelRootForCandidate(
-  candidate: CatalogLineageCandidate,
-  lookup: CatalogLineageLookup | null,
-): CatalogLineageRoot {
-  const entry = lookup?.bySlug.get(candidate.modelSlug);
-  return entry === undefined ? catalogCandidateFallbackRoot(candidate) : catalogRootIdentity(entry);
-}
-
-export function catalogWeightsFamilyRootForCandidate(
-  candidate: CatalogLineageCandidate,
-  lookup: CatalogLineageLookup | null,
-): CatalogLineageRoot {
-  const entry = lookup?.bySlug.get(candidate.modelSlug);
-  if (entry === undefined || lookup === null) {
-    return catalogCandidateFallbackRoot(candidate);
-  }
-  return catalogRootIdentity(catalogRootEntry(entry, lookup.byId));
 }
 
 export function catalogLineageFamilyEntries({
@@ -147,8 +110,4 @@ function catalogDescendsFromInner(
     }
   }
   return false;
-}
-
-function catalogCandidateFallbackRoot(candidate: CatalogLineageCandidate): CatalogLineageRoot {
-  return { key: candidate.modelSlug, label: candidate.modelLabel, slug: candidate.modelSlug };
 }

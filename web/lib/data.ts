@@ -46,6 +46,9 @@ import {
 } from "./vs-base";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import { getCommunityBoardRows, type CommunityBoardRow } from "./community-data";
+import { buildFamilyResolutionContext, resolveFamily } from "./family-resolution";
+import { overlayLineageByArtifactSha } from "./overlay-lineage";
+import { estimateRunVram } from "./model-run-metrics";
 
 export {
   COMMUNITY_GROUP_PLACEHOLDER_ID,
@@ -118,6 +121,7 @@ export type HomePageData = {
 
 export type IndexModelWithArtifacts = IndexModel & {
   readonly artifactSha256s: readonly string[];
+  readonly vramRequiredGb8k: number | null;
 };
 
 export type ModelStaticParam = {
@@ -239,27 +243,6 @@ async function getCatalogFile(): Promise<CatalogFile> {
     return { models: catalog, popularityAsOf: null };
   }
   return { models: catalog.models, popularityAsOf: catalog.popularity_as_of };
-}
-
-/** slug → base-model display name for index rows whose catalog entry is a fine-tune. */
-export async function getFineTuneBaseBySlug(models: readonly IndexModel[]): Promise<ReadonlyMap<string, string>> {
-  const { models: catalogModels } = await getCatalogFile();
-  const byId = catalogModelMap(catalogModels);
-  const result = new Map<string, string>();
-  for (const model of models) {
-    if (model.catalog_id === null || model.catalog_id === undefined) {
-      continue;
-    }
-    const entry = byId.get(model.catalog_id);
-    if (entry === undefined || !catalogIsDerivativeEntry(entry, byId)) {
-      continue;
-    }
-    const base = catalogBaseEntry(entry, byId);
-    if (base !== undefined) {
-      result.set(model.slug, base.display_name);
-    }
-  }
-  return result;
 }
 
 function toOnrampModel(raw: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): OnrampCatalogModel {
@@ -525,10 +508,17 @@ function joinIndexModelArtifacts(
   details: readonly ModelData[],
 ): readonly IndexModelWithArtifacts[] {
   const detailsBySlug = new Map(details.map((model) => [model.slug, model]));
-  return indexModels.map((model) => ({
-    ...model,
-    artifactSha256s: detailsBySlug.get(model.slug)?.artifacts?.map((artifact) => artifact.file_sha256) ?? [],
-  }));
+  return indexModels.map((model) => {
+    const detail = detailsBySlug.get(model.slug);
+    const bestRun = detail?.runs.find((run) => run.run_id === model.best_run_id);
+    return {
+      ...model,
+      artifactSha256s: detail?.artifacts?.map((artifact) => artifact.file_sha256) ?? [],
+      vramRequiredGb8k: bestRun === undefined || detail === undefined
+        ? null
+        : estimateRunVram(bestRun, detail.runs)?.effectiveRequiredGb ?? null,
+    };
+  });
 }
 
 export async function getModelStaticParams(): Promise<readonly ModelStaticParam[]> {
@@ -551,13 +541,16 @@ export function communityBaseModelSlugs(
   existingSlugs: ReadonlySet<string>,
 ): readonly string[] {
   const catalogById = new Map(catalogModels.map((model) => [model.id, model] as const));
+  const resolutionContext = buildFamilyResolutionContext(
+    catalogModels,
+    [],
+    overlayLineageByArtifactSha(),
+  );
   const result = new Set<string>();
   for (const row of communityRows) {
-    const baseIds = row.lineage === undefined
-      ? row.declaredBaseModels ?? []
-      : row.lineage.card_declared_edges.map((edge) => edge.base);
-    for (const baseId of baseIds) {
-      const slug = catalogById.get(baseId)?.slug;
+    const resolution = resolveFamily(row, resolutionContext);
+    for (const catalogId of resolution.chainCatalogIds) {
+      const slug = catalogById.get(catalogId)?.slug;
       if (slug !== undefined && !existingSlugs.has(slug)) result.add(slug);
     }
   }

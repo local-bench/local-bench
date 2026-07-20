@@ -53,7 +53,9 @@ describe("ReplicationTimePanel", () => {
   it("keeps the misread guard in visible text and pins the season scope", () => {
     const html = render(livePoints());
     expect(html).toContain("this is not an inference-speed ranking.");
-    expect(html).toContain("Season 2 · LB-2026-07.2 · 1,457 carried items · RTX 5090 reference rig");
+    expect(html).toContain("Season 2 · LB-2026-07.2 · measured items only · RTX 5090 reference rig");
+    expect(html).not.toContain("1,457");
+    expect(html).not.toContain("carried items");
     expect(html).toContain("Estimate a full-suite run");
   });
 

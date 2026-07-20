@@ -73,7 +73,7 @@ describe("BenchmarkRecipe", () => {
     expect(html).toContain('pip install &quot;local-bench-ai[hf]&quot;');
     expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M --allow-untrusted-code");
     expect(html).toContain("Python 3.11+");
-    expect(html).toContain("llama-server on PATH");
+    expect(html).toContain("llama.cpp server binary");
     expect(html).toContain("github.com/ggerganov/llama.cpp/releases");
     expect(html).toContain("verifies downloads against pinned hashes");
     expect(html).toContain("checks publishability before starting");

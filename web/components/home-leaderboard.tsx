@@ -4,8 +4,13 @@ import { useMemo, useState } from "react";
 import { BoardScopeHeader } from "@/components/board-scope-header";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
 import { LeaderboardTable } from "@/components/leaderboard-table";
+import { LeaderboardVariantToggle } from "@/components/leaderboard-variant-toggle";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
+import {
+  EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  type FamilyResolutionContext,
+} from "@/lib/family-resolution";
 import { type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
@@ -19,37 +24,52 @@ import {
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 const EMPTY_COMMUNITY: readonly CommunityBoardRow[] = [];
 const EMPTY_LINEAGE: ReadonlyMap<string, string> = new Map();
+const EMPTY_VRAM: ReadonlyMap<string, number | null> = new Map();
 
 export { sortLeaderboardRows } from "@/lib/leaderboard-sort";
 export { filterUnifiedLeaderboardRows, sortUnifiedLeaderboardRows } from "@/lib/unified-leaderboard";
 
 type HomeLeaderboardProps = {
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
+  readonly allowVariantToggle?: boolean;
   readonly communityRows?: readonly CommunityBoardRow[];
   readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
   readonly indexVersion?: string;
   readonly models: readonly IndexModel[];
+  readonly resolutionContext?: FamilyResolutionContext;
   readonly scoreMode?: LeaderboardScoreMode;
+  readonly vramBySlug?: ReadonlyMap<string, number | null>;
 };
 
 export function HomeLeaderboard({
   models,
   agenticBySlug = EMPTY_AGENTIC,
+  allowVariantToggle = false,
   communityRows = EMPTY_COMMUNITY,
   scoreMode = "full",
   fineTuneBaseBySlug = EMPTY_LINEAGE,
   indexVersion,
+  resolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  vramBySlug = EMPTY_VRAM,
 }: HomeLeaderboardProps) {
   const [sort, setSort] = useState<SortState>({ key: "composite", direction: "desc" });
   const [family, setFamily] = useState("all");
   const [size, setSize] = useState("all");
   const [quant, setQuant] = useState("all");
   const [ram, setRam] = useState("all");
-  const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full");
+  const [showAllVariants, setShowAllVariants] = useState(false);
+  const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full", resolutionContext);
   const axisKeys = useMemo(() => axisColumns(models), [models]);
   const allRows = useMemo(
-    () => filterUnifiedLeaderboardRows(models, scoreMode === "full" ? liveCommunity.rows : []),
-    [models, liveCommunity.rows, scoreMode],
+    () => filterUnifiedLeaderboardRows(
+      models,
+      scoreMode === "full" ? liveCommunity.rows : [],
+      {
+        resolutionContext,
+        variants: showAllVariants ? "all" : "best-per-family",
+      },
+    ),
+    [models, liveCommunity.rows, resolutionContext, scoreMode, showAllVariants],
   );
   const filterOptions = useMemo(() => boardFilterOptions(allRows), [allRows]);
   const visibleRows = useMemo(
@@ -87,6 +107,12 @@ export function HomeLeaderboard({
           total={allRows.length}
         />
       ) : null}
+      {scoreMode === "full" && allowVariantToggle ? (
+        <LeaderboardVariantToggle
+          showAllVariants={showAllVariants}
+          toggle={() => setShowAllVariants((current) => !current)}
+        />
+      ) : null}
       {scoreMode === "full" ? (
         <div className="border-b border-bench-line px-3 py-2"><CommunityFreshness state={liveCommunity} /></div>
       ) : null}
@@ -109,6 +135,7 @@ export function HomeLeaderboard({
           showAgenticColumn={showAgenticColumn}
           showStaticIndexColumn={showStaticIndexColumn}
           sort={sort}
+          vramBySlug={vramBySlug}
         />
       )}
     </div>
@@ -153,7 +180,7 @@ function LeaderboardFilters({
         <BoardFilter label="Quant" value={quant} values={options.quants} onChange={setQuant} />
         <BoardFilter label="RAM" value={ram} values={options.rams} onChange={setRam} />
       </div>
-      <p className="font-mono text-xs text-bench-muted">{total} complete ranked run{total === 1 ? "" : "s"}</p>
+      <p role="status" className="font-mono text-xs text-bench-muted">{total} complete ranked run{total === 1 ? "" : "s"}</p>
     </div>
   );
 }
@@ -205,7 +232,9 @@ function matchesFilters(
 }
 
 function rowFamily(row: UnifiedLeaderboardRow): string | null {
-  return row.source === "local-bench" ? row.model.family : row.row.family;
+  return row.source === "local-bench"
+    ? row.model.family
+    : row.row.familyLabel ?? row.row.catalogFamily ?? row.row.family;
 }
 
 function rowQuant(row: UnifiedLeaderboardRow): string | null {

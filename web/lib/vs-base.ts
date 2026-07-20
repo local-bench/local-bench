@@ -1,7 +1,9 @@
 import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { HEADLINE_LANE } from "./leaderboard-score";
+import { displayDelta } from "./format";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 import { INDEX_VERSION_V3 } from "./scoring-seasons";
+import { modelHref } from "./routes";
 
 export type VsBaseBoardRow = {
   readonly axes: Record<string, AxisScore>;
@@ -67,7 +69,7 @@ export function buildVsBaseComparison({
           if (baseScore === undefined || derivativeScore === undefined) {
             return [];
           }
-          return [{ axis, base: baseScore, derivative: derivativeScore, delta: derivativeScore.point - baseScore.point }];
+          return [{ axis, base: baseScore, derivative: derivativeScore, delta: displayDelta(derivativeScore.point, baseScore.point) }];
         });
 
   return {
@@ -77,7 +79,7 @@ export function buildVsBaseComparison({
     compositeDelta:
       measuredBase === null || measuredDerivative === null || differentScoringSeasons
         ? null
-        : measuredDerivative.composite.point - measuredBase.composite.point,
+        : displayDelta(measuredDerivative.composite.point, measuredBase.composite.point),
     derivative,
     missing: differentScoringSeasons
       ? ["different scoring seasons — see bridge"]
@@ -119,17 +121,17 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
     derivative.row !== null &&
     indexVersion(base.row) !== indexVersion(derivative.row)
   ) {
-    return `/model/${encodeURIComponent(derivative.slug)}#season-bridge`;
+    return `${modelHref(derivative.slug)}#season-bridge`;
   }
   const baseRunId = currentIndexRunId(base.row);
   const derivativeRunId = currentIndexRunId(derivative.row);
   if (baseRunId !== null && derivativeRunId !== null) {
-    return `/compare?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
+    return `/compare/?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
   }
   if (hasPreviousIndexDiagnostics(base.row) || hasPreviousIndexDiagnostics(derivative.row)) {
-    return `/model/${encodeURIComponent(derivative.slug)}`;
+    return modelHref(derivative.slug);
   }
-  return `/compare?finetune=${encodeURIComponent(derivative.slug)}`;
+  return `/compare/?finetune=${encodeURIComponent(derivative.slug)}`;
 }
 
 function indexVersion(row: VsBaseBoardRow): string {

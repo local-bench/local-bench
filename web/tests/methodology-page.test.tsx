@@ -117,6 +117,12 @@ describe("MethodologyPage", () => {
     expect(text).toContain("never weighted, never zero-filled, and never used for ranking");
     expect(text).toContain("the only sanctioned pairing");
     expect(text).toContain("A partial v4 composite is never displayed or ranked");
+    expect(text).not.toContain("Option D");
+    expect(text).toContain("An anchor without complete season-2 coverage keeps its season-1 label and composite");
+    expect(text).toContain("suite-v1-full-exec-6axis-v1");
+    expect(text).toContain("suite measures six axes; five are weighted in the Index");
+    expect(text).toContain("the complete headline profile");
+    expect(text).toContain("Math 139");
   });
 
   it("discloses the evidence retained for community reports", async () => {

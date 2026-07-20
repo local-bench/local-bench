@@ -8,8 +8,10 @@ import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { axisLabel, formatCompactNumber, formatGb } from "@/lib/format";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
+import { resolveRunArtifactMetrics } from "@/lib/model-run-metrics";
 import { getQuantDecisionRows, type QuantDecisionRow } from "@/lib/quant-decision";
 import { DEFAULT_CONTEXT_TOKENS, formatContextLength } from "@/lib/rig-match";
+import { modelHref, runHref } from "@/lib/routes";
 import { runtimeDisplay } from "@/lib/runtime-display";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import type { ModelData, ModelFamilyScatterModel, ModelFamilyScatterRelation } from "@/lib/data";
@@ -45,7 +47,7 @@ export function ModelVariantBoard({
     (run) => isCurrentIndexRun(run),
   );
   const decisionByQuant = new Map<string, QuantDecisionRow>(
-    getQuantDecisionRows({ ...model, runs: currentRuns }, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
+    getQuantDecisionRows(model, DEFAULT_CONTEXT_TOKENS).rows.map((row) => [
       row.quantLabel,
       row,
     ]),
@@ -79,17 +81,36 @@ export function ModelVariantBoard({
           <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
             Complete rows are ordered by {LOCAL_INTELLIGENCE_INDEX_NAME}; partial rows show their measured axes but
             are not ranked. The VRAM/Fits columns ({formatContextLength(DEFAULT_CONTEXT_TOKENS)} context) tell you
-            what your card needs.
+            what your card needs. Ranks are within this family&apos;s variants.
           </p>
       </div>
+      <details className="border-b border-bench-line bg-bench-panel-2/45 px-4 py-3 text-sm text-bench-muted">
+        <summary className="cursor-pointer font-semibold text-bench-accent">Column guide</summary>
+        <div className="mt-3 grid gap-2 leading-6 sm:grid-cols-2">
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">VRAM @8k</Link> — model weights, KV cache, and runtime headroom at 8k context.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Fits</Link> — the smallest common GPU VRAM tier above that estimate.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Prefill tok/s</Link> — prompt-processing speed.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Decode tok/s</Link> — generated-token speed after the prompt.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Overall tok/s</Link> — completion throughput across the full benchmark.</p>
+          <p><span className="text-bench-text">File size</span> — the benchmarked model artifact on disk.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#serving-engine-lanes">Runtime</Link> — the serving engine and version.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#evidence-and-reproduction">Run</Link> — the immutable benchmark receipt.</p>
+        </div>
+        <p className="mt-3 font-semibold text-bench-text">Pick the largest quant whose VRAM @8k fits your card.</p>
+      </details>
       <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent 2xl:hidden">
         Swipe horizontally for all variant metrics &rarr;
       </p>
-      <div className="overflow-x-auto">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Model variant table — scrolls horizontally"
+        className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+      >
         <table data-testid="model-variant-table" className="min-w-[1360px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>
-              <th className="px-3 py-3 font-semibold">Rank</th>
+              <th className="px-3 py-3 font-semibold">Rank (this family)</th>
               <th className="px-3 py-3 font-semibold">Variant</th>
               <th className="px-3 py-3 font-semibold">
                 <span className="flex flex-col gap-0.5 leading-tight">
@@ -135,7 +156,7 @@ export function ModelVariantBoard({
                 <td colSpan={9 + axisKeys.length + (hasPerf ? 2 : 0)} className="px-3 py-5 text-sm text-bench-muted">
                   No current-index measurements yet.{" "}
                   <Link
-                    href={`/submit?model=${encodeURIComponent(model.slug)}`}
+                    href={`/submit/?model=${encodeURIComponent(model.slug)}`}
                     className="font-mono text-xs text-bench-warn hover:underline"
                   >
                     benchmark it
@@ -145,6 +166,7 @@ export function ModelVariantBoard({
             ) : null}
             {ranked.map((row, index) => {
               const run = row.run;
+              const metrics = resolveRunArtifactMetrics(run, variantSiblingRuns(row, model));
               const decision =
                 row.kind === "this-model" && run.quant_label !== null ? decisionByQuant.get(run.quant_label) : undefined;
               return (
@@ -172,7 +194,7 @@ export function ModelVariantBoard({
                       <AxisMiniBar score={run.axes[axis]} axis={axis} />
                     </td>
                   ))}
-                  <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono text-bench-text"><VramAt8k run={run} vramRequiredGb8k={metrics.vramRequiredGb8k} /></td>
                   <td className="px-3 py-3 font-mono text-bench-text">{formatFitTier(decision)}</td>
                   {hasPerf ? (
                     <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.prefill_tps)}</td>
@@ -181,7 +203,7 @@ export function ModelVariantBoard({
                     <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.decode_tps)}</td>
                   ) : null}
                   <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
-                  <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono text-bench-text">{formatVariantGb(metrics.fileGb)}</td>
                   <td className="px-3 py-3">
                     <RuntimeCell run={run} />
                   </td>
@@ -189,7 +211,7 @@ export function ModelVariantBoard({
                     {run.run_id === null ? (
                       <span className="font-mono text-xs text-bench-muted">—</span>
                     ) : (
-                      <Link href={`/run/${run.run_id}`} className="font-mono text-xs text-bench-accent hover:underline">
+                      <Link href={runHref(run.run_id)} className="font-mono text-xs text-bench-accent hover:underline">
                         receipt
                       </Link>
                     )}
@@ -199,6 +221,7 @@ export function ModelVariantBoard({
             })}
             {partial.map((row, index) => {
               const run = row.run;
+              const metrics = resolveRunArtifactMetrics(run, variantSiblingRuns(row, model));
               return (
               <tr key={`partial-${variantRowKey(row, index)}`} className={variantRowClass(row)}>
                 <td className="px-3 py-3 font-mono text-bench-muted">—</td>
@@ -208,21 +231,15 @@ export function ModelVariantBoard({
                   </VariantCell>
                 </td>
                 <td className="px-3 py-3">
-                  {run.composite === null ? (
-                    <span className="font-mono text-xs text-bench-muted">not measured</span>
-                  ) : (
-                    <div>
-                      <ScoreBar axes={run.axes} score={run.composite} />
-                      <div className="mt-1 font-mono text-[10px] uppercase text-bench-warn-soft">unranked diagnostic</div>
-                    </div>
-                  )}
+                  <span className="font-mono text-sm text-bench-muted">—</span>
+                  <div className="mt-1 font-mono text-[10px] uppercase text-bench-warn-soft">diagnostic partial — no comparable Index</div>
                 </td>
                 {axisKeys.map((axis) => (
                   <td key={axis} className="px-3 py-3">
                     <AxisMiniBar score={run.axes[axis]} axis={axis} />
                   </td>
                 ))}
-                <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text"><VramAt8k run={run} vramRequiredGb8k={metrics.vramRequiredGb8k} /></td>
                 <td className="px-3 py-3 font-mono text-bench-text">n/a</td>
                 {hasPerf ? (
                   <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.prefill_tps)}</td>
@@ -231,7 +248,7 @@ export function ModelVariantBoard({
                   <td className="px-3 py-3 font-mono text-bench-text">{formatPerfTps(run.perf?.decode_tps)}</td>
                 ) : null}
                 <td className="px-3 py-3 font-mono text-bench-text">{formatCompactNumber(run.tok_s)}</td>
-                <td className="px-3 py-3 font-mono text-bench-text">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                <td className="px-3 py-3 font-mono text-bench-text">{formatVariantGb(metrics.fileGb)}</td>
                 <td className="px-3 py-3">
                   <RuntimeCell run={run} />
                 </td>
@@ -239,7 +256,7 @@ export function ModelVariantBoard({
                   {run.run_id === null ? (
                     <span className="font-mono text-xs text-bench-muted">—</span>
                   ) : (
-                    <Link href={`/run/${run.run_id}`} className="font-mono text-xs text-bench-accent hover:underline">
+                    <Link href={runHref(run.run_id)} className="font-mono text-xs text-bench-accent hover:underline">
                       receipt
                     </Link>
                   )}
@@ -262,17 +279,17 @@ export function ModelVariantBoard({
                       —
                     </td>
                   ))}
-                  <td className="px-3 py-3 font-mono">{formatGb(run.vram_required_gb_8k ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono"><VramAt8k run={run} /></td>
                   <td className="px-3 py-3 font-mono">{formatFitTier(decision)}</td>
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   <td className="px-3 py-3">—</td>
-                  <td className="px-3 py-3 font-mono">{formatGb(run.file_gb ?? run.vram_footprint_gb)}</td>
+                  <td className="px-3 py-3 font-mono">{formatVariantGb(run.file_gb)}</td>
                   <td className="px-3 py-3">
                     <RuntimeCell run={run} />
                   </td>
                   <td className="px-3 py-3">
-                    <Link href={`/submit?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
+                    <Link href={`/submit/?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
                       benchmark it
                     </Link>
                   </td>
@@ -305,7 +322,7 @@ function VariantCell({ row, children }: { readonly row: VariantRow; readonly chi
         <Badge tone={lineage.tone} title={lineage.title}>
           {lineage.label}
         </Badge>
-        <Link href={`/model/${row.model.slug}`} className="font-semibold text-bench-accent hover:underline">
+        <Link href={modelHref(row.model.slug)} className="font-semibold text-bench-accent hover:underline">
           {row.model.model_label}
         </Link>
       </span>
@@ -413,6 +430,29 @@ function RuntimeCell({ run }: { readonly run: VariantRun }) {
       )}
     </span>
   );
+}
+
+function VramAt8k({ run, vramRequiredGb8k = run.vram_required_gb_8k ?? null }: {
+  readonly run: VariantRun;
+  readonly vramRequiredGb8k?: number | null;
+}) {
+  if (vramRequiredGb8k !== null) {
+    return formatGb(vramRequiredGb8k);
+  }
+  if (run.vram_footprint_gb === null || run.vram_footprint_gb === undefined) return "—";
+  return (
+    <span title="runtime footprint (8k figure unavailable)">
+      {formatGb(run.vram_footprint_gb)} <span className="text-[10px] text-bench-muted">footprint</span>
+    </span>
+  );
+}
+
+function variantSiblingRuns(row: VariantRow, model: ModelData): readonly VariantRun[] {
+  return row.kind === "this-model" ? model.runs : row.model.runs;
+}
+
+function formatVariantGb(value: number | null | undefined): string {
+  return value === null || value === undefined ? "—" : formatGb(value);
 }
 
 function formatPerfTps(value: number | null | undefined): string {

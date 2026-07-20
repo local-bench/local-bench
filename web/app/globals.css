@@ -16,6 +16,7 @@ html {
   background: #0a0d14;
   color: #eef2fa;
   letter-spacing: 0;
+  scroll-padding-top: 5rem;
 }
 
 body {

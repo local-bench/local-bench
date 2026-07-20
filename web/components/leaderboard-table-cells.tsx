@@ -152,7 +152,7 @@ export function SortableHeader({
   const active = sort.key === sortKey;
   const marker = active ? (sort.direction === "asc" ? "↑" : "↓") : "↕";
   return (
-    <th className="px-3 py-3 font-semibold">
+    <th aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"} className="px-3 py-3 font-semibold">
       <button
         type="button"
         className="inline-flex items-center gap-1 text-left hover:text-bench-text"
@@ -213,7 +213,7 @@ export function axisColumns(models: readonly IndexModel[]): readonly string[] {
   return [...configured, ...extra];
 }
 
-function nextSort(current: SortState, key: SortKey): SortState {
+export function nextSort(current: SortState, key: SortKey): SortState {
   if (current.key === key) {
     return { key, direction: current.direction === "asc" ? "desc" : "asc" };
   }

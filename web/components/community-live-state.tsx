@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { parseCommunityLiveBoard, reconcileCommunityRows } from "@/lib/community-live";
+import {
+  EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  type FamilyResolutionContext,
+} from "@/lib/family-resolution";
 
 export type LiveCommunityState =
   | { readonly kind: "loading"; readonly rows: readonly CommunityBoardRow[] }
@@ -17,6 +21,7 @@ export type LiveCommunityState =
 export function useLiveCommunityRows(
   bakedRows: readonly CommunityBoardRow[],
   enabled = true,
+  resolutionContext: FamilyResolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
 ): LiveCommunityState {
   const [state, setState] = useState<LiveCommunityState>({ kind: "loading", rows: bakedRows });
   useEffect(() => {
@@ -41,7 +46,7 @@ export function useLiveCommunityRows(
           droppedRows: parsed.droppedRows,
           generatedAt: parsed.generatedAt,
           kind: "live",
-          rows: reconcileCommunityRows(bakedRows, parsed.rows),
+          rows: reconcileCommunityRows(bakedRows, parsed.rows, resolutionContext),
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -50,7 +55,7 @@ export function useLiveCommunityRows(
     }
     void load();
     return () => controller.abort();
-  }, [bakedRows, enabled]);
+  }, [bakedRows, enabled, resolutionContext]);
   return state;
 }
 
