@@ -10,7 +10,6 @@ from typing import Final
 from localbench._types import JsonObject
 from localbench.persistence import atomic_write_json
 from localbench.submissions.canon import canonical_json_bytes
-from localbench.submissions.crypto import sign_bytes, verify_bytes
 
 TRUST_SCHEMA: Final = "localbench.agentic_runtime_trust.v1"
 TRUST_SIGNATURE_DOMAIN: Final = b"localbench.agentic-runtime-trust.v1\n"
@@ -23,7 +22,7 @@ class TrustMetadataError(ValueError):
 
 
 def sign_trust_metadata(payload: JsonObject, key_path: Path, *, key_id: str) -> JsonObject:
-    from localbench.submissions.crypto import load_private_key
+    from localbench.submissions.crypto import load_private_key, sign_bytes
 
     key = load_private_key(key_path)
     body = canonical_json_bytes(payload)
@@ -45,6 +44,8 @@ def admit_trust_metadata(
     embedded_roots: dict[str, str],
     state_path: Path,
 ) -> JsonObject:
+    from localbench.submissions.crypto import verify_bytes
+
     if len(raw) > MAX_TRUST_BYTES:
         raise TrustMetadataError("trust metadata exceeds byte limit")
     try:
