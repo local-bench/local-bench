@@ -188,7 +188,8 @@ describe("live-only community links", () => {
     expect(html).toContain("Call formatting");
     expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
     expect(html).toContain("RULER 32K");
-    expect(html).toMatch(/RULER 32K<\/dt><dd[^>]*>not measured<\/dd>/u);
+    expect(html).toMatch(/BFCL single-turn<\/dt><dd[^>]*>not measured<\/dd>/u);
+    expect(html).toMatch(/RULER 32K<\/dt><dd[^>]*>61\.0<\/dd>/u);
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b7421");
     expect(html).toContain("RTX 5090 · 32 GB");
