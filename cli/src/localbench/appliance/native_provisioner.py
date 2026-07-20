@@ -6,6 +6,7 @@ from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.appliance.handshake import accept_handshake_identity
+from localbench.appliance.native_apparmor import classify_userns_denial
 from localbench.appliance.native_inventory import NativeRuntimeInventory
 from localbench.appliance.native_materialization import (
     materialize_rootfs,
@@ -119,6 +120,7 @@ class NativeApplianceProvisioner:
             self.owner._write_state(runtime_dir, runtime_id, "imported")
             current = "imported"
         if current == "imported":
+            verify_materialized_rootfs(rootfs, manifest)
             self._provision_appworld(rootfs, manifest)
             self.owner._write_state(runtime_dir, runtime_id, "provisioned")
             current = "provisioned"
@@ -163,8 +165,17 @@ class NativeApplianceProvisioner:
             ),
         )
         if result.returncode != 0:
+            failure = _decode(result.stderr)
+            critical_hashes = self._manifest_object(manifest, "critical_hashes")
+            classified = classify_userns_denial(
+                rootfs,
+                str(critical_hashes["bubblewrap_sha256"]),
+                failure,
+            )
+            if classified is not None:
+                raise classified
             raise ProvisioningError(
-                "appworld_provision_failed", _decode(result.stderr), "Retry setup"
+                "appworld_provision_failed", failure, "Retry setup"
             )
 
     def _run_canaries(self, rootfs: Path) -> None:
