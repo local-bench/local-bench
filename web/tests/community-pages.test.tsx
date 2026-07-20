@@ -60,7 +60,7 @@ describe("community results use the model-family namespace", () => {
     expect(html).not.toContain('href="/families#');
   });
 
-  it("sorts family names in user-visible alphabetical order", () => {
+  it("breaks family-name ties in user-visible alphabetical order", () => {
     expect(["GLM 5", "GPT OSS", "Gemma 3"].sort(compareFamilyNames)).toEqual(["Gemma 3", "GLM 5", "GPT OSS"]);
   });
 

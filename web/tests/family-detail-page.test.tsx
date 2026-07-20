@@ -60,7 +60,9 @@ function expectedFamilyOrder(models: readonly IndexModel[]): readonly IndexModel
   return [...models].sort((left, right) => {
     const leftScore = isFullIndexRow(left) ? scoreForMode(left, "full")?.point ?? null : null;
     const rightScore = isFullIndexRow(right) ? scoreForMode(right, "full")?.point ?? null : null;
-    if (leftScore !== null && rightScore !== null) return rightScore - leftScore;
+    if (leftScore !== null && rightScore !== null) {
+      return rightScore - leftScore || compareFamilyNames(left.model_label, right.model_label);
+    }
     if (leftScore !== null) return -1;
     if (rightScore !== null) return 1;
     return compareFamilyNames(left.model_label, right.model_label);
