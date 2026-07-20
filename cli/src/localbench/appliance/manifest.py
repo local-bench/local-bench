@@ -20,7 +20,7 @@ from localbench.submissions.crypto import load_private_key, sign_bytes, verify_b
 
 MANIFEST_SCHEMA: Final = "localbench.agentic_runtime_manifest.v1"
 MANIFEST_SIGNATURE_DOMAIN: Final = b"localbench.agentic-runtime-manifest.v1\n"
-PINNED_RUNTIME_ID: Final = "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v4-r1"
+PINNED_RUNTIME_ID: Final = "aw013p1-pypi28113a7a-ubuntu2404-py312-c0v5-r1"
 RUNTIME_KEY_ID: Final = "localbench-runtime-root-r2-2026-07-machine"
 RUNTIME_PUBLIC_KEYS: Final = {
     RUNTIME_KEY_ID: "9521a96547c63c24689fce183504966f4919785a4e471abb2ac958c7bf5663cb",
