@@ -44,7 +44,6 @@ export function QualityVramScatter({
   anchorRuns,
   ariaLabel,
   description,
-  omittedLabel = "run(s) omitted from x-axis: no footprint",
   pointLegend = [],
   runs,
   showPointLabels = true,
@@ -54,7 +53,6 @@ export function QualityVramScatter({
   readonly anchorRuns: readonly AnchorReference[];
   readonly ariaLabel: string;
   readonly description: string;
-  readonly omittedLabel?: string;
   readonly pointLegend?: readonly QualityVramLegendItem[];
   readonly runs: readonly QualityVramRun[];
   readonly showPointLabels?: boolean;
@@ -74,9 +72,13 @@ export function QualityVramScatter({
           <h2 className="text-lg font-semibold text-bench-text">{title}</h2>
           <p className="text-sm text-bench-muted">{description}</p>
         </div>
-        <div className="font-mono text-xs text-bench-muted">
-          {omitted} {omittedLabel}
-        </div>
+        {omitted > 0 ? (
+          <div className="font-mono text-xs text-bench-muted">
+            {omitted === 1
+              ? "1 run lacks VRAM data and is not plotted"
+              : `${omitted} runs lack VRAM data and are not plotted`}
+          </div>
+        ) : null}
       </div>
       <p className="mb-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent lg:hidden">
         Swipe horizontally to inspect the full chart &rarr;

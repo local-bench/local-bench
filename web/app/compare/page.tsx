@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CompareLivePicker } from "@/components/compare-live-picker";
 import { getCompareConfigs } from "@/lib/compare";
@@ -21,7 +22,14 @@ export default async function ComparePage() {
         <h1 className="mt-3 text-4xl font-semibold text-bench-text">Compare model configs</h1>
         <p className="mt-2 max-w-3xl leading-7 text-bench-muted">
           Pick two model × quant rows and inspect quality, effective VRAM, speed, and per-axis
-          winners side by side. Ranks only compare within the same lane.
+          winners side by side. Ranks only compare within the same{" "}
+          <Link
+            className="underline decoration-bench-line underline-offset-2 hover:text-bench-accent"
+            href="/methodology#serving-engine-lanes"
+            title="A lane fixes the serving engine and benchmark protocol used for a comparable run"
+          >
+            lane
+          </Link>.
         </p>
       </header>
       <CompareLivePicker

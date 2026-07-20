@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EngineProvenance } from "@/components/engine-provenance";
 import { DetailGrid, DetailItem } from "@/components/detail-grid";
@@ -76,16 +77,26 @@ export default async function RunPage({ params }: PageProps) {
   const scoreText = visibleScore === null ? "n/a" : formatScore(visibleScore.point);
   const scoreCiText = visibleScore === null ? "CI unavailable" : `${formatCi(visibleScore)} 95% CI`;
   const scoreTitle = run.ranked ? LOCAL_INTELLIGENCE_INDEX_NAME : "Diagnostic score profile";
+  const modelSlug = runId.split("__")[0];
 
   return (
     <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-5 py-7 lg:px-8">
       <Breadcrumbs
         items={[
           { label: "Model families", href: "/families" },
-          { label: run.model_label, href: `/model/${runId.split("__")[0]}` },
+          { label: run.model_label, href: `/model/${modelSlug}` },
           { label: "Run" },
         ]}
       />
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p className="text-bench-muted">
+          This receipt lets anyone verify this run against the frozen suite — see{" "}
+          <Link className="font-semibold text-bench-accent hover:underline" href="/methodology">Methodology</Link>.
+        </p>
+        <Link className="font-semibold text-bench-accent hover:underline" href={`/model/${modelSlug}`}>
+          ← back to {run.model_label}
+        </Link>
+      </div>
       <header className="rounded-lg border border-bench-line bg-bench-panel p-5">
         <p className="font-mono text-xs uppercase text-bench-accent">
           {isLegacyReceipt ? `${run.suite_version} | retired lane ${run.lane ?? "previous index"}` : `${run.suite_version} | ${effectiveIndexVersion}`}

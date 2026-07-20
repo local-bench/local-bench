@@ -148,4 +148,19 @@ describe("ModelScatter family points", () => {
     expect(html).toContain('href="/run/community__q4"');
     expect(html).toContain('data-point-kind="this-model"');
   });
+
+  it("hides zero omissions and explains runs that cannot be plotted", () => {
+    const complete = model({ slug: "complete", label: "Complete", runs: [run()] });
+    const missing = model({
+      slug: "missing",
+      label: "Missing VRAM",
+      runs: [run({ run_id: runId("missing__q4"), vram_footprint_gb: null, vram_required_gb_8k: null })],
+    });
+
+    const completeHtml = renderToStaticMarkup(createElement(ModelScatter, { model: complete, anchorRuns: [] }));
+    const missingHtml = renderToStaticMarkup(createElement(ModelScatter, { model: missing, anchorRuns: [] }));
+
+    expect(completeHtml).not.toContain("runs lack VRAM data and are not plotted");
+    expect(missingHtml).toContain("1 run lacks VRAM data and is not plotted");
+  });
 });

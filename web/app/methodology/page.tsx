@@ -365,7 +365,7 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
-      <section className="space-y-4 text-bench-muted">
+      <section id="serving-engine-lanes" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Serving engine lanes</h2>
         <p>
           Rows identify the serving engine as well as the model format. Community-submitted llama.cpp runs use a pinned

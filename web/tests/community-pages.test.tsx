@@ -36,6 +36,8 @@ describe("community results use the model-family namespace", () => {
     expect(html).not.toContain('href="/community"');
     expect(html).not.toContain(">Community<");
     expect(html).toContain('href="/submissions"');
+    expect(html).toContain('href="https://github.com/local-bench/local-bench"');
+    expect(html).toContain(">GitHub</a>");
   });
 
   it("renders the first destination as a family dropdown with directory and deep links", () => {

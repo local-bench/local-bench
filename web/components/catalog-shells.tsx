@@ -15,9 +15,13 @@ export function CatalogShells({ models }: { readonly models: readonly IndexModel
     <details className="rounded-lg border border-bench-line bg-bench-panel/50">
       <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-bench-text">
         Not yet benchmarked — {models.length} catalog models on the roadmap
-        <span className="ml-2 font-normal text-bench-muted">be the first to submit a run</span>
       </summary>
-      <ul className="grid gap-x-6 gap-y-1 border-t border-bench-line px-4 py-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+      <div className="border-t border-bench-line px-4 pt-4">
+        <Link className="text-sm font-semibold text-bench-accent hover:underline" href="/submit">
+          be the first to submit a run →
+        </Link>
+      </div>
+      <ul className="grid gap-x-6 gap-y-1 px-4 py-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
         {sorted.map((model) => (
           <li key={model.slug}>
             <Link

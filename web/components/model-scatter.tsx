@@ -77,7 +77,6 @@ export function ModelScatter({
       anchorRuns={anchorRuns}
       ariaLabel={`${model.model_label} ${LOCAL_INTELLIGENCE_INDEX_NAME} (${indexQualifier}) scatter with anchor reference lines`}
       description={`${indexQualifier}. Where this model and current-lane family runs land vs the frontier anchors.`}
-      omittedLabel="run(s) listed below but omitted from scatter x: no footprint"
       pointLegend={pointLegend}
       runs={runs}
       title={`VRAM footprint vs ${LOCAL_INTELLIGENCE_INDEX_NAME}`}

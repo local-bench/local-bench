@@ -98,6 +98,9 @@ export function AppShell({
               <Link href="/feedback" className="hover:text-bench-text">
                 Feedback
               </Link>
+              <a href="https://github.com/local-bench/local-bench" className="hover:text-bench-text">
+                GitHub
+              </a>
             </div>
           </div>
         </div>
