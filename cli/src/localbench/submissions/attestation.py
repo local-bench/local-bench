@@ -6,7 +6,6 @@ from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.submissions.canon import jcs_json_bytes, jcs_json_hash
-from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
 ATTESTATION_SCHEMA = "localbench.verdict_attestation.v1"
 ATTESTATION_KEY_ID = "localbench-attester-2026-07"
@@ -26,6 +25,8 @@ def sign_verdict_attestation(
     attested_at: str | None = None,
     key_id: str = ATTESTATION_KEY_ID,
 ) -> JsonObject:
+    from localbench.submissions.crypto import load_private_key, sign_bytes
+
     # Attestations are the one client-signed surface the server re-serializes
     # before verifying (submission-zt1-decision.ts re-derives digests and checks
     # the signature over canonicalJson(payload)), so digests and signed bytes
@@ -58,6 +59,8 @@ def verify_verdict_attestation(
     *,
     expected_public_key_hex: str | None = None,
 ) -> bool:
+    from localbench.submissions.crypto import verify_bytes
+
     expected = expected_attester_public_key_hex(expected_public_key_hex)
     if expected is None:
         return False

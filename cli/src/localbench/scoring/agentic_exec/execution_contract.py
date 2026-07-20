@@ -17,8 +17,8 @@ from typing import Final
 
 from localbench._types import JsonObject, JsonValue
 from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash, write_json_file
-from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
-
+from localbench.scoring.agentic_exec.contract_crypto import load_private_key, sign_bytes, verify_bytes
+from localbench.scoring.agentic_exec.contract_successor import SuccessorContractMetadata, extract_successor_payload
 LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
 CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v4"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
@@ -755,3 +755,89 @@ def _actual_covered_behavior(payload: JsonObject) -> JsonObject:
     behavior["failure_to_score"] = expected["failure_to_score"]
     behavior["rank_gate"] = expected["rank_gate"]
     return behavior
+
+
+V5_CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v5"
+_extract_fresh_contract_payload = extract_contract_payload
+_load_signed_execution_contract = load_execution_contract
+
+
+def extract_contract_payload(
+    *,
+    ordered_task_ids: list[str] | None = None,
+    semantic_task_contents: dict[str, JsonValue] | None = None,
+    appworld_identity: JsonObject | None = None,
+    sandbox_identity: JsonObject | None = None,
+    predecessor_payload: JsonObject | None = None,
+    successor_metadata: SuccessorContractMetadata | None = None,
+) -> JsonObject:
+    if predecessor_payload is not None:
+        if successor_metadata is None:
+            raise ExecutionContractDriftError("successor metadata", "missing")
+        return extract_successor_payload(predecessor_payload, successor_metadata)
+    if successor_metadata is not None:
+        raise ExecutionContractDriftError("predecessor payload", "missing")
+    if (
+        ordered_task_ids is None
+        or semantic_task_contents is None
+        or appworld_identity is None
+        or sandbox_identity is None
+    ):
+        raise ExecutionContractDriftError("fresh extraction inputs", "missing")
+    return _extract_fresh_contract_payload(
+        ordered_task_ids=ordered_task_ids,
+        semantic_task_contents=semantic_task_contents,
+        appworld_identity=appworld_identity,
+        sandbox_identity=sandbox_identity,
+    )
+
+
+def load_execution_contract(
+    path: Path | None = None, *, expected_contract_id: str = CONTRACT_ID
+) -> JsonObject:
+    contract = _load_signed_execution_contract(
+        path,
+        expected_contract_id=expected_contract_id,
+    )
+    payload = _object(contract["payload"])
+    validate_execution_contract_payload(payload, expected_contract_id=expected_contract_id)
+    version = payload.get("contract_version")
+    if isinstance(version, int) and not isinstance(version, bool) and version >= 5:
+        supersedes_id = payload.get("supersedes_contract_id")
+        supersedes_sha256 = payload.get("supersedes_payload_sha256")
+        equivalence = payload.get("score_protocol_equivalence")
+        if not isinstance(supersedes_id, str) or not supersedes_id:
+            raise ExecutionContractDriftError("supersedes_contract_id string", repr(supersedes_id))
+        if not _is_sha256(supersedes_sha256):
+            raise ExecutionContractDriftError("supersedes_payload_sha256 64-hex", repr(supersedes_sha256))
+        if not isinstance(equivalence, dict):
+            raise ExecutionContractDriftError("score_protocol_equivalence object", type(equivalence).__name__)
+        if equivalence.get("asserted_equivalent_to") != supersedes_id:
+            raise ExecutionContractDriftError(supersedes_id, str(equivalence.get("asserted_equivalent_to")))
+        if equivalence.get("basis") != "packaging-differential+cross-topology":
+            raise ExecutionContractDriftError(
+                "packaging-differential+cross-topology",
+                str(equivalence.get("basis")),
+            )
+        evidence = equivalence.get("evidence_sha256")
+        if not isinstance(evidence, list) or not evidence or not all(_is_sha256(item) for item in evidence):
+            raise ExecutionContractDriftError("non-empty score equivalence evidence sha256 list", repr(evidence))
+        gate = _object(payload["packaging_correctness_gate"])
+        publication_authority = gate.get("publication_authority")
+        if publication_authority != "signed-release-manifest":
+            raise ExecutionContractDriftError(
+                "signed-release-manifest",
+                str(publication_authority),
+            )
+    return contract
+
+
+def _is_sha256(value: JsonValue) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+__all__.extend(("V5_CONTRACT_ID", "SuccessorContractMetadata"))

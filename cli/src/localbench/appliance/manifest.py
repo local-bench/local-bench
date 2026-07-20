@@ -16,7 +16,6 @@ from urllib.parse import urlparse
 from localbench._types import JsonObject
 from localbench.appliance.runtime_identity import AGENTIC_WORKER_PROTOCOL_VERSION
 from localbench.submissions.canon import canonical_json_bytes
-from localbench.submissions.crypto import load_private_key, sign_bytes, verify_bytes
 
 MANIFEST_SCHEMA: Final = "localbench.agentic_runtime_manifest.v1"
 MANIFEST_SIGNATURE_DOMAIN: Final = b"localbench.agentic-runtime-manifest.v1\n"
@@ -60,6 +59,8 @@ class RuntimeManifestError(Exception):
 
 
 def signed_manifest(payload: JsonObject, signing_key: Path) -> JsonObject:
+    from localbench.submissions.crypto import load_private_key, sign_bytes
+
     key = load_private_key(signing_key)
     payload_digest = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
     return {
@@ -83,6 +84,8 @@ def verify_manifest_bytes(
     trust_state: JsonObject | None = None,
     expected_manifest_sha256: str | None = None,
 ) -> JsonObject:
+    from localbench.submissions.crypto import verify_bytes
+
     if len(raw) > MAX_MANIFEST_BYTES:
         raise RuntimeManifestError(
             "manifest_too_large", f"maximum is {MAX_MANIFEST_BYTES} bytes"
