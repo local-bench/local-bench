@@ -116,9 +116,13 @@ export default function SubmitPage() {
             <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
               {`localbench fetch-suite \\
   --site https://local-bench.ai \\
-  --suite suite-v1-full-exec-6axis-v1 \\
+  --suite ${CURRENT_RANKED_SUITE} \\
   --accept-suite-terms`}
             </pre>
+            <p>
+              <code className="font-mono text-bench-text">{CURRENT_RANKED_SUITE}</code> is the current ranked suite: it
+              measures six axes; five are weighted in the Index, and tool-calling is reported as an unweighted diagnostic.
+            </p>
             <p>
               This downloads the sha256-pinned item sets, verifies them against the release manifest,
               and caches them locally.{" "}
@@ -203,8 +207,7 @@ export default function SubmitPage() {
               generates this exact sequence.
             </p>
             <p>
-              <code className="font-mono text-bench-text">{CURRENT_RANKED_SUITE}</code> is the current ranked suite.
-              The suite measures six axes; five are weighted in the Index, tool-calling is reported as an unweighted diagnostic.{" "}
+              <code className="font-mono text-bench-text">{CURRENT_RANKED_SUITE}</code> is the current ranked suite.{" "}
               <code className="font-mono text-bench-text">suite-v1-static-exec-5axis-v1</code> and{" "}
               <code className="font-mono text-bench-text">suite-v1-static-core-diag-v1</code> are static or diagnostic suites;
               they preserve evidence but do not produce rankable rows.

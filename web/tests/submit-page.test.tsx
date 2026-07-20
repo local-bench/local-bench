@@ -76,7 +76,7 @@ describe("SubmitPage", () => {
     expect(html).toContain(htmlEscapedText(advancedRunCommand));
     expect(html).toContain("suite-v1-full-exec-6axis-v1");
     expect(html).toContain("is the current ranked suite");
-    expect(html).toContain("suite measures six axes; five are weighted in the Index");
+    expect(html).toContain("measures six axes; five are weighted in the Index");
     expect(html).toContain("do not produce rankable rows");
     expect(html).toContain("localbench submit run --run runs/qwen3-8b-q4-k-m.json");
   });
