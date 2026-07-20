@@ -92,7 +92,7 @@ export default function SubmitPage() {
         </pre>
         <p className="text-sm">
           <code className="font-mono text-bench-text">--allow-untrusted-code</code> runs the benchmark&apos;s coding tasks in the pinned sandbox — see{" "}
-          <Link href="/methodology#coding-trust" className="text-bench-accent hover:underline">Methodology</Link>.
+          <Link href="/methodology/#coding-trust" className="text-bench-accent hover:underline">Methodology</Link>.
         </p>
         <p>
           <code className="font-mono text-bench-text">bench</code> resolves the catalog slug and quant,
@@ -135,7 +135,7 @@ export default function SubmitPage() {
               and caches them locally.{" "}
               <code className="font-mono text-bench-text">--accept-suite-terms</code> acknowledges the
               upstream benchmark licenses listed under{" "}
-              <Link href="/methodology#licenses" className="text-bench-accent hover:underline">
+              <Link href="/methodology/#licenses" className="text-bench-accent hover:underline">
                 benchmark sources &amp; licenses
               </Link>
               .

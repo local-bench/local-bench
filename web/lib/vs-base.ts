@@ -126,12 +126,12 @@ function compareHref(base: VsBaseSide, derivative: VsBaseSide): string {
   const baseRunId = currentIndexRunId(base.row);
   const derivativeRunId = currentIndexRunId(derivative.row);
   if (baseRunId !== null && derivativeRunId !== null) {
-    return `/compare?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
+    return `/compare/?left=${encodeURIComponent(derivativeRunId)}&right=${encodeURIComponent(baseRunId)}`;
   }
   if (hasPreviousIndexDiagnostics(base.row) || hasPreviousIndexDiagnostics(derivative.row)) {
     return modelHref(derivative.slug);
   }
-  return `/compare?finetune=${encodeURIComponent(derivative.slug)}`;
+  return `/compare/?finetune=${encodeURIComponent(derivative.slug)}`;
 }
 
 function indexVersion(row: VsBaseBoardRow): string {

@@ -43,7 +43,7 @@ function lifecycleRow(submissionId: string, overrides: Record<string, unknown>) 
 const publishedCommunityRow: CommunityBoardRow = {
   artifactSha256: "a".repeat(64),
   compositeFull: 0.5,
-  detailPath: "/model/fixture-model",
+  detailPath: "/model/fixture-model/",
   displayName: "Published model",
   family: "Fixture",
   globalRank: 1,
@@ -73,7 +73,7 @@ describe("public submissions lifecycle", () => {
     const html = renderToStaticMarkup(<SubmissionsPage />);
 
     expect(html).toContain("received → validated → published → review-hold → rejected");
-    expect(html).toContain('href="/submission"');
+    expect(html).toContain('href="/submission/"');
     expect(html).toContain("Check a submission");
     expect(html).toContain("<noscript>");
     expect(html).toContain("JavaScript is off");
@@ -94,7 +94,7 @@ describe("public submissions lifecycle", () => {
 
     expect(parsed.nextCursor).toBe("cursor-2");
     expect(rows).toMatchObject([
-      { communityDetailPath: "/model/fixture-model", stateLabel: "Published" },
+      { communityDetailPath: "/model/fixture-model/", stateLabel: "Published" },
       { reasonLabel: "Unsafe metadata", stateLabel: "Rejected" },
       { stateLabel: "Accepted" },
     ]);
@@ -122,8 +122,8 @@ describe("public submissions lifecycle", () => {
       <SubmissionsTable loadingMore={false} nextCursor={parsed.nextCursor} onLoadMore={() => undefined} rows={rows} />,
     );
 
-    expect(html).toContain(`/submission?id=${PUBLISHED_ID}`);
-    expect(html).toContain("/model/fixture-model");
+    expect(html).toContain(`/submission/?id=${PUBLISHED_ID}`);
+    expect(html).toContain("/model/fixture-model/");
     expect(html).toContain("Load more");
     expect(html).not.toContain("Held for review");
     expect(html).toContain("Unsafe metadata");

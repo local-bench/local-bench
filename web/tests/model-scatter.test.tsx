@@ -86,7 +86,7 @@ describe("ModelScatter family points", () => {
     expect(html).toContain("Family fine-tunes");
     expect(html).toContain('data-point-kind="this-model"');
     expect(html).toContain('data-point-kind="family-finetune"');
-    expect(html).toContain('href="/run/fine__q4"');
+    expect(html).toContain('href="/run/fine__q4/"');
     expect(html).toContain("Fine Tune");
   });
 
@@ -109,7 +109,7 @@ describe("ModelScatter family points", () => {
     expect(html).toContain("This model");
     expect(html).toContain("Base model");
     expect(html).toContain('data-point-kind="base-model"');
-    expect(html).toContain('href="/run/base__q4"');
+    expect(html).toContain('href="/run/base__q4/"');
   });
 
   it("keeps retired-lane family runs off the chart", () => {
@@ -134,7 +134,7 @@ describe("ModelScatter family points", () => {
       }),
     );
 
-    expect(html).not.toContain('href="/run/legacy__q4"');
+    expect(html).not.toContain('href="/run/legacy__q4/"');
     expect(html).not.toContain("Legacy Tune");
   });
 
@@ -145,7 +145,7 @@ describe("ModelScatter family points", () => {
       runs: [run({ origin: "community", trust_label: "community_self_submitted", run_id: runId("community__q4") })],
     });
     const html = renderToStaticMarkup(createElement(ModelScatter, { model: adversary, anchorRuns: [] }));
-    expect(html).toContain('href="/run/community__q4"');
+    expect(html).toContain('href="/run/community__q4/"');
     expect(html).toContain('data-point-kind="this-model"');
   });
 

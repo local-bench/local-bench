@@ -9,7 +9,7 @@ describe("ComparePage presets", () => {
     expect(html).toContain("Compare model configs");
     expect(html).toContain("Left config");
     expect(html).toContain("Right config");
-    expect(html).toContain('href="/methodology#serving-engine-lanes"');
+    expect(html).toContain('href="/methodology/#serving-engine-lanes"');
     expect(html).toContain('title="A lane fixes the serving engine and benchmark protocol used for a comparable run"');
   });
 });

@@ -11,6 +11,7 @@ import {
 } from "@/components/quality-vram-scatter";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
+import { runHref } from "@/lib/routes";
 import type { ModelRun } from "@/lib/schemas";
 import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
@@ -97,7 +98,7 @@ function toScatterRun(
     point_kind: options.pointKind,
     point_label: options.label,
   };
-  return run.run_id === null ? [pointBase] : [{ ...pointBase, point_href: `/run/${run.run_id}` }];
+  return run.run_id === null ? [pointBase] : [{ ...pointBase, point_href: runHref(run.run_id) }];
 }
 
 function isCompleteRun(run: ModelRun): boolean {

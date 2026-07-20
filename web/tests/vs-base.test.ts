@@ -44,7 +44,7 @@ describe("buildVsBaseComparison", () => {
 
     expect(comparison.compositeDelta).toBe(4);
     expect(comparison.missing).toEqual([]);
-    expect(comparison.compareHref).toBe("/compare?left=fine-run&right=base-run");
+    expect(comparison.compareHref).toBe("/compare/?left=fine-run&right=base-run");
     expect(comparison.axes.map((axis) => [axis.axis, axis.derivative.point, axis.base.point, axis.delta])).toEqual([
       ["knowledge", 87.36, 83.44, 4],
       ["instruction", 64, 67, -3],
@@ -69,7 +69,7 @@ describe("buildVsBaseComparison", () => {
 
     expect(comparison.compositeDelta).toBeNull();
     expect(comparison.axes).toEqual([]);
-    expect(comparison.compareHref).toBe("/compare?finetune=phi-4-reasoning");
+    expect(comparison.compareHref).toBe("/compare/?finetune=phi-4-reasoning");
     expect(comparison.missing).toEqual(["base not yet benchmarked", "fine-tune not yet benchmarked"]);
   });
 
@@ -111,7 +111,7 @@ describe("buildVsBaseComparison", () => {
 
     expect(comparison.compositeDelta).toBeNull();
     expect(comparison.axes).toEqual([]);
-    expect(comparison.compareHref).toBe("/model/gemma-4-12b-coder-fable5");
+    expect(comparison.compareHref).toBe("/model/gemma-4-12b-coder-fable5/");
     expect(comparison.missing).toEqual(["fine-tune has only previous-index runs — awaiting a current-index rerun"]);
   });
 
@@ -156,6 +156,6 @@ describe("buildVsBaseComparison", () => {
     expect(comparison.compositeDelta).toBeNull();
     expect(comparison.axes).toEqual([]);
     expect(comparison.missing).toEqual(["different scoring seasons — see bridge"]);
-    expect(comparison.compareHref).toBe("/model/tune#season-bridge");
+    expect(comparison.compareHref).toBe("/model/tune/#season-bridge");
   });
 });

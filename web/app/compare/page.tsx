@@ -32,7 +32,7 @@ export default async function ComparePage() {
           winners side by side. Ranks only compare within the same{" "}
           <Link
             className="underline decoration-bench-line underline-offset-2 hover:text-bench-accent"
-            href="/methodology#serving-engine-lanes"
+            href="/methodology/#serving-engine-lanes"
             title="A lane fixes the serving engine and benchmark protocol used for a comparable run"
           >
             lane

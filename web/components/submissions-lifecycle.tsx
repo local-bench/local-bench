@@ -127,7 +127,7 @@ export function SubmissionsTable({
                   {row.reasonLabel === null ? null : <span className="mt-1 block text-xs text-bench-worse">{row.reasonLabel}</span>}
                 </td>
                 <td className="px-4 py-3">
-                  <Link className="font-semibold text-bench-accent hover:underline" href={`/submission?id=${encodeURIComponent(row.submissionId)}`}>
+                  <Link className="font-semibold text-bench-accent hover:underline" href={`/submission/?id=${encodeURIComponent(row.submissionId)}`}>
                     View status
                   </Link>
                 </td>

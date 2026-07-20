@@ -289,7 +289,7 @@ export function ModelVariantBoard({
                     <RuntimeCell run={run} />
                   </td>
                   <td className="px-3 py-3">
-                    <Link href={`/submit?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
+                    <Link href={`/submit/?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
                       benchmark it
                     </Link>
                   </td>

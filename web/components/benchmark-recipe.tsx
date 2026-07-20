@@ -145,7 +145,7 @@ function OneCommandLead({
       <CommandBlock title="Step 2 · bench, score, and optional submit" command={lead.command} />
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         <span className="text-bench-text">--allow-untrusted-code</span> runs the benchmark&apos;s coding tasks in the pinned sandbox — see{" "}
-        <Link href="/methodology#coding-trust" className="text-bench-accent underline">Methodology</Link>.
+        <Link href="/methodology/#coding-trust" className="text-bench-accent underline">Methodology</Link>.
       </p>
       <RequirementsLine />
       {localOnly ? (

@@ -160,11 +160,11 @@ function QuantDecisionTableRow({ modelSlug, row }: { readonly modelSlug: string;
             Baseline
           </span>
         ) : row.run?.run_id ? (
-          <Link href={`/compare?left=${encodeURIComponent(row.run.run_id)}`} className="text-sm font-semibold text-bench-accent hover:underline">
+          <Link href={`/compare/?left=${encodeURIComponent(row.run.run_id)}`} className="text-sm font-semibold text-bench-accent hover:underline">
             Compare
           </Link>
         ) : (
-          <Link href={`/submit?model=${encodeURIComponent(modelSlug)}`} className="text-sm font-semibold text-bench-warn hover:underline">
+          <Link href={`/submit/?model=${encodeURIComponent(modelSlug)}`} className="text-sm font-semibold text-bench-warn hover:underline">
             Submit
           </Link>
         )}

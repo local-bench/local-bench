@@ -74,7 +74,7 @@ export function AppShell({
             <div className="space-y-1 font-mono text-[11px] text-bench-muted">
               <div className="flex items-center justify-between gap-3 lg:justify-end">
                 <Link
-                  href="/methodology#frozen"
+                  href="/methodology/#frozen"
                   className="uppercase tracking-wide text-bench-muted/70 hover:text-bench-text"
                   title="sha256 pins of the frozen artifacts behind this board — anyone can re-hash the served files and check them"
                 >
@@ -98,7 +98,7 @@ export function AppShell({
               <Link href="/methodology/" className="hover:text-bench-text">
                 Methodology
               </Link>
-              <Link href="/methodology#licenses" className="hover:text-bench-text">
+              <Link href="/methodology/#licenses" className="hover:text-bench-text">
                 Licenses
               </Link>
               <Link href="/feedback/" className="hover:text-bench-text">
