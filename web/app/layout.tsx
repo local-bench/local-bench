@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { getIndexData } from "@/lib/data";
-import { compareFamilyNames } from "@/lib/family-slug";
+import { familySummaries } from "@/lib/families";
 import "./globals.css";
 
 const title = "local-bench";
@@ -33,7 +33,7 @@ export default async function RootLayout({
 }>) {
   const index = await getIndexData();
   const usesDemoData = index.models.some((model) => model.demo);
-  const families = [...new Set(index.models.map((model) => model.family))].sort(compareFamilyNames);
+  const families = familySummaries(index.models).map((summary) => summary.family);
 
   return (
     <html lang="en">

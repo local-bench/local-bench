@@ -1,15 +1,8 @@
 import Link from "next/link";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
+import { familySummaries } from "@/lib/families";
 import { formatScore } from "@/lib/format";
-import { familySlug } from "@/lib/family-slug";
-import { isFullIndexRow } from "@/lib/leaderboard-score";
 import type { IndexModel } from "@/lib/schemas";
-
-type FamilySummary = {
-  readonly bestScore: number | null;
-  readonly family: string;
-  readonly models: readonly IndexModel[];
-};
 
 export function FamilyDirectory({ models }: { readonly models: readonly IndexModel[] }) {
   const families = familySummaries(models);
@@ -25,17 +18,21 @@ export function FamilyDirectory({ models }: { readonly models: readonly IndexMod
       </div>
       <div className="grid gap-px bg-bench-line sm:grid-cols-2 xl:grid-cols-3">
         {families.map((summary) => (
-          <article id={familySlug(summary.family)} key={summary.family} className="scroll-mt-48 bg-bench-panel p-4 sm:scroll-mt-32 lg:scroll-mt-24">
+          <article id={summary.slug} key={summary.family} className="scroll-mt-48 bg-bench-panel p-4 sm:scroll-mt-32 lg:scroll-mt-24">
             <div className="flex items-center gap-2">
               <FamilyLogoMark modelLabel={summary.family} size={20} />
-              <h3 className="font-semibold text-bench-text">{summary.family}</h3>
+              <h3 className="font-semibold text-bench-text">
+                <Link href={`/families/${summary.slug}`} className="hover:text-bench-accent">
+                  {summary.family}
+                </Link>
+              </h3>
             </div>
             <p className="mt-2 font-mono text-xs text-bench-muted">
               {summary.models.length} model{summary.models.length === 1 ? "" : "s"}
               {summary.bestScore === null ? " · awaiting a complete run" : ` · best ${formatScore(summary.bestScore)}`}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {summary.models.slice(0, 5).map((model) => (
+              {summary.models.slice(0, 5).map(({ model }) => (
                 <Link
                   key={model.slug}
                   href={`/model/${model.slug}`}
@@ -45,25 +42,12 @@ export function FamilyDirectory({ models }: { readonly models: readonly IndexMod
                 </Link>
               ))}
             </div>
+            <Link href={`/families/${summary.slug}`} className="mt-4 inline-flex text-sm font-semibold text-bench-accent hover:underline">
+              View family →
+            </Link>
           </article>
         ))}
       </div>
     </section>
   );
-}
-
-function familySummaries(models: readonly IndexModel[]): readonly FamilySummary[] {
-  const byFamily = new Map<string, IndexModel[]>();
-  for (const model of models) byFamily.set(model.family, [...(byFamily.get(model.family) ?? []), model]);
-  return [...byFamily.entries()].map(([family, familyModels]) => {
-    const scores = familyModels.filter(isFullIndexRow).flatMap((model) => {
-      const score = model.composite_full ?? model.composite;
-      return score === null || score === undefined ? [] : [score.point];
-    });
-    return {
-      bestScore: scores.length === 0 ? null : Math.max(...scores),
-      family,
-      models: familyModels.sort((left, right) => left.model_label.localeCompare(right.model_label)),
-    };
-  }).sort((left, right) => (right.bestScore ?? -1) - (left.bestScore ?? -1) || left.family.localeCompare(right.family));
 }
