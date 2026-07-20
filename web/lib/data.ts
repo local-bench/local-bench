@@ -46,6 +46,8 @@ import {
 } from "./vs-base";
 import { HEADLINE_LANE } from "./leaderboard-score";
 import { getCommunityBoardRows, type CommunityBoardRow } from "./community-data";
+import { buildFamilyResolutionContext, resolveFamily } from "./family-resolution";
+import { overlayLineageByArtifactSha } from "./overlay-lineage";
 
 export {
   COMMUNITY_GROUP_PLACEHOLDER_ID,
@@ -551,13 +553,16 @@ export function communityBaseModelSlugs(
   existingSlugs: ReadonlySet<string>,
 ): readonly string[] {
   const catalogById = new Map(catalogModels.map((model) => [model.id, model] as const));
+  const resolutionContext = buildFamilyResolutionContext(
+    catalogModels,
+    [],
+    overlayLineageByArtifactSha(),
+  );
   const result = new Set<string>();
   for (const row of communityRows) {
-    const baseIds = row.lineage === undefined
-      ? row.declaredBaseModels ?? []
-      : row.lineage.card_declared_edges.map((edge) => edge.base);
-    for (const baseId of baseIds) {
-      const slug = catalogById.get(baseId)?.slug;
+    const resolution = resolveFamily(row, resolutionContext);
+    for (const catalogId of resolution.chainCatalogIds) {
+      const slug = catalogById.get(catalogId)?.slug;
       if (slug !== undefined && !existingSlugs.has(slug)) result.add(slug);
     }
   }

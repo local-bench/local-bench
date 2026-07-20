@@ -5,6 +5,7 @@ import type { AdaptedBoardRow } from "./board-adapter";
 import { communityRowsForModel } from "./community-family";
 import { huggingFaceRepoUrl } from "./community-links";
 import { normalizeCommunityCoverage } from "./community-coverage";
+import type { FamilyResolutionConfidence } from "./family-resolution";
 
 export { normalizeCommunityCoverage } from "./community-coverage";
 
@@ -130,13 +131,16 @@ export type CommunityBoardRow = {
   readonly artifactSha256: string;
   readonly axes?: AdaptedBoardRow["axes"];
   readonly catalogFamily?: string;
+  readonly chainCatalogIds?: readonly string[];
   readonly communityModelGroupId?: string;
   readonly compositeFull: number | null;
+  readonly confidence?: FamilyResolutionConfidence;
   readonly coverageConsistent?: boolean;
   readonly declaredBaseModels?: readonly string[];
   readonly detailPath: string | null;
   readonly displayName: string;
   readonly family: string | null;
+  readonly familyLabel?: string | null;
   readonly globalRank: number | null;
   readonly hardware?: AdaptedBoardRow["hardware"];
   readonly headlineComplete: boolean;
@@ -151,6 +155,8 @@ export type CommunityBoardRow = {
   readonly runtime?: AdaptedBoardRow["runtime"];
   readonly partialComposite: number | null;
   readonly quantLabel: string | null;
+  readonly rootCatalogId?: string | null;
+  readonly rootSlug?: string | null;
   readonly submissionId: string;
   readonly submitterDisplayName?: string | null;
   readonly submitterGithubLogin?: string | null;

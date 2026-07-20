@@ -55,19 +55,28 @@ export function catalogIsDerivativeEntry(entry: CatalogModel, byId: ReadonlyMap<
 }
 
 export function catalogRootEntry(entry: CatalogModel, byId: ReadonlyMap<string, CatalogModel>): CatalogModel {
+  return catalogLineageChainEntries(entry, byId).at(-1) ?? entry;
+}
+
+export function catalogLineageChainEntries(
+  entry: CatalogModel,
+  byId: ReadonlyMap<string, CatalogModel>,
+): readonly CatalogModel[] {
   const visited = new Set<string>([entry.id]);
+  const chain: CatalogModel[] = [entry];
   let current = entry;
 
   while (true) {
     const baseId = catalogBaseId(current);
     if (baseId === null) {
-      return current;
+      return chain;
     }
     const base = byId.get(baseId);
     if (base === undefined || visited.has(base.id)) {
-      return current;
+      return chain;
     }
     visited.add(base.id);
+    chain.push(base);
     current = base;
   }
 }

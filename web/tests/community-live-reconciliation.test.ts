@@ -5,6 +5,8 @@ import { CommunityLeaderboardRow } from "../components/community-leaderboard-row
 import { adaptLegacyBoardRow } from "../lib/board-adapter";
 import { parseCommunityLiveBoard, reconcileCommunityRows, type LiveBoardRow } from "../lib/community-live";
 import type { CommunityBoardRow } from "../lib/community-data";
+import { buildFamilyResolutionContext } from "../lib/family-resolution";
+import type { CatalogModel } from "../lib/schemas";
 
 const GROUP_ID = `community-group:${"1".repeat(32)}`;
 const LIVE_ONLY_GROUP_ID = `community-group:${"2".repeat(32)}`;
@@ -128,6 +130,50 @@ function bakedRow(overrides: Partial<CommunityBoardRow> = {}): CommunityBoardRow
 }
 
 describe("community live reconciliation", () => {
+  it("resolves a resubmitted Bonsai row without a baked submission-id match", () => {
+    // Given: the live row is a new submission carrying only Bonsai's catalog artifact SHA.
+    const root = catalogModel({
+      id: "Qwen/Qwen3.6-27B",
+      slug: "qwen3-6-27b",
+      display_name: "Qwen3.6 27B",
+      family: "Qwen3.6",
+    });
+    const bonsai = catalogModel({
+      id: "prism-ml/Ternary-Bonsai-27B-unpacked",
+      slug: "bonsai-27b-ternary",
+      display_name: "Bonsai 27B Ternary",
+      family: "Qwen3.6",
+      base_model: root.id,
+      model_kind: "finetune",
+      quants: [{
+        label: "Q2_0",
+        file_sha256: "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
+      }],
+    });
+    const context = buildFamilyResolutionContext([root, bonsai], [], new Map());
+
+    // When: reconciliation receives no baked row with the new submission ID.
+    const [merged] = reconcileCommunityRows([], [liveRow({
+      lineage: { base_model: [] },
+      model: {
+        ...liveRow().model,
+        family: "qwen35",
+        file_sha256: "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
+        model_system_key: "artifact:868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757",
+      },
+    })], context);
+
+    // Then: resolver fields and the artifact owner's model page are attached independently of submission ID.
+    expect(merged).toMatchObject({
+      catalogFamily: "Qwen3.6",
+      chainCatalogIds: [bonsai.id, root.id],
+      confidence: "artifact-sha",
+      detailPath: "/model/bonsai-27b-ternary",
+      rootCatalogId: root.id,
+      rootSlug: root.slug,
+    });
+  });
+
   it("uses live scoring fields while preserving maintainer-reviewed baked lineage", () => {
     const [merged] = reconcileCommunityRows([bakedRow()], [liveRow()]);
 
@@ -303,3 +349,14 @@ describe("community live reconciliation", () => {
     expect(merged?.detailPath).toBeNull();
   });
 });
+
+function catalogModel(overrides: Partial<CatalogModel>): CatalogModel {
+  return {
+    id: "Fixture/Model",
+    slug: "fixture-model",
+    display_name: "Fixture Model",
+    model_kind: "base",
+    quants: [],
+    ...overrides,
+  };
+}

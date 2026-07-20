@@ -4,18 +4,21 @@ import { CommunityFreshness, useLiveCommunityRows } from "@/components/community
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { communityRowsForModel } from "@/lib/community-family";
 import type { CommunityBoardRow, CommunityLineage, CommunityModelTarget } from "@/lib/community-data";
+import type { FamilyResolutionContext } from "@/lib/family-resolution";
 import { huggingFaceRepoUrl } from "@/lib/community-links";
 import { toDisplayScore } from "@/lib/board-adapter";
 import { axisLabel, formatScore } from "@/lib/format";
 
 export function CommunityFamilyResultsLive({
   rows,
+  resolutionContext,
   target,
 }: {
   readonly rows: readonly CommunityBoardRow[];
+  readonly resolutionContext: FamilyResolutionContext;
   readonly target: CommunityModelTarget;
 }) {
-  const state = useLiveCommunityRows(rows);
+  const state = useLiveCommunityRows(rows, true, resolutionContext);
   const visible = state.kind === "live" ? communityRowsForModel(state.rows, target) : rows;
   return (
     <div className="space-y-2">

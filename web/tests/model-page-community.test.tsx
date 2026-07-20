@@ -59,7 +59,7 @@ describe("model page community family results", () => {
     expect(html).not.toContain("Suppressed fixture model");
   });
 
-  it("shows a lineage-free reported run on the catalog model page by artifact SHA", async () => {
+  it("shows a lineage-free reported run on its transitive base model page by artifact SHA", async () => {
     // Given: a public row whose only catalog identity is the Bonsai artifact SHA.
     const shaOnlyGroup = communityData.parseCommunityGroup({
       community_model_group_id: `community-group:${"2".repeat(32)}`,
@@ -85,14 +85,14 @@ describe("model page community family results", () => {
       communityData.communityBoardRows([shaOnlyGroup]),
     );
 
-    // When: the catalog model page is rendered.
+    // When: the transitive base model page is rendered.
     const { default: ModelPage } = await import("../app/model/[slug]/page");
     const html = renderToStaticMarkup(await ModelPage({
-      params: Promise.resolve({ slug: "bonsai-27b-ternary" }),
+      params: Promise.resolve({ slug: "qwen3-6-27b" }),
     }));
     rowsMock.mockRestore();
 
-    // Then: the artifact-matched reported run appears on that model page.
+    // Then: the artifact-matched reported run appears through its resolved catalog chain.
     expect(html).toContain("Reported runs");
     expect(html).toContain("Opaque community declaration");
     expect(html).toContain("ticket_bonsai_sha_only");

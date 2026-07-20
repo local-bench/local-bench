@@ -10,7 +10,8 @@ import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 import { communityRowsForModel, getCommunityBoardRows } from "@/lib/community-data";
-import { communityRowCatalogIds } from "@/lib/community-family";
+import { communityRowCatalogIds, communityRowsWithFamilyPaths } from "@/lib/community-family";
+import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
 
@@ -30,6 +31,7 @@ export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
   const { model, anchorRuns, catalogOnly, familyModels, lineage, queued, vsBaseComparisons } = await getModelPageData(slug);
   const communityRows = await getCommunityBoardRows();
+  const resolutionContext = familyResolutionContext();
   const artifactSha256s = model.artifacts?.map((artifact) => artifact.file_sha256);
   const communityTarget = {
     catalogId: model.catalog_id,
@@ -40,7 +42,10 @@ export default async function ModelPage({ params }: PageProps) {
   };
   const communityFamilyRows = communityRows === null
     ? []
-    : communityRowsForModel(communityRows, communityTarget);
+    : communityRowsForModel(
+        communityRowsWithFamilyPaths(communityRows, resolutionContext),
+        communityTarget,
+      );
   // Only current-index (headline lane) runs inform this page. Retired-lane runs stay
   // reachable by direct /run URL but are not surfaced here (owner call, 2026-07-09 —
   // migration bookkeeping reads as noise to visitors who never saw the old index).
@@ -107,6 +112,7 @@ export default async function ModelPage({ params }: PageProps) {
       <ModelVariantBoard model={model} familyModels={familyModels} />
       <CommunityFamilyResultsLive
         rows={communityFamilyRows}
+        resolutionContext={resolutionContext}
         target={communityTarget}
       />
       <VsBaseStrip label={lineage === null ? "vs fine-tunes" : "vs base"} comparisons={visibleComparisons} />

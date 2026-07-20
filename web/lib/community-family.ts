@@ -1,4 +1,10 @@
 import type { CommunityBoardRow, CommunityModelTarget } from "./community-data";
+import {
+  familyCatalogEntryForArtifactSha,
+  overlayLineageForArtifactSha,
+  resolveFamily,
+  type FamilyResolutionContext,
+} from "./family-resolution";
 import type { IndexModel } from "./schemas";
 
 type CommunityCatalogModel = Pick<IndexModel, "catalog_id" | "family" | "model_label" | "slug"> & {
@@ -11,78 +17,67 @@ export function communityRowsForModel(
 ): readonly CommunityBoardRow[] {
   return rows.filter((row) => {
     if (target.artifactSha256s?.includes(row.artifactSha256) === true) return true;
-    if (matchesLineage(row, target)) return true;
+    if (target.catalogId !== null
+      && target.catalogId !== undefined
+      && row.chainCatalogIds?.includes(target.catalogId) === true) return true;
     return matchesExactModelName(row, target);
   });
 }
 
 export function communityRowCatalogIds(rows: readonly CommunityBoardRow[]): ReadonlySet<string> {
-  return new Set(rows.flatMap((row) => {
-    if (row.lineage === undefined) return row.declaredBaseModels ?? [];
-    return [
-      row.lineage.repo.id,
-      ...row.lineage.card_declared_edges.flatMap((edge) => [edge.base, edge.child]),
-    ];
-  }));
+  return new Set(rows.flatMap((row) => row.chainCatalogIds ?? []));
 }
 
 export function communityRowsWithFamilyPaths(
   rows: readonly CommunityBoardRow[],
-  models: readonly CommunityCatalogModel[],
+  contextOrModels: FamilyResolutionContext | readonly CommunityCatalogModel[],
 ): readonly CommunityBoardRow[] {
+  const context = "catalog" in contextOrModels
+    ? contextOrModels
+    : compatibilityContext(contextOrModels);
   return rows.map((row) => {
-    const model = models.find((candidate) => candidate.artifactSha256s?.includes(row.artifactSha256) === true)
-      ?? models.find((candidate) => matchesLineage(row, targetFor(candidate)))
-      ?? models.find((candidate) => matchesFamily(row, candidate.family))
-      ?? models.find((candidate) => matchesExactModelName(row, targetFor(candidate)));
-    return model === undefined
-      ? row
-      : { ...row, catalogFamily: model.family, detailPath: `/model/${model.slug}` };
+    const resolution = resolveFamily(row, context);
+    const artifactEntry = familyCatalogEntryForArtifactSha(row.artifactSha256, context);
+    const overlayLineage = overlayLineageForArtifactSha(row.artifactSha256, context);
+    return {
+      ...row,
+      ...(resolution.familyLabel === null ? {} : { catalogFamily: resolution.familyLabel }),
+      chainCatalogIds: resolution.chainCatalogIds,
+      confidence: resolution.confidence,
+      detailPath: artifactEntry === undefined ? null : `/model/${artifactEntry.slug}`,
+      familyLabel: resolution.familyLabel,
+      lineage: overlayLineage ?? row.lineage,
+      rootCatalogId: resolution.rootCatalogId,
+      rootSlug: resolution.rootSlug,
+    };
   });
 }
 
-function targetFor(model: CommunityCatalogModel): CommunityModelTarget {
+function compatibilityContext(models: readonly CommunityCatalogModel[]): FamilyResolutionContext {
   return {
-    catalogId: model.catalog_id,
-    family: model.family,
-    modelLabel: model.model_label,
-    slug: model.slug,
-    ...(model.artifactSha256s === undefined ? {} : { artifactSha256s: model.artifactSha256s }),
+    catalog: models.map((model) => {
+      const catalogId = model.catalog_id ?? model.slug;
+      return {
+        artifactSha256s: model.artifactSha256s ?? [],
+        catalogId,
+        chainCatalogIds: [catalogId],
+        displayName: model.model_label,
+        familyLabel: model.family,
+        rootCatalogId: catalogId,
+        rootSlug: model.slug,
+        slug: model.slug,
+      };
+    }),
+    overlay: [],
   };
 }
 
-function matchesLineage(row: CommunityBoardRow, target: CommunityModelTarget): boolean {
-  const repositories = repositoriesFor(row);
-  if (repositories.length === 0) return false;
-  if (target.catalogId !== null && target.catalogId !== undefined) {
-    return repositories.some((repoId) => repoId === target.catalogId);
-  }
-  const familyKey = normalizedFamily(target.family);
-  return familyKey.length > 0 && repositories.some((repoId) => {
-    const repoName = repoId.split("/").at(-1) ?? repoId;
-    return normalizedFamily(repoName).includes(familyKey);
-  });
-}
-
-function repositoriesFor(row: CommunityBoardRow): readonly string[] {
-  const lineage = row.lineage;
-  return lineage === undefined
-    ? row.declaredBaseModels ?? []
-    : [lineage.repo.id, ...lineage.card_declared_edges.flatMap((edge) => [edge.base, edge.child])];
-}
-
-function matchesFamily(row: CommunityBoardRow, family: string): boolean {
-  return row.family !== null
-    && normalizedFamily(family).length > 0
-    && normalizedFamily(row.family) === normalizedFamily(family);
-}
-
 function matchesExactModelName(row: CommunityBoardRow, target: CommunityModelTarget): boolean {
-  const displayName = normalizedFamily(row.displayName);
+  const displayName = normalizedIdentity(row.displayName);
   return displayName.length > 0 && [target.slug, target.modelLabel]
-    .some((candidate) => candidate !== undefined && normalizedFamily(candidate) === displayName);
+    .some((candidate) => candidate !== undefined && normalizedIdentity(candidate) === displayName);
 }
 
-function normalizedFamily(value: string): string {
+function normalizedIdentity(value: string): string {
   return value.toLocaleLowerCase("en-US").replace(/[^a-z0-9]+/gu, "");
 }

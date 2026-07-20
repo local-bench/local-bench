@@ -81,19 +81,23 @@ describe("community catalog family resolution", () => {
     // Then: lineage identity wins over family similarity.
     expect(resolved).toMatchObject({
       catalogFamily: "Lineage Family",
-      detailPath: "/model/lineage-owner",
+      detailPath: null,
     });
   });
 
-  it("normalizes punctuation and casing for the family fallback", () => {
+  it("normalizes punctuation and casing for a label-only family fallback", () => {
     // Given: the declared and catalog family spellings differ only in formatting.
     const row = communityRow({ family: "Qwen 3.6" });
 
     // When: the row is resolved without artifact or lineage identity.
     const [resolved] = communityRowsWithFamilyPaths([row], [indexModel("qwen-family", "qWEN-3_6")]);
 
-    // Then: normalized exact family equality supplies the route.
-    expect(resolved?.detailPath).toBe("/model/qwen-family");
+    // Then: normalized exact family equality supplies only an honest family label.
+    expect(resolved).toMatchObject({
+      catalogFamily: "qWEN-3_6",
+      confidence: "declared-family",
+      detailPath: null,
+    });
   });
 
   it("uses exact normalized display-name to slug equality only after stronger identities miss", () => {
@@ -103,10 +107,10 @@ describe("community catalog family resolution", () => {
     // When: the row is resolved against the real catalog naming shape.
     const [resolved] = communityRowsWithFamilyPaths([row], [indexModel("bonsai-27b-ternary", "Qwen3.6")]);
 
-    // Then: exact normalized name identity supplies the detail route and authoritative display family.
+    // Then: exact normalized name identity supplies family resolution without inventing an artifact-owned route.
     expect(resolved).toMatchObject({
       catalogFamily: "Qwen3.6",
-      detailPath: "/model/bonsai-27b-ternary",
+      detailPath: null,
       family: "qwen35",
     });
   });
@@ -118,8 +122,13 @@ describe("community catalog family resolution", () => {
     // When: catalog resolution is attempted.
     const [resolved] = communityRowsWithFamilyPaths([row], [indexModel("unrelated", "Other Family")]);
 
-    // Then: the raw row remains unchanged.
-    expect(resolved).toEqual(row);
+    // Then: the row stays unresolved and retains its declared family for auditing.
+    expect(resolved).toMatchObject({
+      confidence: null,
+      detailPath: null,
+      family: "raw-declared-family",
+      familyLabel: null,
+    });
   });
 
   it("matches a model-page target by artifact SHA without lineage", () => {
@@ -136,6 +145,29 @@ describe("community catalog family resolution", () => {
     });
 
     // Then: the reported artifact is visible on that model page.
+    expect(visible).toEqual([row]);
+  });
+
+  it("attaches a community fine-tune to every catalog model in its resolved chain", () => {
+    // Given: Bonsai resolves through its own catalog entry to the Qwen3.6-27B root.
+    const row = communityRow({
+      chainCatalogIds: [
+        "prism-ml/Ternary-Bonsai-27B-unpacked",
+        "Qwen/Qwen3.6-27B",
+      ],
+      declaredBaseModels: [],
+      family: "qwen35",
+    });
+
+    // When: the base model page filters reported community runs.
+    const visible = communityRowsForModel([row], {
+      catalogId: "Qwen/Qwen3.6-27B",
+      family: "Qwen3.6",
+      modelLabel: "Qwen3.6 27B",
+      slug: "qwen3-6-27b",
+    });
+
+    // Then: the resolved transitive chain attaches Bonsai without trusting its declared family.
     expect(visible).toEqual([row]);
   });
 

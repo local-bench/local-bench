@@ -27,7 +27,7 @@ export function CommunityLeaderboardRow({
   showAgenticColumn,
   showStaticIndexColumn,
 }: CommunityRowProps) {
-  const displayFamily = row.catalogFamily ?? row.family;
+  const displayFamily = row.familyLabel ?? row.catalogFamily ?? row.family;
   const navigate = () => {
     if (row.detailPath !== null) window.location.assign(row.detailPath);
   };
