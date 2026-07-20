@@ -143,6 +143,7 @@ describe("model variant board runtime display", () => {
       lane: "capped-thinking",
       ranked: false,
       run_id: RunIdSchema.parse("gemma31-catalog-sibling"),
+      score_status: "missing",
       vram_footprint_gb: 18.32,
       vram_required_gb_8k: 20.9,
     };

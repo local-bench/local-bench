@@ -8,7 +8,7 @@ import type { ModelRun } from "./schemas";
 
 type ArtifactMetricRun = Pick<
   ModelRun,
-  "file_gb" | "quant_label" | "vram_footprint_gb" | "vram_required_gb_8k"
+  "file_gb" | "quant_label" | "score_status" | "vram_footprint_gb" | "vram_required_gb_8k"
 >;
 
 export type ResolvedRunArtifactMetrics = {
@@ -20,10 +20,11 @@ export function resolveRunArtifactMetrics(
   run: ArtifactMetricRun,
   siblingRuns: readonly ArtifactMetricRun[],
 ): ResolvedRunArtifactMetrics {
-  const sibling = siblingRuns.find((candidate) =>
+  const candidates = siblingRuns.filter((candidate) =>
     candidate !== run &&
     candidate.quant_label === run.quant_label &&
     (candidate.file_gb != null || candidate.vram_required_gb_8k != null));
+  const sibling = candidates.find((candidate) => candidate.score_status !== "measured") ?? candidates[0];
 
   return {
     fileGb: run.file_gb ?? sibling?.file_gb ?? null,
