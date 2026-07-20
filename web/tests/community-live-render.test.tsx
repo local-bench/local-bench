@@ -53,7 +53,7 @@ describe("live-only community links", () => {
     });
     const [joined] = communityRowsWithFamilyPaths([
       { ...liveOnlyRow, displayName: "bonsai-27b-ternary", family: "qwen35" },
-    ], [catalogModel]);
+    ], [{ ...catalogModel, artifactSha256s: [liveOnlyRow.artifactSha256] }]);
     if (joined === undefined) throw new Error("expected joined community row");
 
     // When: the joined board row is rendered.

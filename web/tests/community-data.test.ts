@@ -5,6 +5,7 @@ import {
   huggingFaceRepoUrl,
   parseCommunityGroup,
 } from "../lib/community-data";
+import { communityRowsWithFamilyPaths } from "../lib/community-family";
 
 const artifactSha = "a".repeat(64);
 const projectionSha = "b".repeat(64);
@@ -129,7 +130,13 @@ describe("community static-data boundary", () => {
   it("associates Qwythos with Qwen3.5 family pages from validated lineage only", () => {
     const parsed = parseCommunityGroup(groupFixture());
     if (parsed === null) throw new Error("expected validated community group");
-    const rows = communityBoardRows([parsed]);
+    // Mirror the model page: rows are stamped with family resolution before filtering.
+    const rows = communityRowsWithFamilyPaths(communityBoardRows([parsed]), [{
+      catalog_id: "Qwen/Qwen3.5-9B",
+      family: "Qwen3.5",
+      model_label: "Qwen3.5 9B",
+      slug: "qwen3-5-9b",
+    }]);
 
     expect(communityRowsForModel(rows, {
       catalogId: "Qwen/Qwen3.5-9B",
