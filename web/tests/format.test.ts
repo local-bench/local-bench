@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatLatencySeconds } from "../lib/format";
+import { formatDuration, formatLatencySeconds, formatScore } from "../lib/format";
+
+describe("formatScore", () => {
+  it("clamps displayed scores to the zero-to-100 range", () => {
+    expect(formatScore(100.4)).toBe("100.0");
+    expect(formatScore(-0.4)).toBe("0.0");
+  });
+});
 
 describe("formatLatencySeconds", () => {
   it("formats sub-90s values as whole seconds with a tilde", () => {

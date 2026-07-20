@@ -82,6 +82,9 @@ describe("unified leaderboard community rows", () => {
     expect(rowHtml).toContain("85.0");
     expect(rowHtml).not.toContain("re-scored");
     expect(html).toContain("Swipe horizontally for scores and axes");
+    expect(html).toContain('title="Median tokens generated per answer (verbosity)"');
+    expect(html).toContain("Tokens/answer");
+    expect(html).not.toContain(">Tokens</");
     expect(rankCellHtml).not.toContain("—");
     expect(rankCellHtml).toMatch(/>2<\/td>/u);
   });
