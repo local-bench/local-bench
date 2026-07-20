@@ -45,14 +45,20 @@ export default async function HomePage() {
             contributes the same winning measured variant, so hidden fine-tunes cannot leak here. */}
         <ReplicationTimePanel points={bestVariantPoints} />
       </div>
-      <HomeLeaderboard
-        models={rankedForDisplay}
-        agenticBySlug={agenticBySlug}
-        communityRows={communityRowsForDisplay}
-        fineTuneBaseBySlug={fineTuneBaseBySlug}
-        indexVersion={index.index_version}
-        resolutionContext={resolutionContext}
-      />
+      <section className="grid gap-2">
+        <p className="text-sm text-bench-muted">
+          Showing the best variant per base family —{" "}
+          <Link href="/leaderboard" className="font-semibold text-bench-accent hover:underline">full board →</Link>
+        </p>
+        <HomeLeaderboard
+          models={rankedForDisplay}
+          agenticBySlug={agenticBySlug}
+          communityRows={communityRowsForDisplay}
+          fineTuneBaseBySlug={fineTuneBaseBySlug}
+          indexVersion={index.index_version}
+          resolutionContext={resolutionContext}
+        />
+      </section>
       <div id="run-it-yourself" className="scroll-mt-24">
         <BenchmarkOnramp catalog={catalog.models} popularityAsOf={catalog.popularityAsOf} />
       </div>

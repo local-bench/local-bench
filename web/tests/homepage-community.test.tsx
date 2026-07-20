@@ -92,8 +92,17 @@ vi.mock("@/lib/community-data", () => ({
 }));
 
 import HomePage from "../app/page";
+import LeaderboardPage from "../app/leaderboard/page";
 
 describe("homepage unified board", () => {
+  it("labels the landing family reduction without adding the caption to the full board", async () => {
+    const landing = renderToStaticMarkup(await HomePage());
+    const leaderboard = renderToStaticMarkup(await LeaderboardPage());
+
+    expect(landing).toContain("Showing the best variant per base family");
+    expect(landing).toContain('href="/leaderboard"');
+    expect(leaderboard).not.toContain("Showing the best variant per base family");
+  });
   it("renders a complete community row in the unified board", async () => {
     const html = renderToStaticMarkup(await HomePage());
 

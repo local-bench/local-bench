@@ -9,6 +9,7 @@ import {
 } from "@/components/local-intelligence-index";
 import { LAUNCH_FREEZE } from "@/components/launch-freeze";
 import { publicProtocolLabel } from "@/lib/board-adapter";
+import { CURRENT_RANKED_SUITE } from "@/lib/cli-onboarding";
 import {
   INDEX_VERSION_V4,
   SEASON_2_DIAGNOSTICS,
@@ -57,19 +58,19 @@ const HEADLINE_SOURCES: readonly Attribution[] = [
     name: "BigCodeBench-Hard Instruct",
     owner: "BigCodeBench authors",
     license: "Apache-2.0",
-    role: "Coding axis generation tasks scored by hardened execution.",
+    role: "Coding axis generation tasks (141 sandbox-scoreable items) scored by hardened execution.",
   },
   {
     name: "OlymMATH-Hard",
     owner: "OlymMATH authors",
     license: "MIT",
-    role: "Math axis hard olympiad-style item set.",
+    role: "Math axis hard olympiad-style item set (100 items).",
   },
   {
     name: "AMO",
     owner: "AMO-Bench authors",
     license: "MIT",
-    role: "Math axis newly-authored olympiad-style item set.",
+    role: "Math axis newly-authored olympiad-style item set (39 items; Math 139 total).",
   },
 ];
 
@@ -144,6 +145,10 @@ export default async function MethodologyPage() {
           weight does not change.
         </p>
         <p>
+          <span className="font-mono">{CURRENT_RANKED_SUITE}</span> is the current ranked suite. The suite measures six axes;
+          five are weighted in the Index, tool-calling is reported as an unweighted diagnostic.
+        </p>
+        <p>
           Agentic measures AppWorld task-goal completion under the published runner: a fixed 96-task subset from{" "}
           <span className="font-mono">{protocol.agentic_protocol.split}</span>, selected with seeded stratified recipe{" "}
           <span className="font-mono">{protocol.agentic_protocol.selection_version}</span> and seed{" "}
@@ -207,8 +212,8 @@ export default async function MethodologyPage() {
             v3 composite beside the full v4 composite without treating their numerical gap as a performance delta.
           </p>
           <p>
-            Under Option D, an anchor without complete season-2 coverage keeps its season-1 label and season-1
-            composite. A partial v4 composite is never displayed or ranked.
+            An anchor without complete season-2 coverage keeps its season-1 label and composite. A partial v4
+            composite is never displayed or ranked.
           </p>
         </div>
       </section>
@@ -284,7 +289,7 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
-      <section className="space-y-4 text-bench-muted">
+      <section id="coding-trust" className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">Coding execution and trust</h2>
         <p>
           Every publishable bundle includes Coding results produced on the submitter&apos;s machine in the pinned,
@@ -301,7 +306,7 @@ export default async function MethodologyPage() {
       <section className="space-y-4 text-bench-muted">
         <h2 className="text-xl font-semibold text-bench-text">What publication means</h2>
         <p>
-          Community-reported results publish immediately after the complete five-headline-axis contract, suite pins, schema,
+          Community-reported results publish immediately after the complete headline profile, suite pins, schema,
           size limits, and duplicate-retry checks pass. The site preserves the submitted identity, protocol, scores,
           and evidence bundle, computes the common composite, and suppresses rows when problems are demonstrated.
           Results are not independently reproduced by default.
@@ -449,8 +454,8 @@ export default async function MethodologyPage() {
           Domain weights are explicit editorial choices tied to named releases: {publicProtocolLabel(INDEX_VERSION_V4)}{" "}
           (scorecard-v6) is the current five-axis Index with AppWorld-only Agentic. Index-v4.1 retains the same
           headline weights but its unequal Agentic composition is archived; index-v4.0 is the initial season-2 scale,
-          and index-v3.0 is the season-1 six-axis Index. Static-suite-v2 remains the ranked no-agentic Index, while
-          static-core is an unranked no-sandbox diagnostic. Weights and membership live in the versioned protocol
+          and index-v3.0 is the season-1 six-axis Index. Static-suite-v2 and static-core remain non-rankable diagnostics;
+          neither can produce an active board row. Weights and membership live in the versioned protocol
           manifest and scorer registry, so history cannot be silently re-scored under the same label.
         </p>
       </section>

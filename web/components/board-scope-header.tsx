@@ -10,7 +10,7 @@ export const STATIC_SCOPE_SUBTITLE =
   "Historical secondary track: Knowledge 25 + Instruction 25 + Tool calling 20 + Coding 20 + Math 10. It never competes with the active Local Intelligence Index.";
 export const SEASON_2_SCOPE_TITLE = `Local Intelligence Index | ${publicProtocolLabel(INDEX_VERSION_V4)}`;
 export const SEASON_2_SCOPE_SUBTITLE =
-  "Headline = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math. Agentic is AppWorld task-goal completion on the fixed 96-task subset; ranks require the complete season-2 profile.";
+  "Headline = 0.25 Agentic + 0.225 Knowledge + 0.225 Instruction + 0.225 Coding + 0.075 Math. Agentic is AppWorld task-goal completion on the fixed 96-task subset; ranks require the complete headline profile.";
 
 export function BoardScopeHeader({
   mode = "full",
