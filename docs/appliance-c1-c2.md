@@ -17,13 +17,16 @@ uv run python tools/build_agentic_runtime.py `
   --out build/runtime-release
 ```
 
-It emits `manifest.unsigned.json` and `signing-request.json`. Transfer only the signing request
-to an offline-capable machine, then run `tools/sign_runtime_release.py --request ...
---signing-key ... --out signature.json`. Return only `signature.json` and combine it with the
-unsigned payload using `tools/assemble_runtime_release.py`. No HSM exists for this release and
-the process does not claim hardware-backed key storage. Mutable rotation, cumulative revocation,
-and runtime kill-switch state use the separately domain-signed trust document produced by
-`tools/sign_runtime_trust.py`.
+It emits `manifest.unsigned.json` (and prints its canonical payload digest). Sign it with
+`localbench.appliance.manifest.signed_manifest(payload, signing_key)` — the signer derives the
+key id from the signing key's public half in `RUNTIME_PUBLIC_KEYS` and refuses untrusted keys;
+write the signed document as canonical JSON plus a trailing newline (that byte form is what
+`verify_manifest_bytes` and the client pin hash). The former offline request/sign/assemble tool
+trio was removed after c0v5-r1: it hardcoded a retired machine key id, and no HSM or separate
+offline machine exists — signing has always happened on this box, and the process does not claim
+hardware-backed key storage. Mutable rotation, cumulative revocation, and runtime kill-switch
+state use the separately domain-signed trust document produced by `tools/sign_runtime_trust.py`
+(which derives its key id the same way).
 
 The config is release input and must pin the Ubuntu base hash, snapshot apt-index hash, exact apt
 versions, worker wheel hash, hash-required dependency lock and wheelhouse, official AppWorld wheel

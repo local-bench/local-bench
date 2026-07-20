@@ -12,7 +12,6 @@ import pytest
 from localbench.appliance.manifest import (
     MANIFEST_SIGNATURE_DOMAIN,
     PINNED_RUNTIME_ID,
-    RUNTIME_KEY_ID,
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
 from localbench.submissions.canon import canonical_json_bytes
@@ -76,35 +75,3 @@ def test_builder_rejects_c0_c1_appworld_identity_mismatch() -> None:
         builder._validate_config(config)
 
 
-def test_offline_digest_signing_and_assembly_round_trip(tmp_path: Path) -> None:
-    payload = {"schema": "test", "runtime_id": PINNED_RUNTIME_ID}
-    payload_path = tmp_path / "payload.json"
-    payload_path.write_text(json.dumps(payload), encoding="utf-8")
-    digest = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
-    request = {
-        "schema": "localbench.runtime_signing_request.v1",
-        "domain": MANIFEST_SIGNATURE_DOMAIN.decode().rstrip("\n"),
-        "key_id": RUNTIME_KEY_ID,
-        "payload_sha256": digest,
-    }
-    request_path = tmp_path / "request.json"
-    request_path.write_text(json.dumps(request), encoding="utf-8")
-    key = tmp_path / "runtime.pem"
-    public = write_private_key(key, seed=bytes(range(32)))
-    signature_path = tmp_path / "signature.json"
-    manifest_path = tmp_path / "manifest.json"
-    subprocess.run(
-        [sys.executable, str(TOOLS / "sign_runtime_release.py"), "--request", str(request_path), "--signing-key", str(key), "--out", str(signature_path)],
-        check=True,
-    )
-    subprocess.run(
-        [sys.executable, str(TOOLS / "assemble_runtime_release.py"), "--payload", str(payload_path), "--signature", str(signature_path), "--out", str(manifest_path)],
-        check=True,
-    )
-    document = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert document["payload_sha256"] == digest
-    assert verify_bytes(
-        MANIFEST_SIGNATURE_DOMAIN + bytes.fromhex(digest),
-        document["signature"]["signature"],
-        public,
-    )

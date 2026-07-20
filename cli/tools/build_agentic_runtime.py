@@ -21,7 +21,6 @@ from localbench._types import JsonObject
 from localbench.appliance.manifest import (
     MANIFEST_SCHEMA,
     PINNED_RUNTIME_ID,
-    RUNTIME_KEY_ID,
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
 from localbench.submissions.canon import canonical_json_hash, write_json_file
@@ -160,15 +159,7 @@ def main() -> int:
     payload = _manifest_payload(config, artifact, sbom_path, provenance_path, scan_path)
     payload_digest = canonical_json_hash(payload)
     write_json_file(args.out / "manifest.unsigned.json", payload)
-    write_json_file(
-        args.out / "signing-request.json",
-        {
-            "schema": "localbench.runtime_signing_request.v1",
-            "domain": "localbench.agentic-runtime-manifest.v1",
-            "key_id": RUNTIME_KEY_ID,
-            "payload_sha256": payload_digest,
-        },
-    )
+    print(f"manifest payload_sha256={payload_digest}")
     os.replace(artifact, final_artifact)
     return 0
 
