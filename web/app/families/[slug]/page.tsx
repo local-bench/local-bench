@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { FamilyModelTableLive } from "@/components/family-community-models";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
-import { getIndexData } from "@/lib/data";
+import { getCommunityBoardRows } from "@/lib/community-data";
+import { communityRowsWithFamilyPaths } from "@/lib/community-family";
+import { getIndexData, getIndexModelsWithArtifacts } from "@/lib/data";
+import { familyResolutionContext } from "@/lib/family-resolution-data";
 import { familySummaries, type FamilySummary } from "@/lib/families";
 import { formatScore } from "@/lib/format";
 
@@ -17,7 +20,7 @@ type PageProps = {
 
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
   const index = await getIndexData();
-  return familySummaries(index.models).map((summary) => ({ slug: summary.slug }));
+  return familySummaries(index.models, familyResolutionContext()).map((summary) => ({ slug: summary.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -33,8 +36,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function FamilyPage({ params }: PageProps) {
   const { slug } = await params;
-  const summary = await getFamilySummary(slug);
+  const index = await getIndexData();
+  const [communityRows, modelsWithArtifacts] = await Promise.all([
+    getCommunityBoardRows(),
+    getIndexModelsWithArtifacts(index.models),
+  ]);
+  const resolutionContext = familyResolutionContext(modelsWithArtifacts);
+  const summary = familySummaries(index.models, resolutionContext).find((candidate) => candidate.slug === slug);
   if (summary === undefined) notFound();
+  const resolvedCommunityRows = communityRows === null
+    ? []
+    : communityRowsWithFamilyPaths(communityRows, resolutionContext);
 
   return (
     <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-5 py-7 lg:px-8">
@@ -59,30 +71,12 @@ export default async function FamilyPage({ params }: PageProps) {
             Complete headline runs are listed first by composite score, followed by models awaiting a complete run.
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse text-sm">
-            <thead className="bg-white/[0.03] text-left font-mono text-xs uppercase tracking-wide text-bench-muted">
-              <tr>
-                <th className="px-5 py-3 font-semibold">Model</th>
-                <th className="px-5 py-3 font-semibold">Headline composite</th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.models.map(({ model, score }) => (
-                <tr key={model.slug} className="border-t border-bench-line/70">
-                  <td className="px-5 py-3">
-                    <Link href={`/model/${model.slug}`} className="font-semibold text-bench-text hover:text-bench-accent">
-                      {model.model_label}
-                    </Link>
-                  </td>
-                  <td className="px-5 py-3 font-mono text-bench-muted">
-                    {score === null ? "awaiting a complete run" : formatScore(score)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <FamilyModelTableLive
+          family={summary.family}
+          models={summary.models}
+          resolutionContext={resolutionContext}
+          rows={resolvedCommunityRows}
+        />
       </section>
     </main>
   );
@@ -90,5 +84,5 @@ export default async function FamilyPage({ params }: PageProps) {
 
 async function getFamilySummary(slug: string): Promise<FamilySummary | undefined> {
   const index = await getIndexData();
-  return familySummaries(index.models).find((summary) => summary.slug === slug);
+  return familySummaries(index.models, familyResolutionContext()).find((summary) => summary.slug === slug);
 }

@@ -1,4 +1,9 @@
 import { compareFamilyNames, familyRoutes } from "./family-slug";
+import {
+  EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  resolveFamily,
+  type FamilyResolutionContext,
+} from "./family-resolution";
 import { isFullIndexRow, scoreForMode } from "./leaderboard-score";
 import type { IndexModel } from "./schemas";
 
@@ -14,9 +19,15 @@ export type FamilySummary = {
   readonly slug: string;
 };
 
-export function familySummaries(models: readonly IndexModel[]): readonly FamilySummary[] {
+export function familySummaries(
+  models: readonly IndexModel[],
+  context: FamilyResolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
+): readonly FamilySummary[] {
   const byFamily = new Map<string, IndexModel[]>();
-  for (const model of models) byFamily.set(model.family, [...(byFamily.get(model.family) ?? []), model]);
+  for (const model of models) {
+    const family = resolveFamily(model, context).familyLabel ?? model.family;
+    byFamily.set(family, [...(byFamily.get(family) ?? []), model]);
+  }
   return familyRoutes([...byFamily.keys()])
     .flatMap(({ family, slug }) => {
       const familyModels = byFamily.get(family);
