@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // next.config.mjs sets trailingSlash: true; next/link normalizes hrefs via this
 // build-time env flag. Without it, test renders strip the canonical trailing
 // slashes that production emits, so href pins would test a non-production form.
-process.env.__NEXT_TRAILING_SLASH = "true";
+process.env["__NEXT_TRAILING_SLASH"] = "true";
 
 if (!("DigestStream" in crypto)) {
   class NodeDigestStream extends WritableStream<Uint8Array> {

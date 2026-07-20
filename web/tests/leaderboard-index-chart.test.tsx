@@ -73,7 +73,7 @@ function render(models: readonly IndexModel[]): string {
 }
 
 function linkedSlugs(html: string): readonly string[] {
-  return Array.from(html.matchAll(/<a [^>]*href="\/model\/([^"]+)"/g), (match) => match[1] ?? "");
+  return Array.from(html.matchAll(/<a [^>]*href="\/model\/([^"]+?)\/?"/g), (match) => match[1] ?? "");
 }
 
 function attrValues(html: string, attribute: string): readonly string[] {
