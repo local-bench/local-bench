@@ -15,7 +15,7 @@ export function CopyButton({ value, label = "Copy" }: { readonly value: string; 
         });
       }}
     >
-      {copied ? "Copied" : label}
+      {copied ? <span role="status">Copied</span> : label}
     </button>
   );
 }

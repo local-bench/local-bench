@@ -105,7 +105,12 @@ export function ComparePicker({
         <p className="border-b border-bench-line px-3 py-2 font-mono text-[10px] uppercase tracking-wide text-bench-accent lg:hidden">
           Swipe horizontally for per-axis deltas &rarr;
         </p>
-        <div className="overflow-x-auto">
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Per-axis comparison table — scrolls horizontally"
+          className="overflow-x-auto focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent"
+        >
           <table data-testid="compare-axis-deltas" className="min-w-[820px] border-collapse text-sm">
           <thead className="bg-white/[0.03] text-left text-xs uppercase tracking-wider text-bench-text/85">
             <tr>

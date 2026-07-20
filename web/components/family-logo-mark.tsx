@@ -1,7 +1,5 @@
 import { orgLogoForFamilyName, orgLogoForModelLabel } from "@/lib/family-logo";
 
-// Small org mark next to a model name. Decorative (alt is empty — the model name it sits
-// beside carries the meaning); the org name is exposed as a title tooltip.
 export function FamilyLogoMark({
   familyName,
   modelLabel,
@@ -22,7 +20,6 @@ export function FamilyLogoMark({
     <img
       src={logo.src}
       alt=""
-      title={logo.orgLabel}
       width={size}
       height={size}
       loading="lazy"
