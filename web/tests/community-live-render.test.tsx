@@ -89,6 +89,7 @@ describe("live-only community links", () => {
     expect(html).toContain("family detail unavailable for this row");
     expect(html).toContain("Live-only model");
     expect(html).not.toContain('href="/community/model/');
+    expect(rowCells(html)[7]).toContain("—");
   });
 
   it("renders live axes, attribution, trust, and a non-numeric pending coding state", () => {
@@ -187,7 +188,7 @@ describe("live-only community links", () => {
     expect(html).toContain("Call formatting");
     expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
     expect(html).toContain("RULER 32K");
-    expect(html).toContain("not measured");
+    expect(html).not.toContain("not measured");
     expect(html).toContain("llama.cpp");
     expect(html).toContain("b7421");
     expect(html).toContain("RTX 5090 · 32 GB");
@@ -240,3 +241,8 @@ describe("live-only community links", () => {
     expect(html).not.toContain("re-scored");
   });
 });
+
+function rowCells(html: string): readonly string[] {
+  const row = html.match(/<tr[\s\S]*?<\/tr>/u)?.[0] ?? "";
+  return [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gu)].map((match) => match[1] ?? "");
+}

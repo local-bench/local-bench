@@ -5,7 +5,7 @@ import {
   type LiveBoardRow,
   type ParsedBoardEnvelope,
 } from "./board-adapter";
-import type { CommunityBoardRow } from "./community-data";
+import { normalizeCommunityCoverage, type CommunityBoardRow } from "./community-data";
 
 export type { LiveBoardRow } from "./board-adapter";
 
@@ -28,6 +28,13 @@ function mergeCommunityRow(
   baked: CommunityBoardRow | undefined,
   live: AdaptedBoardRow,
 ): CommunityBoardRow {
+  const hardware = live.hardware ?? baked?.hardware;
+  const perf = live.perf ?? baked?.perf;
+  const runtime = live.runtime ?? baked?.runtime;
+  const coverage = normalizeCommunityCoverage(
+    live.measuredHeadlineWeight ?? measuredWeight(live),
+    live.missingHeadlineWeight ?? (live.headlineComplete ? 0 : baked?.missingHeadlineWeight ?? null),
+  );
   return {
     artifactSha256: live.artifactSha256,
     axes: live.axes,
@@ -39,16 +46,18 @@ function mergeCommunityRow(
     displayName: live.displayName,
     family: live.family,
     globalRank: live.globalRank,
+    ...(hardware === undefined ? {} : { hardware }),
     headlineComplete: live.headlineComplete,
     identityLabel: baked?.identityLabel ?? "community-declared, identity-unverified",
     indexVersion: live.indexVersion,
     lineage: baked?.lineage ?? live.lineageEnrichment,
-    measuredHeadlineWeight: measuredWeight(live),
-    missingHeadlineWeight: live.headlineComplete ? 0 : baked?.missingHeadlineWeight ?? null,
+    ...coverage,
     origin: "community",
     partialComposite: live.compositeFull ?? baked?.partialComposite ?? null,
+    ...(perf === undefined ? {} : { perf }),
     quantLabel: live.quantLabel,
     ranked: live.ranked,
+    ...(runtime === undefined ? {} : { runtime }),
     submissionId: live.submissionId,
     submitterDisplayName: live.submitterDisplayName,
     submitterGithubLogin: live.submitterGithubLogin,

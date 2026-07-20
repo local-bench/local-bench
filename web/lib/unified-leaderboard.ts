@@ -12,6 +12,7 @@ import {
   type SortState,
 } from "./leaderboard-sort";
 import type { IndexModel } from "./schemas";
+import { runtimeSortLabel } from "./runtime-display";
 
 export type UnifiedLeaderboardRow =
   | { readonly model: IndexModel; readonly rank: number; readonly source: "local-bench" }
@@ -74,12 +75,16 @@ function communitySortValue(row: CommunityBoardRow, key: SortKey): LeaderboardSo
       return row.submitterDisplayName ?? row.submitterKeyFingerprint ?? "";
     case STATIC_INDEX_SORT_KEY:
     case AGENTIC_SORT_KEY:
-    case "tokens":
-    case "hardware":
-    case "runtime":
     case "latency":
-    case "benchtime":
       return null;
+    case "tokens":
+      return row.perf?.tokens_to_answer_median ?? null;
+    case "hardware":
+      return row.hardware?.gpu_name ?? "";
+    case "runtime":
+      return runtimeSortLabel(row.runtime);
+    case "benchtime":
+      return row.perf?.wall_time_seconds ?? null;
     default: {
       const axis = boardAxisValue(row.axes ?? {}, key);
       return axis?.status === "measured" && axis.score !== null && axis.score !== undefined

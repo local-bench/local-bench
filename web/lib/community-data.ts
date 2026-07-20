@@ -129,6 +129,7 @@ export type CommunityBoardRow = {
   readonly catalogFamily?: string;
   readonly communityModelGroupId?: string;
   readonly compositeFull: number | null;
+  readonly coverageConsistent?: boolean;
   readonly declaredBaseModels?: readonly string[];
   readonly detailPath: string | null;
   readonly displayName: string;
@@ -154,6 +155,28 @@ export type CommunityBoardRow = {
   readonly timestamps?: AdaptedBoardRow["timestamps"];
   readonly trust?: AdaptedBoardRow["trust"] | null;
 };
+
+type CommunityCoverageProjection = Pick<
+  CommunityBoardRow,
+  "coverageConsistent" | "measuredHeadlineWeight" | "missingHeadlineWeight"
+>;
+
+const COVERAGE_ROUNDING_TOLERANCE = 0.02;
+
+export function normalizeCommunityCoverage(
+  measuredHeadlineWeight: number | null,
+  missingHeadlineWeight: number | null,
+): CommunityCoverageProjection {
+  const shares = { measuredHeadlineWeight, missingHeadlineWeight };
+  if (measuredHeadlineWeight === null || missingHeadlineWeight === null) return shares;
+  const coverageConsistent = Math.abs(measuredHeadlineWeight + missingHeadlineWeight - 1)
+    <= COVERAGE_ROUNDING_TOLERANCE + Number.EPSILON;
+  return {
+    coverageConsistent,
+    measuredHeadlineWeight,
+    missingHeadlineWeight: coverageConsistent ? 1 - measuredHeadlineWeight : missingHeadlineWeight,
+  };
+}
 
 export type CommunityModelTarget = {
   readonly artifactSha256s?: readonly string[];
@@ -223,8 +246,10 @@ export function communityBoardRows(groups: readonly CommunityGroupData[]): reado
       identityLabel: group.identity_label,
       indexVersion: null,
       lineage: variant.lineage_enrichment,
-      measuredHeadlineWeight: variant.scores.measured_headline_weight ?? null,
-      missingHeadlineWeight: variant.scores.missing_headline_weight ?? null,
+      ...normalizeCommunityCoverage(
+        variant.scores.measured_headline_weight ?? null,
+        variant.scores.missing_headline_weight ?? null,
+      ),
       origin: "community" as const,
       partialComposite: variant.scores.partial_composite ?? null,
       quantLabel: variant.quant_label,

@@ -7,7 +7,7 @@ import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
 import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
-import { formatDuration, formatGpuShort, formatInteger, formatScore } from "@/lib/format";
+import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { AxisScore, Score } from "@/lib/schemas";
 import { SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
@@ -76,7 +76,7 @@ export function CommunityLeaderboardRow({
         </div>
       </td>
       <td className="px-3 py-3">
-        {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">n/a</span> : (
+        {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">—</span> : (
           <div className="min-w-[132px]">
             <ScoreBar score={normalizedScore(row.compositeFull)} />
           <div className="mt-0.5 text-[10px] text-bench-muted">common composite · complete run</div>
@@ -101,7 +101,11 @@ export function CommunityLeaderboardRow({
           ? <span className="text-[10px] text-bench-muted">—</span>
           : formatInteger(row.perf.tokens_to_answer_median)}
       </td>
-      <UnavailableCell />
+      {/* The accepted projection contract does not publish latency yet; keeping this data-driven
+          lets the column light up automatically when the optional field reaches the board. */}
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {formatLatencySeconds(row.perf?.latency_s_median)}
+      </td>
       <td className="px-3 py-3 font-mono text-bench-text">
         {row.perf?.wall_time_seconds === null || row.perf?.wall_time_seconds === undefined
           ? <span className="text-[10px] text-bench-muted">—</span>
@@ -166,7 +170,7 @@ function DiagnosticValue({
     <div className="flex justify-between gap-3">
       <dt>{label}</dt>
       <dd className="whitespace-nowrap font-mono text-bench-text">
-        {score === undefined ? "not measured" : formatScore(score.point)}
+        {score === undefined ? "—" : formatScore(score.point)}
       </dd>
     </div>
   );
