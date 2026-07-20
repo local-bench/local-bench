@@ -2,7 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ModelVariantBoard } from "../components/model-variant-board";
+import { getCompareConfigs } from "../lib/compare";
 import type { ModelData, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "../lib/data";
+import { resolveRunArtifactMetrics } from "../lib/model-run-metrics";
 import { ModelSlugSchema, RunIdSchema, type AxisScore } from "../lib/schemas";
 
 describe("model variant board runtime display", () => {
@@ -128,6 +130,76 @@ describe("model variant board runtime display", () => {
     expect(fileSizeCell).toContain("6.5 GB");
   });
 
+  it("joins measured rows to same-quant catalog metrics across model and compare surfaces", () => {
+    // Given a Gemma-31B-shaped measured row whose weights-only footprint is not its 8K requirement,
+    // plus the same artifact's catalog sibling carrying the display facts.
+    const base = fixtureModel();
+    const measured = base.runs[0];
+    if (measured === undefined) throw new Error("fixture missing run");
+    const catalogSibling: ModelData["runs"][number] = {
+      ...measured,
+      composite: null,
+      file_gb: 18.3,
+      lane: "capped-thinking",
+      ranked: false,
+      run_id: RunIdSchema.parse("gemma31-catalog-sibling"),
+      vram_footprint_gb: 18.32,
+      vram_required_gb_8k: 20.9,
+    };
+    const currentMeasured: ModelData["runs"][number] = {
+      ...measured,
+      file_gb: null,
+      quant_label: "Q4_K_M",
+      run_id: RunIdSchema.parse("gemma31-measured"),
+      vram_footprint_gb: 18.323731456,
+      vram_required_gb_8k: null,
+    };
+    const model = { ...base, runs: [catalogSibling, currentMeasured] };
+
+    // When the model table and compare config resolve the measured artifact.
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model }));
+    const cells = firstRankedRowCells(html);
+    const source = resolveRunArtifactMetrics(currentMeasured, model.runs);
+    const compare = getCompareConfigs([model]).find((config) => config.runId === "gemma31-measured");
+
+    // Then both surfaces use the catalog 20.9 GB estimate and the file cell never uses footprint.
+    expect(cells[9]).toContain("20.9 GB");
+    expect(cells[cells.length - 3]).toContain("18.3 GB");
+    expect(cells[9]).not.toContain("footprint");
+    expect(source).toMatchObject({ fileGb: 18.3, vramRequiredGb8k: 20.9 });
+    expect(compare?.vramEstimate?.effectiveRequiredGb).toBe(source.vramRequiredGb8k);
+  });
+
+  it("withholds the Index for a partial diagnostic row", () => {
+    // Given a current-lane partial row with a legacy composite that cannot be recomputed from its visible axes.
+    const base = fixtureModel();
+    const measured = base.runs[0];
+    if (measured === undefined) throw new Error("fixture missing run");
+    const partial: ModelData["runs"][number] = {
+      ...measured,
+      axes: { instruction: configuredAxes().instruction },
+      composite: { hi: 18.05, lo: 16.5, point: 17.34 },
+      quant_label: "QAT Q2_K_XL",
+      ranked: false,
+      run_id: RunIdSchema.parse("partial-diagnostic"),
+    };
+
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: { ...base, runs: [partial] } }));
+    const cells = rowCellsContaining(html, "partial-diagnostic");
+
+    // Then the Index cell is deliberately blanked while the diagnostic qualifier stays visible.
+    expect(cells[2]).toContain("—");
+    expect(cells[2]).toContain("diagnostic partial — no comparable Index");
+    expect(cells[2]).not.toContain("17.3");
+  });
+
+  it("labels ranks as scoped to this family", () => {
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: fixtureModel() }));
+
+    expect(html).toContain("Rank (this family)");
+    expect(html).toContain("Ranks are within this family&#x27;s variants");
+  });
+
   it("renders family rows without letting them become this model's sweet spot", () => {
     const base = fixtureModel();
     const ownRun = base.runs[0];
@@ -244,5 +316,12 @@ function configuredAxes(): ModelDataWithConfiguredAxes["runs"][number]["axes"] {
 function firstRankedRowCells(html: string): readonly string[] {
   const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/u)?.[1] ?? "";
   const row = body.match(/<tr[\s\S]*?<\/tr>/u)?.[0] ?? "";
+  return [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gu)].map((match) => match[1] ?? "");
+}
+
+function rowCellsContaining(html: string, text: string): readonly string[] {
+  const row = [...html.matchAll(/<tr[\s\S]*?<\/tr>/gu)]
+    .map((match) => match[0])
+    .find((candidate) => candidate.includes(text)) ?? "";
   return [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gu)].map((match) => match[1] ?? "");
 }

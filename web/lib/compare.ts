@@ -2,12 +2,12 @@ import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { toDisplayScore } from "./board-adapter";
 import {
   DEFAULT_CONTEXT_TOKENS,
-  estimateVramRequirement,
   findMinimumVramTier,
   type ContextLengthOption,
   type VramEstimate,
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
+import { estimateRunVram } from "./model-run-metrics";
 import type { AxisScore, ModelData, Score } from "./schemas";
 import type { CommunityBoardRow } from "./community-data";
 import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
@@ -58,14 +58,7 @@ export function getCompareConfigs(
         if (!isNonEmptyString(run.quant_label) || score === null || run.run_id === null) {
           return [];
         }
-        const vramEstimate = estimateVramRequirement(
-          {
-            quantLabel: run.quant_label,
-            vramFootprintGb: run.vram_footprint_gb,
-            vramRequiredGb8k: run.vram_required_gb_8k ?? null,
-          },
-          contextTokens,
-        );
+        const vramEstimate = estimateRunVram(run, model.runs, contextTokens);
         return [
           {
             axes: run.axes,
