@@ -5,7 +5,8 @@ import {
   type LiveBoardRow,
   type ParsedBoardEnvelope,
 } from "./board-adapter";
-import { normalizeCommunityCoverage, type CommunityBoardRow } from "./community-data";
+import { normalizeCommunityCoverage } from "./community-coverage";
+import type { CommunityBoardRow } from "./community-data";
 
 export type { LiveBoardRow } from "./board-adapter";
 

@@ -4,6 +4,9 @@ import { z } from "zod";
 import type { AdaptedBoardRow } from "./board-adapter";
 import { communityRowsForModel } from "./community-family";
 import { huggingFaceRepoUrl } from "./community-links";
+import { normalizeCommunityCoverage } from "./community-coverage";
+
+export { normalizeCommunityCoverage } from "./community-coverage";
 
 export { communityRowsForModel, huggingFaceRepoUrl };
 
@@ -155,28 +158,6 @@ export type CommunityBoardRow = {
   readonly timestamps?: AdaptedBoardRow["timestamps"];
   readonly trust?: AdaptedBoardRow["trust"] | null;
 };
-
-type CommunityCoverageProjection = Pick<
-  CommunityBoardRow,
-  "coverageConsistent" | "measuredHeadlineWeight" | "missingHeadlineWeight"
->;
-
-const COVERAGE_ROUNDING_TOLERANCE = 0.02;
-
-export function normalizeCommunityCoverage(
-  measuredHeadlineWeight: number | null,
-  missingHeadlineWeight: number | null,
-): CommunityCoverageProjection {
-  const shares = { measuredHeadlineWeight, missingHeadlineWeight };
-  if (measuredHeadlineWeight === null || missingHeadlineWeight === null) return shares;
-  const coverageConsistent = Math.abs(measuredHeadlineWeight + missingHeadlineWeight - 1)
-    <= COVERAGE_ROUNDING_TOLERANCE + Number.EPSILON;
-  return {
-    coverageConsistent,
-    measuredHeadlineWeight,
-    missingHeadlineWeight: coverageConsistent ? 1 - measuredHeadlineWeight : missingHeadlineWeight,
-  };
-}
 
 export type CommunityModelTarget = {
   readonly artifactSha256s?: readonly string[];
