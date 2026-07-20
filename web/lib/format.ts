@@ -45,6 +45,12 @@ export function formatSignedScore(value: number): string {
   return `${sign}${SCORE_FORMAT.format(Math.abs(value))}`;
 }
 
+export function displayDelta(left: number, right: number): number {
+  const displayedLeft = Math.round(left * 10) / 10;
+  const displayedRight = Math.round(right * 10) / 10;
+  return Math.round((displayedLeft - displayedRight) * 10) / 10;
+}
+
 export function formatCi(score: Score): string {
   return `±${SCORE_FORMAT.format(ciHalfWidth(score))}`;
 }

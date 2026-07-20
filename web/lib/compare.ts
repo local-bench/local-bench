@@ -7,6 +7,7 @@ import {
   type VramEstimate,
 } from "./rig-match";
 import { HEADLINE_LANE } from "./leaderboard-score";
+import { displayDelta } from "./format";
 import { estimateRunVram } from "./model-run-metrics";
 import type { AxisScore, ModelData, Score } from "./schemas";
 import type { CommunityBoardRow } from "./community-data";
@@ -116,7 +117,7 @@ export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readon
     if (leftScore === undefined || rightScore === undefined) {
       return [];
     }
-    const delta = leftScore.point - rightScore.point;
+    const delta = displayDelta(leftScore.point, rightScore.point);
     return [{ axis, delta, leftScore, rightScore, winner: winnerFor(delta) }];
   });
 }

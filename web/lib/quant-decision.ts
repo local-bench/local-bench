@@ -5,6 +5,7 @@ import {
   type VramEstimate,
 } from "./rig-match";
 import { QUANT_OPTIONS, isQuantOption, quantOrder } from "./quant";
+import { displayDelta } from "./format";
 import { estimateRunVram } from "./model-run-metrics";
 import type { QuantOption } from "./quant";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
@@ -161,9 +162,9 @@ function isBetterRun(candidate: QuantDecisionInputRun, current: QuantDecisionInp
 
 function deltaScore(runScore: Score, baselineScore: Score): Score {
   return {
-    hi: runScore.hi - baselineScore.lo,
-    lo: runScore.lo - baselineScore.hi,
-    point: runScore.point - baselineScore.point,
+    hi: displayDelta(runScore.hi, baselineScore.lo),
+    lo: displayDelta(runScore.lo, baselineScore.hi),
+    point: displayDelta(runScore.point, baselineScore.point),
   };
 }
 

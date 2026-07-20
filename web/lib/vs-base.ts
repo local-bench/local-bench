@@ -1,5 +1,6 @@
 import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { HEADLINE_LANE } from "./leaderboard-score";
+import { displayDelta } from "./format";
 import type { AxisScore, Score, ScoreStatus } from "./schemas";
 import { INDEX_VERSION_V3 } from "./scoring-seasons";
 
@@ -67,7 +68,7 @@ export function buildVsBaseComparison({
           if (baseScore === undefined || derivativeScore === undefined) {
             return [];
           }
-          return [{ axis, base: baseScore, derivative: derivativeScore, delta: derivativeScore.point - baseScore.point }];
+          return [{ axis, base: baseScore, derivative: derivativeScore, delta: displayDelta(derivativeScore.point, baseScore.point) }];
         });
 
   return {
@@ -77,7 +78,7 @@ export function buildVsBaseComparison({
     compositeDelta:
       measuredBase === null || measuredDerivative === null || differentScoringSeasons
         ? null
-        : measuredDerivative.composite.point - measuredBase.composite.point,
+        : displayDelta(measuredDerivative.composite.point, measuredBase.composite.point),
     derivative,
     missing: differentScoringSeasons
       ? ["different scoring seasons — see bridge"]

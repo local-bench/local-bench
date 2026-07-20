@@ -10,7 +10,7 @@ import {
   indexProfileForAxes,
   indexQualifierForAxes,
 } from "@/components/local-intelligence-index";
-import { axisLabel, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
+import { axisLabel, displayDelta, formatCompactNumber, formatGb, formatScore, formatSignedScore } from "@/lib/format";
 import { getAxisDeltas, type AxisDelta, type CompareConfig } from "@/lib/compare";
 import type { FineTuneComparePreset } from "@/lib/vs-base";
 
@@ -94,7 +94,7 @@ export function ComparePicker({
           <DeltaCard
             label={`${LOCAL_INTELLIGENCE_INDEX_NAME} delta`}
             note={`${indexQualifierForAxes(left.axes)}. ${indexProfileForAxes(left.axes)} deltas appear below.`}
-            value={formatSigned(left.composite.point - right.composite.point)}
+            value={formatSigned(displayDelta(left.composite.point, right.composite.point))}
           />
         ) : null}
         <DeltaCard label="VRAM delta" value={formatVramDelta(left, right)} />
@@ -296,13 +296,13 @@ function formatSigned(value: number): string {
 }
 
 function formatNullableDelta(left: number | null, right: number | null): string {
-  return left === null || right === null ? "n/a" : formatSigned(left - right);
+  return left === null || right === null ? "n/a" : formatSigned(displayDelta(left, right));
 }
 
 function formatVramDelta(left: CompareConfig, right: CompareConfig): string {
   const leftGb = left.vramEstimate?.effectiveRequiredGb ?? null;
   const rightGb = right.vramEstimate?.effectiveRequiredGb ?? null;
-  return leftGb === null || rightGb === null ? "n/a" : formatGb(leftGb - rightGb);
+  return leftGb === null || rightGb === null ? "n/a" : formatGb(displayDelta(leftGb, rightGb));
 }
 
 function isCurrentIndexConfig(config: CompareConfig): boolean {

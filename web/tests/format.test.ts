@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatLatencySeconds, formatScore, formatSignedScore } from "../lib/format";
+import { displayDelta, formatDuration, formatLatencySeconds, formatScore, formatSignedScore } from "../lib/format";
 
 describe("formatScore", () => {
   it("clamps displayed scores to the zero-to-100 range", () => {
@@ -11,6 +11,13 @@ describe("formatScore", () => {
     expect(formatSignedScore(-5.1)).toBe("-5.1");
     expect(formatSignedScore(5.1)).toBe("+5.1");
   });
+
+  it("subtracts the displayed one-decimal operands", () => {
+    expect(formatSignedScore(displayDelta(87.4, 83.4))).toBe("+4.0");
+    expect(formatSignedScore(displayDelta(9.4, 8.3))).toBe("+1.1");
+    expect(formatSignedScore(displayDelta(8.3, 9.4))).toBe("-1.1");
+  });
+
 });
 
 describe("formatLatencySeconds", () => {

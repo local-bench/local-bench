@@ -6,7 +6,7 @@ function score(point: number) {
 }
 
 describe("buildVsBaseComparison", () => {
-  it("computes composite and per-axis deltas only where both rows are measured", () => {
+  it("computes composite and per-axis deltas from displayed operands where both rows are measured", () => {
     const comparison = buildVsBaseComparison({
       base: {
         catalogId: "Qwen/Qwen3.6-27B",
@@ -14,9 +14,9 @@ describe("buildVsBaseComparison", () => {
         slug: "qwen3-6-27b",
         row: {
           bestRunId: "base-run",
-          composite: { point: 37, lo: 36, hi: 38 },
+          composite: { point: 83.44, lo: 82.44, hi: 84.44 },
           diagnosticComposite: null,
-          axes: { knowledge: score(83), instruction: score(67), coding: score(20) },
+          axes: { knowledge: score(83.44), instruction: score(67), coding: score(20) },
           lane: "bounded-final-v2",
           origin: "project_anchor",
           ranked: true,
@@ -30,9 +30,9 @@ describe("buildVsBaseComparison", () => {
         slug: "qwopus3-6-27b-v2-mtp",
         row: {
           bestRunId: "fine-run",
-          composite: { point: 41, lo: 40, hi: 42 },
+          composite: { point: 87.36, lo: 86.36, hi: 88.36 },
           diagnosticComposite: null,
-          axes: { knowledge: score(86), instruction: score(64), tool_calling: score(50) },
+          axes: { knowledge: score(87.36), instruction: score(64), tool_calling: score(50) },
           lane: "bounded-final-v2",
           origin: "project_anchor",
           ranked: true,
@@ -46,7 +46,7 @@ describe("buildVsBaseComparison", () => {
     expect(comparison.missing).toEqual([]);
     expect(comparison.compareHref).toBe("/compare?left=fine-run&right=base-run");
     expect(comparison.axes.map((axis) => [axis.axis, axis.derivative.point, axis.base.point, axis.delta])).toEqual([
-      ["knowledge", 86, 83, 3],
+      ["knowledge", 87.36, 83.44, 4],
       ["instruction", 64, 67, -3],
     ]);
   });
