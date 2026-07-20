@@ -168,7 +168,7 @@ describe("community live reconciliation", () => {
       catalogFamily: "Qwen3.6",
       chainCatalogIds: [bonsai.id, root.id],
       confidence: "artifact-sha",
-      detailPath: "/model/bonsai-27b-ternary",
+      detailPath: "/model/bonsai-27b-ternary/",
       rootCatalogId: root.id,
       rootSlug: root.slug,
     });

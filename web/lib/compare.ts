@@ -86,7 +86,7 @@ export function getCompareConfigs(
     if (!row.headlineComplete || row.compositeFull === null || !isNonEmptyString(row.quantLabel)) return [];
     const axes = communityAxes(row);
     const point = toDisplayScore(row.compositeFull);
-    const modelSlug = row.detailPath?.replace(/^\/model\//u, "") ?? "";
+    const modelSlug = modelSlugFromDetailPath(row.detailPath);
     return [{
       axes,
       composite: { hi: point, lo: point, point },
@@ -106,6 +106,12 @@ export function getCompareConfigs(
     }];
   });
   return [...stored, ...community].sort(compareConfigs);
+}
+
+function modelSlugFromDetailPath(detailPath: string | null): string {
+  if (detailPath === null) return "";
+  const encodedSlug = detailPath.replace(/^\/model\//u, "").replace(/\/$/u, "");
+  return decodeURIComponent(encodedSlug);
 }
 
 export function getAxisDeltas(left: CompareConfig, right: CompareConfig): readonly AxisDelta[] {

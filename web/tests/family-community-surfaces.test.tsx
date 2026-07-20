@@ -16,7 +16,7 @@ describe("family community surfaces", () => {
     const community = communityRow({
       compositeFull: 0.6,
       confidence: "artifact-sha",
-      detailPath: "/model/community-fine-tune",
+      detailPath: "/model/community-fine-tune/",
       displayName: "Community fine-tune",
       familyLabel: "Fixture",
     });
@@ -43,7 +43,7 @@ describe("family community surfaces", () => {
     const community = communityRow({
       compositeFull: 0.6,
       confidence: "artifact-sha",
-      detailPath: "/model/community-fine-tune",
+      detailPath: "/model/community-fine-tune/",
       displayName: "Community fine-tune",
       familyLabel: "Fixture",
     });

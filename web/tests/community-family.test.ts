@@ -64,7 +64,7 @@ describe("community catalog family resolution", () => {
     // Then: artifact identity wins regardless of catalog order.
     expect(resolved).toMatchObject({
       catalogFamily: "Authoritative Family",
-      detailPath: "/model/artifact-owner",
+      detailPath: "/model/artifact-owner/",
       family: "Fixture Family",
     });
   });
