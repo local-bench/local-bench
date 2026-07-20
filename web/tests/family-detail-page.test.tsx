@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import FamilyPage, { generateStaticParams } from "../app/families/[slug]/page";
 import { getIndexData } from "../lib/data";
-import { familySlug } from "../lib/family-slug";
+import { compareFamilyNames, familySlug } from "../lib/family-slug";
 import { isFullIndexRow, scoreForMode } from "../lib/leaderboard-score";
 import type { IndexModel } from "../lib/schemas";
 
@@ -63,6 +63,6 @@ function expectedFamilyOrder(models: readonly IndexModel[]): readonly IndexModel
     if (leftScore !== null && rightScore !== null) return rightScore - leftScore;
     if (leftScore !== null) return -1;
     if (rightScore !== null) return 1;
-    return left.model_label.localeCompare(right.model_label);
+    return compareFamilyNames(left.model_label, right.model_label);
   });
 }

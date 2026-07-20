@@ -1,4 +1,4 @@
-import { compareFamilyNames, familySlug } from "./family-slug";
+import { compareFamilyNames, familyRoutes } from "./family-slug";
 import { isFullIndexRow, scoreForMode } from "./leaderboard-score";
 import type { IndexModel } from "./schemas";
 
@@ -17,15 +17,17 @@ export type FamilySummary = {
 export function familySummaries(models: readonly IndexModel[]): readonly FamilySummary[] {
   const byFamily = new Map<string, IndexModel[]>();
   for (const model of models) byFamily.set(model.family, [...(byFamily.get(model.family) ?? []), model]);
-  return [...byFamily.entries()]
-    .map(([family, familyModels]) => {
+  return familyRoutes([...byFamily.keys()])
+    .flatMap(({ family, slug }) => {
+      const familyModels = byFamily.get(family);
+      if (familyModels === undefined) return [];
       const orderedModels = familyModels.map(toFamilyModelSummary).sort(compareFamilyModels);
-      return {
+      return [{
         bestScore: orderedModels.find((entry) => entry.score !== null)?.score ?? null,
         family,
         models: orderedModels,
-        slug: familySlug(family),
-      };
+        slug,
+      }];
     })
     .sort(compareFamilies);
 }

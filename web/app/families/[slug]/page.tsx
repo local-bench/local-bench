@@ -17,7 +17,7 @@ type PageProps = {
 
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
   const index = await getIndexData();
-  return [...new Set(familySummaries(index.models).map((summary) => summary.slug))].map((slug) => ({ slug }));
+  return familySummaries(index.models).map((summary) => ({ slug: summary.slug }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useEffect,
-  useRef,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent as ReactMouseEvent,
-} from "react";
+import { useEffect, useRef } from "react";
 import { familySlug } from "@/lib/family-slug";
 
 type FamilyNavDisclosure = {
@@ -14,12 +9,22 @@ type FamilyNavDisclosure = {
 };
 
 type FamilyNavEscapeEvent = {
+  readonly currentTarget: FamilyNavDisclosure;
   readonly key: string;
   preventDefault(): void;
 };
 
 type FamilyNavFocusTarget = {
   focus(): void;
+};
+
+type FamilyNavClickEvent = {
+  readonly currentTarget: FamilyNavDisclosure;
+  readonly target: EventTarget;
+};
+
+type FamilyNavContainment = {
+  containsTarget(target: EventTarget | null): boolean;
 };
 
 export function FamilyNavMenu({ families }: { readonly families: readonly string[] }) {
@@ -29,31 +34,17 @@ export function FamilyNavMenu({ families }: { readonly families: readonly string
   useEffect(() => {
     const details = detailsRef.current;
     if (details === null) return;
-    const handleDocumentClick = (event: MouseEvent): void => {
-      const target = event.target;
-      closeFamilyNavOnOutsideClick(details, target instanceof Node && details.contains(target));
-    };
-    document.addEventListener("click", handleDocumentClick);
-    return () => document.removeEventListener("click", handleDocumentClick);
+    return listenForFamilyNavOutsideClicks(document, details, {
+      containsTarget: (target) => target instanceof Node && details.contains(target),
+    });
   }, []);
-
-  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDetailsElement>): void => {
-    closeFamilyNavOnEscape(event, event.currentTarget, summaryRef.current);
-  };
-  const handleClick = (event: ReactMouseEvent<HTMLDetailsElement>): void => {
-    const target = event.target;
-    closeFamilyNavOnLinkActivation(
-      event.currentTarget,
-      target instanceof Element && target.closest("a") !== null,
-    );
-  };
 
   return (
     <details
       ref={detailsRef}
       className="relative w-full sm:w-auto"
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
+      onClick={closeFamilyNavOnLinkActivation}
+      onKeyDown={(event) => closeFamilyNavOnEscape(event, summaryRef.current)}
     >
       <summary
         ref={summaryRef}
@@ -83,25 +74,37 @@ export function FamilyNavMenu({ families }: { readonly families: readonly string
 
 export function closeFamilyNavOnEscape(
   event: FamilyNavEscapeEvent,
-  disclosure: FamilyNavDisclosure,
   summary: FamilyNavFocusTarget | null,
 ): void {
-  if (event.key !== "Escape" || !disclosure.open) return;
+  if (event.key !== "Escape" || !event.currentTarget.open) return;
   event.preventDefault();
-  disclosure.open = false;
+  event.currentTarget.open = false;
   summary?.focus();
 }
 
 export function closeFamilyNavOnOutsideClick(
+  event: Pick<Event, "target">,
   disclosure: FamilyNavDisclosure,
-  clickedInside: boolean,
+  containment: FamilyNavContainment,
 ): void {
-  if (!clickedInside) disclosure.open = false;
+  if (!containment.containsTarget(event.target)) disclosure.open = false;
 }
 
-export function closeFamilyNavOnLinkActivation(
+export function listenForFamilyNavOutsideClicks(
+  source: EventTarget,
   disclosure: FamilyNavDisclosure,
-  activatedLink: boolean,
-): void {
-  if (activatedLink) disclosure.open = false;
+  containment: FamilyNavContainment,
+): () => void {
+  const handleClick = (event: Event): void => closeFamilyNavOnOutsideClick(event, disclosure, containment);
+  source.addEventListener("click", handleClick);
+  return () => source.removeEventListener("click", handleClick);
+}
+
+export function closeFamilyNavOnLinkActivation(event: FamilyNavClickEvent): void {
+  const target = event.target;
+  if (hasClosest(target) && target.closest("a") !== null) event.currentTarget.open = false;
+}
+
+function hasClosest(target: EventTarget): target is EventTarget & { closest(selectors: string): unknown } {
+  return "closest" in target && typeof target.closest === "function";
 }
