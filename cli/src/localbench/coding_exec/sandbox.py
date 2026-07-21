@@ -14,6 +14,7 @@ even though the container's own memory is capped.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import threading
@@ -45,6 +46,8 @@ MANDATORY_SECURITY_FLAGS: tuple[tuple[str, ...], ...] = (
 )
 
 _IMAGE_DIGEST_RE: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/:+-]*@sha256:[0-9a-f]{64}")
+_IMAGE_INSPECT_TIMEOUT_SECONDS: Final = 10.0
+_IMAGE_PULL_TIMEOUT_SECONDS: Final = 3600.0
 _CONTROL_PROBE: Final = r"""
 import json
 import os
@@ -269,6 +272,7 @@ def preflight_sandbox_controls(
     limits: SandboxLimits | None = None,
     runtime: str | None = None,
     runner: Runner | None = None,
+    image_runner: ImageRunner | None = None,
 ) -> PreflightResult:
     """Launch a constrained container and verify the kernel-enforced sandbox controls."""
     host = preflight_checks(env)
@@ -276,6 +280,50 @@ def preflight_sandbox_controls(
         return host
     active_limits = limits or SandboxLimits()
     selected_runtime = runtime or host.runtime
+    run_image_command = image_runner or (
+        (lambda argv, timeout, _passthrough: runner(argv, timeout, 65_536, b""))
+        if runner is not None
+        else default_image_runner
+    )
+    try:
+        inspected = run_image_command(
+            ["docker", "image", "inspect", image_digest],
+            _IMAGE_INSPECT_TIMEOUT_SECONDS,
+            False,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return PreflightResult(
+            ok=False,
+            runtime=selected_runtime,
+            warnings=host.warnings,
+            blockers=(f"sandbox image inspection could not start: {error}",),
+        )
+    if inspected.exit_code != 0 or inspected.timed_out:
+        try:
+            pulled = run_image_command(
+                ["docker", "pull", image_digest],
+                _IMAGE_PULL_TIMEOUT_SECONDS,
+                True,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            return PreflightResult(
+                ok=False,
+                runtime=selected_runtime,
+                warnings=host.warnings,
+                blockers=(f"sandbox image pull could not start: {error}",),
+            )
+        if pulled.exit_code != 0 or pulled.timed_out:
+            detail = (pulled.stderr or pulled.stdout).decode("utf-8", "replace")[:300]
+            return PreflightResult(
+                ok=False,
+                runtime=selected_runtime,
+                warnings=host.warnings,
+                blockers=(
+                    "sandbox image pull failed "
+                    f"(exit={pulled.exit_code}, timed_out={pulled.timed_out}): "
+                    f"{detail or 'see Docker pull output above'}",
+                ),
+            )
     probe_limits = replace(
         active_limits,
         wall_clock_seconds=min(active_limits.wall_clock_seconds, 10),
@@ -306,6 +354,26 @@ def preflight_sandbox_controls(
                 f"(exit={result['exit_code']}, timed_out={result['timed_out']}, "
                 f"output_truncated={result['output_truncated']}): "
                 f"{result['stderr'][:300] or result['stdout'][:300]}",
+            ),
+        )
+    if result["stdout"].strip() == "":
+        docker_host = os.environ.get("DOCKER_HOST", "").strip().casefold()
+        if env.platform == "windows" and re.fullmatch(
+            r"tcp://(?:127\.0\.0\.1|localhost)(?::[0-9]+)?/?",
+            docker_host,
+        ):
+            detail = (
+                "on Windows, the WSL2 localhost relay drops attach streams. Set DOCKER_HOST to the "
+                "WSL adapter IP from `wsl hostname -I` instead of tcp://localhost or tcp://127.0.0.1"
+            )
+        else:
+            detail = "Docker attach output was not delivered; verify that the daemon transport carries attach streams"
+        return PreflightResult(
+            ok=False,
+            runtime=selected_runtime,
+            warnings=host.warnings,
+            blockers=(
+                "sandbox control probe output-loss detected: Docker exited 0 with empty stdout; " + detail,
             ),
         )
     try:
@@ -454,6 +522,7 @@ class RawRunResult:
 
 
 Runner = Callable[[list[str], float, int, bytes], RawRunResult]
+ImageRunner = Callable[[list[str], float, bool], RawRunResult]
 
 
 class SandboxResult(TypedDict):
@@ -554,4 +623,29 @@ def default_runner(
         stderr=b"",
         timed_out=timed_out,
         truncated=overflowed.is_set(),
+    )
+
+
+def default_image_runner(
+    argv: list[str],
+    timeout_seconds: float,
+    passthrough: bool,
+) -> RawRunResult:
+    try:
+        completed = subprocess.run(  # noqa: S603 - argv is an explicit Docker command list.
+            argv,
+            stdout=None if passthrough else subprocess.PIPE,
+            stderr=None if passthrough else subprocess.PIPE,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        stdout = error.stdout if isinstance(error.stdout, bytes) else b""
+        stderr = error.stderr if isinstance(error.stderr, bytes) else b""
+        return RawRunResult(exit_code=-9, stdout=stdout, stderr=stderr, timed_out=True)
+    return RawRunResult(
+        exit_code=completed.returncode,
+        stdout=completed.stdout or b"",
+        stderr=completed.stderr or b"",
+        timed_out=False,
     )

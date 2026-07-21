@@ -14,6 +14,9 @@ STATIC_EXEC_SUITE_MANIFEST_SHA256: Final = (
 ONE_SHOT_PLAN_SCHEMA_VERSION: Final = "localbench.one_shot_plan.v1"
 IDENTITY_ENVELOPE_SCHEMA_VERSION: Final = "localbench.one_shot_identity.v1"
 PUBLISHABILITY_PREFLIGHT_SCHEMA_VERSION: Final = "localbench.publishability_preflight.v1"
+ONE_SHOT_LOCAL_PREVIEW_REASON: Final = (
+    "one-shot is a local preview without ranked identity guarantees and cannot be submitted"
+)
 
 SourceKind = Literal["catalog", "raw_hf"]
 

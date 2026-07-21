@@ -39,6 +39,10 @@ class PromptRenderingError(RuntimeError):
     """A chat-template renderer could not be constructed or applied."""
 
 
+class TokenizerCacheMissError(PromptRenderingError):
+    pass
+
+
 class PromptRenderer(Protocol):
     def render(self, messages: list[ChatMessage]) -> str:
         """Render chat messages to a raw generation prompt."""
@@ -136,7 +140,7 @@ def load_hf_chat_template_tokenizer(
         ) from exc
     except (OSError, ValueError) as exc:
         tokenizer_ref = _tokenizer_ref(hf_model_id, revision)
-        raise PromptRenderingError(
+        raise TokenizerCacheMissError(
             f"could not load tokenizer for {tokenizer_ref!r} from the offline HF cache. "
             "Template introspection is offline-only; pre-cache the tokenizer once with:\n"
             f'  hf download {hf_model_id} --include "*.json" '

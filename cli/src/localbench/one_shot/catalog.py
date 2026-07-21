@@ -4,7 +4,11 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
-from localbench.one_shot.types import OneShotArtifact, ResolvedOneShotModel
+from localbench.one_shot.types import (
+    ONE_SHOT_LOCAL_PREVIEW_REASON,
+    OneShotArtifact,
+    ResolvedOneShotModel,
+)
 
 _FULL_SHA_RE: Final = re.compile(r"^[0-9a-fA-F]{40}$")
 _FULL_SHA256_RE: Final = re.compile(r"^[0-9a-fA-F]{64}$")
@@ -66,7 +70,7 @@ def resolve_one_shot_model(
             ),
             local_only=True,
             publishable=False,
-            blocking_reasons=("raw HF repos are LOCAL-ONLY in localbench 0.3.1",),
+            blocking_reasons=(ONE_SHOT_LOCAL_PREVIEW_REASON,),
         )
     artifact_rows = _object_list(entry.get("artifacts"))
     artifacts = [_artifact_from(entry, item) for item in artifact_rows]

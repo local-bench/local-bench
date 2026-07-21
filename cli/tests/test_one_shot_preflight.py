@@ -21,7 +21,7 @@ from localbench.one_shot.preflight import (
     validate_resume_plan_lock,
     write_plan_lock,
 )
-from localbench.one_shot.types import FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
+from localbench.one_shot.types import ONE_SHOT_LOCAL_PREVIEW_REASON, FULL_EXEC_SUITE_MANIFEST_SHA256, FULL_EXEC_SUITE_RELEASE_ID
 from one_shot_fixtures import REV_A, REV_B, SHA_A, catalog_with_artifacts
 
 
@@ -153,12 +153,12 @@ def test_catalog_resolve_inherits_artifact_revision_for_same_tokenizer_repo() ->
     assert resolved.tokenizer_revision == REV_A
 
 
-def test_raw_hf_repo_resolves_local_only_for_0_3_0_scope() -> None:
+def test_raw_hf_repo_resolves_as_local_preview() -> None:
     resolved = resolve_one_shot_model("owner/raw-gguf-repo", {"models": []}, quant="Q4_K_M", vram_gb=24.0)
 
     assert resolved.local_only is True
     assert resolved.publishable is False
-    assert any("raw HF" in reason for reason in resolved.blocking_reasons)
+    assert ONE_SHOT_LOCAL_PREVIEW_REASON in resolved.blocking_reasons
 
 
 def test_non_tty_one_shot_requires_explicit_submit_choice() -> None:

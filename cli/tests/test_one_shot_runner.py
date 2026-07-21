@@ -487,7 +487,42 @@ def test_one_shot_raw_hf_repo_runs_local_only_and_skips_preflight_submit(
     assert deps.raw_artifact_resolver.calls == [("owner/raw-gguf", "Q4_K_M")]
     assert deps.preflight_http.calls == []
     assert deps.submitter.calls == []
-    assert "raw HF repos are LOCAL-ONLY" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "one-shot is a local preview without ranked identity guarantees" in output
+    assert "localbench 0." not in output
+
+
+def test_one_shot_raw_hf_submit_refusal_prints_exact_ranked_recipe(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a raw Hugging Face repo was requested through the local-preview one-shot path.
+    deps = _deps(tmp_path)
+    args = _args(tmp_path, one_shot_submit=True)
+    args.one_shot_model = "owner/raw-gguf"
+
+    # When: the caller asks the one-shot path to submit.
+    code = run_one_shot_bench(
+        args,
+        cli_version="0.4.3",
+        deps=deps,
+        is_tty=False,
+        input_fn=lambda: "",
+    )
+
+    # Then: one error surface explains the identity limitation and gives the ranked two-step path.
+    error = capsys.readouterr().err
+    assert code == 2
+    assert deps.submitter.calls == []
+    assert "error      one-shot is a local preview without ranked identity guarantees" in error
+    # The recipe is derived from the resolved invocation: model-ref pins the artifact,
+    # and the run directory follows the resolved model id through bench and submit.
+    assert "ranked     localbench bench --runtime llama.cpp --model-ref " in error
+    assert "hf://owner/raw-gguf@" in error
+    assert "--model-id model-q4" in error
+    assert "--lane bounded-final-v2 --profile auto --tier standard --ctx 32768 --seed 1234" in error
+    assert "--allow-untrusted-code --out runs/bench/model-q4" in error
+    assert "submit     localbench submit run --run runs/bench/model-q4 --base-model owner/raw-gguf" in error
 
 
 def test_one_shot_resume_refuses_plan_lock_drift(

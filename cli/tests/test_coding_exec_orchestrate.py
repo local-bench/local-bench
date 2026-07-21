@@ -288,6 +288,51 @@ def test_grade_coding_finalize_keeps_ungraded_pending_item_incomplete(tmp_path: 
     assert graded["headline_complete"] is False
 
 
+def test_execute_pending_artifacts_accepts_run_directory(tmp_path: Path) -> None:
+    # Given: a campaign directory contains the canonical localbench run document.
+    run_dir = tmp_path / "campaign"
+    run_dir.mkdir()
+    run_path = run_dir / "localbench-run.json"
+    run_path.write_text(
+        json.dumps(
+            _full_run_with_coding_items(
+                [
+                    {
+                        "id": "bcbh-001",
+                        "bench": "bigcodebench_hard",
+                        "correct": False,
+                        "code_artifact": {
+                            "sanitized_code": "def task_func():\n    return 1",
+                            "verdict": None,
+                            "verdict_source": None,
+                        },
+                    },
+                ],
+            ),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    # When: the verifier receives the campaign directory instead of the JSON file.
+    graded = execute_pending_artifacts(
+        run_dir,
+        CodingExecConfig(
+            endpoint="",
+            model="pending-artifact-verifier",
+            suite_dir=_SUITE_V1,
+            allow_untrusted_code=True,
+        ),
+        sandbox_runner=_fake_sandbox,
+        docker_env=_GVISOR_HOST,
+    )
+
+    # Then: it resolves and updates <directory>/localbench-run.json.
+    assert graded["axis_status"]["axes"]["coding"]["status"] == "measured"
+    persisted = json.loads(run_path.read_text(encoding="utf-8"))
+    assert persisted["axis_status"]["axes"]["coding"]["status"] == "measured"
+
+
 def _full_run_with_coding_items(items: list[JsonObject]) -> JsonObject:
     benches = {
         "mmlu_pro": _bench_aggregate(1.0),

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.4 - 2026-07-21
+
+- `bench --allow-untrusted-code` now chains the coding verifier automatically after the
+  run completes, so a finished bench is submit-ready; on verifier failure the run keeps
+  its `generated_unverified` state and the exact manual `code` command is printed.
+- `code --pending-run` accepts a run directory as well as the run-document file, and the
+  submit `incomplete_run` error prints an invocation-derived remediation command.
+- WSL transport teardown after a fully-scored run is best-effort: a discover/teardown
+  failure (e.g. process exhaustion after heavy sandbox churn) retries once, is recorded
+  in the run document, and no longer fails a completed multi-hour run.
+- Coding preflight pulls the sandbox image as an explicit step with its own timeout
+  before the control probe, and detects daemon transports that drop attach output
+  (Windows + WSL2 localhost relay) with a targeted diagnostic.
+- Advanced bench pre-caches the `--hf-model-id` tokenizer automatically when online
+  (recording the resolved revision in provenance); `--offline` still refuses.
+- One-shot raw-HF-repo runs print why they are a local preview and the ready-to-paste
+  ranked recipe derived from the invocation; stale version strings removed from
+  eligibility messages.
+- New docs: `docs/coding-sandbox-windows-wsl.md` (Windows CLI with a WSL2-hosted Docker
+  engine: rootless vs rootful stores, adapter-IP transport, keepalive patterns).
+- Project metadata: the PyPI Repository link now points at the project site
+  (the historical source mirror is not maintained).
+
 ## 0.4.3 - 2026-07-20
 
 - Projections now carry run environment provenance (runtime name/version/backend, first

@@ -93,6 +93,7 @@ def resolve_bounded_final_profile(
         prompt_renderer_manifest={
             "source": "hf-chat-template",
             "hf_model_id": request.hf_model_id,
+            "hf_revision": request.hf_revision,
             "chat_template_sha256": chat_template_sha256(tokenizer),
             "answer_stop": list(introspection.answer_stop),
             "template_kwargs": dict(introspection.chat_template_kwargs),

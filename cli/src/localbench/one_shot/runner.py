@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass, replace
-from pathlib import Path
-from typing import Protocol
+from pathlib import Path, PurePosixPath
+from typing import Protocol, TextIO
 
 import anyio
 
@@ -53,7 +53,9 @@ from localbench.one_shot.submission import OneShotSubmitContext, Submitter, mayb
 from localbench.one_shot.tokenizer_pin import TokenizerPlanRequest, prepare_tokenizer_plan
 from localbench.one_shot.types import (
     FULL_EXEC_SUITE_IDENTITY,
+    ONE_SHOT_LOCAL_PREVIEW_REASON,
     OneShotSuiteIdentity,
+    ResolvedOneShotModel,
 )
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.runner import (
@@ -178,11 +180,13 @@ def run_one_shot_bench(
                 dependencies.preflight_http,
                 suite_identity,
             )
+        elif resolved.source_kind == "raw_hf" and choices.submit is not True:
+            _print_ranked_remediation(args, resolved, prefix="preview", file=sys.stdout)
         else:
             for reason in resolved.blocking_reasons:
                 print(f"preflight {reason}")
         if choices.submit is True and (choices.offline or resolved.local_only):
-            print("error      one-shot run is local-only and cannot be submitted", file=sys.stderr)
+            _print_ranked_remediation(args, resolved, prefix="error", file=sys.stderr)
             return 2
         options = build_serve_options(
             OneShotServeRequest(
@@ -289,6 +293,33 @@ def run_one_shot_bench(
     except Exception as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG
+
+
+def _print_ranked_remediation(
+    args: argparse.Namespace,
+    resolved: ResolvedOneShotModel,
+    *,
+    prefix: str,
+    file: TextIO,
+) -> None:
+    base_model = resolved.tokenizer_repo or "<exact-non-GGUF-HF-repo>"
+    server_bin = getattr(args, "llama_server_path", None) or getattr(args, "server_bin", None)
+    server_bin_text = str(server_bin) if server_bin is not None else "<path-to-llama-server>"
+    run_dir = PurePosixPath("runs") / "bench" / resolved.model_id
+    model_ref = resolved.artifact.model_ref or "<pinned-model-ref>"
+    print(f"{prefix:<11}{ONE_SHOT_LOCAL_PREVIEW_REASON}", file=file)
+    print(
+        "ranked     localbench bench --runtime llama.cpp "
+        f"--model-ref '{model_ref}' --model-id {resolved.model_id} "
+        f"--server-bin {server_bin_text} --hf-model-id {base_model} "
+        "--lane bounded-final-v2 --profile auto --tier standard --ctx 32768 --seed 1234 "
+        f"--allow-untrusted-code --out {run_dir}",
+        file=file,
+    )
+    print(
+        f"submit     localbench submit run --run {run_dir} --base-model {base_model}",
+        file=file,
+    )
 
 
 def _bench_runner(deps: OneShotRunnerDeps) -> BenchRunner:

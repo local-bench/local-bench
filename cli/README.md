@@ -16,7 +16,7 @@ pip install "local-bench-ai[hf]"   # Python 3.11+
 localbench fetch-suite --site https://local-bench.ai \
   --suite suite-v1-full-exec-6axis-v1 --accept-suite-terms
 
-# 2. Cache the tokenizer/chat template for offline identity
+# 2. Optional pre-cache (required with --offline; online advanced bench auto-caches a miss)
 localbench cache-tokenizer <hf-model-id>
 
 # 3. Run the full suite; explicitly consent to restricted model-generated code execution
@@ -56,6 +56,17 @@ pending coding artifacts can be completed with `localbench grade-coding --allow-
 Safetensors/vLLM execution is a separate maintainer-operated lane documented in
 [`docs/benchmark-build/vllm-maintainer-runbook.md`](../docs/benchmark-build/vllm-maintainer-runbook.md);
 it does not change the public llama.cpp/GGUF path.
+
+## Troubleshooting
+
+### Windows CLI with a Docker engine inside WSL2
+
+Do not use `tcp://localhost:2375`: the WSL2 localhost relay can drop Docker attach output even when
+ordinary daemon requests succeed. Connect through the current WSL adapter IP, pull the pinned image
+into the same rootful daemon store, and keep the distribution alive for the run. The complete setup,
+including rootless-vs-rootful stores, safe TCP exposure, transient systemd units, and a standalone
+version-matched Windows client, is in the
+[Windows + WSL-engine coding sandbox guide](../docs/coding-sandbox-windows-wsl.md).
 
 The site's [submit page](https://local-bench.ai/submit) generates these commands for your
 exact model and runtime, including the full identity flag set for bring-your-own-server

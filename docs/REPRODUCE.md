@@ -14,7 +14,8 @@ The five-axis ranked profile is Agentic / Knowledge / Instruction / Coding / Mat
 - An OpenAI-compatible chat endpoint for the `run --endpoint` path, or a GGUF model plus llama.cpp for the CLI-launched `bench` path
 - A 32768-token configured context window for publishable `bounded-final-v2` runs
 - Exactly one model identity flag: `--hf-model-id <hf-model-id>` when you know the exact tokenizer repo, or `--gguf-repo-only` when no exact HF tokenizer repo is available
-- A pre-cached tokenizer when using `--hf-model-id`; `cache-tokenizer` verifies the tokenizer can load offline before the run starts
+- Tokenizer access when using `--hf-model-id`; online advanced runs auto-cache a miss before offline introspection, while `--offline` requires `cache-tokenizer` first
+- Windows CLI users connecting to a Docker engine inside WSL2: follow [Coding sandbox: Windows CLI with a Docker engine in WSL2](coding-sandbox-windows-wsl.md) and use the WSL adapter IP, never localhost
 
 ## 1. Fetch and inspect the public suite
 

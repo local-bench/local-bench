@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import PurePosixPath
 
 from localbench._types import JsonObject
@@ -72,7 +73,21 @@ def terminate_worker_process_tree(
         else:
             resolved_pin = _discover_worker_process(config, token=token)
         if config.distro_name is not None:
-            _run_managed_control(config, "terminate", token=token, pin=resolved_pin)
+            try:
+                _run_managed_control(
+                    config,
+                    "terminate",
+                    token=token,
+                    pin=resolved_pin,
+                )
+            except TeardownError:
+                time.sleep(0.25)
+                _run_managed_control(
+                    config,
+                    "terminate",
+                    token=token,
+                    pin=resolved_pin,
+                )
         else:
             terminate_linux_worker(resolved_pin, token=token)
     _terminate_retained_process_handle(proc)
@@ -85,7 +100,21 @@ def verify_worker_process_tree_terminated(
     pin: ProcessPin,
 ) -> None:
     if config.distro_name is not None:
-        _run_managed_control(config, "verify-terminated", token=token, pin=pin)
+        try:
+            _run_managed_control(
+                config,
+                "verify-terminated",
+                token=token,
+                pin=pin,
+            )
+        except TeardownError:
+            time.sleep(0.25)
+            _run_managed_control(
+                config,
+                "verify-terminated",
+                token=token,
+                pin=pin,
+            )
     else:
         verify_linux_worker_terminated(pin, token=token)
 
@@ -98,9 +127,12 @@ def creation_flags() -> int:
 
 def _discover_worker_process(config: WslWorkerConfig, *, token: str) -> ProcessPin:
     if config.distro_name is not None:
-        return ProcessPin.from_json(
-            _run_managed_control(config, "discover", token=token)
-        )
+        try:
+            reported = _run_managed_control(config, "discover", token=token)
+        except TeardownError:
+            time.sleep(0.25)
+            reported = _run_managed_control(config, "discover", token=token)
+        return ProcessPin.from_json(reported)
     return LinuxProcfs().find_worker(token=token)
 
 

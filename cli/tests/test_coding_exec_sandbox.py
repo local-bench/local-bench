@@ -168,6 +168,133 @@ def test_active_preflight_observes_every_container_control() -> None:
     assert result.blockers == ()
 
 
+def test_preflight_pulls_missing_image_before_running_tight_control_probe() -> None:
+    # Given: the pinned evaluation image is absent from the Docker daemon.
+    image_calls: list[tuple[list[str], float, bool]] = []
+    probe_calls: list[tuple[list[str], float]] = []
+
+    def image_runner(argv: list[str], timeout_seconds: float, passthrough: bool) -> RawRunResult:
+        image_calls.append((argv, timeout_seconds, passthrough))
+        return RawRunResult(
+            exit_code=1 if argv[1:3] == ["image", "inspect"] else 0,
+            stdout=b"",
+            stderr=b"",
+            timed_out=False,
+        )
+
+    def probe_runner(
+        argv: list[str],
+        timeout_seconds: float,
+        _max_output_bytes: int,
+        _stdin_bytes: bytes = b"",
+    ) -> RawRunResult:
+        probe_calls.append((argv, timeout_seconds))
+        return RawRunResult(
+            exit_code=0,
+            stdout=json.dumps(_enforced_control_report()).encode(),
+            stderr=b"",
+            timed_out=False,
+        )
+
+    # When: sandbox controls are preflighted.
+    result = sandbox_mod.preflight_sandbox_controls(
+        _IMAGE,
+        _env(platform="windows", desktop=True),
+        runner=probe_runner,
+        image_runner=image_runner,
+    )
+
+    # Then: inspect precedes a progress-passthrough pull, and only the probe gets the tight timeout.
+    assert result.ok is True
+    assert image_calls == [
+        (["docker", "image", "inspect", _IMAGE], 10.0, False),
+        (["docker", "pull", _IMAGE], 3600.0, True),
+    ]
+    assert len(probe_calls) == 1
+    assert probe_calls[0][0][:2] == ["docker", "run"]
+    assert probe_calls[0][1] == 10.0
+
+
+def test_preflight_reports_image_pull_failure_separately_from_control_probe() -> None:
+    # Given: image inspection misses and the explicit pull fails.
+    def image_runner(argv: list[str], timeout_seconds: float, passthrough: bool) -> RawRunResult:
+        return RawRunResult(
+            exit_code=1,
+            stdout=b"",
+            stderr=b"registry unavailable",
+            timed_out=False,
+        )
+
+    # When: sandbox controls are preflighted.
+    result = sandbox_mod.preflight_sandbox_controls(
+        _IMAGE,
+        _env(platform="windows", desktop=True),
+        runner=_fake(stdout=json.dumps(_enforced_control_report()).encode()),
+        image_runner=image_runner,
+    )
+
+    # Then: the blocker identifies acquisition rather than misdiagnosing the control probe.
+    assert result.ok is False
+    assert result.blockers == (
+        "sandbox image pull failed (exit=1, timed_out=False): registry unavailable",
+    )
+    assert "control probe" not in result.blockers[0]
+
+
+def test_preflight_diagnoses_wsl2_localhost_attach_output_loss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a Windows client reaches Docker through the WSL2 localhost TCP relay.
+    monkeypatch.setenv("DOCKER_HOST", "tcp://localhost:2375")
+
+    # When: the control probe exits successfully but its attach stdout is empty.
+    result = sandbox_mod.preflight_sandbox_controls(
+        _IMAGE,
+        _env(platform="windows", desktop=True),
+        runner=_fake(stdout=b"", exit_code=0),
+        image_runner=lambda argv, timeout_seconds, passthrough: RawRunResult(
+            exit_code=0,
+            stdout=b"",
+            stderr=b"",
+            timed_out=False,
+        ),
+    )
+
+    # Then: the diagnostic names the relay failure and the WSL adapter-IP remedy.
+    assert result.ok is False
+    assert result.blockers == (
+        "sandbox control probe output-loss detected: Docker exited 0 with empty stdout; "
+        "on Windows, the WSL2 localhost relay drops attach streams. Set DOCKER_HOST to the "
+        "WSL adapter IP from `wsl hostname -I` instead of tcp://localhost or tcp://127.0.0.1",
+    )
+
+
+def test_preflight_uses_generic_attach_output_loss_diagnostic_elsewhere(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: the control probe is not using the Windows-to-WSL localhost relay.
+    monkeypatch.setenv("DOCKER_HOST", "tcp://172.24.64.1:2375")
+
+    # When: Docker exits successfully without delivering probe stdout.
+    result = sandbox_mod.preflight_sandbox_controls(
+        _IMAGE,
+        _env(platform="windows", desktop=True),
+        runner=_fake(stdout=b"", exit_code=0),
+        image_runner=lambda argv, timeout_seconds, passthrough: RawRunResult(
+            exit_code=0,
+            stdout=b"",
+            stderr=b"",
+            timed_out=False,
+        ),
+    )
+
+    # Then: the diagnostic remains transport-focused without blaming the localhost relay.
+    assert result.blockers == (
+        "sandbox control probe output-loss detected: Docker exited 0 with empty stdout; "
+        "Docker attach output was not delivered; verify that the daemon transport carries attach streams",
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

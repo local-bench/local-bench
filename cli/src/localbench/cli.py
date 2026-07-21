@@ -70,6 +70,7 @@ from localbench.progress import BenchProgressPlan, ProgressReporter, plans_from_
 from localbench.prompt_rendering import (
     REASONING_ACTIVATIONS,
     PromptRenderingError,
+    TokenizerCacheMissError,
     chat_template_sha256,
     load_hf_chat_template_tokenizer,
 )
@@ -81,6 +82,7 @@ from localbench.scoring.paired_delta import (
     format_honest_delta,
 )
 from localbench.scoring.axis_status import axis_key_for_bench, mark_axis_not_measured
+from localbench.scoring.agentic_exec.wsl_proxy import WslTransportError
 from localbench.scoring.axes import (
     AXES,
     STATIC_SUITE_V3_INDEX_VERSION as STATIC_SUITE_INDEX_VERSION,
@@ -187,6 +189,7 @@ _BOUNDED_FINAL_REQUIRED_CTX: Final = 32768
 _CTX_MISMATCH_TOLERANCE: Final = 0.05
 _SERVER_CONTEXT_WARNING: Final = "server context could not be verified; ensure >= 32768"
 _HF_TOKENIZER_ALLOW_PATTERNS: Final = ["*.json", "*.model", "*.jinja", "*.txt", "*.tiktoken"]
+_HF_INTROSPECTION_ALLOW_PATTERNS: Final = ["*.json", "*.model", "*.jinja"]
 _HF_CACHE_EXTRA_ERROR: Final = (
     "huggingface_hub is required for cache-tokenizer; install localbench[hf] "
     "to enable Hugging Face tokenizer caching"
@@ -1099,6 +1102,13 @@ def _bench(args: argparse.Namespace) -> int:
     if usage_error is not None:
         print(f"error      {usage_error}", file=sys.stderr)
         return 2
+    try:
+        resolved_tokenizer_revision = _prepare_advanced_bench_tokenizer(args)
+    except (CacheTokenizerError, PromptRenderingError) as error:
+        print(f"error      {error}", file=sys.stderr)
+        return 2
+    if resolved_tokenizer_revision is not None:
+        args.hf_revision = resolved_tokenizer_revision
     _print_identity_guidance(args, publishable=True)
     progress_reporter = ProgressReporter()
     options = ServeBenchOptions(
@@ -1147,6 +1157,12 @@ def _bench(args: argparse.Namespace) -> int:
             run_orchestrated_bench,
             options,
         )
+    except WslTransportError as error:
+        record = _completed_record_after_teardown_failure(options, error)
+        if record is None:
+            progress_reporter.clear_line()
+            print(f"error      {error}", file=sys.stderr)
+            return EXIT_INTERNAL_RUNNER_BUG
     except SuiteResolutionError as error:
         progress_reporter.clear_line()
         _print_suite_resolution_error(error, args.suite)
@@ -1172,8 +1188,98 @@ def _bench(args: argparse.Namespace) -> int:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_INTERNAL_RUNNER_BUG
     progress_reporter.finish()
+    record = _auto_verify_bench_coding(record, args, options)
     _print_summary(record, _bench_output_path(options))
     return EXIT_COMPLETE
+
+
+def _completed_record_after_teardown_failure(
+    options: ServeBenchOptions,
+    error: WslTransportError,
+) -> JsonObject | None:
+    if error.operation != "teardown":
+        return None
+    run_path = _bench_output_path(options)
+    status_path = run_path.parent / "run.status.json"
+    try:
+        status = read_json_object(status_path)
+        record = read_json_object(run_path)
+    except (OSError, ValueError):
+        return None
+    completed_items = status.get("completed_items")
+    total_items = status.get("total_items")
+    if (
+        not isinstance(completed_items, int)
+        or isinstance(completed_items, bool)
+        or not isinstance(total_items, int)
+        or isinstance(total_items, bool)
+        or completed_items != total_items
+    ):
+        return None
+    warning = (
+        "wsl transport teardown failed after scoring completed; cleanup remains best-effort: "
+        f"{error.detail}"
+    )
+    warnings = record.get("warnings")
+    if not isinstance(warnings, list):
+        warnings = []
+        record["warnings"] = warnings
+    if warning not in warnings:
+        warnings.append(warning)
+    status["state"] = "complete"
+    status["exit_code"] = EXIT_COMPLETE
+    status["failure_reason"] = None
+    atomic_write_json(record, run_path)
+    atomic_write_json(status, status_path)
+    print(f"warning    {warning}", file=sys.stderr)
+    return record
+
+
+def _auto_verify_bench_coding(
+    record: JsonObject,
+    args: argparse.Namespace,
+    options: ServeBenchOptions,
+) -> JsonObject:
+    if not bool(getattr(args, "allow_untrusted_code", False)):
+        return record
+    axis_status = record.get("axis_status")
+    axes = axis_status.get("axes") if isinstance(axis_status, dict) else None
+    coding = axes.get("coding") if isinstance(axes, dict) else None
+    if not isinstance(coding, dict) or coding.get("status") != "generated_unverified":
+        return record
+    run_path = _bench_output_path(options)
+    suite_dir = resolve_suite_dir(
+        suite_id=options.suite,
+        suite_dir=options.suite_dir,
+        accept_suite_terms=bool(getattr(args, "accept_suite_terms", False)),
+        source=options.suite_source,
+        cache_root=options.cache_dir,
+    ).path
+    try:
+        return execute_pending_artifacts(
+            run_path,
+            CodingExecConfig(
+                endpoint="",
+                model="pending-artifact-verifier",
+                suite_dir=suite_dir,
+                out=run_path,
+                allow_untrusted_code=True,
+            ),
+        )
+    except CodingExecError as error:
+        print(f"warning    automatic coding verifier failed: {error}", file=sys.stderr)
+        print(
+            f"verify     {_coding_verifier_command(run_path, suite_dir)}",
+            file=sys.stderr,
+        )
+        return record
+
+
+def _coding_verifier_command(run_path: Path, suite_dir: Path) -> str:
+    return (
+        f"localbench code --pending-run {run_path} --suite-dir {suite_dir} "
+        "--allow-untrusted-code"
+    )
 
 
 def _setup_agentic(args: argparse.Namespace) -> int:
@@ -1280,14 +1386,19 @@ def _cache_tokenizer_repo(args: argparse.Namespace) -> str | CacheTokenizerError
     return None
 
 
-def _hf_snapshot_download(repo_id: str, allow_patterns: list[str]) -> str:
+def _hf_snapshot_download(
+    repo_id: str,
+    allow_patterns: list[str],
+    *,
+    revision: str | None = None,
+) -> str:
     try:
         from huggingface_hub import snapshot_download
         from huggingface_hub.errors import GatedRepoError, HfHubHTTPError, RepositoryNotFoundError
     except ImportError as error:
         raise CacheTokenizerError(_HF_CACHE_EXTRA_ERROR) from error
     try:
-        return str(snapshot_download(repo_id=repo_id, allow_patterns=allow_patterns))
+        return str(snapshot_download(repo_id=repo_id, allow_patterns=allow_patterns, revision=revision))
     except (GatedRepoError, RepositoryNotFoundError) as error:
         raise CacheTokenizerError(_hf_auth_error_message(repo_id)) from error
     except HfHubHTTPError as error:
@@ -1295,6 +1406,33 @@ def _hf_snapshot_download(repo_id: str, allow_patterns: list[str]) -> str:
         if status_code in {401, 403}:
             raise CacheTokenizerError(_hf_auth_error_message(repo_id)) from error
         raise
+
+
+def _prepare_advanced_bench_tokenizer(args: argparse.Namespace) -> str | None:
+    hf_model_id = getattr(args, "hf_model_id", None)
+    lane = getattr(args, "lane", None)
+    profile = getattr(args, "profile", "auto")
+    needs_introspection = lane == "capped-thinking" or (
+        lane in _BOUNDED_FINAL_LANES and profile != "answer_only_v1"
+    )
+    if not needs_introspection or hf_model_id is None:
+        return getattr(args, "hf_revision", None)
+    revision = getattr(args, "hf_revision", None)
+    try:
+        load_hf_chat_template_tokenizer(hf_model_id, revision=revision)
+    except TokenizerCacheMissError:
+        if bool(getattr(args, "offline", False)):
+            raise
+        snapshot_path = _hf_snapshot_download(
+            hf_model_id,
+            _HF_INTROSPECTION_ALLOW_PATTERNS,
+            revision=revision,
+        )
+        resolved_revision = _snapshot_revision(snapshot_path)
+        load_hf_chat_template_tokenizer(hf_model_id, revision=resolved_revision)
+        print(f"cached    tokenizer {hf_model_id}@{resolved_revision}")
+        return resolved_revision
+    return revision
 
 
 def _snapshot_revision(snapshot_path: str) -> str:
@@ -2237,6 +2375,19 @@ def _submit_run(args: argparse.Namespace) -> int:
         )
     except (SubmitRunError, SubmissionValidationError, OSError, json.JSONDecodeError, ValueError) as error:
         print(f"error      {error}")
+        if isinstance(error, SubmitRunError) and error.message.startswith("incomplete_run:"):
+            run_path = args.run or args.bundle
+            if run_path is not None:
+                # Remediation is best-effort guidance inside an error path: suite-dir
+                # derivation must never raise a second error over the first.
+                if args.suite_dir is not None:
+                    suite_dir = args.suite_dir
+                else:
+                    try:
+                        suite_dir = _default_v1_suite_dir()
+                    except Exception:
+                        suite_dir = Path("<suite-dir>")
+                print(f"verify     {_coding_verifier_command(run_path, suite_dir)}")
         return error.exit_code if isinstance(error, SubmitRunError) else 2
     for line in result.lines:
         print(line)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-bench-ai"
-version = "0.4.3"
+version = "0.4.4"
 description = "Benchmark runner for local-bench.ai - the community quality leaderboard for local AI setups."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ dependencies = [
 Homepage = "https://local-bench.ai"
 Methodology = "https://local-bench.ai/methodology"
 Submit = "https://local-bench.ai/submit"
-Repository = "https://github.com/local-bench/local-bench"
+Repository = "https://local-bench.ai/methodology"
 
 [project.scripts]
 localbench = "localbench.cli:main"

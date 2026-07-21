@@ -182,6 +182,7 @@ def execute_pending_artifacts(
     sandbox_runner: SandboxRunner | None = None,
     docker_env: DockerEnv | None = None,
 ) -> JsonObject:
+    run_path = _pending_run_document(run_path)
     config, _warnings = _preflight_coding_sandbox(config, docker_env, sandbox_runner)
     source_bytes = run_path.read_bytes()
     run = read_json_object(run_path)
@@ -251,6 +252,13 @@ def execute_pending_artifacts(
     output_path = config.out or run_path
     write_json(run, output_path)
     return run
+
+
+def _pending_run_document(path: Path) -> Path:
+    expected = path / "localbench-run.json" if path.is_dir() else path
+    if expected.is_file():
+        return expected
+    raise CodingExecError(f"pending run document not found; expected file: {expected}")
 
 
 def _attach_receipt_if_requested(run: JsonObject, *, source_bytes: bytes, config: CodingExecConfig) -> None:

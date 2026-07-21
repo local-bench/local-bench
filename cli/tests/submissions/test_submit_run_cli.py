@@ -372,6 +372,37 @@ def test_submit_run_rejects_incomplete_bundle_before_ticket(
     assert "incomplete_run" in capsys.readouterr().out
 
 
+def test_submit_run_incomplete_error_prints_coding_verifier_remediation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: a prepacked bundle whose agentic bench is missing (headline-incomplete),
+    # driven through the same path as the rejection test above.
+    import localbench.submissions.submit_run as submit_mod
+
+    _isolate_home(monkeypatch, tmp_path)
+    bundle = _write_prepacked_bundle(tmp_path / "partial-run.json")
+    record = json.loads(bundle.read_text(encoding="utf-8"))
+    record["benches"].pop("appworld_c")
+    bundle.write_text(json.dumps(record), encoding="utf-8")
+
+    def fail_ticket(_request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
+        raise AssertionError("ticket request should not be sent")
+
+    monkeypatch.setattr(submit_mod, "request_submission_ticket", fail_ticket)
+
+    # When: submit refuses the incomplete bundle.
+    code = main(["submit", "run", "--bundle", str(bundle)])
+
+    # Then: the error carries an invocation-derived verifier remediation command.
+    output = capsys.readouterr().out
+    assert code == 2
+    assert "incomplete_run" in output
+    assert "verify     localbench code --pending-run" in output
+    assert str(bundle) in output
+    assert "--allow-untrusted-code" in output
+
 def test_submit_run_reads_config_and_rejects_malformed_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -12,7 +12,7 @@ from localbench.appliance.provisioner import ProvisioningError
 from localbench.scoring.agentic_exec import wsl_process
 from localbench.scoring.agentic_exec import worker_process_control
 from localbench.scoring.agentic_exec.wsl_process import worker_argv
-from localbench.scoring.agentic_exec.wsl_teardown import ProcessPin
+from localbench.scoring.agentic_exec.wsl_teardown import ProcessPin, TeardownError
 
 
 def _active_native_runtime(root: Path) -> Path:
@@ -147,6 +147,43 @@ def test_linux_managed_process_identity_anchors_outer_bwrap(
         )
         == outer
     )
+
+
+def test_managed_worker_discovery_retries_once_after_control_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: Windows rejects the first short-lived WSL discovery process during teardown.
+    config = wsl_process.WslWorkerConfig(
+        venv_python="/managed/venv/bin/python3",
+        appworld_root="/managed/appworld",
+        distro_name="LocalBench",
+        log_dir=tmp_path,
+    )
+    pin = ProcessPin(412, 412, 412, 99, "/managed/venv/bin/python3")
+    calls = 0
+    backoffs: list[float] = []
+
+    def fake_control(*_args, **_kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TeardownError("managed worker discover failed with exit 3221225794")
+        return pin.as_json()
+
+    monkeypatch.setattr(worker_process_control, "_run_managed_control", fake_control)
+    monkeypatch.setattr(worker_process_control.time, "sleep", backoffs.append)
+
+    # When: teardown discovers the managed worker process.
+    discovered = worker_process_control._discover_worker_process(
+        config,
+        token="fixture-token",
+    )
+
+    # Then: one short backoff separates the failed attempt from the successful retry.
+    assert discovered == pin
+    assert calls == 2
+    assert backoffs == [0.25]
 
 
 def test_native_provisioning_keeps_network_without_binding_host_paths(
