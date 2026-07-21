@@ -121,6 +121,9 @@ def test_llama_cpp_strict_argv_pins_score_impacting_flags(tmp_path: Path) -> Non
     assert flag_value(argv, "--flash-attn") == "on"
     assert flag_value(argv, "--cache-type-k") == "f16"
     assert flag_value(argv, "--cache-type-v") == "f16"
+    assert flag_value(argv, "--cache-ram") == "0"
+    assert flag_value(argv, "--ctx-checkpoints") == "32"
+    assert flag_value(argv, "--checkpoint-min-step") == "8192"
     assert "--no-context-shift" in argv
     assert flag_value(argv, "--reasoning") == "off"
     assert "--reasoning-budget" not in argv

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -177,9 +178,13 @@ def _assert_identity(
     if not isinstance(expected_version, str) or not expected_version:
         raise SandboxError("wsl preflight failed: host localbench distribution version is unavailable")
     if actual_version != expected_version:
-        raise SandboxError(
-            "wsl preflight failed: localbench distribution version mismatch: "
-            f"worker={actual_version!r} host={expected_version!r}",
+        # Version skew alone is tolerated (owner call, 2026-07-22): the signed worker
+        # rootfs releases on its own cadence, so a byte-identical worker can report an
+        # older dist version. worker_content_sha256 below remains the binding gate.
+        sys.stderr.write(
+            "localbench: warning: worker/host distribution version skew: "
+            f"worker={actual_version!r} host={expected_version!r}; "
+            "worker content digest check still enforced\n"
         )
     expected_digest = expected.get("worker_content_sha256")
     actual_digest = identity.get("worker_content_sha256")

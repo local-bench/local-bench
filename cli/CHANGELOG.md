@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.5 - 2026-07-22
+
+- Disabled llama.cpp's cross-request host prompt-state cache (`--cache-ram 0`) for canonical ranked
+  runs, and pinned context-checkpoint behavior (`--ctx-checkpoints 32`,
+  `--checkpoint-min-step 8192`) at current upstream defaults so future llama.cpp default changes
+  cannot silently alter the serve contract. Model weights, context size, f16 K/V precision,
+  sampling, and slot count are unchanged. The prompt cache is a performance facility; exact bitwise
+  token identity with cache-enabled executions is not guaranteed, and the new policy is reflected
+  in the serve fingerprint. Note: an interrupted 0.4.4 run cannot be `--resume`'d under 0.4.5
+  (resume identity fails closed by design).
+- Agentic preflight now tolerates worker/host distribution version skew with a warning
+  instead of failing: the signed worker rootfs releases on its own cadence, and the
+  `worker_content_sha256` digest comparison remains the binding integrity gate (a
+  byte-identical worker under an older version label passes; any content change still
+  fails closed). This restores the agentic axis on fresh installs pairing the 0.4.3
+  signed appliance worker with a newer host CLI.
+
 ## 0.4.4 - 2026-07-21
 
 - `bench --allow-untrusted-code` now chains the coding verifier automatically after the

@@ -85,6 +85,7 @@ llama-server.exe
   --parallel 1 --no-cont-batching  # serialize for reproducibility
   --flash-attn on                  # on|off ONLY, NEVER auto; preflight-verify, else off
   --cache-type-k f16 --cache-type-v f16
+  --cache-ram 0 --ctx-checkpoints 32 --checkpoint-min-step 8192
   --no-context-shift
   --batch-size 2048 --ubatch-size 512
   --threads <PINNED> --threads-batch <PINNED>

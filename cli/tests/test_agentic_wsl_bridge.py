@@ -892,10 +892,13 @@ def test_worker_identity_gate_compares_distribution_version_and_content_digest()
     }
 
     _assert_identity(base, expected)
-    with pytest.raises(SandboxError, match="distribution version mismatch"):
-        _assert_identity({**base, "localbench_distribution_version": "0.3.0"}, expected)
+    # Version skew warns but does not fail (owner call, 2026-07-22); the content
+    # digest remains the binding check.
+    _assert_identity({**base, "localbench_distribution_version": "0.3.0"}, expected)
     with pytest.raises(SandboxError, match="worker content digest mismatch"):
         _assert_identity({**base, "worker_content_sha256": "b" * 64}, expected)
+    with pytest.raises(SandboxError, match="host localbench distribution version is unavailable"):
+        _assert_identity(base, {**expected, "localbench_distribution_version": ""})
 
 
 def test_managed_worker_argv_uses_installed_package_without_source_checkout() -> None:
