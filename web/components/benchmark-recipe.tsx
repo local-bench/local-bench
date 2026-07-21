@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { CopyButton } from "@/components/copy-button";
 import type { BenchmarkRecipe as Recipe } from "@/lib/onramp";
-import { CLI_PREREQUISITES, LOCALBENCH_TESTED_VERSION } from "@/lib/cli-onboarding";
+import {
+  CLI_PREREQUISITES,
+  LOCALBENCH_TESTED_VERSION,
+  TOKENIZER_PRECACHE_NOTE,
+  WINDOWS_WSL_DOCKER_GUIDE_URL,
+} from "@/lib/cli-onboarding";
 
 const IDENTITY_COPY: Record<Recipe["identityMode"], string> = {
   full: "Identity: full - HF tokenizer/template cached; tokenizer and chat-template digests recorded.",
@@ -81,6 +86,19 @@ function RequirementsLine() {
         </a>{" "}
         or pass <span className="font-mono text-bench-text">--llama-server-path</span>.
       </p>
+      <p className="mt-1">{TOKENIZER_PRECACHE_NOTE}</p>
+      <p className="mt-1">
+        Docker engine inside WSL2? Follow the{" "}
+        <a
+          href={WINDOWS_WSL_DOCKER_GUIDE_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-bench-accent underline"
+        >
+          Windows + WSL-engine coding sandbox guide
+        </a>
+        ; connect through the WSL adapter IP, never localhost.
+      </p>
     </div>
   );
 }
@@ -137,12 +155,12 @@ function OneCommandLead({
   return (
     <div className="flex flex-col gap-3">
       <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase text-bench-accent">
-        <span className="rounded border border-bench-accent/40 px-2 py-1">{localOnly ? "LOCAL-ONLY" : "Recommended"}</span>
-        <span>{localOnly ? "raw Hugging Face repo run" : "catalog-pinned one-command flow"}</span>
+        <span className="rounded border border-bench-accent/40 px-2 py-1">{localOnly ? "LOCAL-ONLY" : "Quick local check"}</span>
+        <span>{localOnly ? "raw Hugging Face repo run" : "catalog-pinned one-shot preview"}</span>
       </p>
       <CommandBlock title="Step 1 · install" command={recipe.installCommand} />
       <PipNamespaceWarning />
-      <CommandBlock title="Step 2 · bench, score, and optional submit" command={lead.command} />
+      <CommandBlock title="Step 2 · quick local check" command={lead.command} />
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
         <span className="text-bench-text">--allow-untrusted-code</span> runs the benchmark&apos;s coding tasks in the pinned sandbox — see{" "}
         <Link href="/methodology/#coding-trust" className="text-bench-accent underline">Methodology</Link>.
@@ -155,8 +173,8 @@ function OneCommandLead({
         </p>
       ) : (
         <p className="font-mono text-[11px] leading-5 text-bench-muted">
-          The command verifies downloads against pinned hashes, checks publishability before starting, and asks before
-          submitting.
+          This one-shot command verifies downloads against pinned hashes, but it remains a local preview without ranked
+          identity guarantees. Use the ranked submission path below for a board run.
         </p>
       )}
       <p className="font-mono text-[11px] leading-5 text-bench-warn">
@@ -165,10 +183,9 @@ function OneCommandLead({
         <span className="font-mono text-bench-text">localbench setup-agentic</span> are available.
       </p>
       <p className="font-mono text-[11px] leading-5 text-bench-muted">
-        Non-TTY runs must pass explicit <span className="font-mono text-bench-text">--yes</span>,{" "}
-        <span className="font-mono text-bench-text">--accept-suite-terms</span>, and either{" "}
-        <span className="font-mono text-bench-text">--no-submit</span> or{" "}
-        <span className="font-mono text-bench-text">--submit</span>.
+        Non-TTY quick checks must pass explicit <span className="font-mono text-bench-text">--yes</span>,{" "}
+        <span className="font-mono text-bench-text">--accept-suite-terms</span>, and{" "}
+        <span className="font-mono text-bench-text">--no-submit</span>.
       </p>
     </div>
   );
@@ -220,7 +237,7 @@ function AdvancedClassicRecipe({ recipe }: { readonly recipe: Recipe }) {
   return (
     <details className="rounded border border-bench-line bg-bench-panel-2/40 p-3">
       <summary className="cursor-pointer font-mono text-xs font-semibold text-bench-accent">
-        Advanced: bring your own server (vLLM, custom rigs)
+        Ranked submission: bring your own server (vLLM, custom rigs)
       </summary>
       <div className="mt-3">
         <p className="mb-3 font-mono text-[11px] leading-5 text-bench-muted">

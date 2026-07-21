@@ -76,13 +76,16 @@ describe("BenchmarkRecipe", () => {
     expect(html).toContain("llama.cpp server binary");
     expect(html).toContain("github.com/ggerganov/llama.cpp/releases");
     expect(html).toContain("verifies downloads against pinned hashes");
-    expect(html).toContain("checks publishability before starting");
-    expect(html).toContain("asks before submitting");
+    expect(html).toContain("Quick local check");
+    expect(html).toContain("local preview without ranked identity guarantees");
+    expect(html).toContain("Ranked submission: bring your own server");
+    expect(html).toContain("automatically pre-caches it before offline introspection");
+    expect(html).toContain("coding-sandbox-windows-wsl.md");
     expect(html).toContain("Public path");
     expect(html).toContain("Publishable rows require every headline axis");
     expect(html).toContain("localbench setup-agentic");
     expect(html).not.toContain("--static-only");
-    expect(html).toContain("Advanced: bring your own server (vLLM, custom rigs)");
+    expect(html).toContain("Ranked submission: bring your own server (vLLM, custom rigs)");
     expect(html).toContain("Identity: full");
     expect(html).toContain("HF tokenizer/template cached");
     expect(html).toContain("Gated repo");
@@ -108,7 +111,7 @@ describe("BenchmarkRecipe", () => {
     expect(html).toContain("This catalog quant is missing artifact pins");
     expect(html).toContain("localbench run");
     expect(html).not.toContain("localbench bench qwen3-8b --quant Q4_K_M --allow-untrusted-code");
-    expect(html).not.toContain("Advanced: bring your own server");
+    expect(html).not.toContain("Ranked submission: bring your own server");
   });
 
   it("labels pasted HF repo one-command recipes as local-only", () => {

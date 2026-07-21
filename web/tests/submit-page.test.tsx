@@ -69,9 +69,23 @@ describe("SubmitPage", () => {
     expect(html).toContain('pip install &quot;local-bench-ai[hf]&quot;');
     expect(html).not.toContain("==0.3.2");
     expect(html).toContain("Tested with local-bench-ai 0.4.3");
+    expect(html).toContain("Quick local check");
     expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M --allow-untrusted-code");
+    expect(html).toContain("local preview without ranked identity guarantees");
+    expect(html).toContain("Ranked submission");
+    expect(html).toContain(
+      "localbench bench --runtime llama.cpp --server-bin &lt;path-to-llama-server&gt; " +
+        "--model-file &lt;path-to-qwen3-8b-q4-k-m.gguf&gt; --model-id qwen3-8b " +
+        "--hf-model-id Qwen/Qwen3-8B --lane bounded-final-v2 --profile auto --tier standard " +
+        "--ctx 32768 --seed 1234 --allow-untrusted-code --out runs/bench/qwen3-8b",
+    );
+    expect(html).toContain(
+      "localbench submit run --run runs/bench/qwen3-8b --base-model Qwen/Qwen3-8B",
+    );
+    expect(html).toContain("automatically pre-caches it before offline introspection");
+    expect(html).toContain("coding-sandbox-windows-wsl.md");
     expect(html).toContain("runs the benchmark&#x27;s coding tasks in the pinned sandbox");
-    expect(html).toContain("offers submission at the end");
+    expect(html).not.toContain("offers submission at the end");
     expect(html).toContain("Advanced route: bring your own server");
     expect(html).toContain(htmlEscapedText(advancedRunCommand));
     expect(html).toContain("suite-v1-full-exec-6axis-v1");

@@ -5,8 +5,12 @@ import {
   CLI_PREREQUISITES,
   CURRENT_RANKED_SUITE,
   formatCanonicalBenchCommand,
+  formatCanonicalSubmitCommand,
+  formatQuickLocalCheckCommand,
   LOCALBENCH_INSTALL_COMMAND,
   LOCALBENCH_TESTED_VERSION,
+  TOKENIZER_PRECACHE_NOTE,
+  WINDOWS_WSL_DOCKER_GUIDE_URL,
 } from "@/lib/cli-onboarding";
 import { pageMetadata } from "@/lib/page-metadata";
 
@@ -58,6 +62,19 @@ export default function SubmitPage() {
         <ul className="list-disc space-y-1 pl-5">
           {CLI_PREREQUISITES.map((prerequisite) => <li key={prerequisite}>{prerequisite}</li>)}
         </ul>
+        <p className="text-sm">{TOKENIZER_PRECACHE_NOTE}</p>
+        <p className="text-sm">
+          Windows client with a Docker engine inside WSL2? Follow the{" "}
+          <a
+            href={WINDOWS_WSL_DOCKER_GUIDE_URL}
+            className="text-bench-accent hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Windows + WSL-engine coding sandbox guide
+          </a>
+          ; use the WSL adapter IP, never localhost.
+        </p>
         <p>
           For the one-command path, put{" "}
           <code className="font-mono text-bench-text">llama-server</code> on PATH from{" "}
@@ -86,9 +103,9 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">pip install -e cli</code>.
         </p>
 
-        <h3 className="text-base font-semibold text-bench-text">2. Bench the catalog model</h3>
+        <h3 className="text-base font-semibold text-bench-text">2. Quick local check</h3>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
-          {formatCanonicalBenchCommand("qwen3-8b", "Q4_K_M")}
+          {formatQuickLocalCheckCommand("qwen3-8b", "Q4_K_M")}
         </pre>
         <p className="text-sm">
           <code className="font-mono text-bench-text">--allow-untrusted-code</code> runs the benchmark&apos;s coding tasks in the pinned sandbox — see{" "}
@@ -96,19 +113,33 @@ export default function SubmitPage() {
         </p>
         <p>
           <code className="font-mono text-bench-text">bench</code> resolves the catalog slug and quant,
-          checks publishability before downloading, verifies pinned GGUF hashes, starts llama-server
-          with the deterministic config, shows progress and ETA, prints the scorecard, and offers
-          submission at the end. The submission prompt defaults to No; complete submissions publish
-          after the automated contract checks.
+          verifies pinned GGUF hashes, starts llama-server with the deterministic config, and prints a
+          scorecard. This one-shot form is a local preview without ranked identity guarantees; it is not
+          the command used for a ranked submission.
         </p>
         <p className="text-sm">
-          Non-interactive shells must be explicit: add{" "}
+          For a non-interactive quick check, add{" "}
           <code className="font-mono text-bench-text">--yes</code>,{" "}
-          <code className="font-mono text-bench-text">--accept-suite-terms</code>, and either{" "}
-          <code className="font-mono text-bench-text">--no-submit</code> or{" "}
-          <code className="font-mono text-bench-text">--submit</code>.
+          <code className="font-mono text-bench-text">--accept-suite-terms</code>, and{" "}
+          <code className="font-mono text-bench-text">--no-submit</code>.
         </p>
 
+        <h3 className="text-base font-semibold text-bench-text">3. Ranked submission</h3>
+        <p>Fetch the ranked suite once, run the advanced identity-pinned benchmark, then submit the finished run:</p>
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+          {`localbench fetch-suite --site https://local-bench.ai --suite ${CURRENT_RANKED_SUITE} --accept-suite-terms`}
+        </pre>
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+          {formatCanonicalBenchCommand({
+            modelFileArgument: "<path-to-qwen3-8b-q4-k-m.gguf>",
+            modelId: "qwen3-8b",
+            hfModelId: "Qwen/Qwen3-8B",
+            outArgument: "runs/bench/qwen3-8b",
+          })}
+        </pre>
+        <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
+          {formatCanonicalSubmitCommand("runs/bench/qwen3-8b", "Qwen/Qwen3-8B")}
+        </pre>
         <details className="rounded-lg border border-bench-line bg-bench-panel p-5">
           <summary className="cursor-pointer text-base font-semibold text-bench-text">
             Advanced route: bring your own server
@@ -141,18 +172,20 @@ export default function SubmitPage() {
               .
             </p>
 
-            <h3 className="text-base font-semibold text-bench-text">B. Cache your model&apos;s tokenizer</h3>
+            <h3 className="text-base font-semibold text-bench-text">B. Prepare your model&apos;s tokenizer</h3>
             <p>
               Ranked runs pass <code className="font-mono text-bench-text">--hf-model-id</code> so the
               harness can introspect your model&apos;s chat template. That introspection is deliberately
-              offline (the run never phones home mid-benchmark), so the tokenizer files must already be
-              in your Hugging Face cache before you start:
+              offline (the run never phones home mid-benchmark). When online, the CLI checks the local
+              cache first and automatically downloads only the required tokenizer/template files when
+              they are missing, records the resolved revision, then retries introspection from the local
+              cache. To pre-warm the cache, or before using <code className="font-mono text-bench-text">--offline</code>, run:
             </p>
             <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
               {`localbench cache-tokenizer <the-model's-HF-repo>`}
             </pre>
             <p className="text-sm">
-              Downloads exactly what introspection needs, verifies the tokenizer loads offline, and
+              This downloads exactly what introspection needs, verifies the tokenizer loads offline, and
               prints the resolved revision and chat-template hash. Use the tokenizer and
               tokenizer_config files from that Hugging Face snapshot in step 4. Use the original
               model&apos;s repo (the transformers-format one), not the GGUF repo. Gated repos (for example{" "}

@@ -1,5 +1,5 @@
 import { QUANT_OPTIONS } from "./quant";
-import { formatCanonicalBenchCommand, LOCALBENCH_INSTALL_COMMAND } from "./cli-onboarding";
+import { formatQuickLocalCheckCommand, LOCALBENCH_INSTALL_COMMAND } from "./cli-onboarding";
 
 export type OnrampCatalogQuant = {
   readonly label: string;
@@ -428,7 +428,7 @@ function buildOneCommandLead(
   quant: OnrampCatalogQuant,
   source: BenchmarkRecipeSource,
 ): BenchmarkRecipeLead {
-  const command = formatCanonicalBenchCommand(shellArg(oneCommandTarget(model, source)), shellArg(quant.label));
+  const command = formatQuickLocalCheckCommand(shellArg(oneCommandTarget(model, source)), shellArg(quant.label));
   if (source === "paste") {
     return { kind: "local-only", command };
   }
