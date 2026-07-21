@@ -6,6 +6,8 @@ import { rateLimited } from "./submission-rate-limit";
 import { projectionKey } from "./submission-storage";
 import { githubAttributionAvailable } from "./github-oauth-store";
 import { isCompleteProjection, projectionComposite } from "./submission-publish-validation";
+import { LiveBoardRowSchema, type LiveBoardRow } from "../../lib/board-adapter";
+import { publicProvenanceNotes, publicRuntime } from "./community-live-board-public-row";
 
 export const COMMUNITY_LIVE_BOARD_KEY = "board/community-live.json";
 const BOARD_CACHE_SECONDS = 60;
@@ -48,7 +50,15 @@ export async function rebuildCommunityLiveBoard(env: SubmissionApiEnv) {
     Number(right.complete) - Number(left.complete)
       || projectionComposite(right.projection) - projectionComposite(left.projection)
       || left.row.submissionId.localeCompare(right.row.submissionId));
-  const rows = materialized.map(({ complete, projection, row }) => liveBoardRow(row, projection, complete));
+  const rows: LiveBoardRow[] = [];
+  for (const { complete, projection, row } of materialized) {
+    const parsed = LiveBoardRowSchema.safeParse(liveBoardRow(row, projection, complete));
+    if (!parsed.success) {
+      omittedRows += 1;
+      continue;
+    }
+    rows.push(parsed.data);
+  }
   const withoutDigest = {
     edge_block_revision: numericOrZero(control?.["edge_block_revision"]),
     generated_at: new Date().toISOString(),
@@ -151,7 +161,7 @@ function liveBoardRow(
     headline_complete: projection.headline_complete,
     index_version: projection.index_version ?? null,
     lineage: projection.lineage,
-    ...(projection.runtime === undefined ? {} : { runtime: projection.runtime }),
+    ...(projection.runtime === undefined ? {} : { runtime: publicRuntime(projection.runtime) }),
     ...(projection.hardware === undefined ? {} : { hardware: projection.hardware }),
     ...(projection.perf === undefined ? {} : { perf: projection.perf }),
     model: {
@@ -166,7 +176,7 @@ function liveBoardRow(
     origin: row.origin,
     ...(row.origin === "project_anchor" ? { badge: "project-run" } : {}),
     normalization_annotations: projection.normalization_annotations ?? [],
-    provenance_notes: projection.provenance_notes ?? [],
+    provenance_notes: publicProvenanceNotes(projection.provenance_notes ?? []),
     receipt_references: projection.receipt_references,
     ranked: complete,
     rescore_modes: projection.rescore_modes,

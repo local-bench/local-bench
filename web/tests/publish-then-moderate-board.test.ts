@@ -33,6 +33,15 @@ import {
 } from "./submission-test-support";
 
 const originalCaches = Object.getOwnPropertyDescriptor(globalThis, "caches");
+const BOARD_SUBMISSION_IDS = {
+  board: `ticket_${"a".repeat(32)}`,
+  cache: `ticket_${"e".repeat(32)}`,
+  environment: `ticket_${"c".repeat(32)}`,
+  legacy: `ticket_${"d".repeat(32)}`,
+  migration: `ticket_${"0".repeat(32)}`,
+  missing: `ticket_${"b".repeat(32)}`,
+  suppress: `ticket_${"f".repeat(32)}`,
+} as const;
 
 afterEach(() => {
   if (originalCaches === undefined) {
@@ -47,13 +56,13 @@ describe("materialized community live board", () => {
     const env = await boardEnv();
     await insertBoardFixture(env, {
       githubLogin: "fixture-user",
-      submissionId: "ticket_fixture_board_a",
+      submissionId: BOARD_SUBMISSION_IDS.board,
       publishedAt: "2026-07-18 01:00:00",
     });
     await insertBoardFixture(env, {
       projectionMissing: true,
       rawSha: "b".repeat(64),
-      submissionId: "ticket_fixture_board_missing",
+      submissionId: BOARD_SUBMISSION_IDS.missing,
       publishedAt: "2026-07-18 02:00:00",
     });
 
@@ -69,7 +78,7 @@ describe("materialized community live board", () => {
       community_model_group_id: TEST_COMMUNITY_GROUP_ID,
       group_path: `community/groups/${"1".repeat(32)}.json`,
       origin: "community",
-      submission_id: "ticket_fixture_board_a",
+      submission_id: BOARD_SUBMISSION_IDS.board,
       submitter: { github_login: "fixture-user" },
     });
     expect(JSON.stringify(payload)).not.toMatch(/r2_key|zt1_|capability|admin|upload_/i);
@@ -82,21 +91,21 @@ describe("materialized community live board", () => {
     await insertBoardFixture(env, {
       environment: "present",
       publishedAt: "2026-07-18 02:00:00",
-      submissionId: "ticket_fixture_environment",
+      submissionId: BOARD_SUBMISSION_IDS.environment,
     });
     await insertBoardFixture(env, {
       environment: "absent",
       publishedAt: "2026-07-18 01:00:00",
       rawSha: "e".repeat(64),
-      submissionId: "ticket_fixture_legacy",
+      submissionId: BOARD_SUBMISSION_IDS.legacy,
     });
 
     // When: the public board object is rebuilt from stored projections.
     const payload = await rebuildCommunityLiveBoard(env);
 
     // Then: current rows carry the blocks and the legacy row remains present without them.
-    const current = payload.rows.find((row) => row.submission_id === "ticket_fixture_environment");
-    const legacy = payload.rows.find((row) => row.submission_id === "ticket_fixture_legacy");
+    const current = payload.rows.find((row) => row.submission_id === BOARD_SUBMISSION_IDS.environment);
+    const legacy = payload.rows.find((row) => row.submission_id === BOARD_SUBMISSION_IDS.legacy);
     expect(current).toMatchObject({
       hardware: { gpu_name: "NVIDIA RTX 4090", vram_gb: 24 },
       perf: { decode_tps: 81.25, tokens_to_answer_median: 128, wall_time_seconds: 900.5 },
@@ -110,7 +119,7 @@ describe("materialized community live board", () => {
 
   it("serves the R2 object through one bare-path cache key and rejects query parameters", async () => {
     const env = await boardEnv();
-    await insertBoardFixture(env, { submissionId: "ticket_fixture_cache", publishedAt: "2026-07-18 01:00:00" });
+    await insertBoardFixture(env, { submissionId: BOARD_SUBMISSION_IDS.cache, publishedAt: "2026-07-18 01:00:00" });
     await rebuildCommunityLiveBoard(env);
     const memory = new Map<string, Response>();
     Object.defineProperty(globalThis, "caches", {
@@ -157,12 +166,12 @@ describe("materialized community live board", () => {
 
   it("rebuilds the materialized object immediately after suppression", async () => {
     const env = await boardEnv();
-    await insertBoardFixture(env, { submissionId: "ticket_fixture_suppress", publishedAt: "2026-07-18 01:00:00" });
+    await insertBoardFixture(env, { submissionId: BOARD_SUBMISSION_IDS.suppress, publishedAt: "2026-07-18 01:00:00" });
     await rebuildCommunityLiveBoard(env);
     const response = await suppressSubmission({
       env,
-      params: { submissionId: "ticket_fixture_suppress" },
-      request: jsonRequest("/api/admin/submissions/ticket_fixture_suppress/suppress", {
+      params: { submissionId: BOARD_SUBMISSION_IDS.suppress },
+      request: jsonRequest(`/api/admin/submissions/${BOARD_SUBMISSION_IDS.suppress}/suppress`, {
         reason: "synthetic fixture moderation",
       }, { "x-localbench-admin-secret": ADMIN_SECRET }),
     });
@@ -174,22 +183,24 @@ describe("materialized community live board", () => {
 
   it("migrates publishable preview rows exactly once and rebuilds the board", async () => {
     const env = await boardEnv();
-    await insertBoardFixture(env, { submissionId: "ticket_fixture_migration", publishedAt: "2026-07-18 01:00:00" });
+    await insertBoardFixture(env, { submissionId: BOARD_SUBMISSION_IDS.migration, publishedAt: "2026-07-18 01:00:00" });
     await env.DB.prepare(
-      "update submissions set publish_state = 'preview', published_at = null where submission_id = 'ticket_fixture_migration'",
-    ).run();
+      "update submissions set publish_state = 'preview', published_at = null where submission_id = ?",
+    ).bind(BOARD_SUBMISSION_IDS.migration).run();
     const request = () => jsonRequest("/api/admin/migrate-publish-then-moderate", {}, {
       "x-localbench-admin-secret": ADMIN_SECRET,
     });
     const first = await migratePublishThenModerate({ env, request: request() });
     const second = await migratePublishThenModerate({ env, request: request() });
-    const row = await env.DB.prepare("select publish_state from submissions where submission_id = 'ticket_fixture_migration'").first();
+    const row = await env.DB.prepare("select publish_state from submissions where submission_id = ?")
+      .bind(BOARD_SUBMISSION_IDS.migration)
+      .first();
     const stored = await env.SUBMISSIONS.get("board/community-live.json");
     const board = stored === null ? null : await new Response(stored.body).json();
     expect(await first.json()).toMatchObject({ migrated_count: 1 });
     expect(await second.json()).toMatchObject({ migrated_count: 0 });
     expect(row).toMatchObject({ publish_state: "published" });
-    expect(board).toMatchObject({ rows: [{ submission_id: "ticket_fixture_migration" }] });
+    expect(board).toMatchObject({ rows: [{ submission_id: BOARD_SUBMISSION_IDS.migration }] });
   });
 });
 
