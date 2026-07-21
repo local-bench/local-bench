@@ -89,7 +89,7 @@ describe("live-only community links", () => {
     expect(html).toContain("family detail unavailable for this row");
     expect(html).toContain("Live-only model");
     expect(html).not.toContain('href="/community/model/');
-    expect(rowCells(html)[7]).toContain("—");
+    expect(rowCells(html)[7]).toContain("not captured");
   });
 
   it("renders live axes, attribution, trust, and a non-numeric pending coding state", () => {

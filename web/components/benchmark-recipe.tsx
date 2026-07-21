@@ -3,6 +3,7 @@ import { CopyButton } from "@/components/copy-button";
 import type { BenchmarkRecipe as Recipe } from "@/lib/onramp";
 import {
   CLI_PREREQUISITES,
+  CODING_VERIFIER_NOTE,
   LOCALBENCH_TESTED_VERSION,
   TOKENIZER_PRECACHE_NOTE,
   WINDOWS_WSL_DOCKER_GUIDE_URL,
@@ -220,6 +221,7 @@ function ClassicRecipeBody({ recipe }: { readonly recipe: Recipe }) {
         or context is not acceptable.
       </p>
       <CommandBlock title="Step 3 · benchmark it (second terminal)" command={recipe.benchCommand} />
+      <p className="font-mono text-[11px] leading-5 text-bench-muted">{CODING_VERIFIER_NOTE}</p>
       <CommandBlock title="Step 4 · submit to the board" command={recipe.submitCommand} />
       <p className="font-mono text-[11px] text-bench-muted">
         Prints your submission id. Complete runs publish immediately, then are subject to post-hoc moderation.

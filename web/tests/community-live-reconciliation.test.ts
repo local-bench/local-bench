@@ -169,9 +169,40 @@ describe("community live reconciliation", () => {
       chainCatalogIds: [bonsai.id, root.id],
       confidence: "artifact-sha",
       detailPath: "/model/bonsai-27b-ternary/",
+      hardware: { gpu_name: "NVIDIA GeForce RTX 5090", vram_gb: 31.8 },
+      maintainerEnvBackfill: {
+        hardware: { gpu_name: true, vram_gb: true },
+        perf: {
+          decode_tps: true,
+          tokens_to_answer_median: true,
+          wall_time_seconds: true,
+        },
+      },
+      perf: {
+        decode_tps: 118.21192224254683,
+        tokens_to_answer_median: 3215,
+        wall_time_seconds: 61272.45902150008,
+      },
       rootCatalogId: root.id,
       rootSlug: root.slug,
     });
+    if (merged === undefined) throw new Error("expected reconciled Bonsai row");
+    const html = renderToStaticMarkup(createElement(
+      "table",
+      null,
+      createElement("tbody", null, createElement(CommunityLeaderboardRow, {
+        axisKeys: [],
+        rank: 1,
+        row: merged,
+        showAgenticColumn: false,
+        showStaticIndexColumn: false,
+      })),
+    ));
+
+    expect(html).toContain("RTX 5090 · 32 GB");
+    expect(html).toContain("3,215");
+    expect(html).toContain("17 h");
+    expect(html.match(/maintainer backfill from stored bundle \(not submitter-attested\)/gu)).toHaveLength(3);
   });
 
   it("uses live scoring fields while preserving maintainer-reviewed baked lineage", () => {

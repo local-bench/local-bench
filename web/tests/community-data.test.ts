@@ -9,6 +9,7 @@ import { communityRowsWithFamilyPaths } from "../lib/community-family";
 import type { IndexModel } from "../lib/schemas";
 
 const artifactSha = "a".repeat(64);
+const BONSAI_SHA = "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757";
 const projectionSha = "b".repeat(64);
 
 function groupFixture(displayName = "Qwythos-9B v2", repoId = "empero-ai/Qwythos-9B-v2") {
@@ -108,6 +109,34 @@ describe("community static-data boundary", () => {
       displayName: "Qwythos-9B v2",
       identityLabel: "community-declared, identity-unverified",
       partialComposite: 0.4171,
+    });
+  });
+
+  it("joins the Bonsai environment overlay into the baked snapshot row", () => {
+    const fixture = groupFixture("bonsai-27b-ternary", "prism-ml/Ternary-Bonsai-27B-unpacked");
+    const variant = firstVariant(fixture);
+    variant.artifact_sha256 = BONSAI_SHA;
+    variant.lineage_enrichment.artifact_sha256 = BONSAI_SHA;
+    const parsed = parseCommunityGroup(fixture);
+    if (parsed === null) throw new Error("expected validated Bonsai group");
+
+    const [row] = communityBoardRows([parsed]);
+
+    expect(row).toMatchObject({
+      hardware: { gpu_name: "NVIDIA GeForce RTX 5090", vram_gb: 31.8 },
+      maintainerEnvBackfill: {
+        hardware: { gpu_name: true, vram_gb: true },
+        perf: {
+          decode_tps: true,
+          tokens_to_answer_median: true,
+          wall_time_seconds: true,
+        },
+      },
+      perf: {
+        decode_tps: 118.21192224254683,
+        tokens_to_answer_median: 3215,
+        wall_time_seconds: 61272.45902150008,
+      },
     });
   });
 

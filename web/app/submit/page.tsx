@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   CLI_PREREQUISITES,
+  CODING_VERIFIER_NOTE,
   CURRENT_RANKED_SUITE,
   formatCanonicalBenchCommand,
   formatCanonicalSubmitCommand,
@@ -137,6 +138,7 @@ export default function SubmitPage() {
             outArgument: "runs/bench/qwen3-8b",
           })}
         </pre>
+        <p className="text-sm">{CODING_VERIFIER_NOTE}</p>
         <pre tabIndex={0} className="whitespace-pre overflow-x-auto rounded-md border border-bench-line bg-bench-panel-2 p-4 font-mono text-xs text-bench-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-bench-accent sm:text-sm">
           {formatCanonicalSubmitCommand("runs/bench/qwen3-8b", "Qwen/Qwen3-8B")}
         </pre>

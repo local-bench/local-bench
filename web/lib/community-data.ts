@@ -2,10 +2,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import type { AdaptedBoardRow } from "./board-adapter";
+import { mergeCommunityEnvironment, type MaintainerEnvBackfill } from "./community-env";
 import { communityRowsForModel } from "./community-family";
 import { huggingFaceRepoUrl } from "./community-links";
 import { normalizeCommunityCoverage } from "./community-coverage";
 import type { FamilyResolutionConfidence } from "./family-resolution";
+import { envOverlayByArtifactSha } from "./overlay-env";
 
 export { normalizeCommunityCoverage } from "./community-coverage";
 
@@ -147,6 +149,7 @@ export type CommunityBoardRow = {
   readonly identityLabel: CommunityGroupData["identity_label"];
   readonly indexVersion: string | null;
   readonly lineage: CommunityLineage | undefined;
+  readonly maintainerEnvBackfill?: MaintainerEnvBackfill | undefined;
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
   readonly origin?: "community";
@@ -233,6 +236,7 @@ export function communityBoardRows(groups: readonly CommunityGroupData[]): reado
       identityLabel: group.identity_label,
       indexVersion: null,
       lineage: variant.lineage_enrichment,
+      ...mergeCommunityEnvironment({}, undefined, envOverlayByArtifactSha().get(variant.artifact_sha256)),
       ...normalizeCommunityCoverage(
         variant.scores.measured_headline_weight ?? null,
         variant.scores.missing_headline_weight ?? null,

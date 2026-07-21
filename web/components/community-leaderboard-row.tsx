@@ -28,6 +28,12 @@ export function CommunityLeaderboardRow({
   showStaticIndexColumn,
 }: CommunityRowProps) {
   const displayFamily = row.familyLabel ?? row.catalogFamily ?? row.family;
+  const hardware = row.hardware?.gpu_name === null || row.hardware?.gpu_name === undefined || row.hardware.gpu_name === ""
+    ? null
+    : formatGpuShort({ name: row.hardware.gpu_name, vram_gb: row.hardware.vram_gb });
+  const tokensToAnswer = row.perf?.tokens_to_answer_median ?? null;
+  const latency = row.perf?.latency_s_median ?? null;
+  const wallTime = row.perf?.wall_time_seconds ?? null;
   const navigate = () => {
     if (row.detailPath !== null) window.location.assign(row.detailPath);
   };
@@ -92,27 +98,55 @@ export function CommunityLeaderboardRow({
       <UnavailableCell />
       <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
       <td className="px-3 py-3 font-mono text-xs text-bench-text">
-        {row.hardware?.gpu_name === null || row.hardware?.gpu_name === undefined || row.hardware.gpu_name === ""
-          ? <span className="text-[10px] text-bench-muted">—</span>
-          : formatGpuShort({ name: row.hardware.gpu_name, vram_gb: row.hardware.vram_gb })}
+        {hardware === null ? <NotCaptured /> : (
+          <EnvironmentValue
+            backfilled={row.maintainerEnvBackfill?.hardware?.gpu_name === true
+              || row.maintainerEnvBackfill?.hardware?.vram_gb === true}
+            value={hardware}
+          />
+        )}
       </td>
       <td className="px-3 py-3 font-mono text-bench-text">
-        {row.perf?.tokens_to_answer_median === null || row.perf?.tokens_to_answer_median === undefined
-          ? <span className="text-[10px] text-bench-muted">—</span>
-          : formatInteger(row.perf.tokens_to_answer_median)}
+        {tokensToAnswer === null ? <NotCaptured /> : (
+          <EnvironmentValue
+            backfilled={row.maintainerEnvBackfill?.perf?.tokens_to_answer_median === true}
+            value={formatInteger(tokensToAnswer)}
+          />
+        )}
       </td>
       {/* The accepted projection contract does not publish latency yet; keeping this data-driven
           lets the column light up automatically when the optional field reaches the board. */}
       <td className="px-3 py-3 font-mono text-bench-text">
-        {formatLatencySeconds(row.perf?.latency_s_median)}
+        {latency === null ? <NotCaptured /> : (
+          <EnvironmentValue
+            backfilled={row.maintainerEnvBackfill?.perf?.latency_s_median === true}
+            value={formatLatencySeconds(latency)}
+          />
+        )}
       </td>
       <td className="px-3 py-3 font-mono text-bench-text">
-        {row.perf?.wall_time_seconds === null || row.perf?.wall_time_seconds === undefined
-          ? <span className="text-[10px] text-bench-muted">—</span>
-          : formatDuration(row.perf.wall_time_seconds)}
+        {wallTime === null ? <NotCaptured /> : (
+          <EnvironmentValue
+            backfilled={row.maintainerEnvBackfill?.perf?.wall_time_seconds === true}
+            value={formatDuration(wallTime)}
+          />
+        )}
       </td>
     </tr>
   );
+}
+
+function EnvironmentValue({ backfilled, value }: { readonly backfilled: boolean; readonly value: string }) {
+  if (!backfilled) return value;
+  return (
+    <span title="maintainer backfill from stored bundle (not submitter-attested)">
+      {value} <span className="text-[10px] text-bench-muted">backfill</span>
+    </span>
+  );
+}
+
+function NotCaptured() {
+  return <span className="text-[10px] text-bench-muted">not captured</span>;
 }
 
 function CommunityAxisCell({ axis, row }: { readonly axis: string; readonly row: CommunityBoardRow }) {

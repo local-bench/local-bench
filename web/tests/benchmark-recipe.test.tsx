@@ -80,6 +80,9 @@ describe("BenchmarkRecipe", () => {
     expect(html).toContain("local preview without ranked identity guarantees");
     expect(html).toContain("Ranked submission: bring your own server");
     expect(html).toContain("automatically pre-caches it before offline introspection");
+    expect(html).toContain(
+      "bench runs the coding verifier automatically; on older CLIs run: localbench code --pending-run &lt;run-dir&gt; --suite-dir &lt;suite-dir&gt; --allow-untrusted-code",
+    );
     expect(html).toContain("coding-sandbox-windows-wsl.md");
     expect(html).toContain("Public path");
     expect(html).toContain("Publishable rows require every headline axis");

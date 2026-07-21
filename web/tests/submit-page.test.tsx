@@ -83,6 +83,9 @@ describe("SubmitPage", () => {
       "localbench submit run --run runs/bench/qwen3-8b --base-model Qwen/Qwen3-8B",
     );
     expect(html).toContain("automatically pre-caches it before offline introspection");
+    expect(html).toContain(
+      "bench runs the coding verifier automatically; on older CLIs run: localbench code --pending-run &lt;run-dir&gt; --suite-dir &lt;suite-dir&gt; --allow-untrusted-code",
+    );
     expect(html).toContain("coding-sandbox-windows-wsl.md");
     expect(html).toContain("runs the benchmark&#x27;s coding tasks in the pinned sandbox");
     expect(html).not.toContain("offers submission at the end");

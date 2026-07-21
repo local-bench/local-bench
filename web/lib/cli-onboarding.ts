@@ -5,6 +5,8 @@ export const WINDOWS_WSL_DOCKER_GUIDE_URL =
   "https://local-bench.ai/docs/coding-sandbox-windows-wsl.md";
 export const TOKENIZER_PRECACHE_NOTE =
   "With --hf-model-id, an online ranked run automatically pre-caches it before offline introspection. Run localbench cache-tokenizer <hf-model-id> first when using --offline.";
+export const CODING_VERIFIER_NOTE =
+  "bench runs the coding verifier automatically; on older CLIs run: localbench code --pending-run <run-dir> --suite-dir <suite-dir> --allow-untrusted-code";
 
 export const CLI_PREREQUISITES = [
   "Python 3.11+",

@@ -7,11 +7,13 @@ import {
 } from "./board-adapter";
 import { normalizeCommunityCoverage } from "./community-coverage";
 import type { CommunityBoardRow } from "./community-data";
+import { mergeCommunityEnvironment } from "./community-env";
 import { communityRowsWithFamilyPaths } from "./community-family";
 import {
   EMPTY_FAMILY_RESOLUTION_CONTEXT,
   type FamilyResolutionContext,
 } from "./family-resolution";
+import { envOverlayByArtifactSha } from "./overlay-env";
 
 export type { LiveBoardRow } from "./board-adapter";
 
@@ -36,8 +38,14 @@ function mergeCommunityRow(
   baked: CommunityBoardRow | undefined,
   live: AdaptedBoardRow,
 ): CommunityBoardRow {
-  const hardware = live.hardware ?? baked?.hardware;
-  const perf = live.perf ?? baked?.perf;
+  const environment = mergeCommunityEnvironment(
+    {
+      ...(live.hardware === undefined ? {} : { hardware: live.hardware }),
+      ...(live.perf === undefined ? {} : { perf: live.perf }),
+    },
+    baked,
+    envOverlayByArtifactSha().get(live.artifactSha256),
+  );
   const runtime = live.runtime ?? baked?.runtime;
   const coverage = normalizeCommunityCoverage(
     live.measuredHeadlineWeight ?? measuredWeight(live),
@@ -54,7 +62,7 @@ function mergeCommunityRow(
     displayName: live.displayName,
     family: live.family,
     globalRank: live.globalRank,
-    ...(hardware === undefined ? {} : { hardware }),
+    ...environment,
     headlineComplete: live.headlineComplete,
     identityLabel: baked?.identityLabel ?? "community-declared, identity-unverified",
     indexVersion: live.indexVersion,
@@ -62,7 +70,6 @@ function mergeCommunityRow(
     ...coverage,
     origin: "community",
     partialComposite: live.compositeFull ?? baked?.partialComposite ?? null,
-    ...(perf === undefined ? {} : { perf }),
     quantLabel: live.quantLabel,
     ranked: live.ranked,
     ...(runtime === undefined ? {} : { runtime }),

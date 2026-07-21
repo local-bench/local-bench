@@ -1,0 +1,15 @@
+{
+  "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757": {
+    "hardware": {
+      "gpu_name": "NVIDIA GeForce RTX 5090",
+      "vram_gb": 31.8
+    },
+    "perf": {
+      "decode_tps": 118.21192224254683,
+      "tokens_to_answer_median": 3215,
+      "wall_time_seconds": 61272.45902150008
+    },
+    "source": "maintainer-backfill-from-bundle",
+    "bundle_sha256": "8f3eb84a4c16192e4a4ecd32c9eb2140fae640e981ca9a00418264369fad2d84"
+  }
+}
