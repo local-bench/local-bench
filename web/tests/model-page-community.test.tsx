@@ -73,9 +73,11 @@ describe("model page community family results", () => {
         quant_label: "Q2_0",
         ranked: false,
         scores: {
-          measured_headline_weight: 0.53,
-          missing_headline_weight: 0.48,
-          partial_composite: 0.5696,
+          composite_full: 0.3673,
+          headline_score: 0.3673,
+          measured_headline_weight: 1,
+          missing_headline_weight: 0,
+          partial_composite: 0.3673,
         },
         submission_id: "ticket_bonsai_sha_only",
       }],
@@ -96,5 +98,8 @@ describe("model page community family results", () => {
     expect(html).toContain("Reported runs");
     expect(html).toContain("Opaque community declaration");
     expect(html).toContain("ticket_bonsai_sha_only");
+    expect(html).toContain('data-source="community"');
+    expect(html).toContain('data-point-kind="community"');
+    expect(html).toContain(">self-reported</span>");
   });
 });

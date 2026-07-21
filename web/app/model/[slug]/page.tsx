@@ -139,8 +139,13 @@ export default async function ModelPage({ params }: PageProps) {
         </div>
       </header>
       {catalogOnly ? <CatalogOnlyNotice queued={queued} /> : null}
-      <ModelScatter model={model} anchorRuns={anchorRuns} familyModels={familyModels} />
-      <ModelVariantBoard model={model} familyModels={familyModels} />
+      <ModelScatter
+        model={model}
+        anchorRuns={anchorRuns}
+        communityRows={communityFamilyRows}
+        familyModels={familyModels}
+      />
+      <ModelVariantBoard communityRows={communityFamilyRows} model={model} familyModels={familyModels} />
       <CommunityFamilyResultsLive
         rows={communityFamilyRows}
         resolutionContext={resolutionContext}

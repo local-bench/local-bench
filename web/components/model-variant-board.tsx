@@ -1,11 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+  LOCAL_INTELLIGENCE_INDEX_QUALIFIER,
   LOCAL_INTELLIGENCE_INDEX_NAME,
-  indexQualifierForAxes,
+  SEASON_2_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
+import { CommunityVariantTableRow } from "@/components/model-variant-community-row";
 import { AXIS_CONFIG } from "@/lib/axis-config";
+import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
+import type { CommunityBoardRow } from "@/lib/community-data";
+import { communityUsesLegacyAxes } from "@/lib/community-scores";
 import { axisLabel, formatCompactNumber, formatGb } from "@/lib/format";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { resolveRunArtifactMetrics } from "@/lib/model-run-metrics";
@@ -28,12 +33,19 @@ type FamilyVariantRow = {
   readonly model: ModelFamilyScatterModel["model"];
   readonly run: VariantRun;
 };
-type VariantRow = OwnVariantRow | FamilyVariantRow;
+type RunVariantRow = OwnVariantRow | FamilyVariantRow;
+type CommunityVariantRow = {
+  readonly kind: "community";
+  readonly row: CommunityBoardRow;
+};
+type VariantRow = RunVariantRow | CommunityVariantRow;
 
 export function ModelVariantBoard({
+  communityRows = [],
   familyModels = [],
   model,
 }: {
+  readonly communityRows?: readonly CommunityBoardRow[];
   readonly familyModels?: readonly ModelFamilyScatterModel[];
   readonly model: ModelData;
 }) {
@@ -66,13 +78,16 @@ export function ModelVariantBoard({
       .filter((run) => run.score_status === "measured" && run.lane === HEADLINE_LANE && isCompleteRun(run))
       .map((run) => ({ kind: relation, model: familyModel, run })),
   );
-  const rows = [...ownRows, ...familyRows];
-  const axisKeys = variantAxisColumns(rows.map((row) => row.run));
-  const ranked = sortVariantRowsBySeason(rows.filter((row) => isCompleteRun(row.run) && headlineScoreForDisplay(row.run) !== null));
-  const partial = rows.filter((row) => !isCompleteRun(row.run) && row.run.score_status === "measured");
+  const communityVariantRows: readonly CommunityVariantRow[] = communityRows.map((row) => ({ kind: "community", row }));
+  const rows: readonly VariantRow[] = [...ownRows, ...familyRows, ...communityVariantRows];
+  const axisKeys = variantAxisColumns(rows);
+  const ranked = sortVariantRowsBySeason(rows.filter(isRankedVariantRow));
+  const partial = rows.filter(isPartialVariantRow);
   const pending = ownRows.filter((row) => row.run.composite === null && row.run.score_status !== "measured");
-  const hasPerf = rows.some((row) => row.run.perf !== undefined);
-  const indexQualifier = indexQualifierForAxes(rows.find((row) => row.run.axes["tool_use"] !== undefined)?.run.axes ?? {});
+  const hasPerf = rows.some((row) => variantRowPerf(row) !== undefined);
+  const indexQualifier = rows.some((row) => variantRowHasAxis(row, "tool_use"))
+    ? SEASON_2_INDEX_QUALIFIER
+    : LOCAL_INTELLIGENCE_INDEX_QUALIFIER;
 
   return (
     <section data-testid="model-variant-board" className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel">
@@ -165,6 +180,17 @@ export function ModelVariantBoard({
               </tr>
             ) : null}
             {ranked.map((row, index) => {
+              if (row.kind === "community") {
+                return (
+                  <CommunityVariantTableRow
+                    key={row.row.submissionId}
+                    axisKeys={axisKeys}
+                    hasPerf={hasPerf}
+                    rank={rankWithinRowSeason(ranked, index)}
+                    row={row.row}
+                  />
+                );
+              }
               const run = row.run;
               const metrics = resolveRunArtifactMetrics(run, variantSiblingRuns(row, model));
               const decision =
@@ -220,6 +246,17 @@ export function ModelVariantBoard({
               );
             })}
             {partial.map((row, index) => {
+              if (row.kind === "community") {
+                return (
+                  <CommunityVariantTableRow
+                    key={`partial-${row.row.submissionId}`}
+                    axisKeys={axisKeys}
+                    hasPerf={hasPerf}
+                    rank={null}
+                    row={row.row}
+                  />
+                );
+              }
               const run = row.run;
               const metrics = resolveRunArtifactMetrics(run, variantSiblingRuns(row, model));
               return (
@@ -303,7 +340,7 @@ export function ModelVariantBoard({
   );
 }
 
-function VariantCell({ row, children }: { readonly row: VariantRow; readonly children?: ReactNode }) {
+function VariantCell({ row, children }: { readonly row: RunVariantRow; readonly children?: ReactNode }) {
   const quantLabel = <span className="font-mono font-semibold text-bench-text">{row.run.quant_label ?? "n/a"}</span>;
   if (row.kind === "this-model") {
     return (
@@ -376,8 +413,17 @@ function familyLineage(relation: ModelFamilyScatterRelation): {
 }
 
 function variantRowKey(row: VariantRow, index: number): string {
-  const modelPrefix = row.kind === "this-model" ? "this-model" : `${row.kind}-${row.model.slug}`;
-  return `${modelPrefix}-${row.run.run_id ?? row.run.quant_label ?? index}`;
+  switch (row.kind) {
+    case "this-model":
+      return `this-model-${row.run.run_id ?? row.run.quant_label ?? index}`;
+    case "base-model":
+    case "family-finetune":
+      return `${row.kind}-${row.model.slug}-${row.run.run_id ?? row.run.quant_label ?? index}`;
+    case "community":
+      return `community-${row.row.submissionId}`;
+    default:
+      return assertNever(row);
+  }
 }
 
 function variantRowClass(row: VariantRow): string {
@@ -447,8 +493,16 @@ function VramAt8k({ run, vramRequiredGb8k = run.vram_required_gb_8k ?? null }: {
   );
 }
 
-function variantSiblingRuns(row: VariantRow, model: ModelData): readonly VariantRun[] {
-  return row.kind === "this-model" ? model.runs : row.model.runs;
+function variantSiblingRuns(row: RunVariantRow, model: ModelData): readonly VariantRun[] {
+  switch (row.kind) {
+    case "this-model":
+      return model.runs;
+    case "base-model":
+    case "family-finetune":
+      return row.model.runs;
+    default:
+      return assertNever(row);
+  }
 }
 
 function formatVariantGb(value: number | null | undefined): string {
@@ -477,16 +531,16 @@ function formatFitTier(decision: QuantDecisionRow | undefined): string {
 }
 
 // Headline + present axes (n > 0) for this model's runs, in canonical display order.
-function variantAxisColumns(runs: readonly VariantRun[]): readonly string[] {
-  if (runs.some((run) => run.axes["tool_use"] !== undefined)) {
+function variantAxisColumns(rows: readonly VariantRow[]): readonly string[] {
+  if (rows.some((row) => variantRowHasAxis(row, "tool_use"))) {
     return ["tool_use", "knowledge", "instruction", "coding", "math"].filter((key) =>
-      runs.some((run) => run.axes[key] !== undefined),
+      rows.some((row) => variantRowHasAxis(row, key)),
     );
   }
   const present = new Set<string>();
-  for (const run of runs) {
-    for (const [axis, score] of Object.entries(run.axes)) {
-      if (score !== undefined && score.n > 0) {
+  for (const row of rows) {
+    for (const axis of AXIS_CONFIG.map((config) => config.key)) {
+      if (variantRowHasAxis(row, axis)) {
         present.add(axis);
       }
     }
@@ -497,11 +551,11 @@ function variantAxisColumns(runs: readonly VariantRun[]): readonly string[] {
 function sortVariantRowsBySeason(rows: readonly VariantRow[]): readonly VariantRow[] {
   const groups = new Map<string, VariantRow[]>();
   for (const row of rows) {
-    const version = displayIndexVersion(row.run);
-    groups.set(version, [...(groups.get(version) ?? []), row]);
+    const season = variantRowSeason(row);
+    groups.set(season, [...(groups.get(season) ?? []), row]);
   }
   return [...groups.values()].flatMap((group) => group.sort(
-    (left, right) => (headlineScoreForDisplay(right.run)?.point ?? 0) - (headlineScoreForDisplay(left.run)?.point ?? 0),
+    (left, right) => variantCompositePoint(right) - variantCompositePoint(left),
   ));
 }
 
@@ -522,10 +576,46 @@ function rankWithinRunSeason(runs: readonly VariantRun[], index: number): number
   return runs.slice(0, index + 1).filter((candidate) => displayIndexVersion(candidate) === displayIndexVersion(run)).length;
 }
 
+function isRankedVariantRow(row: VariantRow): boolean {
+  if (row.kind === "community") return row.row.headlineComplete && row.row.compositeFull !== null;
+  return isCompleteRun(row.run) && headlineScoreForDisplay(row.run) !== null;
+}
+
+function isPartialVariantRow(row: VariantRow): boolean {
+  if (row.kind === "community") return !row.row.headlineComplete || row.row.compositeFull === null;
+  return !isCompleteRun(row.run) && row.run.score_status === "measured";
+}
+
+function variantCompositePoint(row: VariantRow): number {
+  if (row.kind === "community") {
+    return row.row.compositeFull === null ? Number.NEGATIVE_INFINITY : toDisplayScore(row.row.compositeFull);
+  }
+  return headlineScoreForDisplay(row.run)?.point ?? Number.NEGATIVE_INFINITY;
+}
+
+function variantRowHasAxis(row: VariantRow, axis: string): boolean {
+  if (row.kind === "community") {
+    if (axis === "tool_use" && communityUsesLegacyAxes(row.row)) return false;
+    const score = boardAxisValue(row.row.axes ?? {}, axis);
+    return score !== undefined && score.n > 0;
+  }
+  const score = row.run.axes[axis];
+  return score !== undefined && score.n > 0;
+}
+
+function variantRowPerf(row: VariantRow) {
+  return row.kind === "community" ? row.row.perf : row.run.perf;
+}
+
+function variantRowSeason(row: VariantRow): string {
+  if (row.kind !== "community") return displayIndexVersion(row.run);
+  return row.row.indexVersion ?? INDEX_VERSION_V4;
+}
+
 function rankWithinRowSeason(rows: readonly VariantRow[], index: number): number {
   const row = rows[index];
   if (row === undefined) return 0;
   return rows.slice(0, index + 1).filter(
-    (candidate) => displayIndexVersion(candidate.run) === displayIndexVersion(row.run),
+    (candidate) => variantRowSeason(candidate) === variantRowSeason(row),
   ).length;
 }

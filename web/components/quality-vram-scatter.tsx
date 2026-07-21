@@ -14,14 +14,17 @@ const PLOT = {
 } as const;
 const Y_TICKS = [100, 75, 50, 25, 0] as const;
 
-export type QualityVramRun = Omit<ModelRun, "composite"> & {
+export type QualityVramRun = Readonly<Pick<
+  ModelRun,
+  "demo" | "quant_label" | "run_id" | "vram_footprint_gb" | "wall_time_seconds"
+>> & {
   readonly composite: Score;
   readonly point_href?: string;
   readonly point_kind?: QualityVramPointKind;
   readonly point_label?: string;
 };
 
-export type QualityVramPointKind = "this-model" | "family-finetune" | "base-model";
+export type QualityVramPointKind = "this-model" | "family-finetune" | "base-model" | "community";
 
 export type QualityVramLegendItem = {
   readonly kind: QualityVramPointKind;
@@ -274,6 +277,18 @@ function PointMarker({
       />
     );
   }
+  if (kind === "community") {
+    return (
+      <circle
+        data-point-kind={kind}
+        cx={cx}
+        cy={cy}
+        r="7"
+        className="fill-bench-panel stroke-bench-better"
+        strokeWidth="3"
+      />
+    );
+  }
   return (
     <circle
       data-point-kind={kind}
@@ -292,6 +307,9 @@ function LegendMarker({ kind }: { readonly kind: QualityVramPointKind }) {
   }
   if (kind === "base-model") {
     return <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-bench-mixed" />;
+  }
+  if (kind === "community") {
+    return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full border-2 border-bench-better bg-bench-panel" />;
   }
   return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-bench-accent" />;
 }

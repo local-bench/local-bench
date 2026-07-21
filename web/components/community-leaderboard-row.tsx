@@ -6,10 +6,10 @@ import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
-import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
+import { boardAxisValue } from "@/lib/board-adapter";
+import { communityAxisScore, communityScore } from "@/lib/community-scores";
 import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
-import type { AxisScore, Score } from "@/lib/schemas";
 import { SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
 
 type CommunityRowProps = {
@@ -83,7 +83,7 @@ export function CommunityLeaderboardRow({
       <td className="px-3 py-3">
         {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">—</span> : (
           <div className="min-w-[132px]">
-            <ScoreBar score={normalizedScore(row.compositeFull)} />
+            <ScoreBar score={communityScore(row.compositeFull)} />
           <div className="mt-0.5 text-[10px] text-bench-muted">common composite · complete run</div>
           </div>
         )}
@@ -224,29 +224,4 @@ function UnavailableCell() {
       —
     </td>
   );
-}
-
-function normalizedScore(value: number): Score {
-  const point = toDisplayScore(value);
-  return { point, lo: point, hi: point };
-}
-
-function communityAxisScore(
-  value: NonNullable<CommunityBoardRow["axes"]>[string] | undefined,
-): AxisScore | undefined {
-  if (value === undefined || value.status !== "measured" || value.score === null || value.score === undefined || value.n === 0) {
-    return undefined;
-  }
-  const point = toDisplayScore(value.score);
-  const lo = toDisplayScore(value.ci?.[0] ?? value.score);
-  const hi = toDisplayScore(value.ci?.[1] ?? value.score);
-  return {
-    point,
-    lo,
-    hi,
-    raw_accuracy: value.score <= 1 ? value.score : value.score / 100,
-    n: value.n,
-    n_errors: 0,
-    n_no_answer: 0,
-  };
 }

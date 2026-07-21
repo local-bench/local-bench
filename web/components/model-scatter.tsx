@@ -10,6 +10,8 @@ import {
   type QualityVramRun,
 } from "@/components/quality-vram-scatter";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
+import { communityScore } from "@/lib/community-scores";
+import type { CommunityBoardRow } from "@/lib/community-data";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
 import { runHref } from "@/lib/routes";
 import type { ModelRun } from "@/lib/schemas";
@@ -18,10 +20,12 @@ import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seas
 export function ModelScatter({
   model,
   anchorRuns,
+  communityRows = [],
   familyModels = [],
 }: {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly communityRows?: readonly CommunityBoardRow[];
   readonly familyModels?: readonly ModelFamilyScatterModel[];
 }) {
   // Season identity for the scale label: a run carrying the tool_use macro-axis is season-2
@@ -49,7 +53,8 @@ export function ModelScatter({
       }),
     ),
   );
-  const runs = [...ownRuns, ...familyRuns];
+  const communityRuns = communityRows.flatMap(toCommunityScatterRun);
+  const runs = [...ownRuns, ...familyRuns, ...communityRuns];
   const pointLegend: QualityVramLegendItem[] = [];
   if (ownRuns.length > 0) {
     pointLegend.push({ kind: "this-model", label: "This model" });
@@ -59,6 +64,9 @@ export function ModelScatter({
   }
   if (familyRuns.some((run) => run.point_kind === "base-model")) {
     pointLegend.push({ kind: "base-model", label: "Base model" });
+  }
+  if (communityRuns.length > 0) {
+    pointLegend.push({ kind: "community", label: "Community runs" });
   }
   if (runs.length === 0) {
     return (
@@ -83,6 +91,24 @@ export function ModelScatter({
       title={`VRAM footprint vs ${LOCAL_INTELLIGENCE_INDEX_NAME}`}
     />
   );
+}
+
+function toCommunityScatterRun(row: CommunityBoardRow): readonly QualityVramRun[] {
+  const vramGb = row.hardware?.vram_gb;
+  if (!row.headlineComplete || row.compositeFull === null || vramGb === null || vramGb === undefined) {
+    return [];
+  }
+  const run = {
+    composite: communityScore(row.compositeFull),
+    demo: false,
+    point_kind: "community" as const,
+    point_label: `${row.displayName} · ${row.quantLabel ?? "quant unavailable"}`,
+    quant_label: row.quantLabel,
+    run_id: null,
+    vram_footprint_gb: vramGb,
+    wall_time_seconds: row.perf?.wall_time_seconds ?? null,
+  };
+  return row.detailPath === null ? [run] : [{ ...run, point_href: row.detailPath }];
 }
 
 function toScatterRun(

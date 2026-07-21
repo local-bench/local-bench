@@ -2,7 +2,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ModelScatter } from "../components/model-scatter";
+import { ModelVariantBoard } from "../components/model-variant-board";
 import { AXIS_KEYS } from "../lib/axis-config";
+import type { CommunityBoardRow } from "../lib/community-data";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import type { ModelDataWithConfiguredAxes } from "../lib/data";
 import { ModelDataSchema, RunIdSchema, type AxisScore, type ModelRun, type Score } from "../lib/schemas";
@@ -163,4 +165,94 @@ describe("ModelScatter family points", () => {
     expect(completeHtml).not.toContain("runs lack VRAM data and are not plotted");
     expect(missingHtml).toContain("1 run lacks VRAM data and is not plotted");
   });
+
+  it("plots an env-overlay community row with a distinct linked marker", () => {
+    // Given: the server-side community row after the maintainer environment overlay is merged.
+    const communityRow = communityFixture({
+      hardware: { gpu_name: "RTX 5090", vram_gb: 31.8 },
+      maintainerEnvBackfill: { hardware: { vram_gb: true }, perf: { decode_tps: true } },
+      perf: { decode_tps: 118.2, tokens_to_answer_median: null, wall_time_seconds: null },
+    });
+
+    // When: the model scatter receives that page-level community row set.
+    const html = renderToStaticMarkup(createElement(ModelScatter, {
+      anchorRuns: [],
+      communityRows: [communityRow],
+      model: model({ slug: "base", label: "Base Model", runs: [] }),
+    }));
+
+    // Then: the row uses the community marker and existing detail/tooltip path.
+    expect(html).toContain('data-point-kind="community"');
+    expect(html).toContain('href="/model/community-tune/"');
+    expect(html).toContain("Community Tune");
+    expect(html).toContain("36.7");
+    expect(html).toContain("31.8 GB");
+    expect(html).toContain("Community runs");
+
+    const boardHtml = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [communityRow],
+      model: model({ slug: "base", label: "Base Model", runs: [] }),
+    }));
+    expect(boardHtml).toContain("118.2");
+  });
+
+  it("keeps a community row without VRAM on the board but off the scatter", () => {
+    // Given: a comparable community result without a plottable memory metric.
+    const communityRow = communityFixture({ hardware: { gpu_name: "Unknown GPU", vram_gb: null } });
+    const base = model({ slug: "base", label: "Base Model", runs: [run()] });
+
+    // When: both family comparison surfaces receive the exact same source array.
+    const boardHtml = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [communityRow],
+      model: base,
+    }));
+    const scatterHtml = renderToStaticMarkup(createElement(ModelScatter, {
+      anchorRuns: [],
+      communityRows: [communityRow],
+      model: base,
+    }));
+
+    // Then: metric availability affects only the scatter projection.
+    expect(boardHtml).toContain("Community Tune");
+    expect(boardHtml).toContain('href="/model/community-tune/"');
+    expect(scatterHtml).not.toContain('data-point-kind="community"');
+    expect(scatterHtml).not.toContain("Community Tune");
+    expect(scatterHtml).not.toContain('href="/model/community-tune/"');
+  });
 });
+
+function communityFixture(overrides: Partial<CommunityBoardRow> = {}): CommunityBoardRow {
+  const measured: NonNullable<CommunityBoardRow["axes"]>[string] = {
+    ci: [0.32, 0.42],
+    n: 20,
+    score: 0.3673,
+    status: "measured",
+  };
+  return {
+    artifactSha256: "a".repeat(64),
+    axes: {
+      coding: measured,
+      instruction: measured,
+      knowledge: measured,
+      math: measured,
+      tool_use: measured,
+    },
+    compositeFull: 0.3673,
+    detailPath: "/model/community-tune/",
+    displayName: "Community Tune",
+    family: "Fixture",
+    globalRank: 1,
+    headlineComplete: true,
+    identityLabel: "community-declared, identity-unverified",
+    indexVersion: "index-v4.2",
+    lineage: undefined,
+    measuredHeadlineWeight: 1,
+    missingHeadlineWeight: 0,
+    origin: "community",
+    partialComposite: 0.3673,
+    quantLabel: "Q2_K",
+    ranked: true,
+    submissionId: "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ...overrides,
+  };
+}

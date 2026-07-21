@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ModelVariantBoard } from "../components/model-variant-board";
 import { getCompareConfigs } from "../lib/compare";
+import type { CommunityBoardRow } from "../lib/community-data";
 import type { ModelData, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "../lib/data";
 import { resolveRunArtifactMetrics } from "../lib/model-run-metrics";
 import { ModelSlugSchema, RunIdSchema, type AxisScore } from "../lib/schemas";
@@ -259,7 +260,70 @@ describe("model variant board runtime display", () => {
     expect(html).toContain("community-adversary");
     expect(html).toContain("adversary-runtim...");
   });
+
+  it("ranks a complete published community row with comparable scores and provenance", () => {
+    // Given: a publish-on-submit row whose wire scores use the 0..1 scale.
+    const communityRow = fixtureCommunityRow({
+      compositeFull: 0.96,
+      detailPath: "/model/community-tune/",
+      displayName: "Community Tune",
+    });
+
+    // When: the family variant board receives the same community row set as the page section.
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [communityRow],
+      model: fixtureModel(),
+    }));
+    const communityCells = rowCellsContaining(html, "Community Tune");
+    const bakedCells = rowCellsContaining(html, "fixture-run");
+
+    // Then: the community result is ranked directly against the baked run, uses display-scale
+    // scores, links to its existing detail page, and keeps the canonical provenance label.
+    expect(communityCells[0]).toContain("1");
+    expect(communityCells[1]).toContain('href="/model/community-tune/"');
+    expect(communityCells[1]).toContain(">self-reported</span>");
+    expect(communityCells[2]).toContain("96.0");
+    expect(communityCells[3]).toContain("42.0");
+    expect(bakedCells[0]).toContain("2");
+  });
 });
+
+function fixtureCommunityRow(overrides: Partial<CommunityBoardRow> = {}): CommunityBoardRow {
+  const measured = (score: number): NonNullable<CommunityBoardRow["axes"]>[string] => ({
+    ci: [score - 0.02, score + 0.02],
+    n: 20,
+    score,
+    status: "measured",
+  });
+  return {
+    artifactSha256: "a".repeat(64),
+    axes: {
+      agentic: measured(0.42),
+      coding: measured(0.85),
+      instruction: measured(0.63),
+      knowledge: measured(0.51),
+      math: measured(0.9),
+      tool_calling: measured(0.74),
+    },
+    compositeFull: 0.96,
+    detailPath: "/model/community-tune/",
+    displayName: "Community Tune",
+    family: "Fixture",
+    globalRank: 1,
+    headlineComplete: true,
+    identityLabel: "community-declared, identity-unverified",
+    indexVersion: "index-v3.0",
+    lineage: undefined,
+    measuredHeadlineWeight: 1,
+    missingHeadlineWeight: 0,
+    origin: "community",
+    partialComposite: 0.96,
+    quantLabel: "Q2_K",
+    ranked: true,
+    submissionId: "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ...overrides,
+  };
+}
 
 function fixtureModel(): ModelData {
   return {

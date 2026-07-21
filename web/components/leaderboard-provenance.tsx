@@ -32,6 +32,14 @@ export function SubmissionIdentity({
   );
 }
 
+export function AgenticProvenanceChip({ value }: { readonly value: "attested" | "self-reported" }) {
+  return (
+    <span className="inline-flex rounded border border-bench-accent/45 bg-bench-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-bench-accent">
+      {value}
+    </span>
+  );
+}
+
 export function ProvenanceLabels({ model }: { readonly model: Pick<IndexModel, "badge" | "origin"> }) {
   return <ProjectRunBadge badge={model.badge} origin={model.origin} />;
 }
