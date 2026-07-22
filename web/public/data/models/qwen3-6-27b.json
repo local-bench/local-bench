@@ -49,6 +49,16 @@
       "repo_id": "unsloth/Qwen3.6-27B-MTP-GGUF",
       "revision": "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
       "vram_gb_8k": 16.2
+    },
+    {
+      "file_gb": 11.8,
+      "file_sha256": "3db422cf36c7efacb027396a11df287c0fc469829bd7daf1867a3505a9e44af6",
+      "file_size_bytes": 11849779424,
+      "filename": "Qwen3.6-27B-UD-Q2_K_XL.gguf",
+      "quant_label": "UD-Q2_K_XL",
+      "repo_id": "unsloth/Qwen3.6-27B-GGUF",
+      "revision": "82d411acf4a06cfb8d9b073a5211bf410bfc29bf",
+      "vram_gb_8k": 14.2
     }
   ],
   "base_model": null,

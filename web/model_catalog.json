@@ -1921,6 +1921,17 @@
           "filename": "Qwen3.6-27B-Q3_K_M.gguf",
           "file_size_bytes": 13818688640,
           "file_sha256": "f8a9329b78446254200d5cd387c3d8c8f374a2b824696d4b550f42461b970310"
+        },
+        {
+          "label": "UD-Q2_K_XL",
+          "bpw": 3.5,
+          "file_gb": 11.8,
+          "vram_gb_8k": 14.2,
+          "gguf_repo": "unsloth/Qwen3.6-27B-GGUF",
+          "revision": "82d411acf4a06cfb8d9b073a5211bf410bfc29bf",
+          "filename": "Qwen3.6-27B-UD-Q2_K_XL.gguf",
+          "file_size_bytes": 11849779424,
+          "file_sha256": "3db422cf36c7efacb027396a11df287c0fc469829bd7daf1867a3505a9e44af6"
         }
       ],
       "distills": [

@@ -15,6 +15,24 @@
     "bundle_sha256": "8f3eb84a4c16192e4a4ecd32c9eb2140fae640e981ca9a00418264369fad2d84",
     "note": "prefill/overall throughput backfilled 2026-07-22 from the local run doc (submission predated perf projection of these fields)"
   },
+  "3db422cf36c7efacb027396a11df287c0fc469829bd7daf1867a3505a9e44af6": {
+    "hardware": {
+      "gpu_name": "NVIDIA GeForce RTX 5090",
+      "vram_gb": 31.8
+    },
+    "perf": {
+      "decode_tps": null,
+      "overall_tps": 77.58,
+      "prefill_tps": 2587.72,
+      "tokens_to_answer_median": null,
+      "wall_time_seconds": null
+    },
+    "perf_overrides": {
+      "wall_time_seconds": 74687.8
+    },
+    "source": "maintainer-backfill-from-run-doc",
+    "note": "wall-time correction 2026-07-23: run submitted under CLI 0.4.5 whose resumed runs recorded final-segment-only wall clock (fixed in 0.4.6); segment-1 duration recovered from item timestamps; overall_tps = completion_tokens / corrected wall; prefill from run-doc perf block"
+  },
   "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8": {
     "hardware": {
       "gpu_name": "NVIDIA GeForce RTX 5090",
