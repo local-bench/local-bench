@@ -202,6 +202,31 @@ describe("ModelScatter family points", () => {
     expect(boardHtml).toContain("118.2");
   });
 
+  it("plots a project-anchor live row with project provenance", () => {
+    // Given: the same live result was submitted through the maintainer ticket path.
+    const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
+    if (parsed === null) throw new Error("expected valid Bonsai live envelope");
+    const [projectRow] = reconcileCommunityRows([], parsed.rows.map((row) => ({
+      ...row,
+      badge: "project-run",
+      origin: "project_anchor",
+    })), familyResolutionContext());
+    if (projectRow === undefined) throw new Error("expected reconciled project row");
+
+    // When: the model scatter renders that project-owned live row.
+    const html = renderToStaticMarkup(createElement(ModelScatter, {
+      anchorRuns: [],
+      communityRows: [projectRow],
+      model: model({ slug: "base", label: "Base Model", runs: [] }),
+    }));
+
+    // Then: project and community live results remain visually distinguishable.
+    expect(html).toContain('data-point-kind="project"');
+    expect(html).toContain("Project runs");
+    expect(html).not.toContain('data-point-kind="community"');
+    expect(html).not.toContain("Community runs");
+  });
+
   it("keeps a community row without VRAM on the board but off the scatter", () => {
     // Given: a comparable community result without a plottable memory metric.
     const communityRow = communityFixture({ hardware: { gpu_name: "Unknown GPU", vram_gb: null } });

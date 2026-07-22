@@ -24,7 +24,7 @@ export type QualityVramRun = Readonly<Pick<
   readonly point_label?: string;
 };
 
-export type QualityVramPointKind = "this-model" | "family-finetune" | "base-model" | "community";
+export type QualityVramPointKind = "this-model" | "family-finetune" | "base-model" | "project" | "community";
 
 export type QualityVramLegendItem = {
   readonly kind: QualityVramPointKind;
@@ -277,6 +277,20 @@ function PointMarker({
       />
     );
   }
+  if (kind === "project") {
+    return (
+      <rect
+        data-point-kind={kind}
+        x={cx - 6}
+        y={cy - 6}
+        width="12"
+        height="12"
+        rx="2"
+        className="fill-bench-panel stroke-bench-accent"
+        strokeWidth="3"
+      />
+    );
+  }
   if (kind === "community") {
     return (
       <circle
@@ -307,6 +321,9 @@ function LegendMarker({ kind }: { readonly kind: QualityVramPointKind }) {
   }
   if (kind === "base-model") {
     return <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-bench-mixed" />;
+  }
+  if (kind === "project") {
+    return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] border-2 border-bench-accent bg-bench-panel" />;
   }
   if (kind === "community") {
     return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full border-2 border-bench-better bg-bench-panel" />;

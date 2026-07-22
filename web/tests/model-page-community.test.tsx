@@ -90,6 +90,48 @@ describe("model page community family results", () => {
     expect(html).toContain("63.0 · n=20");
   });
 
+  it("renders a maintainer-submitted live row with project provenance on every model-page surface", async () => {
+    // Given: a live row whose ticket-minted origin is project_anchor.
+    const pageData = await getModelPageData("qwen3-6-27b");
+    const resolutionContext = familyResolutionContext();
+    const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
+    if (parsed === null) throw new Error("expected valid Bonsai live envelope");
+    const rows = reconcileCommunityRows([], parsed.rows.map((row) => ({
+      ...row,
+      badge: "project-run",
+      origin: "project_anchor",
+    })), resolutionContext);
+    const artifactSha256s = pageData.model.artifacts?.map((artifact) => artifact.file_sha256);
+
+    // When: the project result is rendered through the shared model-page views.
+    const html = renderToStaticMarkup(<ModelPageCommunityViews
+      anchorRuns={pageData.anchorRuns}
+      familyModels={pageData.familyModels}
+      model={pageData.model}
+      state={{
+        droppedRows: parsed.droppedRows,
+        generatedAt: parsed.generatedAt,
+        kind: "live",
+        rows,
+      }}
+      target={{
+        catalogId: pageData.model.catalog_id,
+        family: pageData.model.family,
+        modelLabel: pageData.model.model_label,
+        slug: pageData.model.slug,
+        ...(artifactSha256s === undefined ? {} : { artifactSha256s }),
+      }}
+    />);
+    const projectCells = rowCellsContaining(html, "bonsai-27b-ternary");
+
+    // Then: the table, scatter, and reported-result card all use project framing.
+    expect(projectCells[1]).toContain(">project run</span>");
+    expect(html).toContain('data-point-kind="project"');
+    expect(html).toContain("Project runs");
+    expect(html).not.toContain(">self-reported</span>");
+    expect(html).not.toContain("submitted as");
+  });
+
   it("server-renders a baked composite without axes or a community scatter point", async () => {
     const pageData = await getModelPageData("qwen3-6-27b");
     const bakedRow: communityData.CommunityBoardRow = {

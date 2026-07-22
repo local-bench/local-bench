@@ -65,7 +65,10 @@ export function ModelScatter({
   if (familyRuns.some((run) => run.point_kind === "base-model")) {
     pointLegend.push({ kind: "base-model", label: "Base model" });
   }
-  if (communityRuns.length > 0) {
+  if (communityRuns.some((run) => run.point_kind === "project")) {
+    pointLegend.push({ kind: "project", label: "Project runs" });
+  }
+  if (communityRuns.some((run) => run.point_kind === "community")) {
     pointLegend.push({ kind: "community", label: "Community runs" });
   }
   if (runs.length === 0) {
@@ -101,7 +104,7 @@ function toCommunityScatterRun(row: CommunityBoardRow): readonly QualityVramRun[
   const run = {
     composite: communityScore(row.compositeFull),
     demo: false,
-    point_kind: "community" as const,
+    point_kind: row.origin === "project_anchor" ? "project" as const : "community" as const,
     point_label: `${row.displayName} · ${row.quantLabel ?? "quant unavailable"}`,
     quant_label: row.quantLabel,
     run_id: null,

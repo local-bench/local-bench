@@ -54,6 +54,7 @@ function mergeCommunityRow(
   return {
     artifactSha256: live.artifactSha256,
     axes: live.axes,
+    ...(live.badge === undefined ? {} : { badge: live.badge }),
     ...(baked?.catalogFamily === undefined ? {} : { catalogFamily: baked.catalogFamily }),
     ...(live.communityModelGroupId === undefined ? {} : { communityModelGroupId: live.communityModelGroupId }),
     compositeFull: live.compositeFull,
@@ -68,7 +69,7 @@ function mergeCommunityRow(
     indexVersion: live.indexVersion,
     lineage: baked?.lineage ?? live.lineageEnrichment,
     ...coverage,
-    origin: "community",
+    origin: live.origin,
     partialComposite: live.compositeFull ?? baked?.partialComposite ?? null,
     quantLabel: live.quantLabel,
     ranked: live.ranked,

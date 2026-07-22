@@ -289,7 +289,12 @@ describe("community live reconciliation", () => {
       trust: undefined,
     })]);
 
-    expect(merged).toMatchObject({ displayName: "Live model", submissionId: SUBMISSION_ID });
+    expect(merged).toMatchObject({
+      badge: "project-run",
+      displayName: "Live model",
+      origin: "project_anchor",
+      submissionId: SUBMISSION_ID,
+    });
   });
 
   it("keeps live lineage enrichment when no baked row exists", () => {

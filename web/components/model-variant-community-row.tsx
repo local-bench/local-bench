@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AgenticProvenanceChip } from "@/components/leaderboard-provenance";
+import { AgenticProvenanceChip, ProjectRunBadge } from "@/components/leaderboard-provenance";
 import { RuntimeCell } from "@/components/leaderboard-table-cells";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { boardAxisValue } from "@/lib/board-adapter";
@@ -55,7 +55,11 @@ export function CommunityVariantTableRow({
           )}
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono font-semibold text-bench-text">{row.quantLabel ?? "n/a"}</span>
-            <AgenticProvenanceChip value="self-reported" />
+            {row.origin === "project_anchor" ? (
+              <ProjectRunBadge badge={row.badge} origin={row.origin} />
+            ) : (
+              <AgenticProvenanceChip value="self-reported" />
+            )}
             {complete ? null : (
               <span className="inline-flex rounded border border-bench-muted/40 bg-bench-muted/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bench-muted">
                 partial headline

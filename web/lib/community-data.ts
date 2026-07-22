@@ -132,6 +132,7 @@ export type CommunityLineage = {
 export type CommunityBoardRow = {
   readonly artifactSha256: string;
   readonly axes?: AdaptedBoardRow["axes"];
+  readonly badge?: AdaptedBoardRow["badge"];
   readonly catalogFamily?: string;
   readonly chainCatalogIds?: readonly string[];
   readonly communityModelGroupId?: string;
@@ -152,7 +153,7 @@ export type CommunityBoardRow = {
   readonly maintainerEnvBackfill?: MaintainerEnvBackfill | undefined;
   readonly measuredHeadlineWeight: number | null;
   readonly missingHeadlineWeight: number | null;
-  readonly origin?: "community";
+  readonly origin?: "community" | "project_anchor";
   readonly perf?: AdaptedBoardRow["perf"];
   readonly ranked?: boolean;
   readonly runtime?: AdaptedBoardRow["runtime"];

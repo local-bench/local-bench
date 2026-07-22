@@ -1,7 +1,7 @@
 "use client";
 
 import { CommunityFreshness, type LiveCommunityState } from "@/components/community-live-state";
-import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import type { CommunityBoardRow, CommunityLineage } from "@/lib/community-data";
 import { huggingFaceRepoUrl } from "@/lib/community-links";
 import { toDisplayScore } from "@/lib/board-adapter";
@@ -58,7 +58,11 @@ function ReportedRun({ row }: { readonly row: CommunityBoardRow }) {
         </div>
       </div>
       <div className="mt-3">
-        <SubmissionIdentity displayName={row.submitterDisplayName} />
+        {row.origin === "project_anchor" ? (
+          <ProjectRunBadge badge={row.badge} origin={row.origin} />
+        ) : (
+          <SubmissionIdentity displayName={row.submitterDisplayName} />
+        )}
       </div>
       <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" aria-label="Per-axis breakdown">
         {Object.entries(row.axes ?? {}).sort(([left], [right]) => left.localeCompare(right)).map(([axis, value]) => (
