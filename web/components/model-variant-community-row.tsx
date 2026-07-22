@@ -5,16 +5,32 @@ import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { boardAxisValue } from "@/lib/board-adapter";
 import { communityAxisScore, communityDisplayAxes, communityScore } from "@/lib/community-scores";
 import type { CommunityBoardRow } from "@/lib/community-data";
-import { formatCompactNumber } from "@/lib/format";
+import { formatCompactNumber, formatGb } from "@/lib/format";
+import { findMinimumVramTier } from "@/lib/rig-match";
+
+export type CommunityArtifactDetail = {
+  readonly fileGb: number | null;
+  readonly vramGb8k: number | null;
+};
 
 type CommunityVariantTableRowProps = {
+  readonly artifactDetail?: CommunityArtifactDetail | undefined;
   readonly axisKeys: readonly string[];
   readonly hasPerf: boolean;
   readonly rank: number | null;
   readonly row: CommunityBoardRow;
 };
 
+// Same tier ladder as the catalog rows' quant-decision fit, but sourced from the
+// catalog artifact's @8k estimate — community projections don't carry rig-match runs.
+function communityFitTier(vramGb8k: number | null | undefined): string {
+  if (vramGb8k === null || vramGb8k === undefined) return "n/a";
+  const tier = findMinimumVramTier(vramGb8k);
+  return tier === null ? ">512 GB" : `${tier} GB`;
+}
+
 export function CommunityVariantTableRow({
+  artifactDetail,
   axisKeys,
   hasPerf,
   rank,
@@ -65,8 +81,10 @@ export function CommunityVariantTableRow({
           <AxisMiniBar score={communityAxisScore(boardAxisValue(row.axes ?? {}, axis))} axis={axis} />
         </td>
       ))}
-      <td className="px-3 py-3 font-mono text-bench-muted">—</td>
-      <td className="px-3 py-3 font-mono text-bench-text">n/a</td>
+      <td className={`px-3 py-3 font-mono ${artifactDetail?.vramGb8k == null ? "text-bench-muted" : "text-bench-text"}`}>
+        {artifactDetail?.vramGb8k == null ? "—" : formatGb(artifactDetail.vramGb8k)}
+      </td>
+      <td className="px-3 py-3 font-mono text-bench-text">{communityFitTier(artifactDetail?.vramGb8k)}</td>
       {hasPerf ? <td className="px-3 py-3" /> : null}
       {hasPerf ? (
         <td className="px-3 py-3 font-mono text-bench-text">
@@ -76,7 +94,9 @@ export function CommunityVariantTableRow({
         </td>
       ) : null}
       <td className="px-3 py-3 font-mono text-bench-muted">—</td>
-      <td className="px-3 py-3 font-mono text-bench-muted">—</td>
+      <td className={`px-3 py-3 font-mono ${artifactDetail?.fileGb == null ? "text-bench-muted" : "text-bench-text"}`}>
+        {artifactDetail?.fileGb == null ? "—" : formatGb(artifactDetail.fileGb)}
+      </td>
       <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
       <td className="px-3 py-3">
         {row.detailPath === null ? (

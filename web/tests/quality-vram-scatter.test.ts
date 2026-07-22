@@ -53,6 +53,21 @@ describe("QualityVramScatter x-axis domain", () => {
   });
 });
 
+describe("QualityVramScatter edge headroom", () => {
+  it("extends the domain to the next tier when a point sits near the right bound", () => {
+    // 31.8 GB against a 32 GB bound would render under the axis edge — expect a 48 GB bound.
+    const html = render([run({ vram_footprint_gb: 21.6 }), run({ vram_footprint_gb: 31.8 })]);
+    expect(html).toContain(">32GB<");
+    expect(html).toContain(">48GB<");
+  });
+
+  it("keeps the snapped bound when points sit comfortably inside it", () => {
+    const html = render([run({ vram_footprint_gb: 17.1 }), run({ vram_footprint_gb: 21.6 })]);
+    expect(html).toContain(">24GB<");
+    expect(html).not.toContain(">32GB<");
+  });
+});
+
 describe("QualityVramScatter hover tooltip", () => {
   it("renders a CSS hover tooltip with measured bench time and RAM", () => {
     const html = render([run({})]);

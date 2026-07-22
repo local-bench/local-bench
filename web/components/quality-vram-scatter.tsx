@@ -383,6 +383,11 @@ function getXDomain(points: readonly ScatterPoint[]): { readonly min: number; re
   if (max <= min) {
     max = X_BREAKPOINTS.find((breakpoint) => breakpoint > min) ?? min + 4;
   }
+  // A point sitting on (or within 10% of) the right bound renders under the axis edge
+  // and is easy to miss — step to the next tier so edge points sit clearly inside.
+  if (hi >= max - (max - min) * 0.1) {
+    max = X_BREAKPOINTS.find((breakpoint) => breakpoint > max) ?? Math.ceil(max * 1.15);
+  }
   return { min, max };
 }
 

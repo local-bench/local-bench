@@ -289,6 +289,34 @@ describe("model variant board runtime display", () => {
     expect(bakedCells[0]).toContain("2");
   });
 
+  it("joins catalog artifact metrics into community size and fit columns", () => {
+    // Given: a community row whose artifact sha matches a catalog artifact record.
+    const model = {
+      ...fixtureModel(),
+      artifacts: [{ file_gb: 7.2, file_sha256: "a".repeat(64), vram_gb_8k: 9.5 }],
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [fixtureCommunityRow()],
+      model,
+    }));
+    const rowHtml = rowCellsContaining(html, "Community Tune").join("");
+    // Then: VRAM @8k, Fits (smallest tier above 9.5), and File size all populate.
+    expect(rowHtml).toContain("9.5 GB");
+    expect(rowHtml).toContain("12 GB");
+    expect(rowHtml).toContain("7.2 GB");
+  });
+
+  it("keeps size and fit placeholders when no catalog artifact matches", () => {
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [fixtureCommunityRow({ artifactSha256: "b".repeat(64) })],
+      model: fixtureModel(),
+    }));
+    const rowHtml = rowCellsContaining(html, "Community Tune").join("");
+    expect(rowHtml).toContain("n/a");
+    expect(rowHtml).not.toContain("9.5 GB");
+    expect(rowHtml).not.toContain("7.2 GB");
+  });
+
   it("maps live legacy axis names into every season-two board column", () => {
     const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
     if (parsed === null) throw new Error("expected valid Bonsai live envelope");
