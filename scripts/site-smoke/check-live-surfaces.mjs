@@ -207,7 +207,9 @@ async function run() {
       if (!resolved.needsScatter) {
         record("E", `scatter point: ${name}`, true, "not required; no envelope or overlay VRAM");
       } else {
-        const scatterMarkers = page.getByTestId("quality-vram-scatter").locator('svg [data-point-kind="community"]');
+        // Live rows plot as "community" (anonymous submissions) or "project" (maintainer
+        // runs, origin project_anchor) — associate by row identity, never by kind alone.
+        const scatterMarkers = page.getByTestId("quality-vram-scatter").locator('svg [data-point-kind="community"], svg [data-point-kind="project"]');
         const markerMatches = await scatterMarkers.evaluateAll(
           (markers, expectedName) => markers.filter((marker) => {
             const point = marker.parentElement;
@@ -220,7 +222,7 @@ async function run() {
           }).length,
           name,
         );
-        record("E", `scatter point: ${name}`, markerMatches > 0, markerMatches > 0 ? `${markerMatches} matching community SVG datapoint${markerMatches === 1 ? "" : "s"}` : "no matching data-point element inside the scatter SVG");
+        record("E", `scatter point: ${name}`, markerMatches > 0, markerMatches > 0 ? `${markerMatches} matching live-row SVG datapoint${markerMatches === 1 ? "" : "s"}` : "no matching data-point element inside the scatter SVG");
       }
     }
   } finally {
