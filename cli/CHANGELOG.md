@@ -2,6 +2,7 @@
 
 ## 0.4.6 - Unreleased
 
+- Submitted projections now preserve prefill and overall token throughput when available.
 - Resumed runs report cumulative benched wall time; previously only the final resume
   segment was counted.
 - One-shot `submit run` can present the admin secret when minting a ticket, so maintainer

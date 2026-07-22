@@ -42,6 +42,13 @@ def test_object_hash_and_semantic_hash_are_explicitly_distinct_domains() -> None
 def test_v2_schema_accepts_submitter_side_client_reported_projection() -> None:
     projection = _fixture("accepted_projection_v2_golden.json")
     projection["verification_level"] = "client_reported"
+    projection["perf"] = {
+        "decode_tps": 81.25,
+        "overall_tps": 64.5,
+        "prefill_tps": 1620.5,
+        "tokens_to_answer_median": 6.0,
+        "wall_time_seconds": 12.0,
+    }
 
     validate_accepted_result_projection(projection)
 

@@ -87,21 +87,49 @@ def test_projection_hardware_uses_first_gpu_and_rounds_vram_gb() -> None:
     assert projected == {"gpu_name": "RTX 4090", "vram_gb": 24.0}
 
 
-def test_projection_perf_uses_totals_and_median_item_completion_tokens() -> None:
-    projected = projection_mod._projection_perf(
-        {
-            "items": [
-                {"usage": {"completion_tokens": 9}},
-                {"usage": {"completion_tokens": 3}},
-                {"usage": {"completion_tokens": None}},
-                {"usage": {"completion_tokens": 6}},
-            ],
-            "perf": {"decode_tps": 81.25},
-            "totals": {"wall_time_seconds": 12},
+def test_projection_perf_uses_perf_totals_and_median_item_completion_tokens() -> None:
+    # Given: a run bundle with measured prefill/decode throughput and aggregate totals.
+    bundle = {
+        "items": [
+            {"usage": {"completion_tokens": 9}},
+            {"usage": {"completion_tokens": 3}},
+            {"usage": {"completion_tokens": None}},
+            {"usage": {"completion_tokens": 6}},
+        ],
+        "perf": {"prefill_tps": 1620.5, "decode_tps": 81.25},
+        "totals": {
+            "completion_tokens_per_second": 64.5,
+            "wall_time_seconds": 12,
         },
-    )
+    }
+
+    # When: the public submission perf block is projected.
+    projected = projection_mod._projection_perf(bundle)
+
+    # Then: both throughput sources and the existing perf fields are retained.
     assert projected == {
         "decode_tps": 81.25,
+        "overall_tps": 64.5,
+        "prefill_tps": 1620.5,
         "tokens_to_answer_median": 6.0,
         "wall_time_seconds": 12.0,
     }
+
+
+def test_projection_perf_omits_optional_throughput_when_sources_are_missing() -> None:
+    # Given: a run bundle without a perf block or aggregate throughput.
+    bundle = {"totals": {"wall_time_seconds": 12}}
+
+    # When: the public submission perf block is projected.
+    projected = projection_mod._projection_perf(
+        bundle,
+    )
+
+    # Then: the additive throughput keys are omitted rather than null-filled.
+    assert projected == {
+        "decode_tps": None,
+        "tokens_to_answer_median": None,
+        "wall_time_seconds": 12.0,
+    }
+    assert "prefill_tps" not in projected
+    assert "overall_tps" not in projected

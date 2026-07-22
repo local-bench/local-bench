@@ -621,20 +621,29 @@ def _projection_hardware(manifest: JsonObject) -> JsonObject:
 
 
 def _projection_perf(bundle: JsonObject) -> JsonObject:
+    perf = _object(bundle.get("perf"))
+    totals = _object(bundle.get("totals"))
     completion_tokens = [
         tokens
         for item in _items(bundle)
         if (tokens := _usage(item.get("usage"))["completion_tokens"]) is not None and tokens >= 0
     ]
-    return {
-        "decode_tps": _nullable_nonnegative_number(_object(bundle.get("perf")).get("decode_tps")),
+    projected = {
+        "decode_tps": _nullable_nonnegative_number(perf.get("decode_tps")),
         "wall_time_seconds": _nullable_nonnegative_number(
-            _object(bundle.get("totals")).get("wall_time_seconds"),
+            totals.get("wall_time_seconds"),
         ),
         "tokens_to_answer_median": (
             float(median(completion_tokens)) if completion_tokens else None
         ),
     }
+    prefill_tps = _nullable_nonnegative_number(perf.get("prefill_tps"))
+    if prefill_tps is not None:
+        projected["prefill_tps"] = prefill_tps
+    overall_tps = _nullable_nonnegative_number(totals.get("completion_tokens_per_second"))
+    if overall_tps is not None:
+        projected["overall_tps"] = overall_tps
+    return projected
 
 
 def _receipt_references(bundle: JsonObject) -> JsonObject:

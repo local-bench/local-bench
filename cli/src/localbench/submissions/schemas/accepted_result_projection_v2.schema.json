@@ -75,6 +75,8 @@
       "type": "object", "additionalProperties": false, "required": ["decode_tps", "wall_time_seconds", "tokens_to_answer_median"],
       "properties": {
         "decode_tps": {"type": ["number", "null"], "minimum": 0},
+        "overall_tps": {"type": "number", "minimum": 0},
+        "prefill_tps": {"type": "number", "minimum": 0},
         "wall_time_seconds": {"type": ["number", "null"], "minimum": 0},
         "tokens_to_answer_median": {"type": ["number", "null"], "minimum": 0}
       }
