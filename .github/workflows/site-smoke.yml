@@ -1,0 +1,72 @@
+# Production browser smoke check for the published community model surfaces.
+#
+# Repository guard: this workflow rides into the PUBLIC snapshot repo unless pruned.
+# The public snapshot is not the private deploy source and must never spend scheduled
+# minutes or receive deploy-repo secrets, so the job is hard-gated to the private repo.
+#
+# Actions policy: first-party actions/* only, all pinned by full commit SHA.
+
+name: site-smoke
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  live-surfaces:
+    # Guard: never run outside the private deploy repo (see header).
+    if: github.repository == 'Papa-midnight-dev/local-bench-site'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: scripts/site-smoke/package-lock.json
+
+      - name: Install smoke-check dependency
+        run: npm ci
+        working-directory: scripts/site-smoke
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: scripts/site-smoke
+
+      - name: Check live production surfaces
+        id: site_smoke
+        continue-on-error: true
+        run: node check-live-surfaces.mjs 2>&1 | tee site-smoke-output.txt
+        working-directory: scripts/site-smoke
+
+      - name: Notify owner on failure
+        if: steps.site_smoke.outcome == 'failure'
+        env:
+          NTFY_TOPIC_URL: ${{ secrets.NTFY_TOPIC_URL }}
+        run: |
+          if [ -n "$NTFY_TOPIC_URL" ]; then
+            summary=$(awk '/^\[FAIL\]/ { print; if (++count == 6) exit }' scripts/site-smoke/site-smoke-output.txt)
+            printf 'local-bench production site smoke failed\n%s/actions/runs/%s\n%s\n' \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$summary" \
+              | curl --fail --silent --show-error \
+                  --header 'content-type: text/plain; charset=utf-8' \
+                  --request POST \
+                  --data-binary @- \
+                  "$NTFY_TOPIC_URL"
+          fi
+
+      - name: Fail workflow when smoke check failed
+        if: steps.site_smoke.outcome == 'failure'
+        run: exit 1
