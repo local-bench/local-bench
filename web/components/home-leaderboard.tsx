@@ -143,6 +143,7 @@ export function HomeLeaderboard({
           communityArtifactDetails={communityArtifactDetails}
           communityFineTuneBaseBySha={communityFineTuneBaseBySha}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
+          quantBySlug={quantBySlug}
           rows={visibleRows}
           scoreMode={scoreMode}
           season2={season2}

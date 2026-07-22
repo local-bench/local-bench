@@ -4,7 +4,6 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CatalogOnlyNotice } from "@/components/catalog-only-notice";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelPageCommunity } from "@/components/model-page-community";
-import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
 import { communityRowsForModel, getCommunityBoardRows } from "@/lib/community-data";
@@ -112,11 +111,6 @@ export default async function ModelPage({ params }: PageProps) {
               )}
             </div>
           ) : null}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {[...new Map(rankedRuns.map((run) => [run.runtime.name, run.runtime])).values()].map((runtime) => (
-              <RuntimeBadge key={runtime.name ?? "unknown"} runtime={runtime} />
-            ))}
-          </div>
           <p className="mt-2 max-w-3xl text-bench-muted">
             Every measured variant of this model: how much quality each quant keeps, and the VRAM and speed it costs
             to run.

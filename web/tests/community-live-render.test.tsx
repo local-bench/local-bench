@@ -189,13 +189,14 @@ describe("live-only community links", () => {
     expect(html).not.toContain("±0.0");
   });
 
-  it("uses catalog artifact identity and VRAM while preserving the declared live name", () => {
+  it("uses catalog artifact identity and VRAM, muting a slug-twin declared name", () => {
     const props = {
       artifactDetail: {
         artifactSha256: liveOnlyRow.artifactSha256,
         fileGb: 7.2,
         modelLabel: "Bonsai 27B Ternary",
         quantLabel: "Q2_0",
+        slug: "bonsai-27b-ternary",
         vramGb8k: 9.5,
       },
       axisKeys: [],
@@ -209,8 +210,20 @@ describe("live-only community links", () => {
     );
 
     expect(html).toContain("Bonsai 27B Ternary");
-    expect(html).toContain("declared as bonsai-27b-ternary");
+    // "bonsai-27b-ternary" is the same identity as the catalog name, only slugified —
+    // annotating it as a distinct declared name is noise.
+    expect(html).not.toContain("declared as");
     expect(html).toContain("9.5 GB");
+
+    // A genuinely different declared name must stay visible — that annotation is the
+    // reader's signal that the submitter's claim and the artifact identity disagree.
+    const mismatched = renderToStaticMarkup(
+      <table><tbody>{createElement(CommunityLeaderboardRow, {
+        ...props,
+        row: { ...liveOnlyRow, displayName: "Totally Different 13B", quantLabel: "Q2_0" },
+      })}</tbody></table>,
+    );
+    expect(mismatched).toContain("declared as Totally Different 13B");
   });
 
   it("falls back to maintainer overlay lineage for the fine-tune chip", () => {

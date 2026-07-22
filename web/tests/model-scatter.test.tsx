@@ -200,7 +200,10 @@ describe("ModelScatter family points", () => {
     expect(html).toContain('data-point-kind="community"');
     expect(html).toContain('href="/model/bonsai-27b-ternary/"');
     expect(html).toContain("Bonsai 27B Ternary");
-    expect(html).toContain("declared as bonsai-27b-ternary");
+    // On the model's own page the point label is the quant alone; a declared name that is
+    // just the slug-twin of the catalog name is noise, not information.
+    expect(html).toContain("Q2_0");
+    expect(html).not.toContain("declared as");
     expect(html).toContain("36.7");
     expect(html).toContain("~9.5 GB to run");
     expect(html).not.toContain("31.8 GB");

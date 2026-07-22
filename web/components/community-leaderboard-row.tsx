@@ -12,6 +12,7 @@ import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds, fo
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
 import { formatGb } from "@/lib/format";
+import { sameModelName } from "@/lib/model-name";
 import { SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
 
 type CommunityRowProps = {
@@ -34,7 +35,7 @@ export function CommunityLeaderboardRow({
   showStaticIndexColumn,
 }: CommunityRowProps) {
   const displayName = artifactDetail?.modelLabel ?? row.displayName;
-  const showDeclaredName = displayName !== row.displayName;
+  const showDeclaredName = !sameModelName(displayName, row.displayName);
   const displayFamily = row.familyLabel ?? row.catalogFamily ?? row.family;
   const fineTuneBase = row.declaredBaseModels?.[0]
     ?? fineTuneBaseName

@@ -20,6 +20,7 @@ type LeaderboardTableProps = {
   readonly communityArtifactDetails: readonly CommunityArtifactDetail[];
   readonly communityFineTuneBaseBySha: ReadonlyMap<string, string>;
   readonly fineTuneBaseBySlug: ReadonlyMap<string, string>;
+  readonly quantBySlug?: ReadonlyMap<string, string | null>;
   readonly rows: readonly UnifiedLeaderboardRow[];
   readonly scoreMode: LeaderboardScoreMode;
   readonly season2: boolean;
@@ -36,6 +37,7 @@ export function LeaderboardTable({
   communityArtifactDetails,
   communityFineTuneBaseBySha,
   fineTuneBaseBySlug,
+  quantBySlug,
   rows,
   scoreMode,
   season2,
@@ -106,6 +108,7 @@ export function LeaderboardTable({
                     fineTuneBaseName={fineTuneBaseBySlug.get(entry.model.slug)}
                     laneRank={entry.rank}
                     model={entry.model}
+                    quantLabel={quantBySlug?.get(entry.model.slug) ?? null}
                     scoreMode={scoreMode}
                     season2={season2}
                     showAgenticColumn={showAgenticColumn}

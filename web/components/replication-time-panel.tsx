@@ -13,7 +13,7 @@ import type { BestVariantPoint } from "@/lib/best-variant";
 //
 // Scope facts (item count, rig) are board-level and not carried on BestVariantPoint; keep in
 // sync with the methodology page until the board manifest exposes them to the web layer.
-const PANEL_SCOPE = "Season 2 · LB-2026-07.2 · measured items only · RTX 5090 reference rig";
+const PANEL_SCOPE = "Season 2 · LB-2026-07.2 · measured items only · wall time on each run's rig";
 const LIMITATION = "Elapsed time for this exact full-suite run; not a general model-speed measurement.";
 
 // Render gates: the comparative chart renders only while timing coverage honestly represents
@@ -46,7 +46,7 @@ export function ReplicationTimePanel({ points }: { readonly points: readonly Bes
     >
       <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-          Full-suite replication time
+          Benchmarking time
         </p>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wide text-bench-muted-2">{PANEL_SCOPE}</p>
         <p className="mt-1 text-xs leading-5 text-bench-muted">
@@ -116,6 +116,7 @@ function PanelBars({
             <div className="pointer-events-none absolute bottom-[calc(100%-4px)] left-0 z-10 w-[280px] rounded border border-bench-line-strong bg-bench-bg px-2 py-1.5 font-mono text-[11px] leading-4 text-bench-muted opacity-0 shadow-2xl shadow-black/30 transition-opacity duration-100 group-hover:opacity-100 group-focus-visible:opacity-100">
               <span className="font-semibold text-bench-text">{row.modelLabel}</span>
               {row.tokS !== null ? <> · {formatCompactNumber(row.tokS)} tok/s effective</> : null}
+              {row.hardwareLabel === null || row.hardwareLabel === undefined ? null : <> · {row.hardwareLabel}</>}
               {" · CI "}
               {formatCi(row.score)}
               <br />
@@ -200,7 +201,7 @@ function PanelBars({
       {untimedShown.length > 0 ? (
         <p className="mt-2 rounded border border-dashed border-bench-line-strong px-2 py-1.5 text-[11px] leading-4 text-bench-muted-2">
           Timing unavailable in the board record for {untimedShown.length} ranked variant
-          {untimedShown.length === 1 ? "" : "s"}. Season 2 community submissions do not ingest timing fields.
+          {untimedShown.length === 1 ? "" : "s"}.
         </p>
       ) : null}
 

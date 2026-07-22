@@ -366,7 +366,6 @@ function VariantCell({ row, children }: { readonly row: RunVariantRow; readonly 
     return (
       <>
         {quantLabel}
-        <span className="ml-2 align-middle"><RuntimeBadge runtime={row.run.runtime} /></span>
         {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
         <VllmReproduction run={row.run} />
       </>
@@ -385,7 +384,6 @@ function VariantCell({ row, children }: { readonly row: RunVariantRow; readonly 
       </span>
       <span>
         {quantLabel}
-        <span className="ml-2 align-middle"><RuntimeBadge runtime={row.run.runtime} /></span>
         {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
       </span>
       <VllmReproduction run={row.run} />

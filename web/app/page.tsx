@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { BenchmarkOnramp } from "@/components/benchmark-onramp";
-import { BestVariantVramScatter } from "@/components/best-variant-scatter";
 import { HeroBanner } from "@/components/hero-banner";
 import { HomeLeaderboard } from "@/components/home-leaderboard";
-import { ReplicationTimePanel } from "@/components/replication-time-panel";
-import { selectBestVariantPoints } from "@/lib/best-variant";
+import { LandingBestVariantSection } from "@/components/landing-best-variant";
+import { bakedBestVariantCandidates } from "@/lib/best-variant";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { communityRowsWithFamilyPaths } from "@/lib/community-family";
 import {
@@ -25,7 +24,7 @@ export default async function HomePage() {
     getCommunityBoardRows(),
   ]);
   const resolutionContext = familyResolutionContext(communityCatalogModels);
-  const bestVariantPoints = selectBestVariantPoints(rigCandidates, { catalogModels });
+  const bakedCandidates = bakedBestVariantCandidates(rigCandidates, { catalogModels });
   const fineTuneBaseBySlug = familyRootLabelBySlug(index.models, resolutionContext);
   const ranked = index.models.filter(isFullIndexRow);
   const rankedForDisplay = index.index_version === INDEX_VERSION_V4
@@ -46,12 +45,13 @@ export default async function HomePage() {
     <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-6 px-5 py-7 lg:px-8">
       <HeroBanner />
       {/* Side-by-side only when the scatter keeps its useful width (xl+); stacked below that. */}
-      <div className="flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] xl:items-stretch">
-        <BestVariantVramScatter anchorRuns={anchorRuns} points={bestVariantPoints} />
-        {/* The panel and ranked table share the canonical family resolver: each catalog root
-            contributes the same winning measured variant, so hidden fine-tunes cannot leak here. */}
-        <ReplicationTimePanel points={bestVariantPoints} />
-      </div>
+      <LandingBestVariantSection
+        anchorRuns={anchorRuns}
+        bakedCandidates={bakedCandidates}
+        communityArtifactDetails={communityArtifactDetails}
+        initialCommunityRows={communityRowsForDisplay}
+        resolutionContext={resolutionContext}
+      />
       <section className="grid gap-2">
         <p className="text-sm text-bench-muted">
           Showing the best variant per base family —{" "}

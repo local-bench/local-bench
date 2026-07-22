@@ -26,6 +26,7 @@ type RankedRowProps = {
   readonly fineTuneBaseName: string | undefined;
   readonly laneRank: number | undefined;
   readonly model: IndexModel;
+  readonly quantLabel?: string | null;
   readonly scoreMode: LeaderboardScoreMode;
   readonly season2: boolean;
   readonly showAgenticColumn: boolean;
@@ -39,6 +40,7 @@ export function LeaderboardRankedRow({
   fineTuneBaseName,
   laneRank,
   model,
+  quantLabel = null,
   scoreMode,
   season2,
   showAgenticColumn,
@@ -60,6 +62,9 @@ export function LeaderboardRankedRow({
           {model.demo ? <DemoBadge /> : null}
           {season2 ? <SeasonBadge indexVersion={displayIndexVersion(model)} /> : null}
         </span>
+        {quantLabel === null ? null : (
+          <div className="mt-0.5 font-mono text-xs text-bench-muted">{quantLabel}</div>
+        )}
         <div className="text-xs text-bench-muted">{model.family}</div>
         {fineTuneBaseName === undefined ? null : (
           <span className="mt-1 inline-block rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">

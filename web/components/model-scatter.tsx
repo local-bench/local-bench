@@ -18,6 +18,7 @@ import {
   type CommunityArtifactDetail,
 } from "@/lib/community-artifact-details";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
+import { sameModelName, variantNameInContext } from "@/lib/model-name";
 import { runHref } from "@/lib/routes";
 import type { ModelRun } from "@/lib/schemas";
 import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
@@ -53,7 +54,7 @@ export function ModelScatter({
   const familyRuns = familyModels.flatMap(({ model: familyModel, relation }) =>
     familyModel.runs.flatMap((run) =>
       toScatterRun(run, {
-        label: `${familyModel.model_label} · ${run.quant_label ?? run.run_id?.split("__").at(1) ?? run.run_id ?? "catalog shell"}`,
+        label: `${variantNameInContext(familyModel.model_label, model.model_label)} · ${run.quant_label ?? run.run_id?.split("__").at(1) ?? run.run_id ?? "catalog shell"}`,
         pointKind: relation,
       }),
     ),
@@ -62,6 +63,7 @@ export function ModelScatter({
   const communityRuns = communityRows.flatMap((row) => toCommunityScatterRun(
     row,
     communityArtifactDetailForSha(artifactDetails, row.artifactSha256),
+    model.model_label,
   ));
   const runs = [...ownRuns, ...familyRuns, ...communityRuns];
   const pointLegend: QualityVramLegendItem[] = [];
@@ -105,17 +107,27 @@ export function ModelScatter({
 function toCommunityScatterRun(
   row: CommunityBoardRow,
   artifactDetail: CommunityArtifactDetail | undefined,
+  pageModelLabel: string,
 ): readonly QualityVramRun[] {
   if (!row.headlineComplete || row.compositeFull === null || artifactDetail?.vramGb8k == null) {
     return [];
   }
   const canonicalName = artifactDetail.modelLabel;
-  const declaredName = canonicalName === row.displayName ? "" : ` · declared as ${row.displayName}`;
+  const declaredName = sameModelName(canonicalName, row.displayName)
+    ? ""
+    : ` · declared as ${row.displayName}`;
+  // On a model page the chart already names the model — labels carry only what distinguishes
+  // the point: the quant for this model's own artifacts, "Bonsai Ternary · Q2_0"-style
+  // compact names for family variants.
+  const contextName = sameModelName(canonicalName, pageModelLabel)
+    ? null
+    : variantNameInContext(canonicalName, pageModelLabel);
+  const quantName = artifactDetail.quantLabel ?? row.quantLabel ?? "quant unavailable";
   const run = {
     composite: communityScore(row.compositeFull),
     demo: false,
     point_kind: row.origin === "project_anchor" ? "project" as const : "community" as const,
-    point_label: `${canonicalName}${declaredName} · ${artifactDetail.quantLabel ?? row.quantLabel ?? "quant unavailable"}`,
+    point_label: `${contextName === null ? quantName : `${contextName} · ${quantName}`}${declaredName}`,
     quant_label: artifactDetail.quantLabel ?? row.quantLabel,
     run_id: null,
     vram_footprint_gb: artifactDetail.vramGb8k,

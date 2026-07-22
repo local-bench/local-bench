@@ -12,7 +12,14 @@ import {
   type FamilyResolution,
   type FamilyResolutionContext,
 } from "./family-resolution";
-import { selectBestPerFamily } from "./landing-best-per-base";
+import { selectBestPerFamily, type FamilyRankedSource } from "./landing-best-per-base";
+import {
+  communityArtifactDetailForSha,
+  type CommunityArtifactDetail,
+} from "./community-artifact-details";
+import type { CommunityBoardRow } from "./community-data";
+import { communityDisplayAxes, communityScore } from "./community-scores";
+import { formatGpuShort } from "./format";
 import type { AxisScore, CatalogModel, ConformanceGates, Score } from "./schemas";
 
 export type BestVariantPoint = {
@@ -33,6 +40,18 @@ export type BestVariantPoint = {
   readonly effectiveVramGb: number;
   readonly nRuns: number;
   readonly isFrontier: boolean;
+  // Set only for live community-envelope rows benchmarked off the reference rig; baked
+  // project runs leave it null (reference rig implied).
+  readonly hardwareLabel?: string | null;
+};
+
+// A pre-collapse candidate: one best point per model, still carrying its family resolution so
+// baked and live sources can be merged through the SAME selectBestPerFamily pass the ranked
+// table uses — the panel/scatter and the table must never disagree on a family's winner.
+export type BestVariantCandidate = {
+  readonly point: BestVariantPoint;
+  readonly resolution: FamilyResolution;
+  readonly source: FamilyRankedSource;
 };
 
 export type BestVariantSelectionOptions = {
@@ -94,17 +113,86 @@ export function selectBestVariantPoints(
   candidates: readonly RigMatchCandidate[],
   options: BestVariantSelectionOptions = {},
 ): readonly BestVariantPoint[] {
+  return selectAcrossBestVariantCandidates(bakedBestVariantCandidates(candidates, options));
+}
+
+// Collapse merged baked + live candidates to one winner per base family and mark the
+// efficiency frontier. Tie-break prefers the maintainer row, mirroring the ranked table.
+export function selectAcrossBestVariantCandidates(
+  candidates: readonly BestVariantCandidate[],
+): readonly BestVariantPoint[] {
+  const selected = selectBestPerFamily(candidates.map((candidate) => ({
+    displayedComposite: candidate.point.score.point,
+    resolution: candidate.resolution,
+    source: candidate.source,
+    value: candidate.point,
+  })));
+  return markFrontier(selected.map((candidate) => candidate.value));
+}
+
+export function bakedBestVariantCandidates(
+  candidates: readonly RigMatchCandidate[],
+  options: BestVariantSelectionOptions = {},
+): readonly BestVariantCandidate[] {
   const resolutionContext = buildFamilyResolutionContext(options.catalogModels ?? []);
   return selectBestPoints(candidates, options.contextTokens ?? DEFAULT_CONTEXT_TOKENS, (candidate) =>
     familyRootForCandidate(candidate, resolutionContext),
   );
 }
 
+// One point per live envelope row that carries everything the landing visualizations need.
+// Mirrors the model-page scatter's eligibility rule: a complete headline composite plus a
+// catalog-joined artifact (the VRAM axis has no honest value without the artifact's size).
+export function communityBestVariantCandidates(
+  rows: readonly CommunityBoardRow[],
+  artifactDetails: readonly CommunityArtifactDetail[],
+  context: FamilyResolutionContext,
+): readonly BestVariantCandidate[] {
+  return rows.flatMap((row) => {
+    if (!row.headlineComplete || row.compositeFull === null) return [];
+    const detail = communityArtifactDetailForSha(artifactDetails, row.artifactSha256);
+    if (detail === undefined || detail.vramGb8k === null) return [];
+    const resolution = resolveFamily(row, context);
+    const rootEntry = context.catalog.find((entry) => entry.catalogId === resolution.rootCatalogId);
+    const gpuName = row.hardware?.gpu_name;
+    const point: BestVariantPoint = {
+      modelSlug: detail.slug,
+      modelLabel: detail.modelLabel,
+      family: row.familyLabel ?? row.catalogFamily ?? row.family ?? detail.modelLabel,
+      weightsFamilyKey: familyResolutionKey(resolution) ?? row.artifactSha256,
+      weightsFamilyLabel: rootEntry?.displayName ?? resolution.familyLabel ?? detail.modelLabel,
+      weightsFamilySlug: resolution.rootSlug ?? detail.slug,
+      runId: row.submissionId,
+      quantLabel: detail.quantLabel ?? row.quantLabel,
+      score: communityScore(row.compositeFull),
+      axes: communityDisplayAxes(row),
+      // overall_tps = completion tokens over total wall time — the closest live analog of the
+      // baked runs' effective tok/s. Decode-only tps would overstate against baked rows.
+      tokS: row.perf?.overall_tps ?? null,
+      latencySMedian: row.perf?.latency_s_median ?? null,
+      wallTimeSeconds: row.perf?.wall_time_seconds ?? null,
+      // Artifact-formula estimate at 8k, same family as the catalog figures the scatter's
+      // baked shells use; live rows have no measured runtime footprint field to prefer.
+      effectiveVramGb: detail.vramGb8k,
+      nRuns: 1,
+      isFrontier: false,
+      hardwareLabel: gpuName === null || gpuName === undefined || gpuName === ""
+        ? null
+        : formatGpuShort({ name: gpuName, vram_gb: row.hardware?.vram_gb ?? null }),
+    };
+    return [{
+      point,
+      resolution,
+      source: row.origin === "project_anchor" ? "maintainer" as const : "community" as const,
+    }];
+  });
+}
+
 function selectBestPoints(
   candidates: readonly RigMatchCandidate[],
   contextTokens: ContextLengthOption,
   rootForCandidate: (candidate: EligibleRigMatchCandidate) => ResolvedFamilyRoot,
-): readonly BestVariantPoint[] {
+): readonly BestVariantCandidate[] {
   const bestByModel = new Map<string, { readonly point: BestVariantPoint; readonly resolution: FamilyResolution }>();
   for (const candidate of candidates) {
     if (!isEligible(candidate)) {
@@ -151,13 +239,11 @@ function selectBestPoints(
       bestByModel.set(candidate.modelSlug, { point, resolution: weightsFamilyRoot.resolution });
     }
   }
-  const selected = selectBestPerFamily([...bestByModel.values()].map((candidate) => ({
-    displayedComposite: candidate.point.score.point,
+  return [...bestByModel.values()].map((candidate) => ({
+    point: candidate.point,
     resolution: candidate.resolution,
     source: "maintainer" as const,
-    value: candidate.point,
-  })));
-  return markFrontier(selected.map((candidate) => candidate.value));
+  }));
 }
 
 type ResolvedFamilyRoot = {
