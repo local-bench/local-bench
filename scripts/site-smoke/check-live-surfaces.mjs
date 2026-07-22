@@ -207,9 +207,17 @@ async function run() {
       if (!resolved.needsScatter) {
         record("E", `scatter point: ${name}`, true, "not required; no envelope or overlay VRAM");
       } else {
-        const scatterMarkers = page.getByTestId("model-scatter").locator('svg [data-point-kind="community"]');
+        const scatterMarkers = page.getByTestId("quality-vram-scatter").locator('svg [data-point-kind="community"]');
         const markerMatches = await scatterMarkers.evaluateAll(
-          (markers, expectedName) => markers.filter((marker) => marker.parentElement?.textContent?.includes(expectedName)).length,
+          (markers, expectedName) => markers.filter((marker) => {
+            const point = marker.parentElement;
+            const identities = [
+              marker.getAttribute("aria-label"),
+              point?.getAttribute("aria-label"),
+              point?.querySelector(":scope > title")?.textContent,
+            ];
+            return identities.some((identity) => identity?.includes(expectedName) === true);
+          }).length,
           name,
         );
         record("E", `scatter point: ${name}`, markerMatches > 0, markerMatches > 0 ? `${markerMatches} matching community SVG datapoint${markerMatches === 1 ? "" : "s"}` : "no matching data-point element inside the scatter SVG");

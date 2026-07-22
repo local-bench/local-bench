@@ -11,6 +11,7 @@ export type FamilyRankedSource = "community" | "maintainer";
 
 export type BestPerFamilyCandidate<T> = {
   readonly displayedComposite: number;
+  readonly familyKey?: string;
   readonly resolution: FamilyResolution;
   readonly source: FamilyRankedSource;
   readonly value: T;
@@ -21,7 +22,7 @@ export function selectBestPerFamily<T>(
 ): readonly BestPerFamilyCandidate<T>[] {
   const winnerByFamily = new Map<string, number>();
   for (const [index, candidate] of candidates.entries()) {
-    const key = familyResolutionKey(candidate.resolution);
+    const key = candidateFamilyKey(candidate);
     if (key === null) continue;
     const incumbentIndex = winnerByFamily.get(key);
     if (incumbentIndex === undefined) {
@@ -34,9 +35,13 @@ export function selectBestPerFamily<T>(
     }
   }
   return candidates.filter((candidate, index) => {
-    const key = familyResolutionKey(candidate.resolution);
+    const key = candidateFamilyKey(candidate);
     return key === null || winnerByFamily.get(key) === index;
   });
+}
+
+function candidateFamilyKey<T>(candidate: BestPerFamilyCandidate<T>): string | null {
+  return candidate.familyKey ?? familyResolutionKey(candidate.resolution);
 }
 
 export function selectLandingBestPerBase(

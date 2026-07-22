@@ -15,7 +15,9 @@ import type { IndexModel } from "./schemas";
 import { runtimeSortLabel } from "./runtime-display";
 import {
   EMPTY_FAMILY_RESOLUTION_CONTEXT,
+  overlayLineageForArtifactSha,
   resolveFamily,
+  type FamilyResolution,
   type FamilyResolutionContext,
 } from "./family-resolution";
 import { selectBestPerFamily } from "./landing-best-per-base";
@@ -46,16 +48,35 @@ export function filterUnifiedLeaderboardRows(
   const context = options.resolutionContext ?? EMPTY_FAMILY_RESOLUTION_CONTEXT;
   const selected = options.variants === "all"
     ? candidates
-    : selectBestPerFamily(candidates.map((candidate) => ({
-        displayedComposite: scoreValue(candidate),
-        resolution: candidate.source === "local-bench"
+    : selectBestPerFamily(candidates.map((candidate) => {
+        const resolution = candidate.source === "local-bench"
           ? resolveFamily(candidate.model, context)
-          : resolveFamily(candidate.row, context),
-        source: candidate.source === "local-bench" ? "maintainer" as const : "community" as const,
-        value: candidate,
-      }))).map((candidate) => candidate.value);
+          : resolveFamily(candidate.row, context);
+        const familyKey = candidate.source === "community"
+          ? overlayFineTuneFamilyKey(candidate.row, resolution, context)
+          : null;
+        return {
+          displayedComposite: scoreValue(candidate),
+          ...(familyKey === null ? {} : { familyKey }),
+          resolution,
+          source: candidate.source === "local-bench" ? "maintainer" as const : "community" as const,
+          value: candidate,
+        };
+      })).map((candidate) => candidate.value);
   const rows = [...selected].sort((left, right) => scoreValue(right) - scoreValue(left));
   return rows.map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function overlayFineTuneFamilyKey(
+  row: CommunityBoardRow,
+  resolution: FamilyResolution,
+  context: FamilyResolutionContext,
+): string | null {
+  const [resolvedCatalogId, baseCatalogId] = resolution.chainCatalogIds;
+  return overlayLineageForArtifactSha(row.artifactSha256, context) !== undefined
+    && baseCatalogId !== undefined
+    ? resolvedCatalogId ?? null
+    : null;
 }
 
 export function sortUnifiedLeaderboardRows(

@@ -5,8 +5,13 @@ import {
   filterUnifiedLeaderboardRows,
   sortUnifiedLeaderboardRows,
 } from "../components/home-leaderboard";
-import { communityBoardRows, parseCommunityGroup, type CommunityBoardRow } from "../lib/community-data";
-import { buildFamilyResolutionContext } from "../lib/family-resolution";
+import {
+  communityBoardRows,
+  parseCommunityGroup,
+  type CommunityBoardRow,
+  type CommunityLineage,
+} from "../lib/community-data";
+import { buildFamilyResolutionContext, resolveFamily } from "../lib/family-resolution";
 import { IndexModelSchema, type CatalogModel, type IndexModel } from "../lib/schemas";
 
 const rankedRows = [60, 51, 40, 30, null].map((score, index) => rankedModel(index + 1, score));
@@ -268,6 +273,45 @@ describe("unified leaderboard community rows", () => {
     expect(selected[0]?.source === "community" ? selected[0].row.submissionId : null).toBe(community.submissionId);
   });
 
+  it("keeps an overlay-resolved community fine-tune as its own default representative", () => {
+    // Given: a live fine-tune row predates lineage capture and declares the wrong family,
+    // while the maintainer overlay supplies its authoritative edge to a scored base model.
+    const baseCatalog = catalogModel("Base/Overlay", "overlay-base", "Overlay Base");
+    const tuneCatalog = catalogModel("Tune/Overlay", "overlay-tune", "Overlay Tune", baseCatalog.id);
+    const artifactSha256 = "e".repeat(64);
+    const context = buildFamilyResolutionContext(
+      [baseCatalog, tuneCatalog],
+      [],
+      new Map([[artifactSha256, overlayLineage(artifactSha256, tuneCatalog.id, baseCatalog.id)]]),
+    );
+    const base = rankedCatalogModel(13, 43.2, baseCatalog);
+    const fixture = liveCommunityRows[0];
+    if (fixture === undefined) throw new Error("missing live community fixture");
+    const community = {
+      ...fixture,
+      artifactSha256,
+      compositeFull: 0.3673,
+      declaredBaseModels: [],
+      displayName: "Overlay community tune",
+      family: "wrong-family",
+      lineage: undefined,
+      submissionId: "ticket_overlay_tune",
+    };
+
+    // When: the default board resolves and collapses the unified population.
+    const resolution = resolveFamily(community, context);
+    const selected = filterUnifiedLeaderboardRows([base], [community], { resolutionContext: context });
+
+    // Then: the overlay places the row under the correct lineage without letting the base hide it.
+    expect(resolution).toMatchObject({
+      chainCatalogIds: [tuneCatalog.id, baseCatalog.id],
+      confidence: "lineage",
+      rootCatalogId: baseCatalog.id,
+    });
+    expect(selected.map((row) => row.source === "local-bench" ? row.model.slug : row.row.submissionId))
+      .toEqual([baseCatalog.slug, community.submissionId]);
+  });
+
   it("prefers a maintainer row when family representatives tie", () => {
     const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
     const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
@@ -403,5 +447,30 @@ function resolvedCommunityRow(
     rootCatalogId,
     rootSlug: "base-model",
     submissionId: `ticket_${catalogId.replace(/[^a-z0-9]+/giu, "_").toLowerCase()}`,
+  };
+}
+
+function overlayLineage(
+  artifactSha256: string,
+  childCatalogId: string,
+  baseCatalogId: string,
+): CommunityLineage {
+  const revision = "f".repeat(40);
+  return {
+    artifact_sha256: artifactSha256,
+    association: {
+      artifact_to_repo: "unverified",
+      basis: "maintainer-associated",
+      note: "Maintainer overlay fixture.",
+    },
+    card_declared_edges: [{
+      base: baseCatalogId,
+      base_revision: revision,
+      child: childCatalogId,
+      child_revision: revision,
+      source: "maintainer-asserted",
+    }],
+    repo: { id: childCatalogId, revision },
+    resolution: { resolved_at: "2026-07-22T00:00:00Z", status: "complete" },
   };
 }
