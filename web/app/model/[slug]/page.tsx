@@ -4,7 +4,6 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CatalogOnlyNotice } from "@/components/catalog-only-notice";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { ModelPageCommunity } from "@/components/model-page-community";
-import { ProjectRunBadge } from "@/components/leaderboard-provenance";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
 import { getModelPageData, getModelStaticParams } from "@/lib/data";
@@ -83,7 +82,6 @@ export default async function ModelPage({ params }: PageProps) {
   );
   const rankedRuns = headlineMeasured.filter(isCompleteRun);
   const partialRuns = headlineMeasured.filter((run) => !isCompleteRun(run));
-  const hasProjectRun = rankedRuns.some((run) => run.origin === "project_anchor");
   const communityCatalogIds = communityRowCatalogIds(communityFamilyRows);
   const visibleComparisons = vsBaseComparisons.filter(
     (comparison) => !communityCatalogIds.has(comparison.derivative.catalogId),
@@ -94,11 +92,6 @@ export default async function ModelPage({ params }: PageProps) {
       <Breadcrumbs items={[{ label: "Model families", href: "/families/" }, { label: model.model_label }]} />
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-bench-line pb-5">
         <div>
-          {hasProjectRun ? (
-            <div className="flex flex-wrap gap-2">
-              <ProjectRunBadge origin="project_anchor" />
-            </div>
-          ) : null}
           <h1 className="mt-3 flex items-center gap-3 text-4xl font-semibold text-bench-text">
             <FamilyLogoMark modelLabel={model.model_label} size={32} className="rounded" />
             {model.model_label}

@@ -70,7 +70,7 @@ function ReportedRun({ row }: { readonly row: CommunityBoardRow }) {
             <dt className="font-mono text-[10px] uppercase text-bench-muted">{axisLabel(axis)}</dt>
             <dd className="mt-1 font-mono text-sm text-bench-text">
               {value.status === "measured" && value.score !== null && value.score !== undefined
-                ? `${formatScore(toDisplayScore(value.score))} · n=${value.n}`
+                ? formatScore(toDisplayScore(value.score))
                 : value.status.replace("_", " ")}
             </dd>
           </div>

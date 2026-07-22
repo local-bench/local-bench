@@ -88,7 +88,7 @@ describe("model page community family results", () => {
     expect(html).not.toContain("31.8 GB");
     expect(html).toContain("Reported runs");
     expect(html).toContain("Instruction following");
-    expect(html).toContain("63.0 · n=20");
+    expect(html).not.toContain("· n=");
   });
 
   it("renders a maintainer-submitted live row with project provenance on every model-page surface", async () => {
@@ -125,10 +125,13 @@ describe("model page community family results", () => {
     />);
     const projectCells = rowCellsContaining(html, "bonsai-27b-ternary");
 
-    // Then: the table, scatter, and reported-result card all use project framing.
-    expect(projectCells[1]).toContain(">project run</span>");
+    // Then: the ranked table and scatter show NO project differentiation (owner call,
+    // 2026-07-22 — maintainer rows read like catalog rows); attribution survives only
+    // on the reported-result card.
+    expect(projectCells[1]).not.toContain(">project run</span>");
+    expect(html).toContain(">project run</span>");
     expect(html).toContain('data-point-kind="project"');
-    expect(html).toContain("Project runs");
+    expect(html).not.toContain("Project runs");
     expect(html).not.toContain(">self-reported</span>");
     expect(html).not.toContain("submitted as");
   });

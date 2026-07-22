@@ -74,9 +74,6 @@ export function ModelScatter({
   if (familyRuns.some((run) => run.point_kind === "base-model")) {
     pointLegend.push({ kind: "base-model", label: "Base model" });
   }
-  if (communityRuns.some((run) => run.point_kind === "project")) {
-    pointLegend.push({ kind: "project", label: "Project runs" });
-  }
   if (communityRuns.some((run) => run.point_kind === "community")) {
     pointLegend.push({ kind: "community", label: "Community runs" });
   }

@@ -152,6 +152,8 @@ const AcceptedResultProjectionV2BaseSchema = z.object({
     decode_tps: NullableNonnegativeNumberSchema,
     wall_time_seconds: NullableNonnegativeNumberSchema,
     tokens_to_answer_median: NullableNonnegativeNumberSchema,
+    prefill_tps: NullableNonnegativeNumberSchema.optional(),
+    overall_tps: NullableNonnegativeNumberSchema.optional(),
   }).strict().optional(),
   suite_release_id: z.enum(ACCEPTED_PROJECTION_SUITE_RELEASE_IDS),
   suite_manifest_sha256: Sha256Schema,

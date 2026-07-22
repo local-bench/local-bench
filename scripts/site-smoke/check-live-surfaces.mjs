@@ -4,9 +4,60 @@
 //   node scripts/site-smoke/check-live-surfaces.mjs
 // Override production with: SITE_BASE_URL=http://localhost:3000 node scripts/site-smoke/check-live-surfaces.mjs
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium, request } from "playwright";
 
 const BASE_URL = new URL(process.env.SITE_BASE_URL ?? "https://local-bench.ai");
+
+// The repo's model catalog is the same source the site's artifact sha-join uses;
+// reading it from the checkout lets the smoke resolve a live row's canonical
+// display name and fine-tune status without depending on a served endpoint.
+function repoModelCatalog() {
+  try {
+    const path = fileURLToPath(new URL("../../web/model_catalog.json", import.meta.url));
+    const value = JSON.parse(readFileSync(path, "utf8"));
+    return Array.isArray(value?.models) ? value.models : Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+const REPO_CATALOG = repoModelCatalog();
+
+function catalogEntryForRow(row) {
+  const sha = row?.model?.file_sha256;
+  if (typeof sha !== "string") return undefined;
+  return REPO_CATALOG.find((entry) => Array.isArray(entry?.quants)
+    && entry.quants.some((quant) => quant?.file_sha256 === sha));
+}
+
+// Every name a surface may legitimately render for this row: the declared envelope
+// name plus the catalog display name when the artifact sha resolves.
+function acceptedNames(row) {
+  const names = [displayName(row)];
+  const entry = catalogEntryForRow(row);
+  if (typeof entry?.display_name === "string" && !names.includes(entry.display_name)) {
+    names.push(entry.display_name);
+  }
+  return names;
+}
+
+// Fine-tunes collapse under their base family on the landing board (owner call,
+// 2026-07-22) — their own row must NOT appear there; they live on family/model pages.
+function collapsesUnderBaseFamily(row) {
+  return catalogEntryForRow(row)?.model_kind === "finetune";
+}
+
+async function firstVisibleNameRow(page, names, scope) {
+  for (const candidate of names) {
+    const locator = (scope ?? page).getByText(candidate, { exact: true });
+    if (await locator.count() > 0) {
+      return { locator: locator.first(), name: candidate };
+    }
+  }
+  return null;
+}
 const NAVIGATION_TIMEOUT_MS = 30_000;
 const HYDRATION_TIMEOUT_MS = 20_000;
 const checks = [];
@@ -122,22 +173,40 @@ async function run() {
     const resolvedRows = [];
     for (const row of envelope.rows) {
       const name = displayName(row);
-      const exactName = page.getByTestId("full-leaderboard").getByText(name, { exact: true });
-      const homeRow = exactName.first().locator("xpath=ancestor::tr[1]");
-      const rowCount = await homeRow.count();
-      record(
-        "C",
-        `home leaderboard: ${name}`,
-        rowCount === 1,
-        rowCount === 1 ? "exact display name is visible after hydration" : `expected one row with the exact display name; found ${rowCount}`,
-      );
-      let href = rowCount === 1 ? await homeRow.getAttribute("data-href") : null;
-      const anchor = homeRow.getByRole("link", { name, exact: true }).first();
-      if (href === null && await anchor.count() > 0) href = await anchor.getAttribute("href");
+      const names = acceptedNames(row);
+      const board = page.getByTestId("full-leaderboard");
+      const match = await firstVisibleNameRow(page, names, board);
+      const homeRow = match === null ? null : match.locator.locator("xpath=ancestor::tr[1]");
+      const rowCount = homeRow === null ? 0 : await homeRow.count();
+      if (collapsesUnderBaseFamily(row)) {
+        record(
+          "C",
+          `home leaderboard: ${name}`,
+          rowCount === 0,
+          rowCount === 0
+            ? "fine-tune collapses under its base family row (by design)"
+            : `fine-tune must not have its own landing row; found ${rowCount} (${match?.name})`,
+        );
+      } else {
+        record(
+          "C",
+          `home leaderboard: ${name}`,
+          rowCount === 1,
+          rowCount === 1
+            ? `display name "${match?.name}" is visible after hydration`
+            : `expected one row with an accepted display name (${names.join(" | ")}); found ${rowCount}`,
+        );
+      }
+      let href = homeRow !== null && rowCount === 1 ? await homeRow.getAttribute("data-href") : null;
+      if (href === null && homeRow !== null && rowCount === 1) {
+        const anchor = homeRow.getByRole("link", { name: match?.name ?? name, exact: true }).first();
+        if (await anchor.count() > 0) href = await anchor.getAttribute("href");
+      }
       resolvedRows.push({
         envelopeRow: row,
         detailUrl: href === null ? catalogDetailUrl(row, catalogModels) : new URL(href, BASE_URL).toString(),
-        needsScatter: typeof row.hardware?.vram_gb === "number" || await rowHardwareIsVisible(homeRow),
+        needsScatter: typeof row.hardware?.vram_gb === "number"
+          || (homeRow !== null && rowCount === 1 && await rowHardwareIsVisible(homeRow)),
       });
     }
 
@@ -151,8 +220,12 @@ async function run() {
       resolved.needsScatter ||= await rowHardwareIsVisible(allVariantsRow);
       if (resolved.detailUrl !== null) continue;
       const href = await allVariantsRow.getAttribute("data-href");
-      const anchor = allVariantsRow.getByRole("link", { name: displayName(resolved.envelopeRow), exact: true }).first();
-      const resolvedHref = href ?? (await anchor.count() > 0 ? await anchor.getAttribute("href") : null);
+      let anchorHref = null;
+      for (const candidate of acceptedNames(resolved.envelopeRow)) {
+        const anchor = allVariantsRow.getByRole("link", { name: candidate, exact: true }).first();
+        if (await anchor.count() > 0) { anchorHref = await anchor.getAttribute("href"); break; }
+      }
+      const resolvedHref = href ?? anchorHref;
       if (resolvedHref !== null) resolved.detailUrl = new URL(resolvedHref, BASE_URL).toString();
     }
 
@@ -172,8 +245,9 @@ async function run() {
       let detailHydration = "hydration did not complete";
       try {
         detailHydration = await freshnessText(page);
-        const exactName = page.getByText(name, { exact: true }).first();
-        await exactName.waitFor({ state: "visible", timeout: HYDRATION_TIMEOUT_MS });
+        const detailMatch = await firstVisibleNameRow(page, acceptedNames(row));
+        if (detailMatch === null) throw new Error("no accepted display name found on the detail page");
+        await detailMatch.locator.waitFor({ state: "visible", timeout: HYDRATION_TIMEOUT_MS });
         detailNameVisible = true;
       } catch (error) {
         detailHydration = errorMessage(error);
@@ -202,8 +276,14 @@ async function run() {
       const variantBoard = page.getByTestId("model-variant-board");
       const variantRow = variantBoard.getByTestId(`community-variant-${row.submission_id}`);
       const variantCount = await variantRow.count();
-      const variantNameCount = variantCount === 1 ? await variantRow.getByText(name, { exact: true }).count() : 0;
-      record("E", `variant board: ${name}`, variantCount === 1 && variantNameCount > 0, variantCount === 1 && variantNameCount > 0 ? `row rendered on ${new URL(baseUrl).pathname}` : `expected one community variant row; found ${variantCount}`);
+      let variantNameCount = 0;
+      if (variantCount === 1) {
+        for (const candidate of acceptedNames(row)) {
+          variantNameCount = await variantRow.getByText(candidate, { exact: true }).count();
+          if (variantNameCount > 0) break;
+        }
+      }
+      record("E", `variant board: ${name}`, variantCount === 1 && variantNameCount > 0, variantCount === 1 && variantNameCount > 0 ? `row rendered on ${new URL(baseUrl).pathname}` : variantCount === 1 ? "row present but no accepted display name matched" : `expected one community variant row; found ${variantCount}`);
 
       const headers = await variantBoard.locator("thead th").allTextContents();
       const vramColumn = headers.findIndex((header) => /VRAM\s*@8k/iu.test(header));

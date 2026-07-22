@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AcceptedResultProjectionV2Schema } from "../functions/_lib/submission-contracts";
 import { canonicalJson, sha256Hex } from "../functions/_lib/submission-canonical";
 import { projectionKey } from "../functions/_lib/submission-storage";
-import { rebuildCommunityLiveBoard } from "../functions/_lib/community-live-board";
+import { rebuildCommunityLiveBoard, relabeledIndexVersion } from "../functions/_lib/community-live-board";
 import { LiveBoardRowSchema, parseBoardEnvelope } from "../lib/board-adapter";
 import {
   MIGRATION_0002,
@@ -54,6 +54,23 @@ describe("live-board-function <-> board-adapter schema consistency", () => {
 
     expect(payload.rows).toEqual([]);
     expect(payload.omitted_rows).toBe(1);
+  });
+});
+
+describe("maintainer index-version relabels", () => {
+  it("relabels the bonsai submission from v4.1 to v4.2 with a provenance note", () => {
+    const result = relabeledIndexVersion("ticket_cc352811a58d4022b3044eb28abce178", "index-v4.1");
+    expect(result.value).toBe("index-v4.2");
+    expect(result.note).toBe("index_version_relabeled:index-v4.1->index-v4.2:maintainer:2026-07-22");
+  });
+
+  it("never fires for an unmapped submission or a mismatched stored label", () => {
+    expect(relabeledIndexVersion("ticket_75e2314e2a81417fb11b6396d3ebea35", "index-v4.1"))
+      .toEqual({ note: null, value: "index-v4.1" });
+    expect(relabeledIndexVersion("ticket_cc352811a58d4022b3044eb28abce178", "index-v4.2"))
+      .toEqual({ note: null, value: "index-v4.2" });
+    expect(relabeledIndexVersion("ticket_cc352811a58d4022b3044eb28abce178", null))
+      .toEqual({ note: null, value: null });
   });
 });
 

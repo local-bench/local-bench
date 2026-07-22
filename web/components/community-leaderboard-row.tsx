@@ -7,7 +7,7 @@ import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-pr
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
 import { boardAxisValue } from "@/lib/board-adapter";
-import { communityAxisScore, communityScore } from "@/lib/community-scores";
+import { communityAxisScore, communityDisplayAxes, communityScore } from "@/lib/community-scores";
 import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
@@ -101,7 +101,7 @@ export function CommunityLeaderboardRow({
       <td className="px-3 py-3">
         {row.compositeFull === null ? <span className="font-mono text-xs text-bench-muted">—</span> : (
           <div className="min-w-[132px]">
-            <ScoreBar score={communityScore(row.compositeFull)} />
+            <ScoreBar axes={communityDisplayAxes(row)} score={communityScore(row.compositeFull)} rail />
           <div className="mt-0.5 text-[10px] text-bench-muted">common composite · complete run</div>
           </div>
         )}
@@ -180,11 +180,7 @@ function CommunityAxisCell({ axis, row }: { readonly axis: string; readonly row:
 function CommunityAxisBar({ axis, row }: { readonly axis: string; readonly row: CommunityBoardRow }) {
   const value = boardAxisValue(row.axes ?? {}, axis);
   const score = communityAxisScore(value);
-  return (
-    <div title={score === undefined ? undefined : `n=${score.n} scored items`}>
-      <AxisMiniBar score={score} axis={axis} showSampleSize />
-    </div>
-  );
+  return <AxisMiniBar score={score} axis={axis} />;
 }
 
 export function shouldNavigateCommunityRow(target: EventTarget | null): boolean {
@@ -196,10 +192,21 @@ function hasClosest(target: EventTarget): target is EventTarget & { readonly clo
 }
 
 function CommunityAgenticCell({ row }: { readonly row: CommunityBoardRow }) {
+  const value = boardAxisValue(row.axes ?? {}, "agentic");
+  const score = communityAxisScore(value);
+  if (score === undefined) {
+    return <span className="font-mono text-xs text-bench-muted">n/a</span>;
+  }
+  // Mirror the baked ToolUseCell: recover the integer success count from the exact
+  // rate and fixed denominator so both row kinds read "successes/n — pct%".
+  const successes = Math.round(score.point * score.n / 100);
   return (
     <div className="min-w-[220px]">
-      <CommunityAxisBar axis="agentic" row={row} />
-      <div className="mt-1 font-mono text-[10px] text-bench-muted">AppWorld task-goal completion</div>
+      <AxisMiniBar
+        score={score}
+        axis="tool_use"
+        value={`${successes}/${score.n} — ${formatScore(score.point)}%`}
+      />
       <details className="mt-1 text-[10px] text-bench-muted">
         <summary className="cursor-pointer font-mono text-bench-accent">diagnostics</summary>
         <dl className="mt-1 grid gap-1">

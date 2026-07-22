@@ -34,7 +34,7 @@ describe("family community surfaces", () => {
     expect(html).toContain("2 models");
   });
 
-  it("uses project framing for resolved project runs in the family directory preview", () => {
+  it("renders resolved project runs without a badge or submitter identity in the directory preview", () => {
     const model = indexModel("base", "Base model", 50);
     const project = communityRow({
       compositeFull: 0.6,
@@ -53,7 +53,10 @@ describe("family community surfaces", () => {
       />,
     );
 
-    expect(html).toContain("project run");
+    // Owner call (2026-07-22): project rows are visually indistinguishable from
+    // maintainer catalog rows — no "project run" badge and no submitter line.
+    expect(html).toContain("Project fine-tune");
+    expect(html).not.toContain("project run");
     expect(html).not.toContain("submitted as Maintainer fixture — unverified");
   });
 
@@ -123,7 +126,7 @@ describe("family community surfaces", () => {
     expect(html).not.toContain("These complete self-reported runs remain visible");
   });
 
-  it("uses project framing in resolved and awaiting family model surfaces", () => {
+  it("renders project rows without badges in resolved and awaiting family model surfaces", () => {
     const measured = indexModel("base", "Base model", 50);
     const summary = familySummaries([measured])[0];
     if (summary === undefined) throw new Error("missing family summary fixture");
@@ -147,8 +150,13 @@ describe("family community surfaces", () => {
     );
     const awaitingHtml = renderToStaticMarkup(<AwaitingFamilyAssignment rows={[awaitingProject]} />);
 
-    expect(resolvedHtml).toContain("project run");
-    expect(awaitingHtml).toContain("project run");
+    // Owner call (2026-07-22): no "project run" badge on these surfaces — project rows
+    // render like maintainer rows, with no submitter identity line either.
+    // (Display names contain the words "project run", so match the badge markup itself.)
+    expect(resolvedHtml).toContain("Resolved project run");
+    expect(awaitingHtml).toContain("Awaiting project run");
+    expect(resolvedHtml).not.toContain(">project run</span>");
+    expect(awaitingHtml).not.toContain(">project run</span>");
     expect(resolvedHtml).not.toContain("submitted as Maintainer fixture — unverified");
     expect(awaitingHtml).not.toContain("submitted as Maintainer fixture — unverified");
   });

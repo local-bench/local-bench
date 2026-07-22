@@ -22,7 +22,18 @@ describe("community environment overlay", () => {
 
     expect(merged).toEqual({
       hardware: { gpu_name: "Live GPU", vram_gb: 48 },
-      perf: { decode_tps: 90, tokens_to_answer_median: 1024, wall_time_seconds: 3600 },
+      // prefill/overall exist only in the overlay (the submission never carried them),
+      // so they backfill even when every submitted field wins on its own.
+      maintainerEnvBackfill: {
+        perf: { overall_tps: true, prefill_tps: true },
+      },
+      perf: {
+        decode_tps: 90,
+        overall_tps: 98.53,
+        prefill_tps: 3051.77,
+        tokens_to_answer_median: 1024,
+        wall_time_seconds: 3600,
+      },
     });
   });
 
@@ -44,10 +55,12 @@ describe("community environment overlay", () => {
       hardware: { gpu_name: "Live GPU", vram_gb: 31.8 },
       maintainerEnvBackfill: {
         hardware: { vram_gb: true },
-        perf: { wall_time_seconds: true },
+        perf: { overall_tps: true, prefill_tps: true, wall_time_seconds: true },
       },
       perf: {
         decode_tps: 90,
+        overall_tps: 98.53,
+        prefill_tps: 3051.77,
         tokens_to_answer_median: 2048,
         wall_time_seconds: 61272.45902150008,
       },

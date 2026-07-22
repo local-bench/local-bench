@@ -274,9 +274,11 @@ describe("unified leaderboard community rows", () => {
     expect(selected[0]?.source === "community" ? selected[0].row.submissionId : null).toBe(community.submissionId);
   });
 
-  it("keeps an overlay-resolved project-origin fine-tune as its own default representative", () => {
+  it("collapses an overlay-resolved fine-tune into its base family group on the default board", () => {
     // Given: a live fine-tune row predates lineage capture and declares the wrong family,
     // while the maintainer overlay supplies its authoritative edge to a scored base model.
+    // Owner call (2026-07-22): the landing board is parent-only — the fine-tune shares the
+    // base family's collapse key and the highest displayed composite represents the group.
     const baseCatalog = catalogModel("Base/Overlay", "overlay-base", "Overlay Base");
     const tuneCatalog = catalogModel("Tune/Overlay", "overlay-tune", "Overlay Tune", baseCatalog.id);
     const artifactSha256 = "e".repeat(64);
@@ -304,14 +306,16 @@ describe("unified leaderboard community rows", () => {
     const resolution = resolveFamily(community, context);
     const selected = filterUnifiedLeaderboardRows([base], [community], { resolutionContext: context });
 
-    // Then: the overlay places the row under the correct lineage without letting the base hide it.
+    // Then: the overlay still resolves the lineage, and the higher-scoring base is the
+    // family's sole representative — the fine-tune collapses into the group.
     expect(resolution).toMatchObject({
       chainCatalogIds: [tuneCatalog.id, baseCatalog.id],
       confidence: "lineage",
       rootCatalogId: baseCatalog.id,
     });
+    expect(selected).toHaveLength(1);
     expect(selected.map((row) => row.source === "local-bench" ? row.model.slug : row.row.submissionId))
-      .toEqual([baseCatalog.slug, community.submissionId]);
+      .toEqual([baseCatalog.slug]);
   });
 
   it("prefers a maintainer row when family representatives tie", () => {

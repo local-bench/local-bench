@@ -7,7 +7,7 @@ import {
 } from "@/components/family-community-models";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
-import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { familySummaries } from "@/lib/families";
 import type { FamilyResolutionContext } from "@/lib/family-resolution";
@@ -72,13 +72,12 @@ export function FamilyDirectory({ communityRows, models, resolutionContext }: Fa
                       {entry.row.detailPath === null ? entry.row.displayName : (
                         <Link href={entry.row.detailPath} className="hover:text-bench-accent">{entry.row.displayName}</Link>
                       )}
-                      <span className="ml-1">
-                        {entry.row.origin === "project_anchor" ? (
-                          <ProjectRunBadge badge={entry.row.badge} origin={entry.row.origin} />
-                        ) : (
+                      {/* Project-run rows carry no badge in the directory preview (owner call, 2026-07-22). */}
+                      {entry.row.origin === "project_anchor" ? null : (
+                        <span className="ml-1">
                           <SubmissionIdentity displayName={entry.row.submitterDisplayName} />
-                        )}
-                      </span>
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>

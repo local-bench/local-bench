@@ -140,11 +140,33 @@ async function eligibleRows(env: SubmissionApiEnv): Promise<readonly EligibleRow
   }));
 }
 
+// Maintainer index-version relabels (owner call, 2026-07-22). The immutable projection
+// keeps its submitted label; the public envelope presents the current-season label for
+// rows whose protocol content is identical across the rename (v4.1 -> v4.2 changed the
+// season labeling, not this row's suite content or scoring). Keyed by submission id and
+// gated on the exact stored label so a genuine protocol mismatch can never be masked.
+const INDEX_VERSION_RELABELS: ReadonlyMap<string, { readonly from: string; readonly to: string }> = new Map([
+  ["ticket_cc352811a58d4022b3044eb28abce178", { from: "index-v4.1", to: "index-v4.2" }],
+]);
+
+export function relabeledIndexVersion(submissionId: string, indexVersion: string | null): {
+  readonly note: string | null;
+  readonly value: string | null;
+} {
+  const relabel = INDEX_VERSION_RELABELS.get(submissionId);
+  if (relabel === undefined || indexVersion !== relabel.from) return { note: null, value: indexVersion };
+  return {
+    note: `index_version_relabeled:${relabel.from}->${relabel.to}:maintainer:2026-07-22`,
+    value: relabel.to,
+  };
+}
+
 function liveBoardRow(
   row: EligibleRow,
   projection: ReturnType<typeof AcceptedResultProjectionV2Schema.parse>,
   complete: boolean,
 ) {
+  const indexVersion = relabeledIndexVersion(row.submissionId, projection.index_version ?? null);
   return {
     axes: projection.axes,
     ...(row.communityModelGroupId === null ? {} : {
@@ -159,7 +181,7 @@ function liveBoardRow(
     },
     coverage_profile_id: projection.coverage_profile_id,
     headline_complete: projection.headline_complete,
-    index_version: projection.index_version ?? null,
+    index_version: indexVersion.value,
     lineage: projection.lineage,
     ...(projection.runtime === undefined ? {} : { runtime: publicRuntime(projection.runtime) }),
     ...(projection.hardware === undefined ? {} : { hardware: projection.hardware }),
@@ -176,7 +198,10 @@ function liveBoardRow(
     origin: row.origin,
     ...(row.origin === "project_anchor" ? { badge: "project-run" } : {}),
     normalization_annotations: projection.normalization_annotations ?? [],
-    provenance_notes: publicProvenanceNotes(projection.provenance_notes ?? []),
+    provenance_notes: publicProvenanceNotes([
+      ...(projection.provenance_notes ?? []),
+      ...(indexVersion.note === null ? [] : [indexVersion.note]),
+    ]),
     receipt_references: projection.receipt_references,
     ranked: complete,
     rescore_modes: projection.rescore_modes,

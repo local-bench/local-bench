@@ -277,20 +277,9 @@ function PointMarker({
       />
     );
   }
-  if (kind === "project") {
-    return (
-      <rect
-        data-point-kind={kind}
-        x={cx - 6}
-        y={cy - 6}
-        width="12"
-        height="12"
-        rx="2"
-        className="fill-bench-panel stroke-bench-accent"
-        strokeWidth="3"
-      />
-    );
-  }
+  // Owner call (2026-07-22): "project" (maintainer-run) points are visually identical to the
+  // catalog's own points — they fall through to the default marker below. Only the
+  // data-point-kind attribute distinguishes them (the site-smoke script reads it).
   if (kind === "community") {
     return (
       <circle
@@ -322,9 +311,8 @@ function LegendMarker({ kind }: { readonly kind: QualityVramPointKind }) {
   if (kind === "base-model") {
     return <span aria-hidden className="inline-block h-2.5 w-2.5 rotate-45 bg-bench-mixed" />;
   }
-  if (kind === "project") {
-    return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[2px] border-2 border-bench-accent bg-bench-panel" />;
-  }
+  // "project" falls through to the default catalog dot — project points are not
+  // visually distinct (owner call, 2026-07-22).
   if (kind === "community") {
     return <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full border-2 border-bench-better bg-bench-panel" />;
   }
@@ -383,6 +371,11 @@ function labelBoxesOverlap(
 // x-axis starts and ends on a hardware number and the tier lines are shared landmarks.
 const X_BREAKPOINTS = [0, 4, ...VRAM_TIERS] as const;
 
+// Owner call (2026-07-22): the footprint axis spans a fixed 4–64 GB frame by default so
+// every page shares the same visual scale; only data outside that frame stretches a bound.
+const DEFAULT_X_MIN = 4;
+const DEFAULT_X_MAX = 64;
+
 function getXDomain(points: readonly ScatterPoint[]): { readonly min: number; readonly max: number } {
   if (points.length === 0) {
     return { min: 0, max: 8 };
@@ -390,20 +383,24 @@ function getXDomain(points: readonly ScatterPoint[]): { readonly min: number; re
   const values = points.map((point) => point.x);
   const lo = Math.min(...values);
   const hi = Math.max(...values);
-  let min = 0;
-  for (const breakpoint of X_BREAKPOINTS) {
-    if (breakpoint <= lo) {
-      min = breakpoint;
+  let min = DEFAULT_X_MIN;
+  if (lo < DEFAULT_X_MIN) {
+    // Walk down to the largest breakpoint at or below the data, floored at 0.
+    min = 0;
+    for (const breakpoint of X_BREAKPOINTS) {
+      if (breakpoint <= lo) {
+        min = breakpoint;
+      }
     }
   }
-  let max = X_BREAKPOINTS.find((breakpoint) => breakpoint >= hi) ?? Math.ceil(hi);
-  if (max <= min) {
-    max = X_BREAKPOINTS.find((breakpoint) => breakpoint > min) ?? min + 4;
-  }
-  // A point sitting on (or within 10% of) the right bound renders under the axis edge
-  // and is easy to miss — step to the next tier so edge points sit clearly inside.
-  if (hi >= max - (max - min) * 0.1) {
-    max = X_BREAKPOINTS.find((breakpoint) => breakpoint > max) ?? Math.ceil(max * 1.15);
+  let max = DEFAULT_X_MAX;
+  if (hi > DEFAULT_X_MAX) {
+    max = X_BREAKPOINTS.find((breakpoint) => breakpoint >= hi) ?? Math.ceil(hi);
+    // A point sitting on (or within 10% of) the right bound renders under the axis edge
+    // and is easy to miss — step to the next tier so edge points sit clearly inside.
+    if (hi >= max - (max - min) * 0.1) {
+      max = X_BREAKPOINTS.find((breakpoint) => breakpoint > max) ?? Math.ceil(max * 1.15);
+    }
   }
   return { min, max };
 }

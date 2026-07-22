@@ -12,6 +12,8 @@ export type MaintainerEnvBackfill = {
   readonly perf?: {
     readonly decode_tps?: true;
     readonly latency_s_median?: true;
+    readonly overall_tps?: true;
+    readonly prefill_tps?: true;
     readonly tokens_to_answer_median?: true;
     readonly wall_time_seconds?: true;
   };
@@ -58,12 +60,28 @@ export function mergeCommunityEnvironment(
     overlay: overlay?.perf.tokens_to_answer_median,
     projection: projection.perf?.tokens_to_answer_median,
   });
-  const wallTime = selectField({
-    baked: baked?.perf?.wall_time_seconds,
-    bakedBackfill: baked?.maintainerEnvBackfill?.perf?.wall_time_seconds === true,
-    overlay: overlay?.perf.wall_time_seconds,
-    projection: projection.perf?.wall_time_seconds,
+  const prefillTps = selectField({
+    baked: baked?.perf?.prefill_tps,
+    bakedBackfill: baked?.maintainerEnvBackfill?.perf?.prefill_tps === true,
+    overlay: overlay?.perf.prefill_tps,
+    projection: projection.perf?.prefill_tps,
   });
+  const overallTps = selectField({
+    baked: baked?.perf?.overall_tps,
+    bakedBackfill: baked?.maintainerEnvBackfill?.perf?.overall_tps === true,
+    overlay: overlay?.perf.overall_tps,
+    projection: projection.perf?.overall_tps,
+  });
+  const wallTimeOverride = overlay?.perf_overrides?.wall_time_seconds;
+  const wallTime = wallTimeOverride !== undefined
+    // Maintainer correction: the submitted value is known-wrong, the overlay wins.
+    ? { backfilled: true, value: wallTimeOverride }
+    : selectField({
+      baked: baked?.perf?.wall_time_seconds,
+      bakedBackfill: baked?.maintainerEnvBackfill?.perf?.wall_time_seconds === true,
+      overlay: overlay?.perf.wall_time_seconds,
+      projection: projection.perf?.wall_time_seconds,
+    });
   const hardwareBackfill = {
     ...(gpuName.backfilled ? { gpu_name: true as const } : {}),
     ...(vramGb.backfilled ? { vram_gb: true as const } : {}),
@@ -71,6 +89,8 @@ export function mergeCommunityEnvironment(
   const perfBackfill = {
     ...(decodeTps.backfilled ? { decode_tps: true as const } : {}),
     ...(latency.backfilled ? { latency_s_median: true as const } : {}),
+    ...(overallTps.backfilled ? { overall_tps: true as const } : {}),
+    ...(prefillTps.backfilled ? { prefill_tps: true as const } : {}),
     ...(tokens.backfilled ? { tokens_to_answer_median: true as const } : {}),
     ...(wallTime.backfilled ? { wall_time_seconds: true as const } : {}),
   };
@@ -91,6 +111,8 @@ export function mergeCommunityEnvironment(
       perf: {
         decode_tps: decodeTps.value,
         ...(latency.value === null ? {} : { latency_s_median: latency.value }),
+        ...(overallTps.value === null ? {} : { overall_tps: overallTps.value }),
+        ...(prefillTps.value === null ? {} : { prefill_tps: prefillTps.value }),
         tokens_to_answer_median: tokens.value,
         wall_time_seconds: wallTime.value,
       },

@@ -241,9 +241,10 @@ describe("ModelScatter family points", () => {
       model: projectModel,
     }));
 
-    // Then: project and community live results remain visually distinguishable.
+    // Then: the project point renders like a catalog point (no separate legend entry),
+    // while the kind attribute stays for tooling; community styling is absent.
     expect(html).toContain('data-point-kind="project"');
-    expect(html).toContain("Project runs");
+    expect(html).not.toContain("Project runs");
     expect(html).not.toContain('data-point-kind="community"');
     expect(html).not.toContain("Community runs");
   });

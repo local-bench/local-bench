@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
-import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { toDisplayScore } from "@/lib/board-adapter";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { FamilyModelSummary } from "@/lib/families";
@@ -91,13 +91,13 @@ export function AwaitingFamilyAssignment({ rows }: { readonly rows: readonly Com
             <p className="mt-1 font-mono text-xs text-bench-muted">
               {formatScore(toDisplayScore(row.compositeFull ?? 0))} · {row.family ?? "family not declared"}
             </p>
-            <div className="mt-2">
-              {row.origin === "project_anchor" ? (
-                <ProjectRunBadge badge={row.badge} origin={row.origin} />
-              ) : (
+            {/* Project-run rows carry no badge here (owner call, 2026-07-22) — only
+                community submissions show their submitter identity. */}
+            {row.origin === "project_anchor" ? null : (
+              <div className="mt-2">
                 <SubmissionIdentity displayName={row.submitterDisplayName} />
-              )}
-            </div>
+              </div>
+            )}
           </article>
         ))}
       </div>
@@ -182,13 +182,12 @@ function CommunityFamilyRow({ entry }: { readonly entry: CommunityFamilyEntry })
             {entry.row.displayName}
           </Link>
         )}
-        <div className="mt-1">
-          {entry.row.origin === "project_anchor" ? (
-            <ProjectRunBadge badge={entry.row.badge} origin={entry.row.origin} />
-          ) : (
+        {/* Project-run rows render like maintainer rows — no badge (owner call, 2026-07-22). */}
+        {entry.row.origin === "project_anchor" ? null : (
+          <div className="mt-1">
             <SubmissionIdentity displayName={entry.row.submitterDisplayName} />
-          )}
-        </div>
+          </div>
+        )}
       </td>
       <td className="px-5 py-3 font-mono text-bench-muted">{formatScore(entry.score)}</td>
     </tr>

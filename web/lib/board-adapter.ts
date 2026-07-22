@@ -190,6 +190,8 @@ export const LiveBoardRowSchema = z.object({
   perf: z.object({
     decode_tps: z.number().finite().nonnegative().nullable(),
     latency_s_median: z.number().finite().nonnegative().nullable().optional(),
+    overall_tps: z.number().finite().nonnegative().nullable().optional(),
+    prefill_tps: z.number().finite().nonnegative().nullable().optional(),
     tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
     wall_time_seconds: z.number().finite().nonnegative().nullable(),
   }).strict().readonly().optional(),
@@ -307,6 +309,8 @@ const CompatibleHardwareSchema = z.object({
 const CompatiblePerfSchema = z.object({
   decode_tps: z.number().finite().nonnegative().nullable(),
   latency_s_median: z.number().finite().nonnegative().nullable().optional(),
+  overall_tps: z.number().finite().nonnegative().nullable().optional(),
+  prefill_tps: z.number().finite().nonnegative().nullable().optional(),
   tokens_to_answer_median: z.number().finite().nonnegative().nullable(),
   wall_time_seconds: z.number().finite().nonnegative().nullable(),
 }).passthrough().readonly();

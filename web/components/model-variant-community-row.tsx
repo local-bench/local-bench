@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AgenticProvenanceChip, ProjectRunBadge } from "@/components/leaderboard-provenance";
+import { AgenticProvenanceChip } from "@/components/leaderboard-provenance";
 import { RuntimeCell } from "@/components/leaderboard-table-cells";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { boardAxisValue } from "@/lib/board-adapter";
@@ -56,9 +56,7 @@ export function CommunityVariantTableRow({
           ) : null}
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono font-semibold text-bench-text">{row.quantLabel ?? "n/a"}</span>
-            {row.origin === "project_anchor" ? (
-              <ProjectRunBadge badge={row.badge} origin={row.origin} />
-            ) : (
+            {row.origin === "project_anchor" ? null : (
               <AgenticProvenanceChip value="self-reported" />
             )}
             {complete ? null : (
@@ -90,7 +88,13 @@ export function CommunityVariantTableRow({
         {artifactDetail?.vramGb8k == null ? "—" : formatGb(artifactDetail.vramGb8k)}
       </td>
       <td className="px-3 py-3 font-mono text-bench-text">{communityFitTier(artifactDetail?.vramGb8k)}</td>
-      {hasPerf ? <td className="px-3 py-3" /> : null}
+      {hasPerf ? (
+        <td className="px-3 py-3 font-mono text-bench-text">
+          {row.perf?.prefill_tps === null || row.perf?.prefill_tps === undefined
+            ? ""
+            : formatCompactNumber(row.perf.prefill_tps)}
+        </td>
+      ) : null}
       {hasPerf ? (
         <td className="px-3 py-3 font-mono text-bench-text">
           {row.perf?.decode_tps === null || row.perf?.decode_tps === undefined
@@ -98,7 +102,11 @@ export function CommunityVariantTableRow({
             : formatCompactNumber(row.perf.decode_tps)}
         </td>
       ) : null}
-      <td className="px-3 py-3 font-mono text-bench-muted">—</td>
+      <td className="px-3 py-3 font-mono text-bench-text">
+        {row.perf?.overall_tps === null || row.perf?.overall_tps === undefined
+          ? ""
+          : formatCompactNumber(row.perf.overall_tps)}
+      </td>
       <td className={`px-3 py-3 font-mono ${artifactDetail?.fileGb == null ? "text-bench-muted" : "text-bench-text"}`}>
         {artifactDetail?.fileGb == null ? "—" : formatGb(artifactDetail.fileGb)}
       </td>

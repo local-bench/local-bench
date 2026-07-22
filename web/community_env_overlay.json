@@ -6,10 +6,31 @@
     },
     "perf": {
       "decode_tps": 118.21192224254683,
+      "overall_tps": 98.53,
+      "prefill_tps": 3051.77,
       "tokens_to_answer_median": 3215,
       "wall_time_seconds": 61272.45902150008
     },
     "source": "maintainer-backfill-from-bundle",
-    "bundle_sha256": "8f3eb84a4c16192e4a4ecd32c9eb2140fae640e981ca9a00418264369fad2d84"
+    "bundle_sha256": "8f3eb84a4c16192e4a4ecd32c9eb2140fae640e981ca9a00418264369fad2d84",
+    "note": "prefill/overall throughput backfilled 2026-07-22 from the local run doc (submission predated perf projection of these fields)"
+  },
+  "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8": {
+    "hardware": {
+      "gpu_name": "NVIDIA GeForce RTX 5090",
+      "vram_gb": 31.8
+    },
+    "perf": {
+      "decode_tps": null,
+      "overall_tps": 175.07,
+      "prefill_tps": 7669.0,
+      "tokens_to_answer_median": null,
+      "wall_time_seconds": null
+    },
+    "perf_overrides": {
+      "wall_time_seconds": 49880.08
+    },
+    "source": "maintainer-backfill-from-run-doc",
+    "note": "wall-time correction 2026-07-22: resumed run submitted final-segment-only wall clock (CLI bug fixed for 0.4.6); overall_tps = completion_tokens / corrected wall; prefill from run-doc perf block"
   }
 }

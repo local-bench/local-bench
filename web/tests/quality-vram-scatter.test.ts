@@ -29,42 +29,79 @@ function render(runs: readonly QualityVramRun[]): string {
 }
 
 describe("QualityVramScatter x-axis domain", () => {
-  it("snaps the domain outward to canonical GPU-tier breakpoints", () => {
-    // Single point at 21.6 GB → domain [16, 24], so both boundary tier lines render.
+  it("spans the default 4-64 GB frame for in-range data", () => {
+    // Single point at 21.6 GB still gets the full shared frame: 4 GB left edge, 64 GB right.
     const html = render([run({})]);
-    expect(html).toContain(">16GB<");
-    expect(html).toContain(">24GB<");
-    expect(html).not.toContain(">32GB<");
+    expect(html).toContain(">4 GB<");
+    expect(html).toContain(">64 GB<");
+    expect(html).toContain(">8GB<");
+    expect(html).toContain(">64GB<");
+    expect(html).not.toContain(">96GB<");
   });
 
-  it("keeps identical bounds for pages whose data spans the same tiers", () => {
+  it("keeps identical bounds for pages with different in-range data", () => {
     const pageA = render([run({ vram_footprint_gb: 17.1 }), run({ vram_footprint_gb: 21.6 })]);
-    const pageB = render([run({ vram_footprint_gb: 16.4 }), run({ vram_footprint_gb: 23.9 })]);
-    for (const tier of ["16GB", "24GB"]) {
-      expect(pageA).toContain(`>${tier}<`);
-      expect(pageB).toContain(`>${tier}<`);
+    const pageB = render([run({ vram_footprint_gb: 6.4 }), run({ vram_footprint_gb: 62.9 })]);
+    for (const bound of ["4 GB", "64 GB"]) {
+      expect(pageA).toContain(`>${bound}<`);
+      expect(pageB).toContain(`>${bound}<`);
     }
+    expect(pageB).not.toContain(">96GB<");
   });
 
-  it("widens a degenerate domain when every point sits on one breakpoint", () => {
-    const html = render([run({ vram_footprint_gb: 16 })]);
-    expect(html).toContain(">16GB<");
-    expect(html).toContain(">24GB<");
+  it("falls back to the walk-down bound when a point sits below 4 GB", () => {
+    const html = render([run({ vram_footprint_gb: 2.5 })]);
+    expect(html).toContain(">0 GB<");
+    expect(html).toContain(">64 GB<");
+  });
+
+  it("keeps the empty-data placeholder domain", () => {
+    const html = render([]);
+    expect(html).toContain("No local runs include VRAM footprint yet.");
+    expect(html).toContain(">0 GB<");
+    expect(html).toContain(">8 GB<");
   });
 });
 
-describe("QualityVramScatter edge headroom", () => {
-  it("extends the domain to the next tier when a point sits near the right bound", () => {
-    // 31.8 GB against a 32 GB bound would render under the axis edge — expect a 48 GB bound.
-    const html = render([run({ vram_footprint_gb: 21.6 }), run({ vram_footprint_gb: 31.8 })]);
-    expect(html).toContain(">32GB<");
-    expect(html).toContain(">48GB<");
+describe("QualityVramScatter edge headroom above 64 GB", () => {
+  it("walks up to the covering tier when a point exceeds 64 GB", () => {
+    const html = render([run({ vram_footprint_gb: 70 })]);
+    expect(html).toContain(">96GB<");
+    expect(html).toContain(">96 GB<");
+    expect(html).not.toContain(">128GB<");
   });
 
-  it("keeps the snapped bound when points sit comfortably inside it", () => {
-    const html = render([run({ vram_footprint_gb: 17.1 }), run({ vram_footprint_gb: 21.6 })]);
-    expect(html).toContain(">24GB<");
-    expect(html).not.toContain(">32GB<");
+  it("steps to the next tier when an out-of-range point crowds the right bound", () => {
+    // 94 GB against a 96 GB bound would render under the axis edge — expect a 128 GB bound.
+    const html = render([run({ vram_footprint_gb: 94 })]);
+    expect(html).toContain(">128GB<");
+  });
+
+  it("keeps the 64 GB bound when a point sits near it inside the frame", () => {
+    const html = render([run({ vram_footprint_gb: 63 })]);
+    expect(html).toContain(">64 GB<");
+    expect(html).not.toContain(">96GB<");
+  });
+});
+
+describe("QualityVramScatter point kinds", () => {
+  it("renders project points with the same marker as catalog points, keeping the data attribute", () => {
+    const html = render([run({ point_kind: "project" })]);
+    const marker = /<circle data-point-kind="project"[^>]*/u.exec(html)?.[0];
+    if (marker === undefined) throw new Error("missing project point marker");
+    // Same solid accent dot as the catalog's own runs — no distinct project styling.
+    expect(marker).toContain('r="6"');
+    expect(marker).toContain("fill-bench-accent");
+    expect(marker).not.toContain("fill-bench-panel");
+  });
+
+  it("keeps community points hollow and visually distinct", () => {
+    const html = render([run({ point_kind: "community" })]);
+    const marker = /<circle data-point-kind="community"[^>]*/u.exec(html)?.[0];
+    if (marker === undefined) throw new Error("missing community point marker");
+    expect(marker).toContain('r="7"');
+    expect(marker).toContain("stroke-bench-better");
+    expect(marker).toContain("fill-bench-panel");
   });
 });
 

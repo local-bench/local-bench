@@ -276,11 +276,12 @@ describe("live-only community links", () => {
     expect(html).not.toContain('title="Qwen (Alibaba)"');
     expect(html).toContain("LB-2026-07");
     expect(html).toContain("Fine-tune of Qwen/Qwen3.6-27B");
-    expect(html).toContain("h-1.5 overflow-hidden rounded-full");
+    // The composite renders the same stacked contribution rail as baked ranked rows.
+    expect(html).toContain("flex overflow-hidden rounded-full");
+    expect(html).toContain("h-1.5 w-full");
     expect(html).toContain("h-1 overflow-hidden rounded-full");
-    expect(html).toContain('title="n=400 scored items"');
-    expect(visibleText).toContain("n=400");
-    expect(html).toContain("AppWorld task-goal completion");
+    expect(html).not.toContain('title="n=400 scored items"');
+    expect(visibleText).not.toContain("n=400");
     expect(html).toContain("Call formatting");
     expect(html).toContain("BFCL v3 multi-turn base — frozen snapshot");
     expect(html).toContain("RULER 32K");
@@ -344,7 +345,8 @@ describe("live-only community links", () => {
       }]} />);
 
     expect(html).toContain("Knowledge");
-    expect(html).toContain("50.0 · n=20");
+    expect(html).toContain("50.0");
+    expect(html).not.toContain("· n=20");
     expect(html).toContain("not measured");
     expect(html).toContain("submitted as Ada — unverified");
     expect(html).toContain("Per-axis breakdown");
