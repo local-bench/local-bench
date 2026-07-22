@@ -64,6 +64,7 @@ class SubmitRunOptions:
     bypass_token_file: Path | None
     dry_run: bool
     base_model: str | None = None
+    admin_secret: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +182,11 @@ def _request_ticket(
 ) -> SubmissionEnvelope:
     pop = _pop(bundle, key.path)
     request = SubmissionTicketRequest(
-        credentials=SiteCredentials(site=site, bypass_token=_bypass_token(options)),
+        credentials=SiteCredentials(
+            site=site,
+            bypass_token=_bypass_token(options),
+            admin_secret=options.admin_secret,
+        ),
         raw_bundle_sha256=bundle.sha256,
         public_key=key.public_key,
         declared_model_slug=bundle.declared_model_slug,

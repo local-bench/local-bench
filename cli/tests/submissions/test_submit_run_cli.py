@@ -7,6 +7,7 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import pytest
 
 from localbench.cli import main
@@ -115,6 +116,80 @@ async def test_submit_run_packs_tickets_uploads_and_prints_publish_summary(
     assert "Published immediately; subject to post-hoc moderation." in output
     config = json.loads((tmp_path / "home" / ".localbench" / "submit.json").read_text(encoding="utf-8"))
     assert config == {"display_name": "Alice", "site": "https://local-bench.ai"}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "admin_secret",
+    ["maintainer-test-secret", None],
+    ids=["admin-secret-file", "anonymous"],
+)
+async def test_submit_run_ticket_header_tracks_optional_admin_secret(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    admin_secret: str | None,
+) -> None:
+    # Given: a finished run and a ticket endpoint that records the request headers.
+    import localbench.submissions.client as client_mod
+    import localbench.submissions.submit_run as submit_mod
+
+    _isolate_home(monkeypatch, tmp_path)
+    monkeypatch.delenv("LOCALBENCH_ADMIN_SECRET", raising=False)
+    fixtures = await build_submission_fixtures(tmp_path)
+    _mark_site_release(fixtures.run_path)
+    seen_headers: list[httpx.Headers] = []
+
+    def ticket_handler(request: httpx.Request) -> httpx.Response:
+        seen_headers.append(request.headers)
+        payload = json.loads(request.content)
+        return httpx.Response(
+            201,
+            json=_envelope(str(payload["bundle_sha256"]), str(payload["public_key"]), "sub_header"),
+        )
+
+    transport = httpx.MockTransport(ticket_handler)
+
+    def request_ticket(request: submit_mod.SubmissionTicketRequest) -> dict[str, object]:
+        return client_mod.request_submission_ticket(request, transport)
+
+    def fake_upload(_request: submit_mod.SubmissionUploadRequest) -> dict[str, str]:
+        return {"submission_id": "sub_header", "status": "pending_verification"}
+
+    def fake_status(request: submit_mod.SubmissionStatusRequest) -> dict[str, str]:
+        return {"submission_id": request.ticket_id, "status": "pending_verification"}
+
+    monkeypatch.setattr(submit_mod, "request_submission_ticket", request_ticket)
+    monkeypatch.setattr(submit_mod, "upload_submission_bundle", fake_upload)
+    monkeypatch.setattr(submit_mod, "get_submission_status", fake_status)
+    argv = [
+        "submit",
+        "run",
+        "--run",
+        str(fixtures.run_path),
+        "--suite-dir",
+        str(fixtures.suite_dir),
+        "--signing-key",
+        str(fixtures.key_path),
+    ]
+    if admin_secret is not None:
+        secret_file = tmp_path / "admin-secret.txt"
+        secret_file.write_text(f"{admin_secret}\n", encoding="utf-8")
+        argv.extend(("--admin-secret-file", str(secret_file)))
+
+    # When: submit run mints its ticket through the real HTTP client helper.
+    code = main(argv)
+
+    # Then: the header is present only for the configured secret, and the value is never printed.
+    captured = capsys.readouterr()
+    assert code == 0
+    assert len(seen_headers) == 1
+    if admin_secret is None:
+        assert "x-localbench-admin-secret" not in seen_headers[0]
+    else:
+        assert seen_headers[0]["x-localbench-admin-secret"] == admin_secret
+        assert admin_secret not in captured.out
+        assert admin_secret not in captured.err
 
 
 @pytest.mark.anyio

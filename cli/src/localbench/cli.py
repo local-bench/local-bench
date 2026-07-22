@@ -630,6 +630,7 @@ def _parser() -> argparse.ArgumentParser:
     submit_run_parser.add_argument("--base-model", type=parse_hugging_face_repo_id)
     submit_run_parser.add_argument("--dry-run", action="store_true")
     _add_bypass_args(submit_run_parser)
+    _add_admin_secret_args(submit_run_parser)
     validate_bundle_parser = subparsers.add_parser(
         "validate-submission-bundle",
         help="validate a result bundle against the publishable submission contract",
@@ -2371,6 +2372,7 @@ def _submit_run(args: argparse.Namespace) -> int:
                 bypass_token_file=None,
                 dry_run=args.dry_run,
                 base_model=args.base_model,
+                admin_secret=_optional_admin_secret(args),
             ),
         )
     except (SubmitRunError, SubmissionValidationError, OSError, json.JSONDecodeError, ValueError) as error:

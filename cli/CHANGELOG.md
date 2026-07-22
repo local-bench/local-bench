@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.6 - Unreleased
+
+- One-shot `submit run` can present the admin secret when minting a ticket, so maintainer
+  submissions are born as project-anchor tickets and labeled `project run` instead of
+  community. Anonymous submissions are unchanged and send no admin-secret header.
+
 ## 0.4.5 - 2026-07-22
 
 - Disabled llama.cpp's cross-request host prompt-state cache (`--cache-ram 0`) for canonical ranked
