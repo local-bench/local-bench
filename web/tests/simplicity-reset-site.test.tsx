@@ -97,7 +97,7 @@ describe("Simplicity Reset SITE contract", () => {
     });
   });
 
-  it("ranks complete community rows and reserves the only provenance badge for project runs", () => {
+  it("ranks complete community rows and reserves the only provenance attribution for project runs", () => {
     const html = renderToStaticMarkup(
       <HomeLeaderboard
         models={[projectModel()]}
@@ -110,7 +110,7 @@ describe("Simplicity Reset SITE contract", () => {
 
     expect(communityStart).toBeGreaterThan(-1);
     expect(communityHtml).toMatch(/<td[^>]*>\s*2\s*<\/td>/u);
-    expect(html.match(/project run/giu)).toHaveLength(1);
+    expect(html.match(/run by local-bench/giu)).toHaveLength(1);
     expect(communityHtml).toContain("submitted as Ada — unverified");
     expect(html).not.toMatch(/self[- ]reported|maintainer[- ]run|trust tier/iu);
     expect(html).not.toContain("local-bench runs");

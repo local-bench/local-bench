@@ -143,8 +143,8 @@ describe("live-only community links", () => {
       /></tbody></table>,
     );
 
-    expect(html).toContain("project run");
-    expect(html).toContain("This benchmark was run by the local-bench project");
+    expect(html).toContain("run by local-bench");
+    expect(html).toContain("Run by the local-bench project on the reference rig");
     expect(html).not.toContain("submitted as Maintainer fixture — unverified");
   });
 

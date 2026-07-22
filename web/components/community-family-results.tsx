@@ -1,7 +1,7 @@
 "use client";
 
 import { CommunityFreshness, type LiveCommunityState } from "@/components/community-live-state";
-import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunAttribution, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import type { CommunityBoardRow, CommunityLineage } from "@/lib/community-data";
 import { huggingFaceRepoUrl } from "@/lib/community-links";
 import { toDisplayScore } from "@/lib/board-adapter";
@@ -59,7 +59,7 @@ function ReportedRun({ row }: { readonly row: CommunityBoardRow }) {
       </div>
       <div className="mt-3">
         {row.origin === "project_anchor" ? (
-          <ProjectRunBadge badge={row.badge} origin={row.origin} />
+          <ProjectRunAttribution badge={row.badge} origin={row.origin} />
         ) : (
           <SubmissionIdentity displayName={row.submitterDisplayName} />
         )}

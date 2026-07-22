@@ -56,7 +56,7 @@ describe("family community surfaces", () => {
     // Owner call (2026-07-22): project rows are visually indistinguishable from
     // maintainer catalog rows — no "project run" badge and no submitter line.
     expect(html).toContain("Project fine-tune");
-    expect(html).not.toContain("project run");
+    expect(html).not.toContain("run by local-bench");
     expect(html).not.toContain("submitted as Maintainer fixture — unverified");
   });
 
@@ -155,8 +155,8 @@ describe("family community surfaces", () => {
     // (Display names contain the words "project run", so match the badge markup itself.)
     expect(resolvedHtml).toContain("Resolved project run");
     expect(awaitingHtml).toContain("Awaiting project run");
-    expect(resolvedHtml).not.toContain(">project run</span>");
-    expect(awaitingHtml).not.toContain(">project run</span>");
+    expect(resolvedHtml).not.toContain(">run by local-bench</span>");
+    expect(awaitingHtml).not.toContain(">run by local-bench</span>");
     expect(resolvedHtml).not.toContain("submitted as Maintainer fixture — unverified");
     expect(awaitingHtml).not.toContain("submitted as Maintainer fixture — unverified");
   });

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { MouseEvent } from "react";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
-import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunAttribution, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
 import { boardAxisValue } from "@/lib/board-adapter";
@@ -96,7 +96,7 @@ export function CommunityLeaderboardRow({
       >
         <div className="max-w-[180px]">
           {row.origin === "project_anchor" ? (
-            <ProjectRunBadge badge={row.badge} origin={row.origin} />
+            <ProjectRunAttribution badge={row.badge} origin={row.origin} />
           ) : (
             <SubmissionIdentity displayName={row.submitterDisplayName} />
           )}

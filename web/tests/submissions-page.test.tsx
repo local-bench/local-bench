@@ -162,8 +162,8 @@ describe("public submissions lifecycle", () => {
       trust_label: "project_anchor",
     }} />);
 
-    expect(lifecycleHtml).toContain("project run");
-    expect(detailHtml).toContain("project run");
+    expect(lifecycleHtml).toContain("run by local-bench");
+    expect(detailHtml).toContain("run by local-bench");
     expect(lifecycleHtml).not.toContain("submitted as Maintainer fixture — unverified");
     expect(detailHtml).not.toContain("submitted as Maintainer fixture — unverified");
   });

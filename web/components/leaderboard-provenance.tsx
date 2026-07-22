@@ -1,6 +1,11 @@
 import type { BoardOrigin, IndexModel } from "@/lib/schemas";
 
-export function ProjectRunBadge({
+// The Run-by column is uniformly name-based (owner call, 2026-07-23): a "project run"
+// chip on every maintainer row carried no differential information — the submitter NAME
+// is the differential. Maintainer rows attribute to the project by name, in the same
+// visual grammar as community submitters, minus the "unverified" qualifier (maintainer
+// runs are attested).
+export function ProjectRunAttribution({
   badge,
   origin,
 }: {
@@ -10,10 +15,10 @@ export function ProjectRunBadge({
   if (badge !== "project-run" && origin !== "project_anchor") return null;
   return (
     <span
-      className="inline-flex rounded border border-bench-accent/40 bg-bench-accent/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase text-bench-accent"
-      title="This benchmark was run by the local-bench project"
+      className="font-mono text-[10px] leading-4 text-bench-muted"
+      title="Run by the local-bench project on the reference rig"
     >
-      project run
+      run by local-bench
     </span>
   );
 }
@@ -41,12 +46,12 @@ export function AgenticProvenanceChip({ value }: { readonly value: "attested" | 
 }
 
 export function ProvenanceLabels({ model }: { readonly model: Pick<IndexModel, "badge" | "origin"> }) {
-  return <ProjectRunBadge badge={model.badge} origin={model.origin} />;
+  return <ProjectRunAttribution badge={model.badge} origin={model.origin} />;
 }
 
 export function RunByCell({ model }: { readonly model: IndexModel }) {
   if (model.badge === "project-run" || model.origin === "project_anchor") {
-    return <ProjectRunBadge badge={model.badge} origin={model.origin} />;
+    return <ProjectRunAttribution badge={model.badge} origin={model.origin} />;
   }
   if (model.score_status === "measured") {
     return <SubmissionIdentity displayName={model.submitter_display_name ?? model.submitted_by} />;

@@ -128,8 +128,8 @@ describe("model page community family results", () => {
     // Then: the ranked table and scatter show NO project differentiation (owner call,
     // 2026-07-22 — maintainer rows read like catalog rows); attribution survives only
     // on the reported-result card.
-    expect(projectCells[1]).not.toContain(">project run</span>");
-    expect(html).toContain(">project run</span>");
+    expect(projectCells[1]).not.toContain(">run by local-bench</span>");
+    expect(html).toContain(">run by local-bench</span>");
     expect(html).toContain('data-point-kind="project"');
     expect(html).not.toContain("Project runs");
     expect(html).not.toContain(">self-reported</span>");
