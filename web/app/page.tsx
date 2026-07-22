@@ -32,6 +32,8 @@ export default async function HomePage() {
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
   const vramBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.vramRequiredGb8k] as const));
+  const quantBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.quantLabel] as const));
+  const communityArtifactDetails = communityCatalogModels.flatMap((model) => model.artifactDetails ?? []);
   const communityRowsForDisplay = communityRows === null
     ? []
     : communityRowsWithFamilyPaths(communityRows, resolutionContext);
@@ -58,9 +60,11 @@ export default async function HomePage() {
         <HomeLeaderboard
           models={rankedForDisplay}
           agenticBySlug={agenticBySlug}
+          communityArtifactDetails={communityArtifactDetails}
           communityRows={communityRowsForDisplay}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           indexVersion={index.index_version}
+          quantBySlug={quantBySlug}
           resolutionContext={resolutionContext}
           vramBySlug={vramBySlug}
         />

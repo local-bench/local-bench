@@ -11,11 +11,14 @@ import { axisLabel } from "@/lib/format";
 import type { LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { AGENTIC_SORT_KEY, STATIC_INDEX_SORT_KEY, type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel } from "@/lib/schemas";
+import { communityArtifactDetailForSha, type CommunityArtifactDetail } from "@/lib/community-artifact-details";
 import type { UnifiedLeaderboardRow } from "@/lib/unified-leaderboard";
 
 type LeaderboardTableProps = {
   readonly agenticBySlug: ReadonlyMap<string, AgenticModel>;
   readonly axisKeys: readonly string[];
+  readonly communityArtifactDetails: readonly CommunityArtifactDetail[];
+  readonly communityFineTuneBaseBySha: ReadonlyMap<string, string>;
   readonly fineTuneBaseBySlug: ReadonlyMap<string, string>;
   readonly rows: readonly UnifiedLeaderboardRow[];
   readonly scoreMode: LeaderboardScoreMode;
@@ -30,6 +33,8 @@ type LeaderboardTableProps = {
 export function LeaderboardTable({
   agenticBySlug,
   axisKeys,
+  communityArtifactDetails,
+  communityFineTuneBaseBySha,
   fineTuneBaseBySlug,
   rows,
   scoreMode,
@@ -112,7 +117,12 @@ export function LeaderboardTable({
                 return (
                   <CommunityLeaderboardRow
                     key={entry.row.artifactSha256}
+                    artifactDetail={communityArtifactDetailForSha(
+                      communityArtifactDetails,
+                      entry.row.artifactSha256,
+                    )}
                     axisKeys={axisKeys}
+                    fineTuneBaseName={communityFineTuneBaseBySha.get(entry.row.artifactSha256)}
                     rank={entry.rank}
                     row={entry.row}
                     showAgenticColumn={showAgenticColumn}

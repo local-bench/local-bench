@@ -317,6 +317,49 @@ describe("model variant board runtime display", () => {
     expect(rowHtml).not.toContain("7.2 GB");
   });
 
+  it("suppresses a pending quant when the same artifact already has a live measurement", () => {
+    const base = fixtureModel();
+    const measured = base.runs[0];
+    if (measured === undefined) throw new Error("fixture missing run");
+    const pending: ModelData["runs"][number] = {
+      ...measured,
+      axes: {},
+      composite: null,
+      file_gb: 7.2,
+      n_items: 0,
+      quant_label: "Q2_0",
+      ranked: false,
+      run_id: null,
+      score_status: "missing",
+      vram_footprint_gb: 7.2,
+      vram_required_gb_8k: 9.5,
+    };
+    const communityRow = fixtureCommunityRow({
+      artifactSha256: "a".repeat(64),
+      displayName: "bonsai-27b-ternary",
+      quantLabel: "Q2_0",
+    });
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [communityRow],
+      model: {
+        ...base,
+        artifacts: [{
+          file_gb: 7.2,
+          file_sha256: communityRow.artifactSha256,
+          quant_label: "Q2_0",
+          vram_gb_8k: 9.5,
+        }],
+        model_label: "Bonsai 27B Ternary",
+        runs: [measured, pending],
+      },
+    }));
+
+    expect(html).toContain("Bonsai 27B Ternary");
+    expect(html).toContain("declared as bonsai-27b-ternary");
+    expect(html).not.toContain("no run yet");
+    expect(html).not.toContain("benchmark it");
+  });
+
   it("maps live legacy axis names into every season-two board column", () => {
     const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
     if (parsed === null) throw new Error("expected valid Bonsai live envelope");

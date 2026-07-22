@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CommunityFamilyResults } from "../components/community-family-results";
@@ -168,6 +169,79 @@ describe("live-only community links", () => {
     expect(html).toContain("71.0");
     expect(html).toContain("66.0");
     expect(html).toContain("81.0");
+  });
+
+  it("omits confidence text when a live score has no interval", () => {
+    const html = renderToStaticMarkup(
+      <table><tbody><CommunityLeaderboardRow
+        axisKeys={["knowledge"]}
+        rank={1}
+        row={{
+          ...liveOnlyRow,
+          axes: { knowledge: { ci: null, n: 10, score: 0.71, status: "measured" } },
+        }}
+        showAgenticColumn={false}
+        showStaticIndexColumn={false}
+      /></tbody></table>,
+    );
+
+    expect(html).toContain("71.0");
+    expect(html).not.toContain("±0.0");
+  });
+
+  it("uses catalog artifact identity and VRAM while preserving the declared live name", () => {
+    const props = {
+      artifactDetail: {
+        artifactSha256: liveOnlyRow.artifactSha256,
+        fileGb: 7.2,
+        modelLabel: "Bonsai 27B Ternary",
+        quantLabel: "Q2_0",
+        vramGb8k: 9.5,
+      },
+      axisKeys: [],
+      rank: 1,
+      row: { ...liveOnlyRow, displayName: "bonsai-27b-ternary", quantLabel: "Q2_0" },
+      showAgenticColumn: false,
+      showStaticIndexColumn: false,
+    };
+    const html = renderToStaticMarkup(
+      <table><tbody>{createElement(CommunityLeaderboardRow, props)}</tbody></table>,
+    );
+
+    expect(html).toContain("Bonsai 27B Ternary");
+    expect(html).toContain("declared as bonsai-27b-ternary");
+    expect(html).toContain("9.5 GB");
+  });
+
+  it("falls back to maintainer overlay lineage for the fine-tune chip", () => {
+    const html = renderToStaticMarkup(
+      <table><tbody><CommunityLeaderboardRow
+        axisKeys={[]}
+        fineTuneBaseName="Qwen3.6 27B"
+        rank={1}
+        row={{
+          ...liveOnlyRow,
+          declaredBaseModels: [],
+          lineage: {
+            artifact_sha256: liveOnlyRow.artifactSha256,
+            association: { artifact_to_repo: "unverified", basis: "maintainer-associated", note: "fixture" },
+            card_declared_edges: [{
+              base: "Qwen/Qwen3.6-27B",
+              base_revision: null,
+              child: "prism-ml/Ternary-Bonsai-27B-unpacked",
+              child_revision: "a".repeat(40),
+              source: "maintainer-asserted",
+            }],
+            repo: { id: "prism-ml/Ternary-Bonsai-27B-unpacked", revision: "b".repeat(40) },
+            resolution: { resolved_at: "2026-07-18T04:00:00Z", status: "partial" },
+          },
+        }}
+        showAgenticColumn={false}
+        showStaticIndexColumn={false}
+      /></tbody></table>,
+    );
+
+    expect(html).toContain("Fine-tune of Qwen3.6 27B");
   });
 
   it("renders community rows with ranked-row score visuals, family identity, protocol, and hidden sample metadata", () => {

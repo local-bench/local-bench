@@ -49,6 +49,7 @@ import { getCommunityBoardRows, type CommunityBoardRow } from "./community-data"
 import { buildFamilyResolutionContext, resolveFamily } from "./family-resolution";
 import { overlayLineageByArtifactSha } from "./overlay-lineage";
 import { estimateRunVram } from "./model-run-metrics";
+import { communityArtifactDetails, type CommunityArtifactDetail } from "./community-artifact-details";
 
 export {
   COMMUNITY_GROUP_PLACEHOLDER_ID,
@@ -120,7 +121,9 @@ export type HomePageData = {
 };
 
 export type IndexModelWithArtifacts = IndexModel & {
+  readonly artifactDetails: readonly CommunityArtifactDetail[];
   readonly artifactSha256s: readonly string[];
+  readonly quantLabel: string | null;
   readonly vramRequiredGb8k: number | null;
 };
 
@@ -511,9 +514,12 @@ function joinIndexModelArtifacts(
   return indexModels.map((model) => {
     const detail = detailsBySlug.get(model.slug);
     const bestRun = detail?.runs.find((run) => run.run_id === model.best_run_id);
+    const artifactDetails = detail === undefined ? [] : communityArtifactDetails([detail]);
     return {
       ...model,
-      artifactSha256s: detail?.artifacts?.map((artifact) => artifact.file_sha256) ?? [],
+      artifactDetails,
+      artifactSha256s: artifactDetails.map((artifact) => artifact.artifactSha256),
+      quantLabel: bestRun?.quant_label ?? null,
       vramRequiredGb8k: bestRun === undefined || detail === undefined
         ? null
         : estimateRunVram(bestRun, detail.runs)?.effectiveRequiredGb ?? null,

@@ -5,6 +5,9 @@ import { indexContributionTitle, indexContributions } from "@/lib/axis-contribut
 import { clampScore, formatCi, formatScore } from "@/lib/format";
 import type { AxisScore, Score } from "@/lib/schemas";
 
+type DisplayScore = Score & { readonly hasConfidenceInterval?: boolean };
+type DisplayAxisScore = AxisScore & { readonly hasConfidenceInterval?: boolean };
+
 export function ScoreBar({
   axes,
   score,
@@ -12,7 +15,7 @@ export function ScoreBar({
   rail = false,
 }: {
   readonly axes?: Readonly<Record<string, AxisScore>>;
-  readonly score: Score;
+  readonly score: DisplayScore;
   readonly tone?: "accent" | "anchor" | "muted";
   readonly rail?: boolean;
 }) {
@@ -22,7 +25,9 @@ export function ScoreBar({
     <div className="min-w-[132px]">
       <div className="flex items-baseline gap-2">
         <span className="font-mono text-lg font-semibold text-bench-text">{formatScore(score.point)}</span>
-        <span className="font-mono text-xs text-bench-muted">{formatCi(score)}</span>
+        {score.hasConfidenceInterval === false ? null : (
+          <span className="font-mono text-xs text-bench-muted">{formatCi(score)}</span>
+        )}
       </div>
       {rail && axes !== undefined ? (
         <IndexContributionRail axes={axes} className="mt-1 h-1.5 w-full" />
@@ -68,7 +73,7 @@ export function AxisMiniBar({
   value,
   showSampleSize = false,
 }: {
-  readonly score: AxisScore | undefined;
+  readonly score: DisplayAxisScore | undefined;
   // Axis key selecting the shared axis color, so every mini bar matches the same axis's
   // segment in the index contribution rail. Omitted -> the neutral accent fill.
   readonly axis?: string;
@@ -82,7 +87,11 @@ export function AxisMiniBar({
     <div className="min-w-[88px]">
       <div className="flex items-center justify-between gap-2 font-mono text-xs">
         <span className="text-bench-text">{value ?? formatScore(score.point)}</span>
-        <span className="text-bench-muted">{formatCi(score)}{showSampleSize ? ` · n=${score.n}` : ""}</span>
+        <span className="text-bench-muted">
+          {score.hasConfidenceInterval === false
+            ? (showSampleSize ? `n=${score.n}` : "")
+            : `${formatCi(score)}${showSampleSize ? ` · n=${score.n}` : ""}`}
+        </span>
       </div>
       <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
         <div

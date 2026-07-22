@@ -3,18 +3,22 @@ import type { CommunityBoardRow } from "./community-data";
 import { INDEX_VERSION_V3 } from "./scoring-seasons";
 import type { AxisScore, Score } from "./schemas";
 
-export function communityScore(value: number): Score {
+export type CommunityScore = Score & { readonly hasConfidenceInterval: boolean };
+export type CommunityAxisScore = AxisScore & { readonly hasConfidenceInterval: boolean };
+
+export function communityScore(value: number): CommunityScore {
   const point = toDisplayScore(value);
-  return { point, lo: point, hi: point };
+  return { point, lo: point, hi: point, hasConfidenceInterval: false };
 }
 
 export function communityAxisScore(
   value: NonNullable<CommunityBoardRow["axes"]>[string] | undefined,
-): AxisScore | undefined {
+): CommunityAxisScore | undefined {
   if (value === undefined || value.status !== "measured" || value.score === null || value.score === undefined || value.n === 0) {
     return undefined;
   }
   const point = toDisplayScore(value.score);
+  const hasConfidenceInterval = value.ci !== null;
   const lo = toDisplayScore(value.ci?.[0] ?? value.score);
   const hi = toDisplayScore(value.ci?.[1] ?? value.score);
   return {
@@ -25,6 +29,7 @@ export function communityAxisScore(
     n: value.n,
     n_errors: 0,
     n_no_answer: 0,
+    hasConfidenceInterval,
   };
 }
 

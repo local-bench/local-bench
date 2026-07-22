@@ -9,6 +9,10 @@ import {
 } from "../lib/cli-onboarding";
 
 describe("CLI onboarding cross-surface contract", () => {
+  it("pins the shipped CLI version", () => {
+    expect(LOCALBENCH_TESTED_VERSION).toBe("0.4.5");
+  });
+
   it("renders the same install version and prerequisites on landing and submit pages", async () => {
     const landing = renderToStaticMarkup(await HomePage());
     const submit = renderToStaticMarkup(<SubmitPage />);

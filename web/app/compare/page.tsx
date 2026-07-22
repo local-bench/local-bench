@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CompareLivePicker } from "@/components/compare-live-picker";
 import { getCompareConfigs } from "@/lib/compare";
+import { communityArtifactDetails } from "@/lib/community-artifact-details";
 import { getCommunityBoardRows } from "@/lib/community-data";
 import { getFineTuneComparePresets, getIndexData, getModelData } from "@/lib/data";
 import { pageMetadata } from "@/lib/page-metadata";
@@ -40,6 +41,7 @@ export default async function ComparePage() {
         </p>
       </header>
       <CompareLivePicker
+        communityArtifactDetails={communityArtifactDetails(models)}
         communityRows={communityRows ?? []}
         fineTunePresets={fineTunePresets}
         projectConfigs={projectConfigs}

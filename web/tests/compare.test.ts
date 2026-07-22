@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ComparePicker } from "../components/compare-picker";
 import { getCompareConfigs } from "../lib/compare";
+import type { CommunityBoardRow } from "../lib/community-data";
 import { getIndexData, getModelData } from "../lib/data";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import { ModelDataSchema } from "../lib/schemas";
@@ -119,6 +120,53 @@ describe("compare configs", () => {
     expect(html).toContain("Diagnostic score (retired lane)");
     expect(html).toContain("62.3");
     expect(html).not.toContain("Local Intelligence Index delta");
+  });
+
+  it("joins live configs to catalog artifact VRAM and display identity", () => {
+    const artifactSha256 = "a".repeat(64);
+    const catalogModel = ModelDataSchema.parse({
+      artifacts: [{
+        file_gb: 7.2,
+        file_sha256: artifactSha256,
+        quant_label: "Q2_0",
+        vram_gb_8k: 9.5,
+      }],
+      demo: false,
+      family: "Qwen3.6",
+      kind: "community",
+      model_label: "Bonsai 27B Ternary",
+      runs: [],
+      slug: "bonsai-27b-ternary",
+    });
+    const liveRow: CommunityBoardRow = {
+      artifactSha256,
+      axes: {},
+      compositeFull: 0.3673,
+      detailPath: "/model/bonsai-27b-ternary/",
+      displayName: "bonsai-27b-ternary",
+      family: "qwen35",
+      globalRank: 1,
+      headlineComplete: true,
+      identityLabel: "community-declared, identity-unverified",
+      lineage: undefined,
+      indexVersion: "index-v4.2",
+      measuredHeadlineWeight: 1,
+      missingHeadlineWeight: 0,
+      origin: "community",
+      partialComposite: 0.3673,
+      quantLabel: "Q2_0",
+      ranked: false,
+      submissionId: "ticket_bonsai_compare",
+    };
+
+    const config = getCompareConfigs([catalogModel], [liveRow])
+      .find((candidate) => candidate.id === liveRow.submissionId);
+
+    expect(config).toMatchObject({
+      fitTierGb: 12,
+      modelLabel: "Bonsai 27B Ternary",
+      vramEstimate: { effectiveRequiredGb: 9.5, weightsGb: 7.2 },
+    });
   });
 });
 

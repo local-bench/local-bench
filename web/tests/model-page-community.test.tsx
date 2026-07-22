@@ -84,7 +84,8 @@ describe("model page community family results", () => {
     expect(boardCells[6]).toContain("85.0");
     expect(boardCells[7]).toContain("90.0");
     expect(html).toContain('data-point-kind="community"');
-    expect(html).toContain("31.8 GB");
+    expect(html).toContain("~9.5 GB to run");
+    expect(html).not.toContain("31.8 GB");
     expect(html).toContain("Reported runs");
     expect(html).toContain("Instruction following");
     expect(html).toContain("63.0 · n=20");

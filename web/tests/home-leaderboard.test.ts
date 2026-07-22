@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HomeLeaderboard, sortLeaderboardRows } from "../components/home-leaderboard";
 import { ProjectRunBadge } from "../components/leaderboard-provenance";
+import type { CommunityBoardRow } from "../lib/community-data";
 import { IndexModelSchema, ModelSlugSchema, RunIdSchema, type IndexModel } from "../lib/schemas";
 
 const AXIS_SCORE = {
@@ -224,6 +225,47 @@ describe("home leaderboard provenance labels", () => {
 
     expect(html).toContain("Fine-tune of");
     expect(html).toContain("Base Model 27B");
+  });
+});
+
+describe("home leaderboard live and catalog facets", () => {
+  it("uses canonical run quant labels and GPU tiers across both populations", () => {
+    const catalog = {
+      ...model("catalog", "Catalog Model", undefined),
+      best_run_id: RunIdSchema.parse("catalog__q4km-s2v5"),
+    };
+    const live: CommunityBoardRow = {
+      artifactSha256: "a".repeat(64),
+      axes: {},
+      compositeFull: 0.84,
+      detailPath: "/model/live-model/",
+      displayName: "Live Model",
+      family: "Live Fixture",
+      globalRank: 1,
+      hardware: { gpu_name: "RTX 5090", vram_gb: 31.8 },
+      headlineComplete: true,
+      identityLabel: "community-declared, identity-unverified",
+      lineage: undefined,
+      indexVersion: "index-v4.2",
+      measuredHeadlineWeight: 1,
+      missingHeadlineWeight: 0,
+      origin: "community",
+      partialComposite: 0.84,
+      quantLabel: "Q4_K_M",
+      ranked: false,
+      submissionId: "ticket_live_facets",
+    };
+    const props = {
+      communityRows: [live],
+      indexVersion: "index-v4.2",
+      models: [catalog],
+      quantBySlug: new Map([[catalog.slug, "Q4_K_M"]]),
+    };
+    const html = renderToStaticMarkup(createElement(HomeLeaderboard, props));
+
+    expect(html.match(/<option value="Q4_K_M">Q4_K_M<\/option>/gu)).toHaveLength(1);
+    expect(html).not.toContain("q4km-s2v5");
+    expect(html).toContain('<option value="32 GB">32 GB</option>');
   });
 });
 

@@ -68,7 +68,7 @@ describe("SubmitPage", () => {
     expect(html).toContain("computes the common composite");
     expect(html).toContain('pip install &quot;local-bench-ai[hf]&quot;');
     expect(html).not.toContain("==0.3.2");
-    expect(html).toContain("Tested with local-bench-ai 0.4.3");
+    expect(html).toContain("Tested with local-bench-ai 0.4.5");
     expect(html).toContain("Quick local check");
     expect(html).toContain("localbench bench qwen3-8b --quant Q4_K_M --allow-untrusted-code");
     expect(html).toContain("local preview without ranked identity guarantees");

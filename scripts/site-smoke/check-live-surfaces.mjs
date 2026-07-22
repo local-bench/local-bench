@@ -83,6 +83,14 @@ async function run() {
     }
     const envelope = parseEnvelope(await apiResponse.json());
     record("A", "API envelope", true, `${envelope.rows.length} rows; server omitted_rows=${envelope.omittedRows}`);
+    record(
+      "A",
+      "server omitted rows",
+      envelope.omittedRows === 0,
+      envelope.omittedRows === 0
+        ? "no published rows omitted"
+        : `${envelope.omittedRows} published row${envelope.omittedRows === 1 ? "" : "s"} omitted by server`,
+    );
     const catalogResponse = await apiContext.get("/data/index.json", { timeout: NAVIGATION_TIMEOUT_MS });
     const catalogValue = catalogResponse.ok() ? await catalogResponse.json() : null;
     const catalogModels = Array.isArray(catalogValue?.models) ? catalogValue.models : [];
@@ -202,7 +210,11 @@ async function run() {
       const cells = variantCount === 1 ? await variantRow.locator(":scope > td").allTextContents() : [];
       const axisCells = vramColumn > 3 ? cells.slice(3, vramColumn) : [];
       const populatedAxes = axisCells.filter(isPopulatedScore);
-      record("E", `axis cells: ${name}`, populatedAxes.length > 0, populatedAxes.length > 0 ? `${populatedAxes.length}/${axisCells.length} axis cells populated` : `${axisCells.length} axis cells inspected; all empty or placeholders`);
+      if (row.headline_complete === true) {
+        record("E", `axis cells: ${name}`, populatedAxes.length > 0, populatedAxes.length > 0 ? `${populatedAxes.length}/${axisCells.length} axis cells populated` : `${axisCells.length} axis cells inspected; all empty or placeholders`);
+      } else {
+        record("E", `axis cells: ${name}`, true, "not required; headline_complete=false");
+      }
 
       if (!resolved.needsScatter) {
         record("E", `scatter point: ${name}`, true, "not required; no envelope or overlay VRAM");

@@ -4,14 +4,10 @@ import { RuntimeCell } from "@/components/leaderboard-table-cells";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { boardAxisValue } from "@/lib/board-adapter";
 import { communityAxisScore, communityDisplayAxes, communityScore } from "@/lib/community-scores";
+import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { formatCompactNumber, formatGb } from "@/lib/format";
 import { findMinimumVramTier } from "@/lib/rig-match";
-
-export type CommunityArtifactDetail = {
-  readonly fileGb: number | null;
-  readonly vramGb8k: number | null;
-};
 
 type CommunityVariantTableRowProps = {
   readonly artifactDetail?: CommunityArtifactDetail | undefined;
@@ -37,6 +33,8 @@ export function CommunityVariantTableRow({
   row,
 }: CommunityVariantTableRowProps) {
   const complete = row.headlineComplete && row.compositeFull !== null;
+  const displayName = artifactDetail?.modelLabel ?? row.displayName;
+  const showDeclaredName = displayName !== row.displayName;
   return (
     <tr
       data-source="community"
@@ -47,12 +45,15 @@ export function CommunityVariantTableRow({
       <td className="px-3 py-3">
         <div className="flex min-w-[240px] flex-col gap-1">
           {row.detailPath === null ? (
-            <span className="font-semibold text-bench-text">{row.displayName}</span>
+            <span className="font-semibold text-bench-text">{displayName}</span>
           ) : (
             <Link href={row.detailPath} className="font-semibold text-bench-accent hover:underline">
-              {row.displayName}
+              {displayName}
             </Link>
           )}
+          {showDeclaredName ? (
+            <span className="font-mono text-[11px] text-bench-muted">declared as {row.displayName}</span>
+          ) : null}
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-mono font-semibold text-bench-text">{row.quantLabel ?? "n/a"}</span>
             {row.origin === "project_anchor" ? (

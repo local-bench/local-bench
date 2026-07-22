@@ -179,27 +179,39 @@ describe("ModelScatter family points", () => {
 
     expect(communityRow.hardware).toMatchObject({ vram_gb: 31.8 });
     expect(communityRow.perf?.decode_tps).toBeCloseTo(118.2, 1);
+    const bonsaiModel = {
+      ...model({ slug: "bonsai-27b-ternary", label: "Bonsai 27B Ternary", runs: [] }),
+      artifacts: [{
+        file_gb: 7.2,
+        file_sha256: communityRow.artifactSha256,
+        quant_label: "Q2_0",
+        vram_gb_8k: 9.5,
+      }],
+    };
 
     // When: the model scatter receives that page-level community row set.
     const html = renderToStaticMarkup(createElement(ModelScatter, {
       anchorRuns: [],
       communityRows: [communityRow],
-      model: model({ slug: "base", label: "Base Model", runs: [] }),
+      model: bonsaiModel,
     }));
 
     // Then: the row uses the community marker and existing detail/tooltip path.
     expect(html).toContain('data-point-kind="community"');
     expect(html).toContain('href="/model/bonsai-27b-ternary/"');
-    expect(html).toContain("bonsai-27b-ternary");
+    expect(html).toContain("Bonsai 27B Ternary");
+    expect(html).toContain("declared as bonsai-27b-ternary");
     expect(html).toContain("36.7");
-    expect(html).toContain("31.8 GB");
+    expect(html).toContain("~9.5 GB to run");
+    expect(html).not.toContain("31.8 GB");
     expect(html).toContain("Community runs");
 
     const boardHtml = renderToStaticMarkup(createElement(ModelVariantBoard, {
       communityRows: [communityRow],
-      model: model({ slug: "base", label: "Base Model", runs: [] }),
+      model: bonsaiModel,
     }));
     expect(boardHtml).toContain("118.2");
+    expect(boardHtml).toContain("9.5 GB");
   });
 
   it("plots a project-anchor live row with project provenance", () => {
@@ -212,12 +224,21 @@ describe("ModelScatter family points", () => {
       origin: "project_anchor",
     })), familyResolutionContext());
     if (projectRow === undefined) throw new Error("expected reconciled project row");
+    const projectModel = {
+      ...model({ slug: "base", label: "Base Model", runs: [] }),
+      artifacts: [{
+        file_gb: 7.2,
+        file_sha256: projectRow.artifactSha256,
+        quant_label: "Q2_0",
+        vram_gb_8k: 9.5,
+      }],
+    };
 
     // When: the model scatter renders that project-owned live row.
     const html = renderToStaticMarkup(createElement(ModelScatter, {
       anchorRuns: [],
       communityRows: [projectRow],
-      model: model({ slug: "base", label: "Base Model", runs: [] }),
+      model: projectModel,
     }));
 
     // Then: project and community live results remain visually distinguishable.
@@ -227,9 +248,9 @@ describe("ModelScatter family points", () => {
     expect(html).not.toContain("Community runs");
   });
 
-  it("keeps a community row without VRAM on the board but off the scatter", () => {
-    // Given: a comparable community result without a plottable memory metric.
-    const communityRow = communityFixture({ hardware: { gpu_name: "Unknown GPU", vram_gb: null } });
+  it("keeps a community row without a catalog artifact match on the board but off the scatter", () => {
+    // Given: a comparable community result with attested GPU capacity but no catalog artifact match.
+    const communityRow = communityFixture({ hardware: { gpu_name: "RTX 5090", vram_gb: 32 } });
     const base = model({ slug: "base", label: "Base Model", runs: [run()] });
 
     // When: both family comparison surfaces receive the exact same source array.

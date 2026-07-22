@@ -6,11 +6,12 @@ import {
   SEASON_2_INDEX_QUALIFIER,
 } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
-import { CommunityVariantTableRow, type CommunityArtifactDetail } from "@/components/model-variant-community-row";
+import { CommunityVariantTableRow } from "@/components/model-variant-community-row";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { communityUsesLegacyAxes } from "@/lib/community-scores";
+import { communityArtifactDetails } from "@/lib/community-artifact-details";
 import { axisLabel, formatCompactNumber, formatGb } from "@/lib/format";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { resolveRunArtifactMetrics } from "@/lib/model-run-metrics";
@@ -79,22 +80,28 @@ export function ModelVariantBoard({
       .map((run) => ({ kind: relation, model: familyModel, run })),
   );
   const communityVariantRows: readonly CommunityVariantRow[] = communityRows.map((row) => ({ kind: "community", row }));
-  // Community projections carry no artifact metrics; the catalog artifact record for the
-  // same file (matched by sha) supplies size and the @8k VRAM estimate on equal terms.
-  const communityArtifactDetails = new Map<string, CommunityArtifactDetail>();
-  for (const source of [model, ...familyModels.map((entry) => entry.model)]) {
-    for (const artifact of source.artifacts ?? []) {
-      communityArtifactDetails.set(artifact.file_sha256, {
-        fileGb: artifact.file_gb ?? null,
-        vramGb8k: artifact.vram_gb_8k ?? null,
-      });
-    }
-  }
+  const catalogArtifactDetails = communityArtifactDetails([model, ...familyModels.map((entry) => entry.model)]);
+  const artifactDetailsBySha = new Map(
+    catalogArtifactDetails.map((detail) => [detail.artifactSha256, detail] as const),
+  );
   const rows: readonly VariantRow[] = [...ownRows, ...familyRows, ...communityVariantRows];
   const axisKeys = variantAxisColumns(rows);
   const ranked = sortVariantRowsBySeason(rows.filter(isRankedVariantRow));
   const partial = rows.filter(isPartialVariantRow);
-  const pending = ownRows.filter((row) => row.run.composite === null && row.run.score_status !== "measured");
+  const liveArtifactShas = new Set(communityRows.map((row) => row.artifactSha256));
+  const liveQuantLabels = new Set(communityRows.flatMap((row) => {
+    const quantLabel = artifactDetailsBySha.get(row.artifactSha256)?.quantLabel ?? row.quantLabel;
+    return quantLabel === null ? [] : [quantLabel];
+  }));
+  const pending = ownRows.filter((row) => {
+    if (row.run.composite !== null || row.run.score_status === "measured") return false;
+    const quantLabel = row.run.quant_label;
+    if (quantLabel === null) return true;
+    const artifact = catalogArtifactDetails.find((detail) => detail.quantLabel === quantLabel);
+    return artifact === undefined
+      ? !liveQuantLabels.has(quantLabel)
+      : !liveArtifactShas.has(artifact.artifactSha256);
+  });
   const hasPerf = rows.some((row) => variantRowPerf(row) !== undefined);
   const indexQualifier = rows.some((row) => variantRowHasAxis(row, "tool_use"))
     ? SEASON_2_INDEX_QUALIFIER
@@ -195,7 +202,7 @@ export function ModelVariantBoard({
                 return (
                   <CommunityVariantTableRow
                     key={row.row.submissionId}
-                    artifactDetail={communityArtifactDetails.get(row.row.artifactSha256)}
+                    artifactDetail={artifactDetailsBySha.get(row.row.artifactSha256)}
                     axisKeys={axisKeys}
                     hasPerf={hasPerf}
                     rank={rankWithinRowSeason(ranked, index)}
@@ -262,7 +269,7 @@ export function ModelVariantBoard({
                 return (
                   <CommunityVariantTableRow
                     key={`partial-${row.row.submissionId}`}
-                    artifactDetail={communityArtifactDetails.get(row.row.artifactSha256)}
+                    artifactDetail={artifactDetailsBySha.get(row.row.artifactSha256)}
                     axisKeys={axisKeys}
                     hasPerf={hasPerf}
                     rank={null}

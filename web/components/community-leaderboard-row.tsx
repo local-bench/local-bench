@@ -10,10 +10,14 @@ import { boardAxisValue } from "@/lib/board-adapter";
 import { communityAxisScore, communityScore } from "@/lib/community-scores";
 import { formatDuration, formatGpuShort, formatInteger, formatLatencySeconds, formatScore } from "@/lib/format";
 import type { CommunityBoardRow } from "@/lib/community-data";
+import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
+import { formatGb } from "@/lib/format";
 import { SEASON_2_DIAGNOSTICS } from "@/lib/scoring-seasons";
 
 type CommunityRowProps = {
+  readonly artifactDetail?: CommunityArtifactDetail | undefined;
   readonly axisKeys: readonly string[];
+  readonly fineTuneBaseName?: string | undefined;
   readonly rank: number;
   readonly row: CommunityBoardRow;
   readonly showAgenticColumn: boolean;
@@ -21,13 +25,20 @@ type CommunityRowProps = {
 };
 
 export function CommunityLeaderboardRow({
+  artifactDetail,
   axisKeys,
+  fineTuneBaseName,
   rank,
   row,
   showAgenticColumn,
   showStaticIndexColumn,
 }: CommunityRowProps) {
+  const displayName = artifactDetail?.modelLabel ?? row.displayName;
+  const showDeclaredName = displayName !== row.displayName;
   const displayFamily = row.familyLabel ?? row.catalogFamily ?? row.family;
+  const fineTuneBase = row.declaredBaseModels?.[0]
+    ?? fineTuneBaseName
+    ?? row.lineage?.card_declared_edges[0]?.base;
   const hardware = row.hardware?.gpu_name === null || row.hardware?.gpu_name === undefined || row.hardware.gpu_name === ""
     ? null
     : formatGpuShort({ name: row.hardware.gpu_name, vram_gb: row.hardware.vram_gb });
@@ -52,23 +63,26 @@ export function CommunityLeaderboardRow({
       <td className="px-3 py-3 font-mono text-bench-muted">{rank}</td>
       <td className="px-3 py-3">
         <span className="flex items-center gap-2">
-          <FamilyLogoMark familyName={displayFamily} modelLabel={row.displayName} size={16} />
+          <FamilyLogoMark familyName={displayFamily} modelLabel={displayName} size={16} />
           {row.detailPath === null ? (
             <span className="font-semibold text-bench-text" title="family detail unavailable for this row">
-              {row.displayName}
+              {displayName}
             </span>
           ) : (
             <Link href={row.detailPath} className="font-semibold text-bench-text hover:text-bench-accent">
-              {row.displayName}
+              {displayName}
             </Link>
           )}
           {row.indexVersion === null ? null : <SeasonBadge indexVersion={row.indexVersion} />}
         </span>
+        {showDeclaredName ? (
+          <div className="mt-0.5 font-mono text-[11px] text-bench-muted">declared as {row.displayName}</div>
+        ) : null}
         <div className="mt-0.5 font-mono text-xs text-bench-muted">{row.quantLabel ?? "quant unavailable"}</div>
         <div className="text-xs text-bench-muted">{displayFamily ?? row.identityLabel}</div>
-        {row.declaredBaseModels?.[0] === undefined ? null : (
+        {fineTuneBase === undefined ? null : (
           <span className="mt-1 inline-block rounded border border-bench-accent/40 bg-bench-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-bench-accent">
-            Fine-tune of {row.declaredBaseModels[0]}
+            Fine-tune of {fineTuneBase}
           </span>
         )}
       </td>
@@ -99,7 +113,9 @@ export function CommunityLeaderboardRow({
           <CommunityAxisBar axis="agentic" row={row} />
         </td>
       ) : null}
-      <UnavailableCell />
+      {artifactDetail?.vramGb8k == null ? <UnavailableCell /> : (
+        <td className="px-3 py-3 font-mono text-bench-text">{formatGb(artifactDetail.vramGb8k)}</td>
+      )}
       <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
       <td className="px-3 py-3 font-mono text-xs text-bench-text">
         {hardware === null ? <NotCaptured /> : (

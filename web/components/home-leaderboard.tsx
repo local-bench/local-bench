@@ -7,6 +7,7 @@ import { LeaderboardTable } from "@/components/leaderboard-table";
 import { LeaderboardVariantToggle } from "@/components/leaderboard-variant-toggle";
 import { axisColumns } from "@/components/leaderboard-table-cells";
 import type { CommunityBoardRow } from "@/lib/community-data";
+import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
 import {
   EMPTY_FAMILY_RESOLUTION_CONTEXT,
   type FamilyResolutionContext,
@@ -15,6 +16,7 @@ import { type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { type SortState } from "@/lib/leaderboard-sort";
 import type { AgenticModel, IndexModel } from "@/lib/schemas";
 import { INDEX_VERSION_V4, isSeason2Board } from "@/lib/scoring-seasons";
+import { findMinimumVramTier } from "@/lib/rig-match";
 import {
   filterUnifiedLeaderboardRows,
   sortUnifiedLeaderboardRows,
@@ -23,7 +25,9 @@ import {
 
 const EMPTY_AGENTIC: ReadonlyMap<string, AgenticModel> = new Map();
 const EMPTY_COMMUNITY: readonly CommunityBoardRow[] = [];
+const EMPTY_ARTIFACT_DETAILS: readonly CommunityArtifactDetail[] = [];
 const EMPTY_LINEAGE: ReadonlyMap<string, string> = new Map();
+const EMPTY_QUANTS: ReadonlyMap<string, string | null> = new Map();
 const EMPTY_VRAM: ReadonlyMap<string, number | null> = new Map();
 
 export { sortLeaderboardRows } from "@/lib/leaderboard-sort";
@@ -33,9 +37,11 @@ type HomeLeaderboardProps = {
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
   readonly allowVariantToggle?: boolean;
   readonly communityRows?: readonly CommunityBoardRow[];
+  readonly communityArtifactDetails?: readonly CommunityArtifactDetail[];
   readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
   readonly indexVersion?: string;
   readonly models: readonly IndexModel[];
+  readonly quantBySlug?: ReadonlyMap<string, string | null>;
   readonly resolutionContext?: FamilyResolutionContext;
   readonly scoreMode?: LeaderboardScoreMode;
   readonly vramBySlug?: ReadonlyMap<string, number | null>;
@@ -45,10 +51,12 @@ export function HomeLeaderboard({
   models,
   agenticBySlug = EMPTY_AGENTIC,
   allowVariantToggle = false,
+  communityArtifactDetails = EMPTY_ARTIFACT_DETAILS,
   communityRows = EMPTY_COMMUNITY,
   scoreMode = "full",
   fineTuneBaseBySlug = EMPTY_LINEAGE,
   indexVersion,
+  quantBySlug = EMPTY_QUANTS,
   resolutionContext = EMPTY_FAMILY_RESOLUTION_CONTEXT,
   vramBySlug = EMPTY_VRAM,
 }: HomeLeaderboardProps) {
@@ -59,6 +67,11 @@ export function HomeLeaderboard({
   const [ram, setRam] = useState("all");
   const [showAllVariants, setShowAllVariants] = useState(false);
   const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full", resolutionContext);
+  const communityFineTuneBaseBySha = useMemo(() => new Map(liveCommunity.rows.flatMap((row) => {
+    if (row.lineage?.card_declared_edges[0] === undefined || row.rootCatalogId == null) return [];
+    const root = resolutionContext.catalog.find((entry) => entry.catalogId === row.rootCatalogId);
+    return root === undefined ? [] : [[row.artifactSha256, root.displayName] as const];
+  })), [liveCommunity.rows, resolutionContext]);
   const axisKeys = useMemo(() => axisColumns(models), [models]);
   const allRows = useMemo(
     () => filterUnifiedLeaderboardRows(
@@ -71,14 +84,14 @@ export function HomeLeaderboard({
     ),
     [models, liveCommunity.rows, resolutionContext, scoreMode, showAllVariants],
   );
-  const filterOptions = useMemo(() => boardFilterOptions(allRows), [allRows]);
+  const filterOptions = useMemo(() => boardFilterOptions(allRows, quantBySlug), [allRows, quantBySlug]);
   const visibleRows = useMemo(
     () => sortUnifiedLeaderboardRows(
-      allRows.filter((row) => matchesFilters(row, { family, size, quant, ram })),
+      allRows.filter((row) => matchesFilters(row, { family, size, quant, ram }, quantBySlug)),
       sort,
       { agenticBySlug, scoreMode },
     ),
-    [allRows, family, size, quant, ram, sort, agenticBySlug, scoreMode],
+    [allRows, family, size, quant, ram, sort, agenticBySlug, quantBySlug, scoreMode],
   );
   const season2 = scoreMode === "full" && isSeason2Board(models, indexVersion);
   const showAgenticColumn = scoreMode === "full" && !season2;
@@ -127,6 +140,8 @@ export function HomeLeaderboard({
         <LeaderboardTable
           agenticBySlug={agenticBySlug}
           axisKeys={axisKeys}
+          communityArtifactDetails={communityArtifactDetails}
+          communityFineTuneBaseBySha={communityFineTuneBaseBySha}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           rows={visibleRows}
           scoreMode={scoreMode}
@@ -212,10 +227,13 @@ function BoardFilter({
   );
 }
 
-function boardFilterOptions(rows: readonly UnifiedLeaderboardRow[]): BoardFilterOptions {
+function boardFilterOptions(
+  rows: readonly UnifiedLeaderboardRow[],
+  quantBySlug: ReadonlyMap<string, string | null>,
+): BoardFilterOptions {
   return {
     families: unique(rows.map(rowFamily)),
-    quants: unique(rows.map(rowQuant)),
+    quants: unique(rows.map((row) => rowQuant(row, quantBySlug))),
     rams: unique(rows.map(rowRam)),
     sizes: unique(rows.map(rowSize)),
   };
@@ -224,9 +242,10 @@ function boardFilterOptions(rows: readonly UnifiedLeaderboardRow[]): BoardFilter
 function matchesFilters(
   row: UnifiedLeaderboardRow,
   filters: { readonly family: string; readonly quant: string; readonly ram: string; readonly size: string },
+  quantBySlug: ReadonlyMap<string, string | null>,
 ): boolean {
   return (filters.family === "all" || rowFamily(row) === filters.family)
-    && (filters.quant === "all" || rowQuant(row) === filters.quant)
+    && (filters.quant === "all" || rowQuant(row, quantBySlug) === filters.quant)
     && (filters.ram === "all" || rowRam(row) === filters.ram)
     && (filters.size === "all" || rowSize(row) === filters.size);
 }
@@ -237,13 +256,21 @@ function rowFamily(row: UnifiedLeaderboardRow): string | null {
     : row.row.familyLabel ?? row.row.catalogFamily ?? row.row.family;
 }
 
-function rowQuant(row: UnifiedLeaderboardRow): string | null {
+function rowQuant(
+  row: UnifiedLeaderboardRow,
+  quantBySlug: ReadonlyMap<string, string | null>,
+): string | null {
   if (row.source === "community") return row.row.quantLabel;
-  return quantFromText(`${row.model.model_label} ${row.model.best_run_id ?? ""}`);
+  return quantBySlug.get(row.model.slug) ?? null;
 }
 
 function rowRam(row: UnifiedLeaderboardRow): string | null {
-  if (row.source === "community") return null;
+  if (row.source === "community") {
+    const value = row.row.hardware?.vram_gb;
+    if (value === null || value === undefined) return null;
+    const tier = findMinimumVramTier(value);
+    return tier === null ? ">512 GB" : `${tier} GB`;
+  }
   const value = row.model.gpu?.vram_gb;
   return value === null || value === undefined ? null : `${value} GB`;
 }
@@ -252,10 +279,6 @@ function rowSize(row: UnifiedLeaderboardRow): string | null {
   const label = row.source === "local-bench" ? row.model.model_label : row.row.displayName;
   const matches = [...label.matchAll(/(\d+(?:\.\d+)?)\s*b\b/giu)];
   return matches.at(-1)?.[1] === undefined ? null : `${matches.at(-1)?.[1]}B`;
-}
-
-function quantFromText(value: string): string | null {
-  return /\b(?:UD[-_])?Q\d[A-Z0-9_.-]*/iu.exec(value)?.[0] ?? null;
 }
 
 function unique(values: readonly (string | null)[]): readonly string[] {

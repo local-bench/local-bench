@@ -12,6 +12,11 @@ import {
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { communityScore } from "@/lib/community-scores";
 import type { CommunityBoardRow } from "@/lib/community-data";
+import {
+  communityArtifactDetailForSha,
+  communityArtifactDetails,
+  type CommunityArtifactDetail,
+} from "@/lib/community-artifact-details";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
 import { runHref } from "@/lib/routes";
 import type { ModelRun } from "@/lib/schemas";
@@ -53,7 +58,11 @@ export function ModelScatter({
       }),
     ),
   );
-  const communityRuns = communityRows.flatMap(toCommunityScatterRun);
+  const artifactDetails = communityArtifactDetails([model, ...familyModels.map((entry) => entry.model)]);
+  const communityRuns = communityRows.flatMap((row) => toCommunityScatterRun(
+    row,
+    communityArtifactDetailForSha(artifactDetails, row.artifactSha256),
+  ));
   const runs = [...ownRuns, ...familyRuns, ...communityRuns];
   const pointLegend: QualityVramLegendItem[] = [];
   if (ownRuns.length > 0) {
@@ -96,19 +105,23 @@ export function ModelScatter({
   );
 }
 
-function toCommunityScatterRun(row: CommunityBoardRow): readonly QualityVramRun[] {
-  const vramGb = row.hardware?.vram_gb;
-  if (!row.headlineComplete || row.compositeFull === null || vramGb === null || vramGb === undefined) {
+function toCommunityScatterRun(
+  row: CommunityBoardRow,
+  artifactDetail: CommunityArtifactDetail | undefined,
+): readonly QualityVramRun[] {
+  if (!row.headlineComplete || row.compositeFull === null || artifactDetail?.vramGb8k == null) {
     return [];
   }
+  const canonicalName = artifactDetail.modelLabel;
+  const declaredName = canonicalName === row.displayName ? "" : ` · declared as ${row.displayName}`;
   const run = {
     composite: communityScore(row.compositeFull),
     demo: false,
     point_kind: row.origin === "project_anchor" ? "project" as const : "community" as const,
-    point_label: `${row.displayName} · ${row.quantLabel ?? "quant unavailable"}`,
-    quant_label: row.quantLabel,
+    point_label: `${canonicalName}${declaredName} · ${artifactDetail.quantLabel ?? row.quantLabel ?? "quant unavailable"}`,
+    quant_label: artifactDetail.quantLabel ?? row.quantLabel,
     run_id: null,
-    vram_footprint_gb: vramGb,
+    vram_footprint_gb: artifactDetail.vramGb8k,
     wall_time_seconds: row.perf?.wall_time_seconds ?? null,
   };
   return row.detailPath === null ? [run] : [{ ...run, point_href: row.detailPath }];

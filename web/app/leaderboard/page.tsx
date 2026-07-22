@@ -42,6 +42,8 @@ export default async function LeaderboardPage() {
     ? ranked.map((model) => model.index_version === undefined ? { ...model, index_version: INDEX_VERSION_V4 } : model)
     : ranked;
   const vramBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.vramRequiredGb8k] as const));
+  const quantBySlug = new Map(communityCatalogModels.map((model) => [model.slug, model.quantLabel] as const));
+  const communityArtifactDetails = communityCatalogModels.flatMap((model) => model.artifactDetails ?? []);
   const fineTuneBaseBySlug = familyRootLabelBySlug(index.models, resolutionContext);
   const communityRowsForDisplay = communityRows === null
     ? []
@@ -85,9 +87,11 @@ export default async function LeaderboardPage() {
           allowVariantToggle
           models={rankedForDisplay}
           agenticBySlug={agenticBySlug}
+          communityArtifactDetails={communityArtifactDetails}
           communityRows={communityRowsForDisplay}
           fineTuneBaseBySlug={fineTuneBaseBySlug}
           indexVersion={index.index_version}
+          quantBySlug={quantBySlug}
           resolutionContext={resolutionContext}
           vramBySlug={vramBySlug}
         />

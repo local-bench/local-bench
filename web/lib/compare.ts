@@ -2,6 +2,7 @@ import { AXIS_KEYS, type AxisKey } from "./axis-config";
 import { toDisplayScore } from "./board-adapter";
 import {
   DEFAULT_CONTEXT_TOKENS,
+  estimateVramRequirement,
   findMinimumVramTier,
   type ContextLengthOption,
   type VramEstimate,
@@ -12,6 +13,12 @@ import { estimateRunVram } from "./model-run-metrics";
 import { modelHref } from "./routes";
 import type { AxisScore, ModelData, Score } from "./schemas";
 import type { CommunityBoardRow } from "./community-data";
+import {
+  communityArtifactDetailForSha,
+  communityArtifactDetails,
+  type CommunityArtifactDetail,
+} from "./community-artifact-details";
+import { communityScore } from "./community-scores";
 import { SEASON_2_HEADLINE_AXES } from "./scoring-seasons";
 import { isTrustedPopulation } from "./trusted-population";
 
@@ -50,6 +57,7 @@ export function getCompareConfigs(
   models: readonly ModelData[],
   communityRows: readonly CommunityBoardRow[] = [],
   contextTokens: ContextLengthOption = DEFAULT_CONTEXT_TOKENS,
+  artifactDetails: readonly CommunityArtifactDetail[] = communityArtifactDetails(models),
 ): readonly CompareConfig[] {
   const stored = models
     .filter((model) => model.kind === "community")
@@ -85,24 +93,29 @@ export function getCompareConfigs(
   const community = communityRows.flatMap((row): readonly CompareConfig[] => {
     if (!row.headlineComplete || row.compositeFull === null || !isNonEmptyString(row.quantLabel)) return [];
     const axes = communityAxes(row);
-    const point = toDisplayScore(row.compositeFull);
+    const artifactDetail = communityArtifactDetailForSha(artifactDetails, row.artifactSha256);
+    const vramEstimate = estimateVramRequirement({
+      quantLabel: artifactDetail?.quantLabel ?? row.quantLabel,
+      vramFootprintGb: artifactDetail?.fileGb ?? null,
+      vramRequiredGb8k: artifactDetail?.vramGb8k ?? null,
+    }, contextTokens);
     const modelSlug = modelSlugFromDetailPath(row.detailPath);
     return [{
       axes,
-      composite: { hi: point, lo: point, point },
+      composite: communityScore(row.compositeFull),
       coverage: "full",
       demo: false,
-      fitTierGb: null,
+      fitTierGb: vramEstimate === null ? null : findMinimumVramTier(vramEstimate.effectiveRequiredGb),
       id: row.submissionId,
       lane: HEADLINE_LANE,
-      modelLabel: row.displayName,
+      modelLabel: artifactDetail?.modelLabel ?? row.displayName,
       modelHref: row.detailPath,
       modelSlug,
-      quantLabel: row.quantLabel,
+      quantLabel: artifactDetail?.quantLabel ?? row.quantLabel,
       runId: row.submissionId,
       scoreScope: "current-index",
       tokS: null,
-      vramEstimate: null,
+      vramEstimate,
     }];
   });
   return [...stored, ...community].sort(compareConfigs);
