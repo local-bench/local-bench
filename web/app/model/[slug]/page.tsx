@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { CatalogOnlyNotice } from "@/components/catalog-only-notice";
-import { CommunityFamilyResultsLive } from "@/components/community-family-results";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
-import { ModelScatter } from "@/components/model-scatter";
-import { ModelVariantBoard } from "@/components/model-variant-board";
+import { ModelPageCommunity } from "@/components/model-page-community";
 import { ProjectRunBadge } from "@/components/leaderboard-provenance";
 import { RuntimeBadge } from "@/components/runtime-badge";
 import { VsBaseStrip } from "@/components/vs-base-strip";
@@ -139,15 +137,11 @@ export default async function ModelPage({ params }: PageProps) {
         </div>
       </header>
       {catalogOnly ? <CatalogOnlyNotice queued={queued} /> : null}
-      <ModelScatter
-        model={model}
+      <ModelPageCommunity
         anchorRuns={anchorRuns}
-        communityRows={communityFamilyRows}
+        bakedRows={communityFamilyRows}
         familyModels={familyModels}
-      />
-      <ModelVariantBoard communityRows={communityFamilyRows} model={model} familyModels={familyModels} />
-      <CommunityFamilyResultsLive
-        rows={communityFamilyRows}
+        model={model}
         resolutionContext={resolutionContext}
         target={communityTarget}
       />

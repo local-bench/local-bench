@@ -1,29 +1,23 @@
 "use client";
 
-import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
+import { CommunityFreshness, type LiveCommunityState } from "@/components/community-live-state";
 import { SubmissionIdentity } from "@/components/leaderboard-provenance";
-import { communityRowsForModel } from "@/lib/community-family";
-import type { CommunityBoardRow, CommunityLineage, CommunityModelTarget } from "@/lib/community-data";
-import type { FamilyResolutionContext } from "@/lib/family-resolution";
+import type { CommunityBoardRow, CommunityLineage } from "@/lib/community-data";
 import { huggingFaceRepoUrl } from "@/lib/community-links";
 import { toDisplayScore } from "@/lib/board-adapter";
 import { axisLabel, formatScore } from "@/lib/format";
 
 export function CommunityFamilyResultsLive({
   rows,
-  resolutionContext,
-  target,
+  state,
 }: {
   readonly rows: readonly CommunityBoardRow[];
-  readonly resolutionContext: FamilyResolutionContext;
-  readonly target: CommunityModelTarget;
+  readonly state: LiveCommunityState;
 }) {
-  const state = useLiveCommunityRows(rows, true, resolutionContext);
-  const visible = state.kind === "live" ? communityRowsForModel(state.rows, target) : rows;
   return (
     <div className="space-y-2">
       <CommunityFreshness state={state} />
-      <CommunityFamilyResults rows={visible} />
+      <CommunityFamilyResults rows={rows} />
     </div>
   );
 }

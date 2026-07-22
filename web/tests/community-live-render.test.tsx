@@ -198,6 +198,9 @@ describe("live-only community links", () => {
   });
 
   it("renders live freshness, held-back rows, and honest snapshot fallback copy", () => {
+    const loading = renderToStaticMarkup(<CommunityFreshness
+      state={{ kind: "loading", rows: [liveOnlyRow] }}
+    />);
     const live = renderToStaticMarkup(<CommunityFreshness state={{
       droppedRows: 2,
       generatedAt: "2026-07-18T04:00:00Z",
@@ -209,6 +212,8 @@ describe("live-only community links", () => {
       state={{ kind: "snapshot", rows: [liveOnlyRow] }}
     />);
 
+    expect(loading).toContain('aria-hidden="true"');
+    expect(loading).toContain("h-4");
     expect(live).toContain("live · updated 7s ago · 2 rows held back");
     expect(snapshot).toContain("showing last published snapshot");
     expect(snapshot).toContain("live data unavailable");

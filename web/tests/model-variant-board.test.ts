@@ -3,10 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ModelVariantBoard } from "../components/model-variant-board";
 import { getCompareConfigs } from "../lib/compare";
+import { parseCommunityLiveBoard, reconcileCommunityRows } from "../lib/community-live";
 import type { CommunityBoardRow } from "../lib/community-data";
 import type { ModelData, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "../lib/data";
 import { resolveRunArtifactMetrics } from "../lib/model-run-metrics";
 import { ModelSlugSchema, RunIdSchema, type AxisScore } from "../lib/schemas";
+import { bonsaiLiveEnvelope } from "./fixtures/bonsai-live-community";
 
 describe("model variant board runtime display", () => {
   it("shows the serving runtime for each measured variant", () => {
@@ -285,6 +287,40 @@ describe("model variant board runtime display", () => {
     expect(communityCells[2]).toContain("96.0");
     expect(communityCells[3]).toContain("42.0");
     expect(bakedCells[0]).toContain("2");
+  });
+
+  it("maps live legacy axis names into every season-two board column", () => {
+    const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
+    if (parsed === null) throw new Error("expected valid Bonsai live envelope");
+    const [communityRow] = reconcileCommunityRows([], parsed.rows);
+    if (communityRow === undefined) throw new Error("expected reconciled Bonsai row");
+    const base = fixtureModel();
+    const ownRun = base.runs[0];
+    if (ownRun === undefined) throw new Error("fixture missing run");
+    const legacyAxes = configuredAxes();
+    const seasonTwoRun: ModelData["runs"][number] = {
+      ...ownRun,
+      axes: {
+        coding: legacyAxes.coding,
+        instruction: legacyAxes.instruction,
+        knowledge: legacyAxes.knowledge,
+        math: legacyAxes.math,
+        tool_use: legacyAxes.agentic,
+      },
+      index_version: "index-v4.2",
+    };
+
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [communityRow],
+      model: { ...base, runs: [seasonTwoRun] },
+    }));
+    const cells = rowCellsContaining(html, "bonsai-27b-ternary");
+
+    expect(cells[3]).toContain("42.0");
+    expect(cells[4]).toContain("51.0");
+    expect(cells[5]).toContain("63.0");
+    expect(cells[6]).toContain("85.0");
+    expect(cells[7]).toContain("90.0");
   });
 });
 

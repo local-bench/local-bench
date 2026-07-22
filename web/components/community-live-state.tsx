@@ -74,7 +74,9 @@ export function CommunityFreshness({
     const timer = window.setInterval(() => setClock(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [now, state.kind]);
-  if (state.kind === "loading") return null;
+  if (state.kind === "loading") {
+    return <p aria-hidden className="h-4 font-mono text-xs text-bench-muted" />;
+  }
   if (state.kind === "snapshot") {
     return (
       <p className="font-mono text-xs text-bench-muted">

@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { ModelPageCommunityViews } from "../components/model-page-community";
+import { parseCommunityLiveBoard, reconcileCommunityRows } from "../lib/community-live";
 import * as communityData from "../lib/community-data";
+import { getModelPageData } from "../lib/data";
+import { familyResolutionContext } from "../lib/family-resolution-data";
+import { bonsaiLiveEnvelope } from "./fixtures/bonsai-live-community";
 
 const communityGroup = communityData.parseCommunityGroup({
   community_model_group_id: `community-group:${"1".repeat(32)}`,
@@ -43,6 +48,89 @@ if (communityGroup === null) throw new Error("community page fixture must valida
 const communityRows = communityData.communityBoardRows([communityGroup]);
 
 describe("model page community family results", () => {
+  it("feeds one live-reconciled row to the board, scatter, and reported results", async () => {
+    const pageData = await getModelPageData("qwen3-6-27b");
+    const resolutionContext = familyResolutionContext();
+    const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
+    if (parsed === null) throw new Error("expected valid Bonsai live envelope");
+    const rows = reconcileCommunityRows([], parsed.rows, resolutionContext);
+    const artifactSha256s = pageData.model.artifacts?.map((artifact) => artifact.file_sha256);
+    const target = {
+      catalogId: pageData.model.catalog_id,
+      family: pageData.model.family,
+      modelLabel: pageData.model.model_label,
+      slug: pageData.model.slug,
+      ...(artifactSha256s === undefined ? {} : { artifactSha256s }),
+    };
+
+    const html = renderToStaticMarkup(<ModelPageCommunityViews
+      anchorRuns={pageData.anchorRuns}
+      familyModels={pageData.familyModels}
+      model={pageData.model}
+      state={{
+        droppedRows: parsed.droppedRows,
+        generatedAt: parsed.generatedAt,
+        kind: "live",
+        rows,
+      }}
+      target={target}
+    />);
+    const boardCells = rowCellsContaining(html, "bonsai-27b-ternary");
+
+    expect(boardCells[2]).toContain("36.7");
+    expect(boardCells[3]).toContain("42.0");
+    expect(boardCells[4]).toContain("51.0");
+    expect(boardCells[5]).toContain("63.0");
+    expect(boardCells[6]).toContain("85.0");
+    expect(boardCells[7]).toContain("90.0");
+    expect(html).toContain('data-point-kind="community"');
+    expect(html).toContain("31.8 GB");
+    expect(html).toContain("Reported runs");
+    expect(html).toContain("Instruction following");
+    expect(html).toContain("63.0 · n=20");
+  });
+
+  it("server-renders a baked composite without axes or a community scatter point", async () => {
+    const pageData = await getModelPageData("qwen3-6-27b");
+    const bakedRow: communityData.CommunityBoardRow = {
+      artifactSha256: "b".repeat(64),
+      axes: {},
+      compositeFull: 0.3673,
+      detailPath: null,
+      displayName: "Baked fallback variant",
+      family: null,
+      globalRank: null,
+      headlineComplete: true,
+      identityLabel: "community-declared, identity-unverified",
+      indexVersion: null,
+      lineage: undefined,
+      measuredHeadlineWeight: 1,
+      missingHeadlineWeight: 0,
+      origin: "community",
+      partialComposite: 0.3673,
+      quantLabel: "Q2_0",
+      ranked: false,
+      submissionId: "ticket_baked_fallback",
+    };
+    const html = renderToStaticMarkup(<ModelPageCommunityViews
+      anchorRuns={pageData.anchorRuns}
+      familyModels={pageData.familyModels}
+      model={pageData.model}
+      state={{ kind: "loading", rows: [bakedRow] }}
+      target={{
+        catalogId: pageData.model.catalog_id,
+        family: pageData.model.family,
+        modelLabel: pageData.model.model_label,
+        slug: pageData.model.slug,
+      }}
+    />);
+    const boardCells = rowCellsContaining(html, "Baked fallback variant");
+
+    expect(boardCells[2]).toContain("36.7");
+    expect(boardCells.slice(3, 8).every((cell) => cell.includes("n/a"))).toBe(true);
+    expect(html).not.toContain('data-point-kind="community"');
+  });
+
   it("shows Qwythos on the Qwen3.5-9B page with honest association labeling", async () => {
     const rowsMock = vi.spyOn(communityData, "getCommunityBoardRows").mockResolvedValue(communityRows);
     const { default: ModelPage } = await import("../app/model/[slug]/page");
@@ -103,3 +191,10 @@ describe("model page community family results", () => {
     expect(html).toContain(">self-reported</span>");
   });
 });
+
+function rowCellsContaining(html: string, text: string): readonly string[] {
+  const row = [...html.matchAll(/<tr[\s\S]*?<\/tr>/gu)]
+    .map((match) => match[0])
+    .find((candidate) => candidate.includes(text)) ?? "";
+  return [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gu)].map((match) => match[1] ?? "");
+}

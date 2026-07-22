@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 import { ModelScatter } from "../components/model-scatter";
 import { ModelVariantBoard } from "../components/model-variant-board";
 import { AXIS_KEYS } from "../lib/axis-config";
+import { parseCommunityLiveBoard, reconcileCommunityRows } from "../lib/community-live";
 import type { CommunityBoardRow } from "../lib/community-data";
+import { familyResolutionContext } from "../lib/family-resolution-data";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
 import type { ModelDataWithConfiguredAxes } from "../lib/data";
 import { ModelDataSchema, RunIdSchema, type AxisScore, type ModelRun, type Score } from "../lib/schemas";
+import { bonsaiLiveEnvelope } from "./fixtures/bonsai-live-community";
 
 const score = { point: 61.2, lo: 59, hi: 63.4 } satisfies Score;
 const axisScore = { ...score, raw_accuracy: 0.61, n: 100, n_errors: 0, n_no_answer: 0 } satisfies AxisScore;
@@ -167,12 +170,15 @@ describe("ModelScatter family points", () => {
   });
 
   it("plots an env-overlay community row with a distinct linked marker", () => {
-    // Given: the server-side community row after the maintainer environment overlay is merged.
-    const communityRow = communityFixture({
-      hardware: { gpu_name: "RTX 5090", vram_gb: 31.8 },
-      maintainerEnvBackfill: { hardware: { vram_gb: true }, perf: { decode_tps: true } },
-      perf: { decode_tps: 118.2, tokens_to_answer_median: null, wall_time_seconds: null },
-    });
+    // Given: a live board row with no hardware or perf; reconciliation supplies the
+    // Bonsai bundle overlay before the row reaches either model-page projection.
+    const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
+    if (parsed === null) throw new Error("expected valid Bonsai live envelope");
+    const [communityRow] = reconcileCommunityRows([], parsed.rows, familyResolutionContext());
+    if (communityRow === undefined) throw new Error("expected reconciled Bonsai row");
+
+    expect(communityRow.hardware).toMatchObject({ vram_gb: 31.8 });
+    expect(communityRow.perf?.decode_tps).toBeCloseTo(118.2, 1);
 
     // When: the model scatter receives that page-level community row set.
     const html = renderToStaticMarkup(createElement(ModelScatter, {
@@ -183,8 +189,8 @@ describe("ModelScatter family points", () => {
 
     // Then: the row uses the community marker and existing detail/tooltip path.
     expect(html).toContain('data-point-kind="community"');
-    expect(html).toContain('href="/model/community-tune/"');
-    expect(html).toContain("Community Tune");
+    expect(html).toContain('href="/model/bonsai-27b-ternary/"');
+    expect(html).toContain("bonsai-27b-ternary");
     expect(html).toContain("36.7");
     expect(html).toContain("31.8 GB");
     expect(html).toContain("Community runs");
