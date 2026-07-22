@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CommunityFreshness, useLiveCommunityRows } from "@/components/community-live-state";
-import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { toDisplayScore } from "@/lib/board-adapter";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { FamilyModelSummary } from "@/lib/families";
@@ -77,7 +77,7 @@ export function AwaitingFamilyAssignment({ rows }: { readonly rows: readonly Com
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-warn">Needs catalog lineage</p>
         <h2 className="mt-1 text-2xl font-semibold text-bench-text">Awaiting family assignment</h2>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-bench-muted">
-          These complete self-reported runs remain visible, but their declared family is not authoritative enough to attach them to a model family.
+          These complete reported runs remain visible, but their declared family is not authoritative enough to attach them to a model family.
         </p>
       </div>
       <div className="grid gap-px bg-bench-line sm:grid-cols-2 xl:grid-cols-3">
@@ -91,7 +91,13 @@ export function AwaitingFamilyAssignment({ rows }: { readonly rows: readonly Com
             <p className="mt-1 font-mono text-xs text-bench-muted">
               {formatScore(toDisplayScore(row.compositeFull ?? 0))} · {row.family ?? "family not declared"}
             </p>
-            <div className="mt-2"><SubmissionIdentity displayName={row.submitterDisplayName} /></div>
+            <div className="mt-2">
+              {row.origin === "project_anchor" ? (
+                <ProjectRunBadge badge={row.badge} origin={row.origin} />
+              ) : (
+                <SubmissionIdentity displayName={row.submitterDisplayName} />
+              )}
+            </div>
           </article>
         ))}
       </div>
@@ -176,7 +182,13 @@ function CommunityFamilyRow({ entry }: { readonly entry: CommunityFamilyEntry })
             {entry.row.displayName}
           </Link>
         )}
-        <div className="mt-1"><SubmissionIdentity displayName={entry.row.submitterDisplayName} /></div>
+        <div className="mt-1">
+          {entry.row.origin === "project_anchor" ? (
+            <ProjectRunBadge badge={entry.row.badge} origin={entry.row.origin} />
+          ) : (
+            <SubmissionIdentity displayName={entry.row.submitterDisplayName} />
+          )}
+        </div>
       </td>
       <td className="px-5 py-3 font-mono text-bench-muted">{formatScore(entry.score)}</td>
     </tr>

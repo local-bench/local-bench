@@ -46,6 +46,7 @@ export type SubmissionLifecyclePage = {
 export type SubmissionDisplayRow = {
   readonly communityDetailPath: string | null;
   readonly modelLabel: string;
+  readonly origin: CommunityBoardRow["origin"];
   readonly reasonLabel: string | null;
   readonly stateLabel: string;
   readonly submissionId: string;
@@ -91,6 +92,7 @@ export function mergeSubmissionLifecycleRows(
     return {
       communityDetailPath: community?.detailPath ?? null,
       modelLabel: community?.displayName ?? row.declared_model_slug ?? "model unavailable",
+      origin: community?.origin,
       reasonLabel: row.reason_code == null ? null : reasonCodeLabel(row.reason_code),
       stateLabel: lifecycleStateLabel(row),
       submissionId: row.submission_id,

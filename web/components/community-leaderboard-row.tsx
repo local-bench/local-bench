@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { MouseEvent } from "react";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
-import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { RuntimeCell, SeasonBadge } from "@/components/leaderboard-table-cells";
 import { boardAxisValue } from "@/lib/board-adapter";
@@ -77,7 +77,11 @@ export function CommunityLeaderboardRow({
         title="Who ran this benchmark — local-bench for project-run rows, the submitter for community submissions"
       >
         <div className="max-w-[180px]">
-          <SubmissionIdentity displayName={row.submitterDisplayName} />
+          {row.origin === "project_anchor" ? (
+            <ProjectRunBadge badge={row.badge} origin={row.origin} />
+          ) : (
+            <SubmissionIdentity displayName={row.submitterDisplayName} />
+          )}
         </div>
       </td>
       <td className="px-3 py-3">

@@ -59,7 +59,9 @@ export function filterUnifiedLeaderboardRows(
           displayedComposite: scoreValue(candidate),
           ...(familyKey === null ? {} : { familyKey }),
           resolution,
-          source: candidate.source === "local-bench" ? "maintainer" as const : "community" as const,
+          source: candidate.source === "local-bench"
+            ? candidate.model.origin === "community" ? "community" as const : "maintainer" as const
+            : candidate.row.origin === "project_anchor" ? "maintainer" as const : "community" as const,
           value: candidate,
         };
       })).map((candidate) => candidate.value);

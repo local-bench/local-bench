@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useLiveCommunityRows } from "@/components/community-live-state";
-import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { reasonCodeLabel } from "@/lib/submission-lifecycle";
 import {
@@ -171,7 +171,9 @@ export function SubmissionDetails({
         </p>
         {value.publish_state === "published" ? (
           <div className="mt-3 text-sm text-bench-muted">
-            <SubmissionIdentity displayName={value.submitter_display_name ?? liveRow?.submitterDisplayName ?? null} />
+            {liveRow?.origin === "project_anchor"
+              ? <ProjectRunBadge badge={liveRow.badge} origin={liveRow.origin} />
+              : <SubmissionIdentity displayName={value.submitter_display_name ?? liveRow?.submitterDisplayName ?? null} />}
           </div>
         ) : null}
         {value.status === "rejected" && reason ? (

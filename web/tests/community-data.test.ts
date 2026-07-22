@@ -10,6 +10,7 @@ import type { IndexModel } from "../lib/schemas";
 
 const artifactSha = "a".repeat(64);
 const BONSAI_SHA = "868c11714cf8fe47f5ec9eeb2be0ab1a337112886f92ee0ede6b855c4fa31757";
+const QWEN35_SHA = "03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8";
 const projectionSha = "b".repeat(64);
 
 function groupFixture(displayName = "Qwythos-9B v2", repoId = "empero-ai/Qwythos-9B-v2") {
@@ -108,6 +109,7 @@ describe("community static-data boundary", () => {
       detailPath: null,
       displayName: "Qwythos-9B v2",
       identityLabel: "community-declared, identity-unverified",
+      origin: "community",
       partialComposite: 0.4171,
     });
   });
@@ -117,6 +119,7 @@ describe("community static-data boundary", () => {
     const variant = firstVariant(fixture);
     variant.artifact_sha256 = BONSAI_SHA;
     variant.lineage_enrichment.artifact_sha256 = BONSAI_SHA;
+    variant.submission_id = "ticket_cc352811a58d4022b3044eb28abce178";
     const parsed = parseCommunityGroup(fixture);
     if (parsed === null) throw new Error("expected validated Bonsai group");
 
@@ -137,6 +140,25 @@ describe("community static-data boundary", () => {
         tokens_to_answer_median: 3215,
         wall_time_seconds: 61272.45902150008,
       },
+      origin: "project_anchor",
+    });
+  });
+
+  it("applies the maintainer origin overlay to the second baked project row", () => {
+    const fixture = groupFixture("qwen3-5-9b-q4-k-m", "Qwen/Qwen3.5-9B");
+    const variant = firstVariant(fixture);
+    variant.artifact_sha256 = QWEN35_SHA;
+    variant.lineage_enrichment.artifact_sha256 = QWEN35_SHA;
+    variant.submission_id = "ticket_75e2314e2a81417fb11b6396d3ebea35";
+    const parsed = parseCommunityGroup(fixture);
+    if (parsed === null) throw new Error("expected validated Qwen3.5 group");
+
+    const [row] = communityBoardRows([parsed]);
+
+    expect(row).toMatchObject({
+      artifactSha256: QWEN35_SHA,
+      origin: "project_anchor",
+      submissionId: "ticket_75e2314e2a81417fb11b6396d3ebea35",
     });
   });
 

@@ -8,6 +8,7 @@ import { huggingFaceRepoUrl } from "./community-links";
 import { normalizeCommunityCoverage } from "./community-coverage";
 import type { FamilyResolutionConfidence } from "./family-resolution";
 import { envOverlayByArtifactSha } from "./overlay-env";
+import { bakedCommunityOrigin } from "./overlay-origin";
 
 export { normalizeCommunityCoverage } from "./community-coverage";
 
@@ -222,37 +223,35 @@ export async function getCommunityGroups(): Promise<readonly CommunityGroupData[
 }
 
 export function communityBoardRows(groups: readonly CommunityGroupData[]): readonly CommunityBoardRow[] {
-  return groups.flatMap((group) => {
-    return group.variants.map((variant) => ({
-      artifactSha256: variant.artifact_sha256,
-      axes: {},
-      communityModelGroupId: group.community_model_group_id,
-      compositeFull: variant.scores.composite_full ?? variant.scores.headline_score ?? null,
-      declaredBaseModels: [],
-      detailPath: null,
-      displayName: variant.display_name ?? "Community-declared variant",
-      family: null,
-      globalRank: null,
-      headlineComplete: variant.scores.composite_full !== null && variant.scores.composite_full !== undefined,
-      identityLabel: group.identity_label,
-      indexVersion: null,
-      lineage: variant.lineage_enrichment,
-      ...mergeCommunityEnvironment({}, undefined, envOverlayByArtifactSha().get(variant.artifact_sha256)),
-      ...normalizeCommunityCoverage(
-        variant.scores.measured_headline_weight ?? null,
-        variant.scores.missing_headline_weight ?? null,
-      ),
-      origin: "community" as const,
-      partialComposite: variant.scores.partial_composite ?? null,
-      quantLabel: variant.quant_label,
-      submissionId: variant.submission_id,
-      submitterDisplayName: null,
-      submitterGithubLogin: null,
-      submitterKeyFingerprint: null,
-      timestamps: null,
-      trust: null,
-    }));
-  });
+  return groups.flatMap((group) => group.variants.map((variant) => ({
+    artifactSha256: variant.artifact_sha256,
+    axes: {},
+    communityModelGroupId: group.community_model_group_id,
+    compositeFull: variant.scores.composite_full ?? variant.scores.headline_score ?? null,
+    declaredBaseModels: [],
+    detailPath: null,
+    displayName: variant.display_name ?? "Community-declared variant",
+    family: null,
+    globalRank: null,
+    headlineComplete: variant.scores.composite_full !== null && variant.scores.composite_full !== undefined,
+    identityLabel: group.identity_label,
+    indexVersion: null,
+    lineage: variant.lineage_enrichment,
+    ...mergeCommunityEnvironment({}, undefined, envOverlayByArtifactSha().get(variant.artifact_sha256)),
+    ...normalizeCommunityCoverage(
+      variant.scores.measured_headline_weight ?? null,
+      variant.scores.missing_headline_weight ?? null,
+    ),
+    origin: bakedCommunityOrigin(variant.artifact_sha256, variant.submission_id),
+    partialComposite: variant.scores.partial_composite ?? null,
+    quantLabel: variant.quant_label,
+    submissionId: variant.submission_id,
+    submitterDisplayName: null,
+    submitterGithubLogin: null,
+    submitterKeyFingerprint: null,
+    timestamps: null,
+    trust: null,
+  })));
 }
 
 export async function getCommunityBoardRows(): Promise<readonly CommunityBoardRow[] | null> {

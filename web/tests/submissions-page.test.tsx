@@ -53,6 +53,7 @@ const publishedCommunityRow: CommunityBoardRow = {
   lineage: undefined,
   measuredHeadlineWeight: 1,
   missingHeadlineWeight: 0,
+  origin: "community",
   partialComposite: 0.5,
   quantLabel: "Q4_K_M",
   ranked: false,
@@ -129,6 +130,42 @@ describe("public submissions lifecycle", () => {
     expect(html).toContain("Unsafe metadata");
     expect(html).toContain("submitted as Ada — unverified");
     expect(html).not.toContain('href="https://github.com/');
+  });
+
+  it("uses project framing in the lifecycle list and published submission detail", () => {
+    const projectRow: CommunityBoardRow = {
+      ...publishedCommunityRow,
+      origin: "project_anchor",
+      submitterDisplayName: "Maintainer fixture",
+    };
+    const projectPayload = {
+      next_cursor: null,
+      submissions: [lifecycleRow(PUBLISHED_ID, {
+        publish_state: "published",
+        status: "accepted",
+        submitter_display_name: "Maintainer fixture",
+      })],
+    };
+    const parsed = parseSubmissionLifecyclePage(projectPayload);
+    if (parsed === null) throw new Error("project lifecycle fixture must parse");
+    const rows = mergeSubmissionLifecycleRows(parsed.submissions, [projectRow]);
+
+    const lifecycleHtml = renderToStaticMarkup(
+      <SubmissionsTable loadingMore={false} nextCursor={null} onLoadMore={() => undefined} rows={rows} />,
+    );
+    const detailHtml = renderToStaticMarkup(<SubmissionDetails liveRow={projectRow} value={{
+      publish_state: "published",
+      raw_bundle_sha256: "b".repeat(64),
+      status: "accepted",
+      submission_id: PUBLISHED_ID,
+      submitter_display_name: "Maintainer fixture",
+      trust_label: "project_anchor",
+    }} />);
+
+    expect(lifecycleHtml).toContain("project run");
+    expect(detailHtml).toContain("project run");
+    expect(lifecycleHtml).not.toContain("submitted as Maintainer fixture — unverified");
+    expect(detailHtml).not.toContain("submitted as Maintainer fixture — unverified");
   });
 
   it("renders bounded rejection reasons and plain submitter detail", () => {

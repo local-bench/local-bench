@@ -23,6 +23,7 @@ const liveOnlyRow: CommunityBoardRow = {
   lineage: undefined,
   measuredHeadlineWeight: 1,
   missingHeadlineWeight: 0,
+  origin: "community",
   partialComposite: 0.5,
   quantLabel: "Q4_K_M",
   ranked: false,
@@ -125,6 +126,27 @@ describe("live-only community links", () => {
     expect(html).not.toContain('href="https://github.com/');
   });
 
+  it("renders project-origin leaderboard rows with maintainer framing", () => {
+    const html = renderToStaticMarkup(
+      <table><tbody><CommunityLeaderboardRow
+        axisKeys={[]}
+        rank={1}
+        row={{
+          ...liveOnlyRow,
+          badge: "project-run",
+          origin: "project_anchor",
+          submitterDisplayName: "Maintainer fixture",
+        }}
+        showAgenticColumn={false}
+        showStaticIndexColumn={false}
+      /></tbody></table>,
+    );
+
+    expect(html).toContain("project run");
+    expect(html).toContain("This benchmark was run by the local-bench project");
+    expect(html).not.toContain("submitted as Maintainer fixture — unverified");
+  });
+
   it("renders canonical live axes under legacy baked board columns", () => {
     const html = renderToStaticMarkup(
       <table><tbody><CommunityLeaderboardRow
@@ -211,10 +233,18 @@ describe("live-only community links", () => {
       communityUnavailable
       state={{ kind: "snapshot", rows: [liveOnlyRow] }}
     />);
+    const singular = renderToStaticMarkup(<CommunityFreshness state={{
+      droppedRows: 1,
+      generatedAt: "2026-07-18T04:00:00Z",
+      kind: "live",
+      rows: [liveOnlyRow],
+    }} now={new Date("2026-07-18T04:00:07Z").getTime()} />);
 
     expect(loading).toContain('aria-hidden="true"');
     expect(loading).toContain("h-4");
     expect(live).toContain("live · updated 7s ago · 2 rows held back");
+    expect(singular).toContain("live · updated 7s ago · 1 row held back");
+    expect(singular).not.toContain("1 rows held back");
     expect(snapshot).toContain("showing last published snapshot");
     expect(snapshot).toContain("live data unavailable");
   });

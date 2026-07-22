@@ -47,6 +47,7 @@ const liveCommunityRows: readonly CommunityBoardRow[] = communityRows.map((row) 
   family: "Fixture",
   globalRank: 2,
   indexVersion: "index-v4.1",
+  origin: "community",
   submitterDisplayName: "Ada",
   axes: {
     agentic: { ci: [0.4, 0.5], n: 10, score: 0.41, status: "measured" },
@@ -273,7 +274,7 @@ describe("unified leaderboard community rows", () => {
     expect(selected[0]?.source === "community" ? selected[0].row.submissionId : null).toBe(community.submissionId);
   });
 
-  it("keeps an overlay-resolved community fine-tune as its own default representative", () => {
+  it("keeps an overlay-resolved project-origin fine-tune as its own default representative", () => {
     // Given: a live fine-tune row predates lineage capture and declares the wrong family,
     // while the maintainer overlay supplies its authoritative edge to a scored base model.
     const baseCatalog = catalogModel("Base/Overlay", "overlay-base", "Overlay Base");
@@ -295,6 +296,7 @@ describe("unified leaderboard community rows", () => {
       displayName: "Overlay community tune",
       family: "wrong-family",
       lineage: undefined,
+      origin: "project_anchor" as const,
       submissionId: "ticket_overlay_tune",
     };
 
@@ -323,6 +325,24 @@ describe("unified leaderboard community rows", () => {
 
     expect(selected).toHaveLength(1);
     expect(selected[0]?.source).toBe("local-bench");
+  });
+
+  it("treats a project-origin live row as maintainer-owned when family representatives tie", () => {
+    const baseCatalog = catalogModel("Base/Model", "base-model", "Base Model");
+    const tuneCatalog = catalogModel("Tune/Model", "tune-model", "Tune Model", baseCatalog.id);
+    const context = buildFamilyResolutionContext([baseCatalog, tuneCatalog]);
+    const catalog = { ...rankedCatalogModel(14, 50, baseCatalog), origin: "community" as const };
+    const project = {
+      ...resolvedCommunityRow(50, tuneCatalog.id, baseCatalog.id),
+      origin: "project_anchor" as const,
+      submissionId: "ticket_project_tie",
+    };
+
+    const selected = filterUnifiedLeaderboardRows([catalog], [project], { resolutionContext: context });
+
+    expect(selected).toHaveLength(1);
+    expect(selected[0]?.source === "community" ? selected[0].row.submissionId : null)
+      .toBe("ticket_project_tie");
   });
 
   it("defaults the leaderboard toggle to best-per-family and exposes every complete variant on demand", () => {

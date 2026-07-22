@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SubmissionIdentity } from "@/components/leaderboard-provenance";
+import { ProjectRunBadge, SubmissionIdentity } from "@/components/leaderboard-provenance";
 import { useLiveCommunityRows } from "@/components/community-live-state";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import {
@@ -120,7 +120,11 @@ export function SubmissionsTable({
                     : <Link className="hover:text-bench-accent" href={row.communityDetailPath}>{row.modelLabel}</Link>}
                 </td>
                 <td className="px-4 py-3 text-bench-muted">
-                  <SubmissionIdentity displayName={row.submitterDisplayName} />
+                  {row.origin === "project_anchor" ? (
+                    <ProjectRunBadge origin={row.origin} />
+                  ) : (
+                    <SubmissionIdentity displayName={row.submitterDisplayName} />
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className="font-semibold text-bench-text">{row.stateLabel}</span>

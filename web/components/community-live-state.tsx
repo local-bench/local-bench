@@ -85,6 +85,8 @@ export function CommunityFreshness({
     );
   }
   const ageSeconds = Math.max(0, Math.floor((clock - Date.parse(state.generatedAt)) / 1_000));
-  const heldBack = state.droppedRows === 0 ? "" : ` · ${state.droppedRows} rows held back`;
+  const heldBack = state.droppedRows === 0
+    ? ""
+    : ` · ${state.droppedRows} row${state.droppedRows === 1 ? "" : "s"} held back`;
   return <p className="font-mono text-xs text-bench-muted">live · updated {ageSeconds}s ago{heldBack}</p>;
 }

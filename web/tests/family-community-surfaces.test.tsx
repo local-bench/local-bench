@@ -34,6 +34,29 @@ describe("family community surfaces", () => {
     expect(html).toContain("2 models");
   });
 
+  it("uses project framing for resolved project runs in the family directory preview", () => {
+    const model = indexModel("base", "Base model", 50);
+    const project = communityRow({
+      compositeFull: 0.6,
+      confidence: "artifact-sha",
+      detailPath: "/model/project-fine-tune/",
+      displayName: "Project fine-tune",
+      familyLabel: "Fixture",
+      origin: "project_anchor",
+      submitterDisplayName: "Maintainer fixture",
+    });
+    const html = renderToStaticMarkup(
+      <FamilyDirectory
+        communityRows={[project]}
+        models={[model]}
+        resolutionContext={EMPTY_FAMILY_RESOLUTION_CONTEXT}
+      />,
+    );
+
+    expect(html).toContain("project run");
+    expect(html).not.toContain("submitted as Maintainer fixture — unverified");
+  });
+
   it("sorts resolved complete community runs into the measured family list", () => {
     // Given: a community fine-tune beats one measured maintainer model while a catalog shell awaits a run.
     const measured = indexModel("base", "Base model", 50);
@@ -96,6 +119,38 @@ describe("family community surfaces", () => {
     expect(html).toContain("Declared only");
     expect(html).not.toContain("Resolved complete");
     expect(html).not.toContain("Unresolved incomplete");
+    expect(html).toContain("These complete reported runs remain visible");
+    expect(html).not.toContain("These complete self-reported runs remain visible");
+  });
+
+  it("uses project framing in resolved and awaiting family model surfaces", () => {
+    const measured = indexModel("base", "Base model", 50);
+    const summary = familySummaries([measured])[0];
+    if (summary === undefined) throw new Error("missing family summary fixture");
+    const project = communityRow({
+      confidence: "artifact-sha",
+      displayName: "Resolved project run",
+      familyLabel: "Fixture",
+      origin: "project_anchor",
+      submitterDisplayName: "Maintainer fixture",
+    });
+    const awaitingProject = communityRow({
+      confidence: null,
+      displayName: "Awaiting project run",
+      origin: "project_anchor",
+      submissionId: "ticket_awaiting_project",
+      submitterDisplayName: "Maintainer fixture",
+    });
+
+    const resolvedHtml = renderToStaticMarkup(
+      <FamilyModelTable family="Fixture" models={summary.models} rows={[project]} />,
+    );
+    const awaitingHtml = renderToStaticMarkup(<AwaitingFamilyAssignment rows={[awaitingProject]} />);
+
+    expect(resolvedHtml).toContain("project run");
+    expect(awaitingHtml).toContain("project run");
+    expect(resolvedHtml).not.toContain("submitted as Maintainer fixture — unverified");
+    expect(awaitingHtml).not.toContain("submitted as Maintainer fixture — unverified");
   });
 
   it("renders nothing when every complete row has authoritative family resolution", () => {
@@ -159,6 +214,7 @@ function communityRow(overrides: Partial<CommunityBoardRow> = {}): CommunityBoar
     lineage: undefined,
     measuredHeadlineWeight: 1,
     missingHeadlineWeight: 0,
+    origin: "community",
     partialComposite: 0.55,
     quantLabel: "Q4_K_M",
     rootCatalogId: null,
