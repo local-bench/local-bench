@@ -8,7 +8,7 @@ import type { CommunityArtifactDetail } from "../lib/community-artifact-details"
 import type { CommunityBoardRow } from "../lib/community-data";
 import { buildFamilyResolutionContext } from "../lib/family-resolution";
 import { HEADLINE_LANE } from "../lib/leaderboard-score";
-import { sameModelName, variantNameInContext } from "../lib/model-name";
+import { declaredNameIsRedundant, sameModelName, variantNameInContext } from "../lib/model-name";
 import type { RigMatchCandidate } from "../lib/rig-match";
 import type { CatalogModel } from "../lib/schemas";
 
@@ -170,6 +170,15 @@ describe("model-name helpers", () => {
   it("treats a slugified twin as the same name", () => {
     expect(sameModelName("Bonsai 27B Ternary", "bonsai-27b-ternary")).toBe(true);
     expect(sameModelName("Bonsai 27B Ternary", "Totally Different 13B")).toBe(false);
+  });
+
+  it("marks declared names redundant when they are name or name+quant slug twins", () => {
+    expect(declaredNameIsRedundant("bonsai-27b-ternary", "Bonsai 27B Ternary", ["Q2_0"])).toBe(true);
+    expect(declaredNameIsRedundant("qwen3-5-9b-q4-k-m", "Qwen3.5 9B", ["Q4_K_M"])).toBe(true);
+    expect(declaredNameIsRedundant("qwen3-6-27b-ud-q2-k-xl", "Qwen3.6 27B", ["UD-Q2_K_XL", "Q2_K_XL"])).toBe(true);
+    // A declared name naming a DIFFERENT quant or model is a genuine discrepancy — keep it.
+    expect(declaredNameIsRedundant("qwen3-5-9b-q8-0", "Qwen3.5 9B", ["Q4_K_M"])).toBe(false);
+    expect(declaredNameIsRedundant("Totally Different 13B", "Bonsai 27B Ternary", ["Q2_0"])).toBe(false);
   });
 
   it("drops tokens shared with the context model name", () => {

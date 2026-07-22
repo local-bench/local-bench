@@ -20,6 +20,9 @@ export type QualityVramRun = Readonly<Pick<
 >> & {
   readonly composite: Score;
   readonly point_href?: string;
+  // Stable machine identity for the rendered point (submission id for live rows) — labels
+  // compact away the model name, so tooling must not rely on label text to find a point.
+  readonly point_id?: string;
   readonly point_kind?: QualityVramPointKind;
   readonly point_label?: string;
 };
@@ -199,11 +202,16 @@ export function QualityVramScatter({
               // group-hover; the transparent r=14 circle is the hit target — the visible 6px dot
               // is too small to hover reliably.
               point.run.point_href === undefined ? (
-                <g key={point.run.run_id ?? label} className="group">
+                <g key={point.run.run_id ?? label} data-point-id={point.run.point_id ?? point.run.run_id ?? undefined} className="group">
                   {pointBody}
                 </g>
               ) : (
-                <a key={point.run.run_id ?? label} href={point.run.point_href} className="group">
+                <a
+                  key={point.run.run_id ?? label}
+                  data-point-id={point.run.point_id ?? point.run.run_id ?? undefined}
+                  href={point.run.point_href}
+                  className="group"
+                >
                   {pointBody}
                 </a>
               )

@@ -301,18 +301,23 @@ async function run() {
       } else {
         // Live rows plot as "community" (anonymous submissions) or "project" (maintainer
         // runs, origin project_anchor) — associate by row identity, never by kind alone.
+        // Primary identity is data-point-id (the submission id); rendered names are a
+        // fallback because compact labels legitimately omit the model name.
         const scatterMarkers = page.getByTestId("quality-vram-scatter").locator('svg [data-point-kind="community"], svg [data-point-kind="project"]');
         const markerMatches = await scatterMarkers.evaluateAll(
-          (markers, expectedName) => markers.filter((marker) => {
+          (markers, expectedIdentities) => markers.filter((marker) => {
             const point = marker.parentElement;
             const identities = [
+              point?.getAttribute("data-point-id"),
               marker.getAttribute("aria-label"),
               point?.getAttribute("aria-label"),
               point?.querySelector(":scope > title")?.textContent,
             ];
-            return identities.some((identity) => identity?.includes(expectedName) === true);
+            return identities.some((identity) =>
+              typeof identity === "string" && expectedIdentities.some((expected) => identity.includes(expected)),
+            );
           }).length,
-          name,
+          [row.submission_id, name, ...acceptedNames(row)].filter((value) => typeof value === "string"),
         );
         record("E", `scatter point: ${name}`, markerMatches > 0, markerMatches > 0 ? `${markerMatches} matching live-row SVG datapoint${markerMatches === 1 ? "" : "s"}` : "no matching data-point element inside the scatter SVG");
       }

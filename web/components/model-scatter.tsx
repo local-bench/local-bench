@@ -18,7 +18,7 @@ import {
   type CommunityArtifactDetail,
 } from "@/lib/community-artifact-details";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
-import { sameModelName, variantNameInContext } from "@/lib/model-name";
+import { declaredNameIsRedundant, sameModelName, variantNameInContext } from "@/lib/model-name";
 import { runHref } from "@/lib/routes";
 import type { ModelRun } from "@/lib/schemas";
 import { hasCompleteSeason2Coverage, INDEX_VERSION_V4 } from "@/lib/scoring-seasons";
@@ -113,7 +113,10 @@ function toCommunityScatterRun(
     return [];
   }
   const canonicalName = artifactDetail.modelLabel;
-  const declaredName = sameModelName(canonicalName, row.displayName)
+  const declaredName = declaredNameIsRedundant(row.displayName, canonicalName, [
+    artifactDetail.quantLabel,
+    row.quantLabel,
+  ])
     ? ""
     : ` · declared as ${row.displayName}`;
   // On a model page the chart already names the model — labels carry only what distinguishes
@@ -129,6 +132,7 @@ function toCommunityScatterRun(
     point_kind: row.origin === "project_anchor" ? "project" as const : "community" as const,
     point_label: `${contextName === null ? quantName : `${contextName} · ${quantName}`}${declaredName}`,
     quant_label: artifactDetail.quantLabel ?? row.quantLabel,
+    point_id: row.submissionId,
     run_id: null,
     vram_footprint_gb: artifactDetail.vramGb8k,
     wall_time_seconds: row.perf?.wall_time_seconds ?? null,
