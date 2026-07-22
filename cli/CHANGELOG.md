@@ -1,7 +1,11 @@
 # Changelog
 
-## 0.4.6 - Unreleased
+## 0.4.6 - 2026-07-23
 
+- The 0.4.5 cache-off serve policy is now soak-proven: a full 1311-item six-axis run of
+  Qwen3.6-27B UD-Q2_K_XL completed under `--cache-ram 0` with zero prompt-cache
+  evictions and no server restarts (the earlier crash attributed to the prompt cache
+  was root-caused to host commit exhaustion from an unrelated process).
 - Submitted projections now preserve prefill and overall token throughput when available.
 - Resumed runs report cumulative benched wall time; previously only the final resume
   segment was counted.
