@@ -10,7 +10,7 @@ import {
 
 describe("CLI onboarding cross-surface contract", () => {
   it("pins the shipped CLI version", () => {
-    expect(LOCALBENCH_TESTED_VERSION).toBe("0.4.5");
+    expect(LOCALBENCH_TESTED_VERSION).toBe("0.4.6");
   });
 
   it("renders the same install version and prerequisites on landing and submit pages", async () => {
