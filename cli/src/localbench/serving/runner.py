@@ -12,7 +12,10 @@ import httpx
 
 from localbench._types import JsonObject
 from localbench.appliance.provisioner import ApplianceProvisioner, ProvisioningError
-from localbench.appliance.runtime_identity import AgenticRuntimeIdentityError
+from localbench.appliance.runtime_identity import (
+    AgenticRuntimeIdentityError,
+    agentic_runtime_identity_sha256,
+)
 from localbench._suite import read_json_object
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
@@ -1323,6 +1326,15 @@ def preflight_agentic_if_needed(
         )
         if appliance_identity is None or appliance_identity_digest is None:
             return preflight
+        worker_version = preflight.identity.get("localbench_distribution_version")
+        if isinstance(worker_version, str) and worker_version:
+            appliance_identity = {
+                **appliance_identity,
+                "localbench_distribution_version": worker_version,
+            }
+            appliance_identity_digest = agentic_runtime_identity_sha256(
+                appliance_identity
+            )
         return replace(
             preflight,
             agentic_runtime_identity=appliance_identity,

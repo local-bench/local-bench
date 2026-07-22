@@ -19,6 +19,7 @@ from localbench.appliance.runtime_identity import (
     canonical_agentic_runtime_identity,
 )
 from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
+from localbench.scoring.agentic_exec import worker_identity as worker_identity_module
 from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
 from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 
@@ -92,6 +93,71 @@ def _components() -> AgenticRuntimeIdentityComponents:
         worker_identity=worker_identity,
         execution_contract=_contract(),
     )
+
+
+def test_worker_reported_version_drives_future_c4_identity_under_skew(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a 0.4.3 worker handshake accepted by a 0.4.5 host with identical worker content.
+    manifest, handshake, worker_identity = _source_inputs()
+    worker_content_sha256 = worker_identity["worker_content_sha256"]
+    assert isinstance(worker_content_sha256, str)
+    handshake["localbench_distribution_version"] = "0.4.3"
+    handshake["worker_content_sha256"] = worker_content_sha256
+    host_identity = {
+        "localbench_distribution_version": "0.4.5",
+        "worker_content_sha256": worker_content_sha256,
+    }
+    monkeypatch.setattr(
+        worker_identity_module,
+        "worker_implementation_identity",
+        lambda: host_identity,
+    )
+
+    # When: C4 components are built from the handshake without an explicit identity override.
+    truthful = agentic_runtime_identity_from_sources(
+        manifest,
+        handshake,
+        execution_contract=_contract(),
+    )
+    host_labeled = agentic_runtime_identity_from_sources(
+        manifest,
+        handshake,
+        worker_identity=host_identity,
+        execution_contract=_contract(),
+    )
+
+    # Then: the worker version is recorded and the resulting C4 digest differs from the old lie.
+    assert truthful.localbench_distribution_version == "0.4.3"
+    assert agentic_runtime_identity_sha256(
+        agentic_runtime_identity_object(truthful)
+    ) != agentic_runtime_identity_sha256(agentic_runtime_identity_object(host_labeled))
+
+
+def test_runtime_identity_falls_back_to_host_version_when_worker_omits_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: an older handshake with no worker implementation identity fields.
+    manifest, handshake, worker_identity = _source_inputs()
+    host_identity = {
+        **worker_identity,
+        "localbench_distribution_version": "0.4.5",
+    }
+    monkeypatch.setattr(
+        worker_identity_module,
+        "worker_implementation_identity",
+        lambda: host_identity,
+    )
+
+    # When: C4 components are built without an explicit worker identity.
+    components = agentic_runtime_identity_from_sources(
+        manifest,
+        handshake,
+        execution_contract=_contract(),
+    )
+
+    # Then: the host identity remains the compatibility fallback.
+    assert components.localbench_distribution_version == "0.4.5"
 
 
 def test_identity_is_byte_identical_across_simulated_machines(

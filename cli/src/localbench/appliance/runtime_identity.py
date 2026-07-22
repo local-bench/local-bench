@@ -93,11 +93,34 @@ def agentic_runtime_identity_from_sources(
     execution_contract: JsonObject | None = None,
 ) -> AgenticRuntimeIdentityComponents:
     if worker_identity is None:
-        from localbench.scoring.agentic_exec.worker_identity import (  # noqa: PLC0415
-            worker_implementation_identity,
-        )
+        reported_version = handshake.get("localbench_distribution_version")
+        reported_content_sha256 = handshake.get("worker_content_sha256")
+        if (
+            isinstance(reported_version, str)
+            and reported_version
+            and isinstance(reported_content_sha256, str)
+            and reported_content_sha256
+        ):
+            worker_identity = handshake
+        else:
+            from localbench.scoring.agentic_exec.worker_identity import (  # noqa: PLC0415
+                worker_implementation_identity,
+            )
 
-        worker_identity = worker_implementation_identity()
+            host_identity = worker_implementation_identity()
+            worker_identity = {
+                "localbench_distribution_version": (
+                    reported_version
+                    if isinstance(reported_version, str) and reported_version
+                    else _text(host_identity, "localbench_distribution_version")
+                ),
+                "worker_content_sha256": (
+                    reported_content_sha256
+                    if isinstance(reported_content_sha256, str)
+                    and reported_content_sha256
+                    else _text(host_identity, "worker_content_sha256")
+                ),
+            }
     if execution_contract is None:
         from localbench.scoring.agentic_exec.execution_contract import (  # noqa: PLC0415
             load_execution_contract,

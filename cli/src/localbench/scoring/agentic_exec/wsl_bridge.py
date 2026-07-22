@@ -17,6 +17,8 @@ from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from localbench.scoring.agentic_exec.wsl_proxy import WslSandboxProxy, WslVerdict as WslVerdict
 from localbench.scoring.agentic_exec.worker_identity import worker_implementation_identity
 
+_distribution_version_skew_warned = False
+
 
 @dataclass(frozen=True, slots=True)
 class WslPreflightResult:
@@ -26,9 +28,12 @@ class WslPreflightResult:
     canonical_task_ids: tuple[str, ...] = ()
     agentic_runtime_identity: JsonObject | None = None
     agentic_runtime_identity_sha256: str | None = None
+    distribution_version_skew: JsonObject | None = None
 
     def provenance(self) -> JsonObject:
         provenance = provenance_from_identity(self.identity)
+        if self.distribution_version_skew is not None:
+            provenance["distribution_version_skew"] = self.distribution_version_skew
         if (
             self.agentic_runtime_identity is not None
             and self.agentic_runtime_identity_sha256 is not None
@@ -76,7 +81,10 @@ def preflight_wsl_agentic(
         identity = worker.identity
         if identity is None:
             raise SandboxError("wsl preflight did not collect worker identity")
-        _assert_identity(identity, worker_implementation_identity())
+        distribution_version_skew = _assert_identity(
+            identity,
+            worker_implementation_identity(),
+        )
         task_ids = tuple(worker.list_tasks("scored", max_items=max_items))
     if not task_ids:
         raise SandboxError("wsl preflight list_tasks returned no scored tasks")
@@ -85,6 +93,7 @@ def preflight_wsl_agentic(
         task_ids=task_ids,
         canonical_task_ids=tuple(worker_contract_task_ids()),
         worker_config=config,
+        distribution_version_skew=distribution_version_skew,
     )
 
 
@@ -168,7 +177,9 @@ def _assert_identity(
     expected: JsonObject,
     *,
     preflight_identity: JsonObject | None = None,
-) -> None:
+) -> JsonObject | None:
+    global _distribution_version_skew_warned
+
     if identity.get("appworld_root_under_mnt") is True:
         raise SandboxError("wsl preflight failed: APPWORLD_ROOT is under /mnt")
     if not identity.get("bwrap_path"):
@@ -177,15 +188,22 @@ def _assert_identity(
     actual_version = identity.get("localbench_distribution_version")
     if not isinstance(expected_version, str) or not expected_version:
         raise SandboxError("wsl preflight failed: host localbench distribution version is unavailable")
+    distribution_version_skew: JsonObject | None = None
     if actual_version != expected_version:
         # Version skew alone is tolerated (owner call, 2026-07-22): the signed worker
         # rootfs releases on its own cadence, so a byte-identical worker can report an
         # older dist version. worker_content_sha256 below remains the binding gate.
-        sys.stderr.write(
-            "localbench: warning: worker/host distribution version skew: "
-            f"worker={actual_version!r} host={expected_version!r}; "
-            "worker content digest check still enforced\n"
-        )
+        distribution_version_skew = {
+            "worker_version": actual_version,
+            "host_version": expected_version,
+        }
+        if not _distribution_version_skew_warned:
+            _distribution_version_skew_warned = True
+            sys.stderr.write(
+                "localbench: warning: worker/host distribution version skew: "
+                f"worker={actual_version!r} host={expected_version!r}; "
+                "worker content digest check still enforced\n"
+            )
     expected_digest = expected.get("worker_content_sha256")
     actual_digest = identity.get("worker_content_sha256")
     if not isinstance(expected_digest, str) or len(expected_digest) != 64:
@@ -205,6 +223,7 @@ def _assert_identity(
             "wsl worker setup failed: per-task identity differs from preflight: "
             f"fields={differing}",
         )
+    return distribution_version_skew
 
 
 def _string(value: JsonValue | None) -> str:

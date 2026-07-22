@@ -173,6 +173,10 @@ def handshake() -> JsonObject:
     return {
         "runtime_id": _owner_marker()["runtime_id"],
         "protocol_version": AGENTIC_WORKER_PROTOCOL_VERSION,
+        "localbench_distribution_version": measured_identity[
+            "localbench_distribution_version"
+        ],
+        "worker_content_sha256": measured_identity["worker_content_sha256"],
         "python_version": measured_identity["python_version"],
         "bubblewrap_version": measured_identity["bwrap_version"],
         "appworld_package_sha256": measured_identity["appworld_package_sha256"],

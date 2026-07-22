@@ -1116,7 +1116,7 @@ def test_agentic_preflight_subprocess_timeout_maps_to_setup_taxonomy(
         serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
 
 
-def test_managed_preflight_carries_appliance_runtime_identity(
+def test_managed_preflight_uses_worker_reported_version_in_runtime_identity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1127,14 +1127,26 @@ def test_managed_preflight_carries_appliance_runtime_identity(
     from test_appliance_runtime_identity import _components
 
     # Given: an appliance result using the shared real-artifact C4 fixture.
-    runtime_identity = agentic_runtime_identity_object(_components())
-    runtime_digest = agentic_runtime_identity_sha256(runtime_identity)
+    appliance_identity = {
+        **agentic_runtime_identity_object(_components()),
+        "localbench_distribution_version": "0.4.5",
+    }
+    appliance_digest = agentic_runtime_identity_sha256(appliance_identity)
+    worker_identity = {
+        "localbench_distribution_version": "0.4.3",
+        "worker_content_sha256": appliance_identity["worker_content_sha256"],
+    }
+    expected_identity = {
+        **appliance_identity,
+        "localbench_distribution_version": "0.4.3",
+    }
+    expected_digest = agentic_runtime_identity_sha256(expected_identity)
 
     class IdentityProvisioner:
         def ensure_active(self) -> JsonObject:
             return {
-                "agentic_runtime_identity": runtime_identity,
-                "agentic_runtime_identity_sha256": runtime_digest,
+                "agentic_runtime_identity": appliance_identity,
+                "agentic_runtime_identity_sha256": appliance_digest,
             }
 
     options = ServeBenchOptions(
@@ -1163,17 +1175,19 @@ def test_managed_preflight_carries_appliance_runtime_identity(
         serving_runner,
         "preflight_wsl_agentic",
         lambda **_kwargs: WslPreflightResult(
-            identity={}, task_ids=("a30375d_1",), worker_config=config
+            identity=worker_identity,
+            task_ids=("a30375d_1",),
+            worker_config=config,
         ),
     )
 
     # When: Windows agentic preflight completes.
     result = serving_runner.preflight_agentic_if_needed(options, tmp_path / "run")
 
-    # Then: the runtime object and digest reach scorecard provenance unchanged.
+    # Then: the runtime object and digest are rebound to the worker-reported version.
     assert result is not None
-    assert result.agentic_runtime_identity == runtime_identity
-    assert result.agentic_runtime_identity_sha256 == runtime_digest
+    assert result.agentic_runtime_identity == expected_identity
+    assert result.agentic_runtime_identity_sha256 == expected_digest
 
 
 def test_managed_preflight_runtime_identity_error_maps_to_agentic_setup_error(

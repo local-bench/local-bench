@@ -22,6 +22,7 @@ from localbench.appliance.provisioner import FINAL_DISTRO_PREFIX, ProvisioningEr
 from localbench.appliance.worker import APPWORLD_ROOT, VENV
 from localbench._types import JsonObject
 from localbench.scoring.agentic_exec import benchmark as appworld_bench
+from localbench.scoring.agentic_exec import wsl_bridge
 from localbench.scoring.agentic_exec import worker_resolution
 from localbench.scoring.agentic_exec import wsl_process
 from localbench.scoring.agentic_exec import wsl_proxy
@@ -659,7 +660,7 @@ def test_preflight_carries_resolved_worker_config_to_task_spawns(
         wsl_bridge,
         "worker_implementation_identity",
         lambda: {
-            "localbench_distribution_version": "0.3.0",
+            "localbench_distribution_version": "0.4.5",
             "worker_content_sha256": "f" * 64,
         },
     )
@@ -669,6 +670,10 @@ def test_preflight_carries_resolved_worker_config_to_task_spawns(
 
     assert result.worker_config is config
     assert result.task_ids == ("fac291d_1", "50e1ac9_1")
+    assert result.provenance()["distribution_version_skew"] == {
+        "worker_version": "0.3.0",
+        "host_version": "0.4.5",
+    }
 
 
 def _write_fake_worker(tmp_path: Path) -> Path:
@@ -880,7 +885,41 @@ def test_provenance_from_identity_carries_direct_finalize_trust_note() -> None:
     assert prov["wsl_identity"]["worker_content_sha256"] == "4" * 64
 
 
-def test_worker_identity_gate_compares_distribution_version_and_content_digest() -> None:
+def test_worker_identity_gate_reports_version_skew_and_warns_once(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    expected = {
+        "localbench_distribution_version": "0.4.0",
+        "worker_content_sha256": "a" * 64,
+    }
+    base = {
+        "appworld_root_under_mnt": False,
+        "bwrap_path": "/managed/bwrap",
+        **expected,
+    }
+    skewed = {**base, "localbench_distribution_version": "0.3.0"}
+    monkeypatch.setattr(
+        wsl_bridge,
+        "_distribution_version_skew_warned",
+        False,
+        raising=False,
+    )
+
+    first = _assert_identity(skewed, expected)
+    second = _assert_identity(skewed, expected)
+
+    assert first == second == {
+        "worker_version": "0.3.0",
+        "host_version": "0.4.0",
+    }
+    assert capsys.readouterr().err == (
+        "localbench: warning: worker/host distribution version skew: "
+        "worker='0.3.0' host='0.4.0'; worker content digest check still enforced\n"
+    )
+
+
+def test_worker_identity_gate_keeps_content_digest_as_hard_gate() -> None:
     expected = {
         "localbench_distribution_version": "0.4.0",
         "worker_content_sha256": "a" * 64,
@@ -892,9 +931,6 @@ def test_worker_identity_gate_compares_distribution_version_and_content_digest()
     }
 
     _assert_identity(base, expected)
-    # Version skew warns but does not fail (owner call, 2026-07-22); the content
-    # digest remains the binding check.
-    _assert_identity({**base, "localbench_distribution_version": "0.3.0"}, expected)
     with pytest.raises(SandboxError, match="worker content digest mismatch"):
         _assert_identity({**base, "worker_content_sha256": "b" * 64}, expected)
     with pytest.raises(SandboxError, match="host localbench distribution version is unavailable"):

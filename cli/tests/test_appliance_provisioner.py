@@ -1212,6 +1212,8 @@ def test_handshake_builds_canonical_agentic_runtime_identity(tmp_path: Path) -> 
         "bubblewrap_version": sandbox["bubblewrap_version"],
         "appworld_package_sha256": appworld["appworld_package_sha256"],
         "appworld_data_sha256": appworld["appworld_data_sha256"],
+        "localbench_distribution_version": "0.4.3",
+        "worker_content_sha256": sandbox["worker_content_sha256"],
         "critical_hashes": value["critical_hashes"],
         "execution_contract_sha256": contract["payload_sha256"],
         "ordered_task_ids_sha256": tasks["ordered_task_ids_sha256"],
@@ -1249,6 +1251,7 @@ def test_handshake_builds_canonical_agentic_runtime_identity(tmp_path: Path) -> 
     # Then: the handshake carries the canonical object and its exact canonical digest.
     runtime_identity = result["agentic_runtime_identity"]
     assert isinstance(runtime_identity, dict)
+    assert runtime_identity["localbench_distribution_version"] == "0.4.3"
     assert result["agentic_runtime_identity_sha256"] == agentic_runtime_identity_sha256(
         runtime_identity
     )

@@ -168,6 +168,8 @@ def test_appliance_handshake_exposes_c4_measured_identity_fields(
     assert isinstance(sandbox, dict)
     assert isinstance(tasks, dict)
     measured = {
+        "localbench_distribution_version": "0.4.3",
+        "worker_content_sha256": sandbox["worker_content_sha256"],
         "python_version": appworld["python_version"],
         "bwrap_version": sandbox["bubblewrap_version"],
         "appworld_package_sha256": appworld["appworld_package_sha256"],
@@ -195,6 +197,8 @@ def test_appliance_handshake_exposes_c4_measured_identity_fields(
     assert identity["bubblewrap_version"] == sandbox["bubblewrap_version"]
     assert identity["appworld_package_sha256"] == appworld["appworld_package_sha256"]
     assert identity["appworld_data_sha256"] == appworld["appworld_data_sha256"]
+    assert identity["localbench_distribution_version"] == "0.4.3"
+    assert identity["worker_content_sha256"] == sandbox["worker_content_sha256"]
 
 
 def test_worker_provision_interruption_stops_before_pip_execution(

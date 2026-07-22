@@ -25,6 +25,8 @@ from localbench.scoring.agentic_exec.loop_types import (
     TaskRunResult,
 )
 from localbench.scoring.agentic_exec.task_journal import AgenticResumeSeed
+from localbench.scoring.agentic_exec.wsl_bridge import WslPreflightResult
+from localbench.scoring.agentic_exec.wsl_process import WslWorkerConfig
 from test_appworld_protocol_c_units import FakeSandbox
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +50,24 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
     async def scenario() -> None:
         # Given scored defaults plus injected AppWorld-C task/model/sandbox seams.
         output_path = tmp_path / "agentic-inline-run.json"
+        version_skew = {
+            "worker_version": "0.4.3",
+            "host_version": "0.4.5",
+        }
+        preflight = WslPreflightResult(
+            identity={
+                "localbench_distribution_version": "0.4.3",
+                "worker_content_sha256": "3" * 64,
+                "bwrap_sha256": "1" * 64,
+                "appworld_root_path_sha256": "2" * 64,
+            },
+            task_ids=("fac291d_1", "50e1ac9_1"),
+            worker_config=WslWorkerConfig(
+                venv_python="/opt/localbench/venv/bin/python",
+                appworld_root="/home/lbworker/appworld",
+            ),
+            distribution_version_skew=version_skew,
+        )
 
         # When running the one-command default path.
         record = await run_localbench(
@@ -65,21 +85,7 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
             agentic_task_ids=["fac291d_1", "50e1ac9_1"],
             agentic_canonical_task_ids=["fac291d_1", "50e1ac9_1"],
             agentic_resume_seed=_agentic_resume_seed(),
-            agentic_provenance_extra={
-                "topology": {
-                    "scorecard_assembly": "single-campaign-no-merge",
-                    "model_call_location": "windows_campaign_process",
-                },
-                "wsl_identity": {
-                    "localbench_distribution_version": "0.4.0",
-                    "worker_content_sha256": "3" * 64,
-                },
-                "agentic_sandbox_identity": {
-                    "bubblewrap_sha256": "1" * 64,
-                    "appworld_root_path_sha256": "2" * 64,
-                },
-                "single_campaign_integrity": {"merge_step_used": False},
-            },
+            agentic_provenance_extra=preflight.provenance(),
         )
 
         # Then appworld_c is measured while coding remains generated-unverified pending verifier execution.
@@ -140,10 +146,13 @@ def test_run_localbench_when_agentic_seams_succeed_includes_headline_axis(
             "scorecard_assembly": "single-campaign-no-merge",
             "model_call_location": "windows_campaign_process",
         }
-        assert agentic_run["wsl_identity"]["localbench_distribution_version"] == "0.4.0"
+        assert agentic_run["wsl_identity"]["localbench_distribution_version"] == "0.4.3"
         assert agentic_run["wsl_identity"]["worker_content_sha256"] == "3" * 64
         assert agentic_run["agentic_sandbox_identity"]["appworld_root_path_sha256"] == "2" * 64
         assert agentic_run["single_campaign_integrity"] == {"merge_step_used": False}
+        assert agentic_run["distribution_version_skew"] == version_skew
+        persisted = json.loads(output_path.read_text(encoding="utf-8"))
+        assert persisted["agentic_run"]["distribution_version_skew"] == version_skew
         agentic_runs = agentic_run["runs"]
         assert isinstance(agentic_runs, list)
         assert len(agentic_runs) == 2

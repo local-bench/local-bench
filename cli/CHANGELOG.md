@@ -5,6 +5,12 @@
 - One-shot `submit run` can present the admin secret when minting a ticket, so maintainer
   submissions are born as project-anchor tickets and labeled `project run` instead of
   community. Anonymous submissions are unchanged and send no admin-secret header.
+- Persisted agentic run provenance now records `distribution_version_skew` with the
+  worker and host versions whenever a permitted skew is present.
+- C4 agentic runtime identity now records the worker-reported LocalBench distribution
+  version when available, with host identity retained only as the compatibility fallback.
+- Worker/host distribution skew warnings are emitted once per CLI process instead of
+  once per sandbox spawn; the warning text and hard worker-content digest gate are unchanged.
 
 ## 0.4.5 - 2026-07-22
 
