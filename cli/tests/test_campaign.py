@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -14,7 +15,12 @@ from localbench.campaign_checkpoints import (
     append_item_checkpoint,
     read_partial_item_checkpoints,
 )
-from localbench.orchestrate import OrchestrateConfig, UnsafeResumeError, run_localbench
+from localbench.orchestrate import (
+    OrchestrateConfig,
+    UnsafeResumeError,
+    _cumulative_run_timing,
+    run_localbench,
+)
 from localbench.persistence import atomic_write_bytes, atomic_write_json
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
@@ -231,7 +237,9 @@ def test_partial_item_checkpoints_reject_same_segment_conflicting_duplicate(tmp_
         )
 
 
-def test_run_localbench_resume_skips_completed_benches(tmp_path: Path) -> None:
+def test_run_localbench_resume_skips_completed_benches_and_records_first_segment_bounds(
+    tmp_path: Path,
+) -> None:
     async def scenario() -> None:
         # Given: an already completed campaign.
         output_path = tmp_path / "campaign" / "localbench-run.json"
@@ -274,9 +282,103 @@ def test_run_localbench_resume_skips_completed_benches(tmp_path: Path) -> None:
         assert resumed["items"] == original["items"]
         assert resumed["benches"] == original["benches"]
         assert resumed["resumed"] is True
+        assert "segments" not in original
+        first_segment = resumed["segments"][0]
+        assert first_segment["started_at"] == min(item["started_at"] for item in original["items"])
+        assert first_segment["finished_at"] == max(item["finished_at"] for item in original["items"])
         assert json.loads(output_path.read_text(encoding="utf-8")) == resumed
 
     asyncio.run(scenario())
+
+
+def test_run_localbench_resume_reports_cumulative_wall_time(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    async def scenario() -> None:
+        # Given: a completed first segment and a later one-hour resume segment.
+        output_path = tmp_path / "campaign" / "localbench-run.json"
+        original = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                out=output_path,
+            ),
+            transport=httpx.MockTransport(_answer_a_handler),
+        )
+        prior_started_at = min(item["started_at"] for item in original["items"])
+        prior_finished_at = max(item["finished_at"] for item in original["items"])
+        prior_wall_time = (
+            datetime.fromisoformat(prior_finished_at) - datetime.fromisoformat(prior_started_at)
+        ).total_seconds()
+        resume_timestamps = iter(
+            [
+                "2099-01-01T00:00:00+00:00",
+                "2099-01-01T01:00:00+00:00",
+            ],
+        )
+        monkeypatch.setattr("localbench.orchestrate.utc_now", lambda: next(resume_timestamps))
+
+        # When: the completed campaign is resumed without rerunning its items.
+        resumed = await run_localbench(
+            OrchestrateConfig(
+                endpoint="http://local/v1",
+                model="demo-model",
+                suite_dir=FIXTURE_SUITE,
+                bench="mmlu_pro",
+                max_items=2,
+                out=output_path,
+                resume=tmp_path / "campaign",
+            ),
+            transport=httpx.MockTransport(_answer_a_handler),
+        )
+
+        # Then: run bounds span both segments and wall time sums their active durations.
+        expected_wall_time = prior_wall_time + 3600.0
+        assert len(resumed["segments"]) == 2
+        assert resumed["run_started_at"] == prior_started_at
+        assert resumed["run_finished_at"] == "2099-01-01T01:00:00+00:00"
+        assert resumed["totals"]["wall_time_seconds"] == pytest.approx(expected_wall_time)
+        assert resumed["manifest"]["execution"]["wall_clock_s"] == pytest.approx(
+            expected_wall_time,
+        )
+
+    asyncio.run(scenario())
+
+
+def test_cumulative_run_timing_uses_item_durations_when_segment_bounds_are_unrecoverable() -> None:
+    timing = _cumulative_run_timing(
+        [
+            {"segment_id": "segment-1", "started_at": None, "finished_at": None},
+            {
+                "segment_id": "segment-2",
+                "started_at": "2026-07-22T10:00:00+00:00",
+                "finished_at": "2026-07-22T10:01:00+00:00",
+            },
+        ],
+        [
+            {
+                "id": "item-1",
+                "started_at": "2026-07-22T00:00:00+00:00",
+                "finished_at": "2026-07-22T00:02:00+00:00",
+            },
+            {
+                "id": "item-2",
+                "started_at": "2026-07-22T00:02:00+00:00",
+                "finished_at": "2026-07-22T00:04:00+00:00",
+            },
+        ],
+        fallback_started_at="2026-07-22T10:00:00+00:00",
+        fallback_finished_at="2026-07-22T10:01:00+00:00",
+        fallback_wall_clock_s=60.0,
+    )
+
+    assert timing.started_at == "2026-07-22T00:00:00+00:00"
+    assert timing.finished_at == "2026-07-22T10:01:00+00:00"
+    assert timing.wall_clock_s == 240.0
 
 
 def test_run_localbench_resume_skips_checkpointed_items_mid_bench(tmp_path: Path) -> None:

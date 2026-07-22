@@ -8,7 +8,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -198,6 +198,13 @@ class AgenticOutcome:
     aggregate: BenchAggregate
     items: list[ScoredItem]
     provenance: JsonObject
+
+
+@dataclass(frozen=True, slots=True)
+class _RunTiming:
+    started_at: str
+    finished_at: str
+    wall_clock_s: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -664,6 +671,27 @@ async def run_localbench(
 
     wall_time = time.perf_counter() - started_perf
     finished_at = utc_now()
+    segments: list[JsonObject] | None = None
+    if config.resume is not None:
+        segments = _resume_segments(
+            paths,
+            current_segment_id=session_segment_id,
+            started_at=started_at,
+            finished_at=finished_at,
+            server_fingerprint=config.server_fingerprint,
+            completed_items=segment_completed_item_ids,
+            items=items,
+        )
+        cumulative_timing = _cumulative_run_timing(
+            segments,
+            items,
+            fallback_started_at=started_at,
+            fallback_finished_at=finished_at,
+            fallback_wall_clock_s=wall_time,
+        )
+        started_at = cumulative_timing.started_at
+        finished_at = cumulative_timing.finished_at
+        wall_time = cumulative_timing.wall_clock_s
     totals = run_totals(items, wall_time)
     axis_status = axis_status_for_benches(
         benches,
@@ -802,16 +830,8 @@ async def run_localbench(
         "perf": perf_summary(items),
         "warnings": warnings,
     }
-    if config.resume is not None:
+    if segments is not None:
         run_record["resumed"] = True
-        segments = _resume_segments(
-            paths,
-            current_segment_id=session_segment_id,
-            started_at=started_at,
-            finished_at=finished_at,
-            server_fingerprint=config.server_fingerprint,
-            completed_items=segment_completed_item_ids,
-        )
         run_record["resume_count"] = max(0, len(segments) - 1)
         run_record["segments"] = segments
     if agentic_provenance is not None:
@@ -1297,11 +1317,15 @@ def _resume_segments(
     finished_at: str,
     server_fingerprint: str | None,
     completed_items: list[str],
+    items: list[ScoredItem],
 ) -> list[JsonObject]:
     previous = _existing_run_segments(paths.final_run)
+    previous_items = _existing_run_items(paths.final_run)
     if not previous:
         previous = checkpoint_segment_summaries(paths)
     previous = [segment for segment in previous if segment.get("segment_id") != current_segment_id]
+    bound_items: Sequence[Mapping[str, JsonValue]] = previous_items or items
+    previous = [_segment_with_item_bounds(segment, bound_items) for segment in previous]
     return [
         *previous,
         {
@@ -1326,6 +1350,118 @@ def _existing_run_segments(path: Path) -> list[JsonObject]:
         for segment in segments
         if isinstance(segment, dict)
     ]
+
+
+def _existing_run_items(path: Path) -> list[JsonObject]:
+    if not path.exists():
+        return []
+    record = read_json_object(path)
+    items = record.get("items")
+    if not isinstance(items, list):
+        return []
+    return [
+        json.loads(json.dumps(item, ensure_ascii=False))
+        for item in items
+        if isinstance(item, dict)
+    ]
+
+
+def _segment_with_item_bounds(
+    segment: JsonObject,
+    items: Sequence[Mapping[str, JsonValue]],
+) -> JsonObject:
+    completed_items = segment.get("completed_items")
+    if not isinstance(completed_items, list):
+        return segment
+    item_ids = {item_id for item_id in completed_items if isinstance(item_id, str)}
+    matching_items = [item for item in items if item.get("id") in item_ids]
+    item_started_at, item_finished_at = _item_time_bounds(matching_items)
+    repaired = dict(segment)
+    if _parsed_timestamp(repaired.get("started_at")) is None and item_started_at is not None:
+        repaired["started_at"] = item_started_at
+    if _parsed_timestamp(repaired.get("finished_at")) is None and item_finished_at is not None:
+        repaired["finished_at"] = item_finished_at
+    return repaired
+
+
+def _cumulative_run_timing(
+    segments: Sequence[Mapping[str, JsonValue]],
+    items: Sequence[Mapping[str, JsonValue]],
+    *,
+    fallback_started_at: str,
+    fallback_finished_at: str,
+    fallback_wall_clock_s: float,
+) -> _RunTiming:
+    starts = [
+        parsed
+        for row in [*segments, *items]
+        if (parsed := _parsed_timestamp(row.get("started_at"))) is not None
+    ]
+    finishes = [
+        parsed
+        for row in [*segments, *items]
+        if (parsed := _parsed_timestamp(row.get("finished_at"))) is not None
+    ]
+    if not starts or not finishes:
+        return _RunTiming(fallback_started_at, fallback_finished_at, fallback_wall_clock_s)
+    segment_durations = [
+        duration
+        for segment in segments
+        if (duration := _duration_seconds(segment)) is not None
+    ]
+    wall_clock_s = sum(segment_durations)
+    if len(segment_durations) != len(segments):
+        item_wall_clock_s = sum(
+            duration
+            for item in items
+            if (duration := _duration_seconds(item)) is not None
+        )
+        wall_clock_s = max(wall_clock_s, item_wall_clock_s, fallback_wall_clock_s)
+    return _RunTiming(
+        started_at=min(starts, key=lambda value: value[0])[1],
+        finished_at=max(finishes, key=lambda value: value[0])[1],
+        wall_clock_s=wall_clock_s,
+    )
+
+
+def _item_time_bounds(
+    items: Sequence[Mapping[str, JsonValue]],
+) -> tuple[str | None, str | None]:
+    starts = [
+        parsed
+        for item in items
+        if (parsed := _parsed_timestamp(item.get("started_at"))) is not None
+    ]
+    finishes = [
+        parsed
+        for item in items
+        if (parsed := _parsed_timestamp(item.get("finished_at"))) is not None
+    ]
+    started_at = min(starts, key=lambda value: value[0])[1] if starts else None
+    finished_at = max(finishes, key=lambda value: value[0])[1] if finishes else None
+    return started_at, finished_at
+
+
+def _duration_seconds(row: Mapping[str, JsonValue]) -> float | None:
+    started_at = _parsed_timestamp(row.get("started_at"))
+    finished_at = _parsed_timestamp(row.get("finished_at"))
+    if started_at is None or finished_at is None:
+        return None
+    duration = (finished_at[0] - started_at[0]).total_seconds()
+    return duration if duration >= 0 else None
+
+
+def _parsed_timestamp(value: JsonValue | None) -> tuple[datetime, str] | None:
+    if not isinstance(value, str):
+        return None
+    iso_value = f"{value[:-1]}+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(iso_value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC), value
 
 
 def _last_completed_item_id(items: list[ScoredItem]) -> str | None:

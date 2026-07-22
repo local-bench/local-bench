@@ -2,6 +2,8 @@
 
 ## 0.4.6 - Unreleased
 
+- Resumed runs report cumulative benched wall time; previously only the final resume
+  segment was counted.
 - One-shot `submit run` can present the admin secret when minting a ticket, so maintainer
   submissions are born as project-anchor tickets and labeled `project run` instead of
   community. Anonymous submissions are unchanged and send no admin-secret header.
