@@ -112,7 +112,7 @@ def verify_materialized_rootfs(rootfs: Path, manifest: JsonObject) -> None:
     critical = manifest.get("critical_hashes")
     if not isinstance(critical, dict):
         raise ProvisioningError(
-            "runtime_mutated", "critical hashes missing", "Reprovision"
+            "runtime_mutated", "critical hashes missing", "Reprovision: run localbench setup-agentic --reprovision"
         )
     observed = {
         field: _file_sha(rootfs / relative)
@@ -121,7 +121,7 @@ def verify_materialized_rootfs(rootfs: Path, manifest: JsonObject) -> None:
     observed["worker_wheel_tree_sha256"] = _worker_tree_sha(rootfs)
     for field, digest in observed.items():
         if critical.get(field) != digest:
-            raise ProvisioningError("runtime_mutated", field, "Reprovision")
+            raise ProvisioningError("runtime_mutated", field, "Reprovision: run localbench setup-agentic --reprovision")
     assert_native_ownership(rootfs, str(manifest.get("runtime_id", PINNED_RUNTIME_ID)))
 
 
@@ -151,7 +151,7 @@ def _worker_tree_sha(rootfs: Path) -> str:
     )
     if len(records) != 1:
         raise ProvisioningError(
-            "runtime_mutated", "worker RECORD missing", "Reprovision"
+            "runtime_mutated", "worker RECORD missing", "Reprovision: run localbench setup-agentic --reprovision"
         )
     record = records[0]
     package_root = record.parent.parent
@@ -168,7 +168,7 @@ def _worker_tree_sha(rootfs: Path) -> str:
                 continue
             path = Path(os.path.normpath(str(package_root / normalized)))
             if not path.is_relative_to(venv_root) or not path.is_file():
-                raise ProvisioningError("runtime_mutated", normalized, "Reprovision")
+                raise ProvisioningError("runtime_mutated", normalized, "Reprovision: run localbench setup-agentic --reprovision")
             data = path.read_bytes()
             digest = hashlib.sha256(data).digest()
             if recorded_hash:
@@ -176,13 +176,13 @@ def _worker_tree_sha(rootfs: Path) -> str:
                 expected = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
                 if algorithm != "sha256" or digest != expected:
                     raise ProvisioningError(
-                        "runtime_mutated", normalized, "Reprovision"
+                        "runtime_mutated", normalized, "Reprovision: run localbench setup-agentic --reprovision"
                     )
             if recorded_size and len(data) != int(recorded_size):
-                raise ProvisioningError("runtime_mutated", normalized, "Reprovision")
+                raise ProvisioningError("runtime_mutated", normalized, "Reprovision: run localbench setup-agentic --reprovision")
             entries.append((normalized, digest.hex(), len(data)))
     except (OSError, UnicodeError, ValueError) as error:
-        raise ProvisioningError("runtime_mutated", str(error), "Reprovision") from error
+        raise ProvisioningError("runtime_mutated", str(error), "Reprovision: run localbench setup-agentic --reprovision") from error
     entries.sort()
     return canonical_json_hash(entries)
 
@@ -195,4 +195,4 @@ def _file_sha(path: Path) -> str:
                 digest.update(chunk)
         return digest.hexdigest()
     except OSError as error:
-        raise ProvisioningError("runtime_mutated", str(path), "Reprovision") from error
+        raise ProvisioningError("runtime_mutated", str(path), "Reprovision: run localbench setup-agentic --reprovision") from error

@@ -30,7 +30,7 @@ def native_worker_argv(spec: NativeWorkerSpec) -> tuple[str, ...]:
     bwrap = spec.rootfs / "usr/bin/bwrap"
     if not loader.exists() or not bwrap.exists():
         raise ProvisioningError(
-            "runtime_mutated", "signed bubblewrap launcher is missing", "Reprovision"
+            "runtime_mutated", "signed bubblewrap launcher is missing", "Reprovision: run localbench setup-agentic --reprovision"
         )
     libraries = ":".join(
         str(spec.rootfs / relative)

@@ -74,7 +74,7 @@ class NativeApplianceProvisioner:
         runtime_id = str(manifest["runtime_id"])
         rootfs_info = manifest["rootfs"]
         if not isinstance(rootfs_info, dict):
-            raise ProvisioningError("manifest_invalid", "rootfs", "Reprovision")
+            raise ProvisioningError("manifest_invalid", "rootfs", "Reprovision: run localbench setup-agentic --reprovision")
         archive = runtime_dir / f"localbench-agentic-runtime-{runtime_id}.tar.xz"
         rootfs = runtime_dir / "rootfs"
         current = str(state.get("state", "absent"))
@@ -192,7 +192,7 @@ class NativeApplianceProvisioner:
         )
         if result.returncode != 0:
             raise ProvisioningError(
-                "runtime_canary_failed", _decode(result.stderr), "Reprovision"
+                "runtime_canary_failed", _decode(result.stderr), "Reprovision: run localbench setup-agentic --reprovision"
             )
 
     def _handshake(self, rootfs: Path, manifest: JsonObject) -> JsonObject:
@@ -215,11 +215,11 @@ class NativeApplianceProvisioner:
             identity = json.loads(_decode(result.stdout))
         except json.JSONDecodeError as error:
             raise ProvisioningError(
-                "runtime_handshake_invalid", "non-JSON response", "Reprovision"
+                "runtime_handshake_invalid", "non-JSON response", "Reprovision: run localbench setup-agentic --reprovision"
             ) from error
         if result.returncode != 0 or not isinstance(identity, dict):
             raise ProvisioningError(
-                "runtime_handshake_failed", _decode(result.stderr), "Reprovision"
+                "runtime_handshake_failed", _decode(result.stderr), "Reprovision: run localbench setup-agentic --reprovision"
             )
         return accept_handshake_identity(manifest, identity)
 
@@ -256,7 +256,7 @@ class NativeApplianceProvisioner:
     def _manifest_object(manifest: JsonObject, key: str) -> JsonObject:
         value = manifest.get(key)
         if not isinstance(value, dict):
-            raise ProvisioningError("manifest_invalid", key, "Reprovision")
+            raise ProvisioningError("manifest_invalid", key, "Reprovision: run localbench setup-agentic --reprovision")
         return value
 
 

@@ -374,6 +374,11 @@ def _parser() -> argparse.ArgumentParser:
     setup_action.add_argument("--remove", metavar="RUNTIME_ID")
     setup_action.add_argument("--prune", action="store_true")
     setup_parser.add_argument("--confirm-active", action="store_true")
+    setup_parser.add_argument(
+        "--reprovision",
+        action="store_true",
+        help="if the managed runtime fails its integrity check, remove and rebuild it without prompting",
+    )
     setup_parser.add_argument("--ca-bundle", type=Path)
     bench_parser = subparsers.add_parser("bench", help="launch a pinned local server and run a suite")
     bench_parser.add_argument("one_shot_model", nargs="?", help="catalog slug or HF repo for one-shot bench")
@@ -839,6 +844,10 @@ def _print_doctor_next_steps(args: argparse.Namespace) -> None:
 def _run(args: argparse.Namespace) -> int:
     api_key = _api_key(args.api_key_env)
     if args.resume is not None:
+        resume_error = _resume_campaign_missing_error(args.resume)
+        if resume_error is not None:
+            print(f"error      {resume_error}", file=sys.stderr)
+            return 2
         _populate_resume_args(args)
     if args.endpoint is None or args.model is None:
         print("error      --endpoint and --model are required unless --resume is used", file=sys.stderr)
@@ -974,6 +983,19 @@ def _run(args: argparse.Namespace) -> int:
     return EXIT_COMPLETE
 
 
+def _resume_campaign_missing_error(resume: Path) -> str | None:
+    # A missing campaign.json means there is nothing to resume — surface a typed usage
+    # error instead of the raw OSError the loader would raise. Refusing (rather than
+    # silently starting fresh) is deliberate: a typo'd --resume path must not discard
+    # the run the user meant to continue.
+    if (resume / "campaign.json").is_file():
+        return None
+    return (
+        f"no resumable campaign at '{resume}' (campaign.json not found) — "
+        "start a fresh run without --resume, or point --resume at an existing run directory"
+    )
+
+
 def _populate_resume_args(args: argparse.Namespace) -> None:
     campaign_path = args.resume / "campaign.json"
     campaign = read_json_object(campaign_path)
@@ -1100,6 +1122,8 @@ def _bench(args: argparse.Namespace) -> int:
         usage_error = _bounded_final_identity_usage_error(args, publishable=True)
     if usage_error is None and args.retry_errored and args.resume is None:
         usage_error = "--retry-errored requires --resume"
+    if usage_error is None and args.resume is not None:
+        usage_error = _resume_campaign_missing_error(args.resume)
     if usage_error is not None:
         print(f"error      {usage_error}", file=sys.stderr)
         return 2
@@ -1304,12 +1328,50 @@ def _setup_agentic(args: argparse.Namespace) -> int:
             removed = provisioner.prune()
             print("pruned " + (", ".join(removed) if removed else "no runtimes"))
             return EXIT_COMPLETE
-        identity = provisioner.ensure_active(PINNED_RUNTIME_ID)
+        identity = _ensure_active_with_self_heal(
+            provisioner, reprovision=bool(getattr(args, "reprovision", False))
+        )
         print(f"agentic runtime active {identity.get('runtime_id')}")
         return EXIT_COMPLETE
     except ProvisioningError as error:
         print(f"error      {error}", file=sys.stderr)
         return EXIT_AGENTIC_SETUP_REQUIRED
+
+
+def _ensure_active_with_self_heal(
+    provisioner: ApplianceProvisioner, *, reprovision: bool
+) -> dict[str, object]:
+    """Provision the pinned runtime, healing a mutated one instead of dead-ending.
+
+    Detection stays fail-closed: a runtime that fails its integrity check is never
+    reused. But the managed runtime is disposable by design, so the remedy is
+    remove-and-rebuild — offered interactively, authorized non-interactively via
+    --reprovision, and spelled out verbatim when declined so the error's advice
+    always works. Only the pinned managed runtime is ever removed.
+    """
+    try:
+        return provisioner.ensure_active(PINNED_RUNTIME_ID)
+    except ProvisioningError as error:
+        if error.code != "runtime_mutated":
+            raise
+        authorized = reprovision
+        if not authorized and sys.stdin is not None and sys.stdin.isatty():
+            reply = input(
+                f"managed runtime {PINNED_RUNTIME_ID} failed integrity ({error.detail}). "
+                "Remove and reprovision it now? [y/N] "
+            )
+            authorized = reply.strip().lower() in {"y", "yes"}
+        if not authorized:
+            raise ProvisioningError(
+                "runtime_mutated",
+                error.detail,
+                "Rebuild the managed runtime with: localbench setup-agentic --reprovision "
+                f"(equivalent to: localbench setup-agentic --remove {PINNED_RUNTIME_ID} "
+                "--confirm-active, then localbench setup-agentic)",
+            ) from error
+        provisioner.remove(PINNED_RUNTIME_ID, confirm_active=True)
+        print(f"removed mutated managed agentic runtime {PINNED_RUNTIME_ID}")
+        return provisioner.ensure_active(PINNED_RUNTIME_ID)
 
 
 def _advanced_bench_usage_error(args: argparse.Namespace) -> str | None:

@@ -753,11 +753,11 @@ class ApplianceProvisioner:
             identity = json.loads(_decode(result.stdout))
         except json.JSONDecodeError as error:
             raise ProvisioningError(
-                "runtime_handshake_invalid", "non-JSON response", "Reprovision"
+                "runtime_handshake_invalid", "non-JSON response", "Reprovision: run localbench setup-agentic --reprovision"
             ) from error
         if result.returncode != 0 or not isinstance(identity, dict):
             raise ProvisioningError(
-                "runtime_handshake_failed", _decode(result.stderr), "Reprovision"
+                "runtime_handshake_failed", _decode(result.stderr), "Reprovision: run localbench setup-agentic --reprovision"
             )
         from localbench.appliance.handshake import accept_handshake_identity
 

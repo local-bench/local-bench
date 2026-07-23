@@ -18,17 +18,17 @@ def accept_handshake_identity(manifest: JsonObject, identity: JsonObject) -> Jso
         REQUIRED_CRITICAL_HASHES
     ):
         raise ProvisioningError(
-            "critical_hash_set_invalid", "worker set differs", "Reprovision"
+            "critical_hash_set_invalid", "worker set differs", "Reprovision: run localbench setup-agentic --reprovision"
         )
     if observed_hashes != expected_hashes:
         raise ProvisioningError(
-            "runtime_mutated", "critical hash mismatch", "Reprovision"
+            "runtime_mutated", "critical hash mismatch", "Reprovision: run localbench setup-agentic --reprovision"
         )
     if identity.get("execution_contract_sha256") != manifest.get(
         "execution_contract_sha256"
     ):
         raise ProvisioningError(
-            "execution_contract_mismatch", "worker contract differs", "Reprovision"
+            "execution_contract_mismatch", "worker contract differs", "Reprovision: run localbench setup-agentic --reprovision"
         )
     tasks = _json_object(manifest, "task_identity")
     for field in (
@@ -37,7 +37,7 @@ def accept_handshake_identity(manifest: JsonObject, identity: JsonObject) -> Jso
         "semantic_task_sha256",
     ):
         if identity.get(field) != tasks.get(field):
-            raise ProvisioningError("task_contract_mismatch", field, "Reprovision")
+            raise ProvisioningError("task_contract_mismatch", field, "Reprovision: run localbench setup-agentic --reprovision")
     worker = _json_object(manifest, "worker")
     required = {
         "runtime_id": manifest["runtime_id"],
@@ -50,11 +50,11 @@ def accept_handshake_identity(manifest: JsonObject, identity: JsonObject) -> Jso
     }
     for field, expected in required.items():
         if identity.get(field) != expected:
-            raise ProvisioningError("runtime_identity_mismatch", field, "Reprovision")
+            raise ProvisioningError("runtime_identity_mismatch", field, "Reprovision: run localbench setup-agentic --reprovision")
     expected_python = str(_json_object(manifest, "python")["version"])
     if identity.get("python_version") != expected_python:
         raise ProvisioningError(
-            "runtime_identity_mismatch", "python_version", "Reprovision"
+            "runtime_identity_mismatch", "python_version", "Reprovision: run localbench setup-agentic --reprovision"
         )
     expected_bubblewrap = str(_json_object(manifest, "bubblewrap")["version"])
     if identity.get("bubblewrap_version") not in {
@@ -62,14 +62,14 @@ def accept_handshake_identity(manifest: JsonObject, identity: JsonObject) -> Jso
         f"bubblewrap {expected_bubblewrap}",
     }:
         raise ProvisioningError(
-            "runtime_identity_mismatch", "bubblewrap_version", "Reprovision"
+            "runtime_identity_mismatch", "bubblewrap_version", "Reprovision: run localbench setup-agentic --reprovision"
         )
     for field, critical_field in (
         ("appworld_package_sha256", "appworld_installed_tree_sha256"),
         ("appworld_data_sha256", "appworld_data_tree_sha256"),
     ):
         if identity.get(field) != expected_hashes.get(critical_field):
-            raise ProvisioningError("runtime_identity_mismatch", field, "Reprovision")
+            raise ProvisioningError("runtime_identity_mismatch", field, "Reprovision: run localbench setup-agentic --reprovision")
     components = agentic_runtime_identity_from_sources(manifest, identity)
     runtime_identity = agentic_runtime_identity_object(components)
     identity["agentic_runtime_identity"] = runtime_identity
@@ -84,5 +84,5 @@ def _json_object(source: JsonObject, key: str) -> JsonObject:
     if not isinstance(value, dict):
         from localbench.appliance.provisioner import ProvisioningError
 
-        raise ProvisioningError("manifest_invalid", key, "Reprovision")
+        raise ProvisioningError("manifest_invalid", key, "Reprovision: run localbench setup-agentic --reprovision")
     return value
