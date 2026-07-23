@@ -85,6 +85,7 @@ export default async function LeaderboardPage() {
         </div>
         <HomeLeaderboard
           allowVariantToggle
+          defaultShowAllVariants
           models={rankedForDisplay}
           agenticBySlug={agenticBySlug}
           communityArtifactDetails={communityArtifactDetails}

@@ -36,6 +36,9 @@ export { filterUnifiedLeaderboardRows, sortUnifiedLeaderboardRows } from "@/lib/
 type HomeLeaderboardProps = {
   readonly agenticBySlug?: ReadonlyMap<string, AgenticModel>;
   readonly allowVariantToggle?: boolean;
+  // The GLOBAL board defaults to every measured variant (owner call, 2026-07-24);
+  // only the home summary collapses to best-per-family by default.
+  readonly defaultShowAllVariants?: boolean;
   readonly communityRows?: readonly CommunityBoardRow[];
   readonly communityArtifactDetails?: readonly CommunityArtifactDetail[];
   readonly fineTuneBaseBySlug?: ReadonlyMap<string, string>;
@@ -51,6 +54,7 @@ export function HomeLeaderboard({
   models,
   agenticBySlug = EMPTY_AGENTIC,
   allowVariantToggle = false,
+  defaultShowAllVariants = false,
   communityArtifactDetails = EMPTY_ARTIFACT_DETAILS,
   communityRows = EMPTY_COMMUNITY,
   scoreMode = "full",
@@ -65,7 +69,7 @@ export function HomeLeaderboard({
   const [size, setSize] = useState("all");
   const [quant, setQuant] = useState("all");
   const [ram, setRam] = useState("all");
-  const [showAllVariants, setShowAllVariants] = useState(false);
+  const [showAllVariants, setShowAllVariants] = useState(defaultShowAllVariants);
   const liveCommunity = useLiveCommunityRows(communityRows, scoreMode === "full", resolutionContext);
   const communityFineTuneBaseBySha = useMemo(() => new Map(liveCommunity.rows.flatMap((row) => {
     if (row.lineage?.card_declared_edges[0] === undefined || row.rootCatalogId == null) return [];

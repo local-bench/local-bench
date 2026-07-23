@@ -56,6 +56,34 @@ describe("home leaderboard runtime column", () => {
   });
 });
 
+describe("global board variant default", () => {
+  it("collapses same-family variants on the summary board but shows all with defaultShowAllVariants", () => {
+    // A shared catalog_id gives both rows the same family-resolution root — without it
+    // the collapse has no key and every row passes through even on the summary board.
+    const variants = [
+      IndexModelSchema.parse({ ...rawModel("fixture-q8", "Fixture 9B Q8", undefined), catalog_id: "Fixture/Base" }),
+      IndexModelSchema.parse({ ...rawModel("fixture-q4", "Fixture 9B Q4", undefined), catalog_id: "Fixture/Base" }),
+    ];
+    const summary = renderToStaticMarkup(createElement(HomeLeaderboard, { models: variants }));
+    const global = renderToStaticMarkup(
+      createElement(HomeLeaderboard, {
+        allowVariantToggle: true,
+        defaultShowAllVariants: true,
+        models: variants,
+      }),
+    );
+
+    // Home summary: exactly one of the two same-family variants survives the collapse.
+    expect(
+      [summary.includes("Fixture 9B Q8"), summary.includes("Fixture 9B Q4")].filter(Boolean),
+    ).toHaveLength(1);
+    // Global board: every measured variant renders, and the toggle offers the collapse.
+    expect(global).toContain("Fixture 9B Q8");
+    expect(global).toContain("Fixture 9B Q4");
+    expect(global).toContain("Show best per family");
+  });
+});
+
 describe("home leaderboard provenance labels", () => {
   it("preserves optional board-row provenance fields in the index schema", () => {
     const parsed = IndexModelSchema.parse({
