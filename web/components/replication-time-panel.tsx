@@ -7,10 +7,11 @@ import { WallTimeBar } from "@/components/wall-time-bar";
 import { modelHref } from "@/lib/routes";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
-// Replication-time panel (oracle-amended spec, 2026-07-15): the landing card that answers
-// "what does it cost to reproduce these leaderboard results on the reference rig". It is a
-// cost chart, never a speed ranking — rows sort by leaderboard rank, the copy never says
-// fastest/slowest, and the limitation sentence is visible text, not tooltip-only.
+// Benchmarking-time panel: the landing card that answers "what does it cost to reproduce
+// these leaderboard results". Rows are ordered by elapsed time, shortest first (owner call,
+// 2026-07-25 — supersedes the 07-15 rank-order rule), while each #N pill keeps the
+// LEADERBOARD rank and the visible limitation copy keeps it a cost chart, not a speed
+// ranking of models.
 //
 // Scope facts (item count, rig) are board-level and not carried on BestVariantPoint; keep in
 // sync with the methodology page until the board manifest exposes them to the web layer.
@@ -47,7 +48,8 @@ export function ReplicationTimePanel({ points }: { readonly points: readonly Bes
         </p>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wide text-bench-muted-2">{PANEL_SCOPE}</p>
         <p className="mt-1 text-xs leading-5 text-bench-muted">
-          End-to-end wall time for each ranked run. Output length affects totals —{" "}
+          End-to-end wall time for each ranked run, shortest first; #N is the leaderboard rank. Output
+          length affects totals —{" "}
           <span className="font-semibold text-bench-text">this is not an inference-speed ranking.</span>
         </p>
         <p className="mt-1 font-mono text-[11px] text-bench-accent">
@@ -84,7 +86,16 @@ function PanelBars({
   readonly rows: readonly BestVariantPoint[];
   readonly timed: readonly BestVariantPoint[];
 }) {
-  const display = rows.slice(0, MAX_LANDING_ROWS);
+  // Population: the top-ranked best variants (so this stays a chart about the leading
+  // board rows). Order: elapsed time, shortest first (owner call, 2026-07-25 —
+  // supersedes the 07-15 rank-order rule). The #N pill keeps the LEADERBOARD rank, so
+  // the ordering reads as a cost ladder, not a speed leaderboard.
+  const boardRankByRunId = new Map(rows.map((row, index) => [row.runId, index + 1]));
+  const display = [...rows.slice(0, MAX_LANDING_ROWS)].sort((left, right) => {
+    const leftWall = left.wallTimeSeconds !== null && left.wallTimeSeconds > 0 ? left.wallTimeSeconds : Infinity;
+    const rightWall = right.wallTimeSeconds !== null && right.wallTimeSeconds > 0 ? right.wallTimeSeconds : Infinity;
+    return leftWall - rightWall;
+  });
   const untimedShown = display.filter((row) => row.wallTimeSeconds === null || row.wallTimeSeconds <= 0);
   // Owner call (2026-07-16): mark the shortest run with a flame. Copy stays run-oriented
   // ("shortest full-suite run"), never "fastest model" — see the panel's misread guard.
@@ -95,7 +106,7 @@ function PanelBars({
 
   return (
     <div className="px-3 py-2">
-      {display.map((row, index) => {
+      {display.map((row) => {
         const wall = row.wallTimeSeconds;
         const hasTime = wall !== null && wall > 0;
         return (
@@ -135,7 +146,7 @@ function PanelBars({
                 <span
                   className="rounded-full border border-bench-line-strong px-1.5 py-px font-mono text-[10px] text-bench-text"
                 >
-                  #{index + 1}
+                  #{boardRankByRunId.get(row.runId)}
                 </span>
                 <span className="font-mono text-[11px] tabular-nums text-bench-muted">{row.score.point.toFixed(2)}</span>
               </span>

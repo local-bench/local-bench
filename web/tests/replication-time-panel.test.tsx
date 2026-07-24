@@ -40,14 +40,17 @@ function render(points: readonly BestVariantPoint[]): string {
 }
 
 describe("ReplicationTimePanel", () => {
-  it("orders rows by leaderboard rank, never by time", () => {
+  it("orders rows by elapsed time (shortest first) while pills keep the leaderboard rank", () => {
     const html = render(livePoints());
-    const order = ["Gemma 4 31B IT", "Qwen3.6 27B", "Qwopus 3.6 27B v2 MTP", "Qwen3.6 35B A3B", "Gemma 4 12B IT"];
+    // Time order: 35B A3B (9.2h) -> 12B (17.2h) -> Qwopus (23.6h) -> 27B (23.7h) -> 31B (27.8h)
+    const order = ["Qwen3.6 35B A3B", "Gemma 4 12B IT", "Qwopus 3.6 27B v2 MTP", "Qwen3.6 27B", "Gemma 4 31B IT"];
     const positions = order.map((label) => html.indexOf(label));
     expect(positions.every((index) => index >= 0)).toBe(true);
     expect([...positions].sort((left, right) => left - right)).toEqual(positions);
-    expect(html).toContain("#1");
-    expect(html).toContain("#5");
+    // The first displayed row is the SHORTEST run but wears its board rank (#4), and the
+    // board leader (#1) appears last — the numbering never becomes a speed ranking.
+    expect(html.indexOf("#4")).toBeLessThan(html.indexOf("#1"));
+    expect(html).toContain("shortest first");
   });
 
   it("keeps the misread guard in visible text and pins the season scope", () => {
