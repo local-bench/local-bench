@@ -212,7 +212,12 @@ async function run() {
 
     await page.goto(new URL("/leaderboard/", BASE_URL).toString(), { waitUntil: "domcontentloaded" });
     await freshnessText(page, true);
-    await page.getByRole("button", { name: "Show all variants" }).click();
+    // The global board defaults to all variants (2026-07-24); if a legacy deploy still
+    // starts collapsed, expand it. Either way require the expanded state.
+    const expandButton = page.getByRole("button", { name: "Show all variants" });
+    if (await expandButton.count() > 0) {
+      await expandButton.click();
+    }
     await page.getByRole("button", { name: "Show best per family" }).waitFor({ state: "visible" });
     for (const resolved of resolvedRows) {
       const allVariantsRow = page.getByTestId(`community-row-${resolved.envelopeRow.submission_id}`);
