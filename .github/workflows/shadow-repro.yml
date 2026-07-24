@@ -11,13 +11,12 @@
 # excludes run records, so the job would sit permanently red there. Both jobs are
 # therefore hard-gated to the private deploy repo.
 #
-# Calibration -> active transition:
-#   - Calibration: run via workflow_dispatch on windows-latest (closest to the
-#     workstation that produced the committed bytes; artifacts verified LF-only
-#     2026-07-17, so a later ubuntu move is expected to byte-match).
-#   - Active: flip the `rebuild` job to ubuntu-latest (1x minutes billing,
-#     ~60 publishes/mo fits the free tier), keep windows + determinism-x2 as
-#     dispatch/weekly jobs.
+# Calibration -> active transition (ACTIVE since 2026-07-24):
+#   - Calibration ran on windows-latest; shadow compare byte-matched there through
+#     2026-07-24 (artifacts verified LF-only 2026-07-17).
+#   - ACTIVE: `rebuild` runs on ubuntu-latest (1x minutes billing; also ends the
+#     chronic windows-runner wrangler/workerd test timeouts that kept the run red).
+#     determinism-x2 stays windows + dispatch-only as the cross-OS byte check.
 #
 # Actions policy: first-party actions/* plus astral-sh/setup-uv only, all pinned by
 # full commit SHA. No other third-party actions.
@@ -44,11 +43,12 @@ jobs:
   rebuild:
     # Guard: never run outside the private deploy repo (see header).
     if: github.repository == 'Papa-midnight-dev/local-bench-site'
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      # windows-latest defaults core.autocrlf=true, which would CRLF-rewrite every
-      # checked-out LF file and break all byte hashes. Must be set BEFORE checkout.
+      # Harmless on ubuntu; kept so determinism-x2 (windows) and this job share the
+      # step shape. On windows core.autocrlf=true would CRLF-rewrite every LF file
+      # and break all byte hashes. Must be set BEFORE checkout.
       - name: Pin line endings
         run: git config --global core.autocrlf false
 
