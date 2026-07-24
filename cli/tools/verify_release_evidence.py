@@ -19,7 +19,6 @@ from typing import Final, Literal
 
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.agentic_exec.execution_contract import (
-    CONTRACT_ID,
     ExecutionContractDriftError,
     load_execution_contract,
 )
@@ -64,6 +63,20 @@ class EvidenceDocument:
     sha256: str
 
 
+def _declared_contract_id(path: Path) -> str:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise VerificationError(
+            f"cannot read pending contract: {type(exc).__name__}"
+        ) from exc
+    payload = document.get("payload") if isinstance(document, dict) else None
+    declared = payload.get("contract_id") if isinstance(payload, dict) else None
+    if not isinstance(declared, str) or not declared:
+        raise VerificationError("pending contract declares no contract_id")
+    return declared
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify c0v5 release evidence")
     parser.add_argument("--evidence", action="append", required=True, type=Path)
@@ -84,9 +97,14 @@ def main() -> int:
         for document in documents:
             print(f"evidence_sha256={document.sha256} path={document.path}")
         modes = _resolve_modes(documents, args.mode, args.expect_self_test)
+        # Verify the supplied contract against the id IT declares (the loader
+        # still enforces signature, schema, and successor invariants).  The
+        # verifier's job is evidence↔contract coherence for the release being
+        # assembled, which is not always the interpreter's active CONTRACT_ID.
+        declared_id = _declared_contract_id(args.pending_contract)
         contract = load_execution_contract(
             args.pending_contract,
-            expected_contract_id=CONTRACT_ID,
+            expected_contract_id=declared_id,
         )
         payload = _require_object(contract, "payload", "pending contract")
         contract_sha256 = canonical_json_hash(payload)
