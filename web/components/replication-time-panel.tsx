@@ -44,7 +44,7 @@ export function ReplicationTimePanel({ points }: { readonly points: readonly Bes
     >
       <div className="border-b border-bench-line bg-white/[0.02] px-3 py-3">
         <p className="font-mono text-xs font-semibold uppercase tracking-wide text-bench-accent">
-          Benchmarking time
+          Time to complete the benchmark
         </p>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wide text-bench-muted-2">{PANEL_SCOPE}</p>
         <p className="mt-1 text-xs leading-5 text-bench-muted">

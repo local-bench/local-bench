@@ -61,7 +61,7 @@ export function ModelBenchTimePanel({
       className="overflow-hidden rounded-lg border border-bench-line bg-bench-panel/82"
     >
       <div className="border-b border-bench-line bg-white/[0.02] px-4 py-3">
-        <h2 className="text-lg font-semibold text-bench-text">Benchmarking time</h2>
+        <h2 className="text-lg font-semibold text-bench-text">Time to complete the benchmark</h2>
         <p className="mt-1 font-mono text-[10px] uppercase tracking-wide text-bench-muted-2">
           measured full-suite runs · wall time on each run&apos;s rig
         </p>
