@@ -234,6 +234,9 @@ describe("model page community family results", () => {
     expect(html).toContain("ticket_bonsai_sha_only");
     expect(html).toContain('data-source="community"');
     expect(html).toContain('data-point-kind="family-finetune"');
+    // The variant table badges the live row by relation too (fine-tune of this page's
+    // model), exactly like a baked family sibling — no manual lineage step involved.
+    expect(html).toContain(">fine-tune</span>");
     expect(html).toContain(">self-reported</span>");
   });
 });

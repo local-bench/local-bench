@@ -81,6 +81,15 @@ export function ModelVariantBoard({
   );
   const communityVariantRows: readonly CommunityVariantRow[] = communityRows.map((row) => ({ kind: "community", row }));
   const catalogArtifactDetails = communityArtifactDetails([model, ...familyModels.map((entry) => entry.model)]);
+  // Relation for LIVE rows derives from the artifact's catalog model, exactly like
+  // baked family rows — a live fine-tune run badges "fine-tune" on its base's page
+  // with zero manual steps (relation outranks submission origin, owner 2026-07-24).
+  const relationBySlug = new Map(familyModels.map(({ model: familyModel, relation }) => [familyModel.slug, relation]));
+  const relationForCommunityRow = (artifactSha256: string): "family-finetune" | "base-model" | null => {
+    const detail = artifactDetailsBySha.get(artifactSha256);
+    if (detail === undefined || detail.slug === model.slug) return null;
+    return relationBySlug.get(detail.slug) ?? null;
+  };
   const artifactDetailsBySha = new Map(
     catalogArtifactDetails.map((detail) => [detail.artifactSha256, detail] as const),
   );
@@ -206,6 +215,7 @@ export function ModelVariantBoard({
                     axisKeys={axisKeys}
                     hasPerf={hasPerf}
                     rank={rankWithinRowSeason(ranked, index)}
+                    relation={relationForCommunityRow(row.row.artifactSha256)}
                     row={row.row}
                   />
                 );
@@ -273,6 +283,7 @@ export function ModelVariantBoard({
                     axisKeys={axisKeys}
                     hasPerf={hasPerf}
                     rank={null}
+                    relation={relationForCommunityRow(row.row.artifactSha256)}
                     row={row.row}
                   />
                 );

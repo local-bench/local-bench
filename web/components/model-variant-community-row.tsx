@@ -7,6 +7,7 @@ import { communityAxisScore, communityDisplayAxes, communityScore } from "@/lib/
 import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import { formatCompactNumber, formatGb } from "@/lib/format";
+import { declaredNameIsRedundant } from "@/lib/model-name";
 import { findMinimumVramTier } from "@/lib/rig-match";
 
 type CommunityVariantTableRowProps = {
@@ -14,8 +15,31 @@ type CommunityVariantTableRowProps = {
   readonly axisKeys: readonly string[];
   readonly hasPerf: boolean;
   readonly rank: number | null;
+  // Family relation derived from the artifact's catalog model (relation outranks
+  // submission origin on family pages — live fine-tune rows badge like baked ones).
+  readonly relation?: "family-finetune" | "base-model" | null;
   readonly row: CommunityBoardRow;
 };
+
+// Mirrors familyLineage in model-variant-board.tsx (private there; importing it here
+// would create a component cycle). Keep the two in sync.
+function relationBadge(relation: "family-finetune" | "base-model"): {
+  readonly label: string;
+  readonly title: string;
+  readonly tone: string;
+} {
+  return relation === "base-model"
+    ? {
+      label: "base model",
+      title: "Measured row from this fine-tune's root base model",
+      tone: "border-bench-anchor/45 bg-bench-anchor/10 text-bench-anchor",
+    }
+    : {
+      label: "fine-tune",
+      title: "Measured row from this base model's catalog family",
+      tone: "border-bench-mixed/45 bg-bench-mixed/10 text-bench-mixed",
+    };
+}
 
 // Same tier ladder as the catalog rows' quant-decision fit, but sourced from the
 // catalog artifact's @8k estimate — community projections don't carry rig-match runs.
@@ -30,11 +54,15 @@ export function CommunityVariantTableRow({
   axisKeys,
   hasPerf,
   rank,
+  relation = null,
   row,
 }: CommunityVariantTableRowProps) {
   const complete = row.headlineComplete && row.compositeFull !== null;
   const displayName = artifactDetail?.modelLabel ?? row.displayName;
-  const showDeclaredName = displayName !== row.displayName;
+  const showDeclaredName = !declaredNameIsRedundant(row.displayName, displayName, [
+    artifactDetail?.quantLabel,
+    row.quantLabel,
+  ]);
   return (
     <tr
       data-source="community"
@@ -55,6 +83,14 @@ export function CommunityVariantTableRow({
             <span className="font-mono text-[11px] text-bench-muted">declared as {row.displayName}</span>
           ) : null}
           <span className="flex flex-wrap items-center gap-2">
+            {relation === null ? null : (
+              <span
+                className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${relationBadge(relation).tone}`}
+                title={relationBadge(relation).title}
+              >
+                {relationBadge(relation).label}
+              </span>
+            )}
             <span className="font-mono font-semibold text-bench-text">{row.quantLabel ?? "n/a"}</span>
             {row.origin === "project_anchor" ? null : (
               <AgenticProvenanceChip value="self-reported" />
