@@ -13,7 +13,8 @@ from typing import Final
 
 from localbench._types import JsonObject
 from localbench.scoring.agentic_exec.execution_contract import (
-    V5_CONTRACT_ID,
+    CONTRACT_ID,
+    CONTRACT_VERSION,
     SuccessorContractMetadata,
     _HOST_SOURCE_MODULES,
     extract_contract_payload,
@@ -108,8 +109,8 @@ def main() -> int:
     payload = extract_contract_payload(
         predecessor_payload=predecessor_payload,
         successor_metadata=SuccessorContractMetadata(
-            contract_id=V5_CONTRACT_ID,
-            contract_version=5,
+            contract_id=CONTRACT_ID,
+            contract_version=CONTRACT_VERSION,
             supersedes_contract_id=predecessor_id,
             supersedes_payload_sha256=predecessor_sha256,
             candidate_rootfs_sha256=args.candidate_rootfs_sha256,
@@ -156,18 +157,18 @@ def main() -> int:
         ):
             parser.error("signature is not trusted by CONTRACT_PUBLIC_KEYS")
         with tempfile.TemporaryDirectory() as temporary_directory:
-            self_check_path = Path(temporary_directory) / f"{V5_CONTRACT_ID}.json"
+            self_check_path = Path(temporary_directory) / f"{CONTRACT_ID}.json"
             write_json_file(self_check_path, contract)
             execution_contract.load_execution_contract(
                 self_check_path,
-                expected_contract_id=V5_CONTRACT_ID,
+                expected_contract_id=CONTRACT_ID,
             )
             with execution_contract_scope(
                 self_check_path,
-                expected_contract_id=V5_CONTRACT_ID,
+                expected_contract_id=CONTRACT_ID,
             ):
                 execution_contract.assert_execution_contract()
-        final_path = args.out / f"{V5_CONTRACT_ID}.json"
+        final_path = args.out / f"{CONTRACT_ID}.json"
         write_json_file(final_path, contract)
         print(f"signed_contract={final_path}")
     return 0

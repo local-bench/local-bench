@@ -19,7 +19,7 @@ from typing import Final, Literal
 
 from localbench._types import JsonObject, JsonValue
 from localbench.scoring.agentic_exec.execution_contract import (
-    V5_CONTRACT_ID,
+    CONTRACT_ID,
     ExecutionContractDriftError,
     load_execution_contract,
 )
@@ -86,7 +86,7 @@ def main() -> int:
         modes = _resolve_modes(documents, args.mode, args.expect_self_test)
         contract = load_execution_contract(
             args.pending_contract,
-            expected_contract_id=V5_CONTRACT_ID,
+            expected_contract_id=CONTRACT_ID,
         )
         payload = _require_object(contract, "payload", "pending contract")
         contract_sha256 = canonical_json_hash(payload)

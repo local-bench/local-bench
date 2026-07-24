@@ -878,6 +878,10 @@ def _run(args: argparse.Namespace) -> int:
         bench_choice, scorer_gates, suite_axis_map = _scorer_gates(args, tier)
         ctx_len_observed = getattr(args, "ctx_len_observed", None)
         if not args.skip_preflight:
+            contract_error = _preflight_execution_contract()
+            if contract_error is not None:
+                print(f"error      {contract_error}")
+                return 2
             anyio.run(_preflight_endpoint, args.endpoint, args.model, api_key)
             ctx_len_observed = anyio.run(
                 _preflight_server_context,
@@ -1126,6 +1130,10 @@ def _bench(args: argparse.Namespace) -> int:
         usage_error = _resume_campaign_missing_error(args.resume)
     if usage_error is not None:
         print(f"error      {usage_error}", file=sys.stderr)
+        return 2
+    contract_error = _preflight_execution_contract()
+    if contract_error is not None:
+        print(f"error      {contract_error}", file=sys.stderr)
         return 2
     try:
         resolved_tokenizer_revision = _prepare_advanced_bench_tokenizer(args)
@@ -1848,6 +1856,29 @@ async def _run_tc_json_async(args: argparse.Namespace, api_key: str | None):
         max_items=args.max_items,
         concurrency=args.concurrency,
     )
+
+
+def _preflight_execution_contract() -> str | None:
+    """Fail the run at minute 0, not at the agentic handoff a GPU-day later.
+
+    The same fail-closed check re-runs inside the agentic phase; this early copy
+    exists only so contract drift in an installed wheel surfaces before any
+    static-suite work is spent (0.4.6 shipped drifted and cost every full-suite
+    run ~27h before aborting).
+    """
+    from localbench.scoring.agentic_exec.execution_contract import (
+        ExecutionContractDriftError,
+        assert_execution_contract,
+    )
+
+    try:
+        assert_execution_contract()
+    except ExecutionContractDriftError as exc:
+        return (
+            f"{exc}; this installed CLI cannot produce a publishable agentic run — "
+            "upgrade localbench (pip install -U local-bench-ai) before starting"
+        )
+    return None
 
 
 async def _preflight_endpoint(

@@ -11,7 +11,7 @@ import pytest
 
 from localbench.scoring.agentic_exec import execution_contract
 from localbench.scoring.agentic_exec.execution_contract import (
-    V5_CONTRACT_ID,
+    CONTRACT_ID,
     load_execution_contract,
 )
 from localbench.scoring.agentic_exec.worker_identity import _WORKER_MODULES
@@ -149,10 +149,10 @@ def test_loader_rejects_signed_v5_without_publication_authority(
     argv.extend(("--sign", "--signing-key", str(key_path)))
     monkeypatch.setattr(sys, "argv", argv)
     assert finalize.main() == 0
-    signed_path = tmp_path / "out" / f"{V5_CONTRACT_ID}.json"
+    signed_path = tmp_path / "out" / f"{CONTRACT_ID}.json"
     contract = load_execution_contract(
         signed_path,
-        expected_contract_id=V5_CONTRACT_ID,
+        expected_contract_id=CONTRACT_ID,
     )
     payload = deepcopy(contract["payload"])
     del payload["packaging_correctness_gate"]["publication_authority"]
@@ -166,4 +166,4 @@ def test_loader_rejects_signed_v5_without_publication_authority(
         execution_contract.ExecutionContractDriftError,
         match="signed-release-manifest",
     ):
-        load_execution_contract(invalid_path, expected_contract_id=V5_CONTRACT_ID)
+        load_execution_contract(invalid_path, expected_contract_id=CONTRACT_ID)

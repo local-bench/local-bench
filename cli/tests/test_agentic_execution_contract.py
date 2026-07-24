@@ -445,21 +445,25 @@ def test_successor_contract_truthfully_distinguishes_draft_and_release_gate() ->
         **gate_fields,
         "status": "not-yet-passed",
     }
-    # The signed v5 release gate carries the pre-mark evidence binding (oracle Fork-1
-    # option B): the pre-sign probe rootfs and native-conformance evidence are recorded
-    # in the contract, while the shipping differential is bound by the signed manifest.
+    # The signed release gate carries the pre-mark evidence binding (oracle Fork-1
+    # option B): the probe rootfs and native-conformance evidence are recorded in the
+    # contract, while the shipping differential is bound post-sign. v6 pins the
+    # PUBLISHED c0v5 rootfs (appliance unchanged by the host-side v6 successor) and
+    # the full three-file native-conformance evidence set from the c0v5 ceremony.
     assert release["packaging_correctness_gate"] == {
         **gate_fields,
         "status": "passed-current-repo-harness-vs-appliance",
         "publication_authority": "signed-release-manifest",
         "evidence": {
             "candidate_rootfs_sha256": (
-                "049ebe0667e2e933c04add2dd5ad7ea67a553e091ee89631f1c6c7e83ba38c07"
+                "053eb073aa0b8f4c3e9e4797b9c02b2bcca863c22dc3218128fe7bde6cb1b00a"
             ),
             "differential_report_sha256": [],
             "differential_status": "pending-post-sign-bound-in-manifest",
             "native_conformance_evidence_sha256": [
-                "775bcdd0eb8a6cc8ffcbc97ebf1fd4b65a29c002602e4e522212a74cde9d2e59"
+                "5d93b952b33e06047dd74dbcf5951bc2018941c0bd2c1ce66bb2aa539bd3863f",
+                "775bcdd0eb8a6cc8ffcbc97ebf1fd4b65a29c002602e4e522212a74cde9d2e59",
+                "b780384d98307e3729094ba7917fdd9a3c4277ff313b8dfffe3696e3f391e347",
             ],
         },
     }

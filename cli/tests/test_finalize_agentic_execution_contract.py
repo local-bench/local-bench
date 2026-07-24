@@ -10,7 +10,7 @@ import pytest
 
 from localbench.scoring.agentic_exec import execution_contract
 from localbench.scoring.agentic_exec.execution_contract import (
-    V5_CONTRACT_ID,
+    CONTRACT_ID,
     load_execution_contract,
 )
 from localbench.submissions.canon import (
@@ -206,8 +206,8 @@ def test_dry_run_carries_v4_successor_metadata(
         _V4_CONTRACT,
         expected_contract_id="agentic-execution-contract-aw013p1-pypi28113a7a-v4",
     )
-    assert payload["contract_id"] == V5_CONTRACT_ID
-    assert payload["contract_version"] == 5
+    assert payload["contract_id"] == CONTRACT_ID
+    assert payload["contract_version"] == finalize.CONTRACT_VERSION
     assert payload["supersedes_contract_id"] == predecessor["payload"]["contract_id"]
     assert payload["supersedes_payload_sha256"] == _V4_PAYLOAD_SHA256
     assert payload["score_protocol_equivalence"] == {
@@ -242,10 +242,10 @@ def test_sign_mode_round_trips_through_real_loader(
     assert finalize.main() == 0
 
     # Then: the final artifact verifies and loads through the production loader.
-    contract_path = tmp_path / "out" / f"{V5_CONTRACT_ID}.json"
+    contract_path = tmp_path / "out" / f"{CONTRACT_ID}.json"
     contract = load_execution_contract(
         contract_path,
-        expected_contract_id=V5_CONTRACT_ID,
+        expected_contract_id=CONTRACT_ID,
     )
     signature = contract["signature"]
     assert isinstance(signature, dict)

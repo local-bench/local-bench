@@ -135,12 +135,19 @@ def test_differential_is_cross_bound_to_the_signed_manifest() -> None:
     assert evidence["rootfs_sha256"] == manifest_payload["rootfs"]["sha256"] == RELEASE_ROOTFS_SHA256
     assert evidence["worker_wheel_sha256"] == RELEASE_WORKER_WHEEL_SHA256
     assert manifest_payload["worker"]["sha256"] == RELEASE_WORKER_WHEEL_SHA256
-    assert (
-        evidence["contract_payload_sha256"]
-        == manifest_payload["execution_contract_sha256"]
-        == contract["payload_sha256"]
+    # The published c0v5 manifest immutably pins the v5 contract it shipped with.
+    # The ACTIVE contract may be a host-side successor (v6+); the cross-binding
+    # invariant is that the manifest's pinned contract is either the active one or
+    # the direct predecessor the active contract supersedes — never an unrelated sha.
+    assert evidence["contract_payload_sha256"] == manifest_payload["execution_contract_sha256"]
+    active_payload = contract["payload"]
+    assert manifest_payload["execution_contract_sha256"] in (
+        contract["payload_sha256"],
+        active_payload.get("supersedes_payload_sha256"),
     )
-    assert contract["payload"]["contract_id"] == "agentic-execution-contract-aw013p1-pypi28113a7a-v5"
+    assert active_payload["contract_id"].startswith(
+        "agentic-execution-contract-aw013p1-pypi28113a7a-v"
+    )
 
 
 def test_differential_selftest_is_a_bound_negative_control() -> None:

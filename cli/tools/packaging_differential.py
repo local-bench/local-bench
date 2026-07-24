@@ -390,12 +390,18 @@ def compare_sides(
                     appliance.aggregates,
                 )
             case "worker_identity":
+                # Distribution version strings are DISCLOSED PROVENANCE, not
+                # identity: c0v5 bakes worker 0.4.3 by design while the host CLI
+                # version advances (0.4.5+ tolerates and discloses the skew at
+                # runtime).  Identity remains the module hashes + worker_content,
+                # which must be byte-equal.  Both raw identities, version strings
+                # included, stay recorded per side in the evidence.
                 field_equal = _append_diff(
                     diffs,
                     field_name,
                     None,
-                    repo.worker_identity,
-                    appliance.worker_identity,
+                    _identity_without_distribution_version(repo.worker_identity),
+                    _identity_without_distribution_version(appliance.worker_identity),
                 )
             case (
                 "model_turn_requests"
@@ -823,6 +829,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _is_designed_drift_detection(error: Exception) -> bool:
     detail = str(error)
     return any(marker in detail for marker in SELF_TEST_DRIFT_MARKERS)
+
+
+def _identity_without_distribution_version(identity: JsonObject) -> JsonObject:
+    return {
+        key: value
+        for key, value in identity.items()
+        if key != "localbench_distribution_version"
+    }
 
 
 def _record_worker_identity(run: SideRun, identity: JsonObject) -> None:
