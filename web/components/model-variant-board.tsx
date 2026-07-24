@@ -84,7 +84,9 @@ export function ModelVariantBoard({
   // Relation for LIVE rows derives from the artifact's catalog model, exactly like
   // baked family rows — a live fine-tune run badges "fine-tune" on its base's page
   // with zero manual steps (relation outranks submission origin, owner 2026-07-24).
-  const relationBySlug = new Map(familyModels.map(({ model: familyModel, relation }) => [familyModel.slug, relation]));
+  const relationBySlug = new Map<string, ModelFamilyScatterRelation>(
+    familyModels.map(({ model: familyModel, relation }) => [familyModel.slug, relation]),
+  );
   const relationForCommunityRow = (artifactSha256: string): "family-finetune" | "base-model" | null => {
     const detail = artifactDetailsBySha.get(artifactSha256);
     if (detail === undefined || detail.slug === model.slug) return null;

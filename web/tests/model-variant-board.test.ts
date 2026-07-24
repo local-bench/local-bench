@@ -355,7 +355,9 @@ describe("model variant board runtime display", () => {
     }));
 
     expect(html).toContain("Bonsai 27B Ternary");
-    expect(html).toContain("declared as bonsai-27b-ternary");
+    // "bonsai-27b-ternary" is a slug-twin of the catalog name — suppressed as noise
+    // (a genuinely different declared name still renders; see community-live-render tests).
+    expect(html).not.toContain("declared as");
     expect(html).not.toContain("no run yet");
     expect(html).not.toContain("benchmark it");
   });

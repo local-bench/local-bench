@@ -2,6 +2,7 @@
 
 import { CommunityFamilyResultsLive } from "@/components/community-family-results";
 import { useLiveCommunityRows, type LiveCommunityState } from "@/components/community-live-state";
+import { ModelBenchTimePanel } from "@/components/model-bench-time-panel";
 import { ModelScatter } from "@/components/model-scatter";
 import { ModelVariantBoard } from "@/components/model-variant-board";
 import type { CommunityBoardRow, CommunityModelTarget } from "@/lib/community-data";
@@ -56,6 +57,7 @@ export function ModelPageCommunityViews({
         communityRows={rows}
         familyModels={familyModels}
       />
+      <ModelBenchTimePanel communityRows={rows} model={model} familyModels={familyModels} />
       <ModelVariantBoard communityRows={rows} model={model} familyModels={familyModels} />
       <CommunityFamilyResultsLive rows={rows} state={state} />
     </>
