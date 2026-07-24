@@ -252,6 +252,43 @@ describe("ModelScatter family points", () => {
     expect(html).not.toContain("Community runs");
   });
 
+  it("plots a live fine-tune run as a family fine-tune on the base model's page", () => {
+    // Given: a live row whose artifact belongs to a family variant, not the page model.
+    const parsed = parseCommunityLiveBoard(bonsaiLiveEnvelope());
+    if (parsed === null) throw new Error("expected valid Bonsai live envelope");
+    const [liveRow] = reconcileCommunityRows([], parsed.rows.map((row) => ({
+      ...row,
+      badge: "project-run",
+      origin: "project_anchor",
+    })), familyResolutionContext());
+    if (liveRow === undefined) throw new Error("expected reconciled live row");
+    const basePage = model({ slug: "qwen3-6-27b", label: "Qwen3.6 27B", runs: [] });
+    const bonsaiVariant = {
+      ...model({ slug: "bonsai-27b-ternary", label: "Bonsai 27B Ternary", runs: [] }),
+      artifacts: [{
+        file_gb: 7.2,
+        file_sha256: liveRow.artifactSha256,
+        quant_label: "Q2_0",
+        vram_gb_8k: 9.5,
+      }],
+    };
+
+    // When: the BASE model's scatter receives the fine-tune's live row.
+    const html = renderToStaticMarkup(createElement(ModelScatter, {
+      anchorRuns: [],
+      communityRows: [liveRow],
+      familyModels: [{ model: bonsaiVariant, relation: "family-finetune" as const }],
+      model: basePage,
+    }));
+
+    // Then: relation outranks submission origin — the point groups with family
+    // fine-tunes exactly like a baked sibling would, and the legend says so.
+    expect(html).toContain('data-point-kind="family-finetune"');
+    expect(html).not.toContain('data-point-kind="project"');
+    expect(html).toContain("Family fine-tunes");
+    expect(html).toContain("Bonsai Ternary · Q2_0");
+  });
+
   it("keeps a community row without a catalog artifact match on the board but off the scatter", () => {
     // Given: a comparable community result with attested GPU capacity but no catalog artifact match.
     const communityRow = communityFixture({ hardware: { gpu_name: "RTX 5090", vram_gb: 32 } });

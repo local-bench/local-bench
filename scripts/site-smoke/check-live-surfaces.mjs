@@ -299,11 +299,12 @@ async function run() {
       if (!resolved.needsScatter) {
         record("E", `scatter point: ${name}`, true, "not required; no envelope or overlay VRAM");
       } else {
-        // Live rows plot as "community" (anonymous submissions) or "project" (maintainer
-        // runs, origin project_anchor) — associate by row identity, never by kind alone.
-        // Primary identity is data-point-id (the submission id); rendered names are a
-        // fallback because compact labels legitimately omit the model name.
-        const scatterMarkers = page.getByTestId("quality-vram-scatter").locator('svg [data-point-kind="community"], svg [data-point-kind="project"]');
+        // Live rows plot as "community"/"project" on their own page and as
+        // "family-finetune" on a base-family page (relation outranks origin) —
+        // associate by row identity, never by kind alone. Primary identity is
+        // data-point-id (the submission id); rendered names are a fallback because
+        // compact labels legitimately omit the model name.
+        const scatterMarkers = page.getByTestId("quality-vram-scatter").locator('svg [data-point-kind="community"], svg [data-point-kind="project"], svg [data-point-kind="family-finetune"]');
         const markerMatches = await scatterMarkers.evaluateAll(
           (markers, expectedIdentities) => markers.filter((marker) => {
             const point = marker.parentElement;

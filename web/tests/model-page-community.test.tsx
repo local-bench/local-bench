@@ -83,7 +83,7 @@ describe("model page community family results", () => {
     expect(boardCells[5]).toContain("63.0");
     expect(boardCells[6]).toContain("85.0");
     expect(boardCells[7]).toContain("90.0");
-    expect(html).toContain('data-point-kind="community"');
+    expect(html).toContain('data-point-kind="family-finetune"');
     expect(html).toContain("~9.5 GB to run");
     expect(html).not.toContain("31.8 GB");
     expect(html).toContain("Reported runs");
@@ -130,7 +130,7 @@ describe("model page community family results", () => {
     // on the reported-result card.
     expect(projectCells[1]).not.toContain(">run by local-bench</span>");
     expect(html).toContain(">run by local-bench</span>");
-    expect(html).toContain('data-point-kind="project"');
+    expect(html).toContain('data-point-kind="family-finetune"');
     expect(html).not.toContain("Project runs");
     expect(html).not.toContain(">self-reported</span>");
     expect(html).not.toContain("submitted as");
@@ -233,7 +233,7 @@ describe("model page community family results", () => {
     expect(html).toContain("Opaque community declaration");
     expect(html).toContain("ticket_bonsai_sha_only");
     expect(html).toContain('data-source="community"');
-    expect(html).toContain('data-point-kind="community"');
+    expect(html).toContain('data-point-kind="family-finetune"');
     expect(html).toContain(">self-reported</span>");
   });
 });

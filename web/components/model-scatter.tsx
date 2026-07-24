@@ -70,7 +70,7 @@ export function ModelScatter({
   if (ownRuns.length > 0) {
     pointLegend.push({ kind: "this-model", label: "This model" });
   }
-  if (familyRuns.some((run) => run.point_kind === "family-finetune")) {
+  if ([...familyRuns, ...communityRuns].some((run) => run.point_kind === "family-finetune")) {
     pointLegend.push({ kind: "family-finetune", label: "Family fine-tunes" });
   }
   if (familyRuns.some((run) => run.point_kind === "base-model")) {
@@ -126,10 +126,16 @@ function toCommunityScatterRun(
     ? null
     : variantNameInContext(canonicalName, pageModelLabel);
   const quantName = artifactDetail.quantLabel ?? row.quantLabel ?? "quant unavailable";
+  // On a family page, RELATION outranks submission origin (owner call, 2026-07-24):
+  // a live run of a different family member plots as a family fine-tune exactly like
+  // its baked siblings — Bonsai groups with Qwopus, not with "who submitted it".
+  // On the model's own page the origin kinds still apply.
   const run = {
     composite: communityScore(row.compositeFull),
     demo: false,
-    point_kind: row.origin === "project_anchor" ? "project" as const : "community" as const,
+    point_kind: contextName !== null
+      ? "family-finetune" as const
+      : row.origin === "project_anchor" ? "project" as const : "community" as const,
     point_label: `${contextName === null ? quantName : `${contextName} · ${quantName}`}${declaredName}`,
     quant_label: artifactDetail.quantLabel ?? row.quantLabel,
     point_id: row.submissionId,
