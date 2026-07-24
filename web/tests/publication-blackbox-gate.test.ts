@@ -305,8 +305,11 @@ async function assertServeAndDom(env: Awaited<ReturnType<typeof createEnv>>, exp
   const servedSnapshot = await handleServeActivePublicationSnapshot(getRequest("/api/publication-snapshot"), env);
   expect(servedSnapshot.status).toBe(200);
   const nextBin = join(process.cwd(), "node_modules", "next", "dist", "bin", "next");
+  // 300s: the inner build takes ~40-60s on the reference workstation but well over
+  // 90s on 2-core CI runners — the old 90s timeout made shadow-repro's web suite
+  // permanently red while the gate itself was healthy.
   execFileSync(process.execPath, [nextBin, "build"], {
-    cwd: process.cwd(), env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: "pipe", timeout: 90_000,
+    cwd: process.cwd(), env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" }, stdio: "pipe", timeout: 300_000,
   });
   const port = 31_000 + Math.floor(Math.random() * 1_000);
   const server = spawn(process.execPath, [join(process.cwd(), "tests", "fixtures", "static-server.mjs"), join(process.cwd(), "out"), String(port)], {
