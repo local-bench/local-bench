@@ -2,7 +2,8 @@ import Link from "next/link";
 import { FamilyLogoMark } from "@/components/family-logo-mark";
 import { familyStyle } from "@/lib/family-color";
 import { orgLogoForModelLabel } from "@/lib/family-logo";
-import { formatCi, formatCompactNumber, formatDuration } from "@/lib/format";
+import { formatCi, formatCompactNumber } from "@/lib/format";
+import { WallTimeBar } from "@/components/wall-time-bar";
 import { modelHref } from "@/lib/routes";
 import type { BestVariantPoint } from "@/lib/best-variant";
 
@@ -22,10 +23,6 @@ const LIMITATION = "Elapsed time for this exact full-suite run; not a general mo
 const MIN_TIMED_ROWS = 4;
 const MIN_TIMED_COVERAGE = 0.6;
 const MAX_LANDING_ROWS = 8;
-
-function axisUpperBoundHours(maxHours: number): number {
-  return Math.max(5, Math.ceil(maxHours / 5) * 5);
-}
 
 export function ReplicationTimePanel({ points }: { readonly points: readonly BestVariantPoint[] }) {
   // Rank identically to BestVariantTable (score descending) so the two can never disagree.
@@ -94,13 +91,7 @@ function PanelBars({
   const shortestRunId = timed.reduce((best, row) =>
     (row.wallTimeSeconds ?? Infinity) < (best.wallTimeSeconds ?? Infinity) ? row : best,
   ).runId;
-  const maxHours = Math.max(...timed.map((row) => (row.wallTimeSeconds ?? 0) / 3600));
-  const axisMax = axisUpperBoundHours(maxHours);
-  const tickStep = axisMax >= 20 ? 10 : 5;
-  const ticks: number[] = [];
-  for (let tick = tickStep; tick < axisMax; tick += tickStep) {
-    ticks.push(tick);
-  }
+  const maxWallTimeSeconds = Math.max(...timed.map((row) => row.wallTimeSeconds ?? 0));
 
   return (
     <div className="px-3 py-2">
@@ -150,53 +141,14 @@ function PanelBars({
               </span>
             </div>
 
-            <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_66px] items-center gap-2.5">
-              <div className="relative h-3.5 rounded bg-white/[0.05]">
-                {ticks.map((tick) => (
-                  <span
-                    key={tick}
-                    aria-hidden
-                    className="absolute -bottom-0.5 -top-0.5 w-px bg-bench-grid"
-                    style={{ left: `${(tick / axisMax) * 100}%` }}
-                  />
-                ))}
-                {hasTime ? (
-                  <div
-                    className="relative z-[1] h-3.5 rounded-[3px] bg-gradient-to-r from-bench-accent-dim to-bench-accent"
-                    style={{ width: `${Math.min(100, ((wall / 3600) / axisMax) * 100)}%` }}
-                  />
-                ) : null}
-              </div>
-              <div className="text-right font-mono text-xs tabular-nums text-bench-text">
-                {hasTime ? formatDuration(wall) : "—"}
-                {hasTime && row.runId === shortestRunId ? (
-                  <span
-                    className="ml-1 cursor-default text-[11px]"
-                    role="img"
-                    aria-label="Shortest full-suite run this season"
-                    title="Shortest full-suite run this season"
-                  >
-                    🔥
-                  </span>
-                ) : null}
-              </div>
-            </div>
+            <WallTimeBar
+              maxWallTimeSeconds={maxWallTimeSeconds}
+              shortest={hasTime && row.runId === shortestRunId}
+              wallTimeSeconds={wall}
+            />
           </div>
         );
       })}
-
-      <div className="mt-1 grid grid-cols-[minmax(0,1fr)_66px] gap-2.5">
-        <div className="relative h-3 font-mono text-[9px] text-bench-muted-2">
-          <span className="absolute left-0">0</span>
-          {ticks.map((tick) => (
-            <span key={tick} className="absolute -translate-x-1/2" style={{ left: `${(tick / axisMax) * 100}%` }}>
-              {tick} h
-            </span>
-          ))}
-          <span className="absolute right-0">{axisMax} h</span>
-        </div>
-        <div />
-      </div>
 
       {untimedShown.length > 0 ? (
         <p className="mt-2 rounded border border-dashed border-bench-line-strong px-2 py-1.5 text-[11px] leading-4 text-bench-muted-2">

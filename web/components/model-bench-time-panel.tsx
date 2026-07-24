@@ -3,7 +3,8 @@ import { communityArtifactDetailForSha, communityArtifactDetails, type Community
 import { communityScore } from "@/lib/community-scores";
 import type { CommunityBoardRow } from "@/lib/community-data";
 import type { ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
-import { formatDuration, formatGpuShort } from "@/lib/format";
+import { formatGpuShort } from "@/lib/format";
+import { WallTimeBar } from "@/components/wall-time-bar";
 import { HEADLINE_LANE } from "@/lib/leaderboard-score";
 import { declaredNameIsRedundant, sameModelName, variantNameInContext } from "@/lib/model-name";
 import { runHref } from "@/lib/routes";
@@ -119,27 +120,11 @@ function BenchTimeBar({
           <span className="font-mono text-[11px] tabular-nums text-bench-muted">{row.score.toFixed(2)}</span>
         </span>
       </div>
-      <div className="mt-1.5 grid grid-cols-[minmax(0,1fr)_66px] items-center gap-2.5">
-        <div className="h-3.5 rounded bg-white/[0.05]">
-          <div
-            className="h-3.5 rounded-[3px] bg-gradient-to-r from-bench-accent-dim to-bench-accent"
-            style={{ width: `${(row.wallTimeSeconds / maxWallTime) * 100}%` }}
-          />
-        </div>
-        <div className="text-right font-mono text-xs tabular-nums text-bench-text">
-          {formatDuration(row.wallTimeSeconds)}
-          {shortest ? (
-            <span
-              className="ml-1 cursor-default text-[11px]"
-              role="img"
-              aria-label="Shortest full-suite run this season"
-              title="Shortest full-suite run this season"
-            >
-              🔥
-            </span>
-          ) : null}
-        </div>
-      </div>
+      <WallTimeBar
+        maxWallTimeSeconds={maxWallTime}
+        shortest={shortest}
+        wallTimeSeconds={row.wallTimeSeconds}
+      />
     </>
   );
   return row.href === null ? (

@@ -75,9 +75,12 @@ describe("ReplicationTimePanel", () => {
     expect(html).not.toContain("fastest model");
   });
 
-  it("scales the axis to the next five-hour bound", () => {
+  it("renders relative-width bars sharing the model-page visual language (no hour axis)", () => {
     const html = render(livePoints());
-    expect(html).toContain("30 h");
+    // Longest timed run fills the bar; the labeled hour axis is gone (2026-07-25
+    // convergence on the model-page style — durations are printed per row instead).
+    expect(html).toContain("width:100%");
+    expect(html).not.toContain("30 h");
   });
 
   it("lists an untimed row without a bar and discloses structural missingness", () => {
