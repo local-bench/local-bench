@@ -306,3 +306,62 @@ def test_preflight_provenance_carries_identity_object_and_digest() -> None:
     # Then: both additive fields are carried unchanged.
     assert provenance["agentic_runtime_identity"] == identity
     assert provenance["agentic_runtime_identity_sha256"] == digest
+
+
+def test_manifest_pinning_the_superseded_predecessor_is_accepted() -> None:
+    # The published c0v5 appliance immutably pins the v5 contract; the active
+    # host contract (v6+) supersedes it with signed score-protocol-equivalence
+    # evidence, so the handshake must accept the predecessor pin and record it
+    # as the sha the appliance actually enforces.
+    contract = _contract()
+    payload = contract["payload"]
+    assert isinstance(payload, dict)
+    predecessor_sha256 = payload.get("supersedes_payload_sha256")
+    assert isinstance(predecessor_sha256, str) and len(predecessor_sha256) == 64
+    manifest, handshake, worker_identity = _source_inputs()
+    manifest["execution_contract_sha256"] = predecessor_sha256
+    handshake["execution_contract_sha256"] = predecessor_sha256
+    components = agentic_runtime_identity_from_sources(
+        manifest,
+        handshake,
+        worker_identity=worker_identity,
+        execution_contract=contract,
+    )
+    assert components.execution_contract_sha256 == predecessor_sha256
+
+
+def test_manifest_pinning_an_unrelated_contract_is_rejected() -> None:
+    from localbench.appliance.runtime_identity import AgenticRuntimeIdentityError
+
+    manifest, handshake, worker_identity = _source_inputs()
+    manifest["execution_contract_sha256"] = "cd" * 32
+    handshake["execution_contract_sha256"] = "cd" * 32
+    with pytest.raises(AgenticRuntimeIdentityError):
+        agentic_runtime_identity_from_sources(
+            manifest,
+            handshake,
+            worker_identity=worker_identity,
+            execution_contract=_contract(),
+        )
+
+
+def test_manifest_and_handshake_contract_pins_must_agree() -> None:
+    # Accepting the supersedes chain must not loosen appliance-internal
+    # consistency: the worker's reported contract has to match the manifest pin.
+    from localbench.appliance.runtime_identity import AgenticRuntimeIdentityError
+
+    contract = _contract()
+    payload = contract["payload"]
+    assert isinstance(payload, dict)
+    predecessor_sha256 = payload.get("supersedes_payload_sha256")
+    assert isinstance(predecessor_sha256, str)
+    manifest, handshake, worker_identity = _source_inputs()
+    manifest["execution_contract_sha256"] = predecessor_sha256
+    # handshake keeps the active sha -> internal mismatch must still fail.
+    with pytest.raises(AgenticRuntimeIdentityError):
+        agentic_runtime_identity_from_sources(
+            manifest,
+            handshake,
+            worker_identity=worker_identity,
+            execution_contract=contract,
+        )

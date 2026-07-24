@@ -150,16 +150,31 @@ def agentic_runtime_identity_from_sources(
         protocol_version,
         _text(handshake, "protocol_version"),
     )
+    # The published appliance manifest immutably pins the contract it was built
+    # and signed with.  A host-side successor contract supersedes that
+    # predecessor carrying signed score-protocol-equivalence evidence measured
+    # against this same appliance, so the appliance stays valid: accept the
+    # manifest's pin when it is the active contract OR the direct predecessor
+    # the active contract supersedes.  Anything else is still a hard mismatch.
+    manifest_contract_sha256 = _text(manifest, "execution_contract_sha256")
+    supersedes = contract_payload.get("supersedes_payload_sha256")
+    acceptable_contract_sha256s = {execution_contract_sha256}
+    if isinstance(supersedes, str) and supersedes:
+        acceptable_contract_sha256s.add(supersedes)
+    if manifest_contract_sha256 not in acceptable_contract_sha256s:
+        _assert_equal(
+            "execution_contract_sha256",
+            execution_contract_sha256,
+            manifest_contract_sha256,
+        )
     _assert_equal(
         "execution_contract_sha256",
-        execution_contract_sha256,
-        _text(manifest, "execution_contract_sha256"),
-    )
-    _assert_equal(
-        "execution_contract_sha256",
-        execution_contract_sha256,
+        manifest_contract_sha256,
         _text(handshake, "execution_contract_sha256"),
     )
+    # Record the sha the appliance actually enforces in its sandbox (the
+    # manifest pin), which is the truthful provenance for what scored the run.
+    execution_contract_sha256 = manifest_contract_sha256
     _assert_equal(
         "ordered_task_ids_sha256",
         ordered_task_ids_sha256,
