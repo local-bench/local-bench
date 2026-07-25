@@ -1085,6 +1085,8 @@ async def _build_canary_probes(
             continue
         words = max(1, int((target - floor) * 0.9))
         probe: _VllmCanaryProbe | None = None
+        best_content: str | None = None
+        best_count = 0
         for _ in range(80):
             content = _canary_filler(words, salt)
             count = await _rendered_token_count(client, model_id, content)
@@ -1096,10 +1098,25 @@ async def _build_canary_probes(
                     content=content,
                 )
                 break
+            if best_content is None or abs(count - target) < abs(best_count - target):
+                best_content = content
+                best_count = count
             words = max(1, words + (target - count))
+        if probe is None and best_content is not None and abs(best_count - target) <= 2:
+            # Token merges can make rendered length jump over the exact
+            # target (observed live: s128 unreachable on the Qwen3.6
+            # template). Within-tolerance is sound: the evidence is
+            # cross-start equality of IDENTICAL content; rendered_tokens
+            # records the actual length.
+            probe = _VllmCanaryProbe(
+                label=label,
+                target_tokens=target,
+                rendered_tokens=best_count,
+                content=best_content,
+            )
         if probe is None:
             raise RuntimeError(
-                f"vLLM canary probe {label} could not reach exactly {target} "
+                f"vLLM canary probe {label} could not reach {target} (+/-2) "
                 "rendered tokens"
             )
         probes.append(probe)
