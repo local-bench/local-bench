@@ -61,65 +61,97 @@ def test_policy_env_pins_are_disjoint_on_the_batch_invariant_marker() -> None:
     assert policy_env_pins(VLLM_GDN_POLICY_ID)["TRITON_PRINT_AUTOTUNING"] == "1"
 
 
+# Multi-line record format qualified live at gate 0 (vLLM 0.25.1, RTX 5090).
+_AUTOTUNE_RECORD = (
+    "(EngineCore pid=186692) Triton autotuning for function chunk_fwd_kernel_o,\n"
+    "(EngineCore pid=186692) with key as (48, 128, 128, 64, 'torch.bfloat16'),\n"
+    "(EngineCore pid=186692) finished after {seconds}s,\n"
+    "(EngineCore pid=186692) best config selected: BK: {bk}, BV: 64, "
+    "num_warps: 4, num_ctas: 1, num_stages: 3, maxnreg: None;\n"
+)
+
+
 def test_autotune_manifest_normalizes_timings_out() -> None:
-    log_a = (
-        "Triton autotuning for function chunk_fwd_kernel_o finished after 1.23s; "
-        "best config selected: BK: 64, BV: 64, num_warps: 4, num_stages: 2\n"
-        "Triton autotuning for function solve_tril finished after 0.44s; "
-        "best config selected: num_warps: 8, num_stages: 3\n"
-    )
-    log_b = (
-        "Triton autotuning for function solve_tril finished after 9.99s; "
-        "best config selected: num_warps: 8, num_stages: 3\n"
-        "Triton autotuning for function chunk_fwd_kernel_o finished after 77.7s; "
-        "best config selected: BK: 64, BV: 64, num_warps: 4, num_stages: 2\n"
-    )
+    log_a = _AUTOTUNE_RECORD.format(seconds="9.19", bk=64)
+    log_b = _AUTOTUNE_RECORD.format(seconds="0.42", bk=64)
     selections_a = extract_autotune_selections(log_a)
     selections_b = extract_autotune_selections(log_b)
+    assert len(selections_a) == 1
+    assert selections_a[0][0] == "chunk_fwd_kernel_o"
+    assert "torch.bfloat16" in selections_a[0][1]
     assert selections_a == selections_b
     assert autotune_manifest_sha256(selections_a) == autotune_manifest_sha256(selections_b)
     assert autotune_manifest_sha256(()) is None
 
 
 def test_autotune_manifest_differs_when_a_config_changes() -> None:
-    base = (
-        "Triton autotuning for function chunk_fwd_kernel_o finished after 1s; "
-        "best config selected: BK: 64, num_warps: 4\n"
-    )
-    changed = (
-        "Triton autotuning for function chunk_fwd_kernel_o finished after 1s; "
-        "best config selected: BK: 128, num_warps: 4\n"
-    )
+    base = _AUTOTUNE_RECORD.format(seconds="1.0", bk=64)
+    changed = _AUTOTUNE_RECORD.format(seconds="1.0", bk=128)
     assert autotune_manifest_sha256(
         extract_autotune_selections(base)
     ) != autotune_manifest_sha256(extract_autotune_selections(changed))
 
 
+# When --attention-backend is pinned, 0.25.1 emits no selector line; the
+# affirmative evidence is the API server's non-default-args echo (verbatim
+# from the gate-0 log).
+_PINNED_ARGS_LINE = (
+    "(APIServer pid=186592) INFO 07-26 08:24:36 [api_utils.py:273] non-default "
+    "args: {'return_tokens_as_token_ids': True, 'enforce_eager': True, "
+    "'attention_backend': 'TRITON_ATTN', 'linear_backend': 'cutlass', "
+    "'gdn_prefill_backend': 'triton'}\n"
+)
+
+
 def test_resolved_backends_fail_closed_until_all_facts_affirm() -> None:
     partial = parse_resolved_backends(
         "INFO [__init__.py:974] Using CutlassNvFp4LinearKernel for NVFP4 GEMM\n"
-        "INFO [cuda.py:476] Using TRITON_ATTN attention backend out of potential backends\n"
+        + _PINNED_ARGS_LINE
     )
     assert partial.nvfp4_linear_kernel == "CutlassNvFp4LinearKernel"
     assert partial.attention_backend == "TRITON_ATTN"
-    assert not partial.satisfied()
+    assert partial.eager_mode is True
+    assert not partial.satisfied()  # GDN prefill line still missing
 
     complete = parse_resolved_backends(
         "INFO Using CutlassNvFp4LinearKernel for NVFP4 GEMM\n"
-        "INFO Using TRITON_ATTN attention backend out of potential backends\n"
-        "INFO Using Triton/FLA GDN prefill kernel for hybrid layers\n"
-        "INFO VllmConfig(model_config=..., enforce_eager=True, ...)\n"
+        + _PINNED_ARGS_LINE
+        + "INFO [qwen_gdn_linear_attn.py:228] Using Triton/FLA GDN prefill "
+        "kernel (requested=triton, head_k_dim=128).\n"
     )
+    assert complete.gdn_prefill_backend == "Triton/FLA"
     assert complete.satisfied()
     assert complete.as_json()["satisfied"] is True
+
+
+def test_resolved_backends_accept_auto_selector_line_too() -> None:
+    auto_style = parse_resolved_backends(
+        "INFO Using TRITON_ATTN attention backend out of potential backends\n"
+        "INFO Initializing ... enforce_eager=True, kv_cache_dtype=bfloat16\n"
+    )
+    assert auto_style.attention_backend == "TRITON_ATTN"
+    assert auto_style.eager_mode is True
 
 
 def test_resolved_backends_reject_wrong_kernel() -> None:
     wrong = parse_resolved_backends(
         "INFO Using FlashInferCutlassNvFp4LinearKernel for NVFP4 GEMM\n"
-        "INFO Using TRITON_ATTN attention backend\n"
-        "INFO Using Triton/FLA GDN prefill kernel\n"
-        "INFO enforce_eager=True\n"
+        + _PINNED_ARGS_LINE
+        + "INFO Using Triton/FLA GDN prefill kernel (requested=triton).\n"
     )
     assert wrong.nvfp4_linear_kernel == "FlashInferCutlassNvFp4LinearKernel"
     assert not wrong.satisfied()
+
+
+def test_jit_inference_event_extraction() -> None:
+    from localbench.serving.vllm_policy import extract_jit_inference_events
+
+    log = (
+        "WARNING [jit_monitor.py:123] Triton kernel JIT compilation during "
+        "inference: _triton_mrope_forward. This causes a latency spike; "
+        "consider extending warmup to cover this shape/config.\n"
+        "INFO unrelated line\n"
+        "WARNING Triton kernel JIT compilation during inference: solve_tril.\n"
+    )
+    assert extract_jit_inference_events(log) == ("_triton_mrope_forward", "solve_tril")
+    assert extract_jit_inference_events("") == ()

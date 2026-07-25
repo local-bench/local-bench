@@ -47,7 +47,9 @@ The vLLM lane selects one of two named policies from the snapshot's architecture
   clean process starts under structural single-slot execution on the recorded stack; not
   batch-invariant*. The lane pins `--enforce-eager`, `--gdn-prefill-backend triton`,
   `--attention-backend TRITON_ATTN`, `--linear-backend cutlass`, FlashInfer autotune and Mamba
-  stochastic rounding off, `--jit-monitor-mode error`, zero multimodal limits (text-only lane;
+  stochastic rounding off, `--jit-monitor-mode warn` (error mode is fatal on the first request:
+  vLLM's warmup does not cover every shape — instead provenance requires ZERO JIT-during-inference
+  events in the scored phase), zero multimodal limits (text-only lane;
   reclaims the vision-encoder profiling budget), plus `PYTHONHASHSEED=0`,
   `CUBLAS_WORKSPACE_CONFIG=:4096:8`, the FLA_* precision pins, and per-start empty
   Triton/Inductor caches. This policy is version-allowlisted (exactly vLLM 0.25.1); any other

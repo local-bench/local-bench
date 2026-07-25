@@ -99,6 +99,7 @@ from localbench.serving.vllm_policy import (
     VLLM_GDN_POLICY_ID,
     autotune_manifest_sha256,
     extract_autotune_selections,
+    extract_jit_inference_events,
     load_model_text_config,
     parse_resolved_backends,
     policy_env_pins,
@@ -1021,6 +1022,7 @@ class _VllmCanaryOutcome:
     evidence: JsonObject
     probes: dict[str, _VllmCanaryProbe]
     baseline: dict[str, JsonObject]
+    serve_log: Path
 
 
 def _canary_filler(word_count: int, salt: int) -> str:
@@ -1326,6 +1328,13 @@ async def _run_vllm_determinism_canary(
                 for observation in (*observations_a.values(), *observations_b.values())
             ]
             numeric_gaps = [gap for gap in min_gaps if isinstance(gap, (int, float))]
+            jit_at_qualification = len(
+                extract_jit_inference_events(
+                    serve_log.read_text(encoding="utf-8", errors="replace")
+                    if serve_log.is_file()
+                    else ""
+                )
+            )
             evidence: JsonObject = {
                 "policy_id": config.policy_id,
                 "matrix": [
@@ -1358,6 +1367,8 @@ async def _run_vllm_determinism_canary(
                 "min_top1_top2_logprob_gap": (
                     min(numeric_gaps) if numeric_gaps else None
                 ),
+                "jit_inference_events_at_qualification": jit_at_qualification,
+                "jit_inference_events_during_scoring": None,
                 "post_score_passed": None,
                 "scored_process_is_canary_start_b": True,
             }
@@ -1371,6 +1382,7 @@ async def _run_vllm_determinism_canary(
                     for label in probes
                     if f"{label}#1" in observations_b
                 },
+                serve_log=serve_log,
             )
         last_failure = (
             f"cross_start={cross_start}, gates_a={gates_a}, gates_b={gates_b}, "
@@ -1396,6 +1408,7 @@ async def _run_vllm_post_score_sentinels(
     ]
     if not sentinel_labels:
         return False
+    passed = True
     try:
         async with httpx.AsyncClient(
             base_url=f"http://127.0.0.1:{config.port}",
@@ -1410,10 +1423,22 @@ async def _run_vllm_post_score_sentinels(
                     probe=outcome.probes[label],
                 )
                 if not _observation_equal(observation, outcome.baseline[label]):
-                    return False
+                    passed = False
+                    break
     except Exception:
-        return False
-    return True
+        passed = False
+    # Post-warmup JIT accounting: the canary matrix qualified the shapes; any
+    # NEW Triton JIT compile during the scored phase (bench + sentinels) is
+    # evidence the scoring process ran kernels the qualification never saw.
+    baseline = outcome.evidence.get("jit_inference_events_at_qualification")
+    if isinstance(baseline, int) and outcome.serve_log.is_file():
+        total = len(
+            extract_jit_inference_events(
+                outcome.serve_log.read_text(encoding="utf-8", errors="replace")
+            )
+        )
+        outcome.evidence["jit_inference_events_during_scoring"] = total - baseline
+    return passed
 
 
 async def _run_sglang_determinism_canary(

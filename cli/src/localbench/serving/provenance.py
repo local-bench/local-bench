@@ -437,6 +437,8 @@ def _gdn_blocking_reasons(evidence: ServingEvidence) -> list[str]:
             reasons.append("runtime.scored_process_preflight_missing")
         if canary.get("post_score_passed") is not True:
             reasons.append("runtime.scored_process_postflight_mismatch")
+        if canary.get("jit_inference_events_during_scoring") != 0:
+            reasons.append("runtime.post_warmup_jit_detected")
     return reasons
 
 

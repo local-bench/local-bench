@@ -125,8 +125,13 @@ GDN_SERVE_FLAGS: tuple[str, ...] = (
     "cutlass",
     "--no-enable-flashinfer-autotune",
     "--no-enable-mamba-cache-stochastic-rounding",
+    # warn, not error: vLLM's warmup does not cover every first-request shape
+    # (observed live: _triton_mrope_forward JITs on the first real request and
+    # error mode makes that a fatal engine error). The canary matrix exercises
+    # the shapes; provenance then requires ZERO JIT events during the scored
+    # phase (see extract_jit_inference_events + post_warmup gate).
     "--jit-monitor-mode",
-    "error",
+    "warn",
     "--return-tokens-as-token-ids",
     # Text-only lane: a zero limit disables each multimodal modality and its
     # encoder-cache/2-max-image profiling, which otherwise reserves GiBs the
@@ -214,15 +219,22 @@ class ResolvedBackendEvidence:
         }
 
 
-# Matcher table for vLLM 0.25.1 (the allowlisted version). These shapes are
-# qualified during release gate 0 against a live serve log; any allowlist
-# widening must re-qualify them.
+# Matcher table for vLLM 0.25.1 (the allowlisted version). Qualified against
+# live gate-0 serve logs on 2026-07-26; any allowlist widening must
+# re-qualify them.
 _NVFP4_KERNEL_RE = re.compile(r"Using (\w+) for NVFP4 GEMM")
-_ATTENTION_BACKEND_RE = re.compile(r"Using ([A-Z0-9_]+) attention backend")
+# When --attention-backend is explicitly pinned, 0.25.1 emits NO selector
+# line ("Using X attention backend" appears only under auto). The affirmative
+# evidence is the API server's non-default-args echo and/or the resolved
+# engine config dump.
+_ATTENTION_BACKEND_RES = (
+    re.compile(r"Using ([A-Z0-9_]+) attention backend"),
+    re.compile(r"'attention_backend':\s*'([A-Z0-9_]+)'"),
+)
 _GDN_PREFILL_RE = re.compile(r"Using ([\w/.-]+) GDN prefill", re.IGNORECASE)
 _EAGER_RES = (
     re.compile(r"enforce_eager=True"),
-    re.compile(r"enforce_eager['\"]?\s*[:=]\s*True"),
+    re.compile(r"'enforce_eager':\s*True"),
     re.compile(r"cudagraph_mode[^\n]*NONE"),
 )
 
@@ -233,25 +245,31 @@ def parse_resolved_backends(serve_log_text: str) -> ResolvedBackendEvidence:
     gdn_prefill: str | None = None
     eager: bool | None = None
     matched: list[str] = []
+
+    def _trimmed(line: str) -> str:
+        return line.strip()[:240]
+
     for line in serve_log_text.splitlines():
         nvfp4_match = _NVFP4_KERNEL_RE.search(line)
         if nvfp4_match is not None:
             nvfp4 = nvfp4_match.group(1)
-            matched.append(line.strip())
+            matched.append(_trimmed(line))
             continue
-        attention_match = _ATTENTION_BACKEND_RE.search(line)
-        if attention_match is not None:
-            attention = attention_match.group(1)
-            matched.append(line.strip())
-            continue
+        if attention is None:
+            for pattern in _ATTENTION_BACKEND_RES:
+                attention_match = pattern.search(line)
+                if attention_match is not None:
+                    attention = attention_match.group(1)
+                    matched.append(_trimmed(line))
+                    break
         gdn_match = _GDN_PREFILL_RE.search(line)
         if gdn_match is not None:
             gdn_prefill = gdn_match.group(1)
-            matched.append(line.strip())
+            matched.append(_trimmed(line))
             continue
         if eager is not True and any(pattern.search(line) for pattern in _EAGER_RES):
             eager = True
-            matched.append(line.strip())
+            matched.append(_trimmed(line))
     return ResolvedBackendEvidence(
         nvfp4_linear_kernel=nvfp4,
         attention_backend=attention,
@@ -263,28 +281,70 @@ def parse_resolved_backends(serve_log_text: str) -> ResolvedBackendEvidence:
 
 # --- Triton autotune selection manifest -------------------------------------
 
-# TRITON_PRINT_AUTOTUNING=1 emits, per autotuned kernel, a line containing the
-# kernel name and the winning config. Timings are noise (they differ every
-# start by construction); the manifest hashes only (kernel, config) pairs.
-_AUTOTUNE_RE = re.compile(
-    r"Triton autotuning for (?:function )?(\S+) finished after [^;]*;"
-    r"\s*best config selected:\s*(.+?)\s*$"
-)
+# TRITON_PRINT_AUTOTUNING=1 emits one RECORD per autotuned kernel, split
+# across several log lines (qualified live on vLLM 0.25.1 / gate 0):
+#   Triton autotuning for function <name>,
+#   with key as (<shape/dtype key>),
+#   finished after 9.19s,
+#   best config selected: BK: 64, BV: 64, num_warps: 4, ...;
+# Timings are noise (they differ every start by construction); the manifest
+# hashes (kernel, key, config) triples.
+_AUTOTUNE_NAME_RE = re.compile(r"Triton autotuning for (?:function )?([\w./-]+)\s*,?\s*$")
+_AUTOTUNE_KEY_RE = re.compile(r"with key as (.+?),?\s*$")
+_AUTOTUNE_CONFIG_RE = re.compile(r"best config selected:\s*(.+?);?\s*$")
 
 
-def extract_autotune_selections(serve_log_text: str) -> tuple[tuple[str, str], ...]:
-    selections: set[tuple[str, str]] = set()
+def extract_autotune_selections(
+    serve_log_text: str,
+) -> tuple[tuple[str, str, str], ...]:
+    selections: set[tuple[str, str, str]] = set()
+    name: str | None = None
+    key = ""
     for line in serve_log_text.splitlines():
-        match = _AUTOTUNE_RE.search(line)
-        if match is not None:
-            kernel = match.group(1)
-            config = re.sub(r"\s+", " ", match.group(2)).rstrip(";,")
-            selections.add((kernel, config))
+        name_match = _AUTOTUNE_NAME_RE.search(line)
+        if name_match is not None:
+            name = name_match.group(1)
+            key = ""
+            continue
+        if name is None:
+            continue
+        key_match = _AUTOTUNE_KEY_RE.search(line)
+        if key_match is not None:
+            key = key_match.group(1)
+            continue
+        config_match = _AUTOTUNE_CONFIG_RE.search(line)
+        if config_match is not None:
+            config = re.sub(r"\s+", " ", config_match.group(1)).rstrip(";,")
+            selections.add((name, key, config))
+            name = None
+            key = ""
     return tuple(sorted(selections))
 
 
-def autotune_manifest_sha256(selections: tuple[tuple[str, str], ...]) -> str | None:
+def autotune_manifest_sha256(
+    selections: tuple[tuple[str, str, str], ...],
+) -> str | None:
     if not selections:
         return None
-    canonical = json.dumps(list(selections), ensure_ascii=False, separators=(",", ":"))
+    canonical = json.dumps(
+        [list(entry) for entry in selections], ensure_ascii=False, separators=(",", ":")
+    )
     return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+# --- post-warmup JIT events --------------------------------------------------
+
+# Under --jit-monitor-mode warn, vLLM logs each Triton JIT compile that
+# happens during inference. The GDN gate requires ZERO of these during the
+# scored phase (events during the canary matrix are expected — that is what
+# qualifies the shapes).
+_JIT_INFERENCE_RE = re.compile(
+    r"Triton kernel JIT compilation during inference:\s*([\w./-]+)"
+)
+
+
+def extract_jit_inference_events(serve_log_text: str) -> tuple[str, ...]:
+    return tuple(
+        match.group(1).rstrip(".")
+        for match in _JIT_INFERENCE_RE.finditer(serve_log_text)
+    )

@@ -172,6 +172,8 @@ def _complete_gdn_canary_evidence() -> dict:
         "autotune_manifest_start_b_sha256": "d" * 64,
         "autotune_manifest_match": True,
         "retry_count": 0,
+        "jit_inference_events_at_qualification": 3,
+        "jit_inference_events_during_scoring": 0,
         "post_score_passed": True,
         "scored_process_is_canary_start_b": True,
     }

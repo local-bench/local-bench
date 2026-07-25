@@ -491,7 +491,7 @@ def test_launch_vllm_gdn_policy_pins_env_and_isolates_caches(
     assert "--gdn-prefill-backend triton" in script
     assert "--attention-backend TRITON_ATTN" in script
     assert "--linear-backend cutlass" in script
-    assert "--jit-monitor-mode error" in script
+    assert "--jit-monitor-mode warn" in script
     assert "--limit-mm-per-prompt" in script
 
 
