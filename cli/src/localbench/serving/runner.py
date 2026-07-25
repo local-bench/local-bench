@@ -455,6 +455,11 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             launched = canary_outcome.launched
             readiness = canary_outcome.readiness
         else:
+            # Same resume-append hazard as the canary path (F1): the evidence
+            # parsers and serve_log_sha256 must see only this process's log.
+            stale_serve_log = root / "serve.log"
+            if stale_serve_log.is_file():
+                stale_serve_log.unlink()
             launched = adapter.launch(launch_config, log_path=root / "serve.log")
             try:
                 readiness = await adapter.readiness(
@@ -1153,7 +1158,12 @@ async def _canary_observation(
             f"vLLM canary probe {probe.label} returned no token logprob evidence; "
             "token-level equality cannot be established"
         )
-    tokens = [str(entry.get("token")) for entry in logprob_content]
+    if any(entry.get("token") is None for entry in logprob_content):
+        raise RuntimeError(
+            f"vLLM canary probe {probe.label} returned logprob entries without "
+            "token identities; token-level equality cannot be established"
+        )
+    tokens = [str(entry["token"]) for entry in logprob_content]
     gaps: list[float] = []
     for entry in logprob_content:
         top = entry.get("top_logprobs") or []
@@ -1211,6 +1221,14 @@ async def _run_canary_sequence(
     return observations
 
 
+def _combine_gate(left: bool | None, right: bool | None) -> bool | None:
+    if left is False or right is False:
+        return False
+    if left is None or right is None:
+        return None
+    return True
+
+
 def _sequence_gates(observations: dict[str, JsonObject]) -> JsonObject:
     def _pair(a: str, b: str) -> bool | None:
         if a not in observations or b not in observations:
@@ -1247,6 +1265,15 @@ async def _run_vllm_determinism_canary(
     policy, must select identical autotune configurations from a cold cache),
     and then STAYS ALIVE as the scoring server."""
     gdn = config.policy_id == VLLM_GDN_POLICY_ID
+
+    # launch_vllm opens logs in append mode and these paths are stable inside
+    # the run dir: on --resume, stale content would poison the autotune
+    # manifests, resolved-backend parse, fit-failure scan, and the published
+    # serve_log_sha256 (review finding F1). The canary re-runs in full every
+    # invocation, so its evidence must start from empty logs.
+    for stale in (root / "determinism-canary-start-1.log", root / "serve.log"):
+        if stale.is_file():
+            stale.unlink()
 
     async def _readiness(port: int) -> ReadinessEvidence:
         return await adapter.readiness(
@@ -1290,7 +1317,9 @@ async def _run_vllm_determinism_canary(
     last_failure = ""
     for attempt in (1, 2):
         if attempt == 2 and serve_log.is_file():
-            serve_log.rename(root / "determinism-canary-start-2-attempt-1.log")
+            # replace(), not rename(): rename raises on Windows when the
+            # destination exists (a previously-burned retry).
+            serve_log.replace(root / "determinism-canary-start-2-attempt-1.log")
         launched_b = adapter.launch(
             replace(config, run_token=uuid.uuid4().hex), log_path=serve_log
         )
@@ -1352,13 +1381,17 @@ async def _run_vllm_determinism_canary(
                 "request_order": [position for position, _ in order],
                 "max_tokens_per_probe": _CANARY_MAX_TOKENS,
                 "cross_start_passed": True,
-                "within_lifetime_repeat_passed": (
-                    gates_a.get("within_lifetime_repeat_passed") is not False
-                    and gates_b.get("within_lifetime_repeat_passed") is not False
+                # Tri-state, never coerced: None means the probes a gate
+                # needs were skipped (e.g. template floor above the short
+                # target). Publishing True for a gate that never ran would
+                # fabricate evidence; provenance blocks on anything not True.
+                "within_lifetime_repeat_passed": _combine_gate(
+                    gates_a.get("within_lifetime_repeat_passed"),
+                    gates_b.get("within_lifetime_repeat_passed"),
                 ),
-                "state_isolation_passed": (
-                    gates_a.get("state_isolation_passed") is not False
-                    and gates_b.get("state_isolation_passed") is not False
+                "state_isolation_passed": _combine_gate(
+                    gates_a.get("state_isolation_passed"),
+                    gates_b.get("state_isolation_passed"),
                 ),
                 "autotune_manifest_start_a_sha256": manifest_a,
                 "autotune_manifest_start_b_sha256": manifest_b,

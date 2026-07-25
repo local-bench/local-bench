@@ -130,6 +130,22 @@ def test_resolved_backends_fail_closed_until_all_facts_affirm() -> None:
     assert complete.as_json()["satisfied"] is True
 
 
+def test_resolved_backends_last_match_wins_when_engine_downgrades() -> None:
+    # The API server echoes the REQUESTED config before EngineCore dumps the
+    # RESOLVED config. If the engine downgrades (here: cudagraphs off), the
+    # later resolved value must win or the evidence affirms a pin that never
+    # took effect (review finding F3).
+    downgraded = parse_resolved_backends(
+        "INFO Using CutlassNvFp4LinearKernel for NVFP4 GEMM\n"
+        + _PINNED_ARGS_LINE
+        + _CUDAGRAPH_CONFIG_LINE
+        + "INFO later resolved ... 'cudagraph_mode': <CUDAGraphMode.NONE: 0>\n"
+        + "INFO Using Triton/FLA GDN prefill kernel (requested=triton).\n"
+    )
+    assert downgraded.cudagraph_mode == "NONE"
+    assert not downgraded.satisfied()
+
+
 def test_resolved_backends_reject_eager_mode_resolution() -> None:
     # An eager server resolves cudagraph_mode NONE — that is a backend
     # mismatch under the graphs policy, not a pass.

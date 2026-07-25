@@ -256,29 +256,31 @@ def parse_resolved_backends(serve_log_text: str) -> ResolvedBackendEvidence:
     def _trimmed(line: str) -> str:
         return line.strip()[:240]
 
+    # Last-match wins for EVERY field: the API server echoes the REQUESTED
+    # config early and EngineCore dumps the RESOLVED config later — a
+    # first-match read could affirm a pin the engine then downgraded
+    # (review finding F3, the one genuine fail-open).
     for line in serve_log_text.splitlines():
         nvfp4_match = _NVFP4_KERNEL_RE.search(line)
         if nvfp4_match is not None:
             nvfp4 = nvfp4_match.group(1)
             matched.append(_trimmed(line))
             continue
-        if attention is None:
-            for pattern in _ATTENTION_BACKEND_RES:
-                attention_match = pattern.search(line)
-                if attention_match is not None:
-                    attention = attention_match.group(1)
-                    matched.append(_trimmed(line))
-                    break
+        for pattern in _ATTENTION_BACKEND_RES:
+            attention_match = pattern.search(line)
+            if attention_match is not None:
+                attention = attention_match.group(1)
+                matched.append(_trimmed(line))
+                break
         gdn_match = _GDN_PREFILL_RE.search(line)
         if gdn_match is not None:
             gdn_prefill = gdn_match.group(1)
             matched.append(_trimmed(line))
             continue
-        if cudagraph_mode is None:
-            mode_match = _CUDAGRAPH_MODE_RE.search(line)
-            if mode_match is not None:
-                cudagraph_mode = mode_match.group(1)
-                matched.append("cudagraph_mode=" + cudagraph_mode)
+        mode_match = _CUDAGRAPH_MODE_RE.search(line)
+        if mode_match is not None:
+            cudagraph_mode = mode_match.group(1)
+            matched.append("cudagraph_mode=" + cudagraph_mode)
     return ResolvedBackendEvidence(
         nvfp4_linear_kernel=nvfp4,
         attention_backend=attention,
