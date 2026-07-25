@@ -5,7 +5,7 @@ import { AXIS_CONFIG, isAxisKey } from "@/lib/axis-config";
 import { axisLabel, formatInteger, formatScore } from "@/lib/format";
 import { scoreForMode, staticIndexStatus, type LeaderboardScoreMode } from "@/lib/leaderboard-score";
 import { type SortKey, type SortState } from "@/lib/leaderboard-sort";
-import { runtimeDisplay, type RuntimeDisplayInput } from "@/lib/runtime-display";
+import { runtimeDisplay, runtimePolicyLabel, type RuntimeDisplayInput } from "@/lib/runtime-display";
 import { LOCAL_INTELLIGENCE_INDEX_NAME, LOCAL_INTELLIGENCE_INDEX_QUALIFIER } from "@/components/local-intelligence-index";
 import {
   INDEX_VERSION_V4_1,
@@ -170,11 +170,17 @@ export function RuntimeCell({ runtime }: { readonly runtime: RuntimeDisplayInput
   if (display === null) {
     return <span className="font-mono text-xs text-bench-muted">—</span>;
   }
+  const policy = runtimePolicyLabel(runtime);
   return (
     <span className="flex min-w-[96px] flex-col gap-0.5 leading-tight">
       <RuntimeBadge runtime={runtime} />
       {display.version === null ? null : (
         <span className="font-mono text-[10px] text-bench-muted">{display.version}</span>
+      )}
+      {policy === null ? null : (
+        <span className="font-mono text-[10px] text-bench-muted" title="vLLM determinism policy">
+          {policy}
+        </span>
       )}
     </span>
   );

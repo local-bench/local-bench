@@ -39,6 +39,23 @@ function canonicalRuntimeLabel(name: string | null): string | null {
   return name?.toLowerCase() === "vllm" ? "vLLM" : name;
 }
 
+const DETERMINISM_POLICY_RE = /determinism_policy=(\S+)/u;
+const POLICY_SHORT_LABELS: Readonly<Record<string, string>> = {
+  "vllm-batch-invariant-v1": "batch-invariant",
+  "vllm-gdn-structural-single-slot-eager-v1": "GDN eager v1",
+};
+
+// vLLM rows run under a named determinism policy (0.4.9+). Surface it on the
+// board so rows served under the narrower GDN structural-single-slot claim
+// are never mistaken for batch-invariant rows.
+export function runtimePolicyLabel(runtime: RuntimeDisplayInput | null | undefined): string | null {
+  const flags = runtime?.build_flags;
+  if (typeof flags !== "string") return null;
+  const policyId = DETERMINISM_POLICY_RE.exec(flags)?.[1];
+  if (policyId === undefined) return null;
+  return POLICY_SHORT_LABELS[policyId] ?? policyId;
+}
+
 export function runtimeSortLabel(runtime: RuntimeDisplayInput | null | undefined): string {
   const display = runtimeDisplay(runtime);
   if (display === null) {

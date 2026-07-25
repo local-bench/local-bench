@@ -7,6 +7,13 @@ from pathlib import Path
 
 from localbench._types import JsonObject
 from localbench.serving.model_artifact import ModelArtifact
+from localbench.serving.vllm_policy import (
+    GDN_VLLM_VERSION_ALLOWLIST,
+    VLLM_BATCH_INVARIANT_POLICY_ID,
+    VLLM_GDN_POLICY_ID,
+    policy_claim,
+    policy_env_pins,
+)
 
 DETERMINISM_POLICY_ID = "gpu-greedy-single-slot-v1"
 _PINNED_LEVEL = "orchestrated-pinned-artifacts-v1"
@@ -75,6 +82,12 @@ class ServingEvidence:
     resolved_server_config: JsonObject | None = None
     installed_package_tree_sha256: str | None = None
     run_seed: int = 1234
+    # vLLM determinism policy (None for non-vLLM runtimes and legacy callers:
+    # treated as the batch-invariant policy).
+    determinism_policy_id: str | None = None
+    live_env: JsonObject | None = None
+    resolved_backends: JsonObject | None = None
+    canary_evidence: JsonObject | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,25 +101,49 @@ class ServingRunContext:
     publishable: bool
 
 
-def determinism_policy(*, runtime: str, seed: int) -> JsonObject:
+def determinism_policy(
+    *, runtime: str, seed: int, vllm_policy_id: str | None = None
+) -> JsonObject:
     server: JsonObject = {
         "parallel_slots": 1,
         "continuous_batching": False,
     }
+    policy_id = DETERMINISM_POLICY_ID
+    claim = "best-effort same-stack reproducibility; not bitwise cross-stack determinism"
     if runtime == "vllm":
+        effective = vllm_policy_id or VLLM_BATCH_INVARIANT_POLICY_ID
+        policy_id = effective
+        claim = policy_claim(effective)
         server.update(
             {
                 "vllm_max_num_seqs": 1,
-                "vllm_batch_invariant": True,
+                "vllm_determinism_policy": effective,
+                "vllm_batch_invariant": effective == VLLM_BATCH_INVARIANT_POLICY_ID,
             }
         )
+        if effective == VLLM_GDN_POLICY_ID:
+            server.update(
+                {
+                    "vllm_batch_invariant_supported": False,
+                    "vllm_batch_invariant_exception_reason": (
+                        "vLLM refuses VLLM_BATCH_INVARIANT=1 for GDN_ATTN "
+                        "linear-attention architectures"
+                    ),
+                    "vllm_enforce_eager": True,
+                    "vllm_pinned_backends": {
+                        "gdn_prefill": "triton",
+                        "attention": "TRITON_ATTN",
+                        "nvfp4_linear": "cutlass",
+                    },
+                }
+            )
     elif runtime == "sglang":
         server["sglang_deterministic_inference"] = True
     elif runtime == "llama.cpp":
         server["llama_cont_batching"] = False
     return {
-        "policy_id": DETERMINISM_POLICY_ID,
-        "claim": "best-effort same-stack reproducibility; not bitwise cross-stack determinism",
+        "policy_id": policy_id,
+        "claim": claim,
         "client": {"temperature": 0, "top_k": 1, "seed": seed, "concurrency": 1},
         "server": server,
         "scope": [
@@ -133,7 +170,9 @@ def serving_context(evidence: ServingEvidence) -> ServingRunContext:
     return ServingRunContext(
         block=_serving_block(evidence, verification_level),
         determinism_policy=determinism_policy(
-            runtime=evidence.runtime, seed=evidence.run_seed
+            runtime=evidence.runtime,
+            seed=evidence.run_seed,
+            vllm_policy_id=evidence.determinism_policy_id,
         ),
         server_fingerprint=evidence.server_fingerprint,
         trust_tier=verification_level,
@@ -253,12 +292,17 @@ def _serving_block(evidence: ServingEvidence, verification_level: str) -> JsonOb
         },
         "serve_log_sha256": _path_sha256(evidence.serve_log_path),
         "determinism": {
+            "policy_id": evidence.determinism_policy_id,
             "engine_log_evidence": list(evidence.deterministic_kernel_evidence),
             "engine_log_semantic_verdict": evidence.deterministic_kernel_enabled,
-            "live_process_environment": {
-                "VLLM_BATCH_INVARIANT": evidence.live_batch_invariant,
-            },
+            "live_process_environment": (
+                evidence.live_env
+                if evidence.live_env is not None
+                else {"VLLM_BATCH_INVARIANT": evidence.live_batch_invariant}
+            ),
+            "resolved_backends": evidence.resolved_backends,
             "two_start_canary_passed": evidence.determinism_canary_passed,
+            "canary": evidence.canary_evidence,
         },
         "startup_memory_report": {
             "computed_fit": evidence.computed_memory_fit or {},
@@ -325,12 +369,16 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
         if "kv_cache" not in allocations:
             reasons.append("runtime.memory_report_unverified")
     if evidence.runtime == "vllm":
-        if evidence.env_allowlist.get("VLLM_BATCH_INVARIANT") != "1":
-            reasons.append("runtime.batch_invariance_missing")
-        if not evidence.deterministic_kernel_enabled:
-            reasons.append("runtime.deterministic_kernel_unverified")
-        if evidence.live_batch_invariant != "1":
-            reasons.append("runtime.live_batch_invariance_unverified")
+        policy_id = evidence.determinism_policy_id or VLLM_BATCH_INVARIANT_POLICY_ID
+        if policy_id == VLLM_GDN_POLICY_ID:
+            reasons.extend(_gdn_blocking_reasons(evidence))
+        else:
+            if evidence.env_allowlist.get("VLLM_BATCH_INVARIANT") != "1":
+                reasons.append("runtime.batch_invariance_missing")
+            if not evidence.deterministic_kernel_enabled:
+                reasons.append("runtime.deterministic_kernel_unverified")
+            if evidence.live_batch_invariant != "1":
+                reasons.append("runtime.live_batch_invariance_unverified")
     if evidence.runtime == "sglang":
         if evidence.installed_package_tree_sha256 in {None, ""}:
             reasons.append("runtime.installed_package_tree_identity_missing")
@@ -343,6 +391,52 @@ def _blocking_reasons(evidence: ServingEvidence) -> list[str]:
             reasons.append("runtime.deterministic_attention_backend_unverified")
         if resolved.get("max_running_requests") != 1:
             reasons.append("runtime.max_running_requests_not_one")
+    return reasons
+
+
+def _gdn_blocking_reasons(evidence: ServingEvidence) -> list[str]:
+    """Fail-closed publishability gates for the GDN structural-single-slot
+    policy. Every gate mirrors an item of the qualification the two-start
+    canary performed; a missing item blocks, it never defaults to passing."""
+    reasons: list[str] = []
+    if evidence.engine_version not in GDN_VLLM_VERSION_ALLOWLIST:
+        reasons.append("runtime.gdn_policy_not_allowlisted")
+    expected_env = policy_env_pins(VLLM_GDN_POLICY_ID)
+    if evidence.env_allowlist != expected_env:
+        reasons.append("runtime.gdn_env_pins_missing")
+    live = evidence.live_env or {}
+    if any(live.get(name) != value for name, value in expected_env.items()):
+        reasons.append("runtime.gdn_live_env_unverified")
+    backends = evidence.resolved_backends or {}
+    if backends.get("satisfied") is not True:
+        reasons.append("runtime.resolved_backend_mismatch")
+    canary = evidence.canary_evidence or {}
+    if not canary:
+        reasons.append("runtime.canary_matrix_incomplete")
+    else:
+        matrix_labels = {
+            row.get("label")
+            for row in canary.get("matrix", [])
+            if isinstance(row, dict)
+        }
+        if not {"s128", "l8k", "lmax"} <= matrix_labels:
+            reasons.append("runtime.canary_matrix_incomplete")
+        if canary.get("cross_start_passed") is not True:
+            reasons.append("runtime.cross_start_canary_mismatch")
+        if canary.get("within_lifetime_repeat_passed") is not True:
+            reasons.append("runtime.within_lifetime_repeat_mismatch")
+        if canary.get("state_isolation_passed") is not True:
+            reasons.append("runtime.state_isolation_mismatch")
+        if canary.get("autotune_manifest_start_a_sha256") in {None, ""} or canary.get(
+            "autotune_manifest_start_b_sha256"
+        ) in {None, ""}:
+            reasons.append("runtime.autotune_manifest_missing")
+        elif canary.get("autotune_manifest_match") is not True:
+            reasons.append("runtime.autotune_manifest_mismatch")
+        if canary.get("scored_process_is_canary_start_b") is not True:
+            reasons.append("runtime.scored_process_preflight_missing")
+        if canary.get("post_score_passed") is not True:
+            reasons.append("runtime.scored_process_postflight_mismatch")
     return reasons
 
 

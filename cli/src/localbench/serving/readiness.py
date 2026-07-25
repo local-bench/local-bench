@@ -119,7 +119,11 @@ async def verify_vllm_readiness(
     api_key: str,
     seed: int,
     transport: httpx.AsyncBaseTransport | None = None,
-    startup_timeout_seconds: float = 180.0,
+    # 180s tore down healthy 27B-class servers mid-startup: weights alone take
+    # ~2 min over 9P and a cold start also pays Triton/nvcc JIT. The lane is
+    # fail-closed everywhere else; a hung server failing late beats a healthy
+    # server killed early.
+    startup_timeout_seconds: float = 1800.0,
     poll_interval_seconds: float = 0.25,
 ) -> ReadinessEvidence:
     root = base_url.rstrip("/")

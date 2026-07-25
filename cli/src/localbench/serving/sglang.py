@@ -13,6 +13,7 @@ from localbench._types import JsonObject
 from localbench.serving.model_artifact import ModelArtifact, resolve_snapshot_reference
 from localbench.serving.readiness import ReadinessEvidence, verify_sglang_readiness
 from localbench.serving.teardown import TeardownEvidence
+from localbench.serving.vllm_policy import resolve_model_text_config
 from localbench.serving.vllm import (
     LaunchedVllmServer,
     ProcessPin,
@@ -563,8 +564,9 @@ def resolve_sglang_mem_fraction(
 
 
 def _text_model_config(config: JsonObject) -> JsonObject:
-    text_config = config.get("text_config")
-    return text_config if isinstance(text_config, dict) else config
+    # Shared with the vLLM lane: policy selection, memory fit, and this mirror
+    # must never disagree on where the LM fields live.
+    return resolve_model_text_config(config)
 
 
 def _sglang_mamba_state_bytes(

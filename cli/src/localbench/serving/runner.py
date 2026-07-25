@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import secrets
 import subprocess
 import sys
@@ -78,6 +79,7 @@ from localbench.scoring.agentic_exec.task_journal import JournalError
 from localbench.scoring.agentic_exec.wsl_process import resolve_worker_config
 from localbench.submissions.foundation import normalize_result_bundle
 from localbench.serving.vllm import (
+    LaunchedVllmServer,
     VllmAdapter,
     VllmBuildIdentity,
     VllmLaunchConfig,
@@ -85,11 +87,23 @@ from localbench.serving.vllm import (
     compute_vllm_memory_fit,
     quantization_config,
     parse_vllm_startup_log,
-    read_live_process_environment,
+    read_live_process_environment_map,
     refresh_vllm_process_ownership,
     validate_vllm_argv,
     vllm_serve_argv,
     wsl_path,
+)
+from localbench.serving.vllm_policy import (
+    GDN_VLLM_VERSION_ALLOWLIST,
+    VLLM_BATCH_INVARIANT_POLICY_ID,
+    VLLM_GDN_POLICY_ID,
+    autotune_manifest_sha256,
+    extract_autotune_selections,
+    load_model_text_config,
+    parse_resolved_backends,
+    policy_env_pins,
+    policy_flash_attention_label,
+    select_vllm_policy,
 )
 from localbench.serving.sglang import (
     SglangAdapter,
@@ -344,6 +358,18 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         raise RuntimeError("vLLM snapshot must contain chat_template.jinja")
     chat_template = wsl_path(template_path, distro=distro)
     build = adapter.build_identity(distro=distro, vllm_bin=vllm_bin)
+    policy_id = select_vllm_policy(load_model_text_config(artifact.model_file))
+    if (
+        policy_id == VLLM_GDN_POLICY_ID
+        and build.package_version not in GDN_VLLM_VERSION_ALLOWLIST
+    ):
+        raise RuntimeError(
+            "vLLM GDN determinism policy is qualified only for vLLM "
+            f"{sorted(GDN_VLLM_VERSION_ALLOWLIST)}; found {build.package_version!r}. "
+            "GDN/linear-attention models cannot run batch-invariant, and the "
+            "structural-single-slot evidence contract (backend pins + log "
+            "matchers) is version-qualified."
+        )
     port = allocate_port()
     api_key = secrets.token_urlsafe(32)
     launch_config = VllmLaunchConfig(
@@ -364,16 +390,18 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         chat_template=chat_template,
         run_token=uuid.uuid4().hex,
         expected_executable=build.expected_executable,
+        policy_id=policy_id,
     )
     argv = vllm_serve_argv(launch_config)
-    validate_vllm_argv(argv, build.help_text)
+    validate_vllm_argv(argv, build.help_text, policy_id=policy_id)
     memory_fit = compute_vllm_memory_fit(
         artifact,
         max_model_len=options.ctx,
         total_vram_bytes=build.total_vram_bytes,
         gpu_memory_utilization=launch_config.gpu_memory_utilization,
     )
-    env_allowlist = {"CUDA_VISIBLE_DEVICES": "0", "VLLM_BATCH_INVARIANT": "1"}
+    env_allowlist = policy_env_pins(policy_id)
+    flash_attention_label = policy_flash_attention_label(policy_id)
     safe_argv = redacted_argv(argv)
     fingerprint = server_fingerprint(
         model_file_sha256=artifact.file_sha256,
@@ -383,7 +411,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         ctx=options.ctx,
         kv_cache_quant=options.vllm_dtype,
         parallel_slots=1,
-        flash_attention="batch-invariant",
+        flash_attention=flash_attention_label,
         chat_template_digest=artifact.chat_template_digest,
     )
     identity = resume_identity(
@@ -394,7 +422,7 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         ctx=options.ctx,
         kv_cache_quant=options.vllm_dtype,
         parallel_slots=1,
-        flash_attention="batch-invariant",
+        flash_attention=flash_attention_label,
         chat_template_digest=artifact.chat_template_digest,
     )
     precheck_resume_identity(
@@ -404,11 +432,12 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         env_allowlist=env_allowlist,
         kv_cache_quant=options.vllm_dtype,
         parallel_slots=1,
-        flash_attention="batch-invariant",
+        flash_attention=flash_attention_label,
     )
     determinism_canary_passed = False
+    canary_outcome: _VllmCanaryOutcome | None = None
     if options.determinism_canary:
-        await _run_vllm_determinism_canary(
+        canary_outcome = await _run_vllm_determinism_canary(
             adapter,
             launch_config,
             pinned_chat_template_sha256=artifact.chat_template_digest,
@@ -418,18 +447,25 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     launched = None
     teardown: TeardownEvidence | None = None
     try:
-        launched = adapter.launch(launch_config, log_path=root / "serve.log")
-        try:
-            readiness = await adapter.readiness(
-                base_url=f"http://127.0.0.1:{port}",
-                model_id=options.model_id,
-                pinned_chat_template_sha256=artifact.chat_template_digest,
-                api_key=api_key,
-                seed=options.seed,
-            )
-        except BaseException as error:
-            _raise_memory_fit_error_if_present(root / "serve.log", error)
-            raise
+        if canary_outcome is not None:
+            # Canary start B stays alive and IS the scoring server — the
+            # process that produced the qualification evidence is the process
+            # that produces the scored row.
+            launched = canary_outcome.launched
+            readiness = canary_outcome.readiness
+        else:
+            launched = adapter.launch(launch_config, log_path=root / "serve.log")
+            try:
+                readiness = await adapter.readiness(
+                    base_url=f"http://127.0.0.1:{port}",
+                    model_id=options.model_id,
+                    pinned_chat_template_sha256=artifact.chat_template_digest,
+                    api_key=api_key,
+                    seed=options.seed,
+                )
+            except BaseException as error:
+                _raise_memory_fit_error_if_present(root / "serve.log", error)
+                raise
         if readiness.build_info != build.package_version:
             raise RuntimeError(
                 "vLLM endpoint version does not match the pinned venv package: "
@@ -440,9 +476,18 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             raise RuntimeError(
                 f"vLLM startup memory fit failed: {startup_log.fit_failure}"
             )
-        live_batch_invariant = read_live_process_environment(
-            launched, "VLLM_BATCH_INVARIANT"
+        live_env = read_live_process_environment_map(
+            launched, tuple(sorted(env_allowlist))
         )
+        resolved_backends = None
+        if policy_id == VLLM_GDN_POLICY_ID:
+            serve_log_path = root / "serve.log"
+            serve_log_text = (
+                serve_log_path.read_text(encoding="utf-8", errors="replace")
+                if serve_log_path.is_file()
+                else ""
+            )
+            resolved_backends = parse_resolved_backends(serve_log_text).as_json()
         refresh_vllm_process_ownership(launched)
         evidence = _vllm_serving_evidence(
             options=options,
@@ -459,8 +504,14 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
             identity=identity,
             root=root,
             memory_fit=memory_fit,
-            live_batch_invariant=live_batch_invariant,
+            live_env=live_env,
             determinism_canary_passed=determinism_canary_passed,
+            policy_id=policy_id,
+            flash_attention_label=flash_attention_label,
+            resolved_backends=resolved_backends,
+            canary_evidence=(
+                canary_outcome.evidence if canary_outcome is not None else None
+            ),
         )
         agentic_sandbox_factory = None
         agentic_model_factory = None
@@ -519,6 +570,14 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
                 model_download_started=True,
                 benchmark_started=True,
             ) from error
+        if canary_outcome is not None:
+            # Post-score sentinels against the still-live scoring server: the
+            # benchmark workload itself must not have mutated the server's
+            # numerics. A mismatch is recorded as evidence (and blocks
+            # publishability) rather than raised — the scored data is kept.
+            canary_outcome.evidence["post_score_passed"] = (
+                await _run_vllm_post_score_sentinels(canary_outcome, launch_config)
+            )
     finally:
         if launched is not None:
             try:
@@ -543,8 +602,14 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         identity=identity,
         root=root,
         memory_fit=memory_fit,
-        live_batch_invariant=live_batch_invariant,
+        live_env=live_env,
         determinism_canary_passed=determinism_canary_passed,
+        policy_id=policy_id,
+        flash_attention_label=flash_attention_label,
+        resolved_backends=resolved_backends,
+        canary_evidence=(
+            canary_outcome.evidence if canary_outcome is not None else None
+        ),
     )
     updated = normalize_result_bundle(
         apply_serving_context(record, serving_context(completed_evidence)),
@@ -917,64 +982,438 @@ def _sglang_max_model_len(options: ServeBenchOptions, profile: str) -> int:
     )
 
 
+# Deliberately varied vocabulary for canary filler text: an all-one-token
+# prompt would exercise a numerically narrow trajectory (oracle pitfall).
+_CANARY_WORDS = (
+    "time", "light", "river", "stone", "cloud", "music", "paper", "garden",
+    "window", "market", "mountain", "signal", "harbor", "copper", "meadow",
+    "lantern", "orbit", "canvas", "timber", "velvet", "anchor", "bridge",
+    "cellar", "damson", "ember", "fathom", "gable", "hollow",
+)
+
+# (label, target rendered input tokens after chat-template application).
+# 64/65 straddle the GDN chunk boundary; 26624 is the lane/profile ctx floor;
+# "lmax" is computed from the configured ctx at runtime.
+_CANARY_TARGETS: tuple[tuple[str, int], ...] = (
+    ("s128", 128),
+    ("l64", 64),
+    ("l65", 65),
+    ("l8k", 8192),
+    ("l16k", 16384),
+    ("l26k", 26624),
+)
+_CANARY_MAX_TOKENS = 64
+_CANARY_LMAX_MARGIN = 96  # headroom under ctx for generation + template drift
+
+
+@dataclass(frozen=True, slots=True)
+class _VllmCanaryProbe:
+    label: str
+    target_tokens: int
+    rendered_tokens: int
+    content: str
+
+
+@dataclass(slots=True)
+class _VllmCanaryOutcome:
+    launched: LaunchedVllmServer
+    readiness: ReadinessEvidence
+    evidence: JsonObject
+    probes: dict[str, _VllmCanaryProbe]
+    baseline: dict[str, JsonObject]
+
+
+def _canary_filler(word_count: int, salt: int) -> str:
+    words = []
+    index = salt % len(_CANARY_WORDS)
+    step = 7 + (salt % 5)
+    for _ in range(max(1, word_count)):
+        words.append(_CANARY_WORDS[index])
+        index = (index + step) % len(_CANARY_WORDS)
+    return " ".join(words)
+
+
+def _canary_messages(content: str) -> list[JsonObject]:
+    return [{"role": "user", "content": content}]
+
+
+async def _rendered_token_count(
+    client: httpx.AsyncClient, model_id: str, content: str
+) -> int:
+    response = await client.post(
+        "/tokenize",
+        json={
+            "model": model_id,
+            "messages": _canary_messages(content),
+            "add_generation_prompt": True,
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    count = payload.get("count")
+    if not isinstance(count, int) or count <= 0:
+        raise RuntimeError("vLLM /tokenize did not return a positive token count")
+    return count
+
+
+async def _build_canary_probes(
+    client: httpx.AsyncClient, *, model_id: str, ctx: int
+) -> tuple[list[_VllmCanaryProbe], list[JsonObject]]:
+    targets = [*_CANARY_TARGETS, ("lmax", ctx - _CANARY_LMAX_MARGIN)]
+    probes: list[_VllmCanaryProbe] = []
+    skipped: list[JsonObject] = []
+    for salt, (label, target) in enumerate(targets):
+        if target >= ctx:
+            skipped.append({"label": label, "reason": "target_exceeds_ctx"})
+            continue
+        floor = await _rendered_token_count(client, model_id, _canary_filler(1, salt))
+        if floor > target:
+            skipped.append(
+                {
+                    "label": label,
+                    "reason": "target_below_template_floor",
+                    "template_floor": floor,
+                }
+            )
+            continue
+        words = max(1, int((target - floor) * 0.9))
+        probe: _VllmCanaryProbe | None = None
+        for _ in range(80):
+            content = _canary_filler(words, salt)
+            count = await _rendered_token_count(client, model_id, content)
+            if count == target:
+                probe = _VllmCanaryProbe(
+                    label=label,
+                    target_tokens=target,
+                    rendered_tokens=count,
+                    content=content,
+                )
+                break
+            words = max(1, words + (target - count))
+        if probe is None:
+            raise RuntimeError(
+                f"vLLM canary probe {label} could not reach exactly {target} "
+                "rendered tokens"
+            )
+        probes.append(probe)
+    if not probes:
+        raise RuntimeError("vLLM canary matrix is empty — no probe target was reachable")
+    return probes, skipped
+
+
+def _canary_request_order(probes: list[_VllmCanaryProbe]) -> list[tuple[str, str]]:
+    """(position_key, probe_label) pairs: short repeat, ascending lengths,
+    then a short A/B/A state-isolation check and a long repeat."""
+    by_label = {probe.label: probe for probe in probes}
+    order: list[tuple[str, str]] = []
+    if "s128" in by_label:
+        order.append(("s128#1", "s128"))
+        order.append(("s128#2", "s128"))
+    for probe in probes:
+        if probe.label != "s128":
+            order.append((f"{probe.label}#1", probe.label))
+    if "s128" in by_label:
+        order.append(("s128#isolation", "s128"))
+    last_long = next(
+        (probe.label for probe in reversed(probes) if probe.label != "s128"), None
+    )
+    if last_long is not None:
+        order.append((f"{last_long}#repeat", last_long))
+    return order
+
+
+async def _canary_observation(
+    client: httpx.AsyncClient,
+    *,
+    model_id: str,
+    seed: int,
+    probe: _VllmCanaryProbe,
+) -> JsonObject:
+    response = await client.post(
+        "/v1/chat/completions",
+        json={
+            "model": model_id,
+            "messages": _canary_messages(probe.content),
+            "max_tokens": _CANARY_MAX_TOKENS,
+            "temperature": 0,
+            "top_k": 1,
+            "seed": seed,
+            "logprobs": True,
+            "top_logprobs": 2,
+        },
+    )
+    response.raise_for_status()
+    payload = response.json()
+    choice = payload["choices"][0]
+    logprob_content = ((choice.get("logprobs") or {}).get("content")) or []
+    if not isinstance(logprob_content, list) or not logprob_content:
+        raise RuntimeError(
+            f"vLLM canary probe {probe.label} returned no token logprob evidence; "
+            "token-level equality cannot be established"
+        )
+    tokens = [str(entry.get("token")) for entry in logprob_content]
+    gaps: list[float] = []
+    for entry in logprob_content:
+        top = entry.get("top_logprobs") or []
+        if len(top) >= 2:
+            try:
+                gaps.append(float(top[0]["logprob"]) - float(top[1]["logprob"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+    message = choice.get("message") or {}
+    content = message.get("content")
+    content_text = content if isinstance(content, str) else ""
+    return {
+        "tokens": tokens,
+        "finish_reason": choice.get("finish_reason"),
+        "content_sha256": hashlib.sha256(content_text.encode("utf-8")).hexdigest(),
+        "completion_tokens": len(tokens),
+        "min_top1_top2_logprob_gap": min(gaps) if gaps else None,
+    }
+
+
+def _observation_equal(left: JsonObject, right: JsonObject) -> bool:
+    return (
+        left.get("tokens") == right.get("tokens")
+        and left.get("finish_reason") == right.get("finish_reason")
+        and left.get("content_sha256") == right.get("content_sha256")
+    )
+
+
+def _canary_log_selections(log_path: Path) -> tuple[tuple[str, str], ...]:
+    if not log_path.is_file():
+        return ()
+    return extract_autotune_selections(
+        log_path.read_text(encoding="utf-8", errors="replace")
+    )
+
+
+async def _run_canary_sequence(
+    config: VllmLaunchConfig,
+    probes: dict[str, _VllmCanaryProbe],
+    order: list[tuple[str, str]],
+) -> dict[str, JsonObject]:
+    observations: dict[str, JsonObject] = {}
+    async with httpx.AsyncClient(
+        base_url=f"http://127.0.0.1:{config.port}",
+        headers={"Authorization": f"Bearer {config.api_key}"},
+        timeout=600.0,
+    ) as client:
+        for position, label in order:
+            observations[position] = await _canary_observation(
+                client,
+                model_id=config.model_id,
+                seed=config.seed,
+                probe=probes[label],
+            )
+    return observations
+
+
+def _sequence_gates(observations: dict[str, JsonObject]) -> JsonObject:
+    def _pair(a: str, b: str) -> bool | None:
+        if a not in observations or b not in observations:
+            return None
+        return _observation_equal(observations[a], observations[b])
+
+    repeat_long = [
+        position for position in observations if position.endswith("#repeat")
+    ]
+    long_repeat_ok: bool | None = None
+    if repeat_long:
+        base = repeat_long[0].split("#", 1)[0] + "#1"
+        long_repeat_ok = _pair(base, repeat_long[0])
+    within = _pair("s128#1", "s128#2")
+    if within is not None and long_repeat_ok is not None:
+        within = within and long_repeat_ok
+    elif within is None:
+        within = long_repeat_ok
+    return {
+        "within_lifetime_repeat_passed": within,
+        "state_isolation_passed": _pair("s128#1", "s128#isolation"),
+    }
+
+
 async def _run_vllm_determinism_canary(
     adapter: VllmAdapter,
     config: VllmLaunchConfig,
     *,
     pinned_chat_template_sha256: str,
     root: Path,
-) -> None:
-    outputs: list[bytes] = []
-    prompts = ("Reply with exactly: alpha", "What is 2+2? Reply with one digit.")
-    for start in (1, 2):
-        launched = adapter.launch(
-            replace(config, run_token=uuid.uuid4().hex),
-            log_path=root / f"determinism-canary-start-{start}.log",
+) -> _VllmCanaryOutcome:
+    """Two-start qualification: start A qualifies and tears down; start B runs
+    the identical sequence, must match A token-for-token (and, under the GDN
+    policy, must select identical autotune configurations from a cold cache),
+    and then STAYS ALIVE as the scoring server."""
+    gdn = config.policy_id == VLLM_GDN_POLICY_ID
+
+    async def _readiness(port: int) -> ReadinessEvidence:
+        return await adapter.readiness(
+            base_url=f"http://127.0.0.1:{port}",
+            model_id=config.model_id,
+            pinned_chat_template_sha256=pinned_chat_template_sha256,
+            api_key=config.api_key,
+            seed=config.seed,
+        )
+
+    # --- Start A: independent qualification process ---
+    start_a_log = root / "determinism-canary-start-1.log"
+    launched_a = adapter.launch(
+        replace(config, run_token=uuid.uuid4().hex), log_path=start_a_log
+    )
+    try:
+        await _readiness(config.port)
+        async with httpx.AsyncClient(
+            base_url=f"http://127.0.0.1:{config.port}",
+            headers={"Authorization": f"Bearer {config.api_key}"},
+            timeout=120.0,
+        ) as client:
+            probe_list, skipped = await _build_canary_probes(
+                client, model_id=config.model_id, ctx=config.ctx
+            )
+        probes = {probe.label: probe for probe in probe_list}
+        order = _canary_request_order(probe_list)
+        observations_a = await _run_canary_sequence(config, probes, order)
+    finally:
+        try:
+            teardown_a = adapter.teardown(launched_a)
+        finally:
+            launched_a.close_log()
+    _require_clean_canary_teardown("vLLM", 1, teardown_a)
+    gates_a = _sequence_gates(observations_a)
+    manifest_a = autotune_manifest_sha256(_canary_log_selections(start_a_log))
+
+    # --- Start B: qualified scoring process (bounded retry: one relaunch) ---
+    serve_log = root / "serve.log"
+    retry_count = 0
+    last_failure = ""
+    for attempt in (1, 2):
+        if attempt == 2 and serve_log.is_file():
+            serve_log.rename(root / "determinism-canary-start-2-attempt-1.log")
+        launched_b = adapter.launch(
+            replace(config, run_token=uuid.uuid4().hex), log_path=serve_log
         )
         try:
-            await adapter.readiness(
-                base_url=f"http://127.0.0.1:{config.port}",
-                model_id=config.model_id,
-                pinned_chat_template_sha256=pinned_chat_template_sha256,
-                api_key=config.api_key,
-                seed=config.seed,
-            )
-            async with httpx.AsyncClient(
-                base_url=f"http://127.0.0.1:{config.port}/v1",
-                headers={"Authorization": f"Bearer {config.api_key}"},
-                timeout=60.0,
-            ) as client:
-                rendered: list[str] = []
-                for prompt in prompts:
-                    response = await client.post(
-                        "/chat/completions",
-                        json={
-                            "model": config.model_id,
-                            "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 16,
-                            "temperature": 0,
-                            "top_k": 1,
-                            "seed": config.seed,
-                        },
-                    )
-                    response.raise_for_status()
-                    payload = response.json()
-                    rendered.append(str(payload["choices"][0]["message"]["content"]))
-                outputs.append(
-                    json.dumps(
-                        rendered, ensure_ascii=False, separators=(",", ":")
-                    ).encode()
-                )
-        finally:
+            readiness_b = await _readiness(config.port)
+            observations_b = await _run_canary_sequence(config, probes, order)
+        except BaseException:
             try:
-                canary_teardown = adapter.teardown(launched)
+                adapter.teardown(launched_b)
             finally:
-                launched.close_log()
-        _require_clean_canary_teardown("vLLM", start, canary_teardown)
-    if len(outputs) != 2 or outputs[0] != outputs[1]:
-        raise RuntimeError(
-            "vLLM determinism canary failed: outputs differ across two server starts"
+                launched_b.close_log()
+            raise
+        gates_b = _sequence_gates(observations_b)
+        cross_start = all(
+            _observation_equal(observations_a[position], observations_b[position])
+            for position, _ in order
         )
+        manifest_b = autotune_manifest_sha256(_canary_log_selections(serve_log))
+        manifest_match: bool | None = None
+        if gdn:
+            manifest_match = (
+                manifest_a is not None
+                and manifest_b is not None
+                and manifest_a == manifest_b
+            )
+        qualified = (
+            cross_start
+            and gates_b.get("within_lifetime_repeat_passed") is not False
+            and gates_b.get("state_isolation_passed") is not False
+            and (manifest_match is not False)
+        )
+        if qualified:
+            min_gaps = [
+                observation.get("min_top1_top2_logprob_gap")
+                for observation in (*observations_a.values(), *observations_b.values())
+            ]
+            numeric_gaps = [gap for gap in min_gaps if isinstance(gap, (int, float))]
+            evidence: JsonObject = {
+                "policy_id": config.policy_id,
+                "matrix": [
+                    {
+                        "label": probe.label,
+                        "target_tokens": probe.target_tokens,
+                        "rendered_tokens": probe.rendered_tokens,
+                        "input_sha256": hashlib.sha256(
+                            probe.content.encode("utf-8")
+                        ).hexdigest(),
+                    }
+                    for probe in probe_list
+                ],
+                "skipped": skipped,
+                "request_order": [position for position, _ in order],
+                "max_tokens_per_probe": _CANARY_MAX_TOKENS,
+                "cross_start_passed": True,
+                "within_lifetime_repeat_passed": (
+                    gates_a.get("within_lifetime_repeat_passed") is not False
+                    and gates_b.get("within_lifetime_repeat_passed") is not False
+                ),
+                "state_isolation_passed": (
+                    gates_a.get("state_isolation_passed") is not False
+                    and gates_b.get("state_isolation_passed") is not False
+                ),
+                "autotune_manifest_start_a_sha256": manifest_a,
+                "autotune_manifest_start_b_sha256": manifest_b,
+                "autotune_manifest_match": manifest_match,
+                "retry_count": retry_count,
+                "min_top1_top2_logprob_gap": (
+                    min(numeric_gaps) if numeric_gaps else None
+                ),
+                "post_score_passed": None,
+                "scored_process_is_canary_start_b": True,
+            }
+            return _VllmCanaryOutcome(
+                launched=launched_b,
+                readiness=readiness_b,
+                evidence=evidence,
+                probes=probes,
+                baseline={
+                    label: observations_b[f"{label}#1"]
+                    for label in probes
+                    if f"{label}#1" in observations_b
+                },
+            )
+        last_failure = (
+            f"cross_start={cross_start}, gates_a={gates_a}, gates_b={gates_b}, "
+            f"autotune_manifest_match={manifest_match}"
+        )
+        try:
+            teardown_b = adapter.teardown(launched_b)
+        finally:
+            launched_b.close_log()
+        _require_clean_canary_teardown("vLLM", 2, teardown_b)
+        retry_count += 1
+    raise RuntimeError(
+        "vLLM determinism canary failed after a bounded relaunch retry: "
+        + last_failure
+    )
+
+
+async def _run_vllm_post_score_sentinels(
+    outcome: _VllmCanaryOutcome, config: VllmLaunchConfig
+) -> bool:
+    sentinel_labels = [
+        label for label in ("s128", "lmax") if label in outcome.baseline
+    ]
+    if not sentinel_labels:
+        return False
+    try:
+        async with httpx.AsyncClient(
+            base_url=f"http://127.0.0.1:{config.port}",
+            headers={"Authorization": f"Bearer {config.api_key}"},
+            timeout=600.0,
+        ) as client:
+            for label in sentinel_labels:
+                observation = await _canary_observation(
+                    client,
+                    model_id=config.model_id,
+                    seed=config.seed,
+                    probe=outcome.probes[label],
+                )
+                if not _observation_equal(observation, outcome.baseline[label]):
+                    return False
+    except Exception:
+        return False
+    return True
 
 
 async def _run_sglang_determinism_canary(
@@ -1085,8 +1524,12 @@ def _vllm_serving_evidence(
     identity: str,
     root: Path,
     memory_fit: VllmMemoryFit,
-    live_batch_invariant: str | None,
+    live_env: dict[str, str | None],
     determinism_canary_passed: bool,
+    policy_id: str,
+    flash_attention_label: str,
+    resolved_backends: JsonObject | None,
+    canary_evidence: JsonObject | None,
 ) -> ServingEvidence:
     startup_log = parse_vllm_startup_log(root / "serve.log")
     memory_allocations = dict(startup_log.memory_allocations)
@@ -1113,14 +1556,20 @@ def _vllm_serving_evidence(
         build_flags=(
             f"dtype={launch_config.dtype} kv_cache_dtype={launch_config.kv_cache_dtype} "
             f"mamba_ssm_cache_dtype={launch_config.mamba_ssm_cache_dtype} "
-            f"quantization={launch_config.quantization} max_num_seqs=1 batch_invariant=1"
+            f"quantization={launch_config.quantization} max_num_seqs=1 "
+            f"determinism_policy={policy_id}"
+            + (
+                " batch_invariant=1"
+                if policy_id == VLLM_BATCH_INVARIANT_POLICY_ID
+                else " enforce_eager=1"
+            )
         ),
         help_text_sha256=build.help_text_sha256,
         ctx_len_configured=launch_config.ctx,
         parallel_slots=1,
         continuous_batching=False,
         kv_cache_quant=launch_config.kv_cache_dtype,
-        flash_attention="batch-invariant",
+        flash_attention=flash_attention_label,
         rope_scaling="model-default",
         reasoning="client-controlled",
         reasoning_budget=None,
@@ -1167,12 +1616,16 @@ def _vllm_serving_evidence(
         ),
         deterministic_kernel_evidence=startup_log.deterministic_kernel_evidence,
         deterministic_kernel_enabled=startup_log.deterministic_kernel_enabled,
-        live_batch_invariant=live_batch_invariant,
+        live_batch_invariant=live_env.get("VLLM_BATCH_INVARIANT"),
         memory_allocations=memory_allocations,
         computed_memory_fit=memory_fit.provenance(),
         runtime_identity_sha256=build.runtime_identity_sha256,
         determinism_canary_passed=determinism_canary_passed,
         run_seed=options.seed,
+        determinism_policy_id=policy_id,
+        live_env=dict(live_env),
+        resolved_backends=resolved_backends,
+        canary_evidence=canary_evidence,
     )
 
 

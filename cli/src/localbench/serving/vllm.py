@@ -16,6 +16,13 @@ from localbench._types import JsonObject
 from localbench.serving.model_artifact import ModelArtifact, resolve_snapshot_reference
 from localbench.serving.readiness import ReadinessEvidence, verify_vllm_readiness
 from localbench.serving.teardown import TeardownEvidence
+from localbench.serving.vllm_policy import (
+    VLLM_BATCH_INVARIANT_POLICY_ID,
+    VLLM_GDN_POLICY_ID,
+    policy_env_pins,
+    policy_serve_flags,
+    resolve_model_text_config,
+)
 
 
 # Fixed allowance for activations, CUDA graphs, kernels, and workspaces. This is
@@ -43,6 +50,7 @@ class VllmLaunchConfig:
     chat_template: str
     run_token: str
     expected_executable: str
+    policy_id: str = VLLM_BATCH_INVARIANT_POLICY_ID
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,10 +223,16 @@ def vllm_serve_argv(config: VllmLaunchConfig) -> list[str]:
         "--tensor-parallel-size",
         "1",
         "--no-enable-log-requests",
+        *policy_serve_flags(config.policy_id),
     ]
 
 
-def validate_vllm_argv(argv: list[str], help_text: str) -> None:
+def validate_vllm_argv(
+    argv: list[str],
+    help_text: str,
+    *,
+    policy_id: str = VLLM_BATCH_INVARIANT_POLICY_ID,
+) -> None:
     required = {
         "--served-model-name",
         "--host",
@@ -242,6 +256,8 @@ def validate_vllm_argv(argv: list[str], help_text: str) -> None:
         "--tensor-parallel-size",
         "--no-enable-log-requests",
     }
+    if policy_id == VLLM_GDN_POLICY_ID:
+        required.update(flag for flag in policy_serve_flags(policy_id) if flag.startswith("--"))
     missing_argv = sorted(flag for flag in required if flag not in argv)
     supported = set(re.findall(r"(?<![\w-])--[a-z0-9][a-z0-9-]*", help_text, re.IGNORECASE))
     unsupported = sorted(flag for flag in required if flag not in supported)
@@ -255,7 +271,12 @@ def validate_vllm_argv(argv: list[str], help_text: str) -> None:
 
 def collect_vllm_build_identity(*, distro: str, vllm_bin: str) -> tuple[VllmBuildIdentity, str]:
     version = _run_wsl(distro, [vllm_bin, "--version"]).stdout.strip()
-    help_text = _run_wsl(distro, [vllm_bin, "serve", "--help"]).stdout
+    # vLLM >= 0.24 emits sectioned help for plain `serve --help`; the flags the
+    # lane validates against only appear under `--help=all`.
+    help_completed = _run_wsl(distro, [vllm_bin, "serve", "--help=all"], check=False)
+    help_text = help_completed.stdout if help_completed.returncode == 0 else ""
+    if not re.search(r"(?<![\w-])--max-num-seqs(?![\w-])", help_text):
+        help_text = _run_wsl(distro, [vllm_bin, "serve", "--help"]).stdout
     executable = _run_wsl(distro, ["readlink", "-f", vllm_bin]).stdout.strip()
     executable_sha = _run_wsl(distro, ["sha256sum", executable]).stdout.split()[0]
     venv_python = f"{vllm_bin.rsplit('/', 1)[0]}/python"
@@ -272,17 +293,21 @@ def collect_vllm_build_identity(*, distro: str, vllm_bin: str) -> tuple[VllmBuil
     runtime_identity_sha256 = hashlib.sha256(
         f"vllm={package_version}\nlock={dependency_lock_sha256}\n".encode("utf-8")
     ).hexdigest()
+    # Route nvidia-smi through a login shell: `wsl --exec nvidia-smi` fails
+    # with execvpe on hosts where the binary only resolves via the shell PATH
+    # (/usr/lib/wsl/lib).
     gpu = _run_wsl(
         distro,
         [
-            "nvidia-smi",
-            "--query-gpu=name,driver_version,memory.total",
+            "bash",
+            "-lc",
+            "nvidia-smi --query-gpu=name,driver_version,memory.total "
             "--format=csv,noheader,nounits",
         ],
     ).stdout.strip().splitlines()
     cuda = _run_wsl(
         distro,
-        ["nvidia-smi"],
+        ["bash", "-lc", "nvidia-smi"],
     ).stdout
     if (
         not version
@@ -332,14 +357,36 @@ def launch_vllm(config: VllmLaunchConfig, *, log_path: Path) -> LaunchedVllmServ
     expected_executable = config.expected_executable
     command_argv[0] = token_executable
     command = " ".join(shlex.quote(token) for token in command_argv)
+    env_pins = policy_env_pins(config.policy_id)
+    env_exports = " ".join(
+        f"{name}={shlex.quote(value)}" for name, value in sorted(env_pins.items())
+    )
+    cache_isolation = ""
+    if config.policy_id == VLLM_GDN_POLICY_ID:
+        # Per-start empty JIT/autotune caches: cross-start manifest equality is
+        # only evidence when both starts autotuned from scratch.
+        cache_isolation = (
+            f"export TRITON_CACHE_DIR=/tmp/localbench-triton-{config.run_token} "
+            f"TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-{config.run_token}; "
+        )
+    venv_bin = shlex.quote(config.vllm_bin.rsplit("/", 1)[0])
     inner = (
         f"ln -sf {shlex.quote(config.vllm_bin)} {shlex.quote(token_executable)}; "
         f"echo $$ > {shlex.quote(pid_file)}; "
-        f"export LOCALBENCH_RUN_TOKEN={shlex.quote(config.run_token)} "
-        "VLLM_BATCH_INVARIANT=1 CUDA_VISIBLE_DEVICES=0; "
+        # GDN/DeltaNet kernels JIT at runtime and need a CUDA toolkit; prefer a
+        # system /usr/local/cuda, keep the venv bin (ninja) on PATH.
+        'export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"; '
+        f'export PATH="$CUDA_HOME/bin:{venv_bin}:$PATH"; '
+        f"export LOCALBENCH_RUN_TOKEN={shlex.quote(config.run_token)} {env_exports}; "
+        f"{cache_isolation}"
         f"exec {command}"
     )
-    script = f"exec setsid bash -c {shlex.quote(inner)}"
+    # setsid -w: under WSL --exec the initial process is a process-group
+    # leader, so a bare setsid forks and the parent exits — wsl.exe then drains
+    # and exits, and WSL kills the detached server. -w keeps the relay attached
+    # (the log pipe and Popen.poll() liveness depend on it) while the server
+    # still gets its own session for teardown identity.
+    script = f"exec setsid -w bash -c {shlex.quote(inner)}"
     try:
         process = subprocess.Popen(
             ["wsl.exe", "-d", config.distro, "--exec", "bash", "-lc", script],
@@ -409,6 +456,16 @@ def teardown_vllm(server: LaunchedVllmServer, *, timeout_seconds: float = 30.0) 
     _run_wsl(
         server.distro,
         ["rm", "-f", server.pid_file, server.token_executable],
+        check=False,
+    )
+    _run_wsl(
+        server.distro,
+        [
+            "rm",
+            "-rf",
+            f"/tmp/localbench-triton-{server.run_token}",
+            f"/tmp/localbench-inductor-{server.run_token}",
+        ],
         check=False,
     )
     return {
@@ -660,7 +717,11 @@ def _verified_gpu_residuals(
 def _gpu_pids(distro: str) -> list[int]:
     completed = _run_wsl(
         distro,
-        ["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader,nounits"],
+        [
+            "bash",
+            "-lc",
+            "nvidia-smi --query-compute-apps=pid --format=csv,noheader,nounits",
+        ],
         check=False,
     )
     return [int(line.strip()) for line in completed.stdout.splitlines() if line.strip().isdigit()]
@@ -713,11 +774,12 @@ def compute_vllm_memory_fit(
 ) -> VllmMemoryFit:
     config_path = artifact.model_file / "config.json"
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
+        raw_config = json.loads(config_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise RuntimeError("vLLM VRAM preflight requires a valid snapshot config.json") from error
-    if not isinstance(config, dict):
+    if not isinstance(raw_config, dict):
         raise RuntimeError("vLLM VRAM preflight requires an object config.json")
+    config = resolve_model_text_config(raw_config)
     layer_types = config.get("layer_types")
     if isinstance(layer_types, list):
         full_attention_layers = sum(
@@ -735,7 +797,7 @@ def compute_vllm_memory_fit(
         if hidden_size % attention_heads:
             raise RuntimeError("vLLM VRAM preflight cannot derive an integral attention head_dim")
         head_dim = hidden_size // attention_heads
-    dtype_bytes = _dtype_bytes(config.get("torch_dtype"))
+    dtype_bytes = _dtype_bytes(config.get("torch_dtype") or config.get("dtype"))
     if full_attention_layers <= 0:
         raise RuntimeError("vLLM VRAM preflight found no full-attention layers in config.json")
     weights_bytes = sum(
@@ -787,6 +849,14 @@ def read_live_process_environment(
     server: LaunchedVllmServer,
     name: str,
 ) -> str | None:
+    return read_live_process_environment_map(server, (name,)).get(name)
+
+
+def read_live_process_environment_map(
+    server: LaunchedVllmServer,
+    names: tuple[str, ...],
+) -> dict[str, str | None]:
+    values: dict[str, str | None] = {name: None for name in names}
     if not _process_identity_matches(
         server.distro,
         server.leader_pin.pid,
@@ -794,17 +864,17 @@ def read_live_process_environment(
         server.expected_executable,
         expected_start_time=server.leader_pin.start_time,
     ):
-        return None
+        return values
     completed = _run_wsl(
         server.distro,
         ["bash", "-lc", f"tr '\\0' '\\n' < /proc/{server.leader_pin.pid}/environ"],
         check=False,
     )
-    prefix = f"{name}="
     for line in completed.stdout.splitlines():
-        if line.startswith(prefix):
-            return line[len(prefix) :]
-    return None
+        key, separator, value = line.partition("=")
+        if separator and key in values:
+            values[key] = value
+    return values
 
 
 def parse_vllm_startup_log(path: Path) -> VllmLogEvidence:

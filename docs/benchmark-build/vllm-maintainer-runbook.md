@@ -23,9 +23,47 @@ supported community provisioning flow.
 - A model revision expressed as `hf://<namespace>/<repo>@<full-40-character-commit-sha>`. Branches,
   tags, `latest`, and file fragments are rejected. The Windows-side download is materialized without
   symlinks and every snapshot file is hashed into a deterministic snapshot identity.
-- Explicit managed AppWorld paths when the selected suite includes the agentic axis.
+- On Windows the agentic axis uses the managed appliance; do not pass `--wsl-venv-python` /
+  `--appworld-root` (the lane rejects them). On Linux hosts supply the explicit managed AppWorld
+  paths when the selected suite includes the agentic axis.
+- A CUDA toolkit inside the WSL distribution (`nvcc` on PATH or `/usr/local/cuda`).
+  GDN/DeltaNet kernels JIT-compile at runtime; driver libraries alone are not enough. The launch
+  script exports `CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}` and prepends its `bin`.
+- Precache the tokenizer/chat template before the first offline introspection:
+  `uv run --project cli localbench cache-tokenizer <namespace>/<repo>`.
 
 Do not run the rehearsal while another scheduled GPU workload owns the device.
+
+## Determinism policies
+
+The vLLM lane selects one of two named policies from the snapshot's architecture
+(`text_config`-aware `layer_types` inspection):
+
+- `vllm-batch-invariant-v1` — architectures vLLM supports under `VLLM_BATCH_INVARIANT=1`.
+  Evidence: launch export, env allowlist, live `/proc` environ probe, and the affirmative
+  batch-invariant kernel log line.
+- `vllm-gdn-structural-single-slot-eager-v1` — GDN/linear-attention hybrids (e.g. Qwen3.6),
+  which vLLM refuses to initialise batch-invariant. Claim: *empirically reproducible across
+  clean process starts under structural single-slot execution on the recorded stack; not
+  batch-invariant*. The lane pins `--enforce-eager`, `--gdn-prefill-backend triton`,
+  `--attention-backend TRITON_ATTN`, `--linear-backend cutlass`, FlashInfer autotune and Mamba
+  stochastic rounding off, `--jit-monitor-mode error`, zero multimodal limits (text-only lane;
+  reclaims the vision-encoder profiling budget), plus `PYTHONHASHSEED=0`,
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8`, the FLA_* precision pins, and per-start empty
+  Triton/Inductor caches. This policy is version-allowlisted (exactly vLLM 0.25.1); any other
+  version refuses to run.
+
+Under either policy the two-start canary now runs a token-level matrix — rendered input lengths
+128, 64, 65 (GDN chunk boundary), 8192, 16384, 26624, and near-`ctx`, each generating 64 tokens
+with logprob token evidence — with within-lifetime repeats and a short A/B/A state-isolation
+check. Start A qualifies and tears down; **start B must match start A token-for-token (and, for
+GDN, select identical Triton autotune configurations from a cold cache) and then stays alive as
+the scoring server.** One bounded relaunch retry is permitted for start B; the retry is recorded.
+After the scored suite, post-score sentinel canaries must reproduce start B's pre-score outputs.
+
+Migration note: 0.4.9 changes the vLLM server fingerprint/resume identity (the
+`flash_attention` component is now the policy label). vLLM runs started under 0.4.8 cannot be
+`--resume`d under 0.4.9.
 
 ## Required preflight
 
@@ -37,28 +75,31 @@ git status --short
 if ($LASTEXITCODE -ne 0 -or (git status --short)) { throw "clean git tree required" }
 ```
 
-Run the two-start canary against the same immutable ref and environment, with zero benchmark items:
+Run the two-start canary against the same immutable ref and environment, with a minimal item
+count (the baked worker rejects `--max-items 0`; use `1`):
 
 ```powershell
 uv run --project cli localbench bench `
   --runtime vllm `
   --model-ref hf://<namespace>/<repo>@<full-40-character-commit-sha> `
   --model-id <model-slug> `
+  --hf-model-id <namespace>/<repo> `
   --wsl-distro <distro-name> `
   --vllm-venv /absolute/wsl/path/to/vllm-venv `
   --suite suite-v1-full-exec-6axis-v1 --bench all `
-  --wsl-venv-python /absolute/wsl/path/to/appworld-python `
-  --appworld-root /absolute/wsl/path/to/appworld-root `
   --lane bounded-final-v2 --profile auto --tier standard `
-  --determinism-canary --max-items 0 --seed 1234 --out runs/<run-name>-preflight
+  --determinism-canary --max-items 1 --seed 1234 --out runs/<run-name>-preflight
 ```
 
 Inspect `runs/<run-name>-preflight/localbench-run.json` and echo these values for the maintainer
 record. Confirm them before continuing: execution profile
-`generic_think_tags_8192_v1`; server-reported vLLM version at least 0.24; non-empty venv
-dependency-lock hash; matching tokenizer and applied-template hashes; parsed weights/KV/CUDA-graph
-memory evidence; deterministic-kernel log evidence; and `two_start_canary_passed: true`.
-Any missing value is a failed preflight, even if the server answered requests.
+`generic_think_tags_8192_v1`; server-reported vLLM version at least 0.24 (exactly 0.25.1 for the
+GDN policy); non-empty venv dependency-lock hash; matching tokenizer and applied-template hashes;
+parsed weights/KV memory evidence; `determinism.policy_id` matching the model's architecture;
+policy evidence (batch-invariant kernel line, or GDN resolved-backend affirmations + matching
+autotune manifests); and `two_start_canary_passed: true` with the full canary matrix present.
+Any missing value is a failed preflight, even if the server answered requests. Note the profile
+enforces a context floor of 26624; pass `--ctx 32768` for 32k-class snapshots.
 
 ## Run
 
@@ -67,11 +108,10 @@ uv run --project cli localbench bench `
   --runtime vllm `
   --model-ref hf://<namespace>/<repo>@<full-40-character-commit-sha> `
   --model-id <model-slug> `
+  --hf-model-id <namespace>/<repo> `
   --wsl-distro <distro-name> `
   --vllm-venv /absolute/wsl/path/to/vllm-venv `
   --suite suite-v1-full-exec-6axis-v1 --bench all `
-  --wsl-venv-python /absolute/wsl/path/to/appworld-python `
-  --appworld-root /absolute/wsl/path/to/appworld-root `
   --lane bounded-final-v2 --profile auto --tier standard `
   --determinism-canary --seed 1234 --out runs/<run-name>
 ```
@@ -83,13 +123,16 @@ The immutable model ref automatically supplies `hf_model_id` and `hf_revision`; 
 are accepted only when they match it. The lane resolves the model's real bounded-final profile and
 refuses the known Qwen lane if it falls back to answer-only.
 
-The lane binds only `127.0.0.1`, forces client concurrency and `--max-num-seqs` to one, exports
-`VLLM_BATCH_INVARIANT=1`, keeps BF16 model/KV cache while following Qwen's published float32 Mamba
-SSM-state dtype, pins the NVFP4 quantization loader, disables prefix caching and chunked prefill, and
-prevents repository generation-config overrides. The default maximum model length comes from the
-resolved 8192-class execution profile; use `--vllm-max-model-len` only as a reviewed explicit
-override. GPU memory utilization remains 0.92. The snapshot's `chat_template.jinja` is passed and
-verified through a tokenizer/template probe.
+The lane binds only `127.0.0.1`, forces client concurrency and `--max-num-seqs` to one, applies
+the selected determinism policy's env pins (batch-invariant: `VLLM_BATCH_INVARIANT=1`; GDN: the
+structural-single-slot pin set above), keeps BF16 model/KV cache while following Qwen's published
+float32 Mamba SSM-state dtype, pins the NVFP4 quantization loader, disables prefix caching and
+chunked prefill, and prevents repository generation-config overrides. The default maximum model
+length comes from the resolved 8192-class execution profile; use `--vllm-max-model-len` only as a
+reviewed explicit override. GPU memory utilization remains 0.92. The snapshot's
+`chat_template.jinja` is passed and verified through a tokenizer/template probe. Server startup is
+given up to 30 minutes before readiness fails (large snapshots pay ~2 minutes of weight loading
+over 9P plus first-start JIT).
 
 ## Completion checks
 

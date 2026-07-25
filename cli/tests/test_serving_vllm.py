@@ -372,7 +372,7 @@ def test_collect_vllm_build_identity_is_stable_and_complete(monkeypatch: pytest.
     def fake_run(_distro: str, argv: list[str], *, check: bool = True):
         if argv[-1] == "--version":
             return _completed("vllm 0.24.0\n")
-        if argv[-2:] == ["serve", "--help"]:
+        if argv[-2:] == ["serve", "--help=all"] or argv[-2:] == ["serve", "--help"]:
             return _completed("--max-num-seqs\n--dtype\n")
         if argv[0] == "readlink":
             resolved = "/opt/vllm/bin/python" if argv[-1].endswith("/python") else "/opt/vllm/bin/vllm"
@@ -383,7 +383,7 @@ def test_collect_vllm_build_identity_is_stable_and_complete(monkeypatch: pytest.
             return _completed("torch==2.9.0\nvllm==0.24.0\n")
         if argv[0].endswith("/python"):
             return _completed("0.24.0\n")
-        if argv[0] == "nvidia-smi" and len(argv) > 1:
+        if argv[0] == "bash" and "--query-gpu" in argv[-1]:
             return _completed("NVIDIA RTX, 600.1, 32768\n")
         return _completed("NVIDIA-SMI 600.1 CUDA Version: 13.0 |\n")
 
@@ -444,10 +444,55 @@ def test_launch_vllm_exports_batch_invariance_inside_pid_scoped_session(
     launched.close_log()
 
     script = captured[-1]
-    assert "exec setsid bash -c" in script
+    # -w keeps the wsl.exe relay attached; a bare setsid forks under WSL --exec
+    # and the drained relay exit kills the detached server.
+    assert "exec setsid -w bash -c" in script
     assert "echo $$" in script
     assert "VLLM_BATCH_INVARIANT=1" in script
     assert "CUDA_VISIBLE_DEVICES=0" in script
+
+
+def test_launch_vllm_gdn_policy_pins_env_and_isolates_caches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured: list[str] = []
+
+    class Process:
+        returncode = None
+
+        def poll(self):
+            return None
+
+    def fake_popen(argv, **_kwargs):
+        captured.extend(argv)
+        return Process()
+
+    monkeypatch.setattr(vllm.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(vllm, "_wait_for_server_pid", lambda *_args: 111)
+    monkeypatch.setattr(vllm, "_read_process_pin", lambda *_args: vllm.ProcessPin(111, 1, 111, 10))
+    monkeypatch.setattr(vllm, "_process_identity_matches", lambda *_args, **_kwargs: True)
+
+    from dataclasses import replace as dc_replace
+
+    from localbench.serving.vllm_policy import VLLM_GDN_POLICY_ID
+
+    config = dc_replace(_launch_config(tmp_path), policy_id=VLLM_GDN_POLICY_ID)
+    launched = vllm.launch_vllm(config, log_path=tmp_path / "serve.log")
+    launched.close_log()
+
+    script = captured[-1]
+    assert "VLLM_BATCH_INVARIANT" not in script
+    assert "CUBLAS_WORKSPACE_CONFIG=" in script
+    assert "FLA_TRIL_PRECISION=ieee" in script
+    assert "TRITON_PRINT_AUTOTUNING=1" in script
+    assert "TRITON_CACHE_DIR=/tmp/localbench-triton-abc123" in script
+    assert "TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-abc123" in script
+    assert "--enforce-eager" in script
+    assert "--gdn-prefill-backend triton" in script
+    assert "--attention-backend TRITON_ATTN" in script
+    assert "--linear-backend cutlass" in script
+    assert "--jit-monitor-mode error" in script
+    assert "--limit-mm-per-prompt" in script
 
 
 @pytest.mark.anyio

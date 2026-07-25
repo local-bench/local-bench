@@ -143,19 +143,67 @@ def resolve_snapshot_reference(ref: str, *, cache_dir: Path, run_dir: Path) -> M
             "install the cli hf extra to use the vLLM --model-ref lane",
         ) from error
     snapshot_dir = cache_dir / parsed.repo_id.replace("/", "--") / parsed.revision
-    snapshot = Path(
-        snapshot_download(
+    try:
+        snapshot = Path(
+            snapshot_download(
+                repo_id=parsed.repo_id,
+                revision=parsed.revision,
+                local_dir=snapshot_dir,
+            ),
+        ).resolve()
+    except Exception as download_error:
+        # Tokenizer/template introspection pins HF_HUB_OFFLINE=1 for the whole
+        # process once it has run, and huggingface_hub bakes the offline
+        # constant at import. A cold-cache snapshot download later in the same
+        # process then fails spuriously. Retry once in a fresh interpreter
+        # whose environment is online.
+        snapshot = _snapshot_download_in_subprocess(
             repo_id=parsed.repo_id,
             revision=parsed.revision,
-            local_dir=snapshot_dir,
-        ),
-    ).resolve()
+            snapshot_dir=snapshot_dir,
+            cause=download_error,
+        )
     artifact = snapshot_artifact(snapshot, run_dir=run_dir)
     return replace(
         artifact,
         requested_repo=parsed.repo_id,
         requested_revision=parsed.revision,
     )
+
+
+def _snapshot_download_in_subprocess(
+    *, repo_id: str, revision: str, snapshot_dir: Path, cause: Exception
+) -> Path:
+    import subprocess  # noqa: PLC0415
+    import sys  # noqa: PLC0415
+
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"}
+    }
+    env["HF_HUB_DISABLE_SYMLINKS"] = "1"
+    script = (
+        "import sys\n"
+        "from huggingface_hub import snapshot_download\n"
+        "path = snapshot_download(repo_id=sys.argv[1], revision=sys.argv[2], "
+        "local_dir=sys.argv[3])\n"
+        "print(path)\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script, repo_id, revision, str(snapshot_dir)],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    output = completed.stdout.strip().splitlines()
+    if completed.returncode != 0 or not output:
+        detail = completed.stderr.strip() or str(cause)
+        raise ModelArtifactError(
+            f"snapshot download failed for {repo_id}@{revision}: {detail}"
+        ) from cause
+    return Path(output[-1]).resolve()
 
 
 def parse_snapshot_reference(ref: str) -> SnapshotReference:

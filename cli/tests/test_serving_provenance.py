@@ -158,6 +158,85 @@ def test_normalize_ephemeral_argv_masks_only_port_token() -> None:
     ]
 
 
+def _complete_gdn_canary_evidence() -> dict:
+    return {
+        "policy_id": "vllm-gdn-structural-single-slot-eager-v1",
+        "matrix": [
+            {"label": label, "target_tokens": 0, "rendered_tokens": 0, "input_sha256": "a" * 64}
+            for label in ("s128", "l64", "l65", "l8k", "l16k", "l26k", "lmax")
+        ],
+        "cross_start_passed": True,
+        "within_lifetime_repeat_passed": True,
+        "state_isolation_passed": True,
+        "autotune_manifest_start_a_sha256": "d" * 64,
+        "autotune_manifest_start_b_sha256": "d" * 64,
+        "autotune_manifest_match": True,
+        "retry_count": 0,
+        "post_score_passed": True,
+        "scored_process_is_canary_start_b": True,
+    }
+
+
+def test_gdn_policy_swaps_the_batch_invariant_gates_for_gdn_gates(tmp_path: Path) -> None:
+    from localbench.serving.vllm_policy import VLLM_GDN_POLICY_ID, policy_env_pins
+
+    base = serving_evidence(tmp_path, teardown_terminated=True)
+    gdn_env = policy_env_pins(VLLM_GDN_POLICY_ID)
+    incomplete = replace(
+        base,
+        runtime="vllm",
+        determinism_policy_id=VLLM_GDN_POLICY_ID,
+        env_allowlist=dict(gdn_env),
+        live_env={name: None for name in gdn_env},
+        engine_version="0.25.1",
+    )
+    reasons = serving_context(incomplete).blocking_reasons
+
+    # The batch-invariant gates must NOT apply under the GDN policy...
+    assert "runtime.batch_invariance_missing" not in reasons
+    assert "runtime.live_batch_invariance_unverified" not in reasons
+    assert "runtime.deterministic_kernel_unverified" not in reasons
+    # ...and the GDN gates fail closed while their evidence is absent.
+    assert "runtime.gdn_live_env_unverified" in reasons
+    assert "runtime.resolved_backend_mismatch" in reasons
+    assert "runtime.canary_matrix_incomplete" in reasons
+    assert "runtime.gdn_policy_not_allowlisted" not in reasons
+
+    complete = replace(
+        incomplete,
+        live_env=dict(gdn_env),
+        resolved_backends={"satisfied": True},
+        canary_evidence=_complete_gdn_canary_evidence(),
+        determinism_canary_passed=True,
+    )
+    complete_reasons = serving_context(complete).blocking_reasons
+    assert not any(reason.startswith("runtime.gdn") for reason in complete_reasons)
+    assert "runtime.resolved_backend_mismatch" not in complete_reasons
+    assert "runtime.cross_start_canary_mismatch" not in complete_reasons
+    assert "runtime.scored_process_postflight_mismatch" not in complete_reasons
+
+    unlisted = serving_context(replace(incomplete, engine_version="0.24.0"))
+    assert "runtime.gdn_policy_not_allowlisted" in unlisted.blocking_reasons
+
+
+def test_gdn_policy_object_carries_the_structural_claim(tmp_path: Path) -> None:
+    from localbench.serving.vllm_policy import VLLM_GDN_POLICY_ID
+
+    base = serving_evidence(tmp_path, teardown_terminated=True)
+    policy = serving_context(
+        replace(base, runtime="vllm", determinism_policy_id=VLLM_GDN_POLICY_ID)
+    ).determinism_policy
+    assert policy["policy_id"] == VLLM_GDN_POLICY_ID
+    assert "not vLLM batch-invariant" in policy["claim"]
+    assert policy["server"]["vllm_batch_invariant"] is False
+    assert policy["server"]["vllm_batch_invariant_supported"] is False
+    assert policy["server"]["vllm_enforce_eager"] is True
+
+    legacy = serving_context(replace(base, runtime="vllm")).determinism_policy
+    assert legacy["policy_id"] == "vllm-batch-invariant-v1"
+    assert legacy["server"]["vllm_batch_invariant"] is True
+
+
 def test_resume_identity_ignores_only_ephemeral_port() -> None:
     # Given: two launch argvs that differ only by the allocated port.
     identity = _resume_identity(BASE_ARGV)
