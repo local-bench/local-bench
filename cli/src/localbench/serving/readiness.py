@@ -128,8 +128,11 @@ async def verify_vllm_readiness(
 ) -> ReadinessEvidence:
     root = base_url.rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}"}
+    # Blanket 10s request timeouts tore down a fully-ready 27B server: the
+    # readiness smoke chat pays first-token latency on a cold engine. Keep the
+    # connect timeout tight; give in-flight requests room.
     async with httpx.AsyncClient(
-        timeout=10.0, transport=transport, headers=headers
+        timeout=httpx.Timeout(600.0, connect=10.0), transport=transport, headers=headers
     ) as client:
         health_200_at = await _wait_for_health(
             client,
@@ -217,8 +220,10 @@ async def verify_sglang_readiness(
     """
     root = base_url.rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}"}
+    # Same first-token headroom as the vLLM readiness client (10s blanket
+    # request timeouts kill cold big-model servers mid-smoke-chat).
     async with httpx.AsyncClient(
-        timeout=10.0, transport=transport, headers=headers
+        timeout=httpx.Timeout(600.0, connect=10.0), transport=transport, headers=headers
     ) as client:
         health_200_at = await _wait_for_health(
             client,
