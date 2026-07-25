@@ -282,7 +282,16 @@ def _normalize_manifest(
     normalized["suite"] = suite
     normalized["provenance"] = _provenance(_object(normalized.get("provenance")))
     missing = _missing_required_fields(normalized)
-    blocking = _blocking_reasons(normalized, missing, declared_suite, record)
+    # Preserve blockers recorded upstream (serving determinism gates via
+    # apply_serving_context, repo provenance gates). Rebuilding integrity from
+    # only the suite-level checks silently dropped them — a run with failing
+    # serving determinism evidence normalized to publishable=true.
+    existing_blocking = _string_list(
+        _object(normalized.get("integrity")).get("blocking_reasons")
+    )
+    blocking = _dedupe(
+        [*existing_blocking, *_blocking_reasons(normalized, missing, declared_suite, record)]
+    )
     normalized["integrity"] = {
         "publishable": blocking == [],
         "validation_profile": "publishable-result-bundle-v1",

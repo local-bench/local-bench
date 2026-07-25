@@ -284,6 +284,30 @@ def test_result_bundle_normalization_preserves_optional_perf_and_item_timings() 
     assert bundle["items"] == [{"id": "item-1", "bench": "mmlu_pro", "server_timings": timings}]
 
 
+def test_normalize_preserves_upstream_serving_blockers() -> None:
+    # apply_serving_context records fail-closed determinism blockers into
+    # manifest.integrity BEFORE normalization; rebuilding integrity from only
+    # the suite-level checks silently dropped them (found live 2026-07-26: a
+    # run with engine_log_semantic_verdict=false normalized to a bundle whose
+    # only blocker was incomplete_run).
+    record = _synthetic_result_bundle(identity=True)
+    manifest = record["manifest"]
+    manifest["integrity"] = {
+        "publishable": False,
+        "blocking_reasons": [
+            "runtime.live_batch_invariance_unverified",
+            "runtime.deterministic_kernel_unverified",
+        ],
+    }
+
+    bundle = normalize_result_bundle(record)
+    validation = validate_result_bundle(bundle)
+
+    assert "runtime.live_batch_invariance_unverified" in validation.blocking_reasons
+    assert "runtime.deterministic_kernel_unverified" in validation.blocking_reasons
+    assert validation.publishable is False
+
+
 def test_normalized_published_record_contains_no_absolute_local_paths() -> None:
     record = _synthetic_result_bundle(identity=True)
     record["serving"] = {
