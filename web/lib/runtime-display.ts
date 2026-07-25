@@ -42,7 +42,7 @@ function canonicalRuntimeLabel(name: string | null): string | null {
 const DETERMINISM_POLICY_RE = /determinism_policy=(\S+)/u;
 const POLICY_SHORT_LABELS: Readonly<Record<string, string>> = {
   "vllm-batch-invariant-v1": "batch-invariant",
-  "vllm-gdn-structural-single-slot-eager-v1": "GDN eager v1",
+  "vllm-gdn-structural-single-slot-graphs-v1": "GDN graphs v1",
 };
 
 // vLLM rows run under a named determinism policy (0.4.9+). Surface it on the

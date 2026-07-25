@@ -1586,7 +1586,7 @@ def _vllm_serving_evidence(
             + (
                 " batch_invariant=1"
                 if policy_id == VLLM_BATCH_INVARIANT_POLICY_ID
-                else " enforce_eager=1"
+                else " cudagraphs=FULL_AND_PIECEWISE"
             )
         ),
         help_text_sha256=build.help_text_sha256,

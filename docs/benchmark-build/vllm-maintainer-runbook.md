@@ -42,18 +42,20 @@ The vLLM lane selects one of two named policies from the snapshot's architecture
 - `vllm-batch-invariant-v1` — architectures vLLM supports under `VLLM_BATCH_INVARIANT=1`.
   Evidence: launch export, env allowlist, live `/proc` environ probe, and the affirmative
   batch-invariant kernel log line.
-- `vllm-gdn-structural-single-slot-eager-v1` — GDN/linear-attention hybrids (e.g. Qwen3.6),
+- `vllm-gdn-structural-single-slot-graphs-v1` — GDN/linear-attention hybrids (e.g. Qwen3.6),
   which vLLM refuses to initialise batch-invariant. Claim: *empirically reproducible across
-  clean process starts under structural single-slot execution on the recorded stack; not
-  batch-invariant*. The lane pins `--enforce-eager`, `--gdn-prefill-backend triton`,
-  `--attention-backend TRITON_ATTN`, `--linear-backend cutlass`, FlashInfer autotune and Mamba
-  stochastic rounding off, `--jit-monitor-mode warn` (error mode is fatal on the first request:
-  vLLM's warmup does not cover every shape — instead provenance requires ZERO JIT-during-inference
-  events in the scored phase), zero multimodal limits (text-only lane;
-  reclaims the vision-encoder profiling budget), plus `PYTHONHASHSEED=0`,
+  clean process starts under structural single-slot execution with a pinned cudagraph
+  configuration on the recorded stack; not batch-invariant*. The lane pins
+  `--gdn-prefill-backend triton`, `--attention-backend TRITON_ATTN`, `--linear-backend cutlass`,
+  FlashInfer autotune and Mamba stochastic rounding off, `--jit-monitor-mode warn` (error mode
+  is fatal on the first request: vLLM's warmup does not cover every shape — instead provenance
+  requires ZERO JIT-during-inference events in the scored phase), zero multimodal limits
+  (text-only lane; reclaims the vision-encoder profiling budget), plus `PYTHONHASHSEED=0`,
   `CUBLAS_WORKSPACE_CONFIG=:4096:8`, the FLA_* precision pins, and per-start empty
-  Triton/Inductor caches. This policy is version-allowlisted (exactly vLLM 0.25.1); any other
-  version refuses to run.
+  Triton/Inductor caches. Cudagraphs stay enabled — the resolved
+  `CUDAGraphMode.FULL_AND_PIECEWISE` is required as affirmative evidence (gate-0 measurement:
+  eager execution cost 2.65x decode, 21 vs 57 tok/s at batch 1; owner-rejected). This policy is
+  version-allowlisted (exactly vLLM 0.25.1); any other version refuses to run.
 
 Under either policy the two-start canary now runs a token-level matrix — rendered input lengths
 128, 64, 65 (GDN chunk boundary), 8192, 16384, 26624, and near-`ctx`, each generating 64 tokens

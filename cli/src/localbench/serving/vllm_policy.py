@@ -6,13 +6,16 @@ The vLLM maintainer lane runs under one of two named determinism policies:
   ``VLLM_BATCH_INVARIANT=1``. The full batch-invariant evidence web applies
   (launch export, env allowlist, live environ probe, affirmative kernel line).
 
-- ``vllm-gdn-structural-single-slot-eager-v1``: GDN/linear-attention hybrid
+- ``vllm-gdn-structural-single-slot-graphs-v1``: GDN/linear-attention hybrid
   architectures (e.g. Qwen3.6), which vLLM refuses to initialise in
   batch-invariant mode. The policy makes a narrower public claim —
   empirically reproducible across clean process starts under structural
-  single-slot execution on the recorded stack; NOT batch-invariant — and
-  compensates with pinned backend resolution, eager execution, autotune
-  selection capture, and a long-context token-level canary matrix.
+  single-slot execution with a pinned cudagraph configuration on the
+  recorded stack; NOT batch-invariant — and compensates with pinned backend
+  resolution, autotune selection capture, and a long-context token-level
+  canary matrix. (An eager variant was measured at gate 0 and rejected by
+  the owner: 2.65x decode tax — 21 vs 57 tok/s at batch 1 — inverted the
+  engine-lane story; every empirical gate applies identically under graphs.)
 
 Policy selection is architecture-based via the snapshot config. Multimodal
 wrapper configs nest the LM fields under ``text_config``; every consumer of
@@ -31,7 +34,12 @@ from pathlib import Path
 from localbench._types import JsonObject
 
 VLLM_BATCH_INVARIANT_POLICY_ID = "vllm-batch-invariant-v1"
-VLLM_GDN_POLICY_ID = "vllm-gdn-structural-single-slot-eager-v1"
+VLLM_GDN_POLICY_ID = "vllm-gdn-structural-single-slot-graphs-v1"
+
+# The cudagraph mode the allowlisted stack resolves for this lane's serve
+# config (qualified live at gate 0, vLLM 0.25.1). Any other resolved mode is
+# a backend mismatch.
+GDN_EXPECTED_CUDAGRAPH_MODE = "FULL_AND_PIECEWISE"
 
 # Exact engine-version allowlist for the GDN policy. The affirmative log
 # matchers and backend pins below are qualified against these versions only;
@@ -47,8 +55,9 @@ BATCH_INVARIANT_CLAIM = (
 )
 GDN_STRUCTURAL_CLAIM = (
     "empirically reproducible across clean process starts under structural "
-    "single-slot execution on the recorded stack; not vLLM batch-invariant "
-    "and not cross-stack bitwise deterministic"
+    "single-slot execution with a pinned cudagraph configuration on the "
+    "recorded stack; not vLLM batch-invariant and not cross-stack bitwise "
+    "deterministic"
 )
 
 
@@ -112,11 +121,11 @@ def policy_claim(policy_id: str) -> str:
 # --- serve pins -------------------------------------------------------------
 
 # Flags appended to the base serve argv under the GDN policy. Every backend
-# choice is pinned away from "auto"; eager mode removes the cudagraph
-# dispatch/capture axis from the evidence burden (a later ...-graphs-v1 policy
-# may restore it after qualification).
+# choice is pinned away from "auto". Cudagraphs stay ON (owner decision at
+# gate 0: the eager tax was 2.65x decode); the resolved cudagraph mode is
+# affirmed as evidence and the canary matrix exercises the graph-dispatch
+# shapes empirically.
 GDN_SERVE_FLAGS: tuple[str, ...] = (
-    "--enforce-eager",
     "--gdn-prefill-backend",
     "triton",
     "--attention-backend",
@@ -178,7 +187,7 @@ def policy_serve_flags(policy_id: str) -> tuple[str, ...]:
 
 def policy_flash_attention_label(policy_id: str) -> str:
     if policy_id == VLLM_GDN_POLICY_ID:
-        return "triton-attn-structural-single-slot-eager"
+        return "triton-attn-structural-single-slot-graphs"
     return "batch-invariant"
 
 
@@ -196,7 +205,7 @@ class ResolvedBackendEvidence:
     nvfp4_linear_kernel: str | None
     attention_backend: str | None
     gdn_prefill_backend: str | None
-    eager_mode: bool | None
+    cudagraph_mode: str | None
     matched_lines: tuple[str, ...]
 
     def satisfied(self) -> bool:
@@ -205,7 +214,7 @@ class ResolvedBackendEvidence:
             and self.attention_backend == "TRITON_ATTN"
             and self.gdn_prefill_backend is not None
             and "triton" in self.gdn_prefill_backend.lower()
-            and self.eager_mode is True
+            and self.cudagraph_mode == GDN_EXPECTED_CUDAGRAPH_MODE
         )
 
     def as_json(self) -> JsonObject:
@@ -213,7 +222,7 @@ class ResolvedBackendEvidence:
             "nvfp4_linear_kernel": self.nvfp4_linear_kernel,
             "attention_backend": self.attention_backend,
             "gdn_prefill_backend": self.gdn_prefill_backend,
-            "eager_mode": self.eager_mode,
+            "cudagraph_mode": self.cudagraph_mode,
             "matched_lines": list(self.matched_lines),
             "satisfied": self.satisfied(),
         }
@@ -232,18 +241,16 @@ _ATTENTION_BACKEND_RES = (
     re.compile(r"'attention_backend':\s*'([A-Z0-9_]+)'"),
 )
 _GDN_PREFILL_RE = re.compile(r"Using ([\w/.-]+) GDN prefill", re.IGNORECASE)
-_EAGER_RES = (
-    re.compile(r"enforce_eager=True"),
-    re.compile(r"'enforce_eager':\s*True"),
-    re.compile(r"cudagraph_mode[^\n]*NONE"),
-)
+# Resolved compilation config echoed by EngineCore at init, e.g.
+# "'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>".
+_CUDAGRAPH_MODE_RE = re.compile(r"cudagraph_mode'?\s*[:=]\s*<?CUDAGraphMode\.([A-Z_]+)")
 
 
 def parse_resolved_backends(serve_log_text: str) -> ResolvedBackendEvidence:
     nvfp4: str | None = None
     attention: str | None = None
     gdn_prefill: str | None = None
-    eager: bool | None = None
+    cudagraph_mode: str | None = None
     matched: list[str] = []
 
     def _trimmed(line: str) -> str:
@@ -267,14 +274,16 @@ def parse_resolved_backends(serve_log_text: str) -> ResolvedBackendEvidence:
             gdn_prefill = gdn_match.group(1)
             matched.append(_trimmed(line))
             continue
-        if eager is not True and any(pattern.search(line) for pattern in _EAGER_RES):
-            eager = True
-            matched.append(_trimmed(line))
+        if cudagraph_mode is None:
+            mode_match = _CUDAGRAPH_MODE_RE.search(line)
+            if mode_match is not None:
+                cudagraph_mode = mode_match.group(1)
+                matched.append("cudagraph_mode=" + cudagraph_mode)
     return ResolvedBackendEvidence(
         nvfp4_linear_kernel=nvfp4,
         attention_backend=attention,
         gdn_prefill_backend=gdn_prefill,
-        eager_mode=eager,
+        cudagraph_mode=cudagraph_mode,
         matched_lines=tuple(matched),
     )
 

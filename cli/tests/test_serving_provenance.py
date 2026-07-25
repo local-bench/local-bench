@@ -160,7 +160,7 @@ def test_normalize_ephemeral_argv_masks_only_port_token() -> None:
 
 def _complete_gdn_canary_evidence() -> dict:
     return {
-        "policy_id": "vllm-gdn-structural-single-slot-eager-v1",
+        "policy_id": "vllm-gdn-structural-single-slot-graphs-v1",
         "matrix": [
             {"label": label, "target_tokens": 0, "rendered_tokens": 0, "input_sha256": "a" * 64}
             for label in ("s128", "l64", "l65", "l8k", "l16k", "l26k", "lmax")
@@ -232,7 +232,7 @@ def test_gdn_policy_object_carries_the_structural_claim(tmp_path: Path) -> None:
     assert "not vLLM batch-invariant" in policy["claim"]
     assert policy["server"]["vllm_batch_invariant"] is False
     assert policy["server"]["vllm_batch_invariant_supported"] is False
-    assert policy["server"]["vllm_enforce_eager"] is True
+    assert policy["server"]["vllm_cudagraph_mode"] == "FULL_AND_PIECEWISE"
 
     legacy = serving_context(replace(base, runtime="vllm")).determinism_policy
     assert legacy["policy_id"] == "vllm-batch-invariant-v1"

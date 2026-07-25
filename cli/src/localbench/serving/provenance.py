@@ -129,7 +129,7 @@ def determinism_policy(
                         "vLLM refuses VLLM_BATCH_INVARIANT=1 for GDN_ATTN "
                         "linear-attention architectures"
                     ),
-                    "vllm_enforce_eager": True,
+                    "vllm_cudagraph_mode": "FULL_AND_PIECEWISE",
                     "vllm_pinned_backends": {
                         "gdn_prefill": "triton",
                         "attention": "TRITON_ATTN",

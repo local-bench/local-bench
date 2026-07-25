@@ -487,7 +487,8 @@ def test_launch_vllm_gdn_policy_pins_env_and_isolates_caches(
     assert "TRITON_PRINT_AUTOTUNING=1" in script
     assert "TRITON_CACHE_DIR=/tmp/localbench-triton-abc123" in script
     assert "TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-abc123" in script
-    assert "--enforce-eager" in script
+    # Cudagraphs stay ON (owner decision at gate 0: eager cost 2.65x decode).
+    assert "--enforce-eager" not in script
     assert "--gdn-prefill-backend triton" in script
     assert "--attention-backend TRITON_ATTN" in script
     assert "--linear-backend cutlass" in script

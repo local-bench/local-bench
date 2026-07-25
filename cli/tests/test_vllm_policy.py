@@ -93,13 +93,17 @@ def test_autotune_manifest_differs_when_a_config_changes() -> None:
 
 
 # When --attention-backend is pinned, 0.25.1 emits no selector line; the
-# affirmative evidence is the API server's non-default-args echo (verbatim
-# from the gate-0 log).
+# affirmative evidence is the API server's non-default-args echo plus the
+# resolved compilation config (both verbatim shapes from the gate-0 logs).
 _PINNED_ARGS_LINE = (
     "(APIServer pid=186592) INFO 07-26 08:24:36 [api_utils.py:273] non-default "
-    "args: {'return_tokens_as_token_ids': True, 'enforce_eager': True, "
+    "args: {'return_tokens_as_token_ids': True, "
     "'attention_backend': 'TRITON_ATTN', 'linear_backend': 'cutlass', "
     "'gdn_prefill_backend': 'triton'}\n"
+)
+_CUDAGRAPH_CONFIG_LINE = (
+    "(EngineCore pid=187246) INFO ... compilation_config={'mode': ..., "
+    "'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, ...}\n"
 )
 
 
@@ -107,15 +111,17 @@ def test_resolved_backends_fail_closed_until_all_facts_affirm() -> None:
     partial = parse_resolved_backends(
         "INFO [__init__.py:974] Using CutlassNvFp4LinearKernel for NVFP4 GEMM\n"
         + _PINNED_ARGS_LINE
+        + _CUDAGRAPH_CONFIG_LINE
     )
     assert partial.nvfp4_linear_kernel == "CutlassNvFp4LinearKernel"
     assert partial.attention_backend == "TRITON_ATTN"
-    assert partial.eager_mode is True
+    assert partial.cudagraph_mode == "FULL_AND_PIECEWISE"
     assert not partial.satisfied()  # GDN prefill line still missing
 
     complete = parse_resolved_backends(
         "INFO Using CutlassNvFp4LinearKernel for NVFP4 GEMM\n"
         + _PINNED_ARGS_LINE
+        + _CUDAGRAPH_CONFIG_LINE
         + "INFO [qwen_gdn_linear_attn.py:228] Using Triton/FLA GDN prefill "
         "kernel (requested=triton, head_k_dim=128).\n"
     )
@@ -124,19 +130,24 @@ def test_resolved_backends_fail_closed_until_all_facts_affirm() -> None:
     assert complete.as_json()["satisfied"] is True
 
 
-def test_resolved_backends_accept_auto_selector_line_too() -> None:
-    auto_style = parse_resolved_backends(
-        "INFO Using TRITON_ATTN attention backend out of potential backends\n"
-        "INFO Initializing ... enforce_eager=True, kv_cache_dtype=bfloat16\n"
+def test_resolved_backends_reject_eager_mode_resolution() -> None:
+    # An eager server resolves cudagraph_mode NONE — that is a backend
+    # mismatch under the graphs policy, not a pass.
+    eager = parse_resolved_backends(
+        "INFO Using CutlassNvFp4LinearKernel for NVFP4 GEMM\n"
+        + _PINNED_ARGS_LINE
+        + "INFO ... 'cudagraph_mode': <CUDAGraphMode.NONE: 0>, ...\n"
+        + "INFO Using Triton/FLA GDN prefill kernel (requested=triton).\n"
     )
-    assert auto_style.attention_backend == "TRITON_ATTN"
-    assert auto_style.eager_mode is True
+    assert eager.cudagraph_mode == "NONE"
+    assert not eager.satisfied()
 
 
 def test_resolved_backends_reject_wrong_kernel() -> None:
     wrong = parse_resolved_backends(
         "INFO Using FlashInferCutlassNvFp4LinearKernel for NVFP4 GEMM\n"
         + _PINNED_ARGS_LINE
+        + _CUDAGRAPH_CONFIG_LINE
         + "INFO Using Triton/FLA GDN prefill kernel (requested=triton).\n"
     )
     assert wrong.nvfp4_linear_kernel == "FlashInferCutlassNvFp4LinearKernel"
