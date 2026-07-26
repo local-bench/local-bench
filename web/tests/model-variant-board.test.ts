@@ -458,19 +458,9 @@ describe("model variant board runtime display", () => {
   });
 
   it("renders direct catalog provenance for a pending benchmark row", () => {
-    // Given a pending shell generated from a catalog artifact.
+    // Given a catalog artifact with no baked or live result for its exact sha.
     const base = fixtureModel();
-    const source = base.runs[0];
-    if (source === undefined) throw new Error("fixture missing run");
     const artifactSha256 = "c".repeat(64);
-    const pending: ModelData["runs"][number] = {
-      ...source,
-      axes: {},
-      composite: null,
-      quant_label: "Q5_K_M",
-      run_id: null,
-      score_status: "missing",
-    };
     const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
       artifactProvenanceBySha: {},
       artifactShaByRunId: {},
@@ -483,12 +473,11 @@ describe("model variant board runtime display", () => {
           repo_id: "pending-org/pending-repo",
           revision: "abcdef0123456789",
         }],
-        runs: [source, pending],
       },
     }));
     const pendingCells = rowCellsContaining(html, "no run yet");
 
-    // Then the pending row uses the catalog artifact directly and names its publisher.
+    // Then the pending row comes directly from that artifact and names its publisher.
     expect(pendingCells[1]).toContain(">by pending-org</a>");
   });
 

@@ -113,19 +113,10 @@ export function ModelVariantBoard({
   const effectiveBestIsLive = ranked[bestRankedIndex]?.kind === "community";
   const partial = rows.filter(isPartialVariantRow);
   const liveArtifactShas = new Set(communityRows.map((row) => row.artifactSha256));
-  const liveQuantLabels = new Set(communityRows.flatMap((row) => {
-    const quantLabel = artifactDetailsBySha.get(row.artifactSha256)?.quantLabel ?? row.quantLabel;
-    return quantLabel === null ? [] : [quantLabel];
-  }));
-  const pending = ownRows.filter((row) => {
-    if (row.run.composite !== null || row.run.score_status === "measured") return false;
-    const quantLabel = row.run.quant_label;
-    if (quantLabel === null) return true;
-    const artifact = catalogArtifactDetails.find((detail) => detail.quantLabel === quantLabel);
-    return artifact === undefined
-      ? !liveQuantLabels.has(quantLabel)
-      : !liveArtifactShas.has(artifact.artifactSha256);
-  });
+  const bakedArtifactShas = new Set(Object.values(artifactShaByRunId));
+  const pendingArtifacts = (model.artifacts ?? []).filter(
+    (artifact) => !bakedArtifactShas.has(artifact.file_sha256) && !liveArtifactShas.has(artifact.file_sha256),
+  );
   const hasPerf = rows.some((row) => variantRowPerf(row) !== undefined);
   const indexQualifier = rows.some((row) => variantRowHasAxis(row, "tool_use"))
     ? SEASON_2_INDEX_QUALIFIER
@@ -209,7 +200,7 @@ export function ModelVariantBoard({
             </tr>
           </thead>
           <tbody>
-            {ranked.length + partial.length + pending.length === 0 ? (
+            {ranked.length + partial.length + pendingArtifacts.length === 0 ? (
               <tr className="border-t border-bench-line/75">
                 <td colSpan={9 + axisKeys.length + (hasPerf ? 2 : 0)} className="px-3 py-5 text-sm text-bench-muted">
                   No current-index measurements yet.{" "}
@@ -358,18 +349,18 @@ export function ModelVariantBoard({
               </tr>
               );
             })}
-            {pending.map((row, index) => {
-              const run = row.run;
-              const decision = run.quant_label === null ? undefined : decisionByQuant.get(run.quant_label);
-              const catalogArtifact = run.quant_label === null
-                ? undefined
-                : model.artifacts?.find((artifact) => artifact.quant_label === run.quant_label);
-              const provenance = provenanceForSha(catalogArtifact?.file_sha256);
+            {pendingArtifacts.map((artifact) => {
+              const quantLabel = artifact.quant_label ?? null;
+              const decision = quantLabel === null ? undefined : decisionByQuant.get(quantLabel);
+              const provenance = provenanceForSha(artifact.file_sha256);
               return (
-                <tr key={`pending-${variantRowKey(row, index)}`} className="border-t border-bench-line/75 align-middle text-bench-muted">
+                <tr key={`pending-${artifact.file_sha256}`} className="border-t border-bench-line/75 align-middle text-bench-muted">
                   <td className="px-3 py-3 font-mono">—</td>
                   <td className="px-3 py-3">
-                    <VariantCell provenance={provenance} row={row} />
+                    <div className="flex min-w-[240px] flex-col gap-1">
+                      <span className="font-mono font-semibold text-bench-text">{quantLabel ?? "n/a"}</span>
+                      <ArtifactProvenanceLine provenance={provenance} />
+                    </div>
                   </td>
                   <td className="px-3 py-3">no run yet</td>
                   {axisKeys.map((axis) => (
@@ -377,15 +368,13 @@ export function ModelVariantBoard({
                       —
                     </td>
                   ))}
-                  <td className="px-3 py-3 font-mono"><VramAt8k run={run} /></td>
+                  <td className="px-3 py-3 font-mono">{formatVariantGb(artifact.vram_gb_8k)}</td>
                   <td className="px-3 py-3 font-mono">{formatFitTier(decision)}</td>
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   {hasPerf ? <td className="px-3 py-3" /> : null}
                   <td className="px-3 py-3">—</td>
-                  <td className="px-3 py-3 font-mono">{formatVariantGb(run.file_gb)}</td>
-                  <td className="px-3 py-3">
-                    <RuntimeCell run={run} />
-                  </td>
+                  <td className="px-3 py-3 font-mono">{formatVariantGb(artifact.file_gb)}</td>
+                  <td className="px-3 py-3"><span className="font-mono text-xs text-bench-muted">—</span></td>
                   <td className="px-3 py-3">
                     <Link href={`/submit/?model=${encodeURIComponent(model.slug)}`} className="font-mono text-xs text-bench-warn hover:underline">
                       benchmark it
