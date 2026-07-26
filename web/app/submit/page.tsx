@@ -74,7 +74,11 @@ export default function SubmitPage() {
           >
             Windows + WSL-engine coding sandbox guide
           </a>
-          ; use the WSL adapter IP, never localhost.
+          ; use the WSL adapter IP, never localhost. The Agentic axis on Windows runs inside a managed
+          WSL appliance — a pinned distribution the CLI provisions and verifies itself.{" "}
+          <code className="font-mono text-bench-text">localbench setup-agentic</code> prewarms it;{" "}
+          <code className="font-mono text-bench-text">localbench setup-agentic --reprovision</code>{" "}
+          rebuilds an appliance a previous run has already used.
         </p>
         <p>
           For the one-command path, put{" "}
@@ -123,6 +127,11 @@ export default function SubmitPage() {
           <code className="font-mono text-bench-text">--yes</code>,{" "}
           <code className="font-mono text-bench-text">--accept-suite-terms</code>, and{" "}
           <code className="font-mono text-bench-text">--no-submit</code>.
+        </p>
+        <p className="text-sm">
+          In a hurry? Add <code className="font-mono text-bench-text">--max-items 1</code> to exercise the full
+          pipeline — server launch, sandbox, scoring, evidence — on one item per benchmark in minutes. The run is
+          marked partial and cannot enter the ranking.
         </p>
 
         <h3 className="text-base font-semibold text-bench-text">3. Ranked submission</h3>

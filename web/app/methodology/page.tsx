@@ -441,6 +441,13 @@ export default async function MethodologyPage() {
           produce different bytes; the published evidence discloses the pin so that difference is inspectable rather
           than hidden.
         </p>
+        <p>
+          The canary itself is token-level and long-context aware: probes target rendered lengths of 128, 64 and 65
+          (straddling the GDN chunk boundary), 8k, 16k, 26624, and near the configured context — each within ±2 tokens
+          of target — with within-lifetime repeats, an A/B/A state-isolation re-probe, at most one bounded relaunch of
+          the scoring start, and post-score sentinel re-probes against the still-live scoring server. Provenance
+          additionally requires zero Triton JIT compilations during the scored phase.
+        </p>
       </section>
 
       <section className="space-y-4 text-bench-muted">
