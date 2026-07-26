@@ -378,6 +378,10 @@ export const ModelRunSchema = z.object({
 const ModelArtifactSchema = z.object({
   file_sha256: FullSha256Schema,
   file_gb: z.number().nullable().optional(),
+  filename: z.string().optional(),
+  quant_label: z.string().optional(),
+  repo_id: z.string().optional(),
+  revision: z.string().optional(),
   vram_gb_8k: z.number().nullable().optional(),
 }).passthrough();
 

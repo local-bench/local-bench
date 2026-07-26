@@ -1,0 +1,9 @@
+{
+  "33625d8dc3a5dd8d88c324d47db58561b11f7072816287078bfe58b4c55782f9": {
+    "filename": "Qwen3.6-27B-Q4_K_M.gguf",
+    "repo_id": "lmstudio-community/Qwen3.6-27B-GGUF",
+    "revision": "58c6607d9c4cae8b071b3781c73be633fb3dee36",
+    "verified": "hf-lfs-oid",
+    "verified_at": "2026-07-26"
+  }
+}

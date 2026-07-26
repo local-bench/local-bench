@@ -50,6 +50,10 @@ import { buildFamilyResolutionContext, resolveFamily } from "./family-resolution
 import { overlayLineageByArtifactSha } from "./overlay-lineage";
 import { estimateRunVram } from "./model-run-metrics";
 import { communityArtifactDetails, type CommunityArtifactDetail } from "./community-artifact-details";
+import {
+  ArtifactProvenanceRegistrySchema,
+  type ArtifactProvenanceRegistry,
+} from "./artifact-provenance";
 
 export {
   COMMUNITY_GROUP_PLACEHOLDER_ID,
@@ -86,6 +90,8 @@ type RunDetailWithConfiguredAxes = Omit<RunDetail, "axes"> & {
 export type ModelPageData = {
   readonly model: ModelDataWithConfiguredAxes;
   readonly anchorRuns: readonly AnchorReference[];
+  readonly artifactProvenanceBySha: ArtifactProvenanceRegistry;
+  readonly artifactShaByRunId: Record<string, string>;
   readonly catalogOnly: boolean;
   readonly familyModels: readonly ModelFamilyScatterModel[];
   readonly lineage: ModelLineage | null;
@@ -139,6 +145,10 @@ async function readJson<T>(segments: readonly string[], schema: ZodType<T>): Pro
   const file = await readFile(join(DATA_DIR, ...segments), "utf8");
   const parsed: unknown = JSON.parse(file);
   return schema.parse(parsed);
+}
+
+export async function getArtifactProvenanceRegistry(): Promise<ArtifactProvenanceRegistry> {
+  return readJson(["artifact-provenance.json"], ArtifactProvenanceRegistrySchema);
 }
 
 function sortByCompositeDesc(models: readonly IndexData["models"][number][]): IndexData["models"] {
@@ -231,6 +241,25 @@ export async function getRunData(runId: string): Promise<RunDetailWithConfigured
     lane: modelRun?.lane ?? run.manifest_summary.lane,
     score_status: modelRun?.score_status ?? "measured",
   } as RunDetailWithConfiguredAxes;
+}
+
+async function getArtifactShaByRunId(
+  models: readonly ModelDataWithConfiguredAxes[],
+): Promise<Record<string, string>> {
+  const runIds = [...new Set(models.flatMap((model) =>
+    model.runs.flatMap((run) => run.run_id === null ? [] : [run.run_id])
+  ))];
+  const entries = await Promise.all(runIds.map(async (runId): Promise<readonly [string, string] | null> => {
+    try {
+      const receipt = await readJson(["runs", `${runId}.json`], RunDetailSchema);
+      const artifactSha256 = receipt.manifest_summary.model.file_sha256;
+      return artifactSha256 === null ? null : [runId, artifactSha256];
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return null;
+      throw error;
+    }
+  }));
+  return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => entry !== null));
 }
 
 type CatalogFile = {
@@ -414,11 +443,12 @@ async function getModelFamilyScatterModels({
 }
 
 export async function getModelPageData(slug: string): Promise<ModelPageData> {
-  const [storedModel, anchorRuns, index, catalog] = await Promise.all([
+  const [storedModel, anchorRuns, index, catalog, artifactProvenanceBySha] = await Promise.all([
     getModelDataIfExists(slug),
     getAnchorReferences(),
     getIndexData(),
     getCatalogFile(),
+    getArtifactProvenanceRegistry(),
   ]);
   const byId = catalogModelMap(catalog.models);
   const catalogBySlug = catalog.models.find((entry) => entry.slug === slug);
@@ -452,9 +482,15 @@ export async function getModelPageData(slug: string): Promise<ModelPageData> {
     byId,
   });
   const familyModels = await getModelFamilyScatterModels({ byId, catalogEntry, catalogModels: catalog.models });
+  const artifactShaByRunId = await getArtifactShaByRunId([
+    model,
+    ...familyModels.map((entry) => entry.model),
+  ]);
   return {
     model,
     anchorRuns,
+    artifactProvenanceBySha,
+    artifactShaByRunId,
     catalogOnly: storedModel === null,
     familyModels,
     lineage,

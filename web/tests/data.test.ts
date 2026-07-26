@@ -163,6 +163,25 @@ describe("static data access", () => {
     expect(none.lineage).toBeNull();
   });
 
+  it("loads receipt artifact shas and the sha-verified provenance registry for model pages", async () => {
+    // Given the baked Qwen Q4_K_M run whose receipt identifies the lmstudio artifact.
+    const pageData = await getModelPageData("qwen3-6-27b");
+    const runId = "qwen3-6-27b__qwen3-6-27b-q4km-s2v5";
+    const artifactSha256 = "33625d8dc3a5dd8d88c324d47db58561b11f7072816287078bfe58b4c55782f9";
+
+    // Then the server payload carries only plain serializable records for the client board.
+    expect(pageData.artifactShaByRunId[runId]).toBe(artifactSha256);
+    expect(pageData.artifactProvenanceBySha[artifactSha256]).toMatchObject({
+      filename: "Qwen3.6-27B-Q4_K_M.gguf",
+      repo_id: "lmstudio-community/Qwen3.6-27B-GGUF",
+      revision: "58c6607d9c4cae8b071b3781c73be633fb3dee36",
+      verified: "hf-lfs-oid",
+      verified_at: "2026-07-26",
+    });
+    expect(JSON.parse(JSON.stringify(pageData.artifactShaByRunId))).toEqual(pageData.artifactShaByRunId);
+    expect(JSON.parse(JSON.stringify(pageData.artifactProvenanceBySha))).toEqual(pageData.artifactProvenanceBySha);
+  });
+
   it("builds vs-base comparisons from catalog lineage and measured board rows", async () => {
     const qwen = await getModelPageData("qwen3-6-27b");
     const qwenComparison = qwen.vsBaseComparisons.find(
