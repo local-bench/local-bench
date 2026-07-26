@@ -59,6 +59,10 @@ def test_policy_env_pins_are_disjoint_on_the_batch_invariant_marker() -> None:
     assert policy_env_pins(VLLM_BATCH_INVARIANT_POLICY_ID)["VLLM_BATCH_INVARIANT"] == "1"
     assert "VLLM_BATCH_INVARIANT" not in policy_env_pins(VLLM_GDN_POLICY_ID)
     assert policy_env_pins(VLLM_GDN_POLICY_ID)["TRITON_PRINT_AUTOTUNING"] == "1"
+    # v2: winner replay across the two canary starts requires persisting the
+    # autotune timings to the shared per-run Triton cache dir.
+    assert policy_env_pins(VLLM_GDN_POLICY_ID)["TRITON_CACHE_AUTOTUNING"] == "1"
+    assert VLLM_GDN_POLICY_ID == "vllm-gdn-structural-single-slot-graphs-v2"
 
 
 # Multi-line record format qualified live at gate 0 (vLLM 0.25.1, RTX 5090).

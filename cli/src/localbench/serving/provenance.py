@@ -427,9 +427,12 @@ def _gdn_blocking_reasons(evidence: ServingEvidence) -> list[str]:
             reasons.append("runtime.within_lifetime_repeat_mismatch")
         if canary.get("state_isolation_passed") is not True:
             reasons.append("runtime.state_isolation_mismatch")
-        if canary.get("autotune_manifest_start_a_sha256") in {None, ""} or canary.get(
-            "autotune_manifest_start_b_sha256"
-        ) in {None, ""}:
+        # Start A's manifest is the pinned, published kernel-selection input;
+        # it must exist. Start B replays it from the shared per-run disk
+        # cache (policy v2), so an absent start-B sha is the expected replay
+        # signature — the match gate (B's records are a subset of A's)
+        # carries the consistency requirement.
+        if canary.get("autotune_manifest_start_a_sha256") in {None, ""}:
             reasons.append("runtime.autotune_manifest_missing")
         elif canary.get("autotune_manifest_match") is not True:
             reasons.append("runtime.autotune_manifest_mismatch")

@@ -42,32 +42,45 @@ The vLLM lane selects one of two named policies from the snapshot's architecture
 - `vllm-batch-invariant-v1` — architectures vLLM supports under `VLLM_BATCH_INVARIANT=1`.
   Evidence: launch export, env allowlist, live `/proc` environ probe, and the affirmative
   batch-invariant kernel log line.
-- `vllm-gdn-structural-single-slot-graphs-v1` — GDN/linear-attention hybrids (e.g. Qwen3.6),
+- `vllm-gdn-structural-single-slot-graphs-v2` — GDN/linear-attention hybrids (e.g. Qwen3.6),
   which vLLM refuses to initialise batch-invariant. Claim: *empirically reproducible across
   clean process starts under structural single-slot execution with a pinned cudagraph
-  configuration on the recorded stack; not batch-invariant*. The lane pins
+  configuration and a pinned per-run Triton autotune manifest on the recorded stack; not
+  batch-invariant*. The lane pins
   `--gdn-prefill-backend triton`, `--attention-backend TRITON_ATTN`, `--linear-backend cutlass`,
   FlashInfer autotune and Mamba stochastic rounding off, `--jit-monitor-mode warn` (error mode
   is fatal on the first request: vLLM's warmup does not cover every shape — instead provenance
   requires ZERO JIT-during-inference events in the scored phase), zero multimodal limits
   (text-only lane; reclaims the vision-encoder profiling budget), plus `PYTHONHASHSEED=0`,
-  `CUBLAS_WORKSPACE_CONFIG=:4096:8`, the FLA_* precision pins, and per-start empty
-  Triton/Inductor caches. Cudagraphs stay enabled — the resolved
+  `CUBLAS_WORKSPACE_CONFIG=:4096:8`, the FLA_* precision pins, `TRITON_CACHE_AUTOTUNING=1`,
+  and per-run Triton/Inductor cache dirs that start empty at canary start A. Cudagraphs stay
+  enabled — the resolved
   `CUDAGraphMode.FULL_AND_PIECEWISE` is required as affirmative evidence (gate-0 measurement:
   eager execution cost 2.65x decode, 21 vs 57 tok/s at batch 1; owner-rejected). This policy is
   version-allowlisted (exactly vLLM 0.25.1); any other version refuses to run.
+
+  *Why v2:* v1 required both canary starts to re-derive identical autotune winners from cold
+  caches. Triton picks winners by wall-clock benchmarking, so that was a timing lottery —
+  observed live (2026-07-26): four FLA kernels selected different tile/warp configs across two
+  clean starts and cross-start token equality failed on real numeric divergence. v2 pins kernel
+  selection instead: start A benchmarks from empty caches and persists the winner timings;
+  start B shares the run's cache dirs and replays the identical winners. The manifest captured
+  at start A is published in provenance as a pinned input (like the cudagraph mode), and
+  cross-start byte equality then tests actual numerics under that pin.
 
 Under either policy the two-start canary now runs a token-level matrix — rendered input lengths
 128, 64, 65 (GDN chunk boundary), 8192, 16384, 26624, and near-`ctx`, each generating 64 tokens
 with logprob token evidence — with within-lifetime repeats and a short A/B/A state-isolation
 check. Start A qualifies and tears down; **start B must match start A token-for-token (and, for
-GDN, select identical Triton autotune configurations from a cold cache) and then stays alive as
+GDN, replay start A's persisted Triton autotune winners — any autotune record start B prints
+must be one start A also derived) and then stays alive as
 the scoring server.** One bounded relaunch retry is permitted for start B; the retry is recorded.
 After the scored suite, post-score sentinel canaries must reproduce start B's pre-score outputs.
 
 Migration note: 0.4.9 changes the vLLM server fingerprint/resume identity (the
 `flash_attention` component is now the policy label). vLLM runs started under 0.4.8 cannot be
-`--resume`d under 0.4.9.
+`--resume`d under 0.4.9. 0.4.11 replaces the GDN policy id with `...-v2` (autotune replay);
+GDN rows produced by 0.4.9/0.4.10 were never publishable and should be discarded, not resumed.
 
 ## Required preflight
 
@@ -100,8 +113,10 @@ record. Confirm them before continuing: execution profile
 `generic_think_tags_8192_v1`; server-reported vLLM version at least 0.24 (exactly 0.25.1 for the
 GDN policy); non-empty venv dependency-lock hash; matching tokenizer and applied-template hashes;
 parsed weights/KV memory evidence; `determinism.policy_id` matching the model's architecture;
-policy evidence (batch-invariant kernel line, or GDN resolved-backend affirmations + matching
-autotune manifests); and `two_start_canary_passed: true` with the full canary matrix present.
+policy evidence (batch-invariant kernel line, or GDN resolved-backend affirmations + a
+non-empty start-A autotune manifest with `autotune_manifest_match: true` — start B's manifest
+is expected to be empty under replay); and `two_start_canary_passed: true` with the full canary
+matrix present.
 Any missing value is a failed preflight, even if the server answered requests. Note the profile
 enforces a context floor of 26624; pass `--ctx 32768` for 32k-class snapshots.
 

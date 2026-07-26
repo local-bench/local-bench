@@ -160,7 +160,7 @@ def test_normalize_ephemeral_argv_masks_only_port_token() -> None:
 
 def _complete_gdn_canary_evidence() -> dict:
     return {
-        "policy_id": "vllm-gdn-structural-single-slot-graphs-v1",
+        "policy_id": "vllm-gdn-structural-single-slot-graphs-v2",
         "matrix": [
             {"label": label, "target_tokens": 0, "rendered_tokens": 0, "input_sha256": "a" * 64}
             for label in ("s128", "l64", "l65", "l8k", "l16k", "l26k", "lmax")
@@ -168,8 +168,11 @@ def _complete_gdn_canary_evidence() -> dict:
         "cross_start_passed": True,
         "within_lifetime_repeat_passed": True,
         "state_isolation_passed": True,
+        # v2 replay signature: start B replays start A's persisted winners,
+        # prints no autotune records, and publishes no start-B manifest.
         "autotune_manifest_start_a_sha256": "d" * 64,
-        "autotune_manifest_start_b_sha256": "d" * 64,
+        "autotune_manifest_start_b_sha256": None,
+        "autotune_start_b_records": 0,
         "autotune_manifest_match": True,
         "retry_count": 0,
         "jit_inference_events_at_qualification": 3,
@@ -219,6 +222,39 @@ def test_gdn_policy_swaps_the_batch_invariant_gates_for_gdn_gates(tmp_path: Path
 
     unlisted = serving_context(replace(incomplete, engine_version="0.24.0"))
     assert "runtime.gdn_policy_not_allowlisted" in unlisted.blocking_reasons
+
+
+def test_gdn_autotune_gate_blocks_on_mismatch_missing_and_unevaluated(tmp_path: Path) -> None:
+    from localbench.serving.vllm_policy import VLLM_GDN_POLICY_ID, policy_env_pins
+
+    base = serving_evidence(tmp_path, teardown_terminated=True)
+    gdn_env = policy_env_pins(VLLM_GDN_POLICY_ID)
+    complete = replace(
+        base,
+        runtime="vllm",
+        determinism_policy_id=VLLM_GDN_POLICY_ID,
+        env_allowlist=dict(gdn_env),
+        live_env=dict(gdn_env),
+        engine_version="0.25.1",
+        resolved_backends={"satisfied": True},
+        canary_evidence=_complete_gdn_canary_evidence(),
+        determinism_canary_passed=True,
+    )
+    assert "runtime.autotune_manifest_mismatch" not in serving_context(complete).blocking_reasons
+
+    def _with(canary_overrides: dict) -> list[str]:
+        return serving_context(
+            replace(complete, canary_evidence={**_complete_gdn_canary_evidence(), **canary_overrides})
+        ).blocking_reasons
+
+    # match=False (start B derived a selection outside A's manifest) and
+    # match=None (gate never evaluated) must both block; a missing start-A
+    # manifest blocks as missing regardless of the match flag.
+    assert "runtime.autotune_manifest_mismatch" in _with({"autotune_manifest_match": False})
+    assert "runtime.autotune_manifest_mismatch" in _with({"autotune_manifest_match": None})
+    assert "runtime.autotune_manifest_missing" in _with(
+        {"autotune_manifest_start_a_sha256": None, "autotune_manifest_match": True}
+    )
 
 
 def test_gdn_policy_object_carries_the_structural_claim(tmp_path: Path) -> None:

@@ -6,16 +6,29 @@ The vLLM maintainer lane runs under one of two named determinism policies:
   ``VLLM_BATCH_INVARIANT=1``. The full batch-invariant evidence web applies
   (launch export, env allowlist, live environ probe, affirmative kernel line).
 
-- ``vllm-gdn-structural-single-slot-graphs-v1``: GDN/linear-attention hybrid
+- ``vllm-gdn-structural-single-slot-graphs-v2``: GDN/linear-attention hybrid
   architectures (e.g. Qwen3.6), which vLLM refuses to initialise in
   batch-invariant mode. The policy makes a narrower public claim —
   empirically reproducible across clean process starts under structural
-  single-slot execution with a pinned cudagraph configuration on the
-  recorded stack; NOT batch-invariant — and compensates with pinned backend
-  resolution, autotune selection capture, and a long-context token-level
-  canary matrix. (An eager variant was measured at gate 0 and rejected by
-  the owner: 2.65x decode tax — 21 vs 57 tok/s at batch 1 — inverted the
-  engine-lane story; every empirical gate applies identically under graphs.)
+  single-slot execution with a pinned cudagraph configuration and a pinned
+  per-run Triton autotune manifest on the recorded stack; NOT
+  batch-invariant — and compensates with pinned backend resolution,
+  autotune winner capture + disk-cache replay, and a long-context
+  token-level canary matrix. (An eager variant was measured at gate 0 and
+  rejected by the owner: 2.65x decode tax — 21 vs 57 tok/s at batch 1 —
+  inverted the engine-lane story; every empirical gate applies identically
+  under graphs.)
+
+  v1 -> v2: v1 required both starts to re-derive identical autotune winners
+  from cold caches. Triton selects winners by wall-clock benchmarking, so
+  that requirement is a timing lottery — observed live 2026-07-26: four FLA
+  kernels picked different tile/warp configs across two clean starts and
+  cross-start token equality failed. v2 pins kernel selection instead:
+  start A benchmarks once and persists winner timings via
+  ``TRITON_CACHE_AUTOTUNING=1``; start B shares the run's cache dirs and
+  replays the identical winners, making the manifest a pinned, PUBLISHED
+  input (like the cudagraph mode) rather than a re-derived one. Cross-start
+  byte equality then tests actual numerics.
 
 Policy selection is architecture-based via the snapshot config. Multimodal
 wrapper configs nest the LM fields under ``text_config``; every consumer of
@@ -34,7 +47,7 @@ from pathlib import Path
 from localbench._types import JsonObject
 
 VLLM_BATCH_INVARIANT_POLICY_ID = "vllm-batch-invariant-v1"
-VLLM_GDN_POLICY_ID = "vllm-gdn-structural-single-slot-graphs-v1"
+VLLM_GDN_POLICY_ID = "vllm-gdn-structural-single-slot-graphs-v2"
 
 # The cudagraph mode the allowlisted stack resolves for this lane's serve
 # config (qualified live at gate 0, vLLM 0.25.1). Any other resolved mode is
@@ -55,9 +68,9 @@ BATCH_INVARIANT_CLAIM = (
 )
 GDN_STRUCTURAL_CLAIM = (
     "empirically reproducible across clean process starts under structural "
-    "single-slot execution with a pinned cudagraph configuration on the "
-    "recorded stack; not vLLM batch-invariant and not cross-stack bitwise "
-    "deterministic"
+    "single-slot execution with a pinned cudagraph configuration and a "
+    "pinned per-run Triton autotune manifest on the recorded stack; not "
+    "vLLM batch-invariant and not cross-stack bitwise deterministic"
 )
 
 
@@ -154,8 +167,8 @@ GDN_REQUIRED_FLAGS: frozenset[str] = frozenset(
 )
 
 # Environment pinned into the server process under the GDN policy, verified
-# live via /proc/<pid>/environ. Per-start cache isolation dirs are derived
-# from the run token at launch time and are deliberately NOT part of this
+# live via /proc/<pid>/environ. Per-run cache dirs are derived from the
+# canary cache token at launch time and are deliberately NOT part of this
 # fingerprintable allowlist.
 GDN_ENV_PINS: dict[str, str] = {
     "CUDA_VISIBLE_DEVICES": "0",
@@ -165,6 +178,12 @@ GDN_ENV_PINS: dict[str, str] = {
     "FLA_USE_CUDA_GRAPH": "0",
     "FLA_USE_TMA": "0",
     "TRITON_PRINT_AUTOTUNING": "1",
+    # Persist autotune winner timings to TRITON_CACHE_DIR so canary start B
+    # (sharing the run's cache dirs) replays start A's winners instead of
+    # re-rolling the benchmark lottery. Winner selection is timing-based;
+    # without replay, independent cold starts legitimately pick different
+    # tile/warp configs and cross-start equality is unattainable by design.
+    "TRITON_CACHE_AUTOTUNING": "1",
 }
 
 BATCH_INVARIANT_ENV_PINS: dict[str, str] = {

@@ -89,6 +89,7 @@ from localbench.serving.vllm import (
     parse_vllm_startup_log,
     read_live_process_environment_map,
     refresh_vllm_process_ownership,
+    remove_vllm_cache_dirs,
     validate_vllm_argv,
     vllm_serve_argv,
     wsl_path,
@@ -1278,10 +1279,19 @@ async def _run_vllm_determinism_canary(
     root: Path,
 ) -> _VllmCanaryOutcome:
     """Two-start qualification: start A qualifies and tears down; start B runs
-    the identical sequence, must match A token-for-token (and, under the GDN
-    policy, must select identical autotune configurations from a cold cache),
-    and then STAYS ALIVE as the scoring server."""
+    the identical sequence, must match A token-for-token, and then STAYS
+    ALIVE as the scoring server.
+
+    Under the GDN policy the two starts share one per-canary JIT/autotune
+    cache: start A benchmarks from empty caches and persists the Triton
+    autotune winners (TRITON_CACHE_AUTOTUNING=1); start B replays them from
+    disk. Winner selection is wall-clock-benchmark based, so requiring two
+    independent cold starts to re-derive identical winners was a timing
+    lottery (observed live 2026-07-26: four FLA kernels diverged). The
+    manifest captured at start A is the published, pinned kernel-selection
+    input; cross-start byte equality then tests numerics under that pin."""
     gdn = config.policy_id == VLLM_GDN_POLICY_ID
+    cache_token = uuid.uuid4().hex if gdn else None
 
     # launch_vllm opens logs in append mode and these paths are stable inside
     # the run dir: on --resume, stale content would poison the autotune
@@ -1301,11 +1311,20 @@ async def _run_vllm_determinism_canary(
             seed=config.seed,
         )
 
-    # --- Start A: independent qualification process ---
+    def _abort_cache_cleanup() -> None:
+        # Abort path only: on success the shared per-canary cache dirs stay
+        # until the scoring server's final teardown removes them. rm -rf is
+        # idempotent, so a redundant call is harmless.
+        if cache_token is not None:
+            remove_vllm_cache_dirs(config.distro, cache_token)
+
+    # --- Start A: qualification process; persists the autotune winners ---
     start_a_log = root / "determinism-canary-start-1.log"
     launched_a = adapter.launch(
-        replace(config, run_token=uuid.uuid4().hex), log_path=start_a_log
+        replace(config, run_token=uuid.uuid4().hex, cache_token=cache_token),
+        log_path=start_a_log,
     )
+    completed_a = False
     try:
         await _readiness(config.port)
         async with httpx.AsyncClient(
@@ -1319,135 +1338,196 @@ async def _run_vllm_determinism_canary(
         probes = {probe.label: probe for probe in probe_list}
         order = _canary_request_order(probe_list)
         observations_a = await _run_canary_sequence(config, probes, order)
+        completed_a = True
     finally:
         try:
-            teardown_a = adapter.teardown(launched_a)
+            # On success, keep the shared cache dirs: start B replays start
+            # A's persisted autotune winners from them.
+            teardown_a = adapter.teardown(launched_a, remove_caches=not completed_a)
         finally:
             launched_a.close_log()
-    _require_clean_canary_teardown("vLLM", 1, teardown_a)
+    try:
+        _require_clean_canary_teardown("vLLM", 1, teardown_a)
+    except BaseException:
+        _abort_cache_cleanup()
+        raise
     gates_a = _sequence_gates(observations_a)
-    manifest_a = autotune_manifest_sha256(_canary_log_selections(start_a_log))
+    selections_a = _canary_log_selections(start_a_log)
+    manifest_a = autotune_manifest_sha256(selections_a)
+    # Published so a third party can verify the pinned manifest against the
+    # start-1 log rather than trusting the attested sha alone (review F5).
+    start_a_log_sha256 = (
+        hashlib.sha256(start_a_log.read_bytes()).hexdigest()
+        if start_a_log.is_file()
+        else None
+    )
 
     # --- Start B: qualified scoring process (bounded retry: one relaunch) ---
+    # Every failure exit below shares one abort obligation: remove the
+    # per-canary cache dirs (review F2 — a start-B launch failure previously
+    # orphaned start A's populated caches). The success return is unaffected:
+    # the live scoring server still owns the dirs and its final teardown
+    # removes them.
     serve_log = root / "serve.log"
     retry_count = 0
     last_failure = ""
-    for attempt in (1, 2):
-        if attempt == 2 and serve_log.is_file():
-            # replace(), not rename(): rename raises on Windows when the
-            # destination exists (a previously-burned retry).
-            serve_log.replace(root / "determinism-canary-start-2-attempt-1.log")
-        launched_b = adapter.launch(
-            replace(config, run_token=uuid.uuid4().hex), log_path=serve_log
-        )
-        try:
-            readiness_b = await _readiness(config.port)
-            observations_b = await _run_canary_sequence(config, probes, order)
-        except BaseException:
+    try:
+        for attempt in (1, 2):
+            if attempt == 2 and serve_log.is_file():
+                # replace(), not rename(): rename raises on Windows when the
+                # destination exists (a previously-burned retry).
+                serve_log.replace(root / "determinism-canary-start-2-attempt-1.log")
+            launched_b = adapter.launch(
+                replace(config, run_token=uuid.uuid4().hex, cache_token=cache_token),
+                log_path=serve_log,
+            )
             try:
-                adapter.teardown(launched_b)
+                readiness_b = await _readiness(config.port)
+                observations_b = await _run_canary_sequence(config, probes, order)
+            except BaseException:
+                try:
+                    adapter.teardown(launched_b)
+                finally:
+                    launched_b.close_log()
+                raise
+            gates_b = _sequence_gates(observations_b)
+            cross_start = all(
+                _observation_equal(observations_a[position], observations_b[position])
+                for position, _ in order
+            )
+            serve_text = (
+                serve_log.read_text(encoding="utf-8", errors="replace")
+                if serve_log.is_file()
+                else ""
+            )
+            selections_b = extract_autotune_selections(serve_text)
+            manifest_b = autotune_manifest_sha256(selections_b)
+            # A raw record the parser failed to reassemble would otherwise
+            # shrink the subset silently (review F4). One record per line
+            # per tuning key: Triton's in-memory cache prevents duplicate
+            # prints within a process lifetime, so a count mismatch only
+            # ever fails closed.
+            raw_records_b = serve_text.count("Triton autotuning for ")
+            manifest_match: bool | None = None
+            if gdn:
+                # Start B replays start A's persisted winners from the shared
+                # disk cache, so it normally prints NO autotune records (empty
+                # manifest — that is the expected replay signature). Any record
+                # it does print (a re-benchmarked kernel, e.g. one whose configs
+                # the Triton disk cache cannot serialize) must be one start A
+                # also derived: a record outside start A's manifest means the
+                # scoring process selected a kernel configuration qualification
+                # never saw.
+                manifest_match = (
+                    manifest_a is not None
+                    and set(selections_b) <= set(selections_a)
+                    and raw_records_b == len(selections_b)
+                )
+            qualified = (
+                cross_start
+                and gates_b.get("within_lifetime_repeat_passed") is not False
+                and gates_b.get("state_isolation_passed") is not False
+                and (manifest_match is not False)
+            )
+            if qualified:
+                min_gaps = [
+                    observation.get("min_top1_top2_logprob_gap")
+                    for observation in (*observations_a.values(), *observations_b.values())
+                ]
+                numeric_gaps = [gap for gap in min_gaps if isinstance(gap, (int, float))]
+                jit_at_qualification = len(extract_jit_inference_events(serve_text))
+                evidence: JsonObject = {
+                    "policy_id": config.policy_id,
+                    "matrix": [
+                        {
+                            "label": probe.label,
+                            "target_tokens": probe.target_tokens,
+                            "rendered_tokens": probe.rendered_tokens,
+                            "input_sha256": hashlib.sha256(
+                                probe.content.encode("utf-8")
+                            ).hexdigest(),
+                        }
+                        for probe in probe_list
+                    ],
+                    "skipped": skipped,
+                    "request_order": [position for position, _ in order],
+                    "max_tokens_per_probe": _CANARY_MAX_TOKENS,
+                    "cross_start_passed": True,
+                    # Tri-state, never coerced: None means the probes a gate
+                    # needs were skipped (e.g. template floor above the short
+                    # target). Publishing True for a gate that never ran would
+                    # fabricate evidence; provenance blocks on anything not True.
+                    "within_lifetime_repeat_passed": _combine_gate(
+                        gates_a.get("within_lifetime_repeat_passed"),
+                        gates_b.get("within_lifetime_repeat_passed"),
+                    ),
+                    "state_isolation_passed": _combine_gate(
+                        gates_a.get("state_isolation_passed"),
+                        gates_b.get("state_isolation_passed"),
+                    ),
+                    # Start A's manifest is the published, pinned
+                    # kernel-selection input. Start B replays it from the
+                    # shared disk cache, so a None start-B sha with zero
+                    # records is the expected replay signature, not missing
+                    # evidence.
+                    "autotune_manifest_start_a_sha256": manifest_a,
+                    "autotune_manifest_start_b_sha256": manifest_b,
+                    "autotune_start_b_records": len(selections_b),
+                    "autotune_manifest_match": manifest_match,
+                    "canary_start_1_log_sha256": start_a_log_sha256,
+                    "retry_count": retry_count,
+                    "min_top1_top2_logprob_gap": (
+                        min(numeric_gaps) if numeric_gaps else None
+                    ),
+                    "jit_inference_events_at_qualification": jit_at_qualification,
+                    "jit_inference_events_during_scoring": None,
+                    "post_score_passed": None,
+                    "scored_process_is_canary_start_b": True,
+                }
+                return _VllmCanaryOutcome(
+                    launched=launched_b,
+                    readiness=readiness_b,
+                    evidence=evidence,
+                    probes=probes,
+                    baseline={
+                        label: observations_b[f"{label}#1"]
+                        for label in probes
+                        if f"{label}#1" in observations_b
+                    },
+                    serve_log=serve_log,
+                )
+            last_failure = (
+                f"cross_start={cross_start}, gates_a={gates_a}, gates_b={gates_b}, "
+                f"autotune_manifest_match={manifest_match}, "
+                f"autotune_start_b_records={len(selections_b)}, "
+                f"autotune_raw_records_start_b={raw_records_b}"
+            )
+            try:
+                # Keep the caches across the bounded retry: the relaunch must
+                # replay the same pinned manifest, not re-tune.
+                teardown_b = adapter.teardown(launched_b, remove_caches=False)
             finally:
                 launched_b.close_log()
-            raise
-        gates_b = _sequence_gates(observations_b)
-        cross_start = all(
-            _observation_equal(observations_a[position], observations_b[position])
-            for position, _ in order
-        )
-        manifest_b = autotune_manifest_sha256(_canary_log_selections(serve_log))
-        manifest_match: bool | None = None
-        if gdn:
-            manifest_match = (
-                manifest_a is not None
-                and manifest_b is not None
-                and manifest_a == manifest_b
-            )
-        qualified = (
-            cross_start
-            and gates_b.get("within_lifetime_repeat_passed") is not False
-            and gates_b.get("state_isolation_passed") is not False
-            and (manifest_match is not False)
-        )
-        if qualified:
-            min_gaps = [
-                observation.get("min_top1_top2_logprob_gap")
-                for observation in (*observations_a.values(), *observations_b.values())
-            ]
-            numeric_gaps = [gap for gap in min_gaps if isinstance(gap, (int, float))]
-            jit_at_qualification = len(
-                extract_jit_inference_events(
-                    serve_log.read_text(encoding="utf-8", errors="replace")
-                    if serve_log.is_file()
-                    else ""
+            _require_clean_canary_teardown("vLLM", 2, teardown_b)
+            if gdn and manifest_match is False:
+                # Non-retryable (review F1): attempt 1's re-benchmark
+                # PERSISTED its divergent winner into the shared disk cache,
+                # so a relaunch would replay that winner, print zero records,
+                # and pass the subset gate vacuously — the retry would
+                # launder the exact mismatch this gate exists to catch.
+                raise RuntimeError(
+                    "vLLM determinism canary failed: start B derived an "
+                    "autotune selection outside start A's pinned manifest "
+                    "(non-retryable): " + last_failure
                 )
-            )
-            evidence: JsonObject = {
-                "policy_id": config.policy_id,
-                "matrix": [
-                    {
-                        "label": probe.label,
-                        "target_tokens": probe.target_tokens,
-                        "rendered_tokens": probe.rendered_tokens,
-                        "input_sha256": hashlib.sha256(
-                            probe.content.encode("utf-8")
-                        ).hexdigest(),
-                    }
-                    for probe in probe_list
-                ],
-                "skipped": skipped,
-                "request_order": [position for position, _ in order],
-                "max_tokens_per_probe": _CANARY_MAX_TOKENS,
-                "cross_start_passed": True,
-                # Tri-state, never coerced: None means the probes a gate
-                # needs were skipped (e.g. template floor above the short
-                # target). Publishing True for a gate that never ran would
-                # fabricate evidence; provenance blocks on anything not True.
-                "within_lifetime_repeat_passed": _combine_gate(
-                    gates_a.get("within_lifetime_repeat_passed"),
-                    gates_b.get("within_lifetime_repeat_passed"),
-                ),
-                "state_isolation_passed": _combine_gate(
-                    gates_a.get("state_isolation_passed"),
-                    gates_b.get("state_isolation_passed"),
-                ),
-                "autotune_manifest_start_a_sha256": manifest_a,
-                "autotune_manifest_start_b_sha256": manifest_b,
-                "autotune_manifest_match": manifest_match,
-                "retry_count": retry_count,
-                "min_top1_top2_logprob_gap": (
-                    min(numeric_gaps) if numeric_gaps else None
-                ),
-                "jit_inference_events_at_qualification": jit_at_qualification,
-                "jit_inference_events_during_scoring": None,
-                "post_score_passed": None,
-                "scored_process_is_canary_start_b": True,
-            }
-            return _VllmCanaryOutcome(
-                launched=launched_b,
-                readiness=readiness_b,
-                evidence=evidence,
-                probes=probes,
-                baseline={
-                    label: observations_b[f"{label}#1"]
-                    for label in probes
-                    if f"{label}#1" in observations_b
-                },
-                serve_log=serve_log,
-            )
-        last_failure = (
-            f"cross_start={cross_start}, gates_a={gates_a}, gates_b={gates_b}, "
-            f"autotune_manifest_match={manifest_match}"
+            retry_count += 1
+        raise RuntimeError(
+            "vLLM determinism canary failed after a bounded relaunch retry: "
+            + last_failure
         )
-        try:
-            teardown_b = adapter.teardown(launched_b)
-        finally:
-            launched_b.close_log()
-        _require_clean_canary_teardown("vLLM", 2, teardown_b)
-        retry_count += 1
-    raise RuntimeError(
-        "vLLM determinism canary failed after a bounded relaunch retry: "
-        + last_failure
-    )
+    except BaseException:
+        _abort_cache_cleanup()
+        raise
 
 
 async def _run_vllm_post_score_sentinels(

@@ -51,6 +51,11 @@ class VllmLaunchConfig:
     run_token: str
     expected_executable: str
     policy_id: str = VLLM_BATCH_INVARIANT_POLICY_ID
+    # Shared JIT/autotune cache identity for the two-start canary: both
+    # starts of one canary pass the same token so start B replays start A's
+    # persisted autotune winners (TRITON_CACHE_AUTOTUNING). None falls back
+    # to run_token (per-start isolation, the non-canary default).
+    cache_token: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +125,7 @@ class LaunchedVllmServer:
     expected_executable: str
     token_executable: str
     leader_pin: ProcessPin
+    cache_token: str = ""
     captured_processes: dict[int, ProcessPin] = field(default_factory=dict)
 
     def close_log(self) -> None:
@@ -156,8 +162,10 @@ class VllmAdapter:
             seed=seed,
         )
 
-    def teardown(self, server: LaunchedVllmServer) -> TeardownEvidence:
-        result = teardown_vllm(server)
+    def teardown(
+        self, server: LaunchedVllmServer, *, remove_caches: bool = True
+    ) -> TeardownEvidence:
+        result = teardown_vllm(server, remove_caches=remove_caches)
         return TeardownEvidence(
             owned_process_tree=[str(value) for value in result["owned_process_tree"]],
             terminated=result["terminated"] is True,
@@ -362,12 +370,16 @@ def launch_vllm(config: VllmLaunchConfig, *, log_path: Path) -> LaunchedVllmServ
         f"{name}={shlex.quote(value)}" for name, value in sorted(env_pins.items())
     )
     cache_isolation = ""
+    cache_token = config.cache_token or config.run_token
     if config.policy_id == VLLM_GDN_POLICY_ID:
-        # Per-start empty JIT/autotune caches: cross-start manifest equality is
-        # only evidence when both starts autotuned from scratch.
+        # Per-RUN JIT/autotune caches, empty at canary start A: start A
+        # benchmarks and persists the autotune winners
+        # (TRITON_CACHE_AUTOTUNING=1); start B shares the same dirs and
+        # replays them, so the manifest is a pinned per-run input rather
+        # than a per-start timing lottery.
         cache_isolation = (
-            f"export TRITON_CACHE_DIR=/tmp/localbench-triton-{config.run_token} "
-            f"TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-{config.run_token}; "
+            f"export TRITON_CACHE_DIR=/tmp/localbench-triton-{cache_token} "
+            f"TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-{cache_token}; "
         )
     venv_bin = shlex.quote(config.vllm_bin.rsplit("/", 1)[0])
     inner = (
@@ -428,11 +440,33 @@ def launch_vllm(config: VllmLaunchConfig, *, log_path: Path) -> LaunchedVllmServ
         expected_executable,
         token_executable,
         leader_pin,
-        {leader_pin.pid: leader_pin},
+        cache_token=cache_token,
+        captured_processes={leader_pin.pid: leader_pin},
     )
 
 
-def teardown_vllm(server: LaunchedVllmServer, *, timeout_seconds: float = 30.0) -> JsonObject:
+def remove_vllm_cache_dirs(distro: str, cache_token: str) -> None:
+    """Remove the per-run JIT/autotune cache dirs for a cache token."""
+    if not cache_token:
+        return
+    _run_wsl(
+        distro,
+        [
+            "rm",
+            "-rf",
+            f"/tmp/localbench-triton-{cache_token}",
+            f"/tmp/localbench-inductor-{cache_token}",
+        ],
+        check=False,
+    )
+
+
+def teardown_vllm(
+    server: LaunchedVllmServer,
+    *,
+    timeout_seconds: float = 30.0,
+    remove_caches: bool = True,
+) -> JsonObject:
     captured = _capture_owned_processes(server)
     owned = [str(pid) for pid in sorted(captured)]
     signaled = _signal_verified(server, captured, "TERM")
@@ -458,16 +492,10 @@ def teardown_vllm(server: LaunchedVllmServer, *, timeout_seconds: float = 30.0) 
         ["rm", "-f", server.pid_file, server.token_executable],
         check=False,
     )
-    _run_wsl(
-        server.distro,
-        [
-            "rm",
-            "-rf",
-            f"/tmp/localbench-triton-{server.run_token}",
-            f"/tmp/localbench-inductor-{server.run_token}",
-        ],
-        check=False,
-    )
+    if remove_caches:
+        # remove_caches=False preserves the shared per-run autotune cache
+        # between canary start A's teardown and start B's replay launch.
+        remove_vllm_cache_dirs(server.distro, server.cache_token or server.run_token)
     return {
         "owned_process_tree": owned,
         "terminated": signaled and server.process.poll() is not None and not residual,

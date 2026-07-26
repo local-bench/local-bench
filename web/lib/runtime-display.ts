@@ -43,6 +43,11 @@ const DETERMINISM_POLICY_RE = /determinism_policy=(\S+)/u;
 const POLICY_SHORT_LABELS: Readonly<Record<string, string>> = {
   "vllm-batch-invariant-v1": "batch-invariant",
   "vllm-gdn-structural-single-slot-graphs-v1": "GDN graphs v1",
+  // v2 (0.4.11): kernel selection pinned via per-run Triton autotune replay
+  // instead of requiring independent cold starts to win the same benchmark
+  // lottery. No v1 rows were ever published (0.4.9 yanked, 0.4.10 canary
+  // unpassable); the v1 label stays only so any stray artifact renders.
+  "vllm-gdn-structural-single-slot-graphs-v2": "GDN graphs v2",
 };
 
 // vLLM rows run under a named determinism policy (0.4.9+). Surface it on the

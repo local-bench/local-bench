@@ -485,8 +485,22 @@ def test_launch_vllm_gdn_policy_pins_env_and_isolates_caches(
     assert "CUBLAS_WORKSPACE_CONFIG=" in script
     assert "FLA_TRIL_PRECISION=ieee" in script
     assert "TRITON_PRINT_AUTOTUNING=1" in script
+    # Autotune winners persist to the cache dir so canary start B replays
+    # start A's kernel selections instead of re-rolling the timing lottery.
+    assert "TRITON_CACHE_AUTOTUNING=1" in script
     assert "TRITON_CACHE_DIR=/tmp/localbench-triton-abc123" in script
     assert "TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-abc123" in script
+
+    # A shared canary cache token overrides the per-start run token in the
+    # cache dir paths (and only there) and is carried on the server handle.
+    shared = dc_replace(config, cache_token="sharedcanary")
+    launched_shared = vllm.launch_vllm(shared, log_path=tmp_path / "serve2.log")
+    launched_shared.close_log()
+    script_shared = captured[-1]
+    assert "TRITON_CACHE_DIR=/tmp/localbench-triton-sharedcanary" in script_shared
+    assert "TORCHINDUCTOR_CACHE_DIR=/tmp/localbench-inductor-sharedcanary" in script_shared
+    assert "LOCALBENCH_RUN_TOKEN=abc123" in script_shared
+    assert launched_shared.cache_token == "sharedcanary"
     # Cudagraphs stay ON (owner decision at gate 0: eager cost 2.65x decode).
     assert "--enforce-eager" not in script
     assert "--gdn-prefill-backend triton" in script
@@ -779,6 +793,45 @@ def test_descendant_in_separate_group_is_start_time_verified_and_signaled(
     assert [command for command in commands if command[0] == "kill"] == [
         ["kill", "-TERM", "--", "-111"],
         ["kill", "-TERM", "444"],
+    ]
+
+
+def test_teardown_cache_removal_is_gated_and_keyed_by_cache_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Process:
+        def poll(self):
+            return 0
+
+    def run(remove_caches: bool, cache_token: str) -> list[list[str]]:
+        commands: list[list[str]] = []
+        _synthetic_proc(monkeypatch, {}, commands)
+        monkeypatch.setattr(vllm, "_gpu_pids", lambda _distro: [])
+        server = _launched_server(Process())
+        server.cache_token = cache_token
+        vllm.teardown_vllm(server, timeout_seconds=0, remove_caches=remove_caches)
+        return [command for command in commands if command[:2] == ["rm", "-rf"]]
+
+    # remove_caches=False (canary start A) preserves the shared autotune
+    # cache dirs for start B's replay; the default removes them, keyed by
+    # the shared cache token rather than the per-start run token.
+    assert run(False, "sharedcanary") == []
+    assert run(True, "sharedcanary") == [
+        [
+            "rm",
+            "-rf",
+            "/tmp/localbench-triton-sharedcanary",
+            "/tmp/localbench-inductor-sharedcanary",
+        ]
+    ]
+    # Without a cache token the dirs fall back to the run token.
+    assert run(True, "") == [
+        [
+            "rm",
+            "-rf",
+            "/tmp/localbench-triton-abc123",
+            "/tmp/localbench-inductor-abc123",
+        ]
     ]
 
 
