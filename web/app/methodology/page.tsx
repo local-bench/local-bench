@@ -421,7 +421,25 @@ export default async function MethodologyPage() {
           A vLLM receipt pins the Hugging Face repository and full 40-character revision, the snapshot Merkle identity
           and per-file hashes, the server-reported engine version and dependency identity, a two-start determinism
           canary with engine-log evidence, and the declared model, KV-cache, and Mamba SSM-state dtypes. Its reproduction
-          form is <span className="font-mono text-bench-text">localbench bench --runtime vllm --model-ref hf://&lt;repo&gt;@&lt;revision&gt;</span>.
+          form is <span className="font-mono text-bench-text">localbench bench --runtime vllm --model-ref hf://&lt;repo&gt;@&lt;revision&gt; --hf-model-id &lt;repo&gt;</span>{" "}
+          (run <span className="font-mono text-bench-text">localbench cache-tokenizer &lt;repo&gt;</span> first; the
+          execution profile enforces a context floor of 26624).
+        </p>
+        <p>
+          Every vLLM row runs under a named determinism policy, shown on the board next to the engine.{" "}
+          <span className="font-mono text-bench-text">batch-invariant</span> rows run with{" "}
+          <span className="font-mono text-bench-text">VLLM_BATCH_INVARIANT=1</span> and claim best-effort same-stack
+          reproducibility. GDN/linear-attention hybrids (for example Qwen3.6), which vLLM refuses to initialise in
+          batch-invariant mode, run instead under{" "}
+          <span className="font-mono text-bench-text">GDN graphs v2</span>: a narrower, honestly scoped claim —
+          empirically reproducible across clean process starts under structural single-slot execution with a pinned
+          cudagraph configuration and a pinned per-run Triton autotune manifest on the recorded stack. It is not
+          batch-invariant and not cross-stack bitwise deterministic. Kernel autotuning selects winners by wall-clock
+          benchmarking, so the run pins them: the first canary start derives the winners and publishes the manifest
+          hash (plus the full start-1 log hash), and the scoring server replays exactly those winners. A fresh
+          reproduction on other hardware — or even a fresh cold start — may legitimately tune different winners and
+          produce different bytes; the published evidence discloses the pin so that difference is inspectable rather
+          than hidden.
         </p>
       </section>
 
