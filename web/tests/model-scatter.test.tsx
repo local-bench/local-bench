@@ -306,8 +306,11 @@ describe("ModelScatter family points", () => {
     }));
 
     // Then: metric availability affects only the scatter projection.
-    expect(boardHtml).toContain("Community Tune");
-    expect(boardHtml).toContain('href="/model/community-tune/"');
+    expect(boardHtml).toContain("Q2_K");
+    expect(boardHtml).toContain(
+      'href="/submission/?id=ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+    );
+    expect(boardHtml).not.toContain('href="/model/community-tune/"');
     expect(scatterHtml).not.toContain('data-point-kind="community"');
     expect(scatterHtml).not.toContain("Community Tune");
     expect(scatterHtml).not.toContain('href="/model/community-tune/"');

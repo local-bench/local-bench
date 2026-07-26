@@ -276,17 +276,220 @@ describe("model variant board runtime display", () => {
       communityRows: [communityRow],
       model: fixtureModel(),
     }));
-    const communityCells = rowCellsContaining(html, "Community Tune");
+    const communityCells = rowCellsContaining(html, communityRow.submissionId);
     const bakedCells = rowCellsContaining(html, "fixture-run");
 
     // Then: the community result is ranked directly against the baked run, uses display-scale
-    // scores, links to its existing detail page, and keeps the canonical provenance label.
+    // scores, avoids a circular own-model link, and keeps the canonical provenance label.
     expect(communityCells[0]).toContain("1");
-    expect(communityCells[1]).toContain('href="/model/community-tune/"');
+    expect(communityCells[1]).not.toContain('href="/model/community-tune/"');
     expect(communityCells[1]).toContain(">self-reported</span>");
     expect(communityCells[2]).toContain("96.0");
     expect(communityCells[3]).toContain("42.0");
     expect(bakedCells[0]).toContain("2");
+  });
+
+  it("moves the only best badge to a live row that outranks the baked winner", () => {
+    // Given a live row in the same season with a higher comparable score.
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [fixtureCommunityRow({ compositeFull: 0.96 })],
+      model: fixtureModel(),
+    }));
+    const communityCells = rowCellsContaining(html, "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    const bakedCells = rowCellsContaining(html, "fixture-run");
+
+    // Then the table has exactly one best badge, on the live winner.
+    expect(html.match(/>best<\/span>/gu)).toHaveLength(1);
+    expect(communityCells[1]).toContain(">best</span>");
+    expect(bakedCells[1]).not.toContain(">best</span>");
+  });
+
+  it("keeps the best badge on the top baked row when no live row is present", () => {
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, { model: fixtureModel() }));
+    const bakedCells = rowCellsContaining(html, "fixture-run");
+
+    expect(html.match(/>best<\/span>/gu)).toHaveLength(1);
+    expect(bakedCells[1]).toContain(">best</span>");
+  });
+
+  it("never badges an older-season row when a current-season winner exists", () => {
+    // Given a higher-scoring v3 row followed by a complete current v4.2 row.
+    const base = fixtureModel();
+    const source = base.runs[0];
+    if (source === undefined) throw new Error("fixture missing run");
+    const olderRun: ModelData["runs"][number] = {
+      ...source,
+      composite: { hi: 100, lo: 98, point: 99 },
+      run_id: RunIdSchema.parse("older-season-run"),
+    };
+    const currentRun: ModelData["runs"][number] = {
+      ...source,
+      axes: seasonTwoAxes(),
+      composite: { hi: 52, lo: 48, point: 50 },
+      composite_full: { hi: 52, lo: 48, point: 50 },
+      index_version: "index-v4.2",
+      origin: "community",
+      run_id: RunIdSchema.parse("current-season-run"),
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      model: { ...base, runs: [olderRun, currentRun] },
+    }));
+
+    const olderCells = rowCellsContaining(html, "older-season-run");
+    const currentCells = rowCellsContaining(html, "current-season-run");
+    expect(html.match(/>best<\/span>/gu)).toHaveLength(1);
+    expect(olderCells[1]).not.toContain(">best</span>");
+    expect(currentCells[1]).toContain(">best</span>");
+  });
+
+  it("suppresses the baked sweet-spot claim when a live row is the effective best", () => {
+    // Given a baked Q8 baseline and lower-VRAM Q4 sweet spot, both superseded by live quality.
+    const base = fixtureModel();
+    const source = base.runs[0];
+    if (source === undefined) throw new Error("fixture missing run");
+    const baseline: ModelData["runs"][number] = {
+      ...source,
+      composite: { hi: 92, lo: 88, point: 90 },
+      quant_label: "Q8_0",
+      run_id: RunIdSchema.parse("baked-baseline"),
+      vram_footprint_gb: 20,
+      vram_required_gb_8k: 22,
+    };
+    const sweetSpot: ModelData["runs"][number] = {
+      ...source,
+      composite: { hi: 88, lo: 84, point: 86 },
+      quant_label: "Q4_K_M",
+      run_id: RunIdSchema.parse("baked-sweet-spot"),
+      vram_footprint_gb: 10,
+      vram_required_gb_8k: 12,
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      communityRows: [fixtureCommunityRow({ compositeFull: 0.96 })],
+      model: { ...base, runs: [baseline, sweetSpot] },
+    }));
+
+    expect(rowCellsContaining(html, "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")[1]).toContain(">best</span>");
+    expect(html).not.toContain(">sweet spot</span>");
+  });
+
+  it("renders exact-sha catalog provenance for an incoming community row", () => {
+    const artifactSha256 = "ffb9a0f8b459086f8befd964f6c0ed9f9caafba410b76f9688b91c4678cc0fe4";
+    const model: ModelData = {
+      ...fixtureModel(),
+      artifacts: [{
+        file_sha256: artifactSha256,
+        filename: "Qwen3.6-27B-Q5_K_M.gguf",
+        quant_label: "Q5_K_M",
+        repo_id: "unsloth/Qwen3.6-27B-MTP-GGUF",
+        revision: "5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace",
+      }],
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      artifactProvenanceBySha: {},
+      artifactShaByRunId: {},
+      communityRows: [fixtureCommunityRow({ artifactSha256, quantLabel: "Q5_K_M" })],
+      model,
+    }));
+    const variantCell = rowCellsContaining(html, "Community Tune")[1] ?? "";
+
+    expect(variantCell).toContain(">by unsloth</a>");
+    expect(variantCell).toContain('href="https://huggingface.co/unsloth/Qwen3.6-27B-MTP-GGUF"');
+    expect(variantCell).toContain("sha-verified artifact source");
+  });
+
+  it("renders registry provenance for a baked row using its receipt sha", () => {
+    const artifactSha256 = "33625d8dc3a5dd8d88c324d47db58561b11f7072816287078bfe58b4c55782f9";
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      artifactProvenanceBySha: {
+        [artifactSha256]: {
+          filename: "Qwen3.6-27B-Q4_K_M.gguf",
+          repo_id: "lmstudio-community/Qwen3.6-27B-GGUF",
+          revision: "58c6607d9c4cae8b071b3781c73be633fb3dee36",
+          verified: "hf-lfs-oid",
+          verified_at: "2026-07-26",
+        },
+      },
+      artifactShaByRunId: { "fixture-run": artifactSha256 },
+      model: fixtureModel(),
+    }));
+    const variantCell = rowCellsContaining(html, "fixture-run")[1] ?? "";
+
+    expect(variantCell).toContain(">by lmstudio-community</a>");
+    expect(variantCell).toContain("lmstudio-community/Qwen3.6-27B-GGUF @ 58c6607");
+  });
+
+  it("renders exact-sha catalog provenance for a guest family row", () => {
+    // Given a guest model run whose receipt sha matches its own catalog artifact.
+    const base = fixtureModel();
+    const source = base.runs[0];
+    if (source === undefined) throw new Error("fixture missing run");
+    const artifactSha256 = "b".repeat(64);
+    const guestRun: ModelDataWithConfiguredAxes["runs"][number] = {
+      ...source,
+      axes: configuredAxes(),
+      run_id: RunIdSchema.parse("guest-family-run"),
+    };
+    const family: ModelFamilyScatterModel = {
+      relation: "family-finetune",
+      model: {
+        ...base,
+        artifacts: [{
+          file_sha256: artifactSha256,
+          filename: "Guest-Q4_K_M.gguf",
+          quant_label: "Q4_K_M",
+          repo_id: "guest-org/guest-repo",
+          revision: "1234567890abcdef",
+        }],
+        model_label: "Guest Model",
+        runs: [guestRun],
+        slug: ModelSlugSchema.parse("guest-model"),
+      },
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      artifactProvenanceBySha: {},
+      artifactShaByRunId: { "guest-family-run": artifactSha256 },
+      familyModels: [family],
+      model: base,
+    }));
+    const variantCell = rowCellsContaining(html, "Guest Model")[1] ?? "";
+
+    // Then the guest row names the publisher of those exact bytes.
+    expect(variantCell).toContain(">by guest-org</a>");
+  });
+
+  it("renders direct catalog provenance for a pending benchmark row", () => {
+    // Given a pending shell generated from a catalog artifact.
+    const base = fixtureModel();
+    const source = base.runs[0];
+    if (source === undefined) throw new Error("fixture missing run");
+    const artifactSha256 = "c".repeat(64);
+    const pending: ModelData["runs"][number] = {
+      ...source,
+      axes: {},
+      composite: null,
+      quant_label: "Q5_K_M",
+      run_id: null,
+      score_status: "missing",
+    };
+    const html = renderToStaticMarkup(createElement(ModelVariantBoard, {
+      artifactProvenanceBySha: {},
+      artifactShaByRunId: {},
+      model: {
+        ...base,
+        artifacts: [{
+          file_sha256: artifactSha256,
+          filename: "Fixture-Q5_K_M.gguf",
+          quant_label: "Q5_K_M",
+          repo_id: "pending-org/pending-repo",
+          revision: "abcdef0123456789",
+        }],
+        runs: [source, pending],
+      },
+    }));
+    const pendingCells = rowCellsContaining(html, "no run yet");
+
+    // Then the pending row uses the catalog artifact directly and names its publisher.
+    expect(pendingCells[1]).toContain(">by pending-org</a>");
   });
 
   it("joins catalog artifact metrics into community size and fit columns", () => {
@@ -299,7 +502,7 @@ describe("model variant board runtime display", () => {
       communityRows: [fixtureCommunityRow()],
       model,
     }));
-    const rowHtml = rowCellsContaining(html, "Community Tune").join("");
+    const rowHtml = rowCellsContaining(html, "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").join("");
     // Then: VRAM @8k, Fits (smallest tier above 9.5), and File size all populate.
     expect(rowHtml).toContain("9.5 GB");
     expect(rowHtml).toContain("12 GB");
@@ -311,7 +514,7 @@ describe("model variant board runtime display", () => {
       communityRows: [fixtureCommunityRow({ artifactSha256: "b".repeat(64) })],
       model: fixtureModel(),
     }));
-    const rowHtml = rowCellsContaining(html, "Community Tune").join("");
+    const rowHtml = rowCellsContaining(html, "ticket_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").join("");
     expect(rowHtml).toContain("n/a");
     expect(rowHtml).not.toContain("9.5 GB");
     expect(rowHtml).not.toContain("7.2 GB");
@@ -354,7 +557,7 @@ describe("model variant board runtime display", () => {
       },
     }));
 
-    expect(html).toContain("Bonsai 27B Ternary");
+    expect(html).toContain(">Q2_0</span>");
     // "bonsai-27b-ternary" is a slug-twin of the catalog name — suppressed as noise
     // (a genuinely different declared name still renders; see community-live-render tests).
     expect(html).not.toContain("declared as");
@@ -387,7 +590,7 @@ describe("model variant board runtime display", () => {
       communityRows: [communityRow],
       model: { ...base, runs: [seasonTwoRun] },
     }));
-    const cells = rowCellsContaining(html, "bonsai-27b-ternary");
+    const cells = rowCellsContaining(html, communityRow.submissionId);
 
     expect(cells[3]).toContain("42.0");
     expect(cells[4]).toContain("51.0");
@@ -484,6 +687,17 @@ function configuredAxes(): ModelDataWithConfiguredAxes["runs"][number]["axes"] {
     knowledge: emptyAxis,
     math: emptyAxis,
     tool_calling: emptyAxis,
+  };
+}
+
+function seasonTwoAxes(): ModelData["runs"][number]["axes"] {
+  const axes = configuredAxes();
+  return {
+    coding: axes.coding,
+    instruction: axes.instruction,
+    knowledge: axes.knowledge,
+    math: axes.math,
+    tool_use: axes.agentic,
   };
 }
 

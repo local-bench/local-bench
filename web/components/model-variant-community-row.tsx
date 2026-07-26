@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AgenticProvenanceChip } from "@/components/leaderboard-provenance";
 import { RuntimeCell } from "@/components/leaderboard-table-cells";
+import { ArtifactProvenanceLine, VariantBadge } from "@/components/model-variant-cell-metadata";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
+import type { ArtifactProvenance } from "@/lib/artifact-provenance";
 import { boardAxisValue } from "@/lib/board-adapter";
 import { communityAxisScore, communityDisplayAxes, communityScore } from "@/lib/community-scores";
 import type { CommunityArtifactDetail } from "@/lib/community-artifact-details";
@@ -9,11 +11,14 @@ import type { CommunityBoardRow } from "@/lib/community-data";
 import { formatCompactNumber, formatGb } from "@/lib/format";
 import { declaredNameIsRedundant } from "@/lib/model-name";
 import { findMinimumVramTier } from "@/lib/rig-match";
+import { submissionHref } from "@/lib/routes";
 
 type CommunityVariantTableRowProps = {
   readonly artifactDetail?: CommunityArtifactDetail | undefined;
   readonly axisKeys: readonly string[];
   readonly hasPerf: boolean;
+  readonly isBest?: boolean;
+  readonly provenance?: ArtifactProvenance | null;
   readonly rank: number | null;
   // Family relation derived from the artifact's catalog model (relation outranks
   // submission origin on family pages — live fine-tune rows badge like baked ones).
@@ -53,6 +58,8 @@ export function CommunityVariantTableRow({
   artifactDetail,
   axisKeys,
   hasPerf,
+  isBest = false,
+  provenance = null,
   rank,
   relation = null,
   row,
@@ -63,6 +70,25 @@ export function CommunityVariantTableRow({
     artifactDetail?.quantLabel,
     row.quantLabel,
   ]);
+  const lineage = relation === null ? null : relationBadge(relation);
+  const quantAndBadges = (
+    <span className="flex flex-wrap items-center gap-2">
+      <span className="font-mono font-semibold text-bench-text">{row.quantLabel ?? "n/a"}</span>
+      {isBest ? (
+        <VariantBadge tone="accent" title="Best measured variant — the row shown on the full leaderboard">
+          best
+        </VariantBadge>
+      ) : null}
+      {row.origin === "project_anchor" ? null : (
+        <AgenticProvenanceChip value="self-reported" />
+      )}
+      {complete ? null : (
+        <VariantBadge tone="muted" title="Partial measurement; missing one or more headline modules">
+          partial headline
+        </VariantBadge>
+      )}
+    </span>
+  );
   return (
     <tr
       data-source="community"
@@ -72,35 +98,32 @@ export function CommunityVariantTableRow({
       <td className="px-3 py-3 font-mono text-bench-muted">{rank ?? "—"}</td>
       <td className="px-3 py-3">
         <div className="flex min-w-[240px] flex-col gap-1">
-          {row.detailPath === null ? (
-            <span className="font-semibold text-bench-text">{displayName}</span>
+          {lineage === null ? (
+            quantAndBadges
           ) : (
-            <Link href={row.detailPath} className="font-semibold text-bench-accent hover:underline">
-              {displayName}
-            </Link>
+            <>
+              <span className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${lineage.tone}`}
+                  title={lineage.title}
+                >
+                  {lineage.label}
+                </span>
+                {row.detailPath === null ? (
+                  <span className="font-semibold text-bench-text">{displayName}</span>
+                ) : (
+                  <Link href={row.detailPath} className="font-semibold text-bench-accent hover:underline">
+                    {displayName}
+                  </Link>
+                )}
+              </span>
+              {quantAndBadges}
+            </>
           )}
+          <ArtifactProvenanceLine provenance={provenance} />
           {showDeclaredName ? (
             <span className="font-mono text-[11px] text-bench-muted">declared as {row.displayName}</span>
           ) : null}
-          <span className="flex flex-wrap items-center gap-2">
-            {relation === null ? null : (
-              <span
-                className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${relationBadge(relation).tone}`}
-                title={relationBadge(relation).title}
-              >
-                {relationBadge(relation).label}
-              </span>
-            )}
-            <span className="font-mono font-semibold text-bench-text">{row.quantLabel ?? "n/a"}</span>
-            {row.origin === "project_anchor" ? null : (
-              <AgenticProvenanceChip value="self-reported" />
-            )}
-            {complete ? null : (
-              <span className="inline-flex rounded border border-bench-muted/40 bg-bench-muted/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-bench-muted">
-                partial headline
-              </span>
-            )}
-          </span>
         </div>
       </td>
       <td className="px-3 py-3">
@@ -148,13 +171,9 @@ export function CommunityVariantTableRow({
       </td>
       <td className="px-3 py-3"><RuntimeCell runtime={row.runtime} /></td>
       <td className="px-3 py-3">
-        {row.detailPath === null ? (
-          <span className="font-mono text-xs text-bench-muted">—</span>
-        ) : (
-          <Link href={row.detailPath} className="font-mono text-xs text-bench-accent hover:underline">
-            detail
-          </Link>
-        )}
+        <Link href={submissionHref(row.submissionId)} className="font-mono text-xs text-bench-accent hover:underline">
+          receipt
+        </Link>
       </td>
     </tr>
   );

@@ -65,6 +65,8 @@ describe("model page community family results", () => {
 
     const html = renderToStaticMarkup(<ModelPageCommunityViews
       anchorRuns={pageData.anchorRuns}
+      artifactProvenanceBySha={pageData.artifactProvenanceBySha}
+      artifactShaByRunId={pageData.artifactShaByRunId}
       familyModels={pageData.familyModels}
       model={pageData.model}
       state={{
@@ -107,6 +109,8 @@ describe("model page community family results", () => {
     // When: the project result is rendered through the shared model-page views.
     const html = renderToStaticMarkup(<ModelPageCommunityViews
       anchorRuns={pageData.anchorRuns}
+      artifactProvenanceBySha={pageData.artifactProvenanceBySha}
+      artifactShaByRunId={pageData.artifactShaByRunId}
       familyModels={pageData.familyModels}
       model={pageData.model}
       state={{
@@ -160,6 +164,8 @@ describe("model page community family results", () => {
     };
     const html = renderToStaticMarkup(<ModelPageCommunityViews
       anchorRuns={pageData.anchorRuns}
+      artifactProvenanceBySha={pageData.artifactProvenanceBySha}
+      artifactShaByRunId={pageData.artifactShaByRunId}
       familyModels={pageData.familyModels}
       model={pageData.model}
       state={{ kind: "loading", rows: [bakedRow] }}
@@ -170,7 +176,7 @@ describe("model page community family results", () => {
         slug: pageData.model.slug,
       }}
     />);
-    const boardCells = rowCellsContaining(html, "Baked fallback variant");
+    const boardCells = rowCellsContaining(html, bakedRow.submissionId);
 
     expect(boardCells[2]).toContain("36.7");
     expect(boardCells.slice(3, 8).every((cell) => cell.includes("n/a"))).toBe(true);

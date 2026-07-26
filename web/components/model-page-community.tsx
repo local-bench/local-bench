@@ -9,9 +9,12 @@ import type { CommunityBoardRow, CommunityModelTarget } from "@/lib/community-da
 import { communityRowsForModel } from "@/lib/community-family";
 import type { AnchorReference, ModelDataWithConfiguredAxes, ModelFamilyScatterModel } from "@/lib/data";
 import type { FamilyResolutionContext } from "@/lib/family-resolution";
+import type { ArtifactProvenanceRegistry } from "@/lib/artifact-provenance";
 
 type ModelPageCommunityProps = {
   readonly anchorRuns: readonly AnchorReference[];
+  readonly artifactProvenanceBySha: ArtifactProvenanceRegistry;
+  readonly artifactShaByRunId: Record<string, string>;
   readonly bakedRows: readonly CommunityBoardRow[];
   readonly familyModels: readonly ModelFamilyScatterModel[];
   readonly model: ModelDataWithConfiguredAxes;
@@ -25,6 +28,8 @@ type ModelPageCommunityViewsProps = Omit<ModelPageCommunityProps, "bakedRows" | 
 
 export function ModelPageCommunity({
   anchorRuns,
+  artifactProvenanceBySha,
+  artifactShaByRunId,
   bakedRows,
   familyModels,
   model,
@@ -34,6 +39,8 @@ export function ModelPageCommunity({
   const state = useLiveCommunityRows(bakedRows, true, resolutionContext);
   return <ModelPageCommunityViews
     anchorRuns={anchorRuns}
+    artifactProvenanceBySha={artifactProvenanceBySha}
+    artifactShaByRunId={artifactShaByRunId}
     familyModels={familyModels}
     model={model}
     state={state}
@@ -43,6 +50,8 @@ export function ModelPageCommunity({
 
 export function ModelPageCommunityViews({
   anchorRuns,
+  artifactProvenanceBySha,
+  artifactShaByRunId,
   familyModels,
   model,
   state,
@@ -58,7 +67,13 @@ export function ModelPageCommunityViews({
         familyModels={familyModels}
       />
       <ModelBenchTimePanel communityRows={rows} model={model} familyModels={familyModels} />
-      <ModelVariantBoard communityRows={rows} model={model} familyModels={familyModels} />
+      <ModelVariantBoard
+        artifactProvenanceBySha={artifactProvenanceBySha}
+        artifactShaByRunId={artifactShaByRunId}
+        communityRows={rows}
+        familyModels={familyModels}
+        model={model}
+      />
       <CommunityFamilyResultsLive rows={rows} state={state} />
     </>
   );

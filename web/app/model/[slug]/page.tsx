@@ -56,7 +56,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ModelPage({ params }: PageProps) {
   const { slug } = await params;
-  const { model, anchorRuns, catalogOnly, familyModels, lineage, queued, vsBaseComparisons } = await getModelPageData(slug);
+  const {
+    anchorRuns,
+    artifactProvenanceBySha,
+    artifactShaByRunId,
+    catalogOnly,
+    familyModels,
+    lineage,
+    model,
+    queued,
+    vsBaseComparisons,
+  } = await getModelPageData(slug);
   const communityRows = await getCommunityBoardRows();
   const resolutionContext = familyResolutionContext();
   const artifactSha256s = model.artifacts?.map((artifact) => artifact.file_sha256);
@@ -126,6 +136,8 @@ export default async function ModelPage({ params }: PageProps) {
       {catalogOnly ? <CatalogOnlyNotice queued={queued} /> : null}
       <ModelPageCommunity
         anchorRuns={anchorRuns}
+        artifactProvenanceBySha={artifactProvenanceBySha}
+        artifactShaByRunId={artifactShaByRunId}
         bakedRows={communityFamilyRows}
         familyModels={familyModels}
         model={model}

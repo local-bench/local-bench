@@ -7,6 +7,12 @@ import {
 } from "@/components/local-intelligence-index";
 import { AxisMiniBar, ScoreBar } from "@/components/score-bar";
 import { CommunityVariantTableRow } from "@/components/model-variant-community-row";
+import { ArtifactProvenanceLine, VariantBadge } from "@/components/model-variant-cell-metadata";
+import {
+  resolveArtifactProvenance,
+  type ArtifactProvenance,
+  type ArtifactProvenanceRegistry,
+} from "@/lib/artifact-provenance";
 import { AXIS_CONFIG } from "@/lib/axis-config";
 import { boardAxisValue, toDisplayScore } from "@/lib/board-adapter";
 import type { CommunityBoardRow } from "@/lib/community-data";
@@ -26,7 +32,6 @@ import { displayIndexVersion, hasCompleteSeason2Coverage, headlineScoreForDispla
 type VariantRun = ModelData["runs"][number];
 type OwnVariantRow = {
   readonly kind: "this-model";
-  readonly ownRankIndex: number | null;
   readonly run: VariantRun;
 };
 type FamilyVariantRow = {
@@ -42,10 +47,14 @@ type CommunityVariantRow = {
 type VariantRow = RunVariantRow | CommunityVariantRow;
 
 export function ModelVariantBoard({
+  artifactProvenanceBySha = {},
+  artifactShaByRunId = {},
   communityRows = [],
   familyModels = [],
   model,
 }: {
+  readonly artifactProvenanceBySha?: ArtifactProvenanceRegistry;
+  readonly artifactShaByRunId?: Record<string, string>;
   readonly communityRows?: readonly CommunityBoardRow[];
   readonly familyModels?: readonly ModelFamilyScatterModel[];
   readonly model: ModelData;
@@ -65,13 +74,8 @@ export function ModelVariantBoard({
       row,
     ]),
   );
-  const ownRankedRuns = sortRunsBySeason(
-    currentRuns.filter((run) => isCompleteRun(run) && headlineScoreForDisplay(run) !== null),
-  );
-  const ownRankByRun = new Map<VariantRun, number>(ownRankedRuns.map((run, index) => [run, rankWithinRunSeason(ownRankedRuns, index) - 1]));
   const ownRows: readonly OwnVariantRow[] = currentRuns.map((run) => ({
     kind: "this-model",
-    ownRankIndex: ownRankByRun.get(run) ?? null,
     run,
   }));
   const familyRows: readonly FamilyVariantRow[] = familyModels.flatMap(({ model: familyModel, relation }) =>
@@ -95,9 +99,18 @@ export function ModelVariantBoard({
   const artifactDetailsBySha = new Map(
     catalogArtifactDetails.map((detail) => [detail.artifactSha256, detail] as const),
   );
+  const catalogArtifacts = [model, ...familyModels.map((entry) => entry.model)]
+    .flatMap((entry) => entry.artifacts ?? []);
+  const provenanceForSha = (artifactSha256: string | null | undefined): ArtifactProvenance | null =>
+    artifactSha256 === null || artifactSha256 === undefined
+      ? null
+      : resolveArtifactProvenance(artifactSha256, catalogArtifacts, artifactProvenanceBySha);
   const rows: readonly VariantRow[] = [...ownRows, ...familyRows, ...communityVariantRows];
   const axisKeys = variantAxisColumns(rows);
   const ranked = sortVariantRowsBySeason(rows.filter(isRankedVariantRow));
+  const currentSeasonBestIndex = ranked.findIndex((row) => variantRowSeason(row) === INDEX_VERSION_V4);
+  const bestRankedIndex = currentSeasonBestIndex === -1 && ranked.length > 0 ? 0 : currentSeasonBestIndex;
+  const effectiveBestIsLive = ranked[bestRankedIndex]?.kind === "community";
   const partial = rows.filter(isPartialVariantRow);
   const liveArtifactShas = new Set(communityRows.map((row) => row.artifactSha256));
   const liveQuantLabels = new Set(communityRows.flatMap((row) => {
@@ -131,6 +144,7 @@ export function ModelVariantBoard({
       <details className="border-b border-bench-line bg-bench-panel-2/45 px-4 py-3 text-sm text-bench-muted">
         <summary className="cursor-pointer font-semibold text-bench-accent">Column guide</summary>
         <div className="mt-3 grid gap-2 leading-6 sm:grid-cols-2">
+          <p><span className="text-bench-text">Variant</span> — quant label plus, where sha-verified, the publisher of the exact weights file benchmarked; rows without a source line predate artifact identity records.</p>
           <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">VRAM @8k</Link> — model weights, KV cache, and runtime headroom at 8k context.</p>
           <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Fits</Link> — the smallest common GPU VRAM tier above that estimate.</p>
           <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Prefill tok/s</Link> — prompt-processing speed.</p>
@@ -138,7 +152,7 @@ export function ModelVariantBoard({
           <p><Link className="text-bench-accent hover:underline" href="/methodology/#glossary">Overall tok/s</Link> — completion throughput across the full benchmark.</p>
           <p><span className="text-bench-text">File size</span> — the benchmarked model artifact on disk.</p>
           <p><Link className="text-bench-accent hover:underline" href="/methodology/#serving-engine-lanes">Runtime</Link> — the serving engine and version.</p>
-          <p><Link className="text-bench-accent hover:underline" href="/methodology/#evidence-and-reproduction">Run</Link> — the immutable benchmark receipt.</p>
+          <p><Link className="text-bench-accent hover:underline" href="/methodology/#evidence-and-reproduction">Run</Link> — the immutable benchmark receipt. Live rows link to the public submission record until the run is baked into the static site.</p>
         </div>
         <p className="mt-3 font-semibold text-bench-text">Pick the largest quant whose VRAM @8k fits your card.</p>
       </details>
@@ -216,6 +230,8 @@ export function ModelVariantBoard({
                     artifactDetail={artifactDetailsBySha.get(row.row.artifactSha256)}
                     axisKeys={axisKeys}
                     hasPerf={hasPerf}
+                    isBest={index === bestRankedIndex}
+                    provenance={provenanceForSha(row.row.artifactSha256)}
                     rank={rankWithinRowSeason(ranked, index)}
                     relation={relationForCommunityRow(row.row.artifactSha256)}
                     row={row.row}
@@ -226,16 +242,20 @@ export function ModelVariantBoard({
               const metrics = resolveRunArtifactMetrics(run, variantSiblingRuns(row, model));
               const decision =
                 row.kind === "this-model" && run.quant_label !== null ? decisionByQuant.get(run.quant_label) : undefined;
+              const provenance = provenanceForSha(
+                run.run_id === null ? null : artifactShaByRunId[run.run_id],
+              );
               return (
                 <tr key={variantRowKey(row, index)} className={variantRowClass(row)}>
                   <td className="px-3 py-3 font-mono text-bench-muted">{rankWithinRowSeason(ranked, index)}</td>
                   <td className="px-3 py-3">
-                    <VariantCell row={row}>
-                      {row.kind === "this-model" && row.ownRankIndex === 0 ? (
-                        <Badge tone="accent" title="Best measured variant — the row shown on the full leaderboard">best</Badge>
+                    <VariantCell provenance={provenance} row={row}>
+                      {index === bestRankedIndex ? (
+                        <VariantBadge tone="accent" title="Best measured variant — the row shown on the full leaderboard">best</VariantBadge>
                       ) : null}
-                      {row.kind === "this-model" && decision?.isSweetSpot ? (
-                        <Badge tone="better" title="Smallest variant that still holds the best variant's quality">sweet spot</Badge>
+                      {/* A live winner supersedes the baked baseline used by quant-decision. */}
+                      {!effectiveBestIsLive && row.kind === "this-model" && decision?.isSweetSpot ? (
+                        <VariantBadge tone="better" title="Smallest variant that still holds the best variant's quality">sweet spot</VariantBadge>
                       ) : null}
                     </VariantCell>
                   </td>
@@ -284,6 +304,7 @@ export function ModelVariantBoard({
                     artifactDetail={artifactDetailsBySha.get(row.row.artifactSha256)}
                     axisKeys={axisKeys}
                     hasPerf={hasPerf}
+                    provenance={provenanceForSha(row.row.artifactSha256)}
                     rank={null}
                     relation={relationForCommunityRow(row.row.artifactSha256)}
                     row={row.row}
@@ -292,12 +313,15 @@ export function ModelVariantBoard({
               }
               const run = row.run;
               const metrics = resolveRunArtifactMetrics(run, variantSiblingRuns(row, model));
+              const provenance = provenanceForSha(
+                run.run_id === null ? null : artifactShaByRunId[run.run_id],
+              );
               return (
               <tr key={`partial-${variantRowKey(row, index)}`} className={variantRowClass(row)}>
                 <td className="px-3 py-3 font-mono text-bench-muted">—</td>
                 <td className="px-3 py-3">
-                  <VariantCell row={row}>
-                    <Badge tone="muted" title="Partial measurement; missing one or more headline modules">partial headline</Badge>
+                  <VariantCell provenance={provenance} row={row}>
+                    <VariantBadge tone="muted" title="Partial measurement; missing one or more headline modules">partial headline</VariantBadge>
                   </VariantCell>
                 </td>
                 <td className="px-3 py-3">
@@ -337,11 +361,15 @@ export function ModelVariantBoard({
             {pending.map((row, index) => {
               const run = row.run;
               const decision = run.quant_label === null ? undefined : decisionByQuant.get(run.quant_label);
+              const catalogArtifact = run.quant_label === null
+                ? undefined
+                : model.artifacts?.find((artifact) => artifact.quant_label === run.quant_label);
+              const provenance = provenanceForSha(catalogArtifact?.file_sha256);
               return (
                 <tr key={`pending-${variantRowKey(row, index)}`} className="border-t border-bench-line/75 align-middle text-bench-muted">
                   <td className="px-3 py-3 font-mono">—</td>
                   <td className="px-3 py-3">
-                    <VariantCell row={row} />
+                    <VariantCell provenance={provenance} row={row} />
                   </td>
                   <td className="px-3 py-3">no run yet</td>
                   {axisKeys.map((axis) => (
@@ -373,24 +401,35 @@ export function ModelVariantBoard({
   );
 }
 
-function VariantCell({ row, children }: { readonly row: RunVariantRow; readonly children?: ReactNode }) {
+function VariantCell({
+  children,
+  provenance,
+  row,
+}: {
+  readonly children?: ReactNode;
+  readonly provenance: ArtifactProvenance | null;
+  readonly row: RunVariantRow;
+}) {
   const quantLabel = <span className="font-mono font-semibold text-bench-text">{row.run.quant_label ?? "n/a"}</span>;
   if (row.kind === "this-model") {
     return (
-      <>
-        {quantLabel}
-        {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
+      <div className="flex min-w-[240px] flex-col gap-1">
+        <span>
+          {quantLabel}
+          {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
+        </span>
+        <ArtifactProvenanceLine provenance={provenance} />
         <VllmReproduction run={row.run} />
-      </>
+      </div>
     );
   }
   const lineage = familyLineage(row.kind);
   return (
     <div className="flex min-w-[240px] flex-col gap-1">
       <span className="flex flex-wrap items-center gap-2">
-        <Badge tone={lineage.tone} title={lineage.title}>
+        <VariantBadge tone={lineage.tone} title={lineage.title}>
           {lineage.label}
-        </Badge>
+        </VariantBadge>
         <Link href={modelHref(row.model.slug)} className="font-semibold text-bench-accent hover:underline">
           {row.model.model_label}
         </Link>
@@ -399,6 +438,7 @@ function VariantCell({ row, children }: { readonly row: RunVariantRow; readonly 
         {quantLabel}
         {children === undefined ? null : <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">{children}</span>}
       </span>
+      <ArtifactProvenanceLine provenance={provenance} />
       <VllmReproduction run={row.run} />
     </div>
   );
@@ -466,32 +506,6 @@ function variantRowClass(row: VariantRow): string {
 
 function assertNever(value: never): never {
   throw new Error(`Unexpected variant relation: ${value}`);
-}
-
-function Badge({
-  tone,
-  title,
-  children,
-}: {
-  readonly tone: "accent" | "anchor" | "better" | "mixed" | "muted";
-  readonly title: string;
-  readonly children: string;
-}) {
-  const cls =
-    tone === "better"
-      ? "border-bench-better/45 bg-bench-better/10 text-bench-better"
-      : tone === "mixed"
-        ? "border-bench-mixed/45 bg-bench-mixed/10 text-bench-mixed"
-        : tone === "anchor"
-          ? "border-bench-anchor/45 bg-bench-anchor/10 text-bench-anchor"
-      : tone === "muted"
-        ? "border-bench-muted/40 bg-bench-muted/10 text-bench-muted"
-        : "border-bench-accent/45 bg-bench-accent/10 text-bench-accent";
-  return (
-    <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${cls}`} title={title}>
-      {children}
-    </span>
-  );
 }
 
 function RuntimeCell({ run }: { readonly run: VariantRun }) {
@@ -588,23 +602,6 @@ function sortVariantRowsBySeason(rows: readonly VariantRow[]): readonly VariantR
   return [...groups.values()].flatMap((group) => group.sort(
     (left, right) => variantCompositePoint(right) - variantCompositePoint(left),
   ));
-}
-
-function sortRunsBySeason(runs: readonly VariantRun[]): readonly VariantRun[] {
-  const groups = new Map<string, VariantRun[]>();
-  for (const run of runs) {
-    const version = displayIndexVersion(run);
-    groups.set(version, [...(groups.get(version) ?? []), run]);
-  }
-  return [...groups.values()].flatMap((group) => group.sort(
-    (left, right) => (headlineScoreForDisplay(right)?.point ?? 0) - (headlineScoreForDisplay(left)?.point ?? 0),
-  ));
-}
-
-function rankWithinRunSeason(runs: readonly VariantRun[], index: number): number {
-  const run = runs[index];
-  if (run === undefined) return 0;
-  return runs.slice(0, index + 1).filter((candidate) => displayIndexVersion(candidate) === displayIndexVersion(run)).length;
 }
 
 function isRankedVariantRow(row: VariantRow): boolean {

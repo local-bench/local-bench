@@ -6,6 +6,10 @@ export function runHref(runId: string): string {
   return `/run/${encodeURIComponent(runId)}/`;
 }
 
+export function submissionHref(submissionId: string): string {
+  return `/submission/?id=${encodeURIComponent(submissionId)}`;
+}
+
 export function familyHref(slug: string): string {
   return `/families/${encodeURIComponent(slug)}/`;
 }
