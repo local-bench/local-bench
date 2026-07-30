@@ -9,6 +9,7 @@ import os
 import platform
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -194,9 +195,25 @@ _HF_CACHE_EXTRA_ERROR: Final = (
     "huggingface_hub is required for cache-tokenizer; install localbench[hf] "
     "to enable Hugging Face tokenizer caching"
 )
+_HF_PREFETCH_TIMEOUT_SECONDS: Final = 120
+_HF_PREFETCH_SENTINEL: Final = "LOCALBENCH_HF_PREFETCH_V1"
+_HF_PREFETCH_PROTOCOL_ERROR: Final = (
+    "tokenizer prefetch for {repo!r} did not complete cleanly; run "
+    "`localbench cache-tokenizer {repo}` for a verbose attempt, pass --gguf-repo-only "
+    "for basic identity, or --offline to forbid acquisition"
+)
+_HF_REPO_NOT_FOUND_ERROR: Final = (
+    "repo {repo!r} was not found or is inaccessible; verify the repo id, and for "
+    "gated/private repos run `hf auth login` after accepting the license on huggingface.co"
+)
 _HEADLINE_AXIS_KEYS: Final = tuple(axis.key for axis in AXES if axis.role == "headline")
 _STATIC_AXIS_KEYS: Final = tuple(STATIC_SUITE_WEIGHTS)
 ScorerGate: TypeAlias = tuple[RenderedBench, str, str]
+
+
+def _sanitize_detail(detail: str, *, limit: int = 300) -> str:
+    collapsed = " ".join(detail.split())
+    return collapsed[:limit]
 
 
 class EndpointPreflightError(RuntimeError):
@@ -1463,20 +1480,82 @@ def _hf_snapshot_download(
     *,
     revision: str | None = None,
 ) -> str:
+    # huggingface_hub latches HF_HUB_OFFLINE at import time, and template
+    # introspection imports it inside an offline pin - once introspection has
+    # run, this process can never download again. The one sanctioned online
+    # moment runs in a fresh child interpreter (-E -P: immune to CWD/PYTHONPATH
+    # import hijack) with the offline pins stripped; the parent's offline
+    # posture is never weakened. The child's output is an untrusted protocol
+    # boundary: exactly one sentinel-framed JSON object is accepted.
+    if not sys.executable:
+        raise CacheTokenizerError(_HF_PREFETCH_PROTOCOL_ERROR.format(repo=repo_id))
+    child_env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"}
+    }
+    child_env["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+    command = [
+        sys.executable,
+        "-E",
+        "-P",
+        "-m",
+        "localbench.hf_prefetch_child",
+        repo_id,
+        json.dumps(allow_patterns),
+        revision or "",
+    ]
+    creationflags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    print(f"fetching  tokenizer sidecars for {repo_id} (one-off online acquisition)")
     try:
-        from huggingface_hub import snapshot_download
-        from huggingface_hub.errors import GatedRepoError, HfHubHTTPError, RepositoryNotFoundError
-    except ImportError as error:
-        raise CacheTokenizerError(_HF_CACHE_EXTRA_ERROR) from error
+        completed = subprocess.run(
+            command,
+            env=child_env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_HF_PREFETCH_TIMEOUT_SECONDS,
+            creationflags=creationflags,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise CacheTokenizerError(
+            f"tokenizer prefetch for {repo_id!r} timed out after "
+            f"{_HF_PREFETCH_TIMEOUT_SECONDS}s; check connectivity, pre-cache with "
+            f"`localbench cache-tokenizer {repo_id}`, or pass --gguf-repo-only"
+        ) from error
+    except OSError as error:
+        raise CacheTokenizerError(_HF_PREFETCH_PROTOCOL_ERROR.format(repo=repo_id)) from error
+    frames = [
+        line
+        for line in (completed.stdout or "").splitlines()
+        if line.startswith(_HF_PREFETCH_SENTINEL + " ")
+    ]
+    if len(frames) != 1:
+        raise CacheTokenizerError(_HF_PREFETCH_PROTOCOL_ERROR.format(repo=repo_id))
     try:
-        return str(snapshot_download(repo_id=repo_id, allow_patterns=allow_patterns, revision=revision))
-    except (GatedRepoError, RepositoryNotFoundError) as error:
-        raise CacheTokenizerError(_hf_auth_error_message(repo_id)) from error
-    except HfHubHTTPError as error:
-        status_code = getattr(getattr(error, "response", None), "status_code", None)
-        if status_code in {401, 403}:
-            raise CacheTokenizerError(_hf_auth_error_message(repo_id)) from error
-        raise
+        result = json.loads(frames[0][len(_HF_PREFETCH_SENTINEL) + 1 :])
+    except ValueError as error:
+        raise CacheTokenizerError(_HF_PREFETCH_PROTOCOL_ERROR.format(repo=repo_id)) from error
+    if not isinstance(result, dict):
+        raise CacheTokenizerError(_HF_PREFETCH_PROTOCOL_ERROR.format(repo=repo_id))
+    if result.get("status") == "ok" and completed.returncode == 0:
+        path = result.get("path")
+        if isinstance(path, str) and path:
+            return path
+        raise CacheTokenizerError(_HF_PREFETCH_PROTOCOL_ERROR.format(repo=repo_id))
+    kind = result.get("kind")
+    message = _sanitize_detail(str(result.get("message", "unknown error")))
+    if kind == "auth":
+        raise CacheTokenizerError(_hf_auth_error_message(repo_id))
+    if kind == "not_found":
+        raise CacheTokenizerError(_HF_REPO_NOT_FOUND_ERROR.format(repo=repo_id))
+    if kind == "import":
+        raise CacheTokenizerError(_HF_CACHE_EXTRA_ERROR)
+    raise CacheTokenizerError(
+        f"tokenizer prefetch for {repo_id!r} failed ({kind or 'unknown'}): {message}"
+    )
 
 
 def _prepare_advanced_bench_tokenizer(args: argparse.Namespace) -> str | None:
