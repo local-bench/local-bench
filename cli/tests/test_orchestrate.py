@@ -13,18 +13,107 @@ from pathlib import Path
 import httpx
 import pytest
 
+from localbench._suite import RenderedBench, render_benches
+from localbench._types import BenchmarkItem
 from localbench.cli import (
     EndpointPreflightError,
     _preflight_endpoint,
     _preflight_server_context,
     _preflight_smoke,
 )
-from localbench.orchestrate import OrchestrateConfig, run_localbench
+from localbench.orchestrate import (
+    OrchestrateConfig,
+    _plumb_bounded_final_think_budget,
+    run_localbench,
+)
 from localbench.suite_resolver import SuiteResolutionError
 
 
 FIXTURE_SUITE = Path(__file__).parent / "fixtures" / "suite_v0"
 FIXTURE_FULL_BENCHES = "mmlu_pro,ifeval,genmath"
+
+
+def _bounded_final_bench(total_cap: int | bool) -> RenderedBench:
+    item: BenchmarkItem = {
+        "id": "boundary",
+        "messages": [{"role": "user", "content": "test"}],
+        "sampling_params": {},
+        "max_tokens": total_cap,
+    }
+    return RenderedBench(
+        name="mmlu_pro",
+        source_items=[],
+        benchmark_items=[item],
+        baseline=0.25,
+        decoding={"max_tokens": total_cap},
+        item_file="mmlu_pro_quick.jsonl",
+    )
+
+
+@pytest.mark.parametrize(
+    ("total_cap", "expected"),
+    [
+        (16_384, 8_192),
+        (9_216, 8_192),
+        (9_215, 8_191),
+        (1_024, 0),
+        (512, 0),
+    ],
+)
+def test_bounded_final_budget_plumbing_pins_total_cap_boundaries(
+    total_cap: int,
+    expected: int,
+) -> None:
+    bench = _bounded_final_bench(total_cap)
+
+    budget = _plumb_bounded_final_think_budget([bench], "bounded-final-v1")
+
+    assert budget == expected
+    assert bench.benchmark_items[0]["think_budget"] == expected
+
+
+def test_bounded_final_budget_plumbing_rejects_bool_total_cap() -> None:
+    with pytest.raises(RuntimeError, match="integer max_tokens"):
+        _plumb_bounded_final_think_budget(
+            [_bounded_final_bench(True)],
+            "bounded-final-v1",
+        )
+
+
+def test_bounded_final_budget_recomputation_does_not_mutate_shared_suite() -> None:
+    suite = json.loads((FIXTURE_SUITE / "suite.json").read_text(encoding="utf-8"))
+    original_suite = json.loads(json.dumps(suite))
+    suite["benches"]["mmlu_pro"]["decoding"]["max_tokens"] = 9_215
+
+    first = render_benches(
+        "mmlu_pro",
+        "quick",
+        1,
+        FIXTURE_SUITE,
+        suite,
+        [],
+    )
+    second = render_benches(
+        "mmlu_pro",
+        "quick",
+        1,
+        FIXTURE_SUITE,
+        suite,
+        [],
+    )
+    first_budget = _plumb_bounded_final_think_budget(
+        first,
+        "bounded-final-v1",
+    )
+    retry_budget = _plumb_bounded_final_think_budget(
+        second,
+        "bounded-final-v1",
+    )
+
+    assert first_budget == retry_budget == 8_191
+    assert first[0].benchmark_items == second[0].benchmark_items
+    original_suite["benches"]["mmlu_pro"]["decoding"]["max_tokens"] = 9_215
+    assert suite == original_suite
 
 
 def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path) -> None:

@@ -286,6 +286,32 @@ def test_campaign_resume_refuses_legacy_answer_only_partial_under_generic_contra
         _validate_resume_campaign(path, config)
 
 
+def test_campaign_resume_refuses_archived_0_4_12_contract_shape(
+    tmp_path: Path,
+) -> None:
+    config = _campaign_config(tmp_path, _contract())
+    campaign = campaign_record(
+        config,
+        {},
+        tmp_path,
+        [],
+        started_at="2026-07-30T00:00:00Z",
+    )
+    archived = campaign["execution_profile"]
+    assert isinstance(archived, dict)
+    for field in (
+        "prompt_renderer_engine",
+        "prompt_renderer_contract_version",
+        "prompt_renderer_context_sha256",
+    ):
+        archived.pop(field)
+    path = tmp_path / "campaign.json"
+    path.write_text(json.dumps(campaign), encoding="utf-8")
+
+    with pytest.raises(UnsafeResumeError, match="execution_contract"):
+        _validate_resume_campaign(path, config)
+
+
 def test_retry_errored_refuses_changed_execution_contract(tmp_path: Path) -> None:
     # Given: a completed campaign whose retry uses a different effective template.
     original = _campaign_config(tmp_path, _contract())
