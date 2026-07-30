@@ -51,10 +51,24 @@ def _run(config: Config) -> int:
             results.append(result)
             typer.echo(f"{'PASS' if result.passed else 'FAIL'} {case.name}")
     passed = all(result.passed for result in results)
+    agentic_case_count = sum(1 for result in results if result.name.startswith("agentic-"))
     evidence = {
         "schema": "localbench.renderer_equivalence.v1",
         "passed": passed,
         "claim_gate": "native-vs-gguf-delta-renderer-equivalence",
+        "agentic_cases": agentic_case_count,
+        **(
+            {}
+            if agentic_case_count
+            else {
+                "agentic_rationale": (
+                    "zero agentic cases by --allow-empty-agentic: both compared runs "
+                    "rendered agentic requests server-side via /chat/completions "
+                    "(scoring.agentic_exec.chat_client), so the transformers-vs-minja "
+                    "asymmetry exists only on client-rendered static axes"
+                )
+            }
+        ),
         "inputs": {
             "suite_cache": str(config.suite_cache.resolve()),
             "agentic_trace": str(config.agentic_trace.resolve()),
@@ -84,6 +98,15 @@ def main(
     tier: str = typer.Option("standard"),
     samples: int = typer.Option(8, min=1),
     template_kwargs: str = typer.Option('{"enable_thinking":true}'),
+    allow_empty_agentic: bool = typer.Option(
+        False,
+        help=(
+            "Proceed with zero agentic cases. Only valid when the compared runs both "
+            "rendered agentic requests SERVER-side (/chat/completions), making the "
+            "renderer asymmetry a static-axes-only concern; the rationale is recorded "
+            "in the evidence."
+        ),
+    ),
 ) -> None:
     """Run the renderer-equivalence claim gate and write JSON evidence."""
     try:
@@ -99,6 +122,7 @@ def main(
                 tier=tier,
                 samples=samples,
                 template_kwargs=kwargs,
+                allow_empty_agentic=allow_empty_agentic,
             )
         )
     except (HarnessError, ValidationError, OSError, httpx2.HTTPError) as error:

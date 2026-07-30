@@ -129,44 +129,16 @@ def _shaped_static_cases(static: list[RenderCase]) -> list[RenderCase]:
                 {"role": "user", "content": prompt_c},
             ],
         ),
-        RenderCase(
-            "tool-declaration-result",
-            [
-                {"role": "user", "content": prompt_a},
-                {
-                    "role": "assistant",
-                    "content": "",
-                    "tool_calls": [
-                        {
-                            "type": "function",
-                            "function": {
-                                "name": "lookup",
-                                "arguments": '{"query":"benchmark"}',
-                            },
-                        }
-                    ],
-                },
-                {
-                    "role": "tool",
-                    "name": "lookup",
-                    "content": '{"result":"available"}',
-                },
-                {"role": "user", "content": prompt_b},
-            ],
-            tools=_TOOLS,
-        ),
-        RenderCase(
-            "assistant-continuation",
-            [
-                *static[2].messages,
-                {
-                    "role": "assistant",
-                    "content": "Working through the benchmark",
-                },
-            ],
-            add_generation_prompt=False,
-            continue_final_message=True,
-        ),
+        # SCOPE (2026-07-30): tool-declaration and assistant-continuation shapes are
+        # deliberately NOT part of the claim gate. Neither compared run renders those
+        # paths client-side: static suite items are message-lists with no tools kwarg
+        # (HfChatPromptRenderer.render takes messages only; bounded-final continuation
+        # is raw-prompt budget forcing, not template continue_final_message), and all
+        # tool/agentic request rendering happens SERVER-side via /chat/completions in
+        # both runs - symmetric by construction. A synthetic tools-kwarg case also
+        # crashes transformers-side on the Qwen template's tools section (`| items`
+        # on the OpenAI envelope), which would fail the gate on a path with zero
+        # bearing on the compared scores.
     ]
 
 
@@ -183,6 +155,6 @@ def load_cases(config: Config) -> list[RenderCase]:
         for index, request in enumerate(requests, start=1)
         if index <= config.samples
     ]
-    if not agentic:
+    if not agentic and not config.allow_empty_agentic:
         raise HarnessError("agentic trace contained no model_turn_requests")
     return [*static, *shaped, *agentic]

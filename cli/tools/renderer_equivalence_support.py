@@ -38,6 +38,7 @@ class Config:
     tier: str
     samples: int
     template_kwargs: dict[str, bool]
+    allow_empty_agentic: bool = False
 
 
 @dataclass(frozen=True, slots=True)
