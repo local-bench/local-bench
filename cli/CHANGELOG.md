@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.13 - YYYY-MM-DD
+
+- Generic-thinking `--gguf-repo-only` runs now render every scored raw prompt
+  through the pinned llama.cpp server's `/apply-template` endpoint. This Option C
+  path avoids a second Jinja implementation and keeps the scoring renderer
+  identical to the probed runtime renderer.
+- Execution contracts and resume/retry identity now bind the prompt-renderer
+  engine, renderer-contract version, and canonical rendering-context digest.
+- Ranked GGUF template resolution fails closed when the template references
+  nondeterministic `strftime_now`, before campaign state is created.
+- A hermetic public-CLI blackbox now covers GGUF candidate selection, contract
+  resolution, runtime probing, renderer guarding, per-item think-budget plumbing,
+  and the first forced-close continuation request.
+
 ## 0.4.12 - 2026-07-30
 
 - `--gguf-repo-only` now resolves the frozen `gguf-effective-template-v1`

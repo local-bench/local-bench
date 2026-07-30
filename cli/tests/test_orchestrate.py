@@ -15,6 +15,9 @@ import pytest
 
 from localbench._suite import RenderedBench, render_benches
 from localbench._types import BenchmarkItem
+from localbench.bounded_final_profiles import (
+    resolve_bounded_final_profile_from_introspection,
+)
 from localbench.cli import (
     EndpointPreflightError,
     _preflight_endpoint,
@@ -26,6 +29,7 @@ from localbench.orchestrate import (
     _plumb_bounded_final_think_budget,
     run_localbench,
 )
+from localbench.prompt_rendering import TemplateIntrospection
 from localbench.suite_resolver import SuiteResolutionError
 
 
@@ -114,6 +118,42 @@ def test_bounded_final_budget_recomputation_does_not_mutate_shared_suite() -> No
     assert first[0].benchmark_items == second[0].benchmark_items
     original_suite["benches"]["mmlu_pro"]["decoding"]["max_tokens"] = 9_215
     assert suite == original_suite
+
+
+def test_bounded_final_renderer_guard_precedes_campaign_mutation(
+    tmp_path: Path,
+) -> None:
+    runtime = resolve_bounded_final_profile_from_introspection(
+        "generic_think_tags_8192_v1",
+        TemplateIntrospection(
+            answer_stop=("<|im_end|>",),
+            chat_template_kwargs={"enable_thinking": True},
+            supports_generic_thinking=True,
+            supports_gemma_channel=False,
+        ),
+    )
+    campaign_dir = tmp_path / "guarded"
+
+    async def scenario() -> None:
+        with pytest.raises(
+            RuntimeError,
+            match="requires a canonical chat-template renderer",
+        ):
+            await run_localbench(
+                OrchestrateConfig(
+                    endpoint="http://local/v1",
+                    model="generic",
+                    suite_dir=FIXTURE_SUITE,
+                    bench="mmlu_pro",
+                    out=campaign_dir / "localbench-run.json",
+                    max_items=1,
+                    lane="bounded-final-v1",
+                    resolved_bounded_profile=runtime,
+                ),
+            )
+
+    asyncio.run(scenario())
+    assert not campaign_dir.exists()
 
 
 def test_run_localbench_when_fixture_suite_scores_and_writes_json(tmp_path: Path) -> None:

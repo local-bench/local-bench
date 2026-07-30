@@ -395,6 +395,45 @@ async def run_localbench(
     execution_profile_id: str | None = None
     if bounded_profile is not None:
         execution_profile_id = bounded_profile.contract.profile_id
+    thinking_budget = 0
+    prompt_renderer: PromptRenderer | None = None
+    prompt_renderer_manifest: JsonObject | None = None
+    reasoning_leak_regexes: tuple[str, ...] = ()
+    forcing_format = None
+    if (
+        config.provider == "local"
+        and config.lane in BOUNDED_FINAL_LANE_SPEC_IDS
+        and bounded_profile is not None
+        and bounded_profile.entry is not ANSWER_ONLY_PROFILE
+    ):
+        thinking_budget = _plumb_bounded_final_think_budget(
+            scorable_benches,
+            config.lane,
+        )
+        prompt_renderer = bounded_profile.prompt_renderer
+        if prompt_renderer is None:
+            raise RuntimeError(
+                "bounded-final thinking profile requires a canonical chat-template renderer",
+            )
+        forcing_format = bounded_profile.forcing
+        prompt_renderer_manifest = bounded_profile.prompt_renderer_manifest
+        reasoning_leak_regexes = registry_leak_regexes(
+            bounded_profile.entry.conformance,
+        )
+    if config.provider == "local" and config.lane == "capped-thinking":
+        # Local capped-thinking enforces the locked thinking budget with two-pass forcing
+        # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
+        thinking_budget = _plumb_think_budget(scorable_benches, suite)
+        if thinking_budget > 0:
+            reasoning_entry = _capped_thinking_reasoning_entry(config)
+            if reasoning_entry is not None:
+                execution_profile_id = reasoning_entry.id
+                reasoning_leak_regexes = registry_leak_regexes(
+                    reasoning_entry.conformance,
+                )
+                forcing_format = reasoning_entry.forcing
+            prompt_renderer = _forced_prompt_renderer(config, provider.name)
+
     paths = campaign_paths(output_path, config.resume)
     session_segment_id = "segment-1" if config.resume is None else next_segment_id(paths)
     segment_completed_item_ids: list[str] = []
@@ -452,38 +491,6 @@ async def run_localbench(
         )
     all_completed = completed_benches(paths) if config.resume is not None else {}
     completed = _completed_benches_to_skip(all_completed, retry_errored=config.retry_errored)
-
-    thinking_budget = 0
-    prompt_renderer: PromptRenderer | None = None
-    prompt_renderer_manifest: JsonObject | None = None
-    reasoning_leak_regexes: tuple[str, ...] = ()
-    forcing_format = None
-    if (
-        config.provider == "local"
-        and config.lane in BOUNDED_FINAL_LANE_SPEC_IDS
-        and bounded_profile is not None
-        and bounded_profile.entry is not ANSWER_ONLY_PROFILE
-    ):
-        thinking_budget = _plumb_bounded_final_think_budget(scorable_benches, config.lane)
-        prompt_renderer = bounded_profile.prompt_renderer
-        if prompt_renderer is None:
-            raise RuntimeError(
-                "bounded-final thinking profile requires a canonical chat-template renderer",
-            )
-        forcing_format = bounded_profile.forcing
-        prompt_renderer_manifest = bounded_profile.prompt_renderer_manifest
-        reasoning_leak_regexes = registry_leak_regexes(bounded_profile.entry.conformance)
-    if config.provider == "local" and config.lane == "capped-thinking":
-        # Local capped-thinking enforces the locked thinking budget with two-pass forcing
-        # (budget_forcing.run_forced_item). Stamp each item with the budget the runner reads.
-        thinking_budget = _plumb_think_budget(scorable_benches, suite)
-        if thinking_budget > 0:
-            reasoning_entry = _capped_thinking_reasoning_entry(config)
-            if reasoning_entry is not None:
-                execution_profile_id = reasoning_entry.id
-                reasoning_leak_regexes = registry_leak_regexes(reasoning_entry.conformance)
-                forcing_format = reasoning_entry.forcing
-            prompt_renderer = _forced_prompt_renderer(config, provider.name)
 
     results_by_bench: dict[str, list[ItemResult]] = {}
     bench_aggregates: dict[str, BenchAggregate] = {}

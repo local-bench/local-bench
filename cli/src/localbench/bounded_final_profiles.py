@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from typing import Final, Literal
 
 from localbench._types import JsonObject
-from localbench.bounded_final_runtime import (
-    BoundedFinalProfileRuntime,
-    answer_only_runtime as _answer_only_runtime,
-    gemma_runtime as _gemma_runtime,
-    generic_runtime as _generic_runtime,
-    with_llama_apply_template_renderer,
-)
+from localbench.budget_forcing import ForcingFormat
 from localbench.execution_contract import (
     ExecutionContractContext,
     GGUF_EFFECTIVE_TEMPLATE_POLICY,
     GgufCandidateUnresolvedError,
     HF_CANONICAL_TEMPLATE_POLICY,
+    ResolvedExecutionContract,
     gguf_contract_context,
+    resolved_execution_contract,
 )
 from localbench.gguf_template import (
     LLAMA_BUILTIN_CHATML_NONTHINKING,
@@ -26,6 +23,7 @@ from localbench.gguf_template import (
 )
 from localbench.prompt_rendering import (
     HfChatPromptRenderer,
+    LlamaApplyTemplatePromptRenderer,
     PromptRenderer,
     TemplateIntrospection,
     chat_template_sha256,
@@ -34,6 +32,9 @@ from localbench.prompt_rendering import (
 )
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
+    GEMMA4_CHANNEL_PROFILE,
+    GENERIC_THINK_TAGS_PROFILE,
+    ReasoningRegistryEntry,
 )
 
 BoundedFinalProfileChoice = Literal[
@@ -48,6 +49,31 @@ BOUNDED_FINAL_PROFILE_CHOICES: Final[tuple[BoundedFinalProfileChoice, ...]] = (
     "generic_think_tags_8192_v1",
     "gemma4_channel_8192_v1",
 )
+
+
+@dataclass(frozen=True, slots=True)
+class BoundedFinalProfileRuntime:
+    entry: ReasoningRegistryEntry
+    forcing: ForcingFormat | None
+    prompt_renderer: PromptRenderer | None
+    contract: ResolvedExecutionContract
+    prompt_renderer_manifest: JsonObject | None = None
+
+    def __post_init__(self) -> None:
+        if self.forcing is not None and not self.forcing.answer_stop and self.contract.answer_stops:
+            object.__setattr__(
+                self,
+                "forcing",
+                replace(self.forcing, answer_stop=self.contract.answer_stops),
+            )
+
+    @property
+    def answer_stop(self) -> tuple[str, ...]:
+        return self.contract.answer_stops
+
+    @property
+    def chat_template_kwargs(self) -> Mapping[str, bool]:
+        return self.contract.chat_template_kwargs
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +94,102 @@ class BoundedFinalProfileRequest:
     gguf_repo_only: bool = False
     llama_apply_template_base_url: str | None = None
     llama_api_key: str | None = None
+
+
+def _with_llama_apply_template_renderer(
+    runtime: BoundedFinalProfileRuntime,
+    *,
+    base_url: str,
+    api_key: str,
+    template: str,
+    raw_template_sha256: str,
+) -> BoundedFinalProfileRuntime:
+    renderer = LlamaApplyTemplatePromptRenderer(
+        base_url=base_url,
+        api_key=api_key,
+        template=template,
+        contract_raw_template_sha256=raw_template_sha256,
+        chat_template_kwargs=runtime.chat_template_kwargs,
+    )
+    manifest: JsonObject = {
+        "source": "llama.cpp/apply-template",
+        "chat_template_sha256": raw_template_sha256,
+        "answer_stop": list(runtime.answer_stop),
+        "template_kwargs": dict(runtime.chat_template_kwargs),
+    }
+    return replace(
+        runtime,
+        prompt_renderer=renderer,
+        prompt_renderer_manifest=manifest,
+    )
+
+
+def _answer_only_runtime(
+    answer_stop: tuple[str, ...],
+    context: ExecutionContractContext,
+    chat_template_kwargs: Mapping[str, bool] | None = None,
+) -> BoundedFinalProfileRuntime:
+    return BoundedFinalProfileRuntime(
+        entry=ANSWER_ONLY_PROFILE,
+        forcing=None,
+        prompt_renderer=None,
+        contract=resolved_execution_contract(
+            ANSWER_ONLY_PROFILE,
+            (
+                {"enable_thinking": False}
+                if chat_template_kwargs is None
+                else chat_template_kwargs
+            ),
+            answer_stop,
+            context,
+        ),
+        prompt_renderer_manifest=None,
+    )
+
+
+def _generic_runtime(
+    introspection: TemplateIntrospection,
+    prompt_renderer: PromptRenderer | None,
+    prompt_renderer_manifest: JsonObject | None,
+    context: ExecutionContractContext,
+) -> BoundedFinalProfileRuntime:
+    return BoundedFinalProfileRuntime(
+        entry=GENERIC_THINK_TAGS_PROFILE,
+        forcing=GENERIC_THINK_TAGS_PROFILE.forcing,
+        prompt_renderer=prompt_renderer,
+        contract=resolved_execution_contract(
+            GENERIC_THINK_TAGS_PROFILE,
+            introspection.chat_template_kwargs,
+            introspection.answer_stop,
+            context,
+        ),
+        prompt_renderer_manifest=prompt_renderer_manifest,
+    )
+
+
+def _gemma_runtime(
+    introspection: TemplateIntrospection,
+    prompt_renderer: PromptRenderer | None,
+    prompt_renderer_manifest: JsonObject | None,
+    context: ExecutionContractContext,
+) -> BoundedFinalProfileRuntime:
+    answer_stop = (
+        GEMMA4_CHANNEL_PROFILE.forcing.answer_stop
+        if GEMMA4_CHANNEL_PROFILE.forcing is not None
+        else ()
+    )
+    return BoundedFinalProfileRuntime(
+        entry=GEMMA4_CHANNEL_PROFILE,
+        forcing=GEMMA4_CHANNEL_PROFILE.forcing,
+        prompt_renderer=prompt_renderer,
+        contract=resolved_execution_contract(
+            GEMMA4_CHANNEL_PROFILE,
+            introspection.chat_template_kwargs,
+            answer_stop,
+            context,
+        ),
+        prompt_renderer_manifest=prompt_renderer_manifest,
+    )
 
 
 def resolve_bounded_final_profile(
@@ -228,7 +350,7 @@ def _resolve_gguf_profile(
     facade, _ = load_gguf_template_facade(request.gguf_metadata or {})
     if facade is None or resolved.contract.raw_template_sha256 is None:
         raise _unsupported(request.profile, "GGUF renderer requires a valid embedded template")
-    return with_llama_apply_template_renderer(
+    return _with_llama_apply_template_renderer(
         resolved,
         base_url=request.llama_apply_template_base_url,
         api_key=request.llama_api_key,
