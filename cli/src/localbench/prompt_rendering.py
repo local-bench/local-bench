@@ -11,12 +11,15 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal, Protocol, assert_never
 
-from localbench._types import ChatMessage
+import httpx
+
+from localbench._types import ChatMessage, JsonObject, JsonValue
 
 ReasoningActivation = Literal["qwen3", "granite", "nemotron", "r1", "gemma4"]
 REASONING_ACTIVATIONS: Final[tuple[ReasoningActivation, ...]] = (
@@ -32,6 +35,18 @@ _NEMOTRON_SYSTEM_MESSAGE: Final[ChatMessage] = {
 }
 _GEMMA4_HF_MODEL_ID: Final = "unsloth/gemma-4-31B-it"
 _GEMMA4_REVISION: Final = "a1c85d1c2db7dcd15c41ad4082955240a9465743"
+_LLAMA_APPLY_TEMPLATE_TIMEOUT: Final = httpx.Timeout(
+    connect=5.0,
+    read=30.0,
+    write=10.0,
+    pool=10.0,
+)
+_LLAMA_APPLY_TEMPLATE_LIMITS: Final = httpx.Limits(
+    max_connections=8,
+    max_keepalive_connections=4,
+    keepalive_expiry=30.0,
+)
+_STRFTIME_NOW_PATTERN: Final = re.compile(r"\bstrftime_now\b")
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +110,78 @@ class HfChatPromptRenderer:
             self.activation,
             chat_template_kwargs=self.chat_template_kwargs,
         )
+        self._cache[key] = rendered
+        return rendered
+
+
+@dataclass(frozen=True, slots=True)
+class LlamaApplyTemplatePromptRenderer:
+    """Render generic GGUF prompts with the pinned llama.cpp server."""
+
+    base_url: str
+    api_key: str
+    template: str
+    contract_raw_template_sha256: str
+    chat_template_kwargs: Mapping[str, bool]
+    transport: httpx.BaseTransport | None = None
+    _cache: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        actual_sha256 = hashlib.sha256(self.template.encode("utf-8")).hexdigest()
+        if actual_sha256 != self.contract_raw_template_sha256:
+            raise PromptRenderingError(
+                "GGUF template sha256 does not match the resolved execution contract",
+            )
+        if _STRFTIME_NOW_PATTERN.search(self.template) is not None:
+            raise PromptRenderingError(
+                "ranked GGUF prompt rendering rejects undeclared external variable "
+                "strftime_now because it is nondeterministic",
+            )
+
+    def render(
+        self,
+        messages: Sequence[Mapping[str, JsonValue]],
+        *,
+        tools: Sequence[JsonObject] | None = None,
+        documents: Sequence[JsonObject] | None = None,
+    ) -> str:
+        if tools is not None:
+            raise PromptRenderingError(
+                "separate tools are unsupported by the GGUF prompt renderer",
+            )
+        if documents is not None:
+            raise PromptRenderingError(
+                "separate documents are unsupported by the GGUF prompt renderer",
+            )
+        key = _messages_cache_key(messages)
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        payload: JsonObject = {
+            "messages": [dict(message) for message in messages],
+            "chat_template_kwargs": dict(self.chat_template_kwargs),
+            "add_generation_prompt": True,
+        }
+        try:
+            transport = self.transport or httpx.HTTPTransport(
+                retries=3,
+                limits=_LLAMA_APPLY_TEMPLATE_LIMITS,
+            )
+            with httpx.Client(
+                base_url=self.base_url,
+                headers={"Authorization": f"Bearer {self.api_key}"},
+                timeout=_LLAMA_APPLY_TEMPLATE_TIMEOUT,
+                transport=transport,
+                follow_redirects=True,
+            ) as client:
+                response = client.post("/apply-template", json=payload)
+                response.raise_for_status()
+                response_payload = response.json()
+        except (httpx.HTTPError, json.JSONDecodeError) as error:
+            raise PromptRenderingError(
+                f"llama.cpp /apply-template request failed: {error}",
+            ) from error
+        rendered = _unbatch_apply_template_prompt(response_payload)
         self._cache[key] = rendered
         return rendered
 
@@ -346,5 +433,27 @@ def _derived_answer_stops(tokenizer: ChatTemplateTokenizer, template: str) -> tu
     return tuple(dict.fromkeys(stops))
 
 
-def _messages_cache_key(messages: list[ChatMessage]) -> str:
-    return json.dumps(messages, sort_keys=True, separators=(",", ":"))
+def _messages_cache_key(messages: Sequence[Mapping[str, JsonValue]]) -> str:
+    return json.dumps(
+        messages,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+
+def _unbatch_apply_template_prompt(payload: JsonValue) -> str:
+    if isinstance(payload, dict):
+        prompt = payload.get("prompt")
+        if isinstance(prompt, str):
+            return prompt
+        if (
+            isinstance(prompt, list)
+            and len(prompt) == 1
+            and isinstance(prompt[0], str)
+        ):
+            return prompt[0]
+    raise PromptRenderingError(
+        "llama.cpp /apply-template response must contain exactly one string prompt",
+    )
