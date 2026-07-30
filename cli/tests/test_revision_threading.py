@@ -102,14 +102,20 @@ def test_serving_bench_config_threads_hf_revision_to_inner_orchestrate_config(
         hf_revision=PINNED_REVISION,
     )
     evidence = serving_evidence(tmp_path, teardown_terminated=True)
+    resolved_profile = assembly.resolve_serving_execution_profile(
+        options,
+        evidence.artifact,
+    )
 
     bench_run = assembly.bench_config(
         options,
         tmp_path / "localbench-run.json",
         "secret",
         49152,
+        resolved_profile=resolved_profile,
     )
     inner = build_orchestrate_config(bench_run, evidence)
 
     assert bench_run.hf_revision == PINNED_REVISION
     assert inner.hf_revision == PINNED_REVISION
+    assert inner.resolved_bounded_profile is resolved_profile

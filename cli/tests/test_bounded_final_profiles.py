@@ -16,6 +16,7 @@ from localbench.bounded_final_profiles import (
     UnsupportedBoundedFinalProfileError,
     resolve_bounded_final_profile_from_introspection,
 )
+from localbench.execution_contract import ResolvedExecutionContract
 from localbench.prompt_rendering import (
     HfChatPromptRenderer,
     TemplateIntrospection,
@@ -298,8 +299,20 @@ def test_bounded_final_generic_two_pass_uses_actual_reasoning_tokens_for_budget_
                 chat_template_kwargs={"enable_thinking": True},
                 answer_stop=("<|im_end|>",),
             ),
-            answer_stop=("<|im_end|>",),
-            chat_template_kwargs={"enable_thinking": True},
+            contract=ResolvedExecutionContract(
+                profile_id="generic_think_tags_8192_v1",
+                selection_policy_id="hf-canonical-template-v1",
+                selection_reason="generic_think_tags_8192_v1",
+                template_source="hf-chat-template",
+                raw_template_sha256="1" * 64,
+                effective_template_sha256=None,
+                chat_template_kwargs={"enable_thinking": True},
+                answer_stops=("<|im_end|>",),
+                reasoning_mode="generic_think",
+                reasoning_budget=8192,
+                model_file_sha256="2" * 64,
+                runtime_probe=None,
+            ),
             prompt_renderer_manifest={
                 "source": "fixture-tokenizer",
                 "answer_stop": ["<|im_end|>"],

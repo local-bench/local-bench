@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 
+from localbench._types import JsonObject
+
 
 EPHEMERAL_TOKEN = "<EPHEMERAL>"
 
@@ -58,8 +60,9 @@ def resume_identity(
     parallel_slots: int,
     flash_attention: str,
     chat_template_digest: str,
+    execution_contract: JsonObject | None = None,
 ) -> str:
-    return server_fingerprint(
+    serving_identity = server_fingerprint(
         model_file_sha256=model_file_sha256,
         executable_sha256=executable_sha256,
         argv=normalize_ephemeral_argv(argv),
@@ -69,4 +72,12 @@ def resume_identity(
         parallel_slots=parallel_slots,
         flash_attention=flash_attention,
         chat_template_digest=chat_template_digest,
+    )
+    if execution_contract is None:
+        return serving_identity
+    return canonical_sha256(
+        {
+            "execution_contract": execution_contract,
+            "serving_identity": serving_identity,
+        },
     )

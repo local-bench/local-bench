@@ -1,11 +1,27 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Final, Literal
 
 from localbench._types import JsonObject
-from localbench.budget_forcing import ForcingFormat
+from localbench.bounded_final_runtime import (
+    BoundedFinalProfileRuntime,
+    answer_only_runtime as _answer_only_runtime,
+    gemma_runtime as _gemma_runtime,
+    generic_runtime as _generic_runtime,
+)
+from localbench.execution_contract import (
+    ExecutionContractContext,
+    GGUF_EFFECTIVE_TEMPLATE_POLICY,
+    GgufCandidateUnresolvedError,
+    HF_CANONICAL_TEMPLATE_POLICY,
+    gguf_contract_context,
+)
+from localbench.gguf_template import (
+    LLAMA_BUILTIN_CHATML_NONTHINKING,
+    StaticProfileCandidate,
+    static_profile_candidate,
+)
 from localbench.prompt_rendering import (
     HfChatPromptRenderer,
     PromptRenderer,
@@ -16,9 +32,6 @@ from localbench.prompt_rendering import (
 )
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
-    GEMMA4_CHANNEL_PROFILE,
-    GENERIC_THINK_TAGS_PROFILE,
-    ReasoningRegistryEntry,
 )
 
 BoundedFinalProfileChoice = Literal[
@@ -44,41 +57,54 @@ class UnsupportedBoundedFinalProfileError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
-class BoundedFinalProfileRuntime:
-    entry: ReasoningRegistryEntry
-    forcing: ForcingFormat | None
-    prompt_renderer: PromptRenderer | None
-    answer_stop: tuple[str, ...]
-    chat_template_kwargs: Mapping[str, bool]
-    prompt_renderer_manifest: JsonObject | None = None
-
-    def __post_init__(self) -> None:
-        if self.forcing is not None and not self.forcing.answer_stop and self.answer_stop:
-            object.__setattr__(
-                self,
-                "forcing",
-                replace(self.forcing, answer_stop=self.answer_stop),
-            )
-
-
-@dataclass(frozen=True, slots=True)
 class BoundedFinalProfileRequest:
     profile: BoundedFinalProfileChoice
     hf_model_id: str | None
     hf_revision: str | None = None
+    model_file_sha256: str = ""
+    gguf_metadata: JsonObject | None = None
+    gguf_repo_only: bool = False
 
 
 def resolve_bounded_final_profile(
     request: BoundedFinalProfileRequest,
 ) -> BoundedFinalProfileRuntime:
     if request.profile == "answer_only_v1":
-        return _answer_only_runtime(())
-    if request.profile == "auto" and request.hf_model_id is None:
-        return _answer_only_runtime(())
+        return _answer_only_runtime(
+            (),
+            ExecutionContractContext(
+                selection_policy_id=(
+                    HF_CANONICAL_TEMPLATE_POLICY
+                    if request.hf_model_id is not None
+                    else GGUF_EFFECTIVE_TEMPLATE_POLICY
+                ),
+                selection_reason=ANSWER_ONLY_PROFILE.id,
+                template_source=(
+                    "hf-chat-template"
+                    if request.hf_model_id is not None
+                    else "llama-builtin-chatml"
+                ),
+                raw_template_sha256=None,
+                model_file_sha256=request.model_file_sha256,
+            ),
+        )
     if request.hf_model_id is None:
+        if request.gguf_metadata is not None:
+            return _resolve_gguf_profile(request, static_profile_candidate(request.gguf_metadata))
+        if request.profile == "auto" and not request.gguf_repo_only:
+            return _answer_only_runtime(
+                (),
+                ExecutionContractContext(
+                    selection_policy_id=GGUF_EFFECTIVE_TEMPLATE_POLICY,
+                    selection_reason=LLAMA_BUILTIN_CHATML_NONTHINKING,
+                    template_source="llama-builtin-chatml",
+                    raw_template_sha256=None,
+                    model_file_sha256=request.model_file_sha256,
+                ),
+            )
         raise _unsupported(
             request.profile,
-            "no --hf-model-id was supplied, so the canonical chat template cannot be inspected",
+            "GGUF template metadata is required when --gguf-repo-only is active",
         )
     activation = "gemma4" if request.profile == "gemma4_channel_8192_v1" else None
     tokenizer = load_hf_chat_template_tokenizer(
@@ -87,6 +113,7 @@ def resolve_bounded_final_profile(
         revision=request.hf_revision,
     )
     introspection = derive_template_introspection(tokenizer)
+    template_sha256 = chat_template_sha256(tokenizer)
     resolved = resolve_bounded_final_profile_from_introspection(
         request.profile,
         introspection,
@@ -94,10 +121,17 @@ def resolve_bounded_final_profile(
             "source": "hf-chat-template",
             "hf_model_id": request.hf_model_id,
             "hf_revision": request.hf_revision,
-            "chat_template_sha256": chat_template_sha256(tokenizer),
+            "chat_template_sha256": template_sha256,
             "answer_stop": list(introspection.answer_stop),
             "template_kwargs": dict(introspection.chat_template_kwargs),
         },
+        contract_context=ExecutionContractContext(
+            selection_policy_id=HF_CANONICAL_TEMPLATE_POLICY,
+            selection_reason=None,
+            template_source="hf-chat-template",
+            raw_template_sha256=template_sha256,
+            model_file_sha256=request.model_file_sha256,
+        ),
     )
     if resolved.entry is ANSWER_ONLY_PROFILE:
         return resolved
@@ -110,8 +144,7 @@ def resolve_bounded_final_profile(
             chat_template_kwargs=resolved.chat_template_kwargs,
             answer_stop=resolved.answer_stop,
         ),
-        answer_stop=resolved.answer_stop,
-        chat_template_kwargs=resolved.chat_template_kwargs,
+        contract=resolved.contract,
         prompt_renderer_manifest=resolved.prompt_renderer_manifest,
     )
 
@@ -122,67 +155,53 @@ def resolve_bounded_final_profile_from_introspection(
     *,
     prompt_renderer: PromptRenderer | None = None,
     prompt_renderer_manifest: JsonObject | None = None,
+    contract_context: ExecutionContractContext | None = None,
 ) -> BoundedFinalProfileRuntime:
+    context = contract_context or ExecutionContractContext(
+        selection_policy_id=HF_CANONICAL_TEMPLATE_POLICY,
+        selection_reason=None,
+        template_source="hf-chat-template",
+        raw_template_sha256=None,
+        model_file_sha256="",
+    )
     if profile == "answer_only_v1":
-        return _answer_only_runtime(introspection.answer_stop)
+        return _answer_only_runtime(introspection.answer_stop, context)
     if profile == "auto":
         if introspection.supports_gemma_channel:
-            return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest)
+            return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
         if introspection.supports_generic_thinking:
-            return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest)
-        return _answer_only_runtime(introspection.answer_stop)
+            _require_answer_stop("generic_think_tags_8192_v1", introspection.answer_stop)
+            return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
+        return _answer_only_runtime(introspection.answer_stop, context)
     if profile == "generic_think_tags_8192_v1":
         if not introspection.supports_generic_thinking:
             raise _unsupported(profile, "the canonical chat template exposes no native think tags or thinking kwarg")
-        return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest)
+        _require_answer_stop("generic_think_tags_8192_v1", introspection.answer_stop)
+        return _generic_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
     if profile == "gemma4_channel_8192_v1":
         if not introspection.supports_gemma_channel:
             raise _unsupported(profile, "the canonical chat template exposes no Gemma channel tags")
-        return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest)
+        return _gemma_runtime(introspection, prompt_renderer, prompt_renderer_manifest, context)
     raise _unsupported(profile, "unknown bounded-final profile")
 
 
-def _answer_only_runtime(answer_stop: tuple[str, ...]) -> BoundedFinalProfileRuntime:
-    return BoundedFinalProfileRuntime(
-        entry=ANSWER_ONLY_PROFILE,
-        forcing=None,
-        prompt_renderer=None,
-        answer_stop=answer_stop,
-        chat_template_kwargs={"enable_thinking": False},
-        prompt_renderer_manifest=None,
-    )
-
-
-def _generic_runtime(
-    introspection: TemplateIntrospection,
-    prompt_renderer: PromptRenderer | None,
-    prompt_renderer_manifest: JsonObject | None,
+def _resolve_gguf_profile(
+    request: BoundedFinalProfileRequest,
+    candidate: StaticProfileCandidate,
 ) -> BoundedFinalProfileRuntime:
-    _require_answer_stop("generic_think_tags_8192_v1", introspection.answer_stop)
-    return BoundedFinalProfileRuntime(
-        entry=GENERIC_THINK_TAGS_PROFILE,
-        forcing=GENERIC_THINK_TAGS_PROFILE.forcing,
-        prompt_renderer=prompt_renderer,
-        answer_stop=introspection.answer_stop,
-        chat_template_kwargs=dict(introspection.chat_template_kwargs),
-        prompt_renderer_manifest=prompt_renderer_manifest,
-    )
-
-
-def _gemma_runtime(
-    introspection: TemplateIntrospection,
-    prompt_renderer: PromptRenderer | None,
-    prompt_renderer_manifest: JsonObject | None,
-) -> BoundedFinalProfileRuntime:
-    answer_stop = GEMMA4_CHANNEL_PROFILE.forcing.answer_stop if GEMMA4_CHANNEL_PROFILE.forcing is not None else ()
-    _require_answer_stop("gemma4_channel_8192_v1", answer_stop)
-    return BoundedFinalProfileRuntime(
-        entry=GEMMA4_CHANNEL_PROFILE,
-        forcing=GEMMA4_CHANNEL_PROFILE.forcing,
-        prompt_renderer=prompt_renderer,
-        answer_stop=answer_stop,
-        chat_template_kwargs=dict(introspection.chat_template_kwargs),
-        prompt_renderer_manifest=prompt_renderer_manifest,
+    if candidate.introspection is None:
+        raise _unsupported(request.profile, candidate.reason_code)
+    try:
+        context = gguf_contract_context(
+            candidate,
+            model_file_sha256=request.model_file_sha256,
+        )
+    except GgufCandidateUnresolvedError as error:
+        raise _unsupported(request.profile, error.reason_code) from error
+    return resolve_bounded_final_profile_from_introspection(
+        request.profile,
+        candidate.introspection,
+        contract_context=context,
     )
 
 

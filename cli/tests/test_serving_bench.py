@@ -5,6 +5,7 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from typing import Literal
 
 import httpx
 import pytest
@@ -17,6 +18,7 @@ from localbench.appliance.runtime_identity import (
     agentic_runtime_identity_sha256,
 )
 from localbench.orchestrate import OrchestrateConfig
+from localbench.execution_contract import ResolvedExecutionContract
 from localbench.serving import assembly
 from localbench.serving import runner as serving_runner
 from localbench.serving.agentic_support import AgenticSetupError
@@ -197,7 +199,10 @@ def test_llama_cpp_reasoning_mapping_for_answer_only_lane() -> None:
 
 
 def test_llama_cpp_reasoning_mapping_for_bounded_final_lane() -> None:
-    reasoning = assembly.llama_cpp_reasoning_for_lane("bounded-final-v1", "answer_only_v1")
+    reasoning = assembly.llama_cpp_reasoning_for_lane(
+        "bounded-final-v1",
+        _execution_contract("answer_only_v1", reasoning_mode="disabled"),
+    )
 
     assert reasoning.reasoning == "off"
     assert reasoning.reasoning_budget is None
@@ -209,11 +214,35 @@ def test_llama_cpp_reasoning_mapping_for_bounded_final_lane() -> None:
     ["generic_think_tags_8192_v1", "gemma4_channel_8192_v1"],
 )
 def test_llama_cpp_reasoning_mapping_for_bounded_final_thinking_profiles(profile: str) -> None:
-    reasoning = assembly.llama_cpp_reasoning_for_lane("bounded-final-v1", profile)
+    reasoning = assembly.llama_cpp_reasoning_for_lane(
+        "bounded-final-v1",
+        _execution_contract(profile, reasoning_mode="generic_think"),
+    )
 
     assert reasoning.reasoning == "on"
     assert reasoning.reasoning_budget == 8192
     assert reasoning.reasoning_format == "deepseek"
+
+
+def _execution_contract(
+    profile_id: str,
+    *,
+    reasoning_mode: Literal["generic_think", "disabled"],
+) -> ResolvedExecutionContract:
+    return ResolvedExecutionContract(
+        profile_id=profile_id,
+        selection_policy_id="hf-canonical-template-v1",
+        selection_reason=profile_id,
+        template_source="hf-chat-template",
+        raw_template_sha256="1" * 64,
+        effective_template_sha256=None,
+        chat_template_kwargs={"enable_thinking": reasoning_mode == "generic_think"},
+        answer_stops=("<|im_end|>",),
+        reasoning_mode=reasoning_mode,
+        reasoning_budget=8192 if reasoning_mode == "generic_think" else None,
+        model_file_sha256="2" * 64,
+        runtime_probe=None,
+    )
 
 
 def test_llama_cpp_reasoning_mapping_for_capped_thinking_lane() -> None:

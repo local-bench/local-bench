@@ -19,6 +19,7 @@ from localbench.serving.assembly import (
     thread_vllm_model_identity,
 )
 from localbench.serving.model_artifact import (
+    ModelArtifact,
     ModelArtifactError,
     parse_snapshot_reference,
     snapshot_artifact,
@@ -145,9 +146,26 @@ def test_vllm_ref_identity_is_used_by_auto_profile_resolution(
             out=tmp_path / "run",
         )
     )
-    assert serving_assembly.effective_serving_profile(options) == "generic_think_tags_8192_v1"
+    artifact = ModelArtifact(
+        model_file=tmp_path / "snapshot",
+        file_sha256="b" * 64,
+        file_size_bytes=1,
+        gguf_metadata_sha256="c" * 64,
+        tokenizer_digest="d" * 64,
+        chat_template_digest="e" * 64,
+        gguf_metadata_path=tmp_path / "snapshot_metadata.json",
+        model_family="qwen",
+        quant_label="NVFP4",
+        model_format="safetensors",
+        snapshot_merkle_sha256="b" * 64,
+    )
+    resolved = serving_assembly.resolve_serving_execution_profile(options, artifact)
+
+    assert resolved is not None
+    assert resolved.entry.id == "generic_think_tags_8192_v1"
     assert captured.hf_model_id == "owner/model"
     assert captured.hf_revision == "a" * 40
+    assert captured.model_file_sha256 == "b" * 64
 
 
 @pytest.mark.anyio
@@ -955,7 +973,34 @@ async def test_runtime_vllm_dispatches_to_adapter(monkeypatch: pytest.MonkeyPatc
 async def test_bounded_final_vllm_rejects_answer_only_auto_fallback(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(serving_runner, "effective_serving_profile", lambda _options: "answer_only_v1")
+    artifact = ModelArtifact(
+        model_file=tmp_path / "snapshot",
+        file_sha256="b" * 64,
+        file_size_bytes=1,
+        gguf_metadata_sha256="c" * 64,
+        tokenizer_digest="d" * 64,
+        chat_template_digest="e" * 64,
+        gguf_metadata_path=tmp_path / "snapshot_metadata.json",
+        model_family="qwen",
+        quant_label="NVFP4",
+        model_format="safetensors",
+        snapshot_merkle_sha256="b" * 64,
+    )
+    monkeypatch.setattr(
+        serving_runner.VllmAdapter,
+        "resolve_model",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(
+        serving_runner,
+        "resolve_serving_execution_profile",
+        lambda _options, _artifact: None,
+    )
+    monkeypatch.setattr(
+        serving_runner,
+        "effective_serving_profile",
+        lambda _options, _resolved: "answer_only_v1",
+    )
     options = ServeBenchOptions(
         runtime="vllm",
         model_file=None,

@@ -12,6 +12,10 @@ from typing import Final
 
 from localbench._suite import RenderedBench, item_hashes, suite_version
 from localbench._types import BenchmarkItem, JsonObject, JsonValue
+from localbench.execution_contract import (
+    ResolvedExecutionContract,
+    execution_contract_record,
+)
 from localbench.run_schema import RUN_SCHEMA_VERSION
 
 CAMPAIGN_SCHEMA_VERSION: Final = "localbench-campaign-v1"
@@ -37,7 +41,7 @@ class CampaignConfig:
     reasoning_effort: str | None
     reasoning_activation: str
     hf_model_id: str | None
-    execution_profile_id: str | None
+    execution_contract: ResolvedExecutionContract | None
     output_path: Path
     server_fingerprint: str | None = None
     resume_identity: str | None = None
@@ -75,8 +79,8 @@ def campaign_record(
         "lane": config.lane,
         "execution_profile": (
             None
-            if config.execution_profile_id is None
-            else {"id": config.execution_profile_id}
+            if config.execution_contract is None
+            else execution_contract_record(config.execution_contract)
         ),
         "items": {
             "total": _total_items(benches),
@@ -202,7 +206,11 @@ def _sampling_by_bench(
             "max_tokens_override": config.max_tokens,
             "reasoning_effort": config.reasoning_effort,
             "reasoning_activation": config.reasoning_activation,
-            "execution_profile_id": config.execution_profile_id,
+            "execution_profile_id": (
+                None
+                if config.execution_contract is None
+                else config.execution_contract.profile_id
+            ),
             "capped_thinking": config.lane == "capped-thinking",
         }
     return sampling

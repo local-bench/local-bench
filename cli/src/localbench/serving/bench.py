@@ -5,7 +5,10 @@ from pathlib import Path
 from typing import Literal, Protocol
 
 from localbench._types import JsonObject
-from localbench.bounded_final_profiles import BoundedFinalProfileChoice
+from localbench.bounded_final_profiles import (
+    BoundedFinalProfileChoice,
+    BoundedFinalProfileRuntime,
+)
 from localbench.orchestrate import (
     LaneChoice,
     OrchestrateConfig,
@@ -44,6 +47,7 @@ class BenchRunConfig:
     hf_model_id: str | None = None
     hf_revision: str | None = None
     gguf_repo_only: bool = False
+    resolved_bounded_profile: BoundedFinalProfileRuntime | None = None
     progress_reporter: ProgressReporter | None = None
 
 
@@ -82,6 +86,7 @@ def build_orchestrate_config(config: BenchRunConfig, evidence: ServingEvidence) 
         resume=config.resume,
         retry_errored=config.retry_errored,
         hf_revision=config.hf_revision,
+        resolved_bounded_profile=config.resolved_bounded_profile,
         max_items=config.max_items,
         publishable=True,
         sampler_temperature=0.0,

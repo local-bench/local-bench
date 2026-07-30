@@ -14,6 +14,7 @@ from typing import Final, Literal, TypeAlias
 import httpx
 
 from localbench._types import BenchmarkItem, JsonObject, JsonValue, Totals
+from localbench.execution_contract import ResolvedExecutionContract
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.canon import sha256_file
@@ -63,6 +64,7 @@ class ManifestContext:
     reasoning_effort: str | None = None
     thinking_budget: int = 0
     execution_profile_id: str | None = None
+    execution_contract: ResolvedExecutionContract | None = None
     prompt_renderer: JsonObject | None = None
     model_file: Path | None = None
     model_file_sha256: str | None = None
@@ -108,8 +110,13 @@ async def collect_manifest(
     }
     if context.reasoning_effort is not None:
         sampling["reasoning_effort"] = context.reasoning_effort
-    if context.execution_profile_id is not None:
-        sampling["execution_profile_id"] = context.execution_profile_id
+    execution_profile_id = (
+        context.execution_contract.profile_id
+        if context.execution_contract is not None
+        else context.execution_profile_id
+    )
+    if execution_profile_id is not None:
+        sampling["execution_profile_id"] = execution_profile_id
     if context.determinism_policy is not None:
         sampling["determinism_policy"] = context.determinism_policy
     model = _model_identity(context)
@@ -120,13 +127,13 @@ async def collect_manifest(
     if reported_model is None:
         missing_fields.append("endpoint.runtime_reported_model")
     scorecard = scorecard_identity(
-        execution_profile_id=context.execution_profile_id,
+        execution_profile_id=execution_profile_id,
         lane_spec_id=lane_spec_id_for_lane(context.lane),
     )
     execution_profile: JsonObject | None = None
-    if context.execution_profile_id is not None:
+    if execution_profile_id is not None:
         execution_profile = {
-            "id": context.execution_profile_id,
+            "id": execution_profile_id,
             "digest": scorecard.get("execution_profile_digest"),
         }
     return {

@@ -10,7 +10,12 @@ from localbench._types import JsonObject
 from localbench.bounded_final_profiles import (
     BoundedFinalProfileChoice,
     BoundedFinalProfileRequest,
+    BoundedFinalProfileRuntime,
     resolve_bounded_final_profile,
+)
+from localbench.execution_contract import (
+    MissingExecutionContractError,
+    ResolvedExecutionContract,
 )
 from localbench.reasoning_registry import ANSWER_ONLY_PROFILE
 from localbench.orchestrate import LaneChoice, UnsafeResumeError
@@ -83,7 +88,14 @@ def server_bin(options: ServeBenchOptions) -> Path:
     return Path(env_path).resolve()
 
 
-def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, port: int) -> BenchRunConfig:
+def bench_config(
+    options: ServeBenchOptions,
+    output_path: Path,
+    api_key: str,
+    port: int,
+    *,
+    resolved_profile: BoundedFinalProfileRuntime | None = None,
+) -> BenchRunConfig:
     return BenchRunConfig(
         endpoint=f"http://127.0.0.1:{port}/v1",
         api_key=api_key,
@@ -92,7 +104,7 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         bench=options.bench,
         tier=options.tier,
         lane=options.lane,
-        profile=effective_serving_profile(options),
+        profile=effective_serving_profile(options, resolved_profile),
         seed=options.seed,
         suite_dir=options.suite_dir,
         suite_source=options.suite_source,
@@ -104,6 +116,7 @@ def bench_config(options: ServeBenchOptions, output_path: Path, api_key: str, po
         hf_model_id=options.hf_model_id,
         hf_revision=options.hf_revision,
         gguf_repo_only=options.gguf_repo_only,
+        resolved_bounded_profile=resolved_profile,
         progress_reporter=options.progress_reporter,
     )
 
@@ -132,24 +145,45 @@ def thread_vllm_model_identity(options: ServeBenchOptions) -> ServeBenchOptions:
     return replace(options, hf_model_id=ref.repo_id, hf_revision=ref.revision)
 
 
-def effective_serving_profile(options: ServeBenchOptions) -> BoundedFinalProfileChoice:
+def resolve_serving_execution_profile(
+    options: ServeBenchOptions,
+    artifact: ModelArtifact,
+) -> BoundedFinalProfileRuntime | None:
     if options.lane not in {"bounded-final-v1", "bounded-final-v2"}:
-        return options.profile
-    if options.profile == "answer_only_v1":
-        return options.profile
-    resolved = resolve_bounded_final_profile(
+        return None
+    gguf_metadata = (
+        read_json_object(artifact.gguf_metadata_path)
+        if options.gguf_repo_only
+        else None
+    )
+    return resolve_bounded_final_profile(
         BoundedFinalProfileRequest(
             profile=options.profile,
             hf_model_id=options.hf_model_id,
             hf_revision=options.hf_revision,
+            model_file_sha256=artifact.file_sha256,
+            gguf_metadata=gguf_metadata,
+            gguf_repo_only=options.gguf_repo_only,
         ),
     )
-    return cast(BoundedFinalProfileChoice, resolved.entry.id)
+
+
+def effective_serving_profile(
+    options: ServeBenchOptions,
+    resolved_profile: BoundedFinalProfileRuntime | None = None,
+) -> BoundedFinalProfileChoice:
+    if options.lane not in {"bounded-final-v1", "bounded-final-v2"}:
+        return options.profile
+    if resolved_profile is None:
+        raise MissingExecutionContractError(
+            "bounded-final serving",
+        )
+    return cast(BoundedFinalProfileChoice, resolved_profile.contract.profile_id)
 
 
 def llama_cpp_reasoning_for_lane(
     lane: LaneChoice,
-    profile: BoundedFinalProfileChoice = "auto",
+    execution_contract: ResolvedExecutionContract | None = None,
 ) -> LlamaCppReasoningConfig:
     match lane:
         case "answer-only":
@@ -161,10 +195,14 @@ def llama_cpp_reasoning_for_lane(
         case "bounded-final-v1" | "bounded-final-v2":
             # v1 and v2 serve identically; v2 only differs in the per-item answer_reserve, which
             # is applied downstream in budget_forcing, not in the llama.cpp serving config.
-            if profile in {"generic_think_tags_8192_v1", "gemma4_channel_8192_v1"}:
+            if execution_contract is None:
+                raise MissingExecutionContractError(
+                    "bounded-final llama.cpp serving",
+                )
+            if execution_contract.reasoning_mode == "generic_think":
                 return LlamaCppReasoningConfig(
                     reasoning="on",
-                    reasoning_budget=CAPPED_THINKING_REASONING_BUDGET,
+                    reasoning_budget=execution_contract.reasoning_budget,
                     reasoning_format=LLAMA_CPP_REASONING_FORMAT,
                 )
             return LlamaCppReasoningConfig(

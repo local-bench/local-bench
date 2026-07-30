@@ -65,6 +65,10 @@ from localbench.campaign_checkpoints import (
     write_bench_complete,
 )
 from localbench.campaign_records import item_hash
+from localbench.execution_contract import (
+    ExecutionContractArtifactMismatchError,
+    execution_contract_record,
+)
 from localbench.lane_conformance import assess_run_conformance
 from localbench.lane_spec import (
     BOUNDED_FINAL_LANE_SPEC_IDS,
@@ -240,6 +244,7 @@ class OrchestrateConfig:
     hf_model_id: str | None = None
     hf_revision: str | None = None
     gguf_repo_only: bool = False
+    resolved_bounded_profile: BoundedFinalProfileRuntime | None = None
     reasoning_activation: ReasoningActivationChoice = "qwen3"
     max_tokens: int | None = None
     resume: Path | None = None
@@ -340,13 +345,25 @@ async def run_localbench(
         )
     bounded_profile: BoundedFinalProfileRuntime | None = None
     if config.lane in BOUNDED_FINAL_LANE_SPEC_IDS:
-        bounded_profile = resolve_bounded_final_profile(
-            BoundedFinalProfileRequest(
-                profile=config.profile,
-                hf_model_id=config.hf_model_id,
-                hf_revision=config.hf_revision,
-            ),
-        )
+        bounded_profile = config.resolved_bounded_profile
+        if bounded_profile is None:
+            bounded_profile = resolve_bounded_final_profile(
+                BoundedFinalProfileRequest(
+                    profile=config.profile,
+                    hf_model_id=config.hf_model_id,
+                    hf_revision=config.hf_revision,
+                    model_file_sha256=config.model_file_sha256 or "",
+                    gguf_repo_only=config.gguf_repo_only,
+                ),
+            )
+        if (
+            config.model_file_sha256 is not None
+            and bounded_profile.contract.model_file_sha256 != config.model_file_sha256
+        ):
+            raise ExecutionContractArtifactMismatchError(
+                expected_sha256=config.model_file_sha256,
+                actual_sha256=bounded_profile.contract.model_file_sha256,
+            )
         if provider.name != "local" and bounded_profile.entry is not ANSWER_ONLY_PROFILE:
             raise RuntimeError(
                 "bounded-final thinking profiles require the local provider raw /v1/completions path",
@@ -375,7 +392,7 @@ async def run_localbench(
 
     execution_profile_id: str | None = None
     if bounded_profile is not None:
-        execution_profile_id = bounded_profile.entry.id
+        execution_profile_id = bounded_profile.contract.profile_id
     paths = campaign_paths(output_path, config.resume)
     session_segment_id = "segment-1" if config.resume is None else next_segment_id(paths)
     segment_completed_item_ids: list[str] = []
@@ -400,7 +417,9 @@ async def run_localbench(
         reasoning_effort=effective_reasoning_effort,
         reasoning_activation=config.reasoning_activation,
         hf_model_id=config.hf_model_id,
-        execution_profile_id=execution_profile_id,
+        execution_contract=(
+            None if bounded_profile is None else bounded_profile.contract
+        ),
         output_path=output_path,
         server_fingerprint=config.server_fingerprint,
         resume_identity=config.resume_identity,
@@ -756,6 +775,9 @@ async def run_localbench(
             reasoning_effort=effective_reasoning_effort,
             thinking_budget=thinking_budget,
             execution_profile_id=execution_profile_id,
+            execution_contract=(
+                None if bounded_profile is None else bounded_profile.contract
+            ),
             prompt_renderer=prompt_renderer_manifest,
             model_file=config.model_file,
             model_file_sha256=config.model_file_sha256,
@@ -1518,15 +1540,13 @@ def _validate_resume_campaign(path: Path, config: CampaignConfig) -> None:
     _append_mismatch(mismatches, "lane", campaign.get("lane"), config.lane)
     _append_mismatch(mismatches, "provider", provider.get("name"), config.provider)
     execution_profile = campaign.get("execution_profile")
-    actual_execution_profile_id = (
-        execution_profile.get("id") if isinstance(execution_profile, dict) else None
+    expected_execution_profile = (
+        None
+        if config.execution_contract is None
+        else execution_contract_record(config.execution_contract)
     )
-    _append_optional_mismatch(
-        mismatches,
-        "execution_profile_id",
-        actual_execution_profile_id,
-        config.execution_profile_id,
-    )
+    if execution_profile != expected_execution_profile:
+        mismatches.append("execution_contract changed")
     serve_fingerprint = campaign.get("serve_fingerprint")
     if isinstance(serve_fingerprint, dict):
         actual_resume_identity = serve_fingerprint.get("resume_identity")

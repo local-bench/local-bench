@@ -18,6 +18,7 @@ from localbench.appliance.runtime_identity import (
     agentic_runtime_identity_sha256,
 )
 from localbench._suite import read_json_object
+from localbench.execution_contract import execution_contract_record
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
 from localbench.run_plan import resolve_run_benches
@@ -30,6 +31,7 @@ from localbench.serving.assembly import (
     precheck_resume_identity,
     redacted_argv,
     resolve_artifact,
+    resolve_serving_execution_profile,
     run_dir,
     server_bin,
     serving_evidence,
@@ -130,9 +132,8 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         raise RuntimeError(f"unsupported runtime: {options.runtime}")
     if options.determinism != "strict":
         raise RuntimeError("--determinism throughput is deferred and non-publishable")
-    effective_profile = effective_serving_profile(options)
-    reasoning_config = llama_cpp_reasoning_for_lane(options.lane, effective_profile)
-    validate_capped_thinking_context(options, effective_profile)
+    if options.lane == "api-uncapped":
+        llama_cpp_reasoning_for_lane(options.lane)
     root = run_dir(options)
     output_path = root / "localbench-run.json"
     # Advanced --model-ref runs must prove the agentic setup before resolving/downloading
@@ -141,6 +142,13 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         options, root
     )
     artifact = resolve_artifact(options, root)
+    resolved_profile = resolve_serving_execution_profile(options, artifact)
+    effective_profile = effective_serving_profile(options, resolved_profile)
+    reasoning_config = llama_cpp_reasoning_for_lane(
+        options.lane,
+        None if resolved_profile is None else resolved_profile.contract,
+    )
+    validate_capped_thinking_context(options, effective_profile)
     binary = server_bin(options)
     build = collect_build_identity(binary)
     port = allocate_port()
@@ -187,6 +195,11 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         parallel_slots=1,
         flash_attention=launch_config.flash_attn,
         chat_template_digest=artifact.chat_template_digest or "",
+        execution_contract=(
+            None
+            if resolved_profile is None
+            else execution_contract_record(resolved_profile.contract)
+        ),
     )
     precheck_resume_identity(
         options.resume,
@@ -266,7 +279,14 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         try:
             await run_localbench(
                 build_orchestrate_config(
-                    bench_config(options, output_path, api_key, port), evidence
+                    bench_config(
+                        options,
+                        output_path,
+                        api_key,
+                        port,
+                        resolved_profile=resolved_profile,
+                    ),
+                    evidence,
                 ),
                 agentic_sandbox_factory=agentic_sandbox_factory,
                 agentic_model_factory=agentic_model_factory,
@@ -326,7 +346,19 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
     options = thread_vllm_model_identity(options)
     distro = options.wsl_distro
     vllm_bin = _vllm_binary(options)
-    effective_profile = effective_serving_profile(options)
+    root = run_dir(options)
+    output_path = root / "localbench-run.json"
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
+        options, root
+    )
+    adapter = VllmAdapter()
+    artifact = adapter.resolve_model(
+        options.model_ref,
+        cache_dir=options.cache_dir or root / "hf-cache",
+        run_dir=root,
+    )
+    resolved_profile = resolve_serving_execution_profile(options, artifact)
+    effective_profile = effective_serving_profile(options, resolved_profile)
     if (
         options.lane == "bounded-final-v2"
         and options.profile == "auto"
@@ -342,17 +374,6 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         ctx=_vllm_max_model_len(options, effective_profile),
     )
     validate_capped_thinking_context(options, effective_profile)
-    root = run_dir(options)
-    output_path = root / "localbench-run.json"
-    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
-        options, root
-    )
-    adapter = VllmAdapter()
-    artifact = adapter.resolve_model(
-        options.model_ref,
-        cache_dir=options.cache_dir or root / "hf-cache",
-        run_dir=root,
-    )
     quantization = quantization_config(artifact)
     model_path = wsl_path(artifact.model_file, distro=distro)
     template_path = artifact.model_file / "chat_template.jinja"
@@ -426,6 +447,11 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         parallel_slots=1,
         flash_attention=flash_attention_label,
         chat_template_digest=artifact.chat_template_digest,
+        execution_contract=(
+            None
+            if resolved_profile is None
+            else execution_contract_record(resolved_profile.contract)
+        ),
     )
     precheck_resume_identity(
         options.resume,
@@ -561,7 +587,14 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
         try:
             await run_localbench(
                 build_orchestrate_config(
-                    bench_config(options, output_path, api_key, port), evidence
+                    bench_config(
+                        options,
+                        output_path,
+                        api_key,
+                        port,
+                        resolved_profile=resolved_profile,
+                    ),
+                    evidence,
                 ),
                 agentic_sandbox_factory=agentic_sandbox_factory,
                 agentic_model_factory=agentic_model_factory,
@@ -638,7 +671,19 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
     options = thread_vllm_model_identity(options)
     distro = options.wsl_distro
     python_bin = _sglang_python(options)
-    effective_profile = effective_serving_profile(options)
+    root = run_dir(options)
+    output_path = root / "localbench-run.json"
+    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
+        options, root
+    )
+    adapter = SglangAdapter()
+    artifact = adapter.resolve_model(
+        options.model_ref,
+        cache_dir=options.cache_dir or root / "hf-cache",
+        run_dir=root,
+    )
+    resolved_profile = resolve_serving_execution_profile(options, artifact)
+    effective_profile = effective_serving_profile(options, resolved_profile)
     if (
         options.lane == "bounded-final-v2"
         and options.profile == "auto"
@@ -654,17 +699,6 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         ctx=_sglang_max_model_len(options, effective_profile),
     )
     validate_capped_thinking_context(options, effective_profile)
-    root = run_dir(options)
-    output_path = root / "localbench-run.json"
-    agentic_preflight = options.agentic_preflight or preflight_agentic_if_needed(
-        options, root
-    )
-    adapter = SglangAdapter()
-    artifact = adapter.resolve_model(
-        options.model_ref,
-        cache_dir=options.cache_dir or root / "hf-cache",
-        run_dir=root,
-    )
     quantization = sglang_quantization_config(artifact)
     model_path = wsl_path(artifact.model_file, distro=distro)
     template_path = artifact.model_file / "chat_template.jinja"
@@ -727,6 +761,11 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         parallel_slots=1,
         flash_attention="triton-batch-invariant",
         chat_template_digest=artifact.chat_template_digest,
+        execution_contract=(
+            None
+            if resolved_profile is None
+            else execution_contract_record(resolved_profile.contract)
+        ),
     )
     precheck_resume_identity(
         options.resume,
@@ -835,7 +874,14 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
         try:
             await run_localbench(
                 build_orchestrate_config(
-                    bench_config(options, output_path, api_key, port), evidence
+                    bench_config(
+                        options,
+                        output_path,
+                        api_key,
+                        port,
+                        resolved_profile=resolved_profile,
+                    ),
+                    evidence,
                 ),
                 agentic_sandbox_factory=agentic_sandbox_factory,
                 agentic_model_factory=agentic_model_factory,
