@@ -1,4 +1,10 @@
-"""Chat-template prompt rendering for local capped-thinking forcing."""
+"""Chat-template prompt rendering for local capped-thinking forcing.
+
+Generic GGUF profiles deliberately use llama.cpp's ``/apply-template`` as the
+raw-prompt renderer. This keeps scoring on the pinned server's effective
+renderer and avoids reimplementing its template wrapper and token namespace in
+the client while preserving the existing two-pass forcing protocol.
+"""
 
 from __future__ import annotations
 
