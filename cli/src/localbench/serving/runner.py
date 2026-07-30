@@ -21,6 +21,10 @@ from localbench._suite import read_json_object
 from localbench.execution_contract import execution_contract_record
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
+from localbench.runtime_probe import (
+    RuntimeProbeMismatchError,
+    verify_llama_cpp_runtime_profile,
+)
 from localbench.run_plan import resolve_run_benches
 from localbench.suite_resolver import STATIC_EXEC_SUITE_ID, resolve_suite_dir
 from localbench.serving.assembly import (
@@ -55,7 +59,7 @@ from localbench.serving.llama_cpp import (
     strict_llama_cpp_argv,
     validate_strict_argv_supported,
 )
-from localbench.serving.model_artifact import ModelArtifact
+from localbench.serving.model_artifact import ModelArtifact, sha256_file
 from localbench.serving.options import ServeBenchOptions
 from localbench.serving.process import (
     JobController,
@@ -172,6 +176,13 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     argv = strict_llama_cpp_argv(launch_config)
     argv = reconcile_agent_isolation(argv, build.help_text)
     validate_strict_argv_supported(argv, build.help_text)
+    if (
+        options.gguf_repo_only
+        and sha256_file(artifact.model_file) != artifact.file_sha256
+    ):
+        raise RuntimeProbeMismatchError(
+            "resolved GGUF artifact changed immediately before llama.cpp launch"
+        )
     env_allowlist = {"CUDA_VISIBLE_DEVICES": "0"}
     safe_argv = redacted_argv(argv)
     fingerprint = server_fingerprint(
@@ -185,31 +196,6 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         flash_attention=launch_config.flash_attn,
         chat_template_digest=artifact.chat_template_digest or "",
     )
-    identity = resume_identity(
-        model_file_sha256=artifact.file_sha256,
-        executable_sha256=build.executable_sha256,
-        argv=safe_argv,
-        env_allowlist=env_allowlist,
-        ctx=options.ctx,
-        kv_cache_quant="k=f16,v=f16",
-        parallel_slots=1,
-        flash_attention=launch_config.flash_attn,
-        chat_template_digest=artifact.chat_template_digest or "",
-        execution_contract=(
-            None
-            if resolved_profile is None
-            else execution_contract_record(resolved_profile.contract)
-        ),
-    )
-    precheck_resume_identity(
-        options.resume,
-        identity,
-        chat_template_digest=artifact.chat_template_digest or "",
-        env_allowlist=env_allowlist,
-        kv_cache_quant="k=f16,v=f16",
-        parallel_slots=1,
-        flash_attention=launch_config.flash_attn,
-    )
     launched: LaunchedServer | None = None
     teardown: TeardownEvidence | None = None
     try:
@@ -222,6 +208,49 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             model_file=artifact.model_file,
             api_key=api_key,
             seed=options.seed,
+        )
+        if options.gguf_repo_only and resolved_profile is not None:
+            resolved_profile = await verify_llama_cpp_runtime_profile(
+                base_url=f"http://127.0.0.1:{port}",
+                model_id=options.model_id,
+                api_key=api_key,
+                runtime=resolved_profile,
+                llama_build={
+                    "executable_sha256": build.executable_sha256,
+                    "version_stdout": build.version_stdout,
+                    "source_repo": build.source_repo,
+                    "source_commit": build.source_commit,
+                    "source_tag": build.source_tag,
+                    "build_flags": build.build_flags,
+                    "help_text_sha256": build.help_text_sha256,
+                },
+                run_dir=root,
+            )
+            effective_profile = effective_serving_profile(options, resolved_profile)
+        identity = resume_identity(
+            model_file_sha256=artifact.file_sha256,
+            executable_sha256=build.executable_sha256,
+            argv=safe_argv,
+            env_allowlist=env_allowlist,
+            ctx=options.ctx,
+            kv_cache_quant="k=f16,v=f16",
+            parallel_slots=1,
+            flash_attention=launch_config.flash_attn,
+            chat_template_digest=artifact.chat_template_digest or "",
+            execution_contract=(
+                None
+                if resolved_profile is None
+                else execution_contract_record(resolved_profile.contract)
+            ),
+        )
+        precheck_resume_identity(
+            options.resume,
+            identity,
+            chat_template_digest=artifact.chat_template_digest or "",
+            env_allowlist=env_allowlist,
+            kv_cache_quant="k=f16,v=f16",
+            parallel_slots=1,
+            flash_attention=launch_config.flash_attn,
         )
         evidence = serving_evidence(
             options=options,

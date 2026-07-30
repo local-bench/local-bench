@@ -190,6 +190,20 @@ def _resolve_gguf_profile(
     candidate: StaticProfileCandidate,
 ) -> BoundedFinalProfileRuntime:
     if candidate.introspection is None:
+        if (
+            request.profile == "auto"
+            and candidate.reason_code == LLAMA_BUILTIN_CHATML_NONTHINKING
+        ):
+            return _answer_only_runtime(
+                (),
+                ExecutionContractContext(
+                    selection_policy_id=GGUF_EFFECTIVE_TEMPLATE_POLICY,
+                    selection_reason=LLAMA_BUILTIN_CHATML_NONTHINKING,
+                    template_source="llama-builtin-chatml",
+                    raw_template_sha256=None,
+                    model_file_sha256=request.model_file_sha256,
+                ),
+            )
         raise _unsupported(request.profile, candidate.reason_code)
     try:
         context = gguf_contract_context(
