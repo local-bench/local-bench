@@ -96,3 +96,43 @@ def _install_transformers(
     module = ModuleType("transformers")
     setattr(module, "AutoTokenizer", auto_tokenizer)
     monkeypatch.setitem(sys.modules, "transformers", module)
+
+
+def test_cache_miss_message_names_both_remedies(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given: the offline loader misses (stubbed - never import real transformers here).
+    import localbench.prompt_rendering as pr
+
+    _install_transformers(monkeypatch, _RecordingAutoTokenizer)
+
+    def raise_oserror(auto_tokenizer, request):
+        raise OSError("not in cache")
+
+    monkeypatch.setattr(pr, "_load_offline_tokenizer", raise_oserror)
+
+    # When / Then: the curated miss message offers BOTH remedies.
+    with pytest.raises(pr.TokenizerCacheMissError) as excinfo:
+        pr.load_hf_chat_template_tokenizer("owner/model")
+    message = str(excinfo.value)
+    assert "hf download owner/model" in message
+    assert "--gguf-repo-only" in message
+
+
+def test_unexpected_introspection_failure_becomes_prompt_rendering_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a community repo's tokenizer config makes transformers raise an
+    # arbitrary exception type (oracle BLOCKER 2).
+    import localbench.prompt_rendering as pr
+
+    _install_transformers(monkeypatch, _RecordingAutoTokenizer)
+
+    def raise_typeerror(auto_tokenizer, request):
+        raise TypeError("unexpected keyword argument 'sp_model_kwargs'")
+
+    monkeypatch.setattr(pr, "_load_offline_tokenizer", raise_typeerror)
+
+    # When / Then: it surfaces as the typed, catchable error - not a raw TypeError.
+    with pytest.raises(pr.PromptRenderingError) as excinfo:
+        pr.load_hf_chat_template_tokenizer("owner/model")
+    assert "TypeError" in str(excinfo.value)
+    assert not isinstance(excinfo.value, pr.TokenizerCacheMissError)

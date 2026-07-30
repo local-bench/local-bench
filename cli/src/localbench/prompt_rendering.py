@@ -146,7 +146,16 @@ def load_hf_chat_template_tokenizer(
             f'  hf download {hf_model_id} --include "*.json" '
             '--include "*.model" --include "*.jinja"\n'
             f"{_revision_cache_hint(revision)}"
-            "(gated repos need `hf auth login` after accepting the license on huggingface.co)"
+            "(gated repos need `hf auth login` after accepting the license on huggingface.co)\n"
+            "For `localbench bench` against a GGUF-only repo with no tokenizer files, "
+            "declare --gguf-repo-only instead of --hf-model-id (basic identity, "
+            "null template digests)."
+        ) from exc
+    except Exception as exc:  # noqa: BLE001 - third-party tokenizer stacks raise freely
+        tokenizer_ref = _tokenizer_ref(hf_model_id, revision)
+        raise PromptRenderingError(
+            f"could not introspect tokenizer for {tokenizer_ref!r}: "
+            f"{type(exc).__name__}: {exc}"
         ) from exc
     finally:
         if previous_offline is None:
