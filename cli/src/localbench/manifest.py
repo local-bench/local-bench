@@ -14,7 +14,10 @@ from typing import Final, Literal, TypeAlias
 import httpx
 
 from localbench._types import BenchmarkItem, JsonObject, JsonValue, Totals
-from localbench.execution_contract import ResolvedExecutionContract
+from localbench.execution_contract import (
+    ResolvedExecutionContract,
+    execution_profile_record,
+)
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.scoring.scorecard import scorecard_identity
 from localbench.submissions.canon import sha256_file
@@ -130,12 +133,16 @@ async def collect_manifest(
         execution_profile_id=execution_profile_id,
         lane_spec_id=lane_spec_id_for_lane(context.lane),
     )
-    execution_profile: JsonObject | None = None
-    if execution_profile_id is not None:
+    execution_profile: JsonObject | None
+    if context.execution_contract is not None:
+        execution_profile = execution_profile_record(context.execution_contract)
+    elif execution_profile_id is not None:
         execution_profile = {
             "id": execution_profile_id,
             "digest": scorecard.get("execution_profile_digest"),
         }
+    else:
+        execution_profile = None
     return {
         "schema_version": "0.1",
         "suite": {

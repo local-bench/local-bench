@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal, assert_never
 
-from localbench._types import JsonObject
+from localbench._types import JsonObject, JsonValue
 from localbench.budget_forcing import CAPPED_THINKING_THINK_BUDGET
 from localbench.gguf_template import StaticProfileCandidate
 from localbench.reasoning_registry import (
@@ -17,6 +17,17 @@ from localbench.reasoning_registry import (
 
 HF_CANONICAL_TEMPLATE_POLICY: Final = "hf-canonical-template-v1"
 GGUF_EFFECTIVE_TEMPLATE_POLICY: Final = "gguf-effective-template-v1"
+_PUBLIC_EXECUTION_PROFILE_FIELDS: Final = (
+    "id",
+    "selection_policy_id",
+    "selection_reason",
+    "template_source",
+    "template_sha256",
+    "chat_template_kwargs",
+    "answer_stops",
+    "runtime_probe_passed",
+    "prompt_renderer_engine",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +156,51 @@ def execution_contract_record(contract: ResolvedExecutionContract) -> JsonObject
         "model_file_sha256": contract.model_file_sha256,
         "runtime_probe": contract.runtime_probe,
     }
+
+
+def execution_profile_record(contract: ResolvedExecutionContract) -> JsonObject:
+    template_sha256 = (
+        contract.effective_template_sha256 or contract.raw_template_sha256
+    )
+    prompt_renderer_engine = (
+        "transformers.apply_chat_template"
+        if contract.template_source == "hf-chat-template"
+        else "llama.cpp.apply-template"
+    )
+    runtime_probe_passed = (
+        contract.runtime_probe is not None
+        and contract.runtime_probe.get("passed") is True
+    )
+    return {
+        "id": contract.profile_id,
+        "selection_policy_id": contract.selection_policy_id,
+        "selection_reason": contract.selection_reason,
+        "template_source": contract.template_source,
+        "template_sha256": template_sha256,
+        "chat_template_kwargs": dict(contract.chat_template_kwargs),
+        "answer_stops": list(contract.answer_stops),
+        "runtime_probe_passed": runtime_probe_passed,
+        "prompt_renderer_engine": prompt_renderer_engine,
+    }
+
+
+def structured_execution_profile(value: JsonValue) -> JsonObject | None:
+    if not isinstance(value, dict):
+        return None
+    if not all(field in value for field in _PUBLIC_EXECUTION_PROFILE_FIELDS):
+        return None
+    return {field: value[field] for field in _PUBLIC_EXECUTION_PROFILE_FIELDS}
+
+
+def execution_contract_notice(contract: ResolvedExecutionContract) -> str:
+    template_sha256 = (
+        contract.effective_template_sha256 or contract.raw_template_sha256
+    )
+    return (
+        f"execution_profile={contract.profile_id} "
+        f"selection_reason={contract.selection_reason} "
+        f"template_sha256={template_sha256[:12] if template_sha256 else 'none'}"
+    )
 
 
 def execution_contract_resume_identity(contract: ResolvedExecutionContract) -> str:

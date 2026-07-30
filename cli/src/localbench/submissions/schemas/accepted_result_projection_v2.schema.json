@@ -16,6 +16,22 @@
       ]
     },
     "jsonObject": {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"$ref": "#/$defs/jsonValue"}},
+    "executionProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "selection_policy_id", "selection_reason", "template_source", "template_sha256", "chat_template_kwargs", "answer_stops", "runtime_probe_passed", "prompt_renderer_engine"],
+      "properties": {
+        "id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "selection_policy_id": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "selection_reason": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "template_source": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120},
+        "template_sha256": {"$ref": "#/$defs/nullableDigest"},
+        "chat_template_kwargs": {"type": "object", "propertyNames": {"$ref": "#/$defs/safeText"}, "additionalProperties": {"type": "boolean"}},
+        "answer_stops": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 160}},
+        "runtime_probe_passed": {"type": "boolean"},
+        "prompt_renderer_engine": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 120}
+      }
+    },
     "axis": {
       "type": "object", "additionalProperties": false,
       "required": ["ci", "n", "score", "status"],
@@ -46,6 +62,7 @@
       }
     },
     "lineage": {"type": "object", "additionalProperties": false, "required": ["base_model"], "properties": {"base_model": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/safeText", "minLength": 1, "maxLength": 140}}}},
+    "execution_profile": {"$ref": "#/$defs/executionProfile"},
     "runtime": {"oneOf": [
       {
         "type": "object", "additionalProperties": false, "required": ["name", "version", "backend"],

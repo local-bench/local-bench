@@ -6,6 +6,7 @@ from pathlib import Path
 
 from localbench._suite import read_json_object, render_benches
 from localbench._types import JsonObject, JsonValue
+from localbench.execution_contract import structured_execution_profile
 from localbench.lane_spec import lane_spec_id_for_lane
 from localbench.run_schema import check_run_schema_version
 from localbench.scoring.scorecard import scorecard_identity
@@ -96,6 +97,9 @@ def _manifest_payload(
         _string(run_suite.get("lane")) or "",
     )
     scorecard = scorecard_identity(execution_profile_id, lane_spec_id=lane_spec_id)
+    execution_profile = structured_execution_profile(
+        run_manifest.get("execution_profile")
+    )
     return {
         "submission_format": SUBMISSION_FORMAT,
         "created_at": created_at,
@@ -111,6 +115,11 @@ def _manifest_payload(
             **suite_release_pair(run_suite, suite_dir),
         },
         "scorecard": _submission_scorecard(scorecard),
+        **(
+            {"execution_profile": execution_profile}
+            if execution_profile is not None
+            else {}
+        ),
         **(
             {
                 "agentic_runtime_identity": agentic_runtime_identity,

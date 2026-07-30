@@ -14,6 +14,7 @@ from localbench._types import JsonObject, JsonValue, Usage
 from localbench.coding_exec.receipt import CodingVerificationResult
 from localbench.coding_exec.grading import coding_item_fully_graded
 from localbench.coding_exec.score import BENCH as CODING_BENCH
+from localbench.execution_contract import structured_execution_profile
 from localbench.scoring.axis_status import (
     AxisStatusBlock,
     axis_key_for_bench,
@@ -376,6 +377,9 @@ def _projection(
     verification_level: Literal["bundle_rescored", "client_reported"],
 ) -> JsonObject:
     manifest = _object(bundle.get("manifest"))
+    execution_profile = structured_execution_profile(
+        manifest.get("execution_profile")
+    )
     suite = _object(manifest.get("suite"))
     scorecard = _object(manifest.get("scorecard"))
     coverage_profile_id = str(suite.get("coverage_profile_id"))
@@ -433,13 +437,36 @@ def _projection(
             "commit": _object(manifest.get("provenance")).get("localbench_repo_commit"),
             "validated_at": validated_at,
         },
+        **(
+            {"execution_profile": execution_profile}
+            if execution_profile is not None
+            else {}
+        ),
     }
-    provenance_notes = list(provenance.notes)
+    provenance_notes = _execution_profile_provenance_notes(
+        list(provenance.notes),
+        execution_profile,
+    )
     if relabel_note is not None:
         provenance_notes.append(relabel_note)
     if provenance_notes:
         projection["provenance_notes"] = provenance_notes
     return projection
+
+
+def _execution_profile_provenance_notes(
+    notes: list[str],
+    execution_profile: JsonObject | None,
+) -> list[str]:
+    normalized = [
+        note for note in notes if not note.startswith("execution_profile:")
+    ]
+    if execution_profile is None:
+        return normalized
+    profile_id = execution_profile.get("id")
+    if isinstance(profile_id, str):
+        normalized.append(f"execution_profile:{profile_id}")
+    return normalized
 
 
 def _index_relabel_note(

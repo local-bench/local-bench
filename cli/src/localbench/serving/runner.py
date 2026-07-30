@@ -18,7 +18,10 @@ from localbench.appliance.runtime_identity import (
     agentic_runtime_identity_sha256,
 )
 from localbench._suite import read_json_object
-from localbench.execution_contract import execution_contract_record
+from localbench.execution_contract import (
+    execution_contract_notice,
+    execution_contract_record,
+)
 from localbench.orchestrate import run_localbench
 from localbench.persistence import atomic_write_json
 from localbench.runtime_probe import (
@@ -307,6 +310,10 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
                 api_key=api_key,
             )
         try:
+            if resolved_profile is not None:
+                print(
+                    f"notice     {execution_contract_notice(resolved_profile.contract)}"
+                )
             await run_localbench(
                 build_orchestrate_config(
                     bench_config(
@@ -616,6 +623,10 @@ async def _run_orchestrated_vllm_bench(options: ServeBenchOptions) -> JsonObject
                 api_key=api_key,
             )
         try:
+            if resolved_profile is not None:
+                print(
+                    f"notice     {execution_contract_notice(resolved_profile.contract)}"
+                )
             await run_localbench(
                 build_orchestrate_config(
                     bench_config(
@@ -904,6 +915,10 @@ async def _run_orchestrated_sglang_bench(options: ServeBenchOptions) -> JsonObje
                 api_key=api_key,
             )
         try:
+            if resolved_profile is not None:
+                print(
+                    f"notice     {execution_contract_notice(resolved_profile.contract)}"
+                )
             await run_localbench(
                 build_orchestrate_config(
                     bench_config(

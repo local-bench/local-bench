@@ -15,8 +15,10 @@ from localbench.bounded_final_profiles import (
 from localbench.campaign_records import CampaignConfig, campaign_record
 from localbench.execution_contract import (
     ResolvedExecutionContract,
+    execution_contract_notice,
     execution_contract_record,
     execution_contract_resume_identity,
+    execution_profile_record,
 )
 from localbench.orchestrate import UnsafeResumeError, _validate_resume_campaign
 
@@ -110,6 +112,42 @@ def test_execution_contract_record_preserves_full_structured_identity() -> None:
             "applied_prompt_sha256": _EFFECTIVE_SHA,
         },
     }
+
+
+def test_public_execution_profile_uses_effective_template_and_probe_result() -> None:
+    # Given: a runtime-verified GGUF execution contract.
+    contract = _contract()
+
+    # When: its public execution-profile disclosure is built.
+    profile = execution_profile_record(contract)
+
+    # Then: only the frozen public fields are disclosed, with the full effective hash.
+    assert profile == {
+        "id": "generic_think_tags_8192_v1",
+        "selection_policy_id": "gguf-effective-template-v1",
+        "selection_reason": "gguf_generic_think_confirmed",
+        "template_source": "gguf-default",
+        "template_sha256": _EFFECTIVE_SHA,
+        "chat_template_kwargs": {"enable_thinking": True},
+        "answer_stops": ["<|im_end|>"],
+        "runtime_probe_passed": True,
+        "prompt_renderer_engine": "llama.cpp.apply-template",
+    }
+
+
+def test_execution_contract_notice_uses_reason_code_and_short_template_hash() -> None:
+    # Given: a contract whose persisted template hash is full length.
+    contract = _contract()
+
+    # When: the bench-start notice is formatted.
+    notice = execution_contract_notice(contract)
+
+    # Then: console output is code-keyed and abbreviates only the displayed hash.
+    assert notice == (
+        "execution_profile=generic_think_tags_8192_v1 "
+        "selection_reason=gguf_generic_think_confirmed "
+        f"template_sha256={_EFFECTIVE_SHA[:12]}"
+    )
 
 
 def test_hf_contract_regression_keeps_current_profile_kwargs_and_manifest(

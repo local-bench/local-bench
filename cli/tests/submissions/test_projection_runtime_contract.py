@@ -80,6 +80,53 @@ def test_projection_lineage_is_empty_without_a_manifest_declaration() -> None:
     assert projected == {"base_model": []}
 
 
+def test_projection_profile_note_is_derived_from_structured_profile() -> None:
+    # Given: client notes contain a forged profile note and the manifest has structured truth.
+    profile = {
+        "id": "generic_think_tags_8192_v1",
+        "selection_policy_id": "gguf-effective-template-v1",
+        "selection_reason": "gguf_generic_think_confirmed",
+        "template_source": "gguf-default",
+        "template_sha256": "a" * 64,
+        "chat_template_kwargs": {"enable_thinking": True},
+        "answer_stops": ["<|im_end|>"],
+        "runtime_probe_passed": True,
+        "prompt_renderer_engine": "llama.cpp.apply-template",
+    }
+
+    # When: projection provenance notes are normalized.
+    notes = projection_mod._execution_profile_provenance_notes(
+        ["attested", "execution_profile:forged"],
+        profile,
+    )
+
+    # Then: the client value is stripped and exactly one structured-value note is emitted.
+    assert notes == ["attested", "execution_profile:generic_think_tags_8192_v1"]
+
+
+def test_projection_schema_accepts_optional_structured_execution_profile() -> None:
+    # Given / When: the additive execution-profile schema is inspected.
+    schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
+    profile_schema = schema["$defs"]["executionProfile"]
+
+    # Then: all public fields are required while the top-level block remains optional.
+    assert "execution_profile" not in schema["required"]
+    assert schema["properties"]["execution_profile"] == {
+        "$ref": "#/$defs/executionProfile",
+    }
+    assert set(profile_schema["required"]) == {
+        "id",
+        "selection_policy_id",
+        "selection_reason",
+        "template_source",
+        "template_sha256",
+        "chat_template_kwargs",
+        "answer_stops",
+        "runtime_probe_passed",
+        "prompt_renderer_engine",
+    }
+
+
 def test_projection_hardware_uses_first_gpu_and_rounds_vram_gb() -> None:
     projected = projection_mod._projection_hardware(
         {"hardware": {"gpus": [{"name": "RTX 4090", "vram_mb": 24564}, {"name": "ignored"}]}},
