@@ -16,12 +16,21 @@ from typing import Final
 
 import httpx
 
-from localbench._types import JsonObject, JsonValue
+from localbench._types import ChatMessage, JsonObject, JsonValue
 from localbench.bounded_final_profiles import BoundedFinalProfileRuntime
 from localbench.persistence import atomic_write_json
-from localbench.runtime_probe_evidence import build_probe_evidence, sha256_text
+from localbench.prompt_rendering import PromptRenderingError
+from localbench.runtime_probe_evidence import (
+    apply_template_request,
+    build_probe_evidence,
+    contract_probe_evidence,
+    first_mismatch_offset,
+    sha256_json,
+    sha256_text,
+)
 
 RUNTIME_PROBE_MISMATCH: Final = "runtime_probe_mismatch"
+RENDERER_BYTE_MISMATCH: Final = "renderer_byte_mismatch"
 RUNTIME_PROBE_FILENAME: Final = "runtime-probe.json"
 _THINK_OPEN = re.compile(r"<(?:think|thinking)>", re.IGNORECASE)
 _THINK_CLOSE = re.compile(r"</(?:think|thinking)>", re.IGNORECASE)
@@ -31,7 +40,7 @@ _LIMITS = httpx.Limits(
     max_keepalive_connections=4,
     keepalive_expiry=30.0,
 )
-_MESSAGES: Final[list[JsonValue]] = [
+_MESSAGES: Final[list[ChatMessage]] = [
     {"role": "user", "content": "Reply with one short word."},
 ]
 _TOOLS: Final[list[JsonValue]] = [
@@ -110,6 +119,20 @@ async def verify_llama_cpp_runtime_profile(
             tools_active=tools_active,
             reasoning_present=reasoning_present,
         )
+        client_prompt = (
+            None
+            if runtime.prompt_renderer is None
+            else runtime.prompt_renderer.render(_MESSAGES)
+        )
+        mismatch_offset = first_mismatch_offset(client_prompt, no_tools_prompt)
+        diagnostic_subcode = (
+            RENDERER_BYTE_MISMATCH if mismatch_offset is not None else None
+        )
+        if diagnostic_subcode is not None:
+            failures.append(
+                f"{diagnostic_subcode}: client/server prompt bytes first differ at "
+                f"offset {mismatch_offset}",
+            )
         evidence = build_probe_evidence(
             passed=not failures,
             requests=request_record,
@@ -120,6 +143,16 @@ async def verify_llama_cpp_runtime_profile(
             completion=completion,
             no_tools_prompt=no_tools_prompt,
             tools_prompt=tools_prompt,
+            client_prompt=client_prompt,
+            raw_template_sha256=runtime.contract.raw_template_sha256,
+            prompt_renderer_context_sha256=(
+                runtime.contract.prompt_renderer_context_sha256
+            ),
+            request_shape_sha256=sha256_json(
+                apply_template_request(_MESSAGES, kwargs),
+            ),
+            first_mismatch_offset=mismatch_offset,
+            diagnostic_subcode=diagnostic_subcode,
             no_tools_active=no_tools_active,
             tools_active=tools_active,
             reasoning_present=reasoning_present,
@@ -127,6 +160,7 @@ async def verify_llama_cpp_runtime_profile(
         )
     except (
         httpx.HTTPError,
+        PromptRenderingError,
         RuntimeProbePayloadError,
         KeyError,
         IndexError,
@@ -148,7 +182,7 @@ async def verify_llama_cpp_runtime_profile(
     contract = replace(
         runtime.contract,
         effective_template_sha256=effective_sha,
-        runtime_probe=evidence,
+        runtime_probe=contract_probe_evidence(evidence),
     )
     return replace(runtime, contract=contract)
 
@@ -159,13 +193,11 @@ async def _apply_template(
     *,
     include_tools: bool,
 ) -> httpx.Response:
-    payload: JsonObject = {
-        "messages": _MESSAGES,
-        "add_generation_prompt": True,
-        "chat_template_kwargs": kwargs,
-    }
-    if include_tools:
-        payload["tools"] = _TOOLS
+    payload = apply_template_request(
+        _MESSAGES,
+        kwargs,
+        tools=_TOOLS if include_tools else None,
+    )
     response = await client.post("/apply-template", json=payload)
     response.raise_for_status()
     return response

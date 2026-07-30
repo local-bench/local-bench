@@ -37,9 +37,15 @@ class _StubBehavior:
     no_tools_prompt: str
     tools_prompt: str
     reasoning_content: str | None
+    renderer_prompt: str | None = None
 
 
-def _runtime(template: str | None, *, profile: str = "auto") -> BoundedFinalProfileRuntime:
+def _runtime(
+    template: str | None,
+    *,
+    profile: str = "auto",
+    base_url: str = "http://llama.test",
+) -> BoundedFinalProfileRuntime:
     metadata: JsonObject = {}
     if template is not None:
         metadata = {
@@ -53,7 +59,7 @@ def _runtime(template: str | None, *, profile: str = "auto") -> BoundedFinalProf
             hf_model_id=None,
             model_file_sha256=_MODEL_SHA,
             gguf_metadata=metadata,
-            llama_apply_template_base_url="http://llama.test",
+            llama_apply_template_base_url=base_url,
             llama_api_key="secret",
             gguf_repo_only=True,
         )
@@ -62,6 +68,8 @@ def _runtime(template: str | None, *, profile: str = "auto") -> BoundedFinalProf
 
 @contextmanager
 def _stub_server(behavior: _StubBehavior) -> Iterator[str]:
+    no_tools_requests = 0
+
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             if self.path != "/props":
@@ -70,14 +78,19 @@ def _stub_server(behavior: _StubBehavior) -> Iterator[str]:
             self._reply({"build_info": "b10076", "chat_template": "stub"})
 
         def do_POST(self) -> None:
+            nonlocal no_tools_requests
             size = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(size))
             if self.path == "/apply-template":
-                prompt = (
-                    behavior.tools_prompt
-                    if isinstance(body, dict) and body.get("tools")
-                    else behavior.no_tools_prompt
-                )
+                if isinstance(body, dict) and body.get("tools"):
+                    prompt = behavior.tools_prompt
+                else:
+                    no_tools_requests += 1
+                    prompt = (
+                        behavior.renderer_prompt
+                        if no_tools_requests > 1 and behavior.renderer_prompt is not None
+                        else behavior.no_tools_prompt
+                    )
                 self._reply({"prompt": prompt})
                 return
             if self.path == "/v1/chat/completions":
@@ -121,8 +134,6 @@ def _stub_server(behavior: _StubBehavior) -> Iterator[str]:
 @pytest.mark.anyio
 async def test_thinking_candidate_with_confirming_probe_proceeds(tmp_path: Path) -> None:
     # Given: static GGUF evidence proposes thinking and both runtime variants agree.
-    runtime = _runtime("{% if enable_thinking %}<think>{% endif %}<|im_end|>")
-    provisional_identity = execution_contract_resume_identity(runtime.contract)
     behavior = _StubBehavior(
         no_tools_prompt="<|im_start|>assistant\n<think>\n",
         tools_prompt="<|im_start|>assistant\n<think>\n",
@@ -131,6 +142,11 @@ async def test_thinking_candidate_with_confirming_probe_proceeds(tmp_path: Path)
 
     # When: the launched llama.cpp server is probed with the resolved kwargs.
     with _stub_server(behavior) as base_url:
+        runtime = _runtime(
+            "{% if enable_thinking %}<think>{% endif %}<|im_end|>",
+            base_url=base_url,
+        )
+        provisional_identity = execution_contract_resume_identity(runtime.contract)
         confirmed = await verify_llama_cpp_runtime_profile(
             base_url=base_url,
             model_id="fixture-model",
@@ -151,7 +167,6 @@ async def test_thinking_candidate_with_confirming_probe_proceeds(tmp_path: Path)
 @pytest.mark.anyio
 async def test_thinking_candidate_without_active_opener_aborts(tmp_path: Path) -> None:
     # Given: static evidence proposes thinking but the runtime closes it immediately.
-    runtime = _runtime("{% if enable_thinking %}<think>{% endif %}<|im_end|>")
     behavior = _StubBehavior(
         no_tools_prompt="<think>\n</think>\n",
         tools_prompt="<think>\n</think>\n",
@@ -160,6 +175,10 @@ async def test_thinking_candidate_without_active_opener_aborts(tmp_path: Path) -
 
     # When: runtime authority contradicts the provisional candidate.
     with _stub_server(behavior) as base_url:
+        runtime = _runtime(
+            "{% if enable_thinking %}<think>{% endif %}<|im_end|>",
+            base_url=base_url,
+        )
         with pytest.raises(RuntimeProbeMismatchError, match=RUNTIME_PROBE_MISMATCH):
             await verify_llama_cpp_runtime_profile(
                 base_url=base_url,
@@ -228,7 +247,6 @@ async def test_absent_template_builtin_chatml_nonthinking_proceeds(tmp_path: Pat
 @pytest.mark.anyio
 async def test_tools_variant_semantic_flip_aborts(tmp_path: Path) -> None:
     # Given: the default variant thinks while the tools variant suppresses thinking.
-    runtime = _runtime("{% if enable_thinking %}<think>{% endif %}<|im_end|>")
     behavior = _StubBehavior(
         no_tools_prompt="<|im_start|>assistant\n<think>\n",
         tools_prompt="<|im_start|>assistant\n",
@@ -237,6 +255,10 @@ async def test_tools_variant_semantic_flip_aborts(tmp_path: Path) -> None:
 
     # When/Then: named-template drift fails closed before any suite item runs.
     with _stub_server(behavior) as base_url:
+        runtime = _runtime(
+            "{% if enable_thinking %}<think>{% endif %}<|im_end|>",
+            base_url=base_url,
+        )
         with pytest.raises(RuntimeProbeMismatchError, match=RUNTIME_PROBE_MISMATCH):
             await verify_llama_cpp_runtime_profile(
                 base_url=base_url,
@@ -276,3 +298,97 @@ async def test_explicit_answer_only_profile_is_behaviorally_verified(tmp_path: P
     assert confirmed.contract.reasoning_mode == "disabled"
     assert confirmed.contract.runtime_probe is not None
     assert confirmed.contract.runtime_probe["passed"] is True
+
+
+@pytest.mark.anyio
+async def test_probe_separates_renderer_evidence_and_keeps_prompts_local(
+    tmp_path: Path,
+) -> None:
+    # Given: the server probe and scoring renderer return identical prompt bytes.
+    prompt = "<|im_start|>assistant\n<think>\n"
+    behavior = _StubBehavior(
+        no_tools_prompt=prompt,
+        tools_prompt=prompt,
+        reasoning_content="bounded reasoning",
+    )
+
+    # When: the generic GGUF runtime is probed through both rendering paths.
+    with _stub_server(behavior) as base_url:
+        runtime = _runtime(
+            "{% if enable_thinking %}<think>{% endif %}<|im_end|>",
+            base_url=base_url,
+        )
+        confirmed = await verify_llama_cpp_runtime_profile(
+            base_url=base_url,
+            model_id="fixture-model",
+            api_key="secret",
+            runtime=runtime,
+            llama_build=_BUILD,
+            run_dir=tmp_path,
+        )
+
+    # Then: local evidence retains prompts while contract evidence contains hashes only.
+    local_evidence = json.loads((tmp_path / "runtime-probe.json").read_text())
+    comparison = local_evidence["renderer_comparison"]
+    assert comparison == {
+        "raw_template_sha256": runtime.contract.raw_template_sha256,
+        "client_prompt_sha256": (
+            "77e86abe5a0e443dec1a1c5764625e3ea156e97126b4328dd26c1c6f384365b5"
+        ),
+        "client_prompt_length": 30,
+        "server_prompt_sha256": (
+            "77e86abe5a0e443dec1a1c5764625e3ea156e97126b4328dd26c1c6f384365b5"
+        ),
+        "server_prompt_length": 30,
+        "request_shape_sha256": (
+            "4b75605e1e92fbd0728674a1ee88b857fe0619e242694a45bbc375e1c35cacc5"
+        ),
+        "context_sha256": runtime.contract.prompt_renderer_context_sha256,
+        "first_mismatch_offset": None,
+        "diagnostic_subcode": None,
+    }
+    assert local_evidence["prompts"]["client"] == prompt
+    assert local_evidence["prompts"]["server"] == prompt
+    assert confirmed.contract.runtime_probe is not None
+    assert "prompts" not in confirmed.contract.runtime_probe
+    assert confirmed.contract.runtime_probe["renderer_comparison"] == comparison
+
+
+@pytest.mark.anyio
+async def test_probe_reports_renderer_byte_mismatch_with_first_offset(
+    tmp_path: Path,
+) -> None:
+    # Given: the second server render differs from the authoritative probe response.
+    behavior = _StubBehavior(
+        no_tools_prompt="<|im_start|>assistant\n<think>\n",
+        tools_prompt="<|im_start|>assistant\n<think>\n",
+        renderer_prompt="<|im_start|>assistant\n<think>X\n",
+        reasoning_content="bounded reasoning",
+    )
+
+    # When: the corruption sentinel compares exact UTF-8 prompt bytes.
+    with _stub_server(behavior) as base_url:
+        runtime = _runtime(
+            "{% if enable_thinking %}<think>{% endif %}<|im_end|>",
+            base_url=base_url,
+        )
+        with pytest.raises(
+            RuntimeProbeMismatchError,
+            match="renderer_byte_mismatch",
+        ):
+            await verify_llama_cpp_runtime_profile(
+                base_url=base_url,
+                model_id="fixture-model",
+                api_key="secret",
+                runtime=runtime,
+                llama_build=_BUILD,
+                run_dir=tmp_path,
+            )
+
+    # Then: the local failure artifact names the subcode and first differing byte.
+    evidence = json.loads((tmp_path / "runtime-probe.json").read_text())
+    assert evidence["passed"] is False
+    assert evidence["renderer_comparison"]["diagnostic_subcode"] == (
+        "renderer_byte_mismatch"
+    )
+    assert evidence["renderer_comparison"]["first_mismatch_offset"] == 29

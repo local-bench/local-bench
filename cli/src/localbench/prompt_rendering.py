@@ -20,6 +20,7 @@ from typing import Final, Literal, Protocol, assert_never
 import httpx
 
 from localbench._types import ChatMessage, JsonObject, JsonValue
+from localbench.runtime_probe_evidence import apply_template_request
 
 ReasoningActivation = Literal["qwen3", "granite", "nemotron", "r1", "gemma4"]
 REASONING_ACTIVATIONS: Final[tuple[ReasoningActivation, ...]] = (
@@ -157,11 +158,7 @@ class LlamaApplyTemplatePromptRenderer:
         cached = self._cache.get(key)
         if cached is not None:
             return cached
-        payload: JsonObject = {
-            "messages": [dict(message) for message in messages],
-            "chat_template_kwargs": dict(self.chat_template_kwargs),
-            "add_generation_prompt": True,
-        }
+        payload = apply_template_request(messages, self.chat_template_kwargs)
         try:
             transport = self.transport or httpx.HTTPTransport(
                 retries=3,
