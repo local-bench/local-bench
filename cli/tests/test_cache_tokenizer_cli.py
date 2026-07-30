@@ -55,7 +55,7 @@ def test_cache_tokenizer_downloads_allowed_files_and_verifies_offline(
             ("*.json", "*.model", "*.jinja", "*.txt", "*.tiktoken"),
         ),
     ]
-    assert loaded_repos == [("unsloth/gemma-4-12b-it", None)]
+    assert loaded_repos == [("unsloth/gemma-4-12b-it", "abc123")]
     assert "cached    repo unsloth/gemma-4-12b-it" in output
     assert "revision  abc123" in output
     assert f"template  sha256:{expected_sha}" in output
@@ -104,3 +104,34 @@ def test_cache_tokenizer_reports_missing_hf_extra_without_traceback(
     assert "install localbench[hf]" in stderr
     assert "Hugging Face tokenizer caching" in stderr
     assert "Traceback" not in stderr
+
+
+def test_cache_tokenizer_loads_at_the_resolved_revision_it_downloaded(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: download resolves a specific snapshot commit.
+    seen: dict[str, object] = {}
+    snapshot = "/hf/cache/models--owner--model/snapshots/" + "e" * 40
+
+    monkeypatch.setattr(cli_mod, "_hf_snapshot_download", lambda *a, **k: snapshot)
+
+    def fake_load(repo_id: str, revision: str | None = None):
+        seen["load"] = (repo_id, revision)
+
+        class _Tok:  # minimal object for chat_template_sha256
+            chat_template = None
+
+        return _Tok()
+
+    monkeypatch.setattr(cli_mod, "load_hf_chat_template_tokenizer", fake_load)
+
+    # When: the standalone subcommand runs.
+    code = cli_mod._cache_tokenizer(
+        __import__("argparse").Namespace(repo="owner/model", hf_model_id=None)
+    )
+
+    # Then: the load is pinned to the snapshot's commit - not a re-read of mutable refs/main.
+    assert code == 0
+    assert seen["load"] == ("owner/model", "e" * 40)
+    assert ("revision  " + "e" * 40) in capsys.readouterr().out

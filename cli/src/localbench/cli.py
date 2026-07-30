@@ -1466,7 +1466,8 @@ def _cache_tokenizer(args: argparse.Namespace) -> int:
         return 2
     try:
         snapshot_path = _hf_snapshot_download(repo, _HF_TOKENIZER_ALLOW_PATTERNS)
-        tokenizer = load_hf_chat_template_tokenizer(repo)
+        resolved_revision = _snapshot_revision(snapshot_path)
+        tokenizer = load_hf_chat_template_tokenizer(repo, revision=resolved_revision)
     except ImportError:
         print(f"error      {_HF_CACHE_EXTRA_ERROR}", file=sys.stderr)
         return 2
@@ -1483,7 +1484,7 @@ def _cache_tokenizer(args: argparse.Namespace) -> int:
         raise
     template_sha = chat_template_sha256(tokenizer) or "none"
     print(f"cached    repo {repo}")
-    print(f"revision  {_snapshot_revision(snapshot_path)}")
+    print(f"revision  {resolved_revision}")
     print(f"template  sha256:{template_sha}")
     return 0
 
