@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.12 - YYYY-MM-DD
+## 0.4.12 - 2026-07-30
 
 - `--gguf-repo-only` now resolves the frozen `gguf-effective-template-v1`
   execution policy from the GGUF's embedded effective chat template and verifies
