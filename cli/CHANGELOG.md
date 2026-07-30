@@ -10,6 +10,11 @@
   requests, resume identity, manifests, signed projections, and board publication.
   Public projections disclose the structured profile, selection reason, template
   digest/source, renderer, request kwargs, answer stops, and runtime-probe verdict.
+- Agentic execution contract v7 signed and baked (payload `47695014…`): the
+  contract-derived request kwargs are a covered-behavior change, and the c0v5
+  manifest cross-bind plus appliance runtime-identity check now accept the
+  manifest's immutable v5 pin anywhere on the verified supersedes chain instead
+  of a one-hop window (which v7's second link would have broken at runtime).
 - `bench` template-introspection failures now exit as curated usage errors (exit 2)
   instead of the raw `LocalEntryNotFoundError` traceback seen when `--hf-model-id`
   pointed at a repo without tokenizer sidecars; new failure paths emit a single
