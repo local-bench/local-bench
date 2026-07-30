@@ -72,3 +72,13 @@ generalized the manifest cross-bind: the c0v5 manifest's immutable v5 pin is
 now accepted anywhere on the verified supersedes chain
 (`supersedes_chain_payload_sha256s`), because the one-hop window used before
 v7 broke as soon as the chain grew two links past the manifest pin.
+
+`agentic-execution-contract-aw013p1-pypi28113a7a-v8.json` (payload SHA-256
+`0d0c6073…`) is the active contract, cut for CLI 0.4.13: the generic GGUF
+renderer work moved the orchestrate renderer guard and budget preparation
+ahead of campaign-path mutation (a covered-behavior change in
+`localbench.orchestrate`; the renderer itself delegates to the pinned
+server's `/apply-template`). Appliance unchanged (same c0v5 rootfs
+`053eb073…`, same native-conformance evidence). Signed under
+`localbench-agentic-contract-2026-07`. The v7-introduced chain-aware
+manifest cross-bind covers the deeper lineage (v8→v7→v6→v5) unchanged.

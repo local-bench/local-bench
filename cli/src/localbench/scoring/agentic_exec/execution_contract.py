@@ -20,9 +20,9 @@ from localbench.submissions.canon import canonical_json_bytes, canonical_json_ha
 from localbench.scoring.agentic_exec.contract_crypto import load_private_key, sign_bytes, verify_bytes
 from localbench.scoring.agentic_exec.contract_successor import SuccessorContractMetadata, extract_successor_payload
 LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
-CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v7"
+CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v8"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
-CONTRACT_VERSION: Final = 7
+CONTRACT_VERSION: Final = 8
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
 LEGACY_CONTRACT_FILENAME: Final = f"{LEGACY_CONTRACT_ID}.json"
 CONTRACT_KEY_ID: Final = "localbench-agentic-contract-r3-2026-07-machine"
