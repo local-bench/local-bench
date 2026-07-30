@@ -17,6 +17,12 @@ from localbench.reasoning_registry import (
 
 HF_CANONICAL_TEMPLATE_POLICY: Final = "hf-canonical-template-v1"
 GGUF_EFFECTIVE_TEMPLATE_POLICY: Final = "gguf-effective-template-v1"
+HF_PROMPT_RENDERER_ENGINE: Final = "transformers-jinja/hf-chat-template"
+LLAMA_PROMPT_RENDERER_ENGINE: Final = "llama.cpp/apply-template"
+PROMPT_RENDERER_CONTRACT_VERSION: Final = "localbench.prompt-renderer.v1"
+PROMPT_RENDERER_DETERMINISM_POLICY_VERSION: Final = (
+    "localbench.ranked-template-determinism.v1"
+)
 _PUBLIC_EXECUTION_PROFILE_FIELDS: Final = (
     "id",
     "selection_policy_id",
@@ -44,6 +50,9 @@ class ResolvedExecutionContract:
     reasoning_budget: int | None
     model_file_sha256: str
     runtime_probe: JsonObject | None
+    prompt_renderer_engine: str
+    prompt_renderer_contract_version: str
+    prompt_renderer_context_sha256: str
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -125,6 +134,11 @@ def resolved_execution_contract(
     context: ExecutionContractContext,
 ) -> ResolvedExecutionContract:
     is_answer_only = entry is ANSWER_ONLY_PROFILE
+    prompt_renderer_engine = (
+        HF_PROMPT_RENDERER_ENGINE
+        if context.template_source == "hf-chat-template"
+        else LLAMA_PROMPT_RENDERER_ENGINE
+    )
     return ResolvedExecutionContract(
         profile_id=entry.id,
         selection_policy_id=context.selection_policy_id,
@@ -138,6 +152,12 @@ def resolved_execution_contract(
         reasoning_budget=None if is_answer_only else CAPPED_THINKING_THINK_BUDGET,
         model_file_sha256=context.model_file_sha256,
         runtime_probe=None,
+        prompt_renderer_engine=prompt_renderer_engine,
+        prompt_renderer_contract_version=PROMPT_RENDERER_CONTRACT_VERSION,
+        prompt_renderer_context_sha256=prompt_renderer_context_sha256(
+            raw_template_sha256=context.raw_template_sha256,
+            chat_template_kwargs=chat_template_kwargs,
+        ),
     )
 
 
@@ -155,6 +175,9 @@ def execution_contract_record(contract: ResolvedExecutionContract) -> JsonObject
         "reasoning_budget": contract.reasoning_budget,
         "model_file_sha256": contract.model_file_sha256,
         "runtime_probe": contract.runtime_probe,
+        "prompt_renderer_engine": contract.prompt_renderer_engine,
+        "prompt_renderer_contract_version": contract.prompt_renderer_contract_version,
+        "prompt_renderer_context_sha256": contract.prompt_renderer_context_sha256,
     }
 
 
@@ -206,6 +229,25 @@ def execution_contract_notice(contract: ResolvedExecutionContract) -> str:
 def execution_contract_resume_identity(contract: ResolvedExecutionContract) -> str:
     payload = json.dumps(
         execution_contract_record(contract),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def prompt_renderer_context_sha256(
+    *,
+    raw_template_sha256: str | None,
+    chat_template_kwargs: Mapping[str, bool],
+) -> str:
+    payload = json.dumps(
+        {
+            "add_generation_prompt": True,
+            "chat_template_kwargs": dict(chat_template_kwargs),
+            "determinism_policy_version": PROMPT_RENDERER_DETERMINISM_POLICY_VERSION,
+            "raw_template_sha256": raw_template_sha256,
+        },
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,

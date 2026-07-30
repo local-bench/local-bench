@@ -37,6 +37,11 @@ def _contract() -> ResolvedExecutionContract:
         reasoning_budget=8192,
         model_file_sha256=_MODEL_SHA,
         runtime_probe={"passed": True},
+        prompt_renderer_engine="llama.cpp/apply-template",
+        prompt_renderer_contract_version="localbench.prompt-renderer.v1",
+        prompt_renderer_context_sha256=(
+            "ef0535353a1068f838242a315bb63c10f0e759c550d193031489e61137ef0993"
+        ),
     )
 
 
@@ -78,7 +83,12 @@ def test_serving_resolves_one_contract_after_artifact_resolution(tmp_path: Path)
     )
 
     # When: serving resolves after the artifact and builds the inner run config.
-    runtime = resolve_serving_execution_profile(options, artifact)
+    runtime = resolve_serving_execution_profile(
+        options,
+        artifact,
+        llama_apply_template_base_url="http://llama.test",
+        llama_api_key="secret",
+    )
     configured = bench_config(
         options,
         tmp_path / "localbench-run.json",

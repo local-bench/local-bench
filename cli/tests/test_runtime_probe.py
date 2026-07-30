@@ -53,6 +53,8 @@ def _runtime(template: str | None, *, profile: str = "auto") -> BoundedFinalProf
             hf_model_id=None,
             model_file_sha256=_MODEL_SHA,
             gguf_metadata=metadata,
+            llama_apply_template_base_url="http://llama.test",
+            llama_api_key="secret",
             gguf_repo_only=True,
         )
     )

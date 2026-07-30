@@ -9,6 +9,7 @@ from localbench.bounded_final_runtime import (
     answer_only_runtime as _answer_only_runtime,
     gemma_runtime as _gemma_runtime,
     generic_runtime as _generic_runtime,
+    with_llama_apply_template_renderer,
 )
 from localbench.execution_contract import (
     ExecutionContractContext,
@@ -20,6 +21,7 @@ from localbench.execution_contract import (
 from localbench.gguf_template import (
     LLAMA_BUILTIN_CHATML_NONTHINKING,
     StaticProfileCandidate,
+    load_gguf_template_facade,
     static_profile_candidate,
 )
 from localbench.prompt_rendering import (
@@ -64,6 +66,8 @@ class BoundedFinalProfileRequest:
     model_file_sha256: str = ""
     gguf_metadata: JsonObject | None = None
     gguf_repo_only: bool = False
+    llama_apply_template_base_url: str | None = None
+    llama_api_key: str | None = None
 
 
 def resolve_bounded_final_profile(
@@ -212,10 +216,24 @@ def _resolve_gguf_profile(
         )
     except GgufCandidateUnresolvedError as error:
         raise _unsupported(request.profile, error.reason_code) from error
-    return resolve_bounded_final_profile_from_introspection(
+    resolved = resolve_bounded_final_profile_from_introspection(
         request.profile,
         candidate.introspection,
         contract_context=context,
+    )
+    if resolved.entry is ANSWER_ONLY_PROFILE:
+        return resolved
+    if request.llama_apply_template_base_url is None or request.llama_api_key is None:
+        raise _unsupported(request.profile, "GGUF renderer requires a llama.cpp endpoint and API key")
+    facade, _ = load_gguf_template_facade(request.gguf_metadata or {})
+    if facade is None or resolved.contract.raw_template_sha256 is None:
+        raise _unsupported(request.profile, "GGUF renderer requires a valid embedded template")
+    return with_llama_apply_template_renderer(
+        resolved,
+        base_url=request.llama_apply_template_base_url,
+        api_key=request.llama_api_key,
+        template=facade.chat_template,
+        raw_template_sha256=resolved.contract.raw_template_sha256,
     )
 
 

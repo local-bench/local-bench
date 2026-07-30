@@ -242,6 +242,9 @@ def _execution_contract(
         reasoning_budget=8192 if reasoning_mode == "generic_think" else None,
         model_file_sha256="2" * 64,
         runtime_probe=None,
+        prompt_renderer_engine="transformers-jinja/hf-chat-template",
+        prompt_renderer_contract_version="localbench.prompt-renderer.v1",
+        prompt_renderer_context_sha256="3" * 64,
     )
 
 

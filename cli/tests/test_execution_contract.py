@@ -25,6 +25,9 @@ from localbench.orchestrate import UnsafeResumeError, _validate_resume_campaign
 _MODEL_SHA: Final = "1" * 64
 _TEMPLATE_SHA: Final = "2" * 64
 _EFFECTIVE_SHA: Final = "3" * 64
+_RENDERER_CONTEXT_SHA: Final = (
+    "ef0535353a1068f838242a315bb63c10f0e759c550d193031489e61137ef0993"
+)
 
 
 class _TemplateTokenizer:
@@ -59,6 +62,9 @@ def _contract(
         reasoning_budget=8192,
         model_file_sha256=_MODEL_SHA,
         runtime_probe={"passed": True, "applied_prompt_sha256": _EFFECTIVE_SHA},
+        prompt_renderer_engine="llama.cpp/apply-template",
+        prompt_renderer_contract_version="localbench.prompt-renderer.v1",
+        prompt_renderer_context_sha256=_RENDERER_CONTEXT_SHA,
     )
 
 
@@ -111,6 +117,9 @@ def test_execution_contract_record_preserves_full_structured_identity() -> None:
             "passed": True,
             "applied_prompt_sha256": _EFFECTIVE_SHA,
         },
+        "prompt_renderer_engine": "llama.cpp/apply-template",
+        "prompt_renderer_contract_version": "localbench.prompt-renderer.v1",
+        "prompt_renderer_context_sha256": _RENDERER_CONTEXT_SHA,
     }
 
 
@@ -187,6 +196,16 @@ def test_hf_contract_regression_keeps_current_profile_kwargs_and_manifest(
     assert runtime.contract.reasoning_mode == "generic_think"
     assert runtime.contract.reasoning_budget == 8192
     assert runtime.contract.model_file_sha256 == _MODEL_SHA
+    assert runtime.contract.prompt_renderer_engine == (
+        "transformers-jinja/hf-chat-template"
+    )
+    assert (
+        runtime.contract.prompt_renderer_contract_version
+        == "localbench.prompt-renderer.v1"
+    )
+    assert runtime.contract.prompt_renderer_context_sha256 == (
+        "b856117f297af4167c6af4931e925869b0041f7e0cb55f620f7a76384d3ad64a"
+    )
 
 
 def test_gguf_contract_resolution_is_deterministic_for_same_artifact_bytes() -> None:
@@ -203,6 +222,8 @@ def test_gguf_contract_resolution_is_deterministic_for_same_artifact_bytes() -> 
         hf_model_id=None,
         model_file_sha256=_MODEL_SHA,
         gguf_metadata=metadata,
+        llama_apply_template_base_url="http://llama.test",
+        llama_api_key="secret",
     )
 
     # When: selection is repeated over the same bytes.
@@ -211,9 +232,18 @@ def test_gguf_contract_resolution_is_deterministic_for_same_artifact_bytes() -> 
 
     # Then: both resolutions produce the exact same contract.
     assert first.contract == second.contract
+    assert first.prompt_renderer is not None
     assert first.contract.profile_id == "generic_think_tags_8192_v1"
     assert first.contract.selection_policy_id == "gguf-effective-template-v1"
     assert first.contract.chat_template_kwargs == {"thinking": True}
+    assert first.contract.prompt_renderer_engine == "llama.cpp/apply-template"
+    assert (
+        first.contract.prompt_renderer_contract_version
+        == "localbench.prompt-renderer.v1"
+    )
+    assert first.contract.prompt_renderer_context_sha256 == (
+        "8c9580869102e37ef0a4ad27d6bc60f040eec882d82986401502955b8ebe370b"
+    )
 
 
 @pytest.mark.parametrize(
@@ -222,6 +252,9 @@ def test_gguf_contract_resolution_is_deterministic_for_same_artifact_bytes() -> 
         replace(_contract(), profile_id="answer_only_v1"),
         replace(_contract(), effective_template_sha256="5" * 64),
         replace(_contract(), chat_template_kwargs={"thinking": True}),
+        replace(_contract(), prompt_renderer_engine="different-renderer"),
+        replace(_contract(), prompt_renderer_contract_version="different-version"),
+        replace(_contract(), prompt_renderer_context_sha256="6" * 64),
     ],
 )
 def test_resume_identity_changes_for_profile_template_or_kwargs(

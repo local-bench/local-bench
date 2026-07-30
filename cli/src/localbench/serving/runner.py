@@ -149,7 +149,15 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         options, root
     )
     artifact = resolve_artifact(options, root)
-    resolved_profile = resolve_serving_execution_profile(options, artifact)
+    port = allocate_port()
+    api_key = secrets.token_urlsafe(32)
+    base_url = f"http://127.0.0.1:{port}"
+    resolved_profile = resolve_serving_execution_profile(
+        options,
+        artifact,
+        llama_apply_template_base_url=base_url,
+        llama_api_key=api_key,
+    )
     effective_profile = effective_serving_profile(options, resolved_profile)
     reasoning_config = llama_cpp_reasoning_for_lane(
         options.lane,
@@ -158,8 +166,6 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
     validate_capped_thinking_context(options, effective_profile)
     binary = server_bin(options)
     build = collect_build_identity(binary)
-    port = allocate_port()
-    api_key = secrets.token_urlsafe(32)
     launch_config = LlamaCppLaunchConfig(
         server_bin=binary,
         model_file=artifact.model_file,
@@ -206,7 +212,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
             argv, cwd=binary.parent, log_path=root / "serve.log"
         )
         readiness = await verify_llama_cpp_readiness(
-            base_url=f"http://127.0.0.1:{port}",
+            base_url=base_url,
             model_id=options.model_id,
             model_file=artifact.model_file,
             api_key=api_key,
@@ -214,7 +220,7 @@ async def run_orchestrated_bench(options: ServeBenchOptions) -> JsonObject:
         )
         if options.gguf_repo_only and resolved_profile is not None:
             resolved_profile = await verify_llama_cpp_runtime_profile(
-                base_url=f"http://127.0.0.1:{port}",
+                base_url=base_url,
                 model_id=options.model_id,
                 api_key=api_key,
                 runtime=resolved_profile,

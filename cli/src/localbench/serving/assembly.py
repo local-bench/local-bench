@@ -148,6 +148,9 @@ def thread_vllm_model_identity(options: ServeBenchOptions) -> ServeBenchOptions:
 def resolve_serving_execution_profile(
     options: ServeBenchOptions,
     artifact: ModelArtifact,
+    *,
+    llama_apply_template_base_url: str | None = None,
+    llama_api_key: str | None = None,
 ) -> BoundedFinalProfileRuntime | None:
     if options.lane not in {"bounded-final-v1", "bounded-final-v2"}:
         return None
@@ -164,6 +167,8 @@ def resolve_serving_execution_profile(
             model_file_sha256=artifact.file_sha256,
             gguf_metadata=gguf_metadata,
             gguf_repo_only=options.gguf_repo_only,
+            llama_apply_template_base_url=llama_apply_template_base_url,
+            llama_api_key=llama_api_key,
         ),
     )
 

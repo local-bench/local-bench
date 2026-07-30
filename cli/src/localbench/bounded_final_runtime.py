@@ -10,7 +10,11 @@ from localbench.execution_contract import (
     ResolvedExecutionContract,
     resolved_execution_contract,
 )
-from localbench.prompt_rendering import PromptRenderer, TemplateIntrospection
+from localbench.prompt_rendering import (
+    LlamaApplyTemplatePromptRenderer,
+    PromptRenderer,
+    TemplateIntrospection,
+)
 from localbench.reasoning_registry import (
     ANSWER_ONLY_PROFILE,
     GEMMA4_CHANNEL_PROFILE,
@@ -42,6 +46,34 @@ class BoundedFinalProfileRuntime:
     @property
     def chat_template_kwargs(self) -> Mapping[str, bool]:
         return self.contract.chat_template_kwargs
+
+
+def with_llama_apply_template_renderer(
+    runtime: BoundedFinalProfileRuntime,
+    *,
+    base_url: str,
+    api_key: str,
+    template: str,
+    raw_template_sha256: str,
+) -> BoundedFinalProfileRuntime:
+    renderer = LlamaApplyTemplatePromptRenderer(
+        base_url=base_url,
+        api_key=api_key,
+        template=template,
+        contract_raw_template_sha256=raw_template_sha256,
+        chat_template_kwargs=runtime.chat_template_kwargs,
+    )
+    manifest: JsonObject = {
+        "source": "llama.cpp/apply-template",
+        "chat_template_sha256": raw_template_sha256,
+        "answer_stop": list(runtime.answer_stop),
+        "template_kwargs": dict(runtime.chat_template_kwargs),
+    }
+    return replace(
+        runtime,
+        prompt_renderer=renderer,
+        prompt_renderer_manifest=manifest,
+    )
 
 
 def answer_only_runtime(

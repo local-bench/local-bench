@@ -312,6 +312,9 @@ def test_bounded_final_generic_two_pass_uses_actual_reasoning_tokens_for_budget_
                 reasoning_budget=8192,
                 model_file_sha256="2" * 64,
                 runtime_probe=None,
+                prompt_renderer_engine="transformers-jinja/hf-chat-template",
+                prompt_renderer_contract_version="localbench.prompt-renderer.v1",
+                prompt_renderer_context_sha256="3" * 64,
             ),
             prompt_renderer_manifest={
                 "source": "fixture-tokenizer",
