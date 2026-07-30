@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -45,7 +46,7 @@ def _run(config: Config) -> int:
     results: list[CaseResult] = []
     with create_client(config) as client:
         for case in load_cases(config):
-            hf = hf_render(tokenizer, case, config.template_kwargs)
+            hf = hf_render(tokenizer, case, config.template_kwargs, config.chat_template_override)
             llama = llama_render(client, case, config.template_kwargs)
             result = compare(hf, llama, case.name)
             results.append(result)
@@ -78,6 +79,11 @@ def _run(config: Config) -> int:
             "tier": config.tier,
             "samples": config.samples,
             "chat_template_kwargs": config.template_kwargs,
+            "chat_template_override_sha256": (
+                None
+                if config.chat_template_override is None
+                else hashlib.sha256(config.chat_template_override.encode("utf-8")).hexdigest()
+            ),
         },
         "results": [asdict(result) for result in results],
     }
@@ -107,6 +113,15 @@ def main(
             "in the evidence."
         ),
     ),
+    chat_template_file: Path | None = typer.Option(
+        None,
+        help=(
+            "Override the HF-side chat template with this file's text (e.g. a "
+            "GGUF-embedded template) so the three-way delta-claim comparison can "
+            "render a derivative's template through the transformers engine while "
+            "the server side renders it natively."
+        ),
+    ),
 ) -> None:
     """Run the renderer-equivalence claim gate and write JSON evidence."""
     try:
@@ -123,6 +138,11 @@ def main(
                 samples=samples,
                 template_kwargs=kwargs,
                 allow_empty_agentic=allow_empty_agentic,
+                chat_template_override=(
+                    None
+                    if chat_template_file is None
+                    else chat_template_file.read_text(encoding="utf-8")
+                ),
             )
         )
     except (HarnessError, ValidationError, OSError, httpx2.HTTPError) as error:

@@ -39,6 +39,7 @@ class Config:
     samples: int
     template_kwargs: dict[str, bool]
     allow_empty_agentic: bool = False
+    chat_template_override: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +107,7 @@ def hf_render(
     tokenizer: PreTrainedTokenizerBase,
     case: RenderCase,
     kwargs: dict[str, bool],
+    chat_template_override: str | None = None,
 ) -> Rendered:
     prompt = tokenizer.apply_chat_template(
         case.messages,
@@ -113,6 +115,7 @@ def hf_render(
         tokenize=False,
         add_generation_prompt=case.add_generation_prompt,
         continue_final_message=case.continue_final_message,
+        **({} if chat_template_override is None else {"chat_template": chat_template_override}),
         **kwargs,
     )
     if not isinstance(prompt, str):
