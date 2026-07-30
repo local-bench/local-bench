@@ -186,11 +186,24 @@ _BASIC_IDENTITY_NOTICE: Final = (
     "identity basic-gguf-repo-only-v1: tokenizer/chat-template digests will be null; "
     "add --hf-model-id <exact HF repo> for full provenance"
 )
+_TOKENIZER_INCOMPLETE_ERROR: Final = (
+    "the fetched snapshot for {ref!r} did not provide a complete loadable "
+    "tokenizer/chat-template set - common for GGUF-only uploads. Pass the fine-tune's "
+    "source (safetensors) repo as --hf-model-id for full provenance, or declare "
+    "--gguf-repo-only for basic identity (tokenizer/chat-template digests recorded as "
+    "null). Both options: https://local-bench.ai/submit"
+)
 _BOUNDED_FINAL_REQUIRED_CTX: Final = 32768
 _CTX_MISMATCH_TOLERANCE: Final = 0.05
 _SERVER_CONTEXT_WARNING: Final = "server context could not be verified; ensure >= 32768"
 _HF_TOKENIZER_ALLOW_PATTERNS: Final = ["*.json", "*.model", "*.jinja", "*.txt", "*.tiktoken"]
-_HF_INTROSPECTION_ALLOW_PATTERNS: Final = ["*.json", "*.model", "*.jinja"]
+_HF_INTROSPECTION_ALLOW_PATTERNS: Final = [
+    "*.json",
+    "*.model",
+    "*.jinja",
+    "*.txt",
+    "*.tiktoken",
+]
 _HF_CACHE_EXTRA_ERROR: Final = (
     "huggingface_hub is required for cache-tokenizer; install localbench[hf] "
     "to enable Hugging Face tokenizer caching"
@@ -1152,6 +1165,19 @@ def _bench(args: argparse.Namespace) -> int:
     if contract_error is not None:
         print(f"error      {contract_error}", file=sys.stderr)
         return 2
+    # Explicit determinism invariant: the bench parent is HF-offline from here on
+    # (previously an import-order accident inside the tokenizer loader). A user
+    # environment that was ALREADY offline at CLI start means "no network" - honor
+    # it exactly like --offline for the one sanctioned acquisition moment.
+    user_env_offline = any(
+        os.environ.get(key) not in (None, "", "0")
+        for key in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    )
+    if user_env_offline and not bool(getattr(args, "offline", False)):
+        args.offline = True
+        print("notice     HF offline environment detected; online tokenizer acquisition disabled")
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
     try:
         resolved_tokenizer_revision = _prepare_advanced_bench_tokenizer(args)
     except (CacheTokenizerError, PromptRenderingError) as error:
@@ -1579,7 +1605,12 @@ def _prepare_advanced_bench_tokenizer(args: argparse.Namespace) -> str | None:
             revision=revision,
         )
         resolved_revision = _snapshot_revision(snapshot_path)
-        load_hf_chat_template_tokenizer(hf_model_id, revision=resolved_revision)
+        try:
+            load_hf_chat_template_tokenizer(hf_model_id, revision=resolved_revision)
+        except TokenizerCacheMissError as exc:
+            raise CacheTokenizerError(
+                _TOKENIZER_INCOMPLETE_ERROR.format(ref=f"{hf_model_id}@{resolved_revision}")
+            ) from exc
         print(f"cached    tokenizer {hf_model_id}@{resolved_revision}")
         return resolved_revision
     return revision

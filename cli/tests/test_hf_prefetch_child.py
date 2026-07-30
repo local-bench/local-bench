@@ -251,3 +251,33 @@ def test_child_invocation_is_immune_to_cwd_and_pythonpath_shadowing(
     )
     assert "SHADOW EXECUTED" not in completed.stdout
     assert '"kind": "protocol"' in completed.stdout
+
+
+def test_huggingface_hub_latches_offline_at_import_time() -> None:
+    # Given/When: a fresh interpreter imports huggingface_hub while offline is set,
+    # then clears the env var and attempts a hub HTTP call.
+    import subprocess as sp
+    import sys as real_sys
+
+    probe = (
+        "import os\n"
+        "os.environ['HF_HUB_OFFLINE'] = '1'\n"
+        "import huggingface_hub\n"
+        "import huggingface_hub.constants\n"
+        "del os.environ['HF_HUB_OFFLINE']\n"
+        "try:\n"
+        "    huggingface_hub.HfApi().model_info('gpt2')\n"
+        "    print('WENT-ONLINE')\n"
+        "except Exception as e:\n"
+        "    print('BLOCKED:' + type(e).__name__)\n"
+    )
+    completed = sp.run(
+        [real_sys.executable, "-E", "-P", "-c", probe],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    # Then: the latch outlives the env restore (the premise of the child design).
+    assert "BLOCKED:" in completed.stdout
+    assert "WENT-ONLINE" not in completed.stdout

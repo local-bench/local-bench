@@ -23,6 +23,12 @@ from localbench.scoring.agentic_exec.wsl_proxy import WslTransportError
 _TOKENIZER_REVISION = "d" * 40
 
 
+@pytest.fixture(autouse=True)
+def _isolate_hf_offline_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+
+
 @pytest.mark.parametrize(
     ("error", "expected_exit"),
     (
@@ -234,7 +240,11 @@ def test_bench_online_precaches_missing_tokenizer_and_threads_resolved_revision(
     # Then: acquisition is a pre-step, introspection retries offline, and provenance receives the revision.
     assert code == 0
     assert download_calls == [
-        ("owner/model", ("*.json", "*.model", "*.jinja"), None),
+        (
+            "owner/model",
+            ("*.json", "*.model", "*.jinja", "*.txt", "*.tiktoken"),
+            None,
+        ),
     ]
     assert load_calls == [("owner/model", None), ("owner/model", _TOKENIZER_REVISION)]
     assert captured_options is not None
@@ -597,3 +607,123 @@ def _write_minimal_suite(path: Path) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+def test_bench_incomplete_snapshot_yields_gguf_repo_only_guidance_not_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: prefetch succeeds but the snapshot cannot back a loadable tokenizer -
+    # covers zero-sidecar GGUF-only repos, config.json-only repos, and incomplete
+    # sets uniformly (the retry IS the oracle; no filesystem heuristic).
+    def fake_load(repo_id: str, revision: str | None = None):
+        raise TokenizerCacheMissError("offline cache miss")
+
+    launched = False
+
+    def fake_anyio_run(function, options) -> None:
+        nonlocal launched
+        launched = True
+
+    monkeypatch.setattr(cli_mod, "load_hf_chat_template_tokenizer", fake_load)
+    monkeypatch.setattr(
+        cli_mod,
+        "_hf_snapshot_download",
+        lambda *a, **k: "/hf/cache/models--owner--model/snapshots/" + _TOKENIZER_REVISION,
+    )
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    # When: the advanced bench path prepares its tokenizer.
+    code = cli_mod._bench(_bench_args(lane="bounded-final-v2", hf_model_id="owner/model"))
+
+    # Then: exit 2, single error line naming --gguf-repo-only and the resolved ref, no traceback.
+    stderr = capsys.readouterr().err
+    error_lines = [l for l in stderr.splitlines() if l.startswith("error      ")]
+    assert code == 2
+    assert launched is False
+    assert len(error_lines) == 1
+    assert "--gguf-repo-only" in error_lines[0]
+    assert "owner/model@" + _TOKENIZER_REVISION in error_lines[0]
+    assert "Traceback" not in stderr
+
+
+def test_bench_prefetch_failure_is_clean_usage_error_not_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # Given: introspection misses and the prefetch child fails (DNS down, HF outage).
+    def fake_load(repo_id: str, revision: str | None = None):
+        raise TokenizerCacheMissError("offline cache miss")
+
+    def fake_download(*_args, **_kwargs):
+        raise cli_mod.CacheTokenizerError(
+            "tokenizer prefetch for 'owner/model' failed (network): connection reset"
+        )
+
+    launched = False
+
+    def fake_anyio_run(function, options) -> None:
+        nonlocal launched
+        launched = True
+
+    monkeypatch.setattr(cli_mod, "load_hf_chat_template_tokenizer", fake_load)
+    monkeypatch.setattr(cli_mod, "_hf_snapshot_download", fake_download)
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+
+    # When / Then: standard error contract, nothing launched.
+    code = cli_mod._bench(_bench_args(lane="bounded-final-v2", hf_model_id="owner/model"))
+    stderr = capsys.readouterr().err
+    assert code == 2
+    assert launched is False
+    assert "connection reset" in stderr
+    assert "Traceback" not in stderr
+
+
+def test_bench_user_env_offline_suppresses_prefetch_like_offline_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: the USER's environment was already HF-offline before localbench ran
+    # (oracle MINOR 1: env pins present at CLI start mean "no network").
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+
+    def fail_load(repo_id: str, revision: str | None = None):
+        raise TokenizerCacheMissError("offline cache miss")
+
+    def forbid_download(*_args, **_kwargs):
+        raise AssertionError("user env-offline must suppress acquisition")
+
+    monkeypatch.setattr(cli_mod, "load_hf_chat_template_tokenizer", fail_load)
+    monkeypatch.setattr(cli_mod, "_hf_snapshot_download", forbid_download)
+
+    # When / Then: behaves exactly like --offline (hard refusal, no download attempt).
+    code = cli_mod._bench(_bench_args(lane="bounded-final-v2", hf_model_id="owner/model"))
+    assert code == 2
+
+
+def test_bench_parent_pins_hf_offline_before_introspection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a clean environment (oracle MAJOR 2: the parent's offline posture must
+    # be an explicit invariant, not an import-order accident).
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
+    seen_env: dict[str, str | None] = {}
+
+    def fake_load(repo_id: str, revision: str | None = None):
+        seen_env["HF_HUB_OFFLINE"] = __import__("os").environ.get("HF_HUB_OFFLINE")
+        seen_env["TRANSFORMERS_OFFLINE"] = __import__("os").environ.get("TRANSFORMERS_OFFLINE")
+        return object()
+
+    def fake_anyio_run(function, options):
+        return {"benches": {}, "totals": {}, "warnings": []}
+
+    monkeypatch.setattr(cli_mod, "load_hf_chat_template_tokenizer", fake_load)
+    monkeypatch.setattr(cli_mod.anyio, "run", fake_anyio_run)
+    monkeypatch.setattr(cli_mod, "_print_summary", lambda record, out=None: None)
+
+    # When: bench runs with an HF identity.
+    code = cli_mod._bench(_bench_args(lane="bounded-final-v2", hf_model_id="owner/model"))
+
+    # Then: both pins were active when introspection ran.
+    assert code == 0
+    assert seen_env == {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
