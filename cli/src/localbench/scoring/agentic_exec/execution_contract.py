@@ -20,9 +20,9 @@ from localbench.submissions.canon import canonical_json_bytes, canonical_json_ha
 from localbench.scoring.agentic_exec.contract_crypto import load_private_key, sign_bytes, verify_bytes
 from localbench.scoring.agentic_exec.contract_successor import SuccessorContractMetadata, extract_successor_payload
 LEGACY_CONTRACT_ID: Final = "agentic-execution-contract-v1"
-CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v6"
+CONTRACT_ID: Final = "agentic-execution-contract-aw013p1-pypi28113a7a-v7"
 CONTRACT_SCHEMA: Final = "localbench.agentic_execution_contract.v1"
-CONTRACT_VERSION: Final = 6
+CONTRACT_VERSION: Final = 7
 CONTRACT_FILENAME: Final = f"{CONTRACT_ID}.json"
 LEGACY_CONTRACT_FILENAME: Final = f"{LEGACY_CONTRACT_ID}.json"
 CONTRACT_KEY_ID: Final = "localbench-agentic-contract-r3-2026-07-machine"
@@ -254,6 +254,50 @@ def write_signed_contract(path: Path, payload: JsonObject, signing_key: Path) ->
     contract = signed_contract(payload, signing_key)
     write_json_file(path, contract)
     return contract
+
+
+def supersedes_chain_payload_sha256s(contract: JsonObject) -> tuple[str, ...]:
+    """Payload sha of the active contract followed by every recorded supersedes
+    sha, walking packaged predecessor contracts (bounded depth).  Each hop is
+    only followed when the packaged predecessor's canonical payload hash
+    matches the sha its successor recorded, so a tampered packaged file can
+    never extend the set; the walk stops (keeping the recorded sha) when a
+    predecessor is absent from the package.  Consumers use this to accept a
+    manifest pinned anywhere on the signed lineage — the one-hop window used
+    before v7 broke as soon as the chain grew two links past the manifest pin."""
+    shas: list[str] = []
+    active_sha = contract.get("payload_sha256")
+    if isinstance(active_sha, str) and active_sha:
+        shas.append(active_sha)
+    payload = contract.get("payload")
+    for _ in range(16):
+        if not isinstance(payload, dict):
+            break
+        supersedes_id = payload.get("supersedes_contract_id")
+        supersedes_sha = payload.get("supersedes_payload_sha256")
+        if not isinstance(supersedes_id, str) or not supersedes_id:
+            break
+        if not isinstance(supersedes_sha, str) or not supersedes_sha:
+            break
+        shas.append(supersedes_sha)
+        resource = resources.files("localbench").joinpath(
+            "data", "contracts", f"{supersedes_id}.json"
+        )
+        if not resource.is_file():
+            break
+        try:
+            predecessor = json.loads(resource.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            break
+        if not isinstance(predecessor, dict):
+            break
+        predecessor_payload = predecessor.get("payload")
+        if not isinstance(predecessor_payload, dict):
+            break
+        if canonical_json_hash(predecessor_payload) != supersedes_sha:
+            break
+        payload = predecessor_payload
+    return tuple(shas)
 
 
 def load_execution_contract(

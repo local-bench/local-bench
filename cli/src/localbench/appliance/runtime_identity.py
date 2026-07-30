@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from typing import Final
 
 from localbench._types import JsonObject, JsonValue
+from localbench.scoring.agentic_exec.execution_contract import (
+    supersedes_chain_payload_sha256s,
+)
 from localbench.submissions.canon import canonical_json_bytes, canonical_json_hash
 
 AGENTIC_WORKER_PROTOCOL_VERSION: Final = "localbench.agentic-worker.v1"
@@ -151,16 +154,17 @@ def agentic_runtime_identity_from_sources(
         _text(handshake, "protocol_version"),
     )
     # The published appliance manifest immutably pins the contract it was built
-    # and signed with.  A host-side successor contract supersedes that
-    # predecessor carrying signed score-protocol-equivalence evidence measured
-    # against this same appliance, so the appliance stays valid: accept the
-    # manifest's pin when it is the active contract OR the direct predecessor
-    # the active contract supersedes.  Anything else is still a hard mismatch.
+    # and signed with.  Host-side successor contracts supersede that predecessor
+    # carrying signed score-protocol-equivalence evidence measured against this
+    # same appliance, so the appliance stays valid: accept the manifest's pin
+    # anywhere on the active contract's verified supersedes chain (v7 sits two
+    # links past the c0v5 manifest's v5 pin — the old one-hop window broke
+    # there).  Anything off the chain is still a hard mismatch.
     manifest_contract_sha256 = _text(manifest, "execution_contract_sha256")
-    supersedes = contract_payload.get("supersedes_payload_sha256")
-    acceptable_contract_sha256s = {execution_contract_sha256}
-    if isinstance(supersedes, str) and supersedes:
-        acceptable_contract_sha256s.add(supersedes)
+    acceptable_contract_sha256s = set(
+        supersedes_chain_payload_sha256s(execution_contract)
+    )
+    acceptable_contract_sha256s.add(execution_contract_sha256)
     if manifest_contract_sha256 not in acceptable_contract_sha256s:
         _assert_equal(
             "execution_contract_sha256",

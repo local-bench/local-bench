@@ -82,7 +82,18 @@ def test_profile_resolution_passes_requested_hf_revision_to_loader(
 
 def test_serving_bench_config_threads_hf_revision_to_inner_orchestrate_config(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Explicit answer_only_v1 with an hf id now loads the canonical template too
+    # (S12: deactivation kwargs must be template-derived), so the resolver needs
+    # the same offline stub the auto-path tests in this file already use.
+    import localbench.bounded_final_profiles as bounded_final_profiles_mod
+
+    monkeypatch.setattr(
+        bounded_final_profiles_mod,
+        "load_hf_chat_template_tokenizer",
+        lambda *_args, **_kwargs: _TemplateTokenizer(),
+    )
     options = ServeBenchOptions(
         runtime="llama.cpp",
         model_file=tmp_path / "model.gguf",

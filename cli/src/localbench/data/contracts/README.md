@@ -40,9 +40,8 @@ of the 0.4.0 release — its evidence is committed as the v4 evidence file, and
 a differential failure reverts this activation. V3 remains immutable audit
 history.
 
-`agentic-execution-contract-aw013p1-pypi28113a7a-v5.json` is the active
-contract (payload SHA-256 `b18d903b…`), cut for the c0v5-r1 runtime and CLI
-0.4.3. The native-Linux agentic host changed `wsl_worker.py` (a covered
+`agentic-execution-contract-aw013p1-pypi28113a7a-v5.json` (payload SHA-256
+`b18d903b…`) was cut for the c0v5-r1 runtime and CLI 0.4.3. The native-Linux agentic host changed `wsl_worker.py` (a covered
 module), so unlike c0v4 this cut re-measures `covered_behavior` and asserts —
 then proves via the committed c0v5-r1 packaging differential — score-protocol
 equivalence with v4. It is signed under `localbench-agentic-contract-2026-07`
@@ -53,3 +52,23 @@ option B): the gate records the pre-sign probe rootfs and native-conformance
 evidence, and delegates publication authority to the signed c0v5-r1 release
 manifest, because a contract baked inside the rootfs cannot bind the final
 rootfs hash without a fixpoint. V4 remains immutable audit history.
+
+`agentic-execution-contract-aw013p1-pypi28113a7a-v6.json` (payload SHA-256
+`6e63f93b…`) is the 0.4.7 host-side successor that healed the 0.4.6 drift
+wall: score-affecting host modules were edited after v5 was signed, so v6
+re-measured `covered_behavior` from the tree with the appliance unchanged
+(published c0v5 rootfs `053eb073…`). Signed under
+`localbench-agentic-contract-2026-07`; full rationale in commit 2ee2279.
+
+`agentic-execution-contract-aw013p1-pypi28113a7a-v7.json` (payload SHA-256
+`47695014…`) is the active contract, cut for CLI 0.4.12's execution-contract
+work: agentic request template kwargs now derive from the run's resolved
+execution contract instead of profile-ID reconstruction (a covered-behavior
+change in `orchestrate`/`serving.agentic_support`), alongside the
+gguf-repo-only tri-state profile resolution and runtime probe. The appliance
+is again unchanged (same c0v5 rootfs `053eb073…`, same native-conformance
+evidence). Signed under `localbench-agentic-contract-2026-07`. v7 also
+generalized the manifest cross-bind: the c0v5 manifest's immutable v5 pin is
+now accepted anywhere on the verified supersedes chain
+(`supersedes_chain_payload_sha256s`), because the one-hop window used before
+v7 broke as soon as the chain grew two links past the manifest pin.

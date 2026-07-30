@@ -20,7 +20,10 @@ from localbench.appliance.manifest import (
     RUNTIME_PUBLIC_KEYS,
     verify_manifest_bytes,
 )
-from localbench.scoring.agentic_exec.execution_contract import load_execution_contract
+from localbench.scoring.agentic_exec.execution_contract import (
+    load_execution_contract,
+    supersedes_chain_payload_sha256s,
+)
 from localbench.scoring.agentic_exec.worker_identity import _WORKER_MODULES
 from localbench.submissions.canon import canonical_json_bytes
 
@@ -136,15 +139,16 @@ def test_differential_is_cross_bound_to_the_signed_manifest() -> None:
     assert evidence["worker_wheel_sha256"] == RELEASE_WORKER_WHEEL_SHA256
     assert manifest_payload["worker"]["sha256"] == RELEASE_WORKER_WHEEL_SHA256
     # The published c0v5 manifest immutably pins the v5 contract it shipped with.
-    # The ACTIVE contract may be a host-side successor (v6+); the cross-binding
-    # invariant is that the manifest's pinned contract is either the active one or
-    # the direct predecessor the active contract supersedes — never an unrelated sha.
+    # The ACTIVE contract may be a host-side successor (v6, v7, ...); the
+    # cross-binding invariant is that the manifest's pinned contract lies ON the
+    # active contract's recorded supersedes chain — never an unrelated sha. (The
+    # one-hop window used before v7 broke as soon as the chain grew two links past
+    # the manifest pin; the chain semantics were always the stated 0.4.7 intent.)
     assert evidence["contract_payload_sha256"] == manifest_payload["execution_contract_sha256"]
     active_payload = contract["payload"]
-    assert manifest_payload["execution_contract_sha256"] in (
-        contract["payload_sha256"],
-        active_payload.get("supersedes_payload_sha256"),
-    )
+    chain = supersedes_chain_payload_sha256s(contract)
+    assert all(isinstance(sha, str) and len(sha) == 64 for sha in chain)
+    assert manifest_payload["execution_contract_sha256"] in chain
     assert active_payload["contract_id"].startswith(
         "agentic-execution-contract-aw013p1-pypi28113a7a-v"
     )

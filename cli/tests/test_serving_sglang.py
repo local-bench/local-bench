@@ -570,8 +570,38 @@ async def test_runtime_sglang_dispatches_to_adapter(
 async def test_bounded_final_sglang_rejects_answer_only_auto_fallback(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    # Serving now resolves artifact-first and derives the profile from the
+    # resolved execution contract; stub all three seams (mirrors the vllm twin)
+    # so the mismatch guard is exercised without any network or model bytes.
+    from localbench.serving.model_artifact import ModelArtifact
+
+    artifact = ModelArtifact(
+        model_file=tmp_path / "snapshot",
+        file_sha256="b" * 64,
+        file_size_bytes=1,
+        gguf_metadata_sha256="c" * 64,
+        tokenizer_digest="d" * 64,
+        chat_template_digest="e" * 64,
+        gguf_metadata_path=tmp_path / "snapshot_metadata.json",
+        model_family="qwen",
+        quant_label="FP8",
+        model_format="safetensors",
+        snapshot_merkle_sha256="b" * 64,
+    )
     monkeypatch.setattr(
-        serving_runner, "effective_serving_profile", lambda _options: "answer_only_v1"
+        serving_runner.SglangAdapter,
+        "resolve_model",
+        lambda *_args, **_kwargs: artifact,
+    )
+    monkeypatch.setattr(
+        serving_runner,
+        "resolve_serving_execution_profile",
+        lambda _options, _artifact: None,
+    )
+    monkeypatch.setattr(
+        serving_runner,
+        "effective_serving_profile",
+        lambda _options, _resolved: "answer_only_v1",
     )
     options = ServeBenchOptions(
         runtime="sglang",
